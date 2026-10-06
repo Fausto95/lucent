@@ -56,6 +56,14 @@ String numberToFixed(double v, double digits);
 String numberToPrecision(double v, double precision);
 String numberToExponential(double v, double digits);
 String numberToExponential(double v);
+/// toPrecision(p) and toExponential(d) with an argument that may be
+/// undefined: undefined is the argument left out, unlike NaN.
+inline String numberToPrecision(double v, const Opt<double>& precision) {
+  return precision.has() ? numberToPrecision(v, precision.get()) : numberToString(v);
+}
+inline String numberToExponential(double v, const Opt<double>& digits) {
+  return digits.has() ? numberToExponential(v, digits.get()) : numberToExponential(v);
+}
 /// Number(string) / unary plus.
 double stringToNumber(const String& s);
 double parseFloat(const String& s);

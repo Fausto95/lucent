@@ -70,9 +70,42 @@ function argAs(em: FnEmitter, node: ts.CallExpression, i: number, t: LType): cpp
   return em.exprAs(a, t);
 }
 
-function optArg(em: FnEmitter, node: ts.CallExpression, i: number, t: LType): cpp.Expr | undefined {
+/** The value JavaScript gives a numeric argument passed as undefined (ToNumber). */
+const NAN = cpp.id("lucent::kNaN");
+
+/** An end index passed as undefined: the end. */
+const END = cpp.id("lucent::kInfinity");
+
+/**
+ * `a` as `t`. When `a` may be undefined, undefined reads as `ifUndefined`:
+ * what JavaScript makes of the undefined argument (NaN through ToNumber, or
+ * the value of the argument left out).
+ */
+function orUndefined(em: FnEmitter, a: ts.Expression, t: LType, ifUndefined: cpp.Expr): cpp.Expr {
+  if (!mayBeUndefined(em.lt(a))) return em.exprAs(a, t);
+
+  return cpp.call(cpp.dot(em.exprAs(a, unionOf([t, T.undefined])), "valueOr"), [ifUndefined]);
+}
+
+/** A number, or an Opt<double> when it may be undefined, for a runtime overload that takes either. */
+function numberOrOptional(em: FnEmitter, a: ts.Expression): cpp.Expr {
+  return em.exprAs(a, mayBeUndefined(em.lt(a)) ? unionOf([T.number, T.undefined]) : T.number);
+}
+
+function mayBeUndefined(t: LType): boolean {
+  return t.k === "opt" || t.k === "undefined" || t.k === "void";
+}
+
+/** An optional argument: undefined when left out, `ifUndefined` when passed as undefined. */
+function optArg(
+  em: FnEmitter,
+  node: ts.CallExpression,
+  i: number,
+  t: LType,
+  ifUndefined: cpp.Expr,
+): cpp.Expr | undefined {
   const a = node.arguments[i];
-  return a ? em.exprAs(a, t) : undefined;
+  return a && orUndefined(em, a, t, ifUndefined);
 }
 
 /** Arguments up to the first absent one (optional arguments left out). */
@@ -664,7 +697,7 @@ export function staticCall(
       case "parseInt":
         return num(
           cpp.call("lucent::parseInt", [
-            ...argList(argAs(em, node, 0, T.string), optArg(em, node, 1, T.number)),
+            ...argList(argAs(em, node, 0, T.string), optArg(em, node, 1, T.number, NAN)),
           ]),
         );
     }
@@ -1005,21 +1038,30 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       switch (name) {
         case "toString":
           return str(
-            cpp.call("lucent::numberToString", [...argList(o, optArg(em, node, 0, T.number))]),
+            cpp.call("lucent::numberToString", [
+              ...argList(o, optArg(em, node, 0, T.number, cpp.num("10.0"))),
+            ]),
           );
         case "toFixed":
           return str(
-            cpp.call("lucent::numberToFixed", [o, optArg(em, node, 0, T.number) ?? cpp.num("0.0")]),
+            cpp.call("lucent::numberToFixed", [
+              o,
+              optArg(em, node, 0, T.number, NAN) ?? cpp.num("0.0"),
+            ]),
           );
+        // Undefined is the argument left out, which no number stands for:
+        // the runtime takes the optional.
         case "toPrecision":
           return str(
             a[0]
-              ? cpp.call("lucent::numberToPrecision", [o, argAs(em, node, 0, T.number)])
+              ? cpp.call("lucent::numberToPrecision", [o, numberOrOptional(em, a[0])])
               : cpp.call("lucent::numberToString", [o]),
           );
         case "toExponential":
           return str(
-            cpp.call("lucent::numberToExponential", [...argList(o, optArg(em, node, 0, T.number))]),
+            cpp.call("lucent::numberToExponential", [
+              ...argList(o, a[0] && numberOrOptional(em, a[0])),
+            ]),
           );
         case "valueOf":
           return num(o);
@@ -1030,7 +1072,11 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       break;
     case "bigint":
       if (name === "toString")
-        return str(cpp.call(cpp.dot(o, "toString"), [argAs(em, node, 0, T.number)]));
+        return str(
+          cpp.call(cpp.dot(o, "toString"), [
+            optArg(em, node, 0, T.number, cpp.num("10.0")) ?? cpp.num("10.0"),
+          ]),
+        );
       if (name === "valueOf") return big(o);
       fail(node, Codes.UnsupportedBuiltin, `bigint.${name}() is not supported`);
     case "array":
@@ -1103,7 +1149,7 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
         return num(
           cpp.call(
             cpp.arrow(o, name),
-            a.map((x) => em.exprAs(x, T.number)),
+            a.map((x) => orUndefined(em, x, T.number, NAN)),
           ),
         );
       }
@@ -1259,15 +1305,8 @@ function regexStringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.Ca
     case "search":
       return num(cpp.call("lucent::stringSearch", [o, re]));
     case "split":
-      const limit = a[1]
-        ? [
-            cpp.construct(cpp.type("lucent::Opt", cpp.type("double")), [
-              argAs(em, node, 1, T.number),
-            ]),
-          ]
-        : [];
       return {
-        c: cpp.call("lucent::stringSplit", [o, re, ...limit]),
+        c: cpp.call("lucent::stringSplit", [...argList(o, re, a[1] && numberOrOptional(em, a[1]))]),
         t: { k: "array", e: T.string },
       };
     case "replace":
@@ -1290,13 +1329,13 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
     stripOpt(em.lt(first)).k === "regexp"
   )
     return regexStringMethod(em, o, name, node);
-  const n = (i: number) => optArg(em, node, i, T.number);
-  const s = (i: number) => optArg(em, node, i, T.string);
+  const n = (i: number, ifUndefined: cpp.Expr) => optArg(em, node, i, T.number, ifUndefined);
+  const s = (i: number, ifUndefined: cpp.Expr) => optArg(em, node, i, T.string, ifUndefined);
   switch (name) {
     case "charCodeAt":
-      return num(cpp.call(cpp.dot(o, "charCodeAt"), [n(0) ?? cpp.num("0.0")]));
+      return num(cpp.call(cpp.dot(o, "charCodeAt"), [n(0, cpp.num("0.0")) ?? cpp.num("0.0")]));
     case "charAt":
-      return str(cpp.call(cpp.dot(o, "charAt"), [n(0) ?? cpp.num("0.0")]));
+      return str(cpp.call(cpp.dot(o, "charAt"), [n(0, cpp.num("0.0")) ?? cpp.num("0.0")]));
     case "at":
       return {
         c: cpp.call(cpp.dot(o, "at"), [argAs(em, node, 0, T.number)]),
@@ -1308,39 +1347,29 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
         t: unionOf([T.number, T.undefined]),
       };
     case "indexOf":
-      return num(cpp.call(cpp.dot(o, "indexOf"), [...argList(s(0), n(1))]));
-    case "lastIndexOf":
-      return num(cpp.call(cpp.dot(o, "lastIndexOf"), [...argList(s(0), n(1))]));
-    case "includes":
-      return bool(cpp.call(cpp.dot(o, "includes"), [...argList(s(0), n(1))]));
-    case "startsWith":
-      return bool(cpp.call(cpp.dot(o, "startsWith"), [...argList(s(0), n(1))]));
-    case "endsWith":
-      return bool(cpp.call(cpp.dot(o, "endsWith"), [...argList(s(0), n(1))]));
-    case "slice":
-      return str(cpp.call(cpp.dot(o, "slice"), [...argList(n(0) ?? cpp.num("0.0"), n(1))]));
-    case "substring":
-      return str(cpp.call(cpp.dot(o, "substring"), [...argList(n(0) ?? cpp.num("0.0"), n(1))]));
-    case "substr": {
-      // substr(start, length): a negative start counts from the end.
-      const tmpName = em.ctx.fresh("s");
-      const tmp = cpp.id(tmpName);
-      const stName = em.ctx.fresh("st");
-      const st = cpp.id(stName);
-      const length = cpp.staticCast(cpp.type("double"), cpp.call(cpp.dot(tmp, "length")));
-      const fromEnd = cpp.call("std::max", [cpp.num("0.0"), cpp.binary(st, "+", length)]);
-      const end = n(1) ? cpp.binary(st, "+", n(1)!) : length;
-      return str(
-        cpp.statementExpr(
-          [
-            cpp.varDecl(cpp.auto, tmpName, o),
-            cpp.varDecl(cpp.type("double"), stName, n(0) ?? cpp.num("0.0")),
-            cpp.ifStmt(cpp.binary(st, "<", cpp.num(0)), [cpp.exprStmt(cpp.assign(st, fromEnd))]),
-          ],
-          cpp.call(cpp.dot(tmp, "slice"), [st, end]),
-        ),
+      return num(
+        cpp.call(cpp.dot(o, "indexOf"), [argAs(em, node, 0, T.string), ...argList(n(1, NAN))]),
       );
-    }
+    case "lastIndexOf":
+      return num(
+        cpp.call(cpp.dot(o, "lastIndexOf"), [argAs(em, node, 0, T.string), ...argList(n(1, NAN))]),
+      );
+    case "includes":
+      return bool(
+        cpp.call(cpp.dot(o, "includes"), [argAs(em, node, 0, T.string), ...argList(n(1, NAN))]),
+      );
+    case "startsWith":
+      return bool(
+        cpp.call(cpp.dot(o, "startsWith"), [argAs(em, node, 0, T.string), ...argList(n(1, NAN))]),
+      );
+    case "endsWith":
+      return bool(
+        cpp.call(cpp.dot(o, "endsWith"), [argAs(em, node, 0, T.string), ...argList(n(1, END))]),
+      );
+    case "slice":
+    case "substring":
+    case "substr":
+      return str(cpp.call(cpp.dot(o, name), [...argList(n(0, NAN) ?? cpp.num("0.0"), n(1, END))]));
     case "toUpperCase":
     case "toLocaleUpperCase":
       return str(cpp.call(cpp.dot(o, "toUpperCase"), []));
@@ -1360,7 +1389,10 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
     case "padStart":
     case "padEnd":
       return str(
-        cpp.call(cpp.dot(o, name), [argAs(em, node, 0, T.number), s(1) ?? stringExpr(" ")]),
+        cpp.call(cpp.dot(o, name), [
+          argAs(em, node, 0, T.number),
+          s(1, stringExpr(" ")) ?? stringExpr(" "),
+        ]),
       );
     case "replace":
     case "replaceAll": {
@@ -1372,13 +1404,17 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
       );
     }
     case "split": {
-      if (!node.arguments[0])
+      if (!first)
         return {
           c: cpp.construct(cpp.type("lucent::Array", cpp.type("lucent::String")), [o], true),
           t: { k: "array", e: T.string },
         };
       return {
-        c: cpp.call("lucent::split", [...argList(o, s(0), n(1))]),
+        c: cpp.call("lucent::split", [
+          o,
+          argAs(em, node, 0, T.string),
+          ...argList(n(1, cpp.num("4294967295.0"))),
+        ]),
         t: { k: "array", e: T.string },
       };
     }
@@ -1409,7 +1445,7 @@ function arrayMethod(
   const e = obj.t.e;
   const at = obj.t;
   const a = node.arguments;
-  const n = (i: number) => optArg(em, node, i, T.number);
+  const n = (i: number, ifUndefined: cpp.Expr) => optArg(em, node, i, T.number, ifUndefined);
   const cb = (params: LType[], ret?: LType) => callback(em, a[0], params, ret);
   const self: LType = at;
   switch (name) {
@@ -1442,13 +1478,16 @@ function arrayMethod(
       if (a.length !== 1) fail(node, Codes.UnsupportedBuiltin, "unshift takes one item");
       return num(cpp.call(cpp.dot(o, "unshift"), [em.exprAs(a[0]!, e)]));
     case "slice":
-      return { c: cpp.call(cpp.dot(o, "slice"), [...argList(n(0), n(1))]), t: at };
+      return { c: cpp.call(cpp.dot(o, "slice"), [...argList(n(0, NAN), n(1, END))]), t: at };
     case "splice": {
+      const start = n(0, NAN) ?? cpp.num("0.0");
+      // A delete count passed as undefined deletes nothing (ToIntegerOrInfinity).
+      const count = n(1, NAN);
       const items = a.slice(2).map((x) => em.exprAs(x, e));
       // Items to insert need a delete count: the rest of the array when none is given.
-      const count = a[1] ? [n(1)!] : items.length ? [cpp.call(cpp.dot(o, "length"))] : [];
+      const counted = count ? [count] : items.length ? [cpp.call(cpp.dot(o, "length"))] : [];
       return {
-        c: cpp.call(cpp.dot(o, "splice"), [n(0) ?? cpp.num("0.0"), ...count, ...items]),
+        c: cpp.call(cpp.dot(o, "splice"), [start, ...counted, ...items]),
         t: at,
       };
     }
@@ -1462,7 +1501,9 @@ function arrayMethod(
       return { c: cpp.call(cpp.dot(o, "concat"), parts), t: at };
     }
     case "join":
-      return str(cpp.call(cpp.dot(o, "join"), [...argList(optArg(em, node, 0, T.string))]));
+      return str(
+        cpp.call(cpp.dot(o, "join"), [...argList(optArg(em, node, 0, T.string, stringExpr(",")))]),
+      );
     case "indexOf":
     case "lastIndexOf":
     case "includes": {
@@ -1472,12 +1513,12 @@ function arrayMethod(
           Codes.UnsupportedOperator,
           functionsNotCompared(`, so \`${name}\` cannot search for one`),
         );
-      const found = cpp.call(cpp.dot(o, name), [em.exprAs(a[0]!, e)]);
+      const found = cpp.call(cpp.dot(o, name), [...argList(em.exprAs(a[0]!, e), n(1, NAN))]);
       return name === "includes" ? bool(found) : num(found);
     }
     case "at":
       return {
-        c: cpp.call(cpp.dot(o, "atIndex"), [n(0) ?? cpp.num("0.0")]),
+        c: cpp.call(cpp.dot(o, "atIndex"), [n(0, cpp.num("0.0")) ?? cpp.num("0.0")]),
         t: unionOf([e, T.undefined]),
       };
     case "find":
@@ -1553,7 +1594,7 @@ function arrayMethod(
       return { c: cpp.call(cpp.dot(o, name), []), t: at };
     case "fill":
       return {
-        c: cpp.call(cpp.dot(o, "fill"), [...argList(em.exprAs(a[0]!, e), n(1), n(2))]),
+        c: cpp.call(cpp.dot(o, "fill"), [...argList(em.exprAs(a[0]!, e), n(1, NAN), n(2, END))]),
         t: at,
       };
     case "values":
@@ -1664,24 +1705,34 @@ function setMethod(
 
 function bytesMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExpression): E {
   const a = node.arguments;
-  const n = (i: number) => optArg(em, node, i, T.number);
+  const n = (i: number, ifUndefined: cpp.Expr) => optArg(em, node, i, T.number, ifUndefined);
   switch (name) {
     case "subarray":
     case "slice":
-      return { c: cpp.call(cpp.dot(o, name), [...argList(n(0), n(1))]), t: T.bytes };
+      return { c: cpp.call(cpp.dot(o, name), [...argList(n(0, NAN), n(1, END))]), t: T.bytes };
     case "fill":
-      return { c: cpp.call(cpp.dot(o, "fill"), [argAs(em, node, 0, T.number)]), t: T.bytes };
+      return {
+        c: cpp.call(cpp.dot(o, "fill"), [
+          argAs(em, node, 0, T.number),
+          ...argList(n(1, NAN), n(2, END)),
+        ]),
+        t: T.bytes,
+      };
     case "indexOf":
-      return num(cpp.call(cpp.dot(o, "indexOf"), [argAs(em, node, 0, T.number)]));
+      return num(
+        cpp.call(cpp.dot(o, "indexOf"), [argAs(em, node, 0, T.number), ...argList(n(1, NAN))]),
+      );
     case "includes":
-      return bool(cpp.call(cpp.dot(o, "includes"), [argAs(em, node, 0, T.number)]));
+      return bool(
+        cpp.call(cpp.dot(o, "includes"), [argAs(em, node, 0, T.number), ...argList(n(1, NAN))]),
+      );
     case "set": {
       const src = em.expr(a[0]!);
       const st = stripOpt(src.t);
       if (st.k !== "bytes" && !(st.k === "array" && st.e.k === "number"))
         fail(node, Codes.UnsupportedBuiltin, "set() needs a Uint8Array or number[]");
       return {
-        c: cpp.call(cpp.dot(o, "setFrom"), [...argList(src.c, n(1))]),
+        c: cpp.call(cpp.dot(o, "setFrom"), [...argList(src.c, n(1, NAN))]),
         t: T.undefined,
       };
     }
@@ -1711,7 +1762,9 @@ function bytesMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExpr
       };
     }
     case "join":
-      return str(cpp.call(cpp.dot(o, "join"), [...argList(optArg(em, node, 0, T.string))]));
+      return str(
+        cpp.call(cpp.dot(o, "join"), [...argList(optArg(em, node, 0, T.string, stringExpr(",")))]),
+      );
   }
   fail(node, Codes.UnsupportedBuiltin, `Uint8Array.prototype.${name} is not supported`);
 }
@@ -1732,7 +1785,7 @@ export function globalCall(
     case "parseInt":
       return num(
         cpp.call("lucent::parseInt", [
-          ...argList(argAs(em, node, 0, T.string), optArg(em, node, 1, T.number)),
+          ...argList(argAs(em, node, 0, T.string), optArg(em, node, 1, T.number, NAN)),
         ]),
       );
     case "parseFloat":
@@ -1848,7 +1901,7 @@ export function newBuiltin(
       return {
         c: cpp.call(
           "lucent::dateFromLocal",
-          a.map((x) => em.exprAs(x, T.number)),
+          a.map((x) => orUndefined(em, x, T.number, NAN)),
         ),
         t,
       };

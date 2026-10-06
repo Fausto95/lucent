@@ -218,14 +218,18 @@ class Array {
     }
     return -1;
   }
-  double lastIndexOf(const T& v) const {
-    for (size_t i = d_->size(); i-- > 0;) {
-      if (strictEquals(at(i), v)) return static_cast<double>(i);
+  double lastIndexOf(const T& v) const { return lastIndexOf(v, static_cast<double>(d_->size()) - 1); }
+  double lastIndexOf(const T& v, double from) const {
+    double n = static_cast<double>(d_->size());
+    double k = std::isnan(from) ? 0 : std::trunc(from);
+    k = k >= 0 ? std::min(k, n - 1) : n + k;
+    for (; k >= 0; k--) {
+      if (strictEquals(at(static_cast<size_t>(k)), v)) return k;
     }
     return -1;
   }
-  bool includes(const T& v) const {
-    for (size_t i = 0; i < d_->size(); i++) {
+  bool includes(const T& v, double from = 0) const {
+    for (size_t i = detail::relativeIndex(from, d_->size()); i < d_->size(); i++) {
       if (sameValueZero(at(i), v)) return true;
     }
     return false;

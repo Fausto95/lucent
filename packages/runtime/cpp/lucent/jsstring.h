@@ -61,6 +61,9 @@ class String {
   String slice(double start, double end) const;
   String substring(double start) const;
   String substring(double start, double end) const;
+  /// Annex B substr(start, length): a negative start counts from the end.
+  String substr(double start) const;
+  String substr(double start, double length) const;
   String toUpperCase() const;
   String toLowerCase() const;
   String trim() const;

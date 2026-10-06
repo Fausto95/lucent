@@ -547,6 +547,15 @@ String String::substring(double start, double end) const {
   return a <= b ? sub(a, b) : sub(b, a);
 }
 
+String String::substr(double start) const { return substr(start, static_cast<double>(length())); }
+
+String String::substr(double start, double length) const {
+  size_t a = clampIndex(start, this->length());
+  double count = std::isnan(length) ? 0 : std::trunc(length);
+  double end = std::min(static_cast<double>(a) + std::max(count, 0.0), static_cast<double>(this->length()));
+  return sub(a, static_cast<size_t>(end));
+}
+
 namespace {
 
 #include "unicode_data.inc"
