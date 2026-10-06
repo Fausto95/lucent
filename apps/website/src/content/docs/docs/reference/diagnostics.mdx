@@ -28,7 +28,7 @@ Codes are stable. `1xxx` are syntax and built-ins, `2xxx` types without a native
 | --- | --- |
 | [`LUCENT1001`](#lucent1001) | Syntax outside the subset, such as `var`, getters in object literals, or an async generator. |
 | [`LUCENT1002`](#lucent1002) | An operator the subset doesn't support, such as `delete`, `in` on anything but a record, or `instanceof` with a generic class. A loose `==` that JavaScript converts for, or comparing two functions, is refused too. |
-| [`LUCENT1003`](#lucent1003) | A built-in function or method Lucent does not implement, such as `Symbol()`, `eval` or an unknown `Math`, `Number` or string method. |
+| [`LUCENT1003`](#lucent1003) | A built-in function, method or argument Lucent does not implement, such as `Symbol()`, `eval`, `normalize()`, a locale argument or an unknown `Math`, `Number` or string method. |
 | [`LUCENT1004`](#lucent1004) | A destructuring form outside the subset: object rest, computed keys, or a pattern without an initializer. |
 | [`LUCENT1005`](#lucent1005) | A class feature outside the subset, such as extending a built-in other than `Error`, or an override that changes the native signature. |
 | [`LUCENT1006`](#lucent1006) | Throwing a value that is not an `Error`. |
@@ -135,7 +135,7 @@ export function clear(tags: { name?: string }): { name?: string } {
 
 **Built-in without a native implementation**
 
-Every built-in a module calls runs as native code from the Lucent runtime. The ones listed in the language reference are implemented with JavaScript's exact semantics; the rest are reported rather than approximated.
+Every built-in a module calls runs as native code from the Lucent runtime. The ones the language reference lists behave as in JavaScript, apart from the differences it gives reasons for. The rest are reported rather than approximated, as are arguments Lucent cannot honor exactly (a locale, an error's `cause`).
 
 **Fix:** use a built-in Lucent implements, or write the helper in the module.
 

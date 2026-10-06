@@ -152,7 +152,7 @@ export const Explanations: Record<Code, Explanation> = {
     summary:
       "A built-in function, method or argument Lucent does not implement, such as `Symbol()`, `eval`, `normalize()`, a locale argument or an unknown `Math`, `Number` or string method.",
     details:
-      "Every built-in a module calls runs as native code from the Lucent runtime. The ones the language reference lists behave as in JavaScript, apart from the differences it lists with their reasons; the rest, and arguments Lucent cannot honor exactly (a locale, an error's `cause`), are reported rather than approximated.",
+      "Every built-in a module calls runs as native code from the Lucent runtime. The ones the language reference lists behave as in JavaScript, apart from the differences it gives reasons for. The rest are reported rather than approximated, as are arguments Lucent cannot honor exactly (a locale, an error's `cause`).",
     fix: "use a built-in Lucent implements, or write the helper in the module",
     wrong: ex(
       "export function rotate(xs: number[]): number[] {\n  return xs.copyWithin(0, 1);\n}\n",

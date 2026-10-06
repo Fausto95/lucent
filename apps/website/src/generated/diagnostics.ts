@@ -30,8 +30,8 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT1003",
     "title": "Built-in without a native implementation",
-    "summary": "A built-in function or method Lucent does not implement, such as `Symbol()`, `eval` or an unknown `Math`, `Number` or string method.",
-    "details": "Every built-in a module calls runs as native code from the Lucent runtime. The ones listed in the language reference are implemented with JavaScript's exact semantics; the rest are reported rather than approximated.",
+    "summary": "A built-in function, method or argument Lucent does not implement, such as `Symbol()`, `eval`, `normalize()`, a locale argument or an unknown `Math`, `Number` or string method.",
+    "details": "Every built-in a module calls runs as native code from the Lucent runtime. The ones the language reference lists behave as in JavaScript, apart from the differences it gives reasons for. The rest are reported rather than approximated, as are arguments Lucent cannot honor exactly (a locale, an error's `cause`).",
     "fix": "use a built-in Lucent implements, or write the helper in the module",
     "wrong": {
       "example.lucent.ts": "export function rotate(xs: number[]): number[] {\n  return xs.copyWithin(0, 1);\n}\n"
