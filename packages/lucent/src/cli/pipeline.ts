@@ -22,6 +22,7 @@ import {
   sdkModule,
   type Target,
   usesPlatforms,
+  viewsSwitchProblem,
   writeNativePackage,
 } from "@lucent-lang/compiler";
 import { type SdkUsage, sdkModuleArtifacts } from "@lucent-lang/bindgen";
@@ -176,6 +177,13 @@ export async function buildProject(
       ...o,
     };
   };
+
+  // Every build reads the switch, whether or not the project has components.
+  const views = viewsSwitchProblem();
+  if (views) {
+    graph.record("resolve", "resolve", "failed", { detail: views });
+    return outcome({ fatal: views });
+  }
 
   const tResolve = Date.now();
   try {

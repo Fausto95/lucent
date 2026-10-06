@@ -100,6 +100,7 @@ export {
   type ViewType,
 } from "./ui/contract.ts";
 export type { Target } from "./platforms.ts";
+export { viewsSwitchProblem } from "./ui/switch.ts";
 export type { SdkOptions } from "./sdk/schema.ts";
 export type {
   Platform,

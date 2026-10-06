@@ -11,6 +11,7 @@ import {
   moduleNameOf,
   projectFiles,
   runtimeDir,
+  viewsSwitchProblem,
 } from "@lucent-lang/compiler";
 import { cFlags, hostLibs, runtimeSources } from "@lucent-lang/runtime/sources";
 import ts from "typescript";
@@ -46,6 +47,8 @@ export async function run({ root, out }: Invocation): Promise<number> {
   const benches = findBenches(root);
   if (!benches.length)
     return fail("no *.bench.ts file: next to a module, export default { name: () => call(), … }");
+  const views = viewsSwitchProblem();
+  if (views) return fail(views);
   const hermes = process.env.HERMES_DIR || path.join(os.homedir(), "hermes");
   if (
     !fs.existsSync(path.join(hermes, "build/lib")) ||
