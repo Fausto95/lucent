@@ -1,7 +1,93 @@
 ---
-title: "Call a Swift-only API"
-description: "This page is being rewritten."
+title: Call a Swift-only API
+description: "Import it from `lucent:ios/<Module>` and call it like any iOS API: Lucent generates the Swift each call needs into the native package."
 kind: guide
 ---
 
-This page is being rewritten.
+<Tabs>
+<TabItem label="store.lucent.ts">
+
+```ts title="store.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { Product, Transaction } from "lucent:ios/StoreKit";
+
+/** A product's price, as the App Store formats it for the person. */
+export async function price(productId: string, signal?: AbortSignal): Promise<string> {
+  if (PLATFORM !== "ios") return "";
+
+  const [product] = await Product.products([productId], signal);
+  return product?.displayPrice ?? "";
+}
+
+/** Whether the person bought the product, and the App Store hasn't revoked it. */
+export async function owns(productId: string, signal?: AbortSignal): Promise<boolean> {
+  if (PLATFORM !== "ios") return false;
+
+  const latest = await Transaction.latest(productId, signal);
+  if (latest === null || latest.kind === "unverified") return false;
+  return latest.value.revocationDate === null;
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useEffect, useState } from "react";
+import { Text } from "react-native";
+import { owns, price } from "./src/store.lucent";
+
+const PREMIUM = "com.example.premium";
+
+export function Premium() {
+  const [label, setLabel] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.all([price(PREMIUM, controller.signal), owns(PREMIUM, controller.signal)])
+      .then(([cost, owned]) => setLabel(owned ? "Premium" : cost ? `Go Premium for ${cost}` : ""))
+      .catch((e: Error) => {
+        if (e.name !== "AbortError") setLabel(e.message);
+      });
+    return () => controller.abort();
+  }, []);
+
+  return <Text>{label}</Text>;
+}
+```
+
+</TabItem>
+</Tabs>
+
+StoreKit 2 is Swift only: `Product` and `Transaction` are Swift structs, and both calls are `async`. There's no Swift to write: the native package gets a Swift function for each member your code uses.
+
+- Both `async` calls take `signal` last, so aborting it when the screen goes away cancels them.
+- `Product.products` returns only products set up in App Store Connect, or in a StoreKit configuration file while you develop.
+- `Transaction.latest` returns an enum with payloads, which is a union on `kind`. Ruling out the `unverified` case narrows it to `verified`, whose payload `value` is the transaction.
+- [Swift-only APIs](/docs/api/ios-sdk/#swift-only-apis) gives the type each Swift shape has.
+
+## Structs change in place
+
+```ts title="digest.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { SHA256 } from "lucent:ios/CryptoKit";
+
+/** The SHA-256 digest of chunks, fed to the hasher one at a time. */
+export async function digest(chunks: Uint8Array[]): Promise<Uint8Array> {
+  if (PLATFORM !== "ios") throw new Error("CryptoKit is iOS only");
+
+  const hasher = new SHA256();
+  for (const chunk of chunks) hasher.update(chunk);
+  return hasher.finalize().bytes;
+}
+```
+
+A Swift struct is a class in Lucent: every variable holding `hasher` holds the same value. `update` is a `mutating` method, so it changes that value in place. A digest is an object, and its `bytes` property copies its bytes into a `Uint8Array`.
+
+## Main-actor members
+
+A member Swift marks `@MainActor` compiles only in code the main thread runs (`LUCENT3006`). So `AppStore.requestReview(in:)` goes inside `main(() => …)`, as [Run on the main thread](/docs/guides/run-on-the-main-thread/) shows, under an `available("ios", 16)` check. An `async` one, such as `Product.purchase()`, moves to the main thread itself: call it anywhere.
+
+## Rebuild the app
+
+Your first Swift-only call adds a Swift file to the native package's pod. Run `pod install`, then rebuild the app, as [what a build changed](/docs/architecture/builds/#actions-come-from-what-a-build-changed) says. Swift shapes Lucent doesn't bind are listed under [known limitations](/docs/releases/roadmap/#known-limitations).

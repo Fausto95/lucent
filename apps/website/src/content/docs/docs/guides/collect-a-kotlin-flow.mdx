@@ -1,7 +1,95 @@
 ---
-title: "Collect a Kotlin Flow"
-description: "This page is being rewritten."
+title: Collect a Kotlin Flow
+description: "Call the flow's `collect` with a function and an `AbortSignal`, and wrap it in `subscribe()` to stream its values to JavaScript."
 kind: guide
 ---
 
-This page is being rewritten.
+<Tabs>
+<TabItem label="ticks.lucent.ts">
+
+```ts title="ticks.lucent.ts" from="examples/lucent-orbit/src/flows.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { subscribe } from "lucent:core";
+import { Ticker } from "lucent:android/dev.orbit.ticker";
+
+/** Calls `onTick` with each value of a Kotlin flow, until `signal` aborts. */
+export async function watchTicks(onTick: (n: number) => void, signal?: AbortSignal): Promise<void> {
+  if (PLATFORM !== "android") return;
+
+  const ticks = new Ticker().forever(1000n);
+  return subscribe<number>(
+    (next, end, fail) => {
+      const collecting = new AbortController();
+      void (async () => {
+        try {
+          await ticks.collect(next, collecting.signal);
+          end();
+        } catch (e) {
+          fail(e as Error);
+        }
+      })();
+      return () => collecting.abort();
+    },
+    onTick,
+    signal,
+  );
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useEffect, useState } from "react";
+import { Text } from "react-native";
+import { watchTicks } from "./src/ticks.lucent";
+
+export function Ticks() {
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    watchTicks(setTick, controller.signal).catch((e: Error) => {
+      if (e.name !== "AbortError") console.error(e);
+    });
+    return () => controller.abort(); // stops collecting the flow
+  }, []);
+
+  return <Text>{tick}</Text>;
+}
+```
+
+</TabItem>
+</Tabs>
+
+`Ticker` comes from the [lucent-orbit](/docs/packages/examples/orbit/) example package. Its `forever(gap)` returns a `Flow<Int>` that ticks every `gap` milliseconds until it's cancelled.
+
+- A flow's `collect` is a `suspend` function, so it returns a promise. It calls your function with each value, while Kotlin waits.
+- `collect` settles when the flow completes or fails; aborting its signal stops it ([Flows](/docs/api/android-sdk/#flows)).
+- [subscribe()](/docs/api/lucent-core/#subscribe) hands each value to `onTick` until JavaScript aborts `signal`. Its cleanup then aborts the collection.
+
+## Read a flow once
+
+```ts title="readings.lucent.ts" from="examples/lucent-orbit/src/flows.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { FlowKt } from "lucent:android/kotlinx.coroutines.flow";
+import { Ticker } from "lucent:android/dev.orbit.ticker";
+
+/** The ticker's label now, and every value of a flow that completes. */
+export async function readings(): Promise<string> {
+  if (PLATFORM !== "android") return "";
+
+  const ticker = new Ticker();
+  const label = await FlowKt.first(ticker.state);
+  const counted = await FlowKt.toList(ticker.count(3));
+  return `${label}: ${counted.join(", ")}`;
+}
+```
+
+`FlowKt` holds the top-level functions of `kotlinx.coroutines.flow`, which take the flow first. `first` resolves with a flow's first value, and `toList` with every value of a flow that completes. Here `readings()` resolves with `idle: 1, 2, 3`.
+
+A `StateFlow`, such as `ticker.state`, never completes. Read its current value with its `value` property, or follow it with `collect` until a signal aborts. [Flows](/docs/api/android-sdk/#flows) gives the rules.
+
+:::caution
+A JavaScript reload doesn't stop a collection that module code started: it keeps running, and its values go nowhere. Abort it when the screen is done, as [What a reload does](/docs/api/language/modules/#what-a-reload-does) explains.
+:::

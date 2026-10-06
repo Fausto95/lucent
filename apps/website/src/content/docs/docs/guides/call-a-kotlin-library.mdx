@@ -1,7 +1,91 @@
 ---
-title: "Call a Kotlin library"
-description: "This page is being rewritten."
+title: Call a Kotlin library
+description: "Import its package from `lucent:android/<package>` and call it as Kotlin declares it: a `suspend` function returns a promise, and arguments with defaults can be left out."
 kind: guide
 ---
 
-This page is being rewritten.
+<Tabs>
+<TabItem label="search.lucent.ts">
+
+```ts title="search.lucent.ts" from="examples/lucent-orbit/src/orbit.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { Searcher } from "lucent:android/dev.orbit.search";
+
+/** Titles starting with `prefix`; aborting `signal` cancels the search. */
+export async function searchTitles(prefix: string, signal?: AbortSignal): Promise<string[]> {
+  if (PLATFORM !== "android") return [];
+
+  const searcher = new Searcher();
+  searcher.pageSize = 5;
+
+  // limit and latency left out: Kotlin's defaults apply, so limit is pageSize.
+  const hits = await searcher.search(prefix, undefined, undefined, signal);
+  return hits.map((hit) => hit.title);
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useEffect, useState } from "react";
+import { Text } from "react-native";
+import { searchTitles } from "./src/search.lucent";
+
+export function Results({ query }: { query: string }) {
+  const [titles, setTitles] = useState<string[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    searchTitles(query, controller.signal)
+      .then(setTitles)
+      .catch((e: Error) => {
+        if (e.name !== "AbortError") console.error(e);
+      });
+    return () => controller.abort(); // a new query cancels the last search
+  }, [query]);
+
+  return <Text>{titles.join(", ")}</Text>;
+}
+```
+
+</TabItem>
+</Tabs>
+
+`Searcher` is a Kotlin class of the [lucent-orbit](/docs/packages/examples/orbit/) example package. Its search is `suspend fun search(prefix: String, limit: Int = pageSize, latency: Long = 0): List<Hit>`.
+
+- `search` is a `suspend` function, so it returns a promise and takes `signal` last.
+- Writing `undefined` in the call leaves out `limit` and `latency`, and Kotlin's defaults apply. A variable that may be `undefined` there fails to compile (`LUCENT1007`).
+- `pageSize` is a Kotlin property, and `List<Hit>` arrives as an array.
+
+Lucent generates the Kotlin these calls need into the native package: there's no Kotlin to write.
+
+## Extension functions, sealed and value classes
+
+```ts title="shapes.lucent.ts" from="examples/lucent-orbit/src/orbit.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { Circle, Rect, ShapesKt } from "lucent:android/dev.orbit.shapes";
+
+/** A circle scaled up, and a rectangle's perimeter in Kotlin's unit. */
+export async function shapes(): Promise<string> {
+  if (PLATFORM !== "android") return "";
+
+  const scaled = ShapesKt.scaled(new Circle(1));
+  const size = scaled instanceof Circle ? `radius ${scaled.radius}` : ShapesKt.describe(scaled);
+  const perimeter = ShapesKt.perimeter(new Rect(1, 2));
+  return `${size}, perimeter ${perimeter.value} ${ShapesKt.unit}`;
+}
+```
+
+- `Shape.scaled` and the top-level `unit` are declared in `Shapes.kt`, so they're statics of `ShapesKt`.
+- `Shape` is a sealed interface, so `instanceof Circle` tells its cases apart.
+- `perimeter` returns the value class `Meters`, whose `value` is the `Double` it wraps.
+
+A Kotlin function type, such as `(Double) -> Unit`, takes a Lucent function, and Lucent can call one that Kotlin returns. [Kotlin](/docs/api/android-sdk/#kotlin) gives every shape's rule.
+
+## Add the library
+
+- A Gradle dependency of the app is imported once Gradle has resolved it, as [Use a third-party SDK](/docs/guides/use-a-third-party-sdk/) shows.
+- A Lucent package lists its Gradle dependencies in `lucent.json`, as [Add native dependencies](/docs/packages/add-native-dependencies/) shows. A JAR or AAR it ships goes there too: see [Ship a prebuilt library](/docs/packages/ship-a-prebuilt-library/).
+
+Your first call that goes through generated Kotlin adds Kotlin to the native package's Gradle build. Rebuild the Android app then, as [what a build changed](/docs/architecture/builds/#actions-come-from-what-a-build-changed) says.
