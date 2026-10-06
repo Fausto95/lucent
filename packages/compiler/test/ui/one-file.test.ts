@@ -413,3 +413,16 @@ describe("a component whose other platform's SDK is missing", () => {
     600_000,
   );
 });
+
+describe.skipIf(!both)("a component returning each platform's own view", () => {
+  it("returns its platform's view from its setup, not a variant of both", () => {
+    for (const platform of ["ios", "android"] as const) {
+      const { result } = build({ "counter.lucent.tsx": COUNTER }, platform);
+      const unit = generated(result, new RegExp(`^${platform}/m_counter\\.(cpp|mm)$`));
+
+      expect(diagnostics(result)).toEqual([]);
+      expect(unit).toContain("lucent::NativeRef m_counter::Counter_setup(");
+      expect(unit).not.toContain("std::variant");
+    }
+  }, 600_000);
+});
