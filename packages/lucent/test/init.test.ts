@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { addExpoPlugin, applyGradleTask, GRADLE_LINE, wrapMetro } from "../src/cli/init/patch.ts";
+import { addExpoPlugin, applyGradleTask, GRADLE_LINES, wrapMetro } from "../src/cli/init/patch.ts";
 import { planInit } from "../src/cli/init/plan.ts";
 import { withLucentTsconfig } from "../src/cli/tsconfig.ts";
 import { runLucent } from "./run-to-exit.ts";
@@ -107,11 +107,24 @@ describe("init patches", () => {
   it("applies the Gradle task after React Native's plugin, once", () => {
     const text =
       'apply plugin: "com.android.application"\napply plugin: "com.facebook.react"\n\nreact {}\n';
-    const applied = applyGradleTask(text);
+    const applied = applyGradleTask(text, "groovy");
     expect(applied).toBe(
-      `apply plugin: "com.android.application"\napply plugin: "com.facebook.react"\n${GRADLE_LINE}\n\nreact {}\n`,
+      `apply plugin: "com.android.application"\napply plugin: "com.facebook.react"\n${GRADLE_LINES.groovy}\n\nreact {}\n`,
     );
-    expect(applyGradleTask(applied as string)).toBeUndefined();
+    expect(applyGradleTask(applied as string, "groovy")).toBeUndefined();
+  });
+
+  it("applies the Gradle task at the end of a Kotlin build script, once", () => {
+    // Kotlin DSL allows no statement before plugins {}.
+    const text = 'plugins {\n  id("com.android.application")\n}\n';
+    const applied = applyGradleTask(text, "kt");
+    expect(applied?.startsWith(text), applied).toBe(true);
+    expect(applied).toBe(`${text}${GRADLE_LINES.kt}\n`);
+    expect(applyGradleTask(applied as string, "kt")).toBeUndefined();
+  });
+
+  it("refuses a build script in a language it has no line for", () => {
+    expect(() => applyGradleTask("", "java")).toThrow(/build\.gradle/);
   });
 
   it("maps lucent:* and turns on noUncheckedIndexedAccess in tsconfig.json", () => {
@@ -154,8 +167,8 @@ describe("lucent init --yes", () => {
     expect(fs.readFileSync(path.join(root, "metro.config.js"), "utf8")).toContain(
       "module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), config));",
     );
-    expect(fs.readFileSync(path.join(root, "android/app/build.gradle"), "utf8")).toContain(
-      GRADLE_LINE,
+    expect(fs.readFileSync(path.join(root, "android/app/build.gradle"), "utf8")).toMatch(
+      /^apply from: .*"gradle\/lucent\.gradle"\)$/m,
     );
     expect(fs.readFileSync(path.join(root, "react-native.config.js"), "utf8")).toContain(
       '"lucent": { root:',
@@ -170,6 +183,19 @@ describe("lucent init --yes", () => {
     expect(r.out.trimEnd().split("\n").at(-1)).toMatch(
       /^next +npx lucent build && npx react-native run-ios$/,
     );
+  });
+
+  it("patches a bare app's Kotlin build script", () => {
+    const root = bareApp();
+    const script = 'plugins {\n  id("com.android.application")\n  id("com.facebook.react")\n}\n';
+    fs.rmSync(path.join(root, "android/app/build.gradle"));
+    write(root, { "android/app/build.gradle.kts": script });
+    const r = lucent(root, "--yes");
+    expect(r.status, r.out).toBe(0);
+    const patched = fs.readFileSync(path.join(root, "android/app/build.gradle.kts"), "utf8");
+    expect(patched).not.toBe(script);
+    expect(patched).toBe(`${script}${GRADLE_LINES.kt}\n`);
+    expect(r.out).not.toMatch(/add by hand/);
   });
 
   it("sets up an Expo app: the config plugin instead of Gradle", () => {

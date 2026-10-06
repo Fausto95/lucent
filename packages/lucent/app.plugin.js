@@ -39,21 +39,46 @@ function linkNativePackage(projectRoot) {
   }
 }
 
-/** The line that applies Lucent's Gradle task (gradle/lucent.gradle) in android/app/build.gradle. */
-const GRADLE_LINE = `apply from: new File(new File(["node", "--print", "require.resolve('@lucent-lang/lucent/package.json')"].execute(null, rootDir).text.trim()).parentFile, "gradle/lucent.gradle")`;
+/**
+ * How android/app/build.gradle applies Lucent's Gradle task
+ * (gradle/lucent.gradle), by the script's language as Expo names it: the
+ * line, and where it goes among the script's lines.
+ */
+const GRADLE_TASK = {
+  groovy: {
+    line: `apply from: new File(new File(["node", "--print", "require.resolve('@lucent-lang/lucent/package.json')"].execute(null, rootDir).text.trim()).parentFile, "gradle/lucent.gradle")`,
+    // After React Native's plugin, or the last `apply plugin`, or at the top.
+    at(lines) {
+      const react = lines.findIndex((l) => /^apply plugin: ["']com\.facebook\.react["']/.test(l));
+      const lastApply = lines.reduce((at, l, i) => (l.startsWith("apply plugin:") ? i : at), -1);
+      return (react >= 0 ? react : lastApply) + 1;
+    },
+  },
+  kt: {
+    line: `apply(from = File(File(providers.exec { workingDir = rootDir; commandLine("node", "--print", "require.resolve('@lucent-lang/lucent/package.json')") }.standardOutput.asText.get().trim()).parentFile, "gradle/lucent.gradle"))`,
+    // At the end: Kotlin DSL allows no statement before plugins {}, and lucent.gradle hooks in lazily.
+    at: (lines) => (lines.at(-1) === "" ? lines.length - 1 : lines.length),
+  },
+};
+
+const GRADLE_LINES = Object.fromEntries(
+  Object.entries(GRADLE_TASK).map(([language, { line }]) => [language, line]),
+);
 
 /**
- * android/app/build.gradle with the Gradle task applied after React
- * Native's plugin (or the last `apply plugin`, or at the top), or
- * undefined when it is applied already.
+ * android/app/build.gradle (`language` "groovy") or build.gradle.kts
+ * ("kt") with the Gradle task applied, or undefined when it is applied
+ * already.
  */
-function applyGradleTask(text) {
+function applyGradleTask(text, language = "groovy") {
+  const task = GRADLE_TASK[language];
+  if (!task)
+    throw new Error(
+      `Lucent can't apply its Gradle task to a ${language} android/app/build.gradle: add the line of gradle/lucent.gradle's header by hand`,
+    );
   if (text.includes("gradle/lucent.gradle")) return undefined;
   const lines = text.split("\n");
-  const react = lines.findIndex((l) => /^apply plugin: ["']com\.facebook\.react["']/.test(l));
-  const lastApply = lines.reduce((at, l, i) => (l.startsWith("apply plugin:") ? i : at), -1);
-  const after = react >= 0 ? react : lastApply;
-  lines.splice(after + 1, 0, GRADLE_LINE);
+  lines.splice(task.at(lines), 0, task.line);
   return lines.join("\n");
 }
 
@@ -92,8 +117,8 @@ function withLucent(config) {
   } = require("expo/config-plugins");
   // Gradle builds run lucent build first, like `lucent init` sets up in bare apps.
   config = withAppBuildGradle(config, (c) => {
-    if (c.modResults.language === "groovy")
-      c.modResults.contents = applyGradleTask(c.modResults.contents) ?? c.modResults.contents;
+    c.modResults.contents =
+      applyGradleTask(c.modResults.contents, c.modResults.language) ?? c.modResults.contents;
     return c;
   });
   // Keys the app sets itself win.
@@ -122,7 +147,7 @@ function withLucent(config) {
 }
 
 module.exports = withLucent;
-module.exports.GRADLE_LINE = GRADLE_LINE;
+module.exports.GRADLE_LINES = GRADLE_LINES;
 module.exports.applyGradleTask = applyGradleTask;
 module.exports.linkNativePackage = linkNativePackage;
 module.exports.withPackageEntries = withPackageEntries;

@@ -1018,10 +1018,14 @@ code runs bundled and from sources. The compiler, bindgen and runtime are
 private workspace packages.
 
 Nothing Lucent ships is needed at run time as a package: `lucent build` copies
-the runtime and the JS loader into `.lucent/native`, and the generated proxies
-require the loader by a relative path, which Metro's transformer rebases onto
-the `*.lucent.ts` file each proxy replaces. `lucent:core` is served by the
-compiler like `lucent:thread`.
+the runtime and the JS loader into `.lucent/native`. Metro bundles each
+`*.lucent.ts` file as a require of its generated proxy, a module Metro
+watches like any source file, so a build that rewrites a proxy needs a
+reload, not a restart. The proxy requires the loader by a path relative to
+itself, which resolves inside the native package, and `react-native` from
+the app's `node_modules`, which `withLucent` adds to Metro's
+`resolver.nodeModulesPaths` for a native package outside the app
+(`LUCENT_OUT`). `lucent:core` is served by the compiler like `lucent:thread`.
 
 ### Build records
 
@@ -1144,7 +1148,8 @@ build. An unknown output relinks. Each action has its targets and files;
 
 The native package is published file by file through a temporary file
 renamed over the old one, so Metro never reads half a proxy, and
-`manifest.json`, Metro's cache key, comes last. Unchanged files keep their
+`manifest.json` comes last: its module list keys Metro's transform cache,
+and Metro watches the proxies themselves. Unchanged files keep their
 content and mtime.
 
 ### Watching

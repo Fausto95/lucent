@@ -685,6 +685,33 @@ describe("lucent sdk and Compose's bindings", () => {
   );
 });
 
+describe("an unexpected LUCENT_VIEWS", () => {
+  const problem = 'LUCENT_VIEWS must be "fabric" or unset (got "foo")';
+
+  function withViews(root: string, ...args: string[]) {
+    const r = runLucent([...args, "--root", root], {
+      env: { ...process.env, NO_COLOR: "1", LUCENT_VIEWS: "foo" },
+    });
+    return { status: r.status, out: r.stdout + r.stderr, stdout: r.stdout };
+  }
+
+  it.each(["build", "check", "sdk lock"])(
+    "stops lucent %s with an error naming the variable, not a crash",
+    (command) => {
+      const r = withViews(project(), ...command.split(" "));
+      expect(r.status, r.out).toBe(1);
+      expect(r.out).toContain(`✗ ${problem}`);
+      expect(r.out).not.toMatch(/crashed/);
+    },
+  );
+
+  it("is the error of build --json", () => {
+    const r = withViews(project(), "build", "--json");
+    expect(r.status, r.out).toBe(1);
+    expect(JSON.parse(r.stdout)).toEqual({ ok: false, error: problem });
+  });
+});
+
 describe("lucent init", () => {
   it("links the native package as the `lucent` dependency", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));

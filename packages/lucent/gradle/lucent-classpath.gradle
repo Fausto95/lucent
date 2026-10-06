@@ -12,13 +12,25 @@ pluginManager.withPlugin("com.android.application") {
   afterEvaluate {
     def out = new File(rootProject.projectDir.parentFile, ".lucent/android-classpath.json")
     def artifactType = Attribute.of("artifactType", String)
-    def compileClasspath = configurations.findByName("debugCompileClasspath") ?: configurations.findByName("releaseCompileClasspath")
-    if (compileClasspath == null) return
+    // The app's debug variant's compile classpath, else its release variant's (its
+    // debug variants disabled). With product flavors a build type has a variant per
+    // flavor (freeDebug, paidDebug): the first by name. The unflavored name comes
+    // first: other build types may end like it (benchmarkRelease).
+    def variantClasspath = { String buildType ->
+      def flavored = "${buildType.capitalize()}CompileClasspath"
+      configurations.findByName("${buildType}CompileClasspath")?.name ?: configurations.names.sort().find { it.endsWith(flavored) }
+    }
+    def compileClasspath = variantClasspath("debug") ?: variantClasspath("release")
+    if (compileClasspath == null)
+      // Quiet level: lucent build runs Gradle with -q.
+      logger.quiet("lucentClasspath: the app has no debug or release variant; lucent:android binds the SDK's and Lucent packages' libraries only")
+
     // Libraries from repositories only: the app's other projects (autolinked
     // modules, Lucent's own) would have to be built first, and their preBuild
     // runs lucentBuild, which needs this classpath.
     def viewOf = { String type ->
-      compileClasspath.incoming.artifactView {
+      if (compileClasspath == null) return files()
+      configurations.getByName(compileClasspath).incoming.artifactView {
         lenient(true)
         componentFilter { it instanceof org.gradle.api.artifacts.component.ModuleComponentIdentifier }
         attributes.attribute(artifactType, type)

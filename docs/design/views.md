@@ -2,7 +2,9 @@
 
 Status: implemented behind `LUCENT_VIEWS=fabric`, an internal switch that
 is off by default. Without it, components are only described and none of
-what follows is generated.
+what follows is generated. Any other value than `fabric` stops the commands
+that read it (`lucent build`, `check`, `dev`, `bench`, `sdk lock`) with an
+error naming the accepted values.
 
 A component is an exported function of a `.lucent.tsx` module that
 returns a platform view (a `UIView` or an Android `View`). Its setup is

@@ -432,6 +432,38 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-06: Kotlin build scripts get a Kotlin line.** `lucent init`
+and the Expo config plugin apply the Gradle task to
+`android/app/build.gradle.kts` with a Kotlin DSL line that asks Node
+through `providers.exec`, appended at the end of the script. _Why:_ init
+printed the Groovy line for a `.kts` script, which does not compile as
+Kotlin, and the plugin skipped such scripts silently. _Changed:_ one table
+of lines keyed by Expo's language names; any other language is an error.
+
+**2026-10-06: The Android classpath falls back by variant name.**
+`lucentClasspath` reads the debug variant's compile classpath, with product
+flavors the first debug variant by name (the unflavored name first, as
+build types like `benchmarkRelease` end like it), and the release
+variant's when there is no debug variant; with neither it writes an empty classpath and
+says why. _Why:_ a flavored app has no `debugCompileClasspath`, so the
+task was never registered and every Gradle build failed on `lucentBuild`'s
+dependency. _Changed:_ the task is always registered.
+
+**2026-10-06: Metro bundles each proxy as a module of its own.** The
+Metro transformer turns a `*.lucent.ts` file into a require of its proxy
+in the native package instead of inlining the proxy's text. _Why:_ Metro
+computes a transformer's cache key once per process and re-transforms only
+files of its graph that change, so an inlined proxy stayed stale after a
+build rewrote it, and a module bundled before its first build kept its
+"not compiled" stub until a restart (sometimes after one too, from the
+persistent cache). _Changed:_ a build needs a reload, not a Metro restart;
+a module with no proxy fails the bundle instead of bundling a throw; the
+cache key holds the native package's location and module names, not the
+whole manifest. `withLucent` adds the app's `node_modules` to
+`resolver.nodeModulesPaths`: a proxy's bare requires now resolve from the
+proxy's directory, which a `LUCENT_OUT` outside the app never connects to
+the app's packages.
+
 **2026-10-06: The app imports a component as `lucent:views/<module>`.**
 TypeScript reads the React declarations `lucent build` writes
 (`types/views/<module>.d.ts`) through the `lucent:*` path `lucent init`
@@ -2634,6 +2666,9 @@ Last recorded runs:
   `use_frameworks!`); a Swift pod built as a static library, or one that
   ships an `.xcframework`, is not bound. Binding a package's own pod in
   an Expo app is [TA35](#ta35).
+- An Android app with product flavors binds the libraries of its first
+  debug variant by name: a library only another flavor depends on is not
+  bindable.
 - Typed native extensions: Swift and Kotlin sources in a package are not
   typed yet, and extension calls cannot be cancelled.
 - Tracing records allocations for native buffers only, and its buffer
