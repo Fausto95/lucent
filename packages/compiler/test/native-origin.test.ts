@@ -173,6 +173,34 @@ describe("a declaration's native origin", () => {
     );
   });
 
+  it("names a Kotlin suspend function as Kotlin does, not by its Continuation", () => {
+    const searcher: SdkClassSchema = {
+      kind: "class",
+      name: "Searcher",
+      native: "dev/orbit/Searcher",
+      kotlin: {},
+      methods: [
+        {
+          name: "search",
+          params: [{ name: "q", type: T("string", "dev.orbit") }],
+          returns: T("int", "dev.orbit"),
+          descriptor: "(Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;",
+          kotlin: { suspend: true },
+        },
+      ],
+    };
+    const schema: SdkModuleSchema = {
+      format: 1,
+      platform: "android",
+      module: "dev.orbit",
+      types: [searcher],
+    };
+
+    expect(memberOrigin(schema, searcher, { method: searcher.methods![0]! })).toBe(
+      "Native: Kotlin suspend fun dev.orbit.Searcher.search, in dev.orbit; a Promise of what it completes with",
+    );
+  });
+
   it("names the artifact a declaration comes from when it is no platform SDK", () => {
     expect(classOrigin(ios([device], "pod:OrbitKit@1.2.0"), device)).toBe(
       "Native: Objective-C class UIDevice, in UIKit (pod:OrbitKit@1.2.0)",
