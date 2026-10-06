@@ -1,5 +1,67 @@
 # @lucent-lang/lucent
 
+## 0.2.0
+
+### Minor Changes
+
+- [#99](https://github.com/Fausto95/lucent/pull/99) [`a36e7d8`](https://github.com/Fausto95/lucent/commit/a36e7d8542861c377d3d811d5481a45ac0153d69) Thanks [@Fausto95](https://github.com/Fausto95)! - `lucent doctor` reads the app's build: the steps the last build failed at (an Android dependency conflict, with its log), why steps ran again, a platform this JavaScript was built without, and whether the newest Xcode or Gradle build of the app was built from these sources, judged as the app judges it
+
+- [#102](https://github.com/Fausto95/lucent/pull/102) [`296d799`](https://github.com/Fausto95/lucent/commit/296d7995439c27acc0357ae13adbb69ddd6b6b5c) Thanks [@Fausto95](https://github.com/Fausto95)! - Offer quick fixes in the editor where a diagnostic's fix is exact (a thrown string becomes an Error, a copied prop is read in place, a missing module import is added), and name what each SDK class and member calls natively in its doc comment, so hover and `lucent sdk show` say where it comes from
+
+- [#103](https://github.com/Fausto95/lucent/pull/103) [`733d318`](https://github.com/Fausto95/lucent/commit/733d31877b2089924a77971ebe0b2e9b8381c5e8) Thanks [@Fausto95](https://github.com/Fausto95)! - Every command's `--json` now writes one JSON document described by a published schema (`explain`, `new module` and `clean` gained one), or is refused with exit code 2 by commands without JSON output (`init`, `dev`, `trace`), and errors under `--json` go to stderr instead of being dropped
+
+- [#88](https://github.com/Fausto95/lucent/pull/88) [`cb08732`](https://github.com/Fausto95/lucent/commit/cb08732fb62f5bc8ebcc09585579de4435a8934b) Thanks [@Fausto95](https://github.com/Fausto95)! - Show a native view's children by condition (`{cond && <X />}`, `{c ? <X /> : <Y />}`) and as keyed lists (`{items.map((item) => <X key={item.id} />)}`), keeping each kept item's view, and accept a quoted value for an Android setter prop (`text="note"`)
+
+- [#97](https://github.com/Fausto95/lucent/pull/97) [`c737a47`](https://github.com/Fausto95/lucent/commit/c737a4798a2ecfde95d1a22c63316a7ff910e925) Thanks [@Fausto95](https://github.com/Fausto95)! - Lay out native view JSX with React Native's Yoga: `<Flex style={{ flexDirection: "row", gap: 8 }}>` from `lucent:ui` places its children, each child's `layout={{ flexGrow: 1 }}` places it, and native containers (stack views, LinearLayouts) keep laying out their own
+
+- [#98](https://github.com/Fausto95/lucent/pull/98) [`c896eb6`](https://github.com/Fausto95/lucent/commit/c896eb61b609545d20786d20e7eecbeb4c2655d2) Thanks [@Fausto95](https://github.com/Fausto95)! - Report coverage of every SDK module with `lucent sdk coverage --all` (modules the extractor cannot read are listed, not fatal), and append a markdown summary of why members are left out with `--summary <file>`
+
+### Patch Changes
+
+- [#87](https://github.com/Fausto95/lucent/pull/87) [`2bffa45`](https://github.com/Fausto95/lucent/commit/2bffa4542a9bb3de8f06f988d035fdd2976a0302) Thanks [@Fausto95](https://github.com/Fausto95)! - Declare the initializers an iOS class inherits through a superclass that inherits them too (`init(coder:)` on `UIWindowScene.ActivationAction`) on every build, not only when the SDK's classes happen to be read in order
+
+- [#85](https://github.com/Fausto95/lucent/pull/85) [`36064d4`](https://github.com/Fausto95/lucent/commit/36064d488d6a6778605e803c14ce4c8ff3e595d6) Thanks [@brunokiafuka](https://github.com/brunokiafuka)! - Keep every Swift overload of one name that a Swift overlay gives an Objective-C class: `NSCoder.decodeTopLevelObject(forKey:)` and `RunLoop.schedule(after:tolerance:options:_:)` were dropped beside their first overload. A Swift `inout` parameter is now skipped with its reason, instead of binding the member as if it took a value and generating a shim that does not compile.
+
+- [#92](https://github.com/Fausto95/lucent/pull/92) [`9ced06c`](https://github.com/Fausto95/lucent/commit/9ced06c8e45bfe608156a1c41c7a71a2096046ef) Thanks [@brunokiafuka](https://github.com/brunokiafuka)! - Call an arrow function passed straight to `sort`, `map`, `filter`, `forEach`, `reduce` and the like directly, instead of through a function value: `sortNumbers` runs 1.4x faster, and generated code is smaller.
+
+- [#100](https://github.com/Fausto95/lucent/pull/100) [`62b6f69`](https://github.com/Fausto95/lucent/commit/62b6f69e92787a961e65551670b154ffd904f5ad) Thanks [@Fausto95](https://github.com/Fausto95)! - Read uint32 values back out of a `number[]` without mispredicting (`crc32` runs 1.8x faster), and index arrays with a `number` without a C library call on x86-64 hosts without SSE4.1, which made `sieve` far slower on Linux CI.
+
+- [#93](https://github.com/Fausto95/lucent/pull/93) [`93ecab0`](https://github.com/Fausto95/lucent/commit/93ecab0a2a14205ac2eed77d493188309e3e1a52) Thanks [@brunokiafuka](https://github.com/brunokiafuka)! - Keep arithmetic whose range is proven, such as `sum = (sum + x) % m`, in integer registers: `xorshift` runs 3x faster. Arithmetic that could give -0, NaN or a value past 2^53 stays a double.
+
+- [#90](https://github.com/Fausto95/lucent/pull/90) [`eb6975b`](https://github.com/Fausto95/lucent/commit/eb6975b6756f401b187d7b1ddb16b76d63954c84) Thanks [@brunokiafuka](https://github.com/brunokiafuka)! - Make strings cheaper: each is one allocation, or none up to 15 Latin-1 characters, and short strings compare and hash faster as `Map` keys; `join` allocates once. The `strings` and `wordCount` benchmark kernels run 1.5–1.8x faster.
+
+## 0.1.3
+
+### Patch Changes
+
+- [#80](https://github.com/Fausto95/lucent/pull/80) [`86500a7`](https://github.com/Fausto95/lucent/commit/86500a7254e2aaa8e2e02e30f324b24f67d5c305) Thanks [@brunokiafuka](https://github.com/brunokiafuka)! - Add `errorOf(throwable)` to `lucent:android`: the `Error` Lucent makes of a thrown Java exception (its `code` the class name, `java.lang.IllegalStateException`), for adapters whose callback API reports failure with a `Throwable`. `reject(errorOf(e))` now rejects as the call would have thrown.
+
+- [#64](https://github.com/Fausto95/lucent/pull/64) [`fe9758d`](https://github.com/Fausto95/lucent/commit/fe9758de1923ae93d4de12c40d2248c5eda08a20) Thanks [@Fausto95](https://github.com/Fausto95)! - Start every `lucent` command about 0.1 s sooner: Node keeps the compiled code of the CLI and TypeScript on disk between runs.
+
+- [#68](https://github.com/Fausto95/lucent/pull/68) [`fbb8e10`](https://github.com/Fausto95/lucent/commit/fbb8e10c683dd2f14410170fc78daeeeebc13e19) Thanks [@Fausto95](https://github.com/Fausto95)! - Bind the version of a native library installed now in `lucent dev` and the editor: after a `pod install` or a rebuilt Swift module, the next rebuild uses its new API instead of the one the process first read.
+
+- [#65](https://github.com/Fausto95/lucent/pull/65) [`23cc5a1`](https://github.com/Fausto95/lucent/commit/23cc5a1a3342b46d593c2883709c2ba794eeb080) Thanks [@Fausto95](https://github.com/Fausto95)! - Let `lucent build --platforms ios` (or `host`) succeed before the app's Android dependencies are resolved: imports of them in Android code are left untyped with a warning pointing to the Android build, instead of failing with LUCENT3004.
+
+- [#78](https://github.com/Fausto95/lucent/pull/78) [`88cef84`](https://github.com/Fausto95/lucent/commit/88cef84e27b3bf08f16fd3a330f653568edda6a2) Thanks [@Fausto95](https://github.com/Fausto95)! - Bind Kotlin function types on Android: a `(Double) -> Unit` parameter, property or result is a TypeScript function instead of the `Function1` class, so a Lucent function can be passed or assigned to it and a Kotlin function Lucent gets can be called. A property of a fun interface's type (any Java interface with one abstract method) now takes a function too, in module code, in a view's setup and as a JSX attribute.
+
+- [#79](https://github.com/Fausto95/lucent/pull/79) [`04409e3`](https://github.com/Fausto95/lucent/commit/04409e33eba2ae9c5977cd063b60b013b05c3300) Thanks [@Fausto95](https://github.com/Fausto95)! - Call more Kotlin shapes on Android: generic members whose type parameters have bounds (`fun <T : Comparable<T>> top(items: List<T>)`), with their defaults left out; assigning a value class property; and Lucent classes implementing a Kotlin interface's suspend members (the async method's promise resumes Kotlin) and members taking or giving value classes. Declarations of a class with a value class property are valid again: its accessors are named `getBest`, not `getBest-JdFk__0`.
+
+- [#68](https://github.com/Fausto95/lucent/pull/68) [`fbb8e10`](https://github.com/Fausto95/lucent/commit/fbb8e10c683dd2f14410170fc78daeeeebc13e19) Thanks [@Fausto95](https://github.com/Fausto95)! - Say what to do when a native library's type has no member the code uses: the error names the module and the installed version (`pod:Name@version`) that declare the type, after a library update removed or renamed it. On iOS, for a type only named in another module's signatures, it says to import its module.
+
+- [#75](https://github.com/Fausto95/lucent/pull/75) [`23704bd`](https://github.com/Fausto95/lucent/commit/23704bd5b1534c2d5262ab19ac51768f1ae5a338) Thanks [@Fausto95](https://github.com/Fausto95)! - Add `--views` to `lucent sdk coverage`: with the internal views switch on (`LUCENT_VIEWS=fabric`), it lists each view class of a module as a JSX tag, how a tag makes it, the props and events its declarations give, whether it takes children, and what is left out and why.
+
+- [#64](https://github.com/Fausto95/lucent/pull/64) [`fe9758d`](https://github.com/Fausto95/lucent/commit/fe9758de1923ae93d4de12c40d2248c5eda08a20) Thanks [@Fausto95](https://github.com/Fausto95)! - Make each `lucent build` and `lucent check` start faster: the declarations of the SDK frameworks a project imports are kept in the SDK cache instead of written again by every run (a check importing UIKit: 1.9 s to 1 s).
+
+- [#64](https://github.com/Fausto95/lucent/pull/64) [`fe9758d`](https://github.com/Fausto95/lucent/commit/fe9758de1923ae93d4de12c40d2248c5eda08a20) Thanks [@Fausto95](https://github.com/Fausto95)! - Make rebuilds in `lucent dev`, checks in the editor and repeated builds faster: the declarations of the SDK frameworks a module imports are written once per process instead of for every compile.
+
+- [#81](https://github.com/Fausto95/lucent/pull/81) [`d163b8f`](https://github.com/Fausto95/lucent/commit/d163b8feb927339208439fb3b02671ed7cb1b996) Thanks [@Fausto95](https://github.com/Fausto95)! - Call each Swift initializer that differs from another only by its argument labels: `init(service: String)` and `init(accessGroup: String)` become `Keychain.withService(…)` and `Keychain.withAccessGroup(…)` instead of two `constructor(string)` overloads, where `new Keychain("x")` silently called the first one declared; `new` with such arguments is now an error naming the factories. An unlabeled initializer among them stays the constructor, as Swift calls it. CryptoKit's P256 keys and signatures are made with `withRawRepresentation(…)`, `withX963Representation(…)` and the like.
+
+- [#82](https://github.com/Fausto95/lucent/pull/82) [`dd2a572`](https://github.com/Fausto95/lucent/commit/dd2a572a17229756961eb38fece542f0c296764e) Thanks [@Fausto95](https://github.com/Fausto95)! - Bind the Swift packages an app adds to its Xcode project: Lucent reads the project and Package.resolved, builds each package's library products at its pinned version for the simulator, binds their modules by rule, and links the ones the code imports into LucentNative (add the package to the project without adding its product to the app target, which would link it twice). iOS declarations are now read for the app's deployment target (`IPHONEOS_DEPLOYMENT_TARGET`), so an API the app's target already has no longer needs an `available("ios", …)` check, and one newer than it does.
+
+- [#83](https://github.com/Fausto95/lucent/pull/83) [`10cfcfc`](https://github.com/Fausto95/lucent/commit/10cfcfc8b8b6a0988b8637de562386c1f3e62fc6) Thanks [@Fausto95](https://github.com/Fausto95)! - Bind more of what Swift declares on iOS: tuples (as TypeScript tuples, labels as element names), closures passed to or returned by Swift (as Lucent functions, through Objective-C blocks), Objective-C factory initializers Swift imports as `init` (`+widgetWithLabel:` as `new Widget(label)`), and C functions Swift imports as members of CoreFoundation-style handles (`cgImage.width`, `cgImage.cropping(rect)`). `new` of a class whose initializers come from a module no file imports now says to import that module.
+
+- [#68](https://github.com/Fausto95/lucent/pull/68) [`fbb8e10`](https://github.com/Fausto95/lucent/commit/fbb8e10c683dd2f14410170fc78daeeeebc13e19) Thanks [@Fausto95](https://github.com/Fausto95)! - Explain a native member Lucent does not bind: calling one the extractor skipped (a Swift tuple, say) now says it exists in the library, why it is not bound, and to wrap it in Swift or Kotlin of your own, rather than that the installed version lacks it. A member refused for a type that cannot cross yet (LUCENT2002) gets the same fix.
+
 ## 0.1.2
 
 ### Patch Changes

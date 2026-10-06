@@ -1,0 +1,24 @@
+{
+  "originHash" : "5e1b2a",
+  "pins" : [
+    {
+      "identity" : "gauges",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/acme/Gauges",
+      "state" : {
+        "revision" : "0123456789abcdef0123456789abcdef01234567",
+        "version" : "1.2.0"
+      }
+    },
+    {
+      "identity" : "dials",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/acme/dials.git",
+      "state" : {
+        "revision" : "89abcdef0123456789abcdef0123456789abcdef",
+        "version" : "0.3.1"
+      }
+    }
+  ],
+  "version" : 3
+}

@@ -31,6 +31,8 @@ import {
   lockedPods,
 } from "./provenance.ts";
 import type { PodFramework } from "./pods.ts";
+import type { SwiftPackages } from "./swift-packages.ts";
+import { cSwiftNames } from "./c-swift-names.ts";
 import { buildSourceSchema } from "./swift-source.ts";
 import type { SymbolGraph } from "./symbols.ts";
 import {
@@ -87,6 +89,13 @@ export interface SdkOptions {
     defines?: string[];
     /** Podfile.lock: which pods installed the modules, their versions and dependencies. */
     lockfile?: string;
+    /**
+     * The iOS version the app is deployed to (its Xcode project's): what
+     * declarations are read for, and the oldest iOS its code runs on.
+     */
+    deploymentTarget?: string;
+    /** The Swift packages the app links, built for it (see swiftPackages). */
+    swiftPackages?: SwiftPackages;
     xcrun?: string;
   };
 }
@@ -152,6 +161,8 @@ interface Resolved {
     frameworkDirs: Map<string, string>;
     /** How each module outside the SDK reaches the build (SDK frameworks are absent). */
     sources: Map<string, IosModuleSource>;
+    /** The app's Swift packages that could not be built, and why. */
+    packageFailures: string[];
   };
 }
 
@@ -441,6 +452,9 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
   const frameworkPaths = [
     ...(opts.ios?.frameworkPaths ?? []),
     ...(opts.ios?.frameworks ?? []).map((f) => podFramework(memo, f)),
+    ...new Set(
+      (opts.ios?.swiftPackages?.modules ?? []).filter((m) => m.framework).map((m) => m.dir),
+    ),
   ];
   const moduleMaps = opts.ios?.moduleMaps ?? [];
   const defines = opts.ios?.defines ?? [];
@@ -486,6 +500,22 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
   }
   for (const map of moduleMaps) readMap(map);
 
+  // The app's Swift packages: each Swift module from its package's build (a framework's is on
+  // the framework paths).
+  const packages = opts.ios?.swiftPackages;
+  for (const m of packages?.modules ?? []) {
+    if (m.framework) continue;
+    modules.set(m.module, []);
+    sources.set(m.module, {
+      kind: "swift-module",
+      files: [path.join(m.dir, `${m.module}.swiftmodule`)],
+      spm: m.package,
+    });
+  }
+  const packageDirs = [
+    ...new Set((packages?.modules ?? []).filter((m) => !m.framework).map((m) => m.dir)),
+  ];
+
   for (const dir of frameworkPaths) {
     for (const f of fs.existsSync(dir) ? fs.readdirSync(dir) : []) {
       if (!f.endsWith(".framework")) continue;
@@ -498,6 +528,12 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
       });
       frameworkDirs.set(name, dir);
     }
+  }
+
+  // A Swift package's framework is its package's.
+  for (const m of packages?.modules ?? []) {
+    const source = m.framework ? sources.get(m.module) : undefined;
+    if (source) source.spm = m.package;
   }
 
   // A pod's framework is its pod's files (Target Support Files/<pod>/ says which pod).
@@ -515,7 +551,16 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
     }
   }
 
-  const ios: IosOptions = { modules: [], includePaths, frameworkPaths, moduleMaps, defines, xcrun };
+  const deployment = opts.ios?.deploymentTarget;
+  const ios: IosOptions = {
+    modules: [],
+    includePaths: [...includePaths, ...packageDirs],
+    frameworkPaths,
+    moduleMaps,
+    defines,
+    xcrun,
+    ...(deployment ? { target: `arm64-apple-ios${deployment}-simulator` } : {}),
+  };
   const targetTriple = iosTarget(ios);
 
   const artifacts = iosArtifacts(memo, {
@@ -523,7 +568,8 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
     sources,
     lockfile,
     pods,
-    includePaths,
+    ...(packages?.resolved ? { resolved: packages.resolved } : {}),
+    includePaths: ios.includePaths ?? [],
     compilerArguments: defines.map((d) => `-D${d}`),
     targetTriple,
   });
@@ -543,7 +589,17 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
       scope: path.join(root, "sdk/ios", `iphonesimulator${version}-${build}-${key}`),
       memo,
       artifacts,
-      ios: { sdk, version, ios, frameworks, modules, umbrellas, frameworkDirs, sources },
+      ios: {
+        sdk,
+        version,
+        ios,
+        frameworks,
+        modules,
+        umbrellas,
+        frameworkDirs,
+        sources,
+        packageFailures: packages?.failures ?? [],
+      },
     },
     (a) => a.modules.filter((m) => byModule.get(m) === a),
   );
@@ -728,8 +784,12 @@ function iosNotFound(r: Resolved, module: string): { missing: string } {
     ? ` and the app's pods (${extra.join(", ")}); run pod install after adding a pod`
     : "; no pods were read: when it comes from a pod, run pod install first";
   const where = `looked in ${r.ios!.frameworks}${pods}`;
+  const failed = r.ios!.packageFailures;
+  const packages = failed.length
+    ? `; the app's Swift packages could not all be built: ${failed.join("; ")}`
+    : "";
   return {
-    missing: `lucent:ios/${module} was not found in the SDK or the app's dependencies (${where})`,
+    missing: `lucent:ios/${module} was not found in the SDK or the app's dependencies (${where})${packages}`,
   };
 }
 
@@ -752,8 +812,21 @@ function extractIosModule(r: Resolved, module: string): Extracted {
   const deps = [...referenced].filter((m) => modules.has(m));
   const names = [own, ...namesFor(r, deps)];
   const headers = modules.get(module) ?? [`${module}/${module}.h`];
-  const schema = buildIosSchema(module, g, names, (enums) =>
-    enumValues(enums, headers, ios, sdkPath),
+  // Where its headers are: the C functions Swift imports as members are named there.
+  const headerDirs = modules.get(module)
+    ? [...new Set(headers.map((h) => path.dirname(h)))]
+    : [
+        path.join(
+          r.ios!.frameworkDirs.get(module) ?? r.ios!.frameworks,
+          `${module}.framework/Headers`,
+        ),
+      ];
+  const schema = buildIosSchema(
+    module,
+    g,
+    names,
+    (enums) => enumValues(enums, headers, ios, sdkPath),
+    cSwiftNames(headerDirs),
   );
   // SDK frameworks are linked; the app's dependencies link themselves.
   // Module maps and frameworks name their umbrella header.

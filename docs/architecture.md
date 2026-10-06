@@ -92,11 +92,20 @@ Notable lowering choices:
   by an integer is an `int64_t`. Values are exact in both representations, so
   reads convert to `double` without changing results; expressions also carry
   their integer form, so chains of bitwise operations never round-trip through
-  `double`. Increments and arithmetic writes keep a local a `double`, because
-  `x + 1` does not wrap in JavaScript.
+  `double`. Arithmetic (`+`, `-`, `*`, `%`, compound assignments, `++`) keeps a
+  local a `double`, because `x + 1` does not wrap in JavaScript, unless a range
+  analysis over the local's writes proves every value an exact integer within
+  ±2^53 that is never -0 (a product of non-negative values, a remainder of a
+  non-negative dividend): `sum = (sum + (x >>> 0)) % 1000000007` is an
+  `int64_t`, its writes computed in int64. The analysis does not follow
+  statement order, and a range still growing after a few rounds is any double.
 - **Closures** are C++ lambdas wrapped in `lucent::Fn`. A local captured by a
   closure _and_ written after its declaration lives in a `lucent::Box`, so both
-  sides see one variable (analysis in `analysis/scopes.ts`).
+  sides see one variable (analysis in `analysis/scopes.ts`). An arrow function
+  passed straight to a runtime method that takes a callback (`sort`, `map`,
+  `filter`, `forEach`, `reduce`, …) and used nowhere else is passed as the
+  lambda itself, which the method's template calls directly and the C++
+  compiler can inline; its identity is never observed.
 - **Generators** are coroutines whose declared return type is
   `lucent::Iter<T>` (a `coroutine_traits` specialization supplies the
   promise). `iterator.return()` resumes a suspended generator so that its
@@ -556,8 +565,12 @@ Notable lowering choices:
 beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
 
 - `jsstring.h`: `lucent::String`, an immutable, shared, UTF-16 string with a
-  Latin-1 fast path. When the handle is the only owner, `+=` appends in place,
-  so building a string in a loop is linear.
+  Latin-1 fast path. The handle is 16 bytes: a one-byte string of up to 15
+  units lives in it (zeros past its length, so two compare and hash as two
+  words); any other is one allocation, a header (atomic reference count,
+  cached hash, length, capacity) followed by its units. When the handle is
+  the only owner, `+=` appends in place, so building a string in a loop is
+  linear; moving a handle is a memcpy, which libc++'s vector uses as it grows.
 - `number.h`: ECMAScript number semantics. `toString` and `toExponential()`
   produce the shortest digits that read back as the double, the closest of
   those, with Dragonbox (`cpp/third_party/dragonbox`, as Hermes does);
@@ -714,9 +727,46 @@ signal)` starts native work that completes later, on any thread (a
   content while its code runs (`inContent` wraps a function so it
   enters its mount whenever it runs), and the host's `changed` runs
   once, when the outermost entry on the main context ends.
+  Code of the mount may listen to its changes too (`listen`: a Flex
+  measuring its leaves again), before the host hears.
   `invalidateSize` marks it outside any entry (after an await): the host
   hears in a later turn. Marks made while the host measures are not
   changes.
+- `ui_children.h`: a native view's children that come and go (T49),
+  which `view.h` includes. A parent's children are `ChildRegions` in
+  order, each its current size, and `ChildOps` is what the parent does
+  natively (insert at an index, remove, and move where it can). A
+  `KeyedList` reconciles an array by key: the keys gone are removed and
+  their scopes disposed once, a kept key's new item is written to its
+  signal (only that item's bindings rerun), a new key's view is made in a
+  scope of its own, then each child is put in place walking the new order
+  (`[a,b,c]` to `[c,a,b]` is one move). Keys are unique and never NaN
+  (`items.h`'s rules): an array breaking them throws before anything
+  changes. `branch` is an effect choosing one of several children, or
+  none, each made in a scope of its own and ended when it goes.
+- `layout.h` (T50, header-only, React Native's Yoga): `LayoutNode`, a node
+  of a layout tree set by React Native's style names and values through
+  one table (undefined restores a default, anything else throws), its
+  leaves measured by a function. Only a root lays out; `fit` answers the
+  size within a bound; `onDirtied` says when a laid-out tree changed.
+  Only code using a Flex includes it, so only those builds need Yoga.
+- `ui_flex.h`: a Flex, lucent:ui's Yoga container, as generated code
+  makes it: a container, a leaf, a Flex's `ChildOps`, style values from
+  what code has. `platform/ios_layout.mm` (LucentFlexView) and
+  `platform/android_layout.cpp` (with dev.lucent.LucentFlexView) define
+  it.
+- `live.h` and `debug.h` (T61): what a debug build reports of the
+  runtime. A class counts its instances by holding a `live::Counted`
+  member (scopes, operations, resources, a view's effects, signals and
+  computed values); `debug::resources()` reads the counts with the native
+  references. `view.h` keeps the live mounts (`addMount`, which a
+  generated mount calls once its setup succeeds, `removeMount` at its
+  disposal) and how a platform writes a view's tree (`setViewTree`:
+  `platform/ios_debug.mm`, `platform/android_debug.cpp`, installed by the
+  hosts); `debugSnapshot()` writes it all as JSON, which the JSI host's
+  `__lucentDebug.snapshot()` (debug builds) settles on the JS thread with
+  what the host holds. An effect's runs are trace spans (`effect`) at the
+  `.lucent.ts` line the compiler gives `effect()`.
 - `reactive.h`: the UI's reactive graph (the state a view keeps), owned by
   one execution context, the main one for views: used from any other
   thread it throws, and it never takes the Lucent lock or waits for the JS

@@ -357,6 +357,25 @@ describe("lucent sdk coverage", () => {
       expect(all.every((c) => c.module.startsWith("android.os."))).toBe(true);
     },
   );
+
+  it.skipIf(!android)("appends a summary of the reasons members are left out", () => {
+    const root = project();
+    const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-"));
+    const summary = path.join(root, "summary.md");
+    fs.writeFileSync(summary, "earlier step\n");
+
+    const r = runLucent(
+      ["sdk", "coverage", "--android", "android.os", "--summary", summary, "--root", root],
+      { env: { ...process.env, LUCENT_CACHE_DIR: cache } },
+    );
+
+    expect(r.status).toBe(0);
+    const text = fs.readFileSync(summary, "utf8");
+    expect(text.startsWith("earlier step\n")).toBe(true);
+    expect(text).toContain("## SDK coverage");
+    expect(text).toMatch(/1 module: \d+ members, \d+ representable/);
+    expect(text).toMatch(/\| \d+ \| .+ \|/);
+  });
 });
 
 describe("lucent sdk coverage of views", () => {

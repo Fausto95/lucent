@@ -1,0 +1,36 @@
+print(mod.boundedSum(0), mod.boundedSum(1), mod.boundedSum(100000));
+print(mod.compound(0), mod.compound(1000));
+print(mod.negativeRemainder());
+print(mod.signedProducts(0));
+print(mod.unbounded());
+print(mod.sometimesFractional(10), mod.sometimesFractional(11));
+print(
+  mod.toInt32([
+    0,
+    -0,
+    1.9,
+    -1.9,
+    2147483647,
+    2147483648,
+    4294967295,
+    4294967296,
+    -2147483649,
+    3e9,
+    -3e9,
+    9007199254740993,
+    9.3e18,
+    -9.3e18,
+    1e20,
+    NaN,
+    Infinity,
+    -Infinity,
+  ]),
+);
+print(mod.crc(0), mod.crc(1000));
+print(mod.directCallbacks([5, 3, 8, 1, 3], 3));
+print(mod.directCallbacks([], 0));
+print(mod.keptCallbacks([2, 1, 3]));
+print(mod.mutatingCallbacks());
+print(mod.stringKeys());
+print(mod.building(0), mod.building(1), mod.building(100));
+print(mod.numberStrings());

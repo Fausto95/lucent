@@ -1,7 +1,11 @@
 #include "host.h"
 
 #include <cstring>
+#include <string>
 #include <vector>
+
+#include "../execution.h"
+#include "../view.h"
 
 namespace lucent::js {
 
@@ -98,7 +102,11 @@ class Host::Anchor : public jsi::HostObject {
   jsi::Value get(jsi::Runtime& rt, const jsi::PropNameID& name) override {
     if (name.utf8(rt) != "ownership") return jsi::Value::undefined();
 
-    Ownership held = host_->ownership();
+    return ownershipObject(rt, host_->ownership());
+  }
+
+  /// What the host holds for JavaScript, as an object.
+  static jsi::Object ownershipObject(jsi::Runtime& rt, const Ownership& held) {
     jsi::Object o(rt);
     o.setProperty(rt, "runtime", static_cast<double>(held.runtime));
     o.setProperty(rt, "promises", static_cast<double>(held.promises));
@@ -109,6 +117,51 @@ class Host::Anchor : public jsi::HostObject {
     o.setProperty(rt, "registrations", static_cast<double>(held.registrations));
     o.setProperty(rt, "inFlight", static_cast<double>(held.inFlight));
     return o;
+  }
+
+  /**
+   * __lucentDebug: snapshot(), a promise of what the runtime owns live, its
+   * live mounts with their views' trees (built on the main context, view.h
+   * debugSnapshot), and what this host holds for JavaScript; settled on the
+   * JS thread. Debug builds only.
+   */
+  static jsi::Object debugObject(jsi::Runtime& rt, const std::shared_ptr<Host>& host) {
+    std::weak_ptr<Host> weak = host;
+    jsi::Object debug(rt);
+
+    debug.setProperty(
+        rt, "snapshot",
+        jsi::Function::createFromHostFunction(
+            rt, jsi::PropNameID::forAscii(rt, "snapshot"), 0,
+            [weak](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
+              auto host = weak.lock();
+              if (!host) return jsi::Value::undefined();
+
+              uint64_t id = 0;
+              jsi::Value promise = host->createPromise(rt, id);
+
+              ExecutionContext::main().post([weak, id] {
+                const std::string json = ui::debugSnapshot();
+
+                if (auto host = weak.lock())
+                  host->postToJs([weak, id, json](jsi::Runtime& rt) {
+                    auto host = weak.lock();
+                    if (!host) return;
+
+                    jsi::Value parsed = rt.global()
+                                            .getPropertyAsObject(rt, "JSON")
+                                            .getPropertyAsFunction(rt, "parse")
+                                            .call(rt, jsi::String::createFromUtf8(rt, json));
+                    jsi::Object snapshot = parsed.getObject(rt);
+                    snapshot.setProperty(rt, "host", ownershipObject(rt, host->ownership()));
+                    host->resolve(rt, id, jsi::Value(rt, snapshot));
+                  });
+              });
+
+              return promise;
+            }));
+
+    return debug;
   }
 #endif
 
@@ -133,6 +186,9 @@ std::shared_ptr<Host> Host::create(jsi::Runtime& rt, JsPoster poster) {
     registryGeneration++;
   }
   rt.global().setProperty(rt, "__lucentHost", jsi::Object::createFromHostObject(rt, std::make_shared<Anchor>(host)));
+#ifndef NDEBUG
+  rt.global().setProperty(rt, "__lucentDebug", Anchor::debugObject(rt, host));
+#endif
 
   // Module code's work from now on belongs to this runtime: tearing it down cancels that work.
   setModuleScope(host->scope());

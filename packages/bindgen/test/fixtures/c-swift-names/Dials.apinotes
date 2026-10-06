@@ -1,0 +1,10 @@
+---
+Name: Dials
+Functions:
+- Name: DLDialGetLevel
+  SwiftName: getter:DLDial.level(self:)
+- Name: DLDialSetLevel
+  SwiftName: setter:DLDial.level(self:newValue:)
+- Name: DLDialCreateCopyTurned
+  Availability: available
+  SwiftName: DLDial.turned(by:self:)

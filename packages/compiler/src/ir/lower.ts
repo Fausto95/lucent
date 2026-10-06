@@ -23,7 +23,7 @@ import {
   parameterSymbol,
   symbolOf,
 } from "../analysis/scopes.ts";
-import { Codes, fail } from "../diagnostics.ts";
+import { Codes, fail, replacing } from "../diagnostics.ts";
 import { bigintLiteralValue } from "../lowering/literals.ts";
 import { isVoidish, type LType, sameType, T, typeKey, unionOf } from "../types.ts";
 import { IrBuilder } from "./build.ts";
@@ -2561,12 +2561,20 @@ const STATEMENTS: Partial<Record<ts.SyntaxKind, StatementLowering>> = {
     const t = lw.b.typeOf(v);
 
     // An Error, or an object of a class deriving from it (which keeps its class).
-    if (t.k !== "error" && !(t.k === "class" && lw.host.isError?.(t)))
+    // A string is an Error's message: exactly what to write instead.
+    if (t.k !== "error" && !(t.k === "class" && lw.host.isError?.(t))) {
+      const message = s.expression.getText();
+
       fail(
         s.expression,
         Codes.UnsupportedThrow,
         "only Error values can be thrown; use `throw new Error(...)`",
+        undefined,
+        t.k === "string"
+          ? replacing(s.expression, `new Error(${message})`, `Throw new Error(${message})`)
+          : undefined,
       );
+    }
 
     lw.b.throw(v, spanOf(s));
   },
