@@ -2098,15 +2098,31 @@ export function newBuiltin(
     }
     case "error": {
       if (!isErrorName(name) || !isLibGlobal(em, callee, name)) break;
-      if (a[1]) refuseCause(a[1]);
-      const msg = a[0] ? em.exprAs(a[0], T.string) : stringExpr("");
-      return { c: withSite(cpp.call("lucent::makeError", [stringExpr(name), msg]), node), t };
+      refuseCause(em, a[1]);
+      return {
+        c: withSite(cpp.call("lucent::makeError", [stringExpr(name), errorMessage(em, a[0])]), node),
+        t,
+      };
     }
   }
   fail(node, Codes.UnsupportedBuiltin, `new ${name || callee.getText()}() is not supported`);
 }
 
-function refuseCause(options: ts.Expression): never {
+/** The parameters of Error's constructor as Lucent takes them: the message (options are refused). */
+export const ERROR_PARAMS: LType[] = [unionOf([T.string, T.undefined])];
+
+/** An error's message: undefined is the message left out, "". */
+function errorMessage(em: FnEmitter, message: ts.Expression | undefined): cpp.Expr {
+  return message ? orUndefined(em, message, T.string, stringExpr("")) : stringExpr("");
+}
+
+/**
+ * Refuses an Error constructor's options, which carry the cause, unless
+ * they are undefined (no cause): a name, which has nothing to evaluate.
+ */
+export function refuseCause(em: FnEmitter, options: ts.Expression | undefined): void {
+  if (!options || (ts.isIdentifier(options) && isVoidish(em.lt(options)))) return;
+
   fail(
     options,
     Codes.UnsupportedBuiltin,
@@ -2190,8 +2206,8 @@ export function superCall(em: FnEmitter, node: ts.CallExpression): E {
   }
   if (!cls || !cls.isError)
     fail(node, Codes.UnsupportedClassFeature, "`super(...)` is only supported in subclasses");
-  if (node.arguments[1]) refuseCause(node.arguments[1]);
-  const msg = node.arguments[0] ? em.exprAs(node.arguments[0], T.string) : stringExpr("");
+  refuseCause(em, node.arguments[1]);
+  const msg = errorMessage(em, node.arguments[0]);
   return {
     c: cpp.comma(cpp.assign(cpp.arrow(cpp.self, "message"), msg), cpp.id("lucent::undefined")),
     t: T.undefined,

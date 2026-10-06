@@ -2296,7 +2296,10 @@ export class FnEmitter {
         ? (this.reg.lowerSignature(this.checker.getSignatureFromDeclaration(ctor)!, ctor) as LType)
         : { k: "fn", params: [], ret: T.void };
       const params = ctor ? this.paramInfos(ctor, fnType as LType & { k: "fn" }) : [];
-      let paramTypes = params.map((p) => p.cppType);
+      // Error classes without a constructor take Error's.
+      const errorClass = !ctor && this.reg.cls(t.id).isError;
+      if (errorClass) builtins.refuseCause(this, node.arguments?.[1]);
+      let paramTypes = errorClass ? builtins.ERROR_PARAMS : params.map((p) => p.cppType);
       if (owner && owner.t.args.length) {
         const oi = owner.info;
         const map = new Map(oi.typeParams.map((p, i) => [p, owner.t.args[i]!]));

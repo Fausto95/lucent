@@ -7,7 +7,8 @@ import type { Ctx } from "./context.ts";
 import { operand } from "../ir/cpp.ts";
 import type { ValueId } from "../ir/ir.ts";
 import type { Initializer, Leaf } from "../ir/lower.ts";
-import { functionName } from "./builtins.ts";
+import { ERROR_PARAMS, functionName } from "./builtins.ts";
+import { stringExpr } from "./literals.ts";
 import { type FnOptions, FnEmitter } from "./function.ts";
 import { initializationThroughIr, type IrMode, throughIr } from "./through-ir.ts";
 import { ifaceOverrides, ifacesOf, virtualMembers } from "./interfaces.ts";
@@ -357,7 +358,7 @@ export function emitClass(
   let ctorDecls: cpp.Param[] = [];
   /** The implicit constructor, through the IR: its base's construction on its arguments, then the fields. */
   const implicitConstructor = (): void => {
-    const params = superCtor?.params ?? [];
+    const params = superCtor?.params ?? (info.isError ? ERROR_PARAMS : []);
     const sc = superCtor;
     const lowered = initializationThroughIr(
       ctx,
@@ -385,7 +386,22 @@ export function emitClass(
                   type: T.void,
                 }),
               }
-            : {}),
+            : info.isError
+              ? {
+                  // Extending Error: super(message), undefined being the message left out.
+                  first: ([message]: ValueId[]): Leaf => ({
+                    name: "super()",
+                    code: cpp.comma(
+                      cpp.assign(
+                        self("message"),
+                        cpp.call(cpp.dot(operand(message!), "valueOr"), [stringExpr("")]),
+                      ),
+                      cpp.id("lucent::undefined"),
+                    ),
+                    type: T.void,
+                  }),
+                }
+              : {}),
         initializers: fieldInitializers(),
       },
       {
@@ -509,5 +525,5 @@ function inheritedCtorParams(ctx: Ctx, ancestry: ClassChain): LType[] {
     const map = argMap(ctx, a.t);
     return em.paramInfos(ctor, fn).map((p) => substitute(p.cppType, map));
   }
-  return [];
+  return ancestry.some((a) => a.info.isError) ? ERROR_PARAMS : [];
 }
