@@ -310,6 +310,11 @@ Only exported functions, classes and constants are visible from JavaScript.
 - **Class instances keep their identity.** The same native object always maps to
   the same JS object, so `===` works. Instances live as long as either side
   holds them.
+- **Exported classes** are constructors: JavaScript calls `new` on them and
+  tests `instanceof`. A class's static methods and fields, its own and those
+  its Lucent base classes declare, are on its constructor; a static field is
+  a property that reads and writes the native one, so the module sees
+  JavaScript's writes.
 - **Interface values** cross as their concrete class instance. From JavaScript,
   only instances of Lucent classes that implement the interface are accepted.
 - **Unions of object types** need a string-literal discriminant (for example
@@ -319,7 +324,13 @@ Only exported functions, classes and constants are visible from JavaScript.
   `name`, `message` and `code`. Their `stack` starts with the Lucent frame
   that created the error (`at parse (/abs/path/config.lucent.ts:12)`). JS
   exceptions thrown by callbacks become Lucent errors that `catch` can handle,
-  and keep their original `stack` if they reach JavaScript again.
+  and keep their original `stack` if they reach JavaScript again. An instance
+  of a class that extends `Error` crosses as itself, thrown, returned or made
+  with `new` in JavaScript: `instanceof` its class and `Error`, with its
+  fields, and `name`, `message` and `stack` as an Error's. A subclass that no
+  export's types reach (itself, or a base or subclass of a class that
+  crosses) has no prototype in JavaScript: its instances cross as copies,
+  an `Error` with their `name` and `message`.
 - **Callbacks** (`(x: number) => void` parameters):
   - called while the JS thread is inside a synchronous call, they run
     synchronously and may return values;
@@ -395,6 +406,10 @@ explicitly, for example by clearing a field.
 | an abort reason can be any value                                                                | reasons from JavaScript become errors (`String(reason)` as the message when it is not an object); `abort()` in Lucent takes an `Error`                                                                                                                                                                                   |
 | a subclass field read from a base constructor is `undefined` until the subclass initializes it  | it reads the type's default (`0`, `""`, `false`, empty object)                                                                                                                                                                                                                                                           |
 | any object with the right members satisfies an interface                                        | only classes that declare `implements`; plain JS objects are rejected at the boundary with a `TypeError`                                                                                                                                                                                                                 |
+| assigning a static field a class inherits gives the subclass its own                            | from JavaScript, it writes the base class's field, which the subclass's constructor shares                                                                                                                                                                                                                               |
+| a `readonly` field can be assigned from JavaScript: TypeScript checks it only at compile time   | JavaScript sees a getter without a setter, so assigning one throws `TypeError` in strict mode code and is ignored otherwise                                                                                                                                                                                              |
+| `Object.prototype.toString` of an `Error` subclass's instance gives `[object Error]`            | a Lucent class instance is a plain object whose prototype chain reaches `Error.prototype`: it gives `[object Object]`                                                                                                                                                                                                    |
+| any value can be assigned to an error's `name` or `message`                                     | from JavaScript, a Lucent error's `name` and `message` take strings; another value throws `TypeError`                                                                                                                                                                                                                    |
 | a class instance in JavaScript has its fields as own properties, `private` ones included        | public fields are prototype accessors, other members hidden: `Object.keys` and `JSON.stringify` see no fields                                                                                                                                                                                                            |
 | a class's `[Symbol.dispose]()` is callable from JavaScript                                      | it is for Lucent code: JavaScript does not see symbol-keyed members of Lucent classes                                                                                                                                                                                                                                    |
 | `resolve(promise)` in a promise executor adopts the promise                                     | `fromCallback` reports values, not promises: a promise type is refused (`LUCENT1007`); await it and report its value                                                                                                                                                                                                     |

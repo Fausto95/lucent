@@ -78,6 +78,12 @@ Notable lowering choices:
   signature, and `super(...)` runs the base's `construct()` and then the
   subclass's field initializers. A base-typed value converts to JavaScript
   as its most derived class, whose prototype's `__proto__` is the base's.
+  A class that extends `Error` derives from `ErrorObject`, and its root
+  prototype's `__proto__` is `Error.prototype`, with `name`, `message` and
+  `stack` read from the native error (`defineErrorPrototype`). The
+  generated `errorInstanceToJs` lets `Host::errorToJs` throw, reject or
+  return such an error as its instance, and an instance coming back is
+  itself again.
 - **Interfaces implemented by classes** become abstract C++ bases (`I_Shape`)
   with pure-virtual methods and `get_`/`set_` accessors for properties.
   Implementing classes inherit them, fields get generated overrides, and

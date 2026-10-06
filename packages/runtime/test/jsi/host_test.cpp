@@ -548,6 +548,8 @@ const ModuleDef* registeredModules(size_t& count) {
 
 void resetModuleState() { m_t::init(); }
 
+jsi::Value errorInstanceToJs(jsi::Runtime&, Host&, const Error&) { return jsi::Value::undefined(); }
+
 const BuildIdentity& buildIdentity() {
   static const ModuleIdentity modules[] = {{"t", "api-of-t"}};
   static const BuildIdentity identity{"all", "program-of-t", modules, 1};
