@@ -47,7 +47,7 @@ import { cpp, swift } from "@lucent-lang/codegen";
 import path from "node:path";
 import ts from "typescript";
 import { compareVersions } from "../package-versions.ts";
-import { MIN_IOS, type SdkClassSchema, type SdkParam } from "../sdk/schema.ts";
+import { oldestIos, type SdkClassSchema, type SdkParam } from "../sdk/schema.ts";
 import { JSX_FORM, SOURCE_TAG } from "../sdk/toolkit-dts.ts";
 import { cppIdent, T } from "../types.ts";
 import type { ViewType } from "../ui/contract.ts";
@@ -1921,10 +1921,10 @@ function writable(node: ts.Node, found: SourceMember): void {
 
   const since = found.plan.availability?.since;
 
-  if (typeof since === "string" && compareVersions(since, MIN_IOS) > 0)
+  if (typeof since === "string" && compareVersions(since, oldestIos()) > 0)
     bodyFail(
       node,
-      `\`${found.display}\` needs iOS ${since} (apps run from iOS ${MIN_IOS}): a SwiftUI body writes what every supported iOS has, for now`,
+      `\`${found.display}\` needs iOS ${since} (apps run from iOS ${oldestIos()}): a SwiftUI body writes what every supported iOS has, for now`,
     );
 }
 

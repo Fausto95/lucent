@@ -1,0 +1,26 @@
+// A Swift package the app adds in Xcode, bound by rule (TA32):
+// KeychainAccess on iOS, which the app's project links at the version its
+// Package.resolved pins. Android keeps the value in its own preferences.
+import { PLATFORM } from "lucent:platform";
+import { Keychain } from "lucent:ios/KeychainAccess";
+import { appContext } from "lucent:android";
+import { Context } from "lucent:android/android.content";
+
+const KEY = "lucent-parity";
+
+export async function packagedLibrary(): Promise<string> {
+  if (PLATFORM === "ios") {
+    // init(service:): init(accessGroup:) takes one string too, so each is a factory.
+    const keychain = Keychain.withService("dev.lucent.bare");
+    keychain.set("stored", KEY);
+    const read = keychain.get(KEY);
+    keychain.remove(KEY);
+    return `${read} then ${keychain.get(KEY)}`;
+  } else {
+    const preferences = appContext().getSharedPreferences("dev.lucent.bare", Context.MODE_PRIVATE)!;
+    preferences.edit()!.putString(KEY, "stored")!.commit();
+    const read = preferences.getString(KEY, null);
+    preferences.edit()!.remove(KEY)!.commit();
+    return `${read} then ${preferences.getString(KEY, null)}`;
+  }
+}

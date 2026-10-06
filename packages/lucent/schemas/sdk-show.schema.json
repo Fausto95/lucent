@@ -1,0 +1,23 @@
+{
+  "$id": "https://lucent-lang.dev/schemas/sdk-show.schema.json",
+  "title": "lucent sdk show --json",
+  "type": "object",
+  "required": ["platform", "module", "symbol", "declaration"],
+  "additionalProperties": false,
+  "properties": {
+    "platform": {
+      "enum": ["ios", "android"]
+    },
+    "module": {
+      "type": "string"
+    },
+    "symbol": {
+      "type": "string",
+      "description": "What was asked for: <module>.<Type>[.<member>]"
+    },
+    "declaration": {
+      "type": "string",
+      "description": "The declaration Lucent code sees, with its doc comments (what it calls natively among them)"
+    }
+  }
+}

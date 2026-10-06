@@ -10,7 +10,7 @@ import {
   toolkitsFrom,
   viewCoverage,
 } from "@lucent-lang/compiler";
-import { sdkSourceModule, symbolKey } from "@lucent-lang/bindgen";
+import { coverageSummary, sdkSourceModule, symbolKey } from "@lucent-lang/bindgen";
 import type { Invocation } from "../args.ts";
 import { projectSdk, sdkImports } from "../project.ts";
 import { readUsage, USAGE_FILE } from "../sdk-usage.ts";
@@ -23,14 +23,19 @@ import { table } from "../ui/format.ts";
  * `--exercised` file lists). A toolkit generated from a module (while
  * views are on: lucent:swiftui, from SwiftUI) follows it, under its name.
  * With `--views` (views on), each module's view classes too: what their
- * JSX tags take by rule, and what the rules leave out.
+ * JSX tags take by rule, and what the rules leave out. `--all` takes
+ * every module of each SDK there is; `--summary <file>` appends a markdown
+ * summary (CI's step summary) of the reasons members are left out.
  */
 export function run({ root, flags, out }: Invocation): number {
   const t = out.theme;
   const sdk = projectSdk(root);
   const list = (flag: string) =>
     (typeof flags[flag] === "string" ? (flags[flag] as string) : "").split(",").filter(Boolean);
-  const wanted = { ios: list("ios"), android: list("android") };
+  // `*`: every module of the platform's SDK, where there is one.
+  const wanted = flags.all
+    ? { ios: ["*"], android: ["*"] }
+    : { ios: list("ios"), android: list("android") };
   if (!wanted.ios.length && !wanted.android.length)
     Object.assign(wanted, sdkImports(projectFiles(root)));
 
@@ -50,18 +55,30 @@ export function run({ root, flags, out }: Invocation): number {
   }
 
   const reports: (SdkCoverage & { views?: ViewCoverage[] })[] = [];
+  // With --all, a module the SDK lists but its extractor cannot read (IOKit for the simulator).
+  const unread: { module: string; reason: string }[] = [];
   for (const platform of ["ios", "android"] as const) {
-    // `android.*`: every module with the prefix.
+    // `android.*`: every module with the prefix; `*`, every module.
     const listed = () => {
       const all = sdkModules(platform, sdk);
       return "missing" in all ? [] : all;
     };
     const modules = wanted[platform].flatMap((m) =>
-      m.endsWith(".*") ? listed().filter((x) => x.startsWith(m.slice(0, -1))) : [m],
+      m === "*"
+        ? listed()
+        : m.endsWith(".*")
+          ? listed().filter((x) => x.startsWith(m.slice(0, -1)))
+          : [m],
     );
     for (const m of modules) {
       const r = sdkModule(platform, m, sdk);
       if ("missing" in r) {
+        if (flags.all) {
+          out.error(`${t.warn(t.symbols.warn)} ${r.missing}`);
+          unread.push({ module: m, reason: r.missing.replace(/^lucent:\w+\/[^:]+: /, "") });
+          continue;
+        }
+
         out.error(`${t.error(t.symbols.fail)} ${r.missing}`);
         return 1;
       }
@@ -141,6 +158,9 @@ export function run({ root, flags, out }: Invocation): number {
           out.print(line.trimEnd());
       }
   }
+
+  if (typeof flags.summary === "string")
+    fs.appendFileSync(path.resolve(root, flags.summary), coverageSummary(reports, 20, unread));
 
   const baselineFile = typeof flags.check === "string" ? flags.check : "";
   if (!baselineFile) return 0;

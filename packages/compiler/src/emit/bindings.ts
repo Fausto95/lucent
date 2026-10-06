@@ -1,12 +1,12 @@
 import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { Codes, CompileError, fail } from "../diagnostics.ts";
-import { sourcePath } from "../lowering/source.ts";
 import type { LucentModule } from "../program.ts";
 import { type ClassInfo, cppIdent, isVoidish, type LType, stripOpt, typeKey } from "../types.ts";
 import { constructorOf, memberName, parameterProperties } from "./classes.ts";
 import type { Ctx, Global, ParamInfo } from "./context.ts";
 import { FnEmitter } from "./function.ts";
+import { traceSite } from "./trace-site.ts";
 
 /** Everything JavaScript can see of one module. */
 export interface ModuleExports {
@@ -627,7 +627,7 @@ export class BindingsEmitter {
     prelude?: cpp.Stmt,
     captures: string[] = [],
   ): cpp.Stmt[] {
-    const site = siteOf(fname, declaration);
+    const site = traceSite(fname, declaration);
     const conv: cpp.Stmt[] = [];
     const names: string[] = [];
     params.forEach((p, i) => {
@@ -1133,21 +1133,6 @@ function sync(body: cpp.Stmt[], site?: cpp.Expr): cpp.Stmt[] {
     ),
     cpp.ret(cpp.call("callSync", [rt, cpp.id("host"), ...(site ? [site] : []), lambda])),
   ];
-}
-
-/**
- * Where an export is declared, for traces: its name, its .lucent.ts file
- * as `#line` names it, and its line (`LUCENT_TRACE_SITE_AT`, a static).
- */
-function siteOf(name: string, node: ts.Node): cpp.Expr {
-  const sf = node.getSourceFile();
-  const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
-
-  return cpp.call("LUCENT_TRACE_SITE_AT", [
-    cpp.str(name),
-    cpp.str(sourcePath(sf.fileName)),
-    cpp.num(line),
-  ]);
 }
 
 /** A JSI host function holding its Host; `thisVal` named when the body reads it. */

@@ -107,6 +107,12 @@ describe("view rules on iOS", () => {
           ],
           returns: "void",
         },
+        {
+          name: "removeDial",
+          selector: "removeDial:",
+          params: [{ name: "dial", type: "UIKit.UIView" }],
+          returns: "void",
+        },
       ],
     },
     { kind: "class", name: `${P}Action`, native: `${P}Action` },
@@ -148,6 +154,9 @@ describe("view rules on iOS", () => {
   it("takes children through the method its declarations insert them at an index with", () => {
     expect(viewRules(classOf(kit, `${P}Gauge`), kit, find).children).toMatchObject({
       insert: { selector: "insertDial:atIndex:" },
+      // Let go by its own remove…: (then the child's removeFromSuperview); moved by inserting again.
+      remove: { selector: "removeDial:" },
+      movesByInsert: true,
       explanation: expect.stringContaining(`${P}Gauge.insertDial:atIndex:`),
     });
     expect(viewRules(classOf(kit, `${P}Base`), kit, find).children).toBeUndefined();
@@ -228,6 +237,11 @@ describe("view rules on Android", () => {
           ],
           returns: "void",
         },
+        {
+          name: "removeView",
+          params: [{ name: "child", type: "android.view.View?" }],
+          returns: "void",
+        },
       ],
     },
     {
@@ -296,10 +310,11 @@ describe("view rules on Android", () => {
     ]);
   });
 
-  it("takes children through addView(View, int)", () => {
-    expect(viewRules(classOf(views, `${P}Dial`), views, find).children).toMatchObject({
-      insert: { name: "addView" },
-    });
+  it("takes children through addView(View, int), and lets them go through removeView(View)", () => {
+    const children = viewRules(classOf(views, `${P}Dial`), views, find).children;
+
+    expect(children).toMatchObject({ insert: { name: "addView" }, remove: { name: "removeView" } });
+    expect(children).not.toHaveProperty("movesByInsert");
   });
 
   it("is made with the host's context", () => {

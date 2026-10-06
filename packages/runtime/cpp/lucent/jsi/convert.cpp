@@ -105,7 +105,7 @@ String stringFromJs(jsi::Runtime& rt, const jsi::String& s) {
   };
   s.getStringData(rt, collect);
   if (acc.chunks == 1 && !acc.isWide && acc.ascii.empty()) return acc.first;
-  if (!acc.isWide) return String::adoptLatin1(std::move(acc.ascii));
+  if (!acc.isWide) return String::fromLatin1(acc.ascii);
   return String::fromUtf16(acc.wide);
 }
 

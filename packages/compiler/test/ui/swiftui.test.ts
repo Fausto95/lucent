@@ -183,7 +183,7 @@ describe("a SwiftUI component", () => {
       expect(unit).toContain("#include <lucent/platform/swiftui.h>");
       expect(unit).toMatch(
         new RegExp(
-          `lucent::ui::effect\\(lucent::ui::mainGraph\\(\\), lucent::ui::inContent\\(lucent_content, .*lucent_swiftui_${registration}_set0\\(.*"toggle\\.ios\\.lucent\\.tsx:\\d+"\\)`,
+          `lucent::ui::effect\\(lucent::ui::mainGraph\\(\\), lucent::ui::inContent\\(lucent_content, .*lucent_swiftui_${registration}_set0\\(.*"toggle\\.ios\\.lucent\\.tsx:\\d+", LUCENT_TRACE_SITE_AT\\("effect", "[^"]*toggle\\.ios\\.lucent\\.tsx", \\d+\\)\\)`,
           "s",
         ),
       );

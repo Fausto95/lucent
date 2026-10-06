@@ -633,7 +633,7 @@ export const Explanations: Record<Code, Explanation> = {
     summary:
       "JSX of UIKit or Android views that Lucent cannot make: a view, attribute or child its declarations do not provide for.",
     details:
-      "A component can return its platform's views as JSX, declared as returning UIView or View (internal, under LUCENT_VIEWS=fabric). A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Each attribute is kept up to date like an effect, from when the view mounts.",
+      "A component can return its platform's views as JSX, declared as returning UIView or View (internal, under LUCENT_VIEWS=fabric). A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Attributes are kept up to date like effects, and a child may come and go: `{cond && <X />}`, `{c ? <X /> : <Y />}`, or a keyed list, `{items.map((item) => <X key={item.id} />)}`.",
     fix: "write each attribute on its element, and set what the declarations do not provide for in setup code",
     wrong: {
       ...NATIVE_TITLE,

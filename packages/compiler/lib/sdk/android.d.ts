@@ -1,9 +1,21 @@
 // lucent:android — Android helpers for platform code.
 import type { Activity, Instrumentation_ActivityResult } from "lucent:android/android.app";
 import type { Context, Intent } from "lucent:android/android.content";
+import type { Throwable } from "lucent:android/java.lang";
 
 /** The application Context. */
 export declare function appContext(): Context;
+
+/**
+ * The Error Lucent makes of `throwable` when a call throws it: its message
+ * the exception's (or its class name, without one) and its `code` the class
+ * name (`java.lang.IllegalStateException`). An exception carrying a Lucent
+ * error (one a Lucent suspend function ended a Kotlin call with) gives
+ * that error.
+ * For an adapter whose callback API reports failure with a Throwable:
+ * `reject(errorOf(e))` rejects as the call would have thrown.
+ */
+export declare function errorOf(throwable: Throwable): Error;
 
 /** Whether the device runs at least API level `api` (`Build.VERSION.SDK_INT >= api`). */
 export declare function available(platform: "android", api: number): boolean;

@@ -70,6 +70,7 @@ class Resource : public std::enable_shared_from_this<Resource> {
 
   std::weak_ptr<Scope> scope_;
   std::atomic<Scope::CleanupId> cleanup_{0};
+  [[no_unique_address]] live::Counted<live::Kind::Resource> counted_;
 };
 
 }  // namespace lucent
