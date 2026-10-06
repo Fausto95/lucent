@@ -314,6 +314,7 @@ void Host::tearDown(bool runtimeUsable) {
   functions_.clear();
   prototypes_.clear();
   modules_.clear();
+  exported_.clear();
   identities_.clear();
   props_.clear();
 

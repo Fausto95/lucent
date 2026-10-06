@@ -2,6 +2,7 @@
 
 #include <new>
 #include <stdexcept>
+#include <string>
 
 namespace lucent {
 
@@ -22,6 +23,10 @@ void throwError(const String& name, const String& message) { throw Exception(mak
 
 void throwTypeError(const char* message) {
   throwError(String::fromLatin1("TypeError"), String::fromUtf8(message));
+}
+
+void throwUnassigned(const char* what) {
+  throwTypeError((std::string(what) + " was read before it was initialized").c_str());
 }
 
 void throwRangeError(const char* message) {

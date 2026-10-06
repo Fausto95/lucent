@@ -176,6 +176,22 @@ class Host : public std::enable_shared_from_this<Host> {
   /// program, modules: {name: api}}`, `host` being this host's id.
   jsi::Object identity(jsi::Runtime& rt);
 
+  /// An exported module variable as JavaScript reads it: `toJs()`'s copy of
+  /// it, the same one each read while the variable holds the same value
+  /// (`===`), so JavaScript keeps one object, and its own changes to it,
+  /// until the module assigns another.
+  template <class T, class ToJs>
+  jsi::Value exported(jsi::Runtime& rt, const T& variable, ToJs toJs) {
+    auto it = exported_.find(&variable);
+    if (it != exported_.end() && strictEquals(*std::static_pointer_cast<const T>(it->second.value), variable)) {
+      return jsi::Value(rt, it->second.js);
+    }
+
+    jsi::Value js = toJs();
+    exported_.insert_or_assign(&variable, Exported{std::make_shared<const T>(variable), jsi::Value(rt, js)});
+    return js;
+  }
+
   // --- promises ---------------------------------------------------------
   /// Creates a JS promise; settle it later with resolve/reject on the JS thread.
   jsi::Value createPromise(jsi::Runtime& rt, uint64_t& id);
@@ -225,6 +241,12 @@ class Host : public std::enable_shared_from_this<Host> {
     jsi::Function reject;
   };
 
+  /// What exported() last gave JavaScript of a variable, and its value then.
+  struct Exported {
+    std::shared_ptr<const void> value;
+    jsi::Value js;
+  };
+
   const RuntimeId id_;
   jsi::Runtime& rt_;
   JsPoster poster_;
@@ -237,6 +259,8 @@ class Host : public std::enable_shared_from_this<Host> {
   std::unordered_map<uint64_t, jsi::Function> functions_;
   std::unordered_map<std::string, jsi::Object> prototypes_;
   std::unordered_map<std::string, jsi::Value> modules_;
+  // Keyed by the variable's address: module variables live as long as the program.
+  std::unordered_map<const void*, Exported> exported_;
   // Keyed by the native instance: its JS object keeps it alive, so while
   // an entry's object lives, no other instance can have its address.
   std::unordered_map<const Object*, jsi::WeakObject> identities_;

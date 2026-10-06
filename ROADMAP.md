@@ -432,6 +432,50 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-06: A read before assignment throws, never crashes.** A field,
+static field or module variable of an object type (or a union holding
+one) that is read before it is assigned throws `TypeError` naming it;
+other types keep reading their default. _Why:_ JavaScript gives
+`undefined`, which a native `Ref` or struct can't hold without making
+every object type optional, and the read used to dereference null. The
+pattern (a base constructor reading a subclass's field, a `!` field) is
+not reliably detectable at compile time. _Changed:_ the deviations table
+in docs/semantics.md, which also records the missing temporal dead zone.
+
+**2026-10-06: Decorators and default exports are refused.** Both
+report a diagnostic (LUCENT1005, LUCENT3003) instead of compiling to a
+class whose decorators never run or an export JavaScript sees under its
+own name. _Why:_ a decorator can replace what it decorates at class
+definition, which a static native class can't follow, and the proxy
+exports names; `export function f` is the exact equivalent.
+_Changed:_ docs/semantics.md's Modules and classes sections.
+
+**2026-10-06: Optional fields' presence is refused, not guessed.** `in`
+with an object type's optional field, a computed `in`, `for…in` or
+`Object.keys` on a type with one report LUCENT1002 or LUCENT1003; `in`
+sees the keys every object inherits from `Object.prototype`. _Why:_ an
+optional field is a fixed-layout `Opt<T>` that can't tell unset from
+set to `undefined`; a presence bit per field would have to travel
+through literals, spreads, `JSON.parse` and the boundary, and reading
+`undefined` as absent is wrong for `{ name: maybe }`. _Changed:_
+docs/semantics.md (operators, loops, the key order row), the LUCENT1002
+and LUCENT1009 explanations.
+
+**2026-10-06: An exported `let` is a live binding.** JavaScript reads an
+exported `let` through a getter, on the native exports object and on the
+proxy, instead of a copy taken at import; an exported `const` is still
+copied once. A value the boundary copies (an object, array, map, set,
+record, tuple, `Uint8Array`) is copied once per value the module
+assigns, the host keeping that copy, so reads are `===` and JavaScript's
+changes to it last; the module's changes inside it are not seen, for a
+`let` or a `const`. _Why:_ ES modules export bindings, and refusing a
+reassigned exported `let` would break existing modules (the e2e case
+`modules` exports a counter), while a getter costs one host call per
+read. A copy at each read broke identity and dropped JavaScript's
+changes; tracking the module's changes inside a copied value would need
+a shared object, which the boundary's copy rule excludes. _Changed:_
+docs/semantics.md's Modules section.
+
 **2026-10-06: Kotlin build scripts get a Kotlin line.** `lucent init`
 and the Expo config plugin apply the Gradle task to
 `android/app/build.gradle.kts` with a Kotlin DSL line that asks Node
@@ -2653,6 +2697,20 @@ Last recorded runs:
   lands after the task ran but before the promise settled (native rejects,
   JavaScript resolves).
 - Module state is process-wide and reset when a new `Host` is created.
+- `null` and `undefined` from JavaScript are told apart for arguments,
+  setter values and object fields only; inside arrays, maps, sets,
+  records, tuples, callback results and promise values, a `T | undefined`
+  also takes `null` (and `T | null` takes `undefined`), and a use of it
+  then throws `TypeError`.
+- A field or variable of an object type read before it is assigned
+  throws `TypeError` (JavaScript reads `undefined`, also through `?.`);
+  one of a value type (number, string, boolean, tuple, array, map, set,
+  record, `Uint8Array`) reads its default. A `let` read before its
+  declaration runs reads as unassigned, not `ReferenceError`.
+- JavaScript sees an exported class's static methods but not its static
+  fields, and an instance of an exported Error subclass made or returned
+  to JavaScript has no `message` or `name` and is not `instanceof Error`
+  (a thrown one converts to a real Error).
 - On Android API 24 and 25, a Java default method that Lucent does not
   implement returns its zero value, and the reason is logged.
 - A Lucent package's pod binds once installed. In a bare app, the

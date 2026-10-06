@@ -1,7 +1,7 @@
 import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { literalConstant } from "../analysis/index.ts";
-import { Codes, fail } from "../diagnostics.ts";
+import { type Code, Codes, fail } from "../diagnostics.ts";
 import { isLibFile } from "../program.ts";
 import {
   type ClassInfo,
@@ -13,6 +13,7 @@ import {
   stripOpt,
   T,
   typeKey,
+  type TypeRegistry,
   unionOf,
 } from "../types.ts";
 import { AUTO_CLOSEABLE, sdkClassIs } from "../sdk/schema.ts";
@@ -24,6 +25,7 @@ import {
   spanMethod,
   spanProperty,
 } from "./buffers.ts";
+import { assignedRead } from "../lowering/unassigned.ts";
 import { DISPOSE, findMember } from "./classes.ts";
 import { type E, type Lvalue } from "./context.ts";
 import { coreCall, isCoreSymbol } from "./core.ts";
@@ -226,7 +228,10 @@ export function classMember(
     return { c: cpp.call(cpp.arrow(obj.c, `get_${cppIdent(name)}`), []), t: type };
   }
   if (ts.isPropertyDeclaration(decl) || ts.isParameter(decl)) {
-    return { c: cpp.arrow(obj.c, cppIdent(name)), t: memberType(em, t, decl) };
+    const type = memberType(em, t, decl);
+    const what = `${em.reg.cls(t.id).decl.name?.text ?? "this"}.${name}`;
+
+    return { c: assignedRead(cpp.arrow(obj.c, cppIdent(name)), type, what), t: type };
   }
   if (ts.isMethodDeclaration(decl)) {
     // A bound method used as a value.
@@ -544,7 +549,11 @@ export function staticProperty(em: FnEmitter, node: ts.PropertyAccessExpression)
       return {
         c: literal
           ? em.exprAs(literal, t)
-          : cpp.id(`lucent_app::${owner.cppName}::${cppIdent(name)}`),
+          : assignedRead(
+              cpp.id(`lucent_app::${owner.cppName}::${cppIdent(name)}`),
+              t,
+              `${owner.decl.name?.text}.${name}`,
+            ),
         t,
       };
     }
@@ -685,7 +694,9 @@ export function staticCall(
         };
     }
     if (t.k === "struct" && name === "keys") {
-      const fields = em.reg.struct(t.id).fields.map((f) => stringExpr(f.name));
+      const fields = structKeys(em.reg, t.id, node, Codes.UnsupportedBuiltin, "Object.keys").map(
+        stringExpr,
+      );
       const strings = cpp.type("lucent::Array", cpp.type("lucent::String"));
       return { c: cpp.construct(strings, fields, true), t: { k: "array", e: T.string } };
     }
@@ -1978,6 +1989,87 @@ export function newBuiltin(
 }
 
 // --- instanceof / super ----------------------------------------------------------------------
+
+/**
+ * An object type's keys, in declared order. Refused when a field is
+ * optional: a native object can't tell an unset field from one set to
+ * undefined, and JavaScript lists only the fields that are set.
+ */
+export function structKeys(
+  reg: TypeRegistry,
+  id: string,
+  node: ts.Node,
+  code: Code,
+  what: string,
+): string[] {
+  const fields = reg.struct(id).fields;
+  const optional = fields.find((f) => f.optional);
+
+  if (optional) fail(node, code, unsetField(what, optional.name), UNSET_FIELD_FIX);
+
+  return fields.map((f) => f.name);
+}
+
+const unsetField = (what: string, name: string) =>
+  `${what} cannot tell an unset optional field (${name}) from one set to undefined; compare \`.${name} !== undefined\``;
+const UNSET_FIELD_FIX =
+  "compare the optional field with `undefined`, or use a Record for keys that come and go";
+
+/** What `in` refuses, for its diagnostic: a union is told apart by a discriminant instead. */
+const NOT_IN: Partial<Record<LType["k"], string>> = {
+  class: "a class instance",
+  array: "an array",
+  tuple: "an array",
+  map: "a Map",
+  set: "a Set",
+};
+
+/**
+ * `key in o` on a record, or on an object type when the answer doesn't
+ * depend on whether an optional field is set. Keys every object inherits
+ * (`toString`, `constructor`…) are in, as in JavaScript. The key is
+ * evaluated before the object.
+ */
+export function keyIn(em: FnEmitter, node: ts.BinaryExpression): E {
+  const keyType = em.checker.getTypeAtLocation(node.left);
+  const literal = keyType.isStringLiteral() ? keyType.value : undefined;
+  const k = em.ctx.fresh("key");
+  const key = cpp.varDecl(cpp.type("lucent::String"), k, em.exprAs(node.left, T.string));
+  const obj = em.expr(node.right);
+  const t = stripOpt(obj.t);
+  const answer = (c: cpp.Expr, before: cpp.Stmt[] = []) =>
+    bool(cpp.statementExpr([key, ...before], c));
+
+  if (t.k === "dict") return answer(cpp.call("lucent::keyIn", [cpp.id(k), obj.c]));
+
+  if (t.k === "union")
+    fail(
+      node,
+      Codes.UnsupportedOperator,
+      "`in` works on records and object types; tell union members apart by a discriminant field such as `kind`",
+      "compare a discriminant field such as `kind`",
+    );
+
+  if (t.k !== "struct")
+    fail(
+      node,
+      Codes.UnsupportedOperator,
+      `\`in\` works on records and object types, not on ${NOT_IN[t.k] ?? "this type"}`,
+      "use a Map or a Record for keys that come and go",
+    );
+
+  const fields = em.reg.struct(t.id).fields;
+  const optional = fields.find((f) => f.optional && (literal === undefined || f.name === literal));
+
+  if (optional)
+    fail(node, Codes.UnsupportedOperator, unsetField("`in`", optional.name), UNSET_FIELD_FIX);
+
+  const names = fields.map((f) => stringExpr(f.name));
+
+  return answer(cpp.call("lucent::keyIn", [cpp.id(k), cpp.initList(names)]), [
+    cpp.exprStmt(cpp.cast("c", cpp.voidType, obj.c)),
+  ]);
+}
 
 export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
   const sdk = nativeInstanceOf(em, node);

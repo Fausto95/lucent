@@ -2,17 +2,8 @@ import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { Codes, CompileError, fail } from "../diagnostics.ts";
 import type { LucentModule } from "../program.ts";
-import {
-  type ClassInfo,
-  cppIdent,
-  isVoidish,
-  type LType,
-  stripOpt,
-  substitute,
-  T,
-  typeKey,
-} from "../types.ts";
-import { memberName, parameterProperties } from "./classes.ts";
+import { type ClassInfo, cppIdent, isVoidish, type LType, stripOpt, typeKey } from "../types.ts";
+import { constructorOf, memberName, parameterProperties } from "./classes.ts";
 import type { Ctx, Global, ParamInfo } from "./context.ts";
 import { FnEmitter } from "./function.ts";
 import { traceSite } from "./trace-site.ts";
@@ -284,10 +275,11 @@ export class BindingsEmitter {
       specialize(this.reg.cppType({ k: "class", id, args: [] }), false);
     for (const t of this.ifaces.values()) specialize(this.reg.cppType(t), false);
     for (const u of this.unions.values()) specialize(this.reg.cppType(u), false);
-    for (const id of this.structs) js.push(...this.structConvert(id));
-    for (const id of this.classes) js.push(...this.classConvert(id));
+    const guarded = (f: () => cpp.Decl[]) => js.push(...(this.ctx.guard(f) ?? []));
+    for (const id of this.structs) guarded(() => this.structConvert(id));
+    for (const id of this.classes) guarded(() => this.classConvert(id));
     js.push(this.errorInstances());
-    for (const t of this.ifaces.values()) js.push(...this.ifaceConvert(t));
+    for (const t of this.ifaces.values()) guarded(() => this.ifaceConvert(t));
     for (const [key, u] of this.unions) {
       const decls = this.ctx.guard(() => {
         try {
@@ -301,7 +293,7 @@ export class BindingsEmitter {
       });
       if (decls) js.push(...decls);
     }
-    const installers = mods.map((m) => this.installer(m));
+    const installers = mods.flatMap((m) => this.ctx.guard(() => this.installer(m)) ?? []);
     const modules = mods.map((m) =>
       cpp.initList([cpp.str(m.module.name), cpp.id(`install_${m.module.ns}`)]),
     );
@@ -364,8 +356,8 @@ export class BindingsEmitter {
         cpp.exprStmt(
           cpp.assign(
             cpp.arrow(out, cppIdent(f.name)),
-            fromJs(
-              ft,
+            this.convertFromJs(
+              f.type,
               cpp.call(cpp.dot(o, "getProperty"), [rt, prop(i)]),
               cpp.call(cpp.dot(p, "field"), [cpp.str(f.name)]),
             ),
@@ -658,7 +650,11 @@ export class BindingsEmitter {
       setter = hostFunction(
         sync([
           ...(prelude ? [prelude] : []),
-          cpp.varDecl(cpp.auto, "value", fromJs(t, argAt(0), path(fname, "value"))),
+          cpp.varDecl(
+            cpp.auto,
+            "value",
+            this.convertFromJs(m.types[0]!, argAt(0), path(fname, "value")),
+          ),
           cpp.exprStmt(assign),
           cpp.ret(cpp.call("jsi::Value::undefined")),
         ]),
@@ -710,7 +706,11 @@ export class BindingsEmitter {
         });
       } else {
         conv.push(
-          cpp.varDecl(cpp.auto, n, fromJs(t, argAt(i), path(fname, `argument '${p.name}'`))),
+          cpp.varDecl(
+            cpp.auto,
+            n,
+            this.convertFromJs(p.cppType, argAt(i), path(fname, `argument '${p.name}'`)),
+          ),
         );
       }
     });
@@ -779,26 +779,7 @@ export class BindingsEmitter {
     for (const c of m.classes) {
       if (c.typeParams.length) continue;
       const name = c.decl.name!.text;
-      // The nearest constructor in the chain; subclasses may inherit theirs.
-      const owner = this.reg
-        .chain({ k: "class", id: c.id, args: [] })
-        .find((x) => x.info.decl.members.some(ts.isConstructorDeclaration));
-      const ctor = owner?.info.decl.members.find(ts.isConstructorDeclaration);
-      const em = new FnEmitter(this.ctx, { module: m.module, async: false });
-      const ctorType = ctor
-        ? (this.reg.lowerSignature(
-            this.ctx.checker.getSignatureFromDeclaration(ctor)!,
-            ctor,
-          ) as LType & { k: "fn" })
-        : { k: "fn" as const, params: [], ret: T.void };
-      const map = owner
-        ? new Map(owner.info.typeParams.map((p, i) => [p, owner.t.args[i]!] as [string, LType]))
-        : new Map<string, LType>();
-      const params = (ctor ? em.paramInfos(ctor, ctorType) : []).map((p) => ({
-        ...p,
-        type: substitute(p.type, map),
-        cppType: substitute(p.cppType, map),
-      }));
+      const params = constructorOf(this.ctx, { k: "class", id: c.id, args: [] });
       const selfT: LType = { k: "class", id: c.id, args: [] };
       const construct = c.abstract
         ? [
@@ -852,14 +833,30 @@ export class BindingsEmitter {
         );
     }
     for (const c of m.consts) {
-      const name = c.decl.name.getText();
+      const name = cpp.str(c.decl.name.getText());
+      const value = toJs(this.reg.cppType(c.type), cpp.id("host"), cpp.id(c.cpp));
+      // One copy per value the module assigns, as JavaScript holds one object.
+      const read = copiedOnce(c.type)
+        ? cpp.call(cpp.dot(cpp.id("host"), "exported"), [
+            rt,
+            cpp.id(c.cpp),
+            cpp.lambda(["&"], [], [cpp.ret(value)], { ret: JS_VALUE }),
+          ])
+        : value;
+
+      // A `let` the module may reassign is read live, as an ES module
+      // binding; a `const` binding never changes, so one copy is enough.
       body.push(
         cpp.exprStmt(
-          cpp.call(cpp.dot(exports, "setProperty"), [
-            rt,
-            cpp.str(name),
-            toJs(this.reg.cppType(c.type), cpp.id("host"), cpp.id(c.cpp)),
-          ]),
+          c.isConst
+            ? cpp.call(cpp.dot(exports, "setProperty"), [rt, name, value])
+            : cpp.call("defineAccessor", [
+                rt,
+                exports,
+                name,
+                hostFunction(sync([cpp.ret(read)])),
+                cpp.nullptr,
+              ]),
         ),
       );
     }
@@ -879,7 +876,6 @@ export class BindingsEmitter {
     const s = this.reg.cppType(u);
     const tests: cpp.Stmt[] = [];
     const objectMembers: LType[] = [];
-    const describe: string[] = [];
     const object = cpp.call(cpp.dot(v, "getObject"), [rt]);
     const isObject = cpp.call(cpp.dot(v, "isObject"));
     const instance = (cls: string) =>
@@ -890,28 +886,22 @@ export class BindingsEmitter {
       switch (m.k) {
         case "number":
           test(is("isNumber"));
-          describe.push("a number");
           break;
         case "string":
           test(is("isString"));
-          describe.push("a string");
           break;
         case "bigint":
           test(is("isBigInt"));
-          describe.push("a bigint");
           break;
         case "boolean":
           test(is("isBool"));
-          describe.push("a boolean");
           break;
         case "array":
         case "tuple":
           test(cpp.and(isObject, cpp.call(cpp.dot(object, "isArray"), [rt])));
-          describe.push("an array");
           break;
         case "fn":
           test(cpp.and(isObject, cpp.call(cpp.dot(object, "isFunction"), [rt])));
-          describe.push("a function");
           break;
         case "bytes":
           test(instance("Uint8Array"));
@@ -930,7 +920,6 @@ export class BindingsEmitter {
           test(
             dynamicCast(cpp.type(`lucent_app::${info.cppName}`), cpp.call("instanceOf", [rt, v])),
           );
-          describe.push(`a ${info.decl.name!.text}`);
           break;
         }
         case "struct":
@@ -947,10 +936,8 @@ export class BindingsEmitter {
     }
     if (objectMembers.length === 1) {
       tests.push(cpp.ifStmt(isObject, [this.unionMember(s, objectMembers[0]!)]));
-      describe.push("an object");
     } else if (objectMembers.length > 1) {
       tests.push(this.discriminate(s, objectMembers));
-      describe.push("an object");
     }
     const x = cpp.id("x");
     const visitor = cpp.lambda(
@@ -961,18 +948,46 @@ export class BindingsEmitter {
     );
     const scope = cpp.type("Convert", s);
     return [
-      cpp.fn(
-        "fromJs",
-        s,
-        fromJsParams(),
-        [...tests, boundaryError(p, describe.join(" or ") || "a value of the union", v)],
-        { inline: true, scope },
-      ),
+      cpp.fn("fromJs", s, fromJsParams(), [...tests, boundaryError(p, this.describe(u), v)], {
+        inline: true,
+        scope,
+      }),
       cpp.fn("toJs", JS_VALUE, toJsParams(s), [cpp.ret(cpp.call("std::visit", [visitor, v]))], {
         inline: true,
         scope,
       }),
     ];
+  }
+
+  /**
+   * Converts `value` to `t`. An optional typed with one absent value
+   * (`T | undefined` or `T | null`) rejects the other here: Convert<Opt<T>>
+   * takes both.
+   */
+  private convertFromJs(t: LType, value: cpp.Expr, at: cpp.Expr): cpp.Expr {
+    if (t.k !== "opt" || t.absent === undefined) return fromJs(this.reg.cppType(t), value, at);
+
+    return cpp.call(
+      "optionalFromJs",
+      [rt, value, at, cpp.bool(t.absent === "null"), cpp.str(this.describe(t))],
+      [this.reg.cppType(t.inner)],
+    );
+  }
+
+  /** What a boundary error says `t` must be: "a string or undefined". */
+  private describe(t: LType): string {
+    switch (t.k) {
+      case "class":
+        return `a ${this.reg.cls(t.id).decl.name!.text}`;
+      case "iface":
+        return `a ${this.reg.iface(t.id).decl.name.text}`;
+      case "union":
+        return [...new Set(t.ms.map((m) => this.describe(m)))].join(" or ");
+      case "opt":
+        return `${this.describe(t.inner)} or ${t.absent ?? "null or undefined"}`;
+      default:
+        return DESCRIPTIONS[t.k] ?? "a value";
+    }
   }
 
   /** `return U(Convert<M>::fromJs(rt, v, p));` */
@@ -1015,6 +1030,14 @@ export class BindingsEmitter {
               cpp.ifStmt(cpp.binary(d, "==", cpp.str(values[i]!)), [this.unionMember(s, m)]),
             ),
           ]),
+          cpp.exprStmt(
+            cpp.call("throwUnknownDiscriminant", [
+              rt,
+              cpp.call(cpp.dot(p, "field"), [cpp.str(name)]),
+              cpp.str(values.map((x) => JSON.stringify(x)).join(" or ")),
+              dv,
+            ]),
+          ),
         ]);
       }
     }
@@ -1027,6 +1050,57 @@ export class BindingsEmitter {
 }
 
 const [rt, v, p] = [cpp.id("rt"), cpp.id("v"), cpp.id("p")];
+
+/** Kinds the boundary copies into a new JavaScript object at each conversion. */
+const COPIED = new Set<LType["k"]>(["struct", "array", "tuple", "map", "set", "dict", "bytes"]);
+/** Kinds `lucent::strictEquals` compares: by identity, or as primitives. */
+const COMPARED = new Set<LType["k"]>([
+  ...COPIED,
+  "number",
+  "string",
+  "boolean",
+  "bigint",
+  "null",
+  "undefined",
+  "class",
+]);
+
+/**
+ * Whether an exported variable of type `t` is copied once per value
+ * (Host::exported) rather than at each read: one the boundary copies,
+ * made only of what strictEquals compares.
+ */
+function copiedOnce(t: LType): boolean {
+  const members = (x: LType): LType[] =>
+    x.k === "opt" ? members(x.inner) : x.k === "union" ? x.ms.flatMap(members) : [x];
+  const compared = (x: LType): boolean =>
+    x.k === "tuple" ? x.es.every(compared) : members(x).every((m) => COMPARED.has(m.k));
+  const ms = members(t);
+
+  return ms.some((m) => COPIED.has(m.k)) && ms.every(compared);
+}
+/** How boundary errors name the values a type accepts, as the runtime's Convert does. */
+const DESCRIPTIONS: Partial<Record<LType["k"], string>> = {
+  number: "a number",
+  bigint: "a bigint",
+  boolean: "a boolean",
+  string: "a string",
+  undefined: "undefined",
+  null: "null",
+  array: "an array",
+  tuple: "an array",
+  map: "a Map",
+  set: "a Set",
+  dict: "an object",
+  struct: "an object",
+  fn: "a function",
+  bytes: "a Uint8Array",
+  error: "an Error",
+  date: "a Date",
+  regexp: "a RegExp",
+  abortSignal: "an AbortSignal",
+  buffer: "a NativeBuffer",
+};
 const JS_VALUE = cpp.type("jsi::Value");
 const RUNTIME = cpp.param(cpp.reference(cpp.type("jsi::Runtime")), "rt");
 const PATH = cpp.param(cpp.reference(cpp.constType(cpp.type("Path"))), "p");
@@ -1132,8 +1206,22 @@ export function staticMembers(ctx: Ctx, info: ClassInfo): PublicMember[] {
   return [...out.values()];
 }
 
-/** The public members `info` declares: its instance members, or its static ones. */
+const instanceMembersOf = new WeakMap<ClassInfo, PublicMember[]>();
+const staticMembersOf = new WeakMap<ClassInfo, PublicMember[]>();
+
+/**
+ * The public members `info` declares: its instance members, or its static
+ * ones. Lowered once per class: a member that fails is reported once and
+ * left out.
+ */
 function declaredMembers(ctx: Ctx, info: ClassInfo, statics: boolean): PublicMember[] {
+  const cache = statics ? staticMembersOf : instanceMembersOf;
+  let members = cache.get(info);
+  if (!members) cache.set(info, (members = lowerMembers(ctx, info, statics)));
+  return members;
+}
+
+function lowerMembers(ctx: Ctx, info: ClassInfo, statics: boolean): PublicMember[] {
   const out: PublicMember[] = [];
   const isPublic = (m: ts.Node & { name?: ts.PropertyName | ts.BindingName }) => {
     const mods = ts.canHaveModifiers(m) ? (ts.getModifiers(m) ?? []) : [];
@@ -1155,18 +1243,25 @@ function declaredMembers(ctx: Ctx, info: ClassInfo, statics: boolean): PublicMem
   for (const p of parameterProperties(ctor)) {
     if (!isPublic(p)) continue;
     const readonly = !!ts.getModifiers(p)?.some((x) => x.kind === ts.SyntaxKind.ReadonlyKeyword);
-    out.push({
-      kind: "field",
-      name: memberName(p),
-      node: p,
-      types: [reg.lower(ctx.checker.getTypeAtLocation(p), p)],
-      writable: !readonly,
-    });
+    ctx.guard(() =>
+      out.push({
+        kind: "field",
+        name: memberName(p),
+        node: p,
+        types: [reg.lower(ctx.checker.getTypeAtLocation(p), p)],
+        writable: !readonly,
+      }),
+    );
   }
   const accessors = new Map<string, PublicMember>();
   for (const m of info.decl.members) {
     // Symbol-keyed methods ([Symbol.dispose]) are for Lucent code: JSI names properties by string.
     if (!isPublic(m) || (m.name && ts.isComputedPropertyName(m.name))) continue;
+    ctx.guard(() => lowerMember(m));
+  }
+  return out;
+
+  function lowerMember(m: ts.ClassElement): void {
     if (ts.isPropertyDeclaration(m)) {
       const readonly = !!ts.getModifiers(m)?.some((x) => x.kind === ts.SyntaxKind.ReadonlyKeyword);
       out.push({
@@ -1210,7 +1305,6 @@ function declaredMembers(ctx: Ctx, info: ClassInfo, statics: boolean): PublicMem
       }
     }
   }
-  return out;
 }
 
 export { stripOpt };

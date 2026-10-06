@@ -63,3 +63,126 @@ describe("diagnostics", () => {
     );
   });
 });
+
+describe("summaries name constructs that report their code", () => {
+  // Each construct a code's summary names, with the code it reports today.
+  it.each([
+    ["LUCENT1001", "`var`", "export function f(): number {\n  var x = 1;\n  return x;\n}\n"],
+    [
+      "LUCENT1001",
+      "a getter in an object literal",
+      "export function f(): number {\n  const o = {\n    get x(): number {\n      return 1;\n    },\n  };\n  return o.x;\n}\n",
+    ],
+    [
+      "LUCENT1001",
+      "`await using`",
+      "class R {\n  [Symbol.dispose](): void {}\n}\nexport async function f(): Promise<number> {\n  await using r = new R();\n  void r;\n  return 1;\n}\n",
+    ],
+    [
+      "LUCENT1002",
+      "`delete` of a field",
+      "export function f(o: { a?: number }): number {\n  delete o.a;\n  return 1;\n}\n",
+    ],
+    [
+      "LUCENT1002",
+      "`instanceof` with a generic class",
+      "class Box<T> {\n  constructor(public v: T) {}\n}\nexport function f(): boolean {\n  const b: Box<number> | undefined = new Box(1);\n  return b instanceof Box;\n}\n",
+    ],
+    [
+      "LUCENT1002",
+      "`in` on a class instance",
+      'class K {\n  a = 1;\n}\nexport function f(): boolean {\n  const k = new K();\n  return "a" in k;\n}\n',
+    ],
+    [
+      "LUCENT1002",
+      "`in` on an object type's optional field",
+      'type P = { x: number; y?: number };\nexport function f(p: P): boolean {\n  return "y" in p;\n}\n',
+    ],
+    [
+      "LUCENT1005",
+      "a static block",
+      "class C {\n  static x = 1;\n  static {\n    C.x = 2;\n  }\n}\nexport function f(): number {\n  return C.x;\n}\n",
+    ],
+    [
+      "LUCENT1005",
+      "a decorator",
+      "function sealed(_t: typeof A): void {}\n@sealed\nexport class A {}\n",
+    ],
+    [
+      "LUCENT1007",
+      "spread arguments to a fixed number of parameters",
+      "function add(a: number, b: number): number {\n  return a + b;\n}\nexport function f(): number {\n  const t: [number, number] = [1, 2];\n  return add(...t);\n}\n",
+    ],
+    [
+      "LUCENT2002",
+      "a rest parameter",
+      "function sum(...xs: number[]): number {\n  let s = 0;\n  for (const x of xs) s += x;\n  return s;\n}\nexport function f(): number {\n  return sum(1, 2, 3);\n}\n",
+    ],
+    [
+      "LUCENT2002",
+      "an async generator",
+      "async function* g(): AsyncGenerator<number> {\n  yield 1;\n}\nexport function f(): number {\n  void g;\n  return 1;\n}\n",
+    ],
+    [
+      "LUCENT3003",
+      "an export list",
+      "function twice(n: number): number {\n  return n * 2;\n}\nexport { twice };\n",
+    ],
+    [
+      "LUCENT3003",
+      "a default-exported function",
+      "export default function twice(n: number): number {\n  return n * 2;\n}\n",
+    ],
+  ])("%s: %s", (code, _construct, source) => {
+    const r = compileExample({ "sample.lucent.ts": source });
+    expect(r.diagnostics.map((d) => d.code)).toContain(code);
+  });
+});
+
+describe("fixes fit the construct reported", () => {
+  // The fix the CLI prints under a diagnostic: the site's own when the
+  // code's general fix is about something else.
+  it.each([
+    [
+      "LUCENT1005",
+      "a decorator",
+      "function sealed(_t: typeof A): void {}\n@sealed\nexport class A {}\n",
+      "decorator",
+    ],
+    [
+      "LUCENT1005",
+      "a static block",
+      "class C {\n  static x = 1;\n  static {\n    C.x = 2;\n  }\n}\nexport function f(): number {\n  return C.x;\n}\n",
+      "initializer",
+    ],
+    [
+      "LUCENT1003",
+      "Object.keys with an optional field",
+      "type P = { x: number; y?: number };\nexport function f(p: P): string[] {\n  return Object.keys(p);\n}\n",
+      "`undefined`",
+    ],
+    [
+      "LUCENT1002",
+      "for…in with an optional field",
+      'type P = { x: number; y?: number };\nexport function f(p: P): string {\n  let s = "";\n  for (const k in p) s += k;\n  return s;\n}\n',
+      "`undefined`",
+    ],
+    [
+      "LUCENT2002",
+      "a rest parameter",
+      "function sum(...xs: number[]): number {\n  return xs.length;\n}\nexport function f(): number {\n  return sum(1, 2);\n}\n",
+      "array",
+    ],
+    [
+      "LUCENT2002",
+      "an async generator",
+      "export class G {\n  async *g(): AsyncGenerator<number> {\n    yield 1;\n  }\n}\n",
+      "generator",
+    ],
+  ])("%s: %s", (code, _construct, source, fix) => {
+    const r = compileExample({ "sample.lucent.ts": source });
+    expect(r.diagnostics).toContainEqual(
+      expect.objectContaining({ code, fix: expect.stringContaining(fix) }),
+    );
+  });
+});

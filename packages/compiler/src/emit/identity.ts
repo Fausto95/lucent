@@ -10,9 +10,9 @@
 import type { ComponentDescription } from "../ui/contract.ts";
 import { cpp, ts as js } from "@lucent-lang/codegen";
 import { createHash } from "node:crypto";
-import ts from "typescript";
 import { isVoidish, type LType, typeKey } from "../types.ts";
 import { type ModuleExports, publicMembers, staticMembers } from "./bindings.ts";
+import { constructorOf } from "./classes.ts";
 import type { Ctx } from "./context.ts";
 
 /**
@@ -170,19 +170,7 @@ export function apiSurface(
 
   for (const c of m.classes) {
     const self = classOf(c.id);
-    const ctor = reg
-      .chain(self)
-      .map((x) => x.info.decl.members.find(ts.isConstructorDeclaration))
-      .find((x) => x !== undefined);
-    const ctorType = ctor
-      ? (reg.lowerSignature(ctx.checker.getSignatureFromDeclaration(ctor)!, ctor) as LType & {
-          k: "fn";
-        })
-      : undefined;
-    const params = (ctorType?.params ?? []).map(
-      (p, i) =>
-        `${key(p)}${ctor!.parameters[i]?.questionToken || ctor!.parameters[i]?.initializer ? "?" : ""}`,
-    );
+    const params = constructorOf(ctx, self).map((p) => `${key(p.type)}${p.optional ? "?" : ""}`);
     const statics = c.typeParams.length
       ? []
       : staticMembers(ctx, c).map(

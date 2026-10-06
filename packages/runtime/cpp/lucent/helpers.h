@@ -90,6 +90,38 @@ inline Opt<String> stringIndex(const String& s, double i) {
   return undefined;
 }
 
+// --- in -------------------------------------------------------------------------------------
+
+/// A key every object inherits: `Object.getOwnPropertyNames(Object.prototype)`.
+inline bool inheritedKey(const String& key) {
+  static constexpr std::string_view names[] = {
+      "constructor",      "__defineGetter__", "__defineSetter__", "hasOwnProperty",
+      "__lookupGetter__", "__lookupSetter__", "isPrototypeOf",    "propertyIsEnumerable",
+      "toString",         "valueOf",          "__proto__",        "toLocaleString",
+  };
+
+  if (!key.isOneByte()) return false;
+
+  for (auto name : names)
+    if (key.latin1() == name) return true;
+
+  return false;
+}
+
+/// `key in record`.
+template <class V>
+bool keyIn(const String& key, const Dict<V>& record) {
+  return record.has(key) || inheritedKey(key);
+}
+
+/// `key in object`, for an object type whose fields are all required.
+inline bool keyIn(const String& key, std::initializer_list<String> fields) {
+  for (const auto& field : fields)
+    if (key == field) return true;
+
+  return inheritedKey(key);
+}
+
 // --- instanceof ---------------------------------------------------------------------------
 
 template <class C, class V>

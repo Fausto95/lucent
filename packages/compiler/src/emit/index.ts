@@ -9,7 +9,14 @@ import { platformScopes } from "../platforms.ts";
 import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
 import { BindingsEmitter, type ModuleExports } from "./bindings.ts";
-import { emitClass, jsonMemberParams, memberName, parameterProperties } from "./classes.ts";
+import {
+  type ClassOutput,
+  emitClass,
+  initialValue,
+  jsonMemberParams,
+  memberName,
+  parameterProperties,
+} from "./classes.ts";
 import { bindCompute, emitTaskVariants, taskHeader } from "./compute.ts";
 import { objcDelegate } from "./delegates.ts";
 import { iosSubclass } from "./objc-subclass.ts";
@@ -130,14 +137,9 @@ export function emitProgram(
     imports.set(m, []);
     for (const s of m.sourceFile.statements) {
       if (ts.isClassDeclaration(s) && here(s)) {
-        if (!s.name) {
-          ctx.diagnostics.push({
-            code: Codes.UnsupportedTopLevel,
-            message: "classes need a name",
-            file: m.file,
-          });
-          continue;
-        }
+        if (isDefaultExport(s)) ctx.guard(() => fail(s, Codes.UnsupportedExport, defaultExport));
+        // Only `export default class {}` has no name: reported above.
+        if (!s.name) continue;
         const info = ctx.reg.registerClass(s, m.name, isExported(s));
         const sym = lp.checker.getSymbolAtLocation(s.name)!;
         ctx.globals.set(sym, {
@@ -183,7 +185,7 @@ export function emitProgram(
   const moduleDecls = new Map<LucentModule, cpp.Decl[]>();
   const moduleDefs = new Map<LucentModule, cpp.Decl[]>();
   const genericFns = new Map<LucentModule, cpp.Decl[]>();
-  const statics = new Map<LucentModule, Initializer[]>();
+  const statics = new Map<LucentModule, ClassOutput["statics"]>();
   const nativeDecls: cpp.Decl[] = [];
   const java = new Map<string, string>();
   for (const m of lp.modules) {
@@ -281,31 +283,28 @@ export function emitProgram(
 
     decls.push(cpp.fn("init", cpp.voidType, []));
 
-    // Its classes' static fields, then its variables (a type's default without a value).
+    // Its classes' static fields and its variables, in source order (a type's default without a value).
     const initializers: Initializer[] = [
       ...statics.get(m)!,
       ...vars.map((g) => ({
-        value: g.decl.initializer
-          ? { expr: g.decl.initializer }
-          : {
-              leaf: {
-                name: "default",
-                code: cpp.construct(ctx.reg.cppType(g.type), [], true),
-                type: g.type,
-              },
+        decl: g.decl,
+        init: {
+          value: initialValue(ctx, g.decl.initializer, g.type),
+          type: g.type,
+          into: {
+            variable: {
+              kind: "var" as const,
+              id: g.cpp,
+              name: g.decl.name.getText(),
+              type: g.type,
+              mutable: true,
             },
-        type: g.type,
-        into: {
-          variable: {
-            kind: "var" as const,
-            id: g.cpp,
-            name: g.decl.name.getText(),
-            type: g.type,
-            mutable: true,
           },
         },
       })),
-    ];
+    ]
+      .sort((a, b) => a.decl.getStart() - b.decl.getStart())
+      .map((s) => s.init);
     const body = ctx.guard(() => initThroughIr(ctx, m, initializers, ir).body) ?? [];
 
     moduleDefs.get(m)!.push(cpp.fn("init", cpp.voidType, [], body, { scope: cpp.type(m.ns) }));
@@ -515,11 +514,15 @@ export function emitProgram(
 }
 
 function isExported(n: ts.Node): boolean {
-  return (
-    ts.canHaveModifiers(n) &&
-    !!ts.getModifiers(n)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
-  );
+  return hasModifier(n, ts.SyntaxKind.ExportKeyword);
 }
+
+// JavaScript would see a default-exported declaration as `default`; the proxy exports by name.
+function isDefaultExport(n: ts.Node): boolean {
+  return hasModifier(n, ts.SyntaxKind.DefaultKeyword);
+}
+
+const defaultExport = "default exports are not supported; export the declaration by name";
 
 /**
  * Fails an import of a Lucent file the build leaves out: a module of a
@@ -592,6 +595,7 @@ function collect(
     return;
   }
   if (ts.isFunctionDeclaration(s)) {
+    if (isDefaultExport(s)) fail(s, Codes.UnsupportedExport, defaultExport);
     if (!s.name) fail(s, Codes.UnsupportedTopLevel, "functions need a name");
     const declared = !!ts.getModifiers(s)?.some((x) => x.kind === ts.SyntaxKind.DeclareKeyword);
     if (!s.body && !(m.stub && declared)) {
@@ -662,8 +666,7 @@ function collect(
       Codes.UnsupportedExport,
       "export lists and re-exports are not supported; export declarations directly",
     );
-  if (ts.isExportAssignment(s))
-    fail(s, Codes.UnsupportedExport, "default exports are not supported");
+  if (ts.isExportAssignment(s)) fail(s, Codes.UnsupportedExport, defaultExport);
   if (ts.isEmptyStatement(s)) return;
   fail(
     s,
@@ -1101,7 +1104,22 @@ function jsProxy(m: ModuleExports, components: readonly ComponentDescription[]):
   }
   for (const c of m.consts) {
     const name = c.decl.name.getText();
-    decls.push(exported(name, js.member(mod, name)));
+    decls.push(
+      c.isConst
+        ? exported(name, js.member(mod, name))
+        : js.stmt(
+            js.exprStmt(
+              js.call(js.member(js.name("Object"), "defineProperty"), [
+                exports,
+                js.str(name),
+                js.objectLit([
+                  { key: "enumerable", value: js.bool(true) },
+                  { key: "get", value: js.arrow([], js.member(mod, name)) },
+                ]),
+              ]),
+            ),
+          ),
+    );
   }
   for (const e of m.enums) {
     const entries: { key: string; value: js.Expr; quoted: true }[] = [];

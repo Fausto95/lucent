@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { type Code, docsUrl, Explanations } from "./codes.ts";
-import { type Diagnostic, formatDiagnostic } from "./diagnostics.ts";
+import { CompileError, type Diagnostic, formatDiagnostic, toDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
 import {
   conformanceErrors,
@@ -341,6 +341,29 @@ function compileOnce(
   lp: ReturnType<typeof createLucentProgram>,
   declarations: string[] = [],
   target?: Target,
+): Compiled {
+  let result: Compiled;
+  try {
+    result = compileChecked(lp, declarations, target);
+  } catch (e) {
+    // Lowering outside a guarded unit: still a diagnostic, never a crash.
+    if (!(e instanceof CompileError)) throw e;
+    result = { files: new Map(), proxies: new Map(), diagnostics: [toDiagnostic(e)], ok: false };
+  }
+  if (result.ok) return result;
+  // Several passes may lower the same failing node; a failed compile has no output.
+  return {
+    ...result,
+    files: new Map(),
+    proxies: new Map(),
+    diagnostics: dedupe(result.diagnostics),
+  };
+}
+
+function compileChecked(
+  lp: ReturnType<typeof createLucentProgram>,
+  declarations: string[],
+  target: Target | undefined,
 ): Compiled {
   const untyped = PLATFORMS.filter((p) => p !== lp.platform && !platformSdkTyped(p));
   const checks = [

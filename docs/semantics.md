@@ -24,6 +24,7 @@ export function f(x: number): number { ... }         // callable from JavaScript
 export async function g(): Promise<string> { ... }   // returns a JS promise; runs off the JS thread
 export class Store { ... }                            // `new Store()` from JavaScript
 export const VERSION = "1.0";                          // copied to JavaScript once
+export let count = 0;                                  // read live: JavaScript sees each new value
 export enum Mode { Fast = "fast", Safe = "safe" }     // becomes a frozen JS object
 export type Item = { id: string; tags: string[] };    // types are free
 
@@ -31,6 +32,27 @@ let counter = 0;                                      // module state, reset on 
 ```
 
 - The top level may only contain declarations.
+- Exports are named by their declarations: export lists, re-exports and
+  default exports (`export default function f`, which JavaScript would see
+  as `default`) report `LUCENT3003`.
+- An exported `let` is a live binding, as in an ES module: each read from
+  JavaScript gets the value the module holds now. An exported `const` is
+  copied once, as its binding never changes. Refusing an exported `let`
+  that the module reassigns would have broken ordinary counters and
+  caches, and a getter fits both the native exports object and the
+  JavaScript proxy.
+- An exported variable holding an object, array, map, set, record, tuple
+  or `Uint8Array` reaches JavaScript as a copy, by the boundary's copy
+  rule: one copy per value the module assigns, so reads give the same
+  object (`mod.config === mod.config`) and JavaScript's own changes to it
+  stay until the module assigns another. Changes the module makes inside
+  that value (`config.size++`, `list.push(x)`) are not seen by JavaScript,
+  for a `let` or a `const`: export a function that returns the value, or
+  assign a new one, to show them.
+- Top-level declarations initialize in source order, as in JavaScript: a
+  class's static fields where the class is declared, between the module's
+  variables. A JS reload runs every initializer again and resets every
+  static field, one without an initializer to its type's default.
 - Imports are limited to other `*.lucent.ts` files, `lucent:core`, and
   the `lucent:` platform modules (below).
 - Module names are file names without `.lucent.ts`, and must be unique within an app.
@@ -71,7 +93,7 @@ sets and Android constant groups (`@IntDef`, `@LongDef`) stay numbers; a
 | `Record<string, V>`, `{ [k: string]: V }`                   | string-keyed dictionary, JS key order                                                                                                                         |
 | `Map<K, V>`, `Set<T>`                                       | insertion-ordered, SameValueZero keys                                                                                                                         |
 | object types (`type`, `interface`, literals)                | shared struct; types with the same shape share one struct                                                                                                     |
-| classes                                                     | shared object with methods, accessors, statics; `extends` another Lucent class (virtual dispatch, `super`, abstract classes)                                  |
+| classes                                                     | shared object with methods, accessors, static methods; `extends` another Lucent class (virtual dispatch, `super`, abstract classes)                           |
 | interfaces with methods, or named in a class's `implements` | abstract base with virtual methods and property accessors; implemented only by classes that declare `implements`                                              |
 | `T \| undefined`, `T \| null`, `x?: T`, `null \| undefined` | optional that remembers `undefined` vs `null`                                                                                                                 |
 | other unions                                                | tagged union (`string \| number`, discriminated object unions, …)                                                                                             |
@@ -86,6 +108,8 @@ Not supported: `any`, `unknown` (except in `catch`), intersections, `symbol`,
 `object`, getters in object literals, index signatures mixed with
 properties, and extending built-in classes other than `Error`. An override
 must keep the overridden member's native signature (`LUCENT1005` otherwise).
+Decorators report `LUCENT1005`: one runs when its class is defined and may
+replace the class or member it decorates.
 
 Interfaces implemented by classes are _nominal_: a class must say
 `implements Shape` to be used as a `Shape` (`LUCENT2008` otherwise), and object
@@ -146,7 +170,9 @@ Supported:
   Spreading an object into a record is refused (`LUCENT1001`): an
   object's fields have no key order nor a record of which optional ones
   are set.
-- `typeof`, `instanceof` (classes, `Error` kinds, `Array`, `Map`, …), `in` on records.
+- `typeof`, `instanceof` (classes, `Error` kinds, `Array`, `Map`, …), `in`
+  on records, including the keys every object inherits (`"toString" in r`).
+  `in` on a union is refused: tell its members apart by a discriminant.
 - Arrow functions and function expressions, nested function declarations
   (hoisted), recursion. Closures share variables with their enclosing scope,
   and `let` loop variables get a fresh binding per iteration.
@@ -298,10 +324,23 @@ diagnostic.
 ## Crossing the JavaScript boundary
 
 Only exported functions, classes and constants are visible from JavaScript.
+An exported class shows JavaScript its constructor, instance members and
+static methods; its static fields stay inside Lucent.
 
 - **Arguments are validated**, because JavaScript callers can pass anything:
   `hash: argument 'input' must be a string, got a number`, or for nested values
   `midpoint: argument 'a'.y must be a number, got undefined`.
+- **`null` and `undefined` are told apart** where TypeScript does: an
+  argument, a setter's value or an object's field typed `T | undefined` (or
+  `x?: T`) rejects `null`, and one typed `T | null` rejects `undefined`
+  (`label: argument 'name' must be a string or undefined, got null`). Inside
+  an array, a map, a set, a record, a tuple, a callback's result or a
+  promise's value, either absent value is accepted, as the converter there
+  is shared by every optional of that type; so is a field of two object
+  types that differ only in the absent value it admits (`{ v: string |
+null }` and `{ v: string | undefined }` share one native layout). A body
+  that reads the one its type excludes throws `TypeError` when it uses the
+  value.
 - **Values are copied:** arrays, records, maps, sets, tuples and plain objects
   cross the boundary as copies. If native code mutates an array it received,
   the caller's array is unchanged. A plain object reaches JavaScript with
@@ -318,7 +357,9 @@ Only exported functions, classes and constants are visible from JavaScript.
 - **Interface values** cross as their concrete class instance. From JavaScript,
   only instances of Lucent classes that implement the interface are accepted.
 - **Unions of object types** need a string-literal discriminant (for example
-  `kind: "circle"`) so incoming values can be told apart.
+  `kind: "circle"`) so incoming values can be told apart. A value whose
+  discriminant names no member fails with the values accepted:
+  `shape: argument 's'.kind must be "circle" or "square", got "triangle"`.
 - **bigints** cross exactly, as JavaScript bigints, at any size.
 - **Errors** become JS `Error` / `TypeError` / `RangeError` / `SyntaxError` objects with the same
   `name`, `message` and `code`. Their `stack` starts with the Lucent frame
@@ -404,7 +445,9 @@ explicitly, for example by clearing a field.
 | `date.toString()` includes the zone name in some engines                                        | `Mon Jul 22 2019 15:51:50 GMT-0700`, like Hermes; `toLocale…` methods are not supported                                                                                                                                                                                                                                  |
 | `abort()` without a reason uses an `AbortError` whose message depends on the engine             | `AbortError: signal is aborted without reason`, as in React Native and browsers (Node says "This operation was aborted")                                                                                                                                                                                                 |
 | an abort reason can be any value                                                                | reasons from JavaScript become errors (`String(reason)` as the message when it is not an object); `abort()` in Lucent takes an `Error`                                                                                                                                                                                   |
-| a subclass field read from a base constructor is `undefined` until the subclass initializes it  | it reads the type's default (`0`, `""`, `false`, empty object)                                                                                                                                                                                                                                                           |
+| a field or variable read before it is assigned (from a base constructor, say) is `undefined`    | a number, string, boolean, tuple, array, map, set, record or `Uint8Array` (or their union) reads a default; an object throws `TypeError`                                                                                                                                                                                 |
+| `this.p?.x` on an object field not yet assigned is `undefined`                                  | throws `TypeError`, as any read of that field does                                                                                                                                                                                                                                                                       |
+| a `let` or `const` read before its declaration runs throws `ReferenceError`                     | it reads as a variable not yet assigned, above                                                                                                                                                                                                                                                                           |
 | any object with the right members satisfies an interface                                        | only classes that declare `implements`; plain JS objects are rejected at the boundary with a `TypeError`                                                                                                                                                                                                                 |
 | assigning a static field a class inherits gives the subclass its own                            | from JavaScript, it writes the base class's field, which the subclass's constructor shares                                                                                                                                                                                                                               |
 | a `readonly` field can be assigned from JavaScript: TypeScript checks it only at compile time   | JavaScript sees a getter without a setter, so assigning one throws `TypeError` in strict mode code and is ignored otherwise                                                                                                                                                                                              |
