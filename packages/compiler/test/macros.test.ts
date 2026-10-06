@@ -4,8 +4,9 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../src/index.ts";
 
-function project(sources: Record<string, string>): string[] {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-macros-"));
+function project(sources: Record<string, string>, subdir = ""): string[] {
+  const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-macros-")), subdir);
+  fs.mkdirSync(dir, { recursive: true });
 
   return Object.entries(sources).map(([name, src]) => {
     const f = path.join(dir, name);
@@ -63,5 +64,24 @@ export function caption(p: Photo): string {
         included: true,
       });
     }
+  });
+
+  it("does not depend on the directory the sources are in", () => {
+    // `h` is declared in one module only; the other spells it only in its path.
+    const sources = {
+      "a.lucent.ts": "export function h(): number {\n  return 1;\n}\n",
+      "b.lucent.ts": "export function k(): number {\n  return 2;\n}\n",
+    };
+    const generated = (subdir: string) => {
+      const files = project(sources, subdir);
+      const dir = path.dirname(files[0]!);
+      const r = compile(files);
+
+      expect(r.diagnostics).toEqual([]);
+
+      return new Map([...r.files].map(([name, code]) => [name, code.split(dir).join("<dir>")]));
+    };
+
+    expect(generated("h")).toEqual(generated("plain"));
   });
 });
