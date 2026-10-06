@@ -95,7 +95,7 @@ Rebuild on every change: a live dashboard of modules, platforms and problems (on
     fix: use a concrete type, a union, or a generic parameter
 ```
 
-In a terminal, it shows a dashboard of modules, platforms and problems. Its keys rebuild (`r`), clear the cache (`c`), run the doctor (`d`), open a problem in your editor (`o`) and quit (`q`). With `--compact`, or outside a terminal, it prints one line per build, as above: that's what [`withLucent`](/docs/reference/metro-and-expo/) runs next to Metro.
+In a terminal, it shows a dashboard of modules, platforms and problems. Its keys rebuild (`r`), clear the cache (`c`), run the doctor (`d`), open a problem in your editor (`o`) and quit (`q`). With `--compact`, or outside a terminal, it prints one line per build, as above: that's what [`withLucent`](/docs/api/integrations/#metro) runs next to Metro.
 
 It watches the app and each Lucent package it links from outside it, such as a workspace package. It rebuilds when a file a build reads changes: a module, a `package.json` or `lucent.json`, or a native file a package lists. What builds write never triggers one, and a change during a build stops it before it writes anything.
 
@@ -113,7 +113,7 @@ Set an app up for Lucent: the Metro config, the Expo plugin or the Gradle task, 
 | --- | --- |
 | `--yes` | Apply every change without asking |
 
-It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/install/) lists the changes for Expo and bare apps. Running it again changes nothing.
+It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/guides/install/) lists the changes for Expo and bare apps. Running it again changes nothing.
 
 ## lucent new module
 
@@ -146,7 +146,7 @@ export default {
 };
 ```
 
-Each case runs as your module compiled to C++ and as the same TypeScript run as JavaScript, in a desktop Hermes. The results must match. It needs Hermes at `~/hermes`, or `HERMES_DIR`; [Design the boundary first](/docs/thinking/boundary-first/) shows its output.
+Each case runs as your module compiled to C++ and as the same TypeScript run as JavaScript, in a desktop Hermes. The results must match. It needs Hermes at `~/hermes`, or `HERMES_DIR`; [Compare a module's speed with JavaScript](/docs/guides/measure-performance/) shows its output.
 
 ## lucent trace
 

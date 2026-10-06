@@ -47,7 +47,7 @@ export const blocks: Block[] = [
   },
   {
     kind: "p",
-    text: "`lucent build`, `lucent check`, `lucent dev` and the [editor plugin](/docs/reference/metro-and-expo/#editor-plugin) report the same diagnostics. A build with one writes nothing. `lucent explain <code>` prints the explanation this page shows.",
+    text: "`lucent build`, `lucent check`, `lucent dev` and the [editor plugin](/docs/api/integrations/#editor-plugin) report the same diagnostics. A build with one writes nothing. `lucent explain <code>` prints the explanation this page shows.",
   },
   {
     kind: "p",

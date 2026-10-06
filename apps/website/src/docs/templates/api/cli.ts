@@ -50,7 +50,7 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
     },
     {
       kind: "p",
-      text: "In a terminal, it shows a dashboard of modules, platforms and problems. Its keys rebuild (`r`), clear the cache (`c`), run the doctor (`d`), open a problem in your editor (`o`) and quit (`q`). With `--compact`, or outside a terminal, it prints one line per build, as above: that's what [`withLucent`](/docs/reference/metro-and-expo/) runs next to Metro.",
+      text: "In a terminal, it shows a dashboard of modules, platforms and problems. Its keys rebuild (`r`), clear the cache (`c`), run the doctor (`d`), open a problem in your editor (`o`) and quit (`q`). With `--compact`, or outside a terminal, it prints one line per build, as above: that's what [`withLucent`](/docs/api/integrations/#metro) runs next to Metro.",
     },
     {
       kind: "p",
@@ -60,7 +60,7 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
   init: [
     {
       kind: "p",
-      text: "It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/install/) lists the changes for Expo and bare apps. Running it again changes nothing.",
+      text: "It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/guides/install/) lists the changes for Expo and bare apps. Running it again changes nothing.",
     },
   ],
   doctor: [
@@ -90,7 +90,7 @@ export default {
     },
     {
       kind: "p",
-      text: "Each case runs as your module compiled to C++ and as the same TypeScript run as JavaScript, in a desktop Hermes. The results must match. It needs Hermes at `~/hermes`, or `HERMES_DIR`; [Design the boundary first](/docs/thinking/boundary-first/) shows its output.",
+      text: "Each case runs as your module compiled to C++ and as the same TypeScript run as JavaScript, in a desktop Hermes. The results must match. It needs Hermes at `~/hermes`, or `HERMES_DIR`; [Compare a module's speed with JavaScript](/docs/guides/measure-performance/) shows its output.",
     },
   ],
 };
