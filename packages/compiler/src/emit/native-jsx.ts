@@ -28,6 +28,7 @@ import { Codes, fail, replacing } from "../diagnostics.ts";
 import { findSdkModule } from "../sdk/schema.ts";
 import { type ViewOwner, viewTag } from "../sdk/view-rules.ts";
 import { isFlexTag, nativeTagType } from "../ui/roots.ts";
+import { inSetupCode, refuseNativeJsx } from "../ui/toolkit-body.ts";
 import type { Thunk } from "../ir/lower.ts";
 import { type LType, T } from "../types.ts";
 import type { E } from "./context.ts";
@@ -49,12 +50,7 @@ import { traceSite } from "./trace-site.ts";
 export function nativeJsx(em: FnEmitter, node: ts.Expression): E {
   const setup = setupOf(em.ctx, node);
 
-  if (!setup || !returnedBy(node, setup.fn))
-    fail(
-      node,
-      Codes.NativeViewJsx,
-      "JSX of native views is what a component returns: return it, as the last statement of the component",
-    );
+  if (!setup || !returnedBy(node, setup.fn)) refuseNativeJsx(node);
 
   const made = madeIn();
   const root = element(em, node, made);
@@ -122,15 +118,22 @@ const resultOf = (f: E, or: LType): LType => (f.t.k === "fn" ? f.t.ret : or);
 const discarded = (c: cpp.Expr): cpp.Stmt =>
   cpp.exprStmt(c.k === "call" ? c : cpp.cast("c", cpp.voidType, c));
 
-/** Whether `node` is what `fn` returns last: the component's view. */
+/**
+ * Whether `node` is what `fn` returns from its own code, in any branch:
+ * the return's expression, or an arm of a conditional it is.
+ */
 function returnedBy(node: ts.Expression, fn: ts.FunctionLikeDeclaration): boolean {
   let at: ts.Node = node;
-  while (ts.isParenthesizedExpression(at.parent)) at = at.parent;
+  while (
+    ts.isParenthesizedExpression(at.parent) ||
+    (ts.isConditionalExpression(at.parent) && at.parent.condition !== at)
+  )
+    at = at.parent;
 
-  const body = fn.body;
-  const last = body && ts.isBlock(body) ? body.statements.at(-1) : undefined;
-
-  return body === at || (!!last && ts.isReturnStatement(last) && last.expression === at);
+  return (
+    fn.body === at ||
+    (ts.isReturnStatement(at.parent) && at.parent.expression === at && inSetupCode(at.parent, fn))
+  );
 }
 
 /**

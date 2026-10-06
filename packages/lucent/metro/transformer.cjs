@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const { nativePackage } = require("./native-package.cjs");
 
 const upstream = require(process.env.LUCENT_UPSTREAM_TRANSFORMER);
 const LUCENT = /\.lucent\.tsx?$/;
@@ -33,15 +34,6 @@ function moduleName(filename, pkg) {
   if (!pkg) return base(path.basename(filename));
   const rel = path.relative(pkg.sources, path.resolve(filename));
   return `${pkg.name}/${base(rel).split(path.sep).join("/")}`;
-}
-
-/**
- * The native package whose proxies Metro bundles: the project's
- * .lucent/native, or the one LUCENT_OUT names (as `lucent build --out`,
- * relative to the project).
- */
-function nativePackage(projectRoot) {
-  return path.resolve(projectRoot, process.env.LUCENT_OUT || path.join(".lucent", "native"));
 }
 
 function proxyFor(filename, projectRoot) {

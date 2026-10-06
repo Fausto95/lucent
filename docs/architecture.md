@@ -41,10 +41,12 @@
  ├── resolved.json                   Lucent packages' lucent.json, merged, with provenance
  ├── packages/<package>/             the native files each Lucent package lists
  ├── react-native.config.js          pure C++ dependency (cxxModule* fields)
- ├── types/                          lucent:core and SDK declarations (tsconfig paths)
+ ├── types/                          lucent:core and SDK declarations (tsconfig paths),
+ │                                   types/views/<module>.d.ts components' React types
  └── js/<module>.js                  proxies Metro bundles instead of the .ts,
      js/_lucent/runtime.js           and the loader they require,
-     js/_lucent/views.js             and the views runtime components' exports use
+     js/_lucent/views.js             and the views runtime components' exports use,
+     js/_lucent/components/<module>.js  lucent:views/<module>: requires the module
 ```
 
 ## Compiler
@@ -284,7 +286,11 @@ Notable lowering choices:
   its components (`ui/proxy.ts`) as React components the views runtime
   (`runtime/js/views.js`) makes from a generated description; their
   React-facing declarations come from `componentDeclarations`, written
-  to the native package's `types/views/<module>.d.ts`, and a module's API
+  to the native package's `types/views/<module>.d.ts`, which the app's
+  `lucent:*` tsconfig path makes `lucent:views/<module>`; Metro's
+  resolver (`withLucent`) maps that name to
+  `js/_lucent/components/<module>.js`, which requires the component's
+  module itself, so the app's two imports are one module. A module's API
   hash covers its components' contracts. Props and
   event handlers travel under keys of their own (`ui/transport.ts`:
   `p<index>`, `e<slot>`, events `lucent<slot>`), never meeting React

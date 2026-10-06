@@ -2512,6 +2512,18 @@ export function requireAvailable(
   );
 }
 
+/** A member used at `node`: it, and its class when used statically, must exist on the oldest OS. */
+function requireAvailableUse(
+  em: FnEmitter,
+  node: ts.Node,
+  ref: SdkClassRef,
+  member: { name: string; since?: number | string },
+  obj: E | undefined,
+): void {
+  if (!obj) requireAvailable(em, node, ref, ref.cls.since, ref.cls.name);
+  requireAvailable(em, node, ref, member.since, `${ref.cls.name}.${member.name}`);
+}
+
 /**
  * The running OS's API level: android.os.Build.VERSION.SDK_INT, by its
  * native identity (a fixed platform fundamental, as the NDK's
@@ -2933,8 +2945,7 @@ function property(
   const plan = requirePlan(node, ref, prop, "get");
   requireMain(em, node, ref, prop);
   warnBlocking(em, node, ref, prop);
-  if (!obj) requireAvailable(em, node, ref, ref.cls.since, ref.cls.name);
-  requireAvailable(em, node, ref, prop.since, `${ref.cls.name}.${prop.name}`);
+  requireAvailableUse(em, node, ref, prop, obj);
   const t = parseSdkType(prop.type, ref.module);
   const what = `${ref.cls.name}.${prop.name}`;
   if (prop.swift)
@@ -3033,8 +3044,7 @@ export function nativeCall(
     );
   requireMain(em, node, ref, method);
   warnBlocking(em, node, ref, method);
-  if (!obj) requireAvailable(em, node, ref, ref.cls.since, ref.cls.name);
-  requireAvailable(em, node, ref, method.since, `${ref.cls.name}.${method.name}`);
+  requireAvailableUse(em, node, ref, method, obj);
   if (method.swift) {
     const what = `${ref.cls.name}.${name}()`;
     const params = method.params.map((p) => parseSdkType(p.type, ref.module));
@@ -3240,6 +3250,7 @@ export function propertySetter(
   type: LType,
 ): (value: cpp.Expr) => cpp.Expr {
   const plan = requirePlan(site, ref, prop, "set");
+  requireAvailableUse(em, site, ref, prop, obj);
   const t = parseSdkType(prop.type, ref.module);
   if (prop.swift) {
     const what = `${ref.cls.name}.${prop.name}`;

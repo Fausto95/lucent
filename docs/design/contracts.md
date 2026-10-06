@@ -1761,7 +1761,7 @@ export interface MutableByteSpan extends ByteSpan {
 
 ## C-VIEW: components and views
 
-**Current version: v2.3 (proposed).** `VIEW_CONTRACT_VERSION` in the code
+**Current version: v2.4 (proposed).** `VIEW_CONTRACT_VERSION` in the code
 is 2: it counts layout changes of `ComponentDescription` that consumers
 must follow, not every revision. Views are still behind the internal
 `LUCENT_VIEWS=fabric` switch, off by default. [views.md](views.md)
@@ -1975,7 +1975,11 @@ export const VIEW_CONTRACT_VERSION = 2;
   ignores late answers.
 - The React surface: own props, callbacks, `style`, and a `ref` to the
   commands; no other ViewProps. React declarations are written to
-  `types/views/<module>.d.ts`.
+  `types/views/<module>.d.ts`, and the app imports them as
+  `lucent:views/<module>`: TypeScript through its `lucent:*` path, Metro
+  through `withLucent`'s resolver, to `js/_lucent/components/<module>.js`,
+  which requires the component's module (`CompileResult.componentModules`
+  names its file).
 - The module API hash covers component contracts, so a contract change
   makes the loader refuse a stale build rather than warn.
 
@@ -2237,6 +2241,13 @@ has the details.
   classified by the returned element's tag. The design's child adapters
   (16.5) were replaced by children derived from an insert-at-index
   method. Migration: none (views are internal).
+- **v2.4** (2026-10-06, proposed): `lucent:views/<module>`, the React
+  types of a component module, resolved by TypeScript and Metro alike;
+  `componentModules` and `js/_lucent/components/<module>.js`. Native JSX
+  may be returned from any of setup's own code (a PLATFORM branch, a
+  guard, a conditional's arms), and a slot made at the top level of a
+  PLATFORM branch. Migration: replace a cast of `./x.lucent` with an
+  import of `lucent:views/x` (views are internal).
 
 ## C-BUILD: build records and identities
 

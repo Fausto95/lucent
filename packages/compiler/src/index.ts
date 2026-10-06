@@ -17,6 +17,7 @@ import {
   createLucentProgram,
   findLucentFiles,
   type LucentProgram,
+  moduleNameOf,
   platformOf,
   projectFiles,
   type ReadSource,
@@ -306,8 +307,13 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
 
     out.diagnostics.push(...merged.diagnostics);
     if (merged.components.length) out.components = merged.components;
-    if (merged.components.length && fabricViews())
+    if (merged.components.length && fabricViews()) {
       out.componentTypes = componentTypeFiles(merged.components);
+      out.componentModules = componentModuleFiles(merged.components, [
+        ...plan.shared,
+        ...declarations,
+      ]);
+    }
   }
   out.diagnostics = dedupe(out.diagnostics);
   out.warnings = dedupe(out.warnings ?? []);
@@ -379,6 +385,20 @@ function componentTypeFiles(components: readonly ComponentDescription[]): Map<st
     );
 
   return out;
+}
+
+/** The file JavaScript imports for each module with components, among the non-platform `files`. */
+function componentModuleFiles(
+  components: readonly ComponentDescription[],
+  files: readonly string[],
+): Map<string, string> {
+  const modules = new Set(components.map((c) => c.jsModule));
+
+  return new Map(
+    files
+      .map((file) => [moduleNameOf(file), path.resolve(file)] as const)
+      .filter(([name]) => modules.has(name)),
+  );
 }
 
 /** The same problem, reported by the program of each target, once. */

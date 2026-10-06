@@ -73,6 +73,11 @@ export interface EmitResult {
    */
   componentTypes?: Map<string, string>;
   /**
+   * The file JavaScript imports for each of those modules (the shared one,
+   * not a platform file), by module name: what `lucent:views/<module>` is.
+   */
+  componentModules?: Map<string, string>;
+  /**
    * Declarations of the lucent:* modules the platform modules use
    * (`ios/UIKit.d.ts`, `thread.d.ts`…), for the app's own TypeScript:
    * map `lucent:*` to them in tsconfig paths.

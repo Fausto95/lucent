@@ -340,6 +340,41 @@ export function guardClause(checker: ts.TypeChecker, s: ts.Statement): Platform 
 }
 
 /**
+ * Whether a statement stands in `fn`'s own code: in its body, or only in
+ * PLATFORM branches there (`if (PLATFORM === "ios") { … }`, a case of
+ * `switch (PLATFORM)`), which a platform's program takes as its code. A
+ * branch under another condition too (`PLATFORM === "ios" && ready`) runs
+ * only when it holds, so its statements are not.
+ */
+export function topLevel(
+  checker: ts.TypeChecker,
+  s: ts.Statement,
+  fn: { body?: ts.Node },
+): boolean {
+  for (let n: ts.Node = s; n.parent !== fn.body; n = n.parent)
+    if (!inPlatformBranch(checker, n)) return false;
+
+  return true;
+}
+
+/** Whether `n` runs whenever its parent does on a platform: the parent is a PLATFORM branch or a block of one. */
+function inPlatformBranch(checker: ts.TypeChecker, n: ts.Node): boolean {
+  const p = n.parent;
+
+  if (ts.isIfStatement(p)) {
+    const guard = n !== p.expression && platformGuard(checker, p.expression);
+
+    return !!guard && !guard.rest.length;
+  }
+
+  if (ts.isBlock(p)) return ts.isIfStatement(p.parent) || ts.isCaseOrDefaultClause(p.parent);
+
+  if (ts.isCaseBlock(p)) return !!switchPlatforms(checker, p.parent);
+
+  return ts.isCaseOrDefaultClause(p) || ts.isSwitchStatement(p);
+}
+
+/**
  * The platform the innermost platform branch, case or guard clause around
  * `node` runs on; code both platforms reach has none.
  */
