@@ -154,4 +154,7 @@ inline String toJsString(const Bytes& b) { return b.join(); }
 Bytes utf8Encode(const String& s);
 String utf8Decode(const Bytes& b);
 
+template <class T>
+using IsBytes = std::is_same<T, Bytes>;
+
 }  // namespace lucent

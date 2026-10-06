@@ -735,11 +735,7 @@ export function staticCall(
   }
   if (isLibGlobal(em, obj, "Array")) {
     const rt = em.lt(node);
-    if (name === "isArray") {
-      const v = em.expr(a[0]!);
-      if (stripOpt(v.t).k !== "array") return bool(cpp.bool(false));
-      return bool(v.t.k === "opt" ? cpp.call(cpp.dot(v.c, "has")) : cpp.bool(true));
-    }
+    if (name === "isArray") return heldKind(node, em.expr(a[0]!), "Array");
     if (name === "of") {
       if (rt.k !== "array") fail(node, Codes.UnsupportedBuiltin, "Array.of");
       const items = a.map((x) => em.exprAs(x, rt.e));
@@ -2057,6 +2053,36 @@ function refuseCause(options: ts.Expression): never {
 
 // --- instanceof / super ----------------------------------------------------------------------
 
+/** The runtime trait that recognizes each built-in kind `instanceof` and Array.isArray test. */
+const KIND_TRAITS = {
+  Array: "lucent::IsJsArray",
+  Map: "lucent::IsMap",
+  Set: "lucent::IsSet",
+  Uint8Array: "lucent::IsBytes",
+  Date: "lucent::IsDate",
+} as const;
+
+type Kind = keyof typeof KIND_TRAITS;
+
+function isKind(name: string): name is Kind {
+  return Object.hasOwn(KIND_TRAITS, name);
+}
+
+/**
+ * Whether the value `v` holds is of the built-in `kind`, as JavaScript
+ * tests it: by the value, whatever union or tuple its static type is.
+ */
+function heldKind(node: ts.Node, v: E, kind: Kind): E {
+  const t = stripOpt(v.t);
+  if ((t.k === "union" ? t.ms : [t]).some((m) => m.k === "iter"))
+    fail(
+      node,
+      Codes.UnsupportedBuiltin,
+      `testing whether an Iterable is a ${kind} is not supported: an Iterable no longer knows what it was made from; take a ${kind === "Array" ? "T[]" : kind} parameter`,
+    );
+  return bool(cpp.call("lucent::holds", [v.c], [cpp.type(KIND_TRAITS[kind])]));
+}
+
 export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
   const sdk = nativeInstanceOf(em, node);
   if (sdk) return sdk;
@@ -2077,26 +2103,8 @@ export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
         cpp.call("lucent::isInstance", [v.c], [cpp.type(`lucent_app::${g.info.cppName}`)]),
       );
     }
-    if (isLibGlobal(em, right, right.text)) {
-      const kinds: Record<string, string> = {
-        Array: "array",
-        Map: "map",
-        Set: "set",
-        Uint8Array: "bytes",
-        Date: "date",
-      };
-      const k = kinds[right.text];
-      if (k) {
-        const vt = stripOpt(v.t);
-        if (vt.k === k)
-          return bool(v.t.k === "opt" ? cpp.call(cpp.dot(v.c, "has")) : cpp.bool(true));
-        if (vt.k === "union") {
-          const member = em.reg.cppType(vt.ms.find((m) => m.k === k) ?? T.never);
-          return bool(cpp.call("std::holds_alternative", [v.c], [member]));
-        }
-        return bool(cpp.bool(false));
-      }
-    }
+    if (isKind(right.text) && isLibGlobal(em, right, right.text))
+      return heldKind(node, v, right.text);
   }
   fail(node, Codes.UnsupportedOperator, "unsupported instanceof");
 }

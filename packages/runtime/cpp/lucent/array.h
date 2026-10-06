@@ -435,10 +435,14 @@ bool strictEquals(const Array<T>& a, const Array<T>& b) {
   return a.identity() == b.identity();
 }
 
+/// What Array.isArray recognizes: an array, a tuple, and (regexp.h) a
+/// RegExp match.
 template <class T>
-struct IsArray : std::false_type {};
+struct IsJsArray : std::false_type {};
 template <class T>
-struct IsArray<Array<T>> : std::true_type {};
+struct IsJsArray<Array<T>> : std::true_type {};
+template <class... Ts>
+struct IsJsArray<std::tuple<Ts...>> : std::true_type {};
 
 template <class T>
 String toJsString(const Opt<T>& v) {

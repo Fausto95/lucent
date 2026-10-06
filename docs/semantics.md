@@ -200,7 +200,8 @@ runs, so a right side that changes the target does not change what is read.
   `reduce`, `reduceRight`, `sort` (stable; default sort compares strings
   like JS), `reverse`, `fill`, `at`, `keys`, `values`,
   `entries`; `Array.from` (iterables and `{ length }`), `Array.of`,
-  `Array.isArray`, `new Array(n)`.
+  `Array.isArray` (by the value held; refused on an `Iterable`, which no
+  longer knows what made it), `new Array(n)`.
 - **Map / Set**: the full instance API; `new Map(entries)`, `new Set(iterable)`.
 - **Object**: `keys`, `values`, `entries` (records, and `keys` for object
   types), `fromEntries`.

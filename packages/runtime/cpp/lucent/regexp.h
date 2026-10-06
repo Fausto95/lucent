@@ -32,6 +32,9 @@ struct RegExpMatchObject : Object {
 };
 using RegExpMatch = Ref<RegExpMatchObject>;
 
+template <>
+struct IsJsArray<RegExpMatch> : std::true_type {};
+
 class RegExpObject : public Object {
  public:
   /// Throws SyntaxError for an invalid pattern or flags.
