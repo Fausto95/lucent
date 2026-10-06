@@ -14,6 +14,7 @@ import {
   type SdkEnumSchema,
   type SdkMethodSchema,
   type SdkStructSchema,
+  type SwiftMember,
   type NamesIndex,
   type SdkLookup,
   type SdkModuleSchema,
@@ -192,6 +193,19 @@ export function declaresPromise(cls: SdkClassSchema, m: SdkMethodSchema): boolea
   // and the completion-handler method remains callable.
   const name = m.async.name ?? m.name;
   return !cls.properties?.some((p) => p.name === name && !!p.static === !!m.static);
+}
+
+/**
+ * Whether a class, or a member of it, can only be used on the main thread:
+ * the member's own rule (@AnyThread in a @UiThread class), else its
+ * class's. Swift async members are exempt: they hop to their actor
+ * themselves. The compiler's check and the declarations' doc both read it.
+ */
+export function mainThreadOnly(
+  cls: Pick<SdkClassSchema, "mainActor">,
+  member?: { mainActor?: boolean; swift?: SwiftMember },
+): boolean {
+  return !member?.swift?.async && !!(member?.mainActor ?? cls.mainActor);
 }
 
 /** The Java interface whose implementations `using` declarations close. */

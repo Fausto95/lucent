@@ -31,6 +31,7 @@ import {
   findSdkType,
   loadSdkModule,
   jniDescriptor,
+  mainThreadOnly,
   MIN_ANDROID_API,
   MIN_IOS,
   sdkTypeInfo,
@@ -216,10 +217,9 @@ function requireMain(
   em: FnEmitter,
   node: ts.Node,
   ref: SdkClassRef,
-  member?: { mainActor?: boolean },
+  member?: { mainActor?: boolean; swift?: SwiftMember },
 ): void {
-  // A member's own rule first: @AnyThread members of a @UiThread class are not main-only.
-  if (!(member?.mainActor ?? ref.cls.mainActor) || inMainContext(em, node)) return;
+  if (!mainThreadOnly(ref.cls, member) || inMainContext(em, node)) return;
   fail(
     node,
     Codes.MainThreadOnly,
@@ -2875,8 +2875,7 @@ function property(
   if (typeof prop.value === "string") return { c: stringExpr(prop.value), t: T.string };
   if (typeof prop.value === "boolean") return { c: cpp.bool(prop.value), t: T.boolean };
   const plan = requirePlan(node, ref, prop, "get");
-  // Async members hop to the main actor themselves.
-  if (!prop.swift?.async) requireMain(em, node, ref, prop);
+  requireMain(em, node, ref, prop);
   warnBlocking(em, node, ref, prop);
   if (!obj) requireAvailable(em, node, ref, ref.cls.since, ref.cls.name);
   requireAvailable(em, node, ref, prop.since, `${ref.cls.name}.${prop.name}`);
@@ -2968,7 +2967,7 @@ export function nativeCall(
       Codes.UnsupportedCall,
       `${ref.cls.name}.${name}() as a promise is not supported on ${ref.platform}`,
     );
-  if (!method.swift?.async) requireMain(em, node, ref, method);
+  requireMain(em, node, ref, method);
   warnBlocking(em, node, ref, method);
   if (!obj) requireAvailable(em, node, ref, ref.cls.since, ref.cls.name);
   requireAvailable(em, node, ref, method.since, `${ref.cls.name}.${method.name}`);
