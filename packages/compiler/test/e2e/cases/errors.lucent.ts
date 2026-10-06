@@ -67,3 +67,40 @@ export function kinds(): string[] {
 export function syntax(): Error {
   return new SyntaxError("bad");
 }
+
+/** Error classes without a constructor of their own take the message as Error does. */
+class Plain extends Error {}
+
+class Coded extends Error {
+  code = 7;
+}
+
+class Deeper extends Plain {}
+
+class Optioned extends Error {
+  constructor(message?: string) {
+    super(message, undefined);
+  }
+}
+
+const describe = (e: Error): string => `${e.name}:${e.message}:${String(e)}`;
+
+export function implicitConstructors(): string[] {
+  return [new Plain("p"), new Coded("c"), new Deeper("d"), new Plain()].map(describe);
+}
+
+export function plain(): Error {
+  return new Plain("thrown");
+}
+
+/** An undefined message is the message left out, and an undefined options argument has no cause. */
+export function undefinedArguments(message?: string): string[] {
+  return [
+    new Error(message),
+    new SyntaxError(message),
+    new Error("e", undefined),
+    new Plain(message),
+    new Plain("p", undefined),
+    new Optioned(message),
+  ].map(describe);
+}

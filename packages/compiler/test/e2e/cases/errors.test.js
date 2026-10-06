@@ -31,3 +31,8 @@ try {
 print(JSON.stringify(mod.kinds()));
 const syntax = mod.syntax();
 print(syntax.name, syntax instanceof SyntaxError, syntax.message);
+print(JSON.stringify(mod.implicitConstructors()));
+const plain = mod.plain();
+print(plain instanceof Error, plain.name, plain.message, String(plain));
+print(JSON.stringify(mod.undefinedArguments()));
+print(JSON.stringify(mod.undefinedArguments("m")));

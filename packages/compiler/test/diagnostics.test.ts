@@ -427,6 +427,10 @@ export function f(round: boolean): number {
         "super(message, { cause }) in an Error class",
         'class Wrapped extends Error {\n  constructor(m: string, c: Error) {\n    super(m, { cause: c });\n  }\n}\nexport function f(e: Error): Error { return new Wrapped("x", e); }',
       ],
+      [
+        "new on an Error class without a constructor of its own",
+        'class Plain extends Error {}\nexport function f(e: Error): Error { return new Plain("x", { cause: e }); }',
+      ],
     ])("rejects %s", (_, src) => {
       expect(codes(src)).toContain("LUCENT1003");
     });
