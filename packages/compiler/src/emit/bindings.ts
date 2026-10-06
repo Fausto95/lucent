@@ -286,6 +286,7 @@ export class BindingsEmitter {
     for (const u of this.unions.values()) specialize(this.reg.cppType(u), false);
     for (const id of this.structs) js.push(...this.structConvert(id));
     for (const id of this.classes) js.push(...this.classConvert(id));
+    js.push(this.errorInstances());
     for (const t of this.ifaces.values()) js.push(...this.ifaceConvert(t));
     for (const [key, u] of this.unions) {
       const decls = this.ctx.guard(() => {
@@ -462,6 +463,29 @@ export class BindingsEmitter {
     ];
   }
 
+  /**
+   * `errorInstanceToJs`: an error that is an instance of a class extending
+   * Error crosses as that instance, its root class's conversion finding
+   * the most derived one. Other errors are left to Host::errorToJs, an
+   * Error subclass no export names too: it has no prototype.
+   */
+  private errorInstances(): cpp.Decl {
+    const roots = [...this.classes]
+      .map((id) => this.reg.cls(id))
+      .filter((c) => c.isError && !c.base);
+
+    return cpp.fn(
+      "errorInstanceToJs",
+      JS_VALUE,
+      [
+        RUNTIME,
+        cpp.param(cpp.reference(cpp.type("Host")), "h"),
+        cpp.param(cpp.reference(cpp.constType(cpp.type("Error"))), "v"),
+      ],
+      [...roots.map((c) => this.asSubclass(c, "c")), cpp.ret(cpp.call("jsi::Value::undefined"))],
+    );
+  }
+
   /** `if (auto d = std::dynamic_pointer_cast<C>(v)) return Convert<C>::toJs(rt, h, d);` */
   private asSubclass(c: ClassInfo, name: string): cpp.Stmt {
     return {
@@ -527,9 +551,15 @@ export class BindingsEmitter {
     const [proto, self] = [cpp.id("proto"), cpp.id("self")];
     const selfOf = (fname: string) =>
       cpp.varDecl(cpp.auto, "self", fromJs(selfT, cpp.id("thisVal"), path(fname, "this")));
-    const body = publicMembers(this.ctx, info).map((m) =>
-      this.defineMember(proto, name, m, (n) => cpp.arrow(self, n), selfOf),
-    );
+    const body = [
+      // An Error subclass's instances are Errors; members it declares come after.
+      ...(info.isError && !info.base
+        ? [cpp.exprStmt(cpp.call("defineErrorPrototype", [rt, cpp.id("host"), proto]))]
+        : []),
+      ...publicMembers(this.ctx, info).map((m) =>
+        this.defineMember(proto, name, m, (n) => cpp.arrow(self, n), selfOf),
+      ),
+    ];
     if (info.base) {
       const base = this.reg.cls(info.base.id);
       body.push(

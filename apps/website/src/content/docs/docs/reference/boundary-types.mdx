@@ -57,6 +57,7 @@ TypeError: midpoint: argument 'a'.y must be a number, got undefined
 - Static methods and fields are on the constructor, its own and those of its Lucent base classes. A static field reads and writes the native one.
 - A `readonly` field or static field has no setter: assigning it from JavaScript throws a `TypeError` in strict mode.
 - `private`, `protected` and `#private` members are hidden.
+- An instance of a class that extends `Error` is `instanceof Error`, with `name`, `message` and `stack`. Thrown to JavaScript, it is the instance itself.
 
 ## Callbacks
 

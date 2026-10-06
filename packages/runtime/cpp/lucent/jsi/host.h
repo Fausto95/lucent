@@ -61,6 +61,10 @@ struct ModuleDef {
 const ModuleDef* registeredModules(size_t& count);
 /// Implemented by generated code: resets module-level state for a new runtime.
 void resetModuleState();
+/// Implemented by generated code: the JS object of `e` when it is an
+/// instance of a Lucent class that extends Error (its class's prototype,
+/// its identity), else undefined.
+jsi::Value errorInstanceToJs(jsi::Runtime& rt, Host& host, const Error& e);
 
 /// What generated code and JavaScript proxies expect of this runtime: a
 /// change that breaks either takes a new number. The compiler's
@@ -194,7 +198,8 @@ class Host : public std::enable_shared_from_this<Host> {
   /// own for the same instance.
   jsi::Value wrap(jsi::Runtime& rt, const Ref<Object>& instance, const char* key, PrototypeInit init);
 
-  /// Converts a Lucent error into a JS Error object (not thrown).
+  /// Converts a Lucent error into a JS Error object (not thrown): an
+  /// instance of a Lucent class that extends Error is its own JS object.
   jsi::Value errorToJs(jsi::Runtime& rt, const Error& e);
   /// Converts a caught JS exception into a Lucent error.
   static Error errorFromJs(jsi::Runtime& rt, const jsi::JSError& e);
@@ -257,6 +262,10 @@ using HostFn = jsi::HostFunctionType;
 void defineFunction(jsi::Runtime& rt, jsi::Object& target, const char* name, unsigned argc, HostFn fn);
 /// Defines an enumerable accessor property; `setter` may be null.
 void defineAccessor(jsi::Runtime& rt, jsi::Object& target, const char* name, HostFn getter, HostFn setter);
+/// Makes `proto`, the prototype of a Lucent class that extends Error, an
+/// Error's: Error.prototype is its prototype, and `name`, `message` and
+/// `stack` are the native error's.
+void defineErrorPrototype(jsi::Runtime& rt, Host& host, jsi::Object& proto);
 /// Exports a class: `name` is a factory function whose `prototype` is the
 /// class prototype. The JS proxy wraps it in a real constructor so `new` and
 /// `instanceof` work.
