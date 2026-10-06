@@ -143,6 +143,6 @@ export async function buildOrCheck(
       out.error(`${renderDiagnostic(d, d.file ? source(d.file) : undefined, theme)}\n`);
     const errors = diagnostics.filter((d) => d.severity !== "warning").length;
     const summary = `${plural(errors, "error")} ${theme.dim("·")} ${plural(modules, "module")} ${theme.dim("·")} ${duration(ms)}`;
-    out.error(`  ${theme.error(summary)}${build ? theme.dim("  nothing was written") : ""}`);
+    out.error(`  ${theme.error(summary)}${build ? theme.dim("  no code was generated") : ""}`);
   }
 }
