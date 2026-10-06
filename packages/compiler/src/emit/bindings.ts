@@ -238,6 +238,10 @@ export class BindingsEmitter {
           this.use({ k: "class", id: c.id, args: [] }, c.decl);
           this.classFlow(c.id);
           if (c.typeParams.length) return;
+          for (const p of constructorOf(this.ctx, { k: "class", id: c.id, args: [] })) {
+            this.use(p.cppType, c.decl);
+            this.flow(p.cppType, false, c.decl);
+          }
           for (const s of staticMembers(this.ctx, c)) {
             for (const t of s.types) this.use(t, s.node);
             this.memberFlow(s);
