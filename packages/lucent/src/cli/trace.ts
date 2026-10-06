@@ -106,9 +106,23 @@ export interface CauseTotal {
   bytes?: number;
 }
 
-/** Time spent in each cause (spans only), and the bytes copies moved. */
-export function summarize(trace: ChromeTrace): { categories: CauseTotal[] } {
+/** A view's binding: the runs of the effects at one .lucent.ts line. */
+export interface EffectTotal {
+  site: string;
+  ms: number;
+  count: number;
+}
+
+/**
+ * Time spent in each cause (spans only), and the bytes copies moved; and
+ * effect runs by the line each effect is at, the most time first.
+ */
+export function summarize(trace: ChromeTrace): {
+  categories: CauseTotal[];
+  effects: EffectTotal[];
+} {
   const totals = new Map<string, CauseTotal>();
+  const sites = new Map<string, EffectTotal>();
 
   for (const e of trace.traceEvents) {
     if (e.ph !== "X" || !e.cat) continue;
@@ -121,6 +135,13 @@ export function summarize(trace: ChromeTrace): { categories: CauseTotal[] } {
     if (bytes > 0) total.bytes = (total.bytes ?? 0) + bytes;
 
     totals.set(e.cat, total);
+
+    if (e.cat === "effect" && typeof e.args?.site === "string") {
+      const site = sites.get(e.args.site) ?? { site: e.args.site, ms: 0, count: 0 };
+      site.ms += (e.dur ?? 0) / 1000;
+      site.count++;
+      sites.set(e.args.site, site);
+    }
   }
 
   const order = (c: string) => {
@@ -131,8 +152,11 @@ export function summarize(trace: ChromeTrace): { categories: CauseTotal[] } {
   const categories = [...totals.values()]
     .sort((a, b) => order(a.category) - order(b.category))
     .map((t) => ({ ...t, ms: Math.round(t.ms * 1000) / 1000 }));
+  const effects = [...sites.values()]
+    .map((t) => ({ ...t, ms: Math.round(t.ms * 1000) / 1000 }))
+    .sort((a, b) => b.ms - a.ms || (a.site < b.site ? -1 : 1));
 
-  return { categories };
+  return { categories, effects };
 }
 
 /** `12 ms`, `0.06 ms`, `4.2 s`. */
