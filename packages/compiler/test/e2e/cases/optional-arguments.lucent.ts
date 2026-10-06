@@ -88,3 +88,13 @@ function attempt(check: Check, at?: number, sep?: string): string {
 export function absent(at?: number, sep?: string): string[] {
   return checks().map((check) => attempt(check, at, sep));
 }
+
+// A NaN argument is not an undefined one: JavaScript reads it through
+// ToIntegerOrInfinity, as 0.
+export function nanArguments(nan: number): string[] {
+  return [
+    attempt(() => (255).toString(nan)),
+    attempt(() => "abcdef".substr(nan, 2)),
+    attempt(() => "abcdef".substr(-2, nan)),
+  ];
+}
