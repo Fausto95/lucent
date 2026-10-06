@@ -504,4 +504,27 @@ export function f(round: boolean): number {
       expect(codes(src)).toEqual([]);
     });
   });
+
+  describe("new Proxy", () => {
+    it("rejects a proxy of a class instance, rather than making another instance", () => {
+      const r = compileSource(
+        "class C {\n  n = 1;\n}\nexport function f(): number {\n  const c = new C();\n  const p = new Proxy(c, { get: () => 42 });\n  p.n = 5;\n  return c.n;\n}",
+      );
+
+      expect(r.diagnostics).toEqual([
+        expect.objectContaining({
+          code: "LUCENT1003",
+          message: expect.stringContaining("new Proxy()"),
+        }),
+      ]);
+    });
+
+    it("rejects a proxy of a built-in", () => {
+      expect(
+        codes(
+          "export function f(): number { const p = new Proxy(new Map<string, number>(), {}); return p.size; }",
+        ),
+      ).toContain("LUCENT1003");
+    });
+  });
 });
