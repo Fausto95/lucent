@@ -1320,13 +1320,12 @@ export class FnEmitter {
         const ot = stripOpt(obj.t);
         const key = this.exprAs(node.left, T.string);
         if (ot.k === "dict") return { c: cpp.call(cpp.dot(obj.c, "has"), [key]), t: T.boolean };
-        if (ot.k === "struct") {
-          // One of the object type's field names.
-          const names = this.reg
-            .struct(ot.id)
-            .fields.map((f) => cpp.binary(key, "==", stringExpr(f.name)));
-          return { c: names.length ? cpp.or(...names) : cpp.bool(false), t: T.boolean };
-        }
+        if (ot.k === "struct")
+          fail(
+            node,
+            Codes.UnsupportedOperator,
+            "`in` on an object type is not supported: Lucent objects do not record which optional fields are set; compare the field with undefined, or use a Record<string, T>",
+          );
         fail(node, Codes.UnsupportedOperator, "`in` is only supported on records");
       }
     }

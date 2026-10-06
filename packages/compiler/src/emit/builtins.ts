@@ -713,11 +713,12 @@ export function staticCall(
           t: { k: "array", e: { k: "tuple", es: [T.string, t.val] } },
         };
     }
-    if (t.k === "struct" && name === "keys") {
-      const fields = em.reg.struct(t.id).fields.map((f) => stringExpr(f.name));
-      const strings = cpp.type("lucent::Array", cpp.type("lucent::String"));
-      return { c: cpp.construct(strings, fields, true), t: { k: "array", e: T.string } };
-    }
+    if (t.k === "struct" && name === "keys")
+      fail(
+        node,
+        Codes.UnsupportedBuiltin,
+        "Object.keys of an object type is not supported: Lucent objects do not record which optional fields are set or the order JavaScript made them in; use a Record<string, T>, or list the fields",
+      );
     if (name === "fromEntries") {
       const rt = em.lt(node);
       if (rt.k !== "dict")
