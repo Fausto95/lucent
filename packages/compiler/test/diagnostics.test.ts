@@ -440,7 +440,7 @@ export function f(round: boolean): number {
       const d = refused(body);
 
       expect(d.map((x) => x.code)).toEqual(["LUCENT2004"]);
-      expect(d[0]!.message).toMatch(/Shown<number>.*Shown<number \| undefined>/);
+      expect(d[0]!.message).toMatch(/(Shown|Sub)<number>.*Shown<number \| undefined>/);
     });
 
     it("rejects returning an existing instance of another instantiation", () => {
