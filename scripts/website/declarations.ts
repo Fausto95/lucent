@@ -13,6 +13,8 @@ import type {
 
 /** Members and type parts that only tag a type for the compiler. */
 const BRAND = /__lucent|"lucent:compose\.|\[delivery\]/;
+/** A view class's JSX attributes: the class's signature shows them, its member table doesn't. */
+const JSX_ATTRIBUTES = /^"~jsx/;
 const TYPE_BRAND = /\s*&\s*\{\s*readonly\s+(?:"lucent:[^"]+"|\[delivery\])\??:[^}]*\}/g;
 
 /** The text of a `/** … *\/` comment, without its markers and leading `*`s. */
@@ -155,7 +157,7 @@ export function declarationsOf(file: string, text: string): ModuleDeclarations {
             const isPrivate = (ts.canHaveModifiers(m) ? (ts.getModifiers(m) ?? []) : []).some(
               (x) => x.kind === ts.SyntaxKind.PrivateKeyword,
             );
-            if (BRAND.test(signature) || isPrivate) return [];
+            if (BRAND.test(signature) || JSX_ATTRIBUTES.test(signature) || isPrivate) return [];
             const own = docOf(m);
             return [
               {
