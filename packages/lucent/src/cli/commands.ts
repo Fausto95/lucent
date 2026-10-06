@@ -85,6 +85,14 @@ export const commands: CommandSpec[] = [
     load: () => import("./commands/new-module.ts"),
   },
   {
+    name: "new view",
+    summary:
+      "Scaffold a component in src/: its declaration, and each platform's native views in a Flex",
+    flags: [],
+    internal: true,
+    load: () => import("./commands/new-view.ts"),
+  },
+  {
     name: "explain",
     summary: "What a LUCENT diagnostic code means, and how to fix it (every code without one)",
     flags: [],

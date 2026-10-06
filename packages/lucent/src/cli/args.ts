@@ -19,6 +19,8 @@ export interface CommandSpec {
   name: string;
   summary: string;
   flags: FlagSpec[];
+  /** Internal (views, while LUCENT_VIEWS=fabric is): left out of the help and the docs. */
+  internal?: true;
   /** Loaded only when the command runs, so help and startup stay light. */
   load: () => Promise<CommandModule>;
 }
