@@ -2464,14 +2464,29 @@ export class FnEmitter {
           fail(p, Codes.UnsupportedSyntax, "only objects can be spread into object literals");
         const srcName = this.ctx.fresh("src");
         const src = cpp.id(srcName);
-        parts.push(cpp.varDecl(cpp.auto, srcName, this.coerce(s, st, p)));
+        parts.push(cpp.varDecl(cpp.auto, srcName, s.c));
+        const obj = s.t.k === "opt" ? cpp.call(cpp.dot(src, "get")) : src;
         const srcFields = this.reg.struct(st.id).fields;
+        const copies: cpp.Stmt[] = [];
         for (const f of info.fields) {
           const sf = srcFields.find((x) => x.name === f.name);
           if (!sf) continue;
-          const value = this.coerce({ c: cpp.arrow(src, cppIdent(f.name)), t: sf.type }, f.type, p);
-          parts.push(cpp.exprStmt(cpp.assign(field(f.name), value)));
+          const read = cpp.arrow(obj, cppIdent(f.name));
+          const copy = cpp.exprStmt(
+            cpp.assign(field(f.name), this.coerce({ c: read, t: sf.type }, f.type, p)),
+          );
+          // An unset optional field is a key the source lacks, which JavaScript skips
+          // (an explicit `undefined` can't be told apart from it).
+          copies.push(
+            sf.type.k === "opt"
+              ? cpp.ifStmt(cpp.not(cpp.call(cpp.dot(read, "isUndefined"))), [copy])
+              : copy,
+          );
         }
+        // Spreading undefined or null adds nothing.
+        parts.push(
+          ...(s.t.k === "opt" ? [cpp.ifStmt(cpp.call(cpp.dot(src, "has")), copies)] : copies),
+        );
         continue;
       }
       let name: string;
