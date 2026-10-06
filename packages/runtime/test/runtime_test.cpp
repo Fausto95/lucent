@@ -620,6 +620,23 @@ static void mixedStrictEquals() {
   CHECK(sameValueZero(Union<double, String>(NAN), Union<double, String>(NAN)) && sameValueZero(Opt<double>(NAN), NAN));
 }
 
+// Object-typed storage holds a null Ref until something writes it (a field
+// a base constructor reads, a module variable before its initializer):
+// reading it throws TypeError, as using JavaScript's undefined does.
+static void unassignedStorage() {
+  Ref<Base> none;
+  auto some = std::make_shared<Base>();
+  CHECK_THROWS(assigned(none, "Sub.opts"), "TypeError");
+  CHECK(assigned(some, "Sub.opts") == some);
+
+  Union<Ref<Base>, Ref<Other>> noneOfEither;
+  Union<Ref<Base>, Ref<Other>> other = std::make_shared<Other>();
+  CHECK_THROWS(assigned(noneOfEither, "Sub.shape"), "TypeError");
+  CHECK(std::holds_alternative<Ref<Other>>(assigned(other, "Sub.shape")));
+
+  CHECK(assigned(2.0, "count") == 2.0);
+}
+
 static void errors() {
   try {
     throwError(S("TypeError"), S("bad"));
@@ -1078,6 +1095,7 @@ int main() {
   qualifiedToJsString();
   mixedStrictEquals();
   errors();
+  unassignedStorage();
   async();
   timersPostedWhileWaiting();
   abortSignals();

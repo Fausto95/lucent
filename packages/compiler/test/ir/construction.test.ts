@@ -58,16 +58,16 @@ describe("construction in the IR", () => {
     expect(derived).toMatch(/this->extra = v\d+_;/);
   });
 
-  it("initializes a module's static fields, then its variables, a variable without a value to its type's default", () => {
+  it("initializes a module's variables and static fields in source order, one without a value to its type's default", () => {
     const init = definition(cppOf(module(SAMPLE)), "m_sample::init");
 
     expect(
       inOrder(
         init,
-        "C_Derived::first = ",
         "lucent_app::m_sample::made = 0.0;",
         "lucent_app::m_sample::last = ",
         "lucent_app::m_sample::names = ",
+        "C_Derived::first = ",
       ),
     ).toBe(true);
   });

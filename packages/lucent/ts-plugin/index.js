@@ -110,12 +110,12 @@ function createPlugin(loadCompiler) {
               : undefined;
             return snap ? snap.getText(0, snap.getLength()) : undefined;
           };
+          const root = info.languageServiceHost.getCurrentDirectory();
           // Bound again each check: headers (and packages) change too; unchanged ones are read once.
-          const extensions = compiler.projectExtensions(
-            info.languageServiceHost.getCurrentDirectory(),
-          );
+          const extensions = compiler.projectExtensions(root);
+          const checked = compiler.filesInBuild(root, files);
           // TypeScript's own errors stay TypeScript's to report; kept for the fixes their hints carry.
-          for (const d of compiler.checkSources(files, readSource, { extensions })) {
+          for (const d of compiler.checkSources(checked, readSource, { extensions })) {
             if (!d.file || (d.code === TYPESCRIPT_PASSTHROUGH && !d.quickFix)) continue;
             const list = byFile.get(d.file) || [];
             list.push(d);

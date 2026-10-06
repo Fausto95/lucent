@@ -25,6 +25,7 @@ import {
   spanMethod,
   spanProperty,
 } from "./buffers.ts";
+import { assignedRead } from "../lowering/unassigned.ts";
 import { DISPOSE, findMember } from "./classes.ts";
 import { type E, type Lvalue } from "./context.ts";
 import { coreCall, isCoreSymbol } from "./core.ts";
@@ -279,7 +280,10 @@ export function classMember(
     return { c: cpp.call(cpp.arrow(obj.c, `get_${cppIdent(name)}`), []), t: type };
   }
   if (ts.isPropertyDeclaration(decl) || ts.isParameter(decl)) {
-    return { c: cpp.arrow(obj.c, cppIdent(name)), t: memberType(em, t, decl) };
+    const type = memberType(em, t, decl);
+    const what = `${em.reg.cls(t.id).decl.name?.text ?? "this"}.${name}`;
+
+    return { c: assignedRead(cpp.arrow(obj.c, cppIdent(name)), type, what), t: type };
   }
   if (ts.isMethodDeclaration(decl)) {
     // A bound method used as a value.
@@ -597,7 +601,11 @@ export function staticProperty(em: FnEmitter, node: ts.PropertyAccessExpression)
       return {
         c: literal
           ? em.exprAs(literal, t)
-          : cpp.id(`lucent_app::${owner.cppName}::${cppIdent(name)}`),
+          : assignedRead(
+              cpp.id(`lucent_app::${owner.cppName}::${cppIdent(name)}`),
+              t,
+              `${owner.decl.name?.text}.${name}`,
+            ),
         t,
       };
     }
@@ -2114,9 +2122,6 @@ export function newBuiltin(
   fail(node, Codes.UnsupportedBuiltin, `new ${name || callee.getText()}() is not supported`);
 }
 
-/** The parameters of Error's constructor as Lucent takes them: the message (options are refused). */
-export const ERROR_PARAMS: LType[] = [unionOf([T.string, T.undefined])];
-
 /** An error's message: undefined is the message left out, "". */
 function errorMessage(em: FnEmitter, message: ts.Expression | undefined): cpp.Expr {
   return message ? orUndefined(em, message, T.string, stringExpr("")) : stringExpr("");
@@ -2166,6 +2171,52 @@ function heldKind(node: ts.Node, v: E, kind: Kind): E {
       `testing whether an Iterable is ${kind === "Array" ? "an" : "a"} ${kind} is not supported: an Iterable no longer knows what it was made from; take a ${kind === "Array" ? "T[]" : kind} parameter`,
     );
   return bool(cpp.call("lucent::holds", [v.c], [cpp.type(KIND_TRAITS[kind])]));
+}
+
+/** What `in` refuses, for its diagnostic: a union is told apart by a discriminant instead. */
+const NOT_IN: Partial<Record<LType["k"], string>> = {
+  class: "a class instance",
+  array: "an array",
+  tuple: "an array",
+  map: "a Map",
+  set: "a Set",
+};
+
+/**
+ * `key in o` on a record. Keys every object inherits (`toString`,
+ * `constructor`…) are in, as in JavaScript. The key is evaluated before
+ * the object. Object types refuse it: they do not record which optional
+ * fields are set.
+ */
+export function keyIn(em: FnEmitter, node: ts.BinaryExpression): E {
+  const k = em.ctx.fresh("key");
+  const key = cpp.varDecl(cpp.type("lucent::String"), k, em.exprAs(node.left, T.string));
+  const obj = em.expr(node.right);
+  const t = stripOpt(obj.t);
+  if (t.k === "dict")
+    return bool(cpp.statementExpr([key], cpp.call("lucent::keyIn", [cpp.id(k), obj.c])));
+
+  if (t.k === "union")
+    fail(
+      node,
+      Codes.UnsupportedOperator,
+      "`in` works on records; tell union members apart by a discriminant field such as `kind`",
+      "compare a discriminant field such as `kind`",
+    );
+
+  if (t.k === "struct")
+    fail(
+      node,
+      Codes.UnsupportedOperator,
+      "`in` on an object type is not supported: Lucent objects do not record which optional fields are set; compare the field with undefined, or use a Record<string, T>",
+    );
+
+  fail(
+    node,
+    Codes.UnsupportedOperator,
+    `\`in\` works on records, not on ${NOT_IN[t.k] ?? "this type"}`,
+    "use a Map or a Record for keys that come and go",
+  );
 }
 
 export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {

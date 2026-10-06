@@ -95,6 +95,25 @@ describe.skipIf(!android)("components whose content is Compose", () => {
     expect(result.compose).toBe(true);
   }, 300_000);
 
+  it("change the build identity when only the content's Kotlin changes", () => {
+    process.env.LUCENT_VIEWS = "fabric";
+
+    const { result: a } = compileApp();
+    const { result: b } = compileApp({
+      ...TOGGLE,
+      "toggle.android.lucent.tsx": TOGGLE["toggle.android.lucent.tsx"].replace(
+        '<Text text="on" />',
+        '<Text text="ON" />',
+      ),
+    });
+
+    expect(a.diagnostics).toEqual([]);
+    expect(b.diagnostics).toEqual([]);
+    expect(kotlinOf(b).text).not.toBe(kotlinOf(a).text);
+    // The app compiles the Kotlin: a binary built from the old one is another program.
+    expect(b.identity!.programs.android).not.toBe(a.identity!.programs.android);
+  }, 300_000);
+
   it("feed the content from the setup: state set by effects, functions it calls", () => {
     process.env.LUCENT_VIEWS = "fabric";
 

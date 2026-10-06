@@ -3,6 +3,10 @@
 //
 //   apply from: new File(new File(["node", "--print", "require.resolve('@lucent-lang/lucent/package.json')"].execute(null, rootDir).text.trim()).parentFile, "gradle/lucent.gradle")
 //
+// or, at the end of android/app/build.gradle.kts:
+//
+//   apply(from = File(File(providers.exec { workingDir = rootDir; commandLine("node", "--print", "require.resolve('@lucent-lang/lucent/package.json')") }.standardOutput.asText.get().trim()).parentFile, "gradle/lucent.gradle"))
+//
 // Every build then runs `lucent build` first, so .lucent/native matches the
 // *.lucent.ts sources however the app is built: Android Studio, ./gradlew, CI.
 def lucentDir = buildscript.sourceFile.parentFile

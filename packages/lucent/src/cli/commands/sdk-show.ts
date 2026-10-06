@@ -1,4 +1,12 @@
-import { sdkAvailable, sdkDeclarations, sdkModule, sdkModules } from "@lucent-lang/compiler";
+import {
+  sdkAvailable,
+  sdkDeclarations,
+  sdkModule,
+  sdkModules,
+  toolkitModuleText,
+  toolkitNeedingViews,
+  toolkitsFrom,
+} from "@lucent-lang/compiler";
 import type { Invocation } from "../args.ts";
 import { projectSdk } from "../project.ts";
 import type { Theme } from "../ui/theme.ts";
@@ -29,43 +37,90 @@ export function run({ root, positionals, out }: Invocation): number {
       const r = sdkModule(platform, module, sdk);
       if ("missing" in r) continue;
       const [type, member] = parts.slice(n);
-      const dts = sdkDeclarations(r.schema);
-      const block = declaration(dts, type!);
-      if (!block) {
+      // Compose's modules are declared in lucent:compose, and a toolkit
+      // generated from the module (lucent:swiftui) declares its own names.
+      const sources = [
+        {
+          from: r.schema.form === "source" ? "lucent:compose" : `lucent:${platform}/${module}`,
+          dts: sdkDeclarations(r.schema),
+        },
+        ...toolkitsFrom(platform, module).flatMap((from) => {
+          const found = toolkitModuleText(from, sdk);
+          return "text" in found ? [{ from, dts: found.text }] : [];
+        }),
+      ];
+      const declared = sources.flatMap(({ from, dts }) => {
+        const blocks = declarations(dts, type!);
+        return blocks.length ? [{ from, blocks }] : [];
+      });
+      if (!declared.length) {
+        const toolkit = toolkitNeedingViews(platform, module);
         out.error(
-          `${t.error(t.symbols.fail)} no ${type} in lucent:${platform}/${module}: lucent sdk search ${type} finds similar names`,
+          `${t.error(t.symbols.fail)} no ${type} in lucent:${platform}/${module}: lucent sdk search ${type} finds similar names${
+            toolkit
+              ? `; ${module}'s views are ${toolkit}'s, declared with views on (LUCENT_VIEWS=fabric)`
+              : ""
+          }`,
         );
         return 1;
       }
-      const shown = member ? memberLines(block, member) : block;
-      if (!shown) {
+      const shown = declared.flatMap(({ from, blocks }) => {
+        const text = member ? blocks.flatMap((b) => memberLines(b, member) ?? []) : blocks;
+        return text.length ? [{ from, declaration: text.join("\n\n") }] : [];
+      });
+      if (!shown.length) {
         out.error(`${t.error(t.symbols.fail)} ${type} has no member ${member}`);
         return 1;
       }
-      // Compose's modules are declared in lucent:compose.
-      const from = r.schema.form === "source" ? "lucent:compose" : `lucent:${platform}/${module}`;
-      if (out.json) out.data({ platform, module, symbol, declaration: shown });
-      else out.print(`${t.dim(`// ${from}`)}\n${highlight(shown, t)}`);
+      if (out.json)
+        out.data({
+          platform,
+          module,
+          symbol,
+          declaration: shown.map((s) => s.declaration).join("\n\n"),
+        });
+      else
+        out.print(
+          shown
+            .map(({ from, declaration }) => `${t.dim(`// ${from}`)}\n${highlight(declaration, t)}`)
+            .join("\n\n"),
+        );
       return 0;
     }
   }
+  // Modules no SDK holds while views are off: Compose's.
+  for (const platform of ["android", "ios"] as const)
+    for (let n = parts.length - 1; n >= 1; n--) {
+      const module = parts.slice(0, n).join(".");
+      const toolkit = toolkitNeedingViews(platform, module);
+      if (!toolkit) continue;
+      out.error(
+        `${t.error(t.symbols.fail)} ${module} is declared by ${toolkit}, with views on (LUCENT_VIEWS=fabric)`,
+      );
+      return 1;
+    }
   out.error(
     `${t.error(t.symbols.fail)} no SDK module in ${symbol}: write <module>.<Type>, e.g. android.os.Vibrator or UIKit.UIDevice`,
   );
   return 1;
 }
 
-/** The declaration of `name` in a module's .d.ts: its doc comment and body. */
-function declaration(dts: string, name: string): string | undefined {
+/**
+ * The top-level declarations of `name` in a module's .d.ts, each with its
+ * doc comment and body: a toolkit's name is several (its interface, the
+ * `$Name` of its calls, its value, its namespace), a function's each overload.
+ */
+function declarations(dts: string, name: string): string[] {
   const lines = dts.split("\n");
-  const start = lines.findIndex((l) =>
-    new RegExp(
-      `^export (declare )?(abstract )?(class|interface|enum|const enum|type|function|const) ${name}\\b`,
-    ).test(l),
+  const head = new RegExp(
+    `^(export )?(declare )?(abstract )?(class|interface|enum|const enum|type|function|const|namespace) \\$?${name}(?![\\w$])`,
   );
-  if (start < 0) return undefined;
-  let from = start;
-  while (from > 0 && /^\s*(\/\*\*|\*)/.test(lines[from - 1]!)) from--;
+  return lines.flatMap((l, start) => (head.test(l) ? [block(lines, start)] : []));
+}
+
+/** The declaration whose first line is `start`: its doc comment and body. */
+function block(lines: string[], start: number): string {
+  const from = docStart(lines, start);
   if (!lines[start]!.trimEnd().endsWith("{")) return lines.slice(from, start + 1).join("\n");
   let depth = 0;
   for (let i = start; i < lines.length; i++) {
@@ -78,7 +133,8 @@ function declaration(dts: string, name: string): string | undefined {
 /** A member's lines inside a declaration (its overloads too), with the declaration's first line for context. */
 function memberLines(block: string, member: string): string | undefined {
   const lines = block.split("\n");
-  const head = lines.find((l) => l.startsWith("export "))!;
+  // A declaration's first line: not every one is exported (a toolkit's namespace).
+  const head = lines.find((l) => !/^\s*(\/\*\*|\*)/.test(l))!;
   const declares = new RegExp(
     `^\\s+(static |readonly |get |set |protected |private )*${member}\\b[?(<:]`,
   );
@@ -93,6 +149,13 @@ function memberLines(block: string, member: string): string | undefined {
     return lines.slice(from > 0 && /^\s*\/\*\*/.test(lines[from - 1]!) ? from - 1 : i, i + 1);
   });
   return found.length ? [head, ...found, "}"].join("\n") : undefined;
+}
+
+/** The first line of the doc comment right above line `i` (`i` when there is none). */
+function docStart(lines: string[], i: number): number {
+  let from = i;
+  while (from > 0 && /^\s*(\/\*\*|\*)/.test(lines[from - 1]!)) from--;
+  return from;
 }
 
 /** Keywords and types in colour, the rest as is. */

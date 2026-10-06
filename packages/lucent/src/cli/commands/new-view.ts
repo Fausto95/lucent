@@ -88,7 +88,8 @@ export function run({ root, positionals, out }: Invocation): number {
     out.print(`${t.success(t.symbols.ok)} ${file}`);
   }
 
-  const use = `import { ${name} } from "./src/${base}.lucent";`;
+  // Its React types: the declarations lucent build writes, which Metro resolves to the module.
+  const use = `import { ${name} } from "lucent:views/${base}";`;
   if (out.json) out.data({ files: Object.keys(written), import: use });
   else out.print(`\n${t.dim("use it")}  ${use}`);
   return 0;

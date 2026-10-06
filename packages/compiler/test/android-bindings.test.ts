@@ -301,6 +301,18 @@ export async function run(): Promise<string> {
     expect(r.androidPermissions).toEqual(["android.permission.USE_BIOMETRIC"]);
   });
 
+  it("declares the permissions of the getter a property read calls", () => {
+    const { r } = android(`import { ConnectivityManager } from "lucent:android/android.net";
+import { appContext } from "lucent:android";
+export async function run(): Promise<string> {
+  return \`\${appContext().getSystemService(ConnectivityManager)?.activeNetwork}\`;
+}
+`);
+
+    expect(r.diagnostics).toEqual([]);
+    expect(r.androidPermissions).toEqual(["android.permission.ACCESS_NETWORK_STATE"]);
+  });
+
   it("names the Java classes the glue uses by name, for the app's shrinker to keep", () => {
     const { r } = android(tracker);
     expect(r.javaKeep).toEqual(
@@ -842,9 +854,27 @@ describe.skipIf(!sdkAvailable("android") || !kotlin)(
   "Android bindings from Kotlin libraries",
   () => {
     let sdk: SdkOptions;
+    let annotated: SdkOptions;
 
     beforeAll(async () => {
-      sdk = await kotlinClasspath(kotlin!);
+      [sdk, annotated] = await Promise.all([
+        kotlinClasspath(kotlin!),
+        kotlinClasspath(kotlin!, {
+          annotations: `<root>
+  <item name="dev.orbit.search.SearchClient int getPageSize()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="dev.orbit.search.SearchClient void setPageSize(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.INTERNET&quot;" />
+    </annotation>
+  </item>
+</root>
+`,
+        }),
+      ]);
     }, 300_000);
 
     const orbit = `import { ExtensionsKt, SearchClient, SearchHit } from "lucent:android/dev.orbit.search";
@@ -878,6 +908,35 @@ export async function run(): Promise<string> {
       },
       180_000,
     );
+
+    it("declares the permissions of the accessors a property use calls", () => {
+      const compiled = (body: string) =>
+        android(
+          `import { SearchClient } from "lucent:android/dev.orbit.search";
+export async function run(): Promise<string> {
+  const client = new SearchClient("https://orbit.invalid", null);
+  ${body}
+}
+`,
+          annotated,
+        ).r;
+      const call = compiled('client.setPageSize(3);\n  return "";');
+      const write = compiled('client.pageSize = 3;\n  return "";');
+      const read = compiled("return `${client.pageSize}`;");
+      const update = compiled('client.pageSize += 3;\n  return "";');
+
+      // The setter's own call declares it: the library's annotations are read.
+      expect(call.androidPermissions).toEqual(["android.permission.INTERNET"]);
+      expect(write.diagnostics).toEqual([]);
+      expect(write.androidPermissions).toEqual(["android.permission.INTERNET"]);
+      expect(read.diagnostics).toEqual([]);
+      expect(read.androidPermissions).toEqual(["android.permission.READ_CONTACTS"]);
+      expect(update.diagnostics).toEqual([]);
+      expect(update.androidPermissions).toEqual([
+        "android.permission.INTERNET",
+        "android.permission.READ_CONTACTS",
+      ]);
+    });
 
     it("declares the library without errors, checked without skipLibCheck", () => {
       const audit = withSdkOptions(sdk, () => auditSdk("android", ["dev.orbit.search"]));

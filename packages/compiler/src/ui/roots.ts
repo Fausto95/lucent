@@ -10,6 +10,7 @@ import ts from "typescript";
 import { branchPlatform } from "../platforms.ts";
 import { builtinSdkModuleOf, sdkModuleOf } from "../program.ts";
 import type { Platform } from "../sdk/schema.ts";
+import { skipParentheses } from "./expose.ts";
 import { toolkit, TOOLKITS, type ToolkitName, toolkitOfModule } from "./toolkits.ts";
 
 /** The class each platform's Fabric host mounts. */
@@ -317,17 +318,28 @@ function returnedExpressions(
 ): ts.Expression[] {
   if (!fn.body) return [];
 
-  if (!ts.isBlock(fn.body)) return [fn.body];
+  const runs = (n: ts.Node) => {
+    const branch = platform && branchPlatform(checker, n);
+
+    return !branch || branch === platform;
+  };
+
+  // A returned conditional returns its arms: those of the target's code.
+  const arms = (e: ts.Expression): ts.Expression[] => {
+    const inner = skipParentheses(e);
+
+    if (!ts.isConditionalExpression(inner)) return [e];
+
+    return [inner.whenTrue, inner.whenFalse].filter(runs).flatMap(arms);
+  };
+
+  if (!ts.isBlock(fn.body)) return arms(fn.body);
 
   const out: ts.Expression[] = [];
   const visit = (n: ts.Node): void => {
-    if (ts.isFunctionLike(n)) return;
+    if (ts.isFunctionLike(n) || !runs(n)) return;
 
-    const branch = platform && branchPlatform(checker, n);
-
-    if (branch && branch !== platform) return;
-
-    if (ts.isReturnStatement(n) && n.expression) out.push(n.expression);
+    if (ts.isReturnStatement(n) && n.expression) out.push(...arms(n.expression));
 
     ts.forEachChild(n, visit);
   };

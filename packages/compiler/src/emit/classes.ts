@@ -2,13 +2,21 @@ import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import type { LucentModule } from "../program.ts";
-import { type ClassChain, type ClassInfo, cppIdent, type LType, substitute, T } from "../types.ts";
-import type { Ctx } from "./context.ts";
+import { stringExpr } from "../lowering/literals.ts";
+import {
+  type ClassChain,
+  type ClassInfo,
+  cppIdent,
+  type LType,
+  substitute,
+  T,
+  unionOf,
+} from "../types.ts";
+import type { Ctx, ParamInfo } from "./context.ts";
 import { operand } from "../ir/cpp.ts";
 import type { ValueId } from "../ir/ir.ts";
 import type { Initializer, Leaf } from "../ir/lower.ts";
-import { ERROR_PARAMS, functionName } from "./builtins.ts";
-import { stringExpr } from "./literals.ts";
+import { functionName } from "./builtins.ts";
 import { type FnOptions, FnEmitter } from "./function.ts";
 import { initializationThroughIr, type IrMode, throughIr } from "./through-ir.ts";
 import { ifaceOverrides, ifacesOf, virtualMembers } from "./interfaces.ts";
@@ -19,8 +27,19 @@ export interface ClassOutput {
   definition: cpp.Decl;
   /** Out-of-line member definitions (none for generic classes). */
   members: cpp.Decl[];
-  /** Each static field's initializer and where it goes, which the module's init() runs. */
-  statics: Initializer[];
+  /** Each static field, with its initializer and where it goes, which the module's init() runs. */
+  statics: { decl: ts.PropertyDeclaration; init: Initializer }[];
+}
+
+/** An initializer's value: its expression, or its type's default without one. */
+export function initialValue(
+  ctx: Ctx,
+  initializer: ts.Expression | undefined,
+  t: LType,
+): Initializer["value"] {
+  return initializer
+    ? { expr: initializer }
+    : { leaf: { name: "default", code: cpp.construct(ctx.reg.cppType(t), [], true), type: t } };
 }
 
 function modifiers(n: ts.Node): ts.SyntaxKind[] {
@@ -31,6 +50,15 @@ const isAsync = (n: ts.Node) => modifiers(n).includes(ts.SyntaxKind.AsyncKeyword
 
 /** The name of a class's `[Symbol.dispose]()` method: the one symbol-keyed member Lucent classes have. */
 export const DISPOSE = "[Symbol.dispose]";
+
+/**
+ * `lucentJson_(w, toJson)`, every class's JSON writer (emit/index.ts
+ * jsonWriters defines it): virtual, so a base-typed value writes as its class.
+ */
+export const jsonMemberParams = [
+  cpp.param(cpp.reference(cpp.type("lucent::JsonWriter")), "w"),
+  cpp.param(cpp.type("bool"), "toJson"),
+];
 
 /** `Symbol.dispose`, as written. */
 export function isSymbolDispose(e: ts.Expression): boolean {
@@ -119,6 +147,19 @@ export function emitClass(
 ): ClassOutput {
   const decl = info.decl;
   const reg = ctx.reg;
+  // A decorator may replace what it decorates or add initializers when the
+  // class is defined: the class compiles without it, so its uses still check.
+  for (const n of [decl, ...decl.members])
+    for (const d of (ts.canHaveDecorators(n) && ts.getDecorators(n)) || [])
+      ctx.guard(() =>
+        fail(
+          d,
+          Codes.UnsupportedClassFeature,
+          "decorators are not supported",
+          "call the decorator function on the class or method yourself",
+        ),
+      );
+
   const generic = info.typeParams.length > 0;
   const template = generic ? info.typeParams.map(cppIdent) : undefined;
   const selfType = cpp.type(info.cppName, ...info.typeParams.map((p) => cpp.type(cppIdent(p))));
@@ -140,14 +181,15 @@ export function emitClass(
   ];
   const body: cpp.Member[] = [];
   const members: cpp.Decl[] = [];
-  const statics: Initializer[] = [];
+  const statics: ClassOutput["statics"] = [];
   const ctor = decl.members.find(ts.isConstructorDeclaration);
   const virtuals = ctx.guard(() => virtualMembers(ctx, info)) ?? new Set<string>();
 
   const fieldType = (n: ts.Node) => reg.lower(ctx.checker.getTypeAtLocation(n), n);
-  /** A field redeclared from a base class shares the base's storage. */
+  /** A field redeclared from a base class shares the base's storage, Error's own fields too. */
   const declareField = (m: ts.PropertyDeclaration | ts.ParameterDeclaration, t: LType) => {
     const name = memberName(m);
+    if (info.isError && ERROR_FIELDS.includes(name)) return;
     const base = inherited(name, isField);
     if (!base) return body.push(cpp.field(reg.cppType(t), cppIdent(name)));
     const baseType = substitute(fieldType(base.decl), argMap(ctx, base.owner.t));
@@ -175,15 +217,16 @@ export function emitClass(
           "static fields in generic classes are not supported",
         );
       body.push(cpp.field(reg.cppType(t), name, { static: true, inline: true }));
-      if (m.initializer) {
-        const field = cpp.scoped(cpp.type(info.cppName), name);
+      const field = cpp.scoped(cpp.type(info.cppName), name);
 
-        statics.push({
-          value: { expr: m.initializer },
+      statics.push({
+        decl: m,
+        init: {
+          value: initialValue(ctx, m.initializer, t),
           type: t,
           into: { write: (v) => assigns(`${info.cppName}::${name} =`, field, v) },
-        });
-      }
+        },
+      });
     } else {
       declareField(m, t);
     }
@@ -340,7 +383,8 @@ export function emitClass(
     );
 
     return [
-      ...(info.isError
+      // A Lucent base class names it first.
+      ...(info.isError && !info.base
         ? [{ value: { string: "Error" }, type: T.string, into: { write: write("name") } }]
         : []),
       ...parameterProperties(ctor).map((p) => ({
@@ -358,7 +402,9 @@ export function emitClass(
   let ctorDecls: cpp.Param[] = [];
   /** The implicit constructor, through the IR: its base's construction on its arguments, then the fields. */
   const implicitConstructor = (): void => {
-    const params = superCtor?.params ?? (info.isError ? ERROR_PARAMS : []);
+    // Without a Lucent base, an Error subclass's arguments go to Error: its message.
+    const toError = !superCtor && info.isError;
+    const params = superCtor?.params ?? (toError ? [ERROR_MESSAGE.cppType] : []);
     const sc = superCtor;
     const lowered = initializationThroughIr(
       ctx,
@@ -386,17 +432,13 @@ export function emitClass(
                   type: T.void,
                 }),
               }
-            : info.isError
+            : toError
               ? {
-                  // Extending Error: super(message), undefined being the message left out.
                   first: ([message]: ValueId[]): Leaf => ({
-                    name: "super()",
-                    code: cpp.comma(
-                      cpp.assign(
-                        self("message"),
-                        cpp.call(cpp.dot(operand(message!), "valueOr"), [stringExpr("")]),
-                      ),
-                      cpp.id("lucent::undefined"),
+                    name: "this->message =",
+                    code: cpp.assign(
+                      cpp.arrow(cpp.self, "message"),
+                      cpp.call(cpp.dot(operand(message!), "valueOr"), [stringExpr("")]),
                     ),
                     type: T.void,
                   }),
@@ -422,7 +464,7 @@ export function emitClass(
   const superCtor = baseT
     ? {
         call: cpp.baseMember(cpp.self, reg.cppClassType(baseT), "construct"),
-        params: inheritedCtorParams(ctx, ancestry),
+        params: constructorOf(ctx, baseT).map((p) => p.cppType),
       }
     : undefined;
   if (ctor) ctorDecls = emitMethod(ctor, "construct", false, superCtor).decls;
@@ -493,11 +535,25 @@ export function emitClass(
     ) {
       continue;
     } else if (ts.isClassStaticBlockDeclaration(m)) {
-      fail(m, Codes.UnsupportedClassFeature, "static blocks are not supported");
+      fail(
+        m,
+        Codes.UnsupportedClassFeature,
+        "static blocks are not supported",
+        "give each static field its value in its initializer, or in a function the module calls",
+      );
     } else if (ts.isIndexSignatureDeclaration(m)) {
       fail(m, Codes.UnsupportedClassFeature, "index signatures in classes are not supported");
     }
   }
+  body.push(
+    cpp.method(
+      "lucentJson_",
+      cpp.type("bool"),
+      jsonMemberParams,
+      undefined,
+      info.base ? { override: true } : { virtual: true },
+    ),
+  );
   const overrides = ctx.guard(() => ifaceOverrides(ctx, info)) ?? [];
   const definition = cpp.struct(info.cppName, [...body, ...overrides], {
     ...(template ? { template } : {}),
@@ -511,19 +567,39 @@ function assigns(name: string, place: cpp.Expr, value: ValueId): Leaf {
   return { name, code: cpp.assign(place, operand(value)), type: T.void };
 }
 
-/** Parameters of the nearest ancestor constructor, in terms of the subclass's type arguments. */
-function inheritedCtorParams(ctx: Ctx, ancestry: ClassChain): LType[] {
-  for (const a of ancestry) {
-    const ctor = a.info.decl.members.find(ts.isConstructorDeclaration);
-    if (!ctor) continue;
-    const fn = ctx.reg.lowerSignature(
-      ctx.checker.getSignatureFromDeclaration(ctor)!,
-      ctor,
-    ) as LType & { k: "fn" };
-    const module = ctx.modules.find((m) => m.sourceFile === ctor.getSourceFile())!;
-    const em = new FnEmitter(ctx, { module, async: false });
-    const map = argMap(ctx, a.t);
-    return em.paramInfos(ctor, fn).map((p) => substitute(p.cppType, map));
-  }
-  return ancestry.some((a) => a.info.isError) ? ERROR_PARAMS : [];
+/** Error's own fields, which a subclass redeclaring them shares. */
+const ERROR_FIELDS = ["name", "message"];
+
+/** The message an Error subclass's implicit constructor passes to Error. */
+const ERROR_MESSAGE: ParamInfo = {
+  name: "message",
+  type: unionOf([T.string, T.undefined]),
+  cppType: unionOf([T.string, T.undefined]),
+  optional: true,
+  rest: false,
+};
+
+/**
+ * The parameters `new` on `t` takes: the nearest constructor its chain
+ * declares, in `t`'s type arguments, or, declaring none, Error's message
+ * for an Error subclass (JavaScript's implicit constructor forwards its
+ * arguments to its base's).
+ */
+export function constructorOf(ctx: Ctx, t: LType & { k: "class" }): ParamInfo[] {
+  const owner = ctx.reg.chain(t).find((c) => c.info.decl.members.some(ts.isConstructorDeclaration));
+  if (!owner) return ctx.reg.cls(t.id).isError ? [ERROR_MESSAGE] : [];
+
+  const ctor = owner.info.decl.members.find(ts.isConstructorDeclaration)!;
+  const fn = ctx.reg.lowerSignature(
+    ctx.checker.getSignatureFromDeclaration(ctor)!,
+    ctor,
+  ) as LType & { k: "fn" };
+  const module = ctx.modules.find((m) => m.sourceFile === ctor.getSourceFile())!;
+  const map = argMap(ctx, owner.t);
+
+  return new FnEmitter(ctx, { module, async: false }).paramInfos(ctor, fn).map((p) => ({
+    ...p,
+    type: substitute(p.type, map),
+    cppType: substitute(p.cppType, map),
+  }));
 }
