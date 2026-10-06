@@ -99,7 +99,9 @@ describe("lucent new view", () => {
   it.skipIf(!sdkAvailable("ios") || !sdkAvailable("android"))(
     "scaffolds a component of each platform's views in a Flex, which compiles",
     () => {
+      // An app: its package names the component's registration.
       const root = project();
+      fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app" }));
       const r = lucent(["new", "view", "Badge", "--root", root], views);
 
       expect(r.status).toBe(0);
