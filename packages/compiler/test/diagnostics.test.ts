@@ -184,12 +184,8 @@ describe("diagnostics", () => {
       expect(spread("", "Record<string, number | undefined>")).toEqual([]);
     });
 
-    it("accepts a record that may be undefined through `?? {}`", () => {
-      expect(
-        codes(
-          "export function f(v?: Record<string, number>): number {\n  const r: Record<string, number> = { ...(v ?? {}) };\n  return Object.keys(r).length;\n}\n",
-        ),
-      ).toEqual([]);
+    it("accepts a record that may be undefined", () => {
+      expect(spread("", "Record<string, number | undefined> | undefined")).toEqual([]);
     });
 
     it.each([
@@ -203,12 +199,6 @@ describe("diagnostics", () => {
           line: 3,
           message: expect.stringContaining("only records can be spread into a record literal"),
         }),
-      ]);
-    });
-
-    it("rejects a record that may be undefined, naming `?? {}`", () => {
-      expect(spread("", "Record<string, number | undefined> | undefined")).toEqual([
-        expect.objectContaining({ code: "LUCENT1001", message: expect.stringContaining("?? {}") }),
       ]);
     });
 

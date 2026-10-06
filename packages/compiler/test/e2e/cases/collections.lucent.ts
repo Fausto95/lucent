@@ -78,7 +78,7 @@ export function records(r: Record<string, number>): Record<string, number> {
 }
 
 export function mergedRecords(r: Record<string, number>, extra?: Record<string, number>): string {
-  const merged: Record<string, number> = { z: 0, ...r, a: 9, ...(extra ?? {}) };
+  const merged: Record<string, number> = { z: 0, ...r, a: 9, ...extra };
   return JSON.stringify(merged);
 }
 
