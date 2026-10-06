@@ -19,6 +19,11 @@ export interface CommandSpec {
   name: string;
   summary: string;
   flags: FlagSpec[];
+  /**
+   * What --json writes: one JSON document, following schemas/<name>.schema.json (true:
+   * one without a schema of its own). None: the command refuses --json.
+   */
+  json?: string | true;
   /** Internal (views, while LUCENT_VIEWS=fabric is): left out of the help and the docs. */
   internal?: true;
   /** Loaded only when the command runs, so help and startup stay light. */

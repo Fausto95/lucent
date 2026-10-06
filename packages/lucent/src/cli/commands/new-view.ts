@@ -88,6 +88,8 @@ export function run({ root, positionals, out }: Invocation): number {
     out.print(`${t.success(t.symbols.ok)} ${file}`);
   }
 
-  out.print(`\n${t.dim("use it")}  import { ${name} } from "./src/${base}.lucent";`);
+  const use = `import { ${name} } from "./src/${base}.lucent";`;
+  if (out.json) out.data({ files: Object.keys(written), import: use });
+  else out.print(`\n${t.dim("use it")}  ${use}`);
   return 0;
 }

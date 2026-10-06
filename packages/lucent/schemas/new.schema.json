@@ -1,0 +1,20 @@
+{
+  "$id": "https://lucent-lang.dev/schemas/new.schema.json",
+  "title": "lucent new module --json, lucent new view --json",
+  "type": "object",
+  "required": ["files", "import"],
+  "additionalProperties": false,
+  "properties": {
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "What was written, relative to the project"
+    },
+    "import": {
+      "type": "string",
+      "description": "The import that uses it, from the project's root"
+    }
+  }
+}
