@@ -1,5 +1,6 @@
 // Array.isArray and instanceof test the value a union holds, whatever
 // its static type: a tuple and a RegExp match are arrays too.
+/* oxlint-disable unicorn/no-instanceof-builtins -- what instanceof Array gives is the case */
 
 export function isArrays(x: string | string[]): string {
   if (Array.isArray(x)) return `array of ${x.length}`;
