@@ -1,5 +1,35 @@
 # @lucent-lang/lucent
 
+## 0.2.0
+
+### Minor Changes
+
+- [#99](https://github.com/Fausto95/lucent/pull/99) [`a36e7d8`](https://github.com/Fausto95/lucent/commit/a36e7d8542861c377d3d811d5481a45ac0153d69) Thanks [@Fausto95](https://github.com/Fausto95)! - `lucent doctor` reads the app's build: the steps the last build failed at (an Android dependency conflict, with its log), why steps ran again, a platform this JavaScript was built without, and whether the newest Xcode or Gradle build of the app was built from these sources, judged as the app judges it
+
+- [#102](https://github.com/Fausto95/lucent/pull/102) [`296d799`](https://github.com/Fausto95/lucent/commit/296d7995439c27acc0357ae13adbb69ddd6b6b5c) Thanks [@Fausto95](https://github.com/Fausto95)! - Offer quick fixes in the editor where a diagnostic's fix is exact (a thrown string becomes an Error, a copied prop is read in place, a missing module import is added), and name what each SDK class and member calls natively in its doc comment, so hover and `lucent sdk show` say where it comes from
+
+- [#103](https://github.com/Fausto95/lucent/pull/103) [`733d318`](https://github.com/Fausto95/lucent/commit/733d31877b2089924a77971ebe0b2e9b8381c5e8) Thanks [@Fausto95](https://github.com/Fausto95)! - Every command's `--json` now writes one JSON document described by a published schema (`explain`, `new module` and `clean` gained one), or is refused with exit code 2 by commands without JSON output (`init`, `dev`, `trace`), and errors under `--json` go to stderr instead of being dropped
+
+- [#88](https://github.com/Fausto95/lucent/pull/88) [`cb08732`](https://github.com/Fausto95/lucent/commit/cb08732fb62f5bc8ebcc09585579de4435a8934b) Thanks [@Fausto95](https://github.com/Fausto95)! - Show a native view's children by condition (`{cond && <X />}`, `{c ? <X /> : <Y />}`) and as keyed lists (`{items.map((item) => <X key={item.id} />)}`), keeping each kept item's view, and accept a quoted value for an Android setter prop (`text="note"`)
+
+- [#97](https://github.com/Fausto95/lucent/pull/97) [`c737a47`](https://github.com/Fausto95/lucent/commit/c737a4798a2ecfde95d1a22c63316a7ff910e925) Thanks [@Fausto95](https://github.com/Fausto95)! - Lay out native view JSX with React Native's Yoga: `<Flex style={{ flexDirection: "row", gap: 8 }}>` from `lucent:ui` places its children, each child's `layout={{ flexGrow: 1 }}` places it, and native containers (stack views, LinearLayouts) keep laying out their own
+
+- [#98](https://github.com/Fausto95/lucent/pull/98) [`c896eb6`](https://github.com/Fausto95/lucent/commit/c896eb61b609545d20786d20e7eecbeb4c2655d2) Thanks [@Fausto95](https://github.com/Fausto95)! - Report coverage of every SDK module with `lucent sdk coverage --all` (modules the extractor cannot read are listed, not fatal), and append a markdown summary of why members are left out with `--summary <file>`
+
+### Patch Changes
+
+- [#87](https://github.com/Fausto95/lucent/pull/87) [`2bffa45`](https://github.com/Fausto95/lucent/commit/2bffa4542a9bb3de8f06f988d035fdd2976a0302) Thanks [@Fausto95](https://github.com/Fausto95)! - Declare the initializers an iOS class inherits through a superclass that inherits them too (`init(coder:)` on `UIWindowScene.ActivationAction`) on every build, not only when the SDK's classes happen to be read in order
+
+- [#85](https://github.com/Fausto95/lucent/pull/85) [`36064d4`](https://github.com/Fausto95/lucent/commit/36064d488d6a6778605e803c14ce4c8ff3e595d6) Thanks [@brunokiafuka](https://github.com/brunokiafuka)! - Keep every Swift overload of one name that a Swift overlay gives an Objective-C class: `NSCoder.decodeTopLevelObject(forKey:)` and `RunLoop.schedule(after:tolerance:options:_:)` were dropped beside their first overload. A Swift `inout` parameter is now skipped with its reason, instead of binding the member as if it took a value and generating a shim that does not compile.
+
+- [#92](https://github.com/Fausto95/lucent/pull/92) [`9ced06c`](https://github.com/Fausto95/lucent/commit/9ced06c8e45bfe608156a1c41c7a71a2096046ef) Thanks [@brunokiafuka](https://github.com/brunokiafuka)! - Call an arrow function passed straight to `sort`, `map`, `filter`, `forEach`, `reduce` and the like directly, instead of through a function value: `sortNumbers` runs 1.4x faster, and generated code is smaller.
+
+- [#100](https://github.com/Fausto95/lucent/pull/100) [`62b6f69`](https://github.com/Fausto95/lucent/commit/62b6f69e92787a961e65551670b154ffd904f5ad) Thanks [@Fausto95](https://github.com/Fausto95)! - Read uint32 values back out of a `number[]` without mispredicting (`crc32` runs 1.8x faster), and index arrays with a `number` without a C library call on x86-64 hosts without SSE4.1, which made `sieve` far slower on Linux CI.
+
+- [#93](https://github.com/Fausto95/lucent/pull/93) [`93ecab0`](https://github.com/Fausto95/lucent/commit/93ecab0a2a14205ac2eed77d493188309e3e1a52) Thanks [@brunokiafuka](https://github.com/brunokiafuka)! - Keep arithmetic whose range is proven, such as `sum = (sum + x) % m`, in integer registers: `xorshift` runs 3x faster. Arithmetic that could give -0, NaN or a value past 2^53 stays a double.
+
+- [#90](https://github.com/Fausto95/lucent/pull/90) [`eb6975b`](https://github.com/Fausto95/lucent/commit/eb6975b6756f401b187d7b1ddb16b76d63954c84) Thanks [@brunokiafuka](https://github.com/brunokiafuka)! - Make strings cheaper: each is one allocation, or none up to 15 Latin-1 characters, and short strings compare and hash faster as `Map` keys; `join` allocates once. The `strings` and `wordCount` benchmark kernels run 1.5–1.8x faster.
+
 ## 0.1.3
 
 ### Patch Changes
