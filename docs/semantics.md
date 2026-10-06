@@ -271,8 +271,10 @@ transferred`) on use, and closing it does nothing. Passing a buffer to
 The ES2023 methods (`toSorted`, `toReversed`, `findLast`, `findLastIndex`)
 are not available: modules are checked against the ES2022 library.
 
-Not supported: `Intl`, `Symbol`, `WeakMap`, `Proxy`, `eval`. Each gives a
-diagnostic.
+Not supported: `Intl`, `Symbol`, `WeakMap`, `Proxy`, `eval`, and
+`String.prototype.normalize` (the runtime has no Unicode normalization
+tables: normalize the string in JavaScript before passing it). Each gives
+a diagnostic.
 
 ## Crossing the JavaScript boundary
 

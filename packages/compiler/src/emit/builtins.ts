@@ -1432,6 +1432,11 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
     case "localeCompare":
       return num(cpp.call(cpp.dot(o, "localeCompare"), [argAs(em, node, 0, T.string)]));
     case "normalize":
+      fail(
+        node,
+        Codes.UnsupportedBuiltin,
+        "String.prototype.normalize is not supported: Unicode normalization needs tables the Lucent runtime does not have; normalize the string in JavaScript before passing it",
+      );
     case "valueOf":
     case "toString":
       return str(o);

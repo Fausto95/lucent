@@ -74,7 +74,6 @@ class String {
   String padEnd(double targetLength, const String& fill) const;
   String concat(const String& other) const { return *this + other; }
   double localeCompare(const String& other) const;
-  String normalize() const { return *this; }
 
   /// Substring by code unit range, clamped.
   String sub(size_t begin, size_t end) const;
