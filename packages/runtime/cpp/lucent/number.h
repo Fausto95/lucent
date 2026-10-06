@@ -17,8 +17,13 @@ inline constexpr double kInfinity = std::numeric_limits<double>::infinity();
 
 /// ECMAScript ToInt32.
 inline int32_t toInt32(double v) {
-  if (v >= -2147483648.0 && v <= 2147483647.0) return static_cast<int32_t>(v);  // fast path, truncates
-  if (v >= 0 && v < 4294967296.0) return static_cast<int32_t>(static_cast<uint32_t>(v));  // results of >>> 0
+  // One branch for every value int64 holds: int32 values, and the uint32
+  // results of `>>> 0` alike, whatever their sign bit. (Two ranges, int32
+  // then uint32, mispredict on data like CRC tables.) The conversion
+  // truncates; narrowing wraps modulo 2^32, as ToInt32 does.
+  if (v > -9223372036854775808.0 && v < 9223372036854775808.0) {
+    return static_cast<int32_t>(static_cast<uint32_t>(static_cast<int64_t>(v)));
+  }
   if (!std::isfinite(v)) return 0;
   double m = std::fmod(std::trunc(v), 4294967296.0);
   if (m < 0) m += 4294967296.0;

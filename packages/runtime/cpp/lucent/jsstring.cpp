@@ -116,40 +116,72 @@ bool isJsWhitespace(char16_t c) {
   }
 }
 
-String String::make(std::string&& latin1) {
-  if (latin1.empty()) return String();
-  if (latin1.size() <= kInline) return inlined(latin1, {});
-  auto d = std::make_shared<Data>();
-  d->oneByte = true;
-  d->bytes = std::move(latin1);
-  return String(std::move(d));
+String::Data* String::allocate(size_t capacity, bool oneByte) {
+  size_t unitSize = oneByte ? 1 : sizeof(char16_t);
+  auto* d = static_cast<Data*>(std::malloc(sizeof(Data) + capacity * unitSize));
+  if (!d) throw std::bad_alloc();
+  d->refs = 1;
+  d->oneByte = oneByte;
+  d->hash = 0;
+  d->length = 0;
+  d->capacity = capacity;
+  return d;
 }
 
-String String::make(std::u16string&& wide) {
-  if (wide.empty()) return String();
+String::Data* String::reserve(Data* d, size_t capacity) {
+  if (capacity <= d->capacity) return d;
+  capacity = std::max(capacity, d->capacity + d->capacity / 2);
+  size_t unitSize = d->oneByte ? 1 : sizeof(char16_t);
+  auto* grown = static_cast<Data*>(std::realloc(d, sizeof(Data) + capacity * unitSize));
+  if (!grown) throw std::bad_alloc();
+  grown->capacity = capacity;
+  return grown;
+}
+
+String String::adopt(Data* d) {
+  String out;
+  std::memcpy(out.s_, &d, sizeof d);
+  out.tag_ = kHeap;
+  return out;
+}
+
+String String::fromBytes(const char* bytes, size_t n) {
+  if (n <= kInline) return inlined(std::string_view(bytes, n), {});
+  Data* d = allocate(n, true);
+  std::memcpy(d->bytes(), bytes, n);
+  d->length = n;
+  return adopt(d);
+}
+
+String String::fromUtf16(const char16_t* wide, size_t n) {
+  if (n == 0) return String();
   bool narrow = true;
-  for (char16_t c : wide) {
+  for (size_t i = 0; i < n; i++) {
+    char16_t c = wide[i];
     if (c > 0xFF) {
       narrow = false;
       break;
     }
   }
   if (narrow) {
-    std::string bytes(wide.size(), '\0');
-    for (size_t i = 0; i < wide.size(); i++) bytes[i] = static_cast<char>(wide[i]);
-    return make(std::move(bytes));
+    if (n <= kInline) {
+      String out;
+      for (size_t i = 0; i < n; i++) out.s_[i] = static_cast<char>(wide[i]);
+      out.tag_ = static_cast<uint8_t>(n);
+      return out;
+    }
+    Data* d = allocate(n, true);
+    for (size_t i = 0; i < n; i++) d->bytes()[i] = static_cast<char>(wide[i]);
+    d->length = n;
+    return adopt(d);
   }
-  auto d = std::make_shared<Data>();
-  d->oneByte = false;
-  d->wide = std::move(wide);
-  return String(std::move(d));
+  Data* d = allocate(n, false);
+  std::memcpy(d->wide(), wide, n * sizeof(char16_t));
+  d->length = n;
+  return adopt(d);
 }
 
-String String::fromLatin1(std::string_view bytes) {
-  if (bytes.empty()) return String();
-  if (bytes.size() <= kInline) return inlined(bytes, {});
-  return make(std::string(bytes));
-}
+String String::fromLatin1(std::string_view bytes) { return fromBytes(bytes.data(), bytes.size()); }
 
 namespace {
 // Copies n <= 16 bytes as two overlapping fixed-size copies, which compile
@@ -168,15 +200,19 @@ inline void copySmall(char* dst, const char* src, size_t n) {
     std::memcpy(&y, src + n - 4, 4);
     std::memcpy(dst, &x, 4);
     std::memcpy(dst + n - 4, &y, 4);
-  } else {
-    for (size_t i = 0; i < n; i++) dst[i] = src[i];
+  } else if (n > 0) {
+    // 1 to 3 bytes: first, middle and last (a loop here compiles to a memcpy call).
+    char a = src[0], b = src[n / 2], c = src[n - 1];
+    dst[0] = a;
+    dst[n / 2] = b;
+    dst[n - 1] = c;
   }
 }
 }  // namespace
 
 String String::inlined(std::string_view a, std::string_view b) {
   String out;
-  out.n_ = static_cast<uint8_t>(a.size() + b.size());
+  out.tag_ = static_cast<uint8_t>(a.size() + b.size());
   copySmall(out.s_, a.data(), a.size());
   copySmall(out.s_ + a.size(), b.data(), b.size());
   return out;
@@ -190,7 +226,7 @@ String String::fromUtf8(std::string_view s) {
       break;
     }
   }
-  if (ascii) return make(std::string(s));
+  if (ascii) return fromBytes(s.data(), s.size());
   std::u16string out;
   out.reserve(s.size());
   size_t i = 0;
@@ -243,21 +279,6 @@ String String::fromUtf8(std::string_view s) {
   return make(std::move(out));
 }
 
-String String::fromUtf16(const char16_t* units, size_t length) { return make(std::u16string(units, length)); }
-
-String String::fromCodeUnit(char16_t unit) {
-  if (unit <= 0xFF) {
-    // Shared, like JavaScript engines' single-character strings. `+=` never
-    // grows a shared string in place, so the cache cannot change.
-    static const auto* cache = [] {
-      auto* c = new std::array<String, 256>();
-      for (int i = 0; i < 256; i++) (*c)[i] = make(std::string(1, static_cast<char>(i)));
-      return c;
-    }();
-    return (*cache)[unit];
-  }
-  return make(std::u16string(1, unit));
-}
 
 String String::fromCodePoint(double v) {
   if (!(v >= 0 && v <= 0x10FFFF) || std::trunc(v) != v) throwRangeError("Invalid code point");
@@ -276,7 +297,7 @@ std::string String::toUtf8() const {
     for (unsigned char c : b) appendUtf8(out, c);
     return out;
   }
-  const auto& w = d_->wide;
+  std::u16string_view w = utf16();
   out.reserve(w.size() * 2);
   for (size_t i = 0; i < w.size(); i++) {
     char16_t c = w[i];
@@ -305,7 +326,7 @@ void String::appendUnitsTo(std::u16string& out) const {
     out.reserve(out.size() + b.size());
     for (unsigned char c : b) out.push_back(c);
   } else {
-    out.append(d_->wide);
+    out.append(utf16());
   }
 }
 
@@ -315,50 +336,87 @@ String operator+(const String& a, const String& b) {
   if (a.isOneByte() && b.isOneByte()) {
     std::string_view x = a.latin1(), y = b.latin1();
     if (x.size() + y.size() <= String::kInline) return String::inlined(x, y);
-    std::string s;
-    s.reserve(x.size() + y.size());
-    s.append(x).append(y);
-    return String::make(std::move(s));
+    String::Data* d = String::allocate(x.size() + y.size(), true);
+    std::memcpy(d->bytes(), x.data(), x.size());
+    std::memcpy(d->bytes() + x.size(), y.data(), y.size());
+    d->length = x.size() + y.size();
+    return String::adopt(d);
   }
-  std::u16string w;
-  w.reserve(a.length() + b.length());
-  a.appendUnitsTo(w);
-  b.appendUnitsTo(w);
-  auto d = std::make_shared<String::Data>();
-  d->oneByte = false;
-  d->wide = std::move(w);
-  return String(std::move(d));
+  // At least one is two-byte: so is the result (it holds a unit > 0xFF).
+  String::Data* d = String::allocate(a.length() + b.length(), false);
+  a.copyUnitsTo(d->wide());
+  b.copyUnitsTo(d->wide() + a.length());
+  d->length = a.length() + b.length();
+  return String::adopt(d);
 }
 
-StringBuilder::StringBuilder(size_t capacity, bool oneByte) : oneByte_(oneByte) {
-  if (oneByte) bytes_.reserve(capacity);
-  else wide_.reserve(capacity);
+void String::copyUnitsTo(char16_t* out) const {
+  if (isOneByte()) {
+    std::string_view b = latin1();
+    for (size_t i = 0; i < b.size(); i++) out[i] = static_cast<unsigned char>(b[i]);
+  } else {
+    std::u16string_view w = utf16();
+    std::memcpy(out, w.data(), w.size() * sizeof(char16_t));
+  }
+}
+
+String::Data* String::widen(Data* d, size_t capacity) {
+  Data* w = allocate(std::max(capacity, d->length), false);
+  for (size_t i = 0; i < d->length; i++) w->wide()[i] = static_cast<unsigned char>(d->bytes()[i]);
+  w->length = d->length;
+  std::free(d);
+  return w;
+}
+
+String::Data* String::append(Data* d, const String& s) {
+  size_t n = d->length + s.length();
+  if (d->oneByte && !s.isOneByte()) d = widen(d, n + n / 2);
+  else d = reserve(d, n);
+  if (d->oneByte) {
+    std::string_view b = s.latin1();
+    if (b.size() <= kInline) copySmall(d->bytes() + d->length, b.data(), b.size());
+    else std::memcpy(d->bytes() + d->length, b.data(), b.size());
+  } else {
+    s.copyUnitsTo(d->wide() + d->length);
+  }
+  d->length = n;
+  return d;
+}
+
+StringBuilder::StringBuilder(size_t capacity, bool oneByte) : d_(String::allocate(capacity, oneByte)) {}
+
+StringBuilder::~StringBuilder() {
+  if (d_) std::free(d_);
 }
 
 void StringBuilder::append(const String& s) {
-  if (s.empty()) return;
-  if (oneByte_ && s.isOneByte()) {
-    bytes_.append(s.latin1());
-    return;
-  }
-  if (oneByte_) {
-    // Parts were promised Latin-1; widen what was built so far.
-    wide_.reserve(bytes_.size() + s.length());
-    for (unsigned char b : bytes_) wide_.push_back(b);
-    bytes_.clear();
-    oneByte_ = false;
-  }
-  s.appendUnitsTo(wide_);
+  if (!s.empty()) d_ = String::append(d_, s);
 }
 
 void StringBuilder::appendAscii(std::string_view ascii) {
-  if (oneByte_) bytes_.append(ascii);
-  else wide_.append(ascii.begin(), ascii.end());
+  size_t n = d_->length + ascii.size();
+  d_ = String::reserve(d_, n);
+  if (d_->oneByte) {
+    std::memcpy(d_->bytes() + d_->length, ascii.data(), ascii.size());
+  } else {
+    for (size_t i = 0; i < ascii.size(); i++) d_->wide()[d_->length + i] = static_cast<unsigned char>(ascii[i]);
+  }
+  d_->length = n;
 }
 
 String StringBuilder::build() && {
-  if (oneByte_) return String::make(std::move(bytes_));
-  return String::make(std::move(wide_));
+  String::Data* d = d_;
+  d_ = nullptr;
+  if (d->length == 0) {
+    std::free(d);
+    return String();
+  }
+  if (d->oneByte && d->length <= String::kInline) {
+    String out = String::inlined(std::string_view(d->bytes(), d->length), {});
+    std::free(d);
+    return out;
+  }
+  return String::adopt(d);
 }
 
 String& String::operator+=(const String& other) {
@@ -367,24 +425,12 @@ String& String::operator+=(const String& other) {
     *this = other;
     return *this;
   }
-  if (d_ && d_.use_count() == 1 && &other != this) {
+  if (heap() && unique() && &other != this) {
     // Sole owner: grow in place so a `+=` loop is amortized linear. (Inline
     // strings are short: they grow by concatenation until they move out.)
-    d_->hash.store(0, std::memory_order_relaxed);
-    if (d_->oneByte && other.isOneByte()) {
-      d_->bytes.append(other.latin1());
-      return *this;
-    }
-    if (d_->oneByte) {
-      std::u16string w;
-      w.reserve((d_->bytes.size() + other.length()) * 2);
-      for (unsigned char c : d_->bytes) w.push_back(c);
-      d_->bytes.clear();
-      d_->bytes.shrink_to_fit();
-      d_->oneByte = false;
-      d_->wide = std::move(w);
-    }
-    other.appendUnitsTo(d_->wide);
+    Data* d = append(data(), other);
+    d->hash = 0;
+    std::memcpy(s_, &d, sizeof d);
     return *this;
   }
   *this = *this + other;
@@ -392,14 +438,16 @@ String& String::operator+=(const String& other) {
 }
 
 bool operator==(const String& a, const String& b) {
-  if (a.d_ && a.d_ == b.d_) return true;
+  // Inline strings (their length in tag_, zeros past it) are equal when their handles are.
+  if (!a.heap() && !b.heap()) return std::memcmp(a.s_, b.s_, sizeof a.s_) == 0 && a.tag_ == b.tag_;
+  if (a.heap() && b.heap() && a.data() == b.data()) return true;
   size_t n = a.length();
   if (n != b.length()) return false;
   if (n == 0) return true;
   if (a.isOneByte() && b.isOneByte()) return a.latin1() == b.latin1();
-  if (!a.d_->oneByte && !b.d_->oneByte) return a.d_->wide == b.d_->wide;
+  if (!a.isOneByte() && !b.isOneByte()) return a.utf16() == b.utf16();
   // Mixed representations never compare equal: a wide string always holds a
-  // unit > 0xFF (make() narrows otherwise).
+  // unit > 0xFF (strings narrow otherwise).
   return false;
 }
 
@@ -415,17 +463,37 @@ int String::compare(const String& a, const String& b) {
 
 size_t String::hash() const {
   if (empty()) return 0x9e3779b9;
-  size_t h = d_ ? d_->hash.load(std::memory_order_relaxed) : 0;
+  if (!heap()) {
+    // Its two words (bytes, zeros, length), mixed: equal strings are both
+    // inline, so no other representation needs to hash alike.
+    uint64_t lo, hi;
+    std::memcpy(&lo, s_, 8);
+    std::memcpy(&hi, s_ + 8, 7);
+    hi = (hi & 0x00FFFFFFFFFFFFFFULL) | (static_cast<uint64_t>(tag_) << 56);
+    uint64_t x = lo * 0x9E3779B97F4A7C15ULL ^ (hi + 0x632BE59BD9B4E019ULL);
+    x ^= x >> 29;
+    x *= 0xBF58476D1CE4E5B9ULL;
+    x ^= x >> 32;
+    return static_cast<size_t>(x) | 1;
+  }
+  Data* d = data();
+  size_t h = __atomic_load_n(&d->hash, __ATOMIC_RELAXED);
   if (h != 0) return h;
   // FNV-1a over code units, so both representations hash alike.
   uint64_t x = 1469598103934665603ULL;
-  size_t n = length();
-  for (size_t i = 0; i < n; i++) {
-    x ^= unit(i);
-    x *= 1099511628211ULL;
+  if (isOneByte()) {
+    for (unsigned char c : latin1()) {
+      x ^= c;
+      x *= 1099511628211ULL;
+    }
+  } else {
+    for (char16_t c : utf16()) {
+      x ^= c;
+      x *= 1099511628211ULL;
+    }
   }
   h = static_cast<size_t>(x) | 1;
-  if (d_) d_->hash.store(h, std::memory_order_relaxed);
+  __atomic_store_n(&d->hash, h, __ATOMIC_RELAXED);
   return h;
 }
 
@@ -434,8 +502,8 @@ String String::sub(size_t begin, size_t end) const {
   if (end > n) end = n;
   if (begin >= end) return String();
   if (begin == 0 && end == n) return *this;
-  if (isOneByte()) return make(std::string(latin1().substr(begin, end - begin)));
-  return make(d_->wide.substr(begin, end - begin));
+  if (isOneByte()) return fromBytes(latin1().data() + begin, end - begin);
+  return fromUtf16(utf16().data() + begin, end - begin);
 }
 
 size_t String::find(const String& needle, size_t from) const {
@@ -453,7 +521,7 @@ size_t String::find(const String& needle, size_t from) const {
   return std::string::npos;
 }
 
-double String::charCodeAt(double index) const {
+double String::charCodeAtOther(double index) const {
   if (std::isnan(index)) index = 0;
   index = std::trunc(index);
   if (index < 0 || index >= static_cast<double>(length())) return std::nan("");
@@ -461,6 +529,7 @@ double String::charCodeAt(double index) const {
 }
 
 String String::charAt(double index) const {
+  if (size_t i = indexBelow(index, length()); i != kNoIndex) return fromCodeUnit(unit(i));
   if (std::isnan(index)) index = 0;
   index = std::trunc(index);
   if (index < 0 || index >= static_cast<double>(length())) return String();
@@ -728,7 +797,7 @@ String String::repeat(double count) const {
   }
   std::u16string out;
   out.reserve(length() * c);
-  for (size_t i = 0; i < c; i++) out.append(d_->wide);
+  for (size_t i = 0; i < c; i++) out.append(utf16());
   return make(std::move(out));
 }
 

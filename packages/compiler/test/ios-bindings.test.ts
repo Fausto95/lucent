@@ -248,6 +248,20 @@ export async function run(): Promise<string> {
 }
 `;
 
+/** CoreGraphics' C functions as Swift imports them: members of their handles. */
+const cgMembers = `import { UIImage } from "lucent:ios/UIKit";
+import type { CGImage } from "lucent:ios/CoreGraphics";
+import { main } from "lucent:thread";
+export async function run(): Promise<string> {
+  return main(() => {
+    const cg: CGImage | null = new UIImage(new Uint8Array(0)).cgImage;
+    if (cg === null) return "none";
+    const cropped = cg.cropping({ origin: { x: 0, y: 0 }, size: { width: 1, height: 1 } });
+    return \`\${cg.width}x\${cg.height} \${cropped === null}\`;
+  });
+}
+`;
+
 const cgImages = `import { UIImage } from "lucent:ios/UIKit";
 import { CIContext, CIImage } from "lucent:ios/CoreImage";
 import { main } from "lucent:thread";
@@ -526,6 +540,26 @@ export async function run(): Promise<string> {
     expect(mm).toContain("objc_setAssociatedObject(");
   });
 
+  it("makes an object with a factory Swift imports as an initializer, on the class", () => {
+    const widgets = path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../../bindgen/test/fixtures/objc",
+    );
+    const { r, mm } = ios(
+      `import { WDGWidget } from "lucent:ios/Widgets";
+import { main } from "lucent:thread";
+export async function run(): Promise<string> {
+  return main(() => new WDGWidget("dial").name);
+}
+`,
+      { ios: { includePaths: [widgets] } },
+    );
+
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("[WDGWidget widgetWithLabel:");
+    expect(mm).not.toContain("alloc] widgetWithLabel:");
+  });
+
   it("reads NSError out-parameters as Lucent errors", () => {
     const { r, mm } = ios(errorOut);
     expect(r.diagnostics).toEqual([]);
@@ -575,6 +609,16 @@ export async function run(): Promise<string> {
     expect(mm).toContain("initWithCGImage:(__bridge CGImageRef)lucent::objc::unwrap(");
     // Methods named create/copy/new return handles the caller owns (Cocoa's naming rule).
     expect(mm).toContain("lucent::objc::wrapOpt((__bridge_transfer id)[");
+  });
+
+  it("calls C functions Swift imports as members of CoreFoundation handles (cgImage.width)", () => {
+    const { r, mm } = ios(cgMembers);
+
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("CGImageGetWidth(");
+    expect(mm).toContain("CGImageGetHeight(");
+    // A Create function's result is owned: handed to ARC.
+    expect(mm).toMatch(/__bridge_transfer [^;]*CGImageCreateWithImageInRect\(/);
   });
 
   it("passes type parameters' values as objects, read back as the type arguments say", () => {
@@ -730,6 +774,7 @@ export async function run(): Promise<string> {
         [structs],
         [unimportedStruct],
         [cgImages],
+        [cgMembers],
         [sets],
         [mediaTimes],
         [shadowing],

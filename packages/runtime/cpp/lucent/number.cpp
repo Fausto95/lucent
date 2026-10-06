@@ -1,6 +1,7 @@
 #include "number.h"
 
 #include <algorithm>
+#include <charconv>
 #include <cstdio>
 #include <vector>
 #include <cstdlib>
@@ -169,7 +170,9 @@ String numberToString(double v) {
   if (v == 0) return String::fromLatin1("0");
   if (std::isinf(v)) return String::fromLatin1(v > 0 ? "Infinity" : "-Infinity");
   if (std::fabs(v) < 9007199254740992.0 && std::trunc(v) == v) {
-    return String::fromLatin1(std::to_string(static_cast<int64_t>(v)));
+    char digits[24];
+    auto r = std::to_chars(digits, digits + sizeof digits, static_cast<int64_t>(v));
+    return String::fromLatin1(std::string_view(digits, static_cast<size_t>(r.ptr - digits)));
   }
   std::string out = v < 0 ? "-" : "";
   out += formatDecimal(shortest(std::fabs(v)));

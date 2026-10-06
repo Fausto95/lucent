@@ -79,9 +79,19 @@ function declaration(dts: string, name: string): string | undefined {
 function memberLines(block: string, member: string): string | undefined {
   const lines = block.split("\n");
   const head = lines.find((l) => l.startsWith("export "))!;
-  const found = lines.filter((l) =>
-    new RegExp(`^\\s+(static |readonly |get |set |protected |private )*${member}\\b[?(<:]`).test(l),
+  const declares = new RegExp(
+    `^\\s+(static |readonly |get |set |protected |private )*${member}\\b[?(<:]`,
   );
+
+  // Each declaration with its doc comment: what it calls natively, what using it takes.
+  const found = lines.flatMap((l, i) => {
+    if (!declares.test(l)) return [];
+
+    let from = i;
+    if (/\*\/\s*$/.test(lines[i - 1] ?? ""))
+      while (from > 0 && !/^\s*\/\*\*/.test(lines[from - 1]!)) from--;
+    return lines.slice(from > 0 && /^\s*\/\*\*/.test(lines[from - 1]!) ? from - 1 : i, i + 1);
+  });
   return found.length ? [head, ...found, "}"].join("\n") : undefined;
 }
 

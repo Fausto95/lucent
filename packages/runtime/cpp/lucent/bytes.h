@@ -50,13 +50,15 @@ class Bytes {
   const uint8_t* data() const { return buf_->data() + off_; }
 
   Opt<double> get(double index) const {
-    if (index >= 0 && index < static_cast<double>(len_) && std::trunc(index) == index) return static_cast<double>(data()[static_cast<size_t>(index)]);
+    size_t i = indexBelow(index, len_);
+    if (i != kNoIndex) return static_cast<double>(data()[i]);
     return undefined;
   }
   double at(size_t i) const { return static_cast<double>(data()[i]); }
   /// Out-of-range writes are ignored, as for typed arrays in JavaScript.
   void set(double index, double value) {
-    if (index >= 0 && index < static_cast<double>(len_) && std::trunc(index) == index) data()[static_cast<size_t>(index)] = toUint8(value);
+    size_t i = indexBelow(index, len_);
+    if (i != kNoIndex) data()[i] = toUint8(value);
   }
   void setFrom(const Bytes& src, double offset = 0) {
     size_t o = setOffset(offset, src.len_);

@@ -29,6 +29,7 @@
 
 #include "core.h"
 #include "jserror.h"
+#include "live.h"
 
 namespace lucent {
 
@@ -119,6 +120,7 @@ class OperationBase : public std::enable_shared_from_this<OperationBase> {
   std::weak_ptr<Scope> scope_;
   std::function<void()> cleanup_;
   std::atomic<uint64_t> late_{0};
+  [[no_unique_address]] live::Counted<live::Kind::Operation> counted_;
 };
 
 }  // namespace detail
@@ -201,6 +203,8 @@ class Scope : public std::enable_shared_from_this<Scope> {
   friend class detail::OperationBase;
 
   Scope(RuntimeId runtime, const std::shared_ptr<Scope>& parent, std::weak_ptr<Owner> owner);
+
+  [[no_unique_address]] live::Counted<live::Kind::Scope> counted_;
 
   /// What disposal runs once the scope has stopped taking registrations.
   struct Teardown {

@@ -117,7 +117,9 @@ Hermes host.
 There is no list of frameworks or packages. Bindings come from the native
 artifacts the app's build resolved (bindgen's `nativeArtifacts`):
 
-- **iOS**: the simulator SDK (`sdk:iphonesimulator27.0`), and each module on
+- **iOS**: the simulator SDK (`sdk:iphonesimulator27.0`), read for the app
+  target's deployment target (`IPHONEOS_DEPLOYMENT_TARGET` in the app's
+  Xcode project, else iOS 15.1), and each module on
   the search paths the app target's Pods xcconfig gives: a pod's modules are
   one artifact, `pod:Name@version` at the version Podfile.lock installed,
   with the pods it depends on there; other module maps, frameworks and Swift
@@ -127,6 +129,23 @@ artifacts the app's build resolved (bindgen's `nativeArtifacts`):
   module's pod is the directory of Pods/ that Podfile.lock names in its
   path, so a pod may name its module otherwise (`react-native-netinfo`,
   module `react_native_netinfo`).
+- **iOS Swift packages**: the packages the app's Xcode project references
+  (`ios/<App>.xcodeproj`, its `packageReferences`), at the versions
+  Package.resolved pins (the workspace's, else the project's), are built
+  for Lucent to read: each is cloned at its pinned revision into the cache
+  (`spm/`), with the app's Package.resolved pinning its dependencies, and
+  `xcodebuild` builds its library products (its manifest's, read with
+  `swift package dump-package`) for the simulator at the app's deployment
+  target. Their Swift modules (or frameworks, for dynamic products) are
+  one artifact, `spm:identity@version`; a dependency's modules are its own
+  package's, at the version the app pins. A build runs once per revision,
+  target and Xcode version; one that fails is named where a module it
+  would have given is missing. LucentNative links a package's products
+  where the code imports its modules (`spm_dependency`, at the exact
+  version the app resolved), so the app adds the package to its project
+  without adding the product to its app target: linked by both, a static
+  package's symbols would be duplicated, as React Native's SPM helper
+  warns.
 - **iOS with `use_frameworks!`**: pods are frameworks Xcode builds later, in
   the build products directory the xcconfig's framework search paths name.
   Before that build, each is what CocoaPods wrote for it: the module map and
@@ -220,8 +239,28 @@ directory:
 
 - classes are nominal (a private brand) and have a private constructor unless
   the SDK declares initializers;
+- C functions Swift imports as members of CoreFoundation-style handles,
+  as the module's API notes or its headers' `swift_name` attributes say
+  (`CGImageGetWidth` → `cgImage.width`, `CGImageCreateWithImageInRect` →
+  `cgImage.cropping(rect)`): called as the C functions they are, the
+  object where the name puts `self`, a Create/Copy function's result
+  owned;
 - Swift names on iOS (`UIDevice.current`, `init(style:)` → `constructor(style)`),
   nested types joined with `_` (`UIImpactFeedbackGenerator_FeedbackStyle`);
+  Swift initializers TypeScript cannot tell apart, their parameters' types
+  the same (`init(service: String)`, `init(accessGroup: String)`), are
+  static factories named after their labels (`Keychain.withService(…)`,
+  `Keychain.withAccessGroup(…)`; after their types where the labels are
+  the same, `withInt`), never a `constructor` that would bind whichever
+  is declared first, and `new` with their arguments says so; one whose
+  arguments have no labels stays the `constructor`, as Swift calls it
+  with bare arguments (`new Locale_LanguageCode("en")`, while
+  `init(stringLiteral:)` is `withStringLiteral`); methods
+  that collide get their labels appended (`resize(height:)` →
+  `resizeHeight`). Objective-C initializers are not separated yet. An
+  Objective-C class method Swift imports as an initializer
+  (`+widgetWithLabel:` as `init(label:)`) is a `constructor` too, sent to
+  the class rather than to a new instance;
 - Java names on Android, plus Kotlin-style getter properties
   (`VibratorManager.defaultVibrator`); Kotlin classes as Kotlin declares
   them (see below);
@@ -365,8 +404,11 @@ a suspend function argument) has the `kotlin-shim` backend, which refuses
 generic members bounded by a projected type (`T : List<out R>`, whose
 bound the schema does not keep) and overriding a Kotlin class's suspend
 or value-class members, for now;
-Swift shims pass scalars, Swift enums and objects, not optionals of
-scalars, Objective-C enums or closures. A value that cannot cross is an `unsupported` conversion with
+Swift shims pass scalars, Swift enums, objects, tuples (as arrays of
+their elements' objects; not of optional values or C structs) and
+closures (as Objective-C blocks, both ways: of numbers, booleans,
+strings and Objective-C objects), not optionals of scalars or
+Objective-C enums. A value that cannot cross is an `unsupported` conversion with
 its reason; a member no use of which can work (a read-only property
 written, a Swift async initializer, a member of a protocol with associated
 types called, a static requirement implemented) is `refused`, with the
@@ -405,7 +447,12 @@ _exercised_ (listed in an `--exercised` file of symbol keys that tests or
 probes write). A stage without evidence is unknown (`-`, `null` in JSON),
 not 0. `--members` lists every member with its stage, symbol key, native
 symbol, artifact and reason. CI fails when a module's unrepresentable
-share grows past `sdk-coverage.json`.
+share grows past `sdk-coverage.json`. `--all` takes every module of each
+SDK there is, listing the ones its extractor cannot read rather than
+failing (IOKit, and the cross-import overlays, for the simulator), and
+`--summary <file>` appends a markdown summary: the members in total and
+the 20 reasons that leave out the most, summed across modules. CI runs
+both and shows the summary on its job (reporting only).
 [ROADMAP.md](../ROADMAP.md#done) records the last measured
 numbers.
 
@@ -619,8 +666,11 @@ UIViewController`): a generated Objective-C subclass stands for each
   now.
 - Java exceptions become Lucent errors whose `code` is the exception class
   (`java.lang.IllegalArgumentException`) and whose message is the
-  exception's. A `nil`/`null` result where the schema promises an object
-  throws `TypeError`.
+  exception's. `errorOf(throwable)` from `lucent:android` makes the same
+  error of a `Throwable` a callback API reports, so an adapter's
+  `reject(errorOf(e))` rejects as the call would have thrown. A
+  `nil`/`null` result where the schema promises an object throws
+  `TypeError`.
 - A `Task`, a `ListenableFuture`, a `CompletionStage` or any other Java
   object is not a promise: `await` on a value typed as an SDK class is
   refused (LUCENT1010), whatever the class. Its completion listener becomes one
@@ -656,8 +706,9 @@ same facts, in one place (`bindgen/src/facts.ts`), so the two cannot
 disagree.
 
 `available("ios", major, minor?)` and `available("android", api)` check the
-running OS. An API newer than the oldest OS apps run on (iOS 15.1, Android
-API 24), by the SDK's availability attributes (iOS) or API levels
+running OS. An API newer than the oldest OS the app runs on (on iOS, its
+Xcode project's deployment target, never below 15.1; Android API 24), by
+the SDK's availability attributes (iOS) or API levels
 (Android's `api-versions.xml`), must be used under such a check (an `if`, an early exit on the
 opposite check, `?:` or `&&`), or it is LUCENT3007; on iOS, so is passing
 a Swift value that needs a newer Swift runtime (a parameterized protocol

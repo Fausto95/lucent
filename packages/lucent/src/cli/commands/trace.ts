@@ -64,7 +64,8 @@ export function run({ root, flags, out }: Invocation): number {
   }
 
   for (const { name, trace } of runtimes) {
-    const causes = summarize(trace).categories.map(
+    const summary = summarize(trace);
+    const causes = summary.categories.map(
       (c) =>
         `${c.category} ${formatMs(c.ms)}${c.bytes ? ` (${(c.bytes / 1e6).toFixed(1)} MB)` : ""}`,
     );
@@ -73,6 +74,10 @@ export function run({ root, flags, out }: Invocation): number {
     out.print(
       `  ${name.padEnd(16)} ${causes.join(" · ") || t.dim("no spans")}${dropped ? t.dim(`  (${dropped} events dropped)`) : ""}`,
     );
+
+    // The bindings that ran most: an effect's .lucent.ts line, its runs, their time.
+    for (const e of summary.effects.slice(0, 10))
+      out.print(`  ${"".padEnd(16)} ${t.dim("effect")} ${e.site}  ${e.count}× ${formatMs(e.ms)}`);
   }
 
   return 0;

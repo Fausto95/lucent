@@ -41,6 +41,8 @@ const generated = [
 const slow = [
   "packages/compiler/test/platforms-cold-sdk.test.ts",
   "packages/compiler/test/swift-shims.test.ts",
+  "packages/compiler/test/swift-overloads.test.ts",
+  "packages/compiler/test/swift-shapes.test.ts",
   "packages/compiler/test/swift-requirements.test.ts",
   "packages/compiler/test/ios-subclass.test.ts",
   "packages/compiler/test/kotlin-shims.test.ts",
@@ -48,6 +50,7 @@ const slow = [
   "packages/compiler/test/ui/*-run.test.ts",
   "packages/lucent/test/android-project.test.ts",
   "packages/lucent/test/bare-example-bundle.test.ts",
+  "packages/lucent/test/swift-packages.test.ts",
 ];
 const all = !!process.env.CI || !!process.env.LUCENT_ALL_TESTS;
 

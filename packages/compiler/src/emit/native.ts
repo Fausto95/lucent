@@ -32,7 +32,7 @@ import {
   loadSdkModule,
   jniDescriptor,
   MIN_ANDROID_API,
-  MIN_IOS,
+  oldestIos,
   sdkTypeInfo,
   parseSdkType,
   type Platform,
@@ -696,6 +696,17 @@ export function toObjcExpr(t: SdkType, c: cpp.Expr, owned: boolean, what = "a va
     }
     case "set":
       return objc("toNSSet", eachElement(t.of));
+    // A tuple (to a Swift shim): an array of its elements' objects.
+    case "tuple": {
+      const v = cpp.id("t_");
+      return cpp.statementExpr(
+        [cpp.varDecl(cpp.auto, "t_", c)],
+        cpp.call(
+          "lucent::objc::toNSArrayOf",
+          t.of.map((x, i) => boxed(x, cpp.call("std::get", [v], [cpp.num(i)]))),
+        ),
+      );
+    }
     case "record": {
       const dict = objc("toNSDictionary", eachElement(t.of));
       return t.cf ? bridgeTo("CFDictionaryRef", dict) : dict;
@@ -770,7 +781,7 @@ export function toObjc(
   if (t.k === "out") return outArg(em, arg, t, owned);
   const what = argumentWhat(em, arg);
   const struct = sdkStruct(t);
-  if (struct) {
+  if (struct || t.k === "tuple") {
     const declared = em.checker.getContextualType(arg);
     const lt = declared ? em.reg.lower(declared, arg) : em.lt(arg);
     return toObjcExpr(t, em.exprAs(arg, lt), owned, what);
@@ -925,6 +936,27 @@ export function fromObjc(
       return lt.k === "opt"
         ? { c: objc("fromNSErrorOpt", code), t: lt }
         : { c: objc("fromNSError", code, w), t: lt };
+    // A tuple (from a Swift shim): the array of its elements' objects.
+    case "tuple": {
+      const tuple = elem(lt);
+      if (tuple.k !== "tuple") throw new Error(`${what}: a tuple read as ${tuple.k}`);
+      const items = t.of.map((x, i) => {
+        const read = cpp.lambda(
+          ["&"],
+          [cpp.param(cpp.type("id"), "e_")],
+          [cpp.ret(fromObjcItem(em, x, tuple.es[i]!, what))],
+          { ret: em.reg.cppType(tuple.es[i]!) },
+        );
+        return cpp.call(read, [cpp.send(cpp.id("a_"), "objectAtIndex:", [cpp.num(i)])]);
+      });
+      return {
+        c: cpp.statementExpr(
+          [cpp.varDecl(objcPointer("NSArray"), "a_", cpp.cast("c", objcPointer("NSArray"), code))],
+          cpp.construct(em.reg.cppType(tuple), items),
+        ),
+        t: tuple,
+      };
+    }
     default:
       throw new Error(`${what}: an Objective-C ${t.k} value its plan refuses`);
   }
@@ -2444,7 +2476,7 @@ function needOf(platform: Platform, since: number | string | undefined): Need | 
   if (typeof since !== (platform === "android" ? "number" : "string")) return undefined;
 
   const version = String(since);
-  const oldest = platform === "ios" ? MIN_IOS : String(MIN_ANDROID_API);
+  const oldest = platform === "ios" ? oldestIos() : String(MIN_ANDROID_API);
   return compareVersions(version, oldest) > 0 ? { platform, version } : undefined;
 }
 
@@ -2474,7 +2506,7 @@ export function requireAvailable(
     node,
     Codes.Unavailable,
     need.platform === "ios"
-      ? `${what} needs iOS ${need.version} (apps run from iOS ${MIN_IOS}): use it under if (available("ios", ${availableArgs(need)}))`
+      ? `${what} needs iOS ${need.version} (apps run from iOS ${oldestIos()}): use it under if (available("ios", ${availableArgs(need)}))`
       : `${what} needs API ${need.version} (apps run from API ${MIN_ANDROID_API}): use it under if (available("android", ${need.version})) or Build_VERSION.SDK_INT >= ${need.version}`,
   );
 }
@@ -2691,6 +2723,12 @@ export function iosSuperInit(
       Codes.UnsupportedClassFeature,
       `${base.name}: Swift initializers cannot be inherited`,
     );
+  if (ctor.factory)
+    fail(
+      node,
+      Codes.UnsupportedClassFeature,
+      `${base.name}: ${ctor.selector} makes its own object (a class method Swift imports as an initializer), so a subclass cannot call it as super(…): call another of ${base.name}'s initializers`,
+    );
 
   const plan = requirePlan(node, ref, ctor, "new");
   requireAvailable(em, node, ref, ctor.since, `new ${base.name}(…)`);
@@ -2731,8 +2769,14 @@ export function nativeNew(em: FnEmitter, node: ts.NewExpression, t: LType & { k:
   noteIncludes(em, ref);
   if (ref.platform === "ios") {
     const a = args.map((x, i) => toObjc(em, x, params[i]!, plan));
-    const alloc = cpp.send(ref.cls.native, "alloc");
-    const created = send(alloc, ctor.selector ?? "init", a);
+    // A C function Swift imports as an initializer: it creates the object, owned.
+    if (ctor.cFunction) {
+      const made = cpp.cast("bridge_transfer", cpp.type("id"), cpp.call(ctor.cFunction.name, a));
+      return { c: cpp.call("lucent::objc::wrap", [made, cpp.str(`new ${t.name}`)]), t };
+    }
+    // A factory initializer is a class method: sent to the class, which makes the object.
+    const receiver = ctor.factory ? cpp.id(ref.cls.native) : cpp.send(ref.cls.native, "alloc");
+    const created = send(receiver, ctor.selector ?? "init", a);
     return { c: cpp.call("lucent::objc::wrap", [created, cpp.str(`new ${t.name}`)]), t };
   }
   warnOutsideGroups(em, ctor.params, args, `new ${t.name}`);
@@ -2887,6 +2931,15 @@ function property(
   const lt = declaredLt(em, ref.platform, t, node);
   if (ref.platform === "ios") {
     if (prop.global) return fromObjc(em, cpp.id(prop.global), t, lt, what);
+    // A C getter Swift imports as the property: of the object, or of none for a static one.
+    if (prop.cFunctions)
+      return fromObjc(
+        em,
+        cpp.call(prop.cFunctions.getter, obj ? [cfReceiver(ref, obj)] : []),
+        t,
+        lt,
+        what,
+      );
     const read = send(objcReceiver(ref, obj), prop.selector ?? prop.name, []);
     return fromObjc(em, read, t, lt, what);
   }
@@ -3076,14 +3129,22 @@ function iosCall(
   );
   const throws = plan.error?.detail === "nserror-out";
   const selector = m.selector ?? m.name;
-  const code = superOf
-    ? send(
-        cpp.cast("c", objcPointer(superOf), cpp.call("lucent::objc::unwrap", [obj!.c])),
-        superSelector(selector),
-        a,
-        throws,
-      )
-    : send(objcReceiver(ref, obj), selector, a, throws);
+  const c = m.cFunction;
+  // A C function Swift imports as the method: the object among its arguments where its name says.
+  const cArgs =
+    c && obj && c.self !== undefined
+      ? [...a.slice(0, c.self), cfReceiver(ref, obj), ...a.slice(c.self)]
+      : a;
+  const code = c
+    ? cpp.call(c.name, cArgs)
+    : superOf
+      ? send(
+          cpp.cast("c", objcPointer(superOf), cpp.call("lucent::objc::unwrap", [obj!.c])),
+          superSelector(selector),
+          a,
+          throws,
+        )
+      : send(objcReceiver(ref, obj), selector, a, throws);
   const ret = parseSdkType(m.returns, ref.module, tps);
   const what = `${ref.cls.name}.${m.name}()`;
   const lt = declaredLt(em, "ios", ret, node);
@@ -3094,6 +3155,11 @@ function iosCall(
 
 /** The selector of the method a generated subclass calls its base's `selector` with. */
 export const superSelector = (selector: string) => `lucentSuper_${selector}`;
+
+/** A CoreFoundation-style handle's object, as the C functions taking it do (`CGImageRef`). */
+function cfReceiver(ref: SdkClassRef, obj: E): cpp.Expr {
+  return cpp.cast("bridge", cpp.type(ref.cls.native), cpp.call("lucent::objc::unwrap", [obj.c]));
+}
 
 function objcReceiver(ref: SdkClassRef, obj: E | undefined): cpp.Expr {
   if (!obj) return cpp.id(ref.cls.native);
@@ -3174,6 +3240,17 @@ export function propertySetter(
             );
       const conv = t.nullable ? ifPresent(v, one) : one(v);
       const held = cpp.varDecl(cpp.auto, "v_", value);
+      // A C setter Swift imports as the property's: the object, then the value.
+      if (prop.cFunctions?.setter)
+        return cpp.statementExpr(
+          [
+            held,
+            cpp.exprStmt(
+              cpp.call(prop.cFunctions.setter, [...(obj ? [cfReceiver(ref, obj)] : []), conv]),
+            ),
+          ],
+          v,
+        );
       if (!prop.weak)
         return cpp.statementExpr(
           [held, cpp.exprStmt(send(objcReceiver(ref, obj), prop.setter!, [conv]))],
@@ -3314,15 +3391,16 @@ export function noteFramework(em: FnEmitter, module: string): void {
 }
 
 /**
- * Links what an iOS module needs: its frameworks, or the pod that installed
- * it (as the schema's provenance says), which LucentNative must depend on
- * for framework builds to find the pod's headers.
+ * Links what an iOS module needs: its frameworks, or the pod or Swift
+ * package that installed it (as the schema's provenance says), which
+ * LucentNative must depend on for its builds to find the module.
  */
 export function linkModule(em: FnEmitter, schema: SdkModuleSchema): void {
   for (const f of schema.frameworks ?? []) em.ctx.frameworks.add(f);
 
   const artifact = schema.provenance?.artifact;
   if (artifact?.startsWith("pod:")) em.ctx.pods.add(artifact.slice("pod:".length).split("@")[0]!);
+  if (artifact?.startsWith("spm:")) em.ctx.swiftPackages.add(artifact.slice("spm:".length));
 }
 
 function androidCall(
@@ -3517,6 +3595,12 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
     case "lucent:android.currentActivity":
       unit.include("lucent/platform/android.h");
       return { c: cpp.call("lucent::jni::currentActivity"), t: em.lt(node) };
+    case "lucent:android.errorOf":
+      unit.include("lucent/platform/android.h");
+      return {
+        c: cpp.call("lucent::jni::errorOf", [em.exprAs(args[0]!, declaredArg(em, args[0]!))]),
+        t: T.error,
+      };
     case "lucent:android.startActivityForResult":
     case "lucent:android.requestPermissions": {
       unit.include("lucent/platform/android.h");
@@ -3958,7 +4042,7 @@ export function insertChild(
   method: SdkMethodSchema,
   parent: E,
   child: E,
-  index: number,
+  index: cpp.Expr,
 ): cpp.Expr {
   const what = `${ref.cls.name}.${method.selector ?? method.name}`;
   const childType = parseSdkType(method.params[0]!.type, ref.module);
@@ -3971,7 +4055,7 @@ export function insertChild(
   if (ref.platform === "ios")
     return send(objcReceiver(ref, parent), method.selector!, [
       toObjcExpr({ ...childType, nullable: false } as SdkType, child.c, false, what),
-      cpp.num(index),
+      index,
     ]);
 
   return jniCall(em, {
@@ -3991,13 +4075,84 @@ export function insertChild(
         jni("unwrap", cpp.id("recv_")),
         id,
         jni("unwrap", cpp.id("child_")),
-        cpp.staticCast(cpp.type("jint"), cpp.num(index)),
+        cpp.staticCast(cpp.type("jint"), index),
       ),
     ret: VOID,
     lt: T.undefined,
     what,
     pre: [cpp.varDecl(cpp.auto, "recv_", parent.c), cpp.varDecl(cpp.auto, "child_", child.c)],
   }).c;
+}
+
+/**
+ * Lets `child` go from `parent`'s children (T49): by `method`, the
+ * parent's own (`removeArrangedSubview:`, `removeView`), then on iOS by
+ * the child's `removeFromSuperview`, which is all a parent inserting
+ * subviews has.
+ */
+export function removeChild(
+  em: FnEmitter,
+  site: ts.Expression,
+  ref: SdkClassRef,
+  method: SdkMethodSchema | undefined,
+  parent: E,
+  child: E,
+): cpp.Stmt[] {
+  const fromSuperview = cpp.send(
+    cpp.cast("c", objcPointer("UIView"), cpp.call("lucent::objc::unwrap", [child.c])),
+    "removeFromSuperview",
+  );
+
+  if (!method) {
+    if (ref.platform === "ios") return [cpp.exprStmt(fromSuperview)];
+    throw new Error(`${ref.cls.name}: no method letting a child go`);
+  }
+
+  const what = `${ref.cls.name}.${method.selector ?? method.name}`;
+  const childType = parseSdkType(method.params[0]!.type, ref.module);
+
+  requirePlan(site, ref, method, "call");
+  requireMain(em, site, ref, method);
+  requireAvailable(em, site, ref, method.since, what);
+  noteIncludes(em, ref);
+
+  if (ref.platform === "ios")
+    return [
+      cpp.exprStmt(
+        send(objcReceiver(ref, parent), method.selector!, [
+          toObjcExpr({ ...childType, nullable: false } as SdkType, child.c, false, what),
+        ]),
+      ),
+      cpp.exprStmt(fromSuperview),
+    ];
+
+  return [
+    cpp.exprStmt(
+      jniCall(em, {
+        node: site,
+        cls: ref.cls,
+        lookup: "method",
+        name: method.java ?? method.name,
+        desc:
+          method.descriptor ??
+          jniDescriptor(
+            method.params.map((p) => p.type),
+            "void",
+          ),
+        access: (id) =>
+          envCall(
+            "CallVoidMethod",
+            jni("unwrap", cpp.id("recv_")),
+            id,
+            jni("unwrap", cpp.id("child_")),
+          ),
+        ret: VOID,
+        lt: T.undefined,
+        what,
+        pre: [cpp.varDecl(cpp.auto, "recv_", parent.c), cpp.varDecl(cpp.auto, "child_", child.c)],
+      }).c,
+    ),
+  ];
 }
 
 /**
