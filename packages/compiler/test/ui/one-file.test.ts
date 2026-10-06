@@ -9,7 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { compile } from "../../src/index.ts";
+import { compile, type SdkOptions } from "../../src/index.ts";
 import { jsxRuntimeOf } from "../../src/program.ts";
 import {
   android,
@@ -329,10 +329,10 @@ export function Title(props: { title: string }): View {
 };
 
 /** Where each platform's SDK is not: a missing xcrun, an empty Android SDK root. */
-const MISSING = {
+const MISSING: Record<"ios" | "android", SdkOptions> = {
   ios: { ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") } },
   android: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] } },
-} as const;
+};
 
 /** `files` in a package `@acme/app`, compiled with views on for the default platforms, `missing`'s SDK absent. */
 function buildWithout(files: Record<string, string>, missing: "ios" | "android") {
