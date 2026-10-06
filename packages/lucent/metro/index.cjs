@@ -33,10 +33,11 @@ function withLucent(config, options = {}) {
       ...config.resolver,
       // A component's React types are lucent:views/<module> (tsconfig's lucent:* path);
       // `lucent build` writes, under that name, a module that requires the component's own.
-      extraNodeModules: {
-        ...(config.resolver && config.resolver.extraNodeModules),
-        "lucent:views": path.join(nativePackage(root), "js/_lucent/components"),
-      },
+      // The app's map stays the prototype: a Proxy's get trap keeps answering for the rest.
+      extraNodeModules: Object.assign(
+        Object.create((config.resolver && config.resolver.extraNodeModules) || null),
+        { "lucent:views": path.join(nativePackage(root), "js/_lucent/components") },
+      ),
     },
   };
 }
