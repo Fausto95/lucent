@@ -419,6 +419,10 @@ static void effectRunsKeepTheirSite() {
     // Off: an effect's run records nothing.
     title.set(3.0);
     CHECK(trace::events().size() == events.size());
+
+    // The effect and the signal it reads hold each other until the graph goes.
+    e.dispose();
+    g->dispose();
   });
 }
 
