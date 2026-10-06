@@ -298,9 +298,9 @@ export const Explanations: Record<Code, Explanation> = {
   LUCENT2004: {
     title: "Collection used with another element type",
     summary:
-      "A collection used where its element type would change (`A[]` as `(A | B)[]`); annotate the value with the target type.",
+      "A collection used where its element type would change (`A[]` as `(A | B)[]`), or a generic class instance as another instantiation; annotate the value with the target type.",
     details:
-      "An array of numbers and an array of `number | string` have different native element types. One can't be used as the other: writes through the wider type wouldn't fit.",
+      "Arrays of `number` and of `number | string` have different native element types, and writes through the wider type wouldn't fit. Each instantiation of a generic class (`Box<number>`, `Box<number | undefined>`) is also a native class of its own. A `new` is built as the instantiation its value becomes, but an existing instance can't be converted: a copy would be another object.",
     fix: "annotate the collection with the element type it is used as",
     wrong: ex(
       "function first(xs: (number | string)[]): string {\n  return String(xs[0]);\n}\nexport function f(): string {\n  const xs = [1, 2];\n  return first(xs);\n}\n",

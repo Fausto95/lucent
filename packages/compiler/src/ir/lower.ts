@@ -2054,15 +2054,15 @@ class Lowerer {
   }
 
   /** `new Error(message)` and its kinds; any other construction is a plan. */
-  newExpr(node: ts.NewExpression): ValueId {
+  newExpr(node: ts.NewExpression, hint?: LType): ValueId {
     const callee = node.expression;
     const builtin = ts.isIdentifier(callee) ? ERRORS[callee.text] : undefined;
     const args = node.arguments ?? [];
     const sym = ts.isIdentifier(callee) ? this.host.checker.getSymbolAtLocation(callee) : undefined;
 
-    if (!builtin || !sym || !isLibrary(sym) || args.length > 1) return this.leaf(node);
+    if (!builtin || !sym || !isLibrary(sym) || args.length > 1) return this.leaf(node, hint);
 
-    if (args[0] && this.typeAt(args[0]).k !== "string") return this.leaf(node);
+    if (args[0] && this.typeAt(args[0]).k !== "string") return this.leaf(node, hint);
 
     const text = args[0] ? this.expr(args[0]) : this.b.const("", spanOf(node));
 
@@ -2751,7 +2751,7 @@ const EXPRESSIONS: Partial<Record<ts.SyntaxKind, ExpressionLowering>> = {
   [ts.SyntaxKind.FunctionExpression]: (n: ts.FunctionExpression, lw, hint?: LType) =>
     lw.closure(n, hint),
 
-  [ts.SyntaxKind.NewExpression]: (n: ts.NewExpression, lw) => lw.newExpr(n),
+  [ts.SyntaxKind.NewExpression]: (n: ts.NewExpression, lw, hint?: LType) => lw.newExpr(n, hint),
 };
 
 /** Binary forms that are not an operator on two values: assignment, comma, logic. */

@@ -334,6 +334,14 @@ Only exported functions, classes and constants are visible from JavaScript.
   type argument cannot merge into it (`LUCENT2002`): not an optional,
   `null` or `undefined`, and in `A | B` not a union nor a type the union
   already holds (`pick<number, number>`).
+- **Each instantiation of a generic class is a class of its own**
+  (`Box<number>` and `Box<number | undefined>`), where TypeScript lets
+  the first stand for the second. A `new` whose value becomes another
+  instantiation of its class (an array literal mixing `new Box(1)` and
+  `new Box<number | undefined>(u)`, an argument, a return, a field) builds
+  that instantiation, which JavaScript cannot tell apart; an existing
+  instance used as another instantiation is refused (`LUCENT2004`), since
+  a copy would not be the same object.
 
 ## Concurrency model
 
@@ -392,6 +400,6 @@ explicitly, for example by clearing a field.
 | Code         | Meaning                                                                                                                                                                                                                                                                                                                                       |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `LUCENT1xxx` | unsupported syntax or built-in (`1001` statement/expression, `1003` built-in, `1005` class feature, `1006` throwing a non-Error, `1010` await on a native object, …)                                                                                                                                                                          |
-| `LUCENT2xxx` | types without a native representation (`2001` any/unknown, `2003` inexact object types, `2004` array element variance, `2005` ambiguous union at the boundary, `2007` generics at the boundary, `2008` value is not a declared implementation of an interface, `2009` class member does not match its interface)                              |
+| `LUCENT2xxx` | types without a native representation (`2001` any/unknown, `2003` inexact object types, `2004` array element variance and generic class instantiations, `2005` ambiguous union at the boundary, `2007` generics at the boundary, `2008` value is not a declared implementation of an interface, `2009` class member does not match its interface)                              |
 | `LUCENT3xxx` | module structure (`3001` imports, `3002` top-level statements, `3003` exports, `3004` SDK imports the file's platform cannot use, `3005` a platform module's files do not match its declaration, `3006` a main-thread-only API outside `main(() => …)`, `3007` an Android API newer than the oldest supported level, outside a version check) |
 | `LUCENT9001` | a TypeScript error (Lucent stops at type errors)                                                                                                                                                                                                                                                                                              |

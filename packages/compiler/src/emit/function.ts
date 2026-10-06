@@ -362,9 +362,17 @@ export class FnEmitter {
     if (from.k === "iface" && to.k === "class") return downcast(to);
     if (from.k === "class" && to.k === "class") {
       // Upcasts are implicit; downcasts follow instanceof narrowing and are checked.
-      if (this.reg.derives(from.id, to.id))
+      if (this.reg.extendsType(from, to))
         return cpp.call("std::static_pointer_cast", [e.c], [this.reg.cppClassType(to)]);
-      if (this.reg.derives(to.id, from.id)) return downcast(to);
+      if (this.reg.extendsType(to, from)) return downcast(to);
+      // TypeScript lets `Box<number>` stand for `Box<number | undefined>`; natively they are two
+      // classes, and a copy of the instance would not be the same object.
+      if (this.reg.derives(from.id, to.id) || this.reg.derives(to.id, from.id))
+        fail(
+          node,
+          Codes.ArrayVariance,
+          `an existing ${this.spelled(from)} cannot be used as a ${this.spelled(to)}: each instantiation of a generic class is a native class of its own; give the value that type where it is created`,
+        );
     }
     if (from.k === "struct" && to.k === "struct") {
       fail(
@@ -486,6 +494,39 @@ export class FnEmitter {
         .fields.map((f) => f.name)
         .join(", ")} }`;
     return typeKey(t);
+  }
+
+  /** `t` as TypeScript spells it, for the types a class's type arguments usually are. */
+  private spelled(t: LType): string {
+    const grouped = (x: LType) =>
+      x.k === "opt" || x.k === "union" || x.k === "fn" ? `(${this.spelled(x)})` : this.spelled(x);
+    switch (t.k) {
+      case "class":
+      case "iface": {
+        const decl = t.k === "class" ? this.reg.cls(t.id).decl : this.reg.iface(t.id).decl;
+        const args = t.args.map((a) => this.spelled(a)).join(", ");
+        return t.args.length ? `${decl.name!.text}<${args}>` : decl.name!.text;
+      }
+      case "opt":
+        return `${this.spelled(t.inner)} | undefined`;
+      case "union":
+        return t.ms.map((m) => this.spelled(m)).join(" | ");
+      case "array":
+        return `${grouped(t.e)}[]`;
+      case "tparam":
+        return t.name;
+      case "number":
+      case "bigint":
+      case "boolean":
+      case "string":
+      case "undefined":
+      case "null":
+      case "void":
+      case "never":
+        return t.k;
+      default:
+        return this.describe(t);
+    }
   }
 
   /** Adapts a function value to a function type with more parameters. */
@@ -795,7 +836,7 @@ export class FnEmitter {
       }
       case ts.SyntaxKind.NewExpression:
         this.checkInstance(node as ts.NewExpression);
-        return this.newExpr(node as ts.NewExpression);
+        return this.newExpr(node as ts.NewExpression, hint);
       case ts.SyntaxKind.PropertyAccessExpression:
         toolkitMember(this, node as ts.PropertyAccessExpression);
         return this.narrowed(node, this.propertyAccess(node as ts.PropertyAccessExpression));
@@ -1474,19 +1515,26 @@ export class FnEmitter {
    * its shape, or a comparison that becomes one between functions or a
    * converting loose `==`.
    */
-  private checkInstance(node: ts.CallExpression | ts.NewExpression): void {
+  /** The checks a generic asks of its type arguments: `retarget`'s, when a `new` builds another instantiation. */
+  private checkInstance(
+    node: ts.CallExpression | ts.NewExpression,
+    retarget?: Map<string, LType>,
+  ): void {
     const lower = (t: ts.Type, at: ts.Node) => this.reg.lower(t, at);
     const instance = instanceAt(this.checker, lower, node);
     if (!instance) return;
 
     const { comparisons, types } = genericFacts(this.checker, lower, instance.generic);
-    const { name, args, written } = instance;
+    const { name, written } = instance;
+    const args = retarget ?? instance.args;
 
     for (const t of types) {
       const broken = unionShapeBreak(t, args);
       if (!broken) continue;
 
-      const arg = this.checker.typeToString(written.get(broken.param)!);
+      const arg = retarget
+        ? this.spelled(retarget.get(broken.param)!)
+        : this.checker.typeToString(written.get(broken.param)!);
 
       fail(
         node,
@@ -2276,13 +2324,14 @@ export class FnEmitter {
     return { c: cpp.call(callee, all), t: isVoidish(rt) ? T.undefined : rt };
   }
 
-  private newExpr(node: ts.NewExpression): E {
-    return this.newInner(node);
+  private newExpr(node: ts.NewExpression, hint?: LType): E {
+    return this.newInner(node, hint);
   }
 
-  private newInner(node: ts.NewExpression): E {
+  private newInner(node: ts.NewExpression, hint?: LType): E {
     const callee = node.expression;
-    const t = this.lt(node);
+    const own = this.lt(node);
+    const t = own.k === "class" && hint ? this.constructedAs(node, own, hint) : own;
     if (t.k === "native") return native.nativeNew(this, node, t);
     if (t.k === "handle") return extensions.handleNew(this, node, t);
     if (t.k === "class") {
@@ -2315,6 +2364,35 @@ export class FnEmitter {
       return { c: cpp.call(cpp.scoped(this.reg.cppClassType(t), "create"), args), t };
     }
     return builtins.newBuiltin(this, node, callee, t);
+  }
+
+  /**
+   * The instantiation a `new` builds where its value becomes `hint`: TypeScript lets
+   * `new Box(1)` (a `Box<number>`) stand for a `Box<number | undefined>`, a native class of
+   * its own, and a new object has no identity yet to keep, so it is built as that one.
+   */
+  private constructedAs(
+    node: ts.NewExpression,
+    own: LType & { k: "class" },
+    hint: LType,
+  ): LType & { k: "class" } {
+    const held = stripOpt(hint);
+    const targets = (held.k === "union" ? held.ms : [held]).filter(
+      (m): m is LType & { k: "class" } => m.k === "class",
+    );
+
+    if (targets.some((m) => this.reg.extendsType(own, m))) return own;
+
+    for (const target of targets) {
+      const t = this.reg.instantiatedAs(own.id, target);
+      if (!t) continue;
+
+      const params = this.reg.cls(t.id).typeParams;
+      this.checkInstance(node, new Map(params.map((p, i) => [p, t.args[i]!])));
+      return t;
+    }
+
+    return own;
   }
 
   // --- literals ---------------------------------------------------------------------------

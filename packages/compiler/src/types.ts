@@ -723,6 +723,51 @@ export class TypeRegistry {
     return sub === sup || this.ancestors(this.cls(sub)).some((a) => a.id === sup);
   }
 
+  /** Whether `sub`, with its type arguments, is `sup` or extends it: one instantiation is not another. */
+  extendsType(sub: LType & { k: "class" }, sup: LType & { k: "class" }): boolean {
+    return this.chain(sub).some((c) => sameType(c.t, sup));
+  }
+
+  /**
+   * Class `id` instantiated so that it is or extends `target` (`Sub<T> extends
+   * Box<T>` as a `Box<number | undefined>` is a `Sub<number | undefined>`);
+   * undefined when its type arguments do not follow from target's.
+   */
+  instantiatedAs(id: string, target: LType & { k: "class" }): (LType & { k: "class" }) | undefined {
+    const info = this.cls(id);
+    const generic: LType & { k: "class" } = {
+      k: "class",
+      id,
+      args: info.typeParams.map((name) => ({ k: "tparam", name })),
+    };
+    const at = this.chain(generic).find((c) => c.info.id === target.id);
+
+    if (!at) return undefined;
+
+    const map = new Map<string, LType>();
+
+    for (const [i, arg] of at.t.args.entries()) {
+      const wanted = target.args[i];
+
+      if (!wanted) return undefined;
+
+      if (arg.k !== "tparam") {
+        if (!sameType(arg, wanted)) return undefined;
+        continue;
+      }
+
+      const bound = map.get(arg.name);
+
+      if (bound && !sameType(bound, wanted)) return undefined;
+
+      map.set(arg.name, wanted);
+    }
+
+    if (info.typeParams.some((p) => !map.has(p))) return undefined;
+
+    return { k: "class", id, args: info.typeParams.map((p) => map.get(p)!) };
+  }
+
   classForDecl(decl: ts.ClassDeclaration): ClassInfo | undefined {
     for (const c of this.classes.values()) if (c.decl === decl) return c;
     return undefined;
