@@ -33,6 +33,7 @@ import {
   type Notice,
   hasAndroidProject,
   pendingAndroidModules,
+  podsToInstall,
   projectHashes,
   projectSdk,
   resolveAndroidDependencies,
@@ -274,14 +275,18 @@ export async function buildProject(
   let deferAndroid = false;
   let deferReason = "its dependencies are resolved by the Gradle build";
 
-  // A host build has the platform modules' stubs: no Android dependencies to resolve.
-  if (build && (!platforms || platforms.includes("android"))) {
-    // The package exists before any Gradle run reads the app's autolinking
-    // config, so it is linked there and in every build after it; and its
-    // library declares the packages' Gradle artifacts, so the classpath
-    // Lucent binds from has them.
-    const created = writeLinkedPackage(root, outDir, native);
+  // The package exists before any Gradle run or pod install reads the app's
+  // autolinking config, so it is linked there and in every build after it;
+  // and it declares the packages' native dependencies: the classpath Lucent
+  // binds from has their Gradle artifacts, and pod install installs their
+  // pods even when this build's check fails for want of them. A host build
+  // has the platform modules' stubs: no native dependencies.
+  const ios = build && (!platforms || platforms.includes("ios"));
+  const android = build && (!platforms || platforms.includes("android"));
+  const created =
+    ios || android ? writeLinkedPackage(root, outDir, native, { ios, android }) : false;
 
+  if (android) {
     // The Gradle build running this one (its lucentBuild task) read that config before.
     if (created && process.env.LUCENT_GRADLE_CLASSPATH) {
       const detail = `this Gradle build read the app's autolinking config before ${path.relative(root, outDir)} existed, so the app would not link Lucent: build again`;
@@ -524,6 +529,18 @@ export async function buildProject(
   const diagnostics = result.diagnostics.map(relative);
   const warnings = (result.warnings ?? []).map(relative);
   if (!result.ok) {
+    // The packages' pods the app lacks: what the iOS code may have failed to import.
+    const pods =
+      built.includes("ios") &&
+      podsToInstall(
+        root,
+        native.manifest,
+        sdk,
+        path.join(path.relative(root, outDir), "LucentNative.podspec"),
+        build,
+      );
+    if (pods) notify(pods);
+
     graph.record("check", "check", "failed", {
       inputs: checkInputs,
       detail: plural(diagnostics.length, "error"),
