@@ -37,7 +37,6 @@ export interface CheckedPage {
   /** A docs page's description, a post's too. */
   description: string;
   blocks: Block[];
-  samplesWith?: string;
   /** Its samples include components drawn with SwiftUI and Compose: they compile with views. */
   views?: true;
 }

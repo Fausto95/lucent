@@ -1,10 +1,7 @@
 import { formatDiagnostic } from "../../packages/compiler/src/index.ts";
 import { PLATFORMS, platformSdkTyped } from "../../packages/compiler/src/sdk/schema.ts";
 import type { Block, CppFile } from "../../apps/website/src/docs/types.ts";
-import fs from "node:fs";
-import path from "node:path";
 import { compileSamples, type Sample } from "./compile.ts";
-import { root } from "./context.ts";
 import type { CheckedPage } from "./pages.ts";
 
 const isSample = (b: { filename: string; diff?: true; from?: string }): boolean =>
@@ -18,19 +15,6 @@ function samplesOf(blocks: Block[]): Sample[] {
     if (b.kind === "panels") return b.panels.flatMap((p) => samplesOf(p.blocks));
     return [];
   });
-}
-
-/** The `*.lucent.ts` files under `dir` that the page doesn't show itself, by file name. */
-function contextOf(dir: string, shown: Sample[]): Sample[] {
-  const names = new Set(shown.map((s) => s.filename));
-  const full = path.join(root, dir);
-  return fs
-    .readdirSync(full, { recursive: true, encoding: "utf8" })
-    .filter((f) => f.endsWith(".lucent.ts") && !names.has(path.basename(f)))
-    .map((f) => ({
-      filename: path.basename(f),
-      code: fs.readFileSync(path.join(full, f), "utf8"),
-    }));
 }
 
 /** The files the compiler wrote for one module: one, or one per platform when it has platform code. */
@@ -105,8 +89,7 @@ export function checkSamples(pages: CheckedPage[]): {
       unchecked.push(page.href);
       continue;
     }
-    const own = samples.filter((s) => !s.expect);
-    const app = [...own, ...(page.samplesWith ? contextOf(page.samplesWith, own) : [])];
+    const app = samples.filter((s) => !s.expect);
     const names = app.map((s) => s.filename);
     for (const dup of new Set(names.filter((n, i) => names.indexOf(n) !== i))) {
       problems.push(`${page.href}: two samples are named ${dup}; a page's samples form one app`);

@@ -103,11 +103,6 @@ export interface DocFrontmatter {
   /** "experimental" on pages about views: the sidebar marks them. */
   sidebar_class_name?: string;
   /**
-   * A directory (from the repository root) whose `*.lucent.ts` files compile with
-   * the page's samples, so a page can show one module of a project, or its diff.
-   */
-  samplesWith?: string;
-  /**
    * The page's samples include components drawn with SwiftUI and Compose
    * (`.lucent.tsx`): they compile with the components' views generated.
    */
