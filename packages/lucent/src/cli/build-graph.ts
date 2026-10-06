@@ -101,12 +101,16 @@ export function contentHash(data: string | Buffer): string {
   return createHash("sha256").update(data).digest("hex").slice(0, 16);
 }
 
+/** A file's path as artifacts key it: relative to `root`, with `/`. */
+export function projectPath(root: string, file: string): string {
+  return path.relative(root, path.resolve(file)).split(path.sep).join("/");
+}
+
 /** A file as an artifact: its path relative to `root` (with `/`), and its content's hash. */
 export function fileArtifact(root: string, file: string): Artifact {
-  const key = path.relative(root, path.resolve(file)).split(path.sep).join("/");
   const hash = fs.existsSync(file) ? contentHash(fs.readFileSync(file)) : "missing";
 
-  return { key, hash };
+  return { key: projectPath(root, file), hash };
 }
 
 function byKey(a: Artifact, b: Artifact): number {

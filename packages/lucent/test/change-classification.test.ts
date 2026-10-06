@@ -226,6 +226,28 @@ describe("lucent build's pending actions", () => {
       },
     ]);
   });
+
+  it("builds again when the linked package's package.json changes resolution, asking nothing when the native package is unchanged", () => {
+    const { app, pkg } = workspace();
+    const manifest = JSON.parse(fs.readFileSync(path.join(pkg, "package.json"), "utf8"));
+    const exportsMap = (exports: Record<string, string>) =>
+      write(pkg, { "package.json": JSON.stringify({ ...manifest, exports }) });
+
+    write(app, {
+      "b.lucent.ts":
+        'import { orbit } from "lucent-orbit/src/orbit.lucent";\nexport function two(): number { return orbit() + 1; }\n',
+    });
+    build(app);
+
+    // The import still resolves, to the same module: the build checks again, and writes
+    // the same native package.
+    exportsMap({ ".": "./index.ts", "./src/*": "./src/*.ts" });
+    expect(build(app)).toMatchObject({ ok: true, upToDate: false, actions: [] });
+
+    // It no longer does.
+    exportsMap({ ".": "./index.ts" });
+    expect(build(app).ok).toBe(false);
+  });
 });
 
 describe("a superseded build", () => {

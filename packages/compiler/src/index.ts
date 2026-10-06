@@ -38,6 +38,7 @@ import { withExtensions } from "./extensions/registry.ts";
 import { resolveNative } from "./package-config.ts";
 import { fileHashes } from "./package-files.ts";
 import { lucentPackages } from "./packages.ts";
+import { recordReads } from "./reads.ts";
 import { recordSdkUses } from "./sdk/usage.ts";
 import { analyzeViews, hasComponentModules } from "./ui/analyze.ts";
 import { ts as js } from "@lucent-lang/codegen";
@@ -79,6 +80,7 @@ export {
   satisfies,
   type LucentPackage,
 } from "./packages.ts";
+export { currentReads, foundFile, readsKey } from "./reads.ts";
 export {
   EXTENSION_FIELDS,
   PACKAGE_FIELDS,
@@ -128,10 +130,12 @@ export {
 } from "./extensions/bind.ts";
 export { extensionDts } from "./extensions/dts.ts";
 export {
+  checkRecord,
+  type CheckRecord,
   deferredLibraryGradle,
   inputsKey,
-  isUpToDate,
   packagePods,
+  upToDate,
   writeNativePackage,
   writeWhole,
   runtimeDir,
@@ -152,7 +156,12 @@ export interface CompileResult extends EmitResult {
   ok: boolean;
   /** The SDK symbols the code uses, sorted by key; absent when the compile failed. */
   sdkUses?: UsedSymbol[];
+  /** Every file the compile read from disk, with what it found there (see currentReads). */
+  read: ReadonlyMap<string, string>;
 }
+
+/** What a program, or each target's, compiles to: compile() adds the files they read. */
+type Compiled = Omit<CompileResult, "read">;
 
 export interface CompileOptions {
   /**
@@ -185,9 +194,14 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
   if (targeted.length)
     throw new Error(`deferred platforms cannot be targets: ${targeted.join(", ")}`);
 
-  const { value: result, uses } = recordSdkUses(() =>
-    withExtensions(options.extensions, () =>
-      withSdkOptions(options.sdk, () => compileWith(files, options), deferred),
+  const {
+    value: { value: result, uses },
+    read,
+  } = recordReads(() =>
+    recordSdkUses(() =>
+      withExtensions(options.extensions, () =>
+        withSdkOptions(options.sdk, () => compileWith(files, options), deferred),
+      ),
     ),
   );
 
@@ -201,6 +215,7 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
     ...(result.ok ? { sdkUses: uses } : {}),
     diagnostics: result.diagnostics.map(explained),
     warnings: (result.warnings ?? []).map(explained),
+    read,
   };
 }
 
@@ -210,14 +225,14 @@ function explained(d: Diagnostic): Diagnostic {
   return e ? { ...d, fix: d.fix ?? e.fix, docs: docsUrl(d.code) } : d;
 }
 
-function compileWith(files: string[], options: CompileOptions): CompileResult {
+function compileWith(files: string[], options: CompileOptions): Compiled {
   const plan = planModules(files);
   // Shared modules that branch on the platform are compiled per target too.
   const branching = plan.shared.some((f) => usesPlatforms(f, options.readSource));
   if (!plan.platformModules.length && !plan.diagnostics.length && !branching)
     return compileOnce(createLucentProgram(files, options.readSource));
 
-  const out: CompileResult = {
+  const out: Compiled = {
     files: new Map(),
     proxies: new Map(),
     diagnostics: [...plan.diagnostics],
@@ -229,7 +244,7 @@ function compileWith(files: string[], options: CompileOptions): CompileResult {
   );
   const components: TargetComponents[] = [];
   for (const target of options.platforms ?? (installed.length ? installed : PLATFORMS)) {
-    let result: CompileResult;
+    let result: Compiled;
     if (target === "host") {
       result = compileOnce(
         createLucentProgram([...plan.shared, ...declarations], options.readSource, undefined, {
@@ -309,7 +324,7 @@ function compileOnce(
   lp: ReturnType<typeof createLucentProgram>,
   declarations: string[] = [],
   target?: Target,
-): CompileResult {
+): Compiled {
   const untyped = PLATFORMS.filter((p) => p !== lp.platform && !platformSdkTyped(p));
   const checks = [
     ...lp.diagnostics.filter((d) => !inUntypedPlatformCode(lp, d, untyped)),

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { findOwnFiles, LUCENT_EXTENSION, lucentPackageOf, lucentPackages } from "./packages.ts";
 import path from "node:path";
+import { directoryExists, fileExists, readText } from "./reads.ts";
 import { fileURLToPath } from "node:url";
 import { ts as dts } from "@lucent-lang/codegen";
 import ts from "typescript";
@@ -309,6 +310,8 @@ export function compilerOptions(): ts.CompilerOptions {
     moduleResolution: ts.ModuleResolutionKind.Bundler,
     // esnext.disposable: Symbol.dispose, for `using` declarations.
     lib: ["lib.es2022.d.ts", "lib.esnext.disposable.d.ts"],
+    // TypeScript's own: no @typescript/lib-* replacement looked for from the working directory.
+    libReplacement: false,
     types: [],
     noEmit: true,
     skipLibCheck: true,
@@ -370,15 +373,11 @@ function compilerHost(
     if (!sdkTexts.has(f)) sdkTexts.set(f, virtualSdkText(f, direct));
     return sdkTexts.get(f);
   };
-  const readFile = host.readFile.bind(host);
-  host.readFile = (f) => readSource?.(path.resolve(f)) ?? readFile(f);
-  const fileExists = host.fileExists.bind(host);
+  // Disk reads are noted (reads.ts): a passing check holds while each file is as it found it.
+  host.readFile = (f) => virtualSdk(f) ?? readSource?.(path.resolve(f)) ?? readText(f);
   host.fileExists = (f) =>
     readSource?.(path.resolve(f)) !== undefined || virtualSdk(f) !== undefined || fileExists(f);
-  const readDisk = host.readFile;
-  host.readFile = (f) => virtualSdk(f) ?? readDisk(f);
   // Module resolution skips files in directories that do not exist.
-  const directoryExists = host.directoryExists?.bind(host);
   host.directoryExists = (d) => {
     const rel = path.relative(SDK_ROOT, path.resolve(d));
     return (
@@ -386,7 +385,7 @@ function compilerHost(
       rel === "ext" ||
       rel === "toolkit" ||
       (PLATFORMS as readonly string[]).includes(rel) ||
-      (directoryExists?.(d) ?? ts.sys.directoryExists(d))
+      directoryExists(d)
     );
   };
   // `lucent:jsx/jsx-runtime`, the JSX runtime every file imports implicitly, is the

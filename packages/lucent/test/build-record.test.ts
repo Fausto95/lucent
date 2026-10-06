@@ -11,11 +11,17 @@ import {
 } from "../src/cli/build-graph.ts";
 import { runLucent } from "./run-to-exit.ts";
 
-function lucent(root: string, command: "build" | "check", platforms = "host", env = {}) {
+function lucent(
+  root: string,
+  command: "build" | "check",
+  platforms = "host",
+  { env = {}, cwd }: { env?: NodeJS.ProcessEnv; cwd?: string } = {},
+) {
   // A host build: no platform SDK or Gradle needed. check takes no targets.
   const targets = command === "build" ? ["--platforms", platforms] : [];
 
   const r = runLucent([command, ...targets, "--root", root], {
+    cwd,
     env: { ...process.env, NO_COLOR: "1", ...env },
   });
 
@@ -147,7 +153,14 @@ describe("lucent build's record", () => {
 
     const check = node(r, "check")!;
     expect(check).toMatchObject({ kind: "check", status: "ok" });
-    expect(check.inputs.map((i) => i.key)).toEqual(["a.lucent.ts", "targets"]);
+    // The files it read besides: the package.json naming the module (none here), and
+    // those outside the project, the compiler's own, by what they hold.
+    expect(check.inputs.map((i) => i.key)).toEqual([
+      "a.lucent.ts",
+      "outside-project",
+      "package.json",
+      "targets",
+    ]);
 
     const generate = node(r, "generate")!;
     expect(generate.status).toBe("ok");
@@ -196,6 +209,20 @@ describe("lucent build's record", () => {
     expect(second.requiredAction).toEqual(first.requiredAction);
   });
 
+  it("writes the same check node for a project wherever it is, and wherever it is built from", () => {
+    // An app has its own node_modules.
+    const here = project();
+    fs.mkdirSync(path.join(here, "node_modules"));
+    // The same project, a directory deeper.
+    const deeper = path.join(project(), "app");
+    fs.cpSync(here, deeper, { recursive: true });
+
+    lucent(here, "build", "host", { cwd: here });
+    lucent(deeper, "build");
+
+    expect(node(record(deeper), "check")).toEqual(node(record(here), "check"));
+  });
+
   it("records a check too", () => {
     const root = project();
 
@@ -221,7 +248,7 @@ describe.skipIf(!sdkAvailable("android"))("lucent build's record: SDK bindings",
     );
     const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-record-cache-"));
 
-    const built = lucent(root, "build", "android", { LUCENT_CACHE_DIR: cache });
+    const built = lucent(root, "build", "android", { env: { LUCENT_CACHE_DIR: cache } });
     expect(built.out).not.toMatch(/error/i);
 
     const extract = node(record(root), "extract")!;

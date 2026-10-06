@@ -20,6 +20,25 @@ function project(): string {
   return root;
 }
 
+/** Makes `root` an app that depends on lucent-greet, a Lucent package in its node_modules, and returns the package's directory. */
+function dependOnGreet(root: string): string {
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({ name: "app", dependencies: { "lucent-greet": "1.0.0" } }),
+  );
+  const pkg = path.join(root, "node_modules/lucent-greet");
+  fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(pkg, "package.json"),
+    JSON.stringify({ name: "lucent-greet", version: "1.0.0", lucent: { sources: "src" } }),
+  );
+  fs.writeFileSync(
+    path.join(pkg, "src/greet.lucent.ts"),
+    "export function hello(name: string): string { return `hi ${name}`; }\n",
+  );
+  return pkg;
+}
+
 describe("lucent build", () => {
   it("reports each step with its time, the modules, and what to do next", () => {
     const root = project();
@@ -62,6 +81,26 @@ describe("lucent build", () => {
     expect(lucent(root, "build", "--force").out).toContain("Checked 1 module");
   });
 
+  it("rebuilds the native code when a type a module imports changes", () => {
+    const root = project();
+    const shape = (fields: string) =>
+      fs.writeFileSync(path.join(root, "shape.ts"), `export interface Shape { ${fields} }\n`);
+
+    shape("width: number; height: number");
+    fs.writeFileSync(
+      path.join(root, "a.lucent.ts"),
+      'import type { Shape } from "./shape";\nexport function echo(s: Shape): Shape { return s; }\n',
+    );
+    expect(lucent(root, "build").status).toBe(0);
+
+    shape("width: number; height: number; depth: number");
+    const r = lucent(root, "build");
+    expect(r.out).not.toMatch(/Up to date/);
+    expect(
+      fs.readFileSync(path.join(root, ".lucent/native/cpp/generated/lucent_app.h"), "utf8"),
+    ).toContain("depth");
+  });
+
   it("maps lucent:* in the app's tsconfig.json, so editors see the modules it writes", () => {
     const root = project();
     fs.writeFileSync(
@@ -85,24 +124,37 @@ describe("lucent build", () => {
 describe("Lucent packages", () => {
   it("builds the app's Lucent packages into its native package", () => {
     const root = project();
-    fs.writeFileSync(
-      path.join(root, "package.json"),
-      JSON.stringify({ name: "app", dependencies: { "lucent-greet": "1.0.0" } }),
-    );
-    const pkg = path.join(root, "node_modules/lucent-greet");
-    fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
-    fs.writeFileSync(
-      path.join(pkg, "package.json"),
-      JSON.stringify({ name: "lucent-greet", version: "1.0.0", lucent: { sources: "src" } }),
-    );
-    fs.writeFileSync(
-      path.join(pkg, "src/greet.lucent.ts"),
-      "export function hello(name: string): string { return `hi ${name}`; }\n",
-    );
+    dependOnGreet(root);
     const r = lucent(root, "build");
     expect(r.status).toBe(0);
     expect(r.out).toMatch(/lucent-greet\/greet/);
     expect(fs.existsSync(path.join(root, ".lucent/native/js/lucent-greet/greet.js"))).toBe(true);
+  });
+
+  it("names a library's modules after its package.json again when it is renamed", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
+    const named = (name: string) =>
+      fs.writeFileSync(
+        path.join(root, "package.json"),
+        JSON.stringify({ name, version: "1.0.0", lucent: { sources: "src" } }),
+      );
+    const proxy = (module: string) => path.join(root, ".lucent/native/js", `${module}.js`);
+
+    named("lucent-greet");
+    fs.mkdirSync(path.join(root, "src"));
+    fs.writeFileSync(
+      path.join(root, "src/greet.lucent.ts"),
+      'export function hello(): string { return "hi"; }\n',
+    );
+    expect(lucent(root, "build").status).toBe(0);
+    expect(fs.existsSync(proxy("lucent-greet/greet"))).toBe(true);
+
+    // Only Lucent reads the name here: the module imports nothing TypeScript resolves.
+    named("lucent-hello");
+    const r = lucent(root, "build");
+    expect(r.out).not.toMatch(/Up to date/);
+    expect(fs.existsSync(proxy("lucent-hello/greet"))).toBe(true);
+    expect(fs.existsSync(proxy("lucent-greet/greet"))).toBe(false);
   });
 
   /** A Lucent package in the app's packages/ directory, as a workspace or file: dependency. */
@@ -1136,6 +1188,62 @@ describe("the app's Android dependencies", () => {
     },
     60_000,
   );
+
+  it.skipIf(!android)("checks again when the app's Android classpath changes", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
+    // A library of the app's, in two versions: greet() returns an int, then a String.
+    const jar = (version: string, type: string, value: string) => {
+      const dir = path.join(root, version);
+      const source = path.join(dir, "com/example/Greeter.java");
+      fs.mkdirSync(path.dirname(source), { recursive: true });
+      fs.writeFileSync(
+        source,
+        `package com.example;\npublic class Greeter { public ${type} greet() { return ${value}; } }\n`,
+      );
+      runJavac(["--release", "11", "-d", path.join(dir, "classes"), source]);
+      runJar(["cf", path.join(dir, "greeter.jar"), "-C", path.join(dir, "classes"), "."]);
+      return path.join(dir, "greeter.jar");
+    };
+    const classpath = (file: string) =>
+      fs.writeFileSync(
+        path.join(root, ".lucent/android-classpath.json"),
+        JSON.stringify({ jars: [file], aars: [] }),
+      );
+    const env = {
+      ...process.env,
+      LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")),
+      NO_COLOR: "1",
+    };
+    const check = () => {
+      const r = runLucent(["check", "--root", root], { env });
+      return { status: r.status, out: r.stdout + r.stderr };
+    };
+
+    fs.writeFileSync(
+      path.join(root, "m.lucent.ts"),
+      [
+        'import { PLATFORM } from "lucent:platform";',
+        'import { Greeter } from "lucent:android/com.example";',
+        "export function greet(): number {",
+        '  if (PLATFORM === "android") return new Greeter().greet();',
+        "  return 0;",
+        "}",
+        "",
+      ].join("\n"),
+    );
+    fs.mkdirSync(path.join(root, ".lucent"));
+    classpath(jar("v1", "int", "1"));
+    const v2 = jar("v2", "String", '"1"');
+
+    expect(check().status).toBe(0);
+    expect(check().out).toMatch(/unchanged since the last check/);
+
+    classpath(v2);
+    const r = check();
+    expect(r.out).not.toMatch(/unchanged/);
+    expect(r.out).toContain("LUCENT9001");
+    expect(r.status).toBe(1);
+  });
 });
 
 describe("lucent check", () => {
@@ -1185,6 +1293,115 @@ describe("lucent check", () => {
     const r = lucent(root, "check");
     expect(r.status).toBe(1);
     expect(r.out).toContain("LUCENT1001");
+  });
+
+  it("checks again when a dependency's package.json changes what an import resolves to", () => {
+    const root = project();
+    const manifest = path.join(dependOnGreet(root), "package.json");
+    fs.writeFileSync(
+      path.join(root, "a.lucent.ts"),
+      'import { hello } from "lucent-greet/src/greet.lucent";\nexport function one(): string { return hello("a"); }\n',
+    );
+
+    expect(lucent(root, "check").status).toBe(0);
+    expect(lucent(root, "check").out).toMatch(/unchanged since the last check/);
+
+    // An exports map without the module's path: deep imports no longer resolve.
+    fs.writeFileSync(
+      manifest,
+      JSON.stringify({
+        ...JSON.parse(fs.readFileSync(manifest, "utf8")),
+        exports: { ".": "./index.ts" },
+      }),
+    );
+    const r = lucent(root, "check");
+    expect(r.out).not.toMatch(/unchanged/);
+    expect(r.out).toContain("LUCENT9001");
+    expect(r.out).toContain("Cannot find module 'lucent-greet/src/greet.lucent'");
+    expect(r.status).toBe(1);
+  });
+
+  it("checks again when a file a module imports types from changes", () => {
+    const root = project();
+    const shape = (width: string) =>
+      fs.writeFileSync(
+        path.join(root, "shape.ts"),
+        `export interface Shape { width: ${width}; height: number }\n`,
+      );
+
+    shape("number");
+    fs.writeFileSync(
+      path.join(root, "a.lucent.ts"),
+      'import type { Shape } from "./shape";\nexport function area(s: Shape): number { return s.width * s.height; }\n',
+    );
+    expect(lucent(root, "check").status).toBe(0);
+    expect(lucent(root, "check").out).toMatch(/unchanged since the last check/);
+
+    shape("string");
+    const r = lucent(root, "check");
+    expect(r.out).not.toMatch(/unchanged/);
+    expect(r.out).toContain("LUCENT9001");
+    expect(r.status).toBe(1);
+  });
+
+  it("checks again when a file appears where an import looked first", () => {
+    const root = project();
+    const shape = (file: string, width: string) =>
+      fs.writeFileSync(
+        path.join(root, file),
+        `export interface Shape { width: ${width}; height: number }\n`,
+      );
+
+    // "./shape" resolves to shape.d.ts while there is no shape.ts, which TypeScript prefers.
+    shape("shape.d.ts", "number");
+    fs.writeFileSync(
+      path.join(root, "a.lucent.ts"),
+      'import type { Shape } from "./shape";\nexport function area(s: Shape): number { return s.width * s.height; }\n',
+    );
+    expect(lucent(root, "check").status).toBe(0);
+    expect(lucent(root, "check").out).toMatch(/unchanged since the last check/);
+
+    shape("shape.ts", "string");
+    const r = lucent(root, "check");
+    expect(r.out).not.toMatch(/unchanged/);
+    expect(r.out).toContain("LUCENT9001");
+    expect(r.status).toBe(1);
+  });
+
+  it("checks again when a linked package is replaced by an installed copy with other types", () => {
+    const root = project();
+    const installed = path.join(root, "node_modules/shapes");
+    // The same package.json in both: only the declarations differ.
+    const shapes = (dir: string, width: string) => {
+      fs.writeFileSync(
+        path.join(dir, "package.json"),
+        JSON.stringify({ name: "shapes", version: "1.0.0", types: "index.d.ts" }),
+      );
+      fs.writeFileSync(
+        path.join(dir, "index.d.ts"),
+        `export interface Shape { width: ${width}; height: number }\n`,
+      );
+    };
+
+    // Linked from elsewhere, as npm link or a workspace leaves it.
+    const linked = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-shapes-"));
+    shapes(linked, "number");
+    fs.mkdirSync(path.dirname(installed));
+    fs.symlinkSync(linked, installed);
+    fs.writeFileSync(
+      path.join(root, "a.lucent.ts"),
+      'import type { Shape } from "shapes";\nexport function area(s: Shape): number { return s.width * s.height; }\n',
+    );
+    expect(lucent(root, "check").status).toBe(0);
+    expect(lucent(root, "check").out).toMatch(/unchanged since the last check/);
+
+    fs.unlinkSync(installed);
+    fs.mkdirSync(installed);
+    shapes(installed, "string");
+    const r = lucent(root, "check");
+    expect(r.out).not.toMatch(/unchanged/);
+    expect(r.out).toContain("LUCENT9001");
+    expect(r.status).toBe(1);
   });
 });
 

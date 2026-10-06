@@ -1036,10 +1036,31 @@ may include from. The resolve node's inputs include each path a Lucent package
 lists in its `lucent.json` (`packages/<package>/<path>`), hashed by its
 files' paths and contents; `.lucent/file-hashes.json` keeps each file's hash
 while its size and times hold (a file changed within a second of being
-hashed is hashed again). `startedAt` says when each timed step started
-(milliseconds from the build's start, outside the node hashes like the
-timings), so `lucent trace` (`src/cli/trace.ts`) lays the steps out as
-spans beside runtime traces; see [tracing.md](tracing.md).
+hashed is hashed again). The check node's inputs are the sources, the
+targets, and every other file the compile read (`compiler/src/reads.ts`):
+the files imports resolve to, the `package.json` files TypeScript's
+resolution reads and the one that names a module, each hashed by the
+content read, or `missing` for a file it looked for and did not find.
+Those outside the project (the compiler's own, a linked package's) are
+one `outside-project` input, hashed on the contents of the files found
+there, so the node is the same wherever the project, the compiler and
+the working directory are.
+`startedAt` says when each timed step started (milliseconds from the
+build's start, outside the node hashes like the timings), so `lucent trace`
+(`src/cli/trace.ts`) lays the steps out as spans beside runtime traces; see
+[tracing.md](tracing.md).
+
+A check or build answers from the last one that passed while nothing it
+used changed. Its record (`.lucent/check.json`, or for a build the native
+package's `manifest.json`) keeps a key of what it was given (`inputsKey`:
+the sources, the compiler and runtime, the SDKs with the app's dependencies,
+the output location, the targets, the packages' native needs) and of the
+files it read, and lists those files; the next run reads them again
+(`upToDate`), so a dependency's `package.json` gaining an `exports` map, or
+a file a module imports types from, makes it check again. So does a lost
+record or usage report (`.lucent/sdk-usage.json`); `--frozen` always
+checks again, and `lucent build --force` always builds again (`lucent check`
+takes no `--force`).
 
 ### SDK usage and the SDK lock
 
