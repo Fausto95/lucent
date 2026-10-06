@@ -553,7 +553,7 @@ export class FnEmitter {
     }
     const isAsync = !!ts.getModifiers(node)?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword);
     const isGen = !ts.isArrowFunction(node) && !!node.asteriskToken;
-    if (isAsync && isGen) fail(node, Codes.UnsupportedSyntax, "async generators are not supported");
+    if (isAsync && isGen) fail(node, Codes.UnsupportedType, "async generators are not supported");
     const ret = isAsync
       ? fnType.ret.k === "promise"
         ? fnType.ret.inner
@@ -2207,7 +2207,11 @@ export class FnEmitter {
       const p = params[i]!;
       const a = args[i];
       if (a && ts.isSpreadElement(a))
-        fail(a, Codes.UnsupportedCall, "spread arguments are only supported for rest parameters");
+        fail(
+          a,
+          Codes.UnsupportedCall,
+          "spread arguments are only supported by built-ins that take any number of arguments",
+        );
       if (a) out.push(this.exprAs(a, p));
       else if (p.k === "opt") out.push(cpp.construct(this.reg.cppType(p), [undef]));
       else if (p.k === "undefined") out.push(undef);

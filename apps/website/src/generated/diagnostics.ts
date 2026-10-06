@@ -4,8 +4,8 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT1001",
     "title": "Syntax outside the subset",
-    "summary": "Syntax outside the subset, such as `var`, getters in object literals, or an async generator.",
-    "details": "Lucent compiles a subset of TypeScript whose every construct has a native equivalent with the same behaviour. `var` (function scoping and hoisting), `with`, labels on blocks, accessors in object literals and async generators fall outside it.",
+    "summary": "Syntax outside the subset, such as `var`, getters or setters in object literals, or `await using`.",
+    "details": "Lucent compiles a subset of TypeScript whose every construct has a native equivalent with the same behaviour. `var` (function scoping and hoisting), accessors in object literals, `await using`, a generic function used as a value and `this` outside a class member fall outside it.",
     "fix": "rewrite it with the supported form: `let`/`const` for `var`, a class for an object with accessors",
     "wrong": {
       "example.lucent.ts": "export function total(xs: number[]): number {\n  var sum = 0;\n  for (const x of xs) sum += x;\n  return sum;\n}\n"
@@ -17,9 +17,9 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT1002",
     "title": "Unsupported operator",
-    "summary": "An operator the subset doesn't support, such as `delete`, `in` on anything but a record, or `instanceof` with a generic class. A loose `==` that JavaScript converts for, or comparing two functions, is refused too.",
-    "details": "Objects in Lucent have a fixed native layout, so an operator that adds or removes properties at run time (`delete`) has no native equivalent. `in` works on records (`Record<string, T>`), whose keys are dynamic, and not on objects with a known shape. Two functions cannot be compared, because a function value has no stable identity (a named function is a new value at each use).",
-    "fix": "use a Map or a Record for keys that come and go, or an optional field for one that may be missing",
+    "summary": "An operator the subset doesn't support, such as `delete`, `instanceof` with a generic class, or `in` on a class instance, a union or an object type's optional field. A loose `==` that JavaScript converts for, or comparing two functions, is refused too.",
+    "details": "Objects in Lucent have a fixed native layout, so an operator that adds or removes properties at run time (`delete`) has no native equivalent. `in` works on records (`Record<string, T>`) and object types. An optional field is stored either way, so a native object can't tell one that was never set from one set to `undefined`: `in` with that field, a computed key on a type that has one, and `for…in` over such a type are refused. Union members are told apart by a discriminant field such as `kind`. Two functions cannot be compared, because a function value has no stable identity (a named function is a new value at each use).",
+    "fix": "use a Map or a Record for keys that come and go, and compare an optional field with `undefined` instead of testing it with `in`",
     "wrong": {
       "example.lucent.ts": "export function clear(tags: { name?: string }): { name?: string } {\n  delete tags.name;\n  return tags;\n}\n"
     },
@@ -56,8 +56,8 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT1005",
     "title": "Unsupported class feature",
-    "summary": "A class feature outside the subset, such as extending a built-in other than `Error`, or an override that changes the native signature.",
-    "details": "Classes compile to C++ classes. A subclass of `Map` or `Array` would inherit the runtime's container internals. An override whose parameters or result differ from the base method's can't share its native slot.",
+    "summary": "A class feature outside the subset, such as extending a built-in other than `Error`, an override that changes the native signature, a static block or a decorator.",
+    "details": "Classes compile to C++ classes. A subclass of `Map` or `Array` would inherit the runtime's container internals. An override whose parameters or result differ from the base method's can't share its native slot. A decorator runs when the class is defined and may replace the class or member it decorates, which a compiled class can't be.",
     "fix": "hold the built-in in a field instead of extending it, and keep overrides' signatures the same as the base method's",
     "wrong": {
       "example.lucent.ts": "class Counts extends Map<string, number> {}\nexport function size(): number {\n  return new Counts().size;\n}\n"
@@ -82,9 +82,9 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT1007",
     "title": "Call Lucent cannot compile",
-    "summary": "A call Lucent cannot compile, such as spread arguments outside rest parameters, or a platform class without a constructor binding.",
-    "details": "Native calls pass a fixed number of arguments of known types. Spreading an array into ordinary parameters has no native form. Neither does a platform API called as a promise where it has none, or a platform class without an initializer.",
-    "fix": "pass the arguments one by one, or declare the callee with a rest parameter",
+    "summary": "A call Lucent cannot compile, such as spread arguments to a function that takes a fixed number of parameters (only built-ins such as `push` and `Math.max` take them), or a platform class without a constructor binding.",
+    "details": "Native calls pass a fixed number of arguments of known types. Spreading an array or a tuple into ordinary parameters has no native form. Neither does a platform API called as a promise where it has none, or a platform class without an initializer.",
+    "fix": "pass the arguments one by one",
     "wrong": {
       "example.lucent.ts": "function add(a: number, b: number): number {\n  return a + b;\n}\nexport function sum(pair: [number, number]): number {\n  return add(...pair);\n}\n"
     },
@@ -109,7 +109,7 @@ export const explanations: { code: string; title: string; summary: string; detai
     "code": "LUCENT1009",
     "title": "Loop over a value that is not iterable",
     "summary": "A loop over a value that is not iterable in Lucent, or `for await`.",
-    "details": "`for…of` works on arrays, strings, maps, sets, typed arrays and generators, and `for…in` on records. Async iteration (`for await`) is not supported: await each promise in an ordinary loop.",
+    "details": "`for…of` works on arrays, strings, maps, sets, typed arrays and generators, and `for…in` on records, arrays and object types without optional fields. Async iteration (`for await`) is not supported: await each promise in an ordinary loop.",
     "fix": "loop over an array (`Object.keys`, `Array.from`), or await inside a plain loop",
     "wrong": {
       "example.lucent.ts": "export async function total(xs: Promise<number>[]): Promise<number> {\n  let sum = 0;\n  for await (const x of xs) sum += x;\n  return sum;\n}\n"
@@ -147,8 +147,8 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT2002",
     "title": "Type without a native representation",
-    "summary": "A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, or an index signature mixed with properties.",
-    "details": "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout. A native member whose types cannot cross yet is named with its symbol and artifact: wrap it in Swift or Kotlin of your own.",
+    "summary": "A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, an index signature mixed with properties, a rest parameter or an async generator.",
+    "details": "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout. A function with a rest parameter, and an `AsyncGenerator`, have no native signature yet. A native member whose types cannot cross yet is named with its symbol and artifact: wrap it in Swift or Kotlin of your own.",
     "fix": "spell the combined type out as one object type, or use a concrete type",
     "wrong": {
       "example.lucent.ts": "type Named = { name: string };\ntype Aged = { age: number };\nexport function label(p: Named & Aged): string {\n  return `${p.name} (${p.age})`;\n}\n"
@@ -278,8 +278,8 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT3003",
     "title": "Unsupported export form",
-    "summary": "An export form Lucent does not support: export lists, re-exports, default exports.",
-    "details": "Each export becomes a property of the module's native object, named by its declaration. Export lists, re-exports and default exports name exports apart from their declarations.",
+    "summary": "An export form Lucent does not support: export lists, re-exports, default exports (`export default function`, `export default class`, `export default value`).",
+    "details": "Each export becomes a property of the module's native object, named by its declaration. Export lists, re-exports and default exports name exports apart from their declarations: JavaScript would see `export default function twice` as `default`, not `twice`.",
     "fix": "put `export` on the declaration itself",
     "wrong": {
       "example.lucent.ts": "function twice(n: number): number {\n  return n * 2;\n}\nexport { twice };\n"

@@ -122,9 +122,9 @@ export const Explanations: Record<Code, Explanation> = {
   LUCENT1001: {
     title: "Syntax outside the subset",
     summary:
-      "Syntax outside the subset, such as `var`, getters in object literals, or an async generator.",
+      "Syntax outside the subset, such as `var`, getters or setters in object literals, or `await using`.",
     details:
-      "Lucent compiles a subset of TypeScript whose every construct has a native equivalent with the same behaviour. `var` (function scoping and hoisting), `with`, labels on blocks, accessors in object literals and async generators fall outside it.",
+      "Lucent compiles a subset of TypeScript whose every construct has a native equivalent with the same behaviour. `var` (function scoping and hoisting), accessors in object literals, `await using`, a generic function used as a value and `this` outside a class member fall outside it.",
     fix: "rewrite it with the supported form: `let`/`const` for `var`, a class for an object with accessors",
     wrong: ex(
       "export function total(xs: number[]): number {\n  var sum = 0;\n  for (const x of xs) sum += x;\n  return sum;\n}\n",
@@ -205,10 +205,10 @@ export const Explanations: Record<Code, Explanation> = {
   LUCENT1007: {
     title: "Call Lucent cannot compile",
     summary:
-      "A call Lucent cannot compile, such as spread arguments outside rest parameters, or a platform class without a constructor binding.",
+      "A call Lucent cannot compile, such as spread arguments to a function that takes a fixed number of parameters (only built-ins such as `push` and `Math.max` take them), or a platform class without a constructor binding.",
     details:
-      "Native calls pass a fixed number of arguments of known types. Spreading an array into ordinary parameters has no native form. Neither does a platform API called as a promise where it has none, or a platform class without an initializer.",
-    fix: "pass the arguments one by one, or declare the callee with a rest parameter",
+      "Native calls pass a fixed number of arguments of known types. Spreading an array or a tuple into ordinary parameters has no native form. Neither does a platform API called as a promise where it has none, or a platform class without an initializer.",
+    fix: "pass the arguments one by one",
     wrong: ex(
       "function add(a: number, b: number): number {\n  return a + b;\n}\nexport function sum(pair: [number, number]): number {\n  return add(...pair);\n}\n",
     ),
@@ -270,9 +270,9 @@ export const Explanations: Record<Code, Explanation> = {
   LUCENT2002: {
     title: "Type without a native representation",
     summary:
-      "A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, or an index signature mixed with properties.",
+      "A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, an index signature mixed with properties, a rest parameter or an async generator.",
     details:
-      "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout. A native member whose types cannot cross yet is named with its symbol and artifact: wrap it in Swift or Kotlin of your own.",
+      "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout. A function with a rest parameter, and an `AsyncGenerator`, have no native signature yet. A native member whose types cannot cross yet is named with its symbol and artifact: wrap it in Swift or Kotlin of your own.",
     fix: "spell the combined type out as one object type, or use a concrete type",
     wrong: ex(
       "type Named = { name: string };\ntype Aged = { age: number };\nexport function label(p: Named & Aged): string {\n  return `${p.name} (${p.age})`;\n}\n",

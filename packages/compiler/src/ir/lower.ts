@@ -1828,7 +1828,7 @@ class Lowerer {
     const ret = sig.type.ret;
 
     if (sig.async && sig.generator)
-      fail(node, Codes.UnsupportedSyntax, "async generators are not supported");
+      fail(node, Codes.UnsupportedType, "async generators are not supported");
 
     if (sig.generator && ret.k !== "iter")
       fail(node, Codes.UnsupportedSyntax, "annotate generators with Generator<T> or Iterable<T>");
