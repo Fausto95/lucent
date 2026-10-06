@@ -958,8 +958,10 @@ the runtime and the JS loader into `.lucent/native`. Metro bundles each
 `*.lucent.ts` file as a require of its generated proxy, a module Metro
 watches like any source file, so a build that rewrites a proxy needs a
 reload, not a restart. The proxy requires the loader by a path relative to
-itself, which resolves inside the native package. `lucent:core` is served by
-the compiler like `lucent:thread`.
+itself, which resolves inside the native package, and `react-native` from
+the app's `node_modules`, which `withLucent` adds to Metro's
+`resolver.nodeModulesPaths` for a native package outside the app
+(`LUCENT_OUT`). `lucent:core` is served by the compiler like `lucent:thread`.
 
 ### Build records
 

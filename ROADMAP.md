@@ -458,7 +458,10 @@ build rewrote it, and a module bundled before its first build kept its
 persistent cache). _Changed:_ a build needs a reload, not a Metro restart;
 a module with no proxy fails the bundle instead of bundling a throw; the
 cache key holds the native package's location and module names, not the
-whole manifest.
+whole manifest. `withLucent` adds the app's `node_modules` to
+`resolver.nodeModulesPaths`: a proxy's bare requires now resolve from the
+proxy's directory, which a `LUCENT_OUT` outside the app never connects to
+the app's packages.
 
 **2026-10-04: Native views' JSX derives children; no adapters.** A view
 class takes JSX children through the insert-at-index method its
