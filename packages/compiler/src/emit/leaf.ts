@@ -332,7 +332,7 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
 
       return {
         type: lv.type,
-        get: { name, code: lv.get, type: lv.type },
+        get: () => ({ name, code: lv.get, type: lv.type }),
         set: (v) => ({
           name: `${name} =`,
           code: direct ? cpp.assign(direct, operand(v)) : set!(operand(v)),

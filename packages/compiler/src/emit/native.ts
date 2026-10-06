@@ -2803,7 +2803,7 @@ export function nativeStaticProperty(
   if (!ref || !ts.getModifiers(decl)?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword))
     return undefined;
   const found = schemaProperty(ref, decl)!;
-  return property(em, node, found.ref, found.property, undefined);
+  return readProperty(em, node, found.ref, found.property, undefined);
 }
 
 /** `out.value`: what the method wrote, as the Out's type argument says (absent before). */
@@ -2858,7 +2858,19 @@ export function nativeMember(em: FnEmitter, obj: E, node: ts.Node): E {
   if (!ref || !decl || !isSdkPropertyDecl(decl))
     fail(node, Codes.UnsupportedSyntax, "methods of platform objects must be called directly");
   const found = schemaProperty(ref, decl)!;
-  return property(em, node, found.ref, found.property, obj);
+  return readProperty(em, node, found.ref, found.property, obj);
+}
+
+/** A property read: it calls the getter, so it needs the getter's permissions. */
+function readProperty(
+  em: FnEmitter,
+  node: ts.Node,
+  ref: SdkClassRef,
+  prop: SdkPropertySchema,
+  obj: E | undefined,
+): E {
+  notePermissions(em, accessorOf(ref.cls, prop, "get"));
+  return property(em, node, ref, prop, obj);
 }
 
 function property(
@@ -2891,7 +2903,6 @@ function property(
     return fromObjc(em, read, t, lt, what);
   }
   const getter = accessorOf(ref.cls, prop, "get");
-  notePermissions(em, getter);
   if (plan.backend === "kotlin-shim")
     return kotlinCall(em, {
       node,
@@ -3129,13 +3140,24 @@ export function nativeLvalue(
   const { ref, property: prop } = found;
   const type = em.lt(target);
   const set = propertySetter(em, target, ref, prop, obj, type);
-  const get = property(em, target, ref, prop, obj);
-  if (ref.platform !== "android" || !prop.setter) return { get: get.c, set, type };
+  const read = property(em, target, ref, prop, obj).c;
+  const getter = accessorOf(ref.cls, prop, "get");
+
+  // Only a use that reads the place (`+=`, `++`) calls the getter and needs its permissions.
+  const place: Lvalue = {
+    get get() {
+      notePermissions(em, getter);
+      return read;
+    },
+    set,
+    type,
+  };
+  if (ref.platform !== "android" || !prop.setter) return place;
 
   // A value of its own type, converted as an argument of the property's type is.
-  const assign = (v: E) => propertySetter(em, target, ref, prop, obj, v.t)(v.c);
+  place.assign = (v: E) => propertySetter(em, target, ref, prop, obj, v.t)(v.c);
 
-  return { get: get.c, set, assign, type };
+  return place;
 }
 
 /**
