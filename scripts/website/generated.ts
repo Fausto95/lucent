@@ -197,7 +197,7 @@ function jsonFormats(): string {
   );
   const lock = schemaOf("sdk-lock.schema.json");
   const field = "{ field: string; type: string; required: boolean; description: string }";
-  return `${header}/** From packages/lucent/schemas/*.schema.json. */\nexport const jsonOutputs: { command: string; file: string; description: string; fields: ${field}[] }[] = ${json(outputs)};\n\nexport const sdkLock: { description: string; fields: ${field}[] } = ${json({ description: lock.description ?? "", fields: schemaFields(lock) })};\n`;
+  return `${header}/** From packages/lucent/schemas/*.schema.json. */\nexport const jsonOutputs: { command: string; file: string; description: string; variants: { description: string; fields: ${field}[] }[] }[] = ${json(outputs)};\n\nexport const sdkLock: { description: string; fields: ${field}[] } = ${json({ description: lock.description ?? "", fields: schemaFields(lock) })};\n`;
 }
 
 /** Each lucent:* module and the globals, read per export from the declarations the compiler serves. */

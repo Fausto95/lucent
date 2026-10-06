@@ -136,11 +136,18 @@ Schema: `https://lucent-lang.dev/schemas/doctor.schema.json`.
 
 Schema: `https://lucent-lang.dev/schemas/explain.schema.json`.
 
+### Without a code: every code
+
 | Field | Type | Always there | Meaning |
 | --- | --- | --- | --- |
 | `codes` | `object[]` | yes |  |
 | `codes[].code` | `string` | yes |  |
 | `codes[].title` | `string` | yes |  |
+
+### One code
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
 | `code` | `string` | yes |  |
 | `title` | `string` | yes |  |
 | `summary` | `string` | yes |  |

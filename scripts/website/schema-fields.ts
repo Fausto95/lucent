@@ -103,7 +103,8 @@ export interface JsonOutput {
   /** The schema's file, served at https://lucent-lang.dev/schemas/<file>. */
   file: string;
   description: string;
-  fields: SchemaField[];
+  /** The shapes it takes: one per member of a top-level oneOf, else one. */
+  variants: { description: string; fields: SchemaField[] }[];
 }
 
 /**
@@ -129,7 +130,17 @@ export function jsonOutputs(
           command: name,
           file,
           description: schema.description ?? "",
-          fields: schemaFields(schema),
+          variants: schema.oneOf
+            ? schema.oneOf.map((variant) => ({
+                description: variant.description ?? "",
+                // Its own root, with the definitions its references name.
+                fields: schemaFields({
+                  definitions: schema.definitions,
+                  $defs: schema.$defs,
+                  ...variant,
+                }),
+              }))
+            : [{ description: "", fields: schemaFields(schema) }],
         },
       ];
     });
