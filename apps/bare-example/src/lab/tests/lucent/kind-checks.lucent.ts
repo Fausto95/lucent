@@ -29,8 +29,14 @@ export function unionOfArrays(): string {
   return `${arrayKind(numbers)} ${arrayKind(words)}`;
 }
 
-export function instanceOfArray(x: string[] | string | undefined): string {
+function joined(x: string[] | string | undefined): string {
   return x instanceof Array ? x.join("+") : String(x);
+}
+
+// The array is made here: one the test passed in would come from the
+// reference run's other realm, where instanceof Array is false.
+export function instanceOfArray(): string {
+  return [joined(["a", "b"]), joined("s"), joined(undefined)].join(" ");
 }
 
 function kinds(m: Map<string, number> | string | undefined, d: Date | number | undefined): string {

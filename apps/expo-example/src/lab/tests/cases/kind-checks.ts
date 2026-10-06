@@ -5,7 +5,7 @@ export default function run(mod, print, lucentClass, mods) {
   print(mod.tupleIsArray());
   print(mod.matchIsArray("cat"), mod.matchIsArray("dog"));
   print(mod.unionOfArrays());
-  print(mod.instanceOfArray(["a", "b"]), mod.instanceOfArray("s"), mod.instanceOfArray(undefined));
+  print(mod.instanceOfArray());
   print(mod.instanceOfKinds());
 
 }
