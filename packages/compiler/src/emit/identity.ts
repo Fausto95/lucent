@@ -12,7 +12,7 @@ import { cpp, ts as js } from "@lucent-lang/codegen";
 import { createHash } from "node:crypto";
 import ts from "typescript";
 import { isVoidish, type LType, typeKey } from "../types.ts";
-import { isStaticPublic, type ModuleExports, publicMembers } from "./bindings.ts";
+import { type ModuleExports, publicMembers, staticMembers } from "./bindings.ts";
 import type { Ctx } from "./context.ts";
 
 /**
@@ -20,7 +20,7 @@ import type { Ctx } from "./context.ts";
  * runtime cpp/lucent/jsi/host.h, which the generated identity checks as
  * it builds. A change to the runtime that breaks either takes a new one.
  */
-export const RUNTIME_ABI = 1;
+export const RUNTIME_ABI = 2;
 
 /** The generated C++ unit that carries a program's identity. */
 export const IDENTITY_UNIT = "lucent_identity.cpp";
@@ -183,15 +183,12 @@ export function apiSurface(
       (p, i) =>
         `${key(p)}${ctor!.parameters[i]?.questionToken || ctor!.parameters[i]?.initializer ? "?" : ""}`,
     );
-    const statics = c.decl.members
-      .filter((x): x is ts.MethodDeclaration => ts.isMethodDeclaration(x) && isStaticPublic(x))
-      .map((x) => {
-        const ft = reg.lowerSignature(ctx.checker.getSignatureFromDeclaration(x)!, x) as LType & {
-          k: "fn";
-        };
-
-        return `static ${x.name.getText()}${signature(ft.params.map(key), ft.ret)}`;
-      });
+    const statics = c.typeParams.length
+      ? []
+      : staticMembers(ctx, c).map(
+          (p) =>
+            `static ${p.kind} ${p.name}(${p.types.map(key).join(", ")})${p.writable ? " writable" : ""}${p.async ? " async" : ""}`,
+        );
 
     lines.push(
       `class ${c.decl.name!.text} = ${key(self)}${c.abstract ? " abstract" : ""} new(${params.join(", ")}) { ${statics.join("; ")} }`,

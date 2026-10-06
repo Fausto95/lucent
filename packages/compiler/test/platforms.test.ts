@@ -217,6 +217,11 @@ describe.skipIf(!ios)("platform modules", () => {
     expect(r.diagnostics.find((d) => d.file?.endsWith("m.ios.lucent.ts"))!.message).toMatch(
       /lucent:android\/android\.os.*\.android\.lucent\.ts/,
     );
+
+    // A module that is not there has its own fix, not the usual one about PLATFORM branches.
+    expect(r.diagnostics.find((d) => d.file?.endsWith("m.android.lucent.ts"))!.fix).toBe(
+      "check the package's name, and that the app depends on the library that has it",
+    );
   });
 
   it("requires every platform to implement the declared exports with assignable types", () => {

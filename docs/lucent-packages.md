@@ -81,7 +81,9 @@ The merged result goes into the native package:
   it, fails with LUCENT3004 and names the pod, its package and the next
   steps. Then `pod install` in `ios/` installs it, and the next
   `lucent build` binds it; when that build adds files to the native
-  package, it asks for `pod install` again (`iOS: pod install first`).
+  package, or a later one changes the pods (a requirement goes from
+  `~> 1.0` to `~> 1.1`), it asks for `pod install` again
+  (`iOS: pod install first`).
   `lucent check`, which writes nothing, names the pod and says to run
   `lucent build` first. A pod the packages no longer declare leaves the
   podspec; a pod the code imports that no package declares must be in
@@ -110,7 +112,9 @@ The merged result goes into the native package:
   join the app's compile classpath, so `lucent:android` binds them.
 - **Permissions** go into its manifest, which Android merges into the app's.
   Permissions the SDK methods require (`@RequiresPermission`) are added
-  without listing them here.
+  without listing them here, including those of a property's getter when
+  the code reads it and of its setter when the code assigns it (both for
+  `+=`, which reads and assigns).
 - **Info.plist entries** are written by the Expo config plugin: a key the
   app sets keeps the app's value, and an array gains the values it lacks.
   For bare apps, `lucent build` names the keys and array values the app's
@@ -343,6 +347,17 @@ for example `lucent-haptics/haptics`. That name is used for its C++
 namespace, its TurboModule registry entry and its proxy
 (`.lucent/native/js/lucent-haptics/haptics.js`), so two packages may both
 have a `storage` module. App modules keep their file names.
+
+The app's modules are its `*.lucent.ts` files outside `node_modules`, dot
+directories, `ios`, `android` and Lucent packages' directories
+(`findOwnFiles` in `packages/compiler/src/packages.ts`). A Lucent package
+inside the app, such as a workspace under `packages/`, is compiled once,
+as a package, when the app depends on it, and left out otherwise. A
+package's modules stop likewise at any other package's directory, such as
+an example app. A `package.json` with neither a name nor dependencies, such
+as `{ "type": "module" }`, makes no package: its folder stays the app's or
+the package's, and its modules are named as theirs. `lucent init` and
+`lucent bench` look for modules and `*.bench.ts` files the same way.
 
 Lucent code imports another package's modules by path, for example
 `import { impactAsync } from "lucent-haptics/src/haptics.lucent"`.

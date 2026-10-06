@@ -467,6 +467,15 @@ LUCENT3007's advice, `if (available(…))`, unusable for an attribute.
 _Changed:_ T48's diagnostics, views.md (Platform views as JSX:
 where it is returned; Children: the slot rule).
 
+**2026-10-06: SDK declarations say what the compiler checks.** A
+generated declaration's thread line comes from the predicate LUCENT3006
+uses (`mainThreadOnly`), so an async Swift member of a main-actor class is
+documented as callable from any thread; `sdk show` and `sdk search` read
+the toolkit modules (`lucent:swiftui`, `lucent:compose`) through the same
+function the compiler serves them with, and only with views on, saying so
+otherwise. _Why:_ the docs and the CLI disagreed with what compiled.
+_Changed:_ nothing planned; T61's SDK workflow item builds on it.
+
 **2026-10-06: iOS binds a package's pods after their install.** An Expo
 app whose Lucent package imports a pod its own `lucent.json` declares
 binds that pod in an iOS build step that runs once pods are installed,
@@ -2279,7 +2288,10 @@ iOS simulator and the Android emulator; physical-device checks are
   included), converted and compared `bigint | number` as JavaScript does,
   and migrated docs, samples and apps.
 - **Fixes** A `@WorkerThread` member of a `@UiThread` class; the Expo
-  plugin's unquoted key.
+  plugin's unquoted key; `@RequiresPermission` on a property's getter and
+  setter; generated Kotlin in the program hash; thread and protocol doc
+  lines in the generated declarations; members' doc comments in `sdk show`,
+  and `lucent:swiftui` and `lucent:compose` in `sdk show` and `sdk search`.
 
 ### Compiler and language
 

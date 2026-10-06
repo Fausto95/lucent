@@ -156,6 +156,28 @@ export async function toast(): Promise<boolean> {
     expect(lucent(s.ls.getSemanticDiagnostics(s.file("b.ts")))).toEqual([]);
   });
 
+  it("checks the modules lucent build compiles, without a Lucent package the app does not depend on", async () => {
+    const s = service({
+      "package.json": JSON.stringify({ name: "app" }),
+      "packages/lucent-far/package.json": JSON.stringify({
+        name: "lucent-far",
+        version: "1.0.0",
+        lucent: { sources: "src" },
+      }),
+      "packages/lucent-far/src/far.lucent.ts": "export function far(): number { return 2; }\n",
+      "src/app.lucent.ts":
+        'import { far } from "../packages/lucent-far/src/far.lucent";\nexport function app(): number { return far(); }\n',
+    });
+    await s.ready;
+
+    const messages = lucent(s.ls.getSemanticDiagnostics(s.file("src/app.lucent.ts"))).map(
+      (d) => d.messageText,
+    );
+    expect(messages).toContainEqual(
+      expect.stringMatching(/lucent-far, a Lucent package the app does not depend on/),
+    );
+  });
+
   describe("quick fixes", () => {
     const fixes = (
       s: ReturnType<typeof service>,
