@@ -1,7 +1,111 @@
 ---
-title: "Render a UIKit or Android view"
-description: "This page is being rewritten."
+title: Render a UIKit or Android view
+description: "Write the component as platform files, each returning its platform's view classes as JSX, with properties and setters as attributes."
 kind: guide
+views: true
+sidebar_class_name: experimental
 ---
 
-This page is being rewritten.
+:::caution
+Experimental: views change without notice, and UIKit or Android JSX is on `main`, not in 0.1.2. They need `LUCENT_VIEWS=fabric` where Lucent builds: see [Turn on native views](/docs/guides/views/). Read [the limits](/docs/architecture/views/#limits) first.
+:::
+
+<Tabs>
+<TabItem label="pedometer.lucent.ts">
+
+```ts title="pedometer.lucent.ts"
+import type { View } from "lucent:android/android.view";
+import type { UIView } from "lucent:ios/UIKit";
+
+export type PedometerProps = { steps: number };
+
+export declare function Pedometer(props: PedometerProps): UIView | View;
+```
+
+</TabItem>
+<TabItem label="pedometer.ios.lucent.tsx">
+
+```tsx title="pedometer.ios.lucent.tsx"
+import {
+  NSLayoutConstraint_Axis,
+  UIColor,
+  UIFont,
+  UILabel,
+  UIStackView,
+  type UIView,
+} from "lucent:ios/UIKit";
+import type { PedometerProps } from "./pedometer.lucent";
+
+export function Pedometer(props: PedometerProps): UIView {
+  return (
+    <UIStackView axis={NSLayoutConstraint_Axis.vertical} spacing={4}>
+      <UILabel text="Steps today" textColor={UIColor.secondaryLabel} />
+      <UILabel text={`${props.steps}`} font={UIFont.boldSystemFont(28)} />
+    </UIStackView>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="pedometer.android.lucent.tsx">
+
+```tsx title="pedometer.android.lucent.tsx"
+import type { View } from "lucent:android/android.view";
+import { LinearLayout, TextView } from "lucent:android/android.widget";
+import type { PedometerProps } from "./pedometer.lucent";
+
+export function Pedometer(props: PedometerProps): View {
+  return (
+    <LinearLayout orientation={LinearLayout.VERTICAL}>
+      <TextView text={"Steps today"} />
+      <TextView text={`${props.steps}`} textSize={28} />
+    </LinearLayout>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useState } from "react";
+import { Button, View } from "react-native";
+import * as pedometer from "./pedometer.lucent";
+
+const { Pedometer } = pedometer as unknown as typeof import("./.lucent/native/types/views/pedometer");
+
+export default function App() {
+  const [steps, setSteps] = useState(0);
+
+  return (
+    <View style={{ padding: 48 }}>
+      <Pedometer steps={steps} style={{ height: 64 }} />
+      <Button title="Step" onPress={() => setSteps(steps + 1)} />
+    </View>
+  );
+}
+```
+
+</TabItem>
+</Tabs>
+
+A tag is a view class: any class that extends `UIView` or Android's `View`, from the SDK or a library Lucent binds. The declaration file declares the props once, and each platform file returns its own views.
+
+- An attribute is a writable property on iOS, and a one-value setter on Android: `text` calls `setText` ([Props](/docs/api/views/platform-views/#props)).
+- An attribute that reads a prop, as the second label's `text` reads `props.steps`, is set again when React passes a new value.
+- Listeners and control events are `on…` attributes, such as a `UISwitch`'s `onValueChanged` ([Events](/docs/api/views/platform-views/#events)).
+- Children are fixed elements: a condition or a list among them fails until [T49](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t49) ([Children](/docs/api/views/platform-views/#children)).
+
+:::caution
+An Android attribute given a string literal, `text="Steps today"`, fails with [LUCENT2001](/docs/api/diagnostics/#lucent2001). Write the string in braces: `text={"Steps today"}`.
+:::
+
+App.tsx gives the component a height. Without a size in its style, a component is sized by its view's `sizeThatFits:` on iOS, and a `UIStackView` answers zero.
+
+`tsc` checks a `.lucent.tsx` file's JSX as React's and reports errors in it: only the [editor plugin](/docs/api/integrations/#jsx-in-lucenttsx-files) types it.
+
+[UIKit and Android views in JSX](/docs/api/views/platform-views/) gives every rule, and how to list a module's tags.
+
+## Why platform files
+
+Platform-view JSX ends setup, so in one file only the last platform could return it ([Where native JSX goes](/docs/api/views/platform-views/#where-native-jsx-goes)).
