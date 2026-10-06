@@ -1,7 +1,69 @@
 ---
-title: "Find the source line of a native crash"
-description: "This page is being rewritten."
+title: Find the source line of a native crash
+sidebar_label: Symbolicate a native crash
+description: "Symbolicate the crash with the app's dSYM on iOS, or its unstripped `libappmodules.so` on Android: a module's frames then name its function and `.lucent.ts` line."
 kind: guide
 ---
 
-This page is being rewritten.
+```ts title="tree.lucent.ts"
+export type Node = { value: number; children: Node[] };
+
+function sum(node: Node): number {
+  let total = node.value;
+  for (const child of node.children) {
+    total += sum(child);
+  }
+  return total;
+}
+
+/** The sum of a tree that is one chain of `length` nodes. */
+export function chainTotal(length: number): number {
+  let node: Node = { value: 1, children: [] };
+  for (let i = 1; i < length; i++) {
+    node = { value: 1, children: [node] };
+  }
+  return sum(node);
+}
+```
+
+```text title="Symbolicated crash" nocopy
+lucent::Array<std::__1::shared_ptr<lucent_app::S_Node>>::Array(lucent::Array<std::__1::shared_ptr<lucent_app::S_Node>> const&) (in MyApp) (array.h:49)
+lucent_app::m_tree::sum(std::__1::shared_ptr<lucent_app::S_Node>) (in MyApp) (tree.lucent.ts:5)
+lucent_app::m_tree::sum(std::__1::shared_ptr<lucent_app::S_Node>) (in MyApp) (tree.lucent.ts:6)
+```
+
+`chainTotal(1_000_000)` recurses until the native stack overflows, which crashes the app: Lucent has no recursion limit ([Differences](/docs/api/language/differences/#arrays-and-collections)). The generated C++ carries `#line` directives that name your `.lucent.ts` lines, so its debug information points at your file. Release builds keep it: Xcode archives a dSYM, and Gradle builds with debug information, then strips the copy it packages.
+
+## Symbolicate the report
+
+<Tabs>
+<TabItem label="iOS">
+
+```sh title="terminal"
+atos -arch arm64 -o MyApp.app.dSYM/Contents/Resources/DWARF/MyApp -l 0x100000000 0x100084998
+```
+
+</TabItem>
+<TabItem label="Android">
+
+```sh title="terminal"
+adb logcat | $ANDROID_HOME/ndk/<version>/ndk-stack -sym android/app/build/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib/arm64-v8a
+```
+
+</TabItem>
+</Tabs>
+
+- On iOS, Xcode's Organizer symbolicates the crashes of the archives it built. For a `.ips` file, give `atos` the dSYM, the app's load address from the report's binary images, and the frame's address.
+- On Android, Lucent's C++ is part of the app's `libappmodules.so`. The APK carries it stripped, so a module's frames there have no names or lines. `ndk-stack` reads the unstripped copy in the build directory: `debug` and `mergeDebugNativeLibs` for a debug build.
+- Under a debugger, Xcode or Android Studio, the app stops at the crash, and the frames open at their `.lucent.ts` lines.
+
+## What the frames name
+
+| Frame | Code |
+| --- | --- |
+| `lucent_app::m_tree::sum` at `tree.lucent.ts:6` | Your module's function `sum`, at its line. |
+| `m_tree.cpp`, or `m_tree.mm` on iOS for a module with platform code | Your module's generated file, at a line no `.lucent.ts` line covers, such as the first function's entry. It's in `.lucent/native/cpp/generated`, under `ios/` or `android/` when the app has platform code. |
+| `lucent_bindings.cpp` | The boundary: converting a call's arguments and result. |
+| `array.h` and the other files under `cpp/lucent` | Lucent's runtime, called by the frame below it. |
+
+An `NSException` from an iOS SDK call isn't caught by Lucent ([iOS errors](/docs/api/ios-sdk/#errors)), so it crashes the app. Its report shows the SDK's frames, then the module's frame that made the call.

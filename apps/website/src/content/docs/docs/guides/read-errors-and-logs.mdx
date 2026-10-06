@@ -1,7 +1,90 @@
 ---
-title: "Read a module's errors and logs"
-description: "This page is being rewritten."
+title: Read a module's errors and logs
+sidebar_label: Read errors and logs
+description: "`console` in a module writes to the platform log under `Lucent`, and an error it throws reaches JavaScript with the module's frame first."
 kind: guide
 ---
 
-This page is being rewritten.
+<Tabs>
+<TabItem label="module">
+
+```ts title="cart.lucent.ts"
+import { error } from "lucent:core";
+
+export type Item = { name: string; price: number; quantity: number };
+
+export function total(items: Item[]): number {
+  console.log(`totalling ${items.length} items`, items[0]);
+  if (items.length === 0) {
+    throw error("E_EMPTY", "The cart is empty");
+  }
+  let sum = 0;
+  for (const item of items) sum += item.price * item.quantity;
+  console.log(JSON.stringify({ sum }));
+  return sum;
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { Button } from "react-native";
+import { total } from "./src/cart.lucent";
+
+export default function App() {
+  const onPress = () => {
+    try {
+      total([]);
+    } catch (e) {
+      console.log((e as Error).stack);
+    }
+  };
+  return <Button title="Total" onPress={onPress} />;
+}
+```
+
+</TabItem>
+</Tabs>
+
+## Read the platform log
+
+<Tabs>
+<TabItem label="iOS simulator">
+
+```sh title="terminal"
+xcrun simctl spawn booted log stream --predicate 'eventMessage BEGINSWITH[c] "[lucent]"'
+```
+
+</TabItem>
+<TabItem label="Android">
+
+```sh title="terminal"
+adb logcat -s Lucent
+```
+
+</TabItem>
+</Tabs>
+
+Xcode's console shows the same lines while it runs the app, and Console.app shows a device's. Metro and React Native DevTools show only JavaScript's console, not the module's.
+
+`console.log`, `info`, `debug`, `warn` and `error` print their arguments as `String(value)` does, joined by spaces, except that a bigint keeps its `n`. So an object, such as `items[0]` above, prints as `[object Object]`: log `JSON.stringify(value)` to see its fields. [Differences](/docs/api/language/differences/#strings-json-and-dates) lists this among the deviations from JavaScript.
+
+| A line that reads | Means |
+| --- | --- |
+| `[Lucent] totalling 0 items undefined` | A module's `console` call. On Android, the tag is `Lucent` and the text has no prefix. |
+| `[lucent] uncaught exception in callback: Error: …` | Module code threw where no caller can catch it: in an SDK callback, a listener or a queued job. The word after `in`, such as `callback`, `job` or `abort listener`, names where. |
+| `[Lucent] Uncaught error in callback: …` | A JavaScript callback that module code called without waiting for its result threw. Module code doesn't see the error. |
+| `[lucent] 2 native reference(s) module code still holds at teardown` | A debug build's report at a reload or when the app ends: see [At teardown](/docs/api/language/memory/#at-teardown). |
+
+## Read the error in JavaScript
+
+```text title="JavaScript console" nocopy
+Error: The cart is empty
+    at total (/Users/you/app/src/cart.lucent.ts:8)
+    at total (native)
+```
+
+The error JavaScript catches keeps its `name`, its `message` and its `code`, here `E_EMPTY`. Its stack starts with the module function that made it, at its `.lucent.ts` file and line, and JavaScript's frames follow. [Errors](/docs/api/language/boundary/#errors) has the exact rules, and [Throw errors JavaScript can catch](/docs/guides/throw-and-handle-errors/) the patterns.
+
+An error that comes from Lucent itself when a module loads, such as `the native module is not linked`, says the app's build is missing a step. [Runtime errors](/docs/api/runtime-errors/) gives each one's fix.

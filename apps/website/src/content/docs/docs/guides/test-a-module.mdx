@@ -1,26 +1,52 @@
 ---
-title: Test a module
-description: Run shared modules in Jest or Vitest as TypeScript, compare native and JavaScript with `lucent bench`, and check SDK calls on devices.
+title: Unit-test a module in Jest or Vitest
+sidebar_label: Test a module
+description: "Map `lucent:core` to `@lucent-lang/lucent/core`, and Jest or Vitest runs a shared module as the TypeScript it is; platform code runs only in the app."
 kind: guide
 ---
 
-## Run shared code as TypeScript
-
 <Tabs>
-<TabItem label="Vitest">
+<TabItem label="module">
 
-```ts title="vitest.config.ts"
-import { createRequire } from "node:module";
-import { defineConfig } from "vitest/config";
+```ts title="pace.lucent.ts"
+import { error } from "lucent:core";
 
-const require = createRequire(import.meta.url);
+export type Split = { meters: number; seconds: number };
 
-export default defineConfig({
-  resolve: { alias: { "lucent:core": require.resolve("@lucent-lang/lucent/core") } },
+/** Seconds per kilometer over every split. */
+export function pace(splits: Split[]): number {
+  let meters = 0;
+  let seconds = 0;
+  for (const split of splits) {
+    if (split.meters <= 0) throw error("E_BAD_SPLIT", `A split covers ${split.meters} m`);
+    meters += split.meters;
+    seconds += split.seconds;
+  }
+  if (meters === 0) throw error("E_NO_SPLITS", "No splits to average");
+  return (seconds * 1000) / meters;
+}
+```
+
+</TabItem>
+<TabItem label="pace.test.ts">
+
+```ts title="pace.test.ts"
+import { expect, it } from "vitest";
+import { pace } from "./pace.lucent";
+
+it("averages over the whole distance", () => {
+  expect(pace([{ meters: 1000, seconds: 300 }, { meters: 500, seconds: 165 }])).toBe(310);
+});
+
+it("rejects a run without splits", () => {
+  expect(() => pace([])).toThrow(expect.objectContaining({ code: "E_NO_SPLITS" }));
 });
 ```
 
 </TabItem>
+</Tabs>
+
+<Tabs>
 <TabItem label="Jest">
 
 ```js title="jest.config.js"
@@ -30,37 +56,32 @@ module.exports = {
 ```
 
 </TabItem>
-</Tabs>
+<TabItem label="Vitest">
 
-```ts title="trip.test.ts"
-import { expect, it } from "vitest";
-import { Trip } from "./src/trip.lucent";
+```ts title="vitest.config.ts"
+import { defineConfig } from "vitest/config";
 
-it("rejects a fix that arrives late", () => {
-  const trip = new Trip();
-  trip.add({ latitude: 48.85, longitude: 2.29, time: 1000 });
-  expect(() => trip.add({ latitude: 48.86, longitude: 2.3, time: 0 })).toThrow(expect.objectContaining({ code: "E_OUT_OF_ORDER" }));
+export default defineConfig({
+  resolve: { alias: { "lucent:core": "@lucent-lang/lucent/core" } },
 });
 ```
 
-A module is TypeScript, so your test runner can run it as is. `@lucent-lang/lucent/core` is the JavaScript version of `lucent:core`, for `delay`, `error` and the rest. Modules with platform code can't run this way: their SDK calls need the app.
+</TabItem>
+</Tabs>
 
-## Compare native and JavaScript
+A module is TypeScript, so the test runner imports it as it imports your other files. Only `lucent:core` needs a mapping, to `@lucent-lang/lucent/core`: its JavaScript version, installed with Lucent. Add the mapping to the config your app has, next to its preset.
 
-```sh title="terminal"
-npx lucent bench
-```
+With Jest, `it` and `expect` are globals, so leave out the `vitest` import.
 
-`lucent bench` runs each case of your `*.bench.ts` files as the compiled module and as JavaScript, and fails when the results differ. It needs a desktop Hermes, at `~/hermes` or in `HERMES_DIR`.
+## What runs in a test
 
-## Test platform code's neighbors
+- A shared module, and the shared modules it imports. `delay`, `error`, `compute` and the rest of [lucent:core](/docs/api/lucent-core/) run as JavaScript.
+- `compute` runs its task on the test's thread, after a timer, with a copy of its input. In three cases its result differs from native code ([known limitations](/docs/releases/roadmap/#known-limitations)).
+- A `NativeBuffer` lends a test its own bytes, where the app lends JavaScript a copy ([NativeBuffer](/docs/api/language/boundary/#nativebuffer)).
+- `lucent:platform`, `lucent:thread` and the SDK modules have no JavaScript version. A module that imports one fails to load, so keep the logic you test in a shared module ([Share code between iOS and Android](/docs/guides/share-code-between-platforms/)).
 
-```sh title="terminal"
-npx lucent build --platforms host --out .lucent/host
-```
+A test checks the code as JavaScript runs it. Where native code differs from JavaScript ([Differences](/docs/api/language/differences/)), the test can't see it. [`lucent bench`](/docs/guides/measure-performance/) runs the same calls both ways and fails when their results differ.
 
-A host build compiles for your computer. Platform code there throws `this code runs only on iOS and Android`, so the shared code around it can run in tests.
+## Test platform code in the app
 
-## Run on devices
-
-SDK calls run only in the app. Build it for the simulator and the emulator, and check each platform's branch there.
+Platform code runs only on iOS and Android. Call it from a screen of a development build, as [Run your first module](/docs/guides/first-module/) does. Check each platform's result on a simulator and an emulator.
