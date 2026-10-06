@@ -201,7 +201,12 @@ runs, so a right side that changes the target does not change what is read.
   like JS), `reverse`, `fill`, `at`, `keys`, `values`,
   `entries`; `Array.from` (iterables and `{ length }`), `Array.of`,
   `Array.isArray` (by the value held; refused on an `Iterable`, which no
-  longer knows what made it), `new Array(n)`.
+  longer knows what made it), `new Array(n).fill(v)`. Lucent arrays have no
+  holes, which JavaScript's `forEach`, `map`, `indexOf` and `for…in` skip,
+  so the forms that make them are refused: `new Array(n)` unless a whole
+  `.fill(v)` follows it, and `Array.from({ length: n })` without a map
+  function unless the elements may be `undefined` (it makes undefined
+  values, not holes).
 - **Map / Set**: the full instance API; `new Map(entries)`, `new Set(iterable)`.
 - **Object**: `keys`, `values`, `entries` (records), `fromEntries`. Object
   types refuse `Object.keys`, `for…in` and `in`: their native layout records

@@ -93,6 +93,25 @@ function numberOrOptional(em: FnEmitter, a: ts.Expression): cpp.Expr {
   return em.exprAs(a, mayBeUndefined(em.lt(a)) ? unionOf([T.number, T.undefined]) : T.number);
 }
 
+/** `new Array(n).fill(value)`: every hole `new Array(n)` makes is filled before anything sees it. */
+function filledWhole(node: ts.NewExpression): boolean {
+  const access = node.parent;
+
+  return (
+    ts.isPropertyAccessExpression(access) &&
+    access.name.text === "fill" &&
+    ts.isCallExpression(access.parent) &&
+    access.parent.expression === access &&
+    access.parent.arguments.length === 1
+  );
+}
+
+function holdsNumber(t: LType): boolean {
+  const held = stripOpt(t);
+
+  return held.k === "number" || (held.k === "union" && held.ms.some((m) => m.k === "number"));
+}
+
 function mayBeUndefined(t: LType): boolean {
   return t.k === "opt" || t.k === "undefined" || t.k === "void";
 }
@@ -748,15 +767,28 @@ export function staticCall(
       const src = a[0]!;
       // Array.from({ length: n }, (_, i) => ...)
       if (ts.isObjectLiteralExpression(src)) {
-        const lenProp = src.properties.find((p) => p.name && p.name.getText() === "length");
-        if (!lenProp || !ts.isPropertyAssignment(lenProp))
-          fail(src, Codes.UnsupportedBuiltin, "Array.from needs an iterable or { length: n }");
+        const lenProp = src.properties.length === 1 ? src.properties[0] : undefined;
+        if (
+          !lenProp ||
+          !ts.isPropertyAssignment(lenProp) ||
+          lenProp.name.getText() !== "length"
+        )
+          fail(
+            src,
+            Codes.UnsupportedBuiltin,
+            "Array.from needs an iterable or { length: n }: JavaScript reads an array-like's elements, which Lucent objects cannot index",
+          );
         const n = em.exprAs(lenProp.initializer, T.number);
         if (!a[1]) {
-          // n default values.
-          const count = cpp.staticCast(cpp.type("size_t"), n);
-          const empty = cpp.construct(em.reg.cppType(rt.e), [], true);
-          return { c: cpp.call(cpp.scoped(em.reg.cppType(rt), "filled"), [count, empty]), t: rt };
+          if (!mayBeUndefined(rt.e))
+            fail(
+              node,
+              Codes.UnsupportedBuiltin,
+              `Array.from({ length: n }) makes n undefined elements, which ${typeKey(rt.e)} cannot hold: pass a map function, or type the elements ${typeKey(rt.e)} | undefined`,
+            );
+          const count = cpp.call("lucent::arrayLikeLength", [n]);
+          const undef = em.coerce({ c: cpp.id("lucent::undefined"), t: T.undefined }, rt.e, node);
+          return { c: cpp.call(cpp.scoped(em.reg.cppType(rt), "filled"), [count, undef]), t: rt };
         }
         // The callback called with (undefined, i) for each index.
         const cb = callback(em, a[1], [T.undefined, T.number], rt.e);
@@ -1952,14 +1984,22 @@ export function newBuiltin(
     case "array": {
       if (a.length === 1) {
         const v = em.expr(a[0]!);
-        if (v.t.k === "number")
+        if (v.t.k === "number" && filledWhole(node))
           return {
             c: cpp.call(cpp.scoped(em.reg.cppType(t), "filled"), [
-              cpp.staticCast(cpp.type("size_t"), cpp.call("lucent::toUint32", [v.c])),
+              cpp.call("lucent::arrayLength", [v.c]),
               cpp.construct(em.reg.cppType(t.e), [], true),
             ]),
             t,
           };
+        if (holdsNumber(v.t))
+          fail(
+            node,
+            Codes.UnsupportedBuiltin,
+            v.t.k === "number"
+              ? "new Array(n) makes n holes, which Lucent arrays cannot hold: write new Array(n).fill(value), or Array.from({ length: n }, (_, i) => …)"
+              : "new Array(x) of a value that may be a number is not supported: JavaScript makes x holes for a number and [x] otherwise; write [x], or new Array(n).fill(value)",
+          );
       }
       return {
         c: cpp.construct(

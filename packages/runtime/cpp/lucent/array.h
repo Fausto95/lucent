@@ -45,6 +45,15 @@ inline size_t relativeIndex(double v, size_t len) {
 inline double compareResult(double v) { return std::isnan(v) ? 0 : v; }
 }  // namespace detail
 
+/// `new Array(n)`'s length, ArrayCreate's: an integer from 0 to 2^32 - 1.
+inline size_t arrayLength(double n) {
+  if (!(n >= 0) || std::trunc(n) != n || n > 4294967295.0) throwRangeError("Invalid array length");
+  return static_cast<size_t>(n);
+}
+
+/// `Array.from({ length: n })`'s length: ToLength, then ArrayCreate's check.
+inline size_t arrayLikeLength(double n) { return arrayLength(n > 0 ? std::trunc(n) : 0); }
+
 template <class T>
 class Array {
  public:
@@ -64,9 +73,8 @@ class Array {
   /// `Array.from({ length: n }, (_, i) => f(i))`.
   template <class F>
   static Array generate(double n, F&& f) {
-    if (!(n >= 0) || std::trunc(n) != n || n > 4294967295.0) throwRangeError("Invalid array length");
     Array out;
-    size_t count = static_cast<size_t>(n);
+    size_t count = arrayLikeLength(n);
     out.d_->reserve(count);
     for (size_t i = 0; i < count; i++) out.d_->push_back(static_cast<Elem>(f(static_cast<double>(i))));
     return out;
@@ -75,8 +83,7 @@ class Array {
   size_t size() const { return d_->size(); }
   double length() const { return static_cast<double>(d_->size()); }
   void setLength(double n) {
-    if (!(n >= 0) || std::trunc(n) != n || n > 4294967295.0) throwRangeError("Invalid array length");
-    size_t len = static_cast<size_t>(n);
+    size_t len = arrayLength(n);
     if (len > d_->size()) {
       if constexpr (std::is_default_constructible_v<Elem> && IsOpt<T>::value) {
         d_->resize(len);
