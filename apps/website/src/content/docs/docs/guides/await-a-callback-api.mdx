@@ -1,7 +1,115 @@
 ---
-title: "Turn a callback API into a promise"
-description: "This page is being rewritten."
+title: Turn a callback API into a promise
+description: "Wrap the call in `fromCallback()` from `lucent:core`: hand the SDK `resolve` and `reject`, and return the cleanup that cancels it."
 kind: guide
 ---
 
-This page is being rewritten.
+<Tabs>
+<TabItem label="position.lucent.ts">
+
+```ts title="position.lucent.ts"
+import { fromCallback } from "lucent:core";
+import { PLATFORM } from "lucent:platform";
+import { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";
+import { LocationManager } from "lucent:android/android.location";
+import { CancellationSignal } from "lucent:android/android.os";
+import { appContext, available } from "lucent:android";
+import { main } from "lucent:thread";
+
+export type Position = { latitude: number; longitude: number };
+
+class OneFix implements CLLocationManagerDelegate {
+  constructor(
+    private readonly resolve: (position: Position) => void,
+    private readonly reject: (error: Error) => void,
+  ) {}
+
+  locationManager_didUpdateLocations(_: CLLocationManager, locations: CLLocation[]): void {
+    const at = locations[0]?.coordinate;
+    if (at) this.resolve({ latitude: at.latitude, longitude: at.longitude });
+  }
+
+  locationManager_didFailWithError(_: CLLocationManager, error: Error): void {
+    this.reject(error);
+  }
+}
+
+/** The device's position, once: `signal` cancels the request. */
+export async function currentPosition(signal?: AbortSignal): Promise<Position> {
+  if (PLATFORM === "ios") {
+    let manager: CLLocationManager | null = null;
+    return fromCallback<Position>((resolve, reject) => {
+      const delegate = new OneFix(resolve, reject);
+      void main(() => {
+        manager = new CLLocationManager();
+        manager.delegate = delegate;
+        manager.requestLocation();
+      });
+      return () => void main(() => manager?.stopUpdatingLocation());
+    }, signal);
+  }
+
+  if (!available("android", 30)) throw new Error("Needs Android 11");
+  const manager = appContext().getSystemService(LocationManager);
+  const executor = appContext().getMainExecutor();
+  if (!manager || !executor) throw new Error("No location service");
+
+  return fromCallback<Position>((resolve, reject) => {
+    const cancel = new CancellationSignal();
+    manager.getCurrentLocation(LocationManager.GPS_PROVIDER, cancel, executor, (fix) => {
+      if (fix) resolve({ latitude: fix.getLatitude(), longitude: fix.getLongitude() });
+      else reject(new Error("No position"));
+    });
+    return () => cancel.cancel();
+  }, signal);
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { currentPosition } from "./src/position.lucent";
+
+/** The position, or an AbortError after ten seconds. */
+export async function locate(): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const { latitude, longitude } = await currentPosition(controller.signal);
+    return `${latitude}, ${longitude}`;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+`fromCallback(register, signal)` calls `register` at once with `resolve` and `reject`. Start the SDK call there, give it the two functions, and return the cleanup that stops it.
+
+On iOS they go to a delegate, made like any [SDK delegate](/docs/guides/implement-a-delegate/), and on Android to the function Java calls back. Either way, the person must have allowed location first: see [Ask for a runtime permission](/docs/guides/ask-for-a-permission/).
+
+- The first `resolve`, `reject` or abort settles the promise, and later calls do nothing. A delegate that reports twice settles it once.
+- The cleanup runs once, as the promise settles. Here it cancels the request, so an abort from JavaScript reaches the SDK.
+- The SDK may call `resolve` and `reject` from any thread. Each takes effect on the thread that called `fromCallback`.
+- `resolve` takes a value, not a promise: `fromCallback<Promise<T>>` fails with [LUCENT1007](/docs/api/diagnostics/#lucent1007).
+
+[lucent:core](/docs/api/lucent-core/#fromcallback) has the full contract. For a stream of values rather than one, use `subscribe()`, as [Stream events to JavaScript](/docs/guides/send-events-to-javascript/) does.
+
+## APIs that are already promises
+
+- An iOS method whose completion handler Swift also imports as `async` has a form that returns a promise: `await context.evaluatePolicy(policy, reason)`. [iOS SDK bindings](/docs/api/ios-sdk/#blocks-and-completion-handlers) gives the rule.
+- A Swift `async` method, which Lucent calls through Swift it generates, returns a promise you await: see [Call a Swift-only API](/docs/guides/call-a-swift-only-api/).
+- A Kotlin `suspend` function returns one too: see [Call a Kotlin library](/docs/guides/call-a-kotlin-library/).
+
+A completion handler without an `async` form, such as `CMPedometer`'s `queryPedometerData(start, end, handler)`, takes `fromCallback`: call the method in `register`, and resolve or reject from the handler.
+
+## A Play services Task
+
+A `Task`, a `ListenableFuture` or a `CompletionStage` is a Java object, not a promise, so `await` on one fails with [LUCENT1010](/docs/api/diagnostics/#lucent1010). Wrap its completion listener instead.
+
+In `register`, call `task.addOnCompleteListener((done) => …)`. When `done.isSuccessful()`, resolve with `done.getResult()`. Otherwise, reject with an `Error` made from `done.getException()`'s message, or a cancellation error when it has none.
+
+[Port expo-location](/docs/guides/examples/location/) wraps the fused location provider's `Task` this way. Add Play services to the app's Android build first, as [Call a CocoaPods or Gradle library](/docs/guides/use-a-third-party-sdk/#add-the-library) shows.

@@ -1,7 +1,129 @@
 ---
-title: "Subclass a UIKit or Android class"
-description: "This page is being rewritten."
+title: Subclass a UIKit or Android class
+sidebar_label: Subclass an SDK class
+description: "Write a class that `extends` it, call `super(…)` in its constructor, and define the methods to override: Lucent generates the native subclass that calls them."
 kind: guide
 ---
 
-This page is being rewritten.
+<Tabs>
+<TabItem label="iOS">
+
+```ts title="notice.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { NSTextAlignment, UIColor, UILabel, UIView_AutoresizingMask as Resize, UIViewController } from "lucent:ios/UIKit";
+import { present } from "lucent:ios";
+
+class Notice extends UIViewController {
+  constructor(text: string) {
+    super(null, null);
+    this.title = text;
+  }
+
+  viewDidLoad(): void {
+    super.viewDidLoad();
+    const view = this.view;
+    if (!view) return;
+
+    const label = new UILabel(view.bounds);
+    label.text = this.title;
+    label.textAlignment = NSTextAlignment.center;
+    label.autoresizingMask = Resize.flexibleWidth | Resize.flexibleHeight;
+    view.backgroundColor = UIColor.systemBackground;
+    view.addSubview(label);
+  }
+}
+
+/** Shows `text` in a sheet, until the person swipes it away. */
+export async function notify(text: string): Promise<void> {
+  if (PLATFORM !== "ios") return;
+
+  try {
+    await present<void>(() => new Notice(text));
+  } catch (e) {
+    if ((e as Error).name !== "AbortError") throw e;
+  }
+}
+```
+
+</TabItem>
+<TabItem label="Android">
+
+```ts title="network.lucent.ts"
+import { subscribe } from "lucent:core";
+import { PLATFORM } from "lucent:platform";
+import { ConnectivityManager, ConnectivityManager_NetworkCallback, Network } from "lucent:android/android.net";
+import { appContext } from "lucent:android";
+
+class Watcher extends ConnectivityManager_NetworkCallback {
+  constructor(private readonly next: (online: boolean) => void) {
+    super();
+  }
+
+  onAvailable(_: Network): void {
+    this.next(true);
+  }
+
+  onLost(_: Network): void {
+    this.next(false);
+  }
+}
+
+/** Calls `onChange` with whether the default network is up, until `signal` aborts. */
+export async function watchNetwork(onChange: (online: boolean) => void, signal: AbortSignal): Promise<void> {
+  if (PLATFORM !== "android") return;
+
+  const manager = appContext().getSystemService(ConnectivityManager);
+  if (!manager) throw new Error("No connectivity service");
+
+  return subscribe<boolean>((next) => {
+    const watcher = new Watcher(next);
+    manager.registerDefaultNetworkCallback(watcher);
+    return () => manager.unregisterNetworkCallback(watcher);
+  }, onChange, signal);
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useEffect } from "react";
+import { Button } from "react-native";
+import { notify } from "./src/notice.lucent";
+import { watchNetwork } from "./src/network.lucent";
+
+export function SaveButton() {
+  useEffect(() => {
+    const controller = new AbortController();
+    const log = (online: boolean) => console.log(online ? "online" : "offline");
+    watchNetwork(log, controller.signal).catch((e: Error) => {
+      if (e.name !== "AbortError") console.error(e);
+    });
+    return () => controller.abort();
+  }, []);
+
+  return <Button title="Save" onPress={() => notify("Saved")} />;
+}
+```
+
+</TabItem>
+</Tabs>
+
+A Lucent class can extend an Objective-C or a Java class. Lucent generates a subclass in that language that calls your methods, and an instance goes wherever the SDK takes the base.
+
+## On iOS
+
+- `super(…)` calls the base initializer its arguments match: `super(null, null)` is `init(nibName:bundle:)`.
+- A class without a constructor uses the base's initializer without arguments, and drops any arguments `new` passes: declare a constructor to pass them.
+- A method named like one of the base's overrides it. `super.viewDidLoad()` calls UIKit's own.
+- A subclass of `UIViewController`, `UIView` or another main-thread class is made and used only in code the main thread runs, such as the function `present()` calls ([LUCENT3006](/docs/api/diagnostics/#lucent3006)). Its own methods run there, so they call UIKit without `main()`.
+- A property, such as `preferredStatusBarStyle`, can't be overridden: TypeScript refuses an accessor in its place (`LUCENT9001`, TS2611).
+- A Lucent class can't extend a Swift class, override a Swift member, or be generic (`LUCENT1005`).
+
+## On Android
+
+- The base needs a public constructor without arguments, and yours calls `super()` with none. So `View`, which takes a `Context`, can't be extended.
+- An abstract method you leave out throws `AbstractMethodError` when Java calls it.
+- The subclass only overrides: calling the base's own methods, through `super` or `this`, fails with `LUCENT1005`.
+
+[iOS SDK bindings](/docs/api/ios-sdk/#subclasses) and [Android SDK bindings](/docs/api/android-sdk/#subclasses) give the full rules. [Present a view controller](/docs/guides/present-a-view-controller/) shows what `present()` does with the screen.

@@ -1,61 +1,118 @@
 ---
-title: Implement a delegate or listener
-description: A class that `implements` the SDK's protocol or interface, kept alive while the SDK calls it.
+title: Implement an SDK delegate or listener
+sidebar_label: Implement a delegate or listener
+description: "Write a class that `implements` the protocol or interface, register it inside `subscribe()`, and remove it in the cleanup."
 kind: guide
 ---
 
-```ts title="heading.lucent.ts"
+<Tabs>
+<TabItem label="position.lucent.ts">
+
+```ts title="position.lucent.ts"
+import { subscribe } from "lucent:core";
 import { PLATFORM } from "lucent:platform";
-import { CLHeading, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";
+import { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";
 import { Location, LocationListener, LocationManager } from "lucent:android/android.location";
 import { Looper } from "lucent:android/android.os";
 import { appContext } from "lucent:android";
 import { main } from "lucent:thread";
 
-// iOS: a class that implements the SDK's protocol.
-class Compass implements CLLocationManagerDelegate {
-  constructor(private readonly onDegrees: (degrees: number) => void) {}
+export type Position = { latitude: number; longitude: number };
+type Next = (position: Position) => void;
 
-  locationManager_didUpdateHeading(manager: CLLocationManager, heading: CLHeading): void {
-    this.onDegrees(heading.magneticHeading);
+class Updates implements CLLocationManagerDelegate {
+  constructor(private readonly next: Next, private readonly fail: (error: Error) => void) {}
+
+  locationManager_didUpdateLocations(_: CLLocationManager, locations: CLLocation[]): void {
+    const at = locations[locations.length - 1]?.coordinate;
+    if (at) this.next({ latitude: at.latitude, longitude: at.longitude });
+  }
+
+  locationManager_didFailWithError(_: CLLocationManager, error: Error): void {
+    this.fail(error);
   }
 }
 
-// Android: a class that implements the SDK's interface.
-class Bearing implements LocationListener {
-  constructor(private readonly onDegrees: (degrees: number) => void) {}
+class Listener implements LocationListener {
+  constructor(private readonly next: Next) {}
 
   onLocationChanged(location: Location): void {
-    this.onDegrees(location.getBearing());
+    this.next({ latitude: location.getLatitude(), longitude: location.getLongitude() });
   }
+
+  onProviderEnabled(): void {}
+  onProviderDisabled(): void {}
+  onStatusChanged(): void {}
 }
 
-let manager: CLLocationManager | null = null;
-let listener: Bearing | null = null;
-
-export async function follow(onDegrees: (degrees: number) => void): Promise<void> {
+/** Calls `onPosition` with each new position, until `signal` aborts. */
+export async function watchPosition(onPosition: Next, signal: AbortSignal): Promise<void> {
   if (PLATFORM === "ios") {
-    const compass = new Compass(onDegrees);
-    await main(() => {
-      manager = new CLLocationManager();
-      manager.delegate = compass;
-      manager.startUpdatingHeading();
-    });
-  } else {
-    const looper = Looper.getMainLooper();
-    listener = new Bearing(onDegrees);
-    if (looper) appContext().getSystemService(LocationManager)?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000n, 0, listener, looper);
+    let manager: CLLocationManager | null = null;
+    return subscribe<Position>((next, _end, fail) => {
+      const updates = new Updates(next, fail);
+      void main(() => {
+        manager = new CLLocationManager();
+        manager.delegate = updates;
+        manager.startUpdatingLocation();
+      });
+      return () => void main(() => manager?.stopUpdatingLocation());
+    }, onPosition, signal);
   }
+
+  const manager = appContext().getSystemService(LocationManager);
+  if (!manager) throw new Error("No location service");
+
+  return subscribe<Position>((next) => {
+    const listener = new Listener(next);
+    manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000n, 0, listener, Looper.getMainLooper());
+    return () => manager.removeUpdates(listener);
+  }, onPosition, signal);
 }
 ```
 
-- `implements` is required: it's what makes a Lucent class usable as the protocol or interface (`LUCENT2008`).
-- On iOS, a requirement's name is Swift's base name and labels joined with `_`: `locationManager(_:didUpdateHeading:)` is `locationManager_didUpdateHeading`. Implement only the requirements you need.
-- On Android, methods you don't define keep their Java default body. An interface with one method to implement also takes a plain function.
-- The SDK keeps your object while it's the delegate or listener. So does your module: `manager` and `listener` stay set until you stop.
+</TabItem>
+<TabItem label="App.tsx">
 
-Callbacks run on the Lucent thread, queued, one at a time with the rest of your Lucent code. A callback whose result the SDK waits for runs at once, on the SDK's thread. On Android, you can also `extends` an SDK class, calling `super()` with no arguments.
+```tsx title="App.tsx"
+import { useEffect, useState } from "react";
+import { Text } from "react-native";
+import { type Position, watchPosition } from "./src/position.lucent";
 
-:::caution
-A delegate or listener lives until it's removed. Give every start a stop, as [Send events to JavaScript](/docs/guides/send-events-to-javascript/) does.
-:::
+export function Here() {
+  const [at, setAt] = useState<Position>();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    watchPosition(setAt, controller.signal).catch((e: Error) => {
+      if (e.name !== "AbortError") console.error(e);
+    });
+    return () => controller.abort();
+  }, []);
+
+  return <Text>{at ? `${at.latitude}, ${at.longitude}` : "Locating…"}</Text>;
+}
+```
+
+</TabItem>
+</Tabs>
+
+A class that `implements` an SDK protocol or interface goes wherever the SDK takes one, such as `manager.delegate`. A class with the right methods but no `implements` fails with [LUCENT2008](/docs/api/diagnostics/#lucent2008).
+
+The person must have allowed location first: see [Ask for a runtime permission](/docs/guides/ask-for-a-permission/#when-a-delegate-gets-the-answer).
+
+- Implement the required methods, and only the optional ones you need. On iOS, a requirement's name joins Swift's base name and labels with `_`, as [iOS SDK bindings](/docs/api/ios-sdk/#names) shows.
+- On Android, a method you leave out keeps Java's default body where the device declares one ([not on API 24 and 25](/docs/releases/roadmap/#known-limitations)). `LocationListener`'s provider methods became default only in API 30, so the module implements them. An interface with one method to implement also takes a function, as in [Turn a callback API into a promise](/docs/guides/await-a-callback-api/).
+- `CLLocationManager` calls its delegate on the run loop of the thread that made it, so the module makes it inside `main()`.
+
+## Keep it registered, then remove it
+
+- The SDK object keeps your object, and everything it holds, alive until you remove it ([Memory](/docs/api/language/memory/#listeners-and-subscriptions)).
+- On iOS, `delegate` is a weak property, but your object stays alive while the property holds it. Hold the SDK object itself: here the cleanup holds `manager`, which would otherwise be freed, and its updates would stop.
+- `subscribe()` runs the cleanup once, when the stream ends: JavaScript aborts, or the delegate calls `fail`. [Stream events to JavaScript](/docs/guides/send-events-to-javascript/) covers the JavaScript side.
+- A JavaScript reload doesn't end it, so the old delegate keeps hearing from the SDK beside the new one ([What a reload does](/docs/api/language/modules/#what-a-reload-does)).
+- Don't store the SDK object in your delegate. The two would hold each other and never be freed ([cycles leak](/docs/api/language/memory/#cycles-leak)), so use the `manager` each method receives.
+
+## Which thread its methods run on
+
+Both classes' methods here run as turns on the Lucent thread, holding the [Lucent lock](/docs/api/language/concurrency/#the-lucent-lock). A main-thread protocol's methods, such as `UITextFieldDelegate`'s, run on the main thread and call UIKit without `main()`. [Concurrency](/docs/api/language/concurrency/#where-each-kind-of-code-runs) lists every case.
