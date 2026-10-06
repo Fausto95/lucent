@@ -116,6 +116,52 @@ describe("jsonOutputs", () => {
     expect(outputs.map((o) => o.command)).toEqual(["new a"]);
   });
 
+  it("gives each member of a top-level oneOf its own fields, required as that member says", () => {
+    const [explain] = jsonOutputs(
+      [{ file: "explain.schema.json", schema: read("explain.schema.json") }],
+      commands,
+    );
+
+    expect(
+      explain!.variants.map((v) => ({
+        description: v.description,
+        required: v.fields.filter((f) => f.required).map((f) => f.field),
+      })),
+    ).toEqual([
+      {
+        description: "Without a code: every code",
+        required: ["codes", "codes[].code", "codes[].title"],
+      },
+      {
+        description: "One code",
+        required: ["code", "title", "summary", "details", "fix", "wrong", "right", "docs"],
+      },
+    ]);
+  });
+
+  it("gives a schema without a top-level oneOf one variant", () => {
+    const [output] = jsonOutputs(
+      [
+        {
+          file: "a.schema.json",
+          schema: {
+            title: "lucent a --json",
+            type: "object",
+            properties: { b: { type: "string" } },
+          },
+        },
+      ],
+      [{ name: "a" }],
+    );
+
+    expect(output!.variants).toEqual([
+      {
+        description: "",
+        fields: [{ field: "b", type: "string", required: false, description: "" }],
+      },
+    ]);
+  });
+
   it("fails on a schema for a command that doesn't exist", () => {
     expect(() =>
       jsonOutputs(
