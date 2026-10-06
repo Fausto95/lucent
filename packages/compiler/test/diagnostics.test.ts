@@ -437,11 +437,15 @@ export function f(round: boolean): number {
   });
 
   it("rejects Array.isArray of an Iterable, which no longer knows its kind", () => {
-    expect(
-      codes(
-        "function g(x: Iterable<number>): boolean { return Array.isArray(x); }\nexport function f(): boolean { return g([1]); }",
-      ),
-    ).toContain("LUCENT1003");
+    const src =
+      "function g(x: Iterable<number>): boolean { return Array.isArray(x); }\nexport function f(): boolean { return g([1]); }";
+
+    expect(compileSource(src).diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "LUCENT1003",
+        message: expect.stringContaining("testing whether an Iterable is an Array"),
+      }),
+    );
   });
 
   describe("object types' keys, which record neither which optional fields are set nor their order", () => {
@@ -457,6 +461,17 @@ export function f(round: boolean): number {
       ["in", 'export function f(p: P): boolean { return "b" in p; }', "LUCENT1002"],
     ])("rejects %s on an object type", (_, src, code) => {
       expect(codes(shape + src)).toContain(code);
+    });
+
+    it.each(["values", "entries"])("names Object.%s's reason in words", (name) => {
+      const src = `export function f(p: P): number { return Object.${name}(p).length; }`;
+
+      expect(compileSource(shape + src).diagnostics).toContainEqual(
+        expect.objectContaining({
+          code: "LUCENT1003",
+          message: expect.stringContaining(`Object.${name} of an object type is not supported`),
+        }),
+      );
     });
   });
 
