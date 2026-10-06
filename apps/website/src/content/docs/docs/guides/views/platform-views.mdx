@@ -7,7 +7,7 @@ sidebar_class_name: experimental
 ---
 
 :::caution
-Experimental: views change without notice, and UIKit or Android JSX is on `main`, not in 0.1.2. They need `LUCENT_VIEWS=fabric` where Lucent builds: see [Turn on native views](/docs/guides/views/). Read [the limits](/docs/architecture/views/#limits) first.
+Experimental: views change without notice. They need `LUCENT_VIEWS=fabric` where Lucent builds: see [Turn on native views](/docs/guides/views/). Read [the limits](/docs/architecture/views/#limits) first.
 :::
 
 <Tabs>
@@ -26,22 +26,17 @@ export declare function Pedometer(props: PedometerProps): UIView | View;
 <TabItem label="pedometer.ios.lucent.tsx">
 
 ```tsx title="pedometer.ios.lucent.tsx"
-import {
-  NSLayoutConstraint_Axis,
-  UIColor,
-  UIFont,
-  UILabel,
-  UIStackView,
-  type UIView,
-} from "lucent:ios/UIKit";
+import { UIColor, UIFont, UILabel, type UIView } from "lucent:ios/UIKit";
+import { Flex } from "lucent:ui";
 import type { PedometerProps } from "./pedometer.lucent";
 
 export function Pedometer(props: PedometerProps): UIView {
   return (
-    <UIStackView axis={NSLayoutConstraint_Axis.vertical} spacing={4}>
-      <UILabel text="Steps today" textColor={UIColor.secondaryLabel} />
+    <Flex style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <UILabel text="Steps today" textColor={UIColor.secondaryLabel} layout={{ flexGrow: 1 }} />
       <UILabel text={`${props.steps}`} font={UIFont.boldSystemFont(28)} />
-    </UIStackView>
+      {props.steps >= 10000 && <UILabel text="Goal" />}
+    </Flex>
   );
 }
 ```
@@ -51,15 +46,17 @@ export function Pedometer(props: PedometerProps): UIView {
 
 ```tsx title="pedometer.android.lucent.tsx"
 import type { View } from "lucent:android/android.view";
-import { LinearLayout, TextView } from "lucent:android/android.widget";
+import { TextView } from "lucent:android/android.widget";
+import { Flex } from "lucent:ui";
 import type { PedometerProps } from "./pedometer.lucent";
 
 export function Pedometer(props: PedometerProps): View {
   return (
-    <LinearLayout orientation={LinearLayout.VERTICAL}>
-      <TextView text={"Steps today"} />
+    <Flex style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <TextView text="Steps today" layout={{ flexGrow: 1 }} />
       <TextView text={`${props.steps}`} textSize={28} />
-    </LinearLayout>
+      {props.steps >= 10000 && <TextView text="Goal" />}
+    </Flex>
   );
 }
 ```
@@ -79,7 +76,7 @@ export default function App() {
 
   return (
     <View style={{ padding: 48 }}>
-      <Pedometer steps={steps} style={{ height: 64 }} />
+      <Pedometer steps={steps} />
       <Button title="Step" onPress={() => setSteps(steps + 1)} />
     </View>
   );
@@ -94,13 +91,10 @@ A tag is a view class: any class that extends `UIView` or Android's `View`, from
 - An attribute is a writable property on iOS, and a one-value setter on Android: `text` calls `setText` ([Props](/docs/api/views/platform-views/#props)).
 - An attribute that reads a prop, as the second label's `text` reads `props.steps`, is set again when React passes a new value.
 - Listeners and control events are `on…` attributes, such as a `UISwitch`'s `onValueChanged` ([Events](/docs/api/views/platform-views/#events)).
-- Children are fixed elements: a condition or a list among them fails until [T49](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t49) ([Children](/docs/api/views/platform-views/#children)).
+- `{cond && <X />}` adds a child while the condition holds, and `items.map` with a `key` makes a list ([Children](/docs/api/views/platform-views/#children)).
+- `Flex` lays out its children with React Native's Yoga, and `layout` places one child ([Layout](/docs/api/views/platform-views/#layout)).
 
-:::caution
-An Android attribute given a string literal, `text="Steps today"`, fails with [LUCENT2001](/docs/api/diagnostics/#lucent2001). Write the string in braces: `text={"Steps today"}`.
-:::
-
-App.tsx gives the component a height. Without a size in its style, a component is sized by its view's `sizeThatFits:` on iOS, and a `UIStackView` answers zero.
+A plain `UIView` or `ViewGroup` doesn't lay out its children, so put them in a `Flex` or a native container. A component whose root is a `Flex` is sized by its content when its style gives no size.
 
 `tsc` checks a `.lucent.tsx` file's JSX as React's and reports errors in it: only the [editor plugin](/docs/api/integrations/#jsx-in-lucenttsx-files) types it.
 

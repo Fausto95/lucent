@@ -116,7 +116,7 @@ An exported function of a `.lucent.tsx` module is a component when every value i
 | An Android `View`, or an instance of a subclass | Android | That view. |
 | JSX of SwiftUI views | iOS | A `UIHostingController` Lucent makes for each mount. |
 | JSX of Compose elements | Android | A `ComposeView` Lucent makes for each mount. |
-| JSX of UIKit or Android views, on `main` and not in 0.1.2 | iOS, Android | The view of the tag it returns. |
+| JSX of UIKit or Android views | iOS, Android | The view of the tag it returns: for a `Flex`, the container view Lucent lays out. |
 
 [SwiftUI and Compose in JSX](/docs/api/views/swiftui-and-compose/) and [UIKit and Android views in JSX](/docs/api/views/platform-views/) give the JSX rules. A component also follows these rules, and breaking one fails with [LUCENT3020](/docs/api/diagnostics/#lucent3020):
 
@@ -288,7 +288,7 @@ A component is one shared `.lucent.tsx` module with [platform branches](/docs/ap
 | Form | Files | Write it for |
 | --- | --- | --- |
 | One file | `counter.lucent.tsx`, with `if (PLATFORM === "ios")` branches | Components whose setup makes their views, and SwiftUI and Compose bodies. |
-| Platform files | `card.lucent.ts` with an `export declare function`, then `card.ios.lucent.tsx` and `card.android.lucent.tsx` | Components that take children, and components returning UIKit or Android JSX on both platforms (on `main`, not in 0.1.2). |
+| Platform files | `card.lucent.ts` with an `export declare function`, then `card.ios.lucent.tsx` and `card.android.lucent.tsx` | Components that take children, and components returning UIKit or Android JSX on both platforms. |
 
 React sees one component on every platform, so [LUCENT3023](/docs/api/diagnostics/#lucent3023) holds these rules:
 

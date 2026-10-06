@@ -8,7 +8,7 @@ sidebar_class_name: experimental
 ---
 
 :::caution
-Experimental: JSX of UIKit and Android views is on `main` and not in 0.1.2. It compiles only when `LUCENT_VIEWS=fabric` is set: [Turn on native views](/docs/guides/views/) says how.
+Experimental: JSX of UIKit and Android views compiles only when `LUCENT_VIEWS=fabric` is set: [Turn on native views](/docs/guides/views/) says how.
 :::
 
 A component can return its platform's views as JSX. Nothing about a view is listed in Lucent: what a tag takes comes from its class's declarations, by the rules on this page. So a view from an SDK, a pod or an Android library works without a Lucent entry for it.
@@ -107,17 +107,155 @@ Setup code may come before the `return`: signals, effects, `expose()` and other 
 
 ## Children
 
+<Tabs>
+<TabItem label="tags.lucent.ts">
+
+```ts title="tags.lucent.ts"
+import type { View } from "lucent:android/android.view";
+import type { UIView } from "lucent:ios/UIKit";
+
+export type Tag = { id: string; name: string };
+
+export type TagsProps = { title: string; showCount: boolean; tags: Tag[] };
+
+export declare function Tags(props: TagsProps): UIView | View;
+```
+
+</TabItem>
+<TabItem label="tags.ios.lucent.tsx">
+
+```tsx title="tags.ios.lucent.tsx"
+import { UILabel, UIStackView, type UIView } from "lucent:ios/UIKit";
+import type { TagsProps } from "./tags.lucent";
+
+export function Tags(props: TagsProps): UIView {
+  return (
+    <UIStackView spacing={4}>
+      <UILabel text={props.title} />
+      {props.showCount && <UILabel text={`${props.tags.length}`} />}
+      {props.tags.map((tag) => (
+        <UILabel key={tag.id} text={tag.name} />
+      ))}
+    </UIStackView>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="tags.android.lucent.tsx">
+
+```tsx title="tags.android.lucent.tsx"
+import type { View } from "lucent:android/android.view";
+import { LinearLayout, TextView } from "lucent:android/android.widget";
+import type { TagsProps } from "./tags.lucent";
+
+export function Tags(props: TagsProps): View {
+  return (
+    <LinearLayout orientation={LinearLayout.HORIZONTAL}>
+      <TextView text={props.title} />
+      {props.showCount && <TextView text={`${props.tags.length}`} />}
+      {props.tags.map((tag) => (
+        <TextView key={tag.id} text={tag.name} />
+      ))}
+    </LinearLayout>
+  );
+}
+```
+
+</TabItem>
+</Tabs>
+
 | Platform | A class takes children through | Example |
 | --- | --- | --- |
-| iOS | The nearest `insert<X>:atIndex:` method of the class or a class above it. | A `UIStackView` inserts arranged subviews with `insertArrangedSubview:atIndex:`, and any other `UIView` subviews with `insertSubview:atIndex:`. |
-| Android | `addView(View, int)`. | Every `ViewGroup` declares it, so a `LinearLayout` or a `FrameLayout` takes children. A `TextView` takes none. |
+| iOS | The nearest `insert<X>:atIndex:` method of the class or a class above it. A child leaves through the matching `remove<X>:`, if declared, then its `removeFromSuperview`. | A `UIStackView` inserts arranged subviews with `insertArrangedSubview:atIndex:`, and any other `UIView` subviews with `insertSubview:atIndex:`. |
+| Android | `addView(View, int)`, and `removeView(View)` to let a child go. | Every `ViewGroup` declares both, so a `LinearLayout` or a `FrameLayout` takes children. A `TextView` takes none. |
 
-- Children are made and inserted in source order, a parent before its children.
-- Each child is an element of a native view. Text, `{cond && <UILabel />}` and other expressions fail.
+A child is one of these:
 
-Children are fixed, and a plain view lays none out yet: see [the limits](/docs/architecture/views/#limits). A `UIStackView` or an Android layout lays out its own.
+| Child | What it does |
+| --- | --- |
+| `<X />` | Made when the parent is made, in source order, a parent before its children. It stays for the mount. |
+| `{cond && <X />}`, `{c ? <X /> : <Y />}` | A branch. The element shown is made when its condition holds, and its view, effects and handlers end when another shows. Branches nest, and a side may be `null`, `undefined` or `false`. |
+| `{items.map((item) => <X key={item.id} />)}` | A keyed list. Each key's element is made once, and kept while the key stays. A kept key's new item updates only the attributes reading `item`. |
+
+- A condition follows JavaScript's truthiness: `{0 && <X />}` shows nothing, where React would show the text `0`.
+- A list maps an array, and a new array updates it. Changing an array in place updates nothing.
+- A list's callback names its item, takes no index, and returns one element with a `key`. Keys are strings or numbers.
+- A key used twice, or `NaN`, throws when the list updates, and the list keeps its children.
+- A list is a child of its own: not inside a condition, and not inside another list's item.
+- `key` goes only on the element a list's callback returns.
+- Text and other expressions fail. So do branches and lists under an Android class that declares no `removeView`.
+
+A plain `UIView` or `ViewGroup` doesn't lay out its children: put them in a [Flex](#layout). A `UIStackView` or an Android layout lays out its own.
 
 For React children inside a native view, use a [slot](/docs/api/views/components/#children) instead.
+
+## Layout
+
+<Tabs>
+<TabItem label="row.lucent.ts">
+
+```ts title="row.lucent.ts"
+import type { View } from "lucent:android/android.view";
+import type { UIView } from "lucent:ios/UIKit";
+
+export type RowProps = { title: string; on: boolean };
+
+export declare function Row(props: RowProps): UIView | View;
+```
+
+</TabItem>
+<TabItem label="row.ios.lucent.tsx">
+
+```tsx title="row.ios.lucent.tsx"
+import { UILabel, UISwitch, type UIView } from "lucent:ios/UIKit";
+import { Flex } from "lucent:ui";
+import type { RowProps } from "./row.lucent";
+
+export function Row(props: RowProps): UIView {
+  return (
+    <Flex style={{ flexDirection: "row", alignItems: "center", gap: 8, padding: 12 }}>
+      <UILabel text={props.title} layout={{ flexGrow: 1 }} />
+      <UISwitch isOn={props.on} />
+    </Flex>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="row.android.lucent.tsx">
+
+```tsx title="row.android.lucent.tsx"
+import type { View } from "lucent:android/android.view";
+import { CheckBox, TextView } from "lucent:android/android.widget";
+import { Flex } from "lucent:ui";
+import type { RowProps } from "./row.lucent";
+
+export function Row(props: RowProps): View {
+  return (
+    <Flex style={{ flexDirection: "row", alignItems: "center", gap: 8, padding: 12 }}>
+      <TextView text={props.title} layout={{ flexGrow: 1 }} />
+      <CheckBox checked={props.on} />
+    </Flex>
+  );
+}
+```
+
+</TabItem>
+</Tabs>
+
+[Flex](/docs/api/views/lucent-ui/#flex), from `lucent:ui`, lays out its children with React Native's Yoga. Its `style` places its children, and each child's `layout` places that child, both a [LayoutStyle](/docs/api/views/lucent-ui/#layoutstyle): React Native's layout names and values, numbers in points.
+
+- The tag decides who sets a view's frame. A Flex sets its children's frames, and nothing else does.
+- A Flex's own frame comes from its parent: the component's box when it's the root, a native container, or an enclosing Flex.
+- A native container among a Flex's children, such as a `UIStackView` or a `LinearLayout`, lays out its own children.
+- A plain `UIView` or `ViewGroup` leaves its children's frames alone.
+- `style` and `layout` are object literals. Each key is set again when what it reads changes.
+- Only a Flex's child takes `layout`. A Flex inside a Flex may not set one key in both its `style` and its `layout`.
+- A Flex takes `style`, children, `layout` inside a Flex, and `key` in a list: no other attribute.
+- A Flex's children are elements, branches or lists, as for [any parent](#children).
+- A child that isn't a Flex is measured by its platform: `sizeThatFits:`, Auto Layout or its intrinsic size on iOS, `View.measure` on Android.
+- A component whose root is a Flex, with no size in its style, is sized by the Flex's content.
 
 ## Construction
 
@@ -184,8 +322,10 @@ The iOS JSX isn't the component's last statement, so it fails with LUCENT3025. P
 
 | Code | What fails |
 | --- | --- |
-| [LUCENT3025](/docs/api/diagnostics/#lucent3025) | Native JSX the component doesn't return as its last statement, or a spread attribute. A child expression that isn't an element, or a SwiftUI or Compose element among native views. A class with no constructor and no `create`, or an attribute reading a copy of a prop. |
-| [LUCENT9001](/docs/api/diagnostics/#lucent9001) | A tag that isn't a view class, an attribute the tag doesn't take, or children of a class that inserts none. Also children that aren't elements, such as text or `{cond && <UILabel />}`. For an attribute the rules leave out, the message gives the reason. |
+| [LUCENT3025](/docs/api/diagnostics/#lucent3025) | Native JSX the component doesn't return as its last statement, or a spread attribute. A class with no constructor and no `create`, or an attribute reading a copy of a prop. |
+| LUCENT3025 | A child that isn't an element, a branch or a list, or a SwiftUI or Compose element among native views. A list breaking its rules, or a `key` outside one. A branch or list under an Android class without `removeView`. |
+| LUCENT3025 | A `layout` outside a Flex, a `style` or `layout` that isn't an object literal, or a key set in both. Any other attribute on a Flex. |
+| [LUCENT9001](/docs/api/diagnostics/#lucent9001) | A tag that isn't a view class, an attribute the tag doesn't take, or children of a class that inserts none. Also children that aren't elements, such as text. For an attribute the rules leave out, the message gives the reason. |
 | [LUCENT3022](/docs/api/diagnostics/#lucent3022) | An attribute's code that can't run on the main thread, as for any setup code. |
 | [LUCENT3007](/docs/api/diagnostics/#lucent3007) | A tag's class or initializer, an attribute's setter, listener or control event, or a child's insert method, newer than Lucent's lowest OS. |
 

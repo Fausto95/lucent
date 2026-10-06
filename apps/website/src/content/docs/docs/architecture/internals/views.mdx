@@ -219,11 +219,29 @@ A class without a rule for construction takes `create={() => new X(…)}`, which
 - each element's view is made when the component mounts, in source order, a parent before its children;
 - each prop is an effect of the mount, set again whenever what it read changes, and a literal is set once;
 - each event's handler is evaluated once, registered, and taken back when the mount ends;
-- children are inserted in order, by their parent class's method.
+- children are inserted in order, by their parent class's method;
+- a branch (`cond && <X />`, `c ? <X /> : <Y />`) is an effect choosing which element shows, each made in a scope of its own and ended when it goes;
+- a keyed list (`items.map((item) => <X key={item.id} />)`) makes one element per key in its own scope, with `item` a signal the list writes when the key's item changes.
 
 The JSX must be what the component returns, as its last statement (LUCENT3025). A prop reading a copy setup made of a prop fails too: the attribute would never change.
 
-`lucent sdk coverage --views` lists what each class's tag takes and what the rules leave out (`ui/view-coverage.ts`). Native views' children are fixed: conditional and keyed children are [ROADMAP task T49](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t49).
+`lucent sdk coverage --views` lists what each class's tag takes and what the rules leave out (`ui/view-coverage.ts`).
+
+### Children that come and go
+
+When every child is an element, each is inserted once at its index. With a branch or a list among them, each child is a region of the parent's children (`lucent/ui_children.h`). `ChildRegions` gives where a region starts, and `ChildOps` inserts, removes and moves a view through the parent's class.
+
+`sdk/view-rules.ts` finds the remove method beside the insert one: iOS's `remove<X>:` then `removeFromSuperview` (a move inserts again), Android's `removeView`.
+
+`KeyedList` reconciles a new array by key. A kept key keeps its view and scope, a gone key ends its scope, and moves walk the new order. A duplicate or `NaN` key throws before anything changes, and the list keeps its children.
+
+The reference backend in `packages/runtime/test/ui_children_test.cpp` records each insert, remove and move.
+
+### Flex
+
+`ui/roots.ts` (`isFlexTag`) recognizes `lucent:ui`'s `Flex`, which `emit/native-jsx.ts` lowers apart from SDK tags. Its view and Yoga node come from `lucent::ui::flex::container` (`lucent/ui_flex.h`), and each child that isn't a Flex becomes a leaf node (`flex::leaf`). Every `style` or `layout` key is an effect setting the node's key, and children go through `ChildOps`.
+
+The core is `lucent/layout.h`, on React Native's own `<yoga/Yoga.h>`. `platform/ios_layout.mm` (`LucentFlexView`) and `platform/android_layout.cpp` with `dev.lucent.LucentFlexView` adapt it: the outermost Flex lays the tree out in its platform's layout pass, and each writes its own children's frames.
 
 ## Diagnostics
 
@@ -234,6 +252,6 @@ The JSX must be what the component returns, as its last statement (LUCENT3025). 
 | LUCENT3022 | `ui/analyze.ts` | Setup or a command can't run on the main thread |
 | LUCENT3023 | `ui/analyze.ts`, `ui/merge.ts` | A component differs between platforms, or exists on some only |
 | LUCENT3024 | `platforms.ts`, `ui/toolkit-body.ts` (also through `emit/toolkit.ts`), `ui/compose.ts`, `ui/composition.ts`, `emit/setups.ts` | A body breaks its rules, `bind` or `range` is used outside one, or a toolkit's name is used outside its platform |
-| LUCENT3025 | `emit/native-jsx.ts`, `emit/native.ts`, `ui/toolkit-body.ts` | Platform-view JSX isn't what the component returns, or uses a view, attribute or child its class's declarations don't provide. A class made through Swift needs `create`. |
+| LUCENT3025 | `emit/native-jsx.ts`, `emit/native.ts`, `ui/toolkit-body.ts` | Platform-view JSX isn't what the component returns, or uses a view, attribute or child its class's declarations don't provide. A class made through Swift needs `create`. A list, `key`, `layout` or Flex attribute breaks its rules. |
 
 The tests are in `packages/compiler/test/ui/`. Some mount a component's Fabric glue on Mac Catalyst, as [docs/testing.md](https://github.com/Fausto95/lucent/blob/main/docs/testing.md) explains.

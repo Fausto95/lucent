@@ -145,6 +145,6 @@ Beside Lucent's other [known limitations](/docs/releases/roadmap/#known-limitati
 - Helper view functions take plain data, and callbacks of numbers, booleans and strings: no toolkit values, children, lists or bindings.
 - SwiftUI: a static value named like a method, such as `Animation.easeInOut`, is left out: call the method. Only closed ranges (`a...b`) map, and content conditions must be `boolean`. `Int(x)` traps on NaN or infinity, and a two-value `onChange` closure doesn't type-check.
 - Compose: when two Kotlin packages declare a class of the same name, `lucent:compose` keeps the first one's.
-- [Platform-view JSX](/docs/api/views/platform-views/): its children are fixed ([T49](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t49)), and a plain view lays none out until [T50](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t50). Its rules read declarations: Android's `AdapterView` declares `addView(View, int)`, then throws from it.
+- [Platform-view JSX](/docs/api/views/platform-views/): only a `Flex` lays out a plain view's children, and a stack view's Auto Layout sees no size for a `Flex`. Android's `AdapterView` declares `addView(View, int)` but throws from it.
 - Platform-view JSX: a view made through a Swift initializer needs `create`. A pod's view inherits `UIView`'s initializers only once a file imports `lucent:ios/UIKit`, even with a bare `import`.
 - A listener with several methods, such as `TextWatcher` or SeekBar's, is left out of JSX, and setup can't give one ([LUCENT3021](/docs/api/diagnostics/#lucent3021)).
