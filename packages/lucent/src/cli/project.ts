@@ -23,6 +23,7 @@ import {
   withPodDependencies,
   writeWhole,
 } from "@lucent-lang/compiler";
+import { gradleFailure } from "./gradle-output.ts";
 import { linkNativePackage } from "./init/patch.ts";
 import { withLucentPaths } from "./tsconfig.ts";
 import { packageFile } from "./version.ts";
@@ -194,7 +195,7 @@ export function resolveAndroidDependencies(
 
     return {
       status: "failed",
-      detail: `Gradle could not resolve them (retried when the build files or the lockfile change, or with lucent build --force):\n${(r.stderr || r.stdout).trim().split("\n").slice(-8).join("\n")}`,
+      detail: `Gradle could not resolve them (retried when the build files or the lockfile change, or with lucent build --force):\n${gradleFailure(r.stderr || r.stdout)}`,
     };
   } finally {
     fs.rmSync(lock, { force: true });

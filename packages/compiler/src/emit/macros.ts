@@ -59,9 +59,23 @@ export function declaredNames(files: readonly ts.SourceFile[]): Set<string> {
   return names;
 }
 
+/**
+ * C++ tokens the preprocessor does not expand (comments, string and
+ * character literals, numbers), or an identifier, captured. A #line
+ * directive's file is a string: the sources' path must not decide
+ * which names are guarded.
+ */
+const TOKEN =
+  /\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|\.?\d(?:[eEpP][+-]|[\w.])*|([A-Za-z_]\w*)/g;
+
+/** The identifiers `code` spells where a macro would expand. */
+function identifiers(code: string): Set<string> {
+  return new Set([...code.matchAll(TOKEN)].flatMap((m) => (m[1] ? [m[1]] : [])));
+}
+
 /** `decls` with the declared names they spell undefined as macros, when they spell any. */
 export function withoutMacros(decls: cpp.Decl[], declared: ReadonlySet<string>): cpp.Decl[] {
-  const spelled = new Set(cpp.printDecls(decls).match(/[A-Za-z_]\w*/g));
+  const spelled = identifiers(cpp.printDecls(decls));
   const names = [...declared].filter((n) => spelled.has(n)).sort();
 
   return names.length ? [cpp.withoutMacros(names, decls)] : decls;

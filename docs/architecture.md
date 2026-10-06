@@ -141,8 +141,10 @@ Notable lowering choices:
   library and the SDK headers define macros under ordinary names (`HUGE`,
   `DOMAIN`, `pascal`, `si_value`), different on each platform, so no list
   can avoid them: each generated file undefines, after its includes, every
-  name the program declares that it spells (`#pragma push_macro`, `#undef`)
-  and restores them at its end (`emit/macros.ts`).
+  name the program declares that it spells as an identifier, outside
+  comments and string literals (`#pragma push_macro`, `#undef`), and
+  restores them at its end (`emit/macros.ts`). The `#line` paths are
+  strings, so the sources' directory never changes the guards.
 - **Trace sites**: each binding names where its export is declared
   (`LUCENT_TRACE_SITE_AT`, the same path as `#line`), so a trace of a call
   points at the `.lucent.ts` declaration rather than at generated code;
