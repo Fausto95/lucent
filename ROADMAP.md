@@ -411,17 +411,17 @@ report the boundary and floor ratios, which move with the CPU
 devices measure them; a missed target is recorded and decided, never
 quietly weakened.
 
-| Id  | Dimension           | Workload                                          | Gate                                                                                        | State                                                                  |
-| --- | ------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| P1  | Primitive calls     | Boundary `add` and `concat`, 1,000 calls          | Within 1.25x a bare host function (host); within 20% of the fastest framework path (device) | Host checked; device open (T65)                                        |
-| P2  | Computation         | The benchmark kernels                             | No regression of the kernel budgets; within 20% of handwritten native for selected kernels  | Host checked; host native references measured (T54); device open (T65) |
-| P3  | Binary transport    | `NativeBuffer` handoff of 1 KB, 1 MB and a stream | No payload copy on owned handoff; copies and allocations counted                            | Implemented (T31, T32); device open                                    |
-| P4  | View frames         | A steady-state wrapper workload                   | p95 frame work within 16.7 ms (60 Hz) or 8.3 ms (120 Hz), under 1% missed                   | Open (T65, devices)                                                    |
-| P5  | UI isolation        | Busy JavaScript plus a 500 ms compute task        | No equivalent UI stall; lock and queue waits reported                                       | Simulator and emulator evidence (T44); device open                     |
-| P6  | Teardown and memory | 1,000 mount/dispose and subscribe/cancel cycles   | Owned counts return to baseline, no retained growth                                         | Open (T64)                                                             |
-| P7  | Feedback            | A fixture app's edit loop                         | p95 warm diagnostics under 500 ms; check and generation under 1 s                           | Warm check measured at 0.3 s; open (T61)                               |
-| P8  | Startup and size    | Empty app, one module, one view, many packages    | Budgets set at first measurement                                                            | Open (T62, T65)                                                        |
-| P9  | Reliability         | Sanitizers and stress                             | No use-after-free, deadlock or cross-thread JSI access                                      | Host sanitizers clean; stress open (T64)                               |
+| Id  | Dimension           | Workload                                          | Gate                                                                                        | State                                                                   |
+| --- | ------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| P1  | Primitive calls     | Boundary `add` and `concat`, 1,000 calls          | Within 1.25x a bare host function (host); within 20% of the fastest framework path (device) | Host checked; device open (T65)                                         |
+| P2  | Computation         | The benchmark kernels                             | No regression of the kernel budgets; within 20% of handwritten native for selected kernels  | Host checked; host native references measured (T54); device open (T65)  |
+| P3  | Binary transport    | `NativeBuffer` handoff of 1 KB, 1 MB and a stream | No payload copy on owned handoff; copies and allocations counted                            | Implemented (T31, T32); device open                                     |
+| P4  | View frames         | A steady-state wrapper workload                   | p95 frame work within 16.7 ms (60 Hz) or 8.3 ms (120 Hz), under 1% missed                   | Open (T65, devices)                                                     |
+| P5  | UI isolation        | Busy JavaScript plus a 500 ms compute task        | No equivalent UI stall; lock and queue waits reported                                       | Simulator and emulator evidence (T44); device open                      |
+| P6  | Teardown and memory | 1,000 mount/dispose and subscribe/cancel cycles   | Owned counts return to baseline, no retained growth                                         | Open (T64)                                                              |
+| P7  | Feedback            | A fixture app's edit loop                         | p95 warm diagnostics under 500 ms; check and generation under 1 s                           | Met on 53 modules (p95: diagnostics 486 ms, check 941 ms, build 959 ms) |
+| P8  | Startup and size    | Empty app, one module, one view, many packages    | Budgets set at first measurement                                                            | Open (T62, T65)                                                         |
+| P9  | Reliability         | Sanitizers and stress                             | No use-after-free, deadlock or cross-thread JSI access                                      | Host sanitizers clean; stress open (T64)                                |
 
 Benchmarks keep raw samples, report median, p95 and p99, separate
 throughput from latency, interleave implementations after warmup, verify
@@ -1497,7 +1497,7 @@ count.
 coherent workflow.
 
 - **Status:** in progress (2026-10-05): one slice per item, each its own
-  PR; the carried-over items, doctor's build checks and the editor so far.
+  PR; all but the debugging output (view trees, effects, owned resources).
 - **Area:** Tooling.
 - **Needs:** T23 (done), T24 (done), T40 (done), T41 (done), [T48](#t48)
   (open).
@@ -1522,9 +1522,16 @@ coherent workflow.
 - [ ] Show view trees, effect updates, source-mapped native failures, copy
       and queue traces and owned resources, without exposing implementation
       noise in ordinary application UI.
-- [ ] Validate TTY, non-TTY and JSON output, `init`, new module and new
+- [x] Validate TTY, non-TTY and JSON output, `init`, new module and new
       view, transitive workspace edits, cold failures and recovery; measure
-      the warm feedback targets.
+      the warm feedback targets: `output-matrix.test.ts` runs every command
+      (one schema-valid JSON document or a refusal; no escape codes outside
+      a terminal; the terminal's own output stays covered by the Ink tests),
+      `lucent new view` (internal, behind LUCENT_VIEWS=fabric),
+      `workspace-build.test.ts`, and `scripts/bench-build.ts --check`
+      (p95 against `bench-build-budgets.json`; 2026-10-06 on 53 modules:
+      diagnostics 486 ms, check 941 ms, build 959 ms, all within budget;
+      close enough to their budgets that it is no CI gate on shared runners).
 - [x] Carried over from T41: check that view loading runs the same
       stale-native identity check as modules (T41 left views to the view
       work), or add it: it does (a view-only module's proxy checks before
