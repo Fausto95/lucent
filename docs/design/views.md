@@ -352,8 +352,11 @@ element is every toolkit's at once (`View & Composed`) and whose tags are
 either toolkit's views, so each element checks against its own
 toolkit's declaration, and a SwiftUI modifier may chain after an element
 (`(<Text>a</Text>).padding(4)`). Where a platform's SDK is missing, its
-toolkit is left out and its code is untyped, as its SDK's is. The
-compiler and editors (through the Lucent TypeScript plugin, and the
+toolkit is left out and its code is untyped, as its SDK's is. A setup
+returns the view its target's own code returns (`emit/setups.ts`) where
+the function's return type mixes platforms: each platform's view at
+once, or `any` where the other's SDK is missing. The compiler and
+editors (through the Lucent TypeScript plugin, and the
 `lucent:jsx` declarations `lucent build` writes beside the others) type
 them alike; the app's own `.tsx` files keep React's.
 
