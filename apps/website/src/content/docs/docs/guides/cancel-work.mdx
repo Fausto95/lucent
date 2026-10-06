@@ -1,6 +1,6 @@
 ---
-title: Cancel work
-description: Take an `AbortSignal` from JavaScript and check it; the promise rejects with an `AbortError`.
+title: Cancel work with an AbortSignal
+description: "Take an `AbortSignal` as the export's last parameter and pass it to what the export awaits: JavaScript's `abort()` then rejects the call with an `AbortError`."
 kind: guide
 ---
 
@@ -10,35 +10,78 @@ kind: guide
 ```ts title="search.lucent.ts"
 import { delay } from "lucent:core";
 
-export async function search(words: string[], query: string, signal: AbortSignal): Promise<string[]> {
+/** The words that contain `query`. Aborting `signal` rejects with an AbortError. */
+export async function search(words: string[], query: string, signal?: AbortSignal): Promise<string[]> {
   const found: string[] = [];
   for (let i = 0; i < words.length; i++) {
-    if (i % 1000 === 0) {
-      signal.throwIfAborted();
-      await delay(0); // let other calls in between chunks
-    }
-    const word = words[i]!;
-    if (word.includes(query)) found.push(word);
+    if (i % 10_000 === 9_999) await delay(0, signal); // ends the turn; throws once aborted
+    if (words[i]!.includes(query)) found.push(words[i]!);
   }
   return found;
 }
 ```
 
 </TabItem>
-<TabItem label="JS usage">
+<TabItem label="App.tsx">
 
 ```tsx title="App.tsx"
-const controller = new AbortController();
-const results = search(words, "lu", controller.signal);
+import { useEffect, useState } from "react";
+import { Text } from "react-native";
+import { search } from "./src/search.lucent";
 
-controller.abort(); // results rejects with an AbortError
+export function Results({ words, query }: { words: string[]; query: string }) {
+  const [found, setFound] = useState<string[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    search(words, query, controller.signal)
+      .then(setFound)
+      .catch((e: Error) => {
+        if (e.name !== "AbortError") console.error(e);
+      });
+    return () => controller.abort(); // a new query cancels the last search
+  }, [words, query]);
+
+  return <Text>{found.join("\n")}</Text>;
+}
 ```
 
 </TabItem>
 </Tabs>
 
-Pass an `AbortSignal` from JavaScript. When JavaScript calls `abort()`, the signal is set in native code at once. Your code stops where it checks: `signal.throwIfAborted()`, or a `delay(ms, signal)`.
+The signal crosses into the module as a native signal that JavaScript's `abort()` aborts. The call then rejects with an `AbortError`. A reason passed to `abort(reason)` becomes an error with its name and message instead ([AbortSignal](/docs/api/language/boundary/#abortsignal)).
 
-- The rejection is an `Error` named `AbortError`, or the reason JavaScript passed to `abort()`.
-- `signal.aborted` reads the state, and `signal.addEventListener("abort", …)` runs a function when it's set.
-- A signal can come into Lucent, but not go back out, and an `AbortController` can't cross at all.
+- `abort()` reaches the signal between turns of module code, as a synchronous call does. A loop that never awaits doesn't see it, so await `delay(0, signal)` now and then.
+- `signal.throwIfAborted()` throws the signal's error once it has aborted, and `signal.aborted` tells you whether it has.
+- `signal.reason` isn't available in module code: catch the error instead.
+
+## Pass the signal on
+
+Pass the signal to what the export awaits, so that it stops too:
+
+| Call | When the signal aborts |
+| --- | --- |
+| `delay(ms, signal)` | Rejects at once. |
+| `compute(task, input, { signal })` | Rejects at once. A queued task never starts. A running one stops at the next iteration of a loop in it, or in a module function it calls. |
+| `fromCallback(register, signal)`, `subscribe(register, onValue, signal)` | Rejects at once, and runs the cleanup that `register` returned. |
+| A Swift `async` method or a Kotlin `suspend` function, with the signal last | Rejects at once, and cancels the Swift task or the coroutine. |
+
+```ts title="prices.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { Product } from "lucent:ios/StoreKit";
+
+export type Price = { id: string; price: string };
+
+/** App Store prices. Aborting `signal` cancels the StoreKit call. */
+export async function prices(ids: string[], signal?: AbortSignal): Promise<Price[]> {
+  if (PLATFORM !== "ios") return [];
+  const products = await Product.products(ids, signal);
+  return products.map((product) => ({ id: product.id, price: product.displayPrice }));
+}
+```
+
+[lucent:core](/docs/api/lucent-core/) has each helper's exact rules, and [Swift-only APIs](/docs/api/ios-sdk/#swift-only-apis) and [Kotlin](/docs/api/android-sdk/#kotlin) have the SDK's.
+
+## Clean up
+
+The `AbortError` is an ordinary throw, so `finally` blocks run as it passes and `using` values are disposed ([Release native resources with using](/docs/guides/release-native-resources/)). For native work that takes no signal, stop it from `signal.addEventListener("abort", …)`. Or wrap it in `fromCallback`, whose cleanup runs on abort ([Turn a callback API into a promise](/docs/guides/await-a-callback-api/)).

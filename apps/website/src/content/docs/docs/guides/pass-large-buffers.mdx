@@ -1,7 +1,89 @@
 ---
-title: "Pass large buffers without copying"
-description: "This page is being rewritten."
+title: Pass large buffers without copying
+description: "Keep the bytes in a `NativeBuffer` from `lucent:core`: it moves to compute tasks and crosses to JavaScript as a handle, where a `Uint8Array` is copied each time."
 kind: guide
 ---
 
-This page is being rewritten.
+<Tabs>
+<TabItem label="module">
+
+```ts title="frames.lucent.ts"
+import { compute, NativeBuffer } from "lucent:core";
+
+/** Runs on a worker, which owns the buffer while it runs. */
+function invert(buffer: NativeBuffer): NativeBuffer {
+  buffer.withWrite((bytes) => {
+    for (let i = 0; i < bytes.length; i++) bytes[i] = 255 - bytes[i]!;
+  });
+  return buffer;
+}
+
+/** A frame, filled here and inverted on a worker: it moves there and back, uncopied. */
+export async function frame(size: number): Promise<NativeBuffer> {
+  const buffer = NativeBuffer.allocate(size);
+  buffer.withWrite((bytes) => bytes.fill(40));
+  return await compute(invert, buffer);
+}
+
+export function checksum(buffer: NativeBuffer): number {
+  return buffer.withRead((bytes) => {
+    let sum = 0;
+    for (let i = 0; i < bytes.length; i++) sum = (sum + bytes[i]!) % 65_521;
+    return sum;
+  });
+}
+
+/** How many copies buffers have made since the app started. */
+export function copies(): number {
+  return NativeBuffer.stats().copies;
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { checksum, copies, frame } from "./src/frames.lucent";
+
+export async function inspect(): Promise<void> {
+  const before = copies();
+  const buffer = await frame(8_000_000); // a handle: the bytes stay in native code
+  console.log(checksum(buffer), copies() - before); // 0 copies so far
+
+  console.log(buffer.withRead((bytes) => bytes[0])); // 215, read from a copy
+  console.log(copies() - before); // 1
+
+  buffer.close(); // frees the 8 MB now, not when JavaScript collects the handle
+}
+```
+
+</TabItem>
+</Tabs>
+
+`NativeBuffer.allocate(size)` makes zeroed bytes in native memory. `withWrite` and `withRead` lend them to a callback, and the bytes stay inside it: returning them, storing them or holding them across an `await` fails with [LUCENT3030](/docs/api/diagnostics/#lucent3030).
+
+## Move it to a task
+
+`compute(invert, buffer)` moves the buffer to the task instead of copying it, and the buffer the task returns comes back as it is. `transfer()` moves a buffer the same way. The old buffer then throws an `InvalidStateError` when borrowed, copied or moved, and a use the compiler can see fails to compile:
+
+```ts title="moved.lucent.ts" expect="LUCENT3031"
+import { compute, NativeBuffer } from "lucent:core";
+
+function size(buffer: NativeBuffer): number {
+  return buffer.byteLength;
+}
+
+export async function twice(): Promise<number> {
+  const buffer = NativeBuffer.allocate(16);
+  const n = await compute(size, buffer);
+  return n + buffer.byteLength; // the bytes moved to the task
+}
+```
+
+## Hand it to JavaScript
+
+JavaScript gets the buffer as a handle with the same methods, and the same handle each time. Passing it back to the module copies nothing. Its `withRead` lends JavaScript a copy of the bytes, and its `withWrite` copies them back after, so JavaScript never holds memory a worker may be writing.
+
+JavaScript can't make a `NativeBuffer`. Bytes that start in JavaScript cross as a `Uint8Array`, which is copied, so make the bytes in module code and hand JavaScript the handle.
+
+`NativeBuffer.stats()` counts the copies, so a test can check that a path makes none. The borrow, move and close rules are on [lucent:core](/docs/api/lucent-core/#nativebuffer), and when the bytes are freed is on [Memory](/docs/api/language/memory/#native-buffers). [Release native resources with using](/docs/guides/release-native-resources/) closes a buffer however a block ends.
