@@ -44,6 +44,7 @@
 #include <utility>
 #include <vector>
 
+#include "live.h"
 #include "core.h"
 #include "equality.h"
 #include "execution.h"
@@ -333,6 +334,7 @@ class EffectNode final : public Observer {
   const uint64_t order_;
   /// Where its runs show in a trace (static, as trace events are).
   const trace::Site* const site_;
+  [[no_unique_address]] live::Counted<live::Kind::Effect> counted_;
 
   /// The last run's scope: its tasks, cleanups and nested effects.
   std::shared_ptr<Scope> run_;
@@ -356,6 +358,7 @@ class SignalNode final : public Node {
 
   T value_;
   Equality<T> equals_;
+  [[no_unique_address]] live::Counted<live::Kind::Signal> counted_;
 };
 
 template <class T>
@@ -411,6 +414,7 @@ class ComputedNode final : public Observer {
   std::optional<T> value_;
   std::exception_ptr error_;
   bool computing_ = false;
+  [[no_unique_address]] live::Counted<live::Kind::Computed> counted_;
 };
 
 }  // namespace detail
