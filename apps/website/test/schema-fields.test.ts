@@ -86,19 +86,41 @@ describe("jsonOutputs", () => {
     const files = fs.readdirSync(schemas).filter((f) => / --json$/.test(read(f).title ?? ""));
     const outputs = jsonOutputs(
       files.map((file) => ({ file, schema: read(file) })),
-      commands.map((c) => c.name),
+      commands,
     );
 
     expect(outputs.map((o) => o.command).sort()).toEqual(
-      ["build", "check", "doctor", "sdk diff", "sdk prefetch", "sdk search"].sort(),
+      [
+        "build",
+        "check",
+        "clean",
+        "doctor",
+        "explain",
+        "new module",
+        "sdk coverage",
+        "sdk diff",
+        "sdk lock",
+        "sdk prefetch",
+        "sdk search",
+        "sdk show",
+      ].sort(),
     );
+  });
+
+  it("gives each public command a schema lists its own entry, leaving internal ones out", () => {
+    const outputs = jsonOutputs(
+      [{ file: "new.schema.json", schema: { title: "lucent new a --json, lucent new b --json" } }],
+      [{ name: "new a" }, { name: "new b", internal: true }],
+    );
+
+    expect(outputs.map((o) => o.command)).toEqual(["new a"]);
   });
 
   it("fails on a schema for a command that doesn't exist", () => {
     expect(() =>
       jsonOutputs(
         [{ file: "nope.schema.json", schema: { title: "lucent nope --json" } }],
-        ["build"],
+        [{ name: "build" }],
       ),
     ).toThrow("nope.schema.json: there is no `lucent nope` command");
   });
