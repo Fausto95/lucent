@@ -18,13 +18,34 @@ const char* jsTypeName(jsi::Runtime& rt, const jsi::Value& v) {
   return "an object";
 }
 
-void throwBoundaryError(jsi::Runtime& rt, const Path& path, const char* expected, const jsi::Value& actual) {
-  std::string message = std::string(path.fn) + ": " + path.where() + " must be " + expected + ", got " + jsTypeName(rt, actual);
+namespace {
+
+/// `sumPoints: argument 'ps'[3].x must be a number, got a string`
+[[noreturn]] void throwMismatch(jsi::Runtime& rt, const Path& path, const char* expected, const std::string& got) {
+  std::string message = std::string(path.fn) + ": " + path.where() + " must be " + expected + ", got " + got;
   jsi::Object err = rt.global()
                         .getPropertyAsFunction(rt, "TypeError")
                         .callAsConstructor(rt, jsi::String::createFromUtf8(rt, message))
                         .getObject(rt);
   throw jsi::JSError(rt, jsi::Value(rt, err));
+}
+
+}  // namespace
+
+void throwBoundaryError(jsi::Runtime& rt, const Path& path, const char* expected, const jsi::Value& actual) {
+  throwMismatch(rt, path, expected, jsTypeName(rt, actual));
+}
+
+void throwUnknownDiscriminant(jsi::Runtime& rt, const Path& path, const char* accepted, const jsi::Value& got) {
+  // A string reads as the literal it is, like the accepted values.
+  std::string shown = got.isString() ? rt.global()
+                                           .getPropertyAsObject(rt, "JSON")
+                                           .getPropertyAsFunction(rt, "stringify")
+                                           .call(rt, got)
+                                           .getString(rt)
+                                           .utf8(rt)
+                                     : jsTypeName(rt, got);
+  throwMismatch(rt, path, accepted, shown);
 }
 
 BigInt Convert<BigInt>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {

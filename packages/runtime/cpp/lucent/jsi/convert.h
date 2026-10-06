@@ -64,6 +64,9 @@ struct Path {
 };
 
 [[noreturn]] void throwBoundaryError(jsi::Runtime& rt, const Path& path, const char* expected, const jsi::Value& actual);
+/// A union's discriminant `got` (at `path`) names none of its members, `accepted`
+/// being their values: `"circle" or "square"`.
+[[noreturn]] void throwUnknownDiscriminant(jsi::Runtime& rt, const Path& path, const char* accepted, const jsi::Value& got);
 const char* jsTypeName(jsi::Runtime& rt, const jsi::Value& v);
 
 inline const jsi::Value& arg(const jsi::Value* args, size_t count, size_t i) {

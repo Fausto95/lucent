@@ -973,6 +973,14 @@ export class BindingsEmitter {
               cpp.ifStmt(cpp.binary(d, "==", cpp.str(values[i]!)), [this.unionMember(s, m)]),
             ),
           ]),
+          cpp.exprStmt(
+            cpp.call("throwUnknownDiscriminant", [
+              rt,
+              cpp.call(cpp.dot(p, "field"), [cpp.str(name)]),
+              cpp.str(values.map((x) => JSON.stringify(x)).join(" or ")),
+              dv,
+            ]),
+          ),
         ]);
       }
     }
