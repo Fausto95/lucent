@@ -36,6 +36,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const casesDir = path.join(here, "cases");
 const runtimeDir = path.resolve(here, "../../../runtime");
 const coreJs = coreJsPath();
+const runtimeJs = path.join(runtimeDir, "js/index.js");
 const abortPolyfill = path.resolve(here, "../../../runtime/test/jsi/abort-polyfill.js");
 const hermes = process.env.HERMES_DIR ?? path.join(os.homedir(), "hermes");
 const sanitize = process.env.SANITIZE === "1";
@@ -243,7 +244,8 @@ async function nativeBuild(c: Case, lib: string): Promise<string[]> {
   fs.writeFileSync(
     prelude,
     `var mods = __lucent; var mod = __lucent[${JSON.stringify(moduleNames[0])}];\n` +
-      `function lucentClass(factory) { function C() { return factory.apply(undefined, arguments); } C.prototype = factory.prototype; Object.defineProperty(C.prototype, "constructor", { value: C }); for (var k of Object.keys(factory)) C[k] = factory[k]; return C; }\n`,
+      // The proxies' own wrapper of a class's constructor.
+      `var lucentClass = (function (module) { (function (module, exports) {\n${fs.readFileSync(runtimeJs, "utf8")}\n})(module, module.exports); return module.exports.lucentClass; })({ exports: {} });\n`,
   );
   return [exe, abortPolyfill, prelude, c.test];
 }
