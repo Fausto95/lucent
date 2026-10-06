@@ -14,10 +14,11 @@ pluginManager.withPlugin("com.android.application") {
     def artifactType = Attribute.of("artifactType", String)
     // The app's debug variant's compile classpath, else its release variant's (its
     // debug variants disabled). With product flavors a build type has a variant per
-    // flavor (freeDebug, paidDebug): the first by name.
+    // flavor (freeDebug, paidDebug): the first by name. The unflavored name comes
+    // first: other build types may end like it (benchmarkRelease).
     def variantClasspath = { String buildType ->
       def flavored = "${buildType.capitalize()}CompileClasspath"
-      configurations.names.sort().find { it == "${buildType}CompileClasspath" || it.endsWith(flavored) }
+      configurations.findByName("${buildType}CompileClasspath")?.name ?: configurations.names.sort().find { it.endsWith(flavored) }
     }
     def compileClasspath = variantClasspath("debug") ?: variantClasspath("release")
     if (compileClasspath == null)
