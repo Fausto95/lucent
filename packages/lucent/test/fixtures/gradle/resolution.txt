@@ -1,0 +1,25 @@
+
+FAILURE: Build failed with an exception.
+
+* Where:
+Build file '/app/android/app/build.gradle' line: 4
+
+* What went wrong:
+Execution failed for task ':app:lucentClasspath'.
+> Could not resolve all files for configuration ':app:debugRuntimeClasspath'.
+   > Could not resolve androidx.core:core-nonexistent:9.9.9.
+     Required by:
+         project ':app'
+      > No cached version of androidx.core:core-nonexistent:9.9.9 available for offline mode.
+   > Could not resolve com.example.missing:lib:1.0.0.
+     Required by:
+         project ':app'
+      > No cached version of com.example.missing:lib:1.0.0 available for offline mode.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 329ms

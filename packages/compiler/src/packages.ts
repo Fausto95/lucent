@@ -31,6 +31,9 @@ interface PackageJson {
   lucent?: { sources?: string; compatible?: string };
 }
 
+/** A Lucent module's file: `*.lucent.ts`, or `*.lucent.tsx` with views. */
+export const LUCENT_EXTENSION = /\.lucent\.tsx?$/;
+
 // Noted as read: a compile names its modules after the package.json it finds.
 const read = (file: string): PackageJson | undefined => {
   const text = readText(file);
@@ -42,11 +45,17 @@ const read = (file: string): PackageJson | undefined => {
   }
 };
 
-/** The Lucent package a file belongs to: the nearest package.json, if it has a `lucent` field. */
+/**
+ * The Lucent package a file belongs to: the nearest package, if its
+ * package.json has a `lucent` field. A package.json with neither a name nor
+ * dependencies, such as `{ "type": "module" }`, makes no package: it only
+ * says how Node loads the files beside it, which npm publishes with the
+ * package above.
+ */
 export function lucentPackageOf(file: string): LucentPackage | undefined {
   for (let dir = path.dirname(path.resolve(file)); ; dir = path.dirname(dir)) {
     const pkg = read(path.join(dir, "package.json"));
-    if (pkg) {
+    if (pkg && (pkg.name || pkg.dependencies)) {
       if (!pkg.lucent || !pkg.name) return undefined;
       return {
         name: pkg.name,
@@ -58,6 +67,44 @@ export function lucentPackageOf(file: string): LucentPackage | undefined {
     }
     if (path.dirname(dir) === dir) return undefined;
   }
+}
+
+/**
+ * The files under `root` matching `pattern` that belong to its package, as
+ * lucentPackageOf (and so a module's name) tells them apart. Dependencies
+ * (node_modules), dot directories (build output), native projects (ios,
+ * android) and other packages' directories are left out: in an app, a
+ * Lucent package's (a workspace under packages/), which the app builds as
+ * a dependency or not at all; in a Lucent package, any package's (an
+ * example app).
+ */
+export function findOwnFiles(root: string, pattern: RegExp): string[] {
+  const owner = (dir: string) => lucentPackageOf(path.join(dir, "package.json"))?.dir;
+  const own = owner(root);
+
+  // Only a package.json can make a directory another package's.
+  const ours = (dir: string) =>
+    !fs.existsSync(path.join(dir, "package.json")) || owner(dir) === own;
+
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (
+        entry.name === "node_modules" ||
+        entry.name.startsWith(".") ||
+        entry.name === "ios" ||
+        entry.name === "android"
+      )
+        continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (ours(full)) walk(full);
+      } else if (pattern.test(entry.name)) out.push(full);
+    }
+  };
+
+  walk(root);
+  return out.sort();
 }
 
 /**

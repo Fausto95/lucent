@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { addExpoPlugin, applyGradleTask, GRADLE_LINE, wrapMetro } from "../src/cli/init/patch.ts";
+import { planInit } from "../src/cli/init/plan.ts";
 import { withLucentTsconfig } from "../src/cli/tsconfig.ts";
 import { runLucent } from "./run-to-exit.ts";
 
@@ -126,6 +127,21 @@ describe("init patches", () => {
       },
     });
     expect(withLucentTsconfig(next!)).toBeUndefined();
+  });
+});
+
+describe("init's plan", () => {
+  it("scaffolds a first module when the only Lucent files are a nested package's", () => {
+    const root = write(bareApp(), {
+      "packages/lucent-near/package.json": JSON.stringify({
+        name: "lucent-near",
+        version: "1.0.0",
+        lucent: { sources: "src" },
+      }),
+      "packages/lucent-near/src/near.lucent.ts": "export function near(): number { return 1; }\n",
+    });
+
+    expect(planInit(root).changes.map((c) => c.file)).toContain("src/hello.lucent.ts");
   });
 });
 

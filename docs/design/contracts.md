@@ -2389,7 +2389,7 @@ export interface BuildIdentity {
 - The API hash per module is a canonical description of the boundary:
   exports, signatures, struct fields, class members, enum values,
   component contracts; interface ids are made portable.
-- `runtimeAbi` is the compiler's `RUNTIME_ABI` (1), equal to the
+- `runtimeAbi` is the compiler's `RUNTIME_ABI` (2), equal to the
   runtime's `kRuntimeAbi` in `lucent/jsi/host.h`; the generated identity
   unit (`lucent_identity.cpp`) static-asserts the equality.
 - Native code exposes the identity as `__lucentIdentity` on the host;

@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { lucentPackageOf, lucentPackages } from "./packages.ts";
+import { findOwnFiles, LUCENT_EXTENSION, lucentPackageOf, lucentPackages } from "./packages.ts";
 import path from "node:path";
 import { directoryExists, fileExists, readText } from "./reads.ts";
 import { fileURLToPath } from "node:url";
@@ -89,7 +89,6 @@ export function coreTypesPath(): string {
   return sdkLibPath("core");
 }
 
-export const LUCENT_EXTENSION = /\.lucent\.tsx?$/;
 export const PLATFORM_EXTENSION = /\.(ios|android)\.lucent\.tsx?$/;
 
 /** The module a file belongs to: `haptics` for haptics.lucent.ts and haptics.ios.lucent.ts. */
@@ -351,25 +350,9 @@ export function compilerOptions(): ts.CompilerOptions {
   };
 }
 
-/** Finds `*.lucent.ts` files under `root`, skipping node_modules and build output. */
+/** The `*.lucent.ts` files of the package `root` is in (see findOwnFiles). */
 export function findLucentFiles(root: string): string[] {
-  const out: string[] = [];
-  const walk = (dir: string) => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (
-        entry.name === "node_modules" ||
-        entry.name.startsWith(".") ||
-        entry.name === "ios" ||
-        entry.name === "android"
-      )
-        continue;
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (LUCENT_EXTENSION.test(entry.name)) out.push(full);
-    }
-  };
-  walk(root);
-  return out.sort();
+  return findOwnFiles(root, LUCENT_EXTENSION);
 }
 
 /** Text of a file that differs from disk (an editor's unsaved buffer), if any. */
@@ -897,6 +880,7 @@ function importDiagnostics(sf: ts.SourceFile, platform: Platform | undefined): D
     if (!m) continue;
     const [, scope, module] = m;
     let message: string | undefined;
+    let fix: string | undefined;
     if ((scope === "core" || scope === "thread" || scope === "platform") && !module) continue;
     if (scope === "ui" && !module && fabricRequested()) continue;
     const toolkit = toolkitOfModule(`lucent:${scope}`);
@@ -938,10 +922,17 @@ function importDiagnostics(sf: ts.SourceFile, platform: Platform | undefined): D
       message = `${spec} is only available in *.${scope}.lucent.ts files, or in shared files inside \`if (PLATFORM === "${scope}")\``;
     else if (module && (target === platform || platformSdkTyped(target))) {
       const found = sdkLookup(target, module);
-      if ("missing" in found) message = found.missing;
-      else continue;
+      if (!("missing" in found)) continue;
+
+      message = found.missing;
+      fix = found.fix;
     } else continue;
-    out.push({ ...at(sf, s.moduleSpecifier), code: Codes.SdkImport, message });
+    out.push({
+      ...at(sf, s.moduleSpecifier),
+      code: Codes.SdkImport,
+      message,
+      ...(fix ? { fix } : {}),
+    });
   }
   return out;
 }
