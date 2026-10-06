@@ -8,6 +8,7 @@ import {
   cppIdent,
   functionsNotCompared,
   holdsFunction,
+  isErrorName,
   isVoidish,
   type LType,
   stripOpt,
@@ -24,6 +25,7 @@ import {
   spanMethod,
   spanProperty,
 } from "./buffers.ts";
+import { assignedRead } from "../lowering/unassigned.ts";
 import { DISPOSE, findMember } from "./classes.ts";
 import { type E, type Lvalue } from "./context.ts";
 import { coreCall, isCoreSymbol } from "./core.ts";
@@ -70,9 +72,61 @@ function argAs(em: FnEmitter, node: ts.CallExpression, i: number, t: LType): cpp
   return em.exprAs(a, t);
 }
 
-function optArg(em: FnEmitter, node: ts.CallExpression, i: number, t: LType): cpp.Expr | undefined {
+/** The value JavaScript gives a numeric argument passed as undefined (ToNumber). */
+const NAN = cpp.id("lucent::kNaN");
+
+/** An end index passed as undefined: the end. */
+const END = cpp.id("lucent::kInfinity");
+
+/**
+ * `a` as `t`. When `a` may be undefined, undefined reads as `ifUndefined`:
+ * what JavaScript makes of the undefined argument (NaN through ToNumber, or
+ * the value of the argument left out).
+ */
+function orUndefined(em: FnEmitter, a: ts.Expression, t: LType, ifUndefined: cpp.Expr): cpp.Expr {
+  if (!mayBeUndefined(em.lt(a))) return em.exprAs(a, t);
+
+  return cpp.call(cpp.dot(em.exprAs(a, unionOf([t, T.undefined])), "valueOr"), [ifUndefined]);
+}
+
+/** A number, or an Opt<double> when it may be undefined, for a runtime overload that takes either. */
+function numberOrOptional(em: FnEmitter, a: ts.Expression): cpp.Expr {
+  return em.exprAs(a, mayBeUndefined(em.lt(a)) ? unionOf([T.number, T.undefined]) : T.number);
+}
+
+/** `new Array(n).fill(value)`: every hole `new Array(n)` makes is filled before anything sees it. */
+function filledWhole(node: ts.NewExpression): boolean {
+  const access = node.parent;
+
+  return (
+    ts.isPropertyAccessExpression(access) &&
+    access.name.text === "fill" &&
+    ts.isCallExpression(access.parent) &&
+    access.parent.expression === access &&
+    access.parent.arguments.length === 1
+  );
+}
+
+function holdsNumber(t: LType): boolean {
+  const held = stripOpt(t);
+
+  return held.k === "number" || (held.k === "union" && held.ms.some((m) => m.k === "number"));
+}
+
+function mayBeUndefined(t: LType): boolean {
+  return t.k === "opt" || t.k === "undefined" || t.k === "void";
+}
+
+/** An optional argument: undefined when left out, `ifUndefined` when passed as undefined. */
+function optArg(
+  em: FnEmitter,
+  node: ts.CallExpression,
+  i: number,
+  t: LType,
+  ifUndefined: cpp.Expr,
+): cpp.Expr | undefined {
   const a = node.arguments[i];
-  return a ? em.exprAs(a, t) : undefined;
+  return a && orUndefined(em, a, t, ifUndefined);
 }
 
 /** Arguments up to the first absent one (optional arguments left out). */
@@ -226,7 +280,10 @@ export function classMember(
     return { c: cpp.call(cpp.arrow(obj.c, `get_${cppIdent(name)}`), []), t: type };
   }
   if (ts.isPropertyDeclaration(decl) || ts.isParameter(decl)) {
-    return { c: cpp.arrow(obj.c, cppIdent(name)), t: memberType(em, t, decl) };
+    const type = memberType(em, t, decl);
+    const what = `${em.reg.cls(t.id).decl.name?.text ?? "this"}.${name}`;
+
+    return { c: assignedRead(cpp.arrow(obj.c, cppIdent(name)), type, what), t: type };
   }
   if (ts.isMethodDeclaration(decl)) {
     // A bound method used as a value.
@@ -544,7 +601,11 @@ export function staticProperty(em: FnEmitter, node: ts.PropertyAccessExpression)
       return {
         c: literal
           ? em.exprAs(literal, t)
-          : cpp.id(`lucent_app::${owner.cppName}::${cppIdent(name)}`),
+          : assignedRead(
+              cpp.id(`lucent_app::${owner.cppName}::${cppIdent(name)}`),
+              t,
+              `${owner.decl.name?.text}.${name}`,
+            ),
         t,
       };
     }
@@ -598,6 +659,9 @@ const MATH_FUNCTIONS = new Set([
   "max",
 ]);
 
+/** The Object functions that list an object's fields. */
+const OBJECT_LISTINGS = new Set(["keys", "values", "entries"]);
+
 export function staticCall(
   em: FnEmitter,
   node: ts.CallExpression,
@@ -637,7 +701,7 @@ export function staticCall(
       return num(
         cpp.call(
           "lucent::dateUTC",
-          a.map((x) => em.exprAs(x, T.number)),
+          a.map((x) => orUndefined(em, x, T.number, NAN)),
         ),
       );
     if (name === "parse") return num(cpp.call("lucent::dateParse", [argAs(em, node, 0, T.string)]));
@@ -650,21 +714,16 @@ export function staticCall(
       case "isFinite":
       case "isNaN": {
         const v = em.expr(a[0]!);
-        if (stripOpt(v.t).k !== "number" || v.t.k === "opt") return bool(cpp.bool(false));
-        const f = {
-          isInteger: "lucent::isInteger",
-          isSafeInteger: "lucent::isSafeInteger",
-          isFinite: "std::isfinite",
-          isNaN: "std::isnan",
-        }[name];
-        return bool(cpp.call(f, [v.c]));
+        const test = `lucent::${name}`;
+        if (v.t.k === "number") return bool(cpp.call(test, [v.c]));
+        return bool(cpp.call("lucent::numberIs", [v.c, cpp.id(test)]));
       }
       case "parseFloat":
         return num(cpp.call("lucent::parseFloat", [argAs(em, node, 0, T.string)]));
       case "parseInt":
         return num(
           cpp.call("lucent::parseInt", [
-            ...argList(argAs(em, node, 0, T.string), optArg(em, node, 1, T.number)),
+            ...argList(argAs(em, node, 0, T.string), optArg(em, node, 1, T.number, NAN)),
           ]),
         );
     }
@@ -684,11 +743,12 @@ export function staticCall(
           t: { k: "array", e: { k: "tuple", es: [T.string, t.val] } },
         };
     }
-    if (t.k === "struct" && name === "keys") {
-      const fields = em.reg.struct(t.id).fields.map((f) => stringExpr(f.name));
-      const strings = cpp.type("lucent::Array", cpp.type("lucent::String"));
-      return { c: cpp.construct(strings, fields, true), t: { k: "array", e: T.string } };
-    }
+    if ((t.k === "struct" || t.k === "class") && name !== "fromEntries")
+      fail(
+        node,
+        Codes.UnsupportedBuiltin,
+        `Object.${name} of an object type is not supported${OBJECT_LISTINGS.has(name) ? ": Lucent objects do not record which optional fields are set or the order JavaScript made them in; use a Record<string, T>, or list the fields" : ""}`,
+      );
     if (name === "fromEntries") {
       const rt = em.lt(node);
       if (rt.k !== "dict")
@@ -706,11 +766,7 @@ export function staticCall(
   }
   if (isLibGlobal(em, obj, "Array")) {
     const rt = em.lt(node);
-    if (name === "isArray") {
-      const v = em.expr(a[0]!);
-      if (stripOpt(v.t).k !== "array") return bool(cpp.bool(false));
-      return bool(v.t.k === "opt" ? cpp.call(cpp.dot(v.c, "has")) : cpp.bool(true));
-    }
+    if (name === "isArray") return heldKind(node, em.expr(a[0]!), "Array");
     if (name === "of") {
       if (rt.k !== "array") fail(node, Codes.UnsupportedBuiltin, "Array.of");
       const items = a.map((x) => em.exprAs(x, rt.e));
@@ -722,15 +778,24 @@ export function staticCall(
       const src = a[0]!;
       // Array.from({ length: n }, (_, i) => ...)
       if (ts.isObjectLiteralExpression(src)) {
-        const lenProp = src.properties.find((p) => p.name && p.name.getText() === "length");
-        if (!lenProp || !ts.isPropertyAssignment(lenProp))
-          fail(src, Codes.UnsupportedBuiltin, "Array.from needs an iterable or { length: n }");
+        const lenProp = src.properties.length === 1 ? src.properties[0] : undefined;
+        if (!lenProp || !ts.isPropertyAssignment(lenProp) || lenProp.name.getText() !== "length")
+          fail(
+            src,
+            Codes.UnsupportedBuiltin,
+            "Array.from needs an iterable or { length: n }: JavaScript reads an array-like's elements, which Lucent objects cannot index",
+          );
         const n = em.exprAs(lenProp.initializer, T.number);
         if (!a[1]) {
-          // n default values.
-          const count = cpp.staticCast(cpp.type("size_t"), n);
-          const empty = cpp.construct(em.reg.cppType(rt.e), [], true);
-          return { c: cpp.call(cpp.scoped(em.reg.cppType(rt), "filled"), [count, empty]), t: rt };
+          if (!mayBeUndefined(rt.e))
+            fail(
+              node,
+              Codes.UnsupportedBuiltin,
+              `Array.from({ length: n }) makes n undefined elements, which ${typeKey(rt.e)} cannot hold: pass a map function, or type the elements ${typeKey(rt.e)} | undefined`,
+            );
+          const count = cpp.call("lucent::arrayLikeLength", [n]);
+          const undef = em.coerce({ c: cpp.id("lucent::undefined"), t: T.undefined }, rt.e, node);
+          return { c: cpp.call(cpp.scoped(em.reg.cppType(rt), "filled"), [count, undef]), t: rt };
         }
         // The callback called with (undefined, i) for each index.
         const cb = callback(em, a[1], [T.undefined, T.number], rt.e);
@@ -1005,21 +1070,30 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       switch (name) {
         case "toString":
           return str(
-            cpp.call("lucent::numberToString", [...argList(o, optArg(em, node, 0, T.number))]),
+            cpp.call("lucent::numberToString", [
+              ...argList(o, optArg(em, node, 0, T.number, cpp.num("10.0"))),
+            ]),
           );
         case "toFixed":
           return str(
-            cpp.call("lucent::numberToFixed", [o, optArg(em, node, 0, T.number) ?? cpp.num("0.0")]),
+            cpp.call("lucent::numberToFixed", [
+              o,
+              optArg(em, node, 0, T.number, NAN) ?? cpp.num("0.0"),
+            ]),
           );
+        // Undefined is the argument left out, which no number stands for:
+        // the runtime takes the optional.
         case "toPrecision":
           return str(
             a[0]
-              ? cpp.call("lucent::numberToPrecision", [o, argAs(em, node, 0, T.number)])
+              ? cpp.call("lucent::numberToPrecision", [o, numberOrOptional(em, a[0])])
               : cpp.call("lucent::numberToString", [o]),
           );
         case "toExponential":
           return str(
-            cpp.call("lucent::numberToExponential", [...argList(o, optArg(em, node, 0, T.number))]),
+            cpp.call("lucent::numberToExponential", [
+              ...argList(o, a[0] && numberOrOptional(em, a[0])),
+            ]),
           );
         case "valueOf":
           return num(o);
@@ -1030,7 +1104,11 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       break;
     case "bigint":
       if (name === "toString")
-        return str(cpp.call(cpp.dot(o, "toString"), [argAs(em, node, 0, T.number)]));
+        return str(
+          cpp.call(cpp.dot(o, "toString"), [
+            optArg(em, node, 0, T.number, cpp.num("10.0")) ?? cpp.num("10.0"),
+          ]),
+        );
       if (name === "valueOf") return big(o);
       fail(node, Codes.UnsupportedBuiltin, `bigint.${name}() is not supported`);
     case "array":
@@ -1103,7 +1181,7 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
         return num(
           cpp.call(
             cpp.arrow(o, name),
-            a.map((x) => em.exprAs(x, T.number)),
+            a.map((x) => orUndefined(em, x, T.number, NAN)),
           ),
         );
       }
@@ -1259,15 +1337,8 @@ function regexStringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.Ca
     case "search":
       return num(cpp.call("lucent::stringSearch", [o, re]));
     case "split":
-      const limit = a[1]
-        ? [
-            cpp.construct(cpp.type("lucent::Opt", cpp.type("double")), [
-              argAs(em, node, 1, T.number),
-            ]),
-          ]
-        : [];
       return {
-        c: cpp.call("lucent::stringSplit", [o, re, ...limit]),
+        c: cpp.call("lucent::stringSplit", [...argList(o, re, a[1] && numberOrOptional(em, a[1]))]),
         t: { k: "array", e: T.string },
       };
     case "replace":
@@ -1290,13 +1361,13 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
     stripOpt(em.lt(first)).k === "regexp"
   )
     return regexStringMethod(em, o, name, node);
-  const n = (i: number) => optArg(em, node, i, T.number);
-  const s = (i: number) => optArg(em, node, i, T.string);
+  const n = (i: number, ifUndefined: cpp.Expr) => optArg(em, node, i, T.number, ifUndefined);
+  const s = (i: number, ifUndefined: cpp.Expr) => optArg(em, node, i, T.string, ifUndefined);
   switch (name) {
     case "charCodeAt":
-      return num(cpp.call(cpp.dot(o, "charCodeAt"), [n(0) ?? cpp.num("0.0")]));
+      return num(cpp.call(cpp.dot(o, "charCodeAt"), [n(0, cpp.num("0.0")) ?? cpp.num("0.0")]));
     case "charAt":
-      return str(cpp.call(cpp.dot(o, "charAt"), [n(0) ?? cpp.num("0.0")]));
+      return str(cpp.call(cpp.dot(o, "charAt"), [n(0, cpp.num("0.0")) ?? cpp.num("0.0")]));
     case "at":
       return {
         c: cpp.call(cpp.dot(o, "at"), [argAs(em, node, 0, T.number)]),
@@ -1308,45 +1379,40 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
         t: unionOf([T.number, T.undefined]),
       };
     case "indexOf":
-      return num(cpp.call(cpp.dot(o, "indexOf"), [...argList(s(0), n(1))]));
-    case "lastIndexOf":
-      return num(cpp.call(cpp.dot(o, "lastIndexOf"), [...argList(s(0), n(1))]));
-    case "includes":
-      return bool(cpp.call(cpp.dot(o, "includes"), [...argList(s(0), n(1))]));
-    case "startsWith":
-      return bool(cpp.call(cpp.dot(o, "startsWith"), [...argList(s(0), n(1))]));
-    case "endsWith":
-      return bool(cpp.call(cpp.dot(o, "endsWith"), [...argList(s(0), n(1))]));
-    case "slice":
-      return str(cpp.call(cpp.dot(o, "slice"), [...argList(n(0) ?? cpp.num("0.0"), n(1))]));
-    case "substring":
-      return str(cpp.call(cpp.dot(o, "substring"), [...argList(n(0) ?? cpp.num("0.0"), n(1))]));
-    case "substr": {
-      // substr(start, length): a negative start counts from the end.
-      const tmpName = em.ctx.fresh("s");
-      const tmp = cpp.id(tmpName);
-      const stName = em.ctx.fresh("st");
-      const st = cpp.id(stName);
-      const length = cpp.staticCast(cpp.type("double"), cpp.call(cpp.dot(tmp, "length")));
-      const fromEnd = cpp.call("std::max", [cpp.num("0.0"), cpp.binary(st, "+", length)]);
-      const end = n(1) ? cpp.binary(st, "+", n(1)!) : length;
-      return str(
-        cpp.statementExpr(
-          [
-            cpp.varDecl(cpp.auto, tmpName, o),
-            cpp.varDecl(cpp.type("double"), stName, n(0) ?? cpp.num("0.0")),
-            cpp.ifStmt(cpp.binary(st, "<", cpp.num(0)), [cpp.exprStmt(cpp.assign(st, fromEnd))]),
-          ],
-          cpp.call(cpp.dot(tmp, "slice"), [st, end]),
-        ),
+      return num(
+        cpp.call(cpp.dot(o, "indexOf"), [argAs(em, node, 0, T.string), ...argList(n(1, NAN))]),
       );
-    }
-    case "toUpperCase":
+    case "lastIndexOf":
+      return num(
+        cpp.call(cpp.dot(o, "lastIndexOf"), [argAs(em, node, 0, T.string), ...argList(n(1, NAN))]),
+      );
+    case "includes":
+      return bool(
+        cpp.call(cpp.dot(o, "includes"), [argAs(em, node, 0, T.string), ...argList(n(1, NAN))]),
+      );
+    case "startsWith":
+      return bool(
+        cpp.call(cpp.dot(o, "startsWith"), [argAs(em, node, 0, T.string), ...argList(n(1, NAN))]),
+      );
+    case "endsWith":
+      return bool(
+        cpp.call(cpp.dot(o, "endsWith"), [argAs(em, node, 0, T.string), ...argList(n(1, END))]),
+      );
+    case "slice":
+    case "substring":
+    case "substr":
+      return str(cpp.call(cpp.dot(o, name), [...argList(n(0, NAN) ?? cpp.num("0.0"), n(1, END))]));
     case "toLocaleUpperCase":
-      return str(cpp.call(cpp.dot(o, "toUpperCase"), []));
-    case "toLowerCase":
     case "toLocaleLowerCase":
-      return str(cpp.call(cpp.dot(o, "toLowerCase"), []));
+      if (first)
+        fail(
+          first,
+          Codes.UnsupportedBuiltin,
+          `${name}(locales) is not supported: Lucent has no Intl locale data; call it without arguments for the device's locale`,
+        );
+      return str(cpp.call(cpp.dot(o, name), []));
+    case "toUpperCase":
+    case "toLowerCase":
     case "trim":
     case "trimStart":
     case "trimEnd":
@@ -1360,7 +1426,10 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
     case "padStart":
     case "padEnd":
       return str(
-        cpp.call(cpp.dot(o, name), [argAs(em, node, 0, T.number), s(1) ?? stringExpr(" ")]),
+        cpp.call(cpp.dot(o, name), [
+          argAs(em, node, 0, T.number),
+          s(1, stringExpr(" ")) ?? stringExpr(" "),
+        ]),
       );
     case "replace":
     case "replaceAll": {
@@ -1368,17 +1437,25 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
       if (second && (ts.isArrowFunction(second) || ts.isFunctionExpression(second)))
         fail(second, Codes.UnsupportedBuiltin, "replacement functions are not supported");
       return str(
-        cpp.call(cpp.dot(o, name), [argAs(em, node, 0, T.string), argAs(em, node, 1, T.string)]),
+        cpp.call(name === "replace" ? "lucent::stringReplace" : "lucent::stringReplaceAll", [
+          o,
+          argAs(em, node, 0, T.string),
+          argAs(em, node, 1, T.string),
+        ]),
       );
     }
     case "split": {
-      if (!node.arguments[0])
+      if (!first)
         return {
           c: cpp.construct(cpp.type("lucent::Array", cpp.type("lucent::String")), [o], true),
           t: { k: "array", e: T.string },
         };
       return {
-        c: cpp.call("lucent::split", [...argList(o, s(0), n(1))]),
+        c: cpp.call("lucent::split", [
+          o,
+          argAs(em, node, 0, T.string),
+          ...argList(n(1, cpp.num("4294967295.0"))),
+        ]),
         t: { k: "array", e: T.string },
       };
     }
@@ -1390,8 +1467,19 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
         ),
       );
     case "localeCompare":
+      if (node.arguments[1])
+        fail(
+          node.arguments[1],
+          Codes.UnsupportedBuiltin,
+          "localeCompare(other, locales, options) is not supported: Lucent has no Intl locale data; call localeCompare(other) for the device's locale",
+        );
       return num(cpp.call(cpp.dot(o, "localeCompare"), [argAs(em, node, 0, T.string)]));
     case "normalize":
+      fail(
+        node,
+        Codes.UnsupportedBuiltin,
+        "String.prototype.normalize is not supported: Unicode normalization needs tables the Lucent runtime does not have; normalize the string in JavaScript before passing it",
+      );
     case "valueOf":
     case "toString":
       return str(o);
@@ -1409,7 +1497,7 @@ function arrayMethod(
   const e = obj.t.e;
   const at = obj.t;
   const a = node.arguments;
-  const n = (i: number) => optArg(em, node, i, T.number);
+  const n = (i: number, ifUndefined: cpp.Expr) => optArg(em, node, i, T.number, ifUndefined);
   const cb = (params: LType[], ret?: LType) => callback(em, a[0], params, ret);
   const self: LType = at;
   switch (name) {
@@ -1442,13 +1530,16 @@ function arrayMethod(
       if (a.length !== 1) fail(node, Codes.UnsupportedBuiltin, "unshift takes one item");
       return num(cpp.call(cpp.dot(o, "unshift"), [em.exprAs(a[0]!, e)]));
     case "slice":
-      return { c: cpp.call(cpp.dot(o, "slice"), [...argList(n(0), n(1))]), t: at };
+      return { c: cpp.call(cpp.dot(o, "slice"), [...argList(n(0, NAN), n(1, END))]), t: at };
     case "splice": {
+      const start = n(0, NAN) ?? cpp.num("0.0");
+      // A delete count passed as undefined deletes nothing (ToIntegerOrInfinity).
+      const count = n(1, NAN);
       const items = a.slice(2).map((x) => em.exprAs(x, e));
       // Items to insert need a delete count: the rest of the array when none is given.
-      const count = a[1] ? [n(1)!] : items.length ? [cpp.call(cpp.dot(o, "length"))] : [];
+      const counted = count ? [count] : items.length ? [cpp.call(cpp.dot(o, "length"))] : [];
       return {
-        c: cpp.call(cpp.dot(o, "splice"), [n(0) ?? cpp.num("0.0"), ...count, ...items]),
+        c: cpp.call(cpp.dot(o, "splice"), [start, ...counted, ...items]),
         t: at,
       };
     }
@@ -1462,7 +1553,9 @@ function arrayMethod(
       return { c: cpp.call(cpp.dot(o, "concat"), parts), t: at };
     }
     case "join":
-      return str(cpp.call(cpp.dot(o, "join"), [...argList(optArg(em, node, 0, T.string))]));
+      return str(
+        cpp.call(cpp.dot(o, "join"), [...argList(optArg(em, node, 0, T.string, stringExpr(",")))]),
+      );
     case "indexOf":
     case "lastIndexOf":
     case "includes": {
@@ -1472,12 +1565,12 @@ function arrayMethod(
           Codes.UnsupportedOperator,
           functionsNotCompared(`, so \`${name}\` cannot search for one`),
         );
-      const found = cpp.call(cpp.dot(o, name), [em.exprAs(a[0]!, e)]);
+      const found = cpp.call(cpp.dot(o, name), [...argList(em.exprAs(a[0]!, e), n(1, NAN))]);
       return name === "includes" ? bool(found) : num(found);
     }
     case "at":
       return {
-        c: cpp.call(cpp.dot(o, "atIndex"), [n(0) ?? cpp.num("0.0")]),
+        c: cpp.call(cpp.dot(o, "atIndex"), [n(0, cpp.num("0.0")) ?? cpp.num("0.0")]),
         t: unionOf([e, T.undefined]),
       };
     case "find":
@@ -1553,7 +1646,7 @@ function arrayMethod(
       return { c: cpp.call(cpp.dot(o, name), []), t: at };
     case "fill":
       return {
-        c: cpp.call(cpp.dot(o, "fill"), [...argList(em.exprAs(a[0]!, e), n(1), n(2))]),
+        c: cpp.call(cpp.dot(o, "fill"), [...argList(em.exprAs(a[0]!, e), n(1, NAN), n(2, END))]),
         t: at,
       };
     case "values":
@@ -1664,24 +1757,34 @@ function setMethod(
 
 function bytesMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExpression): E {
   const a = node.arguments;
-  const n = (i: number) => optArg(em, node, i, T.number);
+  const n = (i: number, ifUndefined: cpp.Expr) => optArg(em, node, i, T.number, ifUndefined);
   switch (name) {
     case "subarray":
     case "slice":
-      return { c: cpp.call(cpp.dot(o, name), [...argList(n(0), n(1))]), t: T.bytes };
+      return { c: cpp.call(cpp.dot(o, name), [...argList(n(0, NAN), n(1, END))]), t: T.bytes };
     case "fill":
-      return { c: cpp.call(cpp.dot(o, "fill"), [argAs(em, node, 0, T.number)]), t: T.bytes };
+      return {
+        c: cpp.call(cpp.dot(o, "fill"), [
+          argAs(em, node, 0, T.number),
+          ...argList(n(1, NAN), n(2, END)),
+        ]),
+        t: T.bytes,
+      };
     case "indexOf":
-      return num(cpp.call(cpp.dot(o, "indexOf"), [argAs(em, node, 0, T.number)]));
+      return num(
+        cpp.call(cpp.dot(o, "indexOf"), [argAs(em, node, 0, T.number), ...argList(n(1, NAN))]),
+      );
     case "includes":
-      return bool(cpp.call(cpp.dot(o, "includes"), [argAs(em, node, 0, T.number)]));
+      return bool(
+        cpp.call(cpp.dot(o, "includes"), [argAs(em, node, 0, T.number), ...argList(n(1, NAN))]),
+      );
     case "set": {
       const src = em.expr(a[0]!);
       const st = stripOpt(src.t);
       if (st.k !== "bytes" && !(st.k === "array" && st.e.k === "number"))
         fail(node, Codes.UnsupportedBuiltin, "set() needs a Uint8Array or number[]");
       return {
-        c: cpp.call(cpp.dot(o, "setFrom"), [...argList(src.c, n(1))]),
+        c: cpp.call(cpp.dot(o, "setFrom"), [...argList(src.c, n(1, NAN))]),
         t: T.undefined,
       };
     }
@@ -1711,7 +1814,9 @@ function bytesMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExpr
       };
     }
     case "join":
-      return str(cpp.call(cpp.dot(o, "join"), [...argList(optArg(em, node, 0, T.string))]));
+      return str(
+        cpp.call(cpp.dot(o, "join"), [...argList(optArg(em, node, 0, T.string, stringExpr(",")))]),
+      );
   }
   fail(node, Codes.UnsupportedBuiltin, `Uint8Array.prototype.${name} is not supported`);
 }
@@ -1732,7 +1837,7 @@ export function globalCall(
     case "parseInt":
       return num(
         cpp.call("lucent::parseInt", [
-          ...argList(argAs(em, node, 0, T.string), optArg(em, node, 1, T.number)),
+          ...argList(argAs(em, node, 0, T.string), optArg(em, node, 1, T.number, NAN)),
         ]),
       );
     case "parseFloat":
@@ -1808,6 +1913,32 @@ const BIGINT_FROM: Partial<Record<LType["k"], (v: cpp.Expr) => cpp.Expr>> = {
 
 // --- new --------------------------------------------------------------------------------------
 
+/** The kind each library constructor makes (the errors are added by name). */
+const LIB_CONSTRUCTORS: Record<string, LType["k"]> = {
+  AbortController: "abortController",
+  RegExp: "regexp",
+  Date: "date",
+  Map: "map",
+  Set: "set",
+  Array: "array",
+  Uint8Array: "bytes",
+  Promise: "promise",
+};
+
+/**
+ * Refuses a library constructor that does not make the kind its result is
+ * typed as: `new Proxy(target, handler)` is typed as its target, and would
+ * otherwise make a fresh value of the target's kind.
+ */
+export function requireConstructor(em: FnEmitter, node: ts.NewExpression, t: LType): void {
+  const callee = node.expression;
+  if (!ts.isIdentifier(callee) || !isLibGlobal(em, callee, callee.text)) return;
+
+  const name = callee.text;
+  const makes = isErrorName(name) ? "error" : LIB_CONSTRUCTORS[name];
+  if (makes !== t.k) fail(node, Codes.UnsupportedBuiltin, `new ${name}() is not supported`);
+}
+
 export function newBuiltin(
   em: FnEmitter,
   node: ts.NewExpression,
@@ -1848,7 +1979,7 @@ export function newBuiltin(
       return {
         c: cpp.call(
           "lucent::dateFromLocal",
-          a.map((x) => em.exprAs(x, T.number)),
+          a.map((x) => orUndefined(em, x, T.number, NAN)),
         ),
         t,
       };
@@ -1886,14 +2017,22 @@ export function newBuiltin(
     case "array": {
       if (a.length === 1) {
         const v = em.expr(a[0]!);
-        if (v.t.k === "number")
+        if (v.t.k === "number" && filledWhole(node))
           return {
             c: cpp.call(cpp.scoped(em.reg.cppType(t), "filled"), [
-              cpp.staticCast(cpp.type("size_t"), cpp.call("lucent::toUint32", [v.c])),
+              cpp.call("lucent::arrayLength", [v.c]),
               cpp.construct(em.reg.cppType(t.e), [], true),
             ]),
             t,
           };
+        if (holdsNumber(v.t))
+          fail(
+            node,
+            Codes.UnsupportedBuiltin,
+            v.t.k === "number"
+              ? "new Array(n) makes n holes, which Lucent arrays cannot hold: write new Array(n).fill(value), or Array.from({ length: n }, (_, i) => …)"
+              : "new Array(x) of a value that may be a number is not supported: JavaScript makes x holes for a number and [x] otherwise; write [x], or new Array(n).fill(value)",
+          );
       }
       return {
         c: cpp.construct(
@@ -1969,15 +2108,116 @@ export function newBuiltin(
       };
     }
     case "error": {
-      const kind = ["TypeError", "RangeError"].includes(name) ? name : "Error";
-      const msg = a[0] ? em.exprAs(a[0], T.string) : stringExpr("");
-      return { c: withSite(cpp.call("lucent::makeError", [stringExpr(kind), msg]), node), t };
+      if (!isErrorName(name) || !isLibGlobal(em, callee, name)) break;
+      refuseCause(em, a[1]);
+      return {
+        c: withSite(
+          cpp.call("lucent::makeError", [stringExpr(name), errorMessage(em, a[0])]),
+          node,
+        ),
+        t,
+      };
     }
   }
   fail(node, Codes.UnsupportedBuiltin, `new ${name || callee.getText()}() is not supported`);
 }
 
+/** An error's message: undefined is the message left out, "". */
+function errorMessage(em: FnEmitter, message: ts.Expression | undefined): cpp.Expr {
+  return message ? orUndefined(em, message, T.string, stringExpr("")) : stringExpr("");
+}
+
+/**
+ * Refuses an Error constructor's options, which carry the cause, unless
+ * they are undefined (no cause): a name, which has nothing to evaluate.
+ */
+export function refuseCause(em: FnEmitter, options: ts.Expression | undefined): void {
+  if (!options || (ts.isIdentifier(options) && isVoidish(em.lt(options)))) return;
+
+  fail(
+    options,
+    Codes.UnsupportedBuiltin,
+    "an error's cause (new Error(message, { cause })) is not supported: Lucent errors carry a name, a message and a code; put what the cause says in the message, or keep it in a field of an Error class",
+  );
+}
+
 // --- instanceof / super ----------------------------------------------------------------------
+
+/** The runtime trait that recognizes each built-in kind `instanceof` and Array.isArray test. */
+const KIND_TRAITS = {
+  Array: "lucent::IsJsArray",
+  Map: "lucent::IsMap",
+  Set: "lucent::IsSet",
+  Uint8Array: "lucent::IsBytes",
+  Date: "lucent::IsDate",
+} as const;
+
+type Kind = keyof typeof KIND_TRAITS;
+
+function isKind(name: string): name is Kind {
+  return Object.hasOwn(KIND_TRAITS, name);
+}
+
+/**
+ * Whether the value `v` holds is of the built-in `kind`, as JavaScript
+ * tests it: by the value, whatever union or tuple its static type is.
+ */
+function heldKind(node: ts.Node, v: E, kind: Kind): E {
+  const t = stripOpt(v.t);
+  if ((t.k === "union" ? t.ms : [t]).some((m) => m.k === "iter"))
+    fail(
+      node,
+      Codes.UnsupportedBuiltin,
+      `testing whether an Iterable is ${kind === "Array" ? "an" : "a"} ${kind} is not supported: an Iterable no longer knows what it was made from; take a ${kind === "Array" ? "T[]" : kind} parameter`,
+    );
+  return bool(cpp.call("lucent::holds", [v.c], [cpp.type(KIND_TRAITS[kind])]));
+}
+
+/** What `in` refuses, for its diagnostic: a union is told apart by a discriminant instead. */
+const NOT_IN: Partial<Record<LType["k"], string>> = {
+  class: "a class instance",
+  array: "an array",
+  tuple: "an array",
+  map: "a Map",
+  set: "a Set",
+};
+
+/**
+ * `key in o` on a record. Keys every object inherits (`toString`,
+ * `constructor`…) are in, as in JavaScript. The key is evaluated before
+ * the object. Object types refuse it: they do not record which optional
+ * fields are set.
+ */
+export function keyIn(em: FnEmitter, node: ts.BinaryExpression): E {
+  const k = em.ctx.fresh("key");
+  const key = cpp.varDecl(cpp.type("lucent::String"), k, em.exprAs(node.left, T.string));
+  const obj = em.expr(node.right);
+  const t = stripOpt(obj.t);
+  if (t.k === "dict")
+    return bool(cpp.statementExpr([key], cpp.call("lucent::keyIn", [cpp.id(k), obj.c])));
+
+  if (t.k === "union")
+    fail(
+      node,
+      Codes.UnsupportedOperator,
+      "`in` works on records; tell union members apart by a discriminant field such as `kind`",
+      "compare a discriminant field such as `kind`",
+    );
+
+  if (t.k === "struct")
+    fail(
+      node,
+      Codes.UnsupportedOperator,
+      "`in` on an object type is not supported: Lucent objects do not record which optional fields are set; compare the field with undefined, or use a Record<string, T>",
+    );
+
+  fail(
+    node,
+    Codes.UnsupportedOperator,
+    `\`in\` works on records, not on ${NOT_IN[t.k] ?? "this type"}`,
+    "use a Map or a Record for keys that come and go",
+  );
+}
 
 export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
   const sdk = nativeInstanceOf(em, node);
@@ -1986,10 +2226,7 @@ export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
   const v = em.expr(node.left);
   const right = node.right;
   if (ts.isIdentifier(right)) {
-    if (
-      ["Error", "TypeError", "RangeError", "SyntaxError"].includes(right.text) &&
-      isLibGlobal(em, right, right.text)
-    ) {
+    if (isErrorName(right.text) && isLibGlobal(em, right, right.text)) {
       const kind = right.text === "Error" ? cpp.nullptr : cpp.str(right.text);
       return bool(cpp.call("lucent::isErrorOf", [v.c, kind]));
     }
@@ -2002,26 +2239,8 @@ export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
         cpp.call("lucent::isInstance", [v.c], [cpp.type(`lucent_app::${g.info.cppName}`)]),
       );
     }
-    if (isLibGlobal(em, right, right.text)) {
-      const kinds: Record<string, string> = {
-        Array: "array",
-        Map: "map",
-        Set: "set",
-        Uint8Array: "bytes",
-        Date: "date",
-      };
-      const k = kinds[right.text];
-      if (k) {
-        const vt = stripOpt(v.t);
-        if (vt.k === k)
-          return bool(v.t.k === "opt" ? cpp.call(cpp.dot(v.c, "has")) : cpp.bool(true));
-        if (vt.k === "union") {
-          const member = em.reg.cppType(vt.ms.find((m) => m.k === k) ?? T.never);
-          return bool(cpp.call("std::holds_alternative", [v.c], [member]));
-        }
-        return bool(cpp.bool(false));
-      }
-    }
+    if (isKind(right.text) && isLibGlobal(em, right, right.text))
+      return heldKind(node, v, right.text);
   }
   fail(node, Codes.UnsupportedOperator, "unsupported instanceof");
 }
@@ -2044,7 +2263,8 @@ export function superCall(em: FnEmitter, node: ts.CallExpression): E {
   }
   if (!cls || !cls.isError)
     fail(node, Codes.UnsupportedClassFeature, "`super(...)` is only supported in subclasses");
-  const msg = node.arguments[0] ? em.exprAs(node.arguments[0], T.string) : stringExpr("");
+  refuseCause(em, node.arguments[1]);
+  const msg = errorMessage(em, node.arguments[0]);
   return {
     c: cpp.comma(cpp.assign(cpp.arrow(cpp.self, "message"), msg), cpp.id("lucent::undefined")),
     t: T.undefined,

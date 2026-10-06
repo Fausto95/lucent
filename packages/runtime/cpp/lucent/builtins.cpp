@@ -17,8 +17,7 @@ Array<String> split(const String& s, const String& separator) { return split(s, 
 
 Array<String> split(const String& s, const String& separator, double limitValue) {
   Array<String> out;
-  double lim = std::isnan(limitValue) ? 0 : std::trunc(limitValue);
-  size_t limit = lim <= 0 ? 0 : static_cast<size_t>(std::min(lim, 4294967295.0));
+  size_t limit = toUint32(limitValue);
   if (limit == 0) return out;
   size_t n = s.length(), m = separator.length();
   if (m == 0) {

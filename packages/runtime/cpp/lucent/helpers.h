@@ -90,6 +90,38 @@ inline Opt<String> stringIndex(const String& s, double i) {
   return undefined;
 }
 
+// --- in -------------------------------------------------------------------------------------
+
+/// A key every object inherits: `Object.getOwnPropertyNames(Object.prototype)`.
+inline bool inheritedKey(const String& key) {
+  static constexpr std::string_view names[] = {
+      "constructor",      "__defineGetter__", "__defineSetter__", "hasOwnProperty",
+      "__lookupGetter__", "__lookupSetter__", "isPrototypeOf",    "propertyIsEnumerable",
+      "toString",         "valueOf",          "__proto__",        "toLocaleString",
+  };
+
+  if (!key.isOneByte()) return false;
+
+  for (auto name : names)
+    if (key.latin1() == name) return true;
+
+  return false;
+}
+
+/// `key in record`.
+template <class V>
+bool keyIn(const String& key, const Dict<V>& record) {
+  return record.has(key) || inheritedKey(key);
+}
+
+/// `key in object`, for an object type whose fields are all required.
+inline bool keyIn(const String& key, std::initializer_list<String> fields) {
+  for (const auto& field : fields)
+    if (key == field) return true;
+
+  return inheritedKey(key);
+}
+
 // --- instanceof ---------------------------------------------------------------------------
 
 template <class C, class V>
@@ -117,6 +149,36 @@ bool isErrorOf(const V& v, const char* kind) {
     return v.has() && isErrorOf(v.get(), kind);
   } else if constexpr (IsVariant<V>::value) {
     return std::visit([kind](const auto& x) { return isErrorOf(x, kind); }, v);
+  } else {
+    return false;
+  }
+}
+
+/// `Array.isArray(v)`, `v instanceof Map`, …: whether the value `v` holds
+/// is of the kind `Is` recognizes.
+template <template <class> class Is, class V>
+bool holds(const V& v) {
+  if constexpr (Is<V>::value) {
+    return true;
+  } else if constexpr (IsOpt<V>::value) {
+    return v.has() && holds<Is>(v.get());
+  } else if constexpr (IsVariant<V>::value) {
+    return std::visit([](const auto& x) { return holds<Is>(x); }, v);
+  } else {
+    return false;
+  }
+}
+
+/// Number.isInteger and its kin: `test` of the number `v` holds, false
+/// when it holds anything else.
+template <class V, class Test>
+bool numberIs(const V& v, Test test) {
+  if constexpr (std::is_same_v<V, double>) {
+    return test(v);
+  } else if constexpr (IsOpt<V>::value) {
+    return v.has() && numberIs(v.get(), test);
+  } else if constexpr (IsVariant<V>::value) {
+    return std::visit([test](const auto& x) { return numberIs(x, test); }, v);
   } else {
     return false;
   }

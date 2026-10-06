@@ -110,4 +110,37 @@ describe("lucent bench", () => {
     expect(r.status).toBe(1);
     expect(r.out).toMatch(/no \*\.bench\.ts/);
   });
+
+  it("reports an unexpected LUCENT_VIEWS before benchmarking", () => {
+    const r = lucent(project(), {
+      LUCENT_VIEWS: "foo",
+      HERMES_DIR: path.join(os.tmpdir(), "no-hermes-here"),
+    });
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toMatch(/LUCENT_VIEWS must be "fabric" or unset \(got "foo"\)/);
+    expect(r.out).not.toMatch(/crashed/);
+  });
+
+  it("does not take a nested Lucent package's benchmarks for the app's", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-bench-"));
+    const pkg = path.join(root, "packages/lucent-geo");
+    fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(pkg, "package.json"),
+      JSON.stringify({ name: "lucent-geo", version: "1.0.0", lucent: { sources: "src" } }),
+    );
+    fs.writeFileSync(
+      path.join(pkg, "src/geo.lucent.ts"),
+      "export function one(): number { return 1; }\n",
+    );
+    fs.writeFileSync(
+      path.join(pkg, "src/geo.bench.ts"),
+      'import { one } from "./geo.lucent";\nexport default { one: () => one() };\n',
+    );
+
+    // Without Hermes, the run stops right after looking for benchmarks.
+    const r = lucent(root, { HERMES_DIR: path.join(os.tmpdir(), "no-hermes-here") });
+    expect(r.status).toBe(1);
+    expect(r.out).toMatch(/no \*\.bench\.ts/);
+  });
 });

@@ -343,6 +343,26 @@ export function Field(props: { text: string }): UITextField {
   );
 
   it.skipIf(!sdks.ios)(
+    "gives JavaScript lucent:views/<module>, the component's module itself",
+    () => {
+      const { dir, result } = build(label("{ text: string }", ""), "ios");
+
+      expect(result.diagnostics).toEqual([]);
+
+      const out = path.join(dir, "native");
+      writeNativePackage(result, out);
+
+      // lucent:views/label, as Metro resolves it: the module the app's own import gets.
+      const components = path.join(out, "js/_lucent/components");
+      const forwarder = fs.readFileSync(path.join(components, "label.js"), "utf8");
+      const required = forwarder.match(/require\("([^"]+)"\)/)?.[1] ?? "";
+
+      expect(path.resolve(components, required)).toBe(path.join(dir, "label.lucent.ts"));
+    },
+    300_000,
+  );
+
+  it.skipIf(!sdks.ios)(
     "refuses effects that touch module state: they run on the main thread",
     () => {
       const { result } = build(

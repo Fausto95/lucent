@@ -300,6 +300,16 @@ bool strictEquals(const Set<T>& a, const Set<T>& b) {
   return a.identity() == b.identity();
 }
 
+template <class T>
+struct IsMap : std::false_type {};
+template <class K, class V>
+struct IsMap<Map<K, V>> : std::true_type {};
+
+template <class T>
+struct IsSet : std::false_type {};
+template <class T>
+struct IsSet<Set<T>> : std::true_type {};
+
 /// `Record<string, V>` / `{ [key: string]: V }`: a plain object used as a
 /// dictionary.
 template <class V>

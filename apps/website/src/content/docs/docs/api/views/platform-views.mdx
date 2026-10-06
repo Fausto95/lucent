@@ -73,7 +73,7 @@ export function Settings(props: SettingsProps): View {
 
 ## Where native JSX goes
 
-- A component returns its native JSX as the last statement of its setup. JSX kept in a variable, or returned from a platform branch, fails with [LUCENT3025](/docs/api/diagnostics/#lucent3025).
+- A component returns its native JSX from setup's own code: its last statement, a `PLATFORM` branch, a ternary's arms or any other condition. JSX kept in a variable, or made by a function of setup's, fails with [LUCENT3025](/docs/api/diagnostics/#lucent3025).
 - So in one file, only the platform whose code ends the function can return native JSX. For native JSX on both platforms, write [platform files](/docs/api/views/components/#one-file-or-platform-files): a declaration file, then one file per platform.
 - A platform file's component returns `UIView` or `View`, and its declaration file `UIView | View`. The component's root view is the class of the tag it returns.
 - A tag is a class that is or extends UIKit's `UIView` or Android's `android.view.View`, from any module Lucent binds.
@@ -315,15 +315,17 @@ import { PLATFORM } from "lucent:platform";
 export function Title(props: { title: string }) {
   if (PLATFORM === "ios") return <UILabel text={props.title} />;
 
-  return <TextView text={props.title} />;
+  const label = <TextView text={props.title} />;
+
+  return label;
 }
 ```
 
-The iOS JSX isn't the component's last statement, so it fails with LUCENT3025. Platform files fix it, as in the [example](#example).
+The Android JSX is kept in a variable, so it fails with LUCENT3025. Return the element where it's made, as the iOS branch does.
 
 | Code | What fails |
 | --- | --- |
-| [LUCENT3025](/docs/api/diagnostics/#lucent3025) | Native JSX the component doesn't return as its last statement, or a spread attribute. A class with no constructor and no `create`, or an attribute reading a copy of a prop. |
+| [LUCENT3025](/docs/api/diagnostics/#lucent3025) | Native JSX kept in a variable or made by a function of setup's, or a spread attribute. A class with no constructor and no `create`, or an attribute reading a copy of a prop. |
 | LUCENT3025 | A child that isn't an element, a branch or a list, or a SwiftUI or Compose element among native views. A list breaking its rules, or a `key` outside one. A branch or list under an Android class without `removeView`. |
 | LUCENT3025 | A `layout` outside a Flex, a `style` or `layout` that isn't an object literal, or a key set in both. Any other attribute on a Flex. |
 | [LUCENT9001](/docs/api/diagnostics/#lucent9001) | A tag that isn't a view class, an attribute the tag doesn't take, or children of a class that inserts none. Also children that aren't elements, such as text. For an attribute the rules leave out, the message gives the reason. |

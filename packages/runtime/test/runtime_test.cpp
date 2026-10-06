@@ -224,9 +224,16 @@ static void strings() {
   CHECK_THROWS(S("ab").repeat(-1), "RangeError");
   CHECK_STR(S("5").padStart(3, S("0")), "005");
   CHECK_STR(S("abc").padEnd(6, S("12")), "abc121");
-  CHECK_STR(S("a-b-c").replace(S("-"), S("+")), "a+b-c");
-  CHECK_STR(S("a-b-c").replaceAll(S("-"), S("+")), "a+b+c");
-  CHECK_STR(S("ab").replaceAll(S(""), S("-")), "-a-b-");
+  CHECK_STR(stringReplace(S("a-b-c"), S("-"), S("+")), "a+b-c");
+  CHECK_STR(stringReplaceAll(S("a-b-c"), S("-"), S("+")), "a+b+c");
+  CHECK_STR(stringReplaceAll(S("ab"), S(""), S("-")), "-a-b-");
+  // A string pattern's replacement reads $ patterns as a RegExp's does, with no captures.
+  CHECK_STR(stringReplace(S("abc"), S("b"), S("[$&]")), "a[b]c");
+  CHECK_STR(stringReplace(S("abc"), S("b"), S("$$|$1|$<x>")), "a$|$1|$<x>c");
+  CHECK_STR(stringReplace(S("abc"), S("b"), S("x$")), "ax$c");
+  CHECK_STR(stringReplaceAll(S("aXbXc"), S("X"), S("<$`>")), "a<a>b<aXb>c");
+  CHECK_STR(stringReplaceAll(S("aXbXc"), S("X"), S("<$'>")), "a<bXc>b<c>c");
+  CHECK_STR(stringReplaceAll(S("ab"), S(""), S("[$&]")), "[]a[]b[]");
   CHECK(S("a") < S("b"));
   CHECK(S("Z") < S("a"));
   CHECK(S("ab") < S("abc"));
@@ -355,9 +362,10 @@ static void indexes() {
   CHECK_THROWS(xs.set(5, 1), "RangeError");
   CHECK_THROWS(xs.set(0.5, 1), "RangeError");
   CHECK_THROWS(xs.set(-1, 1), "RangeError");
+  // Optional elements too: undefined elements are not holes.
   Array<Opt<double>> holes;
-  holes.set(2, 1.0);
-  CHECK(holes.size() == 3 && !holes.at(0).has());
+  CHECK_THROWS(holes.set(2, 1.0), "RangeError");
+  CHECK(holes.size() == 0);
   CHECK(xs.get(1.0).get() == 5 && !xs.get(1.5).has() && !xs.get(3).has());
   CHECK(S("abc").charCodeAt(1.9) == 'b');
   CHECK(S("abc").charCodeAt(-0.5) == 'a');
@@ -419,6 +427,15 @@ static void arrays() {
   CHECK_STR(flags.join(), "true,false");
   Array<Opt<double>> opts{Opt<double>(1.0), Opt<double>(undefined), Opt<double>(null)};
   CHECK_STR(opts.join(S("-")), "1--");
+  // Growing past the end would make holes, which no element type holds:
+  // undefined elements are not holes (forEach visits them, indexOf finds them).
+  CHECK_THROWS(opts.set(5, Opt<double>(2.0)), "RangeError");
+  CHECK_THROWS(opts.setLength(4), "RangeError");
+  CHECK_THROWS(a.setLength(10), "RangeError");
+  CHECK(opts.size() == 3);
+  opts.set(3, Opt<double>(2.0));
+  opts.setLength(1);
+  CHECK_STR(opts.join(S("-")), "1");
   // Stable sort
   Array<String> words{S("bb"), S("a"), S("cc"), S("d")};
   words.sort([](const String& x, const String& y) { return static_cast<double>(x.length()) - static_cast<double>(y.length()); });
@@ -433,6 +450,21 @@ static void arrays() {
   CHECK(visits == 2);
   auto gen = Array<double>::generate(4, [](double i) { return i * i; });
   CHECK_STR(gen.join(), "0,1,4,9");
+  // Array.from's length is ToLength's: truncated, 0 when negative or NaN.
+  auto index = [](double i) { return i; };
+  CHECK(Array<double>::generate(2.5, index).size() == 2);
+  CHECK(Array<double>::generate(-1, index).size() == 0);
+  CHECK(Array<double>::generate(kNaN, index).size() == 0);
+  CHECK_THROWS(Array<double>::generate(4294967296.0, index), "RangeError");
+  CHECK(arrayLikeLength(-1) == 0);
+  CHECK(arrayLikeLength(2.5) == 2);
+  // new Array(n)'s is ArrayCreate's: an integer from 0 to 2^32 - 1.
+  CHECK(arrayLength(3) == 3);
+  CHECK(arrayLength(4294967295.0) == 4294967295u);
+  CHECK_THROWS(arrayLength(-1), "RangeError");
+  CHECK_THROWS(arrayLength(1.5), "RangeError");
+  CHECK_THROWS(arrayLength(kNaN), "RangeError");
+  CHECK_THROWS(arrayLength(4294967296.0), "RangeError");
   Array<Array<double>> nested{Array<double>{1}, Array<double>{2, 3}};
   auto flat = nested.flatMap<double>([](const Array<double>& x) { return x; });
   CHECK_STR(flat.join(), "1,2,3");
@@ -586,6 +618,23 @@ static void mixedStrictEquals() {
 
   CHECK(looseEquals(Opt<double>(), Opt<double>(null)) && looseEqualsNull(undefined) && !looseEqualsNull(Array<double>{}));
   CHECK(sameValueZero(Union<double, String>(NAN), Union<double, String>(NAN)) && sameValueZero(Opt<double>(NAN), NAN));
+}
+
+// Object-typed storage holds a null Ref until something writes it (a field
+// a base constructor reads, a module variable before its initializer):
+// reading it throws TypeError, as using JavaScript's undefined does.
+static void unassignedStorage() {
+  Ref<Base> none;
+  auto some = std::make_shared<Base>();
+  CHECK_THROWS(assigned(none, "Sub.opts"), "TypeError");
+  CHECK(assigned(some, "Sub.opts") == some);
+
+  Union<Ref<Base>, Ref<Other>> noneOfEither;
+  Union<Ref<Base>, Ref<Other>> other = std::make_shared<Other>();
+  CHECK_THROWS(assigned(noneOfEither, "Sub.shape"), "TypeError");
+  CHECK(std::holds_alternative<Ref<Other>>(assigned(other, "Sub.shape")));
+
+  CHECK(assigned(2.0, "count") == 2.0);
 }
 
 static void errors() {
@@ -1046,6 +1095,7 @@ int main() {
   qualifiedToJsString();
   mixedStrictEquals();
   errors();
+  unassignedStorage();
   async();
   timersPostedWhileWaiting();
   abortSignals();

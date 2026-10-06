@@ -429,7 +429,7 @@ export function plain(): number {
     expect(messages(a, "LUCENT3021")).toEqual([
       "`Twice` calls slot more than once: a component has one slot for its children",
       "`Late` calls slot in a nested function: a component makes its slot once, while it sets up",
-      "`Loose` calls slot outside a declaration: keep its view, `const content = slot<UIView>()`, at the top level of its setup",
+      "`Loose` calls slot outside a declaration: keep its view, `const content = slot<UIView>()`, at the top level of its setup, or of a PLATFORM branch",
       "`Labelled`'s slot is a `Label`: a slot is the platform's container, `slot<UIView>()`",
       "slot is for components, and `plain` is not one: a component is an exported function returning a view",
     ]);

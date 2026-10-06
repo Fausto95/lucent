@@ -174,6 +174,41 @@ describe("diagnostics", () => {
     ).toEqual(["LUCENT1001"]);
   });
 
+  describe("spreads into a record literal", () => {
+    const spread = (decls: string, type: string) =>
+      compileSource(
+        `${decls}\nexport function f(v: ${type}): number {\n  const r: Record<string, number | undefined> = { ...v };\n  return Object.keys(r).length;\n}\n`,
+      ).diagnostics;
+
+    it("accepts a record", () => {
+      expect(spread("", "Record<string, number | undefined>")).toEqual([]);
+    });
+
+    it("accepts a record that may be undefined", () => {
+      expect(spread("", "Record<string, number | undefined> | undefined")).toEqual([]);
+    });
+
+    it.each([
+      ["an object type", "type P = { a: number; b?: number };", "P"],
+      ["a class instance", "class C { a = 1; b?: number; }", "C"],
+      ["an interface", "interface I { a: number; b?: number }", "I"],
+    ])("rejects %s, which has no key order nor set of present keys", (_, decls, type) => {
+      expect(spread(decls, type)).toEqual([
+        expect.objectContaining({
+          code: "LUCENT1001",
+          line: 3,
+          message: expect.stringContaining("only records can be spread into a record literal"),
+        }),
+      ]);
+    });
+
+    it("rejects a record of another value type", () => {
+      expect(spread("", "Record<string, number>")).toEqual([
+        expect.objectContaining({ code: "LUCENT2004" }),
+      ]);
+    });
+  });
+
   it("rejects throwing non-errors", () => {
     expect(codes('export function f(): number { throw "nope"; }')).toContain("LUCENT1006");
   });
@@ -252,6 +287,12 @@ export function f(round: boolean): number {
   it("rejects extending built-in classes other than Error", () => {
     const src =
       "class B extends Map<string, number> {}\nexport function f(): number { return new B().size; }";
+    expect(codes(src)).toContain("LUCENT1005");
+  });
+
+  it("rejects a toJSON that JSON.stringify would call with a key", () => {
+    const src =
+      "class P { toJSON(key: string): string { return key; } }\nexport function f(): string { return JSON.stringify(new P()); }";
     expect(codes(src)).toContain("LUCENT1005");
   });
 
@@ -393,6 +434,148 @@ export function f(round: boolean): number {
     });
   });
 
+  describe("decorators", () => {
+    // Standard decorators replace or wrap what they decorate at run time:
+    // compiling the class without running them would differ from JavaScript.
+    it.each([
+      [
+        "a class",
+        "function sealed(_t: typeof A): void {}\n@sealed\nexport class A {\n  x = 1;\n}\n",
+        2,
+        1,
+      ],
+      [
+        "a method",
+        "function logged(m: (this: B) => number): (this: B) => number {\n  return m;\n}\nexport class B {\n  @logged\n  m(): number {\n    return 1;\n  }\n}\n",
+        5,
+        3,
+      ],
+      [
+        "a field",
+        "function field(_v: undefined, _c: { kind: string }): void {}\nexport class F {\n  @field\n  x = 1;\n}\n",
+        3,
+        3,
+      ],
+      [
+        "an accessor",
+        "function getter(g: (this: G) => number): (this: G) => number {\n  return g;\n}\nexport class G {\n  @getter\n  get x(): number {\n    return 1;\n  }\n}\n",
+        5,
+        3,
+      ],
+    ])("rejects a decorator on %s at the decorator", (_what, source, line, column) => {
+      const r = compileSource(source);
+      expect(r.ok).toBe(false);
+      expect(r.diagnostics).toContainEqual(
+        expect.objectContaining({ code: "LUCENT1005", line, column }),
+      );
+    });
+
+    it("leaves parameter decorators to TypeScript, which rejects them", () => {
+      expect(
+        codes(
+          "function inject(_t: unknown, _k: string | undefined, _i: number): void {}\nexport class A {\n  constructor(@inject public x: number) {}\n}\n",
+        ),
+      ).toEqual(["LUCENT9001"]);
+    });
+  });
+
+  describe("default exports", () => {
+    // JavaScript would see these under their own names, not as `default`.
+    it("rejects a default-exported function", () => {
+      expect(
+        codes("export default function twice(n: number): number {\n  return n * 2;\n}\n"),
+      ).toEqual(["LUCENT3003"]);
+    });
+
+    it("rejects a default-exported class", () => {
+      expect(codes("export default class Box {\n  v = 1;\n}\n")).toContain("LUCENT3003");
+    });
+
+    it("rejects an anonymous default-exported function as a default export", () => {
+      expect(codes("export default function (n: number): number {\n  return n;\n}\n")).toEqual([
+        "LUCENT3003",
+      ]);
+    });
+
+    it("reports an anonymous default-exported class once", () => {
+      expect(codes("export default class {\n  v = 1;\n}\n")).toEqual(["LUCENT3003"]);
+    });
+  });
+
+  describe("presence of optional fields", () => {
+    // An object type's optional field cannot tell unset from set to undefined.
+    const P = "type P = { x: number; y?: number };\n";
+
+    it("refuses `in` with an optional field", () => {
+      expect(codes(`${P}export function f(p: P): boolean {\n  return "y" in p;\n}\n`)).toEqual([
+        "LUCENT1002",
+      ]);
+    });
+
+    it("refuses a dynamic `in` on a type with optional fields", () => {
+      expect(
+        codes(`${P}export function f(p: P, k: string): boolean {\n  return k in p;\n}\n`),
+      ).toEqual(["LUCENT1002"]);
+    });
+
+    it("refuses for…in on a type with optional fields", () => {
+      expect(
+        codes(
+          `${P}export function f(p: P): string {\n  let s = "";\n  for (const k in p) s += k;\n  return s;\n}\n`,
+        ),
+      ).toEqual(["LUCENT1009"]);
+    });
+
+    it("refuses Object.keys on a type with optional fields", () => {
+      expect(
+        codes(`${P}export function f(p: P): string[] {\n  return Object.keys(p);\n}\n`),
+      ).toEqual(["LUCENT1003"]);
+    });
+
+    it("points `in` on a union at a discriminant", () => {
+      const r = compileSource(
+        'type Circle = { radius: number };\ntype Square = { side: number };\nfunction round(s: Circle | Square): boolean {\n  return "radius" in s;\n}\nexport function f(): boolean {\n  return round({ side: 1 });\n}\n',
+      );
+      expect(r.diagnostics).toEqual([
+        expect.objectContaining({
+          code: "LUCENT1002",
+          message: expect.stringContaining("discriminant"),
+        }),
+      ]);
+    });
+
+    it.each([
+      [
+        "a class instance",
+        'class K {\n  a = 1;\n}\nexport function f(): boolean {\n  return "a" in new K();\n}\n',
+      ],
+      ["an array", 'export function f(a: number[]): boolean {\n  return "length" in a;\n}\n'],
+      ["a Map", 'export function f(m: Map<string, number>): boolean {\n  return "size" in m;\n}\n'],
+    ])("names %s as what `in` refused", (what, source) => {
+      const [d] = compileSource(source).diagnostics;
+      expect(d).toMatchObject({ code: "LUCENT1002", message: expect.stringContaining(what) });
+      expect(d!.message).not.toContain("discriminant");
+    });
+  });
+
+  describe("lowering outside a function body", () => {
+    it("reports an exported class's unsupported member once instead of throwing", () => {
+      const source =
+        "export class G {\n  async *g(): AsyncGenerator<number> {\n    yield 1;\n  }\n}\n";
+      expect(() => compileSource(source)).not.toThrow();
+      expect(codes(source)).toEqual(["LUCENT2002"]);
+    });
+
+    it("returns no files or proxies from a failing compile", () => {
+      const r = compileSource(
+        "function twice(n: number): number {\n  return n * 2;\n}\nexport default twice;\n",
+      );
+      expect(r.ok).toBe(false);
+      expect(r.files.size).toBe(0);
+      expect(r.proxies.size).toBe(0);
+    });
+  });
+
   describe("generators", () => {
     it("rejects returning a generator to JavaScript", () => {
       expect(codes("export function* f(): Generator<number> { yield 1; }")).toContain("LUCENT2006");
@@ -404,6 +587,173 @@ export function f(round: boolean): number {
           "function* g(): Generator<number, void, number> { const x = yield 1; }\nexport function f(): number { g(); return 1; }",
         ),
       ).toContain("LUCENT1001");
+    });
+  });
+
+  describe("string methods that need Unicode or locale data", () => {
+    it.each([
+      ["normalize()", "export function f(s: string): string { return s.normalize(); }"],
+      ['normalize("NFD")', 'export function f(s: string): string { return s.normalize("NFD"); }'],
+      [
+        "toLocaleUpperCase(locale)",
+        'export function f(s: string): string { return s.toLocaleUpperCase("tr"); }',
+      ],
+      [
+        "toLocaleLowerCase(locales)",
+        'export function f(s: string): string { return s.toLocaleLowerCase(["tr"]); }',
+      ],
+      [
+        "localeCompare(other, locale)",
+        'export function f(a: string, b: string): number { return a.localeCompare(b, "en"); }',
+      ],
+      [
+        "localeCompare(other, undefined, options)",
+        'export function f(a: string, b: string): number { return a.localeCompare(b, undefined, { sensitivity: "base" }); }',
+      ],
+    ])("rejects %s", (_, src) => {
+      expect(codes(src)).toContain("LUCENT1003");
+    });
+
+    it("accepts the locale methods without a locale, for the device's", () => {
+      expect(
+        codes(
+          "export function f(a: string, b: string): string { return `${a.toLocaleUpperCase()} ${a.toLocaleLowerCase()} ${a.localeCompare(b)}`; }",
+        ),
+      ).toEqual([]);
+    });
+  });
+
+  describe("an error's cause", () => {
+    it.each([
+      [
+        "new Error(message, { cause })",
+        'export function f(e: Error): Error { return new Error("x", { cause: e }); }',
+      ],
+      [
+        "new TypeError(message, { cause })",
+        'export function f(e: Error): Error { return new TypeError("x", { cause: e }); }',
+      ],
+      [
+        "super(message, { cause }) in an Error class",
+        'class Wrapped extends Error {\n  constructor(m: string, c: Error) {\n    super(m, { cause: c });\n  }\n}\nexport function f(e: Error): Error { return new Wrapped("x", e); }',
+      ],
+      [
+        "new on an Error class without a constructor of its own",
+        'class Plain extends Error {}\nexport function f(e: Error): Error { return new Plain("x", { cause: e }); }',
+      ],
+    ])("rejects %s", (_, src) => {
+      expect(codes(src)).toContain("LUCENT1003");
+    });
+  });
+
+  it("rejects Array.isArray of an Iterable, which no longer knows its kind", () => {
+    const src =
+      "function g(x: Iterable<number>): boolean { return Array.isArray(x); }\nexport function f(): boolean { return g([1]); }";
+
+    expect(compileSource(src).diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "LUCENT1003",
+        message: expect.stringContaining("testing whether an Iterable is an Array"),
+      }),
+    );
+  });
+
+  describe("object types' keys, which record neither which optional fields are set nor their order", () => {
+    const shape = "type P = { a: number; b?: number };\n";
+
+    it.each([
+      ["Object.keys", "export function f(p: P): string[] { return Object.keys(p); }", "LUCENT1003"],
+      [
+        "for…in",
+        'export function f(p: P): string { let s = ""; for (const k in p) s += k; return s; }',
+        "LUCENT1009",
+      ],
+      ["in", 'export function f(p: P): boolean { return "b" in p; }', "LUCENT1002"],
+    ])("rejects %s on an object type", (_, src, code) => {
+      expect(codes(shape + src)).toContain(code);
+    });
+
+    it.each(["values", "entries"])("names Object.%s's reason in words", (name) => {
+      const src = `export function f(p: P): number { return Object.${name}(p).length; }`;
+
+      expect(compileSource(shape + src).diagnostics).toContainEqual(
+        expect.objectContaining({
+          code: "LUCENT1003",
+          message: expect.stringContaining(`Object.${name} of an object type is not supported`),
+        }),
+      );
+    });
+  });
+
+  describe("arrays with holes, which Lucent arrays cannot hold", () => {
+    it.each([
+      ["new Array(n)", "export function f(): number[] { return new Array<number>(3); }"],
+      [
+        "new Array(n) of a type that admits undefined",
+        "export function f(): (number | undefined)[] { return new Array<number | undefined>(3); }",
+      ],
+      [
+        "new Array(n) filled in part",
+        "export function f(): number[] { return new Array<number>(3).fill(0, 1); }",
+      ],
+      [
+        "new Array(n) filled later",
+        "export function f(n: number): number[] { const a = new Array<number>(n); a.fill(0); return a; }",
+      ],
+      [
+        "new Array(x) of a number or an element",
+        "export function f(x: number | string): (number | string)[] { return new Array<number | string>(x); }",
+      ],
+      [
+        "Array.from({ length }) of elements that cannot be undefined",
+        "export function f(): number[] { const c: number[] = Array.from({ length: 3 }); return c; }",
+      ],
+      [
+        "Array.from of an array-like with elements",
+        "export function f(): number[] { return Array.from({ length: 2, 0: 5 }, (v, i) => (v ?? 0) + i); }",
+      ],
+    ])("rejects %s", (_, src) => {
+      expect(codes(src)).toContain("LUCENT1003");
+    });
+
+    it.each([
+      [
+        "new Array(n).fill(value)",
+        "export function f(n: number): number[] { return new Array<number>(n).fill(0); }",
+      ],
+      [
+        "Array.from({ length }) of elements that may be undefined",
+        "export function f(n: number): (number | undefined)[] { const a: (number | undefined)[] = Array.from({ length: n }); return a; }",
+      ],
+      [
+        "Array.from({ length }, map)",
+        "export function f(n: number): number[] { return Array.from({ length: n }, (_, i) => i); }",
+      ],
+    ])("accepts %s", (_, src) => {
+      expect(codes(src)).toEqual([]);
+    });
+  });
+
+  describe("new Proxy", () => {
+    it("rejects a proxy of a class instance, rather than making another instance", () => {
+      const r = compileSource(
+        "class C {\n  n = 1;\n}\nexport function f(): number {\n  const c = new C();\n  const p = new Proxy(c, { get: () => 42 });\n  p.n = 5;\n  return c.n;\n}",
+      );
+
+      expect(r.diagnostics).toEqual([
+        expect.objectContaining({
+          code: "LUCENT1003",
+          message: expect.stringContaining("new Proxy()"),
+        }),
+      ]);
+    });
+
+    it("rejects a proxy of a built-in", () => {
+      expect(
+        codes(
+          "export function f(): number { const p = new Proxy(new Map<string, number>(), {}); return p.size; }",
+        ),
+      ).toContain("LUCENT1003");
     });
   });
 });

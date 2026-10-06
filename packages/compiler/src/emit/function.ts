@@ -22,7 +22,7 @@ import {
 import { containsAwait, type FunctionLike, symbolOf } from "../analysis/scopes.ts";
 import * as builtins from "./builtins.ts";
 import { spanElement } from "./buffers.ts";
-import { DISPOSE, isSymbolDispose } from "./classes.ts";
+import { constructorOf, DISPOSE, isSymbolDispose } from "./classes.ts";
 import { TASK, taskVariant } from "./compute.ts";
 import * as extensions from "./extensions.ts";
 import * as native from "./native.ts";
@@ -49,6 +49,7 @@ import {
   numericUnion,
 } from "../lowering/bigint.ts";
 import { looseConversion, looseConversionMessage } from "../lowering/loose-equality.ts";
+import { assignedRead } from "../lowering/unassigned.ts";
 import { bigintExpr, bigintLiteralValue, numberExpr, stringExpr } from "../lowering/literals.ts";
 
 export interface Local {
@@ -373,7 +374,11 @@ export class FnEmitter {
         `object types must match exactly to share a native representation (${this.describe(from)} vs ${this.describe(to)})`,
       );
     }
-    if ((from.k === "array" && to.k === "array") || (from.k === "map" && to.k === "map")) {
+    if (
+      (from.k === "array" && to.k === "array") ||
+      (from.k === "map" && to.k === "map") ||
+      (from.k === "dict" && to.k === "dict")
+    ) {
       fail(
         node,
         Codes.ArrayVariance,
@@ -552,7 +557,7 @@ export class FnEmitter {
     }
     const isAsync = !!ts.getModifiers(node)?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword);
     const isGen = !ts.isArrowFunction(node) && !!node.asteriskToken;
-    if (isAsync && isGen) fail(node, Codes.UnsupportedSyntax, "async generators are not supported");
+    if (isAsync && isGen) fail(node, Codes.UnsupportedType, "async generators are not supported");
     const ret = isAsync
       ? fnType.ret.k === "promise"
         ? fnType.ret.inner
@@ -927,7 +932,9 @@ export class FnEmitter {
       // must not read the storage a reload of JavaScript assigns again.
       if (g.kind === "var")
         return this.narrowed(id, {
-          c: g.literal ? this.exprAs(g.literal, g.type) : cpp.id(g.cpp),
+          c: g.literal
+            ? this.exprAs(g.literal, g.type)
+            : assignedRead(cpp.id(g.cpp), g.type, g.decl.name.getText()),
           t: g.type,
         });
       if (g.kind === "function") {
@@ -1315,20 +1322,8 @@ export class FnEmitter {
       }
       case ts.SyntaxKind.InstanceOfKeyword:
         return builtins.instanceOf(this, node);
-      case ts.SyntaxKind.InKeyword: {
-        const obj = this.expr(node.right);
-        const ot = stripOpt(obj.t);
-        const key = this.exprAs(node.left, T.string);
-        if (ot.k === "dict") return { c: cpp.call(cpp.dot(obj.c, "has"), [key]), t: T.boolean };
-        if (ot.k === "struct") {
-          // One of the object type's field names.
-          const names = this.reg
-            .struct(ot.id)
-            .fields.map((f) => cpp.binary(key, "==", stringExpr(f.name)));
-          return { c: names.length ? cpp.or(...names) : cpp.bool(false), t: T.boolean };
-        }
-        fail(node, Codes.UnsupportedOperator, "`in` is only supported on records");
-      }
+      case ts.SyntaxKind.InKeyword:
+        return builtins.keyIn(this, node);
     }
     return this.binaryOp(node, op);
   }
@@ -2216,7 +2211,11 @@ export class FnEmitter {
       const p = params[i]!;
       const a = args[i];
       if (a && ts.isSpreadElement(a))
-        fail(a, Codes.UnsupportedCall, "spread arguments are only supported for rest parameters");
+        fail(
+          a,
+          Codes.UnsupportedCall,
+          "spread arguments are only supported by built-ins that take any number of arguments",
+        );
       if (a) out.push(this.exprAs(a, p));
       else if (p.k === "opt") out.push(cpp.construct(this.reg.cppType(p), [undef]));
       else if (p.k === "undefined") out.push(undef);
@@ -2283,25 +2282,18 @@ export class FnEmitter {
   private newInner(node: ts.NewExpression): E {
     const callee = node.expression;
     const t = this.lt(node);
+    builtins.requireConstructor(this, node, t);
     if (t.k === "native") return native.nativeNew(this, node, t);
     if (t.k === "handle") return extensions.handleNew(this, node, t);
     if (t.k === "class") {
       requireSubclassMain(node, this.reg.cls(t.id), (n) => native.inMainContext(this, n));
-      // The nearest constructor in the class chain (subclasses may inherit it).
-      const owner = this.reg
+      const params = constructorOf(this.ctx, t);
+      const paramTypes = params.map((p) => p.cppType);
+      // An Error subclass without a constructor takes Error's, whose options carry the cause.
+      const ownCtor = this.reg
         .chain(t)
-        .find((c) => c.info.decl.members.some(ts.isConstructorDeclaration));
-      const ctor = owner?.info.decl.members.find(ts.isConstructorDeclaration);
-      const fnType: LType = ctor
-        ? (this.reg.lowerSignature(this.checker.getSignatureFromDeclaration(ctor)!, ctor) as LType)
-        : { k: "fn", params: [], ret: T.void };
-      const params = ctor ? this.paramInfos(ctor, fnType as LType & { k: "fn" }) : [];
-      let paramTypes = params.map((p) => p.cppType);
-      if (owner && owner.t.args.length) {
-        const oi = owner.info;
-        const map = new Map(oi.typeParams.map((p, i) => [p, owner.t.args[i]!]));
-        paramTypes = paramTypes.map((p) => substitute(p, map));
-      }
+        .some((c) => c.info.decl.members.some(ts.isConstructorDeclaration));
+      if (!ownCtor && this.reg.cls(t.id).isError) builtins.refuseCause(this, node.arguments?.[1]);
       const rest =
         params.length && params[params.length - 1]!.rest
           ? paramTypes[paramTypes.length - 1]
@@ -2418,7 +2410,28 @@ export class FnEmitter {
           parts.push(set(stringExpr(p.name.text), this.exprAs(p.name, t.val)));
         } else if (ts.isSpreadAssignment(p)) {
           const s = this.expr(p.expression);
-          parts.push(cpp.exprStmt(cpp.call("lucent::assignEntries", [tmp, s.c])));
+          if (s.t.k === "opt" && s.t.inner.k === "dict") {
+            // Spreading undefined adds nothing.
+            const srcName = this.ctx.fresh("src");
+            const src = cpp.id(srcName);
+            const entries = this.coerce({ c: cpp.call(cpp.dot(src, "get")), t: s.t.inner }, t, p);
+            parts.push(cpp.varDecl(cpp.auto, srcName, s.c));
+            parts.push(
+              cpp.ifStmt(cpp.call(cpp.dot(src, "has")), [
+                cpp.exprStmt(cpp.call("lucent::assignEntries", [tmp, entries])),
+              ]),
+            );
+            continue;
+          }
+          // An object's fields have a fixed layout: no key order, no record of which optional
+          // fields are set, so its keys can't be enumerated the way JavaScript does.
+          if (s.t.k !== "dict")
+            fail(
+              p,
+              Codes.UnsupportedSyntax,
+              `only records can be spread into a record literal, not ${this.checker.typeToString(this.checker.getTypeAtLocation(p.expression))}; set the entries one by one (\`r.a = value.a\`)`,
+            );
+          parts.push(cpp.exprStmt(cpp.call("lucent::assignEntries", [tmp, this.coerce(s, t, p)])));
         } else fail(p, Codes.UnsupportedSyntax, "unsupported property in record literal");
       }
       return { c: cpp.statementExpr(parts, tmp), t };
@@ -2439,14 +2452,29 @@ export class FnEmitter {
           fail(p, Codes.UnsupportedSyntax, "only objects can be spread into object literals");
         const srcName = this.ctx.fresh("src");
         const src = cpp.id(srcName);
-        parts.push(cpp.varDecl(cpp.auto, srcName, this.coerce(s, st, p)));
+        parts.push(cpp.varDecl(cpp.auto, srcName, s.c));
+        const obj = s.t.k === "opt" ? cpp.call(cpp.dot(src, "get")) : src;
         const srcFields = this.reg.struct(st.id).fields;
+        const copies: cpp.Stmt[] = [];
         for (const f of info.fields) {
           const sf = srcFields.find((x) => x.name === f.name);
           if (!sf) continue;
-          const value = this.coerce({ c: cpp.arrow(src, cppIdent(f.name)), t: sf.type }, f.type, p);
-          parts.push(cpp.exprStmt(cpp.assign(field(f.name), value)));
+          const read = cpp.arrow(obj, cppIdent(f.name));
+          const copy = cpp.exprStmt(
+            cpp.assign(field(f.name), this.coerce({ c: read, t: sf.type }, f.type, p)),
+          );
+          // An unset optional field is a key the source lacks, which JavaScript skips
+          // (an explicit `undefined` can't be told apart from it).
+          copies.push(
+            sf.type.k === "opt"
+              ? cpp.ifStmt(cpp.not(cpp.call(cpp.dot(read, "isUndefined"))), [copy])
+              : copy,
+          );
         }
+        // Spreading undefined or null adds nothing.
+        parts.push(
+          ...(s.t.k === "opt" ? [cpp.ifStmt(cpp.call(cpp.dot(src, "has")), copies)] : copies),
+        );
         continue;
       }
       let name: string;

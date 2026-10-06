@@ -1,6 +1,7 @@
+import fs from "node:fs";
 import path from "node:path";
 import { type Code, docsUrl, Explanations } from "./codes.ts";
-import { type Diagnostic, formatDiagnostic } from "./diagnostics.ts";
+import { CompileError, type Diagnostic, formatDiagnostic, toDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
 import {
   conformanceErrors,
@@ -16,7 +17,9 @@ import {
   createLucentProgram,
   findLucentFiles,
   type LucentProgram,
+  moduleNameOf,
   platformOf,
+  projectFiles,
   type ReadSource,
   sdkModuleOf,
   usesPlatforms,
@@ -36,6 +39,7 @@ import { withExtensions } from "./extensions/registry.ts";
 import { resolveNative } from "./package-config.ts";
 import { fileHashes } from "./package-files.ts";
 import { lucentPackages } from "./packages.ts";
+import { recordReads } from "./reads.ts";
 import { recordSdkUses } from "./sdk/usage.ts";
 import { analyzeViews, hasComponentModules } from "./ui/analyze.ts";
 import { ts as js } from "@lucent-lang/codegen";
@@ -61,7 +65,6 @@ export {
   platformOf,
   projectFiles,
   usesPlatforms,
-  LUCENT_EXTENSION,
   coreJsPath,
   coreTypesPath,
   type ReadSource,
@@ -69,9 +72,22 @@ export {
 export { closesPodspec, libraryBuildGradle, withPodDependencies } from "./native-build-files.ts";
 export { fileHashes, type FileHashes, inNativePackage } from "./package-files.ts";
 export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-lang/bindgen";
-export { jsxToolkits, toolkitsFrom } from "./ui/toolkit-modules.ts";
+export {
+  jsxToolkits,
+  toolkitModules,
+  toolkitModuleText,
+  toolkitNeedingViews,
+  toolkitsFrom,
+} from "./ui/toolkit-modules.ts";
 export { viewCoverage, type ViewCoverage } from "./ui/view-coverage.ts";
-export { lucentPackages, lucentVersion, satisfies, type LucentPackage } from "./packages.ts";
+export {
+  LUCENT_EXTENSION,
+  lucentPackages,
+  lucentVersion,
+  satisfies,
+  type LucentPackage,
+} from "./packages.ts";
+export { currentReads, currentRealpaths, foundFile, readsKey } from "./reads.ts";
 export {
   EXTENSION_FIELDS,
   PACKAGE_FIELDS,
@@ -100,6 +116,7 @@ export {
   type ViewType,
 } from "./ui/contract.ts";
 export type { Target } from "./platforms.ts";
+export { viewsSwitchProblem } from "./ui/switch.ts";
 export type { SdkOptions } from "./sdk/schema.ts";
 export type {
   Platform,
@@ -121,10 +138,12 @@ export {
 } from "./extensions/bind.ts";
 export { extensionDts } from "./extensions/dts.ts";
 export {
+  checkRecord,
+  type CheckRecord,
   deferredLibraryGradle,
   inputsKey,
-  isUpToDate,
   packagePods,
+  upToDate,
   writeNativePackage,
   writeWhole,
   runtimeDir,
@@ -145,7 +164,14 @@ export interface CompileResult extends EmitResult {
   ok: boolean;
   /** The SDK symbols the code uses, sorted by key; absent when the compile failed. */
   sdkUses?: UsedSymbol[];
+  /** Every file the compile read from disk, with what it found there (see currentReads). */
+  read: ReadonlyMap<string, string>;
+  /** Every path resolution followed links from, with where it led (see currentRealpaths). */
+  realpaths: ReadonlyMap<string, string>;
 }
+
+/** What a program, or each target's, compiles to: compile() adds the files they read. */
+type Compiled = Omit<CompileResult, "read" | "realpaths">;
 
 export interface CompileOptions {
   /**
@@ -178,9 +204,15 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
   if (targeted.length)
     throw new Error(`deferred platforms cannot be targets: ${targeted.join(", ")}`);
 
-  const { value: result, uses } = recordSdkUses(() =>
-    withExtensions(options.extensions, () =>
-      withSdkOptions(options.sdk, () => compileWith(files, options), deferred),
+  const {
+    value: { value: result, uses },
+    read,
+    realpaths,
+  } = recordReads(() =>
+    recordSdkUses(() =>
+      withExtensions(options.extensions, () =>
+        withSdkOptions(options.sdk, () => compileWith(files, options), deferred),
+      ),
     ),
   );
 
@@ -194,6 +226,8 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
     ...(result.ok ? { sdkUses: uses } : {}),
     diagnostics: result.diagnostics.map(explained),
     warnings: (result.warnings ?? []).map(explained),
+    read,
+    realpaths,
   };
 }
 
@@ -203,14 +237,14 @@ function explained(d: Diagnostic): Diagnostic {
   return e ? { ...d, fix: d.fix ?? e.fix, docs: docsUrl(d.code) } : d;
 }
 
-function compileWith(files: string[], options: CompileOptions): CompileResult {
+function compileWith(files: string[], options: CompileOptions): Compiled {
   const plan = planModules(files);
   // Shared modules that branch on the platform are compiled per target too.
   const branching = plan.shared.some((f) => usesPlatforms(f, options.readSource));
   if (!plan.platformModules.length && !plan.diagnostics.length && !branching)
     return compileOnce(createLucentProgram(files, options.readSource));
 
-  const out: CompileResult = {
+  const out: Compiled = {
     files: new Map(),
     proxies: new Map(),
     diagnostics: [...plan.diagnostics],
@@ -222,7 +256,7 @@ function compileWith(files: string[], options: CompileOptions): CompileResult {
   );
   const components: TargetComponents[] = [];
   for (const target of options.platforms ?? (installed.length ? installed : PLATFORMS)) {
-    let result: CompileResult;
+    let result: Compiled;
     if (target === "host") {
       result = compileOnce(
         createLucentProgram([...plan.shared, ...declarations], options.readSource, undefined, {
@@ -274,8 +308,13 @@ function compileWith(files: string[], options: CompileOptions): CompileResult {
 
     out.diagnostics.push(...merged.diagnostics);
     if (merged.components.length) out.components = merged.components;
-    if (merged.components.length && fabricViews())
+    if (merged.components.length && fabricViews()) {
       out.componentTypes = componentTypeFiles(merged.components);
+      out.componentModules = componentModuleFiles(merged.components, [
+        ...plan.shared,
+        ...declarations,
+      ]);
+    }
   }
   out.diagnostics = dedupe(out.diagnostics);
   out.warnings = dedupe(out.warnings ?? []);
@@ -302,7 +341,30 @@ function compileOnce(
   lp: ReturnType<typeof createLucentProgram>,
   declarations: string[] = [],
   target?: Target,
-): CompileResult {
+): Compiled {
+  let result: Compiled;
+  try {
+    result = compileChecked(lp, declarations, target);
+  } catch (e) {
+    // Lowering outside a guarded unit: still a diagnostic, never a crash.
+    if (!(e instanceof CompileError)) throw e;
+    result = { files: new Map(), proxies: new Map(), diagnostics: [toDiagnostic(e)], ok: false };
+  }
+  if (result.ok) return result;
+  // Several passes may lower the same failing node; a failed compile has no output.
+  return {
+    ...result,
+    files: new Map(),
+    proxies: new Map(),
+    diagnostics: dedupe(result.diagnostics),
+  };
+}
+
+function compileChecked(
+  lp: ReturnType<typeof createLucentProgram>,
+  declarations: string[],
+  target: Target | undefined,
+): Compiled {
   const untyped = PLATFORMS.filter((p) => p !== lp.platform && !platformSdkTyped(p));
   const checks = [
     ...lp.diagnostics.filter((d) => !inUntypedPlatformCode(lp, d, untyped)),
@@ -349,6 +411,20 @@ function componentTypeFiles(components: readonly ComponentDescription[]): Map<st
   return out;
 }
 
+/** The file JavaScript imports for each module with components, among the non-platform `files`. */
+function componentModuleFiles(
+  components: readonly ComponentDescription[],
+  files: readonly string[],
+): Map<string, string> {
+  const modules = new Set(components.map((c) => c.jsModule));
+
+  return new Map(
+    files
+      .map((file) => [moduleNameOf(file), path.resolve(file)] as const)
+      .filter(([name]) => modules.has(name)),
+  );
+}
+
 /** The same problem, reported by the program of each target, once. */
 function dedupe(ds: Diagnostic[]): Diagnostic[] {
   const seen = new Set<string>();
@@ -389,6 +465,23 @@ export function projectExtensions(root: string): ExtensionBinding[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * The files of `files` (an editor's project) that `lucent build` compiles
+ * in `root`: not those of a Lucent package inside the app that the app
+ * does not depend on. All of them when root's packages cannot be resolved
+ * (the build reports why).
+ */
+export function filesInBuild(root: string, files: readonly string[]): string[] {
+  let built: Set<string>;
+  try {
+    built = new Set(projectFiles(root).map((f) => fs.realpathSync(f)));
+  } catch {
+    return [...files];
+  }
+
+  return files.filter((f) => fs.existsSync(f) && built.has(fs.realpathSync(f)));
 }
 
 export function compileDirectory(root: string): CompileResult {

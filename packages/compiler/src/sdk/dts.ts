@@ -14,6 +14,7 @@ import {
   declaresPromise,
   findSdkType,
   formatSchemaType,
+  mainThreadOnly,
   type Platform,
   parseSdkType,
   payloadFields,
@@ -517,6 +518,13 @@ function classDts(
   const sinceText = (v: number | string | undefined) =>
     v === undefined ? undefined : `Since ${schema.platform === "android" ? "API " : "iOS "}${v}.`;
   const refused = refusalDoc(schema);
+  // A member's thread line says where its rule differs from what the class's doc says.
+  const threadDoc = (main: boolean) =>
+    main === mainThreadOnly(cls)
+      ? undefined
+      : main
+        ? "Main thread only: call it inside `main(() => …)`."
+        : "Any thread: no `main(() => …)` needed.";
   const memberDoc = (
     m: Parameters<typeof planBinding>[1] & {
       since?: number | string;
@@ -526,10 +534,12 @@ function classDts(
     },
     // What it calls natively: a member the class declares (an inherited one is its superclass's).
     origin?: OriginMember,
+    // The class declaring it, whose thread rule applies.
+    owner: SdkClassSchema = cls,
   ) => {
     const parts = [
       sinceText(m.since),
-      m.mainActor ? "Main thread only: call it inside `main(() => …)`." : undefined,
+      threadDoc(mainThreadOnly(owner, m)),
       m.worker ? "Blocks (@WorkerThread): call it outside `main(() => …)`." : undefined,
       refused(cls, m),
     ].filter(Boolean);
@@ -543,9 +553,10 @@ function classDts(
     return lines.length ? { doc: lines.length === 1 ? lines[0]! : lines } : {};
   };
   const doc: string[] = [`${classOrigin(schema, cls)}.`];
-  if (cls.mainActor)
+  if (mainThreadOnly(cls))
     doc.push("Main thread only: use it inside `main(() => …)` from lucent:thread.");
-  if (cls.interface) doc.push("A Java interface.");
+  if (cls.interface)
+    doc.push(INTERFACE_DOC[cls.swift ? "swift" : cls.kotlin ? "kotlin" : schema.platform]);
   if (cls.since !== undefined) doc.push(sinceText(cls.since)!);
   // Objective-C classes are NSObjects, so they go where Any (id) is taken; Swift types are not.
   const nsObject = schema.platform === "ios" && !cls.extends && !cls.interface && !cls.swift;
@@ -641,7 +652,6 @@ function classDts(
     const shared = {
       ...(m.static ? { static: true } : {}),
       ...(tps.length ? { typeParams: tps.map((name) => ({ name })) } : {}),
-      ...memberDoc(m, { method: m }),
     };
     members.push({
       k: "method",
@@ -650,6 +660,7 @@ function classDts(
       ret: settled(m, oneOf(m.returnsOneOf, result(parse(m.returns, tps)), true)),
       ...(optional ? { optional: true } : {}),
       ...shared,
+      ...memberDoc(m, { method: m }),
     });
     // Without its completion handler: a promise of what the handler receives.
     if (m.async && declaresPromise(cls, m))
@@ -659,6 +670,7 @@ function classDts(
         params: params({ params: m.params.slice(0, -1) }, tps),
         ret: ts.ref("Promise", tsType(parse(m.async.returns, tps))),
         ...shared,
+        ...memberDoc(m, { method: m, promise: true }),
       });
   }
   // Java and Objective-C inherit the overloads a subclass does not override;
@@ -669,7 +681,10 @@ function classDts(
     const tps = m.typeParams ?? [];
     const typed = (t: string | SdkType) =>
       substitute(parseSdkType(t, inh.module, [...inh.classTypeParams, ...tps]), inh.bound);
-    const doc = [memberDoc(m).doc, `${INHERITED_TAG} ${inh.module}.${inh.owner} ${inh.index}`];
+    const doc = [
+      memberDoc(m, undefined, inh.owner).doc,
+      `${INHERITED_TAG} ${inh.module}.${inh.owner.name} ${inh.index}`,
+    ];
 
     // Overloads share their optionality: as the class's own of this name; one an
     // interface declares only for its supertypes is optional unless one requires it.
@@ -696,7 +711,10 @@ function classDts(
 
   for (const inh of propertiesGivenTwoWays(schema, cls)) {
     const p = inh.property;
-    const doc = [memberDoc(p).doc, `${INHERITED_TAG} ${inh.module}.${inh.owner} ${inh.index}`];
+    const doc = [
+      memberDoc(p, undefined, inh.owner).doc,
+      `${INHERITED_TAG} ${inh.module}.${inh.owner.name} ${inh.index}`,
+    ];
 
     members.push({
       k: "property",
@@ -898,11 +916,19 @@ function abstractAbove(schema: SdkModuleSchema, cls: SdkClassSchema): Set<string
  */
 export const INHERITED_TAG = "@lucentInherited";
 
+/** What an interface is, by the language declaring it. */
+const INTERFACE_DOC: Record<Platform | "swift" | "kotlin", string> = {
+  swift: "A Swift protocol.",
+  kotlin: "A Kotlin interface.",
+  ios: "An Objective-C protocol.",
+  android: "A Java interface.",
+};
+
 const JAVA_OBJECT = "java/lang/Object";
 
 interface InheritedOverload {
   module: string;
-  owner: string;
+  owner: SdkClassSchema;
   index: number;
   method: SdkMethodSchema;
   /** The declaring class's type parameters, which its methods' types name. */
@@ -946,7 +972,7 @@ function bindSupertype(
 
 interface InheritedProperty {
   module: string;
-  owner: string;
+  owner: SdkClassSchema;
   index: number;
   property: SdkPropertySchema;
   /** Its type, as the class binds the declaring class's type parameters. */
@@ -993,7 +1019,7 @@ function propertiesGivenTwoWays(schema: SdkModuleSchema, cls: SdkClassSchema): I
       const type = typed(property, sup.cls, sup.ref.module, supBound);
       fromSupers.set(property.name, {
         module: sup.ref.module,
-        owner: sup.cls.name,
+        owner: sup.cls,
         index,
         property,
         type,
@@ -1081,7 +1107,7 @@ function inheritedOverloads(schema: SdkModuleSchema, cls: SdkClassSchema): Inher
       if (seen.has(key)) return;
 
       seen.add(key);
-      out.push({ module, owner: sup.name, index, method: m, classTypeParams, bound });
+      out.push({ module, owner: sup, index, method: m, classTypeParams, bound });
     });
 
   // The protocols (interfaces) it adopts itself: their overloads of its own

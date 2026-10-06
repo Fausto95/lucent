@@ -45,6 +45,15 @@ inline size_t relativeIndex(double v, size_t len) {
 inline double compareResult(double v) { return std::isnan(v) ? 0 : v; }
 }  // namespace detail
 
+/// `new Array(n)`'s length, ArrayCreate's: an integer from 0 to 2^32 - 1.
+inline size_t arrayLength(double n) {
+  if (!(n >= 0) || std::trunc(n) != n || n > 4294967295.0) throwRangeError("Invalid array length");
+  return static_cast<size_t>(n);
+}
+
+/// `Array.from({ length: n })`'s length: ToLength, then ArrayCreate's check.
+inline size_t arrayLikeLength(double n) { return arrayLength(n > 0 ? std::trunc(n) : 0); }
+
 template <class T>
 class Array {
  public:
@@ -64,9 +73,8 @@ class Array {
   /// `Array.from({ length: n }, (_, i) => f(i))`.
   template <class F>
   static Array generate(double n, F&& f) {
-    if (!(n >= 0) || std::trunc(n) != n || n > 4294967295.0) throwRangeError("Invalid array length");
     Array out;
-    size_t count = static_cast<size_t>(n);
+    size_t count = arrayLikeLength(n);
     out.d_->reserve(count);
     for (size_t i = 0; i < count; i++) out.d_->push_back(static_cast<Elem>(f(static_cast<double>(i))));
     return out;
@@ -74,18 +82,12 @@ class Array {
 
   size_t size() const { return d_->size(); }
   double length() const { return static_cast<double>(d_->size()); }
+  /// `a.length = n`: shrinks. Growing would create holes, which Lucent
+  /// arrays do not have (undefined elements are not holes).
   void setLength(double n) {
-    if (!(n >= 0) || std::trunc(n) != n || n > 4294967295.0) throwRangeError("Invalid array length");
-    size_t len = static_cast<size_t>(n);
-    if (len > d_->size()) {
-      if constexpr (std::is_default_constructible_v<Elem> && IsOpt<T>::value) {
-        d_->resize(len);
-      } else {
-        throwRangeError("Cannot grow an array of non-optional elements by setting length");
-      }
-    } else {
-      d_->resize(len);
-    }
+    size_t len = arrayLength(n);
+    if (len > d_->size()) throwRangeError("Cannot grow an array by setting length (Lucent arrays cannot have holes)");
+    d_->resize(len);
   }
 
   /// Unchecked element read for compiler-proven in-bounds indexes.
@@ -223,14 +225,15 @@ class Array {
     }
     return -1;
   }
-  double lastIndexOf(const T& v) const {
-    for (size_t i = d_->size(); i-- > 0;) {
-      if (strictEquals(at(i), v)) return static_cast<double>(i);
-    }
-    return -1;
+  double lastIndexOf(const T& v) const { return lastIndexBefore(v, d_->size()); }
+  double lastIndexOf(const T& v, double from) const {
+    double n = static_cast<double>(d_->size());
+    double k = std::isnan(from) ? 0 : std::trunc(from);
+    k = k >= 0 ? std::min(k, n - 1) : n + k;
+    return k < 0 ? -1 : lastIndexBefore(v, static_cast<size_t>(k) + 1);
   }
-  bool includes(const T& v) const {
-    for (size_t i = 0; i < d_->size(); i++) {
+  bool includes(const T& v, double from = 0) const {
+    for (size_t i = detail::relativeIndex(from, d_->size()); i < d_->size(); i++) {
       if (sameValueZero(at(i), v)) return true;
     }
     return false;
@@ -396,23 +399,24 @@ class Array {
   std::vector<Elem>& items() { return *d_; }
 
  private:
-  /// set() at or past the end: appending, or growing with absent values; any
-  /// other index is an error. Static, given the storage: the array's own
-  /// address never escapes a loop that sets elements, so the loop keeps the
-  /// storage in a register (a byte store may alias anything whose address did).
+  /// The last index below `end` holding `v`, or -1.
+  double lastIndexBefore(const T& v, size_t end) const {
+    for (size_t i = end; i-- > 0;) {
+      if (strictEquals(at(i), v)) return static_cast<double>(i);
+    }
+    return -1;
+  }
+
+  /// set() at or past the end: appending; any other index is an error.
+  /// Static, given the storage: the array's own address never escapes a loop
+  /// that sets elements, so the loop keeps the storage in a register (a byte
+  /// store may alias anything whose address did).
   [[gnu::noinline]] static void setPastEnd(std::vector<Elem>& d, double index, T value) {
     if (!(index >= 0) || std::trunc(index) != index) throwRangeError("Invalid array index");
-    size_t i = static_cast<size_t>(index);
-    if (i == d.size()) {
-      d.push_back(static_cast<Elem>(std::move(value)));
-    } else {
-      if constexpr (IsOpt<T>::value) {
-        d.resize(i);
-        d.push_back(static_cast<Elem>(std::move(value)));
-      } else {
-        throwRangeError("Array index out of bounds (Lucent arrays cannot have holes)");
-      }
+    if (static_cast<size_t>(index) != d.size()) {
+      throwRangeError("Array index out of bounds (Lucent arrays cannot have holes)");
     }
+    d.push_back(static_cast<Elem>(std::move(value)));
   }
 
   template <class Cmp>
@@ -455,10 +459,14 @@ bool strictEquals(const Array<T>& a, const Array<T>& b) {
   return a.identity() == b.identity();
 }
 
+/// What Array.isArray recognizes: an array, a tuple, and (regexp.h) a
+/// RegExp match.
 template <class T>
-struct IsArray : std::false_type {};
+struct IsJsArray : std::false_type {};
 template <class T>
-struct IsArray<Array<T>> : std::true_type {};
+struct IsJsArray<Array<T>> : std::true_type {};
+template <class... Ts>
+struct IsJsArray<std::tuple<Ts...>> : std::true_type {};
 
 template <class T>
 String toJsString(const Opt<T>& v) {

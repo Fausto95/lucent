@@ -1,15 +1,15 @@
 import { createRequire } from "node:module";
 import { packageFile } from "../version.ts";
 
-// The Expo config plugin applies the same Gradle line during prebuild: one
+// The Expo config plugin applies the same Gradle lines during prebuild: one
 // definition, found from the package's root (the sources and dist/ sit at
 // different depths).
 const plugin = createRequire(import.meta.url)(packageFile("app.plugin.js")) as {
-  GRADLE_LINE: string;
-  applyGradleTask(text: string): string | undefined;
+  GRADLE_LINES: Record<"groovy" | "kt", string>;
+  applyGradleTask(text: string, language: string): string | undefined;
 };
 
-export const GRADLE_LINE = plugin.GRADLE_LINE;
+export const GRADLE_LINES = plugin.GRADLE_LINES;
 export const applyGradleTask = plugin.applyGradleTask;
 
 const METRO_REQUIRE = 'const { withLucent } = require("@lucent-lang/lucent/metro");';

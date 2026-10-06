@@ -57,3 +57,21 @@ export function counterKeys(text: string): string {
   for (const ch of text) counts[ch] = (counts[ch] ?? 0) + 1;
   return JSON.stringify(counts);
 }
+
+export function bytesFrom(end?: number): string {
+  const b = new Uint8Array([1, 2, 3, 1, 2, 3]);
+  const target = new Uint8Array(3);
+  target.set([1], end);
+
+  return [
+    b.indexOf(1, 1),
+    b.indexOf(3, -1),
+    b.indexOf(1, 10),
+    b.includes(1, 4),
+    b.includes(3, -1),
+    new Uint8Array(6).fill(9, 2, 4).join(""),
+    new Uint8Array(4).fill(5, -1).join(""),
+    new Uint8Array(4).fill(7, 1, end).join(""),
+    target.join(""),
+  ].join(",");
+}

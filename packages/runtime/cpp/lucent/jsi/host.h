@@ -61,11 +61,15 @@ struct ModuleDef {
 const ModuleDef* registeredModules(size_t& count);
 /// Implemented by generated code: resets module-level state for a new runtime.
 void resetModuleState();
+/// Implemented by generated code: the JS object of `e` when it is an
+/// instance of a Lucent class that extends Error (its class's prototype,
+/// its identity), else undefined.
+jsi::Value errorInstanceToJs(jsi::Runtime& rt, Host& host, const Error& e);
 
 /// What generated code and JavaScript proxies expect of this runtime: a
 /// change that breaks either takes a new number. The compiler's
 /// RUNTIME_ABI; generated code checks it as it builds.
-inline constexpr int kRuntimeAbi = 1;
+inline constexpr int kRuntimeAbi = 2;
 
 /// A module as the program was compiled: its name, and a hash of what
 /// JavaScript sees of it (its exports and their signatures).
@@ -172,6 +176,22 @@ class Host : public std::enable_shared_from_this<Host> {
   /// program, modules: {name: api}}`, `host` being this host's id.
   jsi::Object identity(jsi::Runtime& rt);
 
+  /// An exported module variable as JavaScript reads it: `toJs()`'s copy of
+  /// it, the same one each read while the variable holds the same value
+  /// (`===`), so JavaScript keeps one object, and its own changes to it,
+  /// until the module assigns another.
+  template <class T, class ToJs>
+  jsi::Value exported(jsi::Runtime& rt, const T& variable, ToJs toJs) {
+    auto it = exported_.find(&variable);
+    if (it != exported_.end() && strictEquals(*std::static_pointer_cast<const T>(it->second.value), variable)) {
+      return jsi::Value(rt, it->second.js);
+    }
+
+    jsi::Value js = toJs();
+    exported_.insert_or_assign(&variable, Exported{std::make_shared<const T>(variable), jsi::Value(rt, js)});
+    return js;
+  }
+
   // --- promises ---------------------------------------------------------
   /// Creates a JS promise; settle it later with resolve/reject on the JS thread.
   jsi::Value createPromise(jsi::Runtime& rt, uint64_t& id);
@@ -194,7 +214,8 @@ class Host : public std::enable_shared_from_this<Host> {
   /// own for the same instance.
   jsi::Value wrap(jsi::Runtime& rt, const Ref<Object>& instance, const char* key, PrototypeInit init);
 
-  /// Converts a Lucent error into a JS Error object (not thrown).
+  /// Converts a Lucent error into a JS Error object (not thrown): an
+  /// instance of a Lucent class that extends Error is its own JS object.
   jsi::Value errorToJs(jsi::Runtime& rt, const Error& e);
   /// Converts a caught JS exception into a Lucent error.
   static Error errorFromJs(jsi::Runtime& rt, const jsi::JSError& e);
@@ -220,6 +241,12 @@ class Host : public std::enable_shared_from_this<Host> {
     jsi::Function reject;
   };
 
+  /// What exported() last gave JavaScript of a variable, and its value then.
+  struct Exported {
+    std::shared_ptr<const void> value;
+    jsi::Value js;
+  };
+
   const RuntimeId id_;
   jsi::Runtime& rt_;
   JsPoster poster_;
@@ -232,6 +259,8 @@ class Host : public std::enable_shared_from_this<Host> {
   std::unordered_map<uint64_t, jsi::Function> functions_;
   std::unordered_map<std::string, jsi::Object> prototypes_;
   std::unordered_map<std::string, jsi::Value> modules_;
+  // Keyed by the variable's address: module variables live as long as the program.
+  std::unordered_map<const void*, Exported> exported_;
   // Keyed by the native instance: its JS object keeps it alive, so while
   // an entry's object lives, no other instance can have its address.
   std::unordered_map<const Object*, jsi::WeakObject> identities_;
@@ -257,6 +286,10 @@ using HostFn = jsi::HostFunctionType;
 void defineFunction(jsi::Runtime& rt, jsi::Object& target, const char* name, unsigned argc, HostFn fn);
 /// Defines an enumerable accessor property; `setter` may be null.
 void defineAccessor(jsi::Runtime& rt, jsi::Object& target, const char* name, HostFn getter, HostFn setter);
+/// Makes `proto`, the prototype of a Lucent class that extends Error, an
+/// Error's: Error.prototype is its prototype, and `name`, `message` and
+/// `stack` are the native error's.
+void defineErrorPrototype(jsi::Runtime& rt, Host& host, jsi::Object& proto);
 /// Exports a class: `name` is a factory function whose `prototype` is the
 /// class prototype. The JS proxy wraps it in a real constructor so `new` and
 /// `instanceof` work.

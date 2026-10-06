@@ -104,8 +104,9 @@ What a JavaScript callback returns to Lucent is checked the same way.
 - JavaScript calls `new` on an exported class, which checks the constructor's arguments, and `instanceof` works.
 - JavaScript gets the instance's own class: a subclass instance returned as its base type is an instance of the subclass.
 - Public fields, getters, setters and methods are on the prototype, and `readonly` fields can't be written. Reading an array or object field returns a new copy, and writing one copies the value in.
-- Static methods are on the constructor. Static fields aren't visible.
+- Static methods and fields are on the constructor, its own and those of its Lucent base classes. A static field reads and writes the native one, and a `readonly` one has no setter.
 - `private`, `protected` and `#private` members are hidden, and so is `[Symbol.dispose]()`.
+- An instance of a class that extends `Error` is `instanceof Error`, with `name`, `message` and `stack`. Thrown to JavaScript, it is the instance itself.
 - An interface value crosses as its class instance. From JavaScript, a plain object in its place throws a `TypeError`.
 
 ## Callbacks
