@@ -432,6 +432,20 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-06: The app imports a component as `lucent:views/<module>`.**
+TypeScript reads the React declarations `lucent build` writes
+(`types/views/<module>.d.ts`) through the `lucent:*` path `lucent init`
+already writes, and Metro's resolver (`withLucent`) maps the name to a
+generated module that requires the component's own, so both imports are
+one module and React Native registers the view once. _Why:_ TypeScript
+resolves `./x.lucent` to the source before any `paths`, `rootDirs` or
+ambient module, so no file under `.lucent` can type it; a declaration
+beside the source would also capture the platform files' own imports of
+it, and an editor plugin leaves `tsc` failing. Resolving the name to the
+generated proxy would load it twice, and React Native refuses a view
+registered twice. _Changed:_ C-VIEW v2.4, `lucent new view`'s import,
+architecture.md, views.md.
+
 **2026-10-06: Native JSX returns from any of setup's own code.** A
 component returns its platform views' JSX from its last statement, a
 PLATFORM branch or guard, a ternary's arms, or any condition of setup's
@@ -995,6 +1009,8 @@ prop, event or measuring entry.
   component's PLATFORM branches included, and its slot made in one
   (decisions log, 2026-10-06); an iOS attribute is checked against the
   oldest iOS, as an assignment in setup code is (LUCENT3007).
+- The app imports a component's React types as `lucent:views/<module>`,
+  which TypeScript and Metro both resolve (decisions log, 2026-10-06).
 
 <a id="t49"></a>
 

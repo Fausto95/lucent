@@ -14,6 +14,16 @@ a promise. [architecture.md](../architecture.md) describes how the
 compiler generates each piece. This record covers what the platform hosts
 do with them at run time.
 
+The app imports a component as `lucent:views/<module>`
+(`import { Card } from "lucent:views/card"`). TypeScript reads the React
+declarations `lucent build` writes to `types/views/<module>.d.ts` through
+the app's `lucent:*` tsconfig path; Metro resolves the name to a
+generated module that requires the component's own, so it and a relative
+`./card.lucent` import are one module and register the view once.
+TypeScript resolves the relative import to the `.lucent.ts` source, whose
+types are the platform's, not React's, and no file or path can change
+that, so only the `lucent:views` name gives the React types.
+
 ## Platform registration
 
 Each component has a registration name, derived from its identity, and a
