@@ -2348,7 +2348,8 @@ export interface BuildRecord {
 `BuildOptions` gains `signal` (aborted when a newer change makes the
 build stale; it stops before publishing anything) and `frozen`.
 `BuildOutcome` gains `actions`, `superseded`, `nativeInputs` (every
-Lucent package file the build read), `usage` (what the checked code uses
+Lucent package file the build read), `read` (every path its check read:
+the files, and the paths it resolved links from), `usage` (what the checked code uses
 of the SDKs) and `skipped` (the targets the project has code for that
 this build left out, and why).
 
@@ -2438,8 +2439,10 @@ export interface BuildIdentity {
 - **v1.5** (2026-10-04, proposed): the `check` node's inputs include
   every other file the check read, those outside the project as one
   `outside-project` input; `.lucent/check.json` and the native
-  package's `manifest.json` list them (`read`). Migration: none (the
-  first check or build after it runs again).
+  package's `manifest.json` list them (`read`), and the paths
+  resolution followed links from (`realpaths`, keyed on where each led;
+  not in the record, whose nodes name no machine path). Migration: none
+  (the first check or build after it runs again).
 
 ## C-TRACE: correlated tracing
 

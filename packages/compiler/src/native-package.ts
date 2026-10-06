@@ -19,7 +19,7 @@ import {
 import type { NativeInputs, PackagePath } from "./package-config.ts";
 import { inNativePackage } from "./package-files.ts";
 import { coreTypesPath } from "./program.ts";
-import { currentReads, readsKey } from "./reads.ts";
+import { currentReads, currentRealpaths, readsKey } from "./reads.ts";
 import { currentSdkIdentity, type SdkOptions } from "./sdk/schema.ts";
 import type { SwiftPackage } from "./package-schema.ts";
 import { compareVersions } from "./package-versions.ts";
@@ -89,33 +89,46 @@ export function inputsKey(files: string[], outDir: string, sdk?: SdkOptions): st
  * and a build's native package's manifest.
  */
 export interface CheckRecord {
-  /** The key of what it was given (inputsKey) and of the files it read. */
+  /** The key of what it was given (inputsKey), of the files it read and of where links led. */
   inputs: string;
   /** The files it read. */
   read: string[];
+  /** The paths resolution followed links from. */
+  realpaths: string[];
 }
 
-/** The record of a check given `key` that read `read` (CompileResult.read). */
-export function checkRecord(key: string, read: ReadonlyMap<string, string>): CheckRecord {
-  return { inputs: `${key}:${readsKey(read)}`, read: [...read.keys()].sort() };
+/** What a check read: its files (CompileResult.read) and where links led (CompileResult.realpaths). */
+export interface CheckReads {
+  read: ReadonlyMap<string, string>;
+  realpaths: ReadonlyMap<string, string>;
+}
+
+/** The record of a check given `key` that read `reads`. */
+export function checkRecord(key: string, { read, realpaths }: CheckReads): CheckRecord {
+  return {
+    inputs: `${key}:${readsKey(read)}:${readsKey(realpaths)}`,
+    read: [...read.keys()].sort(),
+    realpaths: [...realpaths.keys()].sort(),
+  };
 }
 
 /**
- * The files the check recorded in `file` (a CheckRecord, or a native
- * package's manifest) read, as they are now, when its result holds: it was
- * given `key`, and each file is as it found it. Undefined otherwise.
+ * What the check recorded in `file` (a CheckRecord, or a native package's
+ * manifest) read, as it is now, when its result holds: it was given `key`,
+ * each file is as it found it, and each path leads where it did. Undefined
+ * otherwise.
  */
-export function upToDate(file: string, key: string): ReadonlyMap<string, string> | undefined {
+export function upToDate(file: string, key: string): CheckReads | undefined {
   let last: Partial<CheckRecord> | null;
   try {
     last = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<CheckRecord> | null;
   } catch {
     return undefined;
   }
-  if (!last || !Array.isArray(last.read)) return undefined;
+  if (!last || !Array.isArray(last.read) || !Array.isArray(last.realpaths)) return undefined;
 
-  const read = currentReads(last.read);
-  return checkRecord(key, read).inputs === last.inputs ? read : undefined;
+  const reads = { read: currentReads(last.read), realpaths: currentRealpaths(last.realpaths) };
+  return checkRecord(key, reads).inputs === last.inputs ? reads : undefined;
 }
 
 function listFiles(dir: string): string[] {
@@ -309,6 +322,7 @@ export function writeNativePackage(
         modules: [...result.proxies.keys()].sort(),
         inputs: options.check?.inputs,
         read: options.check?.read,
+        realpaths: options.check?.realpaths,
         identity: result.identity,
       },
       null,

@@ -1044,7 +1044,8 @@ content read, or `missing` for a file it looked for and did not find.
 Those outside the project (the compiler's own, a linked package's) are
 one `outside-project` input, hashed on the contents of the files found
 there, so the node is the same wherever the project, the compiler and
-the working directory are.
+the working directory are. Where the links resolution followed led is
+left out: it names paths on this machine (see below).
 `startedAt` says when each timed step started (milliseconds from the
 build's start, outside the node hashes like the timings), so `lucent trace`
 (`src/cli/trace.ts`) lays the steps out as spans beside runtime traces; see
@@ -1054,10 +1055,13 @@ A check or build answers from the last one that passed while nothing it
 used changed. Its record (`.lucent/check.json`, or for a build the native
 package's `manifest.json`) keeps a key of what it was given (`inputsKey`:
 the sources, the compiler and runtime, the SDKs with the app's dependencies,
-the output location, the targets, the packages' native needs) and of the
-files it read, and lists those files; the next run reads them again
-(`upToDate`), so a dependency's `package.json` gaining an `exports` map, or
-a file a module imports types from, makes it check again. So does a lost
+the output location, the targets, the packages' native needs), of the
+files it read, and of where each path resolution followed a link from led
+(TypeScript's `realpath`), and lists those files and paths; the next run
+reads them again (`upToDate`), so a dependency's `package.json` gaining an
+`exports` map, a file a module imports types from, or a linked package
+replaced by an installed copy (whose files where the check read them may
+be the same while those they re-export differ) makes it check again. So does a lost
 record or usage report (`.lucent/sdk-usage.json`); `--frozen` always
 checks again, and `lucent build --force` always builds again (`lucent check`
 takes no `--force`).
@@ -1141,10 +1145,20 @@ content and mtime.
 
 `lucent dev` (and Metro's watcher, which runs it) watches the app and every
 Lucent package whose directory is outside it (workspace or linked
-packages), whole. A change rebuilds when a build reads the file: a module,
-a `package.json` or `lucent.json`, or a path a package lists (the build's
-`nativeInputs`). Dependencies and dot directories, where builds write, are
-never read, so a build never triggers another; nor does an event for a
+packages), whole, and the entries of each directory holding a file the
+last build read (for a file it looked for and did not find, the nearest
+directory there is), inside those too: Linux's recursive watch reports
+neither a link swapped for a directory nor what then changes in it. A
+directory replaced since it was watched (another inode at its path) is
+watched again after the next build. A change rebuilds when the last
+build read the file, wherever it is: a file its check read or a path it
+resolved a link from (the build's `read`, the paths its record keys on),
+or a path a package lists (`nativeInputs`); so does a directory between
+a watched one and such a file being created, removed or swapped for a
+link. In the app and its packages, outside dependencies and dot
+directories, so does any module, `package.json` or `lucent.json`, which
+the next build may read whatever the last one did. No build reads what
+builds write, so a build never triggers another; nor does an event for a
 file last changed before the last build started. Saves are debounced; a
 change during a build aborts it (`BuildOptions.signal`) before it writes,
 and one build follows.

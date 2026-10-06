@@ -105,6 +105,11 @@ export interface BuildOutcome {
   superseded?: boolean;
   /** Every Lucent package file the build read, absolute: lucent.json files and listed native paths. */
   nativeInputs: string[];
+  /**
+   * Every path the check read, absolute (none when it did not get to check):
+   * the files (CompileResult.read) and the paths it resolved links from.
+   */
+  read: string[];
   /** The build's nodes and required action, as written to .lucent/build-record.json. */
   record: BuildRecord;
   /** What the checked code uses of the SDKs, as written to .lucent/sdk-usage.json. */
@@ -151,6 +156,7 @@ export async function buildProject(
   let files: string[] = [];
   let native: NativeInputs;
   let nativeInputs: string[] = [];
+  let read: string[] = [];
 
   // Every return goes through outcome(), which records the build.
   const graph = new BuildGraph(options.mode);
@@ -174,6 +180,7 @@ export async function buildProject(
       next,
       actions,
       nativeInputs,
+      read,
       record,
       skipped,
       ms: Date.now() - t0,
@@ -430,8 +437,9 @@ export async function buildProject(
     inputsKey(files, outDir, sdk) +
     (platforms ? `:${platforms.join(",")}` : "") +
     `:${createHash("sha256").update(JSON.stringify(native.manifest)).digest("hex").slice(0, 12)}`;
-  // A check given the same inputs passed before, and every file it read is as it found it:
-  // its record says (a build's, its native package's manifest).
+  // A check given the same inputs passed before, every file it read is as it found it, and
+  // every link resolution followed leads where it did: its record says (a build's, its
+  // native package's manifest).
   // Its usage report is one of its outputs: lost or unreadable, it runs again.
   const checked = path.join(root, ".lucent/check.json");
   const cacheable = !options.force && !lock && usageReadable(path.join(root, USAGE_FILE));
@@ -439,7 +447,8 @@ export async function buildProject(
     ? upToDate(build ? path.join(outDir, "manifest.json") : checked, key)
     : undefined;
   if (held) {
-    graph.record("check", "check", "cached", { inputs: checkInputs(held) });
+    read = [...new Set([...held.read.keys(), ...held.realpaths.keys()])];
+    graph.record("check", "check", "cached", { inputs: checkInputs(held.read) });
     if (!build) return outcome({ ok: true, upToDate: true, modules });
 
     graph.record("generate", "generate", "cached", { outputs: packageArtifacts(root, outDir) });
@@ -526,6 +535,7 @@ export async function buildProject(
   // Until the Gradle build resolves them, Android's imports are untyped in the iOS program.
   const deferred: Platform[] = deferAndroid && !platforms?.includes("android") ? ["android"] : [];
   const result = compile(files, { platforms, sdk, extensions, deferred });
+  read = [...new Set([...result.read.keys(), ...result.realpaths.keys()])];
   const relative = (d: Diagnostic) => ({ ...d, file: d.file && path.relative(root, d.file) });
   const diagnostics = result.diagnostics.map(relative);
   const warnings = (result.warnings ?? []).map(relative);
@@ -595,7 +605,7 @@ export async function buildProject(
     status: "ok",
     ms: Date.now() - tCheck,
   });
-  const check = checkRecord(key, result.read);
+  const check = checkRecord(key, result);
   if (!build) {
     fs.mkdirSync(path.dirname(checked), { recursive: true });
     fs.writeFileSync(checked, `${JSON.stringify(check)}\n`);

@@ -1403,6 +1403,43 @@ describe("lucent check", () => {
     expect(r.out).toContain("LUCENT9001");
     expect(r.status).toBe(1);
   });
+
+  it("checks again when a linked package is replaced by a copy whose barrel re-exports other types", () => {
+    const root = project();
+    const installed = path.join(root, "node_modules/shapes");
+    // The same package.json and index.d.ts in both: only the file it re-exports differs.
+    const shapes = (dir: string, width: string) => {
+      fs.writeFileSync(
+        path.join(dir, "package.json"),
+        JSON.stringify({ name: "shapes", version: "1.0.0", types: "index.d.ts" }),
+      );
+      fs.writeFileSync(path.join(dir, "index.d.ts"), 'export * from "./shape";\n');
+      fs.writeFileSync(
+        path.join(dir, "shape.d.ts"),
+        `export interface Shape { width: ${width}; height: number }\n`,
+      );
+    };
+
+    const linked = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-shapes-"));
+    shapes(linked, "number");
+    fs.mkdirSync(path.dirname(installed));
+    fs.symlinkSync(linked, installed);
+    fs.writeFileSync(
+      path.join(root, "a.lucent.ts"),
+      'import type { Shape } from "shapes";\nexport function area(s: Shape): number { return s.width * s.height; }\n',
+    );
+    expect(lucent(root, "check").status).toBe(0);
+    expect(lucent(root, "check").out).toMatch(/unchanged since the last check/);
+
+    // The linked copy stays as it was: only where the link led changes.
+    fs.unlinkSync(installed);
+    fs.mkdirSync(installed);
+    shapes(installed, "string");
+    const r = lucent(root, "check");
+    expect(r.out).not.toMatch(/unchanged/);
+    expect(r.out).toContain("LUCENT9001");
+    expect(r.status).toBe(1);
+  });
 });
 
 describe("--json", () => {

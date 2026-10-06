@@ -80,7 +80,7 @@ export {
   satisfies,
   type LucentPackage,
 } from "./packages.ts";
-export { currentReads, foundFile, readsKey } from "./reads.ts";
+export { currentReads, currentRealpaths, foundFile, readsKey } from "./reads.ts";
 export {
   EXTENSION_FIELDS,
   PACKAGE_FIELDS,
@@ -158,10 +158,12 @@ export interface CompileResult extends EmitResult {
   sdkUses?: UsedSymbol[];
   /** Every file the compile read from disk, with what it found there (see currentReads). */
   read: ReadonlyMap<string, string>;
+  /** Every path resolution followed links from, with where it led (see currentRealpaths). */
+  realpaths: ReadonlyMap<string, string>;
 }
 
 /** What a program, or each target's, compiles to: compile() adds the files they read. */
-type Compiled = Omit<CompileResult, "read">;
+type Compiled = Omit<CompileResult, "read" | "realpaths">;
 
 export interface CompileOptions {
   /**
@@ -197,6 +199,7 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
   const {
     value: { value: result, uses },
     read,
+    realpaths,
   } = recordReads(() =>
     recordSdkUses(() =>
       withExtensions(options.extensions, () =>
@@ -216,6 +219,7 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
     diagnostics: result.diagnostics.map(explained),
     warnings: (result.warnings ?? []).map(explained),
     read,
+    realpaths,
   };
 }
 

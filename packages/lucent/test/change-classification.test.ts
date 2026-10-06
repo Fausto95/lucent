@@ -350,6 +350,7 @@ describe("lucent dev's watch", () => {
         ".lucent/native/js/extra.js": "// written by a build\n",
         "android/app/build/outputs/app.apk": "apk",
         "App.tsx": "export const App = () => 1;\n",
+        "node_modules/left-pad/index.js": "module.exports = () => {};\n",
       });
       fs.appendFileSync(path.join(pkg, "README.md"), "more\n");
       await settle();
@@ -359,4 +360,64 @@ describe("lucent dev's watch", () => {
       s.stop();
     }
   }, 60_000);
+
+  it("rebuilds when a file the last build read changes: in the app, its node_modules, or outside it", async () => {
+    const { app } = workspace();
+    const work = path.dirname(app);
+    const shapes = (dir: string, width: string) =>
+      write(dir, {
+        "package.json": JSON.stringify({ name: "shapes", version: "1.0.0", types: "index.d.ts" }),
+        "index.d.ts": 'export * from "./shape";\n',
+        "shape.d.ts": `export interface Shape { width: ${width} }\n`,
+      });
+
+    // Types from a file in the app, and from a package linked from outside it (not a Lucent one).
+    shapes(path.join(work, "shapes"), "number");
+    fs.symlinkSync(path.join(work, "shapes"), path.join(app, "node_modules/shapes"));
+    write(app, {
+      "size.ts": "export interface Size { scale: number }\n",
+      "a.lucent.ts":
+        'import type { Shape } from "shapes";\nimport type { Size } from "./size";\nexport function area(s: Shape, z: Size): number { return s.width * z.scale; }\n',
+    });
+
+    const { s, builds, until } = session(app);
+    const failing = () => s.store.get().problems.some((p) => p.code === "LUCENT9001");
+
+    try {
+      await until(1);
+      expect(builds[0]!.ok).toBe(true);
+      let settled = await quiet(builds);
+
+      write(app, { "size.ts": "export interface Size { scale: string }\n" });
+      await until(settled + 1, 10_000);
+      settled = await quiet(builds);
+      expect(failing()).toBe(true);
+
+      write(app, { "size.ts": "export interface Size { scale: number }\n" });
+      await until(settled + 1, 10_000);
+      settled = await quiet(builds);
+      expect(failing()).toBe(false);
+
+      shapes(path.join(work, "shapes"), "string");
+      await until(settled + 1, 10_000);
+      settled = await quiet(builds);
+      expect(failing()).toBe(true);
+
+      // An installed copy replaces the link.
+      fs.unlinkSync(path.join(app, "node_modules/shapes"));
+      shapes(path.join(app, "node_modules/shapes"), "number");
+      await until(settled + 1, 10_000);
+      settled = await quiet(builds);
+      expect(failing()).toBe(false);
+
+      write(app, {
+        "node_modules/shapes/shape.d.ts": "export interface Shape { width: string }\n",
+      });
+      await until(settled + 1, 10_000);
+      await quiet(builds);
+      expect(failing()).toBe(true);
+    } finally {
+      s.stop();
+    }
+  }, 120_000);
 });

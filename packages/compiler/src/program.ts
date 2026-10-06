@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { findOwnFiles, LUCENT_EXTENSION, lucentPackageOf, lucentPackages } from "./packages.ts";
 import path from "node:path";
-import { directoryExists, fileExists, readText } from "./reads.ts";
+import { directoryExists, fileExists, readText, realpath } from "./reads.ts";
 import { fileURLToPath } from "node:url";
 import { ts as dts } from "@lucent-lang/codegen";
 import ts from "typescript";
@@ -377,6 +377,8 @@ function compilerHost(
   host.readFile = (f) => virtualSdk(f) ?? readSource?.(path.resolve(f)) ?? readText(f);
   host.fileExists = (f) =>
     readSource?.(path.resolve(f)) !== undefined || virtualSdk(f) !== undefined || fileExists(f);
+  // Resolution reads a file found through a link at its target: where it led is noted too.
+  host.realpath = (f) => (virtualSdk(f) === undefined ? realpath(f) : f);
   // Module resolution skips files in directories that do not exist.
   host.directoryExists = (d) => {
     const rel = path.relative(SDK_ROOT, path.resolve(d));
