@@ -84,6 +84,15 @@ function jvmMember(schema: SdkModuleSchema, cls: SdkClassSchema, member: OriginM
 
   if ("method" in member) {
     const m = member.method;
+
+    // Its descriptor ends with the Continuation the declaration leaves out: named as Kotlin does.
+    if (m.kotlin?.suspend)
+      return line(
+        schema,
+        `Kotlin suspend fun ${owner}.${m.name}`,
+        "a Promise of what it completes with",
+      );
+
     return line(
       schema,
       `${owner}#${m.java ?? m.name}${descriptorOf(m, m.returns, [...(cls.typeParams ?? []), ...(m.typeParams ?? [])])}`,
