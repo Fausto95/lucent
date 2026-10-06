@@ -768,11 +768,7 @@ export function staticCall(
       // Array.from({ length: n }, (_, i) => ...)
       if (ts.isObjectLiteralExpression(src)) {
         const lenProp = src.properties.length === 1 ? src.properties[0] : undefined;
-        if (
-          !lenProp ||
-          !ts.isPropertyAssignment(lenProp) ||
-          lenProp.name.getText() !== "length"
-        )
+        if (!lenProp || !ts.isPropertyAssignment(lenProp) || lenProp.name.getText() !== "length")
           fail(
             src,
             Codes.UnsupportedBuiltin,
