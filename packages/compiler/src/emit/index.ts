@@ -855,6 +855,23 @@ function jsonWriters(ctx: Ctx): { decls: cpp.Decl[]; defs: cpp.Decl[] } {
           fields.add(memberName(m));
     }
     const body = [...object(cpp.self, [...fields]), cpp.ret(cpp.bool(true))];
+    const called = [cpp.ifStmt(toJson, [result(cpp.self)]), ...body];
+
+    // A toJSON field is an own property, which shadows any toJSON method on the prototype.
+    const field = chain.flatMap(({ info }) => toJsonFields(info))[0];
+    if (field) {
+      const t = ctx.reg.lower(ctx.checker.getTypeAtLocation(field), field);
+      const fn = t.k === "opt" ? t.inner : t.k === "union" ? t.ms.find((m) => m.k === "fn") : t;
+      if (fn?.k !== "fn") return body;
+      if (t !== fn || fn.params.length || fn.ret.k === "promise")
+        fail(
+          field,
+          Codes.UnsupportedClassFeature,
+          "a toJSON field always holds a function without parameters that is not async: JSON.stringify writes its value",
+        );
+      return called;
+    }
+
     for (const { info } of chain) {
       const method = info.decl.members.find(
         (m): m is ts.MethodDeclaration =>
@@ -870,10 +887,20 @@ function jsonWriters(ctx: Ctx): { decls: cpp.Decl[]; defs: cpp.Decl[] } {
           Codes.UnsupportedClassFeature,
           "toJSON takes no parameters and is not async or generic: JSON.stringify writes its value",
         );
-      return [cpp.ifStmt(toJson, [result(cpp.self)]), ...body];
+      return called;
     }
     return body;
   }
+}
+
+/** A class's own fields named toJSON, parameter properties included. */
+function toJsonFields(info: ClassInfo): (ts.PropertyDeclaration | ts.ParameterDeclaration)[] {
+  const ctor = info.decl.members.find(ts.isConstructorDeclaration);
+  const declared = info.decl.members.filter(
+    (m): m is ts.PropertyDeclaration =>
+      ts.isPropertyDeclaration(m) && !ts.isPrivateIdentifier(m.name) && !declaredOnly(m),
+  );
+  return [...parameterProperties(ctor), ...declared].filter((m) => memberName(m) === "toJSON");
 }
 
 const hasModifier = (m: ts.Node, kind: ts.SyntaxKind) =>

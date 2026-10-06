@@ -38,7 +38,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT2001`](#lucent2001) | `any`, or `unknown` outside a `catch` clause: every value needs a native type. |
 | [`LUCENT2002`](#lucent2002) | A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, an index signature mixed with properties, a rest parameter or an async generator. |
 | [`LUCENT2003`](#lucent2003) | An object used as a type with a different shape; object types must match exactly to share a native representation. |
-| [`LUCENT2004`](#lucent2004) | A collection used where its element type would change (`A[]` as `(A \| B)[]`); annotate the value with the target type. |
+| [`LUCENT2004`](#lucent2004) | A collection used where its element type would change (`A[]` as `(A \| B)[]`), or a generic class instance as another instantiation; annotate the value with the target type. |
 | [`LUCENT2005`](#lucent2005) | A union JavaScript values cannot be told apart by at the boundary; add a string-literal discriminant. |
 | [`LUCENT2006`](#lucent2006) | A value that cannot cross the JavaScript boundary, such as a generator, a match result, an `AbortSignal` or a platform object. |
 | [`LUCENT2007`](#lucent2007) | A generic function or class exported to JavaScript; export a concrete wrapper. |
@@ -516,7 +516,7 @@ export function flat(p: Point3): number {
 
 **Collection used with another element type**
 
-An array of numbers and an array of `number | string` have different native element types. One can't be used as the other: writes through the wider type wouldn't fit.
+Arrays of `number` and of `number | string` have different native element types, and writes through the wider type wouldn't fit. Each instantiation of a generic class (`Box<number>`, `Box<number | undefined>`) is also a native class of its own. A `new` is built as the instantiation its value becomes, but an existing instance can't be converted: a copy would be another object.
 
 **Fix:** annotate the collection with the element type it is used as.
 

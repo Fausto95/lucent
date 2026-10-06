@@ -5,4 +5,5 @@ print(mod.nested());
 print(mod.shapes());
 print(mod.toJsonUndefined());
 print(mod.toJsonOnce());
+print(mod.toJsonField());
 print(mod.generics());

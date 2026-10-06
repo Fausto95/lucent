@@ -8,6 +8,7 @@ export default function run(mod, print, lucentClass, mods) {
   print(mod.shapes());
   print(mod.toJsonUndefined());
   print(mod.toJsonOnce());
+  print(mod.toJsonField());
   print(mod.generics());
 
 }
