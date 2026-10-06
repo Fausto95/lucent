@@ -318,6 +318,15 @@ static void arrays() {
   CHECK_STR(flags.join(), "true,false");
   Array<Opt<double>> opts{Opt<double>(1.0), Opt<double>(undefined), Opt<double>(null)};
   CHECK_STR(opts.join(S("-")), "1--");
+  // Growing past the end would make holes, which no element type holds:
+  // undefined elements are not holes (forEach visits them, indexOf finds them).
+  CHECK_THROWS(opts.set(5, Opt<double>(2.0)), "RangeError");
+  CHECK_THROWS(opts.setLength(4), "RangeError");
+  CHECK_THROWS(a.setLength(10), "RangeError");
+  CHECK(opts.size() == 3);
+  opts.set(3, Opt<double>(2.0));
+  opts.setLength(1);
+  CHECK_STR(opts.join(S("-")), "1");
   // Stable sort
   Array<String> words{S("bb"), S("a"), S("cc"), S("d")};
   words.sort([](const String& x, const String& y) { return static_cast<double>(x.length()) - static_cast<double>(y.length()); });
