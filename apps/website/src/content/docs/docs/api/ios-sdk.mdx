@@ -96,7 +96,8 @@ export async function memory(): Promise<string> {
 | Nested types | Their names joined with `_`: Swift's `UIDevice.BatteryState` is `UIDevice_BatteryState`, and `AES.GCM` is `AES_GCM`. |
 | Methods | Swift's base name, with the argument labels dropped: `evaluatePolicy(_:localizedReason:)` is `evaluatePolicy(policy, reason)`. |
 | Methods TypeScript couldn't tell apart | The later ones keep their labels, appended: `resize(height:)` is `resizeHeight`. A method named like a property keeps them too, and the property keeps the name. |
-| Initializers | `constructor`, labels dropped: `new CLLocation(48.85, 2.35)`. A class that declares none has its superclass's. |
+| Initializers | `constructor`, labels dropped: `new CLLocation(48.85, 2.35)`. A class that declares none has its superclass's. An Objective-C factory Swift imports as an initializer is one too: `+widgetWithLabel:` is `new Widget(label)`. |
+| Swift initializers that differ only by their labels | Static factories named after the labels: `init(service:)` is `Keychain.withService(service)`. One without labels stays the `constructor`. |
 | Protocol requirements | The base name and the labels joined with `_`: `locationManager(_:didUpdateLocations:)` is `locationManager_didUpdateLocations`. |
 | C functions and constants | Their C names: `SecItemCopyMatching`, `kSecClass`. |
 | Typed string constants (`NS_TYPED_ENUM`) | Static string properties of their type: `FileAttributeKey.size`. |
@@ -121,7 +122,7 @@ export async function memory(): Promise<string> {
 | Objective-C enums (`NS_ENUM`) | A TypeScript `enum`. Each value used is checked against the SDK's when the native code compiles. |
 | Option sets (`NS_OPTIONS`) | The `enum`, or `0` for the empty set. Combine cases with `\|`. |
 | C structs | Object types, copied: `CGRect` is `{ origin: { x, y }, size: { width, height } }`. |
-| CoreFoundation handles (`CGImage`) | Objects. Lucent follows CoreFoundation's Create and Copy rule to know which results it releases. |
+| CoreFoundation handles (`CGImage`) | Objects. The C functions Swift imports as their members are members: `cgImage.width`, `cgImage.cropping(rect)`. Lucent follows CoreFoundation's Create and Copy rule to know which results it releases. |
 | Generic classes (`NSCache<KeyType, ObjectType>`) | Generic classes: `new NSCache<string, number>()`. |
 
 A type of a module your code doesn't import has its name only. Import its module, a type import being enough, to use its members: `NSNumber`'s come from `lucent:ios/Foundation`.
@@ -238,6 +239,8 @@ export async function digest(data: Uint8Array): Promise<Uint8Array> {
 | An `async` method, function or getter | A promise. Methods and functions take an optional `AbortSignal` last: aborting rejects the promise at once and cancels the task. |
 | Default arguments at the end | Optional parameters. A defaulted parameter of a type Lucent can't pass is left out, and always takes its default. |
 | A generic member | A generic member: Lucent generates one Swift function per combination of type arguments your code uses. |
+| A tuple | A TypeScript tuple, its labels the elements' names: `(min: Int, max: Int)` is `[min: number, max: number]`. |
+| A closure passed to or returned by Swift | A function. Its parameters and result must be numbers, booleans, strings or Objective-C objects. |
 | A type that is `ContiguousBytes`, such as a digest or a key | An object with a `bytes` property: a `Uint8Array` copy of its bytes. |
 | `some DataProtocol`, `some StringProtocol`, `some Collection<E>` | `Uint8Array`, `string`, `E[]`. |
 | A member a module's protocol extension gives a type | A member of that type: `SHA256.hash` comes from `HashFunction`. |
@@ -282,4 +285,4 @@ Each stage needs the one before, and a `-` means no evidence for that stage, not
 
 `--members` lists every member with its stage and reason, and `--check <baseline>` fails when a module's unrepresentable share grows. The stages and flags are the same for Android packages. [lucent sdk coverage](/docs/api/cli/#lucent-sdk-coverage) lists the flags.
 
-The Swift shapes left out are [TA33](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta33). The roadmap lists every [known limitation](/docs/releases/roadmap/#known-limitations).
+Through Swift, optional numbers and booleans, Objective-C enums, tuples holding optional values or C structs, and closures of other types don't cross yet. Members using them carry the reason, and so do those with `inout` parameters. The roadmap lists every [known limitation](/docs/releases/roadmap/#known-limitations).

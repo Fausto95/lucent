@@ -290,7 +290,7 @@ A value that can't cross is `unsupported`, with its reason. The backend's ABI ru
 - **Objective-C blocks**: a block native code gives back takes no blocks.
 - **Objective-C pointers**: a pointer a block or requirement receives is written back only while the platform waits, and only to a number or enum.
 - **JNI**: an array of a type parameter's values can't be passed, since its Java class depends on the values. Kotlin functions taking or giving functions are refused.
-- **Swift shims**: scalars, Swift enums and objects cross. Optionals of scalars, Objective-C enums and closures don't yet.
+- **Swift shims**: scalars, Swift enums, objects and tuples cross, and closures as Objective-C blocks of numbers, booleans, strings and Objective-C objects. Optional scalars and closures, Objective-C enums, and tuples of optional values or C structs don't yet.
 - **Kotlin source**: a vararg's values and Kotlin's `Char` have no Lucent value yet.
 
 A value a use may leave out is `omissible`: an argument with a default, or one a block offers a Lucent function. Its refusal counts only against the uses that give or take it (`takenReason`).

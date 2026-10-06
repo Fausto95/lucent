@@ -64,7 +64,7 @@ StoreKit 2 is Swift only: `Product` and `Transaction` are Swift structs, and bot
 - Both `async` calls take `signal` last, so aborting it when the screen goes away cancels them.
 - `Product.products` returns only products set up in App Store Connect, or in a StoreKit configuration file while you develop.
 - `Transaction.latest` returns an enum with payloads, which is a union on `kind`. Ruling out the `unverified` case narrows it to `verified`, whose payload `value` is the transaction.
-- [Swift-only APIs](/docs/api/ios-sdk/#swift-only-apis) gives the type each Swift shape has.
+- A tuple is a TypeScript tuple and a closure is a function, both ways. [Swift-only APIs](/docs/api/ios-sdk/#swift-only-apis) gives the type each Swift shape has.
 
 ## Structs change in place
 
@@ -90,4 +90,4 @@ A member Swift marks `@MainActor` compiles only in code the main thread runs (`L
 
 ## Rebuild the app
 
-Your first Swift-only call adds a Swift file to the native package's pod. Run `pod install`, then rebuild the app, as [what a build changed](/docs/architecture/builds/#actions-come-from-what-a-build-changed) says. Swift shapes Lucent doesn't bind are listed under [known limitations](/docs/releases/roadmap/#known-limitations).
+Your first Swift-only call adds a Swift file to the native package's pod. Run `pod install`, then rebuild the app, as [what a build changed](/docs/architecture/builds/#actions-come-from-what-a-build-changed) says. [What isn't bound](/docs/api/ios-sdk/#what-isnt-bound) lists the Swift shapes Lucent leaves out.
