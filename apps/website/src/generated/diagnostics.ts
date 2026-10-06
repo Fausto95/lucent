@@ -17,9 +17,9 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT1002",
     "title": "Unsupported operator",
-    "summary": "An operator the subset doesn't support, such as `delete`, `instanceof` with a generic class, or `in` on a class instance, a union or an object type's optional field. A loose `==` that JavaScript converts for, or comparing two functions, is refused too.",
-    "details": "Objects in Lucent have a fixed native layout, so an operator that adds or removes properties at run time (`delete`) has no native equivalent. `in` works on records (`Record<string, T>`) and object types. An optional field is stored either way, so a native object can't tell one that was never set from one set to `undefined`: `in` with that field, a computed key on a type that has one, and `for…in` over such a type are refused. Union members are told apart by a discriminant field such as `kind`. Two functions cannot be compared, because a function value has no stable identity (a named function is a new value at each use).",
-    "fix": "use a Map or a Record for keys that come and go, and compare an optional field with `undefined` instead of testing it with `in`",
+    "summary": "An operator the subset doesn't support: `delete`, `instanceof` with a generic class, or `in` on a class, a union or an optional field. A loose `==` that JavaScript converts for, or comparing two functions, is refused too.",
+    "details": "Objects in Lucent have a fixed native layout, so `delete`, which removes a property at run time, has no native equivalent. An optional field is stored even when unset, so `in` and `for…in` can't tell it from one set to `undefined`. Two functions can't be compared: a function value has no stable identity (a named function is a new value at each use).",
+    "fix": "use a Map or Record for changing keys, compare an optional field with `undefined`, and tell union members apart by a discriminant",
     "wrong": {
       "example.lucent.ts": "export function clear(tags: { name?: string }): { name?: string } {\n  delete tags.name;\n  return tags;\n}\n"
     },
@@ -56,8 +56,8 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT1005",
     "title": "Unsupported class feature",
-    "summary": "A class feature outside the subset, such as extending a built-in other than `Error`, an override that changes the native signature, a static block or a decorator.",
-    "details": "Classes compile to C++ classes. A subclass of `Map` or `Array` would inherit the runtime's container internals. An override whose parameters or result differ from the base method's can't share its native slot. A decorator runs when the class is defined and may replace the class or member it decorates, which a compiled class can't be.",
+    "summary": "A class feature outside the subset: extending a built-in other than `Error`, an override with another native signature, a static block or a decorator.",
+    "details": "Classes compile to C++ classes, so a subclass of `Map` or `Array` would inherit the runtime's container internals. An override whose parameters or result differ from the base method's can't share its native slot. A decorator runs when the class is defined and may replace the class or member it decorates, which a compiled class can't be.",
     "fix": "hold the built-in in a field instead of extending it, and keep overrides' signatures the same as the base method's",
     "wrong": {
       "example.lucent.ts": "class Counts extends Map<string, number> {}\nexport function size(): number {\n  return new Counts().size;\n}\n"
@@ -82,7 +82,7 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT1007",
     "title": "Call Lucent cannot compile",
-    "summary": "A call Lucent cannot compile, such as spread arguments to a function that takes a fixed number of parameters (only built-ins such as `push` and `Math.max` take them), or a platform class without a constructor binding.",
+    "summary": "A call Lucent cannot compile: spread arguments to anything but a built-in such as `push`, or a platform class without a constructor binding.",
     "details": "Native calls pass a fixed number of arguments of known types. Spreading an array or a tuple into ordinary parameters has no native form. Neither does a platform API called as a promise where it has none, or a platform class without an initializer.",
     "fix": "pass the arguments one by one",
     "wrong": {
@@ -148,7 +148,7 @@ export const explanations: { code: string; title: string; summary: string; detai
     "code": "LUCENT2002",
     "title": "Type without a native representation",
     "summary": "A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, an index signature mixed with properties, a rest parameter or an async generator.",
-    "details": "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout. A function with a rest parameter, and an `AsyncGenerator`, have no native signature yet. A native member whose types cannot cross yet is named with its symbol and artifact: wrap it in Swift or Kotlin of your own.",
+    "details": "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout. A native member whose types cannot cross yet is named with its symbol and artifact: wrap it in Swift or Kotlin of your own.",
     "fix": "spell the combined type out as one object type, or use a concrete type",
     "wrong": {
       "example.lucent.ts": "type Named = { name: string };\ntype Aged = { age: number };\nexport function label(p: Named & Aged): string {\n  return `${p.name} (${p.age})`;\n}\n"
