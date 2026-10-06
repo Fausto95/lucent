@@ -113,3 +113,12 @@ export function dollarPatterns(): string[] {
 export function localeCase(words: string[]): string {
   return words.map((w) => `${w.toLocaleUpperCase()}/${w.toLocaleLowerCase()}`).join(" ");
 }
+
+/** split's limit goes through ToUint32: -1 is 2³² − 1, and 2³² is 0. */
+export function splitLimits(limit: number): string {
+  return [
+    "a,b,c".split(",", limit).join("|"),
+    "a,b,c".split(/,/, limit).join("|"),
+    "abc".split("", limit).join("|"),
+  ].join(" / ");
+}
