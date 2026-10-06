@@ -2529,7 +2529,9 @@ Last recorded runs:
 - Native views' JSX (T48): a plain view's children have no layout (a
   `Flex`'s are Yoga's, [T50](#t50)), and a list's item is one element
   ([T49](#t49)); its rules read declarations, not behavior (Android's
-  AdapterView declares `addView(View, int)` and throws from it).
+  AdapterView declares `addView(View, int)` and throws from it). A root
+  returned under a runtime condition is chosen once per mount: a later
+  change of what the condition read does not swap it.
 - The bare app's FlatList crash ([TA25](#ta25)) and the iOS native-only
   slot move ([TA26](#ta26)) are in review.
 
