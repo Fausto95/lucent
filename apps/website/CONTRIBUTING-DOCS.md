@@ -6,11 +6,11 @@ runs the same script with `--check`.
 
 ## Sections and kinds of page
 
-The docs are four sections, each a tab with its own sidebar, listed in
-`src/docs/nav.ts`: **Guides** (tasks, in any order after Get started),
+The docs are five sections, each a tab with its own sidebar, listed in
+`src/docs/nav.ts`: **Guides** (tasks, in any order after The Basics),
 **Packages** (writing a Lucent package), **API** (the exact rules and every
-API) and **Architecture** (how Lucent works, then Internals for
-contributors). A page lives under its section's directory, and a landing
+API), **Architecture** (how Lucent works, then Internals for
+contributors) and **Releases** (the roadmap and the changelog). A page lives under its section's directory, and a landing
 page `x` is `x.mdx` beside `x/`, never `x/index.mdx`.
 
 | Kind        | Reader's question                         | Style                                                            | Length budget             |
