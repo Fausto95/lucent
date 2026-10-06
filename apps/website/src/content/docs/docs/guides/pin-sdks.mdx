@@ -31,13 +31,13 @@ A frozen build fails when an installed SDK, pod or Gradle library differs from t
 lucent sdk diff shows what the installed SDKs change for the app; lucent sdk lock records them
 ```
 
-Here the code started to use a member the lock doesn't record: run `lucent sdk lock` again, and commit the lock with the code. A frozen build also fails when the SDK of a locked platform is missing. On a CI machine without Xcode, build Android alone with `--frozen --platforms android`.
+Here the code started to use a member the lock doesn't record: run `lucent sdk lock` again, and commit the lock with the code. A frozen build also fails when it would skip a locked platform: its SDK is missing, or the Gradle build is left to compile Android. On a CI machine without Xcode, build Android alone with `--frozen --platforms android`.
 
 Lucent reads the selected Xcode and the newest Android platform installed. To build against the locked ones, select that Xcode and set [`LUCENT_ANDROID_PLATFORM`](/docs/api/environment-variables/#variables).
 
 ## Check a new SDK before you switch
 
-After you install a new Xcode or Android SDK, compare it with the lock:
+Lucent reads a new Xcode or Android SDK on the next build, and checks your code against it. Before you switch, compare it with the lock:
 
 ```sh title="terminal"
 npx lucent sdk diff

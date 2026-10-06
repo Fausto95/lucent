@@ -152,6 +152,7 @@ No class is recognized by name: a Play services `Task` is a Java object like any
 - A function goes where Java takes an interface with one abstract method. The same function passed twice is the same Java object, so a listener added with one call is removed with another.
 - A default method is optional to implement. Calling one takes a `!`: `manager.getCredential!(context, request)`.
 - A method Java calls that returns nothing is queued on the Lucent thread. One that returns a value runs while Java waits, holding the lock. [Concurrency](/docs/api/language/concurrency/) defines the lock.
+- A method Java calls can't take a `char` yet, nor return an array or a list.
 - An `async` method implements a Kotlin interface's `suspend` member. Kotlin suspends until its promise settles, and a rejection throws there.
 
 [Implement a delegate](/docs/guides/implement-a-delegate/) keeps a listener registered and cleans it up.
