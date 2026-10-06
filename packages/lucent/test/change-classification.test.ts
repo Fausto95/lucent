@@ -342,7 +342,9 @@ describe("lucent dev's watch", () => {
       settled = await quiet(builds);
       expect(failing()).toBe(false);
 
-      write(app, { "node_modules/shapes/shape.d.ts": "export interface Shape { width: string }\n" });
+      write(app, {
+        "node_modules/shapes/shape.d.ts": "export interface Shape { width: string }\n",
+      });
       await until(settled + 1, 10_000);
       await quiet(builds);
       expect(failing()).toBe(true);
