@@ -346,6 +346,11 @@ export interface NamesIndex {
       options?: boolean;
       /** An Objective-C class's superclass, by USR. */
       inherits?: string;
+      /**
+       * The Swift value type that bridges to this Objective-C class
+       * (`Foundation.URLRequest` for NSURLRequest), which Swift APIs take.
+       */
+      value?: string;
       /** The Objective-C protocols a class conforms to, by USR, its superclasses' included. */
       conforms?: string[];
       /**
@@ -481,7 +486,11 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
     const cls = member.declarationFragments?.find(
       (f) => f.kind === "typeIdentifier" && objcClass(f.preciseIdentifier ?? ""),
     );
-    if (cls) aliases[r.target] = [cls];
+    if (!cls) continue;
+    aliases[r.target] = [cls];
+    const objc = types[cls.spelling];
+    const valueType = byUsr.get(r.target);
+    if (objc?.kind === "class" && valueType) objc.value = swiftName(module, valueType);
   }
   const members = new Map<string, SymbolGraphSymbol[]>();
   for (const r of g.relationships)

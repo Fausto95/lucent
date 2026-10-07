@@ -967,7 +967,9 @@ export function fromObject(t: SdkType, o: swift.Expr): swift.Expr {
         return each(cast(swift.type("Data")), "withUnsafeBytes", load);
       }
       if (isBoxed(t)) return swift.member(cast(swift.type("LucentBox", swiftType(t))), "value");
-      return cast(swiftType(t));
+      // A Foundation object Swift takes as the value type it bridges to (NSURL as URL).
+      const value = sdkTypeInfo("ios", t.module, t.name)?.value;
+      return cast(value ? swift.type(value) : swiftType(t));
     }
     default:
       throw new Error(`no Swift form for ${t.k}`);
