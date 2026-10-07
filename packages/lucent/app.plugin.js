@@ -54,13 +54,21 @@ function buildOnce(projectRoot) {
   linkNativePackage(projectRoot);
 }
 
+/** The entry earlier versions wrote: the root alone, never built (src/cli/init/patch.ts). */
+const PLAIN_ENTRY =
+  /(["']?)lucent(?:-native)?\1\s*:\s*\{\s*root:\s*require\(["']path["']\)\.join\(__dirname,\s*["']\.lucent["'],\s*["']native["']\)\s*,?\s*\}/;
+
 /** Makes the app's react-native.config.js link the native package lucent build writes. */
 function linkNativePackage(projectRoot) {
   const rnConfig = path.join(projectRoot, "react-native.config.js");
-  const entry = `"lucent": { root: require("path").join(__dirname, ".lucent", "native") }`;
+  // Built first when missing or stale (autolink/index.cjs): EAS and CI clone without .lucent/.
+  const entry = `"lucent": require("@lucent-lang/lucent/autolink")(__dirname)`;
   const text = fs.existsSync(rnConfig) ? fs.readFileSync(rnConfig, "utf8") : undefined;
   if (text === undefined) {
     fs.writeFileSync(rnConfig, `module.exports = {\n  dependencies: {\n    ${entry},\n  },\n};\n`);
+  } else if (PLAIN_ENTRY.test(text)) {
+    // Earlier versions linked the root alone, which a fresh clone lacks.
+    fs.writeFileSync(rnConfig, text.replace(PLAIN_ENTRY, entry));
   } else if (text.includes('"lucent-native"')) {
     // Earlier versions named the dependency lucent-native.
     fs.writeFileSync(rnConfig, text.replace('"lucent-native"', '"lucent"'));

@@ -20,7 +20,7 @@ import {
   writeWhole,
 } from "@lucent-lang/compiler";
 import { gradleFailure } from "./gradle-output.ts";
-import { linkNativePackage } from "./init/patch.ts";
+import { linksNativePackage } from "./init/patch.ts";
 import { withLucentPaths } from "./tsconfig.ts";
 import { packageFile } from "./version.ts";
 
@@ -321,8 +321,7 @@ export function podsToInstall(
   wrote: boolean,
 ): Notice | undefined {
   const config = path.join(root, "react-native.config.js");
-  const linked =
-    fs.existsSync(config) && linkNativePackage(fs.readFileSync(config, "utf8")) === undefined;
+  const linked = fs.existsSync(config) && linksNativePackage(fs.readFileSync(config, "utf8"));
   if (!linked || !fs.existsSync(path.join(root, "ios/Podfile"))) return undefined;
 
   const installed = new Set(sdk.ios?.lockfile ? lockedPods(sdk.ios.lockfile).keys() : []);

@@ -3,11 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { androidSdkCandidates } from "./sdks.ts";
-import {
-  ignoreCompatible,
-  incompatibility,
-  lucentPackages,
-} from "@lucent-lang/compiler/packages";
+import { ignoreCompatible, incompatibility, lucentPackages } from "@lucent-lang/compiler/packages";
 import { buildChecks } from "./doctor-build.ts";
 import { packageManagerOf } from "./package-manager.ts";
 
@@ -123,6 +119,7 @@ export function diagnose(root: string, probe: Probe): Check[] {
     ...android(probe),
     jdk(probe),
     gradleTask(root, expo),
+    autolinking(root, expo),
     metro(root),
     tsconfig(root),
     sdkCache(probe),
@@ -349,6 +346,59 @@ function gradleTask(root: string, expo: boolean): Check {
           ? "run expo prebuild again (the Lucent config plugin adds it), or lucent init"
           : "run lucent init",
       );
+}
+
+/**
+ * Whether React Native's autolinking links the native package, and builds
+ * it first: .lucent/ is ignored by git, so on a fresh clone (CI, EAS) an
+ * entry naming the root alone links nothing, without a word, and the app
+ * fails when a module loads. iOS links it through the Podfile's
+ * use_native_modules!, which reads react-native.config.js.
+ */
+function autolinking(root: string, expo: boolean): Check {
+  const label = "Native package autolinking";
+  const text = read(path.join(root, "react-native.config.js"));
+  const podfile = read(path.join(root, "ios/Podfile"));
+
+  if (text === undefined)
+    return expo &&
+      !fs.existsSync(path.join(root, "ios")) &&
+      !fs.existsSync(path.join(root, "android"))
+      ? skip("autolinking", label, "no native projects yet (expo prebuild links it)")
+      : fail(
+          "autolinking",
+          label,
+          "no react-native.config.js, so the app doesn't link .lucent/native",
+          expo
+            ? "run expo prebuild again (the Lucent config plugin adds it), or lucent init"
+            : "run lucent init",
+        );
+  if (!/@lucent-lang\/lucent\/autolink/.test(text))
+    return /["']?lucent["']?\s*:\s*\{\s*root:/.test(text)
+      ? warn(
+          "autolinking",
+          label,
+          "react-native.config.js links .lucent/native without building it: on a fresh clone (CI, EAS) pod install and Gradle skip it, and the app fails at run time",
+          'run lucent init, which writes "lucent": require("@lucent-lang/lucent/autolink")(__dirname)',
+        )
+      : fail(
+          "autolinking",
+          label,
+          "react-native.config.js doesn't link .lucent/native",
+          'add "lucent": require("@lucent-lang/lucent/autolink")(__dirname) to its dependencies (lucent init does)',
+        );
+  if (podfile !== undefined && !/use_native_modules!/.test(podfile))
+    return fail(
+      "autolinking",
+      label,
+      "ios/Podfile doesn't call use_native_modules!, so pod install doesn't read react-native.config.js",
+      "add `config = use_native_modules!` to the app's target, as React Native's template has it",
+    );
+  return ok(
+    "autolinking",
+    label,
+    `react-native.config.js builds and links .lucent/native${podfile !== undefined ? "; ios/Podfile reads it" : ""}`,
+  );
 }
 
 function metro(root: string): Check {

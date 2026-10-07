@@ -99,7 +99,7 @@ Lucent adds native code, so Expo Go can't run it. Use a development build: `npx 
 ```js title="react-native.config.js"
 module.exports = {
   dependencies: {
-    "lucent": { root: require("path").join(__dirname, ".lucent", "native") },
+    "lucent": require("@lucent-lang/lucent/autolink")(__dirname),
   },
 };
 ```
@@ -118,6 +118,7 @@ apply from: new File(new File(["node", "--print", "require.resolve('@lucent-lang
 </Tabs>
 
 - The `react-native.config.js` entry links `.lucent/native`. React Native's autolinking finds the `LucentNative` pod and the Android library there.
+- Git ignores `.lucent/`, so a fresh clone, a CI runner or an EAS build has no native package, and autolinking would skip it without a word: the app would build without Lucent and fail when a module loads. The entry runs `lucent build` first when `.lucent/native` is missing, or older than a module or `package.json`, printing why on stderr; `pod install` and Gradle's settings read it, so both get the package. `LUCENT_AUTOLINK_BUILD=0` turns that build off. An entry that names the root alone, `{ root: … }`, as earlier versions wrote, still links; `lucent init` replaces it, and `lucent doctor` warns about it.
 - The Gradle line asks Node where `@lucent-lang/lucent` is installed, so it works with any package manager's layout. It's Groovy: see [Kotlin build scripts](/docs/api/integrations/#kotlin-build-scripts).
 - iOS has no build hook. Run `lucent build`, or keep `lucent dev` or Metro's watcher running, before you build in Xcode.
 - Run `pod install` after the first build. Run it again when `lucent build` says `iOS: pod install first`: the build added or removed native files.

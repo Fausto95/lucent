@@ -18,6 +18,7 @@
   },
   "files": [
     "app.plugin.js",
+    "autolink",
     "bin",
     "core",
     "dist",
@@ -35,6 +36,7 @@
       "types": "./metro/index.d.ts",
       "default": "./metro/index.cjs"
     },
+    "./autolink": "./autolink/index.cjs",
     "./ts-plugin": {
       "types": "./ts-plugin/index.d.ts",
       "default": "./ts-plugin/index.js"
