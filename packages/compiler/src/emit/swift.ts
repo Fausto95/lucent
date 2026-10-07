@@ -328,12 +328,14 @@ function resultOf(em: FnEmitter, use: SwiftUse, r: cpp.Expr): E {
   const ret = use.ret;
   if (returnsNothing(use)) return { c: cpp.id("lucent::undefined"), t: T.undefined };
   if (crossing(ret) === "enum") return { c: cpp.staticCast(cpp.type("double"), r), t: T.number };
-  const lt: LType =
+  const declared: LType =
     use.role === "init" && ret.k === "ref"
       ? { k: "native", platform: "ios", module: ret.module, name: ret.name }
       : hasUnion(ret) || cStruct(ret)
         ? declaredTypes(em, use).ret
         : declaredLt(em, "ios", ret, use.node);
+  // An async member is declared as the promise of its result: the shim gives the result.
+  const lt = declared.k === "promise" ? declared.inner : declared;
   return valueOf(em, r, ret, lt, use.what);
 }
 

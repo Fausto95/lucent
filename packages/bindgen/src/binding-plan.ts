@@ -31,6 +31,17 @@ import {
   type TypeParamUpperBounds,
 } from "./schema.ts";
 
+/** What a tuple's items may be: values the glue reads out of the array a tuple crosses as. */
+const TUPLE_ITEMS = new Set<SchemaType["k"]>([
+  "prim",
+  "string",
+  "bytes",
+  "date",
+  "ref",
+  "id",
+  "tparam",
+]);
+
 /**
  * How a use reaches the member: Objective-C messages, JNI, a generated
  * Swift or Kotlin shim, a C call; or (`kotlin-source`) generated Kotlin
@@ -1236,6 +1247,7 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
     case "tuple":
       if (t.of.some((x) => x.nullable)) return not("tuples of optional values");
       if (t.of.some((x) => isStruct(x, ctx))) return not("tuples of C structs");
+      if (t.of.some((x) => !TUPLE_ITEMS.has(x.k))) return not("tuples of collections or closures");
 
       return t.nullable ? not("optional tuples") : undefined;
 
