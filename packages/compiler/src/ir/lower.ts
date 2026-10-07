@@ -249,6 +249,8 @@ export interface LeafHost {
   safepoint(): Leaf;
   /** `value`, a `bigint | number`, one up (`+`) or down: the kind it holds, stepped. */
   step(value: ValueId, from: LType, sign: "+" | "-", node: ts.Node): Leaf;
+  /** `value == null` for a `from` that holds a type parameter, which its instantiation may make absent. */
+  absent(value: ValueId, from: LType, node: ts.Node): Leaf;
   /** `left === right` for operands the IR's operators do not compare (generics, objects). */
   equals(left: ValueId, leftType: LType, right: ValueId, rightType: LType, node: ts.Node): Leaf;
   /** A constructor's `super(…)`: its base class's construction, given the arguments as operands. */
@@ -2129,6 +2131,29 @@ class Lowerer {
   }
 
   /**
+   * `v == null`, for `??` and `??=`: a test of an optional, of a value
+   * whose type holds a type parameter (the instantiation decides), or
+   * what the type alone decides (always for undefined and null, never
+   * for a present type).
+   */
+  nullTest(v: ValueId, node: ts.Node): ValueId | boolean {
+    const t = this.b.typeOf(v);
+    const span = spanOf(node);
+
+    if (isAbsent(t)) return true;
+
+    if (t.k === "opt") return this.b.binary("==", v, this.b.const(null, span), span);
+
+    if (!holdsTypeParameter(t)) return false;
+
+    const host = this.host.leaves;
+
+    if (!host) this.unsupported(node, `?? on a ${typeKey(t)}`);
+
+    return this.planOf(host.absent(v, t, node), [v], span);
+  }
+
+  /**
    * `a && b`, `a || b`, `a ?? b`: the left side, then the right one only
    * when the left does not decide; the result is one of them, as the
    * checker types the whole expression.
@@ -2136,18 +2161,14 @@ class Lowerer {
   logical(node: ts.BinaryExpression, kind: "&&" | "||" | "??"): ValueId {
     const type = this.typeAt(node);
     const left = this.expr(node.left);
-    const leftType = this.b.typeOf(left);
+    const nullish = kind === "??" ? this.nullTest(left, node.left) : undefined;
 
-    if (kind === "??" && leftType.k !== "opt")
-      return leftType.k === "undefined" || leftType.k === "null"
-        ? this.coerce(this.expr(node.right), type, node)
-        : this.coerce(left, type, node);
+    if (nullish === true) return this.coerce(this.expr(node.right), type, node);
+
+    if (nullish === false) return this.coerce(left, type, node);
 
     const span = spanOf(node);
-    const test =
-      kind === "??"
-        ? this.b.binary("==", left, this.b.const(null, span), span)
-        : this.truthy(left, node.left);
+    const test = nullish ?? this.truthy(left, node.left);
     const keep = () => this.b.yield(this.coerce(left, type, node.left), span);
     const other = () => this.b.yield(this.coerce(this.expr(node.right), type, node.right), span);
 
@@ -2163,21 +2184,26 @@ class Lowerer {
     const target = this.target(node.left);
     const span = spanOf(node);
     const current = target.read();
-    const test =
-      kind === "??"
-        ? this.b.binary("==", current, this.b.const(null, span), span)
-        : this.truthy(current, node.left);
-    const keep = () => this.b.yield(this.coerce(current, type, node.left), span);
+    const nullish = kind === "??" ? this.nullTest(current, node.left) : undefined;
     const assign = () => {
       const value = this.expr(node.right, target.type);
 
       target.write(this.coerce(value, target.type, node.right), span);
-      this.b.yield(this.coerce(value, type, node.right), span);
+      return this.coerce(value, type, node.right);
     };
 
+    // A target that is never absent keeps its value, and the right side never runs.
+    if (nullish === false) return this.coerce(current, type, node.left);
+
+    if (nullish === true) return assign();
+
+    const test = nullish ?? this.truthy(current, node.left);
+    const keep = () => this.b.yield(this.coerce(current, type, node.left), span);
+    const assigned = () => this.b.yield(assign(), span);
+
     return kind === "||"
-      ? this.b.if(test, span, keep, assign, type)!
-      : this.b.if(test, span, assign, keep, type)!;
+      ? this.b.if(test, span, keep, assigned, type)!
+      : this.b.if(test, span, assigned, keep, type)!;
   }
 
   /** `x++`, `++x`, `x--`, `--x` on a number or bigint variable: the old value (postfix) or the new one. */
@@ -2400,6 +2426,15 @@ function assignedIn(checker: ts.TypeChecker, body: ts.Node, sym: ts.Symbol): boo
     (ts.forEachChild(n, visit) ?? false);
 
   return visit(body);
+}
+
+/** Whether a value of `t` may hold a type parameter's value: the type parameter, or a union with one. */
+function holdsTypeParameter(t: LType): boolean {
+  if (t.k === "tparam") return true;
+
+  if (t.k === "union") return t.ms.some(holdsTypeParameter);
+
+  return t.k === "opt" && holdsTypeParameter(t.inner);
 }
 
 /** Whether `node` makes a function value: an arrow or a function expression in it. */
