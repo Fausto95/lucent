@@ -42,7 +42,11 @@ export function mapLucentPaths(root: string): Notice | undefined {
   }
   if (text === undefined) return undefined;
   fs.writeFileSync(file, text);
-  return { level: "ok", text: "mapped lucent:* in tsconfig.json" };
+  // The app's file: say what changed, and that it's a one-time edit init makes too.
+  return {
+    level: "warn",
+    text: 'edited tsconfig.json: added "lucent:*": ["./.lucent/native/types/*"] to compilerOptions.paths, so editors and tsc resolve lucent:* (once; lucent init sets this up)',
+  };
 }
 
 export { projectHashes, projectSdk } from "@lucent-lang/compiler";

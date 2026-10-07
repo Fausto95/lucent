@@ -32,7 +32,66 @@ export function withLucentPaths(text: string): string | undefined {
 export function withLucentTsconfig(text: string): string | undefined {
   const indexed = withCompilerOption(text, "noUncheckedIndexedAccess", "true");
   const paths = withLucentPaths(indexed ?? text);
-  return paths ?? indexed;
+  const plugin = withEditorPlugin(paths ?? indexed ?? text);
+  return plugin ?? paths ?? indexed;
+}
+
+/** The editor plugin's entry in compilerOptions.plugins. */
+const PLUGIN = '{ "name": "@lucent-lang/lucent/ts-plugin" }';
+
+/**
+ * tsconfig.json with Lucent's editor plugin in compilerOptions.plugins, or
+ * undefined when it has it: editors then show Lucent's diagnostics as you
+ * type (tsc ignores plugins).
+ */
+export function withEditorPlugin(text: string): string | undefined {
+  const { error } = ts.parseConfigFileTextToJson("tsconfig.json", text);
+  if (error)
+    throw new Error(`tsconfig.json: ${ts.flattenDiagnosticMessageText(error.messageText, "\n")}`);
+  const sf = ts.parseJsonText("tsconfig.json", text);
+  const root = sf.statements[0]?.expression;
+  if (!root || !ts.isObjectLiteralExpression(root))
+    throw new Error("tsconfig.json: expected an object");
+  const options = property(root, "compilerOptions");
+  if (!options) return insert(text, sf, root, `"compilerOptions": { "plugins": [${PLUGIN}] }`);
+  const plugins = named(options, "plugins")?.initializer;
+  if (!plugins) return insert(text, sf, options, `"plugins": [${PLUGIN}]`);
+  if (!ts.isArrayLiteralExpression(plugins))
+    throw new Error('tsconfig.json: "plugins" should be an array');
+  if (plugins.getText(sf).includes("@lucent-lang/lucent/ts-plugin")) return undefined;
+  const last = plugins.elements.at(-1);
+  if (!last)
+    return `${text.slice(0, plugins.getStart(sf))}[${PLUGIN}]${text.slice(plugins.getEnd())}`;
+  return `${text.slice(0, last.getEnd())}, ${PLUGIN}${text.slice(last.getEnd())}`;
+}
+
+/**
+ * .vscode/settings.json using the workspace's TypeScript, which loads
+ * the editor plugin (VS Code's own TypeScript doesn't load plugins from
+ * the project), or undefined when it does. Undefined, too, for a file
+ * that isn't plain JSON(C) object text: left for the user.
+ */
+export function withVscodeSettings(text: string | undefined): string | undefined {
+  const want: Record<string, string> = {
+    "typescript.tsdk": '"node_modules/typescript/lib"',
+    "typescript.enablePromptUseWorkspaceTsdk": "true",
+  };
+  if (text === undefined)
+    return `{\n${Object.entries(want)
+      .map(([k, v]) => `  "${k}": ${v}`)
+      .join(",\n")}\n}\n`;
+  const sf = ts.parseJsonText("settings.json", text);
+  const root = sf.statements[0]?.expression;
+  if (!root || !ts.isObjectLiteralExpression(root)) return undefined;
+  let out = text;
+  for (const [key, value] of Object.entries(want)) {
+    const at = ts.parseJsonText("settings.json", out);
+    const obj = at.statements[0]!.expression as ts.ObjectLiteralExpression;
+    // A tsdk the user chose stays theirs.
+    if (named(obj, key)) continue;
+    out = insert(out, at, obj, `"${key}": ${value}`);
+  }
+  return out === text ? undefined : out;
 }
 
 /** tsconfig.json with compilerOptions.<name> set to `value` (JSON text), or undefined when it is. */

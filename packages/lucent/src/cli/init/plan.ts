@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { findOwnFiles, LUCENT_EXTENSION } from "@lucent-lang/compiler/packages";
 import { type PackageManager, packageManagerOf, runner } from "../package-manager.ts";
-import { withLucentTsconfig } from "../tsconfig.ts";
+import { withLucentTsconfig, withVscodeSettings } from "../tsconfig.ts";
 import {
   addExpoPlugin,
   applyGradleTask,
@@ -102,7 +102,8 @@ export function planInit(root: string): InitPlan {
 
   const tsconfig = read(root, "tsconfig.json");
   if (tsconfig !== undefined) {
-    const tsWhy = "let editors and tsc resolve lucent:* and check indexing as the compiler does";
+    const tsWhy =
+      "let editors and tsc resolve lucent:*, check indexing as the compiler does, and show Lucent's errors as you type";
     try {
       change("tsconfig.json", tsWhy, withLucentTsconfig(tsconfig));
     } catch (e) {
@@ -110,9 +111,14 @@ export function planInit(root: string): InitPlan {
         file: "tsconfig.json",
         why: `${tsWhy} (${(e as Error).message})`,
         snippet:
-          '"noUncheckedIndexedAccess": true,\n"paths": { "lucent:*": ["./.lucent/native/types/*"] }',
+          '"noUncheckedIndexedAccess": true,\n"paths": { "lucent:*": ["./.lucent/native/types/*"] },\n"plugins": [{ "name": "@lucent-lang/lucent/ts-plugin" }]',
       });
     }
+    change(
+      ".vscode/settings.json",
+      "have VS Code use the project's TypeScript, which loads the editor plugin",
+      withVscodeSettings(read(root, ".vscode/settings.json")),
+    );
   }
   change(
     ".gitignore",

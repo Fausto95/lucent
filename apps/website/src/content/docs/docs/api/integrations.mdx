@@ -14,7 +14,7 @@ kind: reference
 | [Gradle tasks](/docs/api/integrations/#gradle-tasks) | one line in `android/app/build.gradle` | none |
 | [Editor plugin](/docs/api/integrations/#editor-plugin) | `@lucent-lang/lucent/ts-plugin` in the `plugins` of `tsconfig.json` | none |
 
-[`lucent init`](/docs/api/cli/#lucent-init) wraps the Metro config and adds the Expo plugin, or the bare wiring, to the app it runs in. It also maps `lucent:*` in `tsconfig.json`. You add the editor plugin yourself.
+[`lucent init`](/docs/api/cli/#lucent-init) wraps the Metro config and adds the Expo plugin, or the bare wiring, to the app it runs in. It also maps `lucent:*` in `tsconfig.json`, and adds the editor plugin there.
 
 ## Expo or bare React Native
 
@@ -161,13 +161,17 @@ An app whose script is `android/app/build.gradle.kts` isn't patched, so its Grad
 | --- | --- | --- |
 | `paths` for `lucent:*` | `lucent init`, and `lucent build` when it's missing | Resolves `lucent:*` imports to the declarations a build writes in `.lucent/native/types`, for editors and `tsc`. |
 | `noUncheckedIndexedAccess` | `lucent init` | Types an indexed read as possibly `undefined`, as the compiler always does. |
-| `plugins` | you | Loads the editor plugin. |
+| `plugins` | `lucent init` | Loads the editor plugin, after the app's own plugins. |
+
+`lucent build` edits `tsconfig.json` only to add the `lucent:*` path when it's missing, such as in an app set up by hand, and says so in a warning naming the entry it added. It never touches the other settings.
+
+`lucent init` also writes `.vscode/settings.json` with `"typescript.tsdk": "node_modules/typescript/lib"` and `"typescript.enablePromptUseWorkspaceTsdk": true`, so VS Code offers the workspace's TypeScript, which loads the plugin. A `typescript.tsdk` the app sets stays.
 
 The plugin adds Lucent's diagnostics to `*.lucent.ts` and `*.lucent.tsx` files as you type, unsaved changes included. Each shows its `LUCENT` code and message, then its fix and docs link when it has them. A warning shows as a warning.
 
 Where the fix is exact, it's offered as a quick fix. A thrown string becomes `new Error(…)`, a prop a view's setup copied is read in the attribute, and a missing SDK module import is added.
 
-- In VS Code, run TypeScript: Select TypeScript Version and pick Use Workspace Version. VS Code's own TypeScript doesn't load plugins from the project.
+- In VS Code, accept the prompt to use the workspace's TypeScript, or run TypeScript: Select TypeScript Version and pick Use Workspace Version. VS Code's own TypeScript doesn't load plugins from the project.
 - Only editors load the plugin, not `tsc`. On the command line, [`lucent check`](/docs/api/cli/#lucent-check) checks the modules.
 
 ### JSX in .lucent.tsx files

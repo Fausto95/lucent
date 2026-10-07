@@ -37,7 +37,8 @@ Expo Go can't load the native code Lucent adds to the app. Use a development bui
 
    ✓ metro.config.js  bundle each *.lucent.ts as the proxy of its native module
    ✓ app.json  compile the modules during expo prebuild, and link the native package
-   ✓ tsconfig.json  let editors and tsc resolve lucent:* and check indexing as the compiler does
+   ✓ tsconfig.json  let editors and tsc resolve lucent:*, check indexing as the compiler does, and show Lucent's errors as you type
+   ✓ .vscode/settings.json  have VS Code use the project's TypeScript, which loads the editor plugin
    ✓ .gitignore  the native package is generated, like a build output
    ✓ src/hello.lucent.ts  a first module to try
 
@@ -55,14 +56,15 @@ Expo Go can't load the native code Lucent adds to the app. Use a development bui
    ✓ metro.config.js  bundle each *.lucent.ts as the proxy of its native module
    ✓ android/app/build.gradle  run lucent build before every Android build
    ✓ react-native.config.js  autolink the generated native package (.lucent/native)
-   ✓ tsconfig.json  let editors and tsc resolve lucent:* and check indexing as the compiler does
+   ✓ tsconfig.json  let editors and tsc resolve lucent:*, check indexing as the compiler does, and show Lucent's errors as you type
+   ✓ .vscode/settings.json  have VS Code use the project's TypeScript, which loads the editor plugin
    ✓ .gitignore  the native package is generated, like a build output
    ✓ src/hello.lucent.ts  a first module to try
 
    next  npx lucent build && npx react-native run-ios
    ```
 
-   The Gradle task compiles your modules before each Android build. iOS has no such hook.
+   The Gradle task compiles your modules before each Android build. The `react-native.config.js` entry builds `.lucent/native` when `pod install` or Gradle finds it missing or stale, as on a fresh clone. Between Xcode builds, run `lucent build` or keep Metro running.
 
    </TabItem>
    </Tabs>
@@ -139,4 +141,4 @@ Add the lines, then run `npx lucent init` again: it lists what's still missing.
 
 ## See errors in your editor
 
-`lucent init` doesn't add the [editor plugin](/docs/api/integrations/#editor-plugin), which shows Lucent's errors as you type. Add it to `tsconfig.json` yourself.
+`lucent init` adds the [editor plugin](/docs/api/integrations/#editor-plugin) to `tsconfig.json`, which shows Lucent's errors as you type, and has VS Code offer the workspace's TypeScript, which loads it: accept the prompt when VS Code shows it.
