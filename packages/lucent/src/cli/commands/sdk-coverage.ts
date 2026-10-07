@@ -10,7 +10,14 @@ import {
   toolkitsFrom,
   viewCoverage,
 } from "@lucent-lang/compiler";
-import { coverageSummary, sdkSourceModule, symbolKey } from "@lucent-lang/bindgen";
+import {
+  coverageSummary,
+  ownTypes,
+  sdkSourceModule,
+  sdkTypeLookup,
+  symbolKey,
+  type TypeLookup,
+} from "@lucent-lang/bindgen";
 import type { Invocation } from "../args.ts";
 import { projectSdk, sdkImports } from "../project.ts";
 import { readUsage, USAGE_FILE } from "../sdk-usage.ts";
@@ -63,13 +70,25 @@ export function run({ root, flags, out }: Invocation): number {
       const all = sdkModules(platform, sdk);
       return "missing" in all ? [] : all;
     };
-    const modules = wanted[platform].flatMap((m) =>
-      m === "*"
-        ? listed()
-        : m.endsWith(".*")
-          ? listed().filter((x) => x.startsWith(m.slice(0, -1)))
-          : [m],
-    );
+    const modules: string[] = [];
+    for (const m of wanted[platform]) {
+      const matched =
+        m === "*"
+          ? listed()
+          : m.endsWith(".*")
+            ? listed().filter((x) => x.startsWith(m.slice(0, -1)))
+            : [m];
+      // A prefix a gate names must match: one that matches nothing would gate nothing.
+      if (!matched.length && m !== "*" && !flags.all) {
+        out.error(
+          `${t.error(t.symbols.fail)} ${m}: no ${platform} module matches${platform === "android" ? " (androidx and Play services packages are the app's dependencies: run it in the app, after its Gradle build has resolved them)" : ""}`,
+        );
+        return 1;
+      }
+      modules.push(...matched);
+    }
+    // Members are judged with the types other modules declare, as builds judge them.
+    const others = sdkTypeLookup(platform, sdk);
     for (const m of modules) {
       const r = sdkModule(platform, m, sdk);
       if ("missing" in r) {
@@ -87,7 +106,10 @@ export function run({ root, flags, out }: Invocation): number {
         return "missing" in found ? undefined : found.schema;
       };
       const views = flags.views ? viewCoverage(r.schema, moduleOf) : undefined;
-      reports.push({ ...sdkCoverage(r.schema, undefined, evidence), ...(views ? { views } : {}) });
+      const own = ownTypes(r.schema);
+      const types: TypeLookup = (module, name) =>
+        module === r.schema.module ? own(module, name) : others(module, name);
+      reports.push({ ...sdkCoverage(r.schema, types, evidence), ...(views ? { views } : {}) });
 
       // A toolkit generated from the module (lucent:swiftui), under its own name.
       for (const toolkit of toolkitsFrom(platform, m)) {
@@ -172,6 +194,11 @@ export function run({ root, flags, out }: Invocation): number {
   let dropped = false;
   for (const c of reports) {
     const b = baseline.get(c.module);
+    // Another SDK has other members: the share still gates, and the note says why it moved.
+    if (b?.sdk && c.sdk && b.sdk !== c.sdk)
+      process.stderr.write(
+        `${t.symbols.warn} ${c.module}: read from ${c.sdk}, the baseline from ${b.sdk}\n`,
+      );
     if (b && share(c) > share(b) + 0.05) {
       // stderr even with --json: CI redirects the report and reads this.
       process.stderr.write(

@@ -289,7 +289,7 @@ CoreLocation  272         217            55 (20.2%)       -          -
 
 Each stage needs the one before, and a `-` means no evidence for that stage, not zero.
 
-`--members` lists every member with its stage and reason, and `--check <baseline>` fails when a module's unrepresentable share grows. The stages and flags are the same for Android packages. [lucent sdk coverage](/docs/api/cli/#lucent-sdk-coverage) lists the flags.
+`--members` lists every member with its stage and reason, and `--check <baseline>` fails when a module's unrepresentable share grows. Swift's `Hashable`, `Equatable` and `Codable` requirements, which Swift calls itself, aren't counted. Each report names the SDK it was read from, and `--check` notes a baseline made with another. The stages and flags are the same for Android packages. [lucent sdk coverage](/docs/api/cli/#lucent-sdk-coverage) lists the flags.
 
 Selectors (`Selector`), class objects (`AnyClass`) and protocol compositions such as `A & B` have no Lucent type yet, except a composition with `NSObjectProtocol`, which is the other type.
 

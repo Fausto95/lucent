@@ -36,10 +36,36 @@ export interface Coverage {
   total: number;
   /** Why members were skipped or refused, with how many. */
   reasons: Record<string, number>;
+  /**
+   * Members left out of the counts: Swift's Hashable, Equatable and
+   * Codable plumbing (`hash(into:)`, `==`, `encode(to:)`, `init(from:)`,
+   * `hashValue`), which Swift calls and Lucent code has no use for.
+   */
+  plumbing: number;
+  /** The SDK the schema was read from (`sdk:iphonesimulator27.0`, `android-sdk:36`), when known. */
+  sdk?: string;
   /** How many members reach each stage; null when there is no evidence for it. */
   stages: Record<"discovered" | "representable", number> &
     Record<"generated" | "exercised", number | null>;
   members: CoverageMember[];
+}
+
+/**
+ * Swift's protocol plumbing, by a member's Swift name: what Hashable,
+ * Equatable, Comparable and Codable require, which Swift calls itself.
+ */
+const PLUMBING = /^(hash\(into:\)|hashValue|==\(_:_:\)|!=\(_:_:\)|<\(_:_:\)|encode\(to:\)|init\(from:\))$/;
+
+/**
+ * Whether a member is plumbing: its Swift name, or the `Owner.name(…)` a
+ * skipped one is listed as (the owner's path is dotted; the name's
+ * arguments may hold dots too).
+ */
+export function isPlumbing(name: string | undefined): boolean {
+  if (!name) return false;
+  const paren = name.indexOf("(");
+  const head = paren < 0 ? name : name.slice(0, paren);
+  return PLUMBING.test(name.slice(head.lastIndexOf(".") + 1));
 }
 
 /** What says a member got past representable: symbol keys (usage.ts). */
@@ -63,6 +89,7 @@ export function coverage(
 ): Coverage {
   let idiomatic = 0;
   let raw = 0;
+  let plumbing = 0;
   const reasons: Record<string, number> = {};
   const count = (reason: string) => (reasons[reason] = (reasons[reason] ?? 0) + 1);
   const members: CoverageMember[] = [];
@@ -78,6 +105,10 @@ export function coverage(
     member: Parameters<typeof planBinding>[1],
     idiom: boolean,
   ) => {
+    if (isPlumbing((member as { swift?: { name: string } }).swift?.name)) {
+      plumbing++;
+      return;
+    }
     const refused = unsupportedReason(planBinding(owner, member, schema, types));
     const symbol = memberSymbol(schema.platform, schema.module, owner, member);
     const key = symbolKey(symbol);
@@ -110,6 +141,10 @@ export function coverage(
   for (const s of schema.skipped ?? []) {
     const at = s.indexOf(": ");
     const reason = s.slice(at + 2);
+    if (isPlumbing(s.slice(0, at))) {
+      plumbing++;
+      continue;
+    }
 
     count(reason);
     members.push({ display: s.slice(0, at), stage: "discovered", reason });
@@ -127,6 +162,8 @@ export function coverage(
     unrepresentable,
     total: idiomatic + raw + unrepresentable,
     reasons,
+    plumbing,
+    ...(sdkOf(schema) ? { sdk: sdkOf(schema)! } : {}),
     stages: {
       discovered: members.length,
       representable: idiomatic + raw,
@@ -135,6 +172,14 @@ export function coverage(
     },
     members,
   };
+}
+
+/** The SDK a schema was read from: its own artifact when it is the SDK, else its target. */
+function sdkOf(schema: SdkModuleSchema): string | undefined {
+  const p = schema.provenance;
+  if (!p) return undefined;
+  if (p.artifact.startsWith("sdk:") || p.artifact.startsWith("android-sdk:")) return p.artifact;
+  return p.target || undefined;
 }
 
 /**

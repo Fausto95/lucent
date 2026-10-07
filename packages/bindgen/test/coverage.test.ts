@@ -129,6 +129,7 @@ describe("a coverage summary", () => {
       unrepresentable,
       total,
       reasons,
+      plumbing: 0,
       stages: {
         discovered: total,
         representable: total - unrepresentable,

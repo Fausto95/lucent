@@ -35,6 +35,7 @@ import type { SwiftPackages } from "./swift-packages.ts";
 import { cSwiftNames } from "./c-swift-names.ts";
 import { buildSourceSchema } from "./swift-source.ts";
 import type { SymbolGraph } from "./symbols.ts";
+import type { TypeLookup } from "./binding-plan.ts";
 import {
   canonicalSchema,
   hasSchemaFormat,
@@ -1361,6 +1362,33 @@ export function sdkModules(
   if (platform === "android")
     return [...jarIndex(r.android!.jars, r.android!.apiVersions).packages].sort();
   return [...r.ios!.modules.keys()].sort();
+}
+
+/**
+ * The facts of the types a platform's members name, from the modules
+ * declaring them (their names on iOS, which cost a symbol graph, their
+ * schemas on Android), for judging members as a build would (coverage):
+ * a module there is no reading of is taken as declaring its types, of
+ * unknown kind, as plans without lookups do.
+ */
+export function sdkTypeLookup(platform: Platform, opts: SdkOptions = {}): TypeLookup {
+  const names = new Map<string, NamesIndex | undefined>();
+  return (module, name) => {
+    if (!names.has(module)) {
+      const n = sdkNames(platform, module, opts);
+      names.set(module, "names" in n ? n.names : undefined);
+    }
+    const index = names.get(module);
+    if (!index) return {};
+    const t = index.types[name];
+    if (!t) return undefined;
+    return {
+      kind: t.kind,
+      ...(t.cf ? { cf: true } : {}),
+      ...(t.typeParams ? { typeParams: t.typeParams } : {}),
+      ...(t.swift ? { swift: true as const } : {}),
+    };
+  };
 }
 
 /** A schema's type names, as a names index gives them: what glue reads of a type it does not import. */

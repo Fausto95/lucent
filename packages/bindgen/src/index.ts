@@ -52,6 +52,7 @@ export {
   SCHEMA_SET_FORMAT,
   type SchemaSetEntry,
   sdkFromSchemaSet,
+  sdkTypeLookup,
   pruneStaleCache,
   sdkAvailable,
   sdkIdentity,

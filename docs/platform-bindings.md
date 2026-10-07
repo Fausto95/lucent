@@ -447,7 +447,13 @@ for a property read but not written), judged with the module's own types.
 Coverage: `lucent sdk coverage` reports, per module, the members Lucent can
 call and those it can't, with the reasons (Swift-only members among them,
 as "Swift-only"): the members the extractor skipped, and those whose plan
-refuses every use, under the plan's reason. It places each member at the
+refuses every use, under the plan's reason. Plans are judged with the
+types other modules declare (`sdkTypeLookup`: their names on iOS, their
+schemas on Android), as builds judge them. Swift's Hashable, Equatable
+and Codable plumbing (`hash(into:)`, `==`, `encode(to:)`, `init(from:)`,
+`hashValue`) is counted apart (`plumbing`), outside the share, and each
+report names the SDK it was read from (`sdk`), which `--check` notes when
+the baseline's differs. A `p.*` prefix that matches no module fails. It places each member at the
 furthest stage the evidence supports, each needing the one before:
 _discovered_ (declared), _representable_ (its plan can work), _generated_
 (the project's last build used it, from `.lucent/sdk-usage.json`; an
