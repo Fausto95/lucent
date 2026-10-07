@@ -42,7 +42,6 @@ import {
 import {
   IrUnsupported,
   lower,
-  type Lowered,
   type LowerHost,
   type LowerInput,
   lowerInit,

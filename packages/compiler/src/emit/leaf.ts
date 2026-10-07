@@ -255,7 +255,7 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
         t: from,
       })),
 
-    absent: (value, from, node) =>
+    absent: (value, _from, node) =>
       planned(node, () => ({
         c: cpp.call("lucent::looseEqualsNull", [operand(value)]),
         t: T.boolean,
