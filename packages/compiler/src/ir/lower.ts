@@ -1527,6 +1527,8 @@ class Lowerer {
   operands(): { operands: LeafOperands; args: ValueId[] } {
     const args: ValueId[] = [];
     const lowered = new Map<ts.Expression, ValueId>();
+    // Closures made: making one runs none of its code, so it may come before or after the rest.
+    const closures = new Set<ts.Expression>();
     let end = -1;
     const take = (n: ts.Expression, lower: () => ValueId) => {
       const known = lowered.get(n);
@@ -1537,7 +1539,9 @@ class Lowerer {
       // lowered after it are pure, so evaluating them first is not observable.
       const after = [...lowered.keys()].filter((k) => k.getStart() >= n.getEnd());
 
-      if (n.getStart() < end && !after.every((k) => this.pure(k)))
+      const free = (k: ts.Expression) => this.pure(k) || closures.has(k);
+
+      if (n.getStart() < end && !closures.has(n) && !after.every(free))
         this.unsupported(n, "operands a plan takes out of order");
 
       const v = lower();
@@ -1549,7 +1553,11 @@ class Lowerer {
     };
     const operands: LeafOperands = {
       operand: (n, hint) => take(n, () => this.expr(n, hint)),
-      closure: (n, target) => take(n, () => this.closure(n, target)),
+      closure: (n, target) => {
+        closures.add(n);
+
+        return take(n, () => this.closure(n, target));
+      },
       // Making a function runs none of its code: each is its own, made in any order.
       thunk: (n, thunk) => {
         const v = this.thunk(n, thunk ?? {});
