@@ -1487,6 +1487,32 @@ describe("--json", () => {
     }
   });
 
+  it("lucent build and check --json match their schemas when a problem stops them", async () => {
+    const root = project();
+    // A Lucent package the app depends on, whose lucent.json is invalid: the build stops at once.
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "app", dependencies: { broken: "1.0.0" } }),
+    );
+    const broken = path.join(root, "node_modules/broken");
+    fs.mkdirSync(broken, { recursive: true });
+    fs.writeFileSync(
+      path.join(broken, "package.json"),
+      JSON.stringify({ name: "broken", version: "1.0.0", lucent: {} }),
+    );
+    fs.writeFileSync(path.join(broken, "lucent.json"), "{ nope");
+
+    for (const name of ["build", "check"] as const)
+      for (const args of [[], ["--platforms", "iso"]]) {
+        const r = lucent(root, name, "--json", ...args);
+        const value = JSON.parse(r.stdout) as { ok: boolean; error?: string };
+        expect(value.ok).toBe(false);
+        expect(value.error).toEqual(expect.any(String));
+        expect(await validate(name, value)).toEqual([]);
+        expect(r.status).not.toBe(0);
+      }
+  });
+
   it("lucent doctor --json matches its schema", async () => {
     const r = lucent(project(), "doctor", "--json");
     const value = JSON.parse(r.stdout) as { ok: boolean };
