@@ -414,8 +414,10 @@ or value-class members, for now;
 Swift shims pass scalars, Swift enums, objects, tuples (as arrays of
 their elements' objects; not of optional values or C structs) and
 closures (as Objective-C blocks, both ways: of numbers, booleans,
-strings and Objective-C objects), not optionals of scalars or
-Objective-C enums. A value that cannot cross is an `unsupported` conversion with
+strings and Objective-C objects), optional scalars (as NSNumbers, nil
+for none) and Objective-C enums (as their raw values), not those inside
+collections, nor optional Objective-C enums. Objective-C methods take
+errors (as NSErrors, `toNSError`) as arguments. A value that cannot cross is an `unsupported` conversion with
 its reason; a member no use of which can work (a read-only property
 written, a Swift async initializer, a member of a protocol with associated
 types called, a static requirement implemented) is `refused`, with the

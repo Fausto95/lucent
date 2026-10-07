@@ -164,6 +164,7 @@ A block Swift runs on the main thread, marked `@MainActor` or not `@Sendable` in
 | --- | --- |
 | A method that `throws`, or an `NSError **` Swift turns into `throws` | A thrown `Error`: its `message` is the error's description, and its `code`, read with `errorCode`, is `"<domain>:<code>"`. |
 | An `NSError **` Swift doesn't turn into `throws` | An `Out<Error>` parameter. |
+| An `NSError *` parameter | An `Error` you pass, as an `NSError` with its message as the description. A Lucent error that came from an `NSError` keeps its domain and code. |
 | A Swift error | The same `Error`, made from its `NSError`. |
 | An `NSException` | Not caught by Lucent. |
 
@@ -292,6 +293,6 @@ Each stage needs the one before, and a `-` means no evidence for that stage, not
 
 Selectors (`Selector`), class objects (`AnyClass`) and protocol compositions such as `A & B` have no Lucent type yet, except a composition with `NSObjectProtocol`, which is the other type.
 
-Through Swift, optional numbers and booleans, Objective-C enums and closures of other types don't cross yet. Nor do optional tuples, or tuples holding optional values or C structs. Members using them carry the reason, and so do those with `inout` parameters.
+Through Swift, optional numbers and booleans cross as `number | null` and `boolean | null`, and Objective-C enums as their TypeScript `enum`; inside arrays and dictionaries they don't yet, nor do optional Objective-C enums or closures of other types. Nor do optional tuples, or tuples holding optional values or C structs. Members using them carry the reason, and so do those with `inout` parameters.
 
 The roadmap lists every [known limitation](/docs/releases/roadmap/#known-limitations).

@@ -1363,6 +1363,30 @@ export function sdkModules(
   return [...r.ios!.modules.keys()].sort();
 }
 
+/** A schema's type names, as a names index gives them: what glue reads of a type it does not import. */
+export function namesOfSchema(schema: SdkModuleSchema): NamesIndex {
+  const types: NamesIndex["types"] = {};
+  for (const t of schema.types) {
+    if (t.kind === "class")
+      types[t.name] = {
+        kind: t.interface ? "protocol" : "class",
+        native: t.native,
+        ...(t.cf ? { cf: true } : {}),
+        ...(t.swift ? { swift: true } : {}),
+        ...(t.typeParams?.length ? { typeParams: t.typeParams.length } : {}),
+      };
+    else if (t.kind === "enum")
+      types[t.name] = {
+        kind: "enum",
+        native: t.native,
+        ...(t.swift ? { swift: true } : {}),
+        ...(t.options ? { options: true } : {}),
+      };
+    else types[t.name] = { kind: "struct", native: t.native, fields: t.fields };
+  }
+  return { module: schema.module, refs: {}, aliases: {}, types };
+}
+
 /** The jars Android bindings come from (tests and tools). */
 export function androidJars(opts: SdkOptions = {}): string[] | undefined {
   const r = locate("android", opts);
@@ -1389,13 +1413,7 @@ export function sdkNames(
   if (platform === "android" || "missing" in r) {
     const found = sdkModule(platform, module, opts);
     if ("missing" in found) return found;
-    const types: NamesIndex["types"] = {};
-    for (const t of found.schema.types)
-      types[t.name] =
-        t.kind === "class"
-          ? { kind: t.interface ? "protocol" : "class", native: t.native }
-          : { kind: t.kind, native: t.native };
-    return { names: { module, refs: {}, aliases: {}, types } };
+    return { names: namesOfSchema(found.schema) };
   }
   if (!r.ios!.modules.has(module))
     return { missing: `lucent:ios/${module} was not found in the SDK or the app's dependencies` };
@@ -1633,6 +1651,11 @@ export function exportSchemaSet(
       if (!("schema" in found)) continue;
       const entry = kind === "schema" ? sdkSchemaEntry(platform, module, opts) : undefined;
       entries.push({ ...base, ...(entry ? { entry } : {}), schema: found.schema });
+      // Its names too (iOS): what the symbol graph says that the schema does not (aliases, refs).
+      if (platform === "ios" && kind === "schema") {
+        const n = sdkNames(platform, module, opts);
+        if ("names" in n) entries.push({ ...base, kind: "names", names: n.names });
+      }
     }
 
     const target = path.join(dir, platform);

@@ -157,3 +157,90 @@ export async function run(): Promise<string> {
     expect(p.mm).toContain("report:");
   });
 });
+
+describe("Swift requirements a Lucent class implements", () => {
+  it("take and give optional numbers and Objective-C enums", () => {
+    const set = schemaSet([
+      {
+        module: "Kit",
+        header: "Kit/Kit.h",
+        types: [
+          {
+            kind: "enum",
+            name: "KITEdges",
+            native: "KITEdges",
+            cases: [{ name: "top", native: "KITEdgesTop", value: 1 }],
+          },
+        ],
+      },
+      {
+        module: "Gauges",
+        frameworks: [],
+        types: [
+          {
+            kind: "class",
+            name: "Sensor",
+            native: "Gauges.Sensor",
+            swift: { kind: "protocol" },
+            interface: true,
+            methods: [
+              {
+                name: "reading",
+                params: [{ name: "at", type: "double?" }],
+                returns: "double?",
+                abstract: true,
+                swift: { name: "reading(at:)" },
+              },
+              {
+                name: "edge",
+                params: [],
+                returns: "Kit.KITEdges",
+                abstract: true,
+                swift: { name: "edge()" },
+              },
+            ],
+          },
+          {
+            kind: "class",
+            name: "Station",
+            native: "Gauges.Station",
+            swift: { kind: "class" },
+            constructors: [{ params: [], swift: { name: "init()" } }],
+            methods: [
+              {
+                name: "watch",
+                params: [{ name: "s", type: "Gauges.Sensor" }],
+                returns: "void",
+                swift: { name: "watch(_:)" },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    const p = setProgram(
+      `import { Station, type Sensor } from "lucent:ios/Gauges";
+import { KITEdges } from "lucent:ios/Kit";
+class Probe implements Sensor {
+  reading(at: number | null): number | null {
+    return at === null ? null : at * 2;
+  }
+  edge(): KITEdges {
+    return KITEdges.top;
+  }
+}
+export async function run(): Promise<string> {
+  new Station().watch(new Probe());
+  return "";
+}
+`,
+      set,
+    );
+
+    expect(p.messages).toEqual([]);
+    expect(p.shims).toMatch(/func reading\(at a0: Double\?\) -> Double\?/);
+    expect(p.shims).toContain("a0.map { lucentRetained($0 as NSNumber) }");
+    expect(p.shims).toMatch(/func edge\(\) -> Kit\.KITEdges/);
+    expect(p.shims).toContain("Kit.KITEdges(rawValue: .init(truncatingIfNeeded:");
+  });
+});

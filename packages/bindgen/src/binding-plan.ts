@@ -1173,7 +1173,8 @@ function objcRule(t: SchemaType, place: Place, ctx: Context): string | undefined
   }
 
   if (place.flow === "in") {
-    if (k === "error") return "passing errors to Objective-C is not supported yet";
+    // An error crosses as an NSError (toNSError), as an argument.
+    if (k === "error") return place.passed ? undefined : "errors can only be passed to Objective-C as arguments yet";
     if (k !== "fn") return undefined;
     if (!place.passed) return "blocks can only be passed to Objective-C as arguments yet";
 
@@ -1216,7 +1217,8 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
       if (t.name === "void") return place.result ? undefined : not("void values");
       if (!SWIFT_SCALARS[t.name]) return not(`${t.name} values`);
 
-      return t.nullable ? not("optional numbers and booleans") : undefined;
+      // An optional one crosses as an NSNumber, nil for none.
+      return t.nullable && place.element ? not("optional numbers and booleans in collections") : undefined;
 
     case "string":
     case "bytes":
@@ -1263,8 +1265,9 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
     case "ref": {
       const facts = ctx.types(t.module, t.name);
       if (facts?.kind === "enum") {
-        if (!facts.swift) return not(`Objective-C enums (${t.name})`);
-        return t.nullable ? not("optional Swift enums") : undefined;
+        // An Objective-C enum crosses as its raw value, as a Swift enum does as its index.
+        if (!facts.swift && place.element) return not(`Objective-C enums (${t.name}) in collections`);
+        return t.nullable ? not(facts.swift ? "optional Swift enums" : "optional Objective-C enums") : undefined;
       }
       if (facts?.kind === "struct")
         return t.nullable ? not(`optional C structs (${t.name})`) : undefined;

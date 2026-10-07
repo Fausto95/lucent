@@ -755,7 +755,13 @@ export function toObjc(
   use: Pick<BindingPlan, "display" | "symbol" | "artifact">,
   owned = false,
 ): cpp.Expr {
-  if (t.k === "error") throw new Error(`${use.display}: an error its plan refuses`);
+  // An error as an NSError (nil for null), as Swift's own APIs take them.
+  if (t.k === "error") {
+    const v = em.exprAs(arg, t.nullable ? unionOf([T.error, T.null, T.undefined]) : T.error);
+    return t.nullable
+      ? ifPresent(v, (x) => cpp.call("lucent::objc::toNSError", [x]))
+      : cpp.call("lucent::objc::toNSError", [v]);
+  }
   if (t.k === "fn") {
     const f = em.expr(arg);
     // No block: `null` or `undefined` where the platform takes none.
