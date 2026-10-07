@@ -70,7 +70,8 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
 - When nothing changed since the last build, it says so and writes nothing, unless `--force`. Otherwise it rewrites only the files whose content changed.
 - `next` says what the app needs: a rebuild (after `pod install` when files were added or removed), a reload, or nothing. `actions` lists each thing the changes need, on which platforms, and the generated files behind it.
 - Actions come from what changed. A body edit recompiles native code, and new exports also reload JavaScript. A package's resources are repackaged, its libraries relinked. `Info.plist` entries, entitlements and manifest components need a reinstall. Other JavaScript needs nothing: Metro refreshes it.
-- A platform whose SDK isn't installed is skipped, with a warning. `--platforms host` builds stubs whose platform code throws, for tests.
+- A platform whose SDK isn't installed is skipped, with a warning. `--platforms host` builds stubs whose platform code throws, for tests. `--platforms` takes `ios`, `android` and `host`, comma-separated; any other name exits with code 2.
+- Android whose dependencies the Gradle build resolves (during `expo prebuild`) is left to that build. When it leaves no platform here, as on Linux without the iOS SDK, the build checks the shared code and writes the native package the Gradle build compiles.
 - On a problem, nothing is written and the exit code is 1.
 
 ## lucent check
@@ -79,11 +80,14 @@ Type-check and validate every module without writing anything
 
 | Flag | Meaning |
 | --- | --- |
+| `--platforms <list>` | Targets for platform code: ios, android, host (default: the SDKs installed; host, with SDK imports untyped, when none is) |
 | `--frozen` | Fail unless the SDKs and SDK symbols are the ones lucent-sdk.lock.json records, with every target it lists (CI, releases) |
 
 With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-check---json).
 
 It reports problems as the [diagnostics](/docs/api/diagnostics/) page shows them, and writes nothing. A pass is remembered, so checking an unchanged project takes a fraction of a second. Use it in CI.
+
+On a machine without any platform SDK, such as a Linux CI runner, it checks as `--platforms host` does: the shared code and each module's declaration, with `lucent:ios/*` and `lucent:android/*` imports untyped, after a warning. Pass `--platforms host` to say so and skip the warning.
 
 ## lucent dev
 

@@ -29,6 +29,10 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
     "summary": "Type-check and validate every module without writing anything",
     "flags": [
       {
+        "flag": "--platforms <list>",
+        "description": "Targets for platform code: ios, android, host (default: the SDKs installed; host, with SDK imports untyped, when none is)"
+      },
+      {
         "flag": "--frozen",
         "description": "Fail unless the SDKs and SDK symbols are the ones lucent-sdk.lock.json records, with every target it lists (CI, releases)"
       }

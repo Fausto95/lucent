@@ -1,7 +1,7 @@
 import path from "node:path";
-import type { Target } from "@lucent-lang/compiler";
 import type { Invocation } from "../args.ts";
 import { buildProject, plural } from "../pipeline.ts";
+import { parsePlatforms } from "./build-check.ts";
 import { LOCK_FILE, writeUsage } from "../sdk-usage.ts";
 import { plainSteps } from "../ui/steps.ts";
 
@@ -15,10 +15,12 @@ import { plainSteps } from "../ui/steps.ts";
  */
 export async function run({ root, flags, out }: Invocation): Promise<number> {
   const t = out.theme;
-  const platforms =
-    typeof flags.platforms === "string" && flags.platforms
-      ? (flags.platforms.split(",") as Target[])
-      : undefined;
+  const platforms = parsePlatforms(flags.platforms);
+  if (typeof platforms === "string") {
+    if (out.json) out.data({ ok: false, error: platforms });
+    else out.error(`${t.error(t.symbols.fail)} ${platforms}`);
+    return 2;
+  }
 
   const result = await buildProject(
     root,

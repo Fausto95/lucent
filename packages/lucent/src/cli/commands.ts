@@ -36,6 +36,12 @@ export const commands: CommandSpec[] = [
     summary: "Type-check and validate every module without writing anything",
     flags: [
       {
+        name: "platforms",
+        value: "list",
+        description:
+          "Targets for platform code: ios, android, host (default: the SDKs installed; host, with SDK imports untyped, when none is)",
+      },
+      {
         name: "frozen",
         description:
           "Fail unless the SDKs and SDK symbols are the ones lucent-sdk.lock.json records, with every target it lists (CI, releases)",
