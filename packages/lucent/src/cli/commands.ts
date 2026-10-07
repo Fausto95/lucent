@@ -77,6 +77,13 @@ export const commands: CommandSpec[] = [
     load: () => import("./commands/init.ts"),
   },
   {
+    name: "uninstall",
+    summary:
+      "Revert what lucent init and the Expo plugin changed: the Metro config, app.json, the Gradle task, react-native.config.js, tsconfig.json, .gitignore",
+    flags: [{ name: "yes", description: "Apply every change without asking" }],
+    load: () => import("./commands/uninstall.ts"),
+  },
+  {
     name: "new module",
     json: "new",
     summary:

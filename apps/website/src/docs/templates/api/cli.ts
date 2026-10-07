@@ -68,6 +68,12 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
       text: "It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/guides/install/) lists the changes for Expo and bare apps. Running it again changes nothing.",
     },
   ],
+  uninstall: [
+    {
+      kind: "p",
+      text: "It reverts what `lucent init` and the Expo config plugin changed, shown as diffs like init's: it unwraps the Metro config, removes the plugin from `app.json`, the Gradle line, the `react-native.config.js` entry, the `lucent:*` path and the editor plugin from `tsconfig.json`, VS Code's TypeScript settings and the `.gitignore` lines. A file init created whole is deleted. The app's modules stay, and so does `noUncheckedIndexedAccess`. [Remove Lucent](/docs/guides/install/#remove-lucent) gives the steps after it.",
+    },
+  ],
   doctor: [
     {
       kind: "p",

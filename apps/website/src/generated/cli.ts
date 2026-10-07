@@ -66,6 +66,16 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
     ]
   },
   {
+    "name": "uninstall",
+    "summary": "Revert what lucent init and the Expo plugin changed: the Metro config, app.json, the Gradle task, react-native.config.js, tsconfig.json, .gitignore",
+    "flags": [
+      {
+        "flag": "--yes",
+        "description": "Apply every change without asking"
+      }
+    ]
+  },
+  {
     "name": "new module",
     "summary": "Scaffold a module in src/: shared, or with --ios / --android one module that branches on PLATFORM",
     "flags": [

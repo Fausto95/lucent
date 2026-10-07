@@ -16,6 +16,7 @@ Every command finds the `*.lucent.ts` files under the project, skipping `node_mo
 | [`lucent dev`](#lucent-dev) | Rebuild on every change: a live dashboard of modules, platforms and problems (one line per build outside a terminal) |
 | [`lucent doctor`](#lucent-doctor) | Check the machine, the app and its builds: Node, React Native, Xcode, CocoaPods, Android, the JDK, Metro, versions |
 | [`lucent init`](#lucent-init) | Set an app up for Lucent: the Metro config, the Expo plugin or the Gradle task, tsconfig.json, .gitignore, a first module |
+| [`lucent uninstall`](#lucent-uninstall) | Revert what lucent init and the Expo plugin changed: the Metro config, app.json, the Gradle task, react-native.config.js, tsconfig.json, .gitignore |
 | [`lucent new module`](#lucent-new-module) | Scaffold a module in src/: shared, or with --ios / --android one module that branches on PLATFORM |
 | [`lucent new view`](#lucent-new-view) | Scaffold a component in src/: its declaration, and each platform's native views in a Flex |
 | [`lucent explain`](#lucent-explain) | What a LUCENT diagnostic code means, and how to fix it (every code without one) |
@@ -136,6 +137,18 @@ Set an app up for Lucent: the Metro config, the Expo plugin or the Gradle task, 
 It has no JSON output: with `--json`, it exits with code 2.
 
 It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/guides/install/) lists the changes for Expo and bare apps. Running it again changes nothing.
+
+## lucent uninstall
+
+Revert what lucent init and the Expo plugin changed: the Metro config, app.json, the Gradle task, react-native.config.js, tsconfig.json, .gitignore
+
+| Flag | Meaning |
+| --- | --- |
+| `--yes` | Apply every change without asking |
+
+It has no JSON output: with `--json`, it exits with code 2.
+
+It reverts what `lucent init` and the Expo config plugin changed, shown as diffs like init's: it unwraps the Metro config, removes the plugin from `app.json`, the Gradle line, the `react-native.config.js` entry, the `lucent:*` path and the editor plugin from `tsconfig.json`, VS Code's TypeScript settings and the `.gitignore` lines. A file init created whole is deleted. The app's modules stay, and so does `noUncheckedIndexedAccess`. [Remove Lucent](/docs/guides/install/#remove-lucent) gives the steps after it.
 
 ## lucent new module
 

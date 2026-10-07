@@ -20,6 +20,8 @@ export interface Change {
   why: string;
   before: string | undefined;
   after: string;
+  /** The file is deleted (lucent uninstall): `after` is "". */
+  remove?: true;
 }
 
 /** A change init cannot make safely: what to add by hand. */
@@ -141,7 +143,15 @@ export function planInit(root: string): InitPlan {
 /** Writes the changes. */
 export function applyChanges(root: string, changes: Change[]): void {
   for (const c of changes) {
-    fs.mkdirSync(path.dirname(path.join(root, c.file)), { recursive: true });
-    fs.writeFileSync(path.join(root, c.file), c.after);
+    const file = path.join(root, c.file);
+    if (c.remove) {
+      fs.rmSync(file, { force: true });
+      // A directory init made for it (.vscode/), left empty.
+      const dir = path.dirname(file);
+      if (dir !== root && fs.existsSync(dir) && !fs.readdirSync(dir).length) fs.rmdirSync(dir);
+      continue;
+    }
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, c.after);
   }
 }

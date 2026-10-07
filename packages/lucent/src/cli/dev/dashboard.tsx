@@ -64,8 +64,7 @@ function Dashboard({ session, theme: t, root, open, doctor }: DashboardOptions) 
     else if (input === "o" && problem?.file) {
       setNotice(undefined);
       open(problem.file, problem.line ?? 1, setNotice);
-    }
-    else if (key.upArrow) setSelected((i) => Math.max(0, i - 1));
+    } else if (key.upArrow) setSelected((i) => Math.max(0, i - 1));
     else if (key.downArrow) setSelected((i) => Math.min(s.problems.length - 1, i + 1));
   });
 
