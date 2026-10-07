@@ -433,6 +433,18 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-08: A build with only deferred platforms succeeds.** A build
+whose platforms are all left to later builds (Android to the Gradle build
+during `expo prebuild`, iOS without its SDK on Linux) checks the shared
+code as `--platforms host` does and writes the native package, instead
+of failing with "no platform to build here"; `lucent check` without any
+platform SDK checks the same way, after a warning. _Why:_ prebuild failed
+on Linux and on EAS's Android builders for any module importing
+`lucent:android/*`, and CI's check hid the code's real problems behind
+the missing SDKs. _Changed:_ the Expo config plugin builds the platforms
+prebuild writes (`--platform`); a build with no SDK and nothing deferred
+still fails.
+
 **2026-10-07: Views without a switch.** The maintainer removed the
 internal `LUCENT_VIEWS=fabric` switch: every compile resolves `lucent:ui`,
 the toolkits and JSX, and generates components' Fabric sources, so a
