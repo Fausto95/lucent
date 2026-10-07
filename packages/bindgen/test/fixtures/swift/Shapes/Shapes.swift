@@ -138,6 +138,16 @@ public func fetch(_ count: Int) async throws -> [Point] {
   return Array(repeating: Point(x: 1, y: 2), count: count)
 }
 
+/// Bytes and what they are, later: a tuple, as URLSession.data(from:) gives one.
+public func measured(_ count: Int) async throws -> (Data, String) {
+  (Data(repeating: 7, count: count), "\(count) bytes")
+}
+
+/// Points and what they are: a tuple holding a collection, which Lucent refuses.
+public func listed(_ count: Int) -> ([Point], String) {
+  (Array(repeating: Point(x: 1, y: 2), count: count), "\(count) points")
+}
+
 /// A generic enum with payloads.
 public enum Outcome<T> {
   case done(T)

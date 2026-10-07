@@ -55,6 +55,13 @@ export async function run(): Promise<string> {
 }
 `;
 
+const tuples = `import { measured } from "lucent:ios/Shapes";
+export async function run(): Promise<string> {
+  const [bytes, label] = await measured(3n);
+  return \`\${bytes.length} \${bytes[0]} \${label}\`;
+}
+`;
+
 const unions = `import { Canvas, Palette, Pen, Point, Shape } from "lucent:ios/Shapes";
 export async function run(): Promise<string> {
   const canvas = new Canvas();
@@ -254,6 +261,10 @@ describe.skipIf(!xcode)("Swift-only members, called through shims", () => {
     expect(mm).toContain("lucent::postCallback(");
     expect(compileErrors(r)).toEqual(compiles);
   }, 120_000);
+
+  it("awaits an async member whose result is a tuple", () => {
+    expect(hostRun(shapes(tuples))).toMatchObject({ status: 0, stdout: "3 7 3 bytes\n" });
+  }, 600_000);
 
   it("passes enums with payloads as unions: a dictionary of the case and its payload", () => {
     const r = shapes(unions);
