@@ -414,6 +414,20 @@ export const explanations: { code: string; title: string; summary: string; detai
     }
   },
   {
+    "code": "LUCENT3013",
+    "title": "Method that matches no protocol requirement",
+    "summary": "A method of a class implementing an SDK protocol, named like one of its requirements but matching none, which the platform never calls.",
+    "details": "TypeScript checks that a class implements a protocol's required methods, but an optional one (most delegate methods) spelled wrong is just another method: the platform never calls it, and nothing fails. Lucent warns when a method's name is close to a requirement's (a few edits away, or starting with the same word, as delegate methods do) and matches none, as `noImplicitOverride` does for overrides.",
+    "fix": "rename the method to the requirement the warning names, or make it private if it is a helper",
+    "wrong": {
+      "example.lucent.ts": "import { PLATFORM } from \"lucent:platform\";\nimport { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from \"lucent:ios/CoreLocation\";\nclass Updates implements CLLocationManagerDelegate {\n  locationManager_didUpdateLocations(manager: CLLocationManager, locations: CLLocation[]): void {}\n  locationManager_didFailWithErorr(manager: CLLocationManager, error: Error): void {}\n}\nexport async function watch(): Promise<boolean> {\n  if (PLATFORM === \"ios\") return new Updates() !== null;\n  return false;\n}\n"
+    },
+    "right": {
+      "example.lucent.ts": "import { PLATFORM } from \"lucent:platform\";\nimport { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from \"lucent:ios/CoreLocation\";\nclass Updates implements CLLocationManagerDelegate {\n  locationManager_didUpdateLocations(manager: CLLocationManager, locations: CLLocation[]): void {}\n  locationManager_didFailWithError(manager: CLLocationManager, error: Error): void {}\n}\nexport async function watch(): Promise<boolean> {\n  if (PLATFORM === \"ios\") return new Updates() !== null;\n  return false;\n}\n"
+    },
+    "warning": true
+  },
+  {
     "code": "LUCENT3020",
     "title": "Export that cannot be a component",
     "summary": "An exported `.lucent.tsx` function that returns a view but cannot be a component, or Lucent code calling a component.",

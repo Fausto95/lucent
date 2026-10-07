@@ -39,6 +39,7 @@ export const Codes = {
   ModuleNameClash: "LUCENT3010",
   NotIsolated: "LUCENT3011",
   NotTransferable: "LUCENT3012",
+  UnmatchedRequirement: "LUCENT3013",
   ComponentExport: "LUCENT3020",
   ComponentContract: "LUCENT3021",
   ComponentMainThread: "LUCENT3022",
@@ -551,6 +552,22 @@ export const Explanations: Record<Code, Explanation> = {
     right: ex(
       'import { compute } from "lucent:core";\nfunction total(values: number[]): number {\n  return values.reduce((a, b) => a + b, 0);\n}\nexport async function run(values: number[]): Promise<number> {\n  return await compute(total, values);\n}\n',
     ),
+  },
+  LUCENT3013: {
+    title: "Method that matches no protocol requirement",
+    summary:
+      "A method of a class implementing an SDK protocol, named like one of its requirements but matching none, which the platform never calls.",
+    details:
+      "TypeScript checks that a class implements a protocol's required methods, but an optional one (most delegate methods) spelled wrong is just another method: the platform never calls it, and nothing fails. Lucent warns when a method's name is close to a requirement's (a few edits away, or starting with the same word, as delegate methods do) and matches none, as `noImplicitOverride` does for overrides.",
+    fix: "rename the method to the requirement the warning names, or make it private if it is a helper",
+    severity: "warning",
+    wrong: ex(
+      'import { PLATFORM } from "lucent:platform";\nimport { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";\nclass Updates implements CLLocationManagerDelegate {\n  locationManager_didUpdateLocations(manager: CLLocationManager, locations: CLLocation[]): void {}\n  locationManager_didFailWithErorr(manager: CLLocationManager, error: Error): void {}\n}\nexport async function watch(): Promise<boolean> {\n  if (PLATFORM === "ios") return new Updates() !== null;\n  return false;\n}\n',
+    ),
+    right: ex(
+      'import { PLATFORM } from "lucent:platform";\nimport { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";\nclass Updates implements CLLocationManagerDelegate {\n  locationManager_didUpdateLocations(manager: CLLocationManager, locations: CLLocation[]): void {}\n  locationManager_didFailWithError(manager: CLLocationManager, error: Error): void {}\n}\nexport async function watch(): Promise<boolean> {\n  if (PLATFORM === "ios") return new Updates() !== null;\n  return false;\n}\n',
+    ),
+    sdk: "ios",
   },
   LUCENT3020: {
     title: "Export that cannot be a component",
