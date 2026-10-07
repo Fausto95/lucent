@@ -94,7 +94,7 @@ export async function mediaDuration(): Promise<string> {
   if (PLATFORM !== "ios") return "n/a";
   const path = `${NSTemporaryDirectory()}lucent-silence.wav`;
   FileManager.default.createFile(path, wav(), null);
-  const asset = new AVURLAsset(new NSURL(path, false), null);
+  const asset = new AVURLAsset(NSURL.fileURL(path, false), null);
   const duration = await asset.load(AVPartialAsyncProperty.duration);
   return `${Number(duration.value) / duration.timescale}`;
 }

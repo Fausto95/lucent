@@ -3166,7 +3166,13 @@ function iosCall(
           a,
           throws,
         )
-      : send(objcReceiver(ref, obj), selector, a, throws);
+      : send(
+          // An initializer declared as a static method: sent to a new instance.
+          m.initializer && !obj ? cpp.send(ref.cls.native, "alloc") : objcReceiver(ref, obj),
+          selector,
+          a,
+          throws,
+        );
   const ret = parseSdkType(m.returns, ref.module, tps);
   const what = `${ref.cls.name}.${m.name}()`;
   const lt = declaredLt(em, "ios", ret, node);

@@ -1303,7 +1303,7 @@ export function buildIosSchema(
         if (cls.extends) cls.inheritsInit = true;
         else ctors.push({ params: [], selector: "init" });
       }
-      methods.push(...factoriesApart(ctors, { module, name }));
+      methods.push(...initializersApart(ctors, methods, { module, name }));
       if (ctors.length) cls.constructors = ctors;
       if (methods.length) cls.methods = methods;
       if (props.length) cls.properties = props;
@@ -1430,46 +1430,51 @@ function selectorName(selector: string): string {
 const initNames = new WeakMap<SdkCallable, { title: string; failable: boolean }>();
 
 /**
- * Factory initializers TypeScript could not tell from another constructor
- * (`fileHandleForReadingAtPath:` and `fileHandleForUpdatingAtPath:` both
- * take a string), taken out of `ctors` as static methods named by their
- * Swift labels (`FileHandle.forUpdatingAtPath(path)`). The first of each
- * signature stays a constructor; other initializers are sent to a new
- * instance, so they stay too.
+ * Initializers TypeScript could not tell apart (NSURL's initWithString:
+ * and initFileURLWithPath: both take a string; NSFileHandle's factories
+ * for reading and for updating), taken out of `ctors` as static methods
+ * named by their Swift labels (`NSURL.string(…)`,
+ * `FileHandle.forUpdatingAtPath(…)`): none of them is the constructor,
+ * so code never gets one when it meant another. A factory is sent to the
+ * class, as it was; an initializer to a new instance.
  */
-function factoriesApart(
+function initializersApart(
   ctors: SdkCallable[],
+  methods: readonly SdkMethodSchema[],
   owner: { module: string; name: string },
 ): SdkMethodSchema[] {
   const key = (c: SdkCallable) => c.params.map((p) => tsKind(formatSchemaType(p.type))).join(",");
-  const seen = new Set<string>();
+  const counts = new Map<string, number>();
+
+  for (const c of ctors) counts.set(key(c), (counts.get(key(c)) ?? 0) + 1);
+
+  const taken = new Set(methods.filter((m) => m.static).map((m) => m.name));
   const out: SdkMethodSchema[] = [];
 
-  for (const c of [...ctors]) {
-    const k = key(c);
-    const init = initNames.get(c);
+  const moved = ctors.filter((c) => counts.get(key(c))! >= 2 && initNames.has(c) && c.selector);
 
-    if (!seen.has(k) || !c.factory || !init) {
-      seen.add(k);
-      continue;
-    }
+  for (const c of moved) {
+    const init = initNames.get(c)!;
 
     const { labels } = splitName(init.title.replace(/^init\??/, "init"));
     const named = labels.filter((l) => l !== "_");
-    const name = named.length
+    const labeled = named.length
       ? named[0]! +
         named
           .slice(1)
           .map((l) => l.charAt(0).toUpperCase() + l.slice(1))
           .join("")
-      : c.selector!.replace(/:.*$/, "");
-    const { factory: _, ...callable } = c;
+      : "";
+    const name = labeled && !taken.has(labeled) ? labeled : selectorName(c.selector!);
+    const { factory, ...callable } = c;
 
+    taken.add(name);
     ctors.splice(ctors.indexOf(c), 1);
     out.push({
       ...callable,
       name,
       static: true,
+      ...(factory ? {} : { initializer: true as const }),
       returns: { k: "ref", module: owner.module, name: owner.name, nullable: init.failable },
     });
   }
