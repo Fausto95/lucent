@@ -36,6 +36,8 @@ import {
   loadTemplates,
 } from "./website/pages.ts";
 import { checkProse } from "./website/prose.ts";
+import { checkRedirects, vercelJson } from "./website/redirects.ts";
+import { docsSlugs } from "../apps/website/src/docs/nav.ts";
 import { checkSamples, unbuiltProblems } from "./website/samples.ts";
 
 const check = process.argv.includes("--check");
@@ -126,7 +128,16 @@ for (const name of existing.filter((f) => !(f in generated) && !unbuilt.has(f)))
 
 problems.push(...checkLinks(checked));
 
-// Links into the docs from outside its pages: with no redirects, a moved page breaks them.
+// The old URLs redirect to pages that exist, through vercel.json (src/docs/redirects.ts).
+problems.push(...checkRedirects(docsSlugs));
+const vercelFile = path.join(root, "vercel.json");
+const vercel = vercelJson(fs.readFileSync(vercelFile, "utf8"));
+if (fs.readFileSync(vercelFile, "utf8") !== vercel) {
+  if (check) problems.push("vercel.json is stale: run `node scripts/website.ts`");
+  else fs.writeFileSync(vercelFile, vercel);
+}
+
+// Links into the docs from outside its pages: they name pages as they are now.
 // The homepage's go through Docusaurus' <Link>, which the site's build checks.
 const tracked = spawnSync("git", ["ls-files", "--", "docs"], { cwd: root, encoding: "utf8" });
 const outside = [
