@@ -32,7 +32,7 @@ const RUNS: Record<
   doctor: { args: [] },
   init: { args: ["--yes"], plain: false },
   "new module": { args: ["geo"] },
-  "new view": { args: ["Badge"], env: { LUCENT_VIEWS: "fabric" } },
+  "new view": { args: ["Badge"] },
   explain: { args: ["LUCENT1006"] },
   // Runs the benchmark harness: bench.test.ts checks its JSON.
   bench: { args: [], plain: false, skip: true },

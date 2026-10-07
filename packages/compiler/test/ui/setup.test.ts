@@ -1,10 +1,10 @@
-// Components' setups compiled into C++ (LUCENT_VIEWS=fabric): the Meter
+// Components' setups compiled into C++: the Meter
 // fixture on both platforms, what setup code may and may not do, and the
 // sources compiling against React Native's renderer headers.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { compile, type CompileResult, sdkAvailable, writeNativePackage } from "../../src/index.ts";
 import { METER } from "./meter-fixture.ts";
 import {
@@ -58,14 +58,6 @@ ${body}
 }
 
 describe("a component's compiled setup", () => {
-  beforeEach(() => {
-    process.env.LUCENT_VIEWS = "fabric";
-  });
-
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   for (const platform of ["ios", "android"] as const)
     it.skipIf(!sdks[platform])(
       `joins its module on ${platform}: a signal per prop, a route per event, a command table`,

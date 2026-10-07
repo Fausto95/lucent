@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { compile, runtimeDir, sdkAvailable } from "../../src/index.ts";
 import { catalystObjects, macosSdk, quickjsSources } from "./mount-harness.ts";
 import { catalystToolchain, reactCommon } from "./react-native-headers.ts";
@@ -70,15 +70,9 @@ const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 `;
 
 describe("a SwiftUI component in its iOS host", () => {
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   it.skipIf(!toolchain || !ios)(
     "is contained, follows its parent and its host, and goes with its mount",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-swiftui-run-"));
 
       fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));

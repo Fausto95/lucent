@@ -51,20 +51,6 @@ describe("lucent dev --compact", () => {
     d.child.kill("SIGINT");
     expect(await d.exited).toBe(0);
   }, 60_000);
-
-  it("shows an unexpected LUCENT_VIEWS as the build's problem and keeps running", async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-dev-"));
-    fs.writeFileSync(
-      path.join(root, "a.lucent.ts"),
-      "export function one(): number { return 1; }\n",
-    );
-    const d = dev(root, { LUCENT_VIEWS: "foo" });
-    await d.until(/✗ LUCENT_VIEWS must be "fabric" or unset \(got "foo"\)/);
-    expect(d.output()).not.toMatch(/crashed/);
-
-    d.child.kill("SIGINT");
-    expect(await d.exited).toBe(0);
-  }, 60_000);
 });
 
 /** A terminal Ink draws into, with keys to press. */

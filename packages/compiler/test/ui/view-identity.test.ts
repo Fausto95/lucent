@@ -18,7 +18,6 @@ interface Identity {
 
 /** The fixture compiled for iOS with `edit` applied to its files: its proxy and identity. */
 function built(edit: (files: Record<string, string>) => Record<string, string> = (f) => f) {
-  process.env.LUCENT_VIEWS = "fabric";
   const files = edit({ ...SETTINGS });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-view-identity-"));
 
@@ -87,7 +86,6 @@ function load(proxy: string, expected: Identity, installed: Identity) {
 
 describe.skipIf(!sdkAvailable("ios"))("a view-only module's stale-native check", () => {
   afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
     delete (globalThis as { __lucentModules?: unknown }).__lucentModules;
     vi.restoreAllMocks();
   });

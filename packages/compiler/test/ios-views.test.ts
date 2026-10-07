@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { compile, runtimeDir, sdkAvailable } from "../src/index.ts";
 import { compileErrors, iosHostToolchain } from "./ui/react-native-headers.ts";
 
@@ -81,28 +81,9 @@ const file = (r: ReturnType<typeof compileApp>["result"], pattern: RegExp) =>
   [...r.files].find(([name]) => pattern.test(name));
 
 describe("components' iOS hosts", () => {
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
-  it.skipIf(!ios)(
-    "leave lucent:ui unresolved unless views are generated",
-    () => {
-      const { result } = compileApp();
-
-      expect(result.diagnostics.map((d) => [d.code, d.message])).toContainEqual([
-        "LUCENT3004",
-        "lucent:ui is not a Lucent module",
-      ]);
-    },
-    180_000,
-  );
-
   it.skipIf(!ios)(
     "compile the component's setup once, into a function JavaScript does not see",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const { result } = compileApp();
 
       expect(result.diagnostics).toEqual([]);
@@ -141,8 +122,6 @@ describe("components' iOS hosts", () => {
   it.skipIf(!ios)(
     "generate each component's view class: registration, mount, props, events and commands",
     async () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const { result } = compileApp();
       const [name, glue] =
         file(result, /^ios\/views\/LucentGauge_[0-9a-f]{12}ComponentView\.mm$/) ?? [];
@@ -191,8 +170,6 @@ describe("components' iOS hosts", () => {
   it.skipIf(!ios)(
     "answer every request, even one that fails before it runs or reaches no mount",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const { result } = compileApp();
       const glue = file(result, /ComponentView\.mm$/)?.[1] ?? "";
       const mount = file(result, /_mount\.cpp$/)?.[1] ?? "";
@@ -214,8 +191,6 @@ describe("components' iOS hosts", () => {
   it.skipIf(!ios)(
     "never set up again: a commit's changes reach the mount's signals",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const { result } = compileApp();
       const glue = file(result, /ComponentView\.mm$/)?.[1] ?? "";
       const mount = file(result, /_mount\.cpp$/)?.[1] ?? "";
@@ -230,8 +205,6 @@ describe("components' iOS hosts", () => {
   it.skipIf(!ios)(
     "find the commands whatever name expose is imported under",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const aliased = GAUGE.replace(
         'import { effect, expose } from "lucent:ui";',
         'import { effect, expose as give } from "lucent:ui";',
@@ -252,8 +225,6 @@ describe("components' iOS hosts", () => {
   it.skipIf(!ios || !toolchain)(
     "compile, with the component's module and the shared host, against React Native's iOS headers",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const { dir, result } = compileApp();
       const out = path.join(dir, "out");
 
@@ -285,8 +256,6 @@ describe("components' iOS hosts", () => {
   it.skipIf(!ios)(
     "accept the spike's components next to the example app's modules that keep callbacks or override UIKit",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const app = path.resolve(import.meta.dirname, "../../../apps/bare-example");
       const files = [
         ".views-spike/views.lucent.tsx",

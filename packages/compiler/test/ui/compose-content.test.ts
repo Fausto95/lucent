@@ -1,4 +1,4 @@
-// What a Compose body holds beyond a toggle (LUCENT_VIEWS=fabric):
+// What a Compose body holds beyond a toggle:
 // callbacks with parameters, values of every plain type, lists of keyed
 // items, bindings, composition locals and animations. Each component's
 // Kotlin compiles with the Compose compiler plugin, and its glue with the

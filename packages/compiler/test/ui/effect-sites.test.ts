@@ -4,17 +4,12 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { compile, sdkAvailable } from "../../src/index.ts";
 import { SETTINGS } from "./native-jsx-fixture.ts";
 
 describe.skipIf(!sdkAvailable("ios"))("an effect's trace site", () => {
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   it("is the line of the attribute it keeps up to date", () => {
-    process.env.LUCENT_VIEWS = "fabric";
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-effect-sites-"));
 
     fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));

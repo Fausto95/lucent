@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../src/index.ts";
 
 const ios = process.platform === "darwin";
@@ -69,17 +69,6 @@ function refusals(source: string): string[] {
 }
 
 describe.skipIf(!ios)("state only the main thread uses", () => {
-  const views = process.env.LUCENT_VIEWS;
-
-  beforeAll(() => {
-    process.env.LUCENT_VIEWS = "fabric";
-  });
-
-  afterAll(() => {
-    if (views === undefined) delete process.env.LUCENT_VIEWS;
-    else process.env.LUCENT_VIEWS = views;
-  });
-
   it("is read by a view and written by main() callbacks", () => {
     expect(compileApp(PLAYERS).diagnostics).toEqual([]);
   }, 180_000);

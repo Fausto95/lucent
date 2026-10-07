@@ -1,4 +1,4 @@
-// Helper views in a Compose body (LUCENT_VIEWS=fabric): a function of the
+// Helper views in a Compose body: a function of the
 // Android file returning Compose's JSX, used as an element. Each is a
 // Kotlin @Composable function of its own, whose composition statements
 // compose where it does; what it computes from its props crosses from the

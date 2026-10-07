@@ -8,7 +8,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { compile, sdkAvailable } from "../../src/index.ts";
 
 const ios = sdkAvailable("ios");
@@ -61,14 +61,6 @@ function oneFile(platform: "ios" | "android", code: string, imports = "") {
 }
 
 describe("native view JSX diagnostics", () => {
-  beforeEach(() => {
-    process.env.LUCENT_VIEWS = "fabric";
-  });
-
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   it.skipIf(!ios)("says to return native JSX, not keep it", () => {
     expect(
       diagnostics(

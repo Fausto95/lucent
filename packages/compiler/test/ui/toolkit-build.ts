@@ -42,26 +42,17 @@ export function build(files: Record<string, string>, platform: "ios" | "android"
 
   for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), text);
 
-  const previous = process.env.LUCENT_VIEWS;
+  const result = compile(
+    Object.keys(files).map((f) => path.join(dir, f)),
+    { platforms: [platform] },
+  );
 
-  process.env.LUCENT_VIEWS = "fabric";
+  // LUCENT_TEST_DUMP=<dir>: what each build generated, to read by hand.
+  const dump = process.env.LUCENT_TEST_DUMP;
 
-  try {
-    const result = compile(
-      Object.keys(files).map((f) => path.join(dir, f)),
-      { platforms: [platform] },
-    );
+  if (dump) writeOut({ dir: path.join(dump, path.basename(dir)), result });
 
-    // LUCENT_TEST_DUMP=<dir>: what each build generated, to read by hand.
-    const dump = process.env.LUCENT_TEST_DUMP;
-
-    if (dump) writeOut({ dir: path.join(dump, path.basename(dir)), result });
-
-    return { dir, result };
-  } finally {
-    if (previous === undefined) delete process.env.LUCENT_VIEWS;
-    else process.env.LUCENT_VIEWS = previous;
-  }
+  return { dir, result };
 }
 
 /** Each diagnostic as `CODE message`. */
