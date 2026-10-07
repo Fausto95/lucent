@@ -1,0 +1,42 @@
+---
+title: Build a Lucent app in CI and on EAS
+sidebar_label: Build in CI and on EAS
+description: "A fresh clone builds the native package as autolinking reads it; cache the SDK bindings with `LUCENT_CACHE_DIR`, and give each platform's build its SDK."
+kind: guide
+---
+
+`.lucent/` is generated and ignored by git, so a CI runner or an EAS builder starts without it. Each kind of app builds it on the way:
+
+- **Expo:** `expo prebuild`, which EAS runs, runs `lucent build` through the config plugin.
+- **Bare:** the `react-native.config.js` entry `lucent init` writes runs `lucent build` when `pod install` or Gradle reads it and `.lucent/native` is missing. The Gradle task runs it again before each Android build.
+
+Expo Go can't run Lucent: it loads no native code but its own. Build a development build or a release with EAS Build, `expo run:ios` or `expo run:android`.
+
+## Cache the SDK bindings
+
+Lucent reads the SDK's declarations once per SDK version into its cache, which takes about a minute per platform. Point [`LUCENT_CACHE_DIR`](/docs/api/environment-variables/#variables) inside the project, so EAS caches it between builds:
+
+```json title="eas.json"
+{
+  "build": {
+    "production": {
+      "env": { "LUCENT_CACHE_DIR": "./.lucent-cache" },
+      "cache": { "paths": [".lucent-cache"] }
+    }
+  }
+}
+```
+
+Add `.lucent-cache/` to `.gitignore`. On GitHub Actions, cache the same directory with `actions/cache`, keyed on the Xcode version and the Android platform.
+
+## What each platform needs
+
+| Build | Needs | Notes |
+| --- | --- | --- |
+| iOS, EAS or CI | macOS with Xcode, CocoaPods | `lucent build` reads the iOS SDK through `xcrun`. EAS's macOS images have both. |
+| Android, EAS or CI | the Android SDK, the NDK and JDK 17 to 21 | Linux works. EAS's Android images have them. |
+| `lucent check` in CI | Node only | Without an SDK it checks with `lucent:ios/*` and `lucent:android/*` untyped; pass `--platforms host`. |
+
+On Linux there's no iOS SDK, so a build of both platforms builds Android alone. During `expo prebuild`, Android's dependencies wait for the Gradle build. When that leaves no platform, the build checks the shared code and writes the native package the Gradle build compiles.
+
+To fail a build whose SDKs drift from the ones you tested with, record them with [`lucent sdk lock`](/docs/guides/pin-sdks/) and build with `--frozen`.

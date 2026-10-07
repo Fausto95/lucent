@@ -41,6 +41,8 @@ export const docsSections: DocSection[] = [
           "guides/use-a-third-party-sdk",
           "guides/upgrade-lucent",
           "guides/pin-sdks",
+          "guides/build-in-ci-and-eas",
+          "guides/remove-lucent",
         ],
       },
       {

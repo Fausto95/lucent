@@ -1,0 +1,19 @@
+---
+title: Remove Lucent from an app
+sidebar_label: Remove Lucent
+description: "`npx lucent uninstall` reverts what `lucent init` and the Expo plugin changed; then remove `.lucent/`, the package and your modules, and rebuild the native projects."
+kind: guide
+---
+
+```sh title="terminal"
+npx lucent uninstall
+npx lucent clean
+npm uninstall @lucent-lang/lucent
+```
+
+`lucent uninstall` reverts each change [`lucent init`](/docs/api/cli/#lucent-init) and the Expo plugin made, as diffs you confirm; `--yes` applies them all. It unwraps the Metro config and removes the plugin from `app.json`, the Gradle line, the `react-native.config.js` entry, the `lucent:*` path and the editor plugin from `tsconfig.json`, VS Code's TypeScript settings and the `.gitignore` lines. It keeps `noUncheckedIndexedAccess`, which your code may rely on, and prints the lines to remove by hand from a file it can't change safely, such as `app.config.ts`.
+
+`lucent clean` removes `.lucent/`. Then:
+
+- delete your `*.lucent.ts` modules and the imports of them;
+- rebuild the native projects: `npx expo prebuild --clean` in an Expo app, `pod install` in `ios/` in a bare one.
