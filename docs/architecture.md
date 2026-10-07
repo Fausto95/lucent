@@ -1,5 +1,11 @@
 # Architecture
 
+How the compiler, runtime and tooling are built, for people changing them:
+the file-level reference behind the website's
+[Architecture › Internals](https://lucent-lang.dev/docs/architecture/internals/)
+pages, which explain the same parts at a higher level. A change to a part
+updates its section here in the same commit.
+
 ```
           app/src/*.lucent.ts
                   │  lucent build (packages/lucent)

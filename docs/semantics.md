@@ -1,8 +1,12 @@
 # Lucent semantics
 
 The specification of what Lucent accepts and how it behaves, for people
-working on the compiler and runtime. The user-facing tutorial is the website's
-Language section; when the two disagree, this file and the e2e cases win.
+working on the compiler and runtime. Users read the website's
+[API › Language](https://lucent-lang.dev/docs/api/language/) pages, whose
+subset tables and known gaps are generated from
+`apps/website/src/docs/language.ts` and checked against the compiler. When
+this file, the website and the compiler disagree, the e2e cases decide,
+and the other two are fixed in the same change.
 
 A `*.lucent.ts` file must type-check with TypeScript in strict mode, plus
 `noUncheckedIndexedAccess`. Lucent accepts the subset below; everything else

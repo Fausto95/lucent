@@ -104,7 +104,7 @@ export const comparisonRows: ComparisonRow[] = [
         value: "Most",
         tone: "partial",
         detail:
-          "typed from your Xcode and Android SDK, pods and Gradle dependencies, Swift-only and Kotlin-only APIs included; Swift packages aren't read yet, and `lucent sdk coverage` lists what isn't bound. See [iOS](/docs/api/ios-sdk/) and [Android](/docs/api/android-sdk/)",
+          "typed from your Xcode and Android SDK, pods, Swift packages and Gradle dependencies, Swift-only and Kotlin-only APIs included; a Swift pod's Swift API isn't bound yet, and `lucent sdk coverage` lists what isn't bound. See [iOS](/docs/api/ios-sdk/) and [Android](/docs/api/android-sdk/)",
       },
       expo: { value: "Full", tone: "available" },
       nitro: { value: "Full", tone: "available" },
