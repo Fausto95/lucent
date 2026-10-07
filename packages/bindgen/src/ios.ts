@@ -1224,6 +1224,7 @@ export function buildIosSchema(
             };
             if (facts) c.facts = facts;
             if (memberSince && memberSince !== cls.since) c.since = memberSince;
+            initNames.set(c, { title: mem.names.title, failable: /\binit\?/.test(text) });
             ctors.push(c);
             continue;
           }
@@ -1293,6 +1294,7 @@ export function buildIosSchema(
         if (cls.extends) cls.inheritsInit = true;
         else ctors.push({ params: [], selector: "init" });
       }
+      methods.push(...factoriesApart(ctors, { module, name }));
       if (ctors.length) cls.constructors = ctors;
       if (methods.length) cls.methods = methods;
       if (props.length) cls.properties = props;
@@ -1386,14 +1388,84 @@ function disambiguate(methods: SdkMethodSchema[]): void {
   const key = (m: SdkMethodSchema) =>
     `${m.static ? "static " : ""}${m.name}(${m.params.map((p) => tsKind(formatSchemaType(p.type))).join(",")})`;
   const seen = new Set<string>();
+  const titles = new Set<string>();
   for (const m of methods) {
+    const title = swiftTitle(m);
+    const repeated = titles.has(title);
+
+    titles.add(title);
     if (!seen.has(key(m))) {
       seen.add(key(m));
       continue;
     }
-    m.name = withLabels(m);
+    // Overloads Swift names alike (`set(_:forKey:)`) have no labels to tell them apart: the selector's words do.
+    m.name = repeated && m.selector ? selectorName(m.selector) : withLabels(m);
     seen.add(key(m));
   }
+}
+
+function swiftTitle(m: SdkMethodSchema): string {
+  return (m as SdkMethodSchema & { swiftName?: string }).swiftName ?? swiftNames.get(m) ?? m.name;
+}
+
+/** A method name of a selector's words: `setDouble:forKey:` → `setDoubleForKey`. */
+function selectorName(selector: string): string {
+  return selector
+    .split(":")
+    .filter(Boolean)
+    .map((w, i) => (i ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join("");
+}
+
+/** Initializers' Swift names (`init(forUpdatingAtPath:)`), and whether they may fail. */
+const initNames = new WeakMap<SdkCallable, { title: string; failable: boolean }>();
+
+/**
+ * Factory initializers TypeScript could not tell from another constructor
+ * (`fileHandleForReadingAtPath:` and `fileHandleForUpdatingAtPath:` both
+ * take a string), taken out of `ctors` as static methods named by their
+ * Swift labels (`FileHandle.forUpdatingAtPath(path)`). The first of each
+ * signature stays a constructor; other initializers are sent to a new
+ * instance, so they stay too.
+ */
+function factoriesApart(
+  ctors: SdkCallable[],
+  owner: { module: string; name: string },
+): SdkMethodSchema[] {
+  const key = (c: SdkCallable) => c.params.map((p) => tsKind(formatSchemaType(p.type))).join(",");
+  const seen = new Set<string>();
+  const out: SdkMethodSchema[] = [];
+
+  for (const c of [...ctors]) {
+    const k = key(c);
+    const init = initNames.get(c);
+
+    if (!seen.has(k) || !c.factory || !init) {
+      seen.add(k);
+      continue;
+    }
+
+    const { labels } = splitName(init.title.replace(/^init\??/, "init"));
+    const named = labels.filter((l) => l !== "_");
+    const name = named.length
+      ? named[0]! +
+        named
+          .slice(1)
+          .map((l) => l.charAt(0).toUpperCase() + l.slice(1))
+          .join("")
+      : c.selector!.replace(/:.*$/, "");
+    const { factory: _, ...callable } = c;
+
+    ctors.splice(ctors.indexOf(c), 1);
+    out.push({
+      ...callable,
+      name,
+      static: true,
+      returns: { k: "ref", module: owner.module, name: owner.name, nullable: init.failable },
+    });
+  }
+
+  return out;
 }
 
 /** Objective-C methods' Swift names (`count(for:)`), for labeling them again. */
@@ -1401,9 +1473,7 @@ const swiftNames = new WeakMap<SdkMethodSchema, string>();
 
 /** A method's name with its Swift labels appended (`resize(height:)` → `resizeHeight`). */
 function withLabels(m: SdkMethodSchema): string {
-  const { labels } = splitName(
-    (m as SdkMethodSchema & { swiftName?: string }).swiftName ?? swiftNames.get(m) ?? m.name,
-  );
+  const { labels } = splitName(swiftTitle(m));
   return (
     m.name +
     labels
