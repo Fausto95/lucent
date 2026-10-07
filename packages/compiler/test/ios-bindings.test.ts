@@ -623,6 +623,22 @@ export async function run(): Promise<string> {
     ]);
   });
 
+  it("passes null for an optional block", () => {
+    const { r, mm } = ios(`import { UIView, UIView_AnimationOptions } from "lucent:ios/UIKit";
+import { main } from "lucent:thread";
+export async function run(): Promise<string> {
+  return main(() => {
+    const view = new UIView();
+    UIView.transition(view, 0.3, UIView_AnimationOptions.transitionCrossDissolve, null, null);
+    return "ok";
+  });
+}
+`);
+
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toMatch(/transitionWithView:.* animations:nil completion:nil\]/);
+  });
+
   it("reads NSError out-parameters as Lucent errors", () => {
     const { r, mm } = ios(errorOut);
     expect(r.diagnostics).toEqual([]);
