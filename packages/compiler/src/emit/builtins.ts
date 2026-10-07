@@ -1669,10 +1669,16 @@ function arrayMethod(
     case "flatMap": {
       const rt = em.lt(node);
       if (rt.k !== "array") fail(node, Codes.UnsupportedBuiltin, "flatMap");
+      // A callback giving a value as well as arrays (`x ?? []`): the runtime flattens only the arrays.
+      const gives =
+        a[0] && em.checker.getTypeAtLocation(a[0]).getCallSignatures()[0]?.getReturnType();
+      const mixed =
+        !!gives &&
+        (gives.isUnion() ? gives.types : [gives]).some((g) => !em.checker.isArrayType(g));
       return {
         c: cpp.call(
           cpp.dot(o, "flatMap", true),
-          [cb([e, T.number, self], rt).c],
+          [cb([e, T.number, self], mixed ? unionOf([rt.e, rt]) : rt).c],
           [em.reg.cppType(rt.e)],
         ),
         t: rt,

@@ -332,6 +332,40 @@ export class FnEmitter {
     if ((from.k === "never" || to.k === "never") && to.k !== "void")
       return this.unreachableAs(e, to);
 
+    // TypeScript types an empty array literal `never[]` (`x ?? []`): a value it calls that is
+    // empty, so made as any other array type it converts to an empty `never[]`.
+    const neverArray = (t: LType) => t.k === "array" && t.e.k === "never";
+    const members = to.k === "union" ? to.ms : [stripOpt(to)];
+    const empty = members.find(neverArray);
+
+    if (
+      empty &&
+      from.k === "array" &&
+      !neverArray(from) &&
+      !members.some((m) => m.k === "array" && this.cpp(m) === this.cpp(from))
+    ) {
+      const made = cpp.comma(
+        cpp.cast("c", cpp.voidType, e.c),
+        cpp.construct(this.reg.cppType(empty), []),
+      );
+
+      return this.coerce({ c: made, t: empty }, to, node);
+    }
+
+    // A union holding `never[]`, to one with another array type instead: its empty array as that.
+    const array = members.find((m) => m.k === "array" && !neverArray(m));
+
+    if (from.k === "union" && from.ms.some(neverArray) && !empty && array) {
+      const widened = unionOf(from.ms.map((m) => (neverArray(m) ? array : m)));
+      const c = cpp.call(
+        "lucent::emptyArrayAs",
+        [e.c],
+        [this.reg.cppType(widened), this.reg.cppType(array)],
+      );
+
+      return this.coerce({ c, t: widened }, to, node);
+    }
+
     const step = conversionStep(from, to, {
       // Different Lucent types with one native representation (platform objects).
       same: (a, b) => this.cpp(a) === this.cpp(b),
