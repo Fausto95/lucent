@@ -59,6 +59,17 @@ Check that `react-native.config.js` has the `lucent` entry for `.lucent/native`,
 </TabItem>
 </Tabs>
 
+### A module does not compile
+
+```text title="JavaScript error" nocopy
+Lucent: scanner.lucent.ts does not compile
+
+  error LUCENT9001  TS2322: Type 'string' is not assignable to type 'number'.
+  …
+```
+
+The last build of the module failed, and Metro shows its errors in place of the module, with their code frames, as the terminal does. Fix them and save: Metro's watcher builds again, and Metro bundles the module once the build passes. Metro waits up to five seconds for the build of a file just saved.
+
 ### A module has not been compiled
 
 ```text title="JavaScript error" nocopy

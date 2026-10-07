@@ -66,6 +66,7 @@ import {
   usedModules,
   writeUsage,
 } from "./sdk-usage.ts";
+import { writeProblems } from "./problems.ts";
 import type { Steps } from "./ui/steps.ts";
 
 export type Platform = "ios" | "android";
@@ -169,6 +170,9 @@ export async function buildProject(
     const actions = o.actions ?? [];
     const record = graph.toRecord(requiredAction(next, targets, changedUnits, actions), actions);
     writeBuildRecord(path.join(root, ".lucent/build-record.json"), record);
+    // What Metro shows of this build: its modules' problems, none once it passes. A build
+    // stopped before checking (fatal, superseded) leaves the last record as it was.
+    if (build && (o.ok || o.diagnostics?.length)) writeProblems(root, o.diagnostics ?? []);
 
     return {
       ok: false,

@@ -63,7 +63,7 @@ module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), {}));
 - Lucent's transformer hands every file on to the one in `transformer.babelTransformerPath`, else React Native's or Expo's default. Apply `withLucent` last: a wrapper after it that sets `babelTransformerPath` replaces Lucent's.
 - The watcher prints one line per build in Metro's output, leaves Metro's keys alone and stops with Metro. For the full dashboard, run `lucent dev` in a terminal of its own.
 
-A module with no proxy in the native package bundles a `throw` instead: see [Runtime errors](/docs/api/runtime-errors/#a-module-has-not-been-compiled).
+A module whose last build failed is a transform error that shows the build's diagnostics in the app's RedBox: see [Runtime errors](/docs/api/runtime-errors/#a-module-does-not-compile). A module with no proxy in the native package bundles a `throw` instead: see [Runtime errors](/docs/api/runtime-errors/#a-module-has-not-been-compiled).
 
 ## Expo config plugin
 
