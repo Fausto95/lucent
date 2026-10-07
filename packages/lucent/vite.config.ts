@@ -35,10 +35,13 @@ export default defineConfig({
       __LUCENT_DECLARATIONS__: JSON.stringify(declarationsSourcesHash(packages)),
     },
     deps: {
-      // The published package's dependencies, resolved from where it is installed.
-      neverBundle: ["typescript", "ink", "react"],
-      // A dependency, but small enough that bundling saves the CLI a resolve at start-up.
-      alwaysBundle: ["picocolors"],
+      // The published package's dependency, resolved from where it is installed.
+      // Ink loads React's devtools only with DEV=true, when installed: not the CLI's to ship.
+      neverBundle: ["typescript", "react-devtools-core"],
+      // Ink and its React are the CLI's own: resolved from the app, they would be the app's
+      // React when it hoists another version, and Ink's hooks would fail ("Invalid hook call").
+      // picocolors is small enough that bundling saves the CLI a resolve at start-up.
+      alwaysBundle: ["picocolors", "ink", "react", /^react\//, "react-reconciler", "scheduler"],
     },
     copy: [
       { from: "../compiler/lib", to: "." },

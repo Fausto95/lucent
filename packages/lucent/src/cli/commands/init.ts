@@ -35,17 +35,33 @@ export async function run({ root, flags, out }: Invocation): Promise<number> {
       import("react"),
       import("../init/confirm.tsx"),
     ]);
-    const answers = await new Promise<boolean[]>((resolve) => {
+    // The prompt's answers, or why it ended without them (it crashed, or was quit): then
+    // nothing was applied, and init fails rather than leave the app half set up unsaid.
+    const answers = await new Promise<boolean[] | Error>((resolve) => {
+      let done: boolean[] | undefined;
       const app = render(
         createElement(Confirm, {
           changes: plan.changes,
           theme: t,
-          onDone: (a: boolean[]) => setTimeout(() => (app.unmount(), resolve(a)), 20),
+          onDone: (a: boolean[]) => {
+            done = a;
+            setTimeout(() => app.unmount(), 20);
+          },
         }),
         // out.terminal already chose the prompt; Ink would otherwise check CI again itself.
         { interactive: true },
       );
+      app.waitUntilExit().then(
+        () => resolve(done ?? new Error("the prompt ended before every change was answered")),
+        (e: unknown) => resolve(e instanceof Error ? e : new Error(String(e))),
+      );
     });
+    if (answers instanceof Error) {
+      out.error(
+        `${t.error(t.symbols.fail)} nothing was changed: ${answers.message}. Run lucent init --yes to apply every change`,
+      );
+      return 1;
+    }
     accepted = plan.changes.filter((_, i) => answers[i]);
     applyChanges(root, accepted);
     manual();
