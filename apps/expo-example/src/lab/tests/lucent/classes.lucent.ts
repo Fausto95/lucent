@@ -176,3 +176,24 @@ export class Sized {
     this.text = `${size}${unit?.name ?? ""}`;
   }
 }
+
+/** An accessor read through a union of classes that both declare it. */
+class Disk {
+  constructor(private readonly path: string) {}
+  get uri(): string {
+    return `file://${this.path}`;
+  }
+}
+
+class Remote {
+  constructor(private readonly host: string) {}
+  get uri(): string {
+    return `https://${this.host}`;
+  }
+}
+
+export function locations(): string {
+  const all: (Disk | Remote | string)[] = [new Disk("/a"), new Remote("b.c"), "plain"];
+
+  return all.map((l) => (typeof l === "string" ? l : l.uri)).join(" ");
+}
