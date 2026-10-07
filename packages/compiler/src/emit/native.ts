@@ -758,6 +758,8 @@ export function toObjc(
   if (t.k === "error") throw new Error(`${use.display}: an error its plan refuses`);
   if (t.k === "fn") {
     const f = em.expr(arg);
+    // No block: `null` or `undefined` where the platform takes none.
+    if (t.nullable && (f.t.k === "null" || f.t.k === "undefined")) return cpp.id("nil");
     if (!t.nullable) return objcBlock(em, arg, f.c, f.t, t, use);
     return ifPresent(f.c, (x) => objcBlock(em, arg, x, f.t, t, use));
   }
