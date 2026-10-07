@@ -82,7 +82,7 @@ The plugin takes no options. During `npx expo prebuild`, for either platform, it
 - runs `lucent build` once, without Gradle: the Gradle task resolves Android's dependencies when the app builds. It builds the platforms prebuild writes: `--platform android` builds Android alone, and both platforms build what the machine has SDKs for. When Android waits for the Gradle build and there's no iOS SDK, as on Linux, it checks the shared code and writes the native package. A failed build stops prebuild with its errors.
 - builds nothing during `npx expo config --type introspect`, which shows the `Info.plist` and entitlements the last build resolved.
 - writes `react-native.config.js` with the `lucent` entry. If the file exists without that entry, prebuild stops and names the entry to add.
-- applies the [Gradle tasks](/docs/api/integrations/#gradle-tasks) to `android/app/build.gradle`, after React Native's plugin. It leaves a [Kotlin build script](/docs/api/integrations/#kotlin-build-scripts) alone.
+- applies the [Gradle tasks](/docs/api/integrations/#gradle-tasks) to `android/app/build.gradle`, after React Native's plugin, or to a [Kotlin build script](/docs/api/integrations/#kotlin-build-scripts), at its end.
 - adds the `Info.plist` keys and entitlements that Lucent packages list in their `lucent.json`. A key the app sets keeps the app's value, and an array the app sets gains the values it lacks.
 
 Packages declare those keys as [Declare permissions, Info.plist keys and entitlements](/docs/packages/declare-permissions-and-entitlements/) shows.
@@ -119,7 +119,7 @@ apply from: new File(new File(["node", "--print", "require.resolve('@lucent-lang
 
 - The `react-native.config.js` entry links `.lucent/native`. React Native's autolinking finds the `LucentNative` pod and the Android library there.
 - Git ignores `.lucent/`, so a fresh clone, a CI runner or an EAS build has no native package, and autolinking would skip it without a word: the app would build without Lucent and fail when a module loads. The entry runs `lucent build` first when `.lucent/native` is missing, or older than a module or `package.json`, printing why on stderr; `pod install` and Gradle's settings read it, so both get the package. `LUCENT_AUTOLINK_BUILD=0` turns that build off. An entry that names the root alone, `{ root: … }`, as earlier versions wrote, still links; `lucent init` replaces it, and `lucent doctor` warns about it.
-- The Gradle line asks Node where `@lucent-lang/lucent` is installed, so it works with any package manager's layout. It's Groovy: see [Kotlin build scripts](/docs/api/integrations/#kotlin-build-scripts).
+- The Gradle line asks Node where `@lucent-lang/lucent` is installed, so it works with any package manager's layout. A Kotlin build script gets [its own line](/docs/api/integrations/#kotlin-build-scripts).
 - iOS has no build hook. Run `lucent build`, or keep `lucent dev` or Metro's watcher running, before you build in Xcode.
 - Run `pod install` after the first build. Run it again when `lucent build` says `iOS: pod install first`: the build added or removed native files.
 - `lucent build` doesn't edit `Info.plist` or the entitlements. It names each key a Lucent package needs that the app's files lack, as [Add permissions and native config](/docs/guides/add-permissions-and-config/) shows.
@@ -143,7 +143,13 @@ A Gradle build whose `lucentBuild` creates `.lucent/native`, or changes the nati
 
 ### Kotlin build scripts
 
-An app whose script is `android/app/build.gradle.kts` isn't patched, so its Gradle builds don't run `lucent build`. The Expo plugin leaves it alone, and the line `lucent init` prints for it is Groovy, which doesn't compile as Kotlin. Run `lucent build` before each Android build, as for iOS, or translate the line to Kotlin yourself.
+For an app whose script is `android/app/build.gradle.kts`, `lucent init` and the Expo plugin add a Kotlin DSL line at its end, since Kotlin allows no statement before `plugins {}`:
+
+```kotlin title="android/app/build.gradle.kts"
+apply(from = File(File(providers.exec { workingDir = rootDir; commandLine("node", "--print", "require.resolve('@lucent-lang/lucent/package.json')") }.standardOutput.asText.get().trim()).parentFile, "gradle/lucent.gradle"))
+```
+
+It applies the same Groovy script, `gradle/lucent.gradle`, which hooks into `preBuild` lazily, so its place in the file doesn't matter. Its Gradle builds run `lucent build` first, as a Groovy script's do.
 
 ## Editor plugin
 

@@ -134,8 +134,7 @@ Expo Go can't load the native code Lucent adds to the app. Use a development bui
 - an `app.config.js` or `app.config.ts`, in an Expo app without `app.json`;
 - a Metro config without `module.exports = …`;
 - a `react-native.config.js` without `dependencies`;
-- a `tsconfig.json` it can't parse;
-- an `android/app/build.gradle.kts`, which needs the line in Kotlin ([Kotlin build scripts](/docs/api/integrations/#kotlin-build-scripts)).
+- a `tsconfig.json` it can't parse.
 
 Add the lines, then run `npx lucent init` again: it lists what's still missing.
 
