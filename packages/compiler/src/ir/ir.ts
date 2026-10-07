@@ -644,6 +644,15 @@ export function targetOf(op: IrOp): TargetId | undefined {
     : undefined;
 }
 
+/** Whether `op` is a bigint `/`, `%` or `**`, which throw a RangeError (by zero, a negative exponent). */
+export function throwsRangeError(op: IrOp, values: readonly IrValue[]): boolean {
+  return (
+    op.kind === "binary" &&
+    (op.op === "/" || op.op === "%" || op.op === "**") &&
+    values[op.left]?.type.k === "bigint"
+  );
+}
+
 /** The place an operation declares, reads or writes. */
 export function placeOf(op: IrOp): PlaceId | undefined {
   return op.kind === "local" || op.kind === "load" || op.kind === "store" || op.kind === "renew"

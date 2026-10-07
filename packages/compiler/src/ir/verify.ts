@@ -63,6 +63,7 @@ import {
   type Throws,
   unaryResult,
   type ValueId,
+  throwsRangeError,
 } from "./ir.ts";
 
 export class IrVerifyError extends Error {
@@ -558,7 +559,10 @@ class Checker {
     const ops = this.fn.regions.flatMap((r) => r.ops);
     const module = new Set(this.fn.modulePlaces.filter((p) => p.mutable).map((p) => p.place));
     const mayThrow = ops.find(
-      (op) => op.kind === "throw" || (op.kind === "call" && op.effects.throws !== "no"),
+      (op) =>
+        op.kind === "throw" ||
+        (op.kind === "call" && op.effects.throws !== "no") ||
+        throwsRangeError(op, this.fn.values),
     );
 
     if (mayThrow && claims.throws === "no")

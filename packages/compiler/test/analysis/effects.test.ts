@@ -554,3 +554,52 @@ export function counted(props: Props): void {
     expect(v!.message).toMatch(/^`counted` cannot run on the main thread: it calls `count`/);
   });
 });
+
+describe("checked conversions and throwing operators", () => {
+  it("throw where JavaScript's code would not, and nowhere else", () => {
+    const f = one(`export function asNum(x: string | number): number {
+  return x as number;
+}
+export function widen(x: number): number | string {
+  return x as number | string;
+}
+export function constant(): readonly number[] {
+  return [1, 2] as const;
+}
+export function div(a: bigint, b: bigint): bigint {
+  return a / b;
+}
+export function mod(a: bigint, b: bigint): bigint {
+  return a % b;
+}
+export function pow(a: bigint, b: bigint): bigint {
+  return a ** b;
+}
+export function divInPlace(a: bigint, b: bigint): bigint {
+  a /= b;
+  return a;
+}
+export function times(a: bigint, b: bigint): bigint {
+  return a * b;
+}
+export function numbers(a: number, b: number): number {
+  return (a / b) % b;
+}
+export function element(xs: number[], i: number): number | undefined {
+  return xs[i];
+}
+export function present(xs: number[]): number {
+  if (xs[0] !== undefined) return xs[0];
+  return 0;
+}
+`);
+    const throws = (name: string) => f.effects(unit(f, `m.${name}`)).throws;
+
+    for (const name of ["asNum", "div", "mod", "pow", "divInPlace", "present"])
+      expect(throws(name), name).toBe("yes");
+
+    for (const name of ["widen", "constant", "times", "numbers", "element"])
+      expect(throws(name), name).toBe("no");
+  });
+});
+

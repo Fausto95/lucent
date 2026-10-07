@@ -34,6 +34,7 @@ import {
   type PlaceId,
   isTerminator,
   placeOf,
+  throwsRangeError,
   type RegionId,
   type SourceSpan,
   type TargetId,
@@ -622,7 +623,12 @@ export function conservativeEffects(
   const pure = (op: IrOp) => {
     const place = placeOf(op);
 
-    return PURE.has(op.kind) && !allocates(op) && (place === undefined || !module.has(place));
+    return (
+      PURE.has(op.kind) &&
+      !allocates(op) &&
+      !throwsRangeError(op, fn.values) &&
+      (place === undefined || !module.has(place))
+    );
   };
 
   if (!fn.regions.every((r) => r.ops.every(pure))) return { ...UNKNOWN, suspends: fn.async };
