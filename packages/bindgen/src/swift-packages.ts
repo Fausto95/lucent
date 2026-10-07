@@ -11,7 +11,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { cacheRoot, hash } from "./cache.ts";
+import { cacheRoot, hash, publish, readCached, withLock } from "./cache.ts";
 import { type SwiftPackagePin, type XcodeApp, pinsOf } from "./xcode.ts";
 
 /**
@@ -70,11 +70,19 @@ export function swiftPackages(app: XcodeApp, opts: { cacheDir?: string } = {}): 
     const done = path.join(dir, "modules.json");
 
     try {
-      if (!fs.existsSync(done)) build(pin, dir, target, app.resolved);
-      const built = JSON.parse(fs.readFileSync(done, "utf8")) as {
-        products: string[];
-        modules: SwiftPackageModule[];
-      };
+      // One build per package and key, whoever asks (lucent dev, Metro, a terminal's build): the
+      // others wait for it. It builds in place (xcodebuild's products name their own paths), and
+      // modules.json, published whole and last, says it is done.
+      if (!fs.existsSync(done))
+        withLock(
+          `${dir}.build`,
+          () => fs.existsSync(done),
+          () => build(pin, dir, target, app.resolved),
+        );
+      const built = readCached(done) as
+        | { products: string[]; modules: SwiftPackageModule[] }
+        | undefined;
+      if (!built) throw new Error("its build recorded no modules");
       out.packages.push({ ...pin, products: built.products });
       out.modules.push(...built.modules);
     } catch (e) {
@@ -175,10 +183,7 @@ function build(pin: SwiftPackagePin, dir: string, target: string, resolved?: str
     ];
   });
 
-  fs.writeFileSync(
-    path.join(dir, "modules.json"),
-    `${JSON.stringify({ products, modules }, null, 2)}\n`,
-  );
+  publish(path.join(dir, "modules.json"), { products, modules });
 }
 
 function run(
