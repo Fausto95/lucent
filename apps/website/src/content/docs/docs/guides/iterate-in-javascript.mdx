@@ -1,0 +1,26 @@
+---
+title: Iterate on a module's logic without native rebuilds
+sidebar_label: Iterate in JavaScript
+description: "JS dev mode has Metro run your `*.lucent.ts` modules as JavaScript, so an edit refreshes like any other file; platform SDK calls throw until you build natively again."
+kind: guide
+---
+
+```sh title="terminal"
+LUCENT_JS=1 npx expo start
+```
+
+Each module's code is TypeScript with JavaScript's semantics, which the native build keeps. JS dev mode uses that: Metro bundles each `*.lucent.ts` module as its JavaScript instead of the proxy of its native build. A body edit is then a Fast Refresh, with no `lucent build` or native rebuild, and no build is needed to start. `withLucent(config, { js: true })` in `metro.config.js` turns it on too.
+
+It's a development convenience, for code whose logic you're working on: parsing, formatting, state, algorithms. It runs where the app's JavaScript runs:
+
+- `lucent:core` is its [JavaScript implementation](/docs/api/lucent-core/), the one tests use. `compute()` runs on the JavaScript thread.
+- `PLATFORM` is the platform the app runs on, and a split module runs its file for that platform.
+- `main()` runs its function later, on the JavaScript thread.
+- A platform SDK, native extension or view toolkit import loads, but reading, calling or constructing anything of it throws an error with `code: "LUCENT_JS_DEV_NATIVE"`. Keep SDK calls behind the code you're editing, or turn the mode off to run them.
+- A `.lucent.tsx` module, with components, stays native: it needs its build as usual.
+
+Its limits:
+
+- Timing and memory are JavaScript's, so don't measure performance in it: see [Measure performance](/docs/guides/measure-performance/).
+- A diagnostic still fails the native build, which the watcher keeps running. A module that doesn't compile shows its errors in place of the module in either mode.
+- A release bundle refuses it, so it can't ship by accident. Before you rely on a change, run it natively: start Metro without `LUCENT_JS`, and rebuild the app as [Apply a change](/docs/guides/apply-a-change/) says.

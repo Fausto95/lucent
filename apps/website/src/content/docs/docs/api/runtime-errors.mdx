@@ -112,6 +112,14 @@ When the two differ in a way calls can't survive, the load throws an `Error` who
 
 [Get a module change into the running app](/docs/guides/apply-a-change/) shows which change needs which action.
 
+## LUCENT_JS_DEV_NATIVE
+
+```text title="JavaScript error" nocopy
+Lucent: UIDevice (lucent:ios/UIKit) is native code, which JS dev mode can't run: it runs *.lucent.ts modules as JavaScript. Start Metro without LUCENT_JS (or withLucent's js option) and rebuild the app to call it.
+```
+
+In [JS dev mode](/docs/guides/iterate-in-javascript/), a module runs as JavaScript, which can't reach the platform's SDK: code read, called or constructed something a `lucent:ios/*`, `lucent:android/*`, `lucent:ext/*` or toolkit import gives. The error's `code` is `"LUCENT_JS_DEV_NATIVE"`. Run the code natively to call it.
+
 ## The installed implementation runs
 
 ```text title="JavaScript warning" nocopy

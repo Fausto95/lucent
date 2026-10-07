@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { nativePackage } = require("./native-package.cjs");
+const jsDev = require("./js-dev.cjs");
 
 const upstream = require(process.env.LUCENT_UPSTREAM_TRANSFORMER);
 const LUCENT = /\.lucent\.tsx?$/;
@@ -115,10 +116,13 @@ module.exports = {
   transform(args) {
     if (LUCENT.test(args.filename)) {
       const root = (args.options && args.options.projectRoot) || process.cwd();
-      failOnProblems(root, path.resolve(root, args.filename), args.src);
-      const src = proxyFor(args.filename, root);
+      const file = path.resolve(root, args.filename);
+      failOnProblems(root, file, args.src);
+      const src = jsDev.enabled()
+        ? jsDev.module(file, args, () => proxyFor(file, root))
+        : undefined;
       // The proxy is plain JavaScript, which the TypeScript pipeline accepts.
-      return upstream.transform({ ...args, src });
+      return upstream.transform({ ...args, src: src ?? proxyFor(args.filename, root) });
     }
     return upstream.transform(args);
   },
@@ -131,8 +135,8 @@ module.exports = {
     return crypto
       .createHash("sha1")
       .update(base)
-      .update(JSON.stringify([pkg, moduleNames(pkg)]))
-      .update("lucent-2")
+      .update(JSON.stringify([pkg, moduleNames(pkg), jsDev.enabled()]))
+      .update("lucent-3")
       .digest("hex");
   },
 };
