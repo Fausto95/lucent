@@ -196,8 +196,11 @@ Remove the generated .lucent/ (the next build starts over)
 | Flag | Meaning |
 | --- | --- |
 | `--cache` | Also remove the SDK bindings cache |
+| `--stale` | With --cache: remove only what other Lucent versions wrote to the SDK cache |
 
 With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-clean---json).
+
+Each Lucent version reads its own SDK cache entries. Builds remove other versions' entries on their own once those have gone unused for two weeks (`LUCENT_NO_CACHE_PRUNE=1` keeps them); `lucent clean --cache --stale` removes them all now.
 
 ## lucent sdk search
 

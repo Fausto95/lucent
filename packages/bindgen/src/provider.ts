@@ -987,7 +987,138 @@ function locate(platform: Platform, opts: SdkOptions): Resolved | { missing: str
   if (byObject) return byObject;
   const found = platform === "android" ? locateAndroid(opts) : locateIos(opts);
   locatedByObject.set(opts, (locatedByObject.get(opts) ?? new Map()).set(platform, found));
+  if (!("missing" in found)) {
+    markUsed(found.scope);
+    markUsed(found.memo);
+    autoPrune(cacheRoot(opts.cacheDir));
+  }
   return found;
+}
+
+// --- pruning -------------------------------------------------------------------------
+
+/** The file in each extractor-versioned directory saying which extractor wrote it, and when it was last used. */
+const MARK = ".extractor";
+
+const marked = new Set<string>();
+
+/** Records that this extractor uses `dir` now (once per process): pruning keeps it. */
+function markUsed(dir: string): void {
+  if (marked.has(dir)) return;
+  marked.add(dir);
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, MARK), `${extractorVersion()}\n`);
+  } catch {
+    // A read-only cache is used as it is.
+  }
+}
+
+/** A directory the cache keeps per extractor: each SDK scope, and each memo directory. */
+function versionedDirs(root: string): string[] {
+  const children = (dir: string) => {
+    try {
+      return fs
+        .readdirSync(dir, { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => path.join(dir, e.name));
+    } catch {
+      return [];
+    }
+  };
+  return [
+    ...children(path.join(root, "sdk/ios")),
+    ...children(path.join(root, "sdk/android")),
+    ...children(path.join(root, "memo")),
+  ];
+}
+
+/** Bytes under `p`. */
+function bytesUnder(p: string): number {
+  try {
+    const st = fs.statSync(p);
+    if (!st.isDirectory()) return st.size;
+    return fs.readdirSync(p).reduce((n, e) => n + bytesUnder(path.join(p, e)), 0);
+  } catch {
+    return 0;
+  }
+}
+
+/** A cache directory pruning removed, and the bytes it freed. */
+export interface PrunedEntry {
+  path: string;
+  bytes: number;
+}
+
+/**
+ * Removes what another extractor (an older or newer Lucent) wrote to the
+ * cache: SDK scopes and memo directories this one never reads, their
+ * keys holding the extractor's version. `unusedFor` keeps those another
+ * Lucent on this machine used more recently than that (in ms): a project
+ * pinning another version reads its own. Entries without a mark predate
+ * marking: another extractor's.
+ */
+export function pruneStaleCache(
+  opts: { cacheDir?: string; unusedFor?: number } = {},
+): PrunedEntry[] {
+  const root = cacheRoot(opts.cacheDir);
+  const current = extractorVersion();
+  const now = Date.now();
+  const out: PrunedEntry[] = [];
+
+  for (const dir of versionedDirs(root)) {
+    const mark = path.join(dir, MARK);
+    let version: string | undefined;
+    let used = 0;
+    try {
+      version = fs.readFileSync(mark, "utf8").trim();
+      used = fs.statSync(mark).mtimeMs;
+    } catch {
+      used = (() => {
+        try {
+          return fs.statSync(dir).mtimeMs;
+        } catch {
+          return now;
+        }
+      })();
+    }
+    if (version === current || path.basename(dir) === current) continue;
+    if (opts.unusedFor !== undefined && now - used < opts.unusedFor) continue;
+
+    const bytes = bytesUnder(dir);
+    // Renamed away first: a reader sees the whole directory or none of it.
+    const doomed = `${dir}.${process.pid}.pruned`;
+    try {
+      fs.renameSync(dir, doomed);
+    } catch {
+      continue;
+    }
+    fs.rmSync(doomed, { recursive: true, force: true });
+    out.push({ path: dir, bytes });
+  }
+
+  return out;
+}
+
+/** How long another extractor's entries stay unused before builds prune them on their own. */
+const AUTO_PRUNE_AFTER = 14 * 24 * 3600 * 1000;
+
+/** Prunes, at most once a day per cache, entries other extractors have not used for two weeks. */
+function autoPrune(root: string): void {
+  if (process.env.LUCENT_NO_CACHE_PRUNE) return;
+  const stamp = path.join(root, "pruned");
+  try {
+    if (Date.now() - fs.statSync(stamp).mtimeMs < 24 * 3600 * 1000) return;
+  } catch {
+    // Never pruned.
+  }
+  try {
+    fs.mkdirSync(root, { recursive: true });
+    fs.writeFileSync(stamp, "");
+    pruneStaleCache({ cacheDir: root, unusedFor: AUTO_PRUNE_AFTER });
+  } catch {
+    // Pruning is housekeeping: a build goes on without it.
+  }
 }
 
 /** A module's schema from the cache, else extracted once (whoever holds its lock) and published. */

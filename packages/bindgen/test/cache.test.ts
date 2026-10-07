@@ -206,3 +206,30 @@ describe.skipIf(!xcode)("extraction cache: iOS", () => {
     expect(r.ms).toBeLessThan(120_000);
   }, 240_000);
 });
+
+describe("pruning the cache", () => {
+  it("keeps this extractor's entries and recently used ones of others", async () => {
+    const { pruneStaleCache } = await import("../src/provider.ts");
+    const { extractorVersion } = await import("../src/provenance.ts");
+    const cacheDir = tmp("lucent-prune-");
+    const scope = (name: string, version?: string) => {
+      const dir = path.join(cacheDir, "sdk/ios", name);
+      fs.mkdirSync(dir, { recursive: true });
+      if (version) fs.writeFileSync(path.join(dir, ".extractor"), `${version}\n`);
+      return dir;
+    };
+    const mine = scope("iphonesimulator27.0-A-mine", extractorVersion());
+    const recent = scope("iphonesimulator27.0-A-recent", "00000000");
+    const old = scope("iphonesimulator27.0-A-old", "11111111");
+    const past = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+    fs.utimesSync(path.join(old, ".extractor"), past, past);
+    const memo = path.join(cacheDir, "memo", extractorVersion());
+    fs.mkdirSync(memo, { recursive: true });
+
+    const pruned = pruneStaleCache({ cacheDir, unusedFor: 14 * 24 * 3600 * 1000 });
+
+    expect(pruned.map((p) => p.path)).toEqual([old]);
+    for (const kept of [mine, recent, memo]) expect(fs.existsSync(kept)).toBe(true);
+    expect(pruneStaleCache({ cacheDir }).map((p) => p.path)).toEqual([recent]);
+  });
+});

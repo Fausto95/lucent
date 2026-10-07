@@ -46,6 +46,8 @@ export {
   type NativeArtifact,
   nativeArtifacts,
   prefetch,
+  type PrunedEntry,
+  pruneStaleCache,
   sdkAvailable,
   sdkIdentity,
   sdkModule,
