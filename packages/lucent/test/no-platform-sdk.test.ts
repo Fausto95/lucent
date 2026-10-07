@@ -84,4 +84,30 @@ describe("lucent check without any platform SDK (CI)", () => {
     const r = app(shared()).lucent(["check"]);
     expect(r.status, r.out).toBe(0);
   });
+
+  it("takes --platforms host", () => {
+    const a = app(shared(WRONG));
+
+    const r = a.lucent(["check", "--platforms", "host"]);
+    expect(r.status).toBe(1);
+    expect(r.out).toMatch(/Type 'string' is not assignable to type 'number'/);
+    expect(r.out).not.toMatch(/unknown flag/);
+  });
+});
+
+describe("--platforms", () => {
+  it("refuses a target that isn't one, and keeps what the last build wrote", () => {
+    const a = app(shared());
+
+    expect(a.lucent(["build", "--platforms", "host"]).status).toBe(0);
+    const host = path.join(a.root, ".lucent/native/cpp/generated/host");
+    expect(fs.existsSync(host)).toBe(true);
+
+    for (const command of ["build", "check"]) {
+      const r = a.lucent([command, "--platforms", "iso"]);
+      expect(r.status).toBe(2);
+      expect(r.out).toMatch(/--platforms takes ios, android, host .*not iso/);
+    }
+    expect(fs.existsSync(host)).toBe(true);
+  });
 });
