@@ -193,7 +193,7 @@ export function vibrate(): void {
     intro: [
       {
         kind: "p",
-        text: "After these declarations, `lucent:compose` exports Compose's and Material 3's API under their own names, generated from the Compose release Lucent builds with. `lucent sdk show` prints any of them when `LUCENT_VIEWS=fabric` is set.",
+        text: "After these declarations, `lucent:compose` exports Compose's and Material 3's API under their own names, generated from the Compose release Lucent builds with. `lucent sdk show` prints any of them.",
       },
     ],
   },
@@ -255,7 +255,7 @@ export const pages: Record<string, DocTemplate> = Object.fromEntries(
           {
             kind: "note",
             tone: "warn",
-            text: "Experimental: this module resolves only when `LUCENT_VIEWS=fabric`, and changes without notice until Lucent's views are public.",
+            text: "Experimental: views are in preview, and this module changes without notice.",
           },
         ]
       : [];

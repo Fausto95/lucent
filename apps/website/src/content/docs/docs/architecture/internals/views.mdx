@@ -8,7 +8,7 @@ kind: internals
 
 A component is an exported function of a `.lucent.tsx` module whose code returns a platform view. The compiler describes it instead of exporting it as a JavaScript function.
 
-Under the internal switch [`LUCENT_VIEWS=fabric`](/docs/api/environment-variables/#variables) (`ui/switch.ts`), it also generates what React Native's renderer needs; without it, components are only described. `lucent:ui` and the toolkit modules resolve only under the switch.
+It also generates what React Native's renderer needs from that description.
 
 This page covers the compiler's side, in `packages/compiler/src/ui/` and the `emit/` files it names. [docs/design/views.md](https://github.com/Fausto95/lucent/blob/main/docs/design/views.md) records what the hosts do at run time: registration, the mount lifecycle, threads, sizing and children. [How native views work](/docs/architecture/views/) explains the design to users, and [its limits](/docs/architecture/views/#limits) list what views can't do yet.
 

@@ -8,7 +8,7 @@ sidebar_class_name: experimental
 ---
 
 :::caution
-Experimental: JSX of UIKit and Android views compiles only when `LUCENT_VIEWS=fabric` is set: [Turn on native views](/docs/guides/views/) says how.
+Experimental: JSX of UIKit and Android views is in preview and changes without notice. [Write a native view](/docs/guides/views/) shows a first one.
 :::
 
 A component can return its platform's views as JSX. Nothing about a view is listed in Lucent: what a tag takes comes from its class's declarations, by the rules on this page. So a view from an SDK, a pod or an Android library works without a Lucent entry for it.
@@ -288,7 +288,7 @@ declare interface __jsx_CompoundButton<Self> {
 ## List a module's tags
 
 ```sh title="terminal"
-LUCENT_VIEWS=fabric npx lucent sdk coverage --views --android android.inputmethodservice
+npx lucent sdk coverage --views --android android.inputmethodservice
 ```
 
 ```sh title="terminal" nocopy

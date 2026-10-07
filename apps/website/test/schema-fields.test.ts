@@ -97,6 +97,7 @@ describe("jsonOutputs", () => {
         "doctor",
         "explain",
         "new module",
+        "new view",
         "sdk coverage",
         "sdk diff",
         "sdk lock",
@@ -107,13 +108,13 @@ describe("jsonOutputs", () => {
     );
   });
 
-  it("gives each public command a schema lists its own entry, leaving internal ones out", () => {
+  it("gives each command a schema lists its own entry", () => {
     const outputs = jsonOutputs(
       [{ file: "new.schema.json", schema: { title: "lucent new a --json, lucent new b --json" } }],
-      [{ name: "new a" }, { name: "new b", internal: true }],
+      [{ name: "new a" }, { name: "new b" }],
     );
 
-    expect(outputs.map((o) => o.command)).toEqual(["new a"]);
+    expect(outputs.map((o) => o.command)).toEqual(["new a", "new b"]);
   });
 
   it("gives each member of a top-level oneOf its own fields, required as that member says", () => {

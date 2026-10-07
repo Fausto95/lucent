@@ -57,7 +57,7 @@ The compiler never infers a type itself. `createLucentProgram()` in `program.ts`
 - `compilerOptions()` sets `strict`, `noUncheckedIndexedAccess`, ES2022 with `esnext.disposable` and bundler resolution. Its `paths` map `lucent:core`, `lucent:thread`, `lucent:platform`, `lucent:ios` and `lucent:android` to `lib/sdk/`.
 - SDK modules (`lucent:ios/*`, `lucent:android/*`) and native extensions (`lucent:ext/*`) resolve in a virtual directory. The compiler host writes each SDK module's declarations from its binding schema (`sdk/dts.ts`) and caches them on disk (`sdk/declaration-cache.ts`).
 - Unsaved editor text comes in through `readSource`, and parsed `.d.ts` files are cached for the process.
-- Under `LUCENT_VIEWS=fabric`, the program types JSX too, as [Components](/docs/architecture/internals/views/#typing-jsx) explains.
+- The program types JSX too, as [Components](/docs/architecture/internals/views/#typing-jsx) explains.
 
 `TypeRegistry` in `types.ts` lowers each TypeScript type to an `LType`, its native representation, and `cppType()` spells it in C++.
 
@@ -210,7 +210,7 @@ The first registers classes, then functions and variables, so any body can refer
 | `lucent_bindings.cpp` | The boundary: a `Convert<T>` per type crossing it, class prototypes, one installer per module and `resetModuleState()` |
 | `lucent_identity.cpp` | What the program was built from, as [React Native integration](/docs/architecture/internals/react-native/) explains |
 | `LucentShims.swift` | The Swift the iOS glue calls, when the program uses Swift-only APIs |
-| `views/` | Components' sources, under `LUCENT_VIEWS=fabric` |
+| `views/` | Components' sources |
 
 A module's `init()` assigns its classes' static fields, then its variables, in order, lowered through the IR. `resetModuleState()` runs every module's `init()` in import order.
 

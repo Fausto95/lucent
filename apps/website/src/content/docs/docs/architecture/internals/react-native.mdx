@@ -66,7 +66,7 @@ So React Native finds it in its global map of C++ modules, with no codegen and n
 
 ## Android: a C++ module and a library
 
-The package's own `react-native.config.js` says how Android builds it. With views on, `autolinkingConfig()` in `ui/android.ts` adds the components' `componentDescriptors`.
+The package's own `react-native.config.js` says how Android builds it. `autolinkingConfig()` in `ui/android.ts` adds the components' `componentDescriptors`.
 
 ```js title=".lucent/native/react-native.config.js" nocopy
 module.exports = {
@@ -114,8 +114,8 @@ React Native's Gradle plugin builds `android/CMakeLists.txt` into the app's `app
 | `LucentInitializer` | A content provider, which Android creates before the first Activity. It starts `LucentActivities`. |
 | `LucentActivities` | The app's Activities, held weakly: the current one, their lifecycle events, and requests for an activity result or permissions. |
 | `LucentRequestActivity` | A translucent Activity that asks for one result or one set of permissions, so the app's own Activity may be recreated meanwhile. |
-| `LucentHostView`, `LucentViewManager`, `LucentSlotView`, `LucentChildren`, `LucentViews` | The host of components' views, under `LUCENT_VIEWS=fabric` |
-| `LucentViewManagers` | The managers `LucentPackage` gives React Native: none, until `lucent build` writes the app's components' with views on |
+| `LucentHostView`, `LucentViewManager`, `LucentSlotView`, `LucentChildren`, `LucentViews` | The host of components' views |
+| `LucentViewManagers` | The managers `LucentPackage` gives React Native: none, until `lucent build` writes the app's components' |
 | `dev.lucent.compose.LucentComposition` | The host of components' Compose content, in `LucentComposition.kt` with its rules in `CompositionRules.kt`, compiled only when there is some |
 
 A `NativeProxy` holds a C++ handle, which its finalizer releases when the proxy is collected. Below API 26, a default method's Java body can't run, so the proxy logs and returns the type's zero value.

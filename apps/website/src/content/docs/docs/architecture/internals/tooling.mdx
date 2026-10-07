@@ -71,7 +71,7 @@ Times stay out of the nodes. `timings` holds each step's duration and `startedAt
 
 A build of the same inputs is skipped before any SDK module is extracted. Its key is `inputsKey()`, the targets and a hash of the merged `lucent.json` needs.
 
-- `inputsKey()` hashes the sources, the compiler's own files, the runtime, the `lucent:core` declarations, the SDKs' identity, the views switch and the output directory.
+- `inputsKey()` hashes the sources, the compiler's own files, the runtime, the `lucent:core` declarations, the SDKs' identity and the output directory.
 - A build compares the key with `manifest.json`'s `inputs`, and a check with `.lucent/check.json`, which only a passing check writes.
 - `--force`, `--frozen`, and a missing or unreadable `.lucent/sdk-usage.json` all run the check again. The usage report is one of a check's outputs.
 

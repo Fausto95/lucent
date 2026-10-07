@@ -34,8 +34,8 @@ const ROADMAP = `## Status at a glance
 
 ### Views
 
-- Views are behind the internal \`LUCENT_VIEWS=fabric\` switch, off by
-  default.
+- Views are in preview: \`lucent:ui\` and its toolkits may change
+  without notice.
 - Native views' JSX has fixed children ([T49](#t49)'s).
 
 ### Language, runtime and bindings
@@ -80,7 +80,7 @@ describe("knownLimitations", () => {
       {
         title: "Views",
         items: [
-          "Views are behind the internal `LUCENT_VIEWS=fabric` switch, off by default.",
+          "Views are in preview: `lucent:ui` and its toolkits may change without notice.",
           "Native views' JSX has fixed children ([T49](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t49)'s).",
         ],
       },

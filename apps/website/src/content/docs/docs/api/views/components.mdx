@@ -8,7 +8,7 @@ sidebar_class_name: experimental
 ---
 
 :::caution
-Experimental: components compile only when `LUCENT_VIEWS=fabric` is set, and they change without notice. [Turn on native views](/docs/guides/views/) says how.
+Experimental: components are in preview and change without notice. [Write a native view](/docs/guides/views/) shows a first one.
 :::
 
 A component is a function a `.lucent.tsx` module exports that returns a view. React mounts it as a native component, and its setup runs on the main thread. This page gives the rules for what a component exports and takes, and what React sees of it.
@@ -299,7 +299,7 @@ In one file, leave the return type out: a type naming both platforms' classes, s
 
 ## What React sees
 
-JavaScript imports a component from its module like any export. With views on, `lucent build` writes each module's components as React sees them to `.lucent/native/types/views/<module>.d.ts`. Your app's TypeScript still resolves `./counter.lucent` to the module's source, so cast the import to the generated type, as App.tsx does.
+JavaScript imports a component from its module like any export. `lucent build` writes each module's components as React sees them to `.lucent/native/types/views/<module>.d.ts`. Your app's TypeScript still resolves `./counter.lucent` to the module's source, so cast the import to the generated type, as App.tsx does.
 
 | Member | React type |
 | --- | --- |

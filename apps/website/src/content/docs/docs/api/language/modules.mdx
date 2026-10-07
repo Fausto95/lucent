@@ -117,7 +117,7 @@ export function lookup(key: string): number | undefined {
 | `"lucent:ext/<name>"` | A native extension, C functions that a Lucent package declares: see [Native extensions](/docs/packages/native-extensions/). It runs on both platforms. |
 | `"<package>/<path>.lucent"` | A module of a Lucent package the app depends on, by its file's path in the package: see [Importing another package's module](/docs/packages/package-json/#importing-another-packages-module). |
 | `import type { … }` from any file | Types only, from any file TypeScript resolves, such as a `.ts` file or an npm package's types. None of its code runs. |
-| `"lucent:ui"`, `"lucent:swiftui"`, `"lucent:compose"` | The view modules, experimental, behind `LUCENT_VIEWS=fabric`: see [Views](/docs/guides/views/). |
+| `"lucent:ui"`, `"lucent:swiftui"`, `"lucent:compose"` | The view modules, experimental: see [Views](/docs/guides/views/). |
 
 - A value import from anything else, such as an npm package or a plain `.ts` file, fails with [LUCENT3001](/docs/api/diagnostics/#lucent3001). Its code has no native implementation.
 - `import { type X }` counts as a value import: write `import type { X }` to import a type from a file that isn't a module.

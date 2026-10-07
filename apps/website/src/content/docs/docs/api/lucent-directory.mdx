@@ -57,7 +57,7 @@ kind: reference
 | Entry | What it is |
 | --- | --- |
 | `package.json` | Names the package `lucent`. It's private: the native package is never published. |
-| `react-native.config.js` | What autolinking reads: the Android library, its C++ module and, with views on, the components' descriptors. iOS links through the podspec. |
+| `react-native.config.js` | What autolinking reads: the Android library, its C++ module and the components' descriptors. iOS links through the podspec. |
 | `LucentNative.podspec` | The iOS pod: the C++ and Swift to compile, and the frameworks, pods and files that the modules and Lucent packages need. |
 | `manifest.json` | The modules built, and the key of the build's inputs: a build with the same inputs is skipped. It's written last, and Metro's cache keys on it. |
 | `resolved.json` | What the app's Lucent packages need, merged from their `lucent.json` files, with the package each need came from. The Expo plugin reads it. |
@@ -67,7 +67,7 @@ kind: reference
 | `cpp/generated/` | Each module compiled to C++, and the Swift shims on iOS. A project with platform code gets one set per target, such as `ios/` and `android/`. |
 | `ios/LucentRegistration.mm` | Registers the TurboModule when the app loads, without codegen or a change to the app delegate. |
 | `android/` | The Android library: `build.gradle`, and the C++ build in `CMakeLists.txt`. When Lucent packages ship C or C++ sources, `packages.cmake` adds them. |
-| `android/include/` | Headers that React Native's autolinking includes: `lucentnative.h` and, with views on, the components' descriptors. |
+| `android/include/` | Headers that React Native's autolinking includes: `lucentnative.h` and the components' descriptors. |
 | `android/src/main/AndroidManifest.xml` | The permissions and components that the runtime, the code and the packages need. Gradle merges it into the app's manifest. |
 | `android/consumer-rules.pro` | Keeps the Java classes that native code finds by name when R8 shrinks the app. |
 | `android/src/main/java/dev/lucent/` | The runtime's Java, and what the build generates: Java subclasses and views' managers in `generated/`, Kotlin shims in `shims/`, Compose content in `compose/`. |
@@ -77,9 +77,9 @@ kind: reference
 | `js/_lucent/runtime.js` | The loader every proxy requires, which finds the native module. |
 | `js/_lucent/identity.js` | What this build compiled. The loader checks the app's native code against it: see [LUCENT_NATIVE_MISMATCH](/docs/api/runtime-errors/#lucent_native_mismatch). |
 | `js/_lucent/views.js` | The runtime that components' exports use. |
-| `types/` | What `lucent:*` imports resolve to in editors and `tsc`. It holds `core.d.ts` and each `lucent:*` module the modules use, such as `thread.d.ts` or `ios/UIKit.d.ts`. With views on, that includes `ui.d.ts`, and the `jsx.d.ts`, `swiftui.d.ts` and `compose.d.ts` the editor plugin types JSX with. |
+| `types/` | What `lucent:*` imports resolve to in editors and `tsc`. It holds `core.d.ts` and each `lucent:*` module the modules use, such as `thread.d.ts` or `ios/UIKit.d.ts`. That includes `ui.d.ts`, and the `jsx.d.ts`, `swiftui.d.ts` and `compose.d.ts` the editor plugin types JSX with. |
 | `types/ext/` | One `<name>.d.ts` per [native extension](/docs/packages/native-extensions/), for `lucent:ext/<name>`. |
-| `types/views/` | With views on, each module's components as React sees them. |
+| `types/views/` | Each module's components as React sees them. |
 
 Gradle's own output, `android/build/`, `android/.cxx/` and `android/.gradle/`, appears there when Android builds. Lucent leaves it alone.
 
