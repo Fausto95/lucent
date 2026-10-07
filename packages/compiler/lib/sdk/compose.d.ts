@@ -1,9 +1,8 @@
 /**
  * lucent:compose — Jetpack Compose, for a component's content on Android.
  *
- * Experimental and internal: this module resolves only when the
- * LUCENT_VIEWS environment variable is `fabric`, and changes without notice
- * until Lucent's views are public.
+ * Experimental: it may change without notice while Lucent's views are in
+ * preview.
  *
  * A component returns its content: JSX, compiled to Kotlin. A composable
  * showing UI is an element (`<Box modifier={…}>`), whose props are

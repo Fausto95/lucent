@@ -2,8 +2,7 @@
  * The view spike on the iOS simulator or an Android emulator: an example
  * app (bare or Expo) whose entry shows the spike's screen
  * (apps/bare-example/.views-spike), with the spike's components' views
- * generated (LUCENT_VIEWS=fabric). Internal: views stay behind that switch
- * until they are proven.
+ * generated.
  *
  *   node scripts/views-spike.ts [--app bare|expo] [--platform ios|android]
  *                               [--configuration Release|Debug] [--device <name, udid or serial>]
@@ -222,7 +221,6 @@ const trace = process.argv.includes("--trace");
 const derived = path.join(os.tmpdir(), `lucent-views-spike-build-${appName}`);
 const env = {
   ...process.env,
-  LUCENT_VIEWS: "fabric",
   LANG: "en_US.UTF-8",
   LC_ALL: "en_US.UTF-8",
   CI: "1",

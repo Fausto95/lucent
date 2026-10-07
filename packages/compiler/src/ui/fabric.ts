@@ -24,8 +24,6 @@ import type {
 } from "./contract.ts";
 import { eventName, handlerKey, propKey } from "./transport.ts";
 
-export { fabricViews } from "./switch.ts";
-
 /** The directory of the view sources, under the native package's generated C++. */
 export const VIEWS_DIR = "views";
 

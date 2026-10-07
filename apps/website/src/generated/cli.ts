@@ -81,6 +81,12 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
     "json": "new"
   },
   {
+    "name": "new view",
+    "summary": "Scaffold a component in src/: its declaration, and each platform's native views in a Flex",
+    "flags": [],
+    "json": "new"
+  },
+  {
     "name": "explain",
     "summary": "What a LUCENT diagnostic code means, and how to fix it (every code without one)",
     "flags": [],
@@ -204,7 +210,7 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
       },
       {
         "flag": "--views",
-        "description": "With views on (LUCENT_VIEWS=fabric), list each view class's JSX attributes by rule"
+        "description": "List each view class's JSX attributes by rule"
       }
     ],
     "json": "sdk-coverage"

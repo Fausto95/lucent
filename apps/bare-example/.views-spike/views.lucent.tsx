@@ -1,10 +1,8 @@
 // The view spike's components: a label (Caption), a control (Gauge), a
 // toggle (Meter, the roadmap's native wrapper) and a label a native timer
 // updates (Pulse, whose ticks go discretely or coalesced), with props,
-// events, commands and requests. Internal:
-// compiled only when views are generated (LUCENT_VIEWS=fabric), by
-// scripts/views-spike.ts, which copies this directory into the app for
-// its build.
+// events, commands and requests. Built by scripts/views-spike.ts, which
+// copies this directory into the app for its build.
 import type { TextView, ToggleButton } from "lucent:android/android.widget";
 import type { UIButton, UILabel } from "lucent:ios/UIKit";
 import type { Coalesced } from "lucent:ui";

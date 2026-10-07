@@ -1,5 +1,5 @@
 /**
- * A Compose component's composition statements (LUCENT_VIEWS=fabric): the
+ * A Compose component's composition statements: the
  * statements of its own code that compose, which the compiler lifts into
  * the generated @Composable content, before what the returned JSX shows.
  *

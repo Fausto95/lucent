@@ -1,6 +1,5 @@
 /**
- * Components' setups, compiled (under the internal LUCENT_VIEWS=fabric
- * switch) through the semantic IR, as functions are. A setup runs once per
+ * Components' setups, compiled through the semantic IR, as functions are. A setup runs once per
  * mount, on the main thread, in the mount's scope: each prop is a signal of
  * the main context's reactive graph (lucent/view.h), which effects track
  * where they read `props.name`; each event is a route the mount points at

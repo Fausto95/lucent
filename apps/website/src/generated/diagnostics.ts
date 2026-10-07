@@ -421,11 +421,11 @@ export const explanations: { code: string; title: string; summary: string; detai
     "fix": "return the view on every path, from one props object, and move other work into a separate function",
     "wrong": {
       "package.json": "{ \"name\": \"example-app\" }\n",
-      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string; shown: boolean }) {\n  if (!props.shown) return undefined;\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nimport { effect } from \"lucent:ui\";\nexport function Title(props: { title: string; shown: boolean }) {\n  if (!props.shown) return undefined;\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    effect(() => {\n      label.text = props.title;\n    });\n    return label;\n  }\n  const text = new TextView(appContext());\n  effect(() => text.setText(props.title));\n  return text;\n}\n"
     },
     "right": {
       "package.json": "{ \"name\": \"example-app\" }\n",
-      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string }) {\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nimport { effect } from \"lucent:ui\";\nexport function Title(props: { title: string }) {\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    effect(() => {\n      label.text = props.title;\n    });\n    return label;\n  }\n  const text = new TextView(appContext());\n  effect(() => text.setText(props.title));\n  return text;\n}\n"
     }
   },
   {
@@ -436,11 +436,11 @@ export const explanations: { code: string; title: string; summary: string; detai
     "fix": "pass plain data, make events return nothing, and name them onSomething",
     "wrong": {
       "package.json": "{ \"name\": \"example-app\" }\n",
-      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string; onMeasure?: (width: number) => number }) {\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nimport { effect } from \"lucent:ui\";\nexport function Title(props: { title: string; onMeasure?: (width: number) => number }) {\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    effect(() => {\n      label.text = props.title;\n    });\n    return label;\n  }\n  const text = new TextView(appContext());\n  effect(() => text.setText(props.title));\n  return text;\n}\n"
     },
     "right": {
       "package.json": "{ \"name\": \"example-app\" }\n",
-      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string; onMeasure?: (width: number) => void }) {\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nimport { effect } from \"lucent:ui\";\nexport function Title(props: { title: string; onMeasure?: (width: number) => void }) {\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    effect(() => {\n      label.text = props.title;\n    });\n    return label;\n  }\n  const text = new TextView(appContext());\n  effect(() => text.setText(props.title));\n  return text;\n}\n"
     }
   },
   {
@@ -451,11 +451,11 @@ export const explanations: { code: string; title: string; summary: string; detai
     "fix": "keep the state in the component (a local), or pass it in as a prop",
     "wrong": {
       "package.json": "{ \"name\": \"example-app\" }\n",
-      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nlet shown = 0;\nexport function timesShown(): number {\n  return shown;\n}\nexport function Title(props: { title: string }) {\n  shown++;\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nimport { effect } from \"lucent:ui\";\nlet shown = 0;\nexport function timesShown(): number {\n  return shown;\n}\nexport function Title(props: { title: string }) {\n  shown++;\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    effect(() => {\n      label.text = props.title;\n    });\n    return label;\n  }\n  const text = new TextView(appContext());\n  effect(() => text.setText(props.title));\n  return text;\n}\n"
     },
     "right": {
       "package.json": "{ \"name\": \"example-app\" }\n",
-      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string }) {\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nimport { effect } from \"lucent:ui\";\nexport function Title(props: { title: string }) {\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    effect(() => {\n      label.text = props.title;\n    });\n    return label;\n  }\n  const text = new TextView(appContext());\n  effect(() => text.setText(props.title));\n  return text;\n}\n"
     }
   },
   {
@@ -467,21 +467,21 @@ export const explanations: { code: string; title: string; summary: string; detai
     "wrong": {
       "package.json": "{ \"name\": \"example-app\" }\n",
       "title.lucent.tsx": "import type { TextView } from \"lucent:android/android.widget\";\nimport type { UILabel } from \"lucent:ios/UIKit\";\nexport declare function Title(props: { title: string; lines: number }): UILabel | TextView;\n",
-      "title.ios.lucent.tsx": "import { UILabel } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string }): UILabel {\n  const label = new UILabel();\n  label.text = props.title;\n  return label;\n}\n",
-      "title.android.lucent.tsx": "import { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nexport function Title(props: { title: string }): TextView {\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+      "title.ios.lucent.tsx": "import { UILabel } from \"lucent:ios/UIKit\";\nimport { effect } from \"lucent:ui\";\nexport function Title(props: { title: string }): UILabel {\n  const label = new UILabel();\n  effect(() => {\n    label.text = props.title;\n  });\n  return label;\n}\n",
+      "title.android.lucent.tsx": "import { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { effect } from \"lucent:ui\";\nexport function Title(props: { title: string }): TextView {\n  const text = new TextView(appContext());\n  effect(() => text.setText(props.title));\n  return text;\n}\n"
     },
     "right": {
       "package.json": "{ \"name\": \"example-app\" }\n",
       "title.lucent.tsx": "import type { TextView } from \"lucent:android/android.widget\";\nimport type { UILabel } from \"lucent:ios/UIKit\";\nexport declare function Title(props: { title: string; lines: number }): UILabel | TextView;\n",
-      "title.ios.lucent.tsx": "import { UILabel } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string; lines: number }): UILabel {\n  const label = new UILabel();\n  label.text = props.title;\n  return label;\n}\n",
-      "title.android.lucent.tsx": "import { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nexport function Title(props: { title: string; lines: number }): TextView {\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+      "title.ios.lucent.tsx": "import { UILabel } from \"lucent:ios/UIKit\";\nimport { effect } from \"lucent:ui\";\nexport function Title(props: { title: string; lines: number }): UILabel {\n  const label = new UILabel();\n  effect(() => {\n    label.text = props.title;\n  });\n  return label;\n}\n",
+      "title.android.lucent.tsx": "import { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { effect } from \"lucent:ui\";\nexport function Title(props: { title: string; lines: number }): TextView {\n  const text = new TextView(appContext());\n  effect(() => text.setText(props.title));\n  return text;\n}\n"
     }
   },
   {
     "code": "LUCENT3024",
     "title": "SwiftUI or Compose body that cannot be compiled",
     "summary": "A component's SwiftUI or Jetpack Compose body that Lucent cannot write out in Swift or Kotlin, or toolkit code used outside such a body.",
-    "details": "A component can draw with its platform's toolkit, SwiftUI or Jetpack Compose (internal, under LUCENT_VIEWS=fabric). Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events.",
+    "details": "A component can draw with its platform's toolkit, SwiftUI or Jetpack Compose. Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events.",
     "fix": "make the view in the body, and move logic into a function of the setup that the body calls",
     "wrong": {
       "package.json": "{ \"name\": \"example-app\" }\n",
@@ -501,7 +501,7 @@ export const explanations: { code: string; title: string; summary: string; detai
     "code": "LUCENT3025",
     "title": "Native view JSX that cannot be compiled",
     "summary": "JSX of UIKit or Android views that Lucent cannot make: a view, attribute or child its declarations do not provide for.",
-    "details": "A component can return its platform's views as JSX, declared as returning UIView or View (internal, under LUCENT_VIEWS=fabric). A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Attributes are kept up to date like effects, and a child may come and go: `{cond && <X />}`, `{c ? <X /> : <Y />}`, or a keyed list, `{items.map((item) => <X key={item.id} />)}`.\n\nA `<Flex>` takes only `style`, `key`, its children and, as a Flex's child, `layout`. `layout` goes only on a Flex's child. `style` and `layout` are object literals naming each key, and no key is set in both.",
+    "details": "A component can return its platform's views as JSX, declared as returning UIView or View. A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Attributes are kept up to date like effects, and a child may come and go: `{cond && <X />}`, `{c ? <X /> : <Y />}`, or a keyed list, `{items.map((item) => <X key={item.id} />)}`.\n\nA `<Flex>` takes only `style`, `key`, its children and, as a Flex's child, `layout`. `layout` goes only on a Flex's child. `style` and `layout` are object literals naming each key, and no key is set in both.",
     "fix": "write each attribute on its element, and set what the declarations do not provide for in setup code",
     "wrong": {
       "package.json": "{ \"name\": \"example-app\" }\n",

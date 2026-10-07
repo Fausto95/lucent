@@ -31,7 +31,6 @@ import { boundExtensions, findExtension } from "./extensions/registry.ts";
 import { moduleNamespace } from "./types.ts";
 import { sdkLibFile } from "./lib-files.ts";
 import { toolkitText } from "./ui/toolkit-modules.ts";
-import { fabricRequested } from "./ui/switch.ts";
 import {
   JSX_SOURCE,
   TOOLKITS,
@@ -125,14 +124,14 @@ const SDK_ROOT = path.resolve("/__lucent_sdk__");
  * Modules of platforms whose SDK is not installed (or whose imports are
  * deferred), untyped: a shared module's branch for such a platform
  * type-checks, and is never emitted where it is missing (a target's own
- * missing SDK is reported by importDiagnostics). Where views are
- * generated, the platform's toolkit (lucent:swiftui) is untyped too.
+ * missing SDK is reported by importDiagnostics). The platform's toolkit
+ * (lucent:swiftui) is untyped too.
  */
 const UNTYPED = path.join(SDK_ROOT, "untyped.d.ts");
 
 function untypedSdkText(): string {
   const untyped = PLATFORMS.filter((p) => !platformSdkTyped(p));
-  const toolkits = fabricRequested() ? untyped.flatMap((p) => toolkitOfPlatform(p) ?? []) : [];
+  const toolkits = untyped.flatMap((p) => toolkitOfPlatform(p) ?? []);
 
   return dts.printUnit({
     decls: [...untyped.map((p) => `lucent:${p}/*`), ...toolkits.map((t) => `lucent:${t}`)].map(
@@ -161,10 +160,7 @@ function toolkitTypesPath(name: ToolkitName): string {
  * nothing else), and each names-only module's, once per names index: every
  * compile asks for them, and writing UIKit's or Foundation's takes seconds.
  */
-const sdkTexts = {
-  plain: new WeakMap<SdkModuleSchema, string>(),
-  jsx: new WeakMap<SdkModuleSchema, string>(),
-};
+const sdkTexts = new WeakMap<SdkModuleSchema, string>();
 const stubTexts = new WeakMap<object, string>();
 
 /**
@@ -174,9 +170,9 @@ const stubTexts = new WeakMap<object, string>();
  */
 function virtualSdkText(file: string, direct: Set<string>): string | undefined {
   if (path.resolve(file) === UNTYPED) return untypedSdkText();
-  if (path.resolve(file) === JSX_RUNTIME && fabricRequested()) return jsxRuntimeText();
+  if (path.resolve(file) === JSX_RUNTIME) return jsxRuntimeText();
   // lucent:compose: its own declarations, then Compose's, made from its bindings.
-  if (path.resolve(file) === sdkLibPath("compose") && fabricRequested()) {
+  if (path.resolve(file) === sdkLibPath("compose")) {
     const found = toolkitText("compose");
     return "text" in found ? found.text : undefined;
   }
@@ -218,18 +214,16 @@ function virtualSdkText(file: string, direct: Set<string>): string | undefined {
   }
   const schema = findSdkModule(platform, module);
   if (!schema) return undefined;
-  // Views' declarations also give each view class its JSX attributes (T48).
-  const jsx = fabricRequested();
-  const texts = sdkTexts[jsx ? "jsx" : "plain"];
-  let text = texts.get(schema);
+  // Each view class's declaration also gives its JSX attributes (T48).
+  let text = sdkTexts.get(schema);
   if (text === undefined)
-    texts.set(
+    sdkTexts.set(
       schema,
       (text = cachedDeclarations(
         sdkCacheDir(),
         currentSdkIdentity(),
-        ["full", platform, module, ...(jsx ? ["jsx"] : [])],
-        () => sdkDts(schema, { jsx }),
+        ["full", platform, module, "jsx"],
+        () => sdkDts(schema, { jsx: true }),
       )),
     );
   // Modules it re-exports are used as directly as it is.
@@ -301,24 +295,22 @@ export function compilerOptions(): ts.CompilerOptions {
     // Reading a missing index yields undefined at runtime; the types must say so.
     noUncheckedIndexedAccess: true,
     // A body's JSX is its platform's toolkit's (compilerHost resolves the runtime per file).
-    ...(fabricRequested() ? { jsx: ts.JsxEmit.ReactJSX, jsxImportSource: JSX_SOURCE } : {}),
+    jsx: ts.JsxEmit.ReactJSX,
+    jsxImportSource: JSX_SOURCE,
     // Every platform's modules resolve in every program: a shared module
     // branches on `PLATFORM`, and each target type-checks both branches.
     paths: {
       "lucent:core": [coreTypesPath()],
       "lucent:thread": [sdkLibPath("thread")],
       "lucent:platform": [sdkLibPath("platform")],
-      // Internal until views are proven: only when compiles generate them.
-      ...(fabricRequested()
-        ? Object.fromEntries([
-            ["lucent:ui", [sdkLibPath("ui")]],
-            [JSX_SOURCE, [JSX_RUNTIME]],
-            ...(Object.keys(TOOLKITS) as ToolkitName[]).map((name) => [
-              `lucent:${name}`,
-              [toolkitTypesPath(name)],
-            ]),
-          ])
-        : {}),
+      "lucent:ui": [sdkLibPath("ui")],
+      [JSX_SOURCE]: [JSX_RUNTIME],
+      ...Object.fromEntries(
+        (Object.keys(TOOLKITS) as ToolkitName[]).map((name) => [
+          `lucent:${name}`,
+          [toolkitTypesPath(name)],
+        ]),
+      ),
       ...Object.fromEntries(
         PLATFORMS.flatMap((p) => [
           [`lucent:${p}`, [sdkLibPath(p)]],
@@ -505,7 +497,14 @@ export function createLucentProgram(
 
   // The declaration audit checks the generated SDK declarations themselves,
   // which apps' tsconfigs (skipLibCheck) never do.
-  const options = { ...compilerOptions(), skipLibCheck: !extra.libCheck };
+  const options: ts.CompilerOptions = { ...compilerOptions(), skipLibCheck: !extra.libCheck };
+
+  // TypeScript loads the JSX runtime (and so both toolkits) for any program with a
+  // jsxImportSource, JSX or not: a program without components does without it.
+  if (!files.some((f) => f.endsWith(".tsx"))) {
+    delete options.jsx;
+    delete options.jsxImportSource;
+  }
 
   const direct = directSdkImports(files, readSource);
   const host = compilerHost(options, readSource, direct);
@@ -864,9 +863,9 @@ function importDiagnostics(sf: ts.SourceFile, platform: Platform | undefined): D
     let message: string | undefined;
     let fix: string | undefined;
     if ((scope === "core" || scope === "thread" || scope === "platform") && !module) continue;
-    if (scope === "ui" && !module && fabricRequested()) continue;
+    if (scope === "ui" && !module) continue;
     const toolkit = toolkitOfModule(`lucent:${scope}`);
-    if (toolkit && !module && fabricRequested()) {
+    if (toolkit && !module) {
       const own = platformOf(sf.fileName);
       const home = TOOLKITS[toolkit].platform;
       const declarations = toolkitSource(toolkit) ? toolkitDeclarations(toolkit) : undefined;

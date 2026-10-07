@@ -1,5 +1,5 @@
 /**
- * JSX of native views (T48, LUCENT_VIEWS=fabric): a component returning
+ * JSX of native views (T48): a component returning
  * `<UIStackView spacing={8}><UILabel text={props.title} /></UIStackView>`,
  * lowered as the setup a person would write, by the rules its classes'
  * declarations give (sdk/view-rules.ts):

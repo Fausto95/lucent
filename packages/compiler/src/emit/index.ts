@@ -75,7 +75,7 @@ export interface EmitResult {
   /** The components the modules export (`.lucent.tsx` functions returning views): not module functions. */
   components?: ComponentDescription[];
   /**
-   * Under the views switch, the React-facing declarations of each module's
+   * The React-facing declarations of each module's
    * components (`ui/proxy.ts` componentDeclarations), by module name.
    */
   componentTypes?: Map<string, string>;

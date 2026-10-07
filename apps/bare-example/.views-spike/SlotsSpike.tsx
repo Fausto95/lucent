@@ -27,7 +27,7 @@ import {
   Text,
   View,
 } from "react-native";
-// Components' React exports exist only when views are generated.
+// A relative import is typed as the Lucent component: its React export, as lucent:views/<module> types it.
 import * as slots from "./slots.lucent";
 
 type CardRef = {

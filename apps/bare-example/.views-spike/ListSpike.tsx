@@ -8,7 +8,7 @@
 // change the list makes a LUCENT_LIST line (the main thread's).
 import { useEffect, useRef, useState } from "react";
 import { type LayoutChangeEvent, SafeAreaView, Text, View } from "react-native";
-// Components' React exports exist only when views are generated.
+// A relative import is typed as the Lucent component: its React export, as lucent:views/<module> types it.
 import * as list from "./list.lucent";
 
 type TodoListRef = {

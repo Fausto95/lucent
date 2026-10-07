@@ -12,7 +12,7 @@
 // refuses commands (InvalidStateError).
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SafeAreaView, Text, type TurboModule, TurboModuleRegistry, View } from "react-native";
-// Components' React exports exist only when views are generated.
+// A relative import is typed as the Lucent component: its React export, as lucent:views/<module> types it.
 import * as views from "./views.lucent";
 import { isolated, locked, starts } from "./work.lucent";
 

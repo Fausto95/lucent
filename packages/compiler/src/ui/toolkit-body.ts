@@ -1,5 +1,5 @@
 /**
- * What SwiftUI and Compose bodies share (LUCENT_VIEWS=fabric): where a
+ * What SwiftUI and Compose bodies share: where a
  * body starts, and what crosses between it and its setup. A body is the
  * JSX a component returns, its toolkit's elements (`bodyOf`), and, for
  * Compose, the setup's composition statements (ui/composition.ts). It is

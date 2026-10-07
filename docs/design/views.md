@@ -1,10 +1,8 @@
 # Views: Lucent components in React Native's renderer
 
-Status: implemented behind `LUCENT_VIEWS=fabric`, an internal switch that
-is off by default. Without it, components are only described and none of
-what follows is generated. Any other value than `fabric` stops the commands
-that read it (`lucent build`, `check`, `dev`, `bench`, `sdk lock`) with an
-error naming the accepted values.
+Status: implemented, in preview. Every compile generates what follows for
+the components its modules export, an app's or a package's; a program
+without components gets none of it.
 
 A component is an exported function of a `.lucent.tsx` module that
 returns a platform view (a `UIView` or an Android `View`). Its setup is
@@ -272,8 +270,7 @@ Physical devices and frame timing on them: deferred (user).
 
 A component can draw its view with the platform's declarative toolkit
 instead of platform views: SwiftUI on iOS (`lucent:swiftui`), Jetpack
-Compose on Android (`lucent:compose`). Both modules resolve under the
-same internal switch. `lucent:swiftui` declares SwiftUI as the SDK
+Compose on Android (`lucent:compose`). `lucent:swiftui` declares SwiftUI as the SDK
 declares it; `lucent:compose` Compose as its Kotlin metadata declares
 it. A component returns its body: JSX of its toolkit's views, once, as
 the last statement of its setup (of its platform's code, in a one-file
@@ -919,7 +916,7 @@ proxies: the live mount's.
 ## Platform views as JSX
 
 A component can also return its platform's views as JSX: UIKit views on
-iOS, Android views on Android, under the same internal switch. Nothing
+iOS, Android views on Android. Nothing
 about the views is listed in Lucent: what a tag takes comes from its
 class's declarations, by rule (`packages/compiler/src/sdk/view-rules.ts`).
 

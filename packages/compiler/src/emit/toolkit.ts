@@ -1,5 +1,5 @@
 /**
- * A toolkit body in its setup's C++ (LUCENT_VIEWS=fabric): the JSX a
+ * A toolkit body in its setup's C++: the JSX a
  * component returns makes the host the toolkit draws in, and feeds the
  * body's slots (ui/toolkit-body.ts), the same way for every toolkit:
  *

@@ -53,8 +53,7 @@ export function ${name}(props: Props): ${root} {
 
 /**
  * `lucent new view <Name>`: a component in src/, its declaration and each
- * platform's native views in a Flex. Internal while views are
- * (LUCENT_VIEWS=fabric).
+ * platform's native views in a Flex.
  */
 export function run({ root, positionals, out }: Invocation): number {
   const t = out.theme;
@@ -65,13 +64,6 @@ export function run({ root, positionals, out }: Invocation): number {
       `${t.error(t.symbols.fail)} ${name ? `${name} is not a component name: start with a capital letter, then letters and digits` : "name the component: lucent new view <Name>"}`,
     );
     return 2;
-  }
-
-  if (process.env.LUCENT_VIEWS !== "fabric") {
-    out.error(
-      `${t.error(t.symbols.fail)} views are internal: set LUCENT_VIEWS=fabric to scaffold one; nothing was written`,
-    );
-    return 1;
   }
 
   const base = fileName(name);

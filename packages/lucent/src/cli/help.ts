@@ -38,7 +38,7 @@ export function help(commands: CommandSpec[], theme: Theme): string {
     "",
     theme.bold("Commands"),
     ...described(
-      commands.filter((c) => !c.internal).map((c) => [`lucent ${c.name}`, c.summary]),
+      commands.map((c) => [`lucent ${c.name}`, c.summary]),
       theme,
     ),
     "",
