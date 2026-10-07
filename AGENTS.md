@@ -21,11 +21,14 @@ runtime/js           loader, copied to .lucent/native/js/_lucent/runtime.js
 
 ## Rules
 
-- [ROADMAP.md](ROADMAP.md) is the plan and its status: gates, open tasks
-  with their checklists, decisions and limitations. Update a task's entry
-  in the same commit as the work; record a new decision in its decisions
-  log. The design is `docs/design/native-platform.md`, the shared
-  interfaces `docs/design/contracts.md`.
+- [ROADMAP.md](ROADMAP.md) is the plan in brief: principles, gates and
+  what's next. The work itself is recorded in the same commit as the
+  change: a task's status and checklist in `docs/tasks.md` (a new task
+  takes the next free id), a decision as a new
+  `docs/decisions/NNNN-<slug>.md` with a row in its README, a limitation
+  found or lifted in `docs/limitations.md`. The design is
+  `docs/design/native-platform.md`, the shared interfaces
+  `docs/design/contracts.md`.
 - JavaScript semantics are the contract. Every language feature needs an
   end-to-end case in `packages/compiler/test/e2e/cases/` (`<name>.lucent.ts` +
   `<name>.test.js`). The runner compares native output with the same source

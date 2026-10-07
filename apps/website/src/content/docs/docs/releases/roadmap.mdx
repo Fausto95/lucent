@@ -62,8 +62,8 @@ Call the iOS and Android SDKs directly from Lucent.
 | done | A coverage report of what each SDK binds, and why the rest is skipped. |
 | done | Pinning the SDKs a project uses, and listing what an SDK update changes for your code. |
 | done | Ports of Expo and community modules, checked against the originals. |
-| in progress | Native libraries nobody has seen before, bound and run with no change to Lucent (in review). |
-| in progress | The app's Swift packages, bound against the iOS version the app targets (in review). |
+| done | Native libraries nobody has seen before, bound and run with no change to Lucent. |
+| done | The app's Swift packages, bound against the iOS version the app targets. |
 | later | Weak references. |
 
 ## Views
@@ -77,7 +77,7 @@ Native views from Lucent components, rendered by React Native's Fabric.
 | done | One file per component, with each platform's body in a platform branch. |
 | done | Events, commands, requests that answer, recycling, sizing to content and React children. |
 | done | Views that keep updating while JavaScript is blocked. |
-| in progress | JSX for any SDK view, keyed lists and Yoga layout (in review). |
+| done | JSX for any SDK view, keyed lists and Yoga layout. |
 | next | A views preview with wrapper ports, such as maps, web views and video. |
 | later | Native lists, gestures and animations, and media pipelines. |
 
@@ -111,24 +111,22 @@ Ready for apps in production.
 - Helper view functions take plain data and scalar callbacks only: no toolkit values, children, lists or bindings inside a helper.
 - SwiftUI: a static value named like a method (`Animation.easeInOut`) is left out, so write the call. Only closed ranges (`a...b`) are mapped, content conditions must be `boolean`, and `Int(x)` traps on NaN or infinity. A two-value `onChange` closure does not type-check, because TypeScript tries the one-value overload first.
 - Compose: class names that clash keep the first package's.
-- Native views' JSX (T48): a plain view's children have no layout; a `Flex`'s are Yoga's ([T50](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t50)). A list's item is one element ([T49](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t49)). Its rules read declarations, not behavior: Android's AdapterView declares `addView(View, int)` and throws from it. A root returned under a runtime condition is chosen once per mount. A later change of what the condition read does not swap it. A signal read there is neither tracked nor warned about (a prop is, LUCENT3021).
+- Native views' JSX (T48): a plain view's children have no layout; a `Flex`'s are Yoga's ([T50](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t50)). A list's item is one element ([T49](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t49)). Its rules read declarations, not behavior: Android's AdapterView declares `addView(View, int)` and throws from it. A root returned under a runtime condition is chosen once per mount. A later change of what the condition read does not swap it. A signal read there is neither tracked nor warned about (a prop is, LUCENT3021).
 - Where a platform's SDK is missing, a component's code for that platform is untyped and not checked. Its diagnostics (LUCENT3025 for its native JSX) come only where that SDK is installed.
-- The bare app's FlatList crash ([TA25](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta25)) and the iOS native-only slot move ([TA26](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta26)) are in review.
 
 ### Language, runtime and bindings
 
 - Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)).
-- Some language features and built-ins differ from JavaScript without a diagnostic; the website lists them under [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps).
-- Refused built-ins give `LUCENT1003` unless noted. They are `normalize()`, `locales`/`options` arguments and an error's `cause`. On object types, `Object.keys`, `values` and `entries` are refused, and so are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`). So is `new Array(n)` without a whole `.fill(v)`, even when each index is then assigned. So is `Array.from({ length: n })` without a map function when elements can't be `undefined`, and `new Proxy`. Writing past an array's end or growing its `length` throws `RangeError`.
+- A few language features differ from JavaScript without a diagnostic; the website lists them under [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps), generated from `apps/website/src/docs/language.ts`.
+- Refused built-ins give `LUCENT1003` unless noted. They are `normalize()`, `locales`/`options` arguments, an error's `cause` and `new Proxy`; decorators give `LUCENT1005` and default exports `LUCENT3003`. On object types, `Object.keys`, `values` and `entries` are refused, and so are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`). So is `new Array(n)` without a whole `.fill(v)`, even when each index is then assigned. So is `Array.from({ length: n })` without a map function when elements can't be `undefined`. Writing past an array's end or growing its `length` throws `RangeError`.
 - Compute tasks are named top-level functions; safepoints are only in module functions' task variants. The JavaScript reference differs from native in three cases. The copy of an object loses its `#private` fields, and native throws `DataCloneError` for a subclass instance behind a base type. An abort that lands after the task ran but before the promise settled rejects natively and resolves in JavaScript.
 - Module state is process-wide and reset when a new `Host` is created.
 - `null` and `undefined` from JavaScript are told apart for arguments, setter values and object fields only. Inside arrays, maps, sets, records, tuples, callback results and promise values, a `T | undefined` also takes `null`, and `T | null` takes `undefined`. A use of such a value then throws `TypeError`.
 - A field or variable of an object type read before it is assigned throws `TypeError`. JavaScript reads `undefined`, also through `?.`. One of a value type (number, string, boolean, tuple, array, map, set, record, `Uint8Array`) reads its default. A `let` read before its declaration runs reads as unassigned, not `ReferenceError`.
 - On Android API 24 and 25, a Java default method that Lucent does not implement returns its zero value, and the reason is logged.
-- A Lucent package's pod binds once installed. In a bare app, the `lucent build` that first meets it declares it in the native package's podspec. That build fails with LUCENT3004 and names the pod. After `pod install`, `lucent build` binds it, and asks for `pod install` again when it adds files. `expo prebuild` stops at that first failure, which names no steps. The config plugin builds before the pods are installed and before it links the native package. A pod binds through the module it defines: `DEFINES_MODULE`, modular headers, a prebuilt `.framework`, or `use_frameworks!`. A Swift pod built as a static library, or one that ships an `.xcframework`, is not bound. Binding a package's own pod in an Expo app is [TA35](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta35).
+- A Lucent package's pod binds once installed. In a bare app, the `lucent build` that first meets it declares it in the native package's podspec. That build fails with LUCENT3004 and names the pod. After `pod install`, `lucent build` binds it, and asks for `pod install` again when it adds files. `expo prebuild` stops at that first failure, which names no steps. The config plugin builds before the pods are installed and before it links the native package. A pod binds through the module it defines: `DEFINES_MODULE`, modular headers, a prebuilt `.framework`, or `use_frameworks!`. A Swift pod built as a static library, or one that ships an `.xcframework`, is not bound. Binding a package's own pod in an Expo app is [TA35](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#ta35).
 - An Android app with product flavors binds the libraries of its first debug variant by name. A library only another flavor depends on is not bindable.
 - Typed native extensions: Swift and Kotlin sources in a package are not typed yet, and extension calls cannot be cancelled.
 - Tracing records allocations for native buffers only, and its buffer uses one mutex: fine for debugging, not for continuous production use.
-- The known binding gaps, tasks [TA30](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta30) to [TA34](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta34), are in review.
 
-This page is generated from [ROADMAP.md](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md) in the repository.
+This page is generated from [ROADMAP.md](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md) and [docs/limitations.md](https://github.com/Fausto95/lucent/blob/main/docs/limitations.md) in the repository. Each task is in [docs/tasks.md](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md).

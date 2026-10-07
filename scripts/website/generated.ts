@@ -245,7 +245,7 @@ const STATUS: Record<string, string> = {
 /**
  * The roadmap page's data, parsed from ROADMAP.md's "Status at a glance"
  * section: its areas (### headings), their goal, their items and each
- * item's status. The rest of ROADMAP.md (tasks, decisions) is for the repository.
+ * item's status; and the limitations users meet, from docs/limitations.md.
  */
 function roadmap(): string {
   const text = fs.readFileSync(path.join(root, "ROADMAP.md"), "utf8");
@@ -266,7 +266,8 @@ function roadmap(): string {
       current.items.push({ ...(status ? { status } : {}), text: item[2]! });
     }
   }
-  return `${header}/** From ROADMAP.md. */\nexport const milestones: { title: string; goal?: string; items: { status?: string; text: string }[] }[] = ${json(milestones)};\n\nexport const limitations: { title: string; items: string[] }[] = ${json(knownLimitations(text))};\n`;
+  const limitations = fs.readFileSync(path.join(root, "docs/limitations.md"), "utf8");
+  return `${header}/** From ROADMAP.md and docs/limitations.md. */\nexport const milestones: { title: string; goal?: string; items: { status?: string; text: string }[] }[] = ${json(milestones)};\n\nexport const limitations: { title: string; items: string[] }[] = ${json(knownLimitations(limitations))};\n`;
 }
 
 /** The blog's posts, newest first: what the homepage and the docs show of them. */

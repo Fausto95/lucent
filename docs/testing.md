@@ -166,8 +166,8 @@ runs.
 CI builds the bare example for the iOS simulator and for Android, but does
 not run it. Before a release, run both example apps on an iOS simulator and an
 Android emulator, as Release builds: every Lab screen must pass, and three
-reloads must not crash. ROADMAP.md's Validation section records the last
-run.
+reloads must not crash. [Validation](tasks.md#validation) in docs/tasks.md records the
+last run.
 
 The Lab has four screens, and each runs when it opens: Tests (every e2e
 case), SDK (the platform probes and the ports' parity cases), Benchmark and

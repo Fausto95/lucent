@@ -460,8 +460,8 @@ failing (IOKit, and the cross-import overlays, for the simulator), and
 `--summary <file>` appends a markdown summary: the members in total and
 the 20 reasons that leave out the most, summed across modules. CI runs
 both and shows the summary on its job (reporting only).
-[ROADMAP.md](../ROADMAP.md#done) records the last measured
-numbers.
+[SDK coverage](tasks.md#sdk-coverage) in docs/tasks.md records the last
+measured numbers.
 
 ## Calls
 
@@ -857,5 +857,6 @@ covered by unit tests only.
 
 ## Not yet
 
-[ROADMAP.md](../ROADMAP.md) lists what's next, the known binding gaps
-(under T28), and the limitations kept on purpose, with the reason.
+[docs/tasks.md](tasks.md) lists what's next and the binding gaps (under
+T28), and [docs/limitations.md](limitations.md) the limitations kept on
+purpose, with the reason.

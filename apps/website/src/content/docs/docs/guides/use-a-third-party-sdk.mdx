@@ -63,7 +63,7 @@ A pod's first import asks you to relink. Run `pod install` again, then rebuild t
 
 ## What Lucent can bind
 
-- A pod must define a module: an Objective-C pod with modular headers (`DEFINES_MODULE`, `:modular_headers => true`, `use_modular_headers!`), or a pod built as a framework under `use_frameworks! :linkage => :static`. Dynamic linkage is untested ([T62](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t62)).
+- A pod must define a module: an Objective-C pod with modular headers (`DEFINES_MODULE`, `:modular_headers => true`, `use_modular_headers!`), or a pod built as a framework under `use_frameworks! :linkage => :static`. Dynamic linkage is untested ([T62](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t62)).
 - A Swift pod's Swift API can't be bound yet: it exists only once Xcode builds the pod. Nor can a pod that ships its library as an XCFramework, as many binary SDKs do.
 - A Swift package binds once your app's Xcode project references it, at the version `Package.resolved` pins. Add it in Xcode, but not its product to the app target: the native package links the ones your modules import.
 - The first build that reads a Swift package clones it with git and builds it with `xcodebuild`, which needs the network. An import says why a build failed.
