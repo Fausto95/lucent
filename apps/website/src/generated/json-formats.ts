@@ -8,7 +8,7 @@ export const jsonOutputs: { command: string; file: string; description: string; 
     "description": "",
     "variants": [
       {
-        "description": "",
+        "description": "A build that ran",
         "fields": [
           {
             "field": "ok",
@@ -287,6 +287,23 @@ export const jsonOutputs: { command: string; file: string; description: string; 
             "description": ""
           }
         ]
+      },
+      {
+        "description": "A problem that stopped it",
+        "fields": [
+          {
+            "field": "ok",
+            "type": "false",
+            "required": true,
+            "description": ""
+          },
+          {
+            "field": "error",
+            "type": "string",
+            "required": true,
+            "description": "What stopped it before any module was checked: an invalid lucent.json, an unknown --platforms target, a frozen build's SDKs. The exit code is 1, or 2 for a usage error"
+          }
+        ]
       }
     ]
   },
@@ -296,7 +313,7 @@ export const jsonOutputs: { command: string; file: string; description: string; 
     "description": "",
     "variants": [
       {
-        "description": "",
+        "description": "A check that ran",
         "fields": [
           {
             "field": "ok",
@@ -525,6 +542,23 @@ export const jsonOutputs: { command: string; file: string; description: string; 
             "type": "number",
             "required": true,
             "description": ""
+          }
+        ]
+      },
+      {
+        "description": "A problem that stopped it",
+        "fields": [
+          {
+            "field": "ok",
+            "type": "false",
+            "required": true,
+            "description": ""
+          },
+          {
+            "field": "error",
+            "type": "string",
+            "required": true,
+            "description": "What stopped it before any module was checked: an invalid lucent.json, an unknown --platforms target, a frozen build's SDKs. The exit code is 1, or 2 for a usage error"
           }
         ]
       }

@@ -18,6 +18,8 @@ Each document follows a JSON Schema served at `https://lucent-lang.dev/schemas/`
 
 Schema: `https://lucent-lang.dev/schemas/build.schema.json`.
 
+### A build that ran
+
 | Field | Type | Always there | Meaning |
 | --- | --- | --- | --- |
 | `ok` | `boolean` | yes | The native package was written (or was up to date); the exit code is 0 exactly then |
@@ -67,9 +69,18 @@ Schema: `https://lucent-lang.dev/schemas/build.schema.json`.
 | `actions[].files` | `string[]` | yes | Relative to the native package; resolved.json#ios.infoPlist names a part of the resolved manifest |
 | `ms` | `number` | yes |  |
 
+### A problem that stopped it
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
+| `ok` | `false` | yes |  |
+| `error` | `string` | yes | What stopped it before any module was checked: an invalid lucent.json, an unknown --platforms target, a frozen build's SDKs. The exit code is 1, or 2 for a usage error |
+
 ## lucent check --json
 
 Schema: `https://lucent-lang.dev/schemas/check.schema.json`.
+
+### A check that ran
 
 | Field | Type | Always there | Meaning |
 | --- | --- | --- | --- |
@@ -111,6 +122,13 @@ Schema: `https://lucent-lang.dev/schemas/check.schema.json`.
 | `warnings[].quickFix.edits[].text` | `string` | yes | What replaces the length characters at start |
 | `errors` | `integer` | yes |  |
 | `ms` | `number` | yes |  |
+
+### A problem that stopped it
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
+| `ok` | `false` | yes |  |
+| `error` | `string` | yes | What stopped it before any module was checked: an invalid lucent.json, an unknown --platforms target, a frozen build's SDKs. The exit code is 1, or 2 for a usage error |
 
 ## lucent clean --json
 
