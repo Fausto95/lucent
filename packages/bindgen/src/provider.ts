@@ -268,6 +268,8 @@ function androidRoots(opts: SdkOptions): string[] {
     process.env.ANDROID_SDK_ROOT,
     path.join(os.homedir(), "Library/Android/sdk"),
     path.join(os.homedir(), "Android/Sdk"),
+    // Android Studio's default on Windows.
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Android", "Sdk"),
   ].filter((r): r is string => !!r);
 }
 

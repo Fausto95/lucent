@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { androidSdkCandidates } from "./sdks.ts";
 import { lucentPackages } from "@lucent-lang/compiler/packages";
 import { buildChecks } from "./doctor-build.ts";
 import { packageManagerOf } from "./package-manager.ts";
@@ -250,11 +251,7 @@ function cocoapods(probe: Probe): Check {
 }
 
 function android(probe: Probe): Check[] {
-  const candidates = [
-    probe.env.ANDROID_HOME,
-    probe.env.ANDROID_SDK_ROOT,
-    path.join(probe.home, probe.platform === "darwin" ? "Library/Android/sdk" : "Android/Sdk"),
-  ].filter((d): d is string => !!d);
+  const candidates = androidSdkCandidates(probe.platform, probe.home, probe.env);
   const sdk = candidates.find((d) => fs.existsSync(path.join(d, "platforms")));
   if (!sdk) {
     return [
@@ -262,7 +259,7 @@ function android(probe: Probe): Check[] {
         "android-sdk",
         "Android SDK",
         "not found",
-        "install Android Studio (or the command-line tools), then set ANDROID_HOME to the SDK (e.g. ~/Library/Android/sdk)",
+        `install Android Studio (or the command-line tools), then set ANDROID_HOME to the SDK (${probe.platform === "win32" ? "%LOCALAPPDATA%\\Android\\Sdk" : probe.platform === "darwin" ? "~/Library/Android/sdk" : "~/Android/Sdk"} by default)`,
       ),
       skip("ndk", "Android NDK", "needs the Android SDK"),
     ];
@@ -296,7 +293,10 @@ function android(probe: Probe): Check[] {
       {
         ...sdkCheck,
         status: "warn",
-        fix: `export ANDROID_HOME=${sdk.replace(probe.home, "$HOME")} (Gradle and adb find the SDK through it)`,
+        fix:
+          probe.platform === "win32"
+            ? `setx ANDROID_HOME "${sdk}" (Gradle and adb find the SDK through it)`
+            : `export ANDROID_HOME=${sdk.replace(probe.home, "$HOME")} (Gradle and adb find the SDK through it)`,
       },
       ndkCheck,
     ];
