@@ -142,7 +142,7 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
     expect(glue).toMatch(/->add\(lucent_key, lucent_item\);/);
     expect(glue).toContain("lucent::swiftui::record({lucent::swiftui::value(lucent_key), ");
     // An action given the item finds it by key, and does nothing once it is gone.
-    expect(glue).toMatch(/auto found0 = items_0_\d+->find\(p0\);/);
+    expect(glue).toMatch(/auto found0 = items_0_\d+_->find\(p0\);/);
     expect(swiftErrors(built)).toBe("");
   }, 300_000);
 

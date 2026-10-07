@@ -147,7 +147,14 @@ export class IrBuilder {
     return result;
   }
 
-  local(name: string, type: LType, source: SourceSpan, boxed = false, int?: IntKind): PlaceId {
+  local(
+    name: string,
+    type: LType,
+    source: SourceSpan,
+    boxed = false,
+    int?: IntKind,
+    spelled?: string,
+  ): PlaceId {
     const place = this.place(type);
 
     if (int) this.placeInts.set(place, int);
@@ -157,6 +164,7 @@ export class IrBuilder {
       place,
       type,
       name,
+      ...(spelled ? { spelled } : {}),
       ...(boxed ? { boxed } : {}),
       ...(int ? { int } : {}),
       source,

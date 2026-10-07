@@ -46,9 +46,9 @@ describe("closures in the IR", () => {
 `);
     const late = body(cppOf(file), "late");
 
-    expect(late).toContain("lucent::Box<double> i_it{};");
+    expect(late).toContain("lucent::Box<double> t_i_it_{};");
 
-    expect(late).toContain("[i = i_it]");
+    expect(late).toContain("[i = t_i_it_]");
   });
 
   it("hoists nested function declarations, and lets a recursive arrow call itself", () => {

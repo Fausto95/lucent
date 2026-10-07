@@ -25,7 +25,7 @@ import {
 } from "../analysis/scopes.ts";
 import { Codes, fail, replacing } from "../diagnostics.ts";
 import { bigintLiteralValue } from "../lowering/literals.ts";
-import { isVoidish, type LType, sameType, T, typeKey, unionOf } from "../types.ts";
+import { isVoidish, type LType, sameType, T, temporary, typeKey, unionOf } from "../types.ts";
 import { IrBuilder } from "./build.ts";
 import {
   binaryResult,
@@ -1023,7 +1023,8 @@ class Lowerer {
     const place = this.locals.get(sym)!;
     const type = this.localTypes.get(place)!;
     const span = spanOf(node);
-    const copy = this.b.local(`${sym.name}_it`, type, span, true);
+    // Spelled as a temporary (see cppIdent): no program name can be.
+    const copy = this.b.local(`${sym.name}_it`, type, span, true, undefined, temporary(sym.name, "it"));
 
     this.b.store(copy, this.b.load(place, span), span);
     this.boxed.add(copy);
@@ -1804,8 +1805,15 @@ class Lowerer {
     const names = new Set(
       [...this.captured.keys()].map((k) => (typeof k === "string" ? k : k.name)),
     );
-    const name = names.has(sym.name) ? `${sym.name}_${names.size}` : sym.name;
-    const place = this.b.capture(name, type, boxed);
+    // Another variable of the same name, captured too: spelled as a temporary (see cppIdent).
+    const shadowed = names.has(sym.name);
+    const name = shadowed ? `${sym.name}_${names.size}` : sym.name;
+    const place = this.b.capture(
+      name,
+      type,
+      boxed,
+      shadowed ? temporary(sym.name, String(names.size)) : undefined,
+    );
 
     if (boxed) this.boxed.add(place);
 

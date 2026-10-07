@@ -761,7 +761,7 @@ class Emitter {
    */
   withFinally(guarded: () => cpp.Stmt[], final: () => cpp.Stmt[]): cpp.Stmt[] {
     const n = this.framesMade++;
-    const frame: Frame = { code: `fc${n}_`, pending: `fc${n}_ex`, label: `fin${n}_`, routes: [] };
+    const frame: Frame = { code: `fc${n}_`, pending: `fc${n}ex_`, label: `fin${n}_`, routes: [] };
     const pending = cpp.id(frame.pending);
 
     this.frames.push(frame);
@@ -878,7 +878,7 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
     e.define(op, op.result, converted(e.value(op.input), e.typeOf(op.input), op.to, e.backend)),
 
   local: (op, e, index, ops) => {
-    const name = cppIdent(op.name);
+    const name = op.spelled ?? cppIdent(op.name);
     const next = ops[index + 1];
     const type = op.int ? cpp.type(INT_CPP[op.int]) : boxOf(e.backend.cppType(op.type), op.boxed);
 
@@ -909,7 +909,7 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
       const style = prev.boxed ? { style: "construct" as const } : {};
       const value = int ? e.stored(op.value, int) : e.taken(op.value);
 
-      e.emit(op, cpp.varDecl(type, cppIdent(prev.name), value, style));
+      e.emit(op, cpp.varDecl(type, prev.spelled ?? cppIdent(prev.name), value, style));
       return;
     }
 
@@ -1251,7 +1251,7 @@ function tableLoop(it: Iteration, element: (slot: cpp.Expr) => cpp.Expr): cpp.St
   ]);
 
   return [
-    cpp.varDecl(guard, `${it.name}guard`, table, { style: "construct" }),
+    cpp.varDecl(guard, `${it.name}guard_`, table, { style: "construct" }),
     it.counted(cpp.call(cpp.dot(table, "slotCount")), it.body(element(slot), [live])),
   ];
 }
@@ -1279,10 +1279,10 @@ const ITERATIONS: Partial<Record<LType["k"], (it: Iteration) => cpp.Stmt[]>> = {
 
   // Code points, not UTF-16 units.
   string: (it) => {
-    const cps = cpp.id(`${it.name}cps`);
+    const cps = cpp.id(`${it.name}cps_`);
 
     return [
-      cpp.varDecl(cpp.auto, `${it.name}cps`, cpp.call("lucent::splitCodePoints", [it.coll])),
+      cpp.varDecl(cpp.auto, `${it.name}cps_`, cpp.call("lucent::splitCodePoints", [it.coll])),
       it.counted(it.size(cps), it.body(it.at(cps))),
     ];
   },
@@ -1302,15 +1302,15 @@ const ITERATIONS: Partial<Record<LType["k"], (it: Iteration) => cpp.Stmt[]>> = {
   // blocks; running out does not.
   iter: (it) => {
     const t = it.t as LType & { k: "iter" };
-    const [v, close] = [cpp.id(`${it.name}v`), cpp.id(`${it.name}close`)];
+    const [v, close] = [cpp.id(`${it.name}v_`), cpp.id(`${it.name}close_`)];
     const closer = cpp.type("lucent::IterCloser", it.e.backend.cppType(t.e));
     const head = [
-      cpp.varDecl(cpp.auto, `${it.name}v`, cpp.call(cpp.arrow(it.coll, "next"))),
+      cpp.varDecl(cpp.auto, `${it.name}v_`, cpp.call(cpp.arrow(it.coll, "next"))),
       cpp.ifStmt(cpp.not(v), [cpp.exprStmt(cpp.call(cpp.dot(close, "exhausted"))), { k: "break" }]),
     ];
 
     return [
-      cpp.varDecl(closer, `${it.name}close`, it.coll, { style: "construct" }),
+      cpp.varDecl(closer, `${it.name}close_`, it.coll, { style: "construct" }),
       { k: "for", body: it.body(cpp.call("std::move", [cpp.deref(v)]), head) },
     ];
   },

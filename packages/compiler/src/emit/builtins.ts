@@ -1565,12 +1565,12 @@ function arrayMethod(
         return num(
           cpp.statementExpr(
             [
-              cpp.varDecl(cpp.reference(cpp.auto), "pa", o),
+              cpp.varDecl(cpp.reference(cpp.auto), "pa_", o),
               cpp.exprStmt(
-                cpp.call(cpp.dot(cpp.id("pa"), "append"), [em.exprAs(a[0]!.expression, at)]),
+                cpp.call(cpp.dot(cpp.id("pa_"), "append"), [em.exprAs(a[0]!.expression, at)]),
               ),
             ],
-            cpp.call(cpp.dot(cpp.id("pa"), "length")),
+            cpp.call(cpp.dot(cpp.id("pa_"), "length")),
           ),
         );
       if (a.some(ts.isSpreadElement))
