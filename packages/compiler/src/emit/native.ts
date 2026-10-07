@@ -32,7 +32,7 @@ import {
   loadSdkModule,
   jniDescriptor,
   mainThreadOnly,
-  MIN_ANDROID_API,
+  oldestAndroid,
   oldestIos,
   sdkTypeInfo,
   parseSdkType,
@@ -2480,7 +2480,7 @@ function needOf(platform: Platform, since: number | string | undefined): Need | 
   if (typeof since !== (platform === "android" ? "number" : "string")) return undefined;
 
   const version = String(since);
-  const oldest = platform === "ios" ? oldestIos() : String(MIN_ANDROID_API);
+  const oldest = platform === "ios" ? oldestIos() : String(oldestAndroid());
   return compareVersions(version, oldest) > 0 ? { platform, version } : undefined;
 }
 
@@ -2511,7 +2511,7 @@ export function requireAvailable(
     Codes.Unavailable,
     need.platform === "ios"
       ? `${what} needs iOS ${need.version} (apps run from iOS ${oldestIos()}): use it under if (available("ios", ${availableArgs(need)}))`
-      : `${what} needs API ${need.version} (apps run from API ${MIN_ANDROID_API}): use it under if (available("android", ${need.version})) or Build_VERSION.SDK_INT >= ${need.version}`,
+      : `${what} needs API ${need.version} (apps run from API ${oldestAndroid()}): use it under if (available("android", ${need.version})) or Build_VERSION.SDK_INT >= ${need.version}`,
   );
 }
 

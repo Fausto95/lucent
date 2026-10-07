@@ -39,6 +39,7 @@ export { kotlinClassOf } from "./kotlin-metadata-decode.ts";
 export { extractIos, buildIosSchemas, type IosOptions } from "./ios.ts";
 export {
   androidJars,
+  androidLevels,
   cachedModules,
   cachedSchema,
   extractionCount,

@@ -50,7 +50,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT3004`](#lucent3004) | A platform SDK import in a file whose platform cannot use it, an SDK module without bindings, or platform code used outside its platform. |
 | [`LUCENT3005`](#lucent3005) | Platform implementations that do not match their shared declaration file. |
 | [`LUCENT3006`](#lucent3006) | A main-thread-only platform API used outside `main(() => …)`. |
-| [`LUCENT3007`](#lucent3007) | A platform API newer than the oldest OS the app runs on, used without an `available()` or `SDK_INT` check around it. That OS is the app's iOS deployment target, at least 15.1, or Android API 24. |
+| [`LUCENT3007`](#lucent3007) | A platform API newer than the oldest OS the app runs on, used without an `available()` or `SDK_INT` check around it. That OS is the app's iOS deployment target, at least 15.1, or its Android `minSdk`, else API 24. |
 | [`LUCENT3008`](#lucent3008) (warning) | An Android SDK argument that is a constant outside the @IntDef or @StringDef group the SDK allows there. |
 | [`LUCENT3009`](#lucent3009) (warning) | An Android SDK member marked @WorkerThread, called inside main(() =\> …) or a main-thread callback. |
 | [`LUCENT3010`](#lucent3010) | Two Lucent modules in one app whose files give them the same module name. |

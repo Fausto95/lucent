@@ -69,8 +69,17 @@ export interface SdkOptions {
     jars?: string[];
     /** Where to look for the Android SDK (default: $ANDROID_HOME, $ANDROID_SDK_ROOT, the usual install locations). */
     sdkRoots?: string[];
-    /** platforms/<name> to use (default: $LUCENT_ANDROID_PLATFORM, else the newest installed). */
+    /**
+     * platforms/<name> to use (default: $LUCENT_ANDROID_PLATFORM, else
+     * the app's compileSdk's when installed, else the newest installed).
+     */
     platform?: string;
+    /**
+     * The oldest API level the app runs on (its minSdk): APIs newer than
+     * it need a check. Default: the classpath file's, else React Native's
+     * minimum (24).
+     */
+    minSdk?: number;
     /**
      * The app's resolved compile classpath (.lucent/android-classpath.json,
      * written by the lucentClasspath Gradle task): its jars and AARs are
@@ -298,7 +307,13 @@ function locateAndroid(opts: SdkOptions): Resolved | { missing: string } {
       : [];
     const wanted = opts.android?.platform ?? process.env.LUCENT_ANDROID_PLATFORM;
     const version = (p: string) => Number(/(\d+(\.\d+)?)/.exec(p)?.[1] ?? 0);
-    const name = wanted ?? platforms.sort((a, b) => version(b) - version(a))[0];
+    // The platform the app compiles against, as its Gradle build says; else the newest.
+    const compileSdk = androidLevels(opts).compileSdk;
+    const compiled = compileSdk
+      ? platforms.find((p) => p === `android-${compileSdk}`) ??
+        platforms.find((p) => Math.floor(version(p)) === compileSdk)
+      : undefined;
+    const name = wanted ?? compiled ?? platforms.sort((a, b) => version(b) - version(a))[0];
     if (!root || !name || !platforms.includes(name)) {
       return {
         missing: `the Android SDK${wanted ? ` platform ${wanted}` : ""} was not found (looked in ${roots.join(", ") || "no locations"}). Install it with Android Studio, or set ANDROID_HOME to its location.`,
@@ -352,6 +367,18 @@ function locateAndroid(opts: SdkOptions): Resolved | { missing: string } {
       classpath,
     },
   });
+}
+
+/** The app's SDK levels: the options', else what its Gradle build wrote with the classpath. */
+export function androidLevels(opts: SdkOptions = {}): { minSdk?: number; compileSdk?: number } {
+  const file = opts.android?.classpath;
+  const cp = file
+    ? (readCached(file) as { minSdk?: unknown; compileSdk?: unknown } | undefined)
+    : undefined;
+  const level = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v > 0 ? v : undefined);
+  const minSdk = level(opts.android?.minSdk) ?? level(cp?.minSdk);
+  const compileSdk = level(cp?.compileSdk);
+  return { ...(minSdk ? { minSdk } : {}), ...(compileSdk ? { compileSdk } : {}) };
 }
 
 /** Each artifact once: the first of those with the same classes (a library and Gradle's copy of it). */
@@ -1233,7 +1260,9 @@ export function sdkIdentity(opts: SdkOptions = {}): string {
   return (["ios", "android"] as const)
     .map((p) => {
       const r = locate(p, opts);
-      if (!("missing" in r)) return hash([path.basename(r.scope), r.key]);
+      // The app's minSdk decides which uses need a check: builds of another one differ.
+      const levels = p === "android" ? [`minSdk ${androidLevels(opts).minSdk ?? ""}`] : [];
+      if (!("missing" in r)) return hash([path.basename(r.scope), r.key, ...levels]);
       return setModules(p, opts).length ? `set-${setIdentity(p, opts)}` : "none";
     })
     .join("|");

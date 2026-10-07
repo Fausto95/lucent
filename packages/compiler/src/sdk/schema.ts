@@ -4,6 +4,7 @@
  */
 
 import {
+  androidLevels,
   formatSchemaType,
   parseSchemaType,
   type Platform,
@@ -29,7 +30,7 @@ import { compareVersions } from "../package-versions.ts";
 
 export { formatSchemaType, PLATFORMS };
 
-/** The oldest OS the app runs on (React Native's minimum). */
+/** The oldest OS an app runs on (React Native's minimum), where its project says no other. */
 export const MIN_ANDROID_API = 24;
 export const MIN_IOS = "15.1";
 
@@ -94,6 +95,15 @@ let deferredPlatforms: readonly Platform[] = [];
 export function oldestIos(): string {
   const target = sdkOptions.ios?.deploymentTarget;
   return target && compareVersions(target, MIN_IOS) > 0 ? target : MIN_IOS;
+}
+
+/**
+ * The oldest Android API level the app runs on: its minSdk (the app's
+ * Gradle build, as the SDK options say), else React Native's minimum.
+ * An API newer than it needs a check.
+ */
+export function oldestAndroid(): number {
+  return androidLevels(sdkOptions).minSdk ?? MIN_ANDROID_API;
 }
 
 export function withSdkOptions<T>(

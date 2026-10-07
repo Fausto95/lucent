@@ -94,6 +94,6 @@ The compiler looks for the check around the call, in the source:
 
 On iOS, it's your app's deployment target: the app target's `IPHONEOS_DEPLOYMENT_TARGET` in the Xcode project under `ios/`, else the project's. An app deployed to iOS 16 calls an iOS 16 API without a check. Without an `ios/` project, as in an Expo app before `npx expo prebuild`, it's the oldest iOS on [Compatibility](/docs/api/compatibility/).
 
-On Android, it's the API level on Compatibility, whatever your app's `minSdkVersion`. No roadmap task changes it.
+On Android, it's your app's `minSdk` (`minSdkVersion` in older Android Gradle plugins), which the app's Gradle build reports when Lucent resolves its dependencies. Until it has, as in an Expo app before `npx expo prebuild`, it's the API level on Compatibility. Lucent also binds the Android platform your app compiles against (`compileSdk`) when it's installed, else the newest one.
 
 A package's `ios.deploymentTarget` or `android.minSdk` in [lucent.json](/docs/packages/lucent-json/) raises the native package's, not these.

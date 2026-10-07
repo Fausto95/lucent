@@ -349,7 +349,7 @@ An Objective-C subclass's native object holds the Lucent object, and each Lucent
 
 ### Availability
 
-`requireAvailable()` checks a member's `since` against the oldest OS the app runs on, from `sdk/schema.ts`. On iOS that's `oldestIos()`: the deployment target `xcodeApp()` read, never below `MIN_IOS` (15.1). On Android it's `MIN_ANDROID_API` (24).
+`requireAvailable()` checks a member's `since` against the oldest OS the app runs on, from `sdk/schema.ts`. On iOS that's `oldestIos()`: the deployment target `xcodeApp()` read, never below `MIN_IOS` (15.1). On Android it's `oldestAndroid()`: the app's `minSdk`, which the `lucentClasspath` Gradle task writes beside the classpath (`androidLevels()` reads it), else `MIN_ANDROID_API` (24). The same file's `compileSdk` picks the platform bound, when installed.
 
 A newer API outside a check of the running OS fails with [LUCENT3007](/docs/api/diagnostics/#lucent3007). A package's `deploymentTarget` or `minSdk` raises the native package's, not this floor.
 

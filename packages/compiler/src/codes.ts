@@ -466,7 +466,7 @@ export const Explanations: Record<Code, Explanation> = {
   LUCENT3007: {
     title: "Platform API newer than the app's oldest OS",
     summary:
-      "A platform API newer than the oldest OS the app runs on, used without an `available()` or `SDK_INT` check around it. That OS is the app's iOS deployment target, at least 15.1, or Android API 24.",
+      "A platform API newer than the oldest OS the app runs on, used without an `available()` or `SDK_INT` check around it. That OS is the app's iOS deployment target, at least 15.1, or its Android `minSdk`, else API 24.",
     details:
       "Apps run on older OS versions than the SDK they build with. An API introduced later crashes there, so Lucent requires a check that the running OS has it.",
     fix: 'check first: if (available("ios", 16)) …, if (available("android", 26)) … or Build_VERSION.SDK_INT >= 26',

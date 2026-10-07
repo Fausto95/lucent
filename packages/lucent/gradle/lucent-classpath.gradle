@@ -1,6 +1,6 @@
 // Registers lucentClasspath in the app project it is applied to: writes the
-// app's resolved compile classpath (AARs and jars) to
-// .lucent/android-classpath.json, so lucent:android/<package> can bind any
+// app's resolved compile classpath (AARs and jars), its minSdk and its
+// compileSdk to .lucent/android-classpath.json, so lucent:android/<package> can bind any
 // library the app links (AndroidX, Play services, Firebase…).
 // Applied by lucent.gradle (the app's Gradle task) and by
 // lucent-classpath.init.gradle (when lucent build asks Gradle). In an app
@@ -38,12 +38,30 @@ pluginManager.withPlugin("com.android.application") {
     }
     def aars = viewOf("aar")
     def jars = viewOf("jar")
+    // The app's SDK levels: the oldest Android it runs on (APIs newer than it need a check), and
+    // the platform it compiles against (what Lucent binds). AGP 7+ names them minSdk and
+    // compileSdk; older versions minSdkVersion and compileSdkVersion ("android-34").
+    def sdkLevel = { Closure read ->
+      try {
+        def v = read()
+        if (v == null) return null
+        def m = (v.toString() =~ /(\d+)/)
+        return m.find() ? (m.group(1) as Integer) : null
+      } catch (Exception ignored) {
+        return null
+      }
+    }
+    def minSdk = sdkLevel { android.defaultConfig.hasProperty("minSdk") ? android.defaultConfig.minSdk : android.defaultConfig.minSdkVersion?.apiLevel }
+    def compileSdk = sdkLevel { android.hasProperty("compileSdk") && android.compileSdk != null ? android.compileSdk : android.compileSdkVersion }
     tasks.register("lucentClasspath") {
       inputs.files(aars, jars)
       outputs.file(out)
       doLast {
         out.parentFile.mkdirs()
-        out.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([aars: aars.files*.absolutePath.sort(), jars: jars.files*.absolutePath.sort()]))
+        def record = [aars: aars.files*.absolutePath.sort(), jars: jars.files*.absolutePath.sort()]
+        if (minSdk != null) record.minSdk = minSdk
+        if (compileSdk != null) record.compileSdk = compileSdk
+        out.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(record))
       }
     }
   }

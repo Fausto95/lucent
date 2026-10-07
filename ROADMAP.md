@@ -433,6 +433,14 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-08: Android's oldest API is the app's minSdk.** The
+`lucentClasspath` Gradle task writes the app's `minSdk` and `compileSdk`
+beside its classpath; `LUCENT3007` checks Android APIs against that
+`minSdk` (24 until Gradle has run), and the bound platform is the
+`compileSdk`'s when installed, else the newest. _Why:_ a fixed 24 made
+apps at a higher `minSdk` write checks their devices never fail, and the
+newest platform could bind APIs the app's `compileSdk` does not have.
+
 **2026-10-08: Exported schemas type a platform without its SDK.** `lucent
 sdk lock --schemas` writes `lucent-sdk.schemas/` beside the lock: the
 schemas the code's modules were read with, the modules their types name
