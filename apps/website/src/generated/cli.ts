@@ -119,6 +119,10 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
       {
         "flag": "--cache",
         "description": "Also remove the SDK bindings cache"
+      },
+      {
+        "flag": "--stale",
+        "description": "With --cache: remove only what other Lucent versions wrote to the SDK cache"
       }
     ],
     "json": "clean"
@@ -161,6 +165,10 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
       {
         "flag": "--platforms <list>",
         "description": "Targets to record: ios, android (default: every platform the project has code for, each needing its SDK)"
+      },
+      {
+        "flag": "--schemas",
+        "description": "Also export the schemas the code uses to lucent-sdk.schemas/, so machines without a platform's SDK type its code"
       }
     ],
     "json": "sdk-lock-result"
