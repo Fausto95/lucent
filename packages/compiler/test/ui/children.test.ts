@@ -1,10 +1,10 @@
-// React children of a Lucent component (LUCENT_VIEWS=fabric): a
+// React children of a Lucent component: a
 // `children: Children` prop, and the slot setup asks its host for and puts
 // in its view. Compiled on both platforms, down to what each host gets.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { compile, type CompileResult, sdkAvailable, writeNativePackage } from "../../src/index.ts";
 import {
   androidToolchain,
@@ -70,14 +70,6 @@ export function Card(props: { title: string; children?: Children }) {
 const file = (r: CompileResult, name: string) => r.files.get(name) ?? "";
 
 describe("a component's React children", () => {
-  beforeEach(() => {
-    process.env.LUCENT_VIEWS = "fabric";
-  });
-
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   for (const platform of ["ios", "android"] as const)
     it.skipIf(!sdks[platform])(
       `reach setup as the slot its ${platform} host makes, which setup places`,

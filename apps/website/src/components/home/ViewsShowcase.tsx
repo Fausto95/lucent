@@ -84,9 +84,7 @@ export function ViewsShowcase() {
           Meet native views ↗
         </Link>
       </div>
-      <p className="view-note">
-        Views currently require LUCENT_VIEWS=fabric. The API is experimental and off by default.
-      </p>
+      <p className="view-note">Views are in preview. The API is experimental and may change.</p>
     </section>
   );
 }

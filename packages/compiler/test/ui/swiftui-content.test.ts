@@ -1,4 +1,4 @@
-// What a SwiftUI body holds beyond a toggle (LUCENT_VIEWS=fabric): actions
+// What a SwiftUI body holds beyond a toggle: actions
 // with arguments, values of every plain type, lists of keyed items,
 // bindings, the environment and animations with Lucent values. Each
 // component's Swift type-checks against the iOS SDK and its glue compiles

@@ -1,4 +1,4 @@
-// One-file components (LUCENT_VIEWS=fabric): a shared `.lucent.tsx` file
+// One-file components: a shared `.lucent.tsx` file
 // writes a component's logic once and its body with each platform's
 // toolkit, SwiftUI's JSX in its iOS branch and Compose's in its Android
 // branch. The file's JSX is typed by both toolkits; each platform's
@@ -205,7 +205,6 @@ describe.skipIf(!both)("a one-file component", () => {
   return undefined;
 }`)["like.lucent.tsx"]!,
     );
-    process.env.LUCENT_VIEWS = "fabric";
 
     try {
       const result = compile([file], { platforms: ["ios", "android"] });
@@ -214,7 +213,6 @@ describe.skipIf(!both)("a one-file component", () => {
         "LUCENT3023 `Like` is a component on ios but not on android: return a view on every platform",
       );
     } finally {
-      delete process.env.LUCENT_VIEWS;
     }
   }, 600_000);
 
@@ -224,7 +222,6 @@ describe.skipIf(!both)("a one-file component", () => {
 
     fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
     fs.writeFileSync(file, LIKE);
-    process.env.LUCENT_VIEWS = "fabric";
 
     try {
       const result = compile([file], {
@@ -235,7 +232,6 @@ describe.skipIf(!both)("a one-file component", () => {
       expect(diagnostics(result)).toEqual([]);
       expect(result.compose).toBe(true);
     } finally {
-      delete process.env.LUCENT_VIEWS;
     }
   }, 600_000);
 
@@ -340,7 +336,6 @@ function buildWithout(files: Record<string, string>, missing: "ios" | "android")
 
   fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
   for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), text);
-  process.env.LUCENT_VIEWS = "fabric";
 
   try {
     return compile(
@@ -348,7 +343,6 @@ function buildWithout(files: Record<string, string>, missing: "ios" | "android")
       { sdk: MISSING[missing] },
     );
   } finally {
-    delete process.env.LUCENT_VIEWS;
   }
 }
 

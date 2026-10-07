@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { Codes, compile, docsUrl, Explanations, sdkAvailable } from "../src/index.ts";
 
-function compileExample(files: Record<string, string>, views = false) {
+function compileExample(files: Record<string, string>) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-explain-"));
   const paths = Object.entries(files).map(([name, source]) => {
     const file = path.join(dir, name);
@@ -12,13 +12,7 @@ function compileExample(files: Record<string, string>, views = false) {
     fs.writeFileSync(file, source);
     return file;
   });
-  if (views) process.env.LUCENT_VIEWS = "fabric";
-
-  try {
-    return compile(paths.filter((f) => /\.lucent\.tsx?$/.test(f)));
-  } finally {
-    if (views) delete process.env.LUCENT_VIEWS;
-  }
+  return compile(paths.filter((f) => /\.lucent\.tsx?$/.test(f)));
 }
 
 describe("explanations", () => {
@@ -36,12 +30,12 @@ describe("explanations", () => {
   describe.each(Object.entries(Explanations))("%s", (code, e) => {
     const missing = e.sdk && !sdkAvailable(e.sdk);
     it.skipIf(missing)("its wrong example reports it", () => {
-      const r = compileExample(e.wrong, e.views);
+      const r = compileExample(e.wrong);
       const reported = e.severity === "warning" ? (r.warnings ?? []) : r.diagnostics;
       expect(reported.map((d) => d.code)).toContain(code);
     });
     it.skipIf(missing)("its right example compiles", () => {
-      const r = compileExample(e.right, e.views);
+      const r = compileExample(e.right);
       expect(r.diagnostics).toEqual([]);
       expect(r.warnings ?? []).toEqual([]);
     });

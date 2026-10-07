@@ -8,7 +8,7 @@ sidebar_class_name: experimental
 ---
 
 :::caution
-Experimental: views change without notice. They need `LUCENT_VIEWS=fabric` where Lucent builds: see [Turn on native views](/docs/guides/views/). Read [the limits](/docs/architecture/views/#limits) first.
+Experimental: views change without notice. Start with [Write a native view](/docs/guides/views/), and read [the limits](/docs/architecture/views/#limits) first.
 :::
 
 <Tabs>
@@ -89,7 +89,7 @@ The body holds no logic of its own. To change a signal on a tap, give the toolki
 
 Import each `lucent:compose` value you use by name, and alias the names SwiftUI has too: `Text as CText`. A value read through a namespace import, such as `C.Modifier` after `import * as C`, fails with [LUCENT3024](/docs/api/diagnostics/#lucent3024).
 
-To see a composable's props, run `LUCENT_VIEWS=fabric npx lucent sdk show androidx.compose.material3.Switch`. It doesn't print SwiftUI's declarations yet: your editor shows them.
+To see a composable's props, run `npx lucent sdk show androidx.compose.material3.Switch`. For a SwiftUI view, run `npx lucent sdk show SwiftUI.Toggle`.
 
 ## Write each body in its own file
 

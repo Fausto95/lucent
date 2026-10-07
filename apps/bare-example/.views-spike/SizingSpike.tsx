@@ -10,7 +10,7 @@
 // shows how many layouts each change takes to settle.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { type LayoutChangeEvent, SafeAreaView, Text, View } from "react-native";
-// Components' React exports exist only when views are generated.
+// A relative import is typed as the Lucent component: its React export, as lucent:views/<module> types it.
 import * as sizing from "./sizing.lucent";
 
 type BlurbRef = { append(more: string): void; appendLater(more: string): void };

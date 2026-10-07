@@ -17,7 +17,6 @@ LUCENT_ANDROID_PLATFORM=android-35 npx lucent build
 | --- | --- | --- | --- |
 | `LUCENT_WATCH` | `0` turns off the watcher Metro starts, and `1` starts it with any Metro command. The `watch` option of `withLucent` wins over it. | on when Metro runs `start`, `run:ios` or `run:android` | [`withLucent`](/docs/api/integrations/#metro) |
 | `LUCENT_OUT` | The native package whose proxies Metro bundles, relative to the project like `lucent build --out`. The app must link the native code of that same build. Metro's watcher, the Gradle task and the Expo plugin still write `.lucent/native`: run `lucent build --out <dir>` yourself, and set `LUCENT_WATCH=0`. | `.lucent/native` | Metro's transformer |
-| `LUCENT_VIEWS` | Experimental: `fabric` makes `lucent:ui`, `lucent:swiftui` and `lucent:compose` importable and generates components' native views. Unset, those imports fail and components are only described. Any other value that isn't empty stops every build and check with an error. | unset | the compiler, in every build and check, and the editor plugin, from the editor's environment |
 | `LUCENT_TRACE` | Starts runtime tracing when the app's module context starts. Its values are on [Trace events](/docs/api/trace-events/#capture-settings). | unset: tracing is off | Lucent's runtime, in the app; on Android, the `debug.lucent.trace` system property replaces it |
 | `LUCENT_CACHE_DIR` | Where the SDK bindings cache lives. Every project on the machine shares it. | `$XDG_CACHE_HOME/lucent`, else `~/.cache/lucent` | every command that binds an SDK, `lucent clean --cache`, `lucent doctor` |
 | `XDG_CACHE_HOME` | The cache's parent directory when `LUCENT_CACHE_DIR` is unset. | `~/.cache` | the same |
@@ -35,7 +34,7 @@ LUCENT_ANDROID_PLATFORM=android-35 npx lucent build
 | `CI` | Any value that isn't empty turns off spinners, live views and prompts. Then `lucent init` changes nothing without `--yes`, and `lucent dev` prints one line per build. | unset | every `lucent` command |
 | `TERM` | `dumb` turns off color, animation, prompts and Unicode symbols. `FORCE_COLOR` still turns color on. | set by the terminal | every `lucent` command |
 
-The views guide says where to set `LUCENT_VIEWS` for each build: see [Turn on native views](/docs/guides/views/). [Find why a call is slow](/docs/guides/trace-a-slow-call/) shows how to set `LUCENT_TRACE` for an app.
+[Find why a call is slow](/docs/guides/trace-a-slow-call/) shows how to set `LUCENT_TRACE` for an app.
 
 ## Not for you to set
 

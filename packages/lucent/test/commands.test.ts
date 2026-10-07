@@ -94,15 +94,13 @@ describe("lucent new module", () => {
 });
 
 describe("lucent new view", () => {
-  const views = { LUCENT_VIEWS: "fabric" };
-
   it.skipIf(!sdkAvailable("ios") || !sdkAvailable("android"))(
     "scaffolds a component of each platform's views in a Flex, which compiles",
     () => {
       // An app: its package names the component's registration.
       const root = project();
       fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app" }));
-      const r = lucent(["new", "view", "Badge", "--root", root], views);
+      const r = lucent(["new", "view", "Badge", "--root", root]);
 
       expect(r.status).toBe(0);
       expect(fs.readdirSync(path.join(root, "src")).sort()).toEqual([
@@ -120,36 +118,27 @@ describe("lucent new view", () => {
       );
       // Its React types: lucent:views/<module>, which TypeScript and Metro both resolve.
       expect(r.out).toMatch(/import \{ Badge \} from "lucent:views\/badge";/);
-      expect(lucent(["check", "--root", root], views)).toMatchObject({ status: 0 });
+      expect(lucent(["check", "--root", root])).toMatchObject({ status: 0 });
     },
     600_000,
   );
 
-  it("says views are internal without the switch, and writes nothing", () => {
-    const root = project();
-    const r = lucent(["new", "view", "Badge", "--root", root]);
-
-    expect(r.status).toBe(1);
-    expect(r.out).toMatch(/views are internal: set LUCENT_VIEWS=fabric/);
-    expect(fs.existsSync(path.join(root, "src"))).toBe(false);
-  });
-
   it("wants a component name, and never overwrites", () => {
     const root = project();
 
-    expect(lucent(["new", "view", "--root", root], views).status).toBe(2);
-    expect(lucent(["new", "view", "badge", "--root", root], views).status).toBe(2);
+    expect(lucent(["new", "view", "--root", root]).status).toBe(2);
+    expect(lucent(["new", "view", "badge", "--root", root]).status).toBe(2);
 
     fs.mkdirSync(path.join(root, "src"));
     fs.writeFileSync(path.join(root, "src/badge.lucent.ts"), "// mine\n");
-    const again = lucent(["new", "view", "Badge", "--root", root], views);
+    const again = lucent(["new", "view", "Badge", "--root", root]);
     expect(again.status).toBe(1);
     expect(again.out).toMatch(/src\/badge\.lucent\.ts exists/);
     expect(fs.readdirSync(path.join(root, "src"))).toEqual(["badge.lucent.ts"]);
   });
 
-  it("is left out of the help while views are internal", () => {
-    expect(lucent(["--help"]).out).not.toMatch(/new view/);
+  it("is listed in the help", () => {
+    expect(lucent(["--help"]).out).toMatch(/new view/);
   });
 });
 

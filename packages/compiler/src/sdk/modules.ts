@@ -1,7 +1,6 @@
 /**
  * SDK modules as `lucent sdk` lists, shows and counts them: the
- * platforms' (bindgen's, extracted on demand), and with views on,
- * Compose's, whose bindings Lucent ships (Android packages called from
+ * platforms' (bindgen's, extracted on demand), and Compose's, whose bindings Lucent ships (Android packages called from
  * Kotlin source, which lucent:compose declares).
  */
 import {
@@ -12,11 +11,10 @@ import {
 } from "@lucent-lang/bindgen";
 import { composeModuleDts } from "../ui/compose-dts.ts";
 import { composeModule, composeModuleNames } from "../ui/compose-schemas.ts";
-import { fabricRequested } from "../ui/switch.ts";
 import { sdkDts } from "./dts.ts";
 import type { Platform, SdkModuleSchema } from "./schema.ts";
 
-const composing = (platform: Platform) => platform === "android" && fabricRequested();
+const composing = (platform: Platform) => platform === "android";
 
 /** A module's schema: Compose's, or the platform's. */
 export function sdkModule(platform: Platform, module: string, opts: SdkOptions = {}): SdkLookup {

@@ -109,7 +109,8 @@ contains the language, platform bindings with generated Swift and Kotlin,
 isolated compute, native buffers, typed native extensions, the CLI, and
 native views behind the internal `LUCENT_VIEWS=fabric` switch: UIKit and
 Android views, and SwiftUI and Jetpack Compose bodies written as JSX.
-One-file components landed on main after the release, unreleased.
+One-file components landed on main after the release, unreleased, and on
+2026-10-07 the switch was removed: every build generates views, in preview.
 
 Everything is tested on hosts, the iOS simulator and the Android emulator.
 Nothing has run on a physical device yet: those checks are deferred to the
@@ -193,7 +194,7 @@ Goal: Call the iOS and Android SDKs directly from Lucent.
 
 Goal: Native views from Lucent components, rendered by React Native's Fabric.
 
-- ✅ Components in `.lucent.tsx` that render UIKit and Android views, behind an internal switch.
+- ✅ Components in `.lucent.tsx` that render UIKit and Android views, in every build (in preview).
 - ✅ SwiftUI and Jetpack Compose bodies written as JSX, from declarations read from your SDKs.
 - ✅ One file per component, with each platform's body in a platform branch.
 - ✅ Events, commands, requests that answer, recycling, sizing to content and React children.
@@ -431,6 +432,14 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
+
+**2026-10-07: Views without a switch.** The maintainer removed the
+internal `LUCENT_VIEWS=fabric` switch: every compile resolves `lucent:ui`,
+the toolkits and JSX, and generates components' Fabric sources, so a
+Lucent package with components (the expo-image and expo-video ports)
+builds in any app. Views stay in preview until G3 certifies them. A
+deferred Android build is configured for Compose only when the program
+has components, so apps without views take no Compose dependency.
 
 **2026-10-07: Ports keep their APIs; views share state the main thread
 owns.** To port mmkv, expo-file-system, expo-image and expo-video (TA35),
@@ -1080,9 +1089,9 @@ ports beside their reference libraries. The gate closes with T52, which
 certifies the preview's exact support matrix.
 
 G2 (the Fabric and isolation spike, T44) passed on 2026-09-26, and the view
-wave that followed shipped SwiftUI and Compose hosts. Views are still
-behind the internal `LUCENT_VIEWS=fabric` switch. This gate turns them into
-a preview. T48 is in review and T52 ready to start; TA25 and TA26 are
+wave that followed shipped SwiftUI and Compose hosts. The internal
+`LUCENT_VIEWS=fabric` switch was removed on 2026-10-07: every build
+generates views. This gate certifies them as a preview. T48 is in review and T52 ready to start; TA25 and TA26 are
 small fixes found on the way.
 
 | Task          | Title                                                             | Needs    | Status               |
@@ -1342,8 +1351,8 @@ the preview artifacts; publishing them is a separate action.
 
 **Notes:**
 
-- Views are behind `LUCENT_VIEWS=fabric` today. The preview is where the
-  maintainer decides what is switched on and documented for users. TA25 and
+- The views switch is gone (2026-10-07); the preview is where the
+  maintainer decides what is documented for users as supported. TA25 and
   TA26 should land first.
 
 <a id="ta25"></a>
@@ -1795,7 +1804,7 @@ coherent workflow.
       the warm feedback targets: `output-matrix.test.ts` runs every command
       (one schema-valid JSON document or a refusal; no escape codes outside
       a terminal; the terminal's own output stays covered by the Ink tests),
-      `lucent new view` (internal, behind LUCENT_VIEWS=fabric),
+      `lucent new view`,
       `workspace-build.test.ts`, and `scripts/bench-build.ts --check`
       (p95 against `bench-build-budgets.json`; 2026-10-06 on 53 modules:
       diagnostics 486 ms, check 941 ms, build 959 ms, all within budget;
@@ -2789,8 +2798,8 @@ Last recorded runs:
 
 ### Views
 
-- Views are behind the internal `LUCENT_VIEWS=fabric` switch, off by
-  default.
+- Views are in preview: every build generates them since the switch was
+  removed (2026-10-07), but the preview gate (G3) has not certified them.
 - Android pools component views only when the app turns on React Native's
   `enableViewRecycling`; iOS always recycles them.
 - Intrinsic sizes and slot insets wait for the JavaScript thread to apply

@@ -1,9 +1,9 @@
-// Components' setups lowered through the IR (LUCENT_VIEWS=fabric): the mount as an ambient
+// Components' setups lowered through the IR: the mount as an ambient
 // the functions they make enter and capture, and what setup code cannot do as a diagnostic.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { compile, type CompileResult, sdkAvailable } from "../../src/index.ts";
 
 const ios = process.platform === "darwin" && sdkAvailable("ios");
@@ -51,14 +51,6 @@ function setupOf(r: CompileResult): string {
 }
 
 describe.skipIf(!ios)("component setups in the IR", () => {
-  beforeEach(() => {
-    process.env.LUCENT_VIEWS = "fabric";
-  });
-
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   it("takes the props as the IR's parameter, then the command table", () => {
     const r = label(`  effect(() => {
     label.text = props.text;

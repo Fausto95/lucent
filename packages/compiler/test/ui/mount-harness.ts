@@ -145,8 +145,7 @@ export interface MountedLibrary {
 }
 
 /**
- * Compiles `files` (the modules of package `@acme/app`) under
- * LUCENT_VIEWS=fabric, builds them with `driver` (a file next to this one,
+ * Compiles `files` (the modules of package `@acme/app`), builds them with `driver` (a file next to this one,
  * or a path) and `library`, and runs the result: its output's lines.
  */
 export function runMounted(
@@ -155,28 +154,17 @@ export function runMounted(
   library?: MountedLibrary,
 ): string[] {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-mount-run-"));
-  const previous = process.env.LUCENT_VIEWS;
-
   fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
   for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), text);
 
-  process.env.LUCENT_VIEWS = "fabric";
-
-  const result = (() => {
-    try {
-      return compile(
-        Object.keys(files).map((f) => path.join(dir, f)),
-        {
-          platforms: ["ios"],
-          ...(library ? { sdk: { ios: { includePaths: library.includePaths } } } : {}),
-          ...(library?.deferred ? { deferred: library.deferred } : {}),
-        },
-      );
-    } finally {
-      if (previous === undefined) delete process.env.LUCENT_VIEWS;
-      else process.env.LUCENT_VIEWS = previous;
-    }
-  })();
+  const result = compile(
+    Object.keys(files).map((f) => path.join(dir, f)),
+    {
+      platforms: ["ios"],
+      ...(library ? { sdk: { ios: { includePaths: library.includePaths } } } : {}),
+      ...(library?.deferred ? { deferred: library.deferred } : {}),
+    },
+  );
 
   expect(result.diagnostics).toEqual([]);
 

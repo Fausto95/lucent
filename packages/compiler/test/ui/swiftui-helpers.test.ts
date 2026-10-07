@@ -1,4 +1,4 @@
-// Helper views in a SwiftUI body (LUCENT_VIEWS=fabric): a function of the
+// Helper views in a SwiftUI body: a function of the
 // iOS file returning SwiftUI's JSX, used as an element. Each is a Swift
 // View struct of its own; what it computes from its props crosses from the
 // setup as the body's values do, computed for each place it is used (each

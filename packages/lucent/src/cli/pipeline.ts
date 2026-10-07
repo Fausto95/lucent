@@ -24,7 +24,6 @@ import {
   type Target,
   upToDate,
   usesPlatforms,
-  viewsSwitchProblem,
   writeNativePackage,
 } from "@lucent-lang/compiler";
 import { type SdkUsage, sdkModuleArtifacts } from "@lucent-lang/bindgen";
@@ -188,13 +187,6 @@ export async function buildProject(
       ...o,
     };
   };
-
-  // Every build reads the switch, whether or not the project has components.
-  const views = viewsSwitchProblem();
-  if (views) {
-    graph.record("resolve", "resolve", "failed", { detail: views });
-    return outcome({ fatal: views });
-  }
 
   const tResolve = Date.now();
   try {
@@ -650,7 +642,7 @@ export async function buildProject(
     process.env.LUCENT_GRADLE_CLASSPATH &&
     configured !== undefined &&
     fs.readFileSync(libraryGradle, "utf8") !== configured &&
-    configured !== deferredLibraryGradle(native)
+    configured !== deferredLibraryGradle(native, !!result.components?.length)
   ) {
     const detail = `this Gradle build configured the Lucent Android library before its build.gradle changed (${path.relative(root, libraryGradle)}: Kotlin shims, packages' Android needs), so it would build it as it was: build again`;
 

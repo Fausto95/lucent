@@ -745,8 +745,7 @@ printer or a C++ compiler decides.
 - Every function, method, accessor, constructor, module `init()` and
   compute task variant lowers through the IR; what it cannot lower is a
   LUCENT diagnostic (`LUCENT1001`), never invalid C++ and never a runtime
-  JavaScript fallback; so does each component's setup, behind
-  `LUCENT_VIEWS`. The `LUCENT_LOWERING` selector of the migration is
+  JavaScript fallback; so does each component's setup. The `LUCENT_LOWERING` selector of the migration is
   gone.
 
 ### Data model
@@ -1779,8 +1778,8 @@ export interface MutableByteSpan extends ByteSpan {
 
 **Current version: v2.4 (proposed).** `VIEW_CONTRACT_VERSION` in the code
 is 2: it counts layout changes of `ComponentDescription` that consumers
-must follow, not every revision. Views are still behind the internal
-`LUCENT_VIEWS=fabric` switch, off by default. [views.md](views.md)
+must follow, not every revision. Every compile generates views since
+v2.5; they are still in preview. [views.md](views.md)
 describes the runtime behavior in full; this section states the contract.
 
 ### Invariants
@@ -2264,6 +2263,12 @@ has the details.
   guard, a conditional's arms), and a slot made at the top level of a
   PLATFORM branch. Migration: replace a cast of `./x.lucent` with an
   import of `lucent:views/x` (views are internal).
+- **v2.5** (2026-10-07, proposed): the `LUCENT_VIEWS=fabric` switch is
+  gone: every compile resolves `lucent:ui`, the toolkits and JSX, and
+  generates components' Fabric sources; a deferred Android build is
+  configured for Compose only when the program has components; `lucent
+new view` is public. Migration: drop `LUCENT_VIEWS=fabric` from builds
+  and scripts; a package with components now builds in any app.
 
 ## C-BUILD: build records and identities
 

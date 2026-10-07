@@ -1,5 +1,5 @@
 /**
- * SwiftUI bodies (iOS, under the internal LUCENT_VIEWS=fabric switch): the
+ * SwiftUI bodies (iOS): the
  * JSX an iOS component returns, written out as SwiftUI
  * (`views/<registration>.swift`). The rest of the setup is compiled
  * into C++ as any setup's; toolkit.ts feeds the body's slots

@@ -1,4 +1,4 @@
-// The JSX a platform's Lucent files write (LUCENT_VIEWS=fabric) is its
+// The JSX a platform's Lucent files write is its
 // toolkit's: the program resolves each file's implicit JSX runtime import
 // to its platform's toolkit module, whose JSX namespace types it. A shared
 // file writes no toolkit's JSX. A component returning a toolkit's JSX is
@@ -7,7 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import ts from "typescript";
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "../../src/index.ts";
 import { builtinSdkModuleOf, createLucentProgram, jsxRuntimeOf } from "../../src/program.ts";
 import { elementsOf, returnShape, sdkRoot } from "../../src/ui/roots.ts";
@@ -42,14 +42,6 @@ function firstJsx(sf: ts.SourceFile): ts.Expression {
 }
 
 describe("toolkit JSX", () => {
-  beforeEach(() => {
-    process.env.LUCENT_VIEWS = "fabric";
-  });
-
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   it("resolves each platform file's JSX runtime to its toolkit", () => {
     expect(jsxRuntimeOf("lucent:jsx/jsx-runtime", "/a/toggle.ios.lucent.tsx")).toBe(
       "lucent:swiftui",

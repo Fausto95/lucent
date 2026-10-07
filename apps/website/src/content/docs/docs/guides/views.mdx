@@ -1,52 +1,18 @@
 ---
-title: Turn on native views
-description: "Set `LUCENT_VIEWS=fabric` where `lucent build` runs, then export a function from a `.lucent.tsx` module that returns a view: React renders it as a component."
+title: Write a native view
+description: "Export a function from a `.lucent.tsx` module that returns a view: React renders it as a component."
 kind: guide
 views: true
 sidebar_class_name: experimental
 ---
 
 :::caution
-Experimental: views need `LUCENT_VIEWS=fabric` and change without notice. Read [the limits](/docs/architecture/views/#limits) first.
+Experimental: views are in preview and change without notice. Read [the limits](/docs/architecture/views/#limits) first.
 :::
 
 <Steps>
 
-1. ### Set the variable where Lucent builds
-
-   <Tabs syncKey="setup">
-   <TabItem label="Expo">
-
-   ```sh title="terminal"
-   export LUCENT_VIEWS=fabric
-   ```
-
-   Run step 3 in this terminal: prebuild, Metro's watcher and the Gradle task that `npx expo run:android` starts all read it from there.
-
-   </TabItem>
-   <TabItem label="Bare React Native">
-
-   ```sh title="terminal"
-   export LUCENT_VIEWS=fabric
-   npx react-native start
-   ```
-
-   Metro's watcher reads it from this terminal. Export it in the terminal that builds the app too: `lucent build` and Gradle's `lucentBuild` task read it there.
-
-   </TabItem>
-   </Tabs>
-
-   Each process that compiles modules reads it from its own environment:
-
-   | Process | Reads it from |
-   | --- | --- |
-   | `lucent build`, `lucent dev`, `lucent check` | The terminal. |
-   | Gradle's `lucentBuild` task | The terminal running Gradle, or Android Studio's environment. |
-   | The editor plugin | The editor's environment. |
-
-   Xcode doesn't run `lucent build`. Without the variable, an import from `lucent:ui` fails with [LUCENT3004](/docs/api/diagnostics/#lucent3004), and JSX with [LUCENT9001](/docs/api/diagnostics/#lucent9001). A component that uses neither compiles, but JavaScript gets no export for it.
-
-2. ### Write a component
+1. ### Write a component
 
    <Tabs>
    <TabItem label="greeting.lucent.tsx">
@@ -104,7 +70,7 @@ Experimental: views need `LUCENT_VIEWS=fabric` and change without notice. Read [
 
    To start from platform files instead, `npx lucent new view Card` writes `src/card.lucent.ts` and an iOS and an Android `.lucent.tsx`, each a label in a [Flex](/docs/api/views/platform-views/#layout).
 
-3. ### Build and run the app
+2. ### Build and run the app
 
    <Tabs syncKey="setup">
    <TabItem label="Expo">
@@ -118,7 +84,6 @@ Experimental: views need `LUCENT_VIEWS=fabric` and change without notice. Read [
    <TabItem label="Bare React Native">
 
    ```sh title="terminal"
-   export LUCENT_VIEWS=fabric
    npx lucent build
    cd ios && pod install && cd ..
    npx react-native run-ios

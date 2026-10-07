@@ -4,7 +4,6 @@ import {
   sdkModule,
   sdkModules,
   toolkitModuleText,
-  toolkitNeedingViews,
   toolkitsFrom,
 } from "@lucent-lang/compiler";
 import type { Invocation } from "../args.ts";
@@ -54,13 +53,8 @@ export function run({ root, positionals, out }: Invocation): number {
         return blocks.length ? [{ from, blocks }] : [];
       });
       if (!declared.length) {
-        const toolkit = toolkitNeedingViews(platform, module);
         out.error(
-          `${t.error(t.symbols.fail)} no ${type} in lucent:${platform}/${module}: lucent sdk search ${type} finds similar names${
-            toolkit
-              ? `; ${module}'s views are ${toolkit}'s, declared with views on (LUCENT_VIEWS=fabric)`
-              : ""
-          }`,
+          `${t.error(t.symbols.fail)} no ${type} in lucent:${platform}/${module}: lucent sdk search ${type} finds similar names`,
         );
         return 1;
       }
@@ -88,17 +82,6 @@ export function run({ root, positionals, out }: Invocation): number {
       return 0;
     }
   }
-  // Modules no SDK holds while views are off: Compose's.
-  for (const platform of ["android", "ios"] as const)
-    for (let n = parts.length - 1; n >= 1; n--) {
-      const module = parts.slice(0, n).join(".");
-      const toolkit = toolkitNeedingViews(platform, module);
-      if (!toolkit) continue;
-      out.error(
-        `${t.error(t.symbols.fail)} ${module} is declared by ${toolkit}, with views on (LUCENT_VIEWS=fabric)`,
-      );
-      return 1;
-    }
   out.error(
     `${t.error(t.symbols.fail)} no SDK module in ${symbol}: write <module>.<Type>, e.g. android.os.Vibrator or UIKit.UIDevice`,
   );

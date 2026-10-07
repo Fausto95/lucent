@@ -124,7 +124,6 @@ export function jsonOutputs(
     return named.flatMap((name) => {
       const command = commands.find((c) => c.name === name);
       if (!command) throw new Error(`${file}: there is no \`lucent ${name}\` command`);
-      if (command.internal) return [];
       return [
         {
           command: name,

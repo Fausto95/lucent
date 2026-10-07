@@ -1,4 +1,4 @@
-// SwiftUI components written in Lucent (LUCENT_VIEWS=fabric): the JSX an
+// SwiftUI components written in Lucent: the JSX an
 // iOS component returns is its SwiftUI body, generated as Swift;
 // the rest of its setup is compiled into C++, which keeps the body's
 // observable state and runs its actions (the setup's functions). The Swift type-checks against the iOS SDK,
@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { compile, type CompileResult, runtimeDir, sdkAvailable } from "../../src/index.ts";
 import { compileErrors, iosHostToolchain } from "./react-native-headers.ts";
 import { GALLERY, TOGGLE } from "./swiftui-fixture.ts";
@@ -99,14 +99,6 @@ const swiftOf = (r: CompileResult) =>
   [...r.files].find(([name]) => name.endsWith(".swift"))?.[1] ?? "";
 
 describe("a SwiftUI component", () => {
-  beforeEach(() => {
-    process.env.LUCENT_VIEWS = "fabric";
-  });
-
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   it.skipIf(!ios)(
     "returns its body as JSX, written out as SwiftUI, whose state and actions are Lucent's",
     async () => {

@@ -1,5 +1,5 @@
 /**
- * An app imports a component (LUCENT_VIEWS=fabric) as lucent:views/<module>:
+ * An app imports a component as lucent:views/<module>:
  * TypeScript finds the React declarations `lucent build` writes through the
  * app's lucent:* path, and Metro bundles the component's own module, once,
  * so the import and a relative `./x.lucent` one register one native view.
@@ -128,7 +128,7 @@ describe("a component imported as lucent:views/<module>", () => {
       fs.symlinkSync(path.join(workspace, "node_modules"), path.join(root, "node_modules"));
 
       const built = runLucent(["build", "--root", root], {
-        env: { ...process.env, NO_COLOR: "1", LUCENT_VIEWS: "fabric" },
+        env: { ...process.env, NO_COLOR: "1" },
         timeout: 600_000,
       });
 

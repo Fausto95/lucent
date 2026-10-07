@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { fabricSources, fabricViews } from "../../src/ui/fabric.ts";
-import { viewsSwitchProblem } from "../../src/ui/switch.ts";
+import { fabricSources } from "../../src/ui/fabric.ts";
 import { CAPTION, CARD, components, GAUGE, PICKER } from "./views-fixture.ts";
 
 const sources = () => fabricSources(components());
@@ -160,25 +159,5 @@ describe("Fabric sources", () => {
   it("match the reviewed output", async () => {
     for (const [name, text] of sources())
       await expect(text).toMatchFileSnapshot(`__snapshots__/fabric/${name}`);
-  });
-});
-
-describe("the Fabric switch", () => {
-  it("is off unless LUCENT_VIEWS is fabric", () => {
-    expect(fabricViews(undefined)).toBe(false);
-    expect(fabricViews("")).toBe(false);
-    expect(fabricViews("fabric")).toBe(true);
-    expect(() => fabricViews("paper")).toThrow(
-      'LUCENT_VIEWS must be "fabric" or unset (got "paper")',
-    );
-  });
-
-  it("names the variable and the values it accepts for an unexpected value", () => {
-    expect(viewsSwitchProblem(undefined)).toBeUndefined();
-    expect(viewsSwitchProblem("")).toBeUndefined();
-    expect(viewsSwitchProblem("fabric")).toBeUndefined();
-    expect(viewsSwitchProblem("paper")).toBe(
-      'LUCENT_VIEWS must be "fabric" or unset (got "paper")',
-    );
   });
 });

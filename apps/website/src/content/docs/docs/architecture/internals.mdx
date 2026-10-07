@@ -88,7 +88,7 @@ The app's native build then compiles `.lucent/native`, and Metro's transformer s
 | What may run where | `analysis/` | `packages/compiler/test/analysis/` |
 | An SDK binding | `packages/bindgen/src/binding-plan.ts`, then `emit/native.ts` | The binding tests in `packages/compiler/test/` and the host harnesses |
 | The runtime | `packages/runtime/cpp/lucent` | `packages/runtime/test/run.sh`, and again with `SANITIZE=1 CXX=g++` |
-| Components | `ui/` and `emit/setups.ts`, under `LUCENT_VIEWS=fabric` | `packages/compiler/test/ui/` |
+| Components | `ui/` and `emit/setups.ts` | `packages/compiler/test/ui/` |
 | The CLI or a build step | `packages/lucent/src/cli` | `packages/lucent/test/` |
 
 ## Where else to read

@@ -722,6 +722,30 @@ export const jsonOutputs: { command: string; file: string; description: string; 
     ]
   },
   {
+    "command": "new view",
+    "file": "new.schema.json",
+    "description": "",
+    "variants": [
+      {
+        "description": "",
+        "fields": [
+          {
+            "field": "files",
+            "type": "string[]",
+            "required": true,
+            "description": "What was written, relative to the project"
+          },
+          {
+            "field": "import",
+            "type": "string",
+            "required": true,
+            "description": "The import that uses it, from the project's root"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "command": "sdk coverage",
     "file": "sdk-coverage.schema.json",
     "description": "One report per module (a toolkit generated from one under its own name)",

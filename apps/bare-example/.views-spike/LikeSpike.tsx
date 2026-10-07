@@ -5,7 +5,7 @@
 // goes up by one. The screen logs each button's layout (a LUCENT_VIEWS
 // line) and nothing else on screen.
 import { type LayoutChangeEvent, SafeAreaView, View } from "react-native";
-// Components' React exports exist only when views are generated.
+// A relative import is typed as the Lucent component: its React export, as lucent:views/<module> types it.
 import * as like from "./like.lucent";
 
 const { Like } = like as unknown as {

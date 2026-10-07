@@ -502,18 +502,20 @@ describe("lucent sdk coverage", () => {
 
 describe("lucent sdk coverage of views", () => {
   it.skipIf(!android)(
-    "lists each view class's JSX attributes, events, children and construction, with their rules, when views are on",
+    "lists each view class's JSX attributes, events, children and construction, with their rules",
     () => {
       const root = project();
-      const run = (views: boolean) => {
-        const env = { ...process.env };
-        delete env.LUCENT_VIEWS;
-        if (views) env.LUCENT_VIEWS = "fabric";
-
-        const r = runLucent(
-          ["sdk", "coverage", "--android", "android.widget", "--views", "--json", "--root", root],
-          { env },
-        );
+      const run = () => {
+        const r = runLucent([
+          "sdk",
+          "coverage",
+          "--android",
+          "android.widget",
+          "--views",
+          "--json",
+          "--root",
+          root,
+        ]);
         expect(r.status, r.stderr).toBe(0);
 
         return JSON.parse(r.stdout) as {
@@ -526,7 +528,7 @@ describe("lucent sdk coverage of views", () => {
         }[];
       };
 
-      const [widget] = run(true);
+      const [widget] = run();
       const view = (name: string) => widget!.views?.find((v) => v.view === name);
 
       expect(view("CompoundButton")).toMatchObject({
@@ -542,8 +544,6 @@ describe("lucent sdk coverage of views", () => {
         name: "adapter",
         reason: expect.stringMatching(/generic/),
       });
-      // Views are internal: without the switch, no view in the report.
-      expect(run(false)[0]!.views).toBeUndefined();
     },
   );
 });
@@ -552,33 +552,21 @@ describe("lucent sdk coverage of SwiftUI", () => {
   const ios = process.platform === "darwin" && sdkAvailable("ios");
 
   it.skipIf(!ios)(
-    "reports lucent:swiftui, written as source, beside the SwiftUI module when views are on",
+    "reports lucent:swiftui, written as source, beside the SwiftUI module",
     () => {
       const root = project();
-      const run = (views: boolean) => {
-        const env = { ...process.env };
-        delete env.LUCENT_VIEWS;
-        if (views) env.LUCENT_VIEWS = "fabric";
+      // Extracting SwiftUI's declarations takes minutes on a cold cache.
+      const r = runLucent(["sdk", "coverage", "--ios", "SwiftUI", "--json", "--root", root], {
+        timeout: 600_000,
+      });
+      expect(r.status, r.stderr).toBe(0);
 
-        // Extracting SwiftUI's declarations takes minutes on a cold cache.
-        const r = runLucent(["sdk", "coverage", "--ios", "SwiftUI", "--json", "--root", root], {
-          env,
-          timeout: 600_000,
-        });
-        expect(r.status, r.stderr).toBe(0);
-
-        return JSON.parse(r.stdout) as { module: string; reasons: Record<string, number> }[];
-      };
-
-      const on = run(true);
+      const on = JSON.parse(r.stdout) as { module: string; reasons: Record<string, number> }[];
       expect(on.map((c) => c.module)).toEqual(["SwiftUI", "lucent:swiftui"]);
       // A refused constraint is named after the reason.
       expect(Object.keys(on[1]!.reasons)).toContainEqual(
         expect.stringMatching(/^generic constraints the call form cannot write yet \(/),
       );
-
-      // lucent:swiftui is internal: without the switch, only the SDK module.
-      expect(run(false).map((c) => c.module)).toEqual(["SwiftUI"]);
     },
     600_000,
   );
@@ -588,127 +576,65 @@ describe("lucent sdk show and search of lucent:swiftui", () => {
   const ios = process.platform === "darwin" && sdkAvailable("ios");
 
   it.skipIf(!ios)(
-    "show and search SwiftUI's views as lucent:swiftui declares them with views on, and say why not without",
+    "show and search SwiftUI's views as lucent:swiftui declares them",
     () => {
       const root = project();
-      const sdk = (views: boolean, ...args: string[]) => {
-        const env = { ...process.env };
-        delete env.LUCENT_VIEWS;
-        if (views) env.LUCENT_VIEWS = "fabric";
+      // Extracting SwiftUI's declarations takes minutes on a cold cache.
+      const sdk = (...args: string[]) =>
+        runLucent(["sdk", ...args, "--root", root], { timeout: 600_000 });
 
-        // Extracting SwiftUI's declarations takes minutes on a cold cache.
-        return runLucent(["sdk", ...args, "--root", root], { env, timeout: 600_000 });
-      };
-
-      const text = sdk(true, "show", "SwiftUI.Text");
+      const text = sdk("show", "SwiftUI.Text");
       expect(text.status, text.stderr).toBe(0);
       expect(text.stdout).toContain("// lucent:swiftui");
       expect(text.stdout).toContain("export declare interface Text extends View");
 
-      const stack = sdk(true, "search", "HStack");
+      const stack = sdk("search", "HStack");
       expect(stack.stdout).toContain('import { HStack } from "lucent:swiftui";');
 
-      const off = sdk(false, "show", "SwiftUI.Text");
-      expect(off.status).toBe(1);
-      expect(off.stdout + off.stderr).toMatch(/lucent:swiftui.*LUCENT_VIEWS=fabric/);
-
-      // A misspelled name is still pointed to search.
-      const typo = sdk(false, "show", "SwiftUI.Colr");
+      // A misspelled name is pointed to search.
+      const typo = sdk("show", "SwiftUI.Colr");
       expect(typo.status).toBe(1);
       expect(typo.stdout + typo.stderr).toContain("lucent sdk search Colr finds similar names");
-
-      // Views off, a term other SDK names match still says where SwiftUI's are.
-      const stacks = sdk(false, "search", "Stack");
-      expect(stacks.stdout).not.toContain("nothing named like Stack");
-      expect(stacks.stdout).toMatch(/lucent:swiftui.*LUCENT_VIEWS=fabric/);
     },
     600_000,
   );
 });
 
 describe("lucent sdk and Compose's bindings", () => {
-  const sdk = (root: string, env: NodeJS.ProcessEnv, ...args: string[]) =>
-    runLucent(["sdk", ...args, "--root", root], {
-      env: {
-        ...Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== "LUCENT_VIEWS")),
-        ...env,
-      },
-    });
+  const sdk = (root: string, ...args: string[]) => runLucent(["sdk", ...args, "--root", root]);
 
-  it.skipIf(!android)(
-    "report and show Compose's modules, which Lucent ships, when views are on",
-    () => {
-      const root = project();
-      const views = { LUCENT_VIEWS: "fabric" };
+  it.skipIf(!android)("report and show Compose's modules, which Lucent ships", () => {
+    const root = project();
 
-      const r = sdk(root, views, "coverage", "--android", "androidx.compose.*", "--json");
-      expect(r.status).toBe(0);
+    const r = sdk(root, "coverage", "--android", "androidx.compose.*", "--json");
+    expect(r.status).toBe(0);
 
-      const reports = JSON.parse(r.stdout) as {
-        module: string;
-        raw: number;
-        total: number;
-        reasons: Record<string, number>;
-      }[];
-      const layout = reports.find((c) => c.module === "androidx.compose.foundation.layout");
-      expect(layout?.raw).toBeGreaterThan(50);
-      // Scope members are written through their lambda's receiver: none is refused for its scope.
-      expect(Object.keys(layout!.reasons)).not.toContainEqual(
-        expect.stringMatching(/^it runs in (Row|Column|Box)Scope, the receiver of a lambda/),
-      );
-      expect(reports.every((c) => c.module.startsWith("androidx.compose."))).toBe(true);
+    const reports = JSON.parse(r.stdout) as {
+      module: string;
+      raw: number;
+      total: number;
+      reasons: Record<string, number>;
+    }[];
+    const layout = reports.find((c) => c.module === "androidx.compose.foundation.layout");
+    expect(layout?.raw).toBeGreaterThan(50);
+    // Scope members are written through their lambda's receiver: none is refused for its scope.
+    expect(Object.keys(layout!.reasons)).not.toContainEqual(
+      expect.stringMatching(/^it runs in (Row|Column|Box)Scope, the receiver of a lambda/),
+    );
+    expect(reports.every((c) => c.module.startsWith("androidx.compose."))).toBe(true);
 
-      // Declared as lucent:compose declares them.
-      const box = sdk(root, views, "show", "androidx.compose.foundation.layout.Box");
-      expect(box.status).toBe(0);
-      expect(box.stdout).toContain("// lucent:compose");
-      expect(box.stdout).toContain("export declare function Box(props: {");
+    // Declared as lucent:compose declares them.
+    const box = sdk(root, "show", "androidx.compose.foundation.layout.Box");
+    expect(box.status).toBe(0);
+    expect(box.stdout).toContain("// lucent:compose");
+    expect(box.stdout).toContain("export declare function Box(props: {");
+  });
 
-      // Without views, Compose is no SDK module of Lucent's.
-      const off = sdk(root, {}, "coverage", "--android", "androidx.compose.*", "--json");
-      expect(JSON.parse(off.stdout)).toEqual([]);
-    },
-  );
+  it.skipIf(!android)("search Compose's declarations", () => {
+    const root = project();
 
-  it.skipIf(!android)(
-    "search Compose's declarations with views on, and say why not without",
-    () => {
-      const root = project();
-
-      const found = sdk(root, { LUCENT_VIEWS: "fabric" }, "search", "BoxWithConstraints");
-      expect(found.stdout).toContain('import { BoxWithConstraints } from "lucent:compose";');
-
-      const off = sdk(root, {}, "show", "androidx.compose.foundation.layout.Box");
-      expect(off.status).toBe(1);
-      expect(off.stdout + off.stderr).toMatch(/lucent:compose.*LUCENT_VIEWS=fabric/);
-    },
-  );
-});
-
-describe("an unexpected LUCENT_VIEWS", () => {
-  const problem = 'LUCENT_VIEWS must be "fabric" or unset (got "foo")';
-
-  function withViews(root: string, ...args: string[]) {
-    const r = runLucent([...args, "--root", root], {
-      env: { ...process.env, NO_COLOR: "1", LUCENT_VIEWS: "foo" },
-    });
-    return { status: r.status, out: r.stdout + r.stderr, stdout: r.stdout };
-  }
-
-  it.each(["build", "check", "sdk lock"])(
-    "stops lucent %s with an error naming the variable, not a crash",
-    (command) => {
-      const r = withViews(project(), ...command.split(" "));
-      expect(r.status, r.out).toBe(1);
-      expect(r.out).toContain(`✗ ${problem}`);
-      expect(r.out).not.toMatch(/crashed/);
-    },
-  );
-
-  it("is the error of build --json", () => {
-    const r = withViews(project(), "build", "--json");
-    expect(r.status, r.out).toBe(1);
-    expect(JSON.parse(r.stdout)).toEqual({ ok: false, error: problem });
+    const found = sdk(root, "search", "BoxWithConstraints");
+    expect(found.stdout).toContain('import { BoxWithConstraints } from "lucent:compose";');
   });
 });
 

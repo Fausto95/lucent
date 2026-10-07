@@ -2,11 +2,10 @@
  * The view classes of a module as JSX tags (T48), for `lucent sdk coverage
  * --views`: what each adds to its tags by rule (props, events, children),
  * how a tag of it is made, and what its rules leave out, each with its
- * explanation. Internal, as views are: none unless LUCENT_VIEWS=fabric.
+ * explanation.
  */
 import type { SdkClassSchema, SdkModuleSchema } from "../sdk/schema.ts";
 import { type FindType, isViewClass, viewConstruction, viewRules } from "../sdk/view-rules.ts";
-import { fabricRequested } from "./switch.ts";
 
 export interface ViewCoverage {
   view: string;
@@ -19,13 +18,11 @@ export interface ViewCoverage {
   leftOut: { name: string; reason: string }[];
 }
 
-/** `schema`'s view classes; other modules' read with `moduleOf`. Undefined while views are off. */
+/** `schema`'s view classes; other modules' read with `moduleOf`. */
 export function viewCoverage(
   schema: SdkModuleSchema,
   moduleOf: (module: string) => SdkModuleSchema | undefined,
-): ViewCoverage[] | undefined {
-  if (!fabricRequested()) return undefined;
-
+): ViewCoverage[] {
   const find: FindType = (module, name) =>
     module === schema.module
       ? schema.types.find((t) => t.name === name)

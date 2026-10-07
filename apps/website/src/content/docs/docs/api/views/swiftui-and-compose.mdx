@@ -8,7 +8,7 @@ sidebar_class_name: experimental
 ---
 
 :::caution
-Experimental: `lucent:swiftui` and `lucent:compose` resolve only when `LUCENT_VIEWS=fabric` is set, and they change without notice. [Turn on native views](/docs/guides/views/) says how.
+Experimental: `lucent:swiftui` and `lucent:compose` are in preview and change without notice. [Write a native view](/docs/guides/views/) shows a first component.
 :::
 
 A component can return its body as JSX of its platform's toolkit: SwiftUI on iOS, Jetpack Compose on Android. Lucent writes the body out as Swift or Kotlin, built with the app, and compiles the rest of setup to C++. This page maps each toolkit to JSX, and the API itself is the toolkit's own.
@@ -94,7 +94,7 @@ The logic is written once, and each platform's body with its own toolkit. `spaci
 `lucent:compose` declares the Compose release Lucent builds with, from its Kotlin metadata: runtime, UI, foundation, animation and Material 3. It's the same for every app, since the native package builds with Lucent's Compose, not the app's. [lucent:compose](/docs/api/views/lucent-compose/) lists the types Lucent adds to it.
 
 ```sh title="terminal"
-LUCENT_VIEWS=fabric npx lucent sdk show androidx.compose.foundation.layout.Row
+npx lucent sdk show androidx.compose.foundation.layout.Row
 ```
 
 ```sh title="terminal" nocopy

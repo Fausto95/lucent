@@ -25,15 +25,7 @@ export function compileSamples(
   // A component is identified by its package: the app's.
   if (options.views)
     fs.writeFileSync(path.join(samplesRoot, app, "package.json"), '{ "name": "example-app" }\n');
-  const views = process.env.LUCENT_VIEWS;
-  if (options.views) process.env.LUCENT_VIEWS = "fabric";
-  let result: ReturnType<typeof compile>;
-  try {
-    result = compile([...sources.keys()], { readSource: (f) => sources.get(f) });
-  } finally {
-    if (views === undefined) delete process.env.LUCENT_VIEWS;
-    else process.env.LUCENT_VIEWS = views;
-  }
+  const result = compile([...sources.keys()], { readSource: (f) => sources.get(f) });
   // #line directives name the sample by its file name, as the page does, not by the temporary path.
   const files = new Map(
     [...result.files].map(([name, code]) => [name, code.split(`${dir}${path.sep}`).join("")]),

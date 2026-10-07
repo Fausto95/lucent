@@ -81,7 +81,7 @@ The statements after a guard clause in the same block are the other platform's c
 
 A top-level declaration that uses one platform's code outside a branch belongs to that platform. It may use it directly, or through another declaration that belongs to it.
 
-- iOS code is what `lucent:ios` and `lucent:ios/<Module>` export, and `lucent:swiftui` with views on. Android code is what `lucent:android` and `lucent:android/<package>` export, and `lucent:compose`.
+- iOS code is what `lucent:ios` and `lucent:ios/<Module>` export, and `lucent:swiftui`. Android code is what `lucent:android` and `lucent:android/<package>` export, and `lucent:compose`.
 - Functions, classes, variables, type aliases, interfaces and enums can belong to a platform. A type annotation is a use: a variable typed `CLLocationManager` is iOS code. Type-only imports count too.
 - A platform's declaration compiles in its own build only. It may be used in that platform's branches and declarations, and anywhere else fails with `LUCENT3004`.
 - A declaration that uses both platforms' code outside branches fails with `LUCENT3004`. Branch inside it, or split it in two.

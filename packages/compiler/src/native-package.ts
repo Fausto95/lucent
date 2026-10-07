@@ -7,7 +7,6 @@ import { sdkIdentity } from "@lucent-lang/bindgen";
 import { identityScript } from "./emit/identity.ts";
 import { type EmitResult, IDENTITY, LOADER } from "./emit/index.ts";
 import { androidViewFiles, autolinkingConfig } from "./ui/android.ts";
-import { fabricViews } from "./ui/fabric.ts";
 import { VIEWS_RUNTIME } from "./ui/proxy.ts";
 import {
   androidManifest,
@@ -75,8 +74,6 @@ export function inputsKey(files: string[], outDir: string, sdk?: SdkOptions): st
   // dependencies' artifacts too. Through the caller's own options object: SDKs are
   // located once per object, and the caller may have located them already.
   hash.update(sdk ? sdkIdentity(sdk) : currentSdkIdentity());
-  // Whether components' views are generated.
-  hash.update(`views:${fabricViews()}`);
   for (const f of [...files.map((f) => path.resolve(f)).sort(), ...deps.sort()]) {
     hash.update(f);
     hash.update(fs.readFileSync(f));
@@ -145,14 +142,17 @@ function listFiles(dir: string): string[] {
 /**
  * The Android library's build.gradle while Android's code is built later,
  * by the app's Gradle build (after expo prebuild): configured for Kotlin
- * shims, and for components' Compose content while views are generated,
+ * shims, and, when the program has components, for their Compose content,
  * which only that build can tell Android needs. The Gradle build
  * configures the library before it builds Android, and a library
  * configured so builds whatever Android turns out to need.
  */
-export function deferredLibraryGradle(native: NativeInputs | undefined): string {
+export function deferredLibraryGradle(
+  native: NativeInputs | undefined,
+  components: boolean,
+): string {
   const template = fs.readFileSync(path.join(runtimeDir(), "native/android/build.gradle"), "utf8");
-  return libraryBuildGradle(template, native, true, fabricViews() ? "unknown" : []);
+  return libraryBuildGradle(template, native, true, components ? "unknown" : []);
 }
 
 /**
@@ -257,7 +257,7 @@ export function writeNativePackage(
   want.set(
     gradle,
     options.androidDeferred
-      ? deferredLibraryGradle(options.native)
+      ? deferredLibraryGradle(options.native, !!result.components?.length)
       : libraryBuildGradle(
           want.get(gradle)!.toString(),
           options.native,
@@ -276,7 +276,7 @@ export function writeNativePackage(
 
   // The components' Android registration, when views are generated. The Gradle build
   // that builds a deferred Android reads the autolinking config before it does.
-  const views = result.components?.length && fabricViews() ? result.components : [];
+  const views = result.components ?? [];
   const deferred = !!options.androidDeferred;
   const config = path.join(outDir, "react-native.config.js");
   want.set(config, autolinkingConfig(want.get(config)!.toString(), views, deferred));
@@ -311,7 +311,7 @@ export function writeNativePackage(
   want.set(path.join(outDir, "types/core.d.ts"), fs.readFileSync(coreTypesPath()));
   for (const [name, content] of result.types ?? [])
     want.set(path.join(outDir, "types", name), content);
-  // Under the views switch: each module's components as React sees them.
+  // Each module's components as React sees them.
   for (const [name, content] of result.componentTypes ?? [])
     want.set(path.join(outDir, "types/views", `${name}.d.ts`), content);
   // What Metro resolves lucent:views/<module> to: the module itself, so both imports are one instance.

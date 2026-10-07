@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { compile, runtimeDir, sdkAvailable } from "../../src/index.ts";
 import { CARD, IOS_HOSTED } from "./card-fixture.ts";
 import { catalystObjects, macosSdk, quickjsSources } from "./mount-harness.ts";
@@ -45,15 +45,9 @@ const slotReports = (stderr: string) =>
     .filter((line) => line !== undefined);
 
 describe("React children in the iOS host", () => {
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   it.skipIf(!toolchain || !ios)(
     "go in the mount's slot in React Native's order, at Yoga's frames, and never elsewhere",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-children-run-"));
       const files = { ...CARD, ...IOS_HOSTED };
 

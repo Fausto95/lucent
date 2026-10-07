@@ -39,7 +39,7 @@ interface Match {
  * `lucent sdk search <term>`: classes and members whose name contains the
  * term, in the modules the project imports and every module the SDK cache
  * holds (a cold SDK takes minutes to extract; `sdk prefetch --all` fills it),
- * and with views on, the names the toolkit modules export.
+ * and the names the toolkit modules export.
  */
 export function run({ root, positionals, out }: Invocation): number {
   const t = out.theme;
@@ -138,10 +138,6 @@ export function run({ root, positionals, out }: Invocation): number {
       `searched ${searched} module${searched === 1 ? "" : "s"}${total > searched ? ` of ${total}` : ""} (your imports and the SDK cache; lucent sdk prefetch --all to search every module)`,
     ),
   );
-  if (!toolkitModules().length) {
-    const toolkits = toolkitModules(true).map((m) => m.module);
-    out.print(t.dim(`${toolkits.join(" and ")} are searched with views on (LUCENT_VIEWS=fabric)`));
-  }
   return 0;
 }
 

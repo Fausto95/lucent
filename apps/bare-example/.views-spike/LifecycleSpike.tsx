@@ -9,7 +9,7 @@
 // disposal a LUCENT_TOGGLE line.
 import { useEffect, useRef, useState } from "react";
 import { Modal, SafeAreaView, Text, View } from "react-native";
-// Components' React exports exist only when views are generated.
+// A relative import is typed as the Lucent component: its React export, as lucent:views/<module> types it.
 import * as toggle from "./toggle.lucent";
 
 type ToggleRef = { toggle(): void; pulse(): void; state(): Promise<string> };

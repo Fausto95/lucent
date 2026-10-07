@@ -1,11 +1,11 @@
-// JSX for native views (T48, LUCENT_VIEWS=fabric): a UIKit or Android view
+// JSX for native views (T48): a UIKit or Android view
 // class is a tag, typed with the attributes its declarations derive by rule
 // (sdk/view-rules.ts: children too, where its class inserts them), and
 // `create`; anything else is a type error the editor shows.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "../../src/index.ts";
 import { createLucentProgram } from "../../src/program.ts";
 
@@ -24,14 +24,6 @@ function typeErrors(name: string, text: string, platform: "ios" | "android"): st
 }
 
 describe("native view JSX types", () => {
-  beforeEach(() => {
-    process.env.LUCENT_VIEWS = "fabric";
-  });
-
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   it.skipIf(!ios)("takes a UIKit view's writable properties, control events and children", () => {
     expect(
       typeErrors(

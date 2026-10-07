@@ -1,9 +1,8 @@
-// lucent:ui, the helpers a component's setup uses: internal until views
-// are public, so the module resolves only under LUCENT_VIEWS=fabric.
+// lucent:ui, the helpers a component's setup uses.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { compile, sdkAvailable } from "../../src/index.ts";
 import { createLucentProgram } from "../../src/program.ts";
 
@@ -54,25 +53,13 @@ export function Caption(props: { text: string }): UILabel {
 };
 
 describe("lucent:ui", () => {
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
-  it("does not resolve unless LUCENT_VIEWS is fabric", () => {
+  it("resolves in every program", () => {
     const [file] = app({ "m.lucent.ts": USES_UI });
-
-    expect(createLucentProgram([file!]).diagnostics.map((d) => d.message)).toEqual([
-      "lucent:ui is not a Lucent module",
-    ]);
-
-    process.env.LUCENT_VIEWS = "fabric";
 
     expect(createLucentProgram([file!]).diagnostics).toEqual([]);
   });
 
   it("has no `native`: a setup, run once per mount, makes its views directly", () => {
-    process.env.LUCENT_VIEWS = "fabric";
-
     const [file] = app({
       "m.lucent.ts": `import { native } from "lucent:ui";
 
@@ -88,8 +75,6 @@ export type Native = typeof native;
   it.skipIf(!ios)(
     "gives a component the commands its setup exposes",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const r = compile(app(CAPTION), { platforms: ["ios"] });
 
       expect(r.diagnostics).toEqual([]);

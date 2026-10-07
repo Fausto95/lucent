@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { compile, runtimeDir, sdkAvailable } from "../../src/index.ts";
 import { runJavac } from "../../../bindgen/test/jvm-tools.ts";
 import { androidJars } from "@lucent-lang/bindgen";
@@ -16,14 +16,9 @@ import { ROWS } from "./native-jsx-flow-fixture.ts";
 import { SETTINGS } from "./native-jsx-fixture.ts";
 
 describe("a component of Android JSX", () => {
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   it.skipIf(!sdkAvailable("android") || !jdk)(
     "makes its views, props, events and children by rule, in glue that compiles",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-native-jsx-android-"));
 
       fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
@@ -49,7 +44,6 @@ describe("a component of Android JSX", () => {
   it.skipIf(!sdkAvailable("android") || !jdk)(
     "adds and removes children by condition and key, in glue that compiles",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-native-jsx-flow-android-"));
       // An item's event too: registered again when its item changes.
       const files = {
@@ -81,7 +75,6 @@ describe("a component of Android JSX", () => {
   it.skipIf(!sdkAvailable("android") || !jdk)(
     "lays out a Flex with Yoga, in glue, runtime and a view class that compile",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-native-jsx-layout-android-"));
 
       fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
@@ -121,7 +114,6 @@ describe("a component of Android JSX", () => {
   it.skipIf(!sdkAvailable("android") || !jdk)(
     "makes the views a one-file component's Android branch returns, in glue that compiles",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-native-jsx-one-file-android-"));
       const file = path.join(dir, "title.lucent.tsx");
 

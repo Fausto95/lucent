@@ -31,7 +31,7 @@
  │                      LucentComponentView (iOS), LucentViewsAndroid (Android)
  ├── cpp/generated/     lucent_app.h, m_<module>.cpp, lucent_bindings.cpp,
  │                      lucent_identity.cpp (what the program was built from),
- │                      views/ (components' Fabric sources, LUCENT_VIEWS=fabric)
+ │                      views/ (components' Fabric sources)
  ├── ios/LucentRegistration.mm       +load → registerCxxModuleToGlobalModuleMap
  ├── android/CMakeLists.txt          OBJECT library linked into appmodules
  ├── android/include/…/ComponentDescriptors.h  components' descriptors, for autolinking
@@ -159,7 +159,7 @@ Notable lowering choices:
   operations own nested regions, which `break`, `continue` and `yield`
   (an `if`'s result) leave. Every function, method, accessor,
   constructor, module `init()` and compute task variant lowers through
-  it, and so does each component's setup (behind `LUCENT_VIEWS`); what it
+  it, and so does each component's setup; what it
   cannot lower is a LUCENT diagnostic. What the IR
   does not model itself (member reads and writes, methods of the runtime
   and the SDK, constructions, array and object literals) is a `plan`: the
@@ -270,8 +270,7 @@ Notable lowering choices:
   `ui/merge.ts` joins them and refuses a contract that differs between
   platforms, or from a split module's shared declaration.
 
-  Under `LUCENT_VIEWS=fabric` (internal, off by default: components are
-  then only described), each target's native code gets each component's
+  Each target's native code gets each component's
   Fabric sources, generated from its description (`ui/fabric.ts`):
   `views/<registration>.h/.cpp` in namespace
   `lucent::views::<registration>` (a `Props` deriving from `ViewProps`
@@ -887,8 +886,7 @@ exports object of the Lucent module `name`, built on first access.
   plugin adds `android/CMakeLists.txt` to the app's `appmodules` build and
   generates `autolinking_cxxModuleProvider`, which instantiates `LucentModule`.
   Its Android library also has the runtime's Java: `NativeProxy` for Java
-  interfaces Lucent implements, the components' managers (their views,
-  under `LUCENT_VIEWS=fabric`), and `LucentActivities`, started by the
+  interfaces Lucent implements, the components' managers (their views), and `LucentActivities`, started by the
   `LucentInitializer` provider its manifest declares, which tracks the
   app's Activities and asks for activity results and permissions through
   the translucent `LucentRequestActivity`.

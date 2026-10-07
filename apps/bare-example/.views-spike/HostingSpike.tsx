@@ -18,7 +18,7 @@ import {
   TurboModuleRegistry,
   View,
 } from "react-native";
-// Components' React exports exist only when views are generated.
+// A relative import is typed as the Lucent component: its React export, as lucent:views/<module> types it.
 import * as toggle from "./toggle.lucent";
 import { starts } from "./work.lucent";
 

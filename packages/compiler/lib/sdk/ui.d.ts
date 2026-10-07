@@ -1,9 +1,8 @@
 /**
  * lucent:ui — the helpers a component's setup uses.
  *
- * Experimental and internal: this module resolves only when the
- * LUCENT_VIEWS environment variable is `fabric`, and changes without notice
- * until Lucent's views are public.
+ * Experimental: it may change without notice while Lucent's views are in
+ * preview.
  *
  * A component's setup runs once per mount, on the main thread: it makes
  * the native objects the component shows and owns directly

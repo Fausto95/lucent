@@ -161,7 +161,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
     "items": [
       {
         "status": "done",
-        "text": "Components in `.lucent.tsx` that render UIKit and Android views, behind an internal switch."
+        "text": "Components in `.lucent.tsx` that render UIKit and Android views, in every build (in preview)."
       },
       {
         "status": "done",
@@ -250,7 +250,7 @@ export const limitations: { title: string; items: string[] }[] = [
   {
     "title": "Views",
     "items": [
-      "Views are behind the internal `LUCENT_VIEWS=fabric` switch, off by default.",
+      "Views are in preview: every build generates them since the switch was removed (2026-10-07), but the preview gate (G3) has not certified them.",
       "Android pools component views only when the app turns on React Native's `enableViewRecycling`; iOS always recycles them.",
       "Intrinsic sizes and slot insets wait for the JavaScript thread to apply them (one layout when idle).",
       "Absolute children of a padded component follow React Native's padding-box rule relative to the slot. A fixed-size slot inside a component sized by its children is bounded at three reports.",

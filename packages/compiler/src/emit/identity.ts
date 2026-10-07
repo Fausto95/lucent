@@ -190,7 +190,7 @@ export function apiSurface(
       `enum ${e.name} { ${e.members.map((x) => `${x.name} = ${JSON.stringify(x.value)}`).join("; ")} }`,
     );
 
-  // The components it exports (React components, under the views switch): their contracts.
+  // The components it exports (React components): their contracts.
   for (const c of components.toSorted((a, b) => (a.export < b.export ? -1 : 1)))
     lines.push(
       `component ${c.export} = ${JSON.stringify({

@@ -44,7 +44,7 @@ function compileApp(files: Record<string, string>, platforms: Target[]) {
 
 describe("components in compile results", () => {
   it.skipIf(!ios)(
-    "describes a component and keeps it out of the module's JavaScript",
+    "describes a component and exports it as a native view, not a module function",
     () => {
       const r = compileApp({ "title.lucent.tsx": TITLE }, ["ios"]);
 
@@ -56,13 +56,14 @@ describe("components in compile results", () => {
 
       const proxy = r.proxies.get("title") ?? "";
 
-      expect(proxy).toContain("shout");
-      expect(proxy).not.toContain("Title");
+      expect(proxy).toContain("exports.shout = m.shout;");
+      expect(proxy).toContain("exports.Title = lucentComponent(");
+      expect(proxy).not.toContain("m.Title");
 
-      const native = [...r.files.values()].join("\n");
+      const bindings = r.files.get("ios/lucent_bindings.cpp") ?? "";
 
-      expect(native).toContain("shout");
-      expect(native).not.toContain("Title");
+      expect(bindings).toContain("shout");
+      expect(bindings).not.toContain("Title");
     },
     180_000,
   );

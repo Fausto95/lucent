@@ -111,16 +111,6 @@ describe("lucent bench", () => {
     expect(r.out).toMatch(/no \*\.bench\.ts/);
   });
 
-  it("reports an unexpected LUCENT_VIEWS before benchmarking", () => {
-    const r = lucent(project(), {
-      LUCENT_VIEWS: "foo",
-      HERMES_DIR: path.join(os.tmpdir(), "no-hermes-here"),
-    });
-    expect(r.status, r.out).toBe(1);
-    expect(r.out).toMatch(/LUCENT_VIEWS must be "fabric" or unset \(got "foo"\)/);
-    expect(r.out).not.toMatch(/crashed/);
-  });
-
   it("does not take a nested Lucent package's benchmarks for the app's", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-bench-"));
     const pkg = path.join(root, "packages/lucent-geo");

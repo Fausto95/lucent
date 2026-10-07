@@ -1,5 +1,5 @@
 /**
- * Helper views (LUCENT_VIEWS=fabric): functions of a platform file that
+ * Helper views: functions of a platform file that
  * return its toolkit's JSX, which a body uses as elements (`<Row …/>`) to
  * split its views up, as SwiftUI views and Compose composables are split.
  * Each is written once per component in the toolkit's language (a Swift

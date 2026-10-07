@@ -82,7 +82,7 @@ const moduleIdent = (module: string) =>
 /** The declarations, with the imports they use; `aliases` renames colliding imports. */
 /** What the declarations hold beyond the module's API. */
 export interface DtsOptions {
-  /** Each view class's JSX attributes (T48), which only views (LUCENT_VIEWS=fabric) read. */
+  /** Each view class's JSX attributes (T48), which components read. */
   jsx?: boolean;
 }
 

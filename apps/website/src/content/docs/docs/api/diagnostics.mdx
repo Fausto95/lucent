@@ -1224,15 +1224,18 @@ import { PLATFORM } from "lucent:platform";
 import { appContext } from "lucent:android";
 import { TextView } from "lucent:android/android.widget";
 import { UILabel } from "lucent:ios/UIKit";
+import { effect } from "lucent:ui";
 export function Title(props: { title: string; shown: boolean }) {
   if (!props.shown) return undefined;
   if (PLATFORM === "ios") {
     const label = new UILabel();
-    label.text = props.title;
+    effect(() => {
+      label.text = props.title;
+    });
     return label;
   }
   const text = new TextView(appContext());
-  text.setText(props.title);
+  effect(() => text.setText(props.title));
   return text;
 }
 ```
@@ -1252,14 +1255,17 @@ import { PLATFORM } from "lucent:platform";
 import { appContext } from "lucent:android";
 import { TextView } from "lucent:android/android.widget";
 import { UILabel } from "lucent:ios/UIKit";
+import { effect } from "lucent:ui";
 export function Title(props: { title: string }) {
   if (PLATFORM === "ios") {
     const label = new UILabel();
-    label.text = props.title;
+    effect(() => {
+      label.text = props.title;
+    });
     return label;
   }
   const text = new TextView(appContext());
-  text.setText(props.title);
+  effect(() => text.setText(props.title));
   return text;
 }
 ```
@@ -1290,14 +1296,17 @@ import { PLATFORM } from "lucent:platform";
 import { appContext } from "lucent:android";
 import { TextView } from "lucent:android/android.widget";
 import { UILabel } from "lucent:ios/UIKit";
+import { effect } from "lucent:ui";
 export function Title(props: { title: string; onMeasure?: (width: number) => number }) {
   if (PLATFORM === "ios") {
     const label = new UILabel();
-    label.text = props.title;
+    effect(() => {
+      label.text = props.title;
+    });
     return label;
   }
   const text = new TextView(appContext());
-  text.setText(props.title);
+  effect(() => text.setText(props.title));
   return text;
 }
 ```
@@ -1317,14 +1326,17 @@ import { PLATFORM } from "lucent:platform";
 import { appContext } from "lucent:android";
 import { TextView } from "lucent:android/android.widget";
 import { UILabel } from "lucent:ios/UIKit";
+import { effect } from "lucent:ui";
 export function Title(props: { title: string; onMeasure?: (width: number) => void }) {
   if (PLATFORM === "ios") {
     const label = new UILabel();
-    label.text = props.title;
+    effect(() => {
+      label.text = props.title;
+    });
     return label;
   }
   const text = new TextView(appContext());
-  text.setText(props.title);
+  effect(() => text.setText(props.title));
   return text;
 }
 ```
@@ -1355,6 +1367,7 @@ import { PLATFORM } from "lucent:platform";
 import { appContext } from "lucent:android";
 import { TextView } from "lucent:android/android.widget";
 import { UILabel } from "lucent:ios/UIKit";
+import { effect } from "lucent:ui";
 let shown = 0;
 export function timesShown(): number {
   return shown;
@@ -1363,11 +1376,13 @@ export function Title(props: { title: string }) {
   shown++;
   if (PLATFORM === "ios") {
     const label = new UILabel();
-    label.text = props.title;
+    effect(() => {
+      label.text = props.title;
+    });
     return label;
   }
   const text = new TextView(appContext());
-  text.setText(props.title);
+  effect(() => text.setText(props.title));
   return text;
 }
 ```
@@ -1387,14 +1402,17 @@ import { PLATFORM } from "lucent:platform";
 import { appContext } from "lucent:android";
 import { TextView } from "lucent:android/android.widget";
 import { UILabel } from "lucent:ios/UIKit";
+import { effect } from "lucent:ui";
 export function Title(props: { title: string }) {
   if (PLATFORM === "ios") {
     const label = new UILabel();
-    label.text = props.title;
+    effect(() => {
+      label.text = props.title;
+    });
     return label;
   }
   const text = new TextView(appContext());
-  text.setText(props.title);
+  effect(() => text.setText(props.title));
   return text;
 }
 ```
@@ -1431,9 +1449,12 @@ export declare function Title(props: { title: string; lines: number }): UILabel 
 
 ```tsx title="title.ios.lucent.tsx (wrong)"
 import { UILabel } from "lucent:ios/UIKit";
+import { effect } from "lucent:ui";
 export function Title(props: { title: string }): UILabel {
   const label = new UILabel();
-  label.text = props.title;
+  effect(() => {
+    label.text = props.title;
+  });
   return label;
 }
 ```
@@ -1444,9 +1465,10 @@ export function Title(props: { title: string }): UILabel {
 ```tsx title="title.android.lucent.tsx (wrong)"
 import { appContext } from "lucent:android";
 import { TextView } from "lucent:android/android.widget";
+import { effect } from "lucent:ui";
 export function Title(props: { title: string }): TextView {
   const text = new TextView(appContext());
-  text.setText(props.title);
+  effect(() => text.setText(props.title));
   return text;
 }
 ```
@@ -1472,9 +1494,12 @@ export declare function Title(props: { title: string; lines: number }): UILabel 
 
 ```tsx title="title.ios.lucent.tsx (right)"
 import { UILabel } from "lucent:ios/UIKit";
+import { effect } from "lucent:ui";
 export function Title(props: { title: string; lines: number }): UILabel {
   const label = new UILabel();
-  label.text = props.title;
+  effect(() => {
+    label.text = props.title;
+  });
   return label;
 }
 ```
@@ -1485,9 +1510,10 @@ export function Title(props: { title: string; lines: number }): UILabel {
 ```tsx title="title.android.lucent.tsx (right)"
 import { appContext } from "lucent:android";
 import { TextView } from "lucent:android/android.widget";
+import { effect } from "lucent:ui";
 export function Title(props: { title: string; lines: number }): TextView {
   const text = new TextView(appContext());
-  text.setText(props.title);
+  effect(() => text.setText(props.title));
   return text;
 }
 ```
@@ -1568,7 +1594,7 @@ export function size(): number {
 
 **SwiftUI or Compose body that cannot be compiled**
 
-A component can draw with its platform's toolkit, SwiftUI or Jetpack Compose (internal, under LUCENT\_VIEWS=fabric). Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events.
+A component can draw with its platform's toolkit, SwiftUI or Jetpack Compose. Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events.
 
 **Fix:** make the view in the body, and move logic into a function of the setup that the body calls.
 
@@ -1666,7 +1692,7 @@ export function Title(props: { title: string }) {
 
 **Native view JSX that cannot be compiled**
 
-A component can return its platform's views as JSX, declared as returning UIView or View (internal, under LUCENT\_VIEWS=fabric). A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Attributes are kept up to date like effects, and a child may come and go: `{cond && <X />}`, `{c ? <X /> : <Y />}`, or a keyed list, `{items.map((item) => <X key={item.id} />)}`.
+A component can return its platform's views as JSX, declared as returning UIView or View. A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Attributes are kept up to date like effects, and a child may come and go: `{cond && <X />}`, `{c ? <X /> : <Y />}`, or a keyed list, `{items.map((item) => <X key={item.id} />)}`.
 
 A `<Flex>` takes only `style`, `key`, its children and, as a Flex's child, `layout`. `layout` goes only on a Flex's child. `style` and `layout` are object literals naming each key, and no key is set in both.
 

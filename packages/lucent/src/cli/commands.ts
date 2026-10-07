@@ -94,7 +94,6 @@ export const commands: CommandSpec[] = [
     summary:
       "Scaffold a component in src/: its declaration, and each platform's native views in a Flex",
     flags: [],
-    internal: true,
     load: () => import("./commands/new-view.ts"),
   },
   {
@@ -236,8 +235,7 @@ export const commands: CommandSpec[] = [
       { name: "members", description: "List every member with its stage, key and reason" },
       {
         name: "views",
-        description:
-          "With views on (LUCENT_VIEWS=fabric), list each view class's JSX attributes by rule",
+        description: "List each view class's JSX attributes by rule",
       },
     ],
     load: () => import("./commands/sdk-coverage.ts"),

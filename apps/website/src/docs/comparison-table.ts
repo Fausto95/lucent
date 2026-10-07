@@ -119,7 +119,7 @@ export const comparisonRows: ComparisonRow[] = [
         value: "Experimental",
         tone: "partial",
         detail:
-          "UIKit and Android views, and SwiftUI and Jetpack Compose written as JSX, behind `LUCENT_VIEWS=fabric`. See [Native views](/docs/guides/views/) and [the announcement](/blog/native-views/)",
+          "UIKit and Android views, and SwiftUI and Jetpack Compose written as JSX, in preview. See [Native views](/docs/guides/views/) and [the announcement](/blog/native-views/)",
       },
       expo: { value: "Yes", tone: "available", detail: "`View` in the module definition" },
       nitro: {

@@ -44,7 +44,6 @@ import { recordSdkUses } from "./sdk/usage.ts";
 import { analyzeViews, hasComponentModules } from "./ui/analyze.ts";
 import { ts as js } from "@lucent-lang/codegen";
 import type { ComponentDescription } from "./ui/contract.ts";
-import { fabricViews } from "./ui/fabric.ts";
 import { componentDeclarations } from "./ui/proxy.ts";
 import { mergeComponents, type TargetComponents } from "./ui/merge.ts";
 
@@ -76,7 +75,6 @@ export {
   jsxToolkits,
   toolkitModules,
   toolkitModuleText,
-  toolkitNeedingViews,
   toolkitsFrom,
 } from "./ui/toolkit-modules.ts";
 export { viewCoverage, type ViewCoverage } from "./ui/view-coverage.ts";
@@ -116,7 +114,6 @@ export {
   type ViewType,
 } from "./ui/contract.ts";
 export type { Target } from "./platforms.ts";
-export { viewsSwitchProblem } from "./ui/switch.ts";
 export type { SdkOptions } from "./sdk/schema.ts";
 export type {
   Platform,
@@ -308,7 +305,7 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
 
     out.diagnostics.push(...merged.diagnostics);
     if (merged.components.length) out.components = merged.components;
-    if (merged.components.length && fabricViews()) {
+    if (merged.components.length) {
       out.componentTypes = componentTypeFiles(merged.components);
       out.componentModules = componentModuleFiles(merged.components, [
         ...plan.shared,
@@ -329,9 +326,14 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
 
 /** The lucent:* declarations a platform program loaded (imports and what they reference). */
 function collectTypes(lp: LucentProgram, into: Map<string, string>): void {
+  // Another target's program may hold a module by its names only (its JSX runtime names
+  // UIView): a full declaration, from a program that imports the module, wins.
+  const namesOnly = (text: string | undefined) => text?.startsWith("// Names only:") ?? true;
+
   for (const sf of lp.program.getSourceFiles()) {
     const sdk = sdkModuleOf(sf);
-    if (sdk) into.set(`${sdk.platform}/${sdk.module}.d.ts`, sf.text);
+    const file = sdk && `${sdk.platform}/${sdk.module}.d.ts`;
+    if (file && (namesOnly(into.get(file)) || !namesOnly(sf.text))) into.set(file, sf.text);
     const builtin = builtinSdkModuleOf(sf);
     if (builtin) into.set(`${builtin.slice("lucent:".length)}.d.ts`, sf.text);
   }
@@ -384,7 +386,7 @@ function compileChecked(
   if (views?.diagnostics.length)
     return { files: new Map(), proxies: new Map(), diagnostics: views.diagnostics, ok: false };
 
-  const fabric = views?.components.length && fabricViews() ? views.components : undefined;
+  const fabric = views?.components.length ? views.components : undefined;
   const { identity, ...result } = emitProgram(
     lp,
     target,

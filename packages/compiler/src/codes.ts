@@ -72,7 +72,7 @@ export interface Explanation {
   sdk?: "ios" | "android";
   /** Reported as a warning: the code still compiles. */
   severity?: "warning";
-  /** The examples use views' internal modules (LUCENT_VIEWS=fabric). */
+  /** About views (components): the diagnostics reference groups them apart. */
   views?: true;
 }
 
@@ -86,19 +86,19 @@ const component = (source: string, name = "title"): Example => ({
 
 /** Imports for a shared component returning each platform's label. */
 const LABEL_IMPORTS =
-  'import { PLATFORM } from "lucent:platform";\nimport { appContext } from "lucent:android";\nimport { TextView } from "lucent:android/android.widget";\nimport { UILabel } from "lucent:ios/UIKit";\n';
+  'import { PLATFORM } from "lucent:platform";\nimport { appContext } from "lucent:android";\nimport { TextView } from "lucent:android/android.widget";\nimport { UILabel } from "lucent:ios/UIKit";\nimport { effect } from "lucent:ui";\n';
 
 /** A body returning each platform's label, showing `props.title`. */
 const LABEL_BODY =
-  '  if (PLATFORM === "ios") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n';
+  '  if (PLATFORM === "ios") {\n    const label = new UILabel();\n    effect(() => {\n      label.text = props.title;\n    });\n    return label;\n  }\n  const text = new TextView(appContext());\n  effect(() => text.setText(props.title));\n  return text;\n}\n';
 
 /** A split component module: its declaration, and one platform's implementation. */
 const splitTitle = (implProps: string): Example => ({
   "package.json": '{ "name": "example-app" }\n',
   "title.lucent.tsx":
     'import type { TextView } from "lucent:android/android.widget";\nimport type { UILabel } from "lucent:ios/UIKit";\nexport declare function Title(props: { title: string; lines: number }): UILabel | TextView;\n',
-  "title.ios.lucent.tsx": `import { UILabel } from "lucent:ios/UIKit";\nexport function Title(props: ${implProps}): UILabel {\n  const label = new UILabel();\n  label.text = props.title;\n  return label;\n}\n`,
-  "title.android.lucent.tsx": `import { appContext } from "lucent:android";\nimport { TextView } from "lucent:android/android.widget";\nexport function Title(props: ${implProps}): TextView {\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n`,
+  "title.ios.lucent.tsx": `import { UILabel } from "lucent:ios/UIKit";\nimport { effect } from "lucent:ui";\nexport function Title(props: ${implProps}): UILabel {\n  const label = new UILabel();\n  effect(() => {\n    label.text = props.title;\n  });\n  return label;\n}\n`,
+  "title.android.lucent.tsx": `import { appContext } from "lucent:android";\nimport { TextView } from "lucent:android/android.widget";\nimport { effect } from "lucent:ui";\nexport function Title(props: ${implProps}): TextView {\n  const text = new TextView(appContext());\n  effect(() => text.setText(props.title));\n  return text;\n}\n`,
 });
 
 /** A component drawn with SwiftUI on iOS: its declaration, and an Android implementation. */
@@ -613,7 +613,7 @@ export const Explanations: Record<Code, Explanation> = {
     summary:
       "A component's SwiftUI or Jetpack Compose body that Lucent cannot write out in Swift or Kotlin, or toolkit code used outside such a body.",
     details:
-      "A component can draw with its platform's toolkit, SwiftUI or Jetpack Compose (internal, under LUCENT_VIEWS=fabric). Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events.",
+      "A component can draw with its platform's toolkit, SwiftUI or Jetpack Compose. Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events.",
     fix: "make the view in the body, and move logic into a function of the setup that the body calls",
     wrong: {
       ...TOOLKIT_TITLE,
@@ -633,7 +633,7 @@ export const Explanations: Record<Code, Explanation> = {
     summary:
       "JSX of UIKit or Android views that Lucent cannot make: a view, attribute or child its declarations do not provide for.",
     details:
-      "A component can return its platform's views as JSX, declared as returning UIView or View (internal, under LUCENT_VIEWS=fabric). A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Attributes are kept up to date like effects, and a child may come and go: `{cond && <X />}`, `{c ? <X /> : <Y />}`, or a keyed list, `{items.map((item) => <X key={item.id} />)}`.\n\nA `<Flex>` takes only `style`, `key`, its children and, as a Flex's child, `layout`. `layout` goes only on a Flex's child. `style` and `layout` are object literals naming each key, and no key is set in both.",
+      "A component can return its platform's views as JSX, declared as returning UIView or View. A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Attributes are kept up to date like effects, and a child may come and go: `{cond && <X />}`, `{c ? <X /> : <Y />}`, or a keyed list, `{items.map((item) => <X key={item.id} />)}`.\n\nA `<Flex>` takes only `style`, `key`, its children and, as a Flex's child, `layout`. `layout` goes only on a Flex's child. `style` and `layout` are object literals naming each key, and no key is set in both.",
     fix: "write each attribute on its element, and set what the declarations do not provide for in setup code",
     wrong: {
       ...NATIVE_TITLE,

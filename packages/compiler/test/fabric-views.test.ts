@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vite-plus/test";
-import { compile, inputsKey, sdkAvailable, writeNativePackage } from "../src/index.ts";
+import { describe, expect, it } from "vite-plus/test";
+import { compile, sdkAvailable, writeNativePackage } from "../src/index.ts";
 
 const ios = process.platform === "darwin" && sdkAvailable("ios");
 
@@ -43,28 +43,9 @@ function compileApp() {
 const REGISTRATION = /^ios\/views\/LucentTitle_[0-9a-f]{12}\.h$/;
 
 describe("components' Fabric sources in compiles", () => {
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   it.skipIf(!ios)(
-    "are left out unless LUCENT_VIEWS is fabric: components are only described",
+    "join the native code and the module's proxy",
     () => {
-      const { result } = compileApp();
-
-      expect(result.diagnostics).toEqual([]);
-      expect(result.components?.map((c) => c.export)).toEqual(["Title"]);
-      expect([...result.files.keys()].filter((f) => f.includes("/views/"))).toEqual([]);
-      expect(result.proxies.get("title")).not.toContain("Title");
-    },
-    180_000,
-  );
-
-  it.skipIf(!ios)(
-    "join the native code and the module's proxy under LUCENT_VIEWS=fabric",
-    () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const { dir, result } = compileApp();
 
       expect(result.diagnostics).toEqual([]);
@@ -101,27 +82,4 @@ describe("components' Fabric sources in compiles", () => {
     },
     180_000,
   );
-
-  it("leave compiles without components alone, whatever LUCENT_VIEWS says", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-fabric-views-"));
-    const file = path.join(dir, "m.lucent.ts");
-
-    fs.writeFileSync(file, "export function twice(n: number): number {\n  return n * 2;\n}\n");
-    process.env.LUCENT_VIEWS = "paper";
-
-    expect(compile([file]).diagnostics).toEqual([]);
-  });
-
-  it("key builds on the switch, so turning it on or off rebuilds", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-fabric-views-"));
-    const file = path.join(dir, "m.lucent.ts");
-
-    fs.writeFileSync(file, "export const one = 1;\n");
-
-    const off = inputsKey([file], path.join(dir, "native"));
-
-    process.env.LUCENT_VIEWS = "fabric";
-
-    expect(inputsKey([file], path.join(dir, "native"))).not.toBe(off);
-  });
 });

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { kotlinToolchain } from "../../../bindgen/test/kotlin-toolchain.ts";
 import { compile, runtimeDir, sdkAvailable } from "../../src/index.ts";
 import { composeDeclarations } from "../../src/ui/compose-dts.ts";
@@ -162,13 +162,7 @@ describe("lucent:compose's declarations", () => {
 });
 
 describe.skipIf(!android)("content written from the bindings", () => {
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   it("keep the toggle's Kotlin", () => {
-    process.env.LUCENT_VIEWS = "fabric";
-
     const { result, text } = compileApp(TOGGLE);
 
     expect(result.diagnostics).toEqual([]);
@@ -178,8 +172,6 @@ describe.skipIf(!android)("content written from the bindings", () => {
   }, 300_000);
 
   it("write each parameter as its binding says: names, content, callbacks and number types", () => {
-    process.env.LUCENT_VIEWS = "fabric";
-
     const { result, text } = compileApp(SLICE);
 
     expect(result.diagnostics).toEqual([]);
@@ -210,8 +202,6 @@ describe.skipIf(!android)("content written from the bindings", () => {
   }, 300_000);
 
   it("keep a number's Kotlin type through a generic result (rememberSaveable's T)", () => {
-    process.env.LUCENT_VIEWS = "fabric";
-
     const files = withContent(
       "  const count = rememberSaveable(() => 3);\n  const spin = rememberSaveable(() => Animatable(0));\n\n  return <Box modifier={Modifier.alpha(spin.value).scale(count)} />;",
       { compose: ["rememberSaveable"] },
@@ -226,8 +216,6 @@ describe.skipIf(!android)("content written from the bindings", () => {
   }, 300_000);
 
   it("refuse what the bindings leave out", () => {
-    process.env.LUCENT_VIEWS = "fabric";
-
     const { result } = compileApp(
       withContent("  return <Column modifier={Modifier.weight(1)}>{null}</Column>;"),
     );
@@ -241,7 +229,6 @@ describe.skipIf(!android)("content written from the bindings", () => {
     "compile the slice's Kotlin with the Compose compiler, warnings as errors",
     () => {
       if ("missing" in artifacts) return;
-      process.env.LUCENT_VIEWS = "fabric";
 
       const { dir, text } = compileApp(SLICE);
       const classpath = kotlinClasspath(artifacts, dir);

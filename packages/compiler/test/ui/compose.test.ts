@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { kotlinToolchain } from "../../../bindgen/test/kotlin-toolchain.ts";
 import {
   compile,
@@ -46,13 +46,7 @@ function kotlinOf(result: ReturnType<typeof compileApp>["result"]) {
 }
 
 describe.skipIf(!android)("components whose content is Compose", () => {
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   it("write the content's body as a Kotlin composable", async () => {
-    process.env.LUCENT_VIEWS = "fabric";
-
     const { result } = compileApp();
 
     expect(result.diagnostics).toEqual([]);
@@ -76,8 +70,6 @@ describe.skipIf(!android)("components whose content is Compose", () => {
   }, 300_000);
 
   it("compile where the iOS SDK is missing, a declaration's SwiftUI view untyped", () => {
-    process.env.LUCENT_VIEWS = "fabric";
-
     const { result } = compileApp(
       {
         ...TOGGLE,
@@ -96,8 +88,6 @@ describe.skipIf(!android)("components whose content is Compose", () => {
   }, 300_000);
 
   it("change the build identity when only the content's Kotlin changes", () => {
-    process.env.LUCENT_VIEWS = "fabric";
-
     const { result: a } = compileApp();
     const { result: b } = compileApp({
       ...TOGGLE,
@@ -115,8 +105,6 @@ describe.skipIf(!android)("components whose content is Compose", () => {
   }, 300_000);
 
   it("feed the content from the setup: state set by effects, functions it calls", () => {
-    process.env.LUCENT_VIEWS = "fabric";
-
     const { result } = compileApp();
     const { registration } = kotlinOf(result);
     const glue = result.files.get("android/m_toggle.cpp") ?? "";
@@ -181,14 +169,12 @@ describe.skipIf(!android)("components whose content is Compose", () => {
     expect(named.filter((c) => !/^(android|java|dev\/lucent)\//.test(c))).toEqual([]);
   });
 
-  it("configure a deferred Android build for Compose content while views are generated", () => {
+  it("configure a deferred Android build for Compose content when the program has components", () => {
     // After expo prebuild, the first Gradle build configures the library before it builds
     // Android: it builds whatever Android turns out to need.
-    expect(deferredLibraryGradle(undefined)).not.toContain("compose");
+    expect(deferredLibraryGradle(undefined, false)).not.toContain("compose");
 
-    process.env.LUCENT_VIEWS = "fabric";
-
-    const gradle = deferredLibraryGradle(undefined);
+    const gradle = deferredLibraryGradle(undefined, true);
 
     expect(gradle).toContain('apply plugin: "org.jetbrains.kotlin.plugin.compose"');
     expect(gradle).toContain('sourceSets.main.java.srcDirs += "src/compose/java"');
@@ -202,8 +188,6 @@ describe.skipIf(!android)("components whose content is Compose", () => {
   it.skipIf(!kotlin || !composeJars)(
     "compile the content with the Compose compiler, warnings as errors",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const { dir, result } = compileApp();
       const { text } = kotlinOf(result);
       const source = path.join(dir, "Toggle.kt");
@@ -243,8 +227,6 @@ describe.skipIf(!android)("components whose content is Compose", () => {
   it.skipIf(!toolchain)(
     "compile the setup's glue with the Android host against React Native's headers",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const { dir, result } = compileApp();
       const out = path.join(dir, "generated");
 
@@ -378,8 +360,6 @@ describe.skipIf(!android)("components whose content is Compose", () => {
   ];
 
   it("conform to a declaration by the view the returned JSX makes: a ComposeView", () => {
-    process.env.LUCENT_VIEWS = "fabric";
-
     // A ComposeView is a View (the fixture's declaration), not a TextView.
     const declared = TOGGLE["toggle.lucent.ts"]
       .replace(
@@ -395,8 +375,6 @@ describe.skipIf(!android)("components whose content is Compose", () => {
   }, 300_000);
 
   it("lift the component's composition statements into its content, in order", () => {
-    process.env.LUCENT_VIEWS = "fabric";
-
     const { result } = compileApp(
       withContent(
         '  const dark = isSystemInDarkTheme();\n  const label = `${props.title}!`;\n  const first = rememberSaveable(() => label);\n\n  return <Text text={dark ? first : "light"} />;',
@@ -424,8 +402,6 @@ describe.skipIf(!android)("components whose content is Compose", () => {
 
   for (const [name, content, code, message, imports] of REFUSED)
     it(`refuse ${name}`, () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const { result } = compileApp(withContent(content, imports));
 
       expect(result.diagnostics.map((d) => `${d.code} ${d.message}`)).toContainEqual(
@@ -434,8 +410,6 @@ describe.skipIf(!android)("components whose content is Compose", () => {
     }, 300_000);
 
   it("take a function returning Compose's JSX as a helper view", () => {
-    process.env.LUCENT_VIEWS = "fabric";
-
     const files = withContent("  return <Knob />;", { compose: ["type Composed"] });
     const file = files["toggle.android.lucent.tsx"]!.replace(
       "export function Toggle(",
@@ -450,8 +424,6 @@ describe.skipIf(!android)("components whose content is Compose", () => {
   it.skipIf(!sdkAvailable("ios"))(
     "refuse lucent:compose outside Android files",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-compose-"));
 
       fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));

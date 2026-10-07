@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
+import { beforeAll, describe, expect, it } from "vite-plus/test";
 import { kotlinToolchain } from "../../bindgen/test/kotlin-toolchain.ts";
 import { compile, runtimeDir, sdkAvailable, type SdkOptions } from "../src/index.ts";
 import { kotlinClasspath } from "./android-harness.ts";
@@ -86,15 +86,9 @@ function compileApp(files: Record<string, string> = METER, sdk?: SdkOptions) {
 const HOST = /^android\/views\/(LucentMeter_[0-9a-f]{12})_android\.cpp$/;
 
 describe("components' Android hosts", () => {
-  afterEach(() => {
-    delete process.env.LUCENT_VIEWS;
-  });
-
   it.skipIf(!android)(
     "give each component's mount to the Android host",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const { result } = compileApp();
 
       expect(result.diagnostics).toEqual([]);
@@ -122,24 +116,12 @@ describe("components' Android hosts", () => {
   it.skipIf(!android)(
     "give the Android host its mount where the iOS SDK is missing, the declaration's iOS view untyped",
     () => {
-      process.env.LUCENT_VIEWS = "fabric";
-
       const { result } = compileApp(METER, {
         ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") },
       });
 
       expect(result.diagnostics).toEqual([]);
       expect([...result.files.keys()].some((f) => HOST.test(f))).toBe(true);
-    },
-    300_000,
-  );
-
-  it.skipIf(!android)(
-    "leave the Android host out while the switch is off",
-    () => {
-      const { result } = compileApp();
-
-      expect([...result.files.keys()].filter((f) => f.includes("/views/"))).toEqual([]);
     },
     300_000,
   );
@@ -179,8 +161,6 @@ export function listen(): number {
       };
 
       it("accept the component: the callback runs in the module context its glue enters", () => {
-        process.env.LUCENT_VIEWS = "fabric";
-
         const { result } = compileApp({ ...CAPTION, ...RESULTS }, sdk);
 
         expect(result.diagnostics.map((d) => `${d.code} ${d.message}`)).toEqual([]);
@@ -188,8 +168,6 @@ export function listen(): number {
       }, 300_000);
 
       it("still refuse a component whose setup uses that module state itself", () => {
-        process.env.LUCENT_VIEWS = "fabric";
-
         const caption = CAPTION["caption.android.lucent.tsx"]
           .replace(
             "import type { Props }",
@@ -220,8 +198,6 @@ export function listen(): number {
     it.skipIf(!android || !toolchain)(
       `compile with the Android host against React Native's headers: ${name}`,
       () => {
-        process.env.LUCENT_VIEWS = "fabric";
-
         const { dir, result } = compileApp(files);
 
         expect(result.diagnostics).toEqual([]);

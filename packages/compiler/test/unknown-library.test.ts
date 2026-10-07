@@ -243,7 +243,7 @@ const dialJsx = Object.fromEntries(
   ]),
 );
 
-/** A component's files compiled for `platform` under LUCENT_VIEWS=fabric, in a fresh app. */
+/** A component's files compiled for `platform`, in a fresh app. */
 function compiledViews(
   files: Record<string, string>,
   platform: "ios" | "android",
@@ -254,7 +254,6 @@ function compiledViews(
   fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
   for (const [f, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, f), text);
 
-  process.env.LUCENT_VIEWS = "fabric";
   try {
     const r = compile(
       Object.keys(files).map((f) => path.join(dir, f)),
@@ -262,7 +261,6 @@ function compiledViews(
     );
     return { r, dir };
   } finally {
-    delete process.env.LUCENT_VIEWS;
   }
 }
 
@@ -326,7 +324,6 @@ describe.skipIf(!jvm)("an unknown library on Android", () => {
     fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
     for (const [f, text] of Object.entries(dial)) fs.writeFileSync(path.join(dir, f), text);
 
-    process.env.LUCENT_VIEWS = "fabric";
     try {
       const r = compile(
         Object.keys(dial).map((f) => path.join(dir, f)),
@@ -337,7 +334,6 @@ describe.skipIf(!jvm)("an unknown library on Android", () => {
       expect(r.components).toEqual([expect.objectContaining({ export: "Dial" })]);
       expect(glueErrors(r, dir, "android/m_dial.cpp")).toBe("");
     } finally {
-      delete process.env.LUCENT_VIEWS;
     }
   }, 600_000);
 

@@ -80,12 +80,10 @@ describe("help", () => {
     width: 80,
   });
 
-  it("lists every command from the command table, but the internal ones", () => {
+  it("lists every command from the command table", () => {
     const text = help(commands, theme);
-    const listed = (c: { name: string }) => text.includes(`lucent ${c.name}`);
 
-    expect(commands.filter((c) => !c.internal).filter((c) => !listed(c))).toEqual([]);
-    expect(commands.filter((c) => c.internal).filter(listed)).toEqual([]);
+    expect(commands.filter((c) => !text.includes(`lucent ${c.name}`))).toEqual([]);
   });
 
   it("fits 80 columns", () => {
