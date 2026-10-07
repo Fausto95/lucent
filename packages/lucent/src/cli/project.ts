@@ -3,19 +3,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { frameworkSearchPath, lockedPods, swiftPackages, xcodeApp } from "@lucent-lang/bindgen";
+import { lockedPods } from "@lucent-lang/bindgen";
 import {
   closesPodspec,
-  fileHashes,
   forgetLoadedSdks,
   libraryBuildGradle,
-  lucentPackages,
   type NativeInputs,
   packagePods,
   type Platform,
   type PlistValue,
-  podsSearchPaths,
-  resolveNative,
   type ResolvedNative,
   runtimeDir,
   type SdkOptions,
@@ -49,64 +45,7 @@ export function mapLucentPaths(root: string): Notice | undefined {
   return { level: "ok", text: "mapped lucent:* in tsconfig.json" };
 }
 
-/**
- * Where this project's bindings come from: the SDKs, and what the app
- * links: its pods, Swift packages and Gradle classpath, and the prebuilt
- * frameworks and libraries its Lucent packages ship (`native`, resolved
- * here when not given); and the iOS version it is deployed to.
- */
-export function projectSdk(root: string, native?: NativeInputs): SdkOptions {
-  const binaries = native?.binaries ?? packageBinaries(root);
-  const pods = podsSearchPaths(path.join(root, "ios"));
-
-  // The app's Xcode project: the iOS version it is deployed to, and its Swift packages, built.
-  const app = xcodeApp(path.join(root, "ios"));
-  const project = app
-    ? {
-        ...(app.deploymentTarget ? { deploymentTarget: app.deploymentTarget } : {}),
-        ...(app.packages.length ? { swiftPackages: swiftPackages(app) } : {}),
-      }
-    : {};
-
-  const frameworkPaths = [
-    ...new Set(
-      binaries.ios.map(frameworkSearchPath).filter((dir): dir is string => dir !== undefined),
-    ),
-  ];
-  const ios: NonNullable<SdkOptions["ios"]> | undefined =
-    pods || frameworkPaths.length || app ? { ...pods, ...project } : undefined;
-
-  return {
-    android: {
-      classpath: path.join(root, ".lucent/android-classpath.json"),
-      ...(binaries.android.length ? { libraries: binaries.android } : {}),
-    },
-    ...(ios
-      ? { ios: { ...ios, frameworkPaths: [...(ios.frameworkPaths ?? []), ...frameworkPaths] } }
-      : {}),
-  };
-}
-
-/**
- * The binaries the project's Lucent packages ship, for commands that bind
- * without building (lucent sdk …): none when a lucent.json is invalid,
- * which the build reports.
- */
-function packageBinaries(root: string): NativeInputs["binaries"] {
-  const hashes = projectHashes(root);
-
-  try {
-    const { binaries } = resolveNative(lucentPackages(root), { hashes });
-    hashes.save();
-    return binaries;
-  } catch {
-    return { ios: [], android: [] };
-  }
-}
-
-/** The project's memo of its packages' file hashes, by their stats. */
-export const projectHashes = (root: string) =>
-  fileHashes(path.join(root, ".lucent/file-hashes.json"));
+export { projectHashes, projectSdk } from "@lucent-lang/compiler";
 
 /**
  * An Android import that android.jar does not have is looked up in the app's

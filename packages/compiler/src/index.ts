@@ -70,6 +70,7 @@ export {
 } from "./program.ts";
 export { closesPodspec, libraryBuildGradle, withPodDependencies } from "./native-build-files.ts";
 export { fileHashes, type FileHashes, inNativePackage } from "./package-files.ts";
+export { projectHashes, projectSdk } from "./project-sdk.ts";
 export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-lang/bindgen";
 export {
   jsxToolkits,
@@ -481,7 +482,7 @@ function dedupe(ds: Diagnostic[]): Diagnostic[] {
 export function checkSources(
   files: string[],
   readSource?: ReadSource,
-  options: { extensions?: readonly ExtensionBinding[] } = {},
+  options: { extensions?: readonly ExtensionBinding[]; sdk?: SdkOptions } = {},
 ): Diagnostic[] {
   const r = compile(files, { readSource, ...options });
   return [...r.diagnostics, ...(r.warnings ?? [])];
