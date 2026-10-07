@@ -31,6 +31,7 @@ const RUNS: Record<
   dev: { args: [], plain: false },
   doctor: { args: [] },
   init: { args: ["--yes"], plain: false },
+  uninstall: { args: ["--yes"], plain: false, before: ["init", "--yes"] },
   "new module": { args: ["geo"] },
   "new view": { args: ["Badge"] },
   explain: { args: ["LUCENT1006"] },
