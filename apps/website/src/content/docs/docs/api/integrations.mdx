@@ -79,7 +79,8 @@ A module with no proxy in the native package bundles a `throw` instead: see [Run
 
 The plugin takes no options. During `npx expo prebuild`, for either platform, it:
 
-- runs `lucent build` once, without Gradle: the Gradle task resolves Android's dependencies when the app builds. A failed build stops prebuild with its errors.
+- runs `lucent build` once, without Gradle: the Gradle task resolves Android's dependencies when the app builds. It builds the platforms prebuild writes: `--platform android` builds Android alone, and both platforms build what the machine has SDKs for. When Android waits for the Gradle build and there's no iOS SDK, as on Linux, it checks the shared code and writes the native package. A failed build stops prebuild with its errors.
+- builds nothing during `npx expo config --type introspect`, which shows the `Info.plist` and entitlements the last build resolved.
 - writes `react-native.config.js` with the `lucent` entry. If the file exists without that entry, prebuild stops and names the entry to add.
 - applies the [Gradle tasks](/docs/api/integrations/#gradle-tasks) to `android/app/build.gradle`, after React Native's plugin. It leaves a [Kotlin build script](/docs/api/integrations/#kotlin-build-scripts) alone.
 - adds the `Info.plist` keys and entitlements that Lucent packages list in their `lucent.json`. A key the app sets keeps the app's value, and an array the app sets gains the values it lacks.

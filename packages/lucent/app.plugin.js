@@ -8,6 +8,36 @@ const { spawnSync } = require("node:child_process");
 
 let built = false;
 
+/**
+ * The platforms `expo prebuild` writes: its `--platform` (`-p`) flag, or
+ * both. Every mod sees only its own platform, and the first build must
+ * build them all: a build of one platform removes the other's code.
+ */
+function prebuildPlatforms(argv = process.argv) {
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    const value = a === "--platform" || a === "-p" ? argv[i + 1] : /^--platform=(.*)$/.exec(a)?.[1];
+    if (value === "ios" || value === "android") return [value];
+    if (value === "all") break;
+  }
+  return ["ios", "android"];
+}
+
+/**
+ * `lucent build`'s arguments for prebuilding `platforms`: one platform
+ * alone, or none for both, so the build compiles what this machine can
+ * (Linux has no iOS SDK) and leaves Android to the Gradle build when its
+ * dependencies are not resolved yet.
+ */
+function buildArgs(projectRoot, platforms) {
+  return [
+    "build",
+    "--root",
+    projectRoot,
+    ...(platforms.length === 1 ? ["--platforms", platforms[0]] : []),
+  ];
+}
+
 function buildOnce(projectRoot) {
   if (built) return;
   built = true;
@@ -15,7 +45,7 @@ function buildOnce(projectRoot) {
   // No Gradle during prebuild: android/ is half-written, and a Gradle run would cache it so
   // (autolinking with the template's package). The Gradle task this plugin applies resolves
   // the classpath and builds Android when the app is built.
-  const r = spawnSync(process.execPath, [cli, "build", "--root", projectRoot], {
+  const r = spawnSync(process.execPath, [cli, ...buildArgs(projectRoot, prebuildPlatforms())], {
     stdio: "inherit",
     env: { ...process.env, LUCENT_NO_GRADLE: "1" },
   });
@@ -122,14 +152,16 @@ function withLucent(config) {
     return c;
   });
   // Keys the app sets itself win.
+  // `expo config --type introspect` evaluates these mods to show the config: it reads what the
+  // last build resolved, and builds nothing.
   config = withInfoPlist(config, (c) => {
-    buildOnce(c.modRequest.projectRoot);
+    if (!c.modRequest.introspect) buildOnce(c.modRequest.projectRoot);
     const { ios } = resolvedNative(c.modRequest.projectRoot);
     c.modResults = withPackageEntries(c.modResults, ios.infoPlist || {});
     return c;
   });
   config = withEntitlementsPlist(config, (c) => {
-    buildOnce(c.modRequest.projectRoot);
+    if (!c.modRequest.introspect) buildOnce(c.modRequest.projectRoot);
     const { ios } = resolvedNative(c.modRequest.projectRoot);
     c.modResults = withPackageEntries(c.modResults, ios.entitlements || {});
     return c;
@@ -138,7 +170,7 @@ function withLucent(config) {
     config = withDangerousMod(config, [
       platform,
       async (c) => {
-        buildOnce(c.modRequest.projectRoot);
+        if (!c.modRequest.introspect) buildOnce(c.modRequest.projectRoot);
         return c;
       },
     ]);
@@ -149,5 +181,7 @@ function withLucent(config) {
 module.exports = withLucent;
 module.exports.GRADLE_LINES = GRADLE_LINES;
 module.exports.applyGradleTask = applyGradleTask;
+module.exports.buildArgs = buildArgs;
+module.exports.prebuildPlatforms = prebuildPlatforms;
 module.exports.linkNativePackage = linkNativePackage;
 module.exports.withPackageEntries = withPackageEntries;
