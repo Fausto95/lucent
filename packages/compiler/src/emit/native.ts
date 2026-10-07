@@ -3901,7 +3901,8 @@ function unboxedPrim(t: SdkType & { k: "prim" }, code: cpp.Expr): cpp.Expr {
  */
 export function nativeInstanceOf(em: FnEmitter, node: ts.BinaryExpression): E | undefined {
   const ref = sdkClassNamed(em, node.right);
-  if (!ref || ref.platform !== "android") return undefined;
+  if (!ref) return undefined;
+  if (ref.platform === "ios") return objcInstanceOf(em, node, ref);
 
   const v = em.expr(node.left);
   const inner = stripOpt(v.t);
@@ -3927,6 +3928,34 @@ export function nativeInstanceOf(em: FnEmitter, node: ts.BinaryExpression): E | 
   ];
 
   return { c: cpp.call(cpp.lambda(["&"], [], body, { ret: cpp.type("bool") })), t: T.boolean };
+}
+
+/** `x instanceof Cls` on an Objective-C object: `[x isKindOfClass:[Cls class]]`, false for nil. */
+function objcInstanceOf(em: FnEmitter, node: ts.BinaryExpression, ref: SdkClassRef): E {
+  const name = ref.cls.name;
+  const info = sdkTypeInfo("ios", ref.module, name);
+
+  if (!info || info.swift || info.cf)
+    fail(
+      node,
+      Codes.UnsupportedOperator,
+      `instanceof ${name} tests Objective-C classes only: ${name} has no Objective-C class`,
+    );
+
+  const v = em.expr(node.left);
+  const inner = stripOpt(v.t);
+
+  if (inner.k !== "native" || inner.platform !== "ios")
+    fail(node, Codes.UnsupportedOperator, `instanceof ${name} tests Objective-C objects only`);
+
+  requireAvailable(em, node, ref, ref.cls.since, name);
+  noteIncludes(em, ref);
+
+  const test = cpp.send(cpp.call("lucent::objc::unwrap", [v.c]), "isKindOfClass:", [
+    cpp.send(info.native, "class"),
+  ]);
+
+  return { c: cpp.staticCast(cpp.type("bool"), test), t: T.boolean };
 }
 
 // --- native views in JSX (T48) ---------------------------------------------------------

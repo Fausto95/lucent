@@ -284,6 +284,10 @@ directory:
   it, which is the one called. A member TypeScript cannot relate to what
   it overrides (an `Object` result narrowed to an interface) is left out,
   and coverage lists it with the reason.
+- `x instanceof Cls` tests a platform object's class: `isKindOfClass:` on
+  iOS (false for nil), JNI's `IsInstanceOf` on Android, and narrows `x`
+  to `Cls`. A Swift-only type has no Objective-C class to test, so
+  `instanceof` on one is refused;
 - a Java interface's default method (a Kotlin interface's function with a
   body) is optional, so a Lucent class implementing the interface may leave
   it out; callers assert it present:
