@@ -32,7 +32,19 @@ describe("the Expo config plugin's link to the native package", () => {
 
     plugin.linkNativePackage(root);
 
-    expect(read(root)).toMatch(/"lucent": \{ root: /);
+    expect(read(root)).toContain('"lucent": require("@lucent-lang/lucent/autolink")(__dirname)');
+  });
+
+  it("makes an entry naming the root alone build it first", () => {
+    const root = app(
+      'module.exports = { dependencies: { "lucent": { root: require("path").join(__dirname, ".lucent", "native") } } };\n',
+    );
+
+    plugin.linkNativePackage(root);
+
+    expect(read(root)).toBe(
+      'module.exports = { dependencies: { "lucent": require("@lucent-lang/lucent/autolink")(__dirname) } };\n',
+    );
   });
 
   it("accepts an entry whatever its key's quotes, as formatters leave it", () => {

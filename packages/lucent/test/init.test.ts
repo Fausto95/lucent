@@ -171,7 +171,7 @@ describe("lucent init --yes", () => {
       /^apply from: .*"gradle\/lucent\.gradle"\)$/m,
     );
     expect(fs.readFileSync(path.join(root, "react-native.config.js"), "utf8")).toContain(
-      '"lucent": { root:',
+      '"lucent": require("@lucent-lang/lucent/autolink")(__dirname)',
     );
     expect(fs.readFileSync(path.join(root, ".gitignore"), "utf8")).toContain(".lucent/");
     expect(

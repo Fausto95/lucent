@@ -643,10 +643,21 @@ describe("lucent init", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
     expect(lucent(root, "init", "--yes").status).toBe(0);
     const config = fs.readFileSync(path.join(root, "react-native.config.js"), "utf8");
-    expect(config).toContain(
-      '"lucent": { root: require("path").join(__dirname, ".lucent", "native") }',
-    );
+    // Built first when missing or stale: a fresh clone has no .lucent/.
+    expect(config).toContain('"lucent": require("@lucent-lang/lucent/autolink")(__dirname)');
     expect(config).not.toContain("lucent-native");
+  });
+
+  it("makes an entry naming the root alone build it first", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
+    fs.writeFileSync(
+      path.join(root, "react-native.config.js"),
+      'module.exports = {\n  dependencies: {\n    "lucent": { root: require("path").join(__dirname, ".lucent", "native") },\n  },\n};\n',
+    );
+    expect(lucent(root, "init", "--yes").status).toBe(0);
+    expect(fs.readFileSync(path.join(root, "react-native.config.js"), "utf8")).toBe(
+      'module.exports = {\n  dependencies: {\n    "lucent": require("@lucent-lang/lucent/autolink")(__dirname),\n  },\n};\n',
+    );
   });
 
   it("maps lucent:* in tsconfig.json to the generated declarations", () => {
