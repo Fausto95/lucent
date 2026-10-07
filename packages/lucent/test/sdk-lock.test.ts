@@ -403,3 +403,43 @@ describe.skipIf(!javac || !android)("lucent sdk coverage stages", () => {
     expect(table.out).toMatch(/dev\.orbit\.tracking +\d+ +7 +\d+ \([\d.]+%\) +6 +-/);
   });
 });
+
+describe.skipIf(!javac)("the exported schemas", () => {
+  it("let a machine without the SDK check the platform's code", () => {
+    const a = app();
+    const jar = JSON.parse(
+      fs.readFileSync(path.join(a.root, ".lucent/android-classpath.json"), "utf8"),
+    ).jars[0] as string;
+    // The machine with the SDK: the platform is the library's jar alone.
+    const sdk = { LUCENT_ANDROID_JARS: jar };
+
+    const locked = a.lucent(["sdk", "lock", "--platforms", "android", "--schemas"], sdk);
+    expect(locked.status, locked.out).toBe(0);
+    expect(locked.out).toMatch(/lucent-sdk\.schemas\/ +\d+ schemas?/);
+    const set = path.join(a.root, "lucent-sdk.schemas/android");
+    expect(fs.readdirSync(set)).toContain("dev.orbit.tracking.json");
+    const text = fs.readFileSync(path.join(set, "dev.orbit.tracking.json"), "utf8");
+    expect(text).not.toContain(a.root);
+    expect(text).not.toContain(os.homedir());
+
+    // A teammate without it: no jars, no classpath, another cache.
+    fs.rmSync(path.join(a.root, ".lucent"), { recursive: true, force: true });
+    const without = {
+      LUCENT_ANDROID_JARS: "",
+      ANDROID_HOME: path.join(a.root, "no-sdk"),
+      ANDROID_SDK_ROOT: "",
+      LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-lock-cache-")),
+    };
+    const checked = a.lucent(["check"], without);
+    expect(checked.status, checked.out).toBe(0);
+
+    // The set types the code: a use it does not declare fails as it would with the SDK.
+    fs.writeFileSync(
+      path.join(a.root, "o.android.lucent.ts"),
+      USE.replace("t.flush();", "t.flushAll();"),
+    );
+    const wrong = a.lucent(["check"], without);
+    expect(wrong.status).not.toBe(0);
+    expect(wrong.out).toMatch(/flushAll/);
+  });
+});
