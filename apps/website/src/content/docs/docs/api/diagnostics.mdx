@@ -56,6 +56,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT3010`](#lucent3010) | Two Lucent modules in one app whose files give them the same module name. |
 | [`LUCENT3011`](#lucent3011) | A compute() task touches module state or a computed constant, native code unfit for workers, code the compiler cannot follow, or asynchronous work. |
 | [`LUCENT3012`](#lucent3012) | A compute() task's input or result holds something other than data, such as a function, a promise or a main-thread native object. |
+| [`LUCENT3013`](#lucent3013) | A Lucent package whose `lucent.compatible` range in package.json leaves out the Lucent that compiles it. |
 | [`LUCENT3020`](#lucent3020) | An exported `.lucent.tsx` function that returns a view but cannot be a component, or Lucent code calling a component. |
 | [`LUCENT3021`](#lucent3021) | A component prop, event or ref command whose type views cannot carry, or whose name React or the host keeps. |
 | [`LUCENT3022`](#lucent3022) | A component's setup, or a function it creates, using module state, code the compiler cannot follow, or native code unfit for the main thread. |
@@ -1195,6 +1196,49 @@ function total(values: number[]): number {
 }
 export async function run(values: number[]): Promise<number> {
   return await compute(total, values);
+}
+```
+
+</TabItem>
+</Tabs>
+
+### LUCENT3013
+
+**Package for another Lucent version**
+
+A package states the Lucent versions it was tested with, as an npm range such as `^0.2.0`. Under 0.x a minor version can change what compiles, so Lucent refuses to compile the package's modules with a version outside the range. To try it anyway, set `LUCENT_IGNORE_COMPATIBLE=1`: the problem is then a warning.
+
+**Fix:** update the package or @lucent-lang/lucent so the range includes this Lucent.
+
+<Tabs>
+<TabItem label="✗ package.json">
+
+```json title="package.json (wrong)"
+{ "name": "lucent-clock", "version": "1.0.0", "lucent": { "compatible": "^99.0.0" } }
+```
+
+</TabItem>
+<TabItem label="✗ clock.lucent.ts">
+
+```ts title="clock.lucent.ts (wrong)"
+export function now(): number {
+  return Date.now();
+}
+```
+
+</TabItem>
+<TabItem label="✓ package.json">
+
+```json title="package.json (right)"
+{ "name": "lucent-clock", "version": "1.0.0", "lucent": {} }
+```
+
+</TabItem>
+<TabItem label="✓ clock.lucent.ts">
+
+```ts title="clock.lucent.ts (right)"
+export function now(): number {
+  return Date.now();
 }
 ```
 

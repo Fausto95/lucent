@@ -414,6 +414,21 @@ export const explanations: { code: string; title: string; summary: string; detai
     }
   },
   {
+    "code": "LUCENT3013",
+    "title": "Package for another Lucent version",
+    "summary": "A Lucent package whose `lucent.compatible` range in package.json leaves out the Lucent that compiles it.",
+    "details": "A package states the Lucent versions it was tested with, as an npm range such as `^0.2.0`. Under 0.x a minor version can change what compiles, so Lucent refuses to compile the package's modules with a version outside the range. To try it anyway, set `LUCENT_IGNORE_COMPATIBLE=1`: the problem is then a warning.",
+    "fix": "update the package or @lucent-lang/lucent so the range includes this Lucent",
+    "wrong": {
+      "package.json": "{ \"name\": \"lucent-clock\", \"version\": \"1.0.0\", \"lucent\": { \"compatible\": \"^99.0.0\" } }\n",
+      "clock.lucent.ts": "export function now(): number {\n  return Date.now();\n}\n"
+    },
+    "right": {
+      "package.json": "{ \"name\": \"lucent-clock\", \"version\": \"1.0.0\", \"lucent\": {} }\n",
+      "clock.lucent.ts": "export function now(): number {\n  return Date.now();\n}\n"
+    }
+  },
+  {
     "code": "LUCENT3020",
     "title": "Export that cannot be a component",
     "summary": "An exported `.lucent.tsx` function that returns a view but cannot be a component, or Lucent code calling a component.",

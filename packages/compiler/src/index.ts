@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { type Code, docsUrl, Explanations } from "./codes.ts";
+import { type Code, Codes, docsUrl, Explanations } from "./codes.ts";
 import { CompileError, type Diagnostic, formatDiagnostic, toDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
 import {
@@ -38,7 +38,7 @@ import { extensionDts } from "./extensions/dts.ts";
 import { withExtensions } from "./extensions/registry.ts";
 import { resolveNative } from "./package-config.ts";
 import { fileHashes } from "./package-files.ts";
-import { lucentPackages } from "./packages.ts";
+import { ignoreCompatible, incompatibility, lucentPackageOf, lucentPackages } from "./packages.ts";
 import { recordReads } from "./reads.ts";
 import { recordSdkUses } from "./sdk/usage.ts";
 import { analyzeViews, hasComponentModules } from "./ui/analyze.ts";
@@ -81,6 +81,8 @@ export { viewCoverage, type ViewCoverage } from "./ui/view-coverage.ts";
 export {
   LUCENT_EXTENSION,
   lucentPackages,
+  ignoreCompatible,
+  incompatibility,
   lucentVersion,
   satisfies,
   type LucentPackage,
@@ -213,6 +215,17 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
     ),
   );
 
+  // The Lucent packages of the files whose `compatible` range leaves this Lucent out.
+  const incompatible = packageProblems(files);
+  const ignored = ignoreCompatible();
+  if (incompatible.length && !ignored) {
+    result.ok = false;
+    result.diagnostics.push(...incompatible);
+  } else if (incompatible.length)
+    (result.warnings ??= []).push(
+      ...incompatible.map((d) => ({ ...d, severity: "warning" as const })),
+    );
+
   // Every extension's declarations, for editors and tsc: what an import resolves to.
   const types = new Map(result.types ?? []);
   for (const ext of options.extensions ?? []) types.set(`ext/${ext.name}.d.ts`, extensionDts(ext));
@@ -226,6 +239,28 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
     read,
     realpaths,
   };
+}
+
+/** LUCENT3013 for each Lucent package of `files` this Lucent is outside the range of, at its package.json. */
+function packageProblems(files: readonly string[]): Diagnostic[] {
+  const seen = new Set<string>();
+  const out: Diagnostic[] = [];
+
+  for (const f of files) {
+    const pkg = lucentPackageOf(f);
+    if (!pkg || seen.has(pkg.dir)) continue;
+    seen.add(pkg.dir);
+
+    const why = incompatibility(pkg);
+    if (why)
+      out.push({
+        code: Codes.IncompatiblePackage,
+        message: why,
+        file: path.join(pkg.dir, "package.json"),
+      });
+  }
+
+  return out;
 }
 
 /** A diagnostic with its code's usual fix, unless it names its own, and where the code is explained. */

@@ -39,6 +39,7 @@ export const Codes = {
   ModuleNameClash: "LUCENT3010",
   NotIsolated: "LUCENT3011",
   NotTransferable: "LUCENT3012",
+  IncompatiblePackage: "LUCENT3013",
   ComponentExport: "LUCENT3020",
   ComponentContract: "LUCENT3021",
   ComponentMainThread: "LUCENT3022",
@@ -551,6 +552,23 @@ export const Explanations: Record<Code, Explanation> = {
     right: ex(
       'import { compute } from "lucent:core";\nfunction total(values: number[]): number {\n  return values.reduce((a, b) => a + b, 0);\n}\nexport async function run(values: number[]): Promise<number> {\n  return await compute(total, values);\n}\n',
     ),
+  },
+  LUCENT3013: {
+    title: "Package for another Lucent version",
+    summary:
+      "A Lucent package whose `lucent.compatible` range in package.json leaves out the Lucent that compiles it.",
+    details:
+      "A package states the Lucent versions it was tested with, as an npm range such as `^0.2.0`. Under 0.x a minor version can change what compiles, so Lucent refuses to compile the package's modules with a version outside the range. To try it anyway, set `LUCENT_IGNORE_COMPATIBLE=1`: the problem is then a warning.",
+    fix: "update the package or @lucent-lang/lucent so the range includes this Lucent",
+    wrong: {
+      "package.json":
+        '{ "name": "lucent-clock", "version": "1.0.0", "lucent": { "compatible": "^99.0.0" } }\n',
+      "clock.lucent.ts": "export function now(): number {\n  return Date.now();\n}\n",
+    },
+    right: {
+      "package.json": '{ "name": "lucent-clock", "version": "1.0.0", "lucent": {} }\n',
+      "clock.lucent.ts": "export function now(): number {\n  return Date.now();\n}\n",
+    },
   },
   LUCENT3020: {
     title: "Export that cannot be a component",

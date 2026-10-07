@@ -3,7 +3,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { androidSdkCandidates } from "./sdks.ts";
-import { lucentPackages } from "@lucent-lang/compiler/packages";
+import {
+  ignoreCompatible,
+  incompatibility,
+  lucentPackages,
+} from "@lucent-lang/compiler/packages";
 import { buildChecks } from "./doctor-build.ts";
 import { packageManagerOf } from "./package-manager.ts";
 
@@ -418,19 +422,28 @@ function versions(root: string, probe: Probe): Check {
       `the app has @lucent-lang/lucent ${app}, this lucent is ${probe.cliVersion}`,
       "run the app's own lucent (npx lucent …), or install the same version",
     );
+  let packages: ReturnType<typeof lucentPackages>;
   try {
-    const packages = lucentPackages(root);
-    return ok(
-      "versions",
-      "Lucent versions",
-      `${probe.cliVersion}${packages.length ? `; ${packages.length} Lucent package${packages.length === 1 ? "" : "s"} compatible` : ""}`,
-    );
+    packages = lucentPackages(root);
   } catch (e) {
     return fail(
       "versions",
       "Lucent versions",
       (e as Error).message,
-      "update the Lucent package or @lucent-lang/lucent so their versions match",
+      "fix the package's package.json",
     );
   }
+  const incompatible = packages.flatMap((p) => incompatibility(p) ?? []);
+  if (incompatible.length)
+    return (ignoreCompatible(probe.env) ? warn : fail)(
+      "versions",
+      "Lucent versions",
+      incompatible.join("; "),
+      "update the Lucent package or @lucent-lang/lucent so their versions match (LUCENT_IGNORE_COMPATIBLE=1 builds it anyway)",
+    );
+  return ok(
+    "versions",
+    "Lucent versions",
+    `${probe.cliVersion}${packages.length ? `; ${packages.length} Lucent package${packages.length === 1 ? "" : "s"} compatible` : ""}`,
+  );
 }
