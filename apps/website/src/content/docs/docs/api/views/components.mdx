@@ -272,7 +272,7 @@ export function Card(props: CardProps): FrameLayout {
 These rules hold, and breaking one fails with [LUCENT3021](/docs/api/diagnostics/#lucent3021):
 
 - The slot is the platform's container class: `slot<UIView>()` on iOS, `slot<ViewGroup>()` on Android.
-- Setup calls `slot()` once per platform, in a `const` at its top level or at the top level of a `PLATFORM` branch: an `if` that tests the platform alone, or a case of `switch (PLATFORM)`. A slot under a test with another condition, such as `PLATFORM === "ios" && ready`, fails.
+- Setup calls `slot()` once per platform, in a `const` at its top level or at the top level of a `PLATFORM` branch. That branch is an `if` that tests the platform alone, or a case of `switch (PLATFORM)`. A slot under a test with another condition, such as `PLATFORM === "ios" && ready`, fails.
 - Children without a slot, a slot without children, and setup reading `props.children` fail.
 
 React Native creates, lays out and removes the children: don't add or remove the slot's subviews in setup. Nothing checks this.
