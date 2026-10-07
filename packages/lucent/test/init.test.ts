@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { addExpoPlugin, applyGradleTask, GRADLE_LINES, wrapMetro } from "../src/cli/init/patch.ts";
 import { planInit } from "../src/cli/init/plan.ts";
-import { withLucentTsconfig } from "../src/cli/tsconfig.ts";
+import { withLucentTsconfig, withVscodeSettings } from "../src/cli/tsconfig.ts";
 import { runLucent } from "./run-to-exit.ts";
 
 function lucent(root: string, ...args: string[]) {
@@ -137,9 +137,33 @@ describe("init patches", () => {
         strict: true,
         noUncheckedIndexedAccess: true,
         paths: { "lucent:*": ["./.lucent/native/types/*"] },
+        plugins: [{ name: "@lucent-lang/lucent/ts-plugin" }],
       },
     });
     expect(withLucentTsconfig(next!)).toBeUndefined();
+  });
+
+  it("adds the editor plugin after the app's own plugins", () => {
+    const next = withLucentTsconfig(
+      '{ "compilerOptions": { "noUncheckedIndexedAccess": true, "paths": { "lucent:*": ["./.lucent/native/types/*"] }, "plugins": [{ "name": "other" }] } }\n',
+    );
+    expect(JSON.parse(next!).compilerOptions.plugins).toEqual([
+      { name: "other" },
+      { name: "@lucent-lang/lucent/ts-plugin" },
+    ]);
+  });
+
+  it("has VS Code use the workspace's TypeScript, keeping a tsdk the app set", () => {
+    expect(JSON.parse(withVscodeSettings(undefined)!)).toEqual({
+      "typescript.tsdk": "node_modules/typescript/lib",
+      "typescript.enablePromptUseWorkspaceTsdk": true,
+    });
+    const own = '{\n  // mine\n  "typescript.tsdk": "tools/ts/lib"\n}\n';
+    const next = withVscodeSettings(own)!;
+    expect(next).toContain("// mine");
+    expect(next).toContain('"typescript.tsdk": "tools/ts/lib"');
+    expect(next).toContain('"typescript.enablePromptUseWorkspaceTsdk": true');
+    expect(withVscodeSettings(next)).toBeUndefined();
   });
 });
 
@@ -177,6 +201,12 @@ describe("lucent init --yes", () => {
     expect(
       JSON.parse(fs.readFileSync(path.join(root, "tsconfig.json"), "utf8")).compilerOptions.paths,
     ).toEqual({ "lucent:*": ["./.lucent/native/types/*"] });
+    expect(
+      JSON.parse(fs.readFileSync(path.join(root, "tsconfig.json"), "utf8")).compilerOptions.plugins,
+    ).toEqual([{ name: "@lucent-lang/lucent/ts-plugin" }]);
+    expect(
+      JSON.parse(fs.readFileSync(path.join(root, ".vscode/settings.json"), "utf8")),
+    ).toMatchObject({ "typescript.tsdk": "node_modules/typescript/lib" });
     expect(fs.readFileSync(path.join(root, "src/hello.lucent.ts"), "utf8")).toContain(
       "export function hello(",
     );

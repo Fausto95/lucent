@@ -107,10 +107,14 @@ describe("lucent build", () => {
       path.join(root, "tsconfig.json"),
       '{ "compilerOptions": { "strict": true } }\n',
     );
-    expect(lucent(root, "build").status).toBe(0);
+    const r = lucent(root, "build");
+    expect(r.status).toBe(0);
     expect(fs.readFileSync(path.join(root, "tsconfig.json"), "utf8")).toContain(
       '"lucent:*": ["./.lucent/native/types/*"]',
     );
+    // The app's own file: the build says what it changed, once.
+    expect(r.out).toMatch(/edited tsconfig\.json: added "lucent:\*".*compilerOptions\.paths/);
+    expect(lucent(root, "build", "--force").out).not.toMatch(/edited tsconfig/);
   });
 
   it("rebuilds when the output was deleted", () => {
