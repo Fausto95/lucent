@@ -573,6 +573,23 @@ export async function run(): Promise<string> {
     expect(mm).toContain("isKindOfClass:[NSHTTPURLResponse class]");
   });
 
+  it("passes Foundation objects to Swift as the value types they bridge to", () => {
+    const { r } =
+      ios(`import { NSMutableURLRequest, NSURL, URLSession } from "lucent:ios/Foundation";
+export async function run(): Promise<string> {
+  const [a] = await URLSession.shared.data(new NSURL("https://example.com"));
+  const [b] = await URLSession.shared.data(new NSMutableURLRequest(new NSURL("https://example.com")));
+  return \`\${a.length} \${b.length}\`;
+}
+`);
+    const shims = r.files.get("ios/LucentShims.swift") ?? "";
+
+    expect(r.diagnostics).toEqual([]);
+    expect(shims).toContain("as! Foundation.URL\n");
+    expect(shims).toContain("as! Foundation.URLRequest\n");
+    expect(shims).not.toMatch(/as! Foundation\.NSURL(Request)?\n/);
+  });
+
   it("refuses instanceof on a Swift-only class, which has no Objective-C class to test", () => {
     const { r } = ios(`import { NSObject } from "lucent:ios";
 import { Insecure_MD5Digest } from "lucent:ios/CryptoKit";
