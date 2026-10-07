@@ -109,6 +109,23 @@ describe("lucent doctor", () => {
     expect(c.fix).toMatch(/Android Studio.*ANDROID_HOME/);
   });
 
+  it("finds the Android SDK where Android Studio installs it on Windows", () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-home-"));
+    const local = path.join(home, "AppData", "Local");
+    fs.mkdirSync(path.join(local, "Android/Sdk/platforms/android-36"), { recursive: true });
+    const probe = { ...machine(home, ["android-sdk"]), platform: "win32" as const };
+
+    const found = find(diagnose(app(), { ...probe, env: { LOCALAPPDATA: local } }), "android-sdk");
+    expect(found.detail).toMatch(/android-36/);
+    // Found, though ANDROID_HOME isn't set: Gradle needs it, set the Windows way.
+    expect(found).toMatchObject({ status: "warn" });
+    expect(found.fix).toMatch(/^setx ANDROID_HOME /);
+
+    const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-home-"));
+    const missing = find(diagnose(app(), { ...probe, home: elsewhere, env: {} }), "android-sdk");
+    expect(missing.fix).toMatch(/%LOCALAPPDATA%\\Android\\Sdk/);
+  });
+
   it("finds a missing CocoaPods", () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-home-"));
     const c = find(diagnose(app(), machine(home, ["pod"])), "cocoapods");
