@@ -69,6 +69,7 @@ export function lowerToCpp(
     return toCpp(fn, backend, {
       signature: (id) => signatures.get(id),
       effects: (id) => effects.get(id),
+      ...(host.isError ? { isError: (t: LType) => host.isError!(t) } : {}),
     });
   } catch (e) {
     throw asDiagnostic(e, at);

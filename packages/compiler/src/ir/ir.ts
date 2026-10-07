@@ -671,11 +671,7 @@ export function completes(fn: Pick<IrFunction, "regions">, id: RegionId): boolea
 
 /** Whether running `ops`, operations of `fn`, can reach their end (see `completes`). */
 export function runsThrough(fn: Pick<IrFunction, "regions">, ops: readonly IrOp[]): boolean {
-  const broken = new Set<TargetId>();
-
-  for (const r of fn.regions)
-    for (const op of r.ops) if (op.kind === "break") broken.add(op.target);
-
+  const broken = brokenTargets(fn);
   const run = (region: RegionId): boolean => through(fn.regions[region]?.ops ?? []);
   const through = (ops: readonly IrOp[]): boolean => {
     for (const op of ops) {
@@ -703,6 +699,25 @@ export function runsThrough(fn: Pick<IrFunction, "regions">, ops: readonly IrOp[
   };
 
   return through(ops);
+}
+
+/** The targets some `break` leaves, of each function's regions (computed once per regions array). */
+const BROKEN = new WeakMap<readonly IrRegion[], { ops: number; targets: Set<TargetId> }>();
+
+function brokenTargets(fn: Pick<IrFunction, "regions">): Set<TargetId> {
+  // A builder's regions grow while it lowers: what was computed holds while no op was added.
+  const ops = fn.regions.reduce((n, r) => n + r.ops.length, 0);
+  const known = BROKEN.get(fn.regions);
+
+  if (known && known.ops === ops) return known.targets;
+
+  const targets = new Set<TargetId>();
+
+  for (const r of fn.regions)
+    for (const op of r.ops) if (op.kind === "break") targets.add(op.target);
+
+  BROKEN.set(fn.regions, { ops, targets });
+  return targets;
 }
 
 const TERMINATORS = new Set<IrOp["kind"]>([

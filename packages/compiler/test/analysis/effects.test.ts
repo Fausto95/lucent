@@ -602,4 +602,3 @@ export function present(xs: number[]): number {
       expect(throws(name), name).toBe("no");
   });
 });
-
