@@ -969,8 +969,7 @@ class Lowerer {
 
   /**
    * A loop over `node`'s body, leaving when `condition` (tested first, or
-   * last) is false. Each iteration gets its own copy of the `perIteration`
-   * variables (a `for`'s `let` variables closures share), as in JavaScript.
+   * last) is false; `step` runs after each iteration, and on `continue`.
    */
   loop(
     node: ts.IterationStatement,
@@ -979,20 +978,15 @@ class Lowerer {
       condition?: ts.Expression;
       testFirst: boolean;
       step?: () => void;
-      perIteration?: readonly ts.Symbol[];
     },
   ): void {
-    const { condition, testFirst, step, perIteration = [] } = parts;
+    const { condition, testFirst, step } = parts;
     const body = (loop: TargetId) =>
       this.within({ target: loop, kind: "loop", labels }, () => {
         if (condition && testFirst) this.exitUnless(condition, loop);
 
         this.safepoint(node);
-
-        const restore = perIteration.map((sym) => this.iterationCopy(sym, node));
-
         this.nested(node.statement);
-        restore.forEach((r) => r());
       });
     const next =
       step ??
@@ -1001,36 +995,20 @@ class Lowerer {
     this.b.loop(spanOf(node), body, next);
   }
 
-  /** The variables of a `for`'s declarations that closures share and its body does not assign. */
-  iterationVariables(list: ts.VariableDeclarationList, body: ts.Statement): ts.Symbol[] {
+  /**
+   * The boxed variables of a `for`'s declarations: those closures share,
+   * which each iteration gets a copy of (a box of its own) before the
+   * incrementor runs, as JavaScript's CreatePerIterationEnvironment does.
+   */
+  iterationPlaces(list: ts.VariableDeclarationList): PlaceId[] {
     return list.declarations.flatMap((d) => {
       const sym = ts.isIdentifier(d.name)
         ? this.host.checker.getSymbolAtLocation(d.name)
         : undefined;
       const place = sym && this.locals.get(sym);
 
-      return sym &&
-        place !== undefined &&
-        this.boxed.has(place) &&
-        !assignedIn(this.host.checker, body, sym)
-        ? [sym]
-        : [];
+      return place !== undefined && this.boxed.has(place) ? [place] : [];
     });
-  }
-
-  /** A copy of the boxed loop variable `sym` for one iteration; the function restores the variable. */
-  iterationCopy(sym: ts.Symbol, node: ts.Node): () => void {
-    const place = this.locals.get(sym)!;
-    const type = this.localTypes.get(place)!;
-    const span = spanOf(node);
-    const copy = this.b.local(`${sym.name}_it`, type, span, true);
-
-    this.b.store(copy, this.b.load(place, span), span);
-    this.boxed.add(copy);
-    this.locals.set(sym, copy);
-    this.localTypes.set(copy, type);
-
-    return () => this.locals.set(sym, place);
   }
 
   /** In a compute task's variant, where each loop iteration starts: a check for cancellation. */
@@ -2424,6 +2402,14 @@ function assignedIn(checker: ts.TypeChecker, body: ts.Node, sym: ts.Symbol): boo
   return visit(body);
 }
 
+/** Whether `node` makes a function value: an arrow or a function expression in it. */
+function makesClosures(node: ts.Node): boolean {
+  const visit = (n: ts.Node): boolean =>
+    ts.isArrowFunction(n) || ts.isFunctionExpression(n) || (ts.forEachChild(n, visit) ?? false);
+
+  return visit(node);
+}
+
 function skipParentheses(e: ts.Expression): ts.Expression {
   return ts.isParenthesizedExpression(e) ? skipParentheses(e.expression) : e;
 }
@@ -2482,20 +2468,36 @@ const LABELED: Partial<Record<ts.SyntaxKind, LabeledLowering>> = {
   [ts.SyntaxKind.ForStatement]: (s: ts.ForStatement, labels, lw: Lowerer) => {
     const init = s.initializer;
     const incrementor = s.incrementor;
-    const run = (perIteration: readonly ts.Symbol[] = []) =>
+    const span = spanOf(s);
+    const run = (renewed: readonly PlaceId[] = []) => {
+      const step =
+        incrementor || renewed.length
+          ? () => {
+              for (const place of renewed) lw.b.renew(place, span);
+
+              if (incrementor) lw.expr(incrementor);
+            }
+          : undefined;
+
       lw.loop(s, labels, {
         ...(s.condition ? { condition: s.condition } : {}),
         testFirst: true,
-        ...(incrementor ? { step: () => void lw.expr(incrementor) } : {}),
-        perIteration,
+        ...(step ? { step } : {}),
       });
+    };
 
     if (init && ts.isVariableDeclarationList(init)) {
-      // The loop's variables are scoped to it; those closures share, and the body does not
-      // assign, are copied for each iteration.
-      lw.b.block(spanOf(s), () => {
+      // The loop's variables are scoped to it. Those closures share get a box of their own for
+      // each iteration: the first after the initializer (whose closures keep its box), the next
+      // before the incrementor, which steps the new copy.
+      lw.b.block(span, () => {
         lw.declarations(init);
-        run(lw.iterationVariables(init, s.statement));
+
+        const renewed = lw.iterationPlaces(init);
+
+        if (makesClosures(init)) for (const place of renewed) lw.b.renew(place, span);
+
+        run(renewed);
       });
       return;
     }

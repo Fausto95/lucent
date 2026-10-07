@@ -655,6 +655,14 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
     c.expectType(op.value, place?.type, where);
   },
 
+  renew: (op, c, where) => {
+    const place = c.place(op.place, where);
+
+    if (place && !place.boxed) c.problemAt(where, `renews p${op.place}, which is not boxed`);
+    else if (place && !sameType(place.type, op.type))
+      c.problemAt(where, `renews p${op.place} as ${typeKey(op.type)}, not ${typeKey(place.type)}`);
+  },
+
   call: (op, c, where) => c.call(op, where),
 
   return: (op, c, where) => c.ret(op, where),

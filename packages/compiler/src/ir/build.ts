@@ -252,6 +252,15 @@ export class IrBuilder {
     this.push({ kind: "store", place, value, source });
   }
 
+  /** A box of its own for the boxed local `place`, holding its value (see the `renew` operation). */
+  renew(place: PlaceId, source: SourceSpan): void {
+    const type = this.placeTypes[place];
+
+    if (!type) throw new Error(`IR place p${place} does not exist`);
+
+    this.push({ kind: "renew", place, type, source });
+  }
+
   /** A call; `result` is the type it gives, absent when it gives nothing. */
   call(
     callee: Callee,
@@ -577,6 +586,7 @@ const PURE = new Set<IrOp["kind"]>([
   "local",
   "load",
   "store",
+  "renew",
   "return",
   "if",
   "loop",

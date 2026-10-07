@@ -176,6 +176,12 @@ export type IrOp =
     }
   | { kind: "load"; result: ValueId; place: PlaceId; source: SourceSpan }
   | { kind: "store"; place: PlaceId; value: ValueId; source: SourceSpan }
+  /**
+   * Gives the boxed local `place` a box of its own, holding the value its
+   * box holds: closures made before keep the old box (a `for (let …)`'s
+   * environment of one iteration, CreatePerIterationEnvironment).
+   */
+  | { kind: "renew"; place: PlaceId; type: LType; source: SourceSpan }
   | {
       kind: "call";
       result?: ValueId;
@@ -640,7 +646,9 @@ export function targetOf(op: IrOp): TargetId | undefined {
 
 /** The place an operation declares, reads or writes. */
 export function placeOf(op: IrOp): PlaceId | undefined {
-  return op.kind === "local" || op.kind === "load" || op.kind === "store" ? op.place : undefined;
+  return op.kind === "local" || op.kind === "load" || op.kind === "store" || op.kind === "renew"
+    ? op.place
+    : undefined;
 }
 
 /**

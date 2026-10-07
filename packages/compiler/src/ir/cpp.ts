@@ -890,6 +890,13 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
     e.emit(op, cpp.varDecl(type, name, undefined, { style: "brace" }));
   },
 
+  // The variable's own box is replaced; closures holding the old one keep it.
+  renew: (op, e) => {
+    const type = boxOf(e.backend.cppType(op.type), true);
+
+    e.emit(op, cpp.exprStmt(cpp.assign(e.box(op.place), cpp.construct(type, [e.place(op.place)]))));
+  },
+
   load: (op, e) => {
     const int = e.placeInt(op.place);
 
