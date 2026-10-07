@@ -248,6 +248,31 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     ]);
   });
 
+  it("makes static methods of factory initializers a constructor of the same types hides", () => {
+    expect(cls("WDGHandle").constructors).toEqual([
+      expect.objectContaining({ selector: "handleForReadingAtPath:", factory: true }),
+      { params: [], selector: "init" },
+    ]);
+    expect(cls("WDGHandle").methods?.find((m) => m.name === "forUpdatingAtPath")).toMatchObject({
+      static: true,
+      selector: "handleForUpdatingAtPath:",
+      params: [{ name: "path", type: T("string") }],
+      returns: T("Widgets.WDGHandle?"),
+    });
+  });
+
+  it("names overloads Swift names alike by their selectors", () => {
+    expect(
+      cls("WDGHandle")
+        .methods?.filter((m) => !m.static)
+        .map((m) => [m.name, m.selector]),
+    ).toEqual([
+      ["set", "setInt32:forKey:"],
+      ["setDoubleForKey", "setDouble:forKey:"],
+      ["setFloatForKey", "setFloat:forKey:"],
+    ]);
+  });
+
   it("types parameters and results: nullability, collections, data, dates, id", () => {
     expect(method("touch")[0]).toMatchObject({
       selector: "touch:other:",
