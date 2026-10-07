@@ -399,7 +399,11 @@ function run(cmd: string, args: string[]): string | undefined {
 function filesUnder(dir: string, pattern: RegExp): string[] {
   const out: string[] = [];
   if (!fs.existsSync(dir)) return out;
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+  // In a fixed order, whatever the file system's: the header index keeps the first module found.
+  const entries = fs
+    .readdirSync(dir, { withFileTypes: true })
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  for (const e of entries) {
     const full = path.join(dir, e.name);
     if (e.isDirectory()) out.push(...filesUnder(full, pattern));
     else if (pattern.test(e.name)) out.push(full);
@@ -470,9 +474,12 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
   const umbrellas = new Map<string, string>();
   const frameworkDirs = new Map<string, string>();
   const sources = new Map<string, IosModuleSource>();
+  // Sorted: which module a type shared by two headers' scans is indexed under must not depend
+  // on the order the file system lists them in.
   const sdkFrameworks = (fs.existsSync(frameworks) ? fs.readdirSync(frameworks) : [])
     .filter((f) => f.endsWith(".framework"))
-    .map((f) => f.slice(0, -".framework".length));
+    .map((f) => f.slice(0, -".framework".length))
+    .sort();
   for (const f of sdkFrameworks) modules.set(f, undefined);
 
   const readMap = (map: string) => {
@@ -810,8 +817,14 @@ function extractIosModule(r: Resolved, module: string): Extracted {
   publishEntry(path.join(r.scope, module), "names", { inputs: inputsOf(r, [module]), names: own });
   // Types of other modules keep their Swift names: those modules' graphs supply them.
   const owners = headerIndex(r);
+  // The modules whose graphs this build has read say what they declare; the headers' scan the rest.
+  const declaredBy: Record<string, string> = {};
+  for (const n of namesRead.get(r)?.values() ?? [])
+    for (const usr of Object.keys(n.refs)) declaredBy[usr] ??= n.module;
   const referenced = new Set(
-    [...externalUsrs(g)].map((u) => ownerOf(u, owners)).filter((m): m is string => !!m),
+    [...externalUsrs(g)]
+      .map((u) => ownerOf(u, owners, declaredBy))
+      .filter((m): m is string => !!m),
   );
   referenced.delete(module);
   const deps = [...referenced].filter((m) => modules.has(m));

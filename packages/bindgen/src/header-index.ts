@@ -14,9 +14,10 @@ export function scanHeaders(
   for (const h of headers) {
     const text = fs.readFileSync(h, "utf8");
     const patterns = [
-      /@interface\s+(\w+)/g,
+      // A class's own interface, not a category of it (`@interface NSString (UIKit)`).
+      /@interface\s+(\w+)\b(?!\s*\()/g,
       /@protocol\s+(\w+)\s*[<\n]/g,
-      /NS_(?:ENUM|OPTIONS|CLOSED_ENUM|ERROR_ENUM)\s*\(\s*[\w\s]+,\s*(\w+)\s*\)/g,
+      /\b(?:NS|CF)_(?:ENUM|OPTIONS|CLOSED_ENUM|ERROR_ENUM)\s*\(\s*[\w\s]+,\s*(\w+)\s*\)/g,
       // Tagged definitions (`struct NS_SWIFT_SENDABLE _NSRange {`), whose tag is the USR's name.
       /\b(?:struct|union|enum)\s+(?:[A-Z][A-Z0-9_]*(?:\([^)]*\))?\s+)*(\w+)\s*\{/g,
     ];
@@ -66,8 +67,17 @@ function typedefNames(header: string): string[] {
   return out;
 }
 
-/** The module a USR's declaration comes from: a Swift USR names it, a clang one is looked up. */
-export function ownerOf(usr: string, headers: Record<string, string>): string | undefined {
+/**
+ * The module a USR's declaration comes from: a Swift USR names it; a
+ * clang one is the module whose symbol graph declares it, where one read
+ * says (`graphs`), else looked up in the headers' index.
+ */
+export function ownerOf(
+  usr: string,
+  headers: Record<string, string>,
+  graphs: Readonly<Record<string, string>> = {},
+): string | undefined {
+  if (Object.hasOwn(graphs, usr)) return graphs[usr];
   const swift = /^s:(\d+)/.exec(usr);
   if (swift) return usr.slice(swift[0].length, swift[0].length + Number(swift[1]));
   const name = /^c:(?:objc\((?:cs|pl)\)|.*@(?:[ETS]|EA|SA)@)(\w+)$/.exec(usr)?.[1];
