@@ -459,8 +459,55 @@ export function parseType(frags: Fragment[], r: Resolver): SchemaType {
   return t;
 }
 
+/**
+ * Fragments without their attributes and the attributes' arguments
+ * (`@backDeployed(before: iOS 18.0)`, `@available(iOS, deprecated: 17)`),
+ * whose colons are not a declaration's.
+ */
+export function withoutAttributes(frags: Fragment[]): Fragment[] {
+  const out: Fragment[] = [];
+  // Parentheses still open in an attribute's arguments: -1 right after an attribute, before them.
+  let depth = 0;
+  let afterAttribute = false;
+  for (const f of frags) {
+    if (f.kind === "attribute") {
+      afterAttribute = true;
+      depth = 0;
+      continue;
+    }
+    if (!afterAttribute || f.kind !== "text") {
+      afterAttribute = false;
+      out.push(f);
+      continue;
+    }
+    let i = 0;
+    const text = f.spelling;
+    if (depth === 0) {
+      while (i < text.length && /\s/.test(text[i]!)) i++;
+      if (text[i] !== "(") {
+        afterAttribute = false;
+        out.push(i ? { ...f, spelling: text.slice(i) } : f);
+        continue;
+      }
+    }
+    for (; i < text.length; i++) {
+      if (text[i] === "(") depth++;
+      else if (text[i] === ")" && --depth === 0) {
+        i++;
+        break;
+      }
+    }
+    if (depth > 0) continue; // the arguments go on in the next fragment
+    afterAttribute = false;
+    const rest = text.slice(i);
+    if (rest.trim()) out.push({ ...f, spelling: rest });
+  }
+  return out;
+}
+
 /** The type part of `name: Type` fragments (the colon can share a fragment with `[`). */
-export function afterColon(frags: Fragment[]): Fragment[] {
+export function afterColon(fragments: Fragment[]): Fragment[] {
+  const frags = withoutAttributes(fragments);
   const i = frags.findIndex((f) => f.kind === "text" && f.spelling.includes(":"));
   if (i < 0) return frags;
   const rest = frags[i]!.spelling.slice(frags[i]!.spelling.indexOf(":") + 1);
