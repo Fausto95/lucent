@@ -168,3 +168,11 @@ export function labelled(): string {
   const l = new Labelled("x");
   return `${l.label} ${l.next} ${l.total}`;
 }
+
+/** A constructor whose parameter types no other export uses. */
+export class Sized {
+  readonly text: string;
+  constructor(size: number | "auto", unit?: { name: string }) {
+    this.text = `${size}${unit?.name ?? ""}`;
+  }
+}

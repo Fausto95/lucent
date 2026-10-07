@@ -113,8 +113,8 @@ describe("summaries name constructs that report their code", () => {
     ],
     [
       "LUCENT2002",
-      "a rest parameter",
-      "function sum(...xs: number[]): number {\n  let s = 0;\n  for (const x of xs) s += x;\n  return s;\n}\nexport function f(): number {\n  return sum(1, 2, 3);\n}\n",
+      "a rest parameter in a function type",
+      "export function f(sum: (...xs: number[]) => number): number {\n  return sum(1, 2, 3);\n}\n",
     ],
     [
       "LUCENT2002",
@@ -155,8 +155,8 @@ describe("fixes fit the construct reported", () => {
     ],
     [
       "LUCENT2002",
-      "a rest parameter",
-      "function sum(...xs: number[]): number {\n  return xs.length;\n}\nexport function f(): number {\n  return sum(1, 2);\n}\n",
+      "a rest parameter in a function type",
+      "export function f(sum: (...xs: number[]) => number): number {\n  return sum(1, 2);\n}\n",
       "array",
     ],
     [

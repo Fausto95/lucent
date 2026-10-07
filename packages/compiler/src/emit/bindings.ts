@@ -238,6 +238,10 @@ export class BindingsEmitter {
           this.use({ k: "class", id: c.id, args: [] }, c.decl);
           this.classFlow(c.id);
           if (c.typeParams.length) return;
+          for (const p of constructorOf(this.ctx, { k: "class", id: c.id, args: [] })) {
+            this.use(p.cppType, c.decl);
+            this.flow(p.cppType, false, c.decl);
+          }
           for (const s of staticMembers(this.ctx, c)) {
             for (const t of s.types) this.use(t, s.node);
             this.memberFlow(s);
@@ -684,7 +688,7 @@ export class BindingsEmitter {
       const n = `a${i}`;
       names.push(n);
       if (p.rest) {
-        const elem = this.reg.cppType((p.cppType as LType & { k: "array" }).e);
+        const elem = (p.cppType as LType & { k: "array" }).e;
         const at = cpp.id("i");
         const which = cpp.binary(
           cpp.str("argument "),
@@ -699,7 +703,7 @@ export class BindingsEmitter {
           body: [
             cpp.exprStmt(
               cpp.call(cpp.dot(cpp.id(n), "push"), [
-                fromJs(elem, cpp.index(cpp.id("args"), at), path(fname, which)),
+                this.convertFromJs(elem, cpp.index(cpp.id("args"), at), path(fname, which)),
               ]),
             ),
           ],
@@ -905,6 +909,9 @@ export class BindingsEmitter {
           break;
         case "bytes":
           test(instance("Uint8Array"));
+          break;
+        case "arrayBuffer":
+          test(cpp.and(isObject, cpp.call(cpp.dot(object, "isArrayBuffer"), [rt])));
           break;
         case "map":
           test(instance("Map"));

@@ -47,6 +47,7 @@ export type LType =
   | { k: "fn"; params: LType[]; ret: LType }
   | { k: "promise"; inner: LType }
   | { k: "bytes" }
+  | { k: "arrayBuffer" }
   | { k: "error" }
   | { k: "date" }
   | { k: "regexp" }
@@ -89,6 +90,7 @@ export const T = {
   never: { k: "never" } as LType,
   error: { k: "error" } as LType,
   bytes: { k: "bytes" } as LType,
+  arrayBuffer: { k: "arrayBuffer" } as LType,
   date: { k: "date" } as LType,
   regexp: { k: "regexp" } as LType,
   regexMatch: { k: "regexMatch" } as LType,
@@ -848,6 +850,8 @@ export class TypeRegistry {
     ) {
       return { k: "iterResult", e: this.lower(type.aliasTypeArguments[0], node) };
     }
+    // A Uint8Array's `buffer`: Lucent has no SharedArrayBuffer, so it is an ArrayBuffer.
+    if (type.aliasSymbol?.name === "ArrayBufferLike" && this.libName(type)) return T.arrayBuffer;
     if (type.isUnion()) {
       return unionOf(type.types.map((t) => this.lower(t, node)));
     }
@@ -987,6 +991,8 @@ export class TypeRegistry {
           return { k: "promise", inner: this.lower(args[0]!, node) };
         case "Uint8Array":
           return T.bytes;
+        case "ArrayBuffer":
+          return T.arrayBuffer;
         case "Date":
           return T.date;
         case "RegExp":
@@ -1083,7 +1089,9 @@ export class TypeRegistry {
       let t = this.lower(c.getTypeOfSymbolAtLocation(p, decl ?? node), decl ?? node);
       if (decl && ts.isParameter(decl) && (decl.questionToken || decl.initializer) && t.k !== "opt")
         t = { k: "opt", inner: t, absent: "undefined" };
-      if (decl && ts.isParameter(decl) && decl.dotDotDotToken)
+      // A declared function, method or constructor gathers its rest into an
+      // array at each call; a function type has no call to gather it.
+      if (decl && ts.isParameter(decl) && decl.dotDotDotToken && !gathersRest(decl.parent))
         fail(
           decl,
           Codes.UnsupportedType,
@@ -1278,6 +1286,8 @@ export class TypeRegistry {
         return lucent("Promise", this.cppRetType(t.inner));
       case "bytes":
         return lucent("Bytes");
+      case "arrayBuffer":
+        return lucent("ArrayBuffer");
       case "error":
         return lucent("Error");
       case "date":
@@ -1351,6 +1361,16 @@ export class TypeRegistry {
   cppClass(t: LType & { k: "class" }): string {
     return cpp.printType(this.cppClassType(t));
   }
+}
+
+/** Whether `fn` is a declaration whose calls gather a rest parameter (function values cannot). */
+export function gathersRest(fn: ts.Node): boolean {
+  return (
+    (ts.isFunctionDeclaration(fn) ||
+      ts.isMethodDeclaration(fn) ||
+      ts.isConstructorDeclaration(fn)) &&
+    fn.body !== undefined
+  );
 }
 
 /** The platform of a toolkit's module (`lucent:compose`: Android), if it is one. */

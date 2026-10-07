@@ -36,6 +36,7 @@ import {
   transferProblem,
   type Violation,
 } from "./ownership.ts";
+import { type MainState, mainStateOf } from "./main-state.ts";
 import { type Escape, solve, type Solved } from "./solve.ts";
 import { type AnalysedModule, findUnits, type Unit } from "./units.ts";
 
@@ -43,6 +44,7 @@ export type { Cause, Step, Summary } from "./facts.ts";
 export { describe, stepsOf } from "./facts.ts";
 export type { NativeCallback, NativeClass, NativeFactsSource, NativeUse } from "./native.ts";
 export type { Capture, Context, Rule, TransferProblem, Violation } from "./ownership.ts";
+export type { MainState } from "./main-state.ts";
 export type { EscapeKind } from "./local.ts";
 export type { AnalysedModule, ModuleVar, Unit, UnitKind } from "./units.ts";
 export { literalConstant } from "./units.ts";
@@ -60,6 +62,8 @@ export interface AnalysisInput {
    * keeps a view's commands. None: every call runs its callee.
    */
   readonly posts?: (call: ts.CallExpression) => boolean;
+  /** Functions that run on the main thread, whatever exports them: component setups. */
+  readonly mainRoots?: readonly ts.Node[];
 }
 
 /** How a value escapes: the kind, and the path that lets it go. */
@@ -84,6 +88,8 @@ export interface ProgramFacts {
   owners(unit: Unit): ReadonlyMap<OwnerId, Cause>;
   /** Why a unit (and all it runs) cannot run on `context`; empty when it can. */
   check(unit: Unit, context: Context): Violation[];
+  /** The module state only main-thread code uses, which views may use too (main-state.ts). */
+  mainState(): MainState;
   /** The variables a closure captures. */
   captures(unit: Unit): Capture[];
   /** Why what a closure captures cannot go with it to `context`. */
@@ -132,6 +138,8 @@ class Facts implements ProgramFacts {
   private readonly native: NativeFactsSource;
   private readonly ids: ReadonlyMap<string, Unit>;
   private owned?: Map<Unit, Map<OwnerId, Cause>>;
+  private main?: MainState;
+  private readonly mainRoots: ReadonlySet<ts.Node>;
 
   constructor(input: AnalysisInput) {
     const checker = input.checker;
@@ -148,6 +156,7 @@ class Facts implements ProgramFacts {
 
     this.checker = checker;
     this.native = p.native;
+    this.mainRoots = new Set(input.mainRoots);
     this.units = units.list;
     this.ids = new Map(units.list.map((u) => [u.id, u]));
     this.solved = solve(p);
@@ -173,12 +182,19 @@ class Facts implements ProgramFacts {
   }
 
   owners(unit: Unit): ReadonlyMap<OwnerId, Cause> {
-    this.owned ??= ownersOf(this.solved);
+    this.owned ??= ownersOf(this.solved, this.mainRoots);
     return this.owned.get(unit) ?? new Map();
   }
 
   check(unit: Unit, context: Context): Violation[] {
-    return checkUnit(this.summary(unit), unit, context);
+    return checkUnit(this.summary(unit), unit, context, this.mainState());
+  }
+
+  mainState(): MainState {
+    this.main ??= mainStateOf(this.checker, this.solved.p.units, this.native, (u) =>
+      this.owners(u),
+    );
+    return this.main;
   }
 
   captures(unit: Unit): Capture[] {

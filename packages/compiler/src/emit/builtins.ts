@@ -163,6 +163,12 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
     case "bytes":
       if (name === "length" || name === "byteLength")
         return num(cpp.call(cpp.dot(o, "length"), []));
+      if (name === "byteOffset") return num(cpp.call(cpp.dot(o, "byteOffset"), []));
+      if (name === "buffer")
+        return { c: cpp.call(cpp.dot(o, "arrayBuffer"), []), t: T.arrayBuffer };
+      break;
+    case "arrayBuffer":
+      if (name === "byteLength") return num(cpp.call(cpp.dot(o, "byteLength"), []));
       break;
     case "dict":
       // `record.key` is `record["key"]` on an index signature.
@@ -287,6 +293,13 @@ export function classMember(
   }
   if (ts.isMethodDeclaration(decl)) {
     // A bound method used as a value.
+    if (decl.parameters.at(-1)?.dotDotDotToken)
+      fail(
+        node,
+        Codes.UnsupportedType,
+        `${name} takes a rest parameter, so it can only be called, not used as a value`,
+        "call it inside an arrow function",
+      );
     const ft = em.lt(node);
     if (ft.k !== "fn") fail(node, Codes.UnsupportedClassFeature, "unsupported method reference");
     // The receiver is captured by reference counting, as `this` is.
@@ -1119,6 +1132,16 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       return setMethod(em, obj as E & { t: { k: "set"; e: LType } }, name, node);
     case "bytes":
       return bytesMethod(em, o, name, node);
+    case "arrayBuffer":
+      if (name === "slice")
+        return {
+          c: cpp.call(
+            cpp.dot(o, "slice"),
+            node.arguments.map((x) => em.exprAs(x, T.number)),
+          ),
+          t: T.arrayBuffer,
+        };
+      break;
     case "buffer":
       return bufferMethod(em, obj, name, node);
     case "span":
@@ -1922,6 +1945,7 @@ const LIB_CONSTRUCTORS: Record<string, LType["k"]> = {
   Set: "set",
   Array: "array",
   Uint8Array: "bytes",
+  ArrayBuffer: "arrayBuffer",
   Promise: "promise",
 };
 
@@ -2043,10 +2067,26 @@ export function newBuiltin(
         t,
       };
     }
+    case "arrayBuffer":
+      return {
+        c: a[0]
+          ? cpp.call("lucent::ArrayBuffer", [em.exprAs(a[0], T.number)])
+          : cpp.construct(cpp.type("lucent::ArrayBuffer")),
+        t,
+      };
     case "bytes": {
       if (!a[0]) return { c: cpp.construct(cpp.type("lucent::Bytes")), t };
       const v = em.expr(a[0]);
       const vt = stripOpt(v.t);
+      if (vt.k === "arrayBuffer") {
+        const index = (x: ts.Expression | undefined) =>
+          x ? em.exprAs(x, unionOf([T.number, T.undefined])) : cpp.id("lucent::undefined");
+
+        return {
+          c: cpp.call("lucent::Bytes::over", [em.coerce(v, vt, a[0]), index(a[1]), index(a[2])]),
+          t,
+        };
+      }
       if (vt.k === "number") return { c: cpp.call("lucent::Bytes", [v.c]), t };
       if (vt.k === "array")
         return {
@@ -2149,6 +2189,7 @@ const KIND_TRAITS = {
   Map: "lucent::IsMap",
   Set: "lucent::IsSet",
   Uint8Array: "lucent::IsBytes",
+  ArrayBuffer: "lucent::IsArrayBuffer",
   Date: "lucent::IsDate",
 } as const;
 

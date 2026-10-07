@@ -142,7 +142,7 @@ describe("native view JSX diagnostics", () => {
     expect(
       diagnostics(
         "ios",
-        'import { UILabel } from "lucent:ios/UIKit";\n\nlet count = 0;\n\nfunction next(): number {\n  count++;\n  return count;\n}',
+        'import { UILabel } from "lucent:ios/UIKit";\n\nconst counter = { count: 0 };\n\nfunction next(): number {\n  counter.count++;\n  return counter.count;\n}',
         "  return <UILabel text={`${props.title} ${next()}`} />;",
       ),
     ).toEqual([expect.objectContaining({ code: "LUCENT3022" })]);

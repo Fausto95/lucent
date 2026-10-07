@@ -1,0 +1,11 @@
+const Path = lucentClass(mod.Path);
+const LoudLogger = lucentClass(mod.LoudLogger);
+const two = [1, 2];
+print(mod.sum(), mod.sum(1, 2, 3), mod.sum(...two));
+print(mod.tag("a"), mod.tag("a", 1, "b"));
+const p = new Path("a", "b");
+print(p.parts.join("|"), p.join(), p.join("c", "d"), new Path().parts.length);
+print(new Path(p, "z").join(), Path.of("x", "y").join("z"));
+print(new LoudLogger().log("v", 3, 4));
+print(mod.internal());
+mod.later("one", "two").then((s) => print(s));

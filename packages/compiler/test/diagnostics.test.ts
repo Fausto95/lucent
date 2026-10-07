@@ -614,6 +614,37 @@ export function f(round: boolean): number {
     });
   });
 
+  describe("rest parameters", () => {
+    it("refuses one in a function type", () => {
+      const [d] = compileSource(
+        "export function f(cb: (...xs: number[]) => void): void {\n  cb(1, 2);\n}\n",
+      ).diagnostics;
+      expect(d).toMatchObject({ code: "LUCENT2002", message: expect.stringContaining("rest") });
+    });
+
+    it("refuses a function taking one as a value", () => {
+      const [d] = compileSource(
+        "function sum(...xs: number[]): number {\n  return xs.length;\n}\nexport function f(): number {\n  const g: (a: number) => number = sum;\n  return g(1);\n}\n",
+      ).diagnostics;
+      expect(d).toMatchObject({
+        code: "LUCENT2002",
+        line: 5,
+        message: expect.stringContaining("rest parameter"),
+      });
+    });
+
+    it("refuses a method taking one as a value", () => {
+      const [d] = compileSource(
+        'class P {\n  join(...m: string[]): string {\n    return m.join();\n  }\n}\nexport function f(): string {\n  const g: (a: string) => string = new P().join;\n  return g("x");\n}\n',
+      ).diagnostics;
+      expect(d).toMatchObject({
+        code: "LUCENT2002",
+        line: 7,
+        message: expect.stringContaining("rest parameter"),
+      });
+    });
+  });
+
   describe("lowering outside a function body", () => {
     it("reports an exported class's unsupported member once instead of throwing", () => {
       const source =

@@ -28,6 +28,10 @@ export function Button(props: Props): Label {
 
 let made = 0;
 
+export function madeSoFar(): number {
+  return made;
+}
+
 function count(): number {
   made++;
   return made;
@@ -42,7 +46,7 @@ export function Counter(props: { step: number }): Label {
 
     expect(a.components).toEqual([]);
     expect(messages(a, "LUCENT3022")).toEqual([
-      "`Counter` cannot run on the main thread: it calls `count` (m.lucent.tsx:12:23), which reads module state `made`, a `let` (declared at m.lucent.tsx:3:5) (m.lucent.tsx:6:3).",
+      "`Counter` cannot run on the main thread: it calls `count` (m.lucent.tsx:16:23), which reads module state `made`, a `let` (declared at m.lucent.tsx:3:5) (m.lucent.tsx:10:3). It is not the main thread's alone: `madeSoFar` (m.lucent.tsx:6:10) uses it too.",
     ]);
     expect(a.diagnostics[0]!.fix).toMatch(/module's thread/);
   });
@@ -87,6 +91,10 @@ import { expose } from "./ui";
 
 let bumps = 0;
 
+export function bumped(): number {
+  return bumps;
+}
+
 function bump(): void {
   bumps++;
 }
@@ -98,7 +106,7 @@ export function Bumper(props: { value: number }): Label {
 `);
 
     expect(messages(a, "LUCENT3022")).toEqual([
-      "`bump` cannot run on the main thread: it reads module state `bumps`, a `let` (declared at m.lucent.tsx:4:5) (m.lucent.tsx:7:3).",
+      "`bump` cannot run on the main thread: it reads module state `bumps`, a `let` (declared at m.lucent.tsx:4:5) (m.lucent.tsx:11:3). It is not the main thread's alone: `bumped` (m.lucent.tsx:7:10) uses it too.",
     ]);
   });
 
@@ -107,6 +115,10 @@ export function Bumper(props: { value: number }): Label {
 import { expose } from "./ui";
 
 let total = 0;
+
+export function totalSoFar(): number {
+  return total;
+}
 
 export function Ticker(props: { start: number }): Label {
   const label = new Label();
@@ -123,7 +135,7 @@ export function Ticker(props: { start: number }): Label {
 `);
 
     expect(messages(a, "LUCENT3022")).toEqual([
-      "`add` cannot run on the main thread: it reads module state `total`, a `let` (declared at m.lucent.tsx:4:5) (m.lucent.tsx:13:34).",
+      "`add` cannot run on the main thread: it reads module state `total`, a `let` (declared at m.lucent.tsx:4:5) (m.lucent.tsx:17:34). It is not the main thread's alone: `totalSoFar` (m.lucent.tsx:7:10) uses it too.",
     ]);
   });
 

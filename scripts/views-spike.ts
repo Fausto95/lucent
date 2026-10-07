@@ -34,7 +34,8 @@
  * is blocked), list.js (a todo list drawn with the toolkit: keyed items,
  * bound fields, transitions, the toolkit's environment), like.js (the
  * documentation's one-file Like button, three of them, for screenshots),
- * or hosting.js
+ * players.js (a class's native object shown by a view, as expo-video
+ * shares its player), or hosting.js
  * (see --ui). --trace-sizing has the runtime
  * log each sizing step (LUCENT_SIZING lines: LUCENT_SIZING_TRACE on iOS,
  * the debug.lucent.sizing property on Android). --font-scale makes the

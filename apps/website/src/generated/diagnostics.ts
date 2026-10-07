@@ -147,9 +147,9 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT2002",
     "title": "Type without a native representation",
-    "summary": "A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, an index signature mixed with properties, a rest parameter or an async generator.",
+    "summary": "A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, an index signature mixed with properties, a function type's rest parameter or an async generator.",
     "details": "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout. A native member whose types cannot cross yet is named with its symbol and artifact: wrap it in Swift or Kotlin of your own.",
-    "fix": "spell the combined type out as one object type, or use a concrete type. Take an array instead of rest parameters or an async generator",
+    "fix": "spell the combined type out as one object type, or use a concrete type. Take an array instead of a function type's rest parameter or an async generator. Call a function taking a rest parameter; don't pass it",
     "wrong": {
       "example.lucent.ts": "type Named = { name: string };\ntype Aged = { age: number };\nexport function label(p: Named & Aged): string {\n  return `${p.name} (${p.age})`;\n}\n"
     },
@@ -447,11 +447,11 @@ export const explanations: { code: string; title: string; summary: string; detai
     "code": "LUCENT3022",
     "title": "Component code that cannot run on the main thread",
     "summary": "A component's setup, or a function it creates, using module state, code the compiler cannot follow, or native code unfit for the main thread.",
-    "details": "A component sets up its view on the main (UI) thread, where the handlers it gives the view run too. Module variables belong to the module's thread, code the compiler cannot follow may do anything, and blocking or background-only native code freezes the UI. Calling an event prop directly (`props.onChange?.(value)`) is fine: it posts the event to JavaScript.",
+    "details": "A component sets up its view on the main (UI) thread, where its handlers run, and reads only module state main-thread code alone uses. Code the compiler cannot follow may do anything; blocking or background-only native code freezes the UI. Calling an event prop directly (`props.onChange?.(value)`) is fine: it posts the event to JavaScript.",
     "fix": "keep the state in the component (a local), or pass it in as a prop",
     "wrong": {
       "package.json": "{ \"name\": \"example-app\" }\n",
-      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nlet shown = 0;\nexport function Title(props: { title: string }) {\n  shown++;\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nlet shown = 0;\nexport function timesShown(): number {\n  return shown;\n}\nexport function Title(props: { title: string }) {\n  shown++;\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
     },
     "right": {
       "package.json": "{ \"name\": \"example-app\" }\n",

@@ -436,6 +436,7 @@ const PARTS: Partial<Record<LType["k"], (t: never) => LType[]>> = {
   null: () => [],
   void: () => [],
   bytes: () => [],
+  arrayBuffer: () => [],
   date: () => [],
   buffer: () => [],
   opt: (t: LType & { k: "opt" }) => [t.inner],

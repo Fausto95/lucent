@@ -174,6 +174,8 @@ void jsonWriteBytes(JsonWriter& w, const B& b) {
   w.raw("}");
 }
 inline void jsonWrite(JsonWriter& w, const Bytes& b) { jsonWriteBytes(w, b); }
+/// An ArrayBuffer has no enumerable own properties.
+inline void jsonWrite(JsonWriter& w, const ArrayBuffer&) { w.raw("{}"); }
 template <bool Writable>
 class BasicByteSpan;
 template <bool Writable>

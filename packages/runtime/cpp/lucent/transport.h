@@ -304,24 +304,40 @@ struct Transport<Dict<V>> {
   }
 };
 
+namespace detail {
+
+/// The copy of `buffer` this graph made, made the first time it is asked for.
+inline const std::shared_ptr<std::vector<uint8_t>>& copiedStorage(const std::shared_ptr<std::vector<uint8_t>>& buffer,
+                                                                 CopyGraph& graph) {
+  using Buffer = std::shared_ptr<std::vector<uint8_t>>;
+
+  const Buffer* copied = graph.find<Buffer>(buffer.get());
+  if (!copied) {
+    graph.remember(buffer.get(), std::make_shared<std::vector<uint8_t>>(*buffer));
+    graph.countBytes(buffer->size());
+    copied = graph.find<Buffer>(buffer.get());
+  }
+
+  return *copied;
+}
+
+}  // namespace detail
+
 /// Views of one buffer stay views of one (copied) buffer, as
 /// structuredClone keeps them: a view carries its whole buffer, so slice()
 /// a small view of a large buffer before submitting it.
 template <>
 struct Transport<Bytes> {
-  using Buffer = std::shared_ptr<std::vector<uint8_t>>;
-
   static Bytes copy(const Bytes& source, CopyGraph& graph) {
-    const Buffer& buffer = source.buffer();
+    return Bytes::view(detail::copiedStorage(source.buffer(), graph), source.offset(), source.size());
+  }
+};
 
-    const Buffer* copied = graph.find<Buffer>(buffer.get());
-    if (!copied) {
-      graph.remember(buffer.get(), std::make_shared<std::vector<uint8_t>>(*buffer));
-      graph.countBytes(buffer->size());
-      copied = graph.find<Buffer>(buffer.get());
-    }
-
-    return Bytes::view(*copied, source.offset(), source.size());
+/// An ArrayBuffer and the views over it stay one copied buffer and its views.
+template <>
+struct Transport<ArrayBuffer> {
+  static ArrayBuffer copy(const ArrayBuffer& source, CopyGraph& graph) {
+    return ArrayBuffer(detail::copiedStorage(source.storage(), graph));
   }
 };
 

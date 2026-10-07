@@ -368,8 +368,8 @@ export function Field(props: { text: string }): UITextField {
       const { result } = build(
         label(
           "{ text: string }",
-          "  effect(() => {\n    shown++;\n    label.text = props.text;\n  });\n",
-          "let shown = 0;\n",
+          "  effect(() => {\n    seen.shown++;\n    label.text = props.text;\n  });\n",
+          "const seen = { shown: 0 };\n",
         ),
         "ios",
       );

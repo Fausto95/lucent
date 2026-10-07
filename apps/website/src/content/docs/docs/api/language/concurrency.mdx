@@ -87,6 +87,17 @@ View code runs on the main thread, in the main context. It's a component's setup
 
 The main context never takes the Lucent lock, so a view never waits behind module code. Without the lock, view code can't use module state ([LUCENT3022](/docs/api/diagnostics/#lucent3022)). Views are experimental: [Native views](/docs/architecture/views/) has the rest.
 
+### Main-thread state
+
+A module variable that only main-thread code uses is the main thread's. That code is components and `main(f)` callbacks, and the functions only they call. Views may read and write it, since each use runs on the one main thread.
+
+- It holds plain values or native objects: a `Map<number, AVPlayer>` of players, say.
+- A collection is used through its members (`players.get(id)`), never passed, returned or stored elsewhere.
+- It starts as a literal or an empty collection, and assignments give it new ones.
+- Its module's initialization assigns it on the main thread, so a reload never races a view still showing.
+
+Module code reaches it through `main(f)`. A class JavaScript makes can keep its native object there, under an id a view takes as a prop.
+
 ## Where promises settle
 
 - A promise settles on the context that made it. Code that awaits it resumes on its own context, and a result from another thread is posted there.

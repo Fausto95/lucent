@@ -36,7 +36,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT1009`](#lucent1009) | A loop over a value that is not iterable in Lucent, or `for await`. |
 | [`LUCENT1010`](#lucent1010) | `await` on a platform SDK object, such as a Play services Task or a Java future: it is not a promise. |
 | [`LUCENT2001`](#lucent2001) | `any`, or `unknown` outside a `catch` clause: every value needs a native type. |
-| [`LUCENT2002`](#lucent2002) | A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, an index signature mixed with properties, a rest parameter or an async generator. |
+| [`LUCENT2002`](#lucent2002) | A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, an index signature mixed with properties, a function type's rest parameter or an async generator. |
 | [`LUCENT2003`](#lucent2003) | An object used as a type with a different shape; object types must match exactly to share a native representation. |
 | [`LUCENT2004`](#lucent2004) | A collection used where its element type would change (`A[]` as `(A \| B)[]`), or a generic class instance as another instantiation; annotate the value with the target type. |
 | [`LUCENT2005`](#lucent2005) | A union JavaScript values cannot be told apart by at the boundary; add a string-literal discriminant. |
@@ -447,7 +447,7 @@ export function size(value: string): number {
 
 Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout. A native member whose types cannot cross yet is named with its symbol and artifact: wrap it in Swift or Kotlin of your own.
 
-**Fix:** spell the combined type out as one object type, or use a concrete type. Take an array instead of rest parameters or an async generator.
+**Fix:** spell the combined type out as one object type, or use a concrete type. Take an array instead of a function type's rest parameter or an async generator. Call a function taking a rest parameter; don't pass it.
 
 <Tabs>
 <TabItem label="✗ example.lucent.ts">
@@ -1336,7 +1336,7 @@ export function Title(props: { title: string; onMeasure?: (width: number) => voi
 
 **Component code that cannot run on the main thread**
 
-A component sets up its view on the main (UI) thread, where the handlers it gives the view run too. Module variables belong to the module's thread, code the compiler cannot follow may do anything, and blocking or background-only native code freezes the UI. Calling an event prop directly (`props.onChange?.(value)`) is fine: it posts the event to JavaScript.
+A component sets up its view on the main (UI) thread, where its handlers run, and reads only module state main-thread code alone uses. Code the compiler cannot follow may do anything; blocking or background-only native code freezes the UI. Calling an event prop directly (`props.onChange?.(value)`) is fine: it posts the event to JavaScript.
 
 **Fix:** keep the state in the component (a local), or pass it in as a prop.
 
@@ -1356,6 +1356,9 @@ import { appContext } from "lucent:android";
 import { TextView } from "lucent:android/android.widget";
 import { UILabel } from "lucent:ios/UIKit";
 let shown = 0;
+export function timesShown(): number {
+  return shown;
+}
 export function Title(props: { title: string }) {
   shown++;
   if (PLATFORM === "ios") {
