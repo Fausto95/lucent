@@ -560,6 +560,37 @@ export async function run(): Promise<string> {
     expect(mm).not.toContain("alloc] widgetWithLabel:");
   });
 
+  it("tests an object's Objective-C class with instanceof, as isKindOfClass: does", () => {
+    const { r, mm } =
+      ios(`import { HTTPURLResponse, NSURL, URLSession } from "lucent:ios/Foundation";
+export async function run(): Promise<string> {
+  const [, response] = await URLSession.shared.data(new NSURL("https://example.com"));
+  return response instanceof HTTPURLResponse ? \`\${response.statusCode}\` : "not HTTP";
+}
+`);
+
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("isKindOfClass:[NSHTTPURLResponse class]");
+  });
+
+  it("refuses instanceof on a Swift-only class, which has no Objective-C class to test", () => {
+    const { r } = ios(`import { NSObject } from "lucent:ios";
+import { Insecure_MD5Digest } from "lucent:ios/CryptoKit";
+import { NSURL } from "lucent:ios/Foundation";
+export async function run(): Promise<string> {
+  const url: NSObject = new NSURL("https://example.com");
+  return String(url instanceof Insecure_MD5Digest);
+}
+`);
+
+    expect(r.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "LUCENT1002",
+        message: expect.stringContaining("has no Objective-C class"),
+      }),
+    ]);
+  });
+
   it("reads NSError out-parameters as Lucent errors", () => {
     const { r, mm } = ios(errorOut);
     expect(r.diagnostics).toEqual([]);
