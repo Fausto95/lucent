@@ -1,4 +1,5 @@
 import { cpp } from "@lucent-lang/codegen";
+import { namespaceMember } from "../namespaces.ts";
 import path from "node:path";
 import ts from "typescript";
 import { Codes, CompileError, fail } from "../diagnostics.ts";
@@ -842,9 +843,14 @@ export class FnEmitter {
       case ts.SyntaxKind.NewExpression:
         this.checkInstance(node as ts.NewExpression);
         return this.newExpr(node as ts.NewExpression, hint);
-      case ts.SyntaxKind.PropertyAccessExpression:
-        toolkitMember(this, node as ts.PropertyAccessExpression);
-        return this.narrowed(node, this.propertyAccess(node as ts.PropertyAccessExpression));
+      case ts.SyntaxKind.PropertyAccessExpression: {
+        const access = node as ts.PropertyAccessExpression;
+        // `shapes.created` through a namespace import is the export `created`.
+        const member = namespaceMember(this.checker, access);
+
+        toolkitMember(this, access);
+        return member ? this.identifier(member) : this.narrowed(node, this.propertyAccess(access));
+      }
       case ts.SyntaxKind.ElementAccessExpression:
         return this.narrowed(node, this.elementAccess(node as ts.ElementAccessExpression));
       case ts.SyntaxKind.ArrayLiteralExpression:
@@ -2215,6 +2221,8 @@ export class FnEmitter {
     // `obj.m!()` is the call `obj.m()`: an SDK interface's default method is optional in TypeScript.
     let callee: ts.Expression = node.expression;
     while (ts.isNonNullExpression(callee)) callee = callee.expression;
+    // `shapes.toPoint(v)` through a namespace import is the call `toPoint(v)`.
+    callee = namespaceMember(this.checker, callee) ?? callee;
     if (callee.kind === ts.SyntaxKind.SuperKeyword) return builtins.superCall(this, node);
     if (
       ts.isPropertyAccessExpression(callee) &&
