@@ -183,6 +183,12 @@ class Disk {
   get uri(): string {
     return `file://${this.path}`;
   }
+  describe(prefix: string): string {
+    return `${prefix}disk ${this.path}`;
+  }
+  mark(marks: string[]): void {
+    marks.push("d");
+  }
 }
 
 class Remote {
@@ -190,10 +196,32 @@ class Remote {
   get uri(): string {
     return `https://${this.host}`;
   }
+  describe(prefix: string): string | number {
+    return this.host.length > 3 ? `${prefix}remote ${this.host}` : this.host.length;
+  }
+  mark(marks: string[]): void {
+    marks.push("r");
+  }
 }
 
 export function locations(): string {
   const all: (Disk | Remote | string)[] = [new Disk("/a"), new Remote("b.c"), "plain"];
 
   return all.map((l) => (typeof l === "string" ? l : l.uri)).join(" ");
+}
+
+/** A method called through a union of classes that both declare it, its argument evaluated once. */
+export function described(): string {
+  const all: (Disk | Remote)[] = [new Disk("/a"), new Remote("b.c"), new Remote("d")];
+  const seen: number[] = [];
+  const prefix = (i: number) => {
+    seen.push(i);
+    return `${i}:`;
+  };
+
+  const marks: string[] = [];
+
+  for (const l of all) l.mark(marks);
+
+  return `${all.map((l, i) => String(l.describe(prefix(i)))).join(" ")} ${seen.join(",")} ${marks.join("")}`;
 }

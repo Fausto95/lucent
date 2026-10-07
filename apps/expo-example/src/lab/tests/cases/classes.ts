@@ -34,5 +34,6 @@ export default function run(mod, print, lucentClass, mods) {
   const Sized = lucentClass(mod.Sized);
   print(new Sized(3, { name: "px" }).text, new Sized("auto").text);
   print(mod.locations());
+  print(mod.described());
 
 }
