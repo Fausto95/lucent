@@ -248,17 +248,17 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     ]);
   });
 
-  it("makes static methods of factory initializers a constructor of the same types hides", () => {
-    expect(cls("WDGHandle").constructors).toEqual([
-      expect.objectContaining({ selector: "handleForReadingAtPath:", factory: true }),
-      { params: [], selector: "init" },
+  it("makes static methods of initializers TypeScript cannot tell apart", () => {
+    // It declares initializers, so it inherits none: every one of them is a static method.
+    expect(cls("WDGHandle").constructors).toBeUndefined();
+    const statics = cls("WDGHandle").methods!.filter((m) => m.static);
+    expect(statics.map((m) => [m.name, m.selector, m.initializer ?? false, m.returns])).toEqual([
+      ["forReadingAtPath", "handleForReadingAtPath:", false, T("Widgets.WDGHandle?")],
+      ["forUpdatingAtPath", "handleForUpdatingAtPath:", false, T("Widgets.WDGHandle?")],
+      ["fileURLWithPath", "initFileURLWithPath:", true, T("Widgets.WDGHandle")],
+      ["string", "initWithString:", true, T("Widgets.WDGHandle?")],
     ]);
-    expect(cls("WDGHandle").methods?.find((m) => m.name === "forUpdatingAtPath")).toMatchObject({
-      static: true,
-      selector: "handleForUpdatingAtPath:",
-      params: [{ name: "path", type: T("string") }],
-      returns: T("Widgets.WDGHandle?"),
-    });
+    expect(statics[0]).toMatchObject({ params: [{ name: "path", type: T("string") }] });
   });
 
   it("names overloads Swift names alike by their selectors", () => {

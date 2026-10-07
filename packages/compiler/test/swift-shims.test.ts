@@ -159,7 +159,7 @@ export async function run(): Promise<string> {
 const avFoundation = `import { AVPartialAsyncProperty, AVURLAsset } from "lucent:ios/AVFoundation";
 import { NSURL } from "lucent:ios/Foundation";
 export async function run(): Promise<string> {
-  const asset = new AVURLAsset(new NSURL("file:///tmp/clip.m4a"), null);
+  const asset = new AVURLAsset(NSURL.fileURLWithPath("/tmp/clip.m4a"), null);
   const duration = await asset.load(AVPartialAsyncProperty.duration);
   return \`\${Number(duration.value) / duration.timescale}\`;
 }

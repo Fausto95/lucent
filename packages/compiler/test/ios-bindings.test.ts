@@ -564,7 +564,7 @@ export async function run(): Promise<string> {
     const { r, mm } =
       ios(`import { HTTPURLResponse, NSURL, URLSession } from "lucent:ios/Foundation";
 export async function run(): Promise<string> {
-  const [, response] = await URLSession.shared.data(new NSURL("https://example.com"));
+  const [, response] = await URLSession.shared.data(NSURL.string("https://example.com")!);
   return response instanceof HTTPURLResponse ? \`\${response.statusCode}\` : "not HTTP";
 }
 `);
@@ -577,8 +577,9 @@ export async function run(): Promise<string> {
     const { r } =
       ios(`import { NSMutableURLRequest, NSURL, URLSession } from "lucent:ios/Foundation";
 export async function run(): Promise<string> {
-  const [a] = await URLSession.shared.data(new NSURL("https://example.com"));
-  const [b] = await URLSession.shared.data(new NSMutableURLRequest(new NSURL("https://example.com")));
+  const url = NSURL.string("https://example.com")!;
+  const [a] = await URLSession.shared.data(url);
+  const [b] = await URLSession.shared.data(new NSMutableURLRequest(url));
   return \`\${a.length} \${b.length}\`;
 }
 `);
@@ -590,12 +591,26 @@ export async function run(): Promise<string> {
     expect(shims).not.toMatch(/as! Foundation\.NSURL(Request)?\n/);
   });
 
+  it("makes an object with an initializer TypeScript cannot tell from another, on a new instance", () => {
+    const { r, mm } = ios(`import { NSURL } from "lucent:ios/Foundation";
+export async function run(): Promise<string> {
+  const web = NSURL.string("https://example.com/a b");
+  const file = NSURL.fileURLWithPath("/tmp/a b");
+  return \`\${web?.absoluteString} \${file.absoluteString}\`;
+}
+`);
+
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("[[NSURL alloc] initWithString:");
+    expect(mm).toContain("[[NSURL alloc] initFileURLWithPath:");
+  });
+
   it("refuses instanceof on a Swift-only class, which has no Objective-C class to test", () => {
     const { r } = ios(`import { NSObject } from "lucent:ios";
 import { Insecure_MD5Digest } from "lucent:ios/CryptoKit";
 import { NSURL } from "lucent:ios/Foundation";
 export async function run(): Promise<string> {
-  const url: NSObject = new NSURL("https://example.com");
+  const url: NSObject = NSURL.fileURLWithPath("/tmp");
   return String(url instanceof Insecure_MD5Digest);
 }
 `);
