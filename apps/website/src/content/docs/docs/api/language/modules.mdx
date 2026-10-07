@@ -122,11 +122,11 @@ export function lookup(key: string): number | undefined {
 - A value import from anything else, such as an npm package or a plain `.ts` file, fails with [LUCENT3001](/docs/api/diagnostics/#lucent3001). Its code has no native implementation.
 - `import { type X }` counts as a value import: write `import type { X }` to import a type from a file that isn't a module.
 - An unknown `lucent:` module fails with [LUCENT3004](/docs/api/diagnostics/#lucent3004), and so does a `lucent:ext/<name>` that no package declares.
-- Import names one by one, renamed or not. A namespace import, `import * as geometry`, fails with `LUCENT1001` where you use it.
+- Import names one by one, renamed or not, or as a namespace: after `import * as geometry`, `geometry.distance(a, b)` and `new geometry.Route()` work. The namespace isn't a value itself: storing or passing `geometry` fails with `LUCENT1001`.
 - A dynamic `import()` fails with `LUCENT1001`: import statically.
 - Modules may import each other in a cycle.
 
-Cases: `modules` for imports between modules, `native-extension` for `lucent:ext/<name>`.
+Cases: `modules` for imports between modules, namespace imports included, `native-extension` for `lucent:ext/<name>`.
 
 ## Exports
 
@@ -136,18 +136,14 @@ Only exported declarations are visible to JavaScript. How each value converts is
 | --- | --- |
 | `export function` | A function that calls the native one. A synchronous one runs on the JavaScript thread, an `async` one on the Lucent thread ([Concurrency](/docs/api/language/concurrency/)). |
 | `export class` | A constructor: `new` and `instanceof` work, and each native instance has one JavaScript object. |
-| `export const`, `export let` | A copy of the value, made when JavaScript first imports the module. Later changes by Lucent code don't reach that copy: export a function that returns the current value. |
+| `export const`, `export let` | A live binding, as in an ES module: each read gets the value the variable holds now. An object, array, map, set, record or `Uint8Array` arrives as a copy, one per value assigned. Changes made inside it, such as `list.push(x)`, don't reach JavaScript: assign a new value, or export a function that returns it. |
 | `export enum` | A frozen object, made in JavaScript without calling native code. A numeric enum also maps each value back to its name, as TypeScript's do. |
 | `export type`, `export interface` | Types, for TypeScript only. |
 | An exported function of a `.lucent.tsx` module that returns a view | A component: it isn't one of the module's functions. See [Views](/docs/guides/views/), experimental. |
 
 - A generic function or class can't be exported ([LUCENT2007](/docs/api/diagnostics/#lucent2007)). Export a concrete function that calls it.
 - Export lists and re-exports, `export { lookup }` and `export * from "./geometry.lucent"`, fail with [LUCENT3003](/docs/api/diagnostics/#lucent3003). Put `export` on the declaration.
-- `export default` of an expression fails with `LUCENT3003`.
-
-:::caution
-`export default function f() {}` and `export default class C {}` compile, but JavaScript gets them as `f` and `C`, not as the default export. Use named exports.
-:::
+- Default exports, `export default function f() {}`, `export default class C {}` and `export default value`, fail with `LUCENT3003`. Use named exports.
 
 ## Module names
 
@@ -158,18 +154,18 @@ Each module has a name, from its file, or `<package>/<path>` in a Lucent package
 A module's top-level variables and its classes' static fields are its state. The app has one copy of it, which every call into the module shares, and it lasts until JavaScript reloads.
 
 - A `compute` task can't read or write module state ([LUCENT3011](/docs/api/diagnostics/#lucent3011)), and neither can a component's setup ([LUCENT3022](/docs/api/diagnostics/#lucent3022)). [Concurrency](/docs/api/language/concurrency/) says why.
-- JavaScript's copy of an exported variable doesn't follow it: see [Exports](#exports).
+- JavaScript reads an exported variable live, but an object in it as a copy: see [Exports](#exports).
 
 ## Initialization order
 
 Every module of the app initializes when JavaScript first imports one of them, before any call runs.
 
 1. A module initializes after the modules it imports. In a cycle of imports, a module may initialize before one it imports.
-2. Within a module, its classes' static fields initialize first, in order of declaration.
-3. Then its variables initialize, in source order. A variable whose initializer calls a function runs that function then.
+2. Within a module, its top-level declarations initialize in source order, as in JavaScript. A class's static fields initialize where the class is declared (case `module-initialization`).
+3. A variable whose initializer calls a function runs that function then.
 
 :::caution
-Unlike JavaScript, a module's static fields initialize before its variables, even those declared above them. So a static initializer reading a module variable gets its default, such as `0`, at start, and its previous value after a reload. Read module variables from functions, not static initializers ([known gap](/docs/api/language/differences/#known-gaps)).
+An earlier initializer can call a function that reads a later variable. That read gets the variable's default, such as `0`, where JavaScript throws a `ReferenceError` ([known gap](/docs/api/language/differences/#known-gaps)).
 :::
 
 ## What a reload does
@@ -179,7 +175,7 @@ A JavaScript reload, such as Metro's reload command, starts a new JavaScript run
 | What | After a reload |
 | --- | --- |
 | Module state | Initialized again: each variable and static field gets its initial value. |
-| Exported constants | Copied again when the new JavaScript imports the module. |
+| Exported variables | Read again from the new module state. |
 | Lucent code awaiting a JavaScript promise or callback | Resumes with an `AbortError`: `The JavaScript runtime is gone`. |
 | A JavaScript callback that Lucent calls later | Does nothing, or throws that `AbortError` when Lucent expects a result. |
 | `compute` tasks | Cancelled. |
