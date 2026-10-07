@@ -9,6 +9,8 @@ const plugin = require("../app.plugin.js") as {
   (config: object): object;
   GRADLE_LINES: Record<string, string>;
   linkNativePackage: (root: string) => void;
+  buildArgs: (root: string, platforms: string[]) => string[];
+  prebuildPlatforms: (argv: string[]) => string[];
   withPackageEntries: (
     app: Record<string, unknown>,
     packages: Record<string, { value: unknown }>,
@@ -98,5 +100,54 @@ describe("the Expo config plugin's Gradle task", () => {
     const patched = fs.readFileSync(path.join(root, "android/app/build.gradle.kts"), "utf8");
     expect(patched).not.toBe(script);
     expect(patched).toBe(`${script}${plugin.GRADLE_LINES.kt}\n`);
+  }, 120_000);
+});
+
+describe("the Expo config plugin's build", () => {
+  it("builds the platforms expo prebuild writes", () => {
+    expect(plugin.prebuildPlatforms(["node", "expo", "prebuild"])).toEqual(["ios", "android"]);
+    expect(plugin.prebuildPlatforms(["node", "expo", "prebuild", "--platform", "android"])).toEqual([
+      "android",
+    ]);
+    expect(plugin.prebuildPlatforms(["node", "expo", "prebuild", "-p", "ios"])).toEqual(["ios"]);
+    expect(plugin.prebuildPlatforms(["node", "expo", "prebuild", "--platform=all"])).toEqual([
+      "ios",
+      "android",
+    ]);
+
+    expect(plugin.buildArgs("/app", ["android"])).toEqual([
+      "build",
+      "--root",
+      "/app",
+      "--platforms",
+      "android",
+    ]);
+    // Both: what this machine can build (no --platforms), Android deferred to Gradle when it must be.
+    expect(plugin.buildArgs("/app", ["ios", "android"])).toEqual(["build", "--root", "/app"]);
+  });
+
+  it("builds nothing while expo config introspects the mods", async () => {
+    const { compileModsAsync } = require("expo/config-plugins") as {
+      compileModsAsync(
+        config: object,
+        options: { projectRoot: string; platforms: string[]; introspect: boolean },
+      ): Promise<object>;
+    };
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-plugin-"));
+    fs.writeFileSync(path.join(root, "package.json"), '{ "name": "app" }\n');
+    // A build would write .lucent/.
+    fs.writeFileSync(path.join(root, "a.lucent.ts"), "export function one(): number { return 1; }\n");
+
+    // A fresh copy: the plugin builds once per process.
+    delete require.cache[require.resolve("../app.plugin.js")];
+    const fresh = require("../app.plugin.js") as typeof plugin;
+
+    await compileModsAsync(fresh({ name: "app", slug: "app", ios: {} }), {
+      projectRoot: root,
+      platforms: ["ios", "android"],
+      introspect: true,
+    });
+
+    expect(fs.existsSync(path.join(root, ".lucent"))).toBe(false);
   }, 120_000);
 });
