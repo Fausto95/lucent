@@ -1983,20 +1983,26 @@ export class FnEmitter {
       return { c: cpp.arrow(obj.c, cppIdent(name)), t: f.type };
     }
     if (t.k === "union") {
-      // A field every member has: read it with std::visit.
-      const types = t.ms.map((m) =>
+      // A member every alternative has (a field, an accessor): each alternative's own read.
+      const u = this.ctx.fresh("u");
+      const reads = t.ms.map((m, i) =>
         m.k === "struct" || m.k === "class"
-          ? this.member({ c: cpp.id("v"), t: m }, name, node)
+          ? this.member({ c: cpp.call("std::get", [cpp.id(u)], [cpp.num(i)]), t: m }, name, node)
           : fail(node, Codes.UnsupportedSyntax, `cannot read .${name} of ${typeKey(t)}`),
       );
-      const rt = unionOf(types.map((x) => x.t));
-      const read = cpp.lambda(
-        ["&"],
-        [cpp.param(cpp.reference(cpp.constType(cpp.auto)), "v")],
-        [cpp.ret(cpp.arrow(cpp.id("v"), cppIdent(name)))],
-        { ret: this.reg.cppType(rt) },
-      );
-      return { c: cpp.call("std::visit", [read, obj.c]), t: rt };
+      const rt = unionOf(reads.map((x) => x.t));
+      const value = reads
+        .map((r) => this.coerce(r, rt, node))
+        .reduceRight((rest, read, i) =>
+          cpp.conditional(
+            cpp.binary(cpp.call(cpp.dot(cpp.id(u), "index")), "==", cpp.num(i)),
+            read,
+            rest,
+          ),
+        );
+      const held = cpp.varDecl(cpp.reference(cpp.constType(cpp.auto)), u, obj.c);
+
+      return { c: cpp.statementExpr([held], value), t: rt };
     }
     if (t.k === "class") return builtins.classMember(this, obj, t, name, node);
     if (t.k === "props") return views.propMember(this, obj, name, node);
