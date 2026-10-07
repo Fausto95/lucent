@@ -1,4 +1,5 @@
 import { cpp } from "@lucent-lang/codegen";
+import { namespaceMember } from "../namespaces.ts";
 import path from "node:path";
 import ts from "typescript";
 import { Codes, CompileError, fail } from "../diagnostics.ts";
@@ -330,6 +331,40 @@ export class FnEmitter {
     // pass as a never (one the checker narrowed away, as in an exhaustive switch) does not exist.
     if ((from.k === "never" || to.k === "never") && to.k !== "void")
       return this.unreachableAs(e, to);
+
+    // TypeScript types an empty array literal `never[]` (`x ?? []`): a value it calls that is
+    // empty, so made as any other array type it converts to an empty `never[]`.
+    const neverArray = (t: LType) => t.k === "array" && t.e.k === "never";
+    const members = to.k === "union" ? to.ms : [stripOpt(to)];
+    const empty = members.find(neverArray);
+
+    if (
+      empty &&
+      from.k === "array" &&
+      !neverArray(from) &&
+      !members.some((m) => m.k === "array" && this.cpp(m) === this.cpp(from))
+    ) {
+      const made = cpp.comma(
+        cpp.cast("c", cpp.voidType, e.c),
+        cpp.construct(this.reg.cppType(empty), []),
+      );
+
+      return this.coerce({ c: made, t: empty }, to, node);
+    }
+
+    // A union holding `never[]`, to one with another array type instead: its empty array as that.
+    const array = members.find((m) => m.k === "array" && !neverArray(m));
+
+    if (from.k === "union" && from.ms.some(neverArray) && !empty && array) {
+      const widened = unionOf(from.ms.map((m) => (neverArray(m) ? array : m)));
+      const c = cpp.call(
+        "lucent::emptyArrayAs",
+        [e.c],
+        [this.reg.cppType(widened), this.reg.cppType(array)],
+      );
+
+      return this.coerce({ c, t: widened }, to, node);
+    }
 
     const step = conversionStep(from, to, {
       // Different Lucent types with one native representation (platform objects).
@@ -842,9 +877,14 @@ export class FnEmitter {
       case ts.SyntaxKind.NewExpression:
         this.checkInstance(node as ts.NewExpression);
         return this.newExpr(node as ts.NewExpression, hint);
-      case ts.SyntaxKind.PropertyAccessExpression:
-        toolkitMember(this, node as ts.PropertyAccessExpression);
-        return this.narrowed(node, this.propertyAccess(node as ts.PropertyAccessExpression));
+      case ts.SyntaxKind.PropertyAccessExpression: {
+        const access = node as ts.PropertyAccessExpression;
+        // `shapes.created` through a namespace import is the export `created`.
+        const member = namespaceMember(this.checker, access);
+
+        toolkitMember(this, access);
+        return member ? this.identifier(member) : this.narrowed(node, this.propertyAccess(access));
+      }
       case ts.SyntaxKind.ElementAccessExpression:
         return this.narrowed(node, this.elementAccess(node as ts.ElementAccessExpression));
       case ts.SyntaxKind.ArrayLiteralExpression:
@@ -1983,20 +2023,26 @@ export class FnEmitter {
       return { c: cpp.arrow(obj.c, cppIdent(name)), t: f.type };
     }
     if (t.k === "union") {
-      // A field every member has: read it with std::visit.
-      const types = t.ms.map((m) =>
+      // A member every alternative has (a field, an accessor): each alternative's own read.
+      const u = this.ctx.fresh("u");
+      const reads = t.ms.map((m, i) =>
         m.k === "struct" || m.k === "class"
-          ? this.member({ c: cpp.id("v"), t: m }, name, node)
+          ? this.member({ c: cpp.call("std::get", [cpp.id(u)], [cpp.num(i)]), t: m }, name, node)
           : fail(node, Codes.UnsupportedSyntax, `cannot read .${name} of ${typeKey(t)}`),
       );
-      const rt = unionOf(types.map((x) => x.t));
-      const read = cpp.lambda(
-        ["&"],
-        [cpp.param(cpp.reference(cpp.constType(cpp.auto)), "v")],
-        [cpp.ret(cpp.arrow(cpp.id("v"), cppIdent(name)))],
-        { ret: this.reg.cppType(rt) },
-      );
-      return { c: cpp.call("std::visit", [read, obj.c]), t: rt };
+      const rt = unionOf(reads.map((x) => x.t));
+      const value = reads
+        .map((r) => this.coerce(r, rt, node))
+        .reduceRight((rest, read, i) =>
+          cpp.conditional(
+            cpp.binary(cpp.call(cpp.dot(cpp.id(u), "index")), "==", cpp.num(i)),
+            read,
+            rest,
+          ),
+        );
+      const held = cpp.varDecl(cpp.reference(cpp.constType(cpp.auto)), u, obj.c);
+
+      return { c: cpp.statementExpr([held], value), t: rt };
     }
     if (t.k === "class") return builtins.classMember(this, obj, t, name, node);
     if (t.k === "props") return views.propMember(this, obj, name, node);
@@ -2209,6 +2255,8 @@ export class FnEmitter {
     // `obj.m!()` is the call `obj.m()`: an SDK interface's default method is optional in TypeScript.
     let callee: ts.Expression = node.expression;
     while (ts.isNonNullExpression(callee)) callee = callee.expression;
+    // `shapes.toPoint(v)` through a namespace import is the call `toPoint(v)`.
+    callee = namespaceMember(this.checker, callee) ?? callee;
     if (callee.kind === ts.SyntaxKind.SuperKeyword) return builtins.superCall(this, node);
     if (
       ts.isPropertyAccessExpression(callee) &&

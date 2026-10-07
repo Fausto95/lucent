@@ -328,12 +328,14 @@ function resultOf(em: FnEmitter, use: SwiftUse, r: cpp.Expr): E {
   const ret = use.ret;
   if (returnsNothing(use)) return { c: cpp.id("lucent::undefined"), t: T.undefined };
   if (crossing(ret) === "enum") return { c: cpp.staticCast(cpp.type("double"), r), t: T.number };
-  const lt: LType =
+  const declared: LType =
     use.role === "init" && ret.k === "ref"
       ? { k: "native", platform: "ios", module: ret.module, name: ret.name }
       : hasUnion(ret) || cStruct(ret)
         ? declaredTypes(em, use).ret
         : declaredLt(em, "ios", ret, use.node);
+  // An async member is declared as the promise of its result: the shim gives the result.
+  const lt = declared.k === "promise" ? declared.inner : declared;
   return valueOf(em, r, ret, lt, use.what);
 }
 
@@ -965,7 +967,9 @@ export function fromObject(t: SdkType, o: swift.Expr): swift.Expr {
         return each(cast(swift.type("Data")), "withUnsafeBytes", load);
       }
       if (isBoxed(t)) return swift.member(cast(swift.type("LucentBox", swiftType(t))), "value");
-      return cast(swiftType(t));
+      // A Foundation object Swift takes as the value type it bridges to (NSURL as URL).
+      const value = sdkTypeInfo("ios", t.module, t.name)?.value;
+      return cast(value ? swift.type(value) : swiftType(t));
     }
     default:
       throw new Error(`no Swift form for ${t.k}`);

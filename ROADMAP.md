@@ -1463,6 +1463,18 @@ native module and a native view each.
       JSI (`joined("a","b","c")`, checksum 38037, a 3-byte ArrayBuffer
       back). Android is not run.
 
+- [x] Fix what porting the four met (the ports themselves stay local
+      until views ship): Objective-C initializers and overloads
+      TypeScript could not tell apart are static methods named by their
+      Swift labels or selectors (`new NSURL(text)` made a file URL);
+      Swift async results that are tuples (a compiler crash); iOS
+      `instanceof`; Foundation objects passed to Swift as the value types
+      they bridge to; accessors and methods through a union of classes;
+      namespace imports of Lucent modules; `null` for an optional
+      Objective-C block; `flatMap` callbacks giving values as well as
+      arrays, and `never[]` for an empty literal; main-thread state in
+      callbacks a component gives the platform.
+
 **Done when:** the four ports compile against a release with these, each
 keeping its React-facing API behind a thin JavaScript wrapper where the
 original has one.

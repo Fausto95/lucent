@@ -16,3 +16,4 @@ print(
   main.far([]),
 );
 print(main.vectorsMade() > 0);
+print(main.throughNamespace());

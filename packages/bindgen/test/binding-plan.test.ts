@@ -378,6 +378,7 @@ describe.skipIf(!xcode)("binding plans and coverage, Swift", () => {
       "Accumulator.constructor: members of protocols with associated types cannot be called yet",
       "Accumulator.feed: members of protocols with associated types cannot be called yet",
       "Accumulator.output: members of protocols with associated types cannot be called yet",
+      "Shapes.listed: tuples of collections or closures cannot cross to Swift yet",
     ]);
   });
 });

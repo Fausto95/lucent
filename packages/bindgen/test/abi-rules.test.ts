@@ -782,6 +782,18 @@ describe("binding plans: Swift rules", () => {
             swift: { name: "sizes()" },
           },
           {
+            name: "listed",
+            params: [],
+            returns: T("Tuple<double[], string>"),
+            swift: { name: "listed()" },
+          },
+          {
+            name: "measured",
+            params: [],
+            returns: T("Tuple<NSData, string>"),
+            swift: { name: "measured()" },
+          },
+          {
             name: "draw",
             params: [{ name: "o", type: T("Shapes.Outline") }],
             returns: T("void"),
@@ -878,6 +890,11 @@ describe("binding plans: Swift rules", () => {
       "closures taking or giving values other than numbers, booleans, strings and Objective-C objects cannot cross to Swift yet",
     );
     expect(reason(pen, "sizes")).toBe("collections of optional values cannot cross to Swift yet");
+    // A tuple crosses as an array of its items' objects, which the glue reads one by one.
+    expect(reason(pen, "listed")).toBe(
+      "tuples of collections or closures cannot cross to Swift yet",
+    );
+    expect(reason(pen, "measured")).toBeUndefined();
     // An optional enum with payloads: passed in, not read out.
     expect(reason(pen, "outline")).toBe(
       "optional Swift enums with payloads cannot cross to Swift yet",

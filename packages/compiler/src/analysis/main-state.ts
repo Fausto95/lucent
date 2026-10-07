@@ -29,7 +29,17 @@ export function mainStateOf(
   units: Units,
   native: NativeFactsSource,
   owners: (u: Unit) => ReadonlyMap<OwnerId, Cause>,
+  mainRoots: ReadonlySet<ts.Node> = new Set(),
 ): MainState {
+  // A component's code, and what it gives the platform (which calls it on the main thread).
+  const onMain = (u: Unit): boolean => {
+    for (let at: Unit | undefined = u; at; at = at.parent) if (mainRoots.has(at.node)) return true;
+
+    const run = owners(u);
+
+    return run.size === 1 && run.has("main");
+  };
+
   const refs = references(checker, units);
   const why = new Map<string, string | undefined>();
   const owned = new Set<ts.Symbol>();
@@ -37,7 +47,7 @@ export function mainStateOf(
   for (const [sym, v] of units.moduleVars) {
     if (!v.state || !ts.isVariableDeclaration(v.declaration.parent)) continue;
 
-    const reason = notOwned(checker, units, native, owners, v, refs.get(sym) ?? []);
+    const reason = notOwned(checker, units, native, onMain, v, refs.get(sym) ?? []);
 
     why.set(v.key, reason);
     if (!reason) owned.add(sym);
@@ -50,7 +60,7 @@ function notOwned(
   checker: ts.TypeChecker,
   units: Units,
   native: NativeFactsSource,
-  owners: (u: Unit) => ReadonlyMap<OwnerId, Cause>,
+  onMain: (u: Unit) => boolean,
   v: ModuleVar,
   refs: readonly ts.Identifier[],
 ): string | undefined {
@@ -73,9 +83,8 @@ function notOwned(
 
   for (const ref of refs) {
     const unit = unitAt(units, ref);
-    const run = unit && owners(unit);
 
-    if (!unit || !run || run.size !== 1 || !run.has("main"))
+    if (!unit || !onMain(unit))
       return `${code(unit?.display ?? "module code")} (${at(ref)}) uses it too`;
 
     if (plain) continue;

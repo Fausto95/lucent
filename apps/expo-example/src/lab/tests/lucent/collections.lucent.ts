@@ -145,3 +145,12 @@ export function fromUndefined(n: number): string {
     return `${xs.length}:${xs.join()}`;
   });
 }
+
+/** flatMap's callback giving a value or an array: arrays are flattened, values kept. */
+export function flatMapped(): string {
+  const names: (string | null)[] = ["a", null, "b"];
+  const present = names.flatMap((n) => n ?? []);
+  const doubled = [1, 2, 3].flatMap((n) => (n % 2 === 0 ? [n, n] : n));
+
+  return `${present.join(",")} ${doubled.join(",")}`;
+}

@@ -130,6 +130,18 @@ describe.skipIf(!ios)("state only the main thread uses", () => {
     ]);
   }, 180_000);
 
+  it("is read by a callback the view gives the platform, which runs on the main thread", () => {
+    const source = PLAYERS.replace(
+      'import { UILabel } from "lucent:ios/UIKit";',
+      'import { UILabel } from "lucent:ios/UIKit";\nimport { Timer } from "lucent:ios/Foundation";',
+    ).replace(
+      "    return label;\n  }\n  throw",
+      '    Timer.scheduledTimer(0.5, true, (_t) => {\n      label.text = labels.get(props.player)?.text ?? "none";\n    });\n    return label;\n  }\n  throw',
+    );
+
+    expect(compileApp(source).diagnostics).toEqual([]);
+  }, 180_000);
+
   it("is module state when its initial value is computed", () => {
     const source = PLAYERS.replace(
       "const labels = new Map<number, UILabel>();",

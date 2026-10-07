@@ -54,7 +54,10 @@ let counter = 0;                                      // module state, reset on 
   variables. A JS reload runs every initializer again and resets every
   static field, one without an initializer to its type's default.
 - Imports are limited to other `*.lucent.ts` files, `lucent:core`, and
-  the `lucent:` platform modules (below).
+  the `lucent:` platform modules (below). Another Lucent module may be
+  imported by name or as a namespace (`import * as shapes from
+"./shapes.lucent"`, then `shapes.toPoint(v)`, `new shapes.Vec(…)`); the
+  namespace itself is not a value.
 - Module names are file names without `.lucent.ts`, and must be unique within an app.
 
 ### Platform code
@@ -179,6 +182,10 @@ Supported:
 - `typeof`, `instanceof` (classes, `Error` kinds, `Array`, `Map`, …), `in`
   on records, including the keys every object inherits (`"toString" in r`).
   `in` on a union is refused: tell its members apart by a discriminant.
+- A member every object type or class of a union declares (a field, an
+  accessor, a method) is read or called on the union's value, as
+  JavaScript does: `(a as Disk | Remote).describe(x)` calls the one the
+  value is, its arguments evaluated once.
 - Rest parameters (`...xs: T[]`) on function declarations, methods and
   constructors, exported ones too: `new File(dir, "a.txt")` from
   JavaScript gathers its arguments as JavaScript does. Such a function

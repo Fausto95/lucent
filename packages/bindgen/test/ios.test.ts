@@ -248,6 +248,31 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     ]);
   });
 
+  it("makes static methods of initializers TypeScript cannot tell apart", () => {
+    // It declares initializers, so it inherits none: every one of them is a static method.
+    expect(cls("WDGHandle").constructors).toBeUndefined();
+    const statics = cls("WDGHandle").methods!.filter((m) => m.static);
+    expect(statics.map((m) => [m.name, m.selector, m.initializer ?? false, m.returns])).toEqual([
+      ["forReadingAtPath", "handleForReadingAtPath:", false, T("Widgets.WDGHandle?")],
+      ["forUpdatingAtPath", "handleForUpdatingAtPath:", false, T("Widgets.WDGHandle?")],
+      ["fileURLWithPath", "initFileURLWithPath:", true, T("Widgets.WDGHandle")],
+      ["string", "initWithString:", true, T("Widgets.WDGHandle?")],
+    ]);
+    expect(statics[0]).toMatchObject({ params: [{ name: "path", type: T("string") }] });
+  });
+
+  it("names overloads Swift names alike by their selectors", () => {
+    expect(
+      cls("WDGHandle")
+        .methods?.filter((m) => !m.static)
+        .map((m) => [m.name, m.selector]),
+    ).toEqual([
+      ["set", "setInt32:forKey:"],
+      ["setDoubleForKey", "setDouble:forKey:"],
+      ["setFloatForKey", "setFloat:forKey:"],
+    ]);
+  });
+
   it("types parameters and results: nullability, collections, data, dates, id", () => {
     expect(method("touch")[0]).toMatchObject({
       selector: "touch:other:",

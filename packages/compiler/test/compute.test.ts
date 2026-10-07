@@ -203,6 +203,28 @@ export function run(x: number): Promise<number> {
     );
   });
 
+  it("refuses a task that reads module state through a namespace import", () => {
+    const { r } = build({
+      tables: "export const table: number[] = [1, 2];\n",
+      m: `import { compute } from "lucent:core";
+import * as tables from "./tables.lucent";
+function weigh(x: number): number {
+  return x * (tables.table[0] ?? 1);
+}
+export function run(x: number): Promise<number> {
+  return compute(weigh, x);
+}
+`,
+    });
+
+    expect(r.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "LUCENT3011",
+        message: expect.stringContaining("reads module state `table`"),
+      }),
+    ]);
+  });
+
   it("accepts a task that converts with BigInt and toString", () => {
     expect(
       refusals(`import { compute } from "lucent:core";

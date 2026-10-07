@@ -160,6 +160,20 @@ typedef struct {
 + (instancetype)badgeWithText:(NSString *)text;
 @end
 
+/// NSFileHandle's shape: factories Swift imports as initializers taking the
+/// same types (init?(forReadingAtPath:), init?(forUpdatingAtPath:)); NSURL's:
+/// initializers taking the same types (init(fileURLWithPath:), init?(string:));
+/// and MMKV's: overloads Swift names alike, set(_:forKey:).
+@interface WDGHandle : NSObject
++ (nullable instancetype)handleForReadingAtPath:(NSString *)path;
++ (nullable instancetype)handleForUpdatingAtPath:(NSString *)path;
+- (instancetype)initFileURLWithPath:(NSString *)path;
+- (nullable instancetype)initWithString:(NSString *)string;
+- (BOOL)setInt32:(int32_t)value forKey:(NSString *)key NS_SWIFT_NAME(set(_:forKey:));
+- (BOOL)setDouble:(double)value forKey:(NSString *)key NS_SWIFT_NAME(set(_:forKey:));
+- (BOOL)setFloat:(float)value forKey:(NSString *)key NS_SWIFT_NAME(set(_:forKey:));
+@end
+
 double WDGDistance(WDGWidget *a, WDGWidget *b);
 
 typedef enum {

@@ -31,6 +31,14 @@ template <class... Ts>
 String toJsString(const std::tuple<Ts...>& t);
 
 namespace detail {
+// flatMap's result for one element: an array's items, or the value itself.
+template <class U>
+void flatInto(Array<U>& out, const Array<U>& items);
+template <class U, class... Ts>
+void flatInto(Array<U>& out, const std::variant<Ts...>& value);
+template <class U, class V>
+void flatInto(Array<U>& out, const V& value);
+
 // JS relative index (used by slice, splice, fill, at...).
 inline size_t relativeIndex(double v, size_t len) {
   if (std::isnan(v)) return 0;
@@ -294,7 +302,7 @@ class Array {
     Array<U> out;
     size_t n = d_->size();
     for (size_t i = 0; i < n && i < d_->size(); i++) {
-      out.append(invokeCallback(f, at(i), static_cast<double>(i), *this));
+      detail::flatInto(out, invokeCallback(f, at(i), static_cast<double>(i), *this));
     }
     return out;
   }
@@ -446,6 +454,36 @@ class Array {
 
   std::shared_ptr<std::vector<Elem>> d_;
 };
+
+namespace detail {
+template <class U>
+void flatInto(Array<U>& out, const Array<U>& items) {
+  out.append(items);
+}
+template <class U, class... Ts>
+void flatInto(Array<U>& out, const std::variant<Ts...>& value) {
+  std::visit([&](const auto& v) { flatInto(out, v); }, value);
+}
+template <class U, class V>
+void flatInto(Array<U>& out, const V& value) {
+  out.push(U(value));
+}
+}  // namespace detail
+
+/// A union value whose `never[]` member (an empty array, as Array<Undefined>)
+/// becomes an empty `A`, `To`'s array member; its other members as they are.
+template <class To, class A, class From>
+To emptyArrayAs(const From& from) {
+  return std::visit(
+      [](const auto& x) -> To {
+        if constexpr (std::is_same_v<std::decay_t<decltype(x)>, Array<Undefined>>) {
+          return To(A());
+        } else {
+          return To(x);
+        }
+      },
+      from);
+}
 
 /// String(array): its elements joined with ",".
 template <class T>

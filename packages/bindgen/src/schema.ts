@@ -367,6 +367,12 @@ export interface SdkMethodSchema extends SdkCallable {
   name: string;
   returns: SchemaType;
   static?: boolean;
+  /**
+   * An Objective-C initializer TypeScript could not tell from another
+   * constructor, declared as a static method: sent to a new instance
+   * (`[[NSURL alloc] initWithString:]`), not to the class.
+   */
+  initializer?: true;
   typeParams?: string[];
   /** Main-only (`@MainActor`, `@MainThread`), or (false) not though its class is (`@AnyThread`). */
   mainActor?: boolean;

@@ -191,8 +191,12 @@ class Facts implements ProgramFacts {
   }
 
   mainState(): MainState {
-    this.main ??= mainStateOf(this.checker, this.solved.p.units, this.native, (u) =>
-      this.owners(u),
+    this.main ??= mainStateOf(
+      this.checker,
+      this.solved.p.units,
+      this.native,
+      (u) => this.owners(u),
+      this.mainRoots,
     );
     return this.main;
   }

@@ -560,6 +560,85 @@ export async function run(): Promise<string> {
     expect(mm).not.toContain("alloc] widgetWithLabel:");
   });
 
+  it("tests an object's Objective-C class with instanceof, as isKindOfClass: does", () => {
+    const { r, mm } =
+      ios(`import { HTTPURLResponse, NSURL, URLSession } from "lucent:ios/Foundation";
+export async function run(): Promise<string> {
+  const [, response] = await URLSession.shared.data(NSURL.string("https://example.com")!);
+  return response instanceof HTTPURLResponse ? \`\${response.statusCode}\` : "not HTTP";
+}
+`);
+
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("isKindOfClass:[NSHTTPURLResponse class]");
+  });
+
+  it("passes Foundation objects to Swift as the value types they bridge to", () => {
+    const { r } =
+      ios(`import { NSMutableURLRequest, NSURL, URLSession } from "lucent:ios/Foundation";
+export async function run(): Promise<string> {
+  const url = NSURL.string("https://example.com")!;
+  const [a] = await URLSession.shared.data(url);
+  const [b] = await URLSession.shared.data(new NSMutableURLRequest(url));
+  return \`\${a.length} \${b.length}\`;
+}
+`);
+    const shims = r.files.get("ios/LucentShims.swift") ?? "";
+
+    expect(r.diagnostics).toEqual([]);
+    expect(shims).toContain("as! Foundation.URL\n");
+    expect(shims).toContain("as! Foundation.URLRequest\n");
+    expect(shims).not.toMatch(/as! Foundation\.NSURL(Request)?\n/);
+  });
+
+  it("makes an object with an initializer TypeScript cannot tell from another, on a new instance", () => {
+    const { r, mm } = ios(`import { NSURL } from "lucent:ios/Foundation";
+export async function run(): Promise<string> {
+  const web = NSURL.string("https://example.com/a b");
+  const file = NSURL.fileURLWithPath("/tmp/a b");
+  return \`\${web?.absoluteString} \${file.absoluteString}\`;
+}
+`);
+
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("[[NSURL alloc] initWithString:");
+    expect(mm).toContain("[[NSURL alloc] initFileURLWithPath:");
+  });
+
+  it("refuses instanceof on a Swift-only class, which has no Objective-C class to test", () => {
+    const { r } = ios(`import { NSObject } from "lucent:ios";
+import { Insecure_MD5Digest } from "lucent:ios/CryptoKit";
+import { NSURL } from "lucent:ios/Foundation";
+export async function run(): Promise<string> {
+  const url: NSObject = NSURL.fileURLWithPath("/tmp");
+  return String(url instanceof Insecure_MD5Digest);
+}
+`);
+
+    expect(r.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "LUCENT1002",
+        message: expect.stringContaining("has no Objective-C class"),
+      }),
+    ]);
+  });
+
+  it("passes null for an optional block", () => {
+    const { r, mm } = ios(`import { UIView, UIView_AnimationOptions } from "lucent:ios/UIKit";
+import { main } from "lucent:thread";
+export async function run(): Promise<string> {
+  return main(() => {
+    const view = new UIView();
+    UIView.transition(view, 0.3, UIView_AnimationOptions.transitionCrossDissolve, null, null);
+    return "ok";
+  });
+}
+`);
+
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toMatch(/transitionWithView:.* animations:nil completion:nil\]/);
+  });
+
   it("reads NSError out-parameters as Lucent errors", () => {
     const { r, mm } = ios(errorOut);
     expect(r.diagnostics).toEqual([]);

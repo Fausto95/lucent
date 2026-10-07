@@ -346,6 +346,11 @@ export interface NamesIndex {
       options?: boolean;
       /** An Objective-C class's superclass, by USR. */
       inherits?: string;
+      /**
+       * The Swift value type that bridges to this Objective-C class
+       * (`Foundation.URLRequest` for NSURLRequest), which Swift APIs take.
+       */
+      value?: string;
       /** The Objective-C protocols a class conforms to, by USR, its superclasses' included. */
       conforms?: string[];
       /**
@@ -481,7 +486,11 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
     const cls = member.declarationFragments?.find(
       (f) => f.kind === "typeIdentifier" && objcClass(f.preciseIdentifier ?? ""),
     );
-    if (cls) aliases[r.target] = [cls];
+    if (!cls) continue;
+    aliases[r.target] = [cls];
+    const objc = types[cls.spelling];
+    const valueType = byUsr.get(r.target);
+    if (objc?.kind === "class" && valueType) objc.value = swiftName(module, valueType);
   }
   const members = new Map<string, SymbolGraphSymbol[]>();
   for (const r of g.relationships)
@@ -1224,6 +1233,7 @@ export function buildIosSchema(
             };
             if (facts) c.facts = facts;
             if (memberSince && memberSince !== cls.since) c.since = memberSince;
+            initNames.set(c, { title: mem.names.title, failable: /\binit\?/.test(text) });
             ctors.push(c);
             continue;
           }
@@ -1293,6 +1303,7 @@ export function buildIosSchema(
         if (cls.extends) cls.inheritsInit = true;
         else ctors.push({ params: [], selector: "init" });
       }
+      methods.push(...initializersApart(ctors, methods, { module, name }));
       if (ctors.length) cls.constructors = ctors;
       if (methods.length) cls.methods = methods;
       if (props.length) cls.properties = props;
@@ -1386,14 +1397,89 @@ function disambiguate(methods: SdkMethodSchema[]): void {
   const key = (m: SdkMethodSchema) =>
     `${m.static ? "static " : ""}${m.name}(${m.params.map((p) => tsKind(formatSchemaType(p.type))).join(",")})`;
   const seen = new Set<string>();
+  const titles = new Set<string>();
   for (const m of methods) {
+    const title = swiftTitle(m);
+    const repeated = titles.has(title);
+
+    titles.add(title);
     if (!seen.has(key(m))) {
       seen.add(key(m));
       continue;
     }
-    m.name = withLabels(m);
+    // Overloads Swift names alike (`set(_:forKey:)`) have no labels to tell them apart: the selector's words do.
+    m.name = repeated && m.selector ? selectorName(m.selector) : withLabels(m);
     seen.add(key(m));
   }
+}
+
+function swiftTitle(m: SdkMethodSchema): string {
+  return (m as SdkMethodSchema & { swiftName?: string }).swiftName ?? swiftNames.get(m) ?? m.name;
+}
+
+/** A method name of a selector's words: `setDouble:forKey:` → `setDoubleForKey`. */
+function selectorName(selector: string): string {
+  return selector
+    .split(":")
+    .filter(Boolean)
+    .map((w, i) => (i ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join("");
+}
+
+/** Initializers' Swift names (`init(forUpdatingAtPath:)`), and whether they may fail. */
+const initNames = new WeakMap<SdkCallable, { title: string; failable: boolean }>();
+
+/**
+ * Initializers TypeScript could not tell apart (NSURL's initWithString:
+ * and initFileURLWithPath: both take a string; NSFileHandle's factories
+ * for reading and for updating), taken out of `ctors` as static methods
+ * named by their Swift labels (`NSURL.string(…)`,
+ * `FileHandle.forUpdatingAtPath(…)`): none of them is the constructor,
+ * so code never gets one when it meant another. A factory is sent to the
+ * class, as it was; an initializer to a new instance.
+ */
+function initializersApart(
+  ctors: SdkCallable[],
+  methods: readonly SdkMethodSchema[],
+  owner: { module: string; name: string },
+): SdkMethodSchema[] {
+  const key = (c: SdkCallable) => c.params.map((p) => tsKind(formatSchemaType(p.type))).join(",");
+  const counts = new Map<string, number>();
+
+  for (const c of ctors) counts.set(key(c), (counts.get(key(c)) ?? 0) + 1);
+
+  const taken = new Set(methods.filter((m) => m.static).map((m) => m.name));
+  const out: SdkMethodSchema[] = [];
+
+  const moved = ctors.filter((c) => counts.get(key(c))! >= 2 && initNames.has(c) && c.selector);
+
+  for (const c of moved) {
+    const init = initNames.get(c)!;
+
+    const { labels } = splitName(init.title.replace(/^init\??/, "init"));
+    const named = labels.filter((l) => l !== "_");
+    const labeled = named.length
+      ? named[0]! +
+        named
+          .slice(1)
+          .map((l) => l.charAt(0).toUpperCase() + l.slice(1))
+          .join("")
+      : "";
+    const name = labeled && !taken.has(labeled) ? labeled : selectorName(c.selector!);
+    const { factory, ...callable } = c;
+
+    taken.add(name);
+    ctors.splice(ctors.indexOf(c), 1);
+    out.push({
+      ...callable,
+      name,
+      static: true,
+      ...(factory ? {} : { initializer: true as const }),
+      returns: { k: "ref", module: owner.module, name: owner.name, nullable: init.failable },
+    });
+  }
+
+  return out;
 }
 
 /** Objective-C methods' Swift names (`count(for:)`), for labeling them again. */
@@ -1401,9 +1487,7 @@ const swiftNames = new WeakMap<SdkMethodSchema, string>();
 
 /** A method's name with its Swift labels appended (`resize(height:)` → `resizeHeight`). */
 function withLabels(m: SdkMethodSchema): string {
-  const { labels } = splitName(
-    (m as SdkMethodSchema & { swiftName?: string }).swiftName ?? swiftNames.get(m) ?? m.name,
-  );
+  const { labels } = splitName(swiftTitle(m));
   return (
     m.name +
     labels
