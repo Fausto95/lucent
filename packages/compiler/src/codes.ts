@@ -48,6 +48,7 @@ export const Codes = {
   BorrowEscape: "LUCENT3030",
   UseAfterMove: "LUCENT3031",
   TypeScript: "LUCENT9001",
+  InternalError: "LUCENT9002",
 } as const;
 
 export type Code = (typeof Codes)[keyof typeof Codes];
@@ -74,6 +75,8 @@ export interface Explanation {
   severity?: "warning";
   /** About views (components): the diagnostics reference groups them apart. */
   views?: true;
+  /** A fault of the compiler's: no program should report it, so `wrong` shows none. */
+  internal?: true;
 }
 
 const ex = (source: string, name = "example.lucent.ts"): Example => ({ [name]: source });
@@ -685,6 +688,19 @@ export const Explanations: Record<Code, Explanation> = {
     fix: "fix the type error; your editor shows the same message",
     wrong: ex('export function double(n: number): number {\n  return n + "";\n}\n'),
     right: ex("export function double(n: number): number {\n  return n * 2;\n}\n"),
+  },
+  LUCENT9002: {
+    title: "Internal compiler error",
+    summary:
+      "Lucent failed to compile a function it accepted: a bug in the compiler, reported at the function instead of stopping the build.",
+    details:
+      "The compiler checks the code it generates for each function before writing it, and stops at a function whose code would be wrong rather than writing invalid C++. The rest of the program still compiles, so other diagnostics stay accurate. The message names what went wrong; the function itself may be valid TypeScript in the subset.",
+    fix: "report the code at the diagnostic as a Lucent bug; rewriting that expression usually avoids it",
+    wrong: ex(
+      "// No program should report LUCENT9002: one that does found a compiler bug.\nexport function double(n: number): number {\n  return n * 2;\n}\n",
+    ),
+    right: ex("export function double(n: number): number {\n  return n * 2;\n}\n"),
+    internal: true,
   },
 };
 

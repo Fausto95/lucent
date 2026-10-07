@@ -1,3 +1,11 @@
+/** An operation the builder refuses (operands of the wrong type): a fault of the lowering's. */
+export class IrBuildError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "IrBuildError";
+  }
+}
+
 /**
  * Builds IR functions: allocates ids and appends operations in evaluation
  * order, to the region being built (the body, or a region of an `if`,
@@ -71,7 +79,7 @@ export class IrBuilder {
   typeOf(v: ValueId): LType {
     const value = this.values[v];
 
-    if (!value) throw new Error(`IR value v${v} does not exist`);
+    if (!value) throw new IrBuildError(`IR value v${v} does not exist`);
 
     return value.type;
   }
@@ -114,7 +122,7 @@ export class IrBuilder {
   unary(op: UnaryOp, operand: ValueId, source: SourceSpan): ValueId {
     const type = unaryResult(op, this.typeOf(operand));
 
-    if (!type) throw new Error(`IR: ${op} does not take v${operand}`);
+    if (!type) throw new IrBuildError(`IR: ${op} does not take v${operand}`);
 
     const result = this.value(type, source);
     this.push({ kind: "unary", result, op, operand, source });
@@ -124,7 +132,7 @@ export class IrBuilder {
   binary(op: BinaryOp, left: ValueId, right: ValueId, source: SourceSpan): ValueId {
     const type = binaryResult(op, this.typeOf(left), this.typeOf(right));
 
-    if (!type) throw new Error(`IR: ${op} does not take v${left}, v${right}`);
+    if (!type) throw new IrBuildError(`IR: ${op} does not take v${left}, v${right}`);
 
     const result = this.value(type, source);
     this.push({ kind: "binary", result, op, left, right, source });
@@ -229,7 +237,7 @@ export class IrBuilder {
   placeType(place: PlaceId): LType {
     const type = this.placeTypes[place];
 
-    if (!type) throw new Error(`IR place p${place} does not exist`);
+    if (!type) throw new IrBuildError(`IR place p${place} does not exist`);
 
     return type;
   }
@@ -237,7 +245,7 @@ export class IrBuilder {
   load(place: PlaceId, source: SourceSpan): ValueId {
     const type = this.placeTypes[place];
 
-    if (!type) throw new Error(`IR place p${place} does not exist`);
+    if (!type) throw new IrBuildError(`IR place p${place} does not exist`);
 
     const result = this.value(type, source);
     const int = this.placeInts.get(place);
@@ -256,7 +264,7 @@ export class IrBuilder {
   renew(place: PlaceId, source: SourceSpan): void {
     const type = this.placeTypes[place];
 
-    if (!type) throw new Error(`IR place p${place} does not exist`);
+    if (!type) throw new IrBuildError(`IR place p${place} does not exist`);
 
     this.push({ kind: "renew", place, type, source });
   }

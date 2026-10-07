@@ -66,6 +66,7 @@ import {
 } from "./ir.ts";
 
 export class IrVerifyError extends Error {
+  readonly fn: FunctionId;
   readonly problems: string[];
   readonly dump: string;
 
@@ -75,6 +76,7 @@ export class IrVerifyError extends Error {
       `internal compiler error: invalid IR for ${fn.id}\n  ${problems.join("\n  ")}\n${listing}`,
     );
     this.name = "IrVerifyError";
+    this.fn = fn.id;
     this.problems = problems;
     this.dump = listing;
   }

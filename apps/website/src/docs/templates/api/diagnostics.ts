@@ -65,13 +65,19 @@ export const blocks: Block[] = [
     codes.length
       ? [
           { kind: "h2", text: title },
-          ...codes.flatMap(({ code, title, details, fix, wrong, right, warning }): Block[] => [
-            { kind: "h3", text: code },
-            { kind: "p", text: `**${title}**${warning ? " (a warning)" : ""}` },
-            ...details.split("\n\n").map((text): Block => ({ kind: "p", text })),
-            { kind: "p", text: `**Fix:** ${fix}.` },
-            { kind: "tabs", tabs: [...tabs("wrong", wrong), ...tabs("right", right)] },
-          ]),
+          ...codes.flatMap(
+            ({ code, title, details, fix, wrong, right, warning, internal }): Block[] => [
+              { kind: "h3", text: code },
+              { kind: "p", text: `**${title}**${warning ? " (a warning)" : ""}` },
+              ...details.split("\n\n").map((text): Block => ({ kind: "p", text })),
+              { kind: "p", text: `**Fix:** ${fix}.` },
+              // An internal error has no wrong example: no program should report it.
+              {
+                kind: "tabs",
+                tabs: [...(internal ? [] : tabs("wrong", wrong)), ...tabs("right", right)],
+              },
+            ],
+          ),
         ]
       : [],
   ),
