@@ -58,7 +58,7 @@ export async function setUpNotifications(): Promise<void> {
 </TabItem>
 </Tabs>
 
-An SDK declaration's doc comment gives the version that added it, such as `Since iOS 16.0.` or `Since API 26.`: [`lucent sdk show`](/docs/guides/find-an-sdk-class/) prints it. A class or member newer than [the oldest OS your app runs on](#the-oldest-os-your-app-runs-on) compiles only where your code checks the running OS first. Without the check, the build stops:
+An SDK declaration's doc comment gives the version that added it, such as `Since iOS 16.0.` or `Since API 26.`: [`lucent sdk show`](/docs/guides/find-an-sdk-class/) prints it. A class, member, C function, global constant or enum case newer than [the oldest OS your app runs on](#the-oldest-os-your-app-runs-on) compiles only where your code checks the running OS first. Without the check, the build stops:
 
 ```sh title="terminal" nocopy
 $ npx lucent check

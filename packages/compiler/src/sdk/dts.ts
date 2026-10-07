@@ -217,25 +217,27 @@ function emitDts(
     else body.push(...classDts(schema, type, tsType, use, options), ts.blank);
   }
   const refused = refusalDoc(schema);
+  const since = (v: number | string | undefined) =>
+    v === undefined ? [] : [`Since ${schema.platform === "android" ? "API " : "iOS "}${v}.`];
   for (const f of schema.functions ?? []) {
     const tps = f.typeParams ?? [];
-    const doc = refused(undefined, f);
+    const doc = [...since(f.since), ...[refused(undefined, f) ?? []].flat()];
     body.push({
       k: "function",
       name: f.name,
-      ...(doc ? { doc } : {}),
+      ...(doc.length ? { doc } : {}),
       ...(tps.length ? { typeParams: tps.map((name) => ({ name })) } : {}),
       params: declaredParams(f, (t) => tsType(parseSdkType(t, schema.module, tps), false)),
       ret: settled(f, tsType(parseSdkType(f.returns, schema.module, tps))),
     });
   }
   for (const c of schema.constants ?? []) {
-    const doc = refused(undefined, c);
+    const doc = [...since(c.since), ...[refused(undefined, c) ?? []].flat()];
     body.push({
       k: "const",
       name: c.name,
       type: tsType(parseSdkType(c.type, schema.module)),
-      ...(doc ? { doc } : {}),
+      ...(doc.length ? { doc } : {}),
     });
   }
   const head: ts.Decl[] = [...imports].map(([module, names]) => ({

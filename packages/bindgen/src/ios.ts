@@ -932,10 +932,13 @@ export function buildIosSchema(
         )
         .map((m) => {
           const native = m.identifier.precise.slice(s.identifier.precise.length + 1);
+          const v = since(m);
           return {
             name: m.pathComponents[m.pathComponents.length - 1]!,
             native,
             value: enumValueMap.get(cName)?.get(native),
+            // A case newer than its enum.
+            ...(v && v !== since(s) ? { since: v } : {}),
           };
         });
       if (cases.some((c) => c.value === undefined)) {
@@ -951,6 +954,7 @@ export function buildIosSchema(
         symbol: graphSymbol(s.identifier.precise),
         cases: cases as SdkEnumSchema["cases"],
         ...(optionSets(g).has(s.identifier.precise) ? { options: true as const } : {}),
+        ...(since(s) ? { since: since(s)! } : {}),
       };
       mod.types.push(e);
     }
@@ -985,6 +989,7 @@ export function buildIosSchema(
       for (const mem of members.get(s.identifier.precise) ?? []) {
         const global = /^c:@([A-Za-z_]\w*)$/.exec(mem.identifier.precise)?.[1];
         if (!global || mem.kind.identifier !== "swift.type.property" || unavailable(mem)) continue;
+        const v = since(mem);
         props.push({
           name: mem.pathComponents[mem.pathComponents.length - 1]!,
           static: true,
@@ -992,14 +997,17 @@ export function buildIosSchema(
           type: parseSchemaType("string"),
           global,
           symbol: graphSymbol(mem.identifier.precise),
+          ...(v && v !== since(s) ? { since: v } : {}),
         });
       }
+      const v = since(s);
       if (props.length)
         mod.types.push({
           kind: "class",
           name: s.pathComponents.join("_"),
           native: s.identifier.precise.replace(/^.*@T@/, ""),
           symbol: graphSymbol(s.identifier.precise),
+          ...(v ? { since: v } : {}),
           properties: props,
         });
     }
@@ -1342,6 +1350,8 @@ export function buildIosSchema(
             type: parseType(afterColon(s.declarationFragments ?? []), resolver()),
             symbol: graphSymbol(usr),
           };
+          const v = since(s);
+          if (v) c.since = v;
           (mod.constants ??= []).push(c);
         }
       } catch (e) {

@@ -52,28 +52,20 @@ ${body}
 
 describe("iOS globals newer than the oldest iOS", () => {
   it("need an availability check: C functions, constants, typed string keys and enum cases", () => {
-    const p = run(
-      "  return `${KITNow()} ${KITLimit} ${KITKey.fresh} ${KITMode.vivid} ${KITKey.old} ${KITMode.plain}`;",
-    );
-
-    expect(p.messages).toEqual([
-      [
-        "LUCENT3007",
-        'KITNow needs iOS 17.0 (apps run from iOS 15.1): use it under if (available("ios", 17))',
-      ],
-      [
-        "LUCENT3007",
-        'KITLimit needs iOS 17.0 (apps run from iOS 15.1): use it under if (available("ios", 17))',
-      ],
-      [
-        "LUCENT3007",
-        'KITKey.fresh needs iOS 17.0 (apps run from iOS 15.1): use it under if (available("ios", 17))',
-      ],
-      [
-        "LUCENT3007",
-        'KITMode.vivid needs iOS 17.0 (apps run from iOS 15.1): use it under if (available("ios", 17))',
-      ],
-    ]);
+    const uses = {
+      "KITNow()": "KITNow",
+      KITLimit: "KITLimit",
+      "KITKey.fresh": "KITKey.fresh",
+      "KITMode.vivid": "KITMode.vivid",
+    };
+    for (const [use, what] of Object.entries(uses))
+      expect(run(`  return \`\${${use}}\`;`).messages).toEqual([
+        [
+          "LUCENT3007",
+          `${what} needs iOS 17.0 (apps run from iOS 15.1): use it under if (available("ios", 17))`,
+        ],
+      ]);
+    expect(run("  return `${KITKey.old} ${KITMode.plain}`;").messages).toEqual([]);
   });
 
   it("are used under a check", () => {

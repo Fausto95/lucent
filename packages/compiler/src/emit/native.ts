@@ -2843,6 +2843,18 @@ export function nativeStaticProperty(
     const sdk = sdkModuleOf(decl.getSourceFile())!;
     const e = findSdkType(sdk.platform, sdk.module, (decl.parent as ts.EnumDeclaration).name.text);
     const value = em.checker.getConstantValue(decl);
+    if (e?.kind === "enum") {
+      const ref = { platform: sdk.platform };
+      const name = decl.name.getText();
+      requireAvailable(em, node, ref, e.since, e.name);
+      requireAvailable(
+        em,
+        node,
+        ref,
+        e.cases.find((x) => x.name === name)?.since,
+        `${e.name}.${name}`,
+      );
+    }
     // A Swift enum's values are its cases' indexes, which the shims convert: nothing to check.
     if (e?.kind === "enum" && !e.swift && sdk.platform === "ios" && typeof value === "number") {
       const c = e.cases.find((x) => x.name === decl.name.getText())!;
@@ -3388,6 +3400,7 @@ export function nativeFunctionCall(em: FnEmitter, node: ts.CallExpression): E | 
   const f = schema.functions?.find((x) => x.name === name);
   if (!f) fail(node, Codes.UnsupportedCall, `${name} has no binding`);
   const plan = requirePlan(node, sdk, f, "call");
+  requireAvailable(em, node, sdk, f.since, name);
   if (f.swift) {
     const params = f.params.map((p) => parseSdkType(p.type, sdk.module));
     const ret = parseSdkType(f.returns, sdk.module);
@@ -3413,6 +3426,7 @@ export function nativeConstant(em: FnEmitter, id: ts.Identifier): E | undefined 
   const c = schema.constants?.find((x) => x.name === id.text);
   if (!c) fail(id, Codes.UnsupportedSyntax, `${id.text} has no binding`);
   requirePlan(id, sdk, c, "get");
+  requireAvailable(em, id, sdk, c.since, c.name);
   const ct = parseSdkType(c.type, sdk.module);
   if (c.swift)
     return swiftCall(em, swiftUse(id, sdk, c, "get", [], ct, c.name, true), undefined, []);

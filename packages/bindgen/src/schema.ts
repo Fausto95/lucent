@@ -276,11 +276,14 @@ export interface SdkEnumSchema {
   symbol?: SymbolId;
   /** The C enum type (iOS), or the annotation type holding the constants (Android). */
   native: string;
-  cases: { name: string; native: string; value: number | string }[];
+  /** Its cases; `since` where a case is newer than its enum (iOS). */
+  cases: { name: string; native: string; value: number | string; since?: number | string }[];
   /** A Swift enum: `native` is its Swift name, and a case crosses as its index. */
   swift?: { kind: "enum" };
   /** An option set (NS_OPTIONS): its cases combine, and 0 is the empty set. */
   options?: true;
+  /** The OS version that introduced it (iOS), when newer than the platform's first. */
+  since?: number | string;
 }
 
 /** A C struct passed by value (iOS): numbers, booleans and structs, in field order. */
