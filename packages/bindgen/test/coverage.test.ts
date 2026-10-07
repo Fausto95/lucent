@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { ownTypes, type TypeLookup } from "../src/binding-plan.ts";
 import { type Coverage, coverage, coverageSummary } from "../src/coverage.ts";
 import { parseSchemaType, SCHEMA_FORMAT, type SdkModuleSchema } from "../src/schema.ts";
 import { sdkSymbols, symbolKey } from "../src/usage.ts";
@@ -178,5 +179,60 @@ describe("a coverage summary", () => {
 
   it("escapes a reason's table characters", () => {
     expect(coverageSummary([report("A", 1, 1, { "a | b": 1 })])).toContain("| 1 | a \\| b |");
+  });
+});
+
+describe("coverage's share", () => {
+  const shapes = (): SdkModuleSchema => ({
+    format: SCHEMA_FORMAT,
+    platform: "ios",
+    module: "Shapes",
+    types: [
+      {
+        kind: "class",
+        name: "Point",
+        native: "Shapes.Point",
+        swift: { kind: "struct" },
+        methods: [
+          { name: "length", params: [], returns: T("double"), swift: { name: "length()" } },
+          {
+            name: "bounds",
+            params: [],
+            returns: T("Kit.KITRect?"),
+            swift: { name: "bounds()" },
+          },
+        ],
+        properties: [{ name: "hashValue", type: T("NSInteger"), readonly: true, swift: { name: "hashValue" } }],
+      },
+    ],
+    skipped: [
+      "Point.hash(into:): Swift: Hasher",
+      "Point.encode(to:): Swift: Encoder",
+      "Point.init(from:): Swift: Decoder",
+      "Point.==(_:_:): Swift: operators",
+      "Point.scaled(_:): Swift: Matrix",
+    ],
+  });
+
+  it("leaves out Hashable, Equatable and Codable plumbing", () => {
+    const c = coverage(shapes());
+
+    expect(c.plumbing).toBe(5);
+    expect(c).toMatchObject({ total: 3, unrepresentable: 1, reasons: { "Swift: Matrix": 1 } });
+    expect(c.members.map((m) => m.display)).not.toContain("Point.hash(into:)");
+  });
+
+  it("judges members with the types other modules declare", () => {
+    const kit: TypeLookup = (module, name) =>
+      module === "Kit" ? (name === "KITRect" ? { kind: "struct" } : undefined) : ownTypes(shapes())(module, name);
+    const bounds = (c: Coverage) => c.members.find((m) => m.display === "Point.bounds");
+
+    // Alone, another module's type is of unknown kind: taken as an object, which crosses.
+    expect(bounds(coverage(shapes()))?.stage).toBe("representable");
+    // An optional C struct does not cross to Swift.
+    expect(bounds(coverage(shapes(), kit))).toMatchObject({
+      stage: "discovered",
+      reason: "optional C structs (KITRect) cannot cross to Swift yet",
+    });
   });
 });
