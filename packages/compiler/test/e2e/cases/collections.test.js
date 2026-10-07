@@ -11,3 +11,4 @@ print(mod.searchFrom(), mod.searchFrom(4));
 print([1.5, NaN, 2 ** 32 + 1, 3].map((n) => mod.newArrayLength(n)).join(" "));
 print([-1, 1.5, 2.5, NaN, 3].map((n) => mod.fromLength(n)).join(" "));
 print([-1, 1.5, 2.5, NaN, 3].map((n) => mod.fromUndefined(n)).join(" "));
+print(mod.flatMapped());
