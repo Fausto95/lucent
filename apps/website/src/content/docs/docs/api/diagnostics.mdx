@@ -1812,7 +1812,7 @@ export function double(n: number): number {
 
 **Internal compiler error**
 
-The compiler checks the code it generates for each function before writing it, and stops at a function whose code would be wrong rather than writing invalid C++. The rest of the program still compiles, so other diagnostics stay accurate. The message names what went wrong; the function itself may be valid TypeScript in the subset.
+The compiler checks the code it generates for each function before writing it. It stops at a function whose code would be wrong, rather than writing invalid C++. The rest of the program still compiles, so other diagnostics stay accurate. The message names what went wrong; the function itself may be valid TypeScript in the subset.
 
 **Fix:** report the code at the diagnostic as a Lucent bug; rewriting that expression usually avoids it.
 
