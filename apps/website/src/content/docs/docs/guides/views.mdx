@@ -48,9 +48,7 @@ Experimental: views are in preview and change without notice. Read [the limits](
 
    ```tsx title="App.tsx"
    import { View } from "react-native";
-   import * as greeting from "./greeting.lucent";
-
-   const { Greeting } = greeting as unknown as typeof import("./.lucent/native/types/views/greeting");
+   import { Greeting } from "lucent:views/greeting";
 
    export default function App() {
      return (
@@ -66,7 +64,7 @@ Experimental: views are in preview and change without notice. Read [the limits](
 
    An exported function that returns a view is a component. Its body, the setup, runs once each time React mounts it, and the effect sets the text again when `name` changes.
 
-   `lucent build` writes the component's React type to `.lucent/native/types/views/greeting.d.ts`. Nothing connects that file to your app's TypeScript yet, so App.tsx casts the import to it.
+   App.tsx imports the component from `lucent:views/greeting`. `lucent build` writes its React type to `.lucent/native/types/views/greeting.d.ts`, which the `lucent:*` path in `tsconfig.json` resolves, and Metro bundles the module in its place.
 
    To start from platform files instead, `npx lucent new view Card` writes `src/card.lucent.ts` and an iOS and an Android `.lucent.tsx`, each a label in a [Flex](/docs/api/views/platform-views/#layout).
 
