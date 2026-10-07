@@ -179,6 +179,10 @@ Supported:
 - `typeof`, `instanceof` (classes, `Error` kinds, `Array`, `Map`, …), `in`
   on records, including the keys every object inherits (`"toString" in r`).
   `in` on a union is refused: tell its members apart by a discriminant.
+- A member every object type or class of a union declares (a field, an
+  accessor, a method) is read or called on the union's value, as
+  JavaScript does: `(a as Disk | Remote).describe(x)` calls the one the
+  value is, its arguments evaluated once.
 - Rest parameters (`...xs: T[]`) on function declarations, methods and
   constructors, exported ones too: `new File(dir, "a.txt")` from
   JavaScript gathers its arguments as JavaScript does. Such a function

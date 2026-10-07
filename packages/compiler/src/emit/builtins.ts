@@ -1020,6 +1020,38 @@ function callMethodDecl(
 
 // --- methods ---------------------------------------------------------------------------
 
+/**
+ * A method every alternative of a union of objects has: each
+ * alternative's own call, chosen by the variant's index, its result
+ * converted to the union of theirs. One call runs, so the arguments are
+ * evaluated once.
+ */
+function unionMethodCall(
+  em: FnEmitter,
+  obj: E,
+  t: LType & { k: "union" },
+  name: string,
+  node: ts.CallExpression,
+): E {
+  const u = em.ctx.fresh("u");
+  const calls = t.ms.map((m, i) =>
+    methodCall(em, { c: cpp.call("std::get", [cpp.id(u)], [cpp.num(i)]), t: m }, name, node),
+  );
+  const rt = unionOf(calls.map((c) => c.t));
+  const value = calls
+    .map((c) => (isVoidish(rt) ? c.c : em.coerce(c, rt, node)))
+    .reduceRight((rest, call, i) =>
+      cpp.conditional(
+        cpp.binary(cpp.call(cpp.dot(cpp.id(u), "index")), "==", cpp.num(i)),
+        call,
+        rest,
+      ),
+    );
+  const held = cpp.varDecl(cpp.reference(cpp.constType(cpp.auto)), u, obj.c);
+
+  return { c: cpp.statementExpr([held], value), t: isVoidish(rt) ? T.undefined : rt };
+}
+
 export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExpression): E {
   const t = obj.t;
   if (t.k === "handle") return handleMethodCall(em, obj, name, node);
@@ -1068,6 +1100,10 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
     }
     case "iface":
       return ifaceMethodCall(em, obj, t, name, node);
+    case "union":
+      if (t.ms.every((m) => m.k === "class" || m.k === "struct"))
+        return unionMethodCall(em, obj, t, name, node);
+      break;
     case "struct": {
       const f = em.member(obj, name, node);
       const ft = stripOpt(f.t);
