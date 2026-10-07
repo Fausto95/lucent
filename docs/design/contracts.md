@@ -36,7 +36,7 @@ so; the code is what runs.
 | C-BIGINT | The runtime's `BigInt` and its native integer conversions                       | v1.1            | v1 frozen; v1.1 proposed           | `packages/runtime/cpp/lucent/bigint.h`                                                              |
 | C-BUFFER | Native buffers, borrows and transfers                                           | v1.1            | Proposed                           | `packages/runtime/cpp/lucent/buffer.h`, `lucent:core`                                               |
 | C-VIEW   | Component descriptions, mounts, platform hosts, toolkit bodies                  | v2.2            | Proposed                           | `packages/compiler/src/ui/contract.ts`, `packages/runtime/cpp/rn/`                                  |
-| C-BUILD  | Build records, required actions, SDK locks, build identities                    | v1.5            | v1 frozen; v1.1 to v1.5 proposed   | `packages/lucent/src/cli/build-graph.ts`, `pipeline.ts`; `packages/compiler/src/emit/identity.ts`   |
+| C-BUILD  | Build records, required actions, SDK locks, build identities                    | v1.6            | v1 frozen; v1.1 to v1.6 proposed   | `packages/lucent/src/cli/build-graph.ts`, `pipeline.ts`; `packages/compiler/src/emit/identity.ts`   |
 | C-TRACE  | Correlated runtime and build tracing                                            | v1              | Proposed                           | `packages/runtime/cpp/lucent/trace.h`, `packages/lucent/src/cli/trace.ts`                           |
 | C-EXT    | Typed native extensions: C libraries a Lucent package declares                  | v1              | Proposed                           | `packages/runtime/cpp/lucent/extension.h`, `lucent.json` `extensions`                               |
 
@@ -2399,6 +2399,12 @@ sorted, schema?: "<scope>/<entry>" }`), and `symbols` (sorted by
   caches. `lucent sdk diff` compares used symbols across SDK versions.
 - A check or build reruns when `sdk-usage.json` is missing or
   unreadable.
+- `lucent sdk lock --schemas` writes `lucent-sdk.schemas/<platform>/`
+  (v1.6): one `SchemaSetEntry` per file (`format: 1`, `platform`,
+  `module`, `kind: "schema" | "source" | "names"`, `artifacts`,
+  `entry?`, and `schema` or `names`), replaced whole per platform.
+  `SdkOptions.schemas` names it; it is read only for a platform whose
+  SDK is not installed.
 
 ### Build identity
 
@@ -2475,6 +2481,10 @@ export interface BuildIdentity {
   resolution followed links from (`realpaths`, keyed on where each led;
   not in the record, whose nodes name no machine path). Migration: none
   (the first check or build after it runs again).
+- **v1.6** (2026-10-08, proposed): the exported schema set
+  (`lucent-sdk.schemas/`, `SdkOptions.schemas`, `lucent sdk lock
+  --schemas`, `sdk lock --json`'s `schemas`). Migration: none
+  (additive).
 
 ## C-TRACE: correlated tracing
 

@@ -35,6 +35,21 @@ Here the code started to use a member the lock doesn't record: run `lucent sdk l
 
 Lucent reads the selected Xcode and the newest Android platform installed. To build against the locked ones, select that Xcode and set [`LUCENT_ANDROID_PLATFORM`](/docs/api/environment-variables/#variables).
 
+## Type iOS code without Xcode
+
+A Linux CI machine, or a teammate on Linux or Windows, has no iOS SDK, so iOS code goes unchecked there. Export the schemas your code uses where the SDKs are installed:
+
+```sh title="terminal"
+npx lucent sdk lock --schemas
+```
+
+```sh title="terminal" nocopy
+✓ lucent-sdk.lock.json  5 symbols of 2 modules, for android and ios
+✓ lucent-sdk.schemas/  9 schemas
+```
+
+It writes `lucent-sdk.schemas/` beside the lock: one JSON file per module your code uses, and per module those modules' types come from. Commit the directory. Where a platform's SDK isn't installed, `lucent check` and `lucent build` read that platform's bindings from it, so iOS code type-checks and generates on Linux. An installed SDK always wins. A module the directory doesn't have fails with `LUCENT3004`: run `lucent sdk lock --schemas` again on a Mac. The native build itself still needs Xcode.
+
 ## Check a new SDK before you switch
 
 Lucent reads a new Xcode or Android SDK on the next build, and checks your code against it. Before you switch, compare it with the lock:

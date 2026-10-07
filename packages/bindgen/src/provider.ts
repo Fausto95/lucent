@@ -57,6 +57,13 @@ export type { NativeArtifact } from "./artifacts.ts";
 export interface SdkOptions {
   /** Default: $LUCENT_CACHE_DIR, else $XDG_CACHE_HOME/lucent, else ~/.cache/lucent. */
   cacheDir?: string;
+  /**
+   * An exported schema set (lucent-sdk.schemas/, which `lucent sdk lock
+   * --schemas` writes beside the lock): the schemas a platform's code
+   * used, read where that platform's SDK is not installed (a Linux CI
+   * typing iOS code). An installed SDK wins.
+   */
+  schemas?: string;
   android?: {
     /** The jars to bind (default: the SDK platform's android.jar). */
     jars?: string[];
@@ -123,6 +130,9 @@ const headerIndexes = new Map<string, Record<string, string>>();
 /** Forgets what this process loaded, as a new process would (tests). */
 export function forgetLoadedSdks(): void {
   loaded.clear();
+  served.clear();
+  setEntries.clear();
+  setIdentities.clear();
   iosSdks.clear();
   headerIndexes.clear();
   locatedByObject = new WeakMap();
@@ -940,9 +950,10 @@ export function sdkSourceModule(
   if (!/^\w+$/.test(module)) return { missing: `${module} is not a module name` };
 
   const r = locate(platform, opts);
-  if ("missing" in r) return r;
+  if ("missing" in r) return fromSet(platform, module, "source", opts, r.missing);
   if (!r.providers.has(module)) return iosNotFound(r, module);
 
+  serve(platform, module, "source");
   const memo = `${platform}|source|${r.scope}|${r.key}|${module}`;
   const hit = loaded.get(memo);
   if (hit) return hit.lookup;
@@ -1159,7 +1170,7 @@ export function sdkModule(platform: Platform, module: string, opts: SdkOptions =
     return { missing: `lucent:${platform}/${module} is not a module name` };
 
   const r = locate(platform, opts);
-  if ("missing" in r) return r;
+  if ("missing" in r) return fromSet(platform, module, "schema", opts, r.missing);
 
   const memo = `${platform}|${r.scope}|${r.key}|${module}`;
   let hit = loaded.get(memo);
@@ -1167,6 +1178,7 @@ export function sdkModule(platform: Platform, module: string, opts: SdkOptions =
     hit = load(platform, r, module);
     loaded.set(memo, hit);
   }
+  if ("schema" in hit.lookup) serve(platform, module, "schema");
 
   return hit.lookup;
 }
@@ -1181,7 +1193,11 @@ export function sdkModuleArtifacts(
   opts: SdkOptions = {},
 ): NativeArtifact[] {
   const r = locate(platform, opts);
-  if ("missing" in r || "missing" in sdkModule(platform, module, opts)) return [];
+  if ("missing" in r) {
+    const entry = setEntry(platform, module, "schema", opts);
+    return (entry?.artifacts ?? []).map(lockedArtifact(platform));
+  }
+  if ("missing" in sdkModule(platform, module, opts)) return [];
 
   const inputs = loaded.get(`${platform}|${r.scope}|${r.key}|${module}`)?.inputs ?? {};
   const read = [r.sdk, ...Object.keys(inputs).flatMap((n) => r.providers.get(n) ?? [])];
@@ -1201,7 +1217,12 @@ export function nativeArtifacts(
 
 /** Whether a platform's SDK is installed. */
 export function sdkAvailable(platform: Platform, opts: SdkOptions = {}): boolean {
-  return !("missing" in locate(platform, opts));
+  return !("missing" in locate(platform, opts)) || setModules(platform, opts).length > 0;
+}
+
+/** Whether a platform's bindings come from the exported schema set: its SDK is not installed. */
+export function sdkFromSchemaSet(platform: Platform, opts: SdkOptions = {}): boolean {
+  return "missing" in locate(platform, opts) && setModules(platform, opts).length > 0;
 }
 
 /**
@@ -1212,7 +1233,8 @@ export function sdkIdentity(opts: SdkOptions = {}): string {
   return (["ios", "android"] as const)
     .map((p) => {
       const r = locate(p, opts);
-      return "missing" in r ? "none" : hash([path.basename(r.scope), r.key]);
+      if (!("missing" in r)) return hash([path.basename(r.scope), r.key]);
+      return setModules(p, opts).length ? `set-${setIdentity(p, opts)}` : "none";
     })
     .join("|");
 }
@@ -1228,7 +1250,7 @@ export function sdkSchemaEntry(
   opts: SdkOptions = {},
 ): string | undefined {
   const r = locate(platform, opts);
-  if ("missing" in r) return undefined;
+  if ("missing" in r) return setEntry(platform, module, "schema", opts)?.entry;
 
   const inputs = loaded.get(`${platform}|${r.scope}|${r.key}|${module}`)?.inputs;
   return inputs ? `${path.basename(r.scope)}/${entryKey(inputs)}` : undefined;
@@ -1274,7 +1296,15 @@ export function cachedModules(
   opts: SdkOptions = {},
 ): { schemas: string[]; names: string[] } | { missing: string } {
   const r = locate(platform, opts);
-  if ("missing" in r) return r;
+  if ("missing" in r) {
+    const set = setModules(platform, opts);
+    return set.length
+      ? {
+          schemas: set.filter((m) => setEntry(platform, m, "schema", opts)),
+          names: set.filter((m) => !setEntry(platform, m, "schema", opts)),
+        }
+      : r;
+  }
 
   // Only entries this build would read: another build's pods or classpath may differ.
   const dirs = fs.existsSync(r.scope)
@@ -1295,7 +1325,10 @@ export function sdkModules(
   opts: SdkOptions = {},
 ): string[] | { missing: string } {
   const r = locate(platform, opts);
-  if ("missing" in r) return r;
+  if ("missing" in r) {
+    const set = setModules(platform, opts).filter((m) => setEntry(platform, m, "schema", opts));
+    return set.length ? set : r;
+  }
   if (platform === "android")
     return [...jarIndex(r.android!.jars, r.android!.apiVersions).packages].sort();
   return [...r.ios!.modules.keys()].sort();
@@ -1320,6 +1353,10 @@ export function sdkNames(
   opts: SdkOptions = {},
 ): SdkNamesLookup {
   const r = locate(platform, opts);
+  if ("missing" in r) {
+    const names = setEntry(platform, module, "names", opts)?.names;
+    if (names) return { names };
+  }
   if (platform === "android" || "missing" in r) {
     const found = sdkModule(platform, module, opts);
     if ("missing" in found) return found;
@@ -1334,7 +1371,258 @@ export function sdkNames(
   if (!r.ios!.modules.has(module))
     return { missing: `lucent:ios/${module} was not found in the SDK or the app's dependencies` };
   const [names] = namesFor(r, [module]);
+  if (names) serve(platform, module, "names");
   return names
     ? { names }
     : { missing: `lucent:ios/${module}: swift-symbolgraph-extract produced no symbol graph` };
+}
+
+// --- the exported schema set -----------------------------------------------------------
+
+/**
+ * The schema set's format: what each of its files holds. A file of
+ * another format, or holding a schema of another SCHEMA_FORMAT, is not
+ * read: `lucent sdk lock --schemas` writes the set again.
+ */
+export const SCHEMA_SET_FORMAT = 1;
+
+type SetKind = "schema" | "source" | "names";
+
+/** One module in the set: `<set>/<platform>/<module>.json` (`.source.json`, `.names.json`). */
+export interface SchemaSetEntry {
+  format: number;
+  platform: Platform;
+  module: string;
+  kind: SetKind;
+  /** The artifacts it was read from (`id#contentHash`), as the lock records them. */
+  artifacts: string[];
+  /** Where the exporting machine's cache keeps it (the lock's `schema`). */
+  entry?: string;
+  schema?: SdkModuleSchema;
+  names?: NamesIndex;
+}
+
+/** What this process served from an installed SDK: what an export writes. */
+const served = new Map<string, { platform: Platform; module: string; kind: SetKind }>();
+const setEntries = new Map<string, SchemaSetEntry | null>();
+const setIdentities = new Map<string, string>();
+
+function serve(platform: Platform, module: string, kind: SetKind): void {
+  served.set(`${platform}|${kind}|${module}`, { platform, module, kind });
+}
+
+const setSuffix = (kind: SetKind) =>
+  kind === "schema" ? ".json" : kind === "source" ? ".source.json" : ".names.json";
+
+function setFile(dir: string, platform: Platform, module: string, kind: SetKind): string {
+  return path.join(dir, platform, `${module}${setSuffix(kind)}`);
+}
+
+/** A module's entry in the set, when it has one of this format. */
+function setEntry(
+  platform: Platform,
+  module: string,
+  kind: SetKind,
+  opts: SdkOptions,
+): SchemaSetEntry | undefined {
+  if (!opts.schemas || !/^[\w.]+$/.test(module)) return undefined;
+
+  const file = setFile(opts.schemas, platform, module, kind);
+  let entry = setEntries.get(file);
+  if (entry === undefined) {
+    const value = readCached(file) as Partial<SchemaSetEntry> | undefined;
+    const whole =
+      value?.format === SCHEMA_SET_FORMAT &&
+      value.platform === platform &&
+      value.module === module &&
+      (kind === "names" ? !!value.names : hasSchemaFormat(value.schema));
+    entry = whole ? (value as SchemaSetEntry) : null;
+    setEntries.set(file, entry);
+  }
+
+  return entry ?? undefined;
+}
+
+/** The modules the set has for a platform, whatever their kind. */
+function setModules(platform: Platform, opts: SdkOptions): string[] {
+  if (!opts.schemas) return [];
+
+  let files: string[];
+  try {
+    files = fs.readdirSync(path.join(opts.schemas, platform));
+  } catch {
+    return [];
+  }
+
+  const modules = files
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => f.replace(/(\.source|\.names)?\.json$/, ""));
+  return [...new Set(modules)].sort();
+}
+
+/** What identifies the set's files for a platform, for build caches: their contents. */
+function setIdentity(platform: Platform, opts: SdkOptions): string {
+  const dir = path.join(opts.schemas!, platform);
+  let id = setIdentities.get(dir);
+  if (id === undefined) {
+    const files = fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith(".json"))
+      .sort();
+    id = hash(files.map((f) => `${f} ${contentHash([path.join(dir, f)])}`));
+    setIdentities.set(dir, id);
+  }
+
+  return id;
+}
+
+/** A lookup from the set, where the platform's SDK is `missing`. */
+function fromSet(
+  platform: Platform,
+  module: string,
+  kind: "schema" | "source",
+  opts: SdkOptions,
+  missing: string,
+): SdkLookup {
+  if (!setModules(platform, opts).length) return { missing };
+
+  const entry = setEntry(platform, module, kind, opts);
+  if (entry?.schema) return { schema: entry.schema };
+
+  const other = fs.existsSync(setFile(opts.schemas!, platform, module, kind));
+  return {
+    missing: other
+      ? `lucent:${platform}/${module} in ${opts.schemas} was exported by another Lucent (schema format ${SCHEMA_FORMAT} here)`
+      : `lucent:${platform}/${module} is not in the exported schemas (${opts.schemas}), and ${missing}`,
+    fix: "run lucent sdk lock --schemas where the SDK is installed, and commit lucent-sdk.schemas/",
+  };
+}
+
+/** An artifact as the set records it: its identity alone. */
+const lockedArtifact =
+  (platform: Platform) =>
+  (identityText: string): NativeArtifact => {
+    const at = identityText.lastIndexOf("#");
+    return {
+      id: identityText.slice(0, at),
+      target: platform,
+      kind: "sdk",
+      contentHash: identityText.slice(at + 1),
+      targetTriple: "",
+      dependencies: [],
+      modules: [],
+      declarationInputs: [],
+      includePaths: [],
+      compilerArguments: [],
+      origin: { package: "", version: "", buildFile: "" },
+    };
+  };
+
+/** The modules a schema names types of, besides its own. */
+function referencedModules(schema: SdkModuleSchema): Set<string> {
+  const out = new Set<string>();
+  const visit = (v: unknown): void => {
+    if (Array.isArray(v)) {
+      for (const x of v) visit(x);
+      return;
+    }
+    if (!v || typeof v !== "object") return;
+    const o = v as Record<string, unknown>;
+    if (o.k === "ref" && typeof o.module === "string") out.add(o.module);
+    for (const [k, x] of Object.entries(o)) {
+      if ((k === "extends" || k === "implements") && x) {
+        for (const ref of [x].flat())
+          if (typeof ref === "string" && ref.includes("."))
+            out.add(ref.slice(0, ref.lastIndexOf(".")));
+      } else visit(x);
+    }
+  };
+  visit(schema.types);
+  visit(schema.functions);
+  visit(schema.constants);
+  out.delete(schema.module);
+  return out;
+}
+
+/**
+ * Writes what this process read from installed SDKs (a check's schemas,
+ * source modules and names) as the schema set in `dir`, for `platforms`,
+ * with the modules those schemas name types of: their names on iOS,
+ * their schemas on Android (whose declarations read other modules'
+ * types). Each platform's directory is replaced whole. The files it wrote.
+ */
+export function exportSchemaSet(
+  dir: string,
+  platforms: readonly Platform[],
+  opts: SdkOptions = {},
+): string[] {
+  const written: string[] = [];
+
+  for (const platform of platforms) {
+    if ("missing" in locate(platform, opts)) {
+      // No SDK here: the set this check read stays as it is.
+      if (opts.schemas && path.resolve(opts.schemas) === path.resolve(dir)) continue;
+      throw new Error(`the ${platform} SDK is not installed: its schemas cannot be exported`);
+    }
+
+    const wanted = new Map<string, { module: string; kind: SetKind }>();
+    for (const s of served.values())
+      if (s.platform === platform) wanted.set(`${s.kind}|${s.module}`, s);
+
+    // The modules served schemas name: what declarations and glue look up beside them.
+    for (const s of [...wanted.values()]) {
+      if (s.kind === "names") continue;
+      const found =
+        s.kind === "schema"
+          ? sdkModule(platform, s.module, opts)
+          : sdkSourceModule(platform, s.module, opts);
+      if (!("schema" in found)) continue;
+      for (const m of referencedModules(found.schema)) {
+        const kind: SetKind = platform === "ios" ? "names" : "schema";
+        if (!wanted.has(`schema|${m}`)) wanted.set(`${kind}|${m}`, { module: m, kind });
+      }
+    }
+
+    const entries: SchemaSetEntry[] = [];
+    for (const { module, kind } of [...wanted.values()].sort((a, b) =>
+      `${a.module} ${a.kind}` < `${b.module} ${b.kind}` ? -1 : 1,
+    )) {
+      if (kind === "names" && wanted.has(`schema|${module}`)) continue;
+      const artifacts = sdkModuleArtifacts(platform, module, opts)
+        .map(identity)
+        .sort();
+      const base = { format: SCHEMA_SET_FORMAT, platform, module, kind, artifacts };
+      if (kind === "names") {
+        const n = sdkNames(platform, module, opts);
+        if ("names" in n) entries.push({ ...base, names: n.names });
+        continue;
+      }
+      const found =
+        kind === "schema"
+          ? sdkModule(platform, module, opts)
+          : sdkSourceModule(platform, module, opts);
+      if (!("schema" in found)) continue;
+      const entry = kind === "schema" ? sdkSchemaEntry(platform, module, opts) : undefined;
+      entries.push({ ...base, ...(entry ? { entry } : {}), schema: found.schema });
+    }
+
+    const target = path.join(dir, platform);
+    const tmp = `${target}.${process.pid}.tmp`;
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.mkdirSync(tmp, { recursive: true });
+    for (const e of entries) {
+      const file = setFile(dir, platform, e.module, e.kind);
+      fs.writeFileSync(
+        path.join(tmp, path.basename(file)),
+        `${JSON.stringify(e, null, 1)}\n`,
+      );
+      written.push(file);
+    }
+    fs.rmSync(target, { recursive: true, force: true });
+    fs.renameSync(tmp, target);
+    setIdentities.delete(target);
+    for (const f of setEntries.keys()) if (f.startsWith(target + path.sep)) setEntries.delete(f);
+  }
+
+  return written;
 }

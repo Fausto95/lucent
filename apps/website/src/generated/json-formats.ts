@@ -1040,6 +1040,12 @@ export const jsonOutputs: { command: string; file: string; description: string; 
             "type": "integer",
             "required": true,
             "description": "SDK symbols the project uses"
+          },
+          {
+            "field": "schemas",
+            "type": "integer",
+            "required": false,
+            "description": "With --schemas: the schemas exported to lucent-sdk.schemas/"
           }
         ]
       }

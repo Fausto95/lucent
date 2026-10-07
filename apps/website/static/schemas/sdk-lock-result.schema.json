@@ -2,7 +2,13 @@
   "$id": "https://lucent-lang.dev/schemas/sdk-lock-result.schema.json",
   "title": "lucent sdk lock --json",
   "type": "object",
-  "required": ["ok", "file", "targets", "modules", "symbols"],
+  "required": [
+    "ok",
+    "file",
+    "targets",
+    "modules",
+    "symbols"
+  ],
   "additionalProperties": false,
   "properties": {
     "ok": {
@@ -28,6 +34,11 @@
       "type": "integer",
       "minimum": 0,
       "description": "SDK symbols the project uses"
+    },
+    "schemas": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "With --schemas: the schemas exported to lucent-sdk.schemas/"
     }
   }
 }

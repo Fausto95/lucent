@@ -28,6 +28,9 @@ import { linkNativePackage } from "./init/patch.ts";
 import { withLucentPaths } from "./tsconfig.ts";
 import { packageFile } from "./version.ts";
 
+/** The exported schema set, beside lucent-sdk.lock.json: committed with the app. */
+export const SCHEMA_SET_DIR = "lucent-sdk.schemas";
+
 /** Something a command did to the project, or asks the user to do. */
 export type Notice = { level: "ok" | "warn"; text: string };
 
@@ -76,7 +79,11 @@ export function projectSdk(root: string, native?: NativeInputs): SdkOptions {
   const ios: NonNullable<SdkOptions["ios"]> | undefined =
     pods || frameworkPaths.length || app ? { ...pods, ...project } : undefined;
 
+  // The schemas a teammate's `lucent sdk lock --schemas` exported: a platform without its SDK here.
+  const schemas = path.join(root, SCHEMA_SET_DIR);
+
   return {
+    ...(fs.existsSync(schemas) ? { schemas } : {}),
     android: {
       classpath: path.join(root, ".lucent/android-classpath.json"),
       ...(binaries.android.length ? { libraries: binaries.android } : {}),

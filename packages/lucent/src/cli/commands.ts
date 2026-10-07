@@ -194,6 +194,11 @@ export const commands: CommandSpec[] = [
         description:
           "Targets to record: ios, android (default: every platform the project has code for, each needing its SDK)",
       },
+      {
+        name: "schemas",
+        description:
+          "Also export the schemas the code uses to lucent-sdk.schemas/, so machines without a platform's SDK type its code",
+      },
     ],
     load: () => import("./commands/sdk-lock.ts"),
   },
