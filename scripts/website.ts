@@ -9,7 +9,9 @@
  *      docs' structure: page files match the sidebar, each slug sits under
  *      its section's directory, each page says its kind and has its "Next"
  *      link; and each post's date;
- *   4. compiles every `*.lucent.ts` sample on the docs pages and blog posts;
+ *   4. compiles every `*.lucent.ts` sample on the docs pages and blog posts,
+ *      and checks the language pages' tables (src/docs/language.ts) against
+ *      the compiler's codes and the e2e cases;
  *   5. checks internal links and their anchors, links into the docs from the
  *      repository (READMEs, docs/, the CLI's diagnostics URL),
  *      and each docs page's length budget (words and lines of code, by kind);
@@ -37,6 +39,7 @@ import {
 } from "./website/pages.ts";
 import { checkProse } from "./website/prose.ts";
 import { checkRedirects, vercelJson } from "./website/redirects.ts";
+import { checkLanguage } from "./website/language.ts";
 import { docsSlugs } from "../apps/website/src/docs/nav.ts";
 import { checkSamples, unbuiltProblems } from "./website/samples.ts";
 
@@ -127,6 +130,9 @@ for (const name of existing.filter((f) => !(f in generated) && !unbuilt.has(f)))
 }
 
 problems.push(...checkLinks(checked));
+
+// The language pages' tables against the compiler's codes and the e2e cases (src/docs/language.ts).
+problems.push(...checkLanguage());
 
 // The old URLs redirect to pages that exist, through vercel.json (src/docs/redirects.ts).
 problems.push(...checkRedirects(docsSlugs));
