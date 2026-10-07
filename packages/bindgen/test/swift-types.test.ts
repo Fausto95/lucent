@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 import { parseSchemaType } from "../src/schema.ts";
-import { type Fragment, parseType, type Resolver, Unsupported } from "../src/symbols.ts";
+import {
+  afterColon,
+  type Fragment,
+  parseType,
+  propertyType,
+  type Resolver,
+  Unsupported,
+} from "../src/symbols.ts";
 
 /** Declaration fragments: strings are text, `[spelling, usr]` pairs type identifiers. */
 const frags = (...parts: (string | [string, string])[]): Fragment[] =>
@@ -76,6 +83,26 @@ describe("Swift types without a Lucent value", () => {
     );
     expect(reason(["KITView", "c:objc(cs)KITView"], " & ", NSCOPYING)).toBe(
       "values of several types at once (KITView & NSCopying) have no Lucent type yet",
+    );
+  });
+});
+
+describe("declaration fragments", () => {
+  it("read a type after attributes whose arguments hold a colon", () => {
+    // StoreKit's Transaction.currentEntitlements: `@backDeployed(before: iOS 18.0) static var …`.
+    const decl = frags(
+      "",
+      "@backDeployed",
+      "(before: iOS 18.0)\n",
+      "static var currentEntitlements: ",
+      ["KITView", "c:objc(cs)KITView"],
+      " { get }",
+    );
+    decl[1]!.kind = "attribute";
+
+    expect(parseType(propertyType(decl), resolver)).toEqual(parseSchemaType("Kit.KITView"));
+    expect(parseType(afterColon(decl.slice(0, 5)), resolver)).toEqual(
+      parseSchemaType("Kit.KITView"),
     );
   });
 });
