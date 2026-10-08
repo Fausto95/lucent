@@ -140,7 +140,7 @@ A parameter, result or property annotated `@IntDef` or `@StringDef` names the co
 
 | In the SDK | In Lucent |
 | --- | --- |
-| A Java exception | A thrown `Error`. Its `message` is the exception's message, else its class name, and its `code`, read with `errorCode`, is the class name: `"java.lang.NumberFormatException"`. |
+| A Java exception | A thrown `Error`. Its `message` is the exception's message, else its class name, and its `code`, read with `errorCode`, is the class name: `"java.lang.NumberFormatException"`. [nativeError](/docs/api/lucent-android/#nativeerror) gives back the exception, to test with `instanceof` and read. |
 | An exception a Kotlin `suspend` function throws | The promise rejects with the same `Error`. |
 | A Lucent error thrown into Java from a callback | The same Lucent error again when it comes back. |
 | A `Task`, `ListenableFuture`, `CompletionStage` or any other Java object | Not a promise: `await` on it fails to compile (`LUCENT1010`). Turn its listener into one with [fromCallback](/docs/api/lucent-core/#fromcallback). |

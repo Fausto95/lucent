@@ -695,7 +695,10 @@ UIViewController`): a generated Objective-C subclass stands for each
   (`java.lang.IllegalArgumentException`) and whose message is the
   exception's. `errorOf(throwable)` from `lucent:android` makes the same
   error of a `Throwable` a callback API reports, so an adapter's
-  `reject(errorOf(e))` rejects as the call would have thrown. A
+  `reject(errorOf(e))` rejects as the call would have thrown;
+  `nativeError(error)` gives the `Throwable` back (the error keeps a
+  global reference to it), for `instanceof` and its members, and on iOS
+  the `NSError` an error was made from. A
   `nil`/`null` result where the schema promises an object throws
   `TypeError`.
 - A `Task`, a `ListenableFuture`, a `CompletionStage` or any other Java

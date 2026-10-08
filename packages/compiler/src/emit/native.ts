@@ -3656,6 +3656,18 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
         c: cpp.call("lucent::jni::errorOf", [em.exprAs(args[0]!, declaredArg(em, args[0]!))]),
         t: T.error,
       };
+    case "lucent:android.nativeError":
+      unit.include("lucent/platform/android.h");
+      return {
+        c: cpp.call("lucent::jni::nativeError", [em.exprAs(args[0]!, T.error)]),
+        t: em.lt(node),
+      };
+    case "lucent:ios.nativeError":
+      unit.include("lucent/platform/ios.h");
+      return {
+        c: cpp.call("lucent::objc::nativeError", [em.exprAs(args[0]!, T.error)]),
+        t: em.lt(node),
+      };
     case "lucent:android.startActivityForResult":
     case "lucent:android.requestPermissions": {
       unit.include("lucent/platform/android.h");

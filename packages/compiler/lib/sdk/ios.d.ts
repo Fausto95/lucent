@@ -1,5 +1,6 @@
 // lucent:ios — iOS helpers for platform code.
 
+import type { NSError } from "lucent:ios/Foundation";
 import type { UIViewController } from "lucent:ios/UIKit";
 
 /**
@@ -33,6 +34,33 @@ export declare function asBoolean(value: NSObject | null): boolean | null;
 export declare function asData(value: NSObject | null): Uint8Array | null;
 /** Swift's `as? Date`. */
 export declare function asDate(value: NSObject | null): Date | null;
+
+/**
+ * The NSError `error` came from: what a throwing method, an `NSError**`
+ * out-parameter or a completion handler gave. Read its `domain`, `code` and
+ * `userInfo` as the SDK types them, rather than parsing `code`
+ * (`"NSCocoaErrorDomain:260"`). Null for an error Lucent or JavaScript made.
+ *
+ * ```ts
+ * import { nativeError } from "lucent:ios";
+ * import { FileManager, NSCocoaErrorDomain } from "lucent:ios/Foundation";
+ *
+ * function exists(path: string): boolean {
+ *   try {
+ *     FileManager.default.attributesOfItem(path);
+ *     return true;
+ *   } catch (e) {
+ *     const ns = nativeError(e as Error);
+ *     // NSFileReadNoSuchFileError: the file isn't there.
+ *     if (ns?.domain === NSCocoaErrorDomain && ns.code === 260n) return false;
+ *     throw e;
+ *   }
+ * }
+ * ```
+ *
+ * @param error A caught error.
+ */
+export declare function nativeError(error: Error): NSError | null;
 
 /**
  * What a method writes through a pointer (`CGFloat *`, `NSRange *`,

@@ -40,6 +40,9 @@ Error errorOf(JNIEnv* env, jobject throwable);
 /// `errorOf(throwable)` from lucent:android: the same error, but a Lucent
 /// error the exception carries stays with it, for the next call to read.
 Error errorOf(const NativeRef& throwable);
+/// `nativeError(error)` from lucent:android: the Java exception `error`
+/// came from, or null for an error Lucent or JavaScript made.
+Opt<NativeRef> nativeError(const Error& error);
 
 /// Closes an AutoCloseable (a Closeable, a Cursor…): how a `using`
 /// declaration disposes one. Throws what close() throws.

@@ -433,6 +433,17 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-08: Native errors stay Errors, with their source kept.** A
+Java exception or an NSError still becomes a Lucent `Error` (its `code`
+the class name, or `"<domain>:<code>"`), so `catch` and JavaScript see
+one kind of value; the error now keeps the platform object, and
+`nativeError(e)` from `lucent:android` or `lucent:ios` gives it back
+typed (`Throwable | null`, `NSError | null`), for `instanceof` against
+SDK exception classes and typed `domain` and `code`. Subclassing `Error`
+per SDK exception was rejected: it would need a Lucent class for every
+exception the SDK might throw. Async exports now reject bad arguments
+instead of throwing from the call.
+
 **2026-10-08: WeakRef, not a `weak` modifier.** Cycles break through
 JavaScript's own `WeakRef<T>`, for class instances, interface values and
 objects, rather than a field modifier TypeScript doesn't have: the same
@@ -2391,7 +2402,10 @@ errors, 64-bit parameters from numbers, and lifecycle hooks.
       `WeakMap` and `WeakSet` stay refused.
 - [x] Async exports reject a bad argument instead of throwing from the
       call (e2e `async-arguments`).
-- [ ] Typed native errors.
+- [x] Typed native errors: `nativeError(e)` from `lucent:android` and
+      `lucent:ios` gives back the `Throwable` or `NSError` an error came
+      from (`native-errors.test.ts` on the JNI host; the iOS side is
+      written but unverified here, without Xcode).
 - [ ] 64-bit integer parameters from safe-integer numbers.
 - [ ] Lifecycle hooks: deep links, push tokens, module create/destroy.
 - [ ] `expose()` inside a platform branch.

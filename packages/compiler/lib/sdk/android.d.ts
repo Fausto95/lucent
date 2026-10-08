@@ -20,6 +20,29 @@ export declare function appContext(): Context;
 export declare function errorOf(throwable: Throwable): Error;
 
 /**
+ * The Java exception `error` came from: what a call threw, or a callback
+ * gave `errorOf`. Test its class with `instanceof` and read its members,
+ * rather than matching `code`. Null for an error Lucent or JavaScript made.
+ *
+ * ```ts
+ * import { nativeError } from "lucent:android";
+ * import { FileInputStream, FileNotFoundException } from "lucent:android/java.io";
+ *
+ * function open(path: string): FileInputStream | null {
+ *   try {
+ *     return new FileInputStream(path);
+ *   } catch (e) {
+ *     if (nativeError(e as Error) instanceof FileNotFoundException) return null;
+ *     throw e;
+ *   }
+ * }
+ * ```
+ *
+ * @param error A caught error.
+ */
+export declare function nativeError(error: Error): Throwable | null;
+
+/**
  * Whether the device runs at least API level `api` (`Build.VERSION.SDK_INT >= api`).
  *
  * @param platform Always `"android"`.

@@ -658,6 +658,26 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         ]
       },
       {
+        "name": "nativeError",
+        "kind": "function",
+        "signature": "function nativeError(error: Error): NSError | null;",
+        "doc": [
+          "The NSError `error` came from: what a throwing method, an `NSError**` out-parameter or a completion handler gave. Read its `domain`, `code` and `userInfo` as the SDK types them, rather than parsing `code` (`\"NSCocoaErrorDomain:260\"`). Null for an error Lucent or JavaScript made."
+        ],
+        "examples": [
+          "import { nativeError } from \"lucent:ios\";\nimport { FileManager, NSCocoaErrorDomain } from \"lucent:ios/Foundation\";\n\nfunction exists(path: string): boolean {\n  try {\n    FileManager.default.attributesOfItem(path);\n    return true;\n  } catch (e) {\n    const ns = nativeError(e as Error);\n    // NSFileReadNoSuchFileError: the file isn't there.\n    if (ns?.domain === NSCocoaErrorDomain && ns.code === 260n) return false;\n    throw e;\n  }\n}"
+        ],
+        "members": [],
+        "params": [
+          {
+            "name": "error",
+            "type": "Error",
+            "optional": false,
+            "doc": "A caught error."
+          }
+        ]
+      },
+      {
         "name": "Out",
         "kind": "class",
         "signature": "class Out<T> {\n  constructor();\n  value: T | null;\n}",
@@ -821,6 +841,26 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "type": "Throwable",
             "optional": false,
             "doc": "The exception, such as one a callback received."
+          }
+        ]
+      },
+      {
+        "name": "nativeError",
+        "kind": "function",
+        "signature": "function nativeError(error: Error): Throwable | null;",
+        "doc": [
+          "The Java exception `error` came from: what a call threw, or a callback gave `errorOf`. Test its class with `instanceof` and read its members, rather than matching `code`. Null for an error Lucent or JavaScript made."
+        ],
+        "examples": [
+          "import { nativeError } from \"lucent:android\";\nimport { FileInputStream, FileNotFoundException } from \"lucent:android/java.io\";\n\nfunction open(path: string): FileInputStream | null {\n  try {\n    return new FileInputStream(path);\n  } catch (e) {\n    if (nativeError(e as Error) instanceof FileNotFoundException) return null;\n    throw e;\n  }\n}"
+        ],
+        "members": [],
+        "params": [
+          {
+            "name": "error",
+            "type": "Error",
+            "optional": false,
+            "doc": "A caught error."
           }
         ]
       },

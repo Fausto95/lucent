@@ -286,7 +286,16 @@ inline Error fromNSError(NSError* e, const char* what) {
 
   Error err = makeError(String::fromLatin1("Error"), fromNSString(e.localizedDescription ?: @"", ""));
   err->code = fromNSString([NSString stringWithFormat:@"%@:%ld", e.domain, (long)e.code], "");
+  // The NSError itself, for nativeError.
+  err->native = std::make_shared<const NativeRef>(wrap(e, what));
   return err;
+}
+
+/// `nativeError(error)` from lucent:ios: the NSError `error` came from, or
+/// null for an error Lucent or JavaScript made.
+inline Opt<NativeRef> nativeError(const Error& error) {
+  if (!error || !error->native) return Opt<NativeRef>(null);
+  return *std::static_pointer_cast<const NativeRef>(error->native);
 }
 
 /// A Lucent error as an NSError, for Swift to throw where Lucent code

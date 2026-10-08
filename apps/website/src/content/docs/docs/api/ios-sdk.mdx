@@ -162,7 +162,7 @@ A block Swift runs on the main thread, marked `@MainActor` or not `@Sendable` in
 
 | In the SDK | In Lucent |
 | --- | --- |
-| A method that `throws`, or an `NSError **` Swift turns into `throws` | A thrown `Error`: its `message` is the error's description, and its `code`, read with `errorCode`, is `"<domain>:<code>"`. |
+| A method that `throws`, or an `NSError **` Swift turns into `throws` | A thrown `Error`: its `message` is the error's description, and its `code`, read with `errorCode`, is `"<domain>:<code>"`. [nativeError](/docs/api/lucent-ios/#nativeerror) gives back the `NSError`, whose `domain`, `code` and `userInfo` the SDK types. |
 | An `NSError **` Swift doesn't turn into `throws` | An `Out<Error>` parameter. |
 | A Swift error | The same `Error`, made from its `NSError`. |
 | An `NSException` | Not caught by Lucent. |
