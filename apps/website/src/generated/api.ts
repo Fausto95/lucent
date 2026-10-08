@@ -508,6 +508,54 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "params": []
       },
       {
+        "name": "serialQueue",
+        "kind": "function",
+        "signature": "function serialQueue(label: string): NSObject;",
+        "doc": [
+          "A new serial dispatch queue (`dispatch_queue_create(label, DISPATCH_QUEUE_SERIAL)`), for APIs that take a queue to call their delegate on, such as AVCaptureVideoDataOutput's `setSampleBufferDelegate(_:queue:)`: its callbacks then run off the main thread, one at a time, and Lucent code in them runs as any other callback does."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "label",
+            "type": "string",
+            "optional": false,
+            "doc": "The queue's name, as Instruments and crash reports show it, such as `\"camera.frames\"`."
+          }
+        ]
+      },
+      {
+        "name": "withPixelBytes",
+        "kind": "function",
+        "signature": "function withPixelBytes<R>(\n  pixelBuffer: NSObject,\n  f: (bytes: Uint8Array, bytesPerRow: number, width: number, height: number) => R,\n  plane?: number,\n): R;",
+        "doc": [
+          "Calls `f` with a CVPixelBuffer's bytes, locked for reading while it runs (`CVPixelBufferLockBaseAddress` with `kCVPixelBufferLock_ReadOnly`, unlocked after, also when `f` throws): the bytes of the plane, its row stride (`bytesPerRow`), width and height. For a planar format (YUV), the plane given; plane 0 otherwise. The bytes are copied once, under the lock, so they stay valid after `f` returns; the buffer itself is locked only while `f` runs."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "pixelBuffer",
+            "type": "NSObject",
+            "optional": false,
+            "doc": "A CVPixelBuffer, such as `CMSampleBufferGetImageBuffer(sample)`."
+          },
+          {
+            "name": "f",
+            "type": "(bytes: Uint8Array, bytesPerRow: number, width: number, height: number) => R",
+            "optional": false,
+            "doc": "What reads the bytes; its result is withPixelBytes's."
+          },
+          {
+            "name": "plane",
+            "type": "number",
+            "optional": true,
+            "doc": "The plane of a planar format; 0 when left out."
+          }
+        ]
+      },
+      {
         "name": "asString",
         "kind": "function",
         "signature": "function asString(value: NSObject | null): string | null;",

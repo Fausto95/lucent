@@ -3593,6 +3593,32 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
         c: cpp.call("lucent::objc::mainQueue"),
         t: { k: "native", platform: "ios", module: "lucent:ios", name: "NSObject" },
       };
+    case "lucent:ios.serialQueue":
+      unit.include("lucent/platform/ios.h");
+      return {
+        c: cpp.call("lucent::objc::serialQueue", [em.exprAs(args[0]!, T.string)]),
+        t: { k: "native", platform: "ios", module: "lucent:ios", name: "NSObject" },
+      };
+    case "lucent:ios.withPixelBytes": {
+      unit.include("lucent/platform/ios_pixels.h");
+      em.ctx.frameworks.add("CoreVideo");
+      const nsObject: LType = { k: "native", platform: "ios", module: "lucent:ios", name: "NSObject" };
+      const t = em.lt(node);
+      const read: LType = { k: "fn", params: [T.bytes, T.number, T.number, T.number], ret: t };
+      const f = args[1]!;
+      const closure =
+        ts.isArrowFunction(f) || ts.isFunctionExpression(f)
+          ? em.coerce(em.closure(f, read), read, f)
+          : em.exprAs(f, read);
+      return {
+        c: cpp.call("lucent::objc::withPixelBytes", [
+          em.exprAs(args[0]!, nsObject),
+          closure,
+          ...(args[2] ? [em.exprAs(args[2], T.number)] : []),
+        ]),
+        t,
+      };
+    }
     case "lucent:ios.present": {
       const build = args[0];
       if (

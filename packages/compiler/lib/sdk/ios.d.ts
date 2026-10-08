@@ -23,6 +23,36 @@ export type ObjCValue = string | number | boolean | Uint8Array | Date | NSObject
 /** The main dispatch queue (dispatch_get_main_queue()), for APIs that take a queue. */
 export declare function mainQueue(): NSObject;
 
+/**
+ * A new serial dispatch queue (`dispatch_queue_create(label, DISPATCH_QUEUE_SERIAL)`),
+ * for APIs that take a queue to call their delegate on, such as
+ * AVCaptureVideoDataOutput's `setSampleBufferDelegate(_:queue:)`: its
+ * callbacks then run off the main thread, one at a time, and Lucent code
+ * in them runs as any other callback does.
+ *
+ * @param label The queue's name, as Instruments and crash reports show it, such as `"camera.frames"`.
+ */
+export declare function serialQueue(label: string): NSObject;
+
+/**
+ * Calls `f` with a CVPixelBuffer's bytes, locked for reading while it
+ * runs (`CVPixelBufferLockBaseAddress` with `kCVPixelBufferLock_ReadOnly`,
+ * unlocked after, also when `f` throws): the bytes of the plane, its row
+ * stride (`bytesPerRow`), width and height. For a planar format (YUV), the
+ * plane given; plane 0 otherwise. The bytes are copied once, under the
+ * lock, so they stay valid after `f` returns; the buffer itself is
+ * locked only while `f` runs.
+ *
+ * @param pixelBuffer A CVPixelBuffer, such as `CMSampleBufferGetImageBuffer(sample)`.
+ * @param f What reads the bytes; its result is withPixelBytes's.
+ * @param plane The plane of a planar format; 0 when left out.
+ */
+export declare function withPixelBytes<R>(
+  pixelBuffer: NSObject,
+  f: (bytes: Uint8Array, bytesPerRow: number, width: number, height: number) => R,
+  plane?: number,
+): R;
+
 /** Swift's `as? String`: the string an `Any` holds, or null. */
 export declare function asString(value: NSObject | null): string | null;
 /** Swift's `as? Double` (an NSNumber). */

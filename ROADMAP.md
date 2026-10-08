@@ -1733,7 +1733,11 @@ explicit backpressure and ownership.
 
 - [ ] Keep camera, audio and image buffers native across several processing
       steps; expose intentional handles or snapshots at the JavaScript
-      boundary.
+      boundary. (Started: lucent:ios's `withPixelBytes` reads a
+      CVPixelBuffer's plane under its read lock, as one copy, and
+      `serialQueue(label)` gives capture delegates a queue off the main
+      thread; a zero-copy view of a locked buffer waits on Uint8Arrays over
+      memory the runtime does not own.)
 - [ ] Define bounded queues and distinct lossless, latest-value and
       frame-dropping policies; dispose dropped and cancelled buffers exactly
       once.

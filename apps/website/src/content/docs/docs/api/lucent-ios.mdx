@@ -51,6 +51,36 @@ function mainQueue(): NSObject;
 
 The main dispatch queue (dispatch\_get\_main\_queue()), for APIs that take a queue.
 
+### serialQueue()
+
+```ts title="ios.d.ts"
+function serialQueue(label: string): NSObject;
+```
+
+A new serial dispatch queue (`dispatch_queue_create(label, DISPATCH_QUEUE_SERIAL)`), for APIs that take a queue to call their delegate on, such as AVCaptureVideoDataOutput's `setSampleBufferDelegate(_:queue:)`: its callbacks then run off the main thread, one at a time, and Lucent code in them runs as any other callback does.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `label` | `string` | yes | The queue's name, as Instruments and crash reports show it, such as `"camera.frames"`. |
+
+### withPixelBytes()
+
+```ts title="ios.d.ts"
+function withPixelBytes<R>(
+  pixelBuffer: NSObject,
+  f: (bytes: Uint8Array, bytesPerRow: number, width: number, height: number) => R,
+  plane?: number,
+): R;
+```
+
+Calls `f` with a CVPixelBuffer's bytes, locked for reading while it runs (`CVPixelBufferLockBaseAddress` with `kCVPixelBufferLock_ReadOnly`, unlocked after, also when `f` throws): the bytes of the plane, its row stride (`bytesPerRow`), width and height. For a planar format (YUV), the plane given; plane 0 otherwise. The bytes are copied once, under the lock, so they stay valid after `f` returns; the buffer itself is locked only while `f` runs.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `pixelBuffer` | `NSObject` | yes | A CVPixelBuffer, such as `CMSampleBufferGetImageBuffer(sample)`. |
+| `f` | `(bytes: Uint8Array, bytesPerRow: number, width: number, height: number) => R` | yes | What reads the bytes; its result is withPixelBytes's. |
+| `plane` | `number` | no | The plane of a planar format; 0 when left out. |
+
 ### asString()
 
 ```ts title="ios.d.ts"
