@@ -2,13 +2,17 @@ import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../src/index.ts";
 import { module } from "./ir/compile.ts";
 
-/** The structs a program's header declares, by name, with their fields as C++ spells them. */
+/** The structs a program's type headers declare, by name, with their fields as C++ spells them. */
 function structs(source: string): Record<string, string> {
   const r = compile([module(source)]);
 
   expect(r.diagnostics).toEqual([]);
 
-  const header = r.files.get("lucent_app.h")!.replace(/^#line .*\n/gm, "");
+  const header = [...r.files]
+    .filter(([name]) => /^lucent_app.*\.h$/.test(name))
+    .map(([, text]) => text)
+    .join("\n")
+    .replace(/^#line .*\n/gm, "");
   const out: Record<string, string> = {};
 
   for (const m of header.matchAll(/^struct (\w+) : lucent::Object \{\n([\s\S]*?)\n\};/gm))

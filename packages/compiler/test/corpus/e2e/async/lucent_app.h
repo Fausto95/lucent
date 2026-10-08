@@ -4,12 +4,6 @@
 
 #pragma push_macro("a")
 #undef a
-#pragma push_macro("cache")
-#undef cache
-#pragma push_macro("load")
-#undef load
-#pragma push_macro("loads")
-#undef loads
 
 namespace lucent_app {
 
@@ -18,30 +12,6 @@ inline lucent::Actor& actor_0() {
   return a;
 }
 
-struct C_Loader;
-
-struct C_Loader : lucent::Object {
-  lucent::Map<lucent::String, lucent::String> cache{};
-  double loads{};
-  void construct();
-  static lucent::Ref<C_Loader> create();
-  lucent::Promise<lucent::String> load(lucent::String p0_);
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-inline bool C_Loader::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "cache", this->cache);
-  lucent::jsonField(w, first, "loads", this->loads);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
 }  // namespace lucent_app
 
-#pragma pop_macro("loads")
-#pragma pop_macro("load")
-#pragma pop_macro("cache")
 #pragma pop_macro("a")

@@ -1,4 +1,4 @@
-# 0063. An actor per package; the main thread never queues
+# 0064. An actor per package; the main thread never queues
 
 - **Date:** 2026-10-08
 - **Status:** accepted

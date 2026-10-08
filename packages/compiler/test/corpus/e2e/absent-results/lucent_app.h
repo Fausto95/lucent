@@ -2,9 +2,6 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("name")
-#undef name
-
 namespace lucent_app {
 
 inline lucent::Actor& actor_0() {
@@ -12,26 +9,4 @@ inline lucent::Actor& actor_0() {
   return a;
 }
 
-struct S_Named;
-
-struct S_Named : lucent::Object {
-  lucent::Opt<lucent::String> name{};
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Named>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Named>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "name", v->name);
-  (void)first;
-  w.raw("}");
-}
-
 }  // namespace lucent_app
-
-#pragma pop_macro("name")

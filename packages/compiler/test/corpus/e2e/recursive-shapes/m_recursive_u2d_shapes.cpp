@@ -189,18 +189,18 @@ lucent::String m_recursive_u2d_shapes::selfs(lucent::Ref<lucent_app::S_Self> p0_
   return lucent::concat(v2_, LUCENT_STR("/"), v19_, LUCENT_STR("/"), v43_);
 }
 
-double m_recursive_u2d_shapes::sum(std::variant<lucent::Ref<lucent_app::S_Object7>, lucent::Ref<lucent_app::S_Object6>> p0_) {
+double m_recursive_u2d_shapes::sum(std::variant<lucent::Ref<lucent_app::S_Object_c5938d10>, lucent::Ref<lucent_app::S_Object_f0708c92>> p0_) {
   lucent::String v1_ = ({ const auto& u_3_ = p0_; u_3_.index() == 0 ? std::get<0>(u_3_)->tag : std::get<1>(u_3_)->tag; });
   bool v3_ = v1_ == LUCENT_STR("num");
   double v11_{};
   if (v3_) {
-    lucent::Ref<lucent_app::S_Object6> v4_ = lucent::narrow<lucent::Ref<lucent_app::S_Object6>>(p0_);
+    lucent::Ref<lucent_app::S_Object_f0708c92> v4_ = lucent::narrow<lucent::Ref<lucent_app::S_Object_f0708c92>>(p0_);
     v11_ = v4_->n;
   } else {
-    lucent::Ref<lucent_app::S_Object7> v6_ = lucent::narrow<lucent::Ref<lucent_app::S_Object7>>(p0_);
-    lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object6>, lucent::Ref<lucent_app::S_Object7>>> v7_ = v6_->items;
-    v11_ = v7_.reduce([](double p0_, std::variant<lucent::Ref<lucent_app::S_Object6>, lucent::Ref<lucent_app::S_Object7>> p1_, double p2_, lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object6>, lucent::Ref<lucent_app::S_Object7>>> p3_) mutable -> double {
-      double v5_ = lucent_app::m_recursive_u2d_shapes::sum(lucent::convert<std::variant<lucent::Ref<lucent_app::S_Object7>, lucent::Ref<lucent_app::S_Object6>>>(p1_));
+    lucent::Ref<lucent_app::S_Object_c5938d10> v6_ = lucent::narrow<lucent::Ref<lucent_app::S_Object_c5938d10>>(p0_);
+    lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_f0708c92>, lucent::Ref<lucent_app::S_Object_c5938d10>>> v7_ = v6_->items;
+    v11_ = v7_.reduce([](double p0_, std::variant<lucent::Ref<lucent_app::S_Object_f0708c92>, lucent::Ref<lucent_app::S_Object_c5938d10>> p1_, double p2_, lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_f0708c92>, lucent::Ref<lucent_app::S_Object_c5938d10>>> p3_) mutable -> double {
+      double v5_ = lucent_app::m_recursive_u2d_shapes::sum(lucent::convert<std::variant<lucent::Ref<lucent_app::S_Object_c5938d10>, lucent::Ref<lucent_app::S_Object_f0708c92>>>(p1_));
       return p0_ + v5_;
     }, double(0.0));
   }

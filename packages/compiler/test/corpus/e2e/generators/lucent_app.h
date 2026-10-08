@@ -4,14 +4,6 @@
 
 #pragma push_macro("a")
 #undef a
-#pragma push_macro("add")
-#undef add
-#pragma push_macro("children")
-#undef children
-#pragma push_macro("label")
-#undef label
-#pragma push_macro("walk")
-#undef walk
 
 namespace lucent_app {
 
@@ -20,32 +12,6 @@ inline lucent::Actor& actor_0() {
   return a;
 }
 
-struct C_Tree;
-
-struct C_Tree : lucent::Object {
-  lucent::String label{};
-  lucent::Array<lucent::Ref<lucent_app::C_Tree>> children{};
-  void construct(lucent::String p0_);
-  static lucent::Ref<C_Tree> create(lucent::String p0_);
-  lucent::Ref<lucent_app::C_Tree> add(lucent::Ref<lucent_app::C_Tree> p0_);
-  lucent::Iter<lucent::String> walk(lucent::Opt<double> p0_);
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-inline bool C_Tree::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "label", this->label);
-  lucent::jsonField(w, first, "children", this->children);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
 }  // namespace lucent_app
 
-#pragma pop_macro("walk")
-#pragma pop_macro("label")
-#pragma pop_macro("children")
-#pragma pop_macro("add")
 #pragma pop_macro("a")

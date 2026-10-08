@@ -4,10 +4,6 @@
 
 #pragma push_macro("a")
 #undef a
-#pragma push_macro("failOnDispose")
-#undef failOnDispose
-#pragma push_macro("name")
-#undef name
 
 namespace lucent_app {
 
@@ -16,47 +12,6 @@ inline lucent::Actor& actor_0() {
   return a;
 }
 
-struct C_Resource;
-struct C_Tracked;
-
-struct C_Resource : lucent::Object {
-  lucent::String name{};
-  bool failOnDispose{};
-  void construct(lucent::String p0_, lucent::Opt<bool> p1_);
-  static lucent::Ref<C_Resource> create(lucent::String p0_, lucent::Opt<bool> p1_);
-  virtual void symbol_dispose_();
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-struct C_Tracked : lucent_app::C_Resource {
-  void construct(lucent::String p0_, lucent::Opt<bool> p1_);
-  static lucent::Ref<C_Tracked> create(lucent::String p0_, lucent::Opt<bool> p1_);
-  void symbol_dispose_() override;
-  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
-};
-
-inline bool C_Resource::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "name", this->name);
-  lucent::jsonField(w, first, "failOnDispose", this->failOnDispose);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
-inline bool C_Tracked::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "name", this->name);
-  lucent::jsonField(w, first, "failOnDispose", this->failOnDispose);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
 }  // namespace lucent_app
 
-#pragma pop_macro("name")
-#pragma pop_macro("failOnDispose")
 #pragma pop_macro("a")

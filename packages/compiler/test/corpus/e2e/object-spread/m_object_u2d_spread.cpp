@@ -41,21 +41,21 @@
 namespace lucent_app {
 
 lucent::String m_object_u2d_spread::maybeFirst(lucent::Opt<lucent::Ref<lucent_app::S_Q>> p0_) {
-  lucent::Ref<lucent_app::S_Loose> r = ({
-    auto obj_1_ = std::make_shared<lucent_app::S_Loose>();
+  lucent_app::S_Loose r = ({
+    lucent_app::S_Loose obj_1_{};
     auto src_2_ = p0_;
     if (src_2_.has()) {
-      obj_1_->a = lucent::Opt<double>(src_2_.get()->a);
+      obj_1_.a = lucent::Opt<double>(src_2_.get()->a);
       if (!src_2_.get()->b.isUndefined()) {
-        obj_1_->b = src_2_.get()->b;
+        obj_1_.b = src_2_.get()->b;
       }
-      obj_1_->c = lucent::Opt<double>(src_2_.get()->c);
-      obj_1_->d = src_2_.get()->d;
+      obj_1_.c = lucent::Opt<double>(src_2_.get()->c);
+      obj_1_.d = src_2_.get()->d;
     }
-    obj_1_->d = LUCENT_STR("x");
-    obj_1_;
+    obj_1_.d = LUCENT_STR("x");
+    std::move(obj_1_);
   });
-  lucent::Opt<double> v4_ = r->a;
+  lucent::Opt<double> v4_ = (&r)->a;
   bool v6_ = !v4_.has();
   std::variant<double, lucent::String> v10_{};
   if (v6_) {
@@ -64,7 +64,7 @@ lucent::String m_object_u2d_spread::maybeFirst(lucent::Opt<lucent::Ref<lucent_ap
     v10_ = std::variant<double, lucent::String>(v4_.value());
   }
   lucent::String v11_ = lucent::toJsString(v10_);
-  lucent::Opt<double> v14_ = r->b;
+  lucent::Opt<double> v14_ = (&r)->b;
   bool v16_ = !v14_.has();
   std::variant<double, lucent::String> v20_{};
   if (v16_) {
@@ -73,7 +73,7 @@ lucent::String m_object_u2d_spread::maybeFirst(lucent::Opt<lucent::Ref<lucent_ap
     v20_ = std::variant<double, lucent::String>(v14_.value());
   }
   lucent::String v21_ = lucent::toJsString(v20_);
-  lucent::Opt<double> v24_ = r->c;
+  lucent::Opt<double> v24_ = (&r)->c;
   bool v26_ = !v24_.has();
   std::variant<double, lucent::String> v30_{};
   if (v26_) {
@@ -82,27 +82,27 @@ lucent::String m_object_u2d_spread::maybeFirst(lucent::Opt<lucent::Ref<lucent_ap
     v30_ = std::variant<double, lucent::String>(v24_.value());
   }
   lucent::String v31_ = lucent::toJsString(v30_);
-  lucent::String v34_ = r->d;
+  lucent::String v34_ = (&r)->d;
   return lucent::concat(v11_, LUCENT_STR(" "), v21_, LUCENT_STR(" "), v31_, LUCENT_STR(" "), v34_);
 }
 
 lucent::String m_object_u2d_spread::maybeLast(lucent::Opt<lucent::Ref<lucent_app::S_Q>> p0_) {
-  lucent::Ref<lucent_app::S_Loose> r = ({
-    auto obj_3_ = std::make_shared<lucent_app::S_Loose>();
-    obj_3_->d = LUCENT_STR("x");
-    obj_3_->b = lucent::Opt<double>(7.0);
+  lucent_app::S_Loose r = ({
+    lucent_app::S_Loose obj_3_{};
+    obj_3_.d = LUCENT_STR("x");
+    obj_3_.b = lucent::Opt<double>(7.0);
     auto src_4_ = p0_;
     if (src_4_.has()) {
-      obj_3_->a = lucent::Opt<double>(src_4_.get()->a);
+      obj_3_.a = lucent::Opt<double>(src_4_.get()->a);
       if (!src_4_.get()->b.isUndefined()) {
-        obj_3_->b = src_4_.get()->b;
+        obj_3_.b = src_4_.get()->b;
       }
-      obj_3_->c = lucent::Opt<double>(src_4_.get()->c);
-      obj_3_->d = src_4_.get()->d;
+      obj_3_.c = lucent::Opt<double>(src_4_.get()->c);
+      obj_3_.d = src_4_.get()->d;
     }
-    obj_3_;
+    std::move(obj_3_);
   });
-  lucent::Opt<double> v5_ = r->a;
+  lucent::Opt<double> v5_ = (&r)->a;
   bool v7_ = !v5_.has();
   std::variant<double, lucent::String> v11_{};
   if (v7_) {
@@ -111,7 +111,7 @@ lucent::String m_object_u2d_spread::maybeLast(lucent::Opt<lucent::Ref<lucent_app
     v11_ = std::variant<double, lucent::String>(v5_.value());
   }
   lucent::String v12_ = lucent::toJsString(v11_);
-  lucent::Opt<double> v15_ = r->b;
+  lucent::Opt<double> v15_ = (&r)->b;
   bool v17_ = !v15_.has();
   std::variant<double, lucent::String> v21_{};
   if (v17_) {
@@ -120,7 +120,7 @@ lucent::String m_object_u2d_spread::maybeLast(lucent::Opt<lucent::Ref<lucent_app
     v21_ = std::variant<double, lucent::String>(v15_.value());
   }
   lucent::String v22_ = lucent::toJsString(v21_);
-  lucent::Opt<double> v25_ = r->c;
+  lucent::Opt<double> v25_ = (&r)->c;
   bool v27_ = !v25_.has();
   std::variant<double, lucent::String> v31_{};
   if (v27_) {
@@ -129,7 +129,7 @@ lucent::String m_object_u2d_spread::maybeLast(lucent::Opt<lucent::Ref<lucent_app
     v31_ = std::variant<double, lucent::String>(v25_.value());
   }
   lucent::String v32_ = lucent::toJsString(v31_);
-  lucent::String v35_ = r->d;
+  lucent::String v35_ = (&r)->d;
   return lucent::concat(v12_, LUCENT_STR(" "), v22_, LUCENT_STR(" "), v32_, LUCENT_STR(" "), v35_);
 }
 
@@ -159,23 +159,23 @@ lucent::Opt<lucent::Ref<lucent_app::S_Q>> m_object_u2d_spread::counted(lucent::O
 lucent::String m_object_u2d_spread::maybeOnce(lucent::Opt<lucent::Ref<lucent_app::S_Q>> p0_) {
   lucent_app::m_object_u2d_spread::spreads = 0.0;
   lucent::Opt<lucent::Ref<lucent_app::S_Q>> v2_ = lucent_app::m_object_u2d_spread::counted(p0_);
-  lucent::Ref<lucent_app::S_Loose> r = ({
-    auto obj_7_ = std::make_shared<lucent_app::S_Loose>();
+  lucent_app::S_Loose r = ({
+    lucent_app::S_Loose obj_7_{};
     auto src_8_ = v2_;
     if (src_8_.has()) {
-      obj_7_->a = lucent::Opt<double>(src_8_.get()->a);
+      obj_7_.a = lucent::Opt<double>(src_8_.get()->a);
       if (!src_8_.get()->b.isUndefined()) {
-        obj_7_->b = src_8_.get()->b;
+        obj_7_.b = src_8_.get()->b;
       }
-      obj_7_->c = lucent::Opt<double>(src_8_.get()->c);
-      obj_7_->d = src_8_.get()->d;
+      obj_7_.c = lucent::Opt<double>(src_8_.get()->c);
+      obj_7_.d = src_8_.get()->d;
     }
-    obj_7_->d = LUCENT_STR("x");
-    obj_7_;
+    obj_7_.d = LUCENT_STR("x");
+    std::move(obj_7_);
   });
   double v5_ = lucent_app::m_object_u2d_spread::spreads;
   lucent::String v6_ = lucent::toJsString(v5_);
-  lucent::Opt<double> v9_ = r->a;
+  lucent::Opt<double> v9_ = (&r)->a;
   bool v11_ = !v9_.has();
   std::variant<double, lucent::String> v15_{};
   if (v11_) {
@@ -189,36 +189,36 @@ lucent::String m_object_u2d_spread::maybeOnce(lucent::Opt<lucent::Ref<lucent_app
 
 lucent::String m_object_u2d_spread::merged(lucent::Ref<lucent_app::S_Overrides> p0_) {
   lucent::Ref<lucent_app::S_Options> v1_ = lucent::assigned(lucent_app::m_object_u2d_spread::defaults, "defaults");
-  lucent::Ref<lucent_app::S_Options> o = ({
-    auto obj_9_ = std::make_shared<lucent_app::S_Options>();
+  lucent_app::S_Options o = ({
+    lucent_app::S_Options obj_9_{};
     auto src_10_ = v1_;
-    obj_9_->size = src_10_->size;
-    obj_9_->color = src_10_->color;
+    obj_9_.size = src_10_->size;
+    obj_9_.color = src_10_->color;
     if (!src_10_->label.isUndefined()) {
-      obj_9_->label = src_10_->label;
+      obj_9_.label = src_10_->label;
     }
     if (!src_10_->width.isUndefined()) {
-      obj_9_->width = src_10_->width;
+      obj_9_.width = src_10_->width;
     }
     auto src_11_ = p0_;
     if (!src_11_->size.isUndefined()) {
-      obj_9_->size = src_11_->size.value();
+      obj_9_.size = src_11_->size.value();
     }
     if (!src_11_->color.isUndefined()) {
-      obj_9_->color = src_11_->color.value();
+      obj_9_.color = src_11_->color.value();
     }
     if (!src_11_->label.isUndefined()) {
-      obj_9_->label = src_11_->label;
+      obj_9_.label = src_11_->label;
     }
     if (!src_11_->width.isUndefined()) {
-      obj_9_->width = src_11_->width;
+      obj_9_.width = src_11_->width;
     }
-    obj_9_;
+    std::move(obj_9_);
   });
-  double v4_ = o->size;
+  double v4_ = (&o)->size;
   lucent::String v5_ = lucent::toJsString(v4_);
-  lucent::String v8_ = o->color;
-  lucent::Opt<lucent::String> v11_ = o->label;
+  lucent::String v8_ = (&o)->color;
+  lucent::Opt<lucent::String> v11_ = (&o)->label;
   bool v13_ = !v11_.has();
   lucent::String v16_{};
   if (v13_) {
@@ -226,7 +226,7 @@ lucent::String m_object_u2d_spread::merged(lucent::Ref<lucent_app::S_Overrides> 
   } else {
     v16_ = v11_.value();
   }
-  lucent::Opt<double> v19_ = o->width;
+  lucent::Opt<double> v19_ = (&o)->width;
   bool v21_ = !v19_.has();
   std::variant<double, lucent::String> v25_{};
   if (v21_) {

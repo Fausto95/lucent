@@ -4,12 +4,6 @@
 
 #pragma push_macro("a")
 #undef a
-#pragma push_macro("age")
-#undef age
-#pragma push_macro("name")
-#undef name
-#pragma push_macro("v")
-#undef v
 
 namespace lucent_app {
 
@@ -18,31 +12,6 @@ inline lucent::Actor& actor_0() {
   return a;
 }
 
-struct S_Object1;
-
-struct S_Object1 : lucent::Object {
-  lucent::String name{};
-  double age{};
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "name", v->name);
-  lucent::jsonField(w, first, "age", v->age);
-  (void)first;
-  w.raw("}");
-}
-
 }  // namespace lucent_app
 
-#pragma pop_macro("v")
-#pragma pop_macro("name")
-#pragma pop_macro("age")
 #pragma pop_macro("a")

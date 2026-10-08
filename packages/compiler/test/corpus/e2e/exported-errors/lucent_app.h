@@ -2,11 +2,6 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("line")
-#undef line
-#pragma push_macro("token")
-#undef token
-
 namespace lucent_app {
 
 inline lucent::Actor& actor_0() {
@@ -14,43 +9,4 @@ inline lucent::Actor& actor_0() {
   return a;
 }
 
-struct C_ParseError;
-struct C_TokenError;
-
-struct C_ParseError : lucent::ErrorObject {
-  double line{};
-  void construct(lucent::String p0_, double p1_);
-  static lucent::Ref<C_ParseError> create(lucent::String p0_, double p1_);
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-struct C_TokenError : lucent_app::C_ParseError {
-  lucent::String token{};
-  void construct(lucent::String p0_);
-  static lucent::Ref<C_TokenError> create(lucent::String p0_);
-  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
-};
-
-inline bool C_ParseError::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "line", this->line);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
-inline bool C_TokenError::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "line", this->line);
-  lucent::jsonField(w, first, "token", this->token);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
 }  // namespace lucent_app
-
-#pragma pop_macro("token")
-#pragma pop_macro("line")

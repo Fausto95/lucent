@@ -2,15 +2,6 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("plus")
-#undef plus
-#pragma push_macro("v")
-#undef v
-#pragma push_macro("x")
-#undef x
-#pragma push_macro("y")
-#undef y
-
 namespace lucent_app {
 
 inline lucent::Actor& actor_0() {
@@ -18,51 +9,4 @@ inline lucent::Actor& actor_0() {
   return a;
 }
 
-struct S_Point;
-struct C_Vec;
-
-struct S_Point : lucent::Object {
-  double x{};
-  double y{};
-};
-
-struct C_Vec : lucent::Object {
-  double x{};
-  double y{};
-  void construct(double p0_, double p1_);
-  static lucent::Ref<C_Vec> create(double p0_, double p1_);
-  lucent::Ref<lucent_app::C_Vec> plus(lucent::Ref<lucent_app::C_Vec> p0_);
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Point>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Point>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "x", v->x);
-  lucent::jsonField(w, first, "y", v->y);
-  (void)first;
-  w.raw("}");
-}
-
-inline bool C_Vec::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "x", this->x);
-  lucent::jsonField(w, first, "y", this->y);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
 }  // namespace lucent_app
-
-#pragma pop_macro("y")
-#pragma pop_macro("x")
-#pragma pop_macro("v")
-#pragma pop_macro("plus")

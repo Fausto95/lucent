@@ -2,9 +2,6 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("size")
-#undef size
-
 namespace lucent_app {
 
 inline lucent::Actor& actor_0() {
@@ -12,26 +9,4 @@ inline lucent::Actor& actor_0() {
   return a;
 }
 
-struct S_Config;
-
-struct S_Config : lucent::Object {
-  double size{};
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Config>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Config>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "size", v->size);
-  (void)first;
-  w.raw("}");
-}
-
 }  // namespace lucent_app
-
-#pragma pop_macro("size")

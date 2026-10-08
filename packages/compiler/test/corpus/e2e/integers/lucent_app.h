@@ -4,8 +4,6 @@
 
 #pragma push_macro("a")
 #undef a
-#pragma push_macro("z")
-#undef z
 
 namespace lucent_app {
 
@@ -14,27 +12,6 @@ inline lucent::Actor& actor_0() {
   return a;
 }
 
-struct S_Object1;
-
-struct S_Object1 : lucent::Object {
-  double z{};
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "z", v->z);
-  (void)first;
-  w.raw("}");
-}
-
 }  // namespace lucent_app
 
-#pragma pop_macro("z")
 #pragma pop_macro("a")

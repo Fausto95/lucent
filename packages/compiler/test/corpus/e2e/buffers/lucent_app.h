@@ -4,12 +4,6 @@
 
 #pragma push_macro("a")
 #undef a
-#pragma push_macro("buffer")
-#undef buffer
-#pragma push_macro("copies")
-#undef copies
-#pragma push_macro("scale")
-#undef scale
 
 namespace lucent_app {
 
@@ -18,75 +12,6 @@ inline lucent::Actor& actor_0() {
   return a;
 }
 
-struct S_Job;
-struct S_NativeBufferStats;
-struct S_Object3;
-
-struct S_Job : lucent::Object {
-  lucent::NativeBuffer buffer{};
-  double scale{};
-};
-
-struct S_NativeBufferStats : lucent::Object {
-  double allocated{};
-  double adopted{};
-  double transfers{};
-  double copies{};
-  double bytesCopied{};
-};
-
-struct S_Object3 : lucent::Object {
-  lucent::NativeBuffer buffer{};
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Job>& v);
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_NativeBufferStats>& v);
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object3>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Job>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "buffer", v->buffer);
-  lucent::jsonField(w, first, "scale", v->scale);
-  (void)first;
-  w.raw("}");
-}
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_NativeBufferStats>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "allocated", v->allocated);
-  lucent::jsonField(w, first, "adopted", v->adopted);
-  lucent::jsonField(w, first, "transfers", v->transfers);
-  lucent::jsonField(w, first, "copies", v->copies);
-  lucent::jsonField(w, first, "bytesCopied", v->bytesCopied);
-  (void)first;
-  w.raw("}");
-}
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object3>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "buffer", v->buffer);
-  (void)first;
-  w.raw("}");
-}
-
 }  // namespace lucent_app
 
-#pragma pop_macro("scale")
-#pragma pop_macro("copies")
-#pragma pop_macro("buffer")
 #pragma pop_macro("a")

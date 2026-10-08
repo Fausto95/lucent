@@ -2,13 +2,6 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("first")
-#undef first
-#pragma push_macro("missing")
-#undef missing
-#pragma push_macro("name")
-#undef name
-
 namespace lucent_app {
 
 inline lucent::Actor& actor_0() {
@@ -16,27 +9,4 @@ inline lucent::Actor& actor_0() {
   return a;
 }
 
-struct C_Account;
-
-struct C_Account : lucent::Object {
-  lucent::String name{};
-  void construct(lucent::String p0_);
-  static lucent::Ref<C_Account> create(lucent::String p0_);
-  void missing(lucent::String p0_);
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-inline bool C_Account::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "name", this->name);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
 }  // namespace lucent_app
-
-#pragma pop_macro("name")
-#pragma pop_macro("missing")
-#pragma pop_macro("first")

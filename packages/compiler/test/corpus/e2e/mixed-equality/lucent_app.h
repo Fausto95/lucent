@@ -4,12 +4,6 @@
 
 #pragma push_macro("a")
 #undef a
-#pragma push_macro("barks")
-#undef barks
-#pragma push_macro("name")
-#undef name
-#pragma push_macro("wheels")
-#undef wheels
 
 namespace lucent_app {
 
@@ -18,62 +12,6 @@ inline lucent::Actor& actor_0() {
   return a;
 }
 
-struct C_Animal;
-struct C_Dog;
-struct C_Car;
-
-struct C_Animal : lucent::Object {
-  lucent::String name{};
-  void construct();
-  static lucent::Ref<C_Animal> create();
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-struct C_Car : lucent::Object {
-  double wheels{};
-  void construct();
-  static lucent::Ref<C_Car> create();
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-struct C_Dog : lucent_app::C_Animal {
-  bool barks{};
-  void construct();
-  static lucent::Ref<C_Dog> create();
-  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
-};
-
-inline bool C_Animal::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "name", this->name);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
-inline bool C_Dog::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "name", this->name);
-  lucent::jsonField(w, first, "barks", this->barks);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
-inline bool C_Car::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "wheels", this->wheels);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
 }  // namespace lucent_app
 
-#pragma pop_macro("wheels")
-#pragma pop_macro("name")
-#pragma pop_macro("barks")
 #pragma pop_macro("a")

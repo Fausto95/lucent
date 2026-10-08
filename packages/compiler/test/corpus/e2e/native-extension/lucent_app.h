@@ -2,13 +2,6 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("apply")
-#undef apply
-#pragma push_macro("close")
-#undef close
-#pragma push_macro("processed")
-#undef processed
-
 namespace lucent_app {
 
 inline lucent::Actor& actor_0() {
@@ -16,28 +9,4 @@ inline lucent::Actor& actor_0() {
   return a;
 }
 
-struct C_Filter;
-
-struct C_Filter : lucent::Object {
-  lucent::Handle _u23_native{};
-  void construct(double p0_);
-  static lucent::Ref<C_Filter> create(double p0_);
-  lucent::Bytes apply(lucent::Bytes p0_);
-  lucent::BigInt processed();
-  void close();
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-inline bool C_Filter::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
 }  // namespace lucent_app
-
-#pragma pop_macro("processed")
-#pragma pop_macro("close")
-#pragma pop_macro("apply")

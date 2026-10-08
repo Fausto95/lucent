@@ -4,10 +4,6 @@
 
 #pragma push_macro("a")
 #undef a
-#pragma push_macro("note")
-#undef note
-#pragma push_macro("v")
-#undef v
 
 namespace lucent_app {
 
@@ -16,64 +12,6 @@ inline lucent::Actor& actor_0() {
   return a;
 }
 
-struct S_Note;
-struct S_Unset;
-struct S_Pair;
-
-struct S_Note : lucent::Object {
-  lucent::Opt<lucent::String> note{};
-};
-
-struct S_Unset : lucent::Object {
-  lucent::Opt<lucent::String> v{};
-};
-
-struct S_Pair : lucent::Object {
-  lucent::Opt<lucent::String> a{};
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Note>& v);
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Unset>& v);
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Pair>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Note>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "note", v->note);
-  (void)first;
-  w.raw("}");
-}
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Unset>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "v", v->v);
-  (void)first;
-  w.raw("}");
-}
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Pair>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "a", v->a);
-  (void)first;
-  w.raw("}");
-}
-
 }  // namespace lucent_app
 
-#pragma pop_macro("v")
-#pragma pop_macro("note")
 #pragma pop_macro("a")
