@@ -244,6 +244,8 @@ void setModuleScope(std::shared_ptr<Scope> scope) {
   state.scope = std::move(scope);
 }
 
+std::shared_ptr<Scope> ownedScope(const ContextRef& owner) { return owner ? owner->root() : moduleScope(); }
+
 ExecutionContext& ExecutionContext::main() {
   // Leaked, like the main loop it stands for.
   static auto* context = [] {

@@ -171,11 +171,8 @@ jclass activities() {
   return cls;
 }
 
-/// The scope a request belongs to: the calling context's root.
-std::shared_ptr<Scope> requestScope() {
-  ExecutionContext* context = ExecutionContext::current();
-  return (context ? *context : ExecutionContext::legacy()).root();
-}
+/// The scope a request belongs to: the calling context's (ownedScope).
+std::shared_ptr<Scope> requestScope() { return ownedScope(ExecutionContext::currentRef()); }
 
 }  // namespace
 

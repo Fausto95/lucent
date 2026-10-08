@@ -257,6 +257,12 @@ std::shared_ptr<Scope> moduleScope();
 /// new runtime's.
 void setModuleScope(std::shared_ptr<Scope> scope);
 
+/// The scope work started on `owner` belongs to: module code's (the legacy
+/// module context, a null ref) the module scope, so a reload stops it;
+/// another context's its root. Every promise-returning API that registers
+/// work (operations, callbacks, timers, requests) starts it here.
+std::shared_ptr<Scope> ownedScope(const ContextRef& owner);
+
 namespace detail {
 /// Runs `job`, reporting what it throws.
 void runGuarded(Job& job, const char* where);

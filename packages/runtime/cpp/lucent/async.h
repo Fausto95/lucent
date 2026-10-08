@@ -310,7 +310,9 @@ Promise<std::tuple<detail::Stored<Ts>...>> promiseAllTuple(std::tuple<Promise<Ts
   return st->out;
 }
 
-/// `await delay(ms)` — resolves after `ms` milliseconds on the Lucent thread.
+/// `await delay(ms)` — resolves after `ms` milliseconds on the calling
+/// context; rejects with an AbortError if the scope its work belongs to is
+/// disposed first (ownedScope: a reload, for module code).
 Promise<void> delay(double ms);
 
 }  // namespace lucent

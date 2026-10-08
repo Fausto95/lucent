@@ -2,7 +2,8 @@
 //
 // Native work that completes later, on any thread (a Kotlin coroutine, a
 // platform callback), becomes a promise of the context that started it: an
-// Operation (scope.h) under that context's root scope, whose outcome settles
+// Operation (scope.h) under the scope its work belongs to (ownedScope:
+// module code's is the JS runtime's, so a reload cancels it), whose outcome settles
 // the promise there. Disposing the scope, or the AbortSignal the caller gave
 // aborting, cancels it: the promise rejects at once, the registration's
 // cleanup tells the native work to stop, and whatever it produces after that
@@ -26,7 +27,7 @@ namespace lucent {
 template <class T>
 Promise<T> nativeOperation(typename Operation<T>::Registration registration, Opt<AbortSignal> signal = {}) {
   ContextRef owner = ExecutionContext::currentRef();
-  std::shared_ptr<Scope> scope = ExecutionContext::of(owner).root();
+  std::shared_ptr<Scope> scope = ownedScope(owner);
   AbortSignal abort = signal.has() ? signal.get() : nullptr;
 
   Opt<Error> abortedBy;
