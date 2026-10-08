@@ -86,3 +86,15 @@ export function ping(pings: Pings, n: number): number {
   pings.emit("ping", n + 1, "labelled");
   return pings.listenerCount("ping");
 }
+
+/** A class holding an emitter: JSON shows the emitter as an empty object, as JavaScript does. */
+export class Channel {
+  readonly events = new EventEmitter<{ ping: () => void }>();
+  readonly name = "channel";
+}
+
+export function channelJson(): string {
+  const channel = new Channel();
+  const subscription = channel.events.addListener("ping", () => {});
+  return `${JSON.stringify(channel)} ${JSON.stringify(subscription)}`;
+}

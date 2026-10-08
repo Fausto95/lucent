@@ -42,4 +42,6 @@ export default function run(mod, print, lucentClass, mods) {
     print(pings.listenerCount("ping"));
   })();
 
+  print(mod.channelJson());
+
 }

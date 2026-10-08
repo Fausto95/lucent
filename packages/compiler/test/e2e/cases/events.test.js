@@ -38,3 +38,5 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   print(got.join(", "));
   print(pings.listenerCount("ping"));
 })();
+
+print(mod.channelJson());
