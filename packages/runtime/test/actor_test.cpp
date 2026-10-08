@@ -140,6 +140,14 @@ static void actorsAreDistinct() {
   b.post([&] { ran.set_value(b.onActorThread() && !a.onActorThread() && b.lock().heldByCurrentThread() && !a.lock().heldByCurrentThread() && Actor::current() == &b); });
   CHECK(settled(result, "a turn of b"));
 
+  // Called only synchronously, an actor has no thread: it starts with its
+  // first job.
+  Actor& idle = Actor::create("idle");
+  { LucentScope call(idle); }
+  CHECK(!idle.hasThread() && idle.pendingWork() == 0 && idle.waitIdle(0));
+  idle.post([] {});
+  CHECK(idle.hasThread() && idle.waitIdle(2000));
+
   // Work started in an actor belongs to it: posted back, continued there.
   Promise<double> p;
   {
