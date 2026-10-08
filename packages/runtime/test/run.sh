@@ -48,8 +48,9 @@ done
 drain
 
 # The vendored C defines only lucent_ symbols (lucent_prefix.h): an app
-# that links another QuickJS gets no duplicate or interposed one.
-leaked=$(nm -g --defined-only "${cobjs[@]}" | awk 'NF == 3 && $3 !~ /^_?lucent_/ { print $3 }' | sort -u)
+# that links another QuickJS gets no duplicate or interposed one. The
+# sanitizers add symbols of their own (__asan_globals_registered, …).
+leaked=$(nm -g --defined-only "${cobjs[@]}" | awk 'NF == 3 && $3 !~ /^_?lucent_/ && $3 !~ /^_*(odr_)?[at]san/ { print $3 }' | sort -u)
 if [[ -n "$leaked" ]]; then
   echo "symbols: the vendored QuickJS defines unprefixed global symbols:" $leaked >&2
   exit 1
