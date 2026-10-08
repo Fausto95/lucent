@@ -370,4 +370,9 @@ jsi::Value Convert<Date>::toJs(jsi::Runtime& rt, Host&, const Date& d) {
   return rt.global().getPropertyAsFunction(rt, "Date").callAsConstructor(rt, d->getTime());
 }
 
+jsi::Value rejectedPromise(jsi::Runtime& rt, const jsi::Value& reason) {
+  jsi::Object promise = rt.global().getPropertyAsObject(rt, "Promise");
+  return promise.getPropertyAsFunction(rt, "reject").callWithThis(rt, promise, reason);
+}
+
 }  // namespace lucent::js

@@ -662,6 +662,28 @@ jsi::Value callSync(jsi::Runtime& rt, Host& host, F&& body) {
   }
 }
 
+/// A JS promise rejected with `reason`.
+jsi::Value rejectedPromise(jsi::Runtime& rt, const jsi::Value& reason);
+
+/// A call from JS of an async export: as callSync, but what converting its
+/// arguments (or `this`) throws rejects the promise it returns, as an async
+/// function's throw does, instead of throwing from the call.
+template <class F>
+jsi::Value callAsyncEntry(jsi::Runtime& rt, Host& host, F&& body) {
+  LucentScope scope;
+  try {
+    return body();
+  } catch (const Exception& e) {
+    return rejectedPromise(rt, host.errorToJs(rt, e.error()));
+  } catch (const jsi::JSError& e) {
+    return rejectedPromise(rt, e.value());
+  } catch (const jsi::JSIException&) {
+    throw;
+  } catch (const std::exception&) {
+    return rejectedPromise(rt, host.errorToJs(rt, currentError(std::current_exception())));
+  }
+}
+
 /// Starts an exported async function on the Lucent thread and returns a JS
 /// promise for its result. `start` runs on the Lucent thread and returns the
 /// Lucent promise; it does not start if the host is torn down first.

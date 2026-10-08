@@ -395,7 +395,9 @@ static methods; its static fields stay inside Lucent.
 
 - **Arguments are validated**, because JavaScript callers can pass anything:
   `hash: argument 'input' must be a string, got a number`, or for nested values
-  `midpoint: argument 'a'.y must be a number, got undefined`.
+  `midpoint: argument 'a'.y must be a number, got undefined`. A synchronous
+  export throws the `TypeError`; an async export (function or method)
+  returns a promise rejected with it, as an async function's throw does.
 - **`null` and `undefined` are told apart** where TypeScript does: an
   argument, a setter's value or an object's field typed `T | undefined` (or
   `x?: T`) rejects `null`, and one typed `T | null` rejects `undefined`

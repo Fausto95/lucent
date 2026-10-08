@@ -2389,7 +2389,9 @@ errors, 64-bit parameters from numbers, and lifecycle hooks.
       interface or object value, freed with its last strong reference
       (e2e `weak-refs`, `runtime_test.cpp`'s `weakReferences`).
       `WeakMap` and `WeakSet` stay refused.
-- [ ] Typed native errors, and async exports rejecting bad arguments.
+- [x] Async exports reject a bad argument instead of throwing from the
+      call (e2e `async-arguments`).
+- [ ] Typed native errors.
 - [ ] 64-bit integer parameters from safe-integer numbers.
 - [ ] Lifecycle hooks: deep links, push tokens, module create/destroy.
 - [ ] `expose()` inside a platform branch.

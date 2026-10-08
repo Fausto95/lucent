@@ -89,7 +89,7 @@ midpoint(saved, home); // TypeError: midpoint: argument 'a'.y must be a number, 
 
 ## When a value doesn't match
 
-The call throws a `TypeError` before the module's code runs. An `async` export throws it too, rather than returning a rejected promise. The message names the function, the argument, and the path to the wrong value:
+The call throws a `TypeError` before the module's code runs. An `async` export returns a promise rejected with it instead, as an `async` function's throw does. The message names the function, the argument, and the path to the wrong value:
 
 ```sh title="TypeError messages" nocopy
 hash: argument 'input' must be a string, got a number

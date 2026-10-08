@@ -761,8 +761,13 @@ export class BindingsEmitter {
       : isVoidish(ret)
         ? [cpp.exprStmt(moved), cpp.ret(cpp.call("jsi::Value::undefined"))]
         : [cpp.ret(toJs(this.reg.cppType(ret), host, moved))];
-    // An async call is traced by callAsync, which carries its id on.
-    return sync([...(prelude ? [prelude] : []), ...conv, ...result], isAsync ? undefined : site);
+    // An async call is traced by callAsync, which carries its id on, and its
+    // arguments' checks reject its promise.
+    return sync(
+      [...(prelude ? [prelude] : []), ...conv, ...result],
+      isAsync ? undefined : site,
+      isAsync ? "callAsyncEntry" : "callSync",
+    );
   }
 
   private installer(m: ModuleExports): cpp.Decl {
@@ -1170,8 +1175,8 @@ const dynamicCast = (t: cpp.Type, x: cpp.Expr) => cpp.call("std::dynamic_pointer
 const makeShared = (cppName: string) =>
   cpp.call("std::make_shared", [], [cpp.type(`lucent_app::${cppName}`)]);
 
-/** `Host& host = …; return callSync(rt, host, [site,] [&]() -> jsi::Value { … });` */
-function sync(body: cpp.Stmt[], site?: cpp.Expr): cpp.Stmt[] {
+/** `Host& host = …; return callSync(rt, host, [site,] [&]() -> jsi::Value { … });` (or `entry`'s). */
+function sync(body: cpp.Stmt[], site?: cpp.Expr, entry = "callSync"): cpp.Stmt[] {
   const lambda = cpp.lambda(["&"], [], body, { ret: JS_VALUE });
 
   return [
@@ -1180,7 +1185,7 @@ function sync(body: cpp.Stmt[], site?: cpp.Expr): cpp.Stmt[] {
       "host",
       cpp.call("Host::from", [rt, cpp.id("installed")]),
     ),
-    cpp.ret(cpp.call("callSync", [rt, cpp.id("host"), ...(site ? [site] : []), lambda])),
+    cpp.ret(cpp.call(entry, [rt, cpp.id("host"), ...(site ? [site] : []), lambda])),
   ];
 }
 
