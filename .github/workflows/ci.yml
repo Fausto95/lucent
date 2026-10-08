@@ -10,6 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # Every run step sources this: a failing step's output becomes an error annotation.
+  BASH_ENV: ${{ github.workspace }}/scripts/ci-trap.sh
   # The Hermes revision the e2e and app-check harnesses are verified against.
   HERMES_REF: 7508017ae267ecffe4c4df38656713034f35d9bf
   HERMES_DIR: ${{ github.workspace }}/.hermes
