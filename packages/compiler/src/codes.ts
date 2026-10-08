@@ -694,7 +694,7 @@ export const Explanations: Record<Code, Explanation> = {
     summary:
       "Lucent failed to compile a function it accepted: a bug in the compiler, reported at the function instead of stopping the build.",
     details:
-      "The compiler checks the code it generates for each function before writing it. It stops at a function whose code would be wrong, rather than writing invalid C++. The rest of the program still compiles, so other diagnostics stay accurate. The message names what went wrong; the function itself may be valid TypeScript in the subset.",
+      "The compiler checks each function's generated code and stops at one that would be wrong, instead of writing invalid C++. The rest of the program still compiles, so other diagnostics stay accurate. The message names what went wrong; the function itself may be valid TypeScript in the subset.",
     fix: "report the code at the diagnostic as a Lucent bug; rewriting that expression usually avoids it",
     wrong: ex(
       "// No program should report LUCENT9002: one that does found a compiler bug.\nexport function double(n: number): number {\n  return n * 2;\n}\n",
