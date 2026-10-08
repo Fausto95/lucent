@@ -66,6 +66,10 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       {
         "status": "done",
         "text": "`NativeBuffer`, which hands bytes to tasks and JavaScript without copying them."
+      },
+      {
+        "status": "done",
+        "text": "Events JavaScript listens to with `EventEmitter`, and module hooks with `onDestroy`."
       }
     ],
     "goal": "Self-contained modules, such as parsers, codecs and data structures."
@@ -96,6 +100,14 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       {
         "status": "done",
         "text": "Native 64-bit integers as `bigint`, so IDs and sizes stay exact."
+      },
+      {
+        "status": "done",
+        "text": "SDK objects kept in exported classes, as each platform's private members."
+      },
+      {
+        "status": "done",
+        "text": "The SDK's own error objects, read back with `nativeError`."
       },
       {
         "status": "done",

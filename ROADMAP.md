@@ -164,6 +164,7 @@ Goal: Self-contained modules, such as parsers, codecs and data structures.
 - ✅ Lucent code runs one piece at a time, so it has no data races.
 - ✅ Heavy work on worker threads with `compute`, checked so a task shares no state.
 - ✅ `NativeBuffer`, which hands bytes to tasks and JavaScript without copying them.
+- ✅ Events JavaScript listens to with `EventEmitter`, and module hooks with `onDestroy`.
 
 ### Platform APIs
 
@@ -175,6 +176,8 @@ Goal: Call the iOS and Android SDKs directly from Lucent.
 - ✅ Swift-only APIs, such as StoreKit 2 and CryptoKit, through generated Swift.
 - ✅ Kotlin-only APIs, such as `suspend` functions and `Flow`, through generated Kotlin.
 - ✅ Native 64-bit integers as `bigint`, so IDs and sizes stay exact.
+- ✅ SDK objects kept in exported classes, as each platform's private members.
+- ✅ The SDK's own error objects, read back with `nativeError`.
 - ✅ Callback APIs as promises and subscriptions, with `fromCallback` and `subscribe`.
 - ✅ Members of generic classes on both platforms, such as `List<E>.get`.
 - ✅ Classes extended in Lucent on both platforms, such as a `UIViewController`.
@@ -2390,12 +2393,16 @@ them without ids and string codes: native objects in exported classes,
 events, platform files without twins, cycles without leaks, typed native
 errors, 64-bit parameters from numbers, and lifecycle hooks.
 
-- **Status:** in progress (2026-10-08).
+- **Status:** in review (2026-10-08): the items checked below pass on
+  their branch; the two left open are recorded as not done, with why.
 - **Area:** Compiler, runtime, docs.
 - **Needs:** none.
 - **Verify:** V1, V3.
-- **Where:** `platforms.ts` (`platformScopes`, `classMembersFor`),
-  `types.ts` (`ClassInfo.members`), the tests named below.
+- **Where:** `platforms.ts` (`platformScopes`, `classMembersFor`,
+  `platformTestConst`), `types.ts` (`ClassInfo.members`, the `emitter`
+  and `weak` types), `emit/events.ts`, `runtime/cpp/lucent/events.h`,
+  `hooks.h`, `jsi/convert.h` (`callAsyncEntry`), the tests named below;
+  `test/fake-android.ts` and the JNI host on Linux run the Android parts.
 
 - [x] Native objects in exported classes: a private member that uses one
       platform's code belongs to that platform, and the class stays
