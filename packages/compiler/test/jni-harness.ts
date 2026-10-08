@@ -26,16 +26,14 @@ export const jdk = (() => {
 
   // Linux: the JDK javac belongs to (/usr/lib/jvm/…/bin/javac).
   const javac = () => {
-    const found = spawnSync("sh", ["-c", "readlink -f \"$(command -v javac)\""], {
+    const found = spawnSync("sh", ["-c", 'readlink -f "$(command -v javac)"'], {
       encoding: "utf8",
     }).stdout?.trim();
     return found ? path.dirname(path.dirname(found)) : undefined;
   };
   const home =
     process.env.JAVA_HOME ??
-    (darwin
-      ? spawnSync("/usr/libexec/java_home", { encoding: "utf8" }).stdout?.trim()
-      : javac());
+    (darwin ? spawnSync("/usr/libexec/java_home", { encoding: "utf8" }).stdout?.trim() : javac());
   const lib = home && path.join(home, "lib/server");
   const jvm = darwin ? "libjvm.dylib" : "libjvm.so";
 

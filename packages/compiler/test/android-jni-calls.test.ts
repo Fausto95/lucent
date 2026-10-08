@@ -10,8 +10,12 @@ import { jdk, jvmRun } from "./jni-harness.ts";
  * The JNI each SDK call site compiles to, run on the desktop JNI host
  * against a library's jar (the Android SDK is not needed: a stand-in
  * android.jar is). A call site's class and member IDs are looked up once
- * (statics), a class passed as an argument too, and the call goes through
- * the runtime's call templates rather than code of its own.
+ * (statics), and a class passed as an argument too.
+ *
+ * Each call site stays a lambda of its own: its receiver is evaluated
+ * before its local frame is pushed and its arguments inside it, which a
+ * function template's arguments would not be (their local references
+ * would outlive the call). See ROADMAP.md's decisions log.
  */
 
 const library = {
@@ -54,17 +58,14 @@ describe.skipIf(!javac || !jdk)("SDK call sites over JNI", () => {
       android: { classpath: classpathFile(path.join(root, "cp.json"), [jar]), jars: [sdk] },
     });
 
-  it("looks a class passed as an argument up once, and calls through the runtime's templates", () => {
+  it("looks a class passed as an argument up once per call site", () => {
     const p = compiled();
 
     expect(p.r.diagnostics).toEqual([]);
 
-    // The class argument is a static of the call site, as its own class is.
-    expect(p.cpp).toMatch(/static jclass arg\d+_ = lucent::jni::findClass\("dev\/probe\/Probe"\);/);
+    // The class argument is a static of its use, as the call site's own class is.
+    expect(p.cpp).toContain('LUCENT_JNI_CLASS("dev/probe/Probe")');
     expect(p.cpp).not.toMatch(/, lucent::jni::findClass\(/);
-    // No lambda per call site: the runtime's call templates.
-    expect(p.cpp).not.toContain("[&]() -> ");
-    expect(p.cpp).toContain("lucent::jni::callStatic<jint>(");
   });
 
   it("gives what the JVM computes", () => {
