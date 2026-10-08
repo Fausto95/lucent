@@ -99,8 +99,10 @@ say what a change means for people using Lucent.
   tests, refactors that keep behavior) take the `no-changeset` label
   instead.
 - **How.** `pnpm changeset` asks for the bump and a summary, and writes the
-  file; commit it with the change. Patch for fixes, minor for features,
-  major for breaking changes.
+  file; commit it with the change.
+- **Which bump.** Lucent is 0.x: patch for fixes, minor for features _and_
+  for anything that breaks code that compiled before (say what breaks in
+  the summary). Major is for 1.0; the Changeset check refuses it until then.
 - **What to write.** One line for users, in the imperative: what changed and
   why it matters to them, not how the code did it. "Keep `instanceof`
   working after an app reinstalls Lucent", not "Store prototypes on the
