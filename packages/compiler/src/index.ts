@@ -25,22 +25,15 @@ import {
   usesPlatforms,
 } from "./program.ts";
 import { sdkAvailable, type UsedSymbol } from "@lucent-lang/bindgen";
-import {
-  type Platform,
-  PLATFORMS,
-  platformSdkTyped,
-  type SdkOptions,
-  withSdkOptions,
-} from "./sdk/schema.ts";
+import { type Platform, PLATFORMS, platformSdkTyped, type SdkOptions } from "./sdk/schema.ts";
 import type { ExtensionBinding } from "./extensions/bind.ts";
 import { bindExtensions } from "./extensions/bind.ts";
 import { extensionDts } from "./extensions/dts.ts";
-import { withExtensions } from "./extensions/registry.ts";
 import { resolveNative } from "./package-config.ts";
 import { fileHashes } from "./package-files.ts";
 import { lucentPackages } from "./packages.ts";
-import { recordReads } from "./reads.ts";
-import { recordSdkUses } from "./sdk/usage.ts";
+import { compileContext, runInCompile } from "./compile-context.ts";
+import { sdkUsesOf } from "./sdk/usage.ts";
 import { analyzeViews, hasComponentModules } from "./ui/analyze.ts";
 import { ts as js } from "@lucent-lang/codegen";
 import type { ComponentDescription } from "./ui/contract.ts";
@@ -201,17 +194,15 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
   if (targeted.length)
     throw new Error(`deferred platforms cannot be targets: ${targeted.join(", ")}`);
 
-  const {
-    value: { value: result, uses },
-    read,
-    realpaths,
-  } = recordReads(() =>
-    recordSdkUses(() =>
-      withExtensions(options.extensions, () =>
-        withSdkOptions(options.sdk, () => compileWith(files, options), deferred),
-      ),
-    ),
-  );
+  // This compile's own options and records: another compile in the process (an editor's check
+  // while `lucent dev` builds) has its own.
+  const context = compileContext({
+    ...(options.sdk ? { sdk: options.sdk } : {}),
+    deferred,
+    ...(options.extensions ? { extensions: options.extensions } : {}),
+  });
+  const result = runInCompile(context, () => compileWith(files, options));
+  const [read, realpaths, uses] = [context.reads, context.realpaths, sdkUsesOf(context)];
 
   // Every extension's declarations, for editors and tsc: what an import resolves to.
   const types = new Map(result.types ?? []);

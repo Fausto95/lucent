@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { findOwnFiles, LUCENT_EXTENSION, lucentPackageOf, lucentPackages } from "./packages.ts";
 import path from "node:path";
+import { type CompileContext, currentCompile } from "./compile-context.ts";
 import { directoryExists, fileExists, readText, realpath } from "./reads.ts";
 import { fileURLToPath } from "node:url";
 import { ts as dts } from "@lucent-lang/codegen";
@@ -338,6 +339,7 @@ function compilerHost(
   options: ts.CompilerOptions,
   readSource: ReadSource | undefined,
   direct: Set<string>,
+  context: CompileContext | undefined,
 ): ts.CompilerHost {
   const host = ts.createCompilerHost(options, true);
   const sdkTexts = new Map<string, string | undefined>();
@@ -346,11 +348,13 @@ function compilerHost(
     return sdkTexts.get(f);
   };
   // Disk reads are noted (reads.ts): a passing check holds while each file is as it found it.
-  host.readFile = (f) => virtualSdk(f) ?? readSource?.(path.resolve(f)) ?? readText(f);
+  host.readFile = (f) => virtualSdk(f) ?? readSource?.(path.resolve(f)) ?? readText(f, context);
   host.fileExists = (f) =>
-    readSource?.(path.resolve(f)) !== undefined || virtualSdk(f) !== undefined || fileExists(f);
+    readSource?.(path.resolve(f)) !== undefined ||
+    virtualSdk(f) !== undefined ||
+    fileExists(f, context);
   // Resolution reads a file found through a link at its target: where it led is noted too.
-  host.realpath = (f) => (virtualSdk(f) === undefined ? realpath(f) : f);
+  host.realpath = (f) => (virtualSdk(f) === undefined ? realpath(f, context) : f);
   // Module resolution skips files in directories that do not exist.
   host.directoryExists = (d) => {
     const rel = path.relative(SDK_ROOT, path.resolve(d));
@@ -359,7 +363,7 @@ function compilerHost(
       rel === "ext" ||
       rel === "toolkit" ||
       (PLATFORMS as readonly string[]).includes(rel) ||
-      directoryExists(d)
+      directoryExists(d, context)
     );
   };
   // `lucent:jsx/jsx-runtime`, the JSX runtime every file imports implicitly, is the
@@ -507,7 +511,7 @@ export function createLucentProgram(
   }
 
   const direct = directSdkImports(files, readSource);
-  const host = compilerHost(options, readSource, direct);
+  const host = compilerHost(options, readSource, direct, currentCompile());
   const program = ts.createProgram(
     [
       ...files.map((f) => path.resolve(f)),
