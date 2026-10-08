@@ -417,7 +417,7 @@ export const explanations: { code: string; title: string; summary: string; detai
     "code": "LUCENT3013",
     "title": "Method that matches no protocol requirement",
     "summary": "A method of a class implementing an SDK protocol, named like one of its requirements but matching none, which the platform never calls.",
-    "details": "TypeScript checks that a class implements a protocol's required methods, but an optional one (most delegate methods) spelled wrong is just another method: the platform never calls it, and nothing fails. Lucent warns when a method's name is close to a requirement's (a few edits away, or starting with the same word, as delegate methods do) and matches none, as `noImplicitOverride` does for overrides.",
+    "details": "TypeScript checks that a class implements a protocol's required methods. An optional one, as most delegate methods are, spelled wrong is another method: the platform never calls it, and nothing fails. Lucent warns when a method matches no requirement but its name is a few edits from one's, or starts with the same word.",
     "fix": "rename the method to the requirement the warning names, or make it private if it is a helper",
     "wrong": {
       "example.lucent.ts": "import { PLATFORM } from \"lucent:platform\";\nimport { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from \"lucent:ios/CoreLocation\";\nclass Updates implements CLLocationManagerDelegate {\n  locationManager_didUpdateLocations(manager: CLLocationManager, locations: CLLocation[]): void {}\n  locationManager_didFailWithErorr(manager: CLLocationManager, error: Error): void {}\n}\nexport async function watch(): Promise<boolean> {\n  if (PLATFORM === \"ios\") return new Updates() !== null;\n  return false;\n}\n"

@@ -253,7 +253,9 @@ export async function digest(data: Uint8Array): Promise<Uint8Array> {
 | A member a module's protocol extension gives a type | A member of that type: `SHA256.hash` comes from `HashFunction`. |
 | A protocol's values (`any Drawable`) | Objects of the protocol's type. |
 
-`collect` calls your function with each element on the Lucent thread, in order, and the sequence waits for each call. It resolves when the sequence ends, and rejects with what the sequence or your function throws. Its `AbortSignal` cancels the task iterating the sequence. The function can't be `async`: the sequence wouldn't wait for its promise.
+`collect` calls your function with each element on the Lucent thread, in order, and the sequence waits for each call. It resolves when the sequence ends, and rejects with what the sequence or your function throws.
+
+Its `AbortSignal` cancels the task iterating the sequence. The function can't be `async`: the sequence wouldn't wait for its promise.
 
 ```ts title="purchases.lucent.ts"
 import { PLATFORM } from "lucent:platform";
@@ -306,10 +308,16 @@ CoreLocation  272         217            55 (20.2%)       -          -
 
 Each stage needs the one before, and a `-` means no evidence for that stage, not zero.
 
-`--members` lists every member with its stage and reason, and `--check <baseline>` fails when a module's unrepresentable share grows. Swift's `Hashable`, `Equatable` and `Codable` requirements, which Swift calls itself, aren't counted. Each report names the SDK it was read from, and `--check` notes a baseline made with another, one that names none, and a module the baseline lacks, which it doesn't gate. `--update <baseline>` writes the reports into the baseline. The stages and flags are the same for Android packages. [lucent sdk coverage](/docs/api/cli/#lucent-sdk-coverage) lists the flags.
+`--members` lists every member with its stage and reason, and `--check <baseline>` fails when a module's unrepresentable share grows. Swift's `Hashable`, `Equatable` and `Codable` requirements, which Swift calls itself, aren't counted.
+
+Each report names the SDK it was read from. `--check` notes a baseline made with another SDK or with none, and a module the baseline lacks, without failing on them. `--update <baseline>` writes the reports into the baseline.
+
+The stages and flags are the same for Android packages. [lucent sdk coverage](/docs/api/cli/#lucent-sdk-coverage) lists the flags.
 
 Selectors (`Selector`), class objects (`AnyClass`) and protocol compositions such as `A & B` have no Lucent type yet, except a composition with `NSObjectProtocol`, which is the other type.
 
-Through Swift, optional numbers and booleans cross as `number | null` and `boolean | null`, and Objective-C enums as their TypeScript `enum`; inside arrays and dictionaries they don't yet, nor do optional Objective-C enums or closures of other types. Nor do optional tuples, or tuples holding optional values or C structs. Members using them carry the reason, and so do those with `inout` parameters.
+Through Swift, optional numbers and booleans cross as `number | null` and `boolean | null`, and Objective-C enums as their TypeScript `enum`. Inside arrays and dictionaries they don't cross yet. Nor do optional Objective-C enums, closures of other types, optional tuples, or tuples holding optional values or C structs.
+
+Members using them carry the reason, and so do those with `inout` parameters.
 
 The roadmap lists every [known limitation](/docs/releases/roadmap/#known-limitations).

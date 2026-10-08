@@ -2960,9 +2960,9 @@ Array(n)` without a whole `.fill(v)`, even when each index is then
   which names no steps. The config plugin builds before the pods are
   installed and before it links the native package. A pod binds through
   the module it defines: `DEFINES_MODULE`, modular headers, a prebuilt
-  `.framework` or `.xcframework`, `use_frameworks!`, or, for a Swift pod,
-  a module Lucent makes from its sources with `swiftc` (a Swift pod with
-  public Objective-C headers binds through those alone). Binding a
+  `.framework` or `.xcframework`, or `use_frameworks!`. A Swift pod
+  binds through a module Lucent makes from its sources with `swiftc`, or
+  through its public Objective-C headers alone if it has them. Binding a
   package's own pod in an Expo app is [TA35](#ta35).
 - An Android app with product flavors binds the libraries of its first
   debug variant by name. A library only another flavor depends on is not

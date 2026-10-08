@@ -24,11 +24,11 @@ export type ObjCValue = string | number | boolean | Uint8Array | Date | NSObject
 export declare function mainQueue(): NSObject;
 
 /**
- * A new serial dispatch queue (`dispatch_queue_create(label, DISPATCH_QUEUE_SERIAL)`),
- * for APIs that take a queue to call their delegate on, such as
- * AVCaptureVideoDataOutput's `setSampleBufferDelegate(_:queue:)`: its
- * callbacks then run off the main thread, one at a time, and Lucent code
- * in them runs as any other callback does.
+ * A new serial dispatch queue (`dispatch_queue_create(label, DISPATCH_QUEUE_SERIAL)`).
+ * It's for APIs that call their delegate on a queue you pass, such as
+ * AVCaptureVideoDataOutput's `setSampleBufferDelegate(_:queue:)`. Their
+ * callbacks then run off the main thread, one at a time, and Lucent
+ * code in them runs as in any other callback.
  *
  * @param label The queue's name, as Instruments and crash reports show it, such as `"camera.frames"`.
  */
@@ -36,12 +36,14 @@ export declare function serialQueue(label: string): NSObject;
 
 /**
  * Calls `f` with a CVPixelBuffer's bytes, locked for reading while it
- * runs (`CVPixelBufferLockBaseAddress` with `kCVPixelBufferLock_ReadOnly`,
- * unlocked after, also when `f` throws): the bytes of the plane, its row
- * stride (`bytesPerRow`), width and height. For a planar format (YUV), the
- * plane given; plane 0 otherwise. The bytes are copied once, under the
- * lock, so they stay valid after `f` returns; the buffer itself is
- * locked only while `f` runs.
+ * runs. The lock is `CVPixelBufferLockBaseAddress` with
+ * `kCVPixelBufferLock_ReadOnly`, released after `f`, also when it throws.
+ * `f` gets the plane's bytes, its row stride (`bytesPerRow`), width and
+ * height.
+ *
+ * For a planar format (YUV), the plane is the one given; otherwise plane
+ * 0. The bytes are copied once, under the lock, so they stay valid after
+ * `f` returns. The buffer itself is locked only while `f` runs.
  *
  * @param pixelBuffer A CVPixelBuffer, such as `CMSampleBufferGetImageBuffer(sample)`.
  * @param f What reads the bytes; its result is withPixelBytes's.
@@ -75,11 +77,13 @@ export declare class Out<T> {
 }
 
 /**
- * A Swift AsyncSequence (StoreKit's `Transaction.updates`, an
- * `AsyncStream`), as Kotlin's Flow is: `collect` runs it, calling `f` with
- * each element in order on the Lucent thread, the sequence waiting for
- * each call, and settles when it ends (rejecting with what it throws, or
- * what `f` throws). Aborting `signal` cancels the iteration's task.
+ * A Swift AsyncSequence, such as StoreKit's `Transaction.updates` or an
+ * `AsyncStream`, collected as Kotlin's Flow is. `collect` calls `f` with
+ * each element in order on the Lucent thread, and the sequence waits for
+ * each call. It settles when the sequence ends, rejecting with what the
+ * sequence or `f` throws.
+ *
+ * Aborting `signal` cancels the iteration's task.
  */
 export declare class AsyncSequence<T> {
   private readonly __lucent_AsyncSequence: never;

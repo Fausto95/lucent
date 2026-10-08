@@ -25,7 +25,7 @@ Paths are relative to the package. `lucent build` copies the files they hold to 
 A path outside the package, missing, or of the wrong kind fails the build, naming the package, the field and the path.
 
 :::caution
-Modules import a package's Swift from `lucent:ios/LucentNative`: its `public` declarations, typed as any Swift module's, which makes it the place to wrap an API Lucent can't bind. The other sources are for native code: an Android service that [`android.components` declares](/docs/packages/declare-android-components/), or the C behind a [native extension](/docs/packages/wrap-a-c-library/). Modules can't import Kotlin sources yet: ship them [prebuilt](/docs/packages/ship-a-prebuilt-library/).
+Modules import a package's `public` Swift from `lucent:ios/LucentNative`, typed as any Swift module's: wrap there an API Lucent can't bind. Other sources serve native code: an [Android service](/docs/packages/declare-android-components/), or a [native extension's](/docs/packages/wrap-a-c-library/) C. Modules can't import Kotlin sources yet: ship them [prebuilt](/docs/packages/ship-a-prebuilt-library/).
 :::
 
 ## Where each field goes
