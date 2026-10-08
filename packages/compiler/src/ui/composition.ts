@@ -23,6 +23,7 @@
  * What breaks a rule fails with LUCENT3024.
  */
 import ts from "typescript";
+import { cacheOf } from "../checker-caches.ts";
 import { Codes, fail } from "../diagnostics.ts";
 import { branchPlatform, platformGuard } from "../platforms.ts";
 import { platformOf } from "../program.ts";
@@ -131,20 +132,21 @@ function returnsJsx(expression: ts.Expression): boolean {
   return ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || ts.isJsxFragment(e);
 }
 
-const found = new WeakMap<FunctionLike, readonly ts.Statement[]>();
+const found = new WeakMap<ts.TypeChecker, WeakMap<FunctionLike, readonly ts.Statement[]>>();
 
 /** A Compose component's composition statements, in order; none for any other function. */
 export function compositionStatements(
   checker: ts.TypeChecker,
   fn: FunctionLike,
 ): readonly ts.Statement[] {
-  let out = found.get(fn);
+  const ofChecker = cacheOf(found, checker);
+  let out = ofChecker.get(fn);
 
   if (!out) {
     out = ownStatements(checker, fn).filter(
       (s) => (ts.isVariableStatement(s) || ts.isExpressionStatement(s)) && composes(checker, s),
     );
-    found.set(fn, out);
+    ofChecker.set(fn, out);
   }
 
   return out;

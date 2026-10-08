@@ -593,6 +593,50 @@ export class Collector {
 
   // --- expressions -----------------------------------------------------------------
 
+  /**
+   * `x as T`: a checked conversion when `x`'s type is not a `T` (a union's
+   * member taken out, `lucent::narrow`), which throws a TypeError when the
+   * value is another member; `as const` and widening convert nothing.
+   */
+  private asserted(e: ts.AsExpression | ts.TypeAssertion): Value[] {
+    const values = this.expr(e.expression);
+    const constant = ts.isTypeReferenceNode(e.type) && e.type.typeName.getText() === "const";
+
+    if (!constant) {
+      const from = this.checker.getTypeAtLocation(e.expression);
+      const to = this.checker.getTypeAtLocation(e);
+
+      if (!this.checker.isTypeAssignableTo(from, to))
+        this.own(
+          "throws",
+          "yes",
+          e,
+          `converts ${code(e.getText())}, which throws for another type`,
+        );
+    }
+    return values;
+  }
+
+  /**
+   * Whether `e` reads an array's or a record's element the checker
+   * narrowed present (with noUncheckedIndexedAccess, an element read may be
+   * undefined): its native read asserts the element is there.
+   */
+  private presentElement(e: ts.ElementAccessExpression): boolean {
+    const object = this.checker.getTypeAtLocation(e.expression);
+    const indexed =
+      this.checker.isArrayType(object) || this.checker.getIndexInfosOfType(object).length > 0;
+
+    if (!indexed || this.checker.isTupleType(object)) return false;
+
+    const t = this.checker.getTypeAtLocation(e);
+    const members = t.isUnion() ? t.types : [t];
+
+    return !members.some(
+      (m) => m.flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Any | ts.TypeFlags.Unknown),
+    );
+  }
+
   /** Records what `e` does and gives the values it may evaluate to. */
   private expr(e: ts.Expression): Value[] {
     if (this.pruned(e)) return [];
@@ -618,8 +662,8 @@ export class Collector {
     ...Object.fromEntries(JSX.map((kind) => [kind, (c: Collector, e: Jsx) => c.jsx(e)])),
     [ts.SyntaxKind.ParenthesizedExpression]: (c, e: ts.ParenthesizedExpression) =>
       c.expr(e.expression),
-    [ts.SyntaxKind.AsExpression]: (c, e: ts.AsExpression) => c.expr(e.expression),
-    [ts.SyntaxKind.TypeAssertionExpression]: (c, e: ts.TypeAssertion) => c.expr(e.expression),
+    [ts.SyntaxKind.AsExpression]: (c, e: ts.AsExpression) => c.asserted(e),
+    [ts.SyntaxKind.TypeAssertionExpression]: (c, e: ts.TypeAssertion) => c.asserted(e),
     [ts.SyntaxKind.SatisfiesExpression]: (c, e: ts.SatisfiesExpression) => c.expr(e.expression),
     [ts.SyntaxKind.NonNullExpression]: (c, e: ts.NonNullExpression) => {
       c.own("throws", "yes", e, "asserts a value is present (`!` throws a TypeError)");
@@ -639,6 +683,14 @@ export class Collector {
       const object = c.expr(e.expression);
 
       c.expr(e.argumentExpression);
+
+      if (c.presentElement(e))
+        c.own(
+          "throws",
+          "yes",
+          e,
+          "reads an element the checker narrowed present (throws when absent)",
+        );
       return c.part(e, object);
     },
     [ts.SyntaxKind.BinaryExpression]: (c, e: ts.BinaryExpression) => c.binary(e),
@@ -999,6 +1051,18 @@ export class Collector {
 
   private binary(e: ts.BinaryExpression): Value[] {
     const op = e.operatorToken.kind;
+
+    if (
+      THROWING_BIGINT.has(op) &&
+      isBigInt(this.checker, e.left) &&
+      isBigInt(this.checker, e.right)
+    )
+      this.own(
+        "throws",
+        "yes",
+        e,
+        `${code(e.operatorToken.getText())} on bigints (throws a RangeError)`,
+      );
 
     if (op === ts.SyntaxKind.EqualsToken) {
       const values = this.expr(e.right);
@@ -1650,6 +1714,20 @@ function memberKeyOf(m: ts.MethodDeclaration | ts.MethodSignature): string {
 function isString(checker: ts.TypeChecker, e: ts.Node): boolean {
   return !!(checker.getTypeAtLocation(e).flags & ts.TypeFlags.StringLike);
 }
+
+function isBigInt(checker: ts.TypeChecker, e: ts.Node): boolean {
+  return !!(checker.getTypeAtLocation(e).flags & ts.TypeFlags.BigIntLike);
+}
+
+/** The bigint operators that throw a RangeError: division and remainder by zero, a negative exponent. */
+const THROWING_BIGINT = new Set<ts.SyntaxKind>([
+  ts.SyntaxKind.SlashToken,
+  ts.SyntaxKind.PercentToken,
+  ts.SyntaxKind.AsteriskAsteriskToken,
+  ts.SyntaxKind.SlashEqualsToken,
+  ts.SyntaxKind.PercentEqualsToken,
+  ts.SyntaxKind.AsteriskAsteriskEqualsToken,
+]);
 
 /** Whether a loop around `a` (in its function) also runs `b`, so `b` can follow `a`. */
 function sameLoop(a: ts.Node, b: ts.Node): boolean {

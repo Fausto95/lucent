@@ -28,6 +28,7 @@ the build.
 | `pnpm test:runtime`                           | C++ runtime unit tests (`packages/runtime/test/*_test.cpp`), with corpora checked against JavaScript: BigInt against node, the UI reactive graph against a JavaScript reference                                                                        | no           |
 | `packages/runtime/test/jsi/run.sh`            | the JSI host across runtimes (teardown, reload, stale objects) and a hand-written module in Hermes; `SANITIZE=1` or `thread` add sanitizers                                                                                                            | yes          |
 | `pnpm test:e2e [case…]`                       | differential end-to-end cases                                                                                                                                                                                                                          | yes          |
+| `pnpm test:fuzz [--seed N] [--count N]`       | random programs in the subset, run as differential cases                                                                                                                                                                                               | yes          |
 | `node scripts/app-check.ts apps/bare-example` | an example app's real Metro bundle against its generated C++                                                                                                                                                                                           | yes          |
 | `node scripts/bench.ts --check`               | performance budgets                                                                                                                                                                                                                                    | yes          |
 | `node scripts/smoke-install.ts`               | packed packages install and run in an empty project                                                                                                                                                                                                    | no           |
@@ -101,6 +102,20 @@ Every language feature needs a case. A case that cannot match JavaScript
 documents the deviation in [semantics.md](semantics.md). After changing cases,
 run `node scripts/sync-examples.ts`: the example apps' on-device test
 screens run the same cases.
+
+### The differential fuzzer
+
+`pnpm test:fuzz [--seed N] [--count N]` (`packages/compiler/test/e2e/fuzz.ts`)
+writes random programs in the subset (loops whose closures capture their
+`let` counters, `??` and `??=` on type parameters, compound assignments,
+reduce, throwing bigint division) and runs each through `run.ts` as a case.
+A program the compiler refuses with a LUCENT diagnostic is skipped; a type
+error, an internal error (`LUCENT9002`), a crash or a different output
+fails. A seed gives one program on every machine: `--keep DIR` keeps them,
+to rerun one with `LUCENT_E2E_CASES=DIR pnpm test:e2e fuzz-<seed>` and turn
+it into a case. `packages/compiler/test/fuzz.test.ts` checks that its
+programs compile; with `LUCENT_FUZZ=1` (and `LUCENT_FUZZ_SEED`) and Hermes
+built, it runs three of them too.
 
 ## Sanitizers
 
