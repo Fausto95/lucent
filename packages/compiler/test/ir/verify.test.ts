@@ -11,6 +11,7 @@ import type {
   ValueId,
 } from "../../src/ir/ir.ts";
 import { IrVerifyError, verify, type VerifyEnv } from "../../src/ir/verify.ts";
+import { Completion } from "../../src/ir/ir.ts";
 import { type LType, T } from "../../src/types.ts";
 
 const FILE = "/app/order.lucent.ts";
@@ -399,6 +400,48 @@ describe("IR verifier", () => {
     expect(problemsOf(b.finish())).toContain("r0[1] throw throws a string, not an Error");
   });
 
+  it("rejects throwing an object of a class that does not derive from Error", () => {
+    const thrown = (cls: LType) => {
+      const b = new IrBuilder("boom", T.void, at(0, 100));
+
+      b.throw(b.param(0, cls, at(1)), at(2));
+      return b.finish();
+    };
+    const env: VerifyEnv = { isError: (t) => t.k === "class" && t.id === "Failure" };
+    const point: LType = { k: "class", id: "Point", args: [] };
+    const failure: LType = { k: "class", id: "Failure", args: [] };
+
+    expect(problemsOf(thrown(point), env)).toContain("r0[1] throw throws a C:Point, not an Error");
+    expect(problemsOf(thrown(failure), env)).toEqual([]);
+  });
+
+  it("rejects plans naming values they do not take, or integer forms they do not have", () => {
+    const b = new IrBuilder("plans", T.number, at(0, 100));
+    const a = b.param(0, T.number, at(1));
+    const s = b.param(1, T.string, at(2));
+    const named = (v: ValueId) => ({ k: "id", name: `$v${v}` });
+    const int = (v: ValueId) => ({ k: "id", name: `$i${v}` });
+
+    b.plan("stray", { k: "call", callee: named(s), args: [] }, [a], T.number, at(3));
+    b.plan("not an integer", int(a), [a], T.number, at(4));
+    b.plan("int of a string", named(s), [s], T.string, at(5));
+    b.return(b.plan("fine", named(a), [a], T.number, at(6)), at(7));
+
+    // The builder never gives a string an integer form: the IR is edited to.
+    const f = b.finish();
+    const ops = f.regions[0]!.ops;
+
+    ops[4] = { ...(ops[4] as IrOp & { kind: "plan" }), int: { code: named(s), kind: "i32" } };
+
+    expect(problemsOf(f)).toEqual(
+      expect.arrayContaining([
+        "r0[2] plan names v1, which is not one of its operands",
+        "r0[3] plan names the integer form of v0, which is not an exact integer",
+        "r0[4] plan has an integer form, but does not give a number",
+      ]),
+    );
+  });
+
   it("rejects summaries and effect references that claim less than the operations do", () => {
     const f = pair();
     const lies = {
@@ -459,5 +502,69 @@ describe("IR verifier", () => {
     expect(() => verify(f, SIGNATURES)).toThrow(
       /invalid IR for pair\n {2}r0\[5\] return[^]*fn pair\(\) -> number/,
     );
+  });
+});
+
+describe("completion", () => {
+  /** `try { try { … throw } catch {} } finally {}`, `depth` deep, counting reads of its regions. */
+  function nested(depth: number): { f: IrFunction; reads: () => number } {
+    const b = new IrBuilder("deep", T.undefined, at(0, 100));
+    const inner = (n: number): void => {
+      if (n === 0) {
+        b.throw(b.const(null, at(1)), at(1));
+        return;
+      }
+      b.try(
+        at(n),
+        () => inner(n - 1),
+        () => {},
+        () => {},
+      );
+    };
+
+    inner(depth);
+    b.return(undefined, at(99));
+
+    const f = b.finish();
+    let reads = 0;
+    const regions = new Proxy(f.regions, {
+      get(target, key, receiver) {
+        if (typeof key === "string" && /^\d+$/.test(key)) reads++;
+        return Reflect.get(target, key, receiver);
+      },
+    });
+
+    return { f: { ...f, regions }, reads: () => reads };
+  }
+
+  it("decides each region once, however many operations ask", () => {
+    const { f, reads } = nested(200);
+    const tries = f.regions.flatMap((r) => r.ops.filter((op) => op.kind === "try"));
+    const outer = f.regions[f.body]!.ops.filter((op) => op.kind === "try");
+    const before = reads();
+    const c = new Completion(f);
+
+    // Every try asks, as the emitter does: once each is linear, not quadratic.
+    for (const op of tries) c.ops([op]);
+
+    expect(c.ops(outer)).toBe(true);
+    expect(c.region(f.body)).toBe(false);
+    expect(reads() - before).toBeLessThanOrEqual(f.regions.length);
+  });
+
+  it("does not complete a try whose body throws and whose catch never ends", () => {
+    const b = new IrBuilder("stuck", T.number, at(0, 100));
+
+    b.try(
+      at(1),
+      () => b.throw(b.const(null, at(2)), at(2)),
+      () => b.return(b.const(1, at(3)), at(3)),
+    );
+    b.return(b.const(2, at(4)), at(4));
+
+    const f = b.finish();
+    const tries = f.regions[f.body]!.ops.filter((op) => op.kind === "try");
+
+    expect(new Completion(f).ops(tries)).toBe(false);
   });
 });

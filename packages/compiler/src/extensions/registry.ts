@@ -1,33 +1,18 @@
 /**
- * The native extensions a compile binds: set for the compile's duration,
- * as the SDK options are, and read where `lucent:ext/<name>` resolves and
- * where its handles and functions are lowered.
+ * The native extensions a compile binds: its context's (compile-context.ts),
+ * read where `lucent:ext/<name>` resolves and where its handles and
+ * functions are lowered.
  */
+import { currentCompile } from "../compile-context.ts";
 import type { ExtensionBinding, FunctionBinding, HandleBinding } from "./bind.ts";
 
-let bound: readonly ExtensionBinding[] = [];
-
-/** Runs `f` with `extensions` bound (none when undefined). */
-export function withExtensions<T>(
-  extensions: readonly ExtensionBinding[] | undefined,
-  f: () => T,
-): T {
-  const saved = bound;
-  bound = extensions ?? [];
-
-  try {
-    return f();
-  } finally {
-    bound = saved;
-  }
-}
-
+/** The extensions the compile running binds (none outside a compile). */
 export function boundExtensions(): readonly ExtensionBinding[] {
-  return bound;
+  return currentCompile()?.extensions ?? [];
 }
 
 export function findExtension(name: string): ExtensionBinding | undefined {
-  return bound.find((e) => e.name === name);
+  return boundExtensions().find((e) => e.name === name);
 }
 
 /** A handle class of an extension. */

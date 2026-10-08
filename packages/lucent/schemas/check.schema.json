@@ -1,195 +1,215 @@
 {
   "$id": "https://lucent-lang.dev/schemas/check.schema.json",
   "title": "lucent check --json",
-  "type": "object",
-  "required": ["ok", "modules", "diagnostics", "warnings", "errors", "ms"],
-  "additionalProperties": false,
-  "properties": {
-    "ok": {
-      "type": "boolean",
-      "description": "No errors; the exit code is 0 exactly then"
-    },
-    "modules": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "Module names, as JavaScript loads them"
-    },
-    "diagnostics": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["code", "message"],
-        "properties": {
-          "code": {
-            "type": "string",
-            "pattern": "^LUCENT\\d{4}$",
-            "description": "Stable code; lucent explain <code> describes it"
-          },
-          "message": {
+  "oneOf": [
+    {
+      "type": "object",
+      "description": "A check that ran",
+      "required": ["ok", "modules", "diagnostics", "warnings", "errors", "ms"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "description": "No errors; the exit code is 0 exactly then"
+        },
+        "modules": {
+          "type": "array",
+          "items": {
             "type": "string"
           },
-          "file": {
-            "type": "string",
-            "description": "Relative to the project root"
-          },
-          "line": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "column": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "start": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Offset of the span in the file"
-          },
-          "length": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "fix": {
-            "type": "string",
-            "description": "How to fix it, in one line"
-          },
-          "docs": {
-            "type": "string",
-            "description": "Where the code is explained"
-          },
-          "severity": {
-            "const": "warning",
-            "description": "Present on warnings only"
-          },
-          "quickFix": {
+          "description": "Module names, as JavaScript loads them"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
             "type": "object",
-            "description": "Where the fix is exact: edits to the diagnostic's file, which an editor offers to apply",
-            "required": ["title", "edits"],
-            "additionalProperties": false,
+            "required": ["code", "message"],
             "properties": {
-              "title": {
+              "code": {
                 "type": "string",
-                "description": "What it does, as an editor lists it"
+                "pattern": "^LUCENT\\d{4}$",
+                "description": "Stable code; lucent explain <code> describes it"
               },
-              "edits": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "required": ["start", "length", "text"],
-                  "additionalProperties": false,
-                  "properties": {
-                    "start": {
-                      "type": "integer",
-                      "description": "Offset in the file"
-                    },
-                    "length": {
-                      "type": "integer"
-                    },
-                    "text": {
-                      "type": "string",
-                      "description": "What replaces the length characters at start"
+              "message": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string",
+                "description": "Relative to the project root"
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "column": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "start": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Offset of the span in the file"
+              },
+              "length": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "fix": {
+                "type": "string",
+                "description": "How to fix it, in one line"
+              },
+              "docs": {
+                "type": "string",
+                "description": "Where the code is explained"
+              },
+              "severity": {
+                "const": "warning",
+                "description": "Present on warnings only"
+              },
+              "quickFix": {
+                "type": "object",
+                "description": "Where the fix is exact: edits to the diagnostic's file, which an editor offers to apply",
+                "required": ["title", "edits"],
+                "additionalProperties": false,
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "description": "What it does, as an editor lists it"
+                  },
+                  "edits": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["start", "length", "text"],
+                      "additionalProperties": false,
+                      "properties": {
+                        "start": {
+                          "type": "integer",
+                          "description": "Offset in the file"
+                        },
+                        "length": {
+                          "type": "integer"
+                        },
+                        "text": {
+                          "type": "string",
+                          "description": "What replaces the length characters at start"
+                        }
+                      }
                     }
                   }
                 }
               }
             }
           }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^LUCENT\\d{4}$",
+                "description": "Stable code; lucent explain <code> describes it"
+              },
+              "message": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string",
+                "description": "Relative to the project root"
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "column": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "start": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Offset of the span in the file"
+              },
+              "length": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "fix": {
+                "type": "string",
+                "description": "How to fix it, in one line"
+              },
+              "docs": {
+                "type": "string",
+                "description": "Where the code is explained"
+              },
+              "severity": {
+                "const": "warning",
+                "description": "Present on warnings only"
+              },
+              "quickFix": {
+                "type": "object",
+                "description": "Where the fix is exact: edits to the diagnostic's file, which an editor offers to apply",
+                "required": ["title", "edits"],
+                "additionalProperties": false,
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "description": "What it does, as an editor lists it"
+                  },
+                  "edits": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["start", "length", "text"],
+                      "additionalProperties": false,
+                      "properties": {
+                        "start": {
+                          "type": "integer",
+                          "description": "Offset in the file"
+                        },
+                        "length": {
+                          "type": "integer"
+                        },
+                        "text": {
+                          "type": "string",
+                          "description": "What replaces the length characters at start"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "description": "Warnings: reported, but the build goes on"
+        },
+        "errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ms": {
+          "type": "number",
+          "minimum": 0
         }
       }
     },
-    "warnings": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["code", "message"],
-        "properties": {
-          "code": {
-            "type": "string",
-            "pattern": "^LUCENT\\d{4}$",
-            "description": "Stable code; lucent explain <code> describes it"
-          },
-          "message": {
-            "type": "string"
-          },
-          "file": {
-            "type": "string",
-            "description": "Relative to the project root"
-          },
-          "line": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "column": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "start": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Offset of the span in the file"
-          },
-          "length": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "fix": {
-            "type": "string",
-            "description": "How to fix it, in one line"
-          },
-          "docs": {
-            "type": "string",
-            "description": "Where the code is explained"
-          },
-          "severity": {
-            "const": "warning",
-            "description": "Present on warnings only"
-          },
-          "quickFix": {
-            "type": "object",
-            "description": "Where the fix is exact: edits to the diagnostic's file, which an editor offers to apply",
-            "required": ["title", "edits"],
-            "additionalProperties": false,
-            "properties": {
-              "title": {
-                "type": "string",
-                "description": "What it does, as an editor lists it"
-              },
-              "edits": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "required": ["start", "length", "text"],
-                  "additionalProperties": false,
-                  "properties": {
-                    "start": {
-                      "type": "integer",
-                      "description": "Offset in the file"
-                    },
-                    "length": {
-                      "type": "integer"
-                    },
-                    "text": {
-                      "type": "string",
-                      "description": "What replaces the length characters at start"
-                    }
-                  }
-                }
-              }
-            }
-          }
+    {
+      "type": "object",
+      "description": "A problem that stopped it",
+      "required": ["ok", "error"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "error": {
+          "type": "string",
+          "description": "What stopped it before any module was checked: an invalid lucent.json, an unknown --platforms target, a frozen build's SDKs. The exit code is 1, or 2 for a usage error"
         }
-      },
-      "description": "Warnings: reported, but the build goes on"
-    },
-    "errors": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "ms": {
-      "type": "number",
-      "minimum": 0
+      }
     }
-  }
+  ]
 }

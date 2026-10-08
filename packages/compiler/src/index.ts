@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { type Code, docsUrl, Explanations } from "./codes.ts";
+import { type Code, Codes, docsUrl, Explanations } from "./codes.ts";
 import { CompileError, type Diagnostic, formatDiagnostic, toDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
 import {
@@ -14,6 +14,7 @@ import {
 } from "./platforms.ts";
 import {
   builtinSdkModuleOf,
+  type CompileSession,
   createLucentProgram,
   findLucentFiles,
   type LucentProgram,
@@ -25,23 +26,16 @@ import {
   usesPlatforms,
 } from "./program.ts";
 import { sdkAvailable, type UsedSymbol } from "@lucent-lang/bindgen";
-import {
-  type Platform,
-  PLATFORMS,
-  platformSdkTyped,
-  type SdkOptions,
-  withSdkOptions,
-} from "./sdk/schema.ts";
+import { type Platform, PLATFORMS, platformSdkTyped, type SdkOptions } from "./sdk/schema.ts";
 import type { ExtensionBinding } from "./extensions/bind.ts";
 import { bindExtensions } from "./extensions/bind.ts";
 import { extensionDts } from "./extensions/dts.ts";
-import { withExtensions } from "./extensions/registry.ts";
 import { withSourceRoot } from "./lowering/source.ts";
 import { resolveNative } from "./package-config.ts";
 import { fileHashes } from "./package-files.ts";
-import { lucentPackages } from "./packages.ts";
-import { recordReads } from "./reads.ts";
-import { recordSdkUses } from "./sdk/usage.ts";
+import { ignoreCompatible, incompatibility, lucentPackageOf, lucentPackages } from "./packages.ts";
+import { compileContext, runInCompile } from "./compile-context.ts";
+import { sdkUsesOf } from "./sdk/usage.ts";
 import { analyzeViews, hasComponentModules } from "./ui/analyze.ts";
 import { ts as js } from "@lucent-lang/codegen";
 import type { ComponentDescription } from "./ui/contract.ts";
@@ -60,6 +54,7 @@ export { formatDiagnostic, type Diagnostic } from "./diagnostics.ts";
 export { type BuildIdentity, identityScript, RUNTIME_ABI } from "./emit/identity.ts";
 export { moduleNamespace } from "./types.ts";
 export {
+  CompileSession,
   findLucentFiles,
   moduleNameOf,
   platformOf,
@@ -71,6 +66,7 @@ export {
 } from "./program.ts";
 export { closesPodspec, libraryBuildGradle, withPodDependencies } from "./native-build-files.ts";
 export { fileHashes, type FileHashes, inNativePackage } from "./package-files.ts";
+export { projectHashes, projectSdk, SCHEMA_SET_DIR } from "./project-sdk.ts";
 export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-lang/bindgen";
 export {
   jsxToolkits,
@@ -82,6 +78,8 @@ export { viewCoverage, type ViewCoverage } from "./ui/view-coverage.ts";
 export {
   LUCENT_EXTENSION,
   lucentPackages,
+  ignoreCompatible,
+  incompatibility,
   lucentVersion,
   satisfies,
   type LucentPackage,
@@ -186,6 +184,12 @@ export interface CompileOptions {
   /** The native extensions `lucent:ext/<name>` imports, bound (bindExtensions). */
   extensions?: readonly ExtensionBinding[];
   /**
+   * What the last compile with this session kept (editors and watchers
+   * check again and again): each target's program, which the next one
+   * reuses, so only what changed is parsed and checked again.
+   */
+  session?: CompileSession;
+  /**
    * Platforms whose SDK imports resolve only later (Android's, from the
    * app's dependencies, which its Gradle build resolves). They are not
    * targets (asking for one throws), and the other targets' programs leave
@@ -207,21 +211,33 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
   if (targeted.length)
     throw new Error(`deferred platforms cannot be targets: ${targeted.join(", ")}`);
 
-  const {
-    value: { value: result, uses },
-    read,
-    realpaths,
-  } = recordReads(() =>
-    recordSdkUses(() =>
-      withExtensions(options.extensions, () =>
-        withSdkOptions(
-          options.sdk,
-          () => withSourceRoot(options.root, () => compileWith(files, options)),
-          deferred,
-        ),
-      ),
-    ),
+  // This compile's own options and records: another compile in the process (an editor's check
+  // while `lucent dev` builds) has its own.
+  const context = compileContext({
+    ...(options.sdk ? { sdk: options.sdk } : {}),
+    deferred,
+    ...(options.extensions ? { extensions: options.extensions } : {}),
+  });
+  const result = runInCompile(context, () =>
+    withSourceRoot(options.root, () => compileWith(files, options)),
   );
+  const [read, realpaths, uses] = [context.reads, context.realpaths, sdkUsesOf(context)];
+
+  if (options.session) {
+    options.session.reads = new Map(read);
+    options.session.realpaths = new Map(realpaths);
+  }
+
+  // The Lucent packages of the files whose `compatible` range leaves this Lucent out.
+  const incompatible = packageProblems(files);
+  const ignored = ignoreCompatible();
+  if (incompatible.length && !ignored) {
+    result.ok = false;
+    result.diagnostics.push(...incompatible);
+  } else if (incompatible.length)
+    (result.warnings ??= []).push(
+      ...incompatible.map((d) => ({ ...d, severity: "warning" as const })),
+    );
 
   // Every extension's declarations, for editors and tsc: what an import resolves to.
   const types = new Map(result.types ?? []);
@@ -238,6 +254,36 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
   };
 }
 
+/** LUCENT3014 for each Lucent package of `files` this Lucent is outside the range of, at its package.json. */
+function packageProblems(files: readonly string[]): Diagnostic[] {
+  const seen = new Set<string>();
+  const out: Diagnostic[] = [];
+
+  for (const f of files) {
+    const pkg = lucentPackageOf(f);
+    if (!pkg || seen.has(pkg.dir)) continue;
+    seen.add(pkg.dir);
+
+    const why = incompatibility(pkg);
+    if (why)
+      out.push({
+        code: Codes.IncompatiblePackage,
+        message: why,
+        file: path.join(pkg.dir, "package.json"),
+      });
+  }
+
+  return out;
+}
+
+/** The session part of a program's options: its target's program to reuse, under `key`. */
+function sessionFor(
+  options: CompileOptions,
+  key: string,
+): { session?: { session: CompileSession; key: string } } {
+  return options.session ? { session: { session: options.session, key } } : {};
+}
+
 /** A diagnostic with its code's usual fix, unless it names its own, and where the code is explained. */
 function explained(d: Diagnostic): Diagnostic {
   const e = Explanations[d.code as Code] as (typeof Explanations)[Code] | undefined;
@@ -249,7 +295,9 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
   // Shared modules that branch on the platform are compiled per target too.
   const branching = plan.shared.some((f) => usesPlatforms(f, options.readSource));
   if (!plan.platformModules.length && !plan.diagnostics.length && !branching)
-    return compileOnce(createLucentProgram(files, options.readSource));
+    return compileOnce(
+      createLucentProgram(files, options.readSource, undefined, sessionFor(options, "program")),
+    );
 
   const out: Compiled = {
     files: new Map(),
@@ -268,6 +316,7 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
       result = compileOnce(
         createLucentProgram([...plan.shared, ...declarations], options.readSource, undefined, {
           stubs: declarations,
+          ...sessionFor(options, target),
         }),
         declarations,
         target,
@@ -281,6 +330,7 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
       const impls = plan.platformModules.map((pm) => pm.implementations[target]!);
       const lp = createLucentProgram([...plan.shared, ...impls], options.readSource, target, {
         references: declarations,
+        ...sessionFor(options, target),
       });
       result = compileOnce(lp, declarations);
       collectTypes(lp, (out.types ??= new Map()));
@@ -381,8 +431,9 @@ function compileChecked(
   const checks = [
     ...lp.diagnostics.filter((d) => !inUntypedPlatformCode(lp, d, untyped)),
     ...declarations.flatMap((d) => declarationErrors(lp, d)),
+    // A split module's declaration (the host's stub) names each platform's types, in no code.
     ...lp.modules
-      .filter((m) => !platformOf(m.file))
+      .filter((m) => !platformOf(m.file) && !m.stub)
       .flatMap((m) => platformScopes(lp.checker, m.sourceFile).errors),
   ];
   // Stop at TypeScript errors: the checker's types are unreliable past them.
@@ -456,7 +507,11 @@ function dedupe(ds: Diagnostic[]): Diagnostic[] {
 export function checkSources(
   files: string[],
   readSource?: ReadSource,
-  options: { extensions?: readonly ExtensionBinding[] } = {},
+  options: {
+    extensions?: readonly ExtensionBinding[];
+    sdk?: SdkOptions;
+    session?: CompileSession;
+  } = {},
 ): Diagnostic[] {
   const r = compile(files, { readSource, ...options });
   return [...r.diagnostics, ...(r.warnings ?? [])];

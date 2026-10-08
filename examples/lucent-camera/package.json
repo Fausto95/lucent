@@ -1,0 +1,16 @@
+{
+  "name": "lucent-camera",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Camera permission and photo capture in Lucent: AVCaptureSession with AVCapturePhotoOutput (iOS) and CameraX's ImageCapture (Android), saving a JPEG to the cache directory. An example Lucent package.",
+  "files": [
+    "index.ts",
+    "src",
+    "lucent.json"
+  ],
+  "main": "index.ts",
+  "lucent": {
+    "sources": "src",
+    "compatible": ">=0.2.0"
+  }
+}

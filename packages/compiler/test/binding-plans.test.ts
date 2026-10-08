@@ -64,7 +64,7 @@ export async function run(): Promise<string> {
     ]);
   }, 180_000);
 
-  it("passes what the plan accepts, and refuses errors passed in", () => {
+  it("passes what the plan accepts, errors passed in included", () => {
     const fill = abi(`import { ABIThing } from "lucent:ios/Abi";
 export async function run(): Promise<string> {
   new ABIThing().fill([["a", "b"], ["c"]]);
@@ -79,12 +79,8 @@ export async function run(): Promise<string> {
 `);
 
     expect(messages(fill.r)).toEqual([]);
-    expect(messages(report.r)).toEqual([
-      [
-        "LUCENT2002",
-        "ABIThing.report: passing errors to Objective-C is not supported yet (objc:c:objc(cs)ABIThing(im)report: in clang-module:Abi)",
-      ],
-    ]);
+    // Errors cross to Objective-C as NSErrors (swift-crossings.test.ts).
+    expect(messages(report.r)).toEqual([]);
   });
 
   it("assigns functions to block properties, as blocks", () => {

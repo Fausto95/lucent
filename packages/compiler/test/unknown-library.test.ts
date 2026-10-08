@@ -91,7 +91,7 @@ describe.skipIf(!xcode)("an unknown library on iOS", () => {
 
   /** What to do about a member Lucent does not bind: call it through code of the app's own. */
   const wrap =
-    "wrap it in Swift of your own whose types Lucent binds, in a local pod the app depends on";
+    "wrap it in Swift of your own whose types Lucent binds: in a Lucent package's ios.nativeSources (lucent:ios/LucentNative), or in a local pod the app depends on";
 
   /** The library called from a run() whose body is `body`. */
   const calling = (body: string) =>

@@ -110,35 +110,42 @@ const CORE_TYPES: Record<string, LType> = {
 };
 
 export function typeKey(t: LType): string {
+  return keyWith(t, (id) => `S:${id}`);
+}
+
+/** `t`'s key, with `struct` spelling each struct type it holds. */
+function keyWith(t: LType, struct: (id: string) => string): string {
+  const key = (u: LType) => keyWith(u, struct);
+
   switch (t.k) {
     case "array":
-      return `${typeKey(t.e)}[]`;
+      return `${key(t.e)}[]`;
     case "tuple":
-      return `[${t.es.map(typeKey).join(",")}]`;
+      return `[${t.es.map(key).join(",")}]`;
     case "map":
-      return `Map<${typeKey(t.key)},${typeKey(t.val)}>`;
+      return `Map<${key(t.key)},${key(t.val)}>`;
     case "set":
-      return `Set<${typeKey(t.e)}>`;
+      return `Set<${key(t.e)}>`;
     case "dict":
-      return `Dict<${typeKey(t.val)}>`;
+      return `Dict<${key(t.val)}>`;
     case "struct":
-      return `S:${t.id}`;
+      return struct(t.id);
     case "class":
-      return t.args.length ? `C:${t.id}<${t.args.map(typeKey).join(",")}>` : `C:${t.id}`;
+      return t.args.length ? `C:${t.id}<${t.args.map(key).join(",")}>` : `C:${t.id}`;
     case "iface":
-      return t.args.length ? `I:${t.id}<${t.args.map(typeKey).join(",")}>` : `I:${t.id}`;
+      return t.args.length ? `I:${t.id}<${t.args.map(key).join(",")}>` : `I:${t.id}`;
     case "iter":
-      return `Iter<${typeKey(t.e)}>`;
+      return `Iter<${key(t.e)}>`;
     case "iterResult":
-      return `IterResult<${typeKey(t.e)}>`;
+      return `IterResult<${key(t.e)}>`;
     case "opt":
-      return `${typeKey(t.inner)}?`;
+      return `${key(t.inner)}?`;
     case "union":
-      return `(${t.ms.map(typeKey).join("|")})`;
+      return `(${t.ms.map(key).join("|")})`;
     case "fn":
-      return `(${t.params.map(typeKey).join(",")})=>${typeKey(t.ret)}`;
+      return `(${t.params.map(key).join(",")})=>${key(t.ret)}`;
     case "promise":
-      return `Promise<${typeKey(t.inner)}>`;
+      return `Promise<${key(t.inner)}>`;
     case "tparam":
       return `T:${t.name}`;
     case "native":
@@ -148,7 +155,7 @@ export function typeKey(t: LType): string {
     case "handle":
       return `H:${t.extension}.${t.name}`;
     case "signal":
-      return `Signal<${typeKey(t.inner)}>`;
+      return `Signal<${key(t.inner)}>`;
     case "props":
       return `Props:${t.component}`;
     default:
@@ -377,6 +384,23 @@ export interface StructField {
   readonly: boolean;
 }
 
+/** A struct whose fields are lowered, before its cycle's shape is known (its `type` absent: still lowering). */
+interface PendingStruct {
+  id: string;
+  type: ts.Type | undefined;
+  fields: StructField[];
+}
+
+/** Whether `t` holds the struct `id`. */
+function refersTo(t: LType, id: string): boolean {
+  let found = false;
+  keyWith(t, (s) => {
+    if (s === id) found = true;
+    return "";
+  });
+  return found;
+}
+
 export interface StructInfo {
   id: string;
   cppName: string;
@@ -451,6 +475,11 @@ export function moduleNamespace(name: string): string {
  */
 const SYMBOL_MEMBERS = new Map([["[Symbol.dispose]", "symbol_dispose_"]]);
 
+/** A short name for an object type's shape (its key): the same shape, the same name. */
+function shapeName(key: string): string {
+  return createHash("sha256").update(key).digest("hex").slice(0, 8);
+}
+
 export function cppIdent(name: string): string {
   const symbol = SYMBOL_MEMBERS.get(name);
   if (symbol) return symbol;
@@ -480,11 +509,6 @@ function safeIdent(name: string): string {
   return out;
 }
 
-/** A short name for an object type's shape (its key): the same shape, the same name. */
-function shapeName(key: string): string {
-  return createHash("sha256").update(key).digest("hex").slice(0, 8);
-}
-
 /** Registry of every struct and class the program uses. */
 export class TypeRegistry {
   readonly structs = new Map<string, StructInfo>();
@@ -495,6 +519,11 @@ export class TypeRegistry {
   private readonly structNames = new Set<string>();
   private readonly byTsType = new Map<ts.Type, LType>();
   private readonly inProgress = new Map<ts.Type, string>();
+  /** Structs lowered but not registered: part of a cycle whose outermost struct is still lowering. */
+  private readonly deferred = new Map<ts.Type, PendingStruct>();
+  private deferredOrder: ts.Type[] = [];
+  /** The final id of each provisional one. */
+  private readonly finished = new Map<string, string>();
   private anon = 0;
   readonly checker: ts.TypeChecker;
   readonly isLucentFile: (sf: ts.SourceFile) => boolean;
@@ -1151,10 +1180,11 @@ export class TypeRegistry {
   }
 
   private registerStruct(type: ts.Type, props: ts.Symbol[], node: ts.Node): LType {
-    const pending = this.inProgress.get(type);
+    const pending = this.inProgress.get(type) ?? this.deferred.get(type)?.id;
     if (pending) return { k: "struct", id: pending };
     // Provisional id so recursive references resolve.
     const provisional = `pending${this.anon++}`;
+    const deferredBefore = this.deferredOrder.length;
     this.inProgress.set(type, provisional);
     let fields: StructField[];
     try {
@@ -1162,45 +1192,120 @@ export class TypeRegistry {
     } catch (e) {
       // Leave no provisional id behind: a later lowering of this type would resolve to it.
       this.inProgress.delete(type);
+      for (const t of this.deferredOrder.splice(deferredBefore)) this.deferred.delete(t);
       throw e;
     }
-    const key = fields
-      .map(
-        (f) =>
-          `${f.name}${f.optional ? "?" : ""}:${f.type.k === "struct" && f.type.id.startsWith("pending") ? "self" : typeKey(f.type)}`,
-      )
-      .sort()
-      .join(";");
-    let info = this.structs.get(key);
-    if (!info) {
-      const hint =
-        type.aliasSymbol?.name ??
-        (type.getSymbol()?.name && !type.getSymbol()!.name.startsWith("__")
-          ? type.getSymbol()!.name
-          : undefined);
-      // An object type without a name is named by its shape: what other modules add renames none.
-      let base = hint ? `S_${cppIdent(hint)}` : `S_Object_${shapeName(key)}`;
-      let cppName = base;
-      let n = 2;
-      while (this.structNames.has(cppName)) cppName = `${base}_${n++}`;
-      this.structNames.add(cppName);
-      info = { id: key, cppName, fields, boundary: false };
-      this.structs.set(key, info);
-    } else {
-      // Same shape from another source type: keep literals, and the one absent
-      // value a field admits, only when they agree.
-      for (const f of info.fields) {
-        const other = fields.find((g) => g.name === f.name);
-        if (f.literal !== other?.literal) f.literal = undefined;
-        if (f.type.k === "opt" && other?.type.k === "opt" && f.type.absent !== other.type.absent)
-          f.type = { k: "opt", inner: f.type.inner };
+    this.inProgress.delete(type);
+    const record: PendingStruct = { id: provisional, type, fields };
+    this.deferred.set(type, record);
+    this.deferredOrder.push(type);
+    // A struct referring to one still being lowered around it is part of that one's cycle: its
+    // shape is known once the outermost of them is.
+    const open = new Set(this.inProgress.values());
+    if (this.reachablePending(record).some((r) => open.has(r.id)))
+      return { k: "struct", id: provisional };
+    const id = this.finishStructs(this.reachablePending(record))[provisional]!;
+    // Lowered on the way but not held by the struct (a type its fields' lowering looked at).
+    if (this.inProgress.size === 0 && this.deferred.size)
+      this.finishStructs([...this.deferred.values()]);
+    return { k: "struct", id };
+  }
+
+  /** The pending structs `from` refers to, through their fields, `from` first. */
+  private reachablePending(from: PendingStruct): PendingStruct[] {
+    const byId = new Map([...this.deferred.values()].map((r) => [r.id, r]));
+    const out: PendingStruct[] = [];
+    const seen = new Set<string>();
+    const visit = (r: PendingStruct) => {
+      if (seen.has(r.id)) return;
+      seen.add(r.id);
+      out.push(r);
+      for (const f of r.fields)
+        keyWith(f.type, (id) => {
+          const next = byId.get(id);
+          if (next) visit(next);
+          return "";
+        });
+    };
+    visit(from);
+    // Ids of structs still being lowered around this one: not records yet, but referenced.
+    for (const id of this.inProgress.values())
+      if (!seen.has(id) && out.some((r) => r.fields.some((f) => refersTo(f.type, id))))
+        out.push({ id, type: undefined, fields: [] });
+    return out;
+  }
+
+  /**
+   * The key of the pending struct `root`: the shape of the graph of
+   * structs it holds, minimized (structs that hold the same shapes are
+   * one), each spelled as its fields where first met and as a
+   * back-reference (`^n`, n levels up) where met again inside itself.
+   * The same recursive shape gets the same key wherever it is declared,
+   * through whatever position (an array, an optional, a union, a map) the
+   * recursion goes, and whether its parts were registered before or not.
+   */
+  private canonicalKey(root: PendingStruct, records: Map<string, PendingStruct>): string {
+    const fieldsOf = (id: string): StructField[] =>
+      records.get(id)?.fields ?? this.structs.get(this.finished.get(id) ?? id)?.fields ?? [];
+    const own = (f: StructField, struct: (id: string) => string) =>
+      `${f.name}${f.optional ? "?" : ""}:${keyWith(f.type, struct)}`;
+    // The structs reachable from the root.
+    const nodes: string[] = [];
+    const seen = new Set<string>();
+    const visit = (id: string) => {
+      if (seen.has(id)) return;
+      seen.add(id);
+      nodes.push(id);
+      for (const f of fieldsOf(id))
+        keyWith(f.type, (s) => {
+          visit(s);
+          return "";
+        });
+    };
+    visit(root.id);
+    // Partition refinement: structs are alike while their fields are, struct by struct's class.
+    let cls = new Map(nodes.map((id) => [id, 0]));
+    for (let count = 1; ;) {
+      const sigs = new Map<string, number>();
+      const next = new Map<string, number>();
+      for (const id of nodes) {
+        const sig = `${cls.get(id)}|${fieldsOf(id)
+          .map((f) => own(f, (s) => `#${cls.get(s)}`))
+          .sort()
+          .join(";")}`;
+        if (!sigs.has(sig)) sigs.set(sig, sigs.size);
+        next.set(id, sigs.get(sig)!);
       }
+      cls = next;
+      if (sigs.size === count) break;
+      count = sigs.size;
     }
-    // Patch provisional self references.
+    const stack: number[] = [];
+    const spell = (id: string): string => {
+      const c = cls.get(id)!;
+      const up = stack.lastIndexOf(c);
+      if (up >= 0) return `^${stack.length - 1 - up}`;
+      stack.push(c);
+      const key = fieldsOf(id)
+        .map((f) => own(f, (s) => `{${spell(s)}}`))
+        .sort()
+        .join(";");
+      stack.pop();
+      return key;
+    };
+    return spell(root.id);
+  }
+
+  /** Registers the pending structs of one cycle (or one struct), now that each is lowered: their final ids. */
+  private finishStructs(cycle: PendingStruct[]): Record<string, string> {
+    const records = new Map(cycle.map((r) => [r.id, r]));
+    const ids: Record<string, string> = {};
+    for (const r of cycle) ids[r.id] = this.canonicalKey(r, records);
+    for (const [from, to] of Object.entries(ids)) this.finished.set(from, to);
     const fix = (t: LType): LType => {
       switch (t.k) {
         case "struct":
-          return t.id === provisional ? { k: "struct", id: key } : t;
+          return { k: "struct", id: this.finished.get(t.id) ?? t.id };
         case "array":
           return { k: "array", e: fix(t.e) };
         case "set":
@@ -1219,15 +1324,53 @@ export class TypeRegistry {
           return { k: "promise", inner: fix(t.inner) };
         case "fn":
           return { k: "fn", params: t.params.map(fix), ret: fix(t.ret) };
+        case "iter":
+          return { k: "iter", e: fix(t.e) };
+        case "iterResult":
+          return { k: "iterResult", e: fix(t.e) };
+        case "class":
+          return { ...t, args: t.args.map(fix) };
+        case "iface":
+          return { ...t, args: t.args.map(fix) };
         default:
           return t;
       }
     };
-    for (const s of this.structs.values()) for (const f of s.fields) f.type = fix(f.type);
-    this.inProgress.delete(type);
-    const result: LType = { k: "struct", id: key };
-    this.byTsType.set(type, result);
-    return result;
+    for (const r of cycle) {
+      if (!r.type) continue;
+      const key = ids[r.id]!;
+      const fields = r.fields.map((f) => ({ ...f, type: fix(f.type) }));
+      let info = this.structs.get(key);
+      if (!info) {
+        const type = r.type;
+        const hint =
+          type.aliasSymbol?.name ??
+          (type.getSymbol()?.name && !type.getSymbol()!.name.startsWith("__")
+            ? type.getSymbol()!.name
+            : undefined);
+        // An object type without a name is named by its shape: what other modules add renames none.
+        let base = hint ? `S_${cppIdent(hint)}` : `S_Object_${shapeName(key)}`;
+        let cppName = base;
+        let n = 2;
+        while (this.structNames.has(cppName)) cppName = `${base}_${n++}`;
+        this.structNames.add(cppName);
+        info = { id: key, cppName, fields, boundary: false };
+        this.structs.set(key, info);
+      } else {
+        // Same shape from another source type: keep literals, and the one absent
+        // value a field admits, only when they agree.
+        for (const f of info.fields) {
+          const other = fields.find((g) => g.name === f.name);
+          if (f.literal !== other?.literal) f.literal = undefined;
+          if (f.type.k === "opt" && other?.type.k === "opt" && f.type.absent !== other.type.absent)
+            f.type = { k: "opt", inner: f.type.inner };
+        }
+      }
+      this.deferred.delete(r.type);
+      this.byTsType.set(r.type, { k: "struct", id: key });
+    }
+    this.deferredOrder = this.deferredOrder.filter((t) => this.deferred.has(t));
+    return ids;
   }
 
   struct(id: string): StructInfo {

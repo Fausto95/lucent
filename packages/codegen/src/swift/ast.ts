@@ -131,7 +131,13 @@ export type Decl =
       protocols?: Type[];
       members: Member[];
     }
-  | { k: "comment"; text: string };
+  | { k: "comment"; text: string }
+  /**
+   * Declarations written out as Swift source, for the fixed helpers a
+   * file may need (lucent_swift_collect's task) whose syntax the tree does
+   * not model (`for try await`, generic initializers).
+   */
+  | { k: "verbatim"; text: string };
 
 /** A .swift file. */
 export interface Unit {

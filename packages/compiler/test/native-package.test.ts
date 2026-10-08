@@ -428,7 +428,9 @@ describe("native package", () => {
     expect(podspec).toContain(`\\"$(PODS_TARGET_SRCROOT)/${pkg}/native/ios\\"`);
     expect(podspec).toContain(`s.resources = ["${pkg}/assets/beep.caf"]`);
     expect(podspec).toContain(`s.resource_bundles = { "OrbitAssets" => ["${pkg}/assets/ios"] }`);
-    expect(podspec).toContain(`s.vendored_frameworks = ["${pkg}/vendor/Orbit.xcframework"]`);
+    expect(podspec).toContain(
+      `s.vendored_frameworks = lucent_frameworks + ["${pkg}/vendor/Orbit.xcframework"]`,
+    );
 
     const gradle = read("android/build.gradle");
     expect(gradle).toContain('apply plugin: "org.jetbrains.kotlin.android"');
@@ -548,6 +550,22 @@ describe("native package", () => {
     );
     expect(podspec).toContain(
       'spm_dependency(s, url: "https://github.com/orbit/orbit-swift", requirement: { kind: "upToNextMajorVersion", minimumVersion: "1.2.0" }, products: ["Orbit", "OrbitMaps"])',
+    );
+  });
+
+  it("links a local Swift package the code imports by its path, as the app's project does", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const out = path.join(dir, "native");
+    const pkg = path.join(dir, "Packages/Dials");
+
+    writeNativePackage({ ...program(dir), swiftPackages: ["dials@local"] }, out, {
+      app: { localSwiftPackages: [{ identity: "dials", path: pkg, products: ["Dials"] }] },
+    });
+
+    const podspec = fs.readFileSync(path.join(out, "LucentNative.podspec"), "utf8");
+    // React Native's spm_dependency takes a path that exists as a local package.
+    expect(podspec).toContain(
+      `spm_dependency(s, url: ${JSON.stringify(pkg)}, requirement: {}, products: ["Dials"])`,
     );
   });
 

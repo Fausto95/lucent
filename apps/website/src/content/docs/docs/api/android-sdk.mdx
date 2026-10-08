@@ -176,7 +176,7 @@ Java's `AutoCloseable`, and so `Closeable`, `Cursor` and the rest, declares `[Sy
 
 - A class or method annotated `@UiThread` or `@MainThread` compiles only in code the main thread runs, such as a `main(() => …)` function (`LUCENT3006`). A member annotated `@AnyThread` is the exception: every member of `View` but those is main-only.
 - A method annotated `@WorkerThread` called in code the main thread runs compiles with a `LUCENT3009` warning: it blocks the UI.
-- An API newer than the oldest Android Lucent supports compiles only under `available("android", N)` or `Build_VERSION.SDK_INT >= N` (`LUCENT3007`). [Compatibility](/docs/api/compatibility/) gives that level, and [Check the OS version](/docs/guides/check-the-os-version/) the forms of the check.
+- An API newer than your app's `minSdk` (API 24 before its Gradle build has run) compiles only under `available("android", N)` or `Build_VERSION.SDK_INT >= N` (`LUCENT3007`). [Compatibility](/docs/api/compatibility/) gives that level, and [Check the OS version](/docs/guides/check-the-os-version/) the forms of the check.
 - `appContext()`, `currentActivity()`, activity results and permission requests come from [lucent:android](/docs/api/lucent-android/).
 
 ### @RequiresPermission
@@ -187,9 +187,7 @@ When module code calls an SDK method annotated `@RequiresPermission`, the native
 - A permission Android calls dangerous still needs the user's grant: ask with `requestPermissions` from [lucent:android](/docs/api/lucent-android/#requestpermissions).
 - A Lucent package declares any other permission it needs in [lucent.json](/docs/packages/lucent-json/).
 
-:::caution
-Only a method call adds its permissions. Reading the property a getter gives, such as `activeNetwork` for `getActiveNetwork()`, doesn't: call the method.
-:::
+Reading the property a getter gives, such as `activeNetwork` for `getActiveNetwork()`, adds the getter's permissions, as calling it does. Writing a property adds its setter's, and `+=` both.
 
 [Ask for a permission](/docs/guides/ask-for-a-permission/) walks through a request.
 

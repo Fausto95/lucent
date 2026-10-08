@@ -9,7 +9,9 @@
  *      docs' structure: page files match the sidebar, each slug sits under
  *      its section's directory, each page says its kind and has its "Next"
  *      link; and each post's date;
- *   4. compiles every `*.lucent.ts` sample on the docs pages and blog posts;
+ *   4. compiles every `*.lucent.ts` sample on the docs pages and blog posts,
+ *      and checks the language pages' tables (src/docs/language.ts) against
+ *      the compiler's codes and the e2e cases;
  *   5. checks internal links and their anchors, links into the docs from the
  *      repository (READMEs, docs/, the CLI's diagnostics URL),
  *      and each docs page's length budget (words and lines of code, by kind);
@@ -18,6 +20,8 @@
  *
  *   node scripts/website.ts           regenerate, then check
  *   node scripts/website.ts --check   fail if generated files are stale, or Vale is missing (CI)
+ *   node scripts/website.ts --check-live   check the deployed site instead (scripts/website/live.ts):
+ *                                          every page, old URL and README link answers there
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -36,7 +40,38 @@ import {
   loadTemplates,
 } from "./website/pages.ts";
 import { checkProse } from "./website/prose.ts";
+import { checkRedirects, vercelJson } from "./website/redirects.ts";
+import { checkLanguage } from "./website/language.ts";
+import { docsSlugs } from "../apps/website/src/docs/nav.ts";
 import { checkSamples, unbuiltProblems } from "./website/samples.ts";
+import { checkLive, siteUrlsIn } from "./website/live.ts";
+import { docsRedirects, publishedUrls, rootRedirects } from "../apps/website/src/docs/redirects.ts";
+import { docsHref } from "../apps/website/src/docs/types.ts";
+
+if (process.argv.includes("--check-live")) {
+  const base = process.env.LUCENT_SITE_URL ?? "https://lucent-lang.dev";
+  const readmes = ["README.md", "packages/lucent/README.md"];
+  for (const dir of fs.readdirSync(path.join(root, "examples")))
+    if (fs.existsSync(path.join(root, "examples", dir, "README.md")))
+      readmes.push(`examples/${dir}/README.md`);
+  const hrefs = [
+    "/",
+    "/blog/",
+    ...docsSlugs.map(docsHref),
+    ...Object.keys(docsRedirects).map(docsHref),
+    ...Object.keys(rootRedirects),
+    ...publishedUrls,
+    ...readmes.flatMap((f) => siteUrlsIn(fs.readFileSync(path.join(root, f), "utf8"))),
+    ...Object.keys(Explanations).flatMap((code) => siteUrlsIn(docsUrl(code))),
+  ];
+  const problems = await checkLive(base, hrefs);
+  if (problems.length) {
+    console.error(problems.map((p) => `✗ ${p}`).join("\n"));
+    process.exit(1);
+  }
+  console.log(`✓ ${base}: ${new Set(hrefs).size} URLs answer with a page`);
+  process.exit(0);
+}
 
 const check = process.argv.includes("--check");
 const problems: string[] = [];
@@ -126,7 +161,19 @@ for (const name of existing.filter((f) => !(f in generated) && !unbuilt.has(f)))
 
 problems.push(...checkLinks(checked));
 
-// Links into the docs from outside its pages: with no redirects, a moved page breaks them.
+// The language pages' tables against the compiler's codes and the e2e cases (src/docs/language.ts).
+problems.push(...checkLanguage());
+
+// The old URLs redirect to pages that exist, through vercel.json (src/docs/redirects.ts).
+problems.push(...checkRedirects(docsSlugs));
+const vercelFile = path.join(root, "vercel.json");
+const vercel = vercelJson(fs.readFileSync(vercelFile, "utf8"));
+if (fs.readFileSync(vercelFile, "utf8") !== vercel) {
+  if (check) problems.push("vercel.json is stale: run `node scripts/website.ts`");
+  else fs.writeFileSync(vercelFile, vercel);
+}
+
+// Links into the docs from outside its pages: they name pages as they are now.
 // The homepage's go through Docusaurus' <Link>, which the site's build checks.
 const tracked = spawnSync("git", ["ls-files", "--", "docs"], { cwd: root, encoding: "utf8" });
 const outside = [

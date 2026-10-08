@@ -246,7 +246,14 @@ bool Host::postToJs(JsTask task, Job dropped) {
     if (!self || !self->alive()) return;
 
     parcel->ran = true;
-    parcel->task(rt);
+
+    // The poster's caller (React Native's JS thread loop) is not Lucent's:
+    // nothing a task throws may reach it.
+    try {
+      parcel->task(rt);
+    } catch (...) {
+      reportUncaught(std::current_exception(), "js task");
+    }
   });
 
   return true;

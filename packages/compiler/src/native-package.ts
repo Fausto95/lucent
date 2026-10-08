@@ -17,13 +17,18 @@ import {
   withProjectDir,
 } from "./native-build-files.ts";
 import type { NativeInputs, PackagePath } from "./package-config.ts";
+import { prebuiltRuntimeFiles } from "./prebuilt-runtime.ts";
 import { inNativePackage } from "./package-files.ts";
 import { coreTypesPath } from "./program.ts";
 import { currentReads, currentRealpaths, readsKey } from "./reads.ts";
 import { currentSdkIdentity, type SdkOptions } from "./sdk/schema.ts";
 import type { SwiftPackage } from "./package-schema.ts";
 import { compareVersions } from "./package-versions.ts";
-import type { BuiltSwiftPackage } from "@lucent-lang/bindgen";
+import {
+  type BuiltLocalSwiftPackage,
+  type BuiltSwiftPackage,
+  LOCAL_VERSION,
+} from "@lucent-lang/bindgen";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -67,7 +72,9 @@ export function inputsKey(files: string[], outDir: string, sdk?: SdkOptions): st
     ...listFiles(runtimeDir()).filter(
       (f) =>
         !f.includes(`${path.sep}test${path.sep}`) &&
-        !f.includes(`${path.sep}node_modules${path.sep}`),
+        !f.includes(`${path.sep}node_modules${path.sep}`) &&
+        // The prebuilt runtime's artifacts (megabytes): its manifest names what they were built from.
+        !(f.includes(`${path.sep}prebuilt${path.sep}`) && !f.endsWith(`${path.sep}manifest.json`)),
     ),
     coreTypesPath(),
   ];
@@ -184,7 +191,11 @@ export function writeNativePackage(
     /** Android's code is built later, by the app's Gradle build (see deferredLibraryGradle). */
     androidDeferred?: boolean;
     /** The app's Xcode project: its deployment target, and the Swift packages it links. */
-    app?: { deploymentTarget?: string; swiftPackages?: BuiltSwiftPackage[] };
+    app?: {
+      deploymentTarget?: string;
+      swiftPackages?: BuiltSwiftPackage[];
+      localSwiftPackages?: BuiltLocalSwiftPackage[];
+    };
     /** The project's directory, which the build maps to "." (default: the package's grandparent). */
     root?: string;
   } = {},
@@ -201,6 +212,10 @@ export function writeNativePackage(
   copyTree(path.join(rt, "cpp/rn"), path.join(outDir, "cpp/rn"), () => true);
   copyTree(path.join(rt, "cpp/third_party"), path.join(outDir, "cpp/third_party"), () => true);
   copyTree(path.join(rt, "native"), outDir, () => true);
+  // The runtime's core, prebuilt for this runtime when the package has it: the podspec and
+  // CMake link it instead of compiling those sources (prebuilt-runtime.ts).
+  for (const [file, content] of prebuiltRuntimeFiles(rt))
+    want.set(path.join(outDir, "prebuilt", file), content);
   for (const [name, content] of result.files)
     want.set(path.join(outDir, "cpp/generated", name), content);
 
@@ -254,6 +269,9 @@ export function writeNativePackage(
         ...Object.entries(native?.ios.swiftPackages ?? {}),
         ...appSwiftPackages(result.swiftPackages ?? [], options.app?.swiftPackages ?? []),
       ],
+      localSwiftPackages: (options.app?.localSwiftPackages ?? [])
+        .filter((p) => (result.swiftPackages ?? []).includes(`${p.identity}@${LOCAL_VERSION}`))
+        .map((p) => [p.path, p.products]),
       deploymentTarget: highestVersion([
         native?.ios.deploymentTarget?.value,
         options.app?.deploymentTarget,

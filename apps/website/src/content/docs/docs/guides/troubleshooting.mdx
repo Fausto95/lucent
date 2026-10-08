@@ -1,0 +1,134 @@
+---
+title: Fix a failing build or a module that won't load
+sidebar_label: Troubleshooting
+description: "Run `npx lucent doctor` first: it checks the machine and the app, and prints a fix for each problem. This page lists the errors it and the app print, with their fixes."
+kind: reference
+---
+
+```sh title="terminal"
+npx lucent doctor
+```
+
+[`lucent doctor`](/docs/api/cli/#lucent-doctor) checks Node, React Native, the Expo SDK, Xcode, CocoaPods, the Android SDK, NDK and JDK, the Gradle task, Metro's config and the last build. Each problem has a `fix` line. The sections below quote the messages Lucent prints, so you can search for yours.
+
+## The app says the native module is not linked
+
+```text title="JavaScript error" nocopy
+Lucent: the native module is not linked. Run `lucent build`, then rebuild the app (iOS: `pod install` first).
+```
+
+The installed app has no native module named `Lucent`. It was built before `lucent build` wrote `.lucent/native`, or without linking it.
+
+- In Expo Go, every module fails this way: Expo Go can't load native code. Use a development build.
+- In an Expo app, check that `app.json`'s `plugins` lists `@lucent-lang/lucent`, run `npx expo prebuild`, then `npx expo run:ios` or `run:android`.
+- In a bare app, check that `react-native.config.js` links `.lucent/native`. Run `npx lucent build`, `pod install` in `ios/`, and build the app again.
+
+[Runtime errors](/docs/api/runtime-errors/#the-native-module-is-not-linked) has the details.
+
+## The app says LUCENT_NATIVE_MISMATCH
+
+```text title="JavaScript error" nocopy
+Lucent: module "scanner" of the app's native code has other exports or signatures. Recompile the app's native code: run `lucent build`, then build and install the app again (compile-native).
+```
+
+The JavaScript was built from other modules than the installed native code, which a reload or an over-the-air update can't change.
+
+- `action` is `compile-native`: run `npx lucent build`, then build and install the app again.
+- `action` is `reload-js`: the app is newer than its JavaScript. Reload JavaScript built for it.
+
+`lucent doctor`'s **Native build** check finds the app's last native build and says whether it matches. [LUCENT_NATIVE_MISMATCH](/docs/api/runtime-errors/#lucent_native_mismatch) lists every message.
+
+## The app runs old native code
+
+```text title="lucent doctor" nocopy
+! Native build           ios: built from other sources, with the same APIs (the app runs them, with a warning)
+```
+
+You changed a module's code, but not its exports, and reloaded. The app runs the code it was built with, and warns once. Rebuild and install the app.
+
+Before an iOS build from Xcode, run `npx lucent build` or keep Metro running: Xcode doesn't run it.
+
+If a rebuild still runs old code, delete the native build's outputs and build again:
+
+```sh title="terminal"
+npx lucent clean
+npx lucent build
+rm -rf ios/build android/app/build android/app/.cxx
+```
+
+## pod install fails or misses a pod
+
+```text title="lucent build" nocopy
+! lucent-auth's pod LucentAuthKit is not installed: .lucent/native/LucentNative.podspec depends on it; run pod install in ios/, then lucent build
+```
+
+A Lucent package needs a pod the app hasn't installed. Run `pod install` in `ios/`, then `npx lucent build` so the build reads the pod's declarations.
+
+- `pod: command not found`: install CocoaPods. `lucent doctor` suggests `brew install cocoapods`.
+- CocoaPods fails on encodings without a UTF-8 locale: run `export LANG=en_US.UTF-8` first.
+- `pod install` before the first `lucent build` finds no `.lucent/native` to link. Run `npx lucent build`, then `pod install`.
+
+A build line that says **relink native dependencies** also needs `pod install` before the next iOS build ([Apply a change](/docs/guides/apply-a-change/)).
+
+## Gradle needs another JDK
+
+```text title="lucent doctor" nocopy
+! JDK                    27; React Native's Gradle build needs 17 to 21
+    fix  set JAVA_HOME to JDK 17 or 21 (macOS: export JAVA_HOME=$(/usr/libexec/java_home -v 21))
+```
+
+React Native's Gradle build runs on JDK 17 to 21. Set `JAVA_HOME` to one of those in the shell that runs Gradle or Metro. Android Studio uses its own JDK, set in its Gradle settings.
+
+## A Gradle build asks you to build again
+
+```text title="Gradle" nocopy
+this Gradle build read the app's autolinking config before .lucent/native existed, so the app would not link Lucent: build again
+```
+
+The first Gradle build after `lucent clean`, or after a change to what the Android library needs, configured the app before Lucent wrote it. Run the same Gradle build again. Running `npx lucent build` before Gradle avoids it ([Builds](/docs/architecture/builds/#a-gradle-build-can-ask-for-another)).
+
+```text title="lucent build" nocopy
+Gradle could not resolve them (retried when the build files or the lockfile change, or with lucent build --force):
+```
+
+Lucent runs Gradle to find the AARs and JARs that `lucent:android/<package>` imports bind from. Gradle's own error follows. Fix it, often a repository or a version in `android/build.gradle`, then run `npx lucent build --force`.
+
+## The Lucent Gradle task is missing
+
+```text title="lucent doctor" nocopy
+✗ Lucent Gradle task     android/app/build.gradle does not apply it, so Gradle builds may use an old .lucent/native
+```
+
+Without the task, Android builds don't compile your modules first. Run `npx lucent init` in a bare app, or `npx expo prebuild` in an Expo app. A `build.gradle.kts` needs the line by hand ([Integrations](/docs/api/integrations/#kotlin-build-scripts)).
+
+## A module has not been compiled
+
+```text title="JavaScript error" nocopy
+Lucent: scanner.lucent.ts has not been compiled. Run `lucent build` and rebuild the app.
+```
+
+Metro found no compiled module, so it bundled this error in its place. Run `npx lucent build`, fix the errors it prints, and restart Metro. A module of a Lucent package fails this way when the package isn't in the app's `dependencies`.
+
+## Platform code is skipped
+
+```text title="lucent build" nocopy
+! the iOS SDK was not found (xcrun --sdk iphonesimulator failed); skipped iOS (build it with --platforms ios once the SDK is installed)
+```
+
+A machine without Xcode, such as Linux, can't type or build iOS code, and one without the Android SDK can't do Android's. Lucent builds the platforms it can, and warns for the others. [Compatibility](/docs/api/compatibility/#operating-systems) says what each machine builds.
+
+## Hermes, EAS Build and over-the-air updates
+
+- Lucent's modules are C++ called over JSI. The example apps run Hermes, React Native's default engine. JavaScriptCore is untested.
+- EAS Build runs `expo prebuild`, whose Lucent plugin runs `lucent build` on the build machine. Its images have Xcode and the Android SDK. Lucent's tests don't run EAS.
+- An over-the-air update ships JavaScript only. When it changes a module's exports, the app throws `LUCENT_NATIVE_MISMATCH`: ship a new binary instead.
+
+## Where Lucent keeps its files
+
+| Path | What it holds | Safe to delete |
+| --- | --- | --- |
+| `.lucent/` in the app | The native package, build records and caches ([The .lucent directory](/docs/api/lucent-directory/)) | Yes, while no build runs: `npx lucent clean` |
+| `~/.cache/lucent` | The SDK bindings every project shares. `LUCENT_CACHE_DIR` moves it. | Yes: `npx lucent clean --cache` |
+| `lucent-sdk.lock.json` | The SDKs the code was checked against ([Pin the SDKs](/docs/guides/pin-sdks/)) | No: commit it |
+
+A cache that misses for no reason shows in `lucent doctor`'s **Build cache** check. Report it with `.lucent/build-record.json` and `.lucent/build-record.previous.json`.

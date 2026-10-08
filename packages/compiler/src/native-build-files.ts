@@ -30,6 +30,8 @@ export interface PodspecInputs {
   vendoredFrameworks: string[];
   /** Package URL → its requirement and the products the pod links. */
   swiftPackages: [string, SwiftPackage][];
+  /** Local packages by their absolute path → the products the pod links. */
+  localSwiftPackages?: [string, string[]][];
   /** The lowest iOS version the packages run on, if they need one. */
   deploymentTarget?: string;
 }
@@ -111,8 +113,11 @@ export function podspec(template: string, inputs: PodspecInputs): string {
             .join(", ")} }`,
         ]
       : []),
+    // After the prebuilt runtime's (lucent_frameworks, in the template), when it has one.
     ...(inputs.vendoredFrameworks.length
-      ? [`  s.vendored_frameworks = ${list(inputs.vendoredFrameworks)}`]
+      ? [
+          `  s.vendored_frameworks = ${/lucent_frameworks/.test(template) ? "lucent_frameworks + " : ""}${list(inputs.vendoredFrameworks)}`,
+        ]
       : []),
     ...inputs.pods.map((pod) => podLine(pod)),
     ...inputs.importedPods.map((pod) => podLine([pod, []], false)),
@@ -120,6 +125,11 @@ export function podspec(template: string, inputs: PodspecInputs): string {
     ...inputs.swiftPackages.map(
       ([url, { requirement, products }]) =>
         `  spm_dependency(s, url: ${JSON.stringify(url)}, requirement: ${rubyHash(requirement)}, products: ${list(products)})`,
+    ),
+    // A path that exists is a local package to spm_dependency, which takes no requirement for it.
+    ...(inputs.localSwiftPackages ?? []).map(
+      ([dir, products]) =>
+        `  spm_dependency(s, url: ${JSON.stringify(dir)}, requirement: {}, products: ${list(products)})`,
     ),
   ];
 

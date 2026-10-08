@@ -6,6 +6,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "@lucent-lang/compiler";
 import { bin, runLucent } from "./run-to-exit.ts";
 import { runJar, runJavac } from "../../bindgen/test/jvm-tools.ts";
+import { javac } from "../../bindgen/test/java-fixtures.ts";
 
 const android = sdkAvailable("android");
 
@@ -107,10 +108,14 @@ describe("lucent build", () => {
       path.join(root, "tsconfig.json"),
       '{ "compilerOptions": { "strict": true } }\n',
     );
-    expect(lucent(root, "build").status).toBe(0);
+    const r = lucent(root, "build");
+    expect(r.status).toBe(0);
     expect(fs.readFileSync(path.join(root, "tsconfig.json"), "utf8")).toContain(
       '"lucent:*": ["./.lucent/native/types/*"]',
     );
+    // The app's own file: the build says what it changed, once.
+    expect(r.out).toMatch(/edited tsconfig\.json: added "lucent:\*".*compilerOptions\.paths/);
+    expect(lucent(root, "build", "--force").out).not.toMatch(/edited tsconfig/);
   });
 
   it("rebuilds when the output was deleted", () => {
@@ -500,6 +505,90 @@ describe("lucent sdk coverage", () => {
   });
 });
 
+describe("lucent sdk coverage's baseline", () => {
+  /** A project and an Android SDK whose android.jar has android.os and android.view. */
+  function sdkProject() {
+    const root = project();
+    const sdk = path.join(root, "sdk");
+    const src = path.join(root, "jar-src");
+    for (const [file, text] of Object.entries({
+      "android/os/Build.java": "package android.os; public class Build { public Build() {} }",
+      "android/view/View.java": "package android.view; public class View { public View() {} }",
+    })) {
+      fs.mkdirSync(path.dirname(path.join(src, file)), { recursive: true });
+      fs.writeFileSync(path.join(src, file), text);
+    }
+    const classes = path.join(root, "classes");
+    const cc = runJavac([
+      "--release",
+      "11",
+      "-d",
+      classes,
+      path.join(src, "android/os/Build.java"),
+      path.join(src, "android/view/View.java"),
+    ]);
+    if (cc.status !== 0) throw new Error(cc.stderr);
+    fs.mkdirSync(path.join(sdk, "platforms/android-36"), { recursive: true });
+    runJar(["cf", path.join(sdk, "platforms/android-36/android.jar"), "-C", classes, "."]);
+    const env = {
+      ...process.env,
+      ANDROID_HOME: sdk,
+      ANDROID_SDK_ROOT: sdk,
+      LUCENT_ANDROID_PLATFORM: "android-36",
+      LUCENT_CACHE_DIR: path.join(root, "cache"),
+    };
+    return {
+      root,
+      run: (...args: string[]) => runLucent(["sdk", "coverage", ...args, "--root", root], { env }),
+    };
+  }
+
+  it.skipIf(!javac)("records the reports and the SDK they were read from, and gates them", () => {
+    const { root, run } = sdkProject();
+    const baseline = path.join(root, "baseline.json");
+    fs.writeFileSync(
+      baseline,
+      JSON.stringify([{ module: "android.view", unrepresentable: 0, total: 1 }]),
+    );
+
+    const update = run("--android", "android.*", "--update", baseline);
+    expect(update.status).toBe(0);
+    const written = JSON.parse(fs.readFileSync(baseline, "utf8")) as {
+      module: string;
+      sdk?: string;
+      members?: unknown;
+    }[];
+    // Every module read, each with its SDK, members left out; the order kept, new ones after.
+    expect(written.map((c) => [c.module, c.sdk])).toEqual([
+      ["android.view", "android-sdk:36"],
+      ["android.os", "android-sdk:36"],
+    ]);
+    expect(written.every((c) => c.members === undefined)).toBe(true);
+    expect(run("--android", "android.*", "--check", baseline).status).toBe(0);
+  });
+
+  it.skipIf(!javac)(
+    "names a gated module the baseline lacks, and a baseline without its SDK",
+    () => {
+      const { root, run } = sdkProject();
+      const baseline = path.join(root, "baseline.json");
+      fs.writeFileSync(
+        baseline,
+        JSON.stringify([{ module: "android.view", unrepresentable: 0, total: 1, reasons: {} }]),
+      );
+
+      const check = run("--android", "android.*", "--check", baseline);
+      expect(check.status).toBe(0);
+      expect(check.stderr).toMatch(
+        /1 module \(android\.os\) not in the baseline, so not gated: add them with --update/,
+      );
+      expect(check.stderr).toMatch(
+        /the baseline does not say which SDK 1 module \(android\.view\) were read from \(these are android-sdk:36\)/,
+      );
+    },
+  );
+});
+
 describe("lucent sdk coverage of views", () => {
   it.skipIf(!android)(
     "lists each view class's JSX attributes, events, children and construction, with their rules",
@@ -643,10 +732,21 @@ describe("lucent init", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
     expect(lucent(root, "init", "--yes").status).toBe(0);
     const config = fs.readFileSync(path.join(root, "react-native.config.js"), "utf8");
-    expect(config).toContain(
-      '"lucent": { root: require("path").join(__dirname, ".lucent", "native") }',
-    );
+    // Built first when missing or stale: a fresh clone has no .lucent/.
+    expect(config).toContain('"lucent": require("@lucent-lang/lucent/autolink")(__dirname)');
     expect(config).not.toContain("lucent-native");
+  });
+
+  it("makes an entry naming the root alone build it first", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
+    fs.writeFileSync(
+      path.join(root, "react-native.config.js"),
+      'module.exports = {\n  dependencies: {\n    "lucent": { root: require("path").join(__dirname, ".lucent", "native") },\n  },\n};\n',
+    );
+    expect(lucent(root, "init", "--yes").status).toBe(0);
+    expect(fs.readFileSync(path.join(root, "react-native.config.js"), "utf8")).toBe(
+      'module.exports = {\n  dependencies: {\n    "lucent": require("@lucent-lang/lucent/autolink")(__dirname),\n  },\n};\n',
+    );
   });
 
   it("maps lucent:* in tsconfig.json to the generated declarations", () => {
@@ -1485,6 +1585,32 @@ describe("--json", () => {
       expect(await validate("check", value)).toEqual([]);
       expect(r.status).toBe(value.ok ? 0 : 1);
     }
+  });
+
+  it("lucent build and check --json match their schemas when a problem stops them", async () => {
+    const root = project();
+    // A Lucent package the app depends on, whose lucent.json is invalid: the build stops at once.
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "app", dependencies: { broken: "1.0.0" } }),
+    );
+    const broken = path.join(root, "node_modules/broken");
+    fs.mkdirSync(broken, { recursive: true });
+    fs.writeFileSync(
+      path.join(broken, "package.json"),
+      JSON.stringify({ name: "broken", version: "1.0.0", lucent: {} }),
+    );
+    fs.writeFileSync(path.join(broken, "lucent.json"), "{ nope");
+
+    for (const name of ["build", "check"] as const)
+      for (const args of [[], ["--platforms", "iso"]]) {
+        const r = lucent(root, name, "--json", ...args);
+        const value = JSON.parse(r.stdout) as { ok: boolean; error?: string };
+        expect(value.ok).toBe(false);
+        expect(value.error).toEqual(expect.any(String));
+        expect(await validate(name, value)).toEqual([]);
+        expect(r.status).not.toBe(0);
+      }
   });
 
   it("lucent doctor --json matches its schema", async () => {

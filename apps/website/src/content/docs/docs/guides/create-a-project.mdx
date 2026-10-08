@@ -1,0 +1,46 @@
+---
+title: Start a new project from a template
+sidebar_label: Create a project
+description: "`npx @lucent-lang/lucent create <name>` scaffolds an Expo app, a bare app, a native-view app, a library or modules alone, set up for Lucent with sample modules that build."
+kind: start
+---
+
+```sh title="terminal"
+npx @lucent-lang/lucent create my-app
+```
+
+In a terminal, `lucent create` asks which template to start from, writes the project to `./my-app`, and installs its dependencies with the package manager that ran it. Each project is set up as [`lucent init`](/docs/guides/install/) sets up an app, and its sample modules build as written. Templates ship inside the package, so nothing is downloaded but what `npm install` fetches.
+
+| `--template` | What you get | Run it |
+| --- | --- | --- |
+| `expo` | An Expo app run as a development build, with a shared module and one that calls each platform's SDK. Its `eas.json` caches the SDK bindings. | `npx expo run:ios` |
+| `bare` | A bare React Native app with its `ios/` and `android/` projects, from React Native's template, and the same modules. | `npm run pods`, then `npx react-native run-ios` |
+| `view` | An Expo app whose screen renders a [native view](/docs/guides/views/) written in a `.lucent.tsx` file. | `npx expo run:ios` |
+| `library` | A [Lucent package](/docs/packages/) to publish to npm: its modules, a README, `lucent.compatible`, and an Expo example app that installs it from its directory. | `npx lucent check`, then `npx expo run:ios` in `example/` |
+| `module` | Modules alone, without an app: try the language and read the C++ it compiles to. | `npx lucent build --platforms host` |
+
+For CI and scripts, pass the template, and `--yes` to take the defaults: `--skip-install` writes the project without installing, and `--json` prints [the files and next steps](/docs/api/json-formats/#lucent-create---json).
+
+```sh title="terminal"
+npx @lucent-lang/lucent create my-lib --template library --skip-install --json
+```
+
+Expo Go can't run the apps: their modules are native code. [Build in CI and on EAS](/docs/guides/build-in-ci-and-eas/) covers cloud builds.
+
+## Add a module
+
+```sh title="terminal"
+npx lucent new module timer --template events
+```
+
+`lucent new module` adds a starter module to `src/` of an existing app, picked in a terminal:
+
+| `--template` | The module |
+| --- | --- |
+| `function` | A function JavaScript calls synchronously. The default outside a terminal. |
+| `async` | An `async` function that awaits `delay()` and takes an `AbortSignal`. |
+| `events` | A stream of events to a JavaScript callback, as [Stream events](/docs/guides/send-events-to-javascript/) explains. |
+| `view` | A component of each platform's native view, React renders: a `.lucent.tsx` file. |
+| `sdk-ios-android` | One module calling UIKit on iOS and `android.os` on Android, in `PLATFORM` branches. |
+
+It prints the import to use it. `--ios` or `--android` alone write the SDK module with the other platform's branch throwing.

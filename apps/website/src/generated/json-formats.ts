@@ -8,7 +8,7 @@ export const jsonOutputs: { command: string; file: string; description: string; 
     "description": "",
     "variants": [
       {
-        "description": "",
+        "description": "A build that ran",
         "fields": [
           {
             "field": "ok",
@@ -287,6 +287,23 @@ export const jsonOutputs: { command: string; file: string; description: string; 
             "description": ""
           }
         ]
+      },
+      {
+        "description": "A problem that stopped it",
+        "fields": [
+          {
+            "field": "ok",
+            "type": "false",
+            "required": true,
+            "description": ""
+          },
+          {
+            "field": "error",
+            "type": "string",
+            "required": true,
+            "description": "What stopped it before any module was checked: an invalid lucent.json, an unknown --platforms target, a frozen build's SDKs. The exit code is 1, or 2 for a usage error"
+          }
+        ]
       }
     ]
   },
@@ -296,7 +313,7 @@ export const jsonOutputs: { command: string; file: string; description: string; 
     "description": "",
     "variants": [
       {
-        "description": "",
+        "description": "A check that ran",
         "fields": [
           {
             "field": "ok",
@@ -527,6 +544,23 @@ export const jsonOutputs: { command: string; file: string; description: string; 
             "description": ""
           }
         ]
+      },
+      {
+        "description": "A problem that stopped it",
+        "fields": [
+          {
+            "field": "ok",
+            "type": "false",
+            "required": true,
+            "description": ""
+          },
+          {
+            "field": "error",
+            "type": "string",
+            "required": true,
+            "description": "What stopped it before any module was checked: an invalid lucent.json, an unknown --platforms target, a frozen build's SDKs. The exit code is 1, or 2 for a usage error"
+          }
+        ]
       }
     ]
   },
@@ -555,6 +589,71 @@ export const jsonOutputs: { command: string; file: string; description: string; 
             "type": "integer",
             "required": true,
             "description": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "command": "create",
+    "file": "create.schema.json",
+    "description": "",
+    "variants": [
+      {
+        "description": "The project was created",
+        "fields": [
+          {
+            "field": "ok",
+            "type": "true",
+            "required": true,
+            "description": ""
+          },
+          {
+            "field": "template",
+            "type": "\"expo\" or \"bare\" or \"view\" or \"library\" or \"module\"",
+            "required": true,
+            "description": ""
+          },
+          {
+            "field": "dir",
+            "type": "string",
+            "required": true,
+            "description": "Absolute path of the project"
+          },
+          {
+            "field": "files",
+            "type": "string[]",
+            "required": true,
+            "description": "What was written, relative to the project"
+          },
+          {
+            "field": "installed",
+            "type": "boolean",
+            "required": true,
+            "description": "Its dependencies were installed (not with --skip-install)"
+          },
+          {
+            "field": "next",
+            "type": "string[]",
+            "required": true,
+            "description": "The commands to run next, in order"
+          }
+        ]
+      },
+      {
+        "description": "Nothing was created",
+        "fields": [
+          {
+            "field": "ok",
+            "type": "false",
+            "required": true,
+            "description": ""
+          },
+          {
+            "field": "error",
+            "type": "string",
+            "required": true,
+            "description": "Why: a usage error exits with code 2"
           }
         ]
       }
@@ -794,6 +893,18 @@ export const jsonOutputs: { command: string; file: string; description: string; 
             "type": "{ [name]: integer }",
             "required": true,
             "description": "Why members are unrepresentable, with how many"
+          },
+          {
+            "field": "[].plumbing",
+            "type": "integer",
+            "required": false,
+            "description": "Members left out of the counts: Swift's Hashable, Equatable and Codable plumbing (hash(into:), ==, encode(to:), init(from:), hashValue)"
+          },
+          {
+            "field": "[].sdk",
+            "type": "string",
+            "required": false,
+            "description": "The SDK the module was read from (sdk:iphonesimulator27.0, android-sdk:36), so a baseline says which it was made with"
           },
           {
             "field": "[].stages",
@@ -1040,6 +1151,12 @@ export const jsonOutputs: { command: string; file: string; description: string; 
             "type": "integer",
             "required": true,
             "description": "SDK symbols the project uses"
+          },
+          {
+            "field": "schemas",
+            "type": "integer",
+            "required": false,
+            "description": "With --schemas: the schemas exported to lucent-sdk.schemas/"
           }
         ]
       }

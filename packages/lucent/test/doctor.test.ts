@@ -27,7 +27,9 @@ function app(overrides: Record<string, string | undefined> = {}): string {
       'const { withLucent } = require("@lucent-lang/lucent/metro");\nmodule.exports = withLucent({});\n',
     "tsconfig.json":
       '{ "compilerOptions": { "paths": { "lucent:*": ["./.lucent/native/types/*"] } } }\n',
-    "ios/Podfile": "platform :ios, '15.1'\n",
+    "ios/Podfile": "platform :ios, '15.1'\ntarget 'App' do\n  config = use_native_modules!\nend\n",
+    "react-native.config.js":
+      'module.exports = { dependencies: { "lucent": require("@lucent-lang/lucent/autolink")(__dirname) } };\n',
     "android/app/build.gradle":
       'apply plugin: "com.android.application"\napply from: new File(["node", "--print", "require.resolve(\'@lucent-lang/lucent/package.json\')"].execute(null, rootDir).text.trim(), "../gradle/lucent.gradle")\n',
     ...overrides,
@@ -95,6 +97,7 @@ describe("lucent doctor", () => {
       "ndk",
       "jdk",
       "gradle-task",
+      "autolinking",
       "metro",
       "tsconfig",
       "versions",
@@ -107,6 +110,48 @@ describe("lucent doctor", () => {
     const c = find(diagnose(app(), machine(home, ["android-sdk"])), "android-sdk");
     expect(c).toMatchObject({ status: "fail" });
     expect(c.fix).toMatch(/Android Studio.*ANDROID_HOME/);
+  });
+
+  it("finds the Android SDK where Android Studio installs it on Windows", () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-home-"));
+    const local = path.join(home, "AppData", "Local");
+    fs.mkdirSync(path.join(local, "Android/Sdk/platforms/android-36"), { recursive: true });
+    const probe = { ...machine(home, ["android-sdk"]), platform: "win32" as const };
+
+    const found = find(diagnose(app(), { ...probe, env: { LOCALAPPDATA: local } }), "android-sdk");
+    expect(found.detail).toMatch(/android-36/);
+    // Found, though ANDROID_HOME isn't set: Gradle needs it, set the Windows way.
+    expect(found).toMatchObject({ status: "warn" });
+    expect(found.fix).toMatch(/^setx ANDROID_HOME /);
+
+    const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-home-"));
+    const missing = find(diagnose(app(), { ...probe, home: elsewhere, env: {} }), "android-sdk");
+    expect(missing.fix).toMatch(/%LOCALAPPDATA%\\Android\\Sdk/);
+  });
+
+  it("finds a react-native.config.js that links .lucent/native without building it", () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-home-"));
+    const plain = app({
+      "react-native.config.js":
+        'module.exports = { dependencies: { "lucent": { root: require("path").join(__dirname, ".lucent", "native") } } };\n',
+    });
+    const c = find(diagnose(plain, machine(home)), "autolinking");
+    expect(c).toMatchObject({ status: "warn" });
+    expect(c.detail).toMatch(/fresh clone/);
+    expect(c.fix).toMatch(/lucent init/);
+
+    const none = find(
+      diagnose(app({ "react-native.config.js": undefined }), machine(home)),
+      "autolinking",
+    );
+    expect(none).toMatchObject({ status: "fail" });
+
+    const podfile = find(
+      diagnose(app({ "ios/Podfile": "target 'App' do\nend\n" }), machine(home)),
+      "autolinking",
+    );
+    expect(podfile).toMatchObject({ status: "fail" });
+    expect(podfile.detail).toMatch(/use_native_modules!/);
   });
 
   it("finds a missing CocoaPods", () => {

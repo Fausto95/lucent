@@ -1,0 +1,5 @@
+{
+  "ios": {
+    "frameworks": ["CoreMotion"]
+  }
+}

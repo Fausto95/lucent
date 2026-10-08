@@ -27,7 +27,9 @@ the build.
 | `pnpm test:all`                               | the unit tests with the slow ones: whole programs built and run with the platforms' toolchains, SDKs extracted into an empty cache (CI runs these)                                                                                                     | no           |
 | `pnpm test:runtime`                           | C++ runtime unit tests (`packages/runtime/test/*_test.cpp`), with corpora checked against JavaScript: BigInt against node, the UI reactive graph against a JavaScript reference                                                                        | no           |
 | `packages/runtime/test/jsi/run.sh`            | the JSI host across runtimes (teardown, reload, stale objects) and a hand-written module in Hermes; `SANITIZE=1` or `thread` add sanitizers                                                                                                            | yes          |
+| `packages/runtime/test/jni/run.sh`            | the JNI glue (`platform/android.cpp`) on a desktop JVM with `-Xcheck:jni`: what crosses from Java into Lucent code, and the local references it leaves; needs a JDK, skipped without one                                                               | no           |
 | `pnpm test:e2e [case…]`                       | differential end-to-end cases                                                                                                                                                                                                                          | yes          |
+| `pnpm test:fuzz [--seed N] [--count N]`       | random programs in the subset, run as differential cases                                                                                                                                                                                               | yes          |
 | `node scripts/app-check.ts apps/bare-example` | an example app's real Metro bundle against its generated C++                                                                                                                                                                                           | yes          |
 | `node scripts/bench.ts --check`               | performance budgets                                                                                                                                                                                                                                    | yes          |
 | `node scripts/smoke-install.ts`               | packed packages install and run in an empty project                                                                                                                                                                                                    | no           |
@@ -109,13 +111,30 @@ documents the deviation in [semantics.md](semantics.md). After changing cases,
 run `node scripts/sync-examples.ts`: the example apps' on-device test
 screens run the same cases.
 
+### The differential fuzzer
+
+`pnpm test:fuzz [--seed N] [--count N]` (`packages/compiler/test/e2e/fuzz.ts`)
+writes random programs in the subset (loops whose closures capture their
+`let` counters, `??` and `??=` on type parameters, compound assignments,
+reduce, throwing bigint division) and runs each through `run.ts` as a case.
+A program the compiler refuses with a LUCENT diagnostic is skipped; a type
+error, an internal error (`LUCENT9002`), a crash or a different output
+fails. A seed gives one program on every machine: `--keep DIR` keeps them,
+to rerun one with `LUCENT_E2E_CASES=DIR pnpm test:e2e fuzz-<seed>` and turn
+it into a case. `packages/compiler/test/fuzz.test.ts` checks that its
+programs compile; with `LUCENT_FUZZ=1` (and `LUCENT_FUZZ_SEED`) and Hermes
+built, it runs three of them too.
+
 ## Sanitizers
 
 ```sh
 SANITIZE=1 pnpm test:runtime            # ASan + UBSan, clang and libc++ on macOS
 SANITIZE=1 CXX=g++ pnpm test:runtime    # the same with libstdc++ (CI runs both)
 SANITIZE=1 pnpm test:e2e                # e2e cases under ASan + UBSan
-SANITIZE=thread pnpm test:runtime       # TSan: the Lucent lock and the scheduler
+SANITIZE=thread pnpm test:runtime       # TSan: the module locks, the scheduler, contexts and scopes
+SANITIZE=thread CXX=g++ pnpm test:runtime  # the same with libstdc++
+SANITIZE=thread pnpm test:e2e async compute  # TSan over cases that cross threads
+packages/runtime/test/jni/run.sh        # the JNI glue on a desktop JVM (needs a JDK); SANITIZE as above
 ```
 
 Run the runtime suite with and without `SANITIZE=1` after every runtime change,
@@ -160,6 +179,10 @@ the clock itself; Apple Silicon's clock ticks every 42 ns) and the compiled
 size of the generated code. p95 is reported from 20 samples and p99 from
 100; a throughput sample is the mean of a batch, not one call's latency.
 
+`node scripts/bench-publish.ts <results.json>` copies a `--json` run to
+`benchmarks/results/`, which the website's comparison page shows as a dated
+table ([benchmarks/README.md](../benchmarks/README.md)).
+
 `scripts/bench-build.ts` times the development loop on every differential
 case module in one app, built for the host: a cold build, a build with
 nothing to do, a build and a check after a function body changes. Times
@@ -183,8 +206,8 @@ runs.
 CI builds the bare example for the iOS simulator and for Android, but does
 not run it. Before a release, run both example apps on an iOS simulator and an
 Android emulator, as Release builds: every Lab screen must pass, and three
-reloads must not crash. ROADMAP.md's Validation section records the last
-run.
+reloads must not crash. [Validation](tasks.md#validation) in docs/tasks.md records the
+last run.
 
 The Lab has four screens, and each runs when it opens: Tests (every e2e
 case), SDK (the platform probes and the ports' parity cases), Benchmark and

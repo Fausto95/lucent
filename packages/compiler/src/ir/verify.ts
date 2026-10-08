@@ -67,9 +67,11 @@ import {
   type Throws,
   unaryResult,
   type ValueId,
+  throwsRangeError,
 } from "./ir.ts";
 
 export class IrVerifyError extends Error {
+  readonly fn: FunctionId;
   readonly problems: string[];
   readonly dump: string;
 
@@ -79,6 +81,7 @@ export class IrVerifyError extends Error {
       `internal compiler error: invalid IR for ${fn.id}\n  ${problems.join("\n  ")}\n${listing}`,
     );
     this.name = "IrVerifyError";
+    this.fn = fn.id;
     this.problems = problems;
     this.dump = listing;
   }
@@ -89,6 +92,8 @@ export interface VerifyEnv {
   signature?(id: FunctionId): Signature | undefined;
   /** A callee's effect summary, when the program's analysis knows it. */
   effects?(id: FunctionId): EffectSummary | undefined;
+  /** Whether a class type derives from Error (what `throw` may throw); without it, any class may. */
+  isError?(t: LType): boolean;
 }
 
 /** Throws IrVerifyError listing every invariant `fn` breaks. */
@@ -439,6 +444,41 @@ class Checker {
     this.places.set(p, { type, mutable: true, boxed });
   }
 
+  /** Whether the class type `t` derives from Error, as far as the environment knows. */
+  derivesFromError(t: LType): boolean {
+    return this.env.isError?.(t) ?? true;
+  }
+
+  /**
+   * A plan: named; its code names only its operands (as `operand(v)` spells them), each
+   * defined before it; an integer form only of a number result, and only
+   * when its operands' integer forms it names are exact integers.
+   */
+  plan(op: IrOp & { kind: "plan" }, where: string): void {
+    if (!op.name) this.problemAt(where, "has no name");
+
+    const named = operandsIn(op.code);
+    const listed = new Set(op.args);
+
+    for (const v of named.values)
+      if (!listed.has(v)) this.problemAt(where, `names v${v}, which is not one of its operands`);
+
+    for (const v of named.ints) {
+      if (!listed.has(v)) this.problemAt(where, `names v${v}, which is not one of its operands`);
+      else if (!this.fn.values[v]?.int)
+        this.problemAt(where, `names the integer form of v${v}, which is not an exact integer`);
+    }
+
+    if (op.int) {
+      const t = op.result === undefined ? undefined : this.typeOf(op.result);
+
+      if (!t || t.k !== "number")
+        this.problemAt(where, "has an integer form, but does not give a number");
+      else if (this.fn.values[op.result!]?.int !== op.int.kind)
+        this.problemAt(where, `has an ${op.int.kind} form, but v${op.result} is not one`);
+    }
+  }
+
   /** An await, in an async function, of a promise, giving what it fulfils with. */
   awaits(op: IrOp & { kind: "await" }, where: string): void {
     const t = this.typeOf(op.promise);
@@ -597,7 +637,10 @@ class Checker {
     const ops = this.fn.regions.flatMap((r) => r.ops);
     const module = new Set(this.fn.modulePlaces.filter((p) => p.mutable).map((p) => p.place));
     const mayThrow = ops.find(
-      (op) => op.kind === "throw" || (op.kind === "call" && op.effects.throws !== "no"),
+      (op) =>
+        op.kind === "throw" ||
+        (op.kind === "call" && op.effects.throws !== "no") ||
+        throwsRangeError(op, this.fn.values),
     );
 
     if (mayThrow && claims.throws === "no")
@@ -716,6 +759,14 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
     c.expectType(op.value, place?.type, where);
   },
 
+  renew: (op, c, where) => {
+    const place = c.place(op.place, where);
+
+    if (place && !place.boxed) c.problemAt(where, `renews p${op.place}, which is not boxed`);
+    else if (place && !sameType(place.type, op.type))
+      c.problemAt(where, `renews p${op.place} as ${typeKey(op.type)}, not ${typeKey(place.type)}`);
+  },
+
   call: (op, c, where) => c.call(op, where),
 
   return: (op, c, where) => c.ret(op, where),
@@ -724,7 +775,7 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
     const t = c.typeOf(op.value);
 
     // An Error, or an object of a class deriving from Error.
-    if (t && t.k !== "error" && t.k !== "class")
+    if (t && t.k !== "error" && !(t.k === "class" && c.derivesFromError(t)))
       c.problemAt(where, `throws a ${typeKey(t)}, not an Error`);
   },
 
@@ -784,10 +835,9 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
 
   yield: (op, c, where) => c.yield(op, where),
 
-  // Its operands are checked like every operation's; what it does is the backend's.
-  plan: (op, c, where) => {
-    if (!op.name) c.problemAt(where, "has no name");
-  },
+  // Its operands are checked like every operation's; what it does is the backend's. Its code
+  // names exactly its operands, and an integer form only for a number result.
+  plan: (op, c, where) => c.plan(op, where),
 
   closure: (op, c, where) => c.closure(op, where),
 
@@ -806,4 +856,39 @@ function safeDump(fn: IrFunction): string {
   } catch (e) {
     return `(no dump: ${(e as Error).message})`;
   }
+}
+
+/**
+ * The values a plan's code names: as values (`$vN`), and as their integer
+ * forms (`$iN`), the spellings ir/cpp.ts's `operand` and `intOperand` give.
+ */
+function operandsIn(code: unknown): { values: Set<ValueId>; ints: Set<ValueId> } {
+  const values = new Set<ValueId>();
+  const ints = new Set<ValueId>();
+  const seen = new Set<unknown>();
+  const visit = (node: unknown): void => {
+    if (typeof node !== "object" || node === null || seen.has(node)) return;
+
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
+
+    const n = node as { k?: unknown; name?: unknown };
+
+    if (n.k === "id" && typeof n.name === "string") {
+      const int = /^\$i(\d+)$/.exec(n.name);
+      const value = /^\$v(\d+)$/.exec(n.name);
+
+      if (int) ints.add(Number(int[1]) as ValueId);
+      else if (value) values.add(Number(value[1]) as ValueId);
+    }
+
+    for (const v of Object.values(node)) visit(v);
+  };
+
+  visit(code);
+  return { values, ints };
 }

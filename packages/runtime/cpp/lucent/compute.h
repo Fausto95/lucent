@@ -393,7 +393,7 @@ struct ComputeOptions {
   /// Aborting it cancels the task.
   Opt<AbortSignal> signal;
   /// What the task belongs to: disposing it cancels the task. Default: the
-  /// calling context's root.
+  /// calling context's (ownedScope).
   std::shared_ptr<Scope> scope;
   /// Default: ComputePool::shared().
   std::shared_ptr<ComputePool> pool;
@@ -407,7 +407,7 @@ template <class In, class Out>
 Promise<Out> submit(const TaskEntry<In, Out>& entry, In&& owned, ComputeOptions options = {}) {
   std::shared_ptr<ComputePool> pool = options.pool ? std::move(options.pool) : ComputePool::shared();
   ContextRef owner = ExecutionContext::currentRef();
-  std::shared_ptr<Scope> scope = options.scope ? std::move(options.scope) : ExecutionContext::of(owner).root();
+  std::shared_ptr<Scope> scope = options.scope ? std::move(options.scope) : ownedScope(owner);
   AbortSignal signal = options.signal.has() ? options.signal.get() : nullptr;
 
   Promise<Out> promise;

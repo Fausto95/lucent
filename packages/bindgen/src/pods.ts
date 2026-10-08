@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
+import { lockedPods } from "./provenance.ts";
+import { frameworkSearchPath } from "./vendored.ts";
 
 /** Where the app's pods put the modules they define, as the Pods xcconfig tells Xcode. */
 export interface PodsSearchPaths {
@@ -10,8 +12,31 @@ export interface PodsSearchPaths {
   frameworks: PodFramework[];
   /** Preprocessor definitions the pods compile with (GCC_PREPROCESSOR_DEFINITIONS). */
   defines: string[];
+  /** Swift pods (no public Objective-C headers): their modules are a build's products, made from their Swift. */
+  swiftPods: SwiftPod[];
+  /** Pods' XCFrameworks, whose simulator slices are on frameworkPaths. */
+  xcframeworks: PodXcframework[];
   /** Podfile.lock: which pods these are, their versions and dependencies. */
   lockfile?: string;
+}
+
+/** A Swift pod, whose module is among a build's products. */
+export interface SwiftPod {
+  /** The pod Podfile.lock names. */
+  pod: string;
+  /** Its target in the Pods project. */
+  target: string;
+  module: string;
+  /** Its Swift sources (what its module is made of: the build's cache key). */
+  sources: string[];
+}
+
+/** An XCFramework a pod ships, which CocoaPods copies into the build directory. */
+export interface PodXcframework {
+  pod: string;
+  xcframework: string;
+  /** Its simulator slice: the directory holding <M>.framework. */
+  searchPath: string;
 }
 
 /** A pod's framework as Xcode will build it: its module, module map, umbrella and public headers. */
@@ -92,14 +117,143 @@ export function podsSearchPaths(iosDir: string, config = "debug"): PodsSearchPat
   }
 
   const lockfile = path.join(iosDir, "Podfile.lock");
+  const locked = [...lockedPods(lockfile).keys()];
+  const xcframeworks = podXcframeworks(iosDir, words(settings, "FRAMEWORK_SEARCH_PATHS"));
+  // A Swift pod's module, static library or framework (use_frameworks!), is a build's product.
+  const swiftPods = staticSwiftPods(
+    iosDir,
+    ["LIBRARY_SEARCH_PATHS", "SWIFT_INCLUDE_PATHS", "FRAMEWORK_SEARCH_PATHS"].flatMap((k) =>
+      words(settings, k),
+    ),
+    config,
+    locked,
+  );
+  // A framework whose umbrella imports no headers is all Swift: bound from its Swift.
+  const frameworks = podFrameworks(
+    iosDir,
+    words(settings, "FRAMEWORK_SEARCH_PATHS"),
+    config,
+  ).filter((f) => f.headers.length || !swiftPods.some((p) => p.module === f.module));
+
   return {
     includePaths: paths("HEADER_SEARCH_PATHS"),
-    frameworkPaths: paths("FRAMEWORK_SEARCH_PATHS"),
+    frameworkPaths: [...paths("FRAMEWORK_SEARCH_PATHS"), ...xcframeworks.map((x) => x.searchPath)],
     moduleMaps: [...maps],
-    frameworks: podFrameworks(iosDir, words(settings, "FRAMEWORK_SEARCH_PATHS"), config),
+    frameworks,
     defines: words(settings, "GCC_PREPROCESSOR_DEFINITIONS").filter((d) => !d.includes("$")),
+    // A mixed pod's framework keeps its Objective-C; its Swift is not read.
+    swiftPods: swiftPods.filter((p) => !frameworks.some((f) => f.module === p.module)),
+    xcframeworks,
     ...(fs.existsSync(lockfile) ? { lockfile } : {}),
   };
+}
+
+/** The pod a Pods target builds: the one Podfile.lock names, else the target's own name. */
+function podOfTarget(target: string, locked: string[]): string {
+  return (
+    locked.find((p) => p === target) ??
+    locked.filter((p) => target.startsWith(`${p}-`)).sort((a, b) => b.length - a.length)[0] ??
+    target
+  );
+}
+
+/**
+ * Swift pods: the app's library, Swift include and framework search paths
+ * name each pod target's products directory,
+ * `${PODS_CONFIGURATION_BUILD_DIR}/<target>`, where Xcode writes its
+ * `.swiftmodule` (a static library, React Native's default) or its
+ * framework (use_frameworks!); empty until a build. The target's
+ * xcconfig names its module (PRODUCT_MODULE_NAME) and sources
+ * (PODS_TARGET_SRCROOT); a target without Swift sources is an
+ * Objective-C library, bound through its headers instead.
+ */
+function staticSwiftPods(
+  iosDir: string,
+  searchPaths: string[],
+  config: string,
+  locked: string[],
+): SwiftPod[] {
+  const pods = path.join(iosDir, "Pods");
+  const support = path.join(pods, "Target Support Files");
+  const out: SwiftPod[] = [];
+  const seen = new Set<string>();
+
+  for (const w of searchPaths) {
+    const target = /^\$[{(]PODS_CONFIGURATION_BUILD_DIR[})]\/([^/]+)$/.exec(w)?.[1];
+    if (!target || seen.has(target)) continue;
+    seen.add(target);
+
+    const xcconfig = path.join(support, target, `${target}.${config}.xcconfig`);
+    if (!fs.existsSync(xcconfig)) continue;
+
+    const settings = readXcconfig(xcconfig);
+    const module = settings.get("PRODUCT_MODULE_NAME")?.trim() || target.replace(/\W/g, "_");
+    const srcroot = expand(settings.get("PODS_TARGET_SRCROOT") ?? "", {
+      PODS_ROOT: pods,
+      SRCROOT: pods,
+    });
+    const sources = srcroot ? filesByExtension(srcroot, ".swift") : [];
+    if (!sources.length) continue;
+
+    out.push({ pod: podOfTarget(target, locked), target, module, sources });
+  }
+
+  return out.sort((a, b) => (a.target < b.target ? -1 : a.target > b.target ? 1 : 0));
+}
+
+/**
+ * The XCFrameworks pods ship: CocoaPods lists each pod's in Target Support
+ * Files/<pod>/<pod>-xcframeworks-input-files.xcfilelist and copies them to
+ * `${PODS_XCFRAMEWORKS_BUILD_DIR}/<pod>`, which the app's framework search
+ * paths name. Before a build, each is read from Pods/ through the slice
+ * its Info.plist names for the simulator.
+ */
+function podXcframeworks(iosDir: string, searchPaths: string[]): PodXcframework[] {
+  const pods = path.join(iosDir, "Pods");
+  const support = path.join(pods, "Target Support Files");
+  const wanted = new Set(
+    searchPaths
+      .map((w) => /^\$[{(]PODS_XCFRAMEWORKS_BUILD_DIR[})]\/([^/]+)/.exec(w)?.[1])
+      .filter((p): p is string => !!p),
+  );
+  const out: PodXcframework[] = [];
+
+  for (const pod of [...wanted].sort()) {
+    const list = path.join(support, pod, `${pod}-xcframeworks-input-files.xcfilelist`);
+    if (!fs.existsSync(list)) continue;
+
+    for (const line of fs.readFileSync(list, "utf8").split("\n")) {
+      const file = expand(line.trim(), { PODS_ROOT: pods, SRCROOT: iosDir });
+      if (!file?.endsWith(".xcframework") || !fs.existsSync(file)) continue;
+
+      const searchPath = frameworkSearchPath(file);
+      if (searchPath) out.push({ pod, xcframework: file, searchPath });
+    }
+  }
+
+  return out;
+}
+
+/** The files under `root` ending in `ext`, sorted; dependencies (node_modules) and hidden directories aside. */
+function filesByExtension(root: string, ext: string): string[] {
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e.name.startsWith(".") || e.name === "node_modules") continue;
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (e.name.endsWith(ext)) out.push(full);
+    }
+  };
+  walk(root);
+
+  return out.sort();
 }
 
 /**

@@ -58,9 +58,7 @@ export function Setting(props: { title: string }) {
 
 ```tsx title="App.tsx"
 import { View } from "react-native";
-import * as setting from "./setting.lucent";
-
-const { Setting } = setting as unknown as typeof import("./.lucent/native/types/views/setting");
+import { Setting } from "lucent:views/setting";
 
 export default function App() {
   return (

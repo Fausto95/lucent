@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
+import { runLucent } from "./run-to-exit.ts";
 
 const require = createRequire(import.meta.url);
 
@@ -68,6 +69,61 @@ describe("Metro transformer", () => {
         options: { projectRoot: root },
       }),
     ).toThrow(/storage\.lucent\.ts has not been compiled\. Run `lucent build`/);
+  });
+
+  it("fails a module whose last build has problems with their code frames, for the RedBox", () => {
+    const root = metroProject();
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app" }));
+    const file = path.join(root, "bad.lucent.ts");
+    const source = 'export function f(): number {\n  const n: number = "s";\n  return n;\n}\n';
+    fs.writeFileSync(file, source);
+
+    const r = runLucent(["build", "--platforms", "host", "--root", root], {
+      env: { ...process.env, NO_COLOR: "1" },
+    });
+    expect(r.status).toBe(1);
+    const t = transformer();
+    const transform = (src: string) =>
+      t.transform({ filename: "bad.lucent.ts", src, options: { projectRoot: root } });
+
+    let message = "";
+    try {
+      transform(source);
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toMatch(/bad\.lucent\.ts does not compile/);
+    expect(message).toMatch(/LUCENT9001/);
+    expect(message).toMatch(/2 │ {3}const n: number = "s";/);
+
+    // Fixed and built: the module bundles as its proxy again.
+    fs.writeFileSync(file, source.replace('"s"', "1"));
+    expect(
+      runLucent(["build", "--platforms", "host", "--root", root], { env: process.env }).status,
+    ).toBe(0);
+    expect(transform(source.replace('"s"', "1"))).toMatch(/require\(/);
+  });
+
+  it("finds the problems of a project Metro reaches through a symlink", () => {
+    // As macOS's temporary directory (/var → /private/var): the build records realpaths.
+    const real = metroProject();
+    const root = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-link-")), "app");
+    fs.symlinkSync(real, root);
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app" }));
+    const source = 'export function f(): number {\n  const n: number = "s";\n  return n;\n}\n';
+    fs.writeFileSync(path.join(root, "bad.lucent.ts"), source);
+
+    const r = runLucent(["build", "--platforms", "host", "--root", root], {
+      env: { ...process.env, NO_COLOR: "1" },
+    });
+    expect(r.status).toBe(1);
+    expect(() =>
+      transformer().transform({
+        filename: "bad.lucent.ts",
+        src: source,
+        options: { projectRoot: root },
+      }),
+    ).toThrow(/bad\.lucent\.ts does not compile/);
   });
 
   it("keys the cache on the native package of the projectRoot Metro passes", () => {

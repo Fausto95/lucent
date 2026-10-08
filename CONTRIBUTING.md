@@ -35,31 +35,48 @@ The repository layout, and the rules every change follows, are in
 
 ## Tests
 
-| Command                                       | Checks                                                           | Needs  |
-| --------------------------------------------- | ---------------------------------------------------------------- | ------ |
-| `pnpm test`                                   | compiler, CLI and website unit tests, without the slow ones      |        |
-| `pnpm test:all`                               | the unit tests with the slow ones (as CI runs them)              |        |
-| `pnpm test:runtime`                           | the C++ runtime; add `SANITIZE=1` (and `CXX=g++`) for sanitizers |        |
-| `pnpm test:e2e [case…]`                       | each language feature, native against JavaScript                 | Hermes |
-| `pnpm corpus:write`                           | rewrites the generated-code corpus `pnpm test` compares with     |        |
-| `node scripts/app-check.ts apps/bare-example` | an example app's bundle against its C++                          | Hermes |
-| `node scripts/bench.ts --check`               | performance budgets                                              | Hermes |
-| `node scripts/smoke-install.ts`               | the packed package, installed alone in a fresh app               |        |
-| `pnpm typecheck`                              | the repository's TypeScript                                      |        |
-| `pnpm check`                                  | formatting (Oxfmt), lint (Oxlint) and `pnpm typecheck`           |        |
-| `node scripts/website.ts --check`             | the website (below)                                              | Vale   |
+| Command                                       | Checks                                                                                  | Needs  |
+| --------------------------------------------- | --------------------------------------------------------------------------------------- | ------ |
+| `pnpm test`                                   | compiler, CLI and website unit tests, without the slow ones                             |        |
+| `pnpm test:all`                               | the unit tests with the slow ones (as CI runs them)                                     |        |
+| `pnpm test:runtime`                           | the C++ runtime; `SANITIZE=1` (ASan, UBSan) or `SANITIZE=thread` (TSan), with `CXX=g++` |        |
+| `pnpm test:e2e [case…]`                       | each language feature, native against JavaScript                                        | Hermes |
+| `pnpm corpus:write`                           | rewrites the generated-code corpus `pnpm test` compares with                            |        |
+| `node scripts/app-check.ts apps/bare-example` | an example app's bundle against its C++                                                 | Hermes |
+| `node scripts/bench.ts --check`               | performance budgets                                                                     | Hermes |
+| `node scripts/smoke-install.ts`               | the packed package, installed alone in a fresh app                                      |        |
+| `pnpm typecheck`                              | the repository's TypeScript                                                             |        |
+| `pnpm check`                                  | formatting (Oxfmt), lint (Oxlint) and `pnpm typecheck`                                  |        |
+| `node scripts/website.ts --check`             | the website (below)                                                                     | Vale   |
+| `node scripts/website.ts --check-live`        | the deployed site: every page, old URL and README link answers                          |        |
 
-CI shards the unit tests by how long each file takes (`test-timings.json`,
-read by `vitest.sequencer.ts`); after adding or much changing slow tests,
-refresh it with `node scripts/test-timings.ts` on a full run's JSON report.
+CI shards the unit tests by how long each file takes on each runner's
+platform (`config/test-timings.json`, read by `config/vitest.sequencer.ts`).
+After adding or much changing slow tests, refresh the platform's entry with
+`node scripts/test-timings.ts <report.json>…`: on a full local run's JSON
+report, or on the `unit-test-report-*` artifacts of a CI run (with
+`--platform darwin` for the macOS shards).
 
 `pnpm test:runtime`, `pnpm test:e2e`, the app checks and the benchmarks
 build side by side, one compiler per core; `LUCENT_TEST_JOBS` (and, for
 e2e's cases, `LUCENT_E2E_JOBS`) set how many.
 
 [docs/testing.md](docs/testing.md) explains the differential suites. Device
-checks run the example apps' test screens on the iOS simulator and the
-Android emulator before a release.
+runs (`.github/workflows/devices.yml`, with `scripts/device-check.ts`) open
+the bare example's Tests screen on the iOS simulator and an Android
+emulator and wait for its verdict: nightly, on pull requests that change
+the runtime or the compiler, and before a release.
+
+### What CI runs
+
+A pull request runs the jobs its files can affect: `scripts/ci-changes.ts`
+maps paths to jobs (a docs-only change runs the Linux unit tests; a
+website change adds the website job; a change under `packages/` runs
+everything but the device runs), and a path it doesn't place runs
+everything. The one check to require is **CI**, which passes when every
+job passed or was skipped. A push to `main` and the nightly run run every
+job; the nightly one adds `sdk coverage --all`. Main's runs are never
+cancelled: each one gates the release that follows it.
 
 ## Commits
 
@@ -68,9 +85,12 @@ Android emulator before a release.
 - One unit of meaning per commit. A test lands in its own commit, failing,
   before the commit that makes it pass.
 - Living docs change in the same commit as the behavior they describe:
-  `docs/`, the website, `ROADMAP.md`. `ROADMAP.md` is the plan and its
-  status: a commit that finishes, changes or adds a task updates its entry
-  there.
+  `docs/`, the website, `ROADMAP.md`. A commit that finishes, changes or
+  adds a task updates its entry in [docs/tasks.md](docs/tasks.md); a
+  decision is a new file in [docs/decisions/](docs/decisions/README.md);
+  a limitation found or lifted changes
+  [docs/limitations.md](docs/limitations.md). [ROADMAP.md](ROADMAP.md)
+  changes when the gates or what's next do.
 
 ## Changesets
 
@@ -84,18 +104,22 @@ say what a change means for people using Lucent.
   tests, refactors that keep behavior) take the `no-changeset` label
   instead.
 - **How.** `pnpm changeset` asks for the bump and a summary, and writes the
-  file; commit it with the change. Patch for fixes, minor for features,
-  major for breaking changes.
+  file; commit it with the change.
+- **Which bump.** Lucent is 0.x: patch for fixes, minor for features _and_
+  for anything that breaks code that compiled before (say what breaks in
+  the summary). Major is for 1.0; the Changeset check refuses it until then.
 - **What to write.** One line for users, in the imperative: what changed and
   why it matters to them, not how the code did it. "Keep `instanceof`
   working after an app reinstalls Lucent", not "Store prototypes on the
   global object".
 - **Release flow.** Merged changesets collect in a "Version packages" PR
   that the release workflow opens and keeps current: it bumps the version
-  and writes `packages/lucent/CHANGELOG.md`, each entry linking its PR and
-  author. Merging that PR publishes to npm with provenance, tags the
-  release and creates the GitHub release, after `pnpm check`, the tests,
-  the runtime tests and `smoke-install` pass.
+  (the bundled packages move with it) and writes
+  `packages/lucent/CHANGELOG.md`, each entry linking its PR and author.
+  The release workflow runs only after CI passed on that commit of
+  `main`; merging the PR, once CI passes on its merge (device runs
+  included), publishes to npm through trusted publishing (no token, with
+  provenance), tags the release and creates the GitHub release.
 
 ## Docs
 
@@ -111,6 +135,7 @@ checks them, and CI runs it with `--check`:
   prose with Vale (`brew install vale`).
 
 `docs/` is for contributors: [architecture](docs/architecture.md), the
-language's [semantics](docs/semantics.md), [testing](docs/testing.md), and
-proposals in [docs/design/](docs/design/). What users need lives on the
-website.
+language's [semantics](docs/semantics.md), [testing](docs/testing.md), the
+[tasks](docs/tasks.md), [decisions](docs/decisions/README.md) and
+[limitations](docs/limitations.md), and the design in
+[docs/design/](docs/design/). What users need lives on the website.

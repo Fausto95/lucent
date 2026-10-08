@@ -142,6 +142,9 @@ const NSOBJECT_PROTOCOL = "c:objc(pl)NSObject";
 /** Swift's AnyHashable: an Objective-C object (id), as untyped NSDictionary keys and NSSet elements are. */
 const ANY_HASHABLE = "s:s11AnyHashableV";
 
+/** Swift's AsyncSequence protocol. */
+export const ASYNC_SEQUENCE = "s:Sci";
+
 /** The protocol of Swift value types that bridge to an Objective-C class, its `ReferenceType`. */
 export const REFERENCE_CONVERTIBLE = "s:10Foundation20ReferenceConvertibleP";
 
@@ -179,7 +182,12 @@ export const STANDARD_PROTOCOLS: Record<string, (args: SchemaType[]) => SchemaTy
   // Collection<E> and Sequence<E>: an array of E.
   "s:Sl": ([e]) => (e ? { k: "array", of: e, nullable: false } : undefined),
   "s:ST": ([e]) => (e ? { k: "array", of: e, nullable: false } : undefined),
+  // AsyncSequence<E, Failure>: a sequence Lucent collects.
+  [ASYNC_SEQUENCE]: ([e]) => (e ? { k: "sequence", of: e, nullable: false } : undefined),
 };
+
+/** AsyncStream<E> and AsyncThrowingStream<E, Failure>: sequences Lucent collects. */
+const ASYNC_STREAMS = new Set(["s:ScS", "s:Scs"]);
 
 /** Tokens of a type written in declaration fragments. */
 function tokens(frags: Fragment[]): (Fragment | string)[] {
@@ -285,7 +293,20 @@ export function parseType(frags: Fragment[], r: Resolver): SchemaType {
       if (toks[p] === "<") {
         p++;
         while (toks[p] !== ">") {
-          args.push(type());
+          // An AsyncSequence's Failure (`Never`, `any Error`): what it throws, not a value.
+          const failure =
+            proto &&
+            typeof proto !== "string" &&
+            proto.preciseIdentifier === ASYNC_SEQUENCE &&
+            args.length === 1;
+          if (failure) {
+            let depth = 0;
+            while (p < toks.length && (depth > 0 || (toks[p] !== ">" && toks[p] !== ","))) {
+              if (toks[p] === "<") depth++;
+              else if (toks[p] === ">") depth--;
+              p++;
+            }
+          } else args.push(type());
           if (toks[p] === ",") p++;
           else if (toks[p] !== ">") throw new Unsupported(`type syntax ${tok}`);
         }
@@ -403,6 +424,18 @@ export function parseType(frags: Fragment[], r: Resolver): SchemaType {
       if (toks[p++] !== ">") throw new Unsupported("Unmanaged");
       return inner;
     }
+    // AsyncStream<E>, AsyncThrowingStream<E, Error>: a sequence of E (its failure is thrown).
+    if (ASYNC_STREAMS.has(usr) && toks[p] === "<") {
+      p++;
+      const of = type();
+      // Its Failure (`any Error`): what it throws, not a value.
+      for (let depth = 0; p < toks.length && (depth > 0 || toks[p] !== ">"); p++) {
+        if (toks[p] === "<") depth++;
+        else if (toks[p] === ">") depth--;
+      }
+      if (toks[p++] !== ">") throw new Unsupported(`generic ${tok.spelling}`);
+      return { k: "sequence", of, nullable: false };
+    }
     // Swift's Set (NSSet): a Lucent set.
     if (usr === "s:Sh" && toks[p] === "<") {
       p++;
@@ -459,8 +492,55 @@ export function parseType(frags: Fragment[], r: Resolver): SchemaType {
   return t;
 }
 
+/**
+ * Fragments without their attributes and the attributes' arguments
+ * (`@backDeployed(before: iOS 18.0)`, `@available(iOS, deprecated: 17)`),
+ * whose colons are not a declaration's.
+ */
+export function withoutAttributes(frags: Fragment[]): Fragment[] {
+  const out: Fragment[] = [];
+  // Parentheses still open in an attribute's arguments: -1 right after an attribute, before them.
+  let depth = 0;
+  let afterAttribute = false;
+  for (const f of frags) {
+    if (f.kind === "attribute") {
+      afterAttribute = true;
+      depth = 0;
+      continue;
+    }
+    if (!afterAttribute || f.kind !== "text") {
+      afterAttribute = false;
+      out.push(f);
+      continue;
+    }
+    let i = 0;
+    const text = f.spelling;
+    // An attribute's arguments follow it directly: after a space, a
+    // parenthesis opens the type (`@escaping ((any Error)?) -> Void`).
+    if (depth === 0 && text[0] !== "(") {
+      while (i < text.length && /\s/.test(text[i]!)) i++;
+      afterAttribute = false;
+      out.push(i ? { ...f, spelling: text.slice(i) } : f);
+      continue;
+    }
+    for (; i < text.length; i++) {
+      if (text[i] === "(") depth++;
+      else if (text[i] === ")" && --depth === 0) {
+        i++;
+        break;
+      }
+    }
+    if (depth > 0) continue; // the arguments go on in the next fragment
+    afterAttribute = false;
+    const rest = text.slice(i);
+    if (rest.trim()) out.push({ ...f, spelling: rest });
+  }
+  return out;
+}
+
 /** The type part of `name: Type` fragments (the colon can share a fragment with `[`). */
-export function afterColon(frags: Fragment[]): Fragment[] {
+export function afterColon(fragments: Fragment[]): Fragment[] {
+  const frags = withoutAttributes(fragments);
   const i = frags.findIndex((f) => f.kind === "text" && f.spelling.includes(":"));
   if (i < 0) return frags;
   const rest = frags[i]!.spelling.slice(frags[i]!.spelling.indexOf(":") + 1);

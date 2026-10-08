@@ -280,6 +280,12 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
         t: from,
       })),
 
+    absent: (value, _from, node) =>
+      planned(node, () => ({
+        c: cpp.call("lucent::looseEqualsNull", [operand(value)]),
+        t: T.boolean,
+      })),
+
     equals: (left, leftType, right, rightType, node) =>
       planned(node, () => {
         const em = new LeafEmitter(ctx, opts, node, noOperands(node));

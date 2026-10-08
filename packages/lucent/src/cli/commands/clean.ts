@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pruneStaleCache } from "@lucent-lang/bindgen";
 import type { Invocation } from "../args.ts";
 
 /** Bytes under `dir`. */
@@ -13,7 +14,11 @@ function size(dir: string): number {
 
 const mb = (bytes: number) => `${(bytes / 1e6).toFixed(1)} MB`;
 
-/** `lucent clean`: removes .lucent/ (the next build starts over); --cache also the SDK cache. */
+/**
+ * `lucent clean`: removes .lucent/ (the next build starts over); --cache
+ * also the SDK cache, or with --stale only what other Lucent versions
+ * wrote to it (this one never reads it).
+ */
 export function run({ root, flags, out }: Invocation): number {
   const t = out.theme;
   const removed: { path: string; bytes: number }[] = [];
@@ -24,7 +29,16 @@ export function run({ root, flags, out }: Invocation): number {
     removed.push({ path: ".lucent", bytes: freed });
     out.print(`${t.success(t.symbols.ok)} removed .lucent  ${t.dim(mb(freed))}`);
   } else out.print(`${t.dim(t.symbols.off)} nothing to remove in the project`);
-  if (flags.cache) {
+  if (flags.cache && flags.stale) {
+    const pruned = pruneStaleCache();
+    const freed = pruned.reduce((n, p) => n + p.bytes, 0);
+    removed.push(...pruned);
+    out.print(
+      pruned.length
+        ? `${t.success(t.symbols.ok)} removed ${pruned.length} SDK cache ${pruned.length === 1 ? "entry" : "entries"} other Lucent versions wrote  ${t.dim(mb(freed))}`
+        : `${t.dim(t.symbols.off)} nothing stale in the SDK cache`,
+    );
+  } else if (flags.cache) {
     const cache = path.join(
       process.env.LUCENT_CACHE_DIR ||
         path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), ".cache"), "lucent"),

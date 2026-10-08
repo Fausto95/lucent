@@ -40,6 +40,15 @@
         },
         "description": "Why members are unrepresentable, with how many"
       },
+      "plumbing": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Members left out of the counts: Swift's Hashable, Equatable and Codable plumbing (hash(into:), ==, encode(to:), init(from:), hashValue)"
+      },
+      "sdk": {
+        "type": "string",
+        "description": "The SDK the module was read from (sdk:iphonesimulator27.0, android-sdk:36), so a baseline says which it was made with"
+      },
       "stages": {
         "type": "object",
         "required": ["discovered", "representable", "generated", "exercised"],

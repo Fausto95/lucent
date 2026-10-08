@@ -1,247 +1,274 @@
 {
   "$id": "https://lucent-lang.dev/schemas/build.schema.json",
   "title": "lucent build --json",
-  "type": "object",
-  "required": [
-    "ok",
-    "upToDate",
-    "out",
-    "modules",
-    "steps",
-    "diagnostics",
-    "warnings",
-    "notices",
-    "next",
-    "actions",
-    "ms"
-  ],
-  "additionalProperties": false,
-  "properties": {
-    "ok": {
-      "type": "boolean",
-      "description": "The native package was written (or was up to date); the exit code is 0 exactly then"
-    },
-    "upToDate": {
-      "type": "boolean",
-      "description": "Nothing changed since the last build, so nothing was done"
-    },
-    "out": {
-      "type": "string",
-      "description": "Absolute path of the native package"
-    },
-    "modules": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["name", "platforms"],
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "platforms": {
-            "type": "array",
-            "items": {
-              "enum": ["ios", "android", "shared"]
-            },
-            "description": "The platforms the module has code for, or shared"
-          }
-        }
-      }
-    },
-    "steps": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["name", "label", "status"],
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "enum": ["android-dependencies", "up-to-date", "sdk", "check", "generate", "package"]
-          },
-          "label": {
-            "type": "string"
-          },
-          "status": {
-            "enum": ["ok", "cached", "skipped", "failed"]
-          },
-          "detail": {
-            "type": "string"
-          },
-          "ms": {
-            "type": "number",
-            "minimum": 0
-          }
-        }
-      }
-    },
-    "diagnostics": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["code", "message"],
-        "properties": {
-          "code": {
-            "type": "string",
-            "pattern": "^LUCENT\\d{4}$",
-            "description": "Stable code; lucent explain <code> describes it"
-          },
-          "message": {
-            "type": "string"
-          },
-          "file": {
-            "type": "string",
-            "description": "Relative to the project root"
-          },
-          "line": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "column": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "start": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Offset of the span in the file"
-          },
-          "length": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "fix": {
-            "type": "string",
-            "description": "How to fix it, in one line"
-          },
-          "docs": {
-            "type": "string",
-            "description": "Where the code is explained"
-          },
-          "severity": {
-            "const": "warning",
-            "description": "Present on warnings only"
-          }
-        }
-      }
-    },
-    "warnings": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["code", "message"],
-        "properties": {
-          "code": {
-            "type": "string",
-            "pattern": "^LUCENT\\d{4}$",
-            "description": "Stable code; lucent explain <code> describes it"
-          },
-          "message": {
-            "type": "string"
-          },
-          "file": {
-            "type": "string",
-            "description": "Relative to the project root"
-          },
-          "line": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "column": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "start": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Offset of the span in the file"
-          },
-          "length": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "fix": {
-            "type": "string",
-            "description": "How to fix it, in one line"
-          },
-          "docs": {
-            "type": "string",
-            "description": "Where the code is explained"
-          },
-          "severity": {
-            "const": "warning",
-            "description": "Present on warnings only"
-          }
-        }
-      },
-      "description": "Warnings: reported, but the build goes on"
-    },
-    "notices": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["level", "text"],
-        "additionalProperties": false,
-        "properties": {
-          "level": {
-            "enum": ["ok", "warn"]
-          },
-          "text": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "next": {
+  "oneOf": [
+    {
       "type": "object",
-      "required": ["rebuild", "podInstall", "reload"],
+      "description": "A build that ran",
+      "required": [
+        "ok",
+        "upToDate",
+        "out",
+        "modules",
+        "steps",
+        "diagnostics",
+        "warnings",
+        "notices",
+        "next",
+        "actions",
+        "ms"
+      ],
       "additionalProperties": false,
       "properties": {
-        "rebuild": {
+        "ok": {
           "type": "boolean",
-          "description": "Native code changed: rebuild the app"
+          "description": "The native package was written (or was up to date); the exit code is 0 exactly then"
         },
-        "podInstall": {
+        "upToDate": {
           "type": "boolean",
-          "description": "Native files were added or removed: run pod install before the iOS build"
+          "description": "Nothing changed since the last build, so nothing was done"
         },
-        "reload": {
-          "type": "boolean",
-          "description": "Only the JavaScript proxies changed: reloading the app is enough"
-        }
-      }
-    },
-    "actions": {
-      "type": "array",
-      "description": "Every action the build's changes need, strongest first, each with the targets and the native-package files that need it. Empty when nothing changed.",
-      "items": {
-        "type": "object",
-        "required": ["kind", "targets", "files"],
-        "additionalProperties": false,
-        "properties": {
-          "kind": {
-            "enum": ["reinstall", "relink", "compile-native", "repackage", "reload-js"],
-            "description": "What the app needs. reinstall: its configuration (Info.plist, entitlements, manifest) changed. relink: native dependencies or build files changed. compile-native: native code changed. repackage: resources or assets changed. reload-js: only JavaScript proxies changed."
-          },
-          "targets": {
-            "type": "array",
-            "items": {
-              "type": "string"
+        "out": {
+          "type": "string",
+          "description": "Absolute path of the native package"
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "platforms"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "platforms": {
+                "type": "array",
+                "items": {
+                  "enum": ["ios", "android", "shared"]
+                },
+                "description": "The platforms the module has code for, or shared"
+              }
+            }
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "label", "status"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "enum": [
+                  "android-dependencies",
+                  "up-to-date",
+                  "sdk",
+                  "check",
+                  "generate",
+                  "package"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "status": {
+                "enum": ["ok", "cached", "skipped", "failed"]
+              },
+              "detail": {
+                "type": "string"
+              },
+              "ms": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^LUCENT\\d{4}$",
+                "description": "Stable code; lucent explain <code> describes it"
+              },
+              "message": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string",
+                "description": "Relative to the project root"
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "column": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "start": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Offset of the span in the file"
+              },
+              "length": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "fix": {
+                "type": "string",
+                "description": "How to fix it, in one line"
+              },
+              "docs": {
+                "type": "string",
+                "description": "Where the code is explained"
+              },
+              "severity": {
+                "const": "warning",
+                "description": "Present on warnings only"
+              }
+            }
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^LUCENT\\d{4}$",
+                "description": "Stable code; lucent explain <code> describes it"
+              },
+              "message": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string",
+                "description": "Relative to the project root"
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "column": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "start": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Offset of the span in the file"
+              },
+              "length": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "fix": {
+                "type": "string",
+                "description": "How to fix it, in one line"
+              },
+              "docs": {
+                "type": "string",
+                "description": "Where the code is explained"
+              },
+              "severity": {
+                "const": "warning",
+                "description": "Present on warnings only"
+              }
             }
           },
-          "files": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Relative to the native package; resolved.json#ios.infoPlist names a part of the resolved manifest"
+          "description": "Warnings: reported, but the build goes on"
+        },
+        "notices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["level", "text"],
+            "additionalProperties": false,
+            "properties": {
+              "level": {
+                "enum": ["ok", "warn"]
+              },
+              "text": {
+                "type": "string"
+              }
+            }
           }
+        },
+        "next": {
+          "type": "object",
+          "required": ["rebuild", "podInstall", "reload"],
+          "additionalProperties": false,
+          "properties": {
+            "rebuild": {
+              "type": "boolean",
+              "description": "Native code changed: rebuild the app"
+            },
+            "podInstall": {
+              "type": "boolean",
+              "description": "Native files were added or removed: run pod install before the iOS build"
+            },
+            "reload": {
+              "type": "boolean",
+              "description": "Only the JavaScript proxies changed: reloading the app is enough"
+            }
+          }
+        },
+        "actions": {
+          "type": "array",
+          "description": "Every action the build's changes need, strongest first, each with the targets and the native-package files that need it. Empty when nothing changed.",
+          "items": {
+            "type": "object",
+            "required": ["kind", "targets", "files"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": ["reinstall", "relink", "compile-native", "repackage", "reload-js"],
+                "description": "What the app needs. reinstall: its configuration (Info.plist, entitlements, manifest) changed. relink: native dependencies or build files changed. compile-native: native code changed. repackage: resources or assets changed. reload-js: only JavaScript proxies changed."
+              },
+              "targets": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Relative to the native package; resolved.json#ios.infoPlist names a part of the resolved manifest"
+              }
+            }
+          }
+        },
+        "ms": {
+          "type": "number",
+          "minimum": 0
         }
       }
     },
-    "ms": {
-      "type": "number",
-      "minimum": 0
+    {
+      "type": "object",
+      "description": "A problem that stopped it",
+      "required": ["ok", "error"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "error": {
+          "type": "string",
+          "description": "What stopped it before any module was checked: an invalid lucent.json, an unknown --platforms target, a frozen build's SDKs. The exit code is 1, or 2 for a usage error"
+        }
+      }
     }
-  }
+  ]
 }

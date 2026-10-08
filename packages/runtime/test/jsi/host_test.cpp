@@ -22,6 +22,7 @@
 #include <type_traits>
 
 #include "lucent/compute.h"
+#include "lucent/operation.h"
 #include "lucent/jsi/convert.h"
 #include "lucent/jsi/host.h"
 #include "lucent/trace.h"
@@ -367,6 +368,64 @@ Promise<void> spin() {
   }
 }
 
+/// Work module code starts for a runtime that a reload must stop: a
+/// callback composition, a subscription and a native operation, each with
+/// a cleanup, and a loop of timers (`ticker`).
+std::atomic<int> workCleanups{0};
+std::atomic<int> workAborted{0};
+std::atomic<int> ticks{0};
+std::atomic<int> tickerEnded{0};
+
+template <class T>
+void countAbort(const Promise<T>& p) {
+  p.onSettled([p] {
+    if (!p.fulfilled() && p.error()->name.toUtf8() == "AbortError") workAborted++;
+  });
+}
+
+void listen() {
+  using Resolve = Fn<void(double)>;
+  using Reject = Fn<void(Error)>;
+  using Next = Fn<void(double)>;
+
+  countAbort(fromCallback<double>(Fn<Fn<void()>(Resolve, Reject)>([](Resolve, Reject) { return Fn<void()>([] { workCleanups++; }); })));
+  countAbort(subscribe(Fn<Fn<void()>(Next, Fn<void()>, Fn<void(Error)>)>(
+                           [](Next, Fn<void()>, Fn<void(Error)>) { return Fn<void()>([] { workCleanups++; }); }),
+                       [](double) {}));
+  countAbort(nativeOperation<double>([](const std::shared_ptr<Operation<double>>&) -> std::function<void()> {
+    return [] { workCleanups++; };
+  }));
+}
+
+Promise<void> ticker() {
+  try {
+    for (;;) {
+      co_await delay(2);
+      ticks++;
+    }
+  } catch (const Exception&) {
+    tickerEnded++;
+  }
+}
+
+/// A value whose conversion to JavaScript throws a Lucent error (not a
+/// jsi::JSError), as a struct converter's checks can.
+struct Unconvertible : Object {};
+
+Promise<Ref<Unconvertible>> unconvertible() {
+  co_await delay(0);
+  co_return std::make_shared<Unconvertible>();
+}
+
+/// A void JS callback, called from the Lucent thread with an argument whose
+/// conversion throws.
+Fn<void(Ref<Unconvertible>)> told;
+
+void tell(Fn<void(Ref<Unconvertible>)> f) {
+  told = f;
+  Scheduler::instance().post([] { told(std::make_shared<Unconvertible>()); });
+}
+
 /// Traced exports, as the compiler emits them: with their .lucent.ts site.
 double measured(double x) {
   LUCENT_TRACE_SCOPE("measured.work");
@@ -432,6 +491,11 @@ struct Convert<Ref<m_t::Payload>> {
 };
 
 void handleProto(jsi::Runtime& rt, Host& host, jsi::Object& proto);
+
+template <>
+struct Convert<Ref<m_t::Unconvertible>> {
+  static jsi::Value toJs(jsi::Runtime&, Host&, const Ref<m_t::Unconvertible>&) { throwTypeError("cannot cross"); }
+};
 
 template <>
 struct Convert<Ref<m_t::Handle>> {
@@ -522,6 +586,36 @@ void installT(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
                  [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
                    Host& host = Host::from(rt, installed);
                    return callSync(rt, host, [&] { return callAsync<void>(rt, host, [] { return m_t::spin(); }); });
+                 });
+
+  defineFunction(rt, exports, "listen", 0,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] {
+                     m_t::listen();
+                     return jsi::Value::undefined();
+                   });
+                 });
+
+  defineFunction(rt, exports, "ticker", 0,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] { return callAsync<void>(rt, host, [] { return m_t::ticker(); }); });
+                 });
+
+  defineFunction(rt, exports, "unconvertible", 0,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] { return callAsync<Ref<m_t::Unconvertible>>(rt, host, [] { return m_t::unconvertible(); }); });
+                 });
+
+  defineFunction(rt, exports, "tell", 1,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t n) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] {
+                     m_t::tell(Convert<Fn<void(Ref<m_t::Unconvertible>)>>::fromJs(rt, arg(args, n, 0), Path{"tell", "argument 'f'"}));
+                     return jsi::Value::undefined();
+                   });
                  });
 
   defineFunction(rt, exports, "keep", 1,
@@ -644,7 +738,9 @@ static void tasksRunningAcrossAReloadReadNoModuleStorage() {
   js.run([](jsi::Runtime&) {
     for (int i = 0; i < 3; i++) m_t::startMeasure(0);
   });
-  CHECK(within(2000, [] { return m_t::tasksRunning.load() == 3; }));
+  // As many as the shared pool runs at once (one worker on a two-core machine).
+  const int running = static_cast<int>(std::min<size_t>(3, ComputePool::shared()->workers()));
+  CHECK(within(2000, [&] { return m_t::tasksRunning.load() == running; }));
 
   for (int reload = 0; reload < 20; reload++) install(js);
 
@@ -810,6 +906,59 @@ static void callbacksDroppedWithTheRuntimeReject() {
 
   LucentScope scope;
   m_t::kept = undefined;
+}
+
+/// A reload (a new host for the runtime, or the runtime's end) stops what
+/// module code started for it: compositions, subscriptions and native
+/// operations cancel and run their cleanups, and timers stop.
+static void reloadsStopModuleWork() {
+  for (bool destroy : {false, true}) {
+    JsThread js;
+    install(js);
+    m_t::workCleanups = 0;
+    m_t::workAborted = 0;
+    m_t::ticks = 0;
+    m_t::tickerEnded = 0;
+
+    js.eval("mods.t.listen(); mods.t.ticker().catch(() => {});");
+    CHECK(within(2000, [] { return m_t::ticks.load() > 3; }));
+    CHECK(m_t::workCleanups == 0 && m_t::workAborted == 0);
+
+    if (destroy) {
+      js.destroyRuntime();
+    } else {
+      install(js);
+    }
+
+    CHECK(within(2000, [] { return m_t::workCleanups.load() == 3; }));
+    CHECK(within(2000, [] { return m_t::workAborted.load() == 3; }));
+    CHECK(within(2000, [] { return m_t::tickerEnded.load() == 1; }));
+
+    int at = m_t::ticks;
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    CHECK(m_t::ticks == at);
+  }
+}
+
+/// A result that cannot cross to JavaScript, whatever it throws, rejects
+/// the promise JavaScript waits for; a void callback's arguments that
+/// cannot cross are reported. Neither escapes the JS thread's task.
+static void resultsThatCannotCrossReject() {
+  JsThread js;
+  install(js);
+
+  js.eval("var crossed = 'pending'; mods.t.unconvertible().then(() => { crossed = 'resolved'; }, (e) => { crossed = e.name + ': ' + e.message; });");
+  CHECK(within(2000, [&] { return js.string("crossed") != "pending"; }));
+  CHECK(js.string("crossed") == "TypeError: cannot cross");
+
+  js.eval("var calls = 0; mods.t.tell(() => { calls++; });");
+  CHECK(Scheduler::instance().waitIdle(2000));
+  js.run([](jsi::Runtime&) {});
+  CHECK(js.number("calls") == 0);
+  CHECK(js.number("1 + 1") == 2);
+
+  LucentScope scope;
+  m_t::told = {};
 }
 
 // --- instances ----------------------------------------------------------------
@@ -1194,6 +1343,8 @@ int main() {
   workDoesNotStartAfterTeardown();
   awaitedJsPromisesRejectAtTeardown();
   callbacksDroppedWithTheRuntimeReject();
+  reloadsStopModuleWork();
+  resultsThatCannotCrossReject();
   eachRuntimeHasItsOwnObjectForAnInstance();
   objectsOfATornDownHostAreRefused();
   collectedInstancesReleaseOnTheirThread();

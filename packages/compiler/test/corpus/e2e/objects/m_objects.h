@@ -6,7 +6,7 @@
 #include "lucent_app_S_Object_b796e072.h"
 #include "lucent_app_S_Object_b972b24e.h"
 #include "lucent_app_S_Tree.h"
-#include "lucent_app_S_Object_74d89ea4.h"
+#include "lucent_app_S_Object_153935d8.h"
 
 #pragma push_macro("area")
 #undef area
@@ -66,7 +66,7 @@ lucent::Array<std::tuple<double, lucent::String>> pairs(lucent::Array<double> p0
 std::tuple<double, lucent::String> swap(std::tuple<lucent::String, double> p0_);
 lucent::String destructure(lucent::Ref<lucent_app::S_Person> p0_);
 lucent::String toJson(lucent::Ref<lucent_app::S_Person> p0_, std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>> p1_);
-lucent::String reassign(lucent::Ref<lucent_app::S_Object_74d89ea4> p0_, lucent::Array<double> p1_);
+lucent::String reassign(lucent::Ref<lucent_app::S_Object_153935d8> p0_, lucent::Array<double> p1_);
 void init();
 
 }  // namespace m_objects

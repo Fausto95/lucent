@@ -18,6 +18,7 @@ import {
   parameterProperties,
 } from "./classes.ts";
 import { bindCompute, emitTaskVariants, taskHeader } from "./compute.ts";
+import { checkRequirementNames } from "./requirement-names.ts";
 import { objcDelegate } from "./delegates.ts";
 import { iosSubclass } from "./objc-subclass.ts";
 import {
@@ -130,7 +131,16 @@ export function emitProgram(
   const here = (s: ts.Statement) =>
     !components.has(s) &&
     !helperStatement(lp.checker, s) &&
+    !untypedStub(s) &&
     (!scoped.has(s) || scoped.get(s) === ctx.platform);
+  // A split module's declaration, stubbed on the host, of a component whose views' SDKs are
+  // missing: it returns an untyped view, which no host code can make. Each platform builds it.
+  const stubs = new Set(lp.modules.filter((m) => m.stub).map((m) => m.sourceFile));
+  function untypedStub(s: ts.Statement): boolean {
+    if (!ts.isFunctionDeclaration(s) || s.body || !stubs.has(s.getSourceFile())) return false;
+    const signature = lp.checker.getSignatureFromDeclaration(s);
+    return !!(signature && lp.checker.getReturnTypeOfSignature(signature).flags & ts.TypeFlags.Any);
+  }
 
   // Pass 1: classes, then functions and variables, so every body can refer to
   // any top-level declaration.
@@ -212,6 +222,8 @@ export function emitProgram(
     ).push({ name: info.cppName, defs: [out.definition], decls: [], inline: [] });
     moduleDefs.get(m)!.push(...out.members);
     statics.get(m)!.push(...out.statics);
+    // Methods named like a requirement of its SDK protocols that match none (a typo).
+    ctx.guard(() => checkRequirementNames(ctx, info));
     // Classes implementing SDK protocols: an Objective-C object per instance.
     const objc = ctx.guard(() => objcDelegate(ctx, m, info));
     if (objc) {
@@ -476,10 +488,12 @@ export function emitProgram(
     );
   }
   // The Swift-only members the iOS glue calls.
-  if (ctx.swiftShims.size || ctx.swiftProxies.length)
+  if (ctx.swiftShims.size || ctx.swiftProxies.length || ctx.swiftSequences)
     files.set(
       "LucentShims.swift",
-      shimsFile(ctx.swiftShims.values(), proxyParts(ctx.swiftProxies)),
+      shimsFile(ctx.swiftShims.values(), proxyParts(ctx.swiftProxies), {
+        sequences: ctx.swiftSequences,
+      }),
     );
   files.set(
     "lucent_bindings.cpp",

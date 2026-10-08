@@ -310,17 +310,15 @@ lucent::Array<double> m_temporary_u2d_names::copies() {
         if (v6_) {
           break;
         }
-        lucent::Box<double> t_i_it_{};
-        double v7_ = *i;
-        *t_i_it_ = v7_;
-        lucent::Fn<double()> v10_ = lucent::Fn<double()>([i = t_i_it_, i_it = static_cast<double>(i_it)]() mutable -> double {
+        lucent::Fn<double()> v9_ = lucent::Fn<double()>([i = i, i_it = static_cast<double>(i_it)]() mutable -> double {
           double v0_ = *i;
           return v0_ + i_it;
         });
-        (void)fns.push(v10_);
+        (void)fns.push(v9_);
       }
-      double v12_ = *i;
-      *i = v12_ + 1.0;
+      i = lucent::Box<double>(*i);
+      double v11_ = *i;
+      *i = v11_ + 1.0;
     }
   }
   return fns.template map<double>([](lucent::Fn<double()> p0_, double p1_, lucent::Array<lucent::Fn<double()>> p2_) mutable -> double {

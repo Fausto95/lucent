@@ -196,6 +196,7 @@ describe.skipIf(!javac)("Android extractor", () => {
         params: [{ name: "arg0", type: T("string") }],
         descriptor: "(Ljava/lang/String;)V",
         symbol: "jvm:com/example/widgets/Widget#<init>(Ljava/lang/String;)V",
+        since: 33,
       },
     ]);
   });
@@ -267,6 +268,12 @@ describe.skipIf(!javac)("Android extractor", () => {
     const m = (name: string) => widget().methods!.find((x) => x.name === name)!;
     expect(m("getName").returns).toEqual(T("string"));
     expect(m("getLabel")).toMatchObject({ returns: T("string?"), since: 29 });
+    // api-versions.xml escapes constructors' `<init>` as `&lt;init>`.
+    const ctors = widget().constructors!;
+    expect(ctors.find((c) => c.descriptor === "(Ljava/lang/String;)V")).toMatchObject({
+      since: 33,
+    });
+    expect(ctors.find((c) => c.descriptor === "()V")).not.toHaveProperty("since");
     expect(m("getURL").returns).toEqual(T("string?"));
     expect(m("touch").params.map((p) => p.type)).toEqual(
       ["com.example.base.Shape", "com.example.widgets.Widget?"].map((x) => T(x)),

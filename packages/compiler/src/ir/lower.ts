@@ -269,6 +269,8 @@ export interface LeafHost {
   safepoint(): Leaf;
   /** `value`, a `bigint | number`, one up (`+`) or down: the kind it holds, stepped. */
   step(value: ValueId, from: LType, sign: "+" | "-", node: ts.Node): Leaf;
+  /** `value == null` for a `from` that holds a type parameter, which its instantiation may make absent. */
+  absent(value: ValueId, from: LType, node: ts.Node): Leaf;
   /** `left === right` for operands the IR's operators do not compare (generics, objects). */
   equals(left: ValueId, leftType: LType, right: ValueId, rightType: LType, node: ts.Node): Leaf;
   /** A constructor's `super(…)`: its base class's construction, given the arguments as operands. */
@@ -997,8 +999,7 @@ class Lowerer {
 
   /**
    * A loop over `node`'s body, leaving when `condition` (tested first, or
-   * last) is false. Each iteration gets its own copy of the `perIteration`
-   * variables (a `for`'s `let` variables closures share), as in JavaScript.
+   * last) is false; `step` runs after each iteration, and on `continue`.
    */
   loop(
     node: ts.IterationStatement,
@@ -1007,20 +1008,15 @@ class Lowerer {
       condition?: ts.Expression;
       testFirst: boolean;
       step?: () => void;
-      perIteration?: readonly ts.Symbol[];
     },
   ): void {
-    const { condition, testFirst, step, perIteration = [] } = parts;
+    const { condition, testFirst, step } = parts;
     const body = (loop: TargetId) =>
       this.within({ target: loop, kind: "loop", labels }, () => {
         if (condition && testFirst) this.exitUnless(condition, loop);
 
         this.safepoint(node);
-
-        const restore = perIteration.map((sym) => this.iterationCopy(sym, node));
-
         this.nested(node.statement);
-        restore.forEach((r) => r());
       });
     const next =
       step ??
@@ -1029,44 +1025,20 @@ class Lowerer {
     this.b.loop(spanOf(node), body, next);
   }
 
-  /** The variables of a `for`'s declarations that closures share and its body does not assign. */
-  iterationVariables(list: ts.VariableDeclarationList, body: ts.Statement): ts.Symbol[] {
+  /**
+   * The boxed variables of a `for`'s declarations: those closures share,
+   * which each iteration gets a copy of (a box of its own) before the
+   * incrementor runs, as JavaScript's CreatePerIterationEnvironment does.
+   */
+  iterationPlaces(list: ts.VariableDeclarationList): PlaceId[] {
     return list.declarations.flatMap((d) => {
       const sym = ts.isIdentifier(d.name)
         ? this.host.checker.getSymbolAtLocation(d.name)
         : undefined;
       const place = sym && this.locals.get(sym);
 
-      return sym &&
-        place !== undefined &&
-        this.boxed.has(place) &&
-        !assignedIn(this.host.checker, body, sym)
-        ? [sym]
-        : [];
+      return place !== undefined && this.boxed.has(place) ? [place] : [];
     });
-  }
-
-  /** A copy of the boxed loop variable `sym` for one iteration; the function restores the variable. */
-  iterationCopy(sym: ts.Symbol, node: ts.Node): () => void {
-    const place = this.locals.get(sym)!;
-    const type = this.localTypes.get(place)!;
-    const span = spanOf(node);
-    // Spelled as a temporary (see cppIdent): no program name can be.
-    const copy = this.b.local(
-      `${sym.name}_it`,
-      type,
-      span,
-      true,
-      undefined,
-      temporary(sym.name, "it"),
-    );
-
-    this.b.store(copy, this.b.load(place, span), span);
-    this.boxed.add(copy);
-    this.locals.set(sym, copy);
-    this.localTypes.set(copy, type);
-
-    return () => this.locals.set(sym, place);
   }
 
   /** In a compute task's variant, where each loop iteration starts: a check for cancellation. */
@@ -1590,6 +1562,8 @@ class Lowerer {
   operands(): { operands: LeafOperands; args: ValueId[] } {
     const args: ValueId[] = [];
     const lowered = new Map<ts.Expression, ValueId>();
+    // Closures made: making one runs none of its code, so it may come before or after the rest.
+    const closures = new Set<ts.Expression>();
     let end = -1;
     const take = (n: ts.Expression, lower: () => ValueId) => {
       const known = lowered.get(n);
@@ -1600,7 +1574,9 @@ class Lowerer {
       // lowered after it are pure, so evaluating them first is not observable.
       const after = [...lowered.keys()].filter((k) => k.getStart() >= n.getEnd());
 
-      if (n.getStart() < end && !after.every((k) => this.pure(k)))
+      const free = (k: ts.Expression) => this.pure(k) || closures.has(k);
+
+      if (n.getStart() < end && !closures.has(n) && !after.every(free))
         this.unsupported(n, "operands a plan takes out of order");
 
       const v = lower();
@@ -1612,7 +1588,11 @@ class Lowerer {
     };
     const operands: LeafOperands = {
       operand: (n, hint) => take(n, () => this.expr(n, hint)),
-      closure: (n, target) => take(n, () => this.closure(n, target)),
+      closure: (n, target) => {
+        closures.add(n);
+
+        return take(n, () => this.closure(n, target));
+      },
       // Making a function runs none of its code: each is its own, made in any order.
       thunk: (n, thunk) => {
         const v = this.thunk(n, thunk ?? {});
@@ -2285,6 +2265,29 @@ class Lowerer {
   }
 
   /**
+   * `v == null`, for `??` and `??=`: a test of an optional, of a value
+   * whose type holds a type parameter (the instantiation decides), or
+   * what the type alone decides (always for undefined and null, never
+   * for a present type).
+   */
+  nullTest(v: ValueId, node: ts.Node): ValueId | boolean {
+    const t = this.b.typeOf(v);
+    const span = spanOf(node);
+
+    if (isAbsent(t)) return true;
+
+    if (t.k === "opt") return this.b.binary("==", v, this.b.const(null, span), span);
+
+    if (!holdsTypeParameter(t)) return false;
+
+    const host = this.host.leaves;
+
+    if (!host) this.unsupported(node, `?? on a ${typeKey(t)}`);
+
+    return this.planOf(host.absent(v, t, node), [v], span);
+  }
+
+  /**
    * `a && b`, `a || b`, `a ?? b`: the left side, then the right one only
    * when the left does not decide; the result is one of them, as the
    * checker types the whole expression.
@@ -2292,18 +2295,14 @@ class Lowerer {
   logical(node: ts.BinaryExpression, kind: "&&" | "||" | "??"): ValueId {
     const type = this.typeAt(node);
     const left = this.expr(node.left);
-    const leftType = this.b.typeOf(left);
+    const nullish = kind === "??" ? this.nullTest(left, node.left) : undefined;
 
-    if (kind === "??" && leftType.k !== "opt")
-      return leftType.k === "undefined" || leftType.k === "null"
-        ? this.coerce(this.expr(node.right), type, node)
-        : this.coerce(left, type, node);
+    if (nullish === true) return this.coerce(this.expr(node.right), type, node);
+
+    if (nullish === false) return this.coerce(left, type, node);
 
     const span = spanOf(node);
-    const test =
-      kind === "??"
-        ? this.b.binary("==", left, this.b.const(null, span), span)
-        : this.truthy(left, node.left);
+    const test = nullish ?? this.truthy(left, node.left);
     const keep = () => this.b.yield(this.coerce(left, type, node.left), span);
     const other = () => this.b.yield(this.coerce(this.expr(node.right), type, node.right), span);
 
@@ -2319,21 +2318,26 @@ class Lowerer {
     const target = this.target(node.left);
     const span = spanOf(node);
     const current = target.read();
-    const test =
-      kind === "??"
-        ? this.b.binary("==", current, this.b.const(null, span), span)
-        : this.truthy(current, node.left);
-    const keep = () => this.b.yield(this.coerce(current, type, node.left), span);
+    const nullish = kind === "??" ? this.nullTest(current, node.left) : undefined;
     const assign = () => {
       const value = this.expr(node.right, target.type);
 
       target.write(this.coerce(value, target.type, node.right), span);
-      this.b.yield(this.coerce(value, type, node.right), span);
+      return this.coerce(value, type, node.right);
     };
 
+    // A target that is never absent keeps its value, and the right side never runs.
+    if (nullish === false) return this.coerce(current, type, node.left);
+
+    if (nullish === true) return assign();
+
+    const test = nullish ?? this.truthy(current, node.left);
+    const keep = () => this.b.yield(this.coerce(current, type, node.left), span);
+    const assigned = () => this.b.yield(assign(), span);
+
     return kind === "||"
-      ? this.b.if(test, span, keep, assign, type)!
-      : this.b.if(test, span, assign, keep, type)!;
+      ? this.b.if(test, span, keep, assigned, type)!
+      : this.b.if(test, span, assigned, keep, type)!;
   }
 
   /** `x++`, `++x`, `x--`, `--x` on a number or bigint variable: the old value (postfix) or the new one. */
@@ -2567,6 +2571,23 @@ function assignedIn(checker: ts.TypeChecker, body: ts.Node, sym: ts.Symbol): boo
   return visit(body);
 }
 
+/** Whether a value of `t` may hold a type parameter's value: the type parameter, or a union with one. */
+function holdsTypeParameter(t: LType): boolean {
+  if (t.k === "tparam") return true;
+
+  if (t.k === "union") return t.ms.some(holdsTypeParameter);
+
+  return t.k === "opt" && holdsTypeParameter(t.inner);
+}
+
+/** Whether `node` makes a function value: an arrow or a function expression in it. */
+function makesClosures(node: ts.Node): boolean {
+  const visit = (n: ts.Node): boolean =>
+    ts.isArrowFunction(n) || ts.isFunctionExpression(n) || (ts.forEachChild(n, visit) ?? false);
+
+  return visit(node);
+}
+
 function skipParentheses(e: ts.Expression): ts.Expression {
   return ts.isParenthesizedExpression(e) ? skipParentheses(e.expression) : e;
 }
@@ -2625,20 +2646,36 @@ const LABELED: Partial<Record<ts.SyntaxKind, LabeledLowering>> = {
   [ts.SyntaxKind.ForStatement]: (s: ts.ForStatement, labels, lw: Lowerer) => {
     const init = s.initializer;
     const incrementor = s.incrementor;
-    const run = (perIteration: readonly ts.Symbol[] = []) =>
+    const span = spanOf(s);
+    const run = (renewed: readonly PlaceId[] = []) => {
+      const step =
+        incrementor || renewed.length
+          ? () => {
+              for (const place of renewed) lw.b.renew(place, span);
+
+              if (incrementor) lw.expr(incrementor);
+            }
+          : undefined;
+
       lw.loop(s, labels, {
         ...(s.condition ? { condition: s.condition } : {}),
         testFirst: true,
-        ...(incrementor ? { step: () => void lw.expr(incrementor) } : {}),
-        perIteration,
+        ...(step ? { step } : {}),
       });
+    };
 
     if (init && ts.isVariableDeclarationList(init)) {
-      // The loop's variables are scoped to it; those closures share, and the body does not
-      // assign, are copied for each iteration.
-      lw.b.block(spanOf(s), () => {
+      // The loop's variables are scoped to it. Those closures share get a box of their own for
+      // each iteration: the first after the initializer (whose closures keep its box), the next
+      // before the incrementor, which steps the new copy.
+      lw.b.block(span, () => {
         lw.declarations(init);
-        run(lw.iterationVariables(init, s.statement));
+
+        const renewed = lw.iterationPlaces(init);
+
+        if (makesClosures(init)) for (const place of renewed) lw.b.renew(place, span);
+
+        run(renewed);
       });
       return;
     }

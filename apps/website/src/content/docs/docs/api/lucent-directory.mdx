@@ -24,6 +24,7 @@ kind: reference
 ├── build-record.json
 ├── build-record.previous.json
 ├── sdk-usage.json
+├── problems.json                  after a build with errors
 ├── check.json                     after lucent check or sdk lock
 ├── file-hashes.json
 ├── android-classpath.json         from Gradle
@@ -40,6 +41,7 @@ kind: reference
 | `build-record.json` | every build and check, from the CLI, Metro's watcher, the Gradle task or Expo prebuild | The last run's steps with their inputs, outputs and times, and the action the app needs next. [`lucent trace`](/docs/api/cli/#lucent-trace) lays these steps out. | `lucent trace` has no build steps until the next build. |
 | `build-record.previous.json` | each run that writes `build-record.json` | The record it replaced. The [`lucent doctor`](/docs/api/cli/#lucent-doctor) check **Build cache** compares the two to say which steps ran again, and why. | The doctor skips its **Build cache** check until the next build. |
 | `sdk-usage.json` | a build or check whose code checks | The SDK symbols the code uses, and the SDKs and libraries they were read from. `lucent sdk coverage` reads it, and `lucent sdk lock` records the same in `lucent-sdk.lock.json`. | The next build or check runs in full, even with the same inputs. |
+| `problems.json` | a build whose modules have errors, and the next build that passes | Each failing module's diagnostics, with their code frames, and the content they were found in. Metro's transformer fails that module with them, so the app's RedBox shows them. | Metro bundles the last compiled proxies until the next build. |
 | `check.json` | `lucent check` and `lucent sdk lock` | The inputs of the last check that passed. A check of the same inputs ends at once. | The next check runs in full. |
 | `file-hashes.json` | builds, checks and the editor plugin | The content hashes of the files Lucent packages list, kept while each file's size and times stay the same. | The next build reads and hashes those files again. |
 | `android-classpath.json` | the Gradle task `lucentClasspath` | The AARs and JARs that the app's debug compile classpath gets from repositories, which `lucent:android/<package>` imports bind from. The app's other Gradle projects, such as autolinked React Native libraries, aren't in it. | The next build that needs it runs Gradle again. |
@@ -64,6 +66,7 @@ kind: reference
 | `cpp/lucent/` | Lucent's C++ runtime, copied from `@lucent-lang/lucent`. |
 | `cpp/rn/` | The TurboModule that React Native calls, and the host of components' views. |
 | `cpp/third_party/` | Vendored libraries for number formatting and regular expressions. |
+| `prebuilt/` | The runtime's core, prebuilt for each Android ABI and for iOS, when the installed package has it for this runtime. The podspec and CMake link it instead of compiling those sources; `LUCENT_RUNTIME_FROM_SOURCE=1` compiles them. |
 | `cpp/generated/` | Each module compiled to C++, and the Swift shims on iOS. A project with platform code gets one set per target, such as `ios/` and `android/`. |
 | `ios/LucentRegistration.mm` | Registers the TurboModule when the app loads, without codegen or a change to the app delegate. |
 | `android/` | The Android library: `build.gradle`, and the C++ build in `CMakeLists.txt`. When Lucent packages ship C or C++ sources, `packages.cmake` adds them. |

@@ -2,9 +2,10 @@
 
 An Expo SDK 58 app with the same screens as the [bare example](../bare-example/README.md):
 **Examples**, focused demos of native modules written in TypeScript with
-Lucent, and a **Lab** with the checks behind them. The `@lucent-lang/expo`
-config plugin runs `lucent build` during prebuild and makes sure
-`react-native.config.js` links `.lucent/native`.
+Lucent, and a **Lab** with the checks behind them. The config plugin of
+`@lucent-lang/lucent` (`"plugins": ["@lucent-lang/lucent"]` in `app.json`)
+runs `lucent build` during prebuild and makes sure `react-native.config.js`
+links `.lucent/native`.
 
 `App.tsx` and `src/` are generated from `scripts/example-app` by
 `node scripts/sync-examples.ts`: edit them there. Where the bare app

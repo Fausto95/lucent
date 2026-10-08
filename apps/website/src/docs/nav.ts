@@ -31,16 +31,26 @@ export const docsSections: DocSection[] = [
     groups: [
       {
         label: "The Basics",
-        items: ["", "guides/install", "guides/first-module", "guides/platform-code"],
+        items: [
+          "",
+          "guides/create-a-project",
+          "guides/install",
+          "guides/first-module",
+          "guides/platform-code",
+        ],
       },
       {
         label: "Workflow",
         items: [
           "guides/apply-a-change",
+          "guides/iterate-in-javascript",
           "guides/use-a-lucent-package",
           "guides/use-a-third-party-sdk",
           "guides/upgrade-lucent",
           "guides/pin-sdks",
+          "guides/type-ios-code-without-xcode",
+          "guides/build-in-ci-and-eas",
+          "guides/remove-lucent",
         ],
       },
       {
@@ -112,6 +122,8 @@ export const docsSections: DocSection[] = [
           "guides/fix-a-compile-error",
           "guides/read-errors-and-logs",
           "guides/symbolicate-a-native-crash",
+          "guides/troubleshooting",
+          "guides/faq",
         ],
       },
       { label: "Testing", items: ["guides/test-a-module"] },

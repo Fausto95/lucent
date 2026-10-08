@@ -4,9 +4,9 @@
 #include "lucent_app_S_Object_4faab4f9.h"
 #include "lucent_app_S_Object_7987b605.h"
 #include "lucent_app_S_Object_6ded73ab.h"
-#include "lucent_app_S_Object_d38f68b7.h"
+#include "lucent_app_S_Object_544421a2.h"
 #include "lucent_app_S_Object_6e0521fd.h"
-#include "lucent_app_S_Object_ab33e181.h"
+#include "lucent_app_S_Object_407abc6f.h"
 #include "lucent_app_S_Object_526ed0cf.h"
 #include "lucent_app_S_Object_a5187a53.h"
 #include "lucent_app_C_Account.h"
@@ -558,7 +558,7 @@ lucent::String m_stringify_u2d_classes::toJsonUndefined() {
   lucent::String v16_ = lucent::json::stringify(gone);
   lucent::Array<lucent::Ref<lucent_app::C_Maybe>> v18_ = lucent::Array<lucent::Ref<lucent_app::C_Maybe>>{gone};
   lucent::Ref<lucent_app::S_Object_6ded73ab> v19_ = ({ auto obj_5_ = std::make_shared<lucent_app::S_Object_6ded73ab>(); obj_5_->gone = v18_; obj_5_; });
-  lucent::Ref<lucent_app::S_Object_d38f68b7> v20_ = ({ auto obj_4_ = std::make_shared<lucent_app::S_Object_d38f68b7>(); obj_4_->all = v19_; obj_4_; });
+  lucent::Ref<lucent_app::S_Object_544421a2> v20_ = ({ auto obj_4_ = std::make_shared<lucent_app::S_Object_544421a2>(); obj_4_->all = v19_; obj_4_; });
   lucent::String v21_ = lucent::json::stringify(v20_);
   std::tuple<lucent::String, lucent::Ref<lucent_app::C_Maybe>> v24_ = std::tuple<lucent::String, lucent::Ref<lucent_app::C_Maybe>>(LUCENT_STR("a"), gone);
   lucent::Array<std::tuple<lucent::String, lucent::Ref<lucent_app::C_Maybe>>> v25_ = lucent::Array<std::tuple<lucent::String, lucent::Ref<lucent_app::C_Maybe>>>{v24_};
@@ -582,7 +582,7 @@ lucent::String m_stringify_u2d_classes::toJsonOnce() {
     return 3.0;
   });
   lucent::Ref<lucent_app::S_Object_c65abf80> v7_ = ({ auto obj_9_ = std::make_shared<lucent_app::S_Object_c65abf80>(); obj_9_->toJSON = v6_; obj_9_; });
-  lucent::Ref<lucent_app::S_Object_ab33e181> v8_ = ({ auto obj_8_ = std::make_shared<lucent_app::S_Object_ab33e181>(); obj_8_->at = v7_; obj_8_; });
+  lucent::Ref<lucent_app::S_Object_407abc6f> v8_ = ({ auto obj_8_ = std::make_shared<lucent_app::S_Object_407abc6f>(); obj_8_->at = v7_; obj_8_; });
   lucent::String v9_ = lucent::json::stringify(v8_);
   lucent::Array<lucent::String> v10_ = lucent::Array<lucent::String>{v1_, v3_, v5_, v9_};
   return v10_.join(LUCENT_STR(" "));

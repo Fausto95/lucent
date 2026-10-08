@@ -46,4 +46,41 @@ describe("an app's Xcode project", () => {
       packages: [],
     });
   });
+
+  it("references local Swift packages by their directory, which Package.resolved does not pin", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-xcode-"));
+    fs.cpSync(ios, path.join(dir, "ios"), { recursive: true });
+    const project = path.join(dir, "ios/App.xcodeproj/project.pbxproj");
+    fs.writeFileSync(
+      project,
+      fs
+        .readFileSync(project, "utf8")
+        .replace(
+          "packageReferences = (",
+          'packageReferences = (\n\t\t\t\t9A1B2C3D4E5F60718293A4B6 /* XCLocalSwiftPackageReference "../Packages/Dials" */,',
+        )
+        .replace(
+          "/* End XCRemoteSwiftPackageReference section */",
+          `/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCLocalSwiftPackageReference section */
+\t\t9A1B2C3D4E5F60718293A4B6 /* XCLocalSwiftPackageReference "../Packages/Dials" */ = {
+\t\t\tisa = XCLocalSwiftPackageReference;
+\t\t\trelativePath = ../Packages/Dials;
+\t\t};
+/* End XCLocalSwiftPackageReference section */`,
+        ),
+    );
+    fs.mkdirSync(path.join(dir, "Packages/Dials"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "Packages/Dials/Package.swift"),
+      "// swift-tools-version:5.9\n",
+    );
+
+    expect(xcodeApp(path.join(dir, "ios"))?.localPackages).toEqual([
+      { identity: "dials", path: path.join(dir, "Packages/Dials") },
+    ]);
+    // A local package Package.resolved also pins (another package's dependency) stays local.
+    expect(xcodeApp(path.join(dir, "ios"))?.packages.map((p) => p.identity)).toEqual(["gauges"]);
+  });
 });

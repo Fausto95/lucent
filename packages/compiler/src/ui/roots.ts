@@ -311,7 +311,7 @@ function commonClass(checker: ts.TypeChecker, classes: ts.ClassDeclaration[]): t
 }
 
 /** The expressions `fn` returns in the target's code: not nested functions', not other platforms' (none on the host). */
-function returnedExpressions(
+export function returnedExpressions(
   checker: ts.TypeChecker,
   fn: FunctionLike,
   platform: Platform | undefined,

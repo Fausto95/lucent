@@ -1,0 +1,46 @@
+name: Bug report
+description: Lucent compiled, built or ran something wrong, or refused something it should accept.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A small `.lucent.ts` file that shows the problem helps most; `npx lucent doctor` prints the versions asked for below.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, and what happened instead. Paste the diagnostic (`LUCENT…`) or the error as text.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The smallest source that shows it, and the commands (`lucent build`, `pod install`, the app run).
+      render: ts
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      multiple: true
+      options:
+        - The compiler (a diagnostic, or generated C++ that doesn't compile)
+        - The program behaves unlike the same code run as JavaScript
+        - iOS build or run
+        - Android build or run
+        - Expo (config plugin, prebuild)
+        - Metro, the dev loop, the editor
+        - The CLI (lucent init, create, doctor, sdk)
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Versions
+      description: The output of `npx lucent doctor`, or the Lucent, React Native, Xcode and Android Gradle Plugin versions.
+      render: text
+    validations:
+      required: true

@@ -1,5 +1,11 @@
 # Architecture
 
+How the compiler, runtime and tooling are built, for people changing them:
+the file-level reference behind the website's
+[Architecture › Internals](https://lucent-lang.dev/docs/architecture/internals/)
+pages, which explain the same parts at a higher level. A change to a part
+updates its section here in the same commit.
+
 ```
           app/src/*.lucent.ts
                   │  lucent build (packages/lucent)
@@ -641,7 +647,8 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
   so no context waits for another.
 - `callback.h`: `fromCallback` and `subscribe` (`lucent:core`), a promise
   or a subscription over any callback API. Each is an `Operation` under the
-  calling context's root scope, following the signal until it settles: it
+  scope the calling context's work belongs to (`ownedScope`: module code's
+  is its JavaScript runtime's, so a reload ends it), following the signal until it settles: it
   settles once, at the first of its callbacks, the signal and the scope's
   disposal, and runs the registration's cleanup once, then (or when the
   registration returns it, if it settled during registration). Everything
@@ -660,7 +667,7 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
 - `operation.h`: native work as a promise. `nativeOperation(registration,
 signal)` starts native work that completes later, on any thread (a
   Kotlin coroutine, a platform callback), as an `Operation` under the
-  calling context's root scope, and returns a promise that settles on that
+  scope the calling context's work belongs to (`ownedScope`), and returns a promise that settles on that
   context. The registration begins the work and returns what ends it.
   Disposing the scope, or the signal aborting, cancels it: the promise
   rejects at once, the work is told to stop, and a result it produces
@@ -711,7 +718,7 @@ signal)` starts native work that completes later, on any thread (a
   the UI loop, and a queue of 1024 tasks waiting for a worker; a
   submission that finds it full is rejected at once with a
   `QuotaExceededError`, never blocking the caller. A task is an
-  `Operation` under a scope (by default the calling context's root): it
+  `Operation` under a scope (by default the calling context's, `ownedScope`): it
   settles once, from its outcome or from a cancellation (its signal, its
   scope's disposal, the pool's shutdown), which rejects the promise at
   once. A queued task then leaves the queue; a running one stops at its
@@ -1116,6 +1123,16 @@ build caches, and stop:
 - before the check, when a used or locked module is read from other
   artifacts than recorded, or is not recorded;
 - after the check, when the code uses symbols the lock does not record.
+
+With `--schemas`, `lucent sdk lock` also exports what the check read from
+installed SDKs (`exportSchemaSet` in `bindgen/src/provider.ts`) to
+`lucent-sdk.schemas/<platform>/<module>.json`: each module's schema
+(`.source.json` for source modules such as SwiftUI) and the modules its
+types name (`.names.json` on iOS), with the artifacts and cache entry the
+lock records. `projectSdk` passes the directory as `SdkOptions.schemas`;
+where a platform's SDK is missing, `sdkModule`, `sdkNames`,
+`sdkSourceModule`, `sdkModuleArtifacts` and `sdkAvailable` answer from
+it, and `sdkIdentity` names its contents. An installed SDK wins.
 
 `lucent sdk diff` finds each locked symbol in the installed SDK by native
 symbol or by name and signature, then by name alone when one member of

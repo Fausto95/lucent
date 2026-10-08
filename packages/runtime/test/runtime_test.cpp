@@ -1,5 +1,7 @@
 // Unit tests for the Lucent C++ runtime. Built and run by
 // `packages/runtime/test/run.sh` (optionally under ASan/UBSan).
+#include <pthread.h>
+
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -51,6 +53,63 @@ static int checks = 0;
   } while (0)
 
 static String S(const char* s) { return String::fromUtf8(s); }
+
+/// Runs `f` on a thread with a stack of `bytes` (smaller than iOS's 512 KB
+/// default for secondary threads) and waits for it.
+template <class F>
+static void onSmallStack(size_t bytes, F f) {
+  pthread_attr_t attr;
+  pthread_attr_init(&attr);
+  pthread_attr_setstacksize(&attr, bytes);
+
+  pthread_t thread;
+  auto run = [](void* p) -> void* {
+    (*static_cast<F*>(p))();
+    return nullptr;
+  };
+  pthread_create(&thread, &attr, run, &f);
+  pthread_join(thread, nullptr);
+  pthread_attr_destroy(&attr);
+}
+
+/// A regular expression nested deeper than the stack allows is refused
+/// with a SyntaxError, as engines refuse one, instead of overflowing the
+/// native stack. Nesting the stack has room for still compiles, and
+/// matching it does not recurse.
+static void deepRegExps() {
+  auto nested = [](int depth, const char* open) {
+    std::string src;
+    for (int i = 0; i < depth; i++) src += open;
+    src += "a";
+    src += std::string(depth, ')');
+    return String::fromUtf8(src);
+  };
+
+  bool refused = false;
+  bool shallowWorks = false;
+  std::string other;
+
+  onSmallStack(256 * 1024, [&] {
+    try {
+      RegExp deep = std::make_shared<RegExpObject>(nested(200000, "(?:"), String());
+      other = "compiled";
+    } catch (const Exception& e) {
+      refused = e.error()->name.toUtf8() == "SyntaxError";
+      if (!refused) other = e.error()->name.toUtf8();
+    }
+
+    try {
+      RegExp shallow = std::make_shared<RegExpObject>(nested(100, "("), String());
+      shallowWorks = shallow->test(S("a"));
+    } catch (const Exception& e) {
+      other = "shallow: " + e.error()->name.toUtf8();
+    }
+  });
+
+  CHECK(refused);
+  CHECK(shallowWorks);
+  CHECK(other.empty());
+}
 
 static void numbers() {
   CHECK_STR(numberToString(0), "0");
@@ -1110,6 +1169,7 @@ static void nativeRefJson() {
 }
 
 int main() {
+  deepRegExps();
   numbers();
   exactIntegers();
   nativeRefJson();

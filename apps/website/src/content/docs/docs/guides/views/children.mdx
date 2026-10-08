@@ -79,9 +79,7 @@ export function Card(props: CardProps): FrameLayout {
 ```tsx title="App.tsx"
 import { useState } from "react";
 import { Button, Text, View } from "react-native";
-import * as card from "./card.lucent";
-
-const { Card } = card as unknown as typeof import("./.lucent/native/types/views/card");
+import { Card } from "lucent:views/card";
 
 export default function App() {
   const [highlighted, setHighlighted] = useState(false);
@@ -104,7 +102,7 @@ export default function App() {
 
 `slot()` makes the view React Native mounts the children in. Setup puts it where the children belong, and it fills the view it's added to unless setup sizes it.
 
-Call `slot()` once, in a top-level `const`, with the platform's container class: `slot<UIView>()` or `slot<ViewGroup>()`. So a component taking children is written as platform files. [Children](/docs/api/views/components/#children) gives the rest of the rules.
+Call `slot()` once per platform, in a `const` at the top level of setup or of a `PLATFORM` branch, with the platform's container class: `slot<UIView>()` or `slot<ViewGroup>()`. So one file can take children too, each branch making its own slot. [Children](/docs/api/views/components/#children) gives the rest of the rules.
 
 ## How the component is sized
 

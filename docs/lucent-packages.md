@@ -101,11 +101,15 @@ The merged result goes into the native package:
   headers the umbrella imports. Built as a static library (React Native's
   default), a pod defines one when its podspec sets `DEFINES_MODULE` or
   the Podfile asks for modular headers (`use_modular_headers!`,
-  `:modular_headers => true`). Paths in the build products directory
-  (`PODS_CONFIGURATION_BUILD_DIR`) are not read, so a Swift pod built as a
-  static library, whose module Xcode writes there, is not bound, nor is a
-  pod that ships an `.xcframework`, which CocoaPods copies there
-  (`PODS_XCFRAMEWORKS_BUILD_DIR`).
+  `:modular_headers => true`). A Swift pod's module is written by Xcode
+  into the build products directory (`PODS_CONFIGURATION_BUILD_DIR`), so
+  before a build Lucent makes it from the pod's Swift sources
+  (`PODS_TARGET_SRCROOT` in its xcconfig): `swiftc -emit-module` against
+  the app's pods, once per content of its sources, into the cache; a
+  failure is `LUCENT3004` with swiftc's errors. A pod with public
+  Objective-C headers binds through them, as before. A pod that ships an
+  `.xcframework`, which CocoaPods copies to `PODS_XCFRAMEWORKS_BUILD_DIR`,
+  binds through its iOS simulator slice in `Pods/`.
 - **Frameworks** join the podspec's `s.frameworks`, with the frameworks of
   the `lucent:ios/*` modules its code imports.
 - **Gradle artifacts** are `api` dependencies of its Android library. They
@@ -194,7 +198,7 @@ what an earlier one left there. The build files refer to the copies:
 
 | Field                     | In the native package                                                                                                                                                                                                    |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ios.nativeSources`       | Directories whose `.h .hpp .m .mm .c .cc .cpp .swift` files join the pod's `source_files`; each is a header search path. Swift makes it a Swift pod.                                                                     |
+| `ios.nativeSources`       | Directories whose `.h .hpp .m .mm .c .cc .cpp .swift` files join the pod's `source_files`; each is a header search path. Swift makes it a Swift pod, and its public declarations are `lucent:ios/LucentNative`.          |
 | `ios.resources`           | `s.resources`: copied to the app bundle's root under their own names.                                                                                                                                                    |
 | `ios.resourceBundles`     | `s.resource_bundles`: bundle name → what it holds. A bundle belongs to one package.                                                                                                                                      |
 | `ios.vendoredFrameworks`  | `s.vendored_frameworks`: `.framework` and `.xcframework` directories.                                                                                                                                                    |
@@ -210,6 +214,14 @@ naming both packages and files: iOS resources by name at the bundle's root
 file-based resources, assets and native libraries by path, libraries by file
 name, and Java/Kotlin sources by path. Android merges value resources
 (`values*/`) by name and reports duplicates itself.
+
+The Swift in `ios.nativeSources` builds into the native package's own
+module, LucentNative, so code imports what it declares `public` from
+`lucent:ios/LucentNative`, under the same rules as any Swift module: a
+wrapper of your own around an API Lucent cannot bind. Lucent makes the
+module (`swiftc -emit-module`, against the app's pods) on first import,
+once per content of the packages' Swift, and the shims calling it are
+compiled into the same module.
 
 Code can import a package's prebuilt frameworks and libraries like the
 app's pods and Gradle dependencies: `lucent:ios/<Module>` binds a vendored

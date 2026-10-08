@@ -1,9 +1,12 @@
 # Platform bindings — what is implemented
 
 The implemented part of [the design](design/m2-platform-bindings.md): platform
-modules, binding schemas extracted on demand from the installed SDKs,
-Objective-C++ and JNI glue, and `main()`. This page describes the current
-behavior; the design document describes where it is going.
+modules, binding schemas extracted on demand from the installed SDKs (or
+read from an exported schema set where one is missing), Objective-C++ and
+JNI glue, the Swift and Kotlin shims generated for what only those
+languages can call, and `main()`. This page describes the current
+behavior; the design document describes where it is going (it predates
+the shims: "no Swift or Kotlin is generated" there is no longer so).
 
 ## Platform code
 
@@ -145,7 +148,31 @@ artifacts the app's build resolved (bindgen's `nativeArtifacts`):
   version the app resolved), so the app adds the package to its project
   without adding the product to its app target: linked by both, a static
   package's symbols would be duplicated, as React Native's SPM helper
-  warns.
+  warns. A local package (`XCLocalSwiftPackageReference`, its
+  `relativePath` from `ios/`) has no pin: it is built from a copy of its
+  directory, once per content of its files (hidden ones aside), as
+  `spm:identity@local`, and LucentNative links its products by the
+  package's path.
+- **iOS Swift pods**: a pod with Swift sources and no public Objective-C
+  headers (its target's products directory is on the app's library,
+  Swift include or framework search paths; its xcconfig's
+  `PRODUCT_MODULE_NAME` and `PODS_TARGET_SRCROOT` give its module and
+  sources) has its module written by Xcode, which is not there before a
+  build. Lucent makes it from the pod's `.swift` files (`node_modules` and
+  hidden directories aside) with `swiftc -emit-module` against the app's
+  pods, into the cache (`swift-modules/`), keyed by the sources' contents,
+  the SDK, the target, the defines and the keys of the Swift pods it
+  imports, which are made first. It is `pod:Name@version`, and a module
+  swiftc cannot make is `LUCENT3004` with its last errors. The Swift in
+  the app's Lucent packages' `ios.nativeSources` is made the same way, as
+  the module `LucentNative` (`swift-module:LucentNative`), which the
+  native package's pod builds them into: its shims call it without
+  importing it.
+- **iOS pods' XCFrameworks**: the frameworks CocoaPods lists in
+  `Target Support Files/<pod>/<pod>-xcframeworks-input-files.xcfilelist`
+  and copies to `PODS_XCFRAMEWORKS_BUILD_DIR` are read from `Pods/`
+  through the slice their `Info.plist` names for the iOS simulator, as
+  the pod's.
 - **iOS with `use_frameworks!`**: pods are frameworks Xcode builds later, in
   the build products directory the xcconfig's framework search paths name.
   Before that build, each is what CocoaPods wrote for it: the module map and
@@ -414,8 +441,18 @@ or value-class members, for now;
 Swift shims pass scalars, Swift enums, objects, tuples (as arrays of
 their elements' objects; not of optional values or C structs) and
 closures (as Objective-C blocks, both ways: of numbers, booleans,
-strings and Objective-C objects), not optionals of scalars or
-Objective-C enums. A value that cannot cross is an `unsupported` conversion with
+strings and Objective-C objects), optional scalars (as NSNumbers, nil
+for none) and Objective-C enums (as their raw values), not those inside
+collections, nor optional Objective-C enums. Objective-C methods take
+errors (as NSErrors, `toNSError`) as arguments. A Swift AsyncSequence
+(`AsyncStream`, `AsyncThrowingStream`, `some AsyncSequence<E, F>`, or a
+non-generic type of the module conforming to it, by its `Element`) is the
+schema type `AsyncSequence<E>`, a result or property only: the shim boxes
+it as a `LucentSequence` with each element's object conversion, and
+lucent:ios's `AsyncSequence.collect` runs `lucent_swift_collect`, a task
+that hands each element to the glue with a continuation it resumes once
+the Lucent function has run (ios_sequence.h), as Kotlin's Flow.collect
+suspends for its collector. A value that cannot cross is an `unsupported` conversion with
 its reason; a member no use of which can work (a read-only property
 written, a Swift async initializer, a member of a protocol with associated
 types called, a static requirement implemented) is `refused`, with the
@@ -445,7 +482,13 @@ for a property read but not written), judged with the module's own types.
 Coverage: `lucent sdk coverage` reports, per module, the members Lucent can
 call and those it can't, with the reasons (Swift-only members among them,
 as "Swift-only"): the members the extractor skipped, and those whose plan
-refuses every use, under the plan's reason. It places each member at the
+refuses every use, under the plan's reason. Plans are judged with the
+types other modules declare (`sdkTypeLookup`: their names on iOS, their
+schemas on Android), as builds judge them. Swift's Hashable, Equatable
+and Codable plumbing (`hash(into:)`, `==`, `encode(to:)`, `init(from:)`,
+`hashValue`) is counted apart (`plumbing`), outside the share, and each
+report names the SDK it was read from (`sdk`), which `--check` notes when
+the baseline's differs. A `p.*` prefix that matches no module fails. It places each member at the
 furthest stage the evidence supports, each needing the one before:
 _discovered_ (declared), _representable_ (its plan can work), _generated_
 (the project's last build used it, from `.lucent/sdk-usage.json`; an
@@ -454,14 +497,14 @@ _exercised_ (listed in an `--exercised` file of symbol keys that tests or
 probes write). A stage without evidence is unknown (`-`, `null` in JSON),
 not 0. `--members` lists every member with its stage, symbol key, native
 symbol, artifact and reason. CI fails when a module's unrepresentable
-share grows past `sdk-coverage.json`. `--all` takes every module of each
+share grows past `config/sdk-coverage.json`. `--all` takes every module of each
 SDK there is, listing the ones its extractor cannot read rather than
 failing (IOKit, and the cross-import overlays, for the simulator), and
 `--summary <file>` appends a markdown summary: the members in total and
 the 20 reasons that leave out the most, summed across modules. CI runs
 both and shows the summary on its job (reporting only).
-[ROADMAP.md](../ROADMAP.md#done) records the last measured
-numbers.
+[SDK coverage](tasks.md#sdk-coverage) in docs/tasks.md records the last
+measured numbers.
 
 ## Calls
 
@@ -740,7 +783,8 @@ the check is Lucent's. `appContext()` returns the Android `Application`
   the reference returned is for use now, on the main thread.
 - `startActivityForResult(intent, signal?)` and
   `requestPermissions(permissions, signal?)`: each request is an Operation
-  under the calling context's root scope (`platform/android_requests.h`),
+  under the scope the calling context's work belongs to (`ownedScope`:
+  module code's ends with its JavaScript runtime; `platform/android_requests.h`),
   settled exactly once on that context by the id the Java side echoes back.
   The request runs in `LucentRequestActivity`, a translucent Activity the
   library manifest declares (no AndroidX, any host Activity), so the app's
@@ -824,10 +868,9 @@ window and top view controller for the current turn of the main thread,
 and `presentOperation<T>(scope, signal, build)` presents under a scope of
 its own, whose disposal cancels the presentation.
 
-Not yet: presentations and subscriptions made from Lucent code belong to
-the calling context's root scope, so a JavaScript reload does not end
-them (their JavaScript callbacks are dropped); stop them, or pass a
-signal. URLs and user activities the app opens have no event yet (React
+Presentations and subscriptions made from module code belong to its
+JavaScript runtime's scope (`ownedScope`): a reload ends them, as it
+ends module code's operations, callbacks and timers. Not yet: URLs and user activities the app opens have no event yet (React
 Native's `Linking` has them), and apps that support several scenes are
 covered by unit tests only.
 
@@ -857,5 +900,6 @@ covered by unit tests only.
 
 ## Not yet
 
-[ROADMAP.md](../ROADMAP.md) lists what's next, the known binding gaps
-(under T28), and the limitations kept on purpose, with the reason.
+[docs/tasks.md](tasks.md) lists what's next and the binding gaps (under
+T28), and [docs/limitations.md](limitations.md) the limitations kept on
+purpose, with the reason.

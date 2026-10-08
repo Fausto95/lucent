@@ -14,35 +14,36 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import {
+  type CompileContext,
+  compileContext,
+  currentCompile,
+  runInCompile,
+} from "./compile-context.ts";
 
-let recording: { read: Map<string, string>; realpaths: Map<string, string> } | undefined;
+/** Where a compile records what it reads: its context's maps. */
+type Recording = Pick<CompileContext, "reads" | "realpaths"> | undefined;
 
 /**
  * Runs `f`, and lists the files it read, each with what it found (see
  * currentReads), and the paths it resolved, each with where it led (see
- * currentRealpaths).
+ * currentRealpaths): in a compile context of its own, which only this call
+ * records into.
  */
 export function recordReads<T>(f: () => T): {
   value: T;
   read: ReadonlyMap<string, string>;
   realpaths: ReadonlyMap<string, string>;
 } {
-  const saved = recording;
-  const read = new Map<string, string>();
-  const realpaths = new Map<string, string>();
-  recording = { read, realpaths };
+  const context = compileContext();
 
-  try {
-    return { value: f(), read, realpaths };
-  } finally {
-    recording = saved;
-  }
+  return { value: runInCompile(context, f), read: context.reads, realpaths: context.realpaths };
 }
 
 /** `file`'s text as TypeScript reads it, noted as read. */
-export function readText(file: string): string | undefined {
+export function readText(file: string, into: Recording = currentCompile()): string | undefined {
   const bytes = contents(file);
-  recording?.read.set(path.resolve(file), found(file, bytes));
+  into?.reads.set(path.resolve(file), found(file, bytes));
 
   return bytes && decode(bytes);
 }
@@ -51,24 +52,24 @@ export function readText(file: string): string | undefined {
  * Whether `file` exists, noted as read: resolution may find a file through a
  * link, then read it at the link's target, so what it found here counts.
  */
-export function fileExists(file: string): boolean {
+export function fileExists(file: string, into: Recording = currentCompile()): boolean {
   const exists = stat(file)?.isFile() === true;
   const at = path.resolve(file);
-  if (recording && !recording.read.has(at))
-    recording.read.set(at, found(file, exists ? contents(file) : undefined));
+  if (into && !into.reads.has(at))
+    into.reads.set(at, found(file, exists ? contents(file) : undefined));
 
   return exists;
 }
 
 /** Whether directory `dir` exists, noted as read when it does not. */
-export function directoryExists(dir: string): boolean {
-  return stat(dir)?.isDirectory() || missing(dir);
+export function directoryExists(dir: string, into: Recording = currentCompile()): boolean {
+  return stat(dir)?.isDirectory() || missing(dir, into);
 }
 
 /** Where `file` leads, through any link, as TypeScript resolves it: noted. */
-export function realpath(file: string): string {
+export function realpath(file: string, into: Recording = currentCompile()): string {
   const real = resolved(file);
-  recording?.realpaths.set(path.resolve(file), real);
+  into?.realpaths.set(path.resolve(file), real);
 
   return real;
 }
@@ -91,8 +92,8 @@ export function readsKey(read: ReadonlyMap<string, string>): string {
   return hash.digest("hex");
 }
 
-function missing(file: string): false {
-  recording?.read.set(path.resolve(file), found(file, undefined));
+function missing(file: string, into: Recording): false {
+  into?.reads.set(path.resolve(file), found(file, undefined));
 
   return false;
 }

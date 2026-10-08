@@ -472,10 +472,15 @@ void settleLater(Host& host, uint64_t id, const Promise<T>& p, uint64_t traceId 
 
       jsi::Value value = jsi::Value::undefined();
       if constexpr (!std::is_void_v<T>) {
+        // Whatever the conversion throws (a JS error, a Lucent one, an
+        // allocation failure) rejects: it never escapes the JS thread's task.
         try {
           value = Convert<T>::toJs(rt, *host, p.value());
         } catch (const jsi::JSError& e) {
           host->reject(rt, id, jsi::Value(rt, e.value()));
+          return;
+        } catch (...) {
+          host->reject(rt, id, host->errorToJs(rt, currentError(std::current_exception())));
           return;
         }
       }
@@ -567,6 +572,8 @@ struct Convert<Fn<R(A...)>> {
           fn->call(rt, Convert<A>::toJs(rt, *host, args)...);
         } catch (const jsi::JSError& e) {
           consoleWrite(ConsoleLevel::Error, String::fromUtf8("Uncaught error in callback: " + e.getMessage()));
+        } catch (...) {
+          reportUncaught(std::current_exception(), "callback");
         }
       });
       return;
@@ -595,8 +602,8 @@ struct Convert<Fn<R(A...)>> {
           });
         } catch (const jsi::JSError& e) {
           out.reject(Host::errorFromJs(rt, e));
-        } catch (const Exception& e) {
-          out.reject(e.error());
+        } catch (...) {
+          out.reject(currentError(std::current_exception()));
         }
       }, gone);
       return out;
@@ -667,6 +674,8 @@ Promise<T> Convert<Promise<T>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, co
           else out.resolve(Convert<T>::fromJs(rt, arg(args, count, 0), Path::at(*where, "resolved value")));
         } catch (const jsi::JSError& e) {
           out.reject(Host::errorFromJs(rt, e));
+        } catch (...) {
+          out.reject(currentError(std::current_exception()));
         }
         return jsi::Value::undefined();
       });

@@ -108,12 +108,13 @@ describe.skipIf(!android)("an app without its Android project", () => {
     expect(fs.existsSync(path.join(a.root, ".lucent/native/cpp/generated/ios"))).toBe(true);
   });
 
-  it("says why nothing is built where iOS's SDK is missing too", () => {
+  it("checks the shared code and says why no platform is built where iOS's SDK is missing too", () => {
     const a = app({ "m.lucent.ts": pending });
 
     const r = a.lucent(["build"], { LUCENT_XCRUN: path.join(a.root, "no-xcrun") });
-    expect(r.status).toBe(1);
-    expect(r.out).toMatch(/no platform to build here: .*android: the app has no Android project/s);
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toMatch(/the app has no Android project/);
+    expect(r.out).toMatch(/no platform is built here/);
   });
 
   it("still types code that uses android.jar only", () => {

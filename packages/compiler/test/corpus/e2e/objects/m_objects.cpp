@@ -366,7 +366,7 @@ lucent::String m_objects::toJson(lucent::Ref<lucent_app::S_Person> p0_, std::var
   return lucent::String(v16_) + v18_;
 }
 
-lucent::String m_objects::reassign(lucent::Ref<lucent_app::S_Object_74d89ea4> p0_, lucent::Array<double> p1_) {
+lucent::String m_objects::reassign(lucent::Ref<lucent_app::S_Object_153935d8> p0_, lucent::Array<double> p1_) {
   double x = 0.0;
   double y = 0.0;
   lucent::String label = LUCENT_STR("none");
@@ -422,7 +422,7 @@ lucent::String m_objects::reassign(lucent::Ref<lucent_app::S_Object_74d89ea4> p0
   lucent::String v64_ = lucent::concat(v59_, LUCENT_STR(","), v62_);
   (void)out.push(v64_);
   a = p0_->x;
-  lucent::Ref<lucent_app::S_Object_74d89ea4> r = p0_;
+  lucent::Ref<lucent_app::S_Object_153935d8> r = p0_;
   lucent::String v69_ = lucent::toJsString(a);
   double v72_ = r->y;
   lucent::String v73_ = lucent::toJsString(v72_);

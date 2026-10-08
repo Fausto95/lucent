@@ -4,7 +4,7 @@
 #include "lucent_app_S_Object_7bd5f761.h"
 #include "lucent_app_S_Config.h"
 #include "lucent_app_S_Object_f5cde7f3.h"
-#include "lucent_app_S_Object_aa497122.h"
+#include "lucent_app_S_Object_04843e96.h"
 #include "lucent_app_S_Object_8992ee21.h"
 #include <lucent/jsi/convert.h>
 #include <lucent/jsi/host.h>

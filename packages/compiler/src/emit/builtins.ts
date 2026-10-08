@@ -36,6 +36,7 @@ import { numberExpr, stringExpr } from "./literals.ts";
 import { handleDispose, handleMethodCall } from "./extensions.ts";
 import {
   inMainContext,
+  collectSequence,
   nativeCall,
   nativeInstanceOf,
   nativeLvalue,
@@ -1064,6 +1065,8 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
   if (t.k === "signal") return signalMethod(em, obj, name, node);
   if (t.k === "native" && name === DISPOSE)
     return { c: disposeCall(em, obj, node), t: T.undefined };
+  if (t.k === "native" && t.module === "lucent:ios" && t.name === "AsyncSequence")
+    return collectSequence(em, obj, name, node);
   if (t.k === "native")
     return (
       nativeCall(em, node, obj) ??
@@ -1703,6 +1706,8 @@ function arrayMethod(
           c: cpp.call(cpp.dot(o, name), [cb([e, e, T.number, self], e).c]),
           t: e,
         };
+      // The initial value is lowered before the callback, which follows it in the source: making
+      // a callback runs none of its code, and made last it is passed to the method as the lambda.
       const init = em.exprAs(a[1]!, rt);
       return {
         c: cpp.call(cpp.dot(o, name), [
