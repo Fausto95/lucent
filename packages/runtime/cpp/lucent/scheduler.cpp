@@ -315,7 +315,6 @@ Actor* Actor::make(const char* name) {
   actor->makeRoot();
 
   Actor* self = actor.get();
-  actor->worker_ = WorkerThread::start([self](Job& job) { self->runTurn(job); });
 
   Actors& a = actors();
   std::lock_guard<std::mutex> g(a.m);
@@ -338,6 +337,17 @@ Actor& Actor::create(const char* name) {
   // Started with the first, so tracing from the environment covers it.
   shared();
   return *make(name);
+}
+
+WorkerThread& Actor::worker() {
+  if (!started()) [[unlikely]] {
+    std::call_once(starting_, [this] {
+      worker_ = WorkerThread::start([this](Job& job) { runTurn(job); });
+      started_.store(true, std::memory_order_release);
+    });
+  }
+
+  return *worker_;
 }
 
 size_t Actor::pendingWorkOfAll() {

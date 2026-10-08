@@ -243,9 +243,9 @@ class Actor final : public ExecutionContext {
   /// The actor of code no other actor was given.
   static Actor& shared();
 
-  /// A new actor, with a thread of its own: generated code makes one per
-  /// import component (lucent_app::actor_N). `name` must outlive it (a
-  /// literal).
+  /// A new actor, with a thread of its own (started with its first job):
+  /// generated code makes one per import component (lucent_app::actor_N).
+  /// `name` must outlive it (a literal).
   static Actor& create(const char* name);
 
   /// The innermost actor the calling thread is in, or null.
@@ -255,15 +255,19 @@ class Actor final : public ExecutionContext {
 
   LucentLock& lock() { return lock_; }
 
-  bool onActorThread() const { return worker_->isCurrent(); }
+  bool onActorThread() const { return started() && worker_->isCurrent(); }
+
+  /// Whether its thread has started: with its first job, so an actor only
+  /// ever called synchronously (most modules) costs no thread.
+  bool hasThread() const { return started(); }
 
   bool isActor() const override { return true; }
 
   /// Jobs queued or running, and timers pending (for tests and shutdown).
-  size_t pendingWork() { return worker_->pendingWork(); }
+  size_t pendingWork() { return started() ? worker_->pendingWork() : 0; }
 
   /// Blocks until no jobs or timers are pending, or the timeout elapses.
-  bool waitIdle(double timeoutMs) { return worker_->waitIdle(timeoutMs); }
+  bool waitIdle(double timeoutMs) { return !started() || worker_->waitIdle(timeoutMs); }
 
   /// pendingWork() of every actor there is (for tests and tools).
   static size_t pendingWorkOfAll();
@@ -273,16 +277,22 @@ class Actor final : public ExecutionContext {
 
   static Actor* make(const char* name);
 
-  bool dispatch(Job job) override { return worker_->post(std::move(job)); }
-  bool dispatchDelayed(double ms, Job job) override { return worker_->postDelayed(ms, std::move(job)); }
-  bool onExecutor() const override { return worker_->isCurrent(); }
+  bool dispatch(Job job) override { return worker().post(std::move(job)); }
+  bool dispatchDelayed(double ms, Job job) override { return worker().postDelayed(ms, std::move(job)); }
+  bool onExecutor() const override { return onActorThread(); }
+
+  /// Its thread, started with its first job.
+  WorkerThread& worker();
+  bool started() const { return started_.load(std::memory_order_acquire); }
 
   /// Holds the lock for the job and the microtasks after it.
   void runTurn(Job& job) override;
 
   const char* const name_;
   LucentLock lock_;
+  std::once_flag starting_;
   std::shared_ptr<WorkerThread> worker_;
+  std::atomic<bool> started_{false};
 };
 
 /// Entered for every call from JavaScript into Lucent code, and by platform
