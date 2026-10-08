@@ -515,13 +515,13 @@ export function withoutAttributes(frags: Fragment[]): Fragment[] {
     }
     let i = 0;
     const text = f.spelling;
-    if (depth === 0) {
+    // An attribute's arguments follow it directly: after a space, a
+    // parenthesis opens the type (`@escaping ((any Error)?) -> Void`).
+    if (depth === 0 && text[0] !== "(") {
       while (i < text.length && /\s/.test(text[i]!)) i++;
-      if (text[i] !== "(") {
-        afterAttribute = false;
-        out.push(i ? { ...f, spelling: text.slice(i) } : f);
-        continue;
-      }
+      afterAttribute = false;
+      out.push(i ? { ...f, spelling: text.slice(i) } : f);
+      continue;
     }
     for (; i < text.length; i++) {
       if (text[i] === "(") depth++;
