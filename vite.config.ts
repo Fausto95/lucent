@@ -69,8 +69,9 @@ export default defineConfig({
       "apps/website/test/**/*.test.ts",
       // The example app's plain logic (routes, summaries), without React Native.
       "scripts/example-app/**/*.test.ts",
-      // The repository's own scripts (the CI change classifier).
+      // The repository's own scripts and config (the CI change classifier, the sequencer).
       "scripts/*.test.ts",
+      "config/*.test.ts",
     ],
     exclude: ["**/node_modules/**", "**/.git/**", ...(all ? [] : slow)],
     testTimeout: 60000,
