@@ -48,9 +48,12 @@ The repository layout, and the rules every change follows, are in
 | `pnpm check`                                  | formatting (Oxfmt), lint (Oxlint) and `pnpm typecheck`           |        |
 | `node scripts/website.ts --check`             | the website (below)                                              | Vale   |
 
-CI shards the unit tests by how long each file takes (`config/test-timings.json`,
-read by `config/vitest.sequencer.ts`); after adding or much changing slow tests,
-refresh it with `node scripts/test-timings.ts` on a full run's JSON report.
+CI shards the unit tests by how long each file takes on each runner's
+platform (`config/test-timings.json`, read by `config/vitest.sequencer.ts`).
+After adding or much changing slow tests, refresh the platform's entry with
+`node scripts/test-timings.ts <report.json>…`: on a full local run's JSON
+report, or on the `unit-test-report-*` artifacts of a CI run (with
+`--platform darwin` for the macOS shards).
 
 `pnpm test:runtime`, `pnpm test:e2e`, the app checks and the benchmarks
 build side by side, one compiler per core; `LUCENT_TEST_JOBS` (and, for
