@@ -1668,7 +1668,16 @@ the runtime, size and build budgets, rather than only producing shorter C++.
   element in its integer register, a plain read the number or undefined it
   reads as, and the IR verifier checks that only plans see such an array.
   The earlier concern does not arise, as no call, return or conversion sees
-  one.
+  one. An object literal a local holds, whose only uses are that local's
+  field reads and writes (no call, return, capture, comparison, spread or
+  `o.f()`) and which the program analysis finds does not escape, is the
+  local itself, a C++ value on the stack (`stack-objects.ts`); nothing can
+  hold a reference to it, so identity and lifetimes are as they were. A
+  loop making two such points per iteration: 356 → 88 ms for 5 million
+  (native, -O2). Passing one to a function that does not keep it was left
+  out: it would need a `Ref` with no owner count, whose safety would rest
+  on the escape facts being complete for every runtime method, and a gap
+  would be a use after free rather than a slower program.
 - Against handwritten C++ (the same kernels, written natively, on the same
   host): `fnv1a`, `xorshift`, `mandelbrot`, `sortNumbers`, `wordCount` and
   `strings` are within 20% or faster; `murmur`, `crc32` and `sieve` are

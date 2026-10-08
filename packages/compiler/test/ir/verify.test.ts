@@ -364,6 +364,33 @@ describe("IR verifier", () => {
     ]);
   });
 
+  it("rejects an object on the stack that is not a local of an object type, or seen by anything but plans", () => {
+    const point = { k: "struct", id: "x:number" } as const;
+    const b = new IrBuilder("stack", T.number, at(0, 100));
+    const p = b.local("p", point, at(1), false, undefined, undefined, undefined, true);
+
+    b.local("n", T.number, at(2), false, undefined, undefined, undefined, true);
+    b.store(p, b.plan("{…}", "made", [], point, at(3), undefined, undefined, true)!, at(3));
+
+    const read = b.load(p, at(4));
+
+    b.return(b.plan(".x", "x", [read], T.number, at(5))!, at(6));
+
+    const kept = new IrBuilder("kept", point, at(0, 100));
+    const q = kept.local("q", point, at(1), false, undefined, undefined, undefined, true);
+
+    kept.store(q, kept.plan("{…}", "made", [], point, at(2), undefined, undefined, true)!, at(2));
+    kept.return(kept.load(q, at(3)), at(4));
+
+    expect(problemsOf(b.finish())).toEqual([
+      "r0[1] local holds p1 on the stack, but it is not a local of an object type",
+    ]);
+
+    expect(problemsOf(kept.finish())).toEqual([
+      "r0[4] return uses v1, an object on the stack, which only plans read",
+    ]);
+  });
+
   it("rejects throwing a value that is not an Error", () => {
     const b = new IrBuilder("boom", T.string, at(0, 100));
 

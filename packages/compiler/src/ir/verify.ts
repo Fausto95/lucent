@@ -25,7 +25,8 @@
  *    shares in a box. Integer elements (`elements`) are an array of
  *    numbers' (a local's, unboxed), and only plans see such an array: a
  *    value of one is a plan's operand, or stored into a local holding the
- *    same elements.
+ *    same elements. So is an object on the stack (`onStack`), a local of
+ *    an object type's.
  * 7. Nothing claims less than it does: a call's effect reference is at least
  *    as conservative as what is known of its callee, and the function's
  *    summary admits every exit, read and write its operations (and the
@@ -194,6 +195,9 @@ class Checker {
       if (v.elements && (v.type.k !== "array" || v.type.e.k !== "number"))
         this.problem(`v${i} holds ${v.elements} elements, but is a ${typeKey(v.type)}`);
 
+      if (v.onStack && v.type.k !== "struct")
+        this.problem(`v${i} is held on the stack, but is a ${typeKey(v.type)}`);
+
       if (v.owner !== undefined && !OWNERS.includes(v.owner))
         this.problem(`v${i} has an unknown owner ${JSON.stringify(v.owner)}`);
 
@@ -292,9 +296,23 @@ class Checker {
   /** The places that hold integer elements, by their kind. */
   readonly placeElements = new Map<PlaceId, string>();
 
-  /** An array of integer elements is only a plan's operand, or stored as the same elements. */
+  /** The places that hold objects on the stack. */
+  readonly stackPlaces = new Set<PlaceId>();
+
+  /**
+   * An array of integer elements, or an object on the stack, is only a
+   * plan's operand, or stored into a local holding it the same way.
+   */
   private elementsUse(op: IrOp, v: ValueId, where: string): void {
-    const kind = this.fn.values[v]?.elements;
+    const value = this.fn.values[v];
+    const kind = value?.elements;
+
+    if (
+      value?.onStack &&
+      op.kind !== "plan" &&
+      !(op.kind === "store" && this.stackPlaces.has(op.place))
+    )
+      this.problem(`${where} uses v${v}, an object on the stack, which only plans read`);
 
     if (!kind || op.kind === "plan") return;
 
@@ -675,6 +693,16 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
         );
 
       c.placeElements.set(op.place, op.elements);
+    }
+
+    if (op.onStack) {
+      if (op.type.k !== "struct" || op.boxed)
+        c.problemAt(
+          where,
+          `holds p${op.place} on the stack, but it is not a local of an object type`,
+        );
+
+      c.stackPlaces.add(op.place);
     }
   },
 

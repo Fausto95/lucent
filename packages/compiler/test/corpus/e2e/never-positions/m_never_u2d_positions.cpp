@@ -350,16 +350,16 @@ lucent::String m_never_u2d_positions::field(bool p0_) {
     }
     lucent::String v3_ = lucent_app::m_never_u2d_positions::note(LUCENT_STR("name"));
     lucent_app::m_never_u2d_positions::fail(LUCENT_STR("size"));
-    lucent::Ref<lucent_app::S_Named> named = ({
-      auto obj_1_ = std::make_shared<lucent_app::S_Named>();
-      obj_1_->name = v3_;
-      obj_1_->size = []() -> double {
+    lucent_app::S_Named named = ({
+      lucent_app::S_Named obj_1_{};
+      obj_1_.name = v3_;
+      obj_1_.size = []() -> double {
         lucent::unreachable();
       }();
-      obj_1_;
+      std::move(obj_1_);
     });
-    lucent::String v8_ = named->name;
-    double v10_ = named->size;
+    lucent::String v8_ = (&named)->name;
+    double v10_ = (&named)->size;
     return lucent::String(v8_) + lucent::toJsString(v10_);
   });
   return lucent_app::m_never_u2d_positions::attempt(v1_);

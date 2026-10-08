@@ -2533,7 +2533,15 @@ export class FnEmitter {
     }
   }
 
-  private objectLiteral(node: ts.ObjectLiteralExpression, hint?: LType): E {
+  /**
+   * An object literal of the object type `t` as the object itself, a C++
+   * value a local on the stack holds (stack-objects.ts), not a reference.
+   */
+  stackObject(node: ts.ObjectLiteralExpression, t: LType): E {
+    return this.objectLiteral(node, t, true);
+  }
+
+  private objectLiteral(node: ts.ObjectLiteralExpression, hint?: LType, stack = false): E {
     let t = hint ?? this.contextualType(node) ?? this.lt(node);
     t = stripOpt(t);
     if (t.k === "union") {
@@ -2595,9 +2603,16 @@ export class FnEmitter {
     const info = this.reg.struct(t.id);
     const tmpName = this.ctx.fresh("obj");
     const tmp = cpp.id(tmpName);
-    const field = (name: string) => cpp.arrow(tmp, cppIdent(name));
-    const created = cpp.call("std::make_shared", [], [cpp.type(`lucent_app::${info.cppName}`)]);
-    const parts: cpp.Stmt[] = [cpp.varDecl(cpp.auto, tmpName, created)];
+    const field = (name: string) =>
+      stack ? cpp.dot(tmp, cppIdent(name)) : cpp.arrow(tmp, cppIdent(name));
+    const self = cpp.type(`lucent_app::${info.cppName}`);
+    const created = cpp.call("std::make_shared", [], [self]);
+    // On the stack, the object itself, moved out as the literal's value.
+    const parts: cpp.Stmt[] = [
+      stack
+        ? cpp.varDecl(self, tmpName, undefined, { style: "brace" })
+        : cpp.varDecl(cpp.auto, tmpName, created),
+    ];
     for (const p of node.properties) {
       if (ts.isSpreadAssignment(p)) {
         const s = this.expr(p.expression);
@@ -2653,7 +2668,7 @@ export class FnEmitter {
       if (!f) fail(p, Codes.InexactObject, `property ${name} is not part of the target type`);
       parts.push(cpp.exprStmt(cpp.assign(field(name), this.coerce(value, f.type, p))));
     }
-    return { c: cpp.statementExpr(parts, tmp), t };
+    return { c: cpp.statementExpr(parts, stack ? cpp.call("std::move", [tmp]) : tmp), t };
   }
 }
 

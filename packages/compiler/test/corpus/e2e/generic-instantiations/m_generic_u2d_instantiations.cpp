@@ -113,7 +113,7 @@ lucent::String m_generic_u2d_instantiations::positions() {
   lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> v11_ = lucent_app::C_Shown<lucent::Opt<double>>::create(lucent::Opt<double>(4.0));
   lucent::Dict<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> record = ({ lucent::Dict<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> rec_1_; rec_1_.set(LUCENT_STR("a"), v11_); rec_1_; });
   lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> v14_ = lucent_app::C_Shown<lucent::Opt<double>>::create(lucent::Opt<double>(5.0));
-  lucent::Ref<lucent_app::S_Object1> object = ({ auto obj_2_ = std::make_shared<lucent_app::S_Object1>(); obj_2_->m = v14_; obj_2_; });
+  lucent_app::S_Object1 object = ({ lucent_app::S_Object1 obj_2_{}; obj_2_.m = v14_; std::move(obj_2_); });
   lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> v17_ = lucent_app::C_Shown<lucent::Opt<double>>::create(lucent::Opt<double>(6.0));
   std::variant<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>, lucent::String> r_union_ = std::variant<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>, lucent::String>(v17_);
   lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> v21_ = lucent_app::C_Shown<lucent::Opt<double>>::create(lucent::Opt<double>(7.0));
@@ -134,7 +134,7 @@ lucent::String m_generic_u2d_instantiations::positions() {
   lucent::Opt<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> v47_ = record.get(LUCENT_STR("a"));
   lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> v48_ = v47_.value();
   lucent::String v49_ = v48_->show();
-  lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> v51_ = object->m;
+  lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> v51_ = (&object)->m;
   lucent::String v52_ = v51_->show();
   bool v57_ = lucent::typeOf(lucent::narrow<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>>(r_union_)) == LUCENT_STR("string");
   lucent::String v63_{};

@@ -48,6 +48,10 @@ class LeafEmitter extends FnEmitter {
     const int = this.operands.intOf(v);
     const elements = this.operands.elementsOf(v);
 
+    // An object on the stack is spelled by its address, so its fields read as a reference's do.
+    if (this.operands.onStack(v))
+      return { c: cpp.addressOf(operand(v)), t: this.operands.typeOf(v) };
+
     // An exact integer has its integer register form too (integers.ts), which code like Math.imul's
     // uses; an array of integer elements holds them as such, which its reads and writes spell.
     return {
@@ -181,6 +185,7 @@ function noOperands(node: ts.Node): LeafOperands {
     },
     intOf: () => undefined,
     elementsOf: () => undefined,
+    onStack: () => false,
     isLocal: () => false,
   };
 }
@@ -190,6 +195,9 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
   return {
     plan: (node, operands, hint) =>
       planned(node, () => new LeafEmitter(ctx, opts, node, operands).expr(node, hint)),
+
+    onStack: (node, type, operands) =>
+      planned(node, () => new LeafEmitter(ctx, opts, node, operands).stackObject(node, type)),
 
     // Each element an exact integer of `kind`: its register form, or the double's, as one.
     elements: (node, kind, operands) =>

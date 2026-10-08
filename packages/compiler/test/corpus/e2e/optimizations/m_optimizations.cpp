@@ -710,13 +710,13 @@ lucent::String m_optimizations::stackObjects(double p0_) {
         double v25_ = p->y;
         double v26_ = v23_ + v25_;
         lucent::Ref<lucent_app::S_Object2> v28_ = ({ auto obj_3_ = std::make_shared<lucent_app::S_Object2>(); obj_3_->z = static_cast<double>(i); obj_3_; });
-        lucent::Ref<lucent_app::S_Object3> q = ({ auto obj_2_ = std::make_shared<lucent_app::S_Object3>(); obj_2_->x = v21_; obj_2_->y = v26_; obj_2_->inner = v28_; obj_2_; });
-        double v31_ = q->x;
+        lucent_app::S_Object3 q = ({ lucent_app::S_Object3 obj_2_{}; obj_2_.x = v21_; obj_2_.y = v26_; obj_2_.inner = v28_; std::move(obj_2_); });
+        double v31_ = (&q)->x;
         double v33_ = v31_ * 2.0;
-        q->x = v33_;
-        double v36_ = q->y;
+        (&q)->x = v33_;
+        double v36_ = (&q)->y;
         double v38_ = v36_ + 1.0;
-        q->y = v38_;
+        (&q)->y = v38_;
         bool v44_ = lucent::truthy(lucent::jsMod(static_cast<double>(i), 3.0));
         lucent::Opt<lucent::String> v52_{};
         if (v44_) {
@@ -725,11 +725,11 @@ lucent::String m_optimizations::stackObjects(double p0_) {
           v52_ = lucent::Opt<lucent::String>(lucent::String(LUCENT_STR("p")) + lucent::toJsString(static_cast<double>(i)));
         }
         p->label = v52_;
-        double v56_ = q->x;
-        lucent::Ref<lucent_app::S_Object2> v58_ = q->inner;
+        double v56_ = (&q)->x;
+        lucent::Ref<lucent_app::S_Object2> v58_ = (&q)->inner;
         double v59_ = v58_->z;
         sx = sx + (v56_ + v59_);
-        double v64_ = q->y;
+        double v64_ = (&q)->y;
         sy = sy + v64_;
         lucent::Opt<lucent::String> v67_ = p->label;
         bool v69_ = !lucent::strictEquals(v67_, lucent::undefined);
@@ -737,19 +737,19 @@ lucent::String m_optimizations::stackObjects(double p0_) {
           lucent::String v72_ = p->label.value();
           names += v72_;
         }
-        lucent::Ref<lucent_app::S_Point> copy = ({
-          auto obj_4_ = std::make_shared<lucent_app::S_Point>();
+        lucent_app::S_Point copy = ({
+          lucent_app::S_Point obj_4_{};
           auto src_5_ = p;
-          obj_4_->x = src_5_->x;
-          obj_4_->y = src_5_->y;
+          obj_4_.x = src_5_->x;
+          obj_4_.y = src_5_->y;
           if (!src_5_->label.isUndefined()) {
-            obj_4_->label = src_5_->label;
+            obj_4_.label = src_5_->label;
           }
-          obj_4_->y = 0.0;
-          obj_4_;
+          obj_4_.y = 0.0;
+          std::move(obj_4_);
         });
-        double v79_ = copy->x;
-        double v81_ = copy->y;
+        double v79_ = (&copy)->x;
+        double v81_ = (&copy)->y;
         sy = sy + (v79_ + v81_);
       }
       i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
@@ -775,17 +775,17 @@ lucent::String m_optimizations::heapObjects(double p0_) {
   lucent::Opt<lucent::Ref<lucent_app::S_Point>> v18_ = all.getIndex(static_cast<int64_t>(0));
   bool same = lucent::strictEquals(compared, v18_);
   lucent::Ref<lucent_app::S_Point> spread = ({ auto obj_11_ = std::make_shared<lucent_app::S_Point>(); obj_11_->x = 5.0; obj_11_->y = 5.0; obj_11_; });
-  lucent::Ref<lucent_app::S_Point> copied = ({
-    auto obj_12_ = std::make_shared<lucent_app::S_Point>();
+  lucent_app::S_Point copied = ({
+    lucent_app::S_Point obj_12_{};
     auto src_13_ = spread;
-    obj_12_->x = src_13_->x;
-    obj_12_->y = src_13_->y;
+    obj_12_.x = src_13_->x;
+    obj_12_.y = src_13_->y;
     if (!src_13_->label.isUndefined()) {
-      obj_12_->label = src_13_->label;
+      obj_12_.label = src_13_->label;
     }
-    obj_12_;
+    std::move(obj_12_);
   });
-  copied->x = 6.0;
+  (&copied)->x = 6.0;
   double v29_ = lucent_app::m_optimizations::norm(passed);
   lucent::String v30_ = lucent::toJsString(v29_);
   lucent::Ref<lucent_app::S_Point> v32_ = lucent_app::m_optimizations::made(p0_);
@@ -798,7 +798,7 @@ lucent::String m_optimizations::heapObjects(double p0_) {
   lucent::String v45_ = lucent::toJsString(same);
   double v48_ = spread->x;
   lucent::String v49_ = lucent::toJsString(v48_);
-  double v52_ = copied->x;
+  double v52_ = (&copied)->x;
   lucent::String v53_ = lucent::toJsString(v52_);
   return lucent::concat(v30_, LUCENT_STR(" "), v34_, LUCENT_STR(" "), v38_, LUCENT_STR(" "), v42_, LUCENT_STR(" "), v45_, LUCENT_STR(" "), v49_, LUCENT_STR(" "), v53_);
 }

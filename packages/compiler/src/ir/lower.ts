@@ -140,6 +140,8 @@ export interface LowerHost {
    * counters as int64s.
    */
   integers?(fn: FunctionLike): ReadonlyMap<ts.Symbol, IntKind>;
+  /** The locals of `fn` (not of the functions in it) whose objects live on the stack. */
+  objects?(fn: FunctionLike): ReadonlySet<ts.Symbol>;
 }
 
 /** A nested function's type, and what its parameters are. */
@@ -175,6 +177,8 @@ export interface Leaf {
   int?: { code: unknown; kind: IntKind };
   /** An array of numbers it gives as integer elements of this kind (`LeafHost.elements`). */
   elements?: IntKind;
+  /** An object it gives held on the stack (`LeafHost.onStack`). */
+  onStack?: boolean;
 }
 
 /** The subexpressions of a leaf, lowered before it in evaluation order. */
@@ -188,6 +192,8 @@ export interface LeafOperands {
   intOf(v: ValueId): IntKind | undefined;
   /** The integer kind of the elements `v`, an array, holds as such, if any. */
   elementsOf(v: ValueId): IntKind | undefined;
+  /** Whether `v` is an object held on the stack. */
+  onStack(v: ValueId): boolean;
   /** The function value of `node`, a function the leaf takes, as the type `target` it becomes. */
   closure(node: ts.ArrowFunction | ts.FunctionExpression, target?: LType): ValueId;
   /** The value of the ambient `name` (see `LowerInput.ambient`), here. */
@@ -234,6 +240,11 @@ export interface LeafHost {
    * (emit/integers.ts proves it), as an array holding them as such.
    */
   elements?(node: ts.ArrayLiteralExpression, kind: IntKind, operands: LeafOperands): Leaf;
+  /**
+   * `node`, an object literal of an object type that only its local's field
+   * reads and writes see (emit/stack-objects.ts), as the object itself.
+   */
+  onStack?(node: ts.ObjectLiteralExpression, type: LType, operands: LeafOperands): Leaf;
   /** `value`, a `from`, as a `to`, where `convert` does not apply (an interface, a function's shape…). */
   convert(value: ValueId, from: LType, to: LType, node: ts.Node): Leaf;
   /** The place `target` names (a field, an element…), what it takes lowered as operands. */
@@ -1111,7 +1122,11 @@ class Lowerer {
       const value =
         elements && d.initializer && ts.isArrayLiteralExpression(d.initializer)
           ? this.integerArray(d.initializer, elements)
-          : d.initializer && this.coerce(this.expr(d.initializer, type), type, d.initializer);
+          : this.isOnStack(sym, type, boxed) &&
+              d.initializer &&
+              ts.isObjectLiteralExpression(d.initializer)
+            ? this.stackObject(d.initializer, type)
+            : d.initializer && this.coerce(this.expr(d.initializer, type), type, d.initializer);
       const place = early ?? this.declareLocal(sym, d.name.text, type, d);
 
       if (value !== undefined) this.b.store(place, value, spanOf(d));
@@ -1614,6 +1629,7 @@ class Lowerer {
       typeOf: (v) => this.b.typeOf(v),
       intOf: (v) => this.b.intOf(v),
       elementsOf: (v) => this.b.elementsOf(v),
+      onStack: (v) => this.b.onStack(v),
       isLocal: (sym) => this.variableOf(sym) !== undefined,
     };
 
@@ -1624,8 +1640,16 @@ class Lowerer {
   planOf(leaf: Leaf, args: ValueId[], span: SourceSpan): ValueId {
     const result = isVoidish(leaf.type) ? undefined : leaf.type;
     const v =
-      this.b.plan(leaf.name, leaf.code, args, result, span, leaf.int, leaf.elements) ??
-      this.nothing(leaf.type, span);
+      this.b.plan(
+        leaf.name,
+        leaf.code,
+        args,
+        result,
+        span,
+        leaf.int,
+        leaf.elements,
+        leaf.onStack,
+      ) ?? this.nothing(leaf.type, span);
 
     this.planned.add(v);
     return v;
@@ -1793,7 +1817,8 @@ class Lowerer {
     // A number local every write of which is an exact integer lives in an integer register.
     const int = !boxed && type.k === "number" ? this.integers().get(sym) : undefined;
     const elements = this.elementsOf(sym, type, boxed);
-    const place = this.b.local(name, type, spanOf(node), boxed, int, undefined, elements);
+    const onStack = this.isOnStack(sym, type, boxed);
+    const place = this.b.local(name, type, spanOf(node), boxed, int, undefined, elements, onStack);
 
     this.locals.set(sym, place);
     this.localTypes.set(place, type);
@@ -1820,6 +1845,35 @@ class Lowerer {
 
     return this.planOf(
       { ...host.elements(node, kind, operands), elements: kind },
+      args,
+      spanOf(node),
+    );
+  }
+
+  /** Whether the local `sym`, of an object type, holds its object on the stack. */
+  isOnStack(sym: ts.Symbol, type: LType, boxed: boolean): boolean {
+    if (boxed || type.k !== "struct") return false;
+
+    const d = this.input.decl;
+
+    this.stack ??=
+      ts.isSourceFile(d) || ts.isClassLike(d) ? new Set() : (this.host.objects?.(d) ?? new Set());
+
+    return this.stack.has(sym);
+  }
+
+  private stack?: ReadonlySet<ts.Symbol>;
+
+  /** `node`, the object literal a local on the stack starts as, as the object itself. */
+  stackObject(node: ts.ObjectLiteralExpression, type: LType): ValueId {
+    const host = this.host.leaves;
+
+    if (!host?.onStack) this.unsupported(node, "objects on the stack");
+
+    const { operands, args } = this.operands();
+
+    return this.planOf(
+      { ...host.onStack(node, type, operands), onStack: true },
       args,
       spanOf(node),
     );

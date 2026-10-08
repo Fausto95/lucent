@@ -64,6 +64,11 @@ export interface IrValue {
    * kind, held as such (emit/integers.ts proves it): only plans use it.
    */
   elements?: IntKind;
+  /**
+   * An object held on the stack, which only its local's field reads and
+   * writes see (emit/stack-objects.ts proves it): only plans use it.
+   */
+  onStack?: boolean;
 }
 
 /** A module variable the function reads or writes: a place declared outside its body. */
@@ -181,6 +186,8 @@ export type IrOp =
       int?: IntKind;
       /** An array of numbers whose every element is an exact integer of this kind, held as such. */
       elements?: IntKind;
+      /** An object held on the stack: the local is the object itself. */
+      onStack?: boolean;
       source: SourceSpan;
     }
   | { kind: "load"; result: ValueId; place: PlaceId; source: SourceSpan }

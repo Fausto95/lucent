@@ -86,6 +86,8 @@ export function lowerToCpp(
 export interface CppBackend {
   cppType(t: LType): cpp.Type;
   cppRetType(t: LType): cpp.Type;
+  /** An object of the object type `t` itself, which a local on the stack holds. */
+  objectType?(t: LType): cpp.Type;
   /** The function name the Errors it creates record as their site. */
   site: string;
   /** Statements the function's body starts with (a method coroutine's `self`). */
@@ -843,11 +845,23 @@ class Emitter {
     this.exprs.set(v, cpp.id(name));
   }
 
-  /** The C++ type of `v`: its type's, or an array of integer elements' (`elements`). */
+  /** The C++ type of `v`: its type's, an array of integer elements' (`elements`), or an object's. */
   valueType(v: ValueId): cpp.Type {
     const value = this.fn.values[v]!;
 
-    return value.elements ? integerArray(value.elements) : this.backend.cppType(value.type);
+    if (value.elements) return integerArray(value.elements);
+
+    return value.onStack ? this.objectType(value.type) : this.backend.cppType(value.type);
+  }
+
+  /** The places holding objects on the stack. */
+  readonly stackPlaces = new Set<number>();
+
+  /** The C++ type of an object of the object type `t` itself (an object on the stack). */
+  objectType(t: LType): cpp.Type {
+    if (!this.backend.objectType) throw new Error("internal: no objects on the stack here");
+
+    return this.backend.objectType(t);
   }
 
   /**
@@ -1071,9 +1085,13 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
       ? cpp.type(INT_CPP[op.int])
       : op.elements
         ? integerArray(op.elements)
-        : boxOf(e.backend.cppType(op.type), op.boxed);
+        : op.onStack
+          ? e.objectType(op.type)
+          : boxOf(e.backend.cppType(op.type), op.boxed);
 
     e.declarePlace(op.place, name, op.boxed, op.int);
+
+    if (op.onStack) e.stackPlaces.add(op.place);
 
     // Declared where it is first stored, as `T x = v;` (or `lucent::Box<T> x(v);`).
     if (next?.kind === "store" && next.place === op.place) return;
@@ -1084,7 +1102,9 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
   load: (op, e) => {
     const int = e.placeInt(op.place);
 
-    if (int && e.aliased(op.result)) e.inlineInt(op.result, e.place(op.place));
+    // An object on the stack is its variable: each read sees the object, as a reference would.
+    if (e.stackPlaces.has(op.place)) e.inline(op.result, e.place(op.place));
+    else if (int && e.aliased(op.result)) e.inlineInt(op.result, e.place(op.place));
     else if (int) e.defineInt(op, op.result, e.place(op.place));
     else if (e.aliased(op.result)) e.inline(op.result, e.read(op.place));
     else e.define(op, op.result, e.read(op.place));
@@ -1108,7 +1128,9 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
         ? cpp.type(INT_CPP[int])
         : prev.elements
           ? integerArray(prev.elements)
-          : boxOf(e.backend.cppType(prev.type), prev.boxed);
+          : prev.onStack
+            ? e.objectType(prev.type)
+            : boxOf(e.backend.cppType(prev.type), prev.boxed);
       const style = prev.boxed ? { style: "construct" as const } : {};
       const value = int ? e.stored(op.value, int) : e.taken(op.value);
 
