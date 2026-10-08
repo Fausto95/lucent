@@ -65,20 +65,20 @@ using namespace lucent::js;
 void install_m_exported_u2d_objects(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "ping", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("ping", "packages/compiler/test/e2e/cases/exported-objects.lucent.ts", 12), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("ping", "packages/compiler/test/e2e/cases/exported-objects.lucent.ts", 12), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"ping", "argument 'n'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_exported_u2d_objects::ping(std::move(a0)));
     });
   });
   defineAccessor(rt, exports, "pings", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return Convert<lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(double)>>>>::toJs(rt, host, lucent_app::m_exported_u2d_objects::pings);
     });
   }, nullptr);
   defineAccessor(rt, exports, "settings", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return host.exported(rt, lucent_app::m_exported_u2d_objects::settings, [&]() -> jsi::Value {
         return Convert<lucent::Ref<lucent_app::S_Settings>>::toJs(rt, host, lucent_app::m_exported_u2d_objects::settings);
       });
@@ -87,7 +87,7 @@ void install_m_exported_u2d_objects(jsi::Runtime& rt, Host& host, jsi::Object& e
   exports.setProperty(rt, "limit", Convert<double>::toJs(rt, host, lucent_app::m_exported_u2d_objects::limit));
 }
 
-const ModuleDef kModules[] = {{"exported-objects", install_m_exported_u2d_objects}};
+const ModuleDef kModules[] = {{"exported-objects", install_m_exported_u2d_objects, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -99,7 +99,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_exported_u2d_objects::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_exported_u2d_objects::init();
+  }
 }
 
 }  // namespace lucent::js

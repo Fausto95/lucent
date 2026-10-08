@@ -247,7 +247,7 @@ static double observeRun(std::tuple<Spy*>&& in, TaskContext& task) {
   Spy* spy = std::get<0>(in);
 
   spy->context = ExecutionContext::current();
-  spy->heldLock = Scheduler::lock().heldByCurrentThread();
+  spy->heldLock = Actor::shared().lock().heldByCurrentThread();
   spy->hadTask = TaskContext::current() == &task;
   spy->ran++;
 
@@ -507,14 +507,14 @@ static void resultsReturnToTheOwner() {
   CHECK(observed->fulfilled && observed->onOwner);
 
   ExecutionContext* worker = spy.context;
-  CHECK(worker && worker != owner.get() && worker != &ExecutionContext::legacy() && worker != &ExecutionContext::main());
+  CHECK(worker && worker != owner.get() && worker != &Actor::shared() && worker != &ExecutionContext::main());
   CHECK(!spy.heldLock && spy.hadTask);
 
   // The task's scope ended on its worker before the result left it.
   CHECK(spy.cleaned == 1 && spy.cleanedOn == worker);
 
   // From module code, the result comes back to the module context.
-  auto fromModule = watch<double>(ExecutionContext::legacy(), [] { return compute(square, std::make_tuple(4.0)); });
+  auto fromModule = watch<double>(Actor::shared(), [] { return compute(square, std::make_tuple(4.0)); });
   CHECK(settles(fromModule));
   CHECK(fromModule->fulfilled && fromModule->value == 16 && fromModule->onOwner);
 
@@ -748,32 +748,41 @@ static void aDisposedScopeReleasesTheResult() {
 
   // Released on the worker, never delivered to the owner.
   ExecutionContext* on = Probe::releasedOn;
-  CHECK(on && on != owner.get() && on != &ExecutionContext::legacy());
+  CHECK(on && on != owner.get() && on != &Actor::shared());
 
   pool->shutdown();
   owner->shutdown();
 }
 
+/// A JavaScript runtime as module code sees it: one scope for its work.
+struct FakeRuntime : RuntimeWork {
+  std::shared_ptr<Scope> scope;
+
+  std::shared_ptr<Scope> scopeFor(ExecutionContext&) override { return scope; }
+  bool live() const override { return scope->state() == Scope::State::Active; }
+};
+
 /// Module code submits tasks under the scope of the JavaScript runtime its
 /// modules run for: tearing that runtime down (a reload) cancels them, and
 /// its code starts no more.
 static void tasksBelongToTheModuleScope() {
-  // No runtime attached: the legacy module context's root.
-  CHECK(moduleScope() == ExecutionContext::legacy().root());
+  // No runtime attached: the shared actor's root.
+  CHECK(moduleScope() == Actor::shared().root());
 
   auto owner = IsolatedContext::create();
   auto pool = ComputePool::create({.workers = 1});
   Gate gate;
   int released = Probe::released;
 
-  auto runtime = inside(*owner, [&] { return Scope::create(0, owner->root()); });
-  setModuleScope(runtime);
-  CHECK(moduleScope() == runtime);
+  auto runtime = std::make_shared<FakeRuntime>();
+  runtime->scope = inside(*owner, [&] { return Scope::create(0, owner->root()); });
+  attachRuntime(9001, runtime);
+  CHECK(moduleScope() == runtime->scope);
 
   auto running = watch<Ref<Probe>>(*owner, [&] { return compute(makeProbe, std::make_tuple(&gate), {.scope = moduleScope(), .pool = pool}); });
   CHECK(within(2000, [&] { return gate.arrived.load() == 1; }));
 
-  inside(*owner, [&] { runtime->dispose(); });
+  inside(*owner, [&] { runtime->scope->dispose(); });
 
   CHECK(settles(running) && running->error == "AbortError");
 
@@ -789,9 +798,70 @@ static void tasksBelongToTheModuleScope() {
 
   CHECK(settles(late) && late->error == "AbortError" && spy.ran == 0);
 
-  setModuleScope(nullptr);
-  CHECK(moduleScope() == ExecutionContext::legacy().root());
+  detachRuntime(9001);
+  CHECK(moduleScope() == Actor::shared().root());
 
+  pool->shutdown();
+  owner->shutdown();
+}
+
+/// Two runtimes at once (two React Native instances): work belongs to the
+/// runtime whose call started it, so tearing one down leaves the other's
+/// work running, whichever was attached last.
+static void tearingOneRuntimeDownSparesAnother() {
+  auto owner = IsolatedContext::create();
+  auto pool = ComputePool::create({.workers = 2});
+  Gate gate;
+
+  auto first = std::make_shared<FakeRuntime>();
+  auto second = std::make_shared<FakeRuntime>();
+  first->scope = inside(*owner, [&] { return Scope::create(9101, owner->root()); });
+  second->scope = inside(*owner, [&] { return Scope::create(9102, owner->root()); });
+  attachRuntime(9101, first);
+  attachRuntime(9102, second);
+
+  // The last attached is the default; a call for the first runs for it.
+  CHECK(moduleScope() == second->scope);
+  {
+    RuntimeEntry entry(9101);
+    CHECK(currentRuntime() == 9101 && moduleScope() == first->scope);
+  }
+
+  // What a turn posted for the first runtime runs for it too.
+  auto forFirst = watch<double>(*owner, [&] {
+    RuntimeEntry entry(9101);
+    return compute(meet, std::make_tuple(&gate, 2.0), {.scope = moduleScope(), .pool = pool});
+  });
+  auto forSecond = watch<double>(*owner, [&] { return compute(meet, std::make_tuple(&gate, 2.0), {.scope = moduleScope(), .pool = pool}); });
+
+  bool posted = false;
+  {
+    RuntimeEntry entry(9101);
+    posted = owner->post([&] { CHECK(currentRuntime() == 9101 && moduleScope() == first->scope); });
+  }
+  CHECK(posted && owner->waitIdle(2000));
+
+  CHECK(settles(forFirst) && forFirst->fulfilled && settles(forSecond) && forSecond->fulfilled);
+
+  // The second runtime goes (a reload of it): the first's work goes on.
+  auto running = watch<Ref<Probe>>(*owner, [&] {
+    RuntimeEntry entry(9101);
+    return compute(makeProbe, std::make_tuple(&gate), {.scope = moduleScope(), .pool = pool});
+  });
+  inside(*owner, [&] { second->scope->dispose(); });
+  detachRuntime(9102);
+
+  CHECK(moduleScope() == first->scope);
+  gate.open = true;
+  CHECK(settles(running) && running->fulfilled);
+
+  // A thread running for a runtime that is gone starts nothing for it.
+  {
+    RuntimeEntry entry(9102);
+    CHECK(moduleScope()->state() != Scope::State::Active);
+  }
+
+  detachRuntime(9101);
   pool->shutdown();
   owner->shutdown();
 }
@@ -1031,6 +1101,7 @@ int main() {
   inputsAreSnapshots();
   aDisposedScopeReleasesTheResult();
   tasksBelongToTheModuleScope();
+  tearingOneRuntimeDownSparesAnother();
   anOwnerShutDownDropsTheResult();
   shutdownSettlesEveryTask();
 

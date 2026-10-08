@@ -33,52 +33,52 @@ using namespace lucent::js;
 void install_m_lone_u2d_surrogates(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "lengths", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("lengths", "packages/compiler/test/e2e/cases/lone-surrogates.lucent.ts", 14), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("lengths", "packages/compiler/test/e2e/cases/lone-surrogates.lucent.ts", 14), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_lone_u2d_surrogates::lengths());
     });
   });
   defineFunction(rt, exports, "units", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("units", "packages/compiler/test/e2e/cases/lone-surrogates.lucent.ts", 18), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("units", "packages/compiler/test/e2e/cases/lone-surrogates.lucent.ts", 18), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_lone_u2d_surrogates::units());
     });
   });
   defineFunction(rt, exports, "comparisons", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("comparisons", "packages/compiler/test/e2e/cases/lone-surrogates.lucent.ts", 24), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("comparisons", "packages/compiler/test/e2e/cases/lone-surrogates.lucent.ts", 24), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_lone_u2d_surrogates::comparisons());
     });
   });
   defineFunction(rt, exports, "templated", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("templated", "packages/compiler/test/e2e/cases/lone-surrogates.lucent.ts", 38), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("templated", "packages/compiler/test/e2e/cases/lone-surrogates.lucent.ts", 38), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"templated", "argument 'n'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_lone_u2d_surrogates::templated(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "stringified", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("stringified", "packages/compiler/test/e2e/cases/lone-surrogates.lucent.ts", 42), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("stringified", "packages/compiler/test/e2e/cases/lone-surrogates.lucent.ts", 42), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_lone_u2d_surrogates::stringified());
     });
   });
   defineFunction(rt, exports, "echo", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("echo", "packages/compiler/test/e2e/cases/lone-surrogates.lucent.ts", 46), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("echo", "packages/compiler/test/e2e/cases/lone-surrogates.lucent.ts", 46), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"echo", "argument 's'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_lone_u2d_surrogates::echo(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "same", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("same", "packages/compiler/test/e2e/cases/lone-surrogates.lucent.ts", 50), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("same", "packages/compiler/test/e2e/cases/lone-surrogates.lucent.ts", 50), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"same", "argument 's'"});
       return Convert<bool>::toJs(rt, host, lucent_app::m_lone_u2d_surrogates::same(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"lone-surrogates", install_m_lone_u2d_surrogates}};
+const ModuleDef kModules[] = {{"lone-surrogates", install_m_lone_u2d_surrogates, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -90,7 +90,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_lone_u2d_surrogates::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_lone_u2d_surrogates::init();
+  }
 }
 
 }  // namespace lucent::js

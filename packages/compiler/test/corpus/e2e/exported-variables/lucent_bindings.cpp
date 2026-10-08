@@ -69,26 +69,26 @@ using namespace lucent::js;
 void install_m_exported_u2d_variables(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "bump", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("bump", "packages/compiler/test/e2e/cases/exported-variables.lucent.ts", 10), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("bump", "packages/compiler/test/e2e/cases/exported-variables.lucent.ts", 10), [&]() -> jsi::Value {
       return Convert<double>::toJs(rt, host, lucent_app::m_exported_u2d_variables::bump());
     });
   });
   defineFunction(rt, exports, "grow", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("grow", "packages/compiler/test/e2e/cases/exported-variables.lucent.ts", 15), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("grow", "packages/compiler/test/e2e/cases/exported-variables.lucent.ts", 15), [&]() -> jsi::Value {
       lucent_app::m_exported_u2d_variables::grow();
       return jsi::Value::undefined();
     });
   });
   defineAccessor(rt, exports, "count", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return Convert<double>::toJs(rt, host, lucent_app::m_exported_u2d_variables::count);
     });
   }, nullptr);
   defineAccessor(rt, exports, "config", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return host.exported(rt, lucent_app::m_exported_u2d_variables::config, [&]() -> jsi::Value {
         return Convert<lucent::Ref<lucent_app::S_Config>>::toJs(rt, host, lucent_app::m_exported_u2d_variables::config);
       });
@@ -96,7 +96,7 @@ void install_m_exported_u2d_variables(jsi::Runtime& rt, Host& host, jsi::Object&
   }, nullptr);
   defineAccessor(rt, exports, "list", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return host.exported(rt, lucent_app::m_exported_u2d_variables::list, [&]() -> jsi::Value {
         return Convert<lucent::Array<double>>::toJs(rt, host, lucent_app::m_exported_u2d_variables::list);
       });
@@ -105,7 +105,7 @@ void install_m_exported_u2d_variables(jsi::Runtime& rt, Host& host, jsi::Object&
   exports.setProperty(rt, "limit", Convert<double>::toJs(rt, host, lucent_app::m_exported_u2d_variables::limit));
 }
 
-const ModuleDef kModules[] = {{"exported-variables", install_m_exported_u2d_variables}};
+const ModuleDef kModules[] = {{"exported-variables", install_m_exported_u2d_variables, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -117,7 +117,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_exported_u2d_variables::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_exported_u2d_variables::init();
+  }
 }
 
 }  // namespace lucent::js

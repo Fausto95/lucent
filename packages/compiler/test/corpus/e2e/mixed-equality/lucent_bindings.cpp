@@ -44,67 +44,67 @@ using namespace lucent::js;
 void install_m_mixed_u2d_equality(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "literals", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("literals", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 88), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("literals", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 88), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_mixed_u2d_equality::literals());
     });
   });
   defineFunction(rt, exports, "primitives", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("primitives", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 109), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("primitives", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 109), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_mixed_u2d_equality::primitives());
     });
   });
   defineFunction(rt, exports, "optionals", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("optionals", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 122), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("optionals", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 122), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_mixed_u2d_equality::optionals());
     });
   });
   defineFunction(rt, exports, "unions", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("unions", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 139), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("unions", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 139), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_mixed_u2d_equality::unions());
     });
   });
   defineFunction(rt, exports, "objects", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("objects", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 153), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("objects", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 153), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_mixed_u2d_equality::objects());
     });
   });
   defineFunction(rt, exports, "declared", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("declared", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 176), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("declared", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 176), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_mixed_u2d_equality::declared());
     });
   });
   defineFunction(rt, exports, "absents", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("absents", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 196), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("absents", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 196), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_mixed_u2d_equality::absents());
     });
   });
   defineFunction(rt, exports, "cases", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("cases", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 209), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("cases", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 209), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_mixed_u2d_equality::cases());
     });
   });
   defineFunction(rt, exports, "searches", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("searches", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 224), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("searches", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 224), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_mixed_u2d_equality::searches());
     });
   });
   defineFunction(rt, exports, "keys", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("keys", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 239), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("keys", "packages/compiler/test/e2e/cases/mixed-equality.lucent.ts", 239), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_mixed_u2d_equality::keys());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"mixed-equality", install_m_mixed_u2d_equality}};
+const ModuleDef kModules[] = {{"mixed-equality", install_m_mixed_u2d_equality, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -116,7 +116,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_mixed_u2d_equality::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_mixed_u2d_equality::init();
+  }
 }
 
 }  // namespace lucent::js

@@ -6,10 +6,12 @@
 // cache. JSI values may only be touched on the JS thread, so native code
 // refers to them by id and hops to the JS thread to use them.
 //
-// Work for a runtime belongs to its host's scope, and ends with the host:
-// torn down (a reload, the runtime's end), the host disposes its scope,
-// drops what it posted that has not run, and releases what that carried on
-// the legacy module context.
+// Work for a runtime belongs to its host's scopes (one per actor), and ends
+// with the host: torn down (a reload, the runtime's end), the host disposes
+// them, drops what it posted that has not run, and releases what that
+// carried on the actor that posted it. Two runtimes at once (two React
+// Native instances) each have a host, and neither's teardown touches the
+// other's work.
 #pragma once
 
 #include <jsi/jsi.h>
@@ -52,15 +54,21 @@ struct PropName {
 };
 
 /// One Lucent module as seen from JavaScript: fills `exports` with the
-/// module's functions, classes and constants.
+/// module's functions, classes and constants, holding the module's actor
+/// (the shared actor if none).
 struct ModuleDef {
   const char* name;
   void (*install)(jsi::Runtime& rt, Host& host, jsi::Object& exports);
+  Actor& (*actor)() = nullptr;
 };
 
 /// Implemented by generated code: the modules of this app.
 const ModuleDef* registeredModules(size_t& count);
-/// Implemented by generated code: resets module-level state for a new runtime.
+/// Implemented by generated code: resets module-level state, holding each
+/// module's actor. Module state is the process's: Host::create resets it
+/// only when no other runtime is there (the first runtime, a reload), so a
+/// second React Native instance shares it rather than resetting it under
+/// the first.
 void resetModuleState();
 /// Implemented by generated code: the JS object of `e` when it is an
 /// instance of a Lucent class that extends Error (its class's prototype,
@@ -96,7 +104,7 @@ const BuildIdentity& buildIdentity();
 /// The name JavaScript reads the build identity by, next to the modules.
 inline constexpr const char* kIdentityName = "__lucentIdentity";
 
-class Host : public std::enable_shared_from_this<Host> {
+class Host : public std::enable_shared_from_this<Host>, public RuntimeWork {
  public:
   /// Creates the host for `rt`. Call on the JS thread. A runtime has one
   /// host: one it had already is torn down (invalidate) and replaced.
@@ -118,20 +126,26 @@ class Host : public std::enable_shared_from_this<Host> {
   bool onJsThread() const { return std::this_thread::get_id() == jsThread_; }
   bool alive() const { return alive_.load(); }
 
-  /// The root of the work done for this runtime, under the legacy module
-  /// context's root scope: disposed there when the host is torn down,
-  /// cancelling its operations and running its cleanups.
+  /// The root of the work done for this runtime on the shared actor, under
+  /// its root scope: disposed when the host is torn down, cancelling its
+  /// operations and running its cleanups there.
   const std::shared_ptr<Scope>& scope() const { return scope_; }
+
+  /// The root of the work done for this runtime on `actor` (RuntimeWork):
+  /// made on first use, disposed with the others. Any thread.
+  std::shared_ptr<Scope> scopeFor(ExecutionContext& actor) override;
+  bool live() const override { return alive(); }
 
   /// Runs `task` on the JS thread unless the host is torn down first. A
   /// task that never runs (the host torn down, or the poster dropped it)
-  /// is released on the legacy module context, after `dropped` runs there.
-  /// False if the host was already torn down.
+  /// is released on the calling actor (the shared one outside any), after
+  /// `dropped` runs there. False if the host was already torn down.
   bool postToJs(JsTask task, Job dropped = nullptr);
 
-  /// Runs `job` as a turn of the legacy module context unless the host is
-  /// torn down before it starts; dropped, it is released there.
-  void postToModule(Job job);
+  /// Runs `job` as a turn of `actor` unless the host is torn down before it
+  /// starts; dropped, it is released there.
+  void postToModule(Actor& actor, Job job);
+  void postToModule(Job job) { postToModule(Actor::shared(), std::move(job)); }
 
   /// Tears the host down, on the JS thread while its runtime is usable:
   /// the JS promises it owes reject with an AbortError, then its scope is
@@ -254,6 +268,9 @@ class Host : public std::enable_shared_from_this<Host> {
   std::thread::id jsThread_;
   std::atomic<bool> alive_{true};
   const std::shared_ptr<Scope> scope_;
+  /// Each actor's scope (the shared actor's is scope_).
+  mutable std::mutex scopesMutex_;
+  std::unordered_map<const ExecutionContext*, std::shared_ptr<Scope>> scopes_;
   const std::shared_ptr<std::atomic<size_t>> inFlight_ = std::make_shared<std::atomic<size_t>>(0);
   uint64_t nextId_ = 1;
   std::unordered_map<uint64_t, Resolvers> promises_;

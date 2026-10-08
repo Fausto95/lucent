@@ -55,8 +55,6 @@ generated from this file.
 - Absolute children of a padded component follow React Native's
   padding-box rule relative to the slot. A fixed-size slot inside a
   component sized by its children is bounded at three reports.
-- With two React Native runtimes alive at once, requests are answered to
-  the runtime that connected last.
 - Helper view functions take plain data and scalar callbacks only: no
   toolkit values, children, lists or bindings inside a helper.
 - SwiftUI: a static value named like a method (`Animation.easeInOut`) is
@@ -108,7 +106,14 @@ Array(n)` without a whole `.fill(v)`, even when each index is then
   fields, and native throws `DataCloneError` for a subclass instance
   behind a base type. An abort that lands after the task ran but before
   the promise settled rejects natively and resolves in JavaScript.
-- Module state is process-wide and reset when a new `Host` is created.
+- Module state is process-wide: two runtimes alive at once share it. A
+  new `Host` resets it only while no other runtime is live. A reload
+  whose old runtime is still live keeps it.
+- A delegate that must answer on the main thread waits for the job that
+  holds its package's actor. Calls that nest two packages' actors in a
+  cycle throw `Lucent: deadlock` rather than hang. The actors' iOS and
+  Android glue has run only through the host tests, not on a device
+  ([T64](tasks.md#t64)).
 - `null` and `undefined` from JavaScript are told apart for arguments,
   setter values and object fields only. Inside arrays, maps, sets,
   records, tuples, callback results and promise values, a `T | undefined`

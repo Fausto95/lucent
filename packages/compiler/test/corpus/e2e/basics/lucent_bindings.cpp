@@ -31,7 +31,7 @@ using namespace lucent::js;
 void install_m_basics(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "hash", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("hash", "packages/compiler/test/e2e/cases/basics.lucent.ts", 1), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("hash", "packages/compiler/test/e2e/cases/basics.lucent.ts", 1), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"hash", "argument 'input'"});
       auto a1 = optionalFromJs<double>(rt, arg(args, count, 1), Path{"hash", "argument 'seed'"}, false, "a number or undefined");
       return Convert<double>::toJs(rt, host, lucent_app::m_basics::hash(std::move(a0), std::move(a1)));
@@ -39,16 +39,16 @@ void install_m_basics(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "hashMany", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<lucent::String>>::fromJs(rt, arg(args, count, 0), Path{"hashMany", "argument 'inputs'"});
-      return callAsync<lucent::Array<double>>(rt, host, LUCENT_TRACE_SITE_AT("hashMany", "packages/compiler/test/e2e/cases/basics.lucent.ts", 10), [a0]() {
+      return callAsync<lucent::Array<double>>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("hashMany", "packages/compiler/test/e2e/cases/basics.lucent.ts", 10), [a0]() {
         return lucent_app::m_basics::hashMany(a0);
       });
     });
   });
   defineFunction(rt, exports, "clamp", 3, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("clamp", "packages/compiler/test/e2e/cases/basics.lucent.ts", 14), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("clamp", "packages/compiler/test/e2e/cases/basics.lucent.ts", 14), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"clamp", "argument 'v'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"clamp", "argument 'lo'"});
       auto a2 = Convert<double>::fromJs(rt, arg(args, count, 2), Path{"clamp", "argument 'hi'"});
@@ -57,14 +57,14 @@ void install_m_basics(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "describe", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("describe", "packages/compiler/test/e2e/cases/basics.lucent.ts", 18), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("describe", "packages/compiler/test/e2e/cases/basics.lucent.ts", 18), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"describe", "argument 'n'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_basics::describe(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"basics", install_m_basics}};
+const ModuleDef kModules[] = {{"basics", install_m_basics, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -76,7 +76,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_basics::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_basics::init();
+  }
 }
 
 }  // namespace lucent::js

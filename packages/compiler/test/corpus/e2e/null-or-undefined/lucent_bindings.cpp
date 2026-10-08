@@ -161,70 +161,70 @@ using namespace lucent::js;
 void install_m_null_u2d_or_u2d_undefined(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "label", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("label", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 3), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("label", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 3), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<lucent::String>(rt, arg(args, count, 0), Path{"label", "argument 'name'"}, false, "a string or undefined");
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_null_u2d_or_u2d_undefined::label(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "opt", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("opt", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 7), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("opt", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 7), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<lucent::String>(rt, arg(args, count, 0), Path{"opt", "argument 'name'"}, false, "a string or undefined");
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_null_u2d_or_u2d_undefined::opt(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "orNull", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("orNull", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 11), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("orNull", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 11), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<lucent::String>(rt, arg(args, count, 0), Path{"orNull", "argument 'name'"}, true, "a string or null");
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_null_u2d_or_u2d_undefined::orNull(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "both", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("both", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 15), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("both", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 15), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Opt<lucent::String>>::fromJs(rt, arg(args, count, 0), Path{"both", "argument 'name'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_null_u2d_or_u2d_undefined::both(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "field", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("field", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 21), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("field", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 21), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_Note>>::fromJs(rt, arg(args, count, 0), Path{"field", "argument 'r'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_null_u2d_or_u2d_undefined::field(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "unset", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("unset", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 31), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("unset", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 31), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_Unset>>::fromJs(rt, arg(args, count, 0), Path{"unset", "argument 'o'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_null_u2d_or_u2d_undefined::unset(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "nulled", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("nulled", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 35), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("nulled", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 35), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_Unset>>::fromJs(rt, arg(args, count, 0), Path{"nulled", "argument 'o'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_null_u2d_or_u2d_undefined::nulled(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "pairNull", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("pairNull", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 39), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("pairNull", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 39), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_Pair>>::fromJs(rt, arg(args, count, 0), Path{"pairNull", "argument 'p'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_null_u2d_or_u2d_undefined::pairNull(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "pairUndefined", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("pairUndefined", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 43), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("pairUndefined", "packages/compiler/test/e2e/cases/null-or-undefined.lucent.ts", 43), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_Pair>>::fromJs(rt, arg(args, count, 0), Path{"pairUndefined", "argument 'p'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_null_u2d_or_u2d_undefined::pairUndefined(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"null-or-undefined", install_m_null_u2d_or_u2d_undefined}};
+const ModuleDef kModules[] = {{"null-or-undefined", install_m_null_u2d_or_u2d_undefined, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -236,7 +236,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_null_u2d_or_u2d_undefined::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_null_u2d_or_u2d_undefined::init();
+  }
 }
 
 }  // namespace lucent::js

@@ -97,7 +97,7 @@ struct PromiseState : std::enable_shared_from_this<PromiseState<T>> {
   }
 
   /// Runs `f` once settled, as a microtask of the calling thread's context
-  /// (the legacy module context outside any).
+  /// (the shared actor outside any).
   void onSettled(std::function<void()> f) {
     Waiter waiter{ExecutionContext::currentRef(), std::move(f)};
 
@@ -115,7 +115,7 @@ struct PromiseState : std::enable_shared_from_this<PromiseState<T>> {
   }
 
  private:
-  bool onOwner() const { return owner ? owner->isCurrent() : Scheduler::lock().heldByCurrentThread(); }
+  bool onOwner() const { return ExecutionContext::of(owner).isCurrent(); }
 
   /// Dropped, with what it carries, if the owner has shut down.
   void toOwner(Job job) { ExecutionContext::of(owner).post(std::move(job)); }

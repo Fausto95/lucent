@@ -192,7 +192,9 @@ class ComputeTask : public std::enable_shared_from_this<ComputeTask> {
   /// Records a delivered outcome (on the owner).
   void delivered(OperationState outcome);
 
-  /// Ends the run: disposes the task's scope, notes the time.
+  /// Ends the run: disposes the task's scope, notes the time, and counts
+  /// the task finished (before its outcome is posted, so whoever sees the
+  /// outcome sees the count).
   void finishRun();
 
   /// Tracing: ends the span of the phase `ended` and begins `next`'s (none:
@@ -223,6 +225,9 @@ class ComputeTask : public std::enable_shared_from_this<ComputeTask> {
 
   /// Guarded by the pool's lock.
   enum class Place : uint8_t { None, Queued, Assigned } place_ = Place::None;
+
+  /// The pool running it, while it runs (which keeps the pool alive).
+  ComputePool* runningOn_ = nullptr;
 };
 
 template <class In, class Out>
@@ -361,6 +366,9 @@ class ComputePool : public std::enable_shared_from_this<ComputePool> {
   std::function<void()> admit(const std::shared_ptr<detail::ComputeTask>& task, const AbortSignal& signal);
 
  private:
+  // Counts a task finished as its run ends (finishRun).
+  friend class detail::ComputeTask;
+
   explicit ComputePool(Options options);
 
   using TaskRef = std::shared_ptr<detail::ComputeTask>;

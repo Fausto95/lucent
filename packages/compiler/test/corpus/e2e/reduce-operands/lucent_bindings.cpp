@@ -67,7 +67,7 @@ using namespace lucent::js;
 void install_m_reduce_u2d_operands(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "fromField", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("fromField", "packages/compiler/test/e2e/cases/reduce-operands.lucent.ts", 3), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("fromField", "packages/compiler/test/e2e/cases/reduce-operands.lucent.ts", 3), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<double>>::fromJs(rt, arg(args, count, 0), Path{"fromField", "argument 'xs'"});
       auto a1 = Convert<lucent::Ref<lucent_app::S_Object_56857356>>::fromJs(rt, arg(args, count, 1), Path{"fromField", "argument 'o'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_reduce_u2d_operands::fromField(std::move(a0), std::move(a1)));
@@ -75,20 +75,20 @@ void install_m_reduce_u2d_operands(jsi::Runtime& rt, Host& host, jsi::Object& ex
   });
   defineFunction(rt, exports, "order", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("order", "packages/compiler/test/e2e/cases/reduce-operands.lucent.ts", 13), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("order", "packages/compiler/test/e2e/cases/reduce-operands.lucent.ts", 13), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_reduce_u2d_operands::order());
     });
   });
   defineFunction(rt, exports, "initialArray", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("initialArray", "packages/compiler/test/e2e/cases/reduce-operands.lucent.ts", 19), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("initialArray", "packages/compiler/test/e2e/cases/reduce-operands.lucent.ts", 19), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<lucent::String>>::fromJs(rt, arg(args, count, 0), Path{"initialArray", "argument 'xs'"});
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_reduce_u2d_operands::initialArray(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"reduce-operands", install_m_reduce_u2d_operands}};
+const ModuleDef kModules[] = {{"reduce-operands", install_m_reduce_u2d_operands, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -100,7 +100,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_reduce_u2d_operands::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_reduce_u2d_operands::init();
+  }
 }
 
 }  // namespace lucent::js

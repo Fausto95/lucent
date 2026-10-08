@@ -21,13 +21,13 @@ using namespace lucent::js;
 void install_m_module_u2d_hooks(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "hooks", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("hooks", "packages/compiler/test/e2e/cases/module-hooks.lucent.ts", 11), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("hooks", "packages/compiler/test/e2e/cases/module-hooks.lucent.ts", 11), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_module_u2d_hooks::hooks());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"module-hooks", install_m_module_u2d_hooks}};
+const ModuleDef kModules[] = {{"module-hooks", install_m_module_u2d_hooks, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -39,7 +39,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_module_u2d_hooks::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_module_u2d_hooks::init();
+  }
 }
 
 }  // namespace lucent::js

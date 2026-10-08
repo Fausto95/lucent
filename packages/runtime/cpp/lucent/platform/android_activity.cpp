@@ -139,7 +139,7 @@ void JNICALL onEvent(JNIEnv* e, jclass, jint kind, jobject activity, jobject int
     NativeRef a = wrap(e, e->NewLocalRef(activity), "Activity");
     Opt<NativeRef> i = wrapOpt(e, intent ? e->NewLocalRef(intent) : nullptr);
 
-    // A turn of the subscribing context (the legacy module context's holds the Lucent lock).
+    // A turn of the subscribing context (an actor's holds its lock).
     for (auto& s : matching)
       ExecutionContext::of(s.context).post([handler = s.handler, a, i] {
         try {

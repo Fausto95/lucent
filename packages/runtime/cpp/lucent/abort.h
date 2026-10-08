@@ -4,7 +4,7 @@
 // read `aborted` (then `reason`), abort it, or add and remove listeners;
 // from another context, abort and listener changes are posted to the owner,
 // where the listeners run. A signal that came from JavaScript is aborted
-// from the JS thread, in the legacy module context, by a listener on the JS
+// from the JS thread, in the actor of the call it was passed to, by a listener on the JS
 // signal (lucent/jsi).
 #pragma once
 

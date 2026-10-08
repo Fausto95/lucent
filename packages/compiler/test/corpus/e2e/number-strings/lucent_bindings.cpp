@@ -27,21 +27,21 @@ using namespace lucent::js;
 void install_m_number_u2d_strings(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "strings", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("strings", "packages/compiler/test/e2e/cases/number-strings.lucent.ts", 2), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("strings", "packages/compiler/test/e2e/cases/number-strings.lucent.ts", 2), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<double>>::fromJs(rt, arg(args, count, 0), Path{"strings", "argument 'values'"});
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_number_u2d_strings::strings(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "forms", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("forms", "packages/compiler/test/e2e/cases/number-strings.lucent.ts", 7), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("forms", "packages/compiler/test/e2e/cases/number-strings.lucent.ts", 7), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<double>>::fromJs(rt, arg(args, count, 0), Path{"forms", "argument 'values'"});
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_number_u2d_strings::forms(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "log", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("log", "packages/compiler/test/e2e/cases/number-strings.lucent.ts", 14), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("log", "packages/compiler/test/e2e/cases/number-strings.lucent.ts", 14), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<double>>::fromJs(rt, arg(args, count, 0), Path{"log", "argument 'values'"});
       lucent_app::m_number_u2d_strings::log(std::move(a0));
       return jsi::Value::undefined();
@@ -49,7 +49,7 @@ void install_m_number_u2d_strings(jsi::Runtime& rt, Host& host, jsi::Object& exp
   });
 }
 
-const ModuleDef kModules[] = {{"number-strings", install_m_number_u2d_strings}};
+const ModuleDef kModules[] = {{"number-strings", install_m_number_u2d_strings, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -61,7 +61,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_number_u2d_strings::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_number_u2d_strings::init();
+  }
 }
 
 }  // namespace lucent::js

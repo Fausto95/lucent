@@ -581,13 +581,13 @@ static void legacyModuleContext() {
     LucentScope scope;
     auto p = fromCallback<double>(Registration([&](Resolve resolve, Reject) {
       std::thread([resolve] { resolve(4); }).detach();
-      return Cleanup(Fn<void()>([log] { log->add(Scheduler::lock().heldByCurrentThread() ? "cleanup locked" : "cleanup unlocked"); }));
+      return Cleanup(Fn<void()>([log] { log->add(Actor::shared().lock().heldByCurrentThread() ? "cleanup locked" : "cleanup unlocked"); }));
     }));
     logOutcome(p, log);
   }
 
   CHECK(within(2000, [&] { return log->count("resolved 4") == 1; }));
-  CHECK(Scheduler::instance().waitIdle(2000));
+  CHECK(Actor::shared().waitIdle(2000));
   CHECK(log->text() == "cleanup locked, resolved 4");
 }
 

@@ -507,19 +507,23 @@ export function signalMethod(em: FnEmitter, obj: E, name: string, node: ts.CallE
 /**
  * How a platform callback of a function made at `node` enters Lucent code.
  * Made in a setup (a view's native subscription), it runs in the main
- * context, never holding the Lucent lock: now when the platform waits for
+ * context, never holding an actor's lock: now when the platform waits for
  * it (`callNowIn`), else as a turn of that context (`postTo`). Anywhere
- * else it enters the legacy module context (`callNow`, `postCallback`).
+ * else it enters its module's actor (`callNow`, `postCallback`).
  */
 export function callbackEntry(
   em: FnEmitter,
   node: ts.Node,
 ): { now: (f: cpp.Expr) => cpp.Expr; later: (f: cpp.Expr) => cpp.Expr } {
-  if (!setupOf(em.ctx, node))
+  if (!setupOf(em.ctx, node)) {
+    // The actor of the module the function is in.
+    const actor = () => em.ctx.actorAt(node);
+
     return {
-      now: (f) => cpp.call("lucent::callNow", [f]),
-      later: (f) => cpp.call("lucent::postCallback", [f]),
+      now: (f) => cpp.call("lucent::callNow", [actor(), f]),
+      later: (f) => cpp.call("lucent::postCallback", [actor(), f]),
     };
+  }
 
   const main = () => cpp.call("lucent::ExecutionContext::main");
 

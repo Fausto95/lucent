@@ -115,4 +115,4 @@ The person must have allowed location first: see [Ask for a runtime permission](
 
 ## Which thread its methods run on
 
-Both classes' methods here run as turns on the Lucent thread, holding the [Lucent lock](/docs/api/language/concurrency/#the-lucent-lock). A main-thread protocol's methods, such as `UITextFieldDelegate`'s, run on the main thread and call UIKit without `main()`. [Concurrency](/docs/api/language/concurrency/#where-each-kind-of-code-runs) lists every case.
+Both classes' methods here run as turns on their package's thread, holding its [lock](/docs/api/language/concurrency/#packages-and-their-locks). A main-thread protocol's methods, such as `UITextFieldDelegate`'s, run on the main thread and call UIKit without `main()`. [Concurrency](/docs/api/language/concurrency/#where-each-kind-of-code-runs) lists every case.

@@ -820,7 +820,7 @@ static void async() {
     orderTask(&order);
     order += "b";
   }
-  Scheduler::instance().waitIdle(1000);
+  Actor::shared().waitIdle(1000);
   CHECK(order == "abc");
 
   Promise<double> total;
@@ -830,7 +830,7 @@ static void async() {
     total = sumAll(Array<double>{1, 2, 3});
     caught = catches();
   }
-  for (int i = 0; i < 100 && !(total.settled() && caught.settled()); i++) Scheduler::instance().waitIdle(50);
+  for (int i = 0; i < 100 && !(total.settled() && caught.settled()); i++) Actor::shared().waitIdle(50);
   {
     LucentScope scope;
     CHECK(total.fulfilled());
@@ -844,7 +844,7 @@ static void async() {
 // timers; growing the timer heap must not invalidate the deadline it waits on.
 static void timersPostedWhileWaiting() {
   std::atomic<int> fired{0};
-  Scheduler& s = Scheduler::instance();
+  Actor& s = Actor::shared();
   s.postDelayed(30, [&] { fired++; });
   std::this_thread::sleep_for(std::chrono::milliseconds(5));
   for (int i = 0; i < 256; i++) s.postDelayed(40, [&] { fired++; });
@@ -879,7 +879,7 @@ static void abortSignals() {
     CHECK_THROWS(c->signal->throwIfAborted(), "AbortError");
     late = waitFor(1, c->signal);
   }
-  Scheduler::instance().waitIdle(2000);
+  Actor::shared().waitIdle(2000);
   {
     LucentScope scope;
     CHECK(log == "listener ");
@@ -893,7 +893,7 @@ static void abortSignals() {
     LucentScope scope;
     finished = waitFor(1, quiet->signal);
   }
-  Scheduler::instance().waitIdle(2000);
+  Actor::shared().waitIdle(2000);
   {
     LucentScope scope;
     CHECK_STR(finished.value(), "finished");
@@ -1041,8 +1041,8 @@ static void mainThread() {
 static bool lockFree() {
   bool free = false;
   std::thread([&] {
-    free = Scheduler::instance().lock().try_lock();
-    if (free) Scheduler::instance().lock().unlock();
+    free = Actor::shared().lock().try_lock();
+    if (free) Actor::shared().lock().unlock();
   }).join();
   return free;
 }
@@ -1055,11 +1055,11 @@ static void platformCallbacks() {
   std::weak_ptr<int> watch = captured;
   std::thread([&, captured = std::move(captured)]() mutable {
     postCallback([&, captured = std::move(captured)] {
-      onLucent = Scheduler::instance().onLucentThread();
+      onLucent = Actor::shared().onActorThread();
       locked = !lockFree();
     });
   }).join();
-  Scheduler::instance().waitIdle(2000);
+  Actor::shared().waitIdle(2000);
   CHECK(onLucent && locked);
   CHECK(watch.expired());
 
@@ -1083,7 +1083,7 @@ static void platformCallbacks() {
   double failed = callNow([]() -> double { throw Exception(makeError(String::fromLatin1("RangeError"), S("in a callback"))); });
   CHECK(failed == 0);
   postCallback([] { throw Exception(makeError(S("queued"))); });
-  CHECK(Scheduler::instance().waitIdle(2000));
+  CHECK(Actor::shared().waitIdle(2000));
 }
 
 /// The native references Lucent holds are counted: debug builds report what

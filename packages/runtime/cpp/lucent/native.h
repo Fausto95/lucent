@@ -8,6 +8,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <type_traits>
 
 #include "async.h"
@@ -90,29 +91,43 @@ class NativeRef {
 inline bool strictEquals(const NativeRef& a, const NativeRef& b) { return a.same(b); }
 inline String toJsString(const NativeRef&) { return String::fromLatin1("[object NativeObject]"); }
 
-// --- the legacy module context ----------------------------------------------
+// --- module actors --------------------------------------------------------------
 //
-// What generated module code calls: each enters module code by taking the
-// Lucent lock.
+// What generated module code calls: each enters module code by taking its
+// actor's lock. Generated code names its actor (lucent_app::actor_N); the
+// forms without one use the shared actor.
 
 /// A platform callback into module code that returns nothing and outlives
-/// the call: a turn of the legacy module context on the Lucent thread, so
-/// the platform never waits for Lucent code. `f` owns what it captured and
-/// is released after it runs.
+/// the call: a turn of `actor` on its thread, so the platform never waits
+/// for Lucent code. `f` owns what it captured and is released after it runs.
+template <class F>
+void postCallback(Actor& actor, F f) {
+  actor.post(std::move(f));
+}
+
 template <class F>
 void postCallback(F f) {
-  Scheduler::instance().post(std::move(f));
+  postCallback(Actor::shared(), std::move(f));
 }
 
 /// A platform callback into module code the platform waits for (for its
-/// result, or because it runs during the call or on the main thread): runs
-/// on the calling thread, holding the Lucent lock. A Lucent error is
-/// reported and the platform gets a default result.
+/// result, or because it runs during the call): runs on the calling thread,
+/// holding `actor`'s lock. On the main thread it never queues behind module
+/// jobs: it waits only for the holder in place (LucentLock::lockFromMain),
+/// or borrows the actor from a JavaScript callback. A Lucent error (a
+/// deadlock refused included) is reported and the platform gets a default
+/// result.
 template <class F>
-auto callNow(F f) -> std::invoke_result_t<F&> {
+auto callNow(Actor& actor, F f) -> std::invoke_result_t<F&> {
   using R = std::invoke_result_t<F&>;
-  LucentScope scope;
   try {
+    std::optional<LucentScope> scope;
+    if (onMainThread()) {
+      scope.emplace(actor, LucentScope::FromMain{});
+    } else {
+      scope.emplace(actor);
+    }
+
     return f();
   } catch (...) {
     reportUncaught(std::current_exception(), "callback");
@@ -120,27 +135,65 @@ auto callNow(F f) -> std::invoke_result_t<F&> {
   }
 }
 
-/// `main(f)` from lucent:thread, kept for module code: runs `f` on the main
-/// thread holding the Lucent lock, and settles the promise with its result.
-/// The caller never waits for the main thread, so the lock order stays
-/// deadlock-free, but the main thread waits for any module job. UI work
-/// uses the main context (runIn) instead.
+template <class F>
+auto callNow(F f) -> std::invoke_result_t<F&> {
+  return callNow(Actor::shared(), std::move(f));
+}
+
+namespace detail {
+template <class F>
+void enterFromMain(Actor& actor, std::shared_ptr<F> f) {
+  if (!actor.lock().tryLockFromMain()) {
+    // Not now: once the actor is free, posted to the main thread again.
+    actor.lock().whenFree([actor = &actor, f] { enterFromMain(*actor, f); });
+    return;
+  }
+
+  LucentScope scope(actor, std::adopt_lock);
+  Job job = [f] { (*f)(); };
+  runGuarded(job, "callback");
+}
+}  // namespace detail
+
+/// On the main thread: runs `f` there, holding `actor`'s lock, as soon as
+/// the main thread can take it without waiting (at once if it is free, or
+/// lent by a JavaScript callback); until then the main thread goes on with
+/// other work. What `f` throws is reported.
+template <class F>
+void enterFromMain(Actor& actor, F f) {
+  detail::enterFromMain(actor, std::make_shared<F>(std::move(f)));
+}
+
+/// The actor the calling module code runs on (the shared one outside any).
+inline Actor& currentActor() {
+  Actor* actor = Actor::current();
+  return actor ? *actor : Actor::shared();
+}
+
+/// `main(f)` from lucent:thread: runs `f` on the main thread holding the
+/// calling module's actor (enterFromMain), and settles the promise with its
+/// result. Neither side waits for the other: the main thread runs `f` once
+/// the actor is free, so a long module job delays `f`, never the main
+/// thread. UI work uses the main context (runIn) instead.
 template <class F>
 auto runOnMain(F f) -> Promise<std::invoke_result_t<F>> {
   using R = std::invoke_result_t<F>;
   Promise<R> p;
-  postToMain([p, f = std::move(f)]() mutable {
-    LucentScope scope;
-    try {
-      if constexpr (std::is_void_v<R>) {
-        f();
-        p.resolve(undefined);
-      } else {
-        p.resolve(f());
+  Actor& actor = currentActor();
+
+  postToMain([actor = &actor, p, f = std::move(f)]() mutable {
+    enterFromMain(*actor, [p, f = std::move(f)]() mutable {
+      try {
+        if constexpr (std::is_void_v<R>) {
+          f();
+          p.resolve(undefined);
+        } else {
+          p.resolve(f());
+        }
+      } catch (...) {
+        p.reject(currentError(std::current_exception()));
       }
-    } catch (...) {
-      p.reject(currentError(std::current_exception()));
-    }
+    });
   });
   return p;
 }
@@ -148,7 +201,7 @@ auto runOnMain(F f) -> Promise<std::invoke_result_t<F>> {
 // --- any other context -------------------------------------------------------
 //
 // The same entries for another context, such as the main context: none
-// takes the Lucent lock.
+// takes an actor's lock.
 
 /// A platform callback into `context` that returns nothing and outlives the
 /// call: a turn of that context. `f` owns what it captured and is released

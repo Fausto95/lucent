@@ -182,7 +182,7 @@ export function compileErrors(p: IosProgram) {
 
 export const compiles = { diagnostics: [], swiftc: "", clang: "" };
 
-/** Calls run() on the Lucent thread and prints what it settles with, one line. */
+/** Calls run() on its module's actor and prints what it settles with, one line. */
 const hostMain = `#include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -193,7 +193,7 @@ const hostMain = `#include <atomic>
 int main() {
   std::atomic<bool> done{false};
 
-  lucent::postCallback([&done] {
+  lucent::postCallback(lucent_app::actor_0(), [&done] {
     lucent_app::m_m::init();
 
     auto p = lucent_app::m_m::run();

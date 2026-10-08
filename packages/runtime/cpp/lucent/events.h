@@ -7,7 +7,8 @@
 //
 // A listener JavaScript added belongs to its runtime: once that runtime's
 // host is torn down (a reload), the listener is gone, and listenerCount no
-// longer counts it. Everything here runs with the Lucent lock held.
+// longer counts it. Everything here runs in the actor of the module that
+// made the emitter (or its subscription): JavaScript's calls enter it too.
 #pragma once
 
 #include <cstdint>
@@ -23,6 +24,7 @@
 #include "function.h"
 #include "json.h"
 #include "jsstring.h"
+#include "scheduler.h"
 
 namespace lucent {
 
@@ -31,6 +33,9 @@ class EventSubscriptionObject : public Object {
  public:
   explicit EventSubscriptionObject(std::function<void()> remove) : remove_(std::move(remove)) {}
 
+  /// The actor it was made in: its emitter's, which remove() enters.
+  Actor& actor() const { return actor_ ? *actor_ : Actor::shared(); }
+
   /// Removes the listener; again, does nothing.
   void remove() {
     if (auto f = std::exchange(remove_, nullptr)) f();
@@ -38,6 +43,7 @@ class EventSubscriptionObject : public Object {
 
  private:
   std::function<void()> remove_;
+  Actor* actor_ = Actor::current();
 };
 
 using EventSubscription = Ref<EventSubscriptionObject>;
@@ -68,6 +74,10 @@ class EventEmitterObject : public Object {
   using Listener = std::tuple_element_t<I, std::tuple<Fns...>>;
 
   explicit EventEmitterObject(std::vector<std::string> names) : names_(std::move(names)) {}
+
+  /// The actor of the module that made it, whose code its listeners and
+  /// emits run in; JavaScript's calls enter it too.
+  Actor& actor() const { return actor_ ? *actor_ : Actor::shared(); }
 
   static Ref<EventEmitterObject> create(std::initializer_list<const char*> names) {
     std::vector<std::string> list;
@@ -150,6 +160,7 @@ class EventEmitterObject : public Object {
     std::erase_if(list, [](const auto& l) { return l.alive && !l.alive(); });
   }
 
+  Actor* actor_ = Actor::current();
   std::vector<std::string> names_;
   std::tuple<std::vector<Entry<Fns>>...> listeners_;
   uint64_t nextId_ = 1;

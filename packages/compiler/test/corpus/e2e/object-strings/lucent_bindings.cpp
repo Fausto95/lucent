@@ -35,56 +35,56 @@ using namespace lucent::js;
 void install_m_object_u2d_strings(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "arrays", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("arrays", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 10), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("arrays", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 10), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_object_u2d_strings::arrays());
     });
   });
   defineFunction(rt, exports, "collections", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("collections", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 27), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("collections", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 27), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_object_u2d_strings::collections());
     });
   });
   defineFunction(rt, exports, "bytes", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("bytes", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 35), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("bytes", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 35), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_object_u2d_strings::bytes());
     });
   });
   defineFunction(rt, exports, "promises", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("promises", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 44), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("promises", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 44), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_object_u2d_strings::promises());
     });
   });
   defineFunction(rt, exports, "aborts", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("aborts", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 50), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("aborts", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 50), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_object_u2d_strings::aborts());
     });
   });
   defineFunction(rt, exports, "optionals", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("optionals", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 56), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("optionals", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 56), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_object_u2d_strings::optionals());
     });
   });
   defineFunction(rt, exports, "kinds", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("kinds", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 64), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("kinds", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 64), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_object_u2d_strings::kinds());
     });
   });
   defineFunction(rt, exports, "log", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("log", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 79), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("log", "packages/compiler/test/e2e/cases/object-strings.lucent.ts", 79), [&]() -> jsi::Value {
       lucent_app::m_object_u2d_strings::log();
       return jsi::Value::undefined();
     });
   });
 }
 
-const ModuleDef kModules[] = {{"object-strings", install_m_object_u2d_strings}};
+const ModuleDef kModules[] = {{"object-strings", install_m_object_u2d_strings, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -96,7 +96,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_object_u2d_strings::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_object_u2d_strings::init();
+  }
 }
 
 }  // namespace lucent::js

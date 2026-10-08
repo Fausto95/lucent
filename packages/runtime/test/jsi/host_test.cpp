@@ -270,7 +270,7 @@ struct Payload : Object {
   explicit Payload(double v) : value(v) {}
 
   ~Payload() override {
-    if (Scheduler::instance().onLucentThread()) releases.onLucentThread++;
+    if (Actor::shared().onActorThread()) releases.onLucentThread++;
     releases.count++;
   }
 
@@ -423,7 +423,7 @@ Fn<void(Ref<Unconvertible>)> told;
 
 void tell(Fn<void(Ref<Unconvertible>)> f) {
   told = f;
-  Scheduler::instance().post([] { told(std::make_shared<Unconvertible>()); });
+  Actor::shared().post([] { told(std::make_shared<Unconvertible>()); });
 }
 
 /// Traced exports, as the compiler emits them: with their .lucent.ts site.
@@ -436,6 +436,12 @@ Promise<double> measuredLater(double x) {
   co_await delay(1);
   co_return x * 2;
 }
+
+/// The runtime that work module code starts now belongs to.
+double scopeRuntime() { return static_cast<double>(moduleScope()->runtime()); }
+
+/// Calls `f` now, as module code calls a JavaScript callback.
+void callBack(Fn<void()> f) { f(); }
 
 /// A module constant as the compiler generates one that is not a literal:
 /// storage that init() assigns, and assigns again for each new runtime.
@@ -540,7 +546,11 @@ void handleProto(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
 
 namespace {
 
+void installRuntimes(jsi::Runtime& rt, Host& host, jsi::Object& exports);
+
 void installT(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
+  installRuntimes(rt, host, exports);
+
   defineFunction(rt, exports, "measured", 1,
                  [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t n) {
                    Host& host = Host::from(rt, installed);
@@ -652,6 +662,23 @@ void installT(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
                  });
 }
 
+void installRuntimes(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
+  defineFunction(rt, exports, "scopeRuntime", 0,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] { return jsi::Value(m_t::scopeRuntime()); });
+                 });
+
+  defineFunction(rt, exports, "callBack", 1,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t n) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] {
+                     m_t::callBack(Convert<Fn<void()>>::fromJs(rt, arg(args, n, 0), Path{"callBack", "argument 'f'"}));
+                     return jsi::Value::undefined();
+                   });
+                 });
+}
+
 const ModuleDef kModules[] = {{"t", installT}};
 
 }  // namespace
@@ -745,6 +772,91 @@ static void theNewestHostOwnsModuleWork() {
   js.run([&](jsi::Runtime&) { second->invalidate(); });
 
   CHECK(moduleScope() == second->scope() && disposed(second));
+}
+
+static void connectSettle(JsThread& js, const std::shared_ptr<Host>& host);
+
+/// Two runtimes at once (two React Native instances): the second's host
+/// leaves the module state the first uses as it is, the work each one's
+/// calls start belongs to it, view requests are answered in the runtime
+/// that sent them, and tearing one down spares the other's work.
+static void twoRuntimesKeepTheirOwnWork() {
+  JsThread a, b;
+  int before = m_t::initialized;
+
+  auto hostA = install(a);
+  auto hostB = install(b);
+
+  // Initialized for the first, not again under it for the second.
+  CHECK(m_t::initialized == before + 1);
+
+  CHECK(a.number("mods.t.scopeRuntime()") == hostA->id());
+  CHECK(b.number("mods.t.scopeRuntime()") == hostB->id());
+
+  connectSettle(a, hostA);
+  connectSettle(b, hostB);
+
+  // Whichever runtime connected last, an id answers in its own.
+  double idA = views::requestBase(hostA->id()) + 1;
+  double idB = views::requestBase(hostB->id()) + 1;
+  views::Requester::current().resolve(idA, [](jsi::Runtime&) { return jsi::Value(1); });
+  views::Requester::current().resolve(idB, [](jsi::Runtime&) { return jsi::Value(2); });
+
+  CHECK(within(2000, [&] { return a.number("settled.length") == 1 && b.number("settled.length") == 1; }));
+  CHECK(a.number("settled[0][0]") == idA && a.number("settled[0][2]") == 1);
+  CHECK(b.number("settled[0][0]") == idB && b.number("settled[0][2]") == 2);
+
+  // The second runtime goes: the first's work goes on, its own.
+  b.destroyRuntime();
+
+  CHECK(hostA->alive() && !hostB->alive());
+  CHECK(hostA->scope()->state() == Scope::State::Active);
+  CHECK(a.number("mods.t.scopeRuntime()") == hostA->id());
+  CHECK(moduleScope() == hostA->scope());
+
+  // An answer for the gone runtime goes nowhere.
+  views::Requester::current().resolve(idB + 1, [](jsi::Runtime&) { return jsi::Value(3); });
+
+  // A third runtime while the first is there shares its module state too.
+  JsThread c;
+  auto hostC = install(c);
+  CHECK(m_t::initialized == before + 1);
+  CHECK(c.number("mods.t.scopeRuntime()") == hostC->id() && a.number("mods.t.scopeRuntime()") == hostA->id());
+}
+
+/// The suspected deadlock, through JSI: a synchronous call whose JavaScript
+/// callback waits for the main thread (as RCTUnsafeExecuteOnMainQueueSync
+/// does), while the main thread enters the module for a delegate that must
+/// answer. The callback lends the module's actor to the main thread.
+static void aCallbackWaitingForMainLendsTheModule() {
+  JsThread js;
+  install(js);
+  std::atomic<bool> delegateRan{false};
+
+  js.run([&](jsi::Runtime& rt) {
+    auto wait = [&](jsi::Runtime&, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
+      std::promise<void> done;
+      auto answered = done.get_future();
+
+      postToMain([&] {
+        callNow([&] { delegateRan = Actor::shared().lock().heldByCurrentThread(); });
+        done.set_value();
+      });
+
+      if (answered.wait_for(std::chrono::seconds(5)) != std::future_status::ready) {
+        std::fprintf(stderr, "deadlock: the main thread's delegate did not run within 5 s\n");
+        std::fflush(stderr);
+        std::_Exit(2);
+      }
+
+      return jsi::Value::undefined();
+    };
+    rt.global().setProperty(rt, "waitForMain",
+                            jsi::Function::createFromHostFunction(rt, jsi::PropNameID::forAscii(rt, "waitForMain"), 0, wait));
+  });
+
+  js.eval("mods.t.callBack(() => waitForMain())");
+  CHECK(delegateRan.load());
 }
 
 /// A reload assigns module constants again while the old runtime's compute
@@ -881,7 +993,7 @@ static void workDoesNotStartAfterTeardown() {
     host->invalidate();
   });
 
-  CHECK(Scheduler::instance().waitIdle(2000));
+  CHECK(Actor::shared().waitIdle(2000));
   CHECK(m_t::started == before);
 
   openGate();
@@ -895,7 +1007,7 @@ static void awaitedJsPromisesRejectAtTeardown() {
   int before = m_t::awaitedDone;
 
   js.eval("mods.t.awaitJs(new Promise(() => {}));");
-  CHECK(Scheduler::instance().waitIdle(2000));
+  CHECK(Actor::shared().waitIdle(2000));
 
   js.destroyRuntime();
 
@@ -914,7 +1026,7 @@ static void callbacksDroppedWithTheRuntimeReject() {
   js.eval("mods.t.keep(() => Promise.resolve(7));");
 
   js.pause(true);
-  Scheduler::instance().post([] { m_t::callKept(); });
+  Actor::shared().post([] { m_t::callKept(); });
   CHECK(within(2000, [&] { return js.queued() == 1; }));
 
   js.destroyRuntime(true);
@@ -922,7 +1034,7 @@ static void callbacksDroppedWithTheRuntimeReject() {
   CHECK(within(2000, [&] { return m_t::answeredDone == before + 1; }));
   CHECK(m_t::answered == "AbortError: The JavaScript runtime is gone");
 
-  Scheduler::instance().post([] { m_t::callKept(); });
+  Actor::shared().post([] { m_t::callKept(); });
 
   CHECK(within(2000, [&] { return m_t::answeredDone == before + 2; }));
   CHECK(m_t::answered == "AbortError: The JavaScript runtime is gone");
@@ -1033,7 +1145,7 @@ static void resultsThatCannotCrossReject() {
   CHECK(js.string("crossed") == "TypeError: cannot cross");
 
   js.eval("var calls = 0; mods.t.tell(() => { calls++; });");
-  CHECK(Scheduler::instance().waitIdle(2000));
+  CHECK(Actor::shared().waitIdle(2000));
   js.run([](jsi::Runtime&) {});
   CHECK(js.number("calls") == 0);
   CHECK(js.number("1 + 1") == 2);
@@ -1121,7 +1233,7 @@ static void hostsReportWhatTheyHold() {
       "mods.t.keep(() => Promise.resolve(1));"
       "mods.t.later(1).catch(() => {});"
       "mods.t.awaitJs(new Promise(() => {})).catch(() => {});");
-  CHECK(Scheduler::instance().waitIdle(2000));
+  CHECK(Actor::shared().waitIdle(2000));
 
   Host::Ownership busy = held();
 
@@ -1136,7 +1248,7 @@ static void hostsReportWhatTheyHold() {
             ",\"promises\":2,\"callbacks\":1,\"identities\":1,\"prototypes\":1,\"modules\":1,\"registrations\":1,\"inFlight\":0}");
 
   js.run([&](jsi::Runtime&) { host->invalidate(); });
-  CHECK(Scheduler::instance().waitIdle(2000));
+  CHECK(Actor::shared().waitIdle(2000));
 
   Host::Ownership gone = held();
 
@@ -1211,7 +1323,7 @@ static void jsCallsEnterWhileALoopYields() {
   double total = std::chrono::duration<double, std::milli>(Clock::now() - start).count();
 
   m_t::stopSpinning = true;
-  CHECK(within(2000, [&] { return Scheduler::instance().pendingWork() == 0; }));
+  CHECK(within(2000, [&] { return Actor::shared().pendingWork() == 0; }));
 
   std::printf("host: 50 JS ticks against a yielding loop took %.1f ms, the longest call %.2f ms\n", total, longest);
   CHECK(longest < 50);
@@ -1419,6 +1531,8 @@ int main() {
   hostsTellTheirBuildIdentity();
   theNewestHostOwnsModuleWork();
   tasksRunningAcrossAReloadReadNoModuleStorage();
+  twoRuntimesKeepTheirOwnWork();
+  aCallbackWaitingForMainLendsTheModule();
   pendingPromisesRejectWhileJsIsAlive();
   resultsForAGoneRuntimeAreReleasedOnTheModuleContext();
   workDoesNotStartAfterTeardown();

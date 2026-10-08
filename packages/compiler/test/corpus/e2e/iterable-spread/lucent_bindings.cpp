@@ -61,28 +61,28 @@ using namespace lucent::js;
 void install_m_iterable_u2d_spread(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "entries", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("entries", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 6), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("entries", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 6), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Map<lucent::String, double>>::fromJs(rt, arg(args, count, 0), Path{"entries", "argument 'm'"});
       return Convert<lucent::Array<std::tuple<lucent::String, double>>>::toJs(rt, host, lucent_app::m_iterable_u2d_spread::entries(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "withEntry", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("withEntry", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 10), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("withEntry", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 10), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Map<lucent::String, double>>::fromJs(rt, arg(args, count, 0), Path{"withEntry", "argument 'm'"});
       return Convert<lucent::Array<std::tuple<lucent::String, double>>>::toJs(rt, host, lucent_app::m_iterable_u2d_spread::withEntry(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "keysAndValues", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("keysAndValues", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 14), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("keysAndValues", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 14), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Map<lucent::String, double>>::fromJs(rt, arg(args, count, 0), Path{"keysAndValues", "argument 'm'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_iterable_u2d_spread::keysAndValues(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "merged", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("merged", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 23), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("merged", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 23), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Map<lucent::String, double>>::fromJs(rt, arg(args, count, 0), Path{"merged", "argument 'a'"});
       auto a1 = Convert<lucent::Map<lucent::String, double>>::fromJs(rt, arg(args, count, 1), Path{"merged", "argument 'b'"});
       return Convert<lucent::Array<std::tuple<lucent::String, double>>>::toJs(rt, host, lucent_app::m_iterable_u2d_spread::merged(std::move(a0), std::move(a1)));
@@ -90,14 +90,14 @@ void install_m_iterable_u2d_spread(jsi::Runtime& rt, Host& host, jsi::Object& ex
   });
   defineFunction(rt, exports, "unique", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("unique", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 27), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("unique", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 27), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<double>>::fromJs(rt, arg(args, count, 0), Path{"unique", "argument 'xs'"});
       return Convert<lucent::Array<double>>::toJs(rt, host, lucent_app::m_iterable_u2d_spread::unique(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "union", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("union", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 31), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("union", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 31), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Set<double>>::fromJs(rt, arg(args, count, 0), Path{"union", "argument 'a'"});
       auto a1 = Convert<lucent::Set<double>>::fromJs(rt, arg(args, count, 1), Path{"union", "argument 'b'"});
       return Convert<lucent::Array<double>>::toJs(rt, host, lucent_app::m_iterable_u2d_spread::r_union_(std::move(a0), std::move(a1)));
@@ -105,28 +105,28 @@ void install_m_iterable_u2d_spread(jsi::Runtime& rt, Host& host, jsi::Object& ex
   });
   defineFunction(rt, exports, "mixed", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("mixed", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 36), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("mixed", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 36), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Set<double>>::fromJs(rt, arg(args, count, 0), Path{"mixed", "argument 's'"});
       return Convert<lucent::Array<std::variant<double, lucent::String>>>::toJs(rt, host, lucent_app::m_iterable_u2d_spread::mixed(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "chars", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("chars", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 40), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("chars", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 40), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"chars", "argument 's'"});
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_iterable_u2d_spread::chars(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "counted", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("counted", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 48), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("counted", "packages/compiler/test/e2e/cases/iterable-spread.lucent.ts", 48), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"counted", "argument 'n'"});
       return Convert<lucent::Array<double>>::toJs(rt, host, lucent_app::m_iterable_u2d_spread::counted(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"iterable-spread", install_m_iterable_u2d_spread}};
+const ModuleDef kModules[] = {{"iterable-spread", install_m_iterable_u2d_spread, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -138,7 +138,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_iterable_u2d_spread::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_iterable_u2d_spread::init();
+  }
 }
 
 }  // namespace lucent::js

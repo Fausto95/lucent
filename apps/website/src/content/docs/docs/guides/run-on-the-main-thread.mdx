@@ -56,7 +56,7 @@ export function useKeepAwake(): void {
 `main(f)` runs `f` on the main thread: the main queue on iOS, the main Looper on Android. It returns a promise of what `f` returns, and a throw in `f` rejects it. The calling thread doesn't block on it: `await` the promise.
 
 - Write the main-thread calls in `f`'s own body. A function that `f` calls, or passes to `forEach`, is checked on its own, so UIKit there fails with [LUCENT3006](/docs/api/diagnostics/#lucent3006): loop with `for` instead.
-- `f` runs holding the [Lucent lock](/docs/api/language/concurrency/#the-lucent-lock), so module code and `f` wait for each other. Keep `f` short: compute outside it, and pass the result in.
+- `f` runs holding its [package's lock](/docs/api/language/concurrency/#packages-and-their-locks), so the package's other code waits while it runs. The main thread doesn't wait for that code: `f` starts once the package is free. Keep `f` short: compute outside it, and pass the result in.
 - `main()` is called in platform code, such as a platform branch ([LUCENT3004](/docs/api/diagnostics/#lucent3004)). Its `f` is a function literal that isn't `async` and returns no promise ([LUCENT1007](/docs/api/diagnostics/#lucent1007)).
 
 ## Which APIs need it
@@ -80,4 +80,4 @@ Code the main thread already runs calls these APIs directly:
 - a method of a main-thread protocol, such as a UIKit delegate, and a block UIKit runs on the main thread;
 - the methods of a class that extends `UIViewController` or `UIView` ([Subclass a UIKit or Android class](/docs/guides/subclass-an-sdk-class/)).
 
-An `onActivityEvent` handler from `lucent:android` runs on the Lucent thread, so it needs `main()`. [Concurrency](/docs/api/language/concurrency/#where-each-kind-of-code-runs) lists where each kind of code runs, and [main(f)](/docs/api/language/concurrency/#mainf) its rules.
+An `onActivityEvent` handler from `lucent:android` runs on its package's thread, so it needs `main()`. [Concurrency](/docs/api/language/concurrency/#where-each-kind-of-code-runs) lists where each kind of code runs, and [main(f)](/docs/api/language/concurrency/#mainf) its rules.

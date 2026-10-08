@@ -21,13 +21,13 @@ using namespace lucent::js;
 void install_m_generator_u2d_bodies(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "generators", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("generators", "packages/compiler/test/e2e/cases/generator-bodies.lucent.ts", 42), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("generators", "packages/compiler/test/e2e/cases/generator-bodies.lucent.ts", 42), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_generator_u2d_bodies::generators());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"generator-bodies", install_m_generator_u2d_bodies}};
+const ModuleDef kModules[] = {{"generator-bodies", install_m_generator_u2d_bodies, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -39,7 +39,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_generator_u2d_bodies::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_generator_u2d_bodies::init();
+  }
 }
 
 }  // namespace lucent::js

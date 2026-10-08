@@ -39,65 +39,65 @@ using namespace lucent::js;
 void install_m_using_(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "scoped", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("scoped", "packages/compiler/test/e2e/cases/using.lucent.ts", 32), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("scoped", "packages/compiler/test/e2e/cases/using.lucent.ts", 32), [&]() -> jsi::Value {
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_using_::scoped());
     });
   });
   defineFunction(rt, exports, "early", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("early", "packages/compiler/test/e2e/cases/using.lucent.ts", 49), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("early", "packages/compiler/test/e2e/cases/using.lucent.ts", 49), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"early", "argument 'stop'"});
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_using_::early(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "throwing", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("throwing", "packages/compiler/test/e2e/cases/using.lucent.ts", 54), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("throwing", "packages/compiler/test/e2e/cases/using.lucent.ts", 54), [&]() -> jsi::Value {
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_using_::throwing());
     });
   });
   defineFunction(rt, exports, "loop", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("loop", "packages/compiler/test/e2e/cases/using.lucent.ts", 65), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("loop", "packages/compiler/test/e2e/cases/using.lucent.ts", 65), [&]() -> jsi::Value {
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_using_::loop());
     });
   });
   defineFunction(rt, exports, "nullable", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("nullable", "packages/compiler/test/e2e/cases/using.lucent.ts", 75), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("nullable", "packages/compiler/test/e2e/cases/using.lucent.ts", 75), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"nullable", "argument 'open'"});
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_using_::nullable(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "disposeThrows", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("disposeThrows", "packages/compiler/test/e2e/cases/using.lucent.ts", 83), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("disposeThrows", "packages/compiler/test/e2e/cases/using.lucent.ts", 83), [&]() -> jsi::Value {
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_using_::disposeThrows());
     });
   });
   defineFunction(rt, exports, "suppressed", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("suppressed", "packages/compiler/test/e2e/cases/using.lucent.ts", 93), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("suppressed", "packages/compiler/test/e2e/cases/using.lucent.ts", 93), [&]() -> jsi::Value {
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_using_::suppressed());
     });
   });
   defineFunction(rt, exports, "inAsync", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
-      return callAsync<lucent::Array<lucent::String>>(rt, host, LUCENT_TRACE_SITE_AT("inAsync", "packages/compiler/test/e2e/cases/using.lucent.ts", 105), []() {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+      return callAsync<lucent::Array<lucent::String>>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("inAsync", "packages/compiler/test/e2e/cases/using.lucent.ts", 105), []() {
         return lucent_app::m_using_::inAsync();
       });
     });
   });
   defineFunction(rt, exports, "explicit", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("explicit", "packages/compiler/test/e2e/cases/using.lucent.ts", 114), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("explicit", "packages/compiler/test/e2e/cases/using.lucent.ts", 114), [&]() -> jsi::Value {
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_using_::r_explicit_());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"using", install_m_using_}};
+const ModuleDef kModules[] = {{"using", install_m_using_, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -109,7 +109,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_using_::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_using_::init();
+  }
 }
 
 }  // namespace lucent::js

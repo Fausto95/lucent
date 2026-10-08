@@ -67,21 +67,21 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Tracker>>::toJs(jsi::Runtime
 void proto_C_Tracker(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "name", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Tracker>>::fromJs(rt, thisVal, Path{"Tracker.name", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->name);
     });
   }, nullptr);
   defineAccessor(rt, proto, "seen", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Tracker>>::fromJs(rt, thisVal, Path{"Tracker.seen", "this"});
       return Convert<lucent::Array<double>>::toJs(rt, host, self->seen);
     });
   }, nullptr);
   defineAccessor(rt, proto, "updates", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Tracker>>::fromJs(rt, thisVal, Path{"Tracker.updates", "this"});
       return Convert<lucent::Ref<lucent_app::C_Updates>>::toJs(rt, host, self->updates);
     });
@@ -103,7 +103,7 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Updates>>::toJs(jsi::Runtime
 void proto_C_Updates(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineFunction(rt, proto, "report", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Updates.report", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 9), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Updates.report", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 9), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Updates>>::fromJs(rt, thisVal, Path{"Updates.report", "this"});
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Updates.report", "argument 'n'"});
       return Convert<lucent::String>::toJs(rt, host, self->report(std::move(a0)));
@@ -126,21 +126,21 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_TreeNode>>::toJs(jsi::Runtim
 void proto_C_TreeNode(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "name", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_TreeNode>>::fromJs(rt, thisVal, Path{"TreeNode.name", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->name);
     });
   }, nullptr);
   defineAccessor(rt, proto, "children", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_TreeNode>>::fromJs(rt, thisVal, Path{"TreeNode.children", "this"});
       return Convert<lucent::Array<lucent::Ref<lucent_app::C_TreeNode>>>::toJs(rt, host, self->children);
     });
   }, nullptr);
   defineFunction(rt, proto, "add", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("TreeNode.add", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 43), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("TreeNode.add", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 43), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_TreeNode>>::fromJs(rt, thisVal, Path{"TreeNode.add", "this"});
       auto a0 = Convert<lucent::Ref<lucent_app::C_TreeNode>>::fromJs(rt, arg(args, count, 0), Path{"TreeNode.add", "argument 'child'"});
       return Convert<lucent::Ref<lucent_app::C_TreeNode>>::toJs(rt, host, self->add(std::move(a0)));
@@ -148,14 +148,14 @@ void proto_C_TreeNode(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineAccessor(rt, proto, "parent", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_TreeNode>>::fromJs(rt, thisVal, Path{"TreeNode.parent", "this"});
       return Convert<lucent::Opt<lucent::Ref<lucent_app::C_TreeNode>>>::toJs(rt, host, self->get_parent());
     });
   }, nullptr);
   defineFunction(rt, proto, "path", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("TreeNode.path", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 53), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("TreeNode.path", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 53), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_TreeNode>>::fromJs(rt, thisVal, Path{"TreeNode.path", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->path());
     });
@@ -175,39 +175,39 @@ using namespace lucent::js;
 void install_m_weak_u2d_refs(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "delegates", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("delegates", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 59), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("delegates", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 59), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_weak_u2d_refs::delegates());
     });
   });
   defineFunction(rt, exports, "trees", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("trees", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 65), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("trees", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 65), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_weak_u2d_refs::trees());
     });
   });
   defineFunction(rt, exports, "identities", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("identities", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 71), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("identities", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 71), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_weak_u2d_refs::identities());
     });
   });
   defineClass(rt, host, exports, "Tracker", "weak-refs.Tracker", proto_C_Tracker, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Tracker", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 17), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Tracker", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 17), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Tracker", "argument 'name'"});
       return Convert<lucent::Ref<lucent_app::C_Tracker>>::toJs(rt, host, lucent_app::C_Tracker::create(std::move(a0)));
     });
   });
   defineClass(rt, host, exports, "TreeNode", "weak-refs.TreeNode", proto_C_TreeNode, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("TreeNode", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 37), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("TreeNode", "packages/compiler/test/e2e/cases/weak-refs.lucent.ts", 37), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"TreeNode", "argument 'name'"});
       return Convert<lucent::Ref<lucent_app::C_TreeNode>>::toJs(rt, host, lucent_app::C_TreeNode::create(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"weak-refs", install_m_weak_u2d_refs}};
+const ModuleDef kModules[] = {{"weak-refs", install_m_weak_u2d_refs, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -219,7 +219,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_weak_u2d_refs::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_weak_u2d_refs::init();
+  }
 }
 
 }  // namespace lucent::js

@@ -444,56 +444,56 @@ using namespace lucent::js;
 void install_m_recursive_u2d_shapes(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "treeSize", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("treeSize", "packages/compiler/test/e2e/cases/recursive-shapes.lucent.ts", 12), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("treeSize", "packages/compiler/test/e2e/cases/recursive-shapes.lucent.ts", 12), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_TreeNode>>::fromJs(rt, arg(args, count, 0), Path{"treeSize", "argument 't'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_recursive_u2d_shapes::treeSize(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "grow", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("grow", "packages/compiler/test/e2e/cases/recursive-shapes.lucent.ts", 16), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("grow", "packages/compiler/test/e2e/cases/recursive-shapes.lucent.ts", 16), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_TreeNode>>::fromJs(rt, arg(args, count, 0), Path{"grow", "argument 't'"});
       return Convert<lucent::Ref<lucent_app::S_TreeNode>>::toJs(rt, host, lucent_app::m_recursive_u2d_shapes::grow(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "lenB", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("lenB", "packages/compiler/test/e2e/cases/recursive-shapes.lucent.ts", 30), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("lenB", "packages/compiler/test/e2e/cases/recursive-shapes.lucent.ts", 30), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_ListA>>::fromJs(rt, arg(args, count, 0), Path{"lenB", "argument 'l'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_recursive_u2d_shapes::lenB(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "evens", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("evens", "packages/compiler/test/e2e/cases/recursive-shapes.lucent.ts", 48), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("evens", "packages/compiler/test/e2e/cases/recursive-shapes.lucent.ts", 48), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_Even>>::fromJs(rt, arg(args, count, 0), Path{"evens", "argument 'e'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_recursive_u2d_shapes::evens(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "selfs", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("selfs", "packages/compiler/test/e2e/cases/recursive-shapes.lucent.ts", 52), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("selfs", "packages/compiler/test/e2e/cases/recursive-shapes.lucent.ts", 52), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_Self>>::fromJs(rt, arg(args, count, 0), Path{"selfs", "argument 's'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_recursive_u2d_shapes::selfs(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "sum", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("sum", "packages/compiler/test/e2e/cases/recursive-shapes.lucent.ts", 60), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("sum", "packages/compiler/test/e2e/cases/recursive-shapes.lucent.ts", 60), [&]() -> jsi::Value {
       auto a0 = Convert<std::variant<lucent::Ref<lucent_app::S_Object_c5938d10>, lucent::Ref<lucent_app::S_Object_f0708c92>>>::fromJs(rt, arg(args, count, 0), Path{"sum", "argument 'j'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_recursive_u2d_shapes::sum(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "names", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("names", "packages/compiler/test/e2e/cases/recursive-shapes.lucent.ts", 64), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("names", "packages/compiler/test/e2e/cases/recursive-shapes.lucent.ts", 64), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_Doc>>::fromJs(rt, arg(args, count, 0), Path{"names", "argument 'd'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_recursive_u2d_shapes::names(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"recursive-shapes", install_m_recursive_u2d_shapes}};
+const ModuleDef kModules[] = {{"recursive-shapes", install_m_recursive_u2d_shapes, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -505,7 +505,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_recursive_u2d_shapes::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_recursive_u2d_shapes::init();
+  }
 }
 
 }  // namespace lucent::js

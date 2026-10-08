@@ -36,17 +36,17 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Greeter>>::toJs(jsi::Runtime
 void proto_C_Greeter(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "greeting", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Greeter>>::fromJs(rt, thisVal, Path{"Greeter.greeting", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->greeting);
     });
   }, nullptr);
   defineFunction(rt, proto, "greet", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Greeter>>::fromJs(rt, thisVal, Path{"Greeter.greet", "this"});
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Greeter.greet", "argument 'name'"});
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("Greeter.greet", "packages/compiler/test/e2e/cases/async-arguments.lucent.ts", 8), [self, a0]() {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Greeter.greet", "packages/compiler/test/e2e/cases/async-arguments.lucent.ts", 8), [self, a0]() {
         return self->greet(a0);
       });
     });
@@ -66,31 +66,31 @@ using namespace lucent::js;
 void install_m_async_u2d_arguments(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "greet", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"greet", "argument 'name'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"greet", "argument 'times'"});
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("greet", "packages/compiler/test/e2e/cases/async-arguments.lucent.ts", 1), [a0, a1]() {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("greet", "packages/compiler/test/e2e/cases/async-arguments.lucent.ts", 1), [a0, a1]() {
         return lucent_app::m_async_u2d_arguments::greet(a0, a1);
       });
     });
   });
   defineFunction(rt, exports, "greetNow", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("greetNow", "packages/compiler/test/e2e/cases/async-arguments.lucent.ts", 13), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("greetNow", "packages/compiler/test/e2e/cases/async-arguments.lucent.ts", 13), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"greetNow", "argument 'name'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_async_u2d_arguments::greetNow(std::move(a0)));
     });
   });
   defineClass(rt, host, exports, "Greeter", "async-arguments.Greeter", proto_C_Greeter, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Greeter", "packages/compiler/test/e2e/cases/async-arguments.lucent.ts", 5), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Greeter", "packages/compiler/test/e2e/cases/async-arguments.lucent.ts", 5), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Greeter", "argument 'greeting'"});
       return Convert<lucent::Ref<lucent_app::C_Greeter>>::toJs(rt, host, lucent_app::C_Greeter::create(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"async-arguments", install_m_async_u2d_arguments}};
+const ModuleDef kModules[] = {{"async-arguments", install_m_async_u2d_arguments, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -102,7 +102,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_async_u2d_arguments::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_async_u2d_arguments::init();
+  }
 }
 
 }  // namespace lucent::js

@@ -1,16 +1,19 @@
 // Lucent runtime — answers to the commands of Lucent components that return
 // a value: requests, settled in the JavaScript runtime that sent them.
 //
-// A component's proxy numbers each request and hands the views runtime's
-// settle function to the Lucent module once (its __lucentViewRequests
-// property, connectRequests below). A host view captures the Requester
-// current when a command arrives, and answers through it from any thread.
-// The answer runs on that runtime's JavaScript thread, or not at all once
-// that runtime is torn down (a reload): request ids start again in each
-// runtime, so an answer never reaches another one.
+// A component's proxy hands the views runtime's settle function to the
+// Lucent module once (its __lucentViewRequests property, connectRequests
+// below), which gives it the base of its request ids: its runtime's id
+// times kRequestsPerRuntime. It numbers each request from there, so an id
+// names the runtime that sent it, and two runtimes at once (two React
+// Native instances) each get their own answers. A host view answers
+// through a Requester from any thread; the answer runs on its runtime's
+// JavaScript thread, or not at all once that runtime is torn down (a
+// reload).
 #pragma once
 
 #include <jsi/jsi.h>
+#include <lucent/scope.h>
 
 #include <cstdint>
 #include <functional>
@@ -33,9 +36,14 @@ class Requester {
  public:
   Requester() = default;
 
-  /// The runtime connected now: a command's, when it arrives. Empty when no
-  /// runtime has connected (its answers are dropped).
+  /// The runtime connected last: a command's, for request ids without a
+  /// runtime's base. Empty when no runtime has connected (its answers are
+  /// dropped).
   static Requester current();
+
+  /// Where request `id` is answered: its runtime's, for an id with a
+  /// runtime's base (empty if that runtime is gone), else this one.
+  Requester forRequest(double id) const;
 
   /// Settles request `id` with `value`. Dropped when the runtime is gone.
   void resolve(double id, AnswerValue value) const;
@@ -56,9 +64,16 @@ class Requester {
   uint64_t settle_ = 0;
 };
 
-/// Makes `host`'s runtime the one requests come from, settled through
-/// `settle(id, error, value)`. On the JavaScript thread.
-void connectRequests(const std::shared_ptr<js::Host>& host, facebook::jsi::Runtime& runtime, facebook::jsi::Function settle);
+/// How many request ids each runtime has: its ids start at its id times this.
+inline constexpr double kRequestsPerRuntime = 4294967296.0;
+
+/// The first request id of runtime `runtime`.
+double requestBase(RuntimeId runtime);
+
+/// Makes `host`'s runtime one requests come from (and the current one),
+/// settled through `settle(id, error, value)`, and gives the base its
+/// request ids start from. On the JavaScript thread.
+double connectRequests(const std::shared_ptr<js::Host>& host, facebook::jsi::Runtime& runtime, facebook::jsi::Function settle);
 
 /// The name the Lucent module gives the function JavaScript connects with.
 inline constexpr const char* kRequestsName = "__lucentViewRequests";

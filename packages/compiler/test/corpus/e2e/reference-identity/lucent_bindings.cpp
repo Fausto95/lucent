@@ -37,61 +37,61 @@ using namespace lucent::js;
 void install_m_reference_u2d_identity(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "arrays", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("arrays", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 21), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("arrays", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 21), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_reference_u2d_identity::arrays());
     });
   });
   defineFunction(rt, exports, "maps", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("maps", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 43), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("maps", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 43), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_reference_u2d_identity::maps());
     });
   });
   defineFunction(rt, exports, "sets", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("sets", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 54), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("sets", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 54), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_reference_u2d_identity::sets());
     });
   });
   defineFunction(rt, exports, "records", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("records", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 65), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("records", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 65), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_reference_u2d_identity::records());
     });
   });
   defineFunction(rt, exports, "bytes", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("bytes", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 76), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("bytes", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 76), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_reference_u2d_identity::bytes());
     });
   });
   defineFunction(rt, exports, "promises", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("promises", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 93), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("promises", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 93), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_reference_u2d_identity::promises());
     });
   });
   defineFunction(rt, exports, "values", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("values", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 101), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("values", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 101), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_reference_u2d_identity::values());
     });
   });
   defineFunction(rt, exports, "optionals", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("optionals", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 115), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("optionals", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 115), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_reference_u2d_identity::optionals());
     });
   });
   defineFunction(rt, exports, "unions", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("unions", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 144), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("unions", "packages/compiler/test/e2e/cases/reference-identity.lucent.ts", 144), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_reference_u2d_identity::unions());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"reference-identity", install_m_reference_u2d_identity}};
+const ModuleDef kModules[] = {{"reference-identity", install_m_reference_u2d_identity, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -103,7 +103,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_reference_u2d_identity::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_reference_u2d_identity::init();
+  }
 }
 
 }  // namespace lucent::js

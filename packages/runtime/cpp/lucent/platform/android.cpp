@@ -540,6 +540,8 @@ namespace {
 struct ProxyTarget {
   std::pair<const void*, std::string> key;
   std::unordered_map<std::string, ProxyMethod> methods;
+  /// The actor that made it, where what its methods captured is released.
+  Actor* actor = &currentActor();
 };
 
 struct ProxyEntry {
@@ -605,8 +607,8 @@ void releaseProxy(JNIEnv* e, jlong handle) {
     }
   }
   // Called on Java's finalizer thread: what the methods captured (Lucent
-  // values) is released on the Lucent thread.
-  postCallback([t] { delete t; });
+  // values) is released on the actor that made them.
+  postCallback(*t->actor, [t] { delete t; });
 }
 
 jclass nativeProxyClass(JNIEnv* e) {

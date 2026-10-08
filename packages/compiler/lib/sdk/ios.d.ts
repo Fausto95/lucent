@@ -107,7 +107,7 @@ export declare class Out<T> {
 /**
  * A Swift AsyncSequence, such as StoreKit's `Transaction.updates` or an
  * `AsyncStream`, collected as Kotlin's Flow is. `collect` calls `f` with
- * each element in order on the Lucent thread, and the sequence waits for
+ * each element in order on its package's thread, and the sequence waits for
  * each call. It settles when the sequence ends, rejecting with what the
  * sequence or `f` throws.
  *

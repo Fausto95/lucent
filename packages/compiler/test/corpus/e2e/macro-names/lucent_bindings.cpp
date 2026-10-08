@@ -84,13 +84,13 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Signal>>::toJs(jsi::Runtime&
 void proto_C_Signal(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "sa_handler", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Signal>>::fromJs(rt, thisVal, Path{"Signal.sa_handler", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->sa_handler);
     });
   }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Signal>>::fromJs(rt, thisVal, Path{"Signal.sa_handler", "this"});
       auto value = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Signal.sa_handler", "value"});
       self->sa_handler = value;
@@ -99,7 +99,7 @@ void proto_C_Signal(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineFunction(rt, proto, "HUGE", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Signal.HUGE", "packages/compiler/test/e2e/cases/macro-names.lucent.ts", 39), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Signal.HUGE", "packages/compiler/test/e2e/cases/macro-names.lucent.ts", 39), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Signal>>::fromJs(rt, thisVal, Path{"Signal.HUGE", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->HUGE());
     });
@@ -119,47 +119,47 @@ using namespace lucent::js;
 void install_m_macro_u2d_names(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "action", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("action", "packages/compiler/test/e2e/cases/macro-names.lucent.ts", 14), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("action", "packages/compiler/test/e2e/cases/macro-names.lucent.ts", 14), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"action", "argument 'n'"});
       return Convert<lucent::Ref<lucent_app::S_Action>>::toJs(rt, host, lucent_app::m_macro_u2d_names::action(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "describe", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("describe", "packages/compiler/test/e2e/cases/macro-names.lucent.ts", 18), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("describe", "packages/compiler/test/e2e/cases/macro-names.lucent.ts", 18), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_Action>>::fromJs(rt, arg(args, count, 0), Path{"describe", "argument 'a'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_macro_u2d_names::describe(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "howmany", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("howmany", "packages/compiler/test/e2e/cases/macro-names.lucent.ts", 23), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("howmany", "packages/compiler/test/e2e/cases/macro-names.lucent.ts", 23), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"howmany", "argument 'NAN'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_macro_u2d_names::howmany(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "huge", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("huge", "packages/compiler/test/e2e/cases/macro-names.lucent.ts", 29), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("huge", "packages/compiler/test/e2e/cases/macro-names.lucent.ts", 29), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"huge", "argument 'domain'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_macro_u2d_names::huge(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "signal", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("signal", "packages/compiler/test/e2e/cases/macro-names.lucent.ts", 44), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("signal", "packages/compiler/test/e2e/cases/macro-names.lucent.ts", 44), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_macro_u2d_names::signal());
     });
   });
   defineClass(rt, host, exports, "Signal", "macro-names.Signal", proto_C_Signal, 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Signal", "packages/compiler/test/e2e/cases/macro-names.lucent.ts", 36), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Signal", "packages/compiler/test/e2e/cases/macro-names.lucent.ts", 36), [&]() -> jsi::Value {
       return Convert<lucent::Ref<lucent_app::C_Signal>>::toJs(rt, host, lucent_app::C_Signal::create());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"macro-names", install_m_macro_u2d_names}};
+const ModuleDef kModules[] = {{"macro-names", install_m_macro_u2d_names, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -171,7 +171,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_macro_u2d_names::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_macro_u2d_names::init();
+  }
 }
 
 }  // namespace lucent::js

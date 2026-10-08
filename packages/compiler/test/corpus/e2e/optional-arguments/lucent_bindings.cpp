@@ -23,7 +23,7 @@ using namespace lucent::js;
 void install_m_optional_u2d_arguments(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "absent", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("absent", "packages/compiler/test/e2e/cases/optional-arguments.lucent.ts", 107), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("absent", "packages/compiler/test/e2e/cases/optional-arguments.lucent.ts", 107), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<double>(rt, arg(args, count, 0), Path{"absent", "argument 'at'"}, false, "a number or undefined");
       auto a1 = optionalFromJs<lucent::String>(rt, arg(args, count, 1), Path{"absent", "argument 'sep'"}, false, "a string or undefined");
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_optional_u2d_arguments::absent(std::move(a0), std::move(a1)));
@@ -31,14 +31,14 @@ void install_m_optional_u2d_arguments(jsi::Runtime& rt, Host& host, jsi::Object&
   });
   defineFunction(rt, exports, "nanArguments", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("nanArguments", "packages/compiler/test/e2e/cases/optional-arguments.lucent.ts", 113), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("nanArguments", "packages/compiler/test/e2e/cases/optional-arguments.lucent.ts", 113), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"nanArguments", "argument 'nan'"});
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_optional_u2d_arguments::nanArguments(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"optional-arguments", install_m_optional_u2d_arguments}};
+const ModuleDef kModules[] = {{"optional-arguments", install_m_optional_u2d_arguments, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -50,7 +50,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_optional_u2d_arguments::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_optional_u2d_arguments::init();
+  }
 }
 
 }  // namespace lucent::js

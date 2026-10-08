@@ -80,61 +80,61 @@ using namespace lucent::js;
 void install_m_stringify_u2d_classes(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "account", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("account", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 75), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("account", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 75), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_stringify_u2d_classes::account());
     });
   });
   defineFunction(rt, exports, "inherited", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("inherited", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 82), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("inherited", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 82), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_stringify_u2d_classes::inherited());
     });
   });
   defineFunction(rt, exports, "throughBase", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("throughBase", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 86), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("throughBase", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 86), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_stringify_u2d_classes::throughBase());
     });
   });
   defineFunction(rt, exports, "nested", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("nested", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 92), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("nested", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 92), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_stringify_u2d_classes::nested());
     });
   });
   defineFunction(rt, exports, "shapes", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("shapes", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 129), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("shapes", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 129), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_stringify_u2d_classes::shapes());
     });
   });
   defineFunction(rt, exports, "toJsonUndefined", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("toJsonUndefined", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 171), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("toJsonUndefined", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 171), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_stringify_u2d_classes::toJsonUndefined());
     });
   });
   defineFunction(rt, exports, "toJsonOnce", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("toJsonOnce", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 185), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("toJsonOnce", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 185), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_stringify_u2d_classes::toJsonOnce());
     });
   });
   defineFunction(rt, exports, "toJsonField", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("toJsonField", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 235), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("toJsonField", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 235), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_stringify_u2d_classes::toJsonField());
     });
   });
   defineFunction(rt, exports, "generics", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("generics", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 287), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("generics", "packages/compiler/test/e2e/cases/stringify-classes.lucent.ts", 287), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_stringify_u2d_classes::generics());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"stringify-classes", install_m_stringify_u2d_classes}};
+const ModuleDef kModules[] = {{"stringify-classes", install_m_stringify_u2d_classes, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -146,7 +146,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_stringify_u2d_classes::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_stringify_u2d_classes::init();
+  }
 }
 
 }  // namespace lucent::js

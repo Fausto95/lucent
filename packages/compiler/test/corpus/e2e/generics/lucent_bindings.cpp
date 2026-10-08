@@ -24,13 +24,13 @@ using namespace lucent::js;
 void install_m_generics(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "demo", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("demo", "packages/compiler/test/e2e/cases/generics.lucent.ts", 33), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("demo", "packages/compiler/test/e2e/cases/generics.lucent.ts", 33), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_generics::demo());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"generics", install_m_generics}};
+const ModuleDef kModules[] = {{"generics", install_m_generics, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -42,7 +42,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_generics::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_generics::init();
+  }
 }
 
 }  // namespace lucent::js

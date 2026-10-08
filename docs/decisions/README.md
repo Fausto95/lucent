@@ -30,6 +30,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 | [0067](0067-platform-files-may-stand-alone.md)                            | 2026-10-08 | Platform files may stand alone                                              |
 | [0066](0066-eventemitter-typed-like-expos.md)                             | 2026-10-08 | EventEmitter, typed like Expo's                                             |
 | [0065](0065-platform-members-not-platform-classes.md)                     | 2026-10-08 | Platform members, not platform classes                                      |
+| [0064](0064-an-actor-per-package-and-the-main-thread-never-queues.md)     | 2026-10-08 | An actor per package; the main thread never queues                          |
 | [0063](0063-a-value-only-its-own-local-sees-may-change-representation.md) | 2026-10-08 | A value only its own local sees may change representation                   |
 | [0062](0062-device-runs-are-nightly-only-until-they-are-reliable.md)      | 2026-10-08 | Device runs are nightly only, until they are reliable                       |
 | [0061](0061-a-build-with-only-deferred-platforms-succeeds.md)             | 2026-10-08 | A build with only deferred platforms succeeds                               |

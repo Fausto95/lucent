@@ -1,4 +1,5 @@
 import { cpp } from "@lucent-lang/codegen";
+import { actorName } from "./actors.ts";
 import ts from "typescript";
 import { Codes, CompileError, fail } from "../diagnostics.ts";
 import type { LucentModule } from "../program.ts";
@@ -315,9 +316,15 @@ export class BindingsEmitter {
       if (decls) js.push(...decls);
     }
     const installers = mods.flatMap((m) => this.ctx.guard(() => this.installer(m)) ?? []);
-    const modules = mods.map((m) =>
-      cpp.initList([cpp.str(m.module.name), cpp.id(`install_${m.module.ns}`)]),
-    );
+    // Each installs holding its actor (`&lucent_app::actor_N`).
+    const modules = mods.map((m) => {
+      const i = this.ctx.actors.of.get(m.module);
+      return cpp.initList([
+        cpp.str(m.module.name),
+        cpp.id(`install_${m.module.ns}`),
+        i === undefined ? cpp.nullptr : cpp.addressOf(cpp.id(actorName(i))),
+      ]);
+    });
     const count = cpp.id("count");
     return [
       cpp.include("lucent/jsi/convert.h", true),
@@ -345,14 +352,42 @@ export class BindingsEmitter {
           [cpp.param(cpp.reference(cpp.type("size_t")), "count")],
           [cpp.exprStmt(cpp.assign(count, cpp.num(mods.length))), cpp.ret(cpp.id("kModules"))],
         ),
-        cpp.fn(
-          "resetModuleState",
-          cpp.voidType,
-          [],
-          initOrder.map((m) => cpp.exprStmt(cpp.call(`lucent_app::${m.ns}::init`))),
-        ),
+        cpp.fn("resetModuleState", cpp.voidType, [], this.initializations(initOrder)),
       ]),
     ];
+  }
+
+  /**
+   * Each module's init() in `order`, holding its actor: a run of modules
+   * of one actor in one block (an actor is never taken twice at once).
+   */
+  private initializations(order: LucentModule[]): cpp.Stmt[] {
+    const out: cpp.Stmt[] = [];
+    let run: { actor: number | undefined; inits: cpp.Stmt[] } | undefined;
+    const flush = () => {
+      if (!run) return;
+      const actor =
+        run.actor === undefined
+          ? cpp.call("lucent::Actor::shared", [])
+          : cpp.call(actorName(run.actor), []);
+      out.push(
+        cpp.block([
+          cpp.varDecl(cpp.type("lucent::LucentScope"), "scope", actor, { style: "construct" }),
+          ...run.inits,
+        ]),
+      );
+      run = undefined;
+    };
+
+    for (const m of order) {
+      const actor = this.ctx.actors.of.get(m);
+      if (run && run.actor !== actor) flush();
+      run ??= { actor, inits: [] };
+      run.inits.push(cpp.exprStmt(cpp.call(`lucent_app::${m.ns}::init`)));
+    }
+    flush();
+
+    return out;
   }
 
   private structConvert(id: string): cpp.Decl[] {
@@ -658,7 +693,10 @@ export class BindingsEmitter {
         cpp.param(cpp.pointer(cpp.constType(JS_VALUE))),
         cpp.param(cpp.type("size_t")),
       ],
-      sync([...(prelude ? [prelude] : []), cpp.ret(toJs(t, cpp.id("host"), got))]),
+      sync(this.ctx.actorAt(m.node), [
+        ...(prelude ? [prelude] : []),
+        cpp.ret(toJs(t, cpp.id("host"), got)),
+      ]),
       { ret: JS_VALUE },
     );
     let setter = cpp.nullptr;
@@ -669,7 +707,7 @@ export class BindingsEmitter {
           ? cpp.call(place(`set_${cppIdent(m.name)}`), [value])
           : cpp.assign(place(cppIdent(m.name)), value);
       setter = hostFunction(
-        sync([
+        sync(this.ctx.actorAt(m.node), [
           ...(prelude ? [prelude] : []),
           cpp.varDecl(
             cpp.auto,
@@ -751,6 +789,7 @@ export class BindingsEmitter {
               [
                 rt,
                 host,
+                this.ctx.actorAt(declaration),
                 site,
                 cpp.lambda([...captures, ...names], [], [cpp.ret(cpp.call(target, ids))]),
               ],
@@ -764,6 +803,7 @@ export class BindingsEmitter {
     // An async call is traced by callAsync, which carries its id on, and its
     // arguments' checks reject its promise.
     return sync(
+      this.ctx.actorAt(declaration),
       [...(prelude ? [prelude] : []), ...conv, ...result],
       isAsync ? undefined : site,
       isAsync ? "callAsyncEntry" : "callSync",
@@ -883,7 +923,7 @@ export class BindingsEmitter {
                 rt,
                 exports,
                 name,
-                hostFunction(sync([cpp.ret(read)])),
+                hostFunction(sync(this.ctx.actorAt(m.module), [cpp.ret(read)])),
                 cpp.nullptr,
               ]),
         ),
@@ -1182,8 +1222,11 @@ const dynamicCast = (t: cpp.Type, x: cpp.Expr) => cpp.call("std::dynamic_pointer
 const makeShared = (cppName: string) =>
   cpp.call("std::make_shared", [], [cpp.type(`lucent_app::${cppName}`)]);
 
-/** `Host& host = …; return callSync(rt, host, [site,] [&]() -> jsi::Value { … });` (or `entry`'s). */
-function sync(body: cpp.Stmt[], site?: cpp.Expr, entry = "callSync"): cpp.Stmt[] {
+/**
+ * `Host& host = …; return callSync(rt, host, actor, [site,] [&]() -> jsi::Value { … });` (or
+ * `entry`'s): the call enters `actor`, its module's.
+ */
+function sync(actor: cpp.Expr, body: cpp.Stmt[], site?: cpp.Expr, entry = "callSync"): cpp.Stmt[] {
   const lambda = cpp.lambda(["&"], [], body, { ret: JS_VALUE });
 
   return [
@@ -1192,7 +1235,7 @@ function sync(body: cpp.Stmt[], site?: cpp.Expr, entry = "callSync"): cpp.Stmt[]
       "host",
       cpp.call("Host::from", [rt, cpp.id("installed")]),
     ),
-    cpp.ret(cpp.call(entry, [rt, cpp.id("host"), ...(site ? [site] : []), lambda])),
+    cpp.ret(cpp.call(entry, [rt, cpp.id("host"), actor, ...(site ? [site] : []), lambda])),
   ];
 }
 

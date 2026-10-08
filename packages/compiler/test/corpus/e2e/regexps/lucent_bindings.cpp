@@ -37,50 +37,50 @@ using namespace lucent::js;
 void install_m_regexps(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "basics", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("basics", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 1), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("basics", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 1), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_regexps::basics());
     });
   });
   defineFunction(rt, exports, "named", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("named", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 8), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("named", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 8), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_regexps::named());
     });
   });
   defineFunction(rt, exports, "globalExec", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("globalExec", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 13), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("globalExec", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 13), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_regexps::globalExec());
     });
   });
   defineFunction(rt, exports, "stringMethods", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("stringMethods", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 21), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("stringMethods", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 21), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"stringMethods", "argument 's'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_regexps::stringMethods(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "matchAllGroups", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("matchAllGroups", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 38), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("matchAllGroups", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 38), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_regexps::matchAllGroups());
     });
   });
   defineFunction(rt, exports, "flags", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("flags", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 45), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("flags", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 45), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_regexps::flags());
     });
   });
   defineFunction(rt, exports, "sticky", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("sticky", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 63), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("sticky", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 63), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_regexps::sticky());
     });
   });
   defineFunction(rt, exports, "dynamic", 3, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("dynamic", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 74), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("dynamic", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 74), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"dynamic", "argument 'pattern'"});
       auto a1 = Convert<lucent::String>::fromJs(rt, arg(args, count, 1), Path{"dynamic", "argument 'flags'"});
       auto a2 = Convert<lucent::String>::fromJs(rt, arg(args, count, 2), Path{"dynamic", "argument 'input'"});
@@ -89,14 +89,14 @@ void install_m_regexps(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "callbackReplace", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("callbackReplace", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 83), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("callbackReplace", "packages/compiler/test/e2e/cases/regexps.lucent.ts", 83), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"callbackReplace", "argument 's'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_regexps::callbackReplace(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"regexps", install_m_regexps}};
+const ModuleDef kModules[] = {{"regexps", install_m_regexps, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -108,7 +108,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_regexps::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_regexps::init();
+  }
 }
 
 }  // namespace lucent::js

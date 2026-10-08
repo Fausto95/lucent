@@ -1165,10 +1165,11 @@ stale-owner access and resource leak under stress.
 - [ ] Run the applicable sanitizers plus real platform background,
       recreation, camera and audio scenarios; minimize every failure into a
       regression fixture.
-- [ ] Carried over from T30: check whether tearing down one of several JSI
-      runtimes cancels the other runtimes' compute tasks (one process-wide
-      module scope follows the last `Host::create`; suspected, not
-      verified).
+- [x] Carried over from T30: tearing down one of several JSI runtimes
+      cancelled the others' work (one process-wide module scope followed
+      the last `Host::create`). Work now belongs to the runtime whose call
+      started it (`twoRuntimesKeepTheirOwnWork`,
+      `tearingOneRuntimeDownSparesAnother`).
 
 **Done when:** no reproducible deadlock, use-after-free, stale-owner access,
 cross-thread JSI access or unbounded owned-resource growth remains.

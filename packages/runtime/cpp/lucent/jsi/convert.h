@@ -9,6 +9,8 @@
 // the Lucent lock held.
 #pragma once
 
+#include <array>
+
 #include <jsi/jsi.h>
 
 #include <optional>
@@ -444,21 +446,22 @@ struct Convert<AbortSignal> {
 // --- promises ------------------------------------------------------------------------------
 
 /// Settles `host`'s JS promise `id` like `p`, once `p` settles: on the JS
-/// thread, where its value converts. If the host is torn down first, the
-/// value is released on the legacy module context instead.
+/// thread, where its value converts holding the calling actor (`p`'s). If
+/// the host is torn down first, the value is released on that actor.
 /// Traced (`traceId`), the result's wait for the JS thread and its
 /// delivery are spans of that id, the delivery named after `site`.
 template <class T>
 void settleLater(Host& host, uint64_t id, const Promise<T>& p, uint64_t traceId = 0, const trace::Site* site = nullptr) {
   std::weak_ptr<Host> weak = host.weak_from_this();
+  Actor* actor = &currentActor();
 
-  p.onSettled([p, weak, id, traceId, site] {
+  p.onSettled([p, weak, id, traceId, site, actor] {
     auto host = weak.lock();
     if (!host) return;
 
     trace::Mark wait = traceId ? trace::begin(trace::Category::Queue, "js.wait") : trace::Mark{};
 
-    host->postToJs([p, id, weak, traceId, site, wait](jsi::Runtime& rt) {
+    host->postToJs([p, id, weak, traceId, site, wait, actor](jsi::Runtime& rt) {
       auto host = weak.lock();
       if (!host) return;
 
@@ -466,7 +469,8 @@ void settleLater(Host& host, uint64_t id, const Promise<T>& p, uint64_t traceId 
       std::optional<trace::Scope> delivery;
       if (traceId) delivery.emplace(trace::Category::Completion, site ? site->name : "completion", site, traceId);
 
-      LucentScope scope;
+      RuntimeEntry entry(host->id());
+      LucentScope scope(*actor);
       if (!p.fulfilled()) {
         host->reject(rt, id, host->errorToJs(rt, p.error()));
         return;
@@ -552,7 +556,11 @@ struct Convert<Fn<R(A...)>> {
       if (!fn) throwError(String::fromLatin1("Error"), String::fromLatin1("Callback was released"));
       jsi::Value result = jsi::Value::undefined();
       try {
-        result = fn->call(rt, Convert<A>::toJs(rt, *host, args)...);
+        std::array<jsi::Value, sizeof...(A)> argv{Convert<A>::toJs(rt, *host, args)...};
+        // JavaScript may wait for the main thread: it may enter the actors
+        // this thread holds meanwhile, as this JavaScript could.
+        ParkedActors parked;
+        result = fn->call(rt, static_cast<const jsi::Value*>(argv.data()), argv.size());
       } catch (const jsi::JSError& e) {
         throw Exception(Host::errorFromJs(rt, e));
       }
@@ -562,16 +570,20 @@ struct Convert<Fn<R(A...)>> {
         return Convert<R>::fromJs(rt, result, Path::at(*where, "return value"));
       }
     }
+    Actor* actor = &currentActor();
     if constexpr (std::is_void_v<R>) {
       std::weak_ptr<Host> weak = host;
-      host->postToJs([cb, args...](jsi::Runtime& rt) mutable {
+      host->postToJs([cb, actor, args...](jsi::Runtime& rt) mutable {
         auto host = cb->host();
         if (!host) return;
         jsi::Function* fn = host->retained(cb->id());
         if (!fn) return;
-        LucentScope scope;
+        RuntimeEntry entry(host->id());
+        LucentScope scope(*actor);
         try {
-          fn->call(rt, Convert<A>::toJs(rt, *host, args)...);
+          std::array<jsi::Value, sizeof...(A)> argv{Convert<A>::toJs(rt, *host, args)...};
+          ParkedActors parked;
+          fn->call(rt, static_cast<const jsi::Value*>(argv.data()), argv.size());
         } catch (const jsi::JSError& e) {
           consoleWrite(ConsoleLevel::Error, String::fromUtf8("Uncaught error in callback: " + e.getMessage()));
         } catch (...) {
@@ -583,16 +595,23 @@ struct Convert<Fn<R(A...)>> {
       R out;
       // If the task never runs (the runtime went), the promise rejects.
       auto gone = [out] { out.reject(Host::goneError()); };
-      host->postToJs([cb, out, where, args...](jsi::Runtime& rt) mutable {
+      host->postToJs([cb, out, where, actor, args...](jsi::Runtime& rt) mutable {
         auto host = cb->host();
         jsi::Function* fn = host ? host->retained(cb->id()) : nullptr;
-        LucentScope scope;
+        std::optional<RuntimeEntry> entry;
+        if (host) entry.emplace(host->id());
+        LucentScope scope(*actor);
         if (!fn) {
           out.reject(makeError(String::fromLatin1("Callback was released")));
           return;
         }
         try {
-          jsi::Value result = fn->call(rt, Convert<A>::toJs(rt, *host, args)...);
+          jsi::Value result = jsi::Value::undefined();
+          {
+            std::array<jsi::Value, sizeof...(A)> argv{Convert<A>::toJs(rt, *host, args)...};
+            ParkedActors parked;
+            result = fn->call(rt, static_cast<const jsi::Value*>(argv.data()), argv.size());
+          }
           R inner = Convert<R>::fromJs(rt, result, Path::at(*where, "return value"));
           inner.onSettled([inner, out] {
             if (inner.fulfilled()) {
@@ -615,15 +634,18 @@ struct Convert<Fn<R(A...)>> {
     }
   }
 
+  /// The function holds the actor it was made on: JavaScript's calls enter it.
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Fn<R(A...)>& f) {
     std::weak_ptr<Host> weak = h.weak_from_this();
+    Actor* actor = &currentActor();
     return jsi::Function::createFromHostFunction(
         rt, jsi::PropNameID::forAscii(rt, "lucentFunction"), sizeof...(A),
-        [f, weak](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+        [f, weak, actor](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
           // A torn-down host's function answers through the runtime's host.
           auto kept = weak.lock();
           Host& host = kept && kept->alive() ? *kept : Host::get(rt);
-          LucentScope scope;
+          RuntimeEntry entry(host.id());
+          LucentScope scope(*actor);
           try {
             return call(rt, host, f, args, count, std::index_sequence_for<A...>{});
           } catch (const Exception& e) {
@@ -656,8 +678,10 @@ Promise<T> Convert<Promise<T>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, co
   }
 
   // Rejected if the runtime's host is torn down before JavaScript settles
-  // it, so what awaits it goes on (and releases what it holds).
-  const std::shared_ptr<Scope>& scope = Host::get(rt).scope();
+  // it, so what awaits it goes on (and releases what it holds). Settled
+  // holding the actor that awaits it.
+  Actor* actor = &currentActor();
+  const std::shared_ptr<Scope> scope = Host::get(rt).scopeFor(*actor);
   Scope::CleanupId pending = scope->onDispose([out] { out.reject(Host::goneError()); });
   if (pending == 0) return out;
 
@@ -668,9 +692,9 @@ Promise<T> Convert<Promise<T>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, co
   auto where = std::make_shared<const Site>(p, " ", "");
   auto onFulfilled = jsi::Function::createFromHostFunction(
       rt, jsi::PropNameID::forAscii(rt, "onFulfilled"), 1,
-      [out, where, settled](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+      [out, where, settled, actor](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
         settled();
-        LucentScope scope;
+        LucentScope scope(*actor);
         try {
           if constexpr (std::is_void_v<T>) out.resolve(undefined);
           else out.resolve(Convert<T>::fromJs(rt, arg(args, count, 0), Path::at(*where, "resolved value")));
@@ -683,9 +707,9 @@ Promise<T> Convert<Promise<T>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, co
       });
   auto onRejected = jsi::Function::createFromHostFunction(
       rt, jsi::PropNameID::forAscii(rt, "onRejected"), 1,
-      [out, settled](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+      [out, settled, actor](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
         settled();
-        LucentScope scope;
+        LucentScope scope(*actor);
         out.reject(Convert<Error>::fromJs(rt, arg(args, count, 0), Path{"promise", "rejection"}));
         return jsi::Value::undefined();
       });
@@ -697,23 +721,13 @@ Promise<T> Convert<Promise<T>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, co
 // --- helpers used by generated bindings ----------------------------------------------------
 
 
-/// Runs a synchronous Lucent call from JS, translating Lucent errors into
-/// JS exceptions.
+/// Runs a synchronous Lucent call from JS in `actor`, translating Lucent
+/// errors into JS exceptions.
 template <class F>
-jsi::Value callSync(jsi::Runtime& rt, Host& host, F&& body);
-
-/// A synchronous call from JS, traced as an entry at the export's site
-/// (the compiler passes it: LUCENT_TRACE_SITE_AT).
-template <class F>
-jsi::Value callSync(jsi::Runtime& rt, Host& host, const trace::Site* site, F&& body) {
-  trace::Scope entry(trace::Category::Entry, site->name, site);
-  return callSync(rt, host, std::forward<F>(body));
-}
-
-template <class F>
-jsi::Value callSync(jsi::Runtime& rt, Host& host, F&& body) {
-  LucentScope scope;
+jsi::Value callSync(jsi::Runtime& rt, Host& host, Actor& actor, F&& body) {
+  RuntimeEntry entry(host.id());
   try {
+    LucentScope scope(actor);
     return body();
   } catch (const Exception& e) {
     throw jsi::JSError(rt, host.errorToJs(rt, e.error()));
@@ -726,6 +740,14 @@ jsi::Value callSync(jsi::Runtime& rt, Host& host, F&& body) {
   }
 }
 
+/// A synchronous call from JS, traced as an entry at the export's site
+/// (the compiler passes it: LUCENT_TRACE_SITE_AT).
+template <class F>
+jsi::Value callSync(jsi::Runtime& rt, Host& host, Actor& actor, const trace::Site* site, F&& body) {
+  trace::Scope entry(trace::Category::Entry, site->name, site);
+  return callSync(rt, host, actor, std::forward<F>(body));
+}
+
 /// A JS promise rejected with `reason`.
 jsi::Value rejectedPromise(jsi::Runtime& rt, const jsi::Value& reason);
 
@@ -733,9 +755,10 @@ jsi::Value rejectedPromise(jsi::Runtime& rt, const jsi::Value& reason);
 /// arguments (or `this`) throws rejects the promise it returns, as an async
 /// function's throw does, instead of throwing from the call.
 template <class F>
-jsi::Value callAsyncEntry(jsi::Runtime& rt, Host& host, F&& body) {
-  LucentScope scope;
+jsi::Value callAsyncEntry(jsi::Runtime& rt, Host& host, Actor& actor, F&& body) {
+  RuntimeEntry entry(host.id());
   try {
+    LucentScope scope(actor);
     return body();
   } catch (const Exception& e) {
     return rejectedPromise(rt, host.errorToJs(rt, e.error()));
@@ -748,19 +771,25 @@ jsi::Value callAsyncEntry(jsi::Runtime& rt, Host& host, F&& body) {
   }
 }
 
-/// Starts an exported async function on the Lucent thread and returns a JS
-/// promise for its result. `start` runs on the Lucent thread and returns the
-/// Lucent promise; it does not start if the host is torn down first.
-template <class T, class F>
-jsi::Value callAsync(jsi::Runtime& rt, Host& host, F&& start) {
-  return callAsync<T>(rt, host, nullptr, std::forward<F>(start));
+/// In the shared actor.
+template <class F>
+jsi::Value callSync(jsi::Runtime& rt, Host& host, F&& body) {
+  return callSync(rt, host, Actor::shared(), std::forward<F>(body));
 }
 
-/// As above, traced from the export's `site`: the call, the job it posts
-/// (its wait and its run), the result's wait for the JS thread and its
-/// delivery share one id.
+template <class F>
+jsi::Value callSync(jsi::Runtime& rt, Host& host, const trace::Site* site, F&& body) {
+  return callSync(rt, host, Actor::shared(), site, std::forward<F>(body));
+}
+
+/// Starts an exported async function on `actor`'s thread and returns a JS
+/// promise for its result, traced from the export's `site` (if any): the
+/// call, the job it posts (its wait and its run), the result's wait for
+/// the JS thread and its delivery share one id. `start` runs on the
+/// actor's thread and returns the Lucent promise; it does not start if the
+/// host is torn down first.
 template <class T, class F>
-jsi::Value callAsync(jsi::Runtime& rt, Host& host, const trace::Site* site, F&& start) {
+jsi::Value callAsync(jsi::Runtime& rt, Host& host, Actor& actor, const trace::Site* site, F&& start) {
   uint64_t traceId = site && trace::enabled() ? trace::newId() : 0;
 
   std::optional<trace::Scope> entry;
@@ -774,7 +803,9 @@ jsi::Value callAsync(jsi::Runtime& rt, Host& host, const trace::Site* site, F&& 
   jsi::Value jsPromise = host.createPromise(rt, id);
   std::weak_ptr<Host> weak = host.weak_from_this();
 
-  host.postToModule([weak, id, traceId, site, start = std::forward<F>(start)]() mutable {
+  // Run for this runtime: what it starts belongs to it.
+  RuntimeEntry running(host.id());
+  host.postToModule(actor, [weak, id, traceId, site, start = std::forward<F>(start)]() mutable {
     Promise<T> p;
     try {
       p = start();
@@ -786,6 +817,22 @@ jsi::Value callAsync(jsi::Runtime& rt, Host& host, const trace::Site* site, F&& 
   });
 
   return jsPromise;
+}
+
+template <class T, class F>
+jsi::Value callAsync(jsi::Runtime& rt, Host& host, Actor& actor, F&& start) {
+  return callAsync<T>(rt, host, actor, nullptr, std::forward<F>(start));
+}
+
+/// On the shared actor.
+template <class T, class F>
+jsi::Value callAsync(jsi::Runtime& rt, Host& host, F&& start) {
+  return callAsync<T>(rt, host, Actor::shared(), nullptr, std::forward<F>(start));
+}
+
+template <class T, class F>
+jsi::Value callAsync(jsi::Runtime& rt, Host& host, const trace::Site* site, F&& start) {
+  return callAsync<T>(rt, host, Actor::shared(), site, std::forward<F>(start));
 }
 
 // --- events ------------------------------------------------------------------------------
@@ -808,8 +855,9 @@ struct Convert<EventSubscription> {
     defineFunction(rt, proto, "remove", 0,
                    [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& self, const jsi::Value*, size_t) -> jsi::Value {
                      Host& host = Host::from(rt, installed);
-                     return callSync(rt, host, [&]() -> jsi::Value {
-                       fromJs(rt, self, Path{"EventSubscription.remove", "this"})->remove();
+                     auto s = fromJs(rt, self, Path{"EventSubscription.remove", "this"});
+                     return callSync(rt, host, s->actor(), [&]() -> jsi::Value {
+                       s->remove();
                        return jsi::Value::undefined();
                      });
                    });
@@ -859,9 +907,11 @@ struct Convert<Ref<EventEmitterObject<Fns...>>> {
   template <class F>
   static void define(jsi::Runtime& rt, Host& host, jsi::Object& proto, const char* name, unsigned argc, F body) {
     defineFunction(rt, proto, name, argc,
-                   [installed = host.shared_from_this(), body](jsi::Runtime& rt, const jsi::Value& self, const jsi::Value* args, size_t count) -> jsi::Value {
+                   [installed = host.shared_from_this(), body, name](jsi::Runtime& rt, const jsi::Value& self, const jsi::Value* args, size_t count) -> jsi::Value {
                      Host& host = Host::from(rt, installed);
-                     return callSync(rt, host, [&]() -> jsi::Value { return body(rt, host, self, args, count); });
+                     // In the actor of the module that made the emitter, as its own code runs.
+                     Actor& actor = fromJs(rt, self, Path{name, "this"})->actor();
+                     return callSync(rt, host, actor, [&]() -> jsi::Value { return body(rt, host, self, args, count); });
                    });
   }
 

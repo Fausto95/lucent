@@ -117,58 +117,60 @@ using Resolve = typename detail::ResolveOf<T>::type;
 
 /**
  * `present(build, signal)` from lucent:ios: on the main thread, holding the
- * Lucent lock (build is module code), presents the view controller `build`
- * returns (presentOperation) under the calling context's root scope, and
- * settles the promise, which belongs to the calling context, with the
- * outcome.
+ * calling module's actor (build is module code) once the main thread can
+ * take it without waiting (enterFromMain), presents the view controller
+ * `build` returns (presentOperation) under the calling context's root
+ * scope, and settles the promise, which belongs to the calling context,
+ * with the outcome.
  */
 template <class T>
 Promise<T> present(Fn<NativeRef(Resolve<T>, Fn<void(Error)>)> build, Opt<AbortSignal> signal = {}) {
   Promise<T> promise;
   std::shared_ptr<Scope> scope = detail::callerScope();
+  Actor& actor = currentActor();
 
-  postToMain([promise, build = std::move(build), signal, scope]() mutable {
-    LucentScope lucent;
+  postToMain([actor = &actor, promise, build = std::move(build), signal, scope]() mutable {
+    enterFromMain(*actor, [promise, build = std::move(build), signal, scope]() mutable {
+      std::shared_ptr<Operation<T>> op;
+      try {
+        op = presentOperation<T>(scope, signal, [&](const std::shared_ptr<Operation<T>>& op) -> UIViewController* {
+          std::weak_ptr<Operation<T>> weak = op;
 
-    std::shared_ptr<Operation<T>> op;
-    try {
-      op = presentOperation<T>(scope, signal, [&](const std::shared_ptr<Operation<T>>& op) -> UIViewController* {
-        std::weak_ptr<Operation<T>> weak = op;
+          Resolve<T> resolve;
+          if constexpr (std::is_void_v<T>) {
+            resolve = Resolve<T>([weak] {
+              if (auto op = weak.lock()) op->succeed();
+            });
+          } else {
+            resolve = Resolve<T>([weak](T value) {
+              if (auto op = weak.lock()) op->succeed(std::move(value));
+            });
+          }
 
-        Resolve<T> resolve;
-        if constexpr (std::is_void_v<T>) {
-          resolve = Resolve<T>([weak] {
-            if (auto op = weak.lock()) op->succeed();
+          Fn<void(Error)> reject([weak](Error error) {
+            if (auto op = weak.lock()) op->fail(std::move(error));
           });
-        } else {
-          resolve = Resolve<T>([weak](T value) {
-            if (auto op = weak.lock()) op->succeed(std::move(value));
-          });
-        }
 
-        Fn<void(Error)> reject([weak](Error error) {
-          if (auto op = weak.lock()) op->fail(std::move(error));
+          id made = unwrap(build(resolve, reject));
+          if (made && ![made isKindOfClass:[UIViewController class]])
+            throw Exception(makeError(String::fromLatin1("TypeError"), String::fromLatin1("present's function must return a UIViewController")));
+
+          return (UIViewController*)made;
         });
-
-        id made = unwrap(build(resolve, reject));
-        if (made && ![made isKindOfClass:[UIViewController class]])
-          throw Exception(makeError(String::fromLatin1("TypeError"), String::fromLatin1("present's function must return a UIViewController")));
-
-        return (UIViewController*)made;
-      });
-    } catch (...) {
-      promise.reject(currentError(std::current_exception()));
-      return;
-    }
-
-    op->onSettled([promise](const typename Operation<T>::Outcome& outcome) {
-      if (outcome.state != OperationState::Succeeded) {
-        promise.reject(outcome.error);
-      } else if constexpr (std::is_void_v<T>) {
-        promise.resolve(undefined);
-      } else {
-        promise.resolve(*outcome.value);
+      } catch (...) {
+        promise.reject(currentError(std::current_exception()));
+        return;
       }
+
+      op->onSettled([promise](const typename Operation<T>::Outcome& outcome) {
+        if (outcome.state != OperationState::Succeeded) {
+          promise.reject(outcome.error);
+        } else if constexpr (std::is_void_v<T>) {
+          promise.resolve(undefined);
+        } else {
+          promise.resolve(*outcome.value);
+        }
+      });
     });
   });
 
@@ -178,8 +180,10 @@ Promise<T> present(Fn<NativeRef(Resolve<T>, Fn<void(Error)>)> build, Opt<AbortSi
 /**
  * `onAppEvent(event, listener, signal)` from lucent:ios: calls `listener`
  * on each of UIApplication's `event` notifications ("didBecomeActive"…),
- * on the main thread holding the Lucent lock, until the returned function
- * is called or `signal` aborts. What it throws is reported; UIKit and the
+ * on the main thread holding the subscriber's actor, once the main thread
+ * can take it without waiting (enterFromMain: a busy actor delays the
+ * listener, never the main thread), until the returned function is called
+ * or `signal` aborts. What it throws is reported; UIKit and the
  * other observers go on.
  */
 Fn<void()> onAppEvent(const String& event, Fn<void()> listener, Opt<AbortSignal> signal = {});

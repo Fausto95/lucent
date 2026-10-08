@@ -27,26 +27,26 @@ using namespace lucent::js;
 void install_m_nullish_u2d_generics(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "defaults", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("defaults", "packages/compiler/test/e2e/cases/nullish-generics.lucent.ts", 13), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("defaults", "packages/compiler/test/e2e/cases/nullish-generics.lucent.ts", 13), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_nullish_u2d_generics::defaults());
     });
   });
   defineFunction(rt, exports, "present", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("present", "packages/compiler/test/e2e/cases/nullish-generics.lucent.ts", 24), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("present", "packages/compiler/test/e2e/cases/nullish-generics.lucent.ts", 24), [&]() -> jsi::Value {
       return Convert<double>::toJs(rt, host, lucent_app::m_nullish_u2d_generics::present());
     });
   });
   defineFunction(rt, exports, "presentString", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("presentString", "packages/compiler/test/e2e/cases/nullish-generics.lucent.ts", 31), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("presentString", "packages/compiler/test/e2e/cases/nullish-generics.lucent.ts", 31), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"presentString", "argument 's'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_nullish_u2d_generics::presentString(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"nullish-generics", install_m_nullish_u2d_generics}};
+const ModuleDef kModules[] = {{"nullish-generics", install_m_nullish_u2d_generics, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -58,7 +58,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_nullish_u2d_generics::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_nullish_u2d_generics::init();
+  }
 }
 
 }  // namespace lucent::js
