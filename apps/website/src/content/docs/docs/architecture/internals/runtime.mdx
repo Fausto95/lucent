@@ -165,7 +165,9 @@ An `Operation<T>` is one pending request with exactly one outcome: a value, an e
 - An outcome that loses the race is counted, and its value is released, through `onLateOutcome` when one is set, never delivered.
 - An `OperationToken` names it without a pointer: a runtime id, a scope id, the scope's generation and an operation id. A late native callback checks it with `Scope::validates`.
 
-`fromCallback` and `subscribe` (`callback.h`) and `nativeOperation` (`operation.h`) are operations under the scope the calling context's work belongs to (`ownedScope`): the JavaScript runtime's scope for module code, the root for another context. A reload cancels them, runs their cleanups and stops their timers (`delay` is an operation too). Activity results, permission requests, iOS presentations and compute tasks are operations as well.
+`fromCallback` and `subscribe` (`callback.h`) and `nativeOperation` (`operation.h`) are operations under the scope the calling context's work belongs to (`ownedScope`). That is the JavaScript runtime's scope for module code, and the root for another context. A reload cancels them, runs their cleanups and stops their timers (`delay` is an operation too).
+
+Activity results, permission requests, iOS presentations and compute tasks are operations as well.
 
 A `Resource` (`resource.h`) is something Lucent code opens and closes once. It closes at the first of `close()`, its scope's disposal or its last reference going. Its release runs once: on the context it names, if any, else on the thread that closes it.
 
