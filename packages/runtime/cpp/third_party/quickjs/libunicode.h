@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "lucent_prefix.h" /* Lucent: see README.md */
 #ifndef LIBUNICODE_H
 #define LIBUNICODE_H
 

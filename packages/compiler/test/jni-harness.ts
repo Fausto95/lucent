@@ -14,34 +14,34 @@ import { runJavac, runKotlinc } from "../../bindgen/test/jvm-tools.ts";
 import type { KotlinToolchain } from "../../bindgen/test/kotlin-toolchain.ts";
 import { type CompileResult, runtimeDir } from "../src/index.ts";
 import { compileAll } from "./parallel-build.ts";
-import { hostLibs } from "../../runtime/test/sources.ts";
-import { hostCxx, hostRuntime } from "./swift-harness.ts";
+import { hostRuntime } from "./swift-harness.ts";
 
 const host = path.join(import.meta.dirname, "jni-host");
 
-/** The JDK whose jni.h the glue compiles against and whose libjvm it starts. */
-export const jdk = (() => {
-  const darwin = process.platform === "darwin";
-  if (!darwin && process.platform !== "linux") return undefined;
+const darwin = process.platform === "darwin";
 
+/** The JDK whose jni.h the glue compiles against and whose libjvm it starts (macOS or Linux). */
+export const jdk = (() => {
+  if (process.platform !== "darwin" && process.platform !== "linux") return undefined;
+
+  // Linux: the JDK javac belongs to (/usr/lib/jvm/…/bin/javac).
+  const javac = () => {
+    const found = spawnSync("sh", ["-c", 'readlink -f "$(command -v javac)"'], {
+      encoding: "utf8",
+    }).stdout?.trim();
+    return found ? path.dirname(path.dirname(found)) : undefined;
+  };
   const home =
     process.env.JAVA_HOME ??
-    (darwin
-      ? spawnSync("/usr/libexec/java_home", { encoding: "utf8" }).stdout?.trim()
-      : // The JDK javac is in: /usr/lib/jvm/<jdk>/bin/javac.
-        (() => {
-          const javac = spawnSync("sh", ["-c", "readlink -f $(command -v javac)"], {
-            encoding: "utf8",
-          }).stdout?.trim();
-          return javac ? path.dirname(path.dirname(javac)) : undefined;
-        })());
+    (darwin ? spawnSync("/usr/libexec/java_home", { encoding: "utf8" }).stdout?.trim() : javac());
   const lib = home && path.join(home, "lib/server");
-  const libjvm = darwin ? "libjvm.dylib" : "libjvm.so";
+  const jvm = darwin ? "libjvm.dylib" : "libjvm.so";
 
-  return lib && fs.existsSync(path.join(lib, libjvm))
-    ? { home, lib, os: darwin ? "darwin" : "linux" }
-    : undefined;
+  return lib && fs.existsSync(path.join(lib, jvm)) ? { home, lib } : undefined;
 })();
+
+/** The host's clang++ (`xcrun clang++` on macOS): the command and its first arguments. */
+const clang: [string, string[]] = darwin ? ["xcrun", ["clang++"]] : ["clang++", []];
 
 /** Lucent's Java classes the glue loads, beside the Android stand-ins they read. */
 function runtimeClasses(dir: string): string {
@@ -128,16 +128,16 @@ function glueFlags(out: string): string[] {
     `-I${host}`,
     `-I${path.join(out, "android")}`,
     `-I${path.join(jdk!.home, "include")}`,
-    `-I${path.join(jdk!.home, "include", jdk!.os)}`,
+    `-I${path.join(jdk!.home, darwin ? "include/darwin" : "include/linux")}`,
   ];
 }
 
 /** What the host's clang says of the runtime's Android `source` (desktop JNI host build): nothing when it compiles. */
 export function runtimeAndroidErrors(dir: string, source: string): string {
   const check = spawnSync(
-    hostCxx[0]!,
+    clang[0],
     [
-      ...hostCxx.slice(1),
+      ...clang[1],
       ...glueFlags(dir),
       "-DLUCENT_JNI_HOST",
       "-fsyntax-only",
@@ -153,8 +153,8 @@ export function runtimeAndroidErrors(dir: string, source: string): string {
 export function glueErrors(r: CompileResult, dir: string, file: string): string {
   const out = writeOut(r, dir);
   const check = spawnSync(
-    hostCxx[0]!,
-    [...hostCxx.slice(1), ...glueFlags(out), "-fsyntax-only", path.join(out, file)],
+    clang[0],
+    [...clang[1], ...glueFlags(out), "-fsyntax-only", path.join(out, file)],
     { encoding: "utf8" },
   );
 
@@ -211,8 +211,8 @@ export function jvmRun(
     { source: path.join(out, "android/m_m.cpp"), extra: [] },
     { source: path.join(out, "android/main.cpp"), extra: [] },
   ].map(({ source, extra }) => ({
-    cmd: hostCxx[0]!,
-    args: [...hostCxx.slice(1), ...flags, ...extra, "-c", source],
+    cmd: clang[0],
+    args: [...clang[1], ...flags, ...extra, "-c", source],
     object: path.join(dir, `${path.basename(source)}.o`),
   }));
 
@@ -222,17 +222,16 @@ export function jvmRun(
 
   const exe = path.join(dir, "run");
   const link = spawnSync(
-    hostCxx[0]!,
+    clang[0],
     [
-      ...hostCxx.slice(1),
+      ...clang[1],
       ...jobs.map((j) => j.object),
       hostRuntime(),
       `-L${jdk!.lib}`,
       "-ljvm",
       `-Wl,-rpath,${jdk!.lib}`,
-      // The host runtime's localeCompare, on macOS.
-      ...hostLibs,
-      ...(process.platform === "linux" ? ["-lpthread"] : []),
+      // The host runtime's localeCompare.
+      ...(darwin ? ["-framework", "CoreFoundation"] : ["-lpthread"]),
       "-o",
       exe,
     ],
@@ -241,7 +240,7 @@ export function jvmRun(
   if (link.status !== 0) return { status: null, stdout: "", stderr: link.stderr };
 
   const run = spawnSync(exe, [jars.join(":")], { encoding: "utf8", timeout: 60_000 });
-  // The JVM announces options the environment sets (JAVA_TOOL_OPTIONS): not the program's output.
-  const stderr = run.stderr.replace(/^Picked up \w+: .*\n/gm, "");
+  // The JVM's notice of JAVA_TOOL_OPTIONS (a proxy's settings, on some machines) is not the program's.
+  const stderr = run.stderr.replace(/^Picked up JAVA_TOOL_OPTIONS: .*\n/m, "");
   return { status: run.status, stdout: run.stdout, stderr };
 }

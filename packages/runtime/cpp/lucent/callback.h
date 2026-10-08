@@ -5,7 +5,8 @@
 // knows what it listens to: Lucent code starts listening (the registration)
 // and returns what stops it (the cleanup).
 //
-// Each is one Operation (scope.h) under the calling context's root scope.
+// Each is one Operation (scope.h) under the scope the calling context's
+// work belongs to (ownedScope: module code's ends with its JS runtime).
 // It settles exactly once, at the first of its callbacks, its signal
 // aborting and the scope's disposal; whatever comes later is dropped. Its
 // cleanup runs exactly once, as soon as it settles, or as soon as the
@@ -162,7 +163,7 @@ Promise<T> compose(const Opt<AbortSignal>& signal, Start start, bool abortResolv
   Promise<T> promise;
 
   auto op = Op::start(
-      ExecutionContext::of(owner).root(),
+      ownedScope(owner),
       [&](const std::shared_ptr<Op>& op) {
         auto composition = std::make_shared<Composition<T>>(owner, op);
 

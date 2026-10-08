@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { checksSummary, summaryLine } from "./summary";
+import { checksSummary, progressLine, summaryLine } from "./summary";
 
 describe("checksSummary", () => {
   it("says ALL PASSED when every check passes", () => {
@@ -40,6 +40,21 @@ describe("summaryLine", () => {
   it("keeps the line on one line", () => {
     expect(summaryLine("compare", "numbers 1.2x\nstrings 0.9x")).toBe(
       "LUCENT_SUMMARY compare numbers 1.2x strings 0.9x",
+    );
+  });
+});
+
+describe("progressLine", () => {
+  it("marks the start of a run", () => {
+    expect(progressLine("tests", 0, 70)).toBe("LUCENT_PROGRESS tests 0/70 started");
+  });
+
+  it("names each check as it lands, with its time when it has one", () => {
+    expect(progressLine("tests", 5, 70, { name: "closures", pass: true, ms: 12 })).toBe(
+      "LUCENT_PROGRESS tests 5/70 closures ok 12ms",
+    );
+    expect(progressLine("sdk", 2, 3, { name: "netinfo: fetch", pass: false })).toBe(
+      "LUCENT_PROGRESS sdk 2/3 netinfo: fetch FAILED",
     );
   });
 });

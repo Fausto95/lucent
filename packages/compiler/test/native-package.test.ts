@@ -63,6 +63,41 @@ describe("native package", () => {
     }
   });
 
+  it("maps the project's directory to . in both platforms' builds", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const out = path.join(dir, "build/lucent-native");
+    writeNativePackage(program(dir), out, { root: dir });
+    const podspec = fs.readFileSync(path.join(out, "LucentNative.podspec"), "utf8");
+    const cmake = fs.readFileSync(path.join(out, "android/CMakeLists.txt"), "utf8");
+
+    expect(podspec).toMatch(/^lucent_project = "\.\.\/\.\."$/m);
+    expect(podspec).toContain("-ffile-prefix-map=");
+    expect(cmake).toMatch(/^set\(LUCENT_PROJECT "\.\.\/\.\."\)$/m);
+    expect(cmake).toContain("-ffile-prefix-map=${LUCENT_PROJECT_ROOT}=.");
+
+    writeNativePackage(program(dir), path.join(dir, "native"), { root: dir });
+    expect(fs.readFileSync(path.join(dir, "native/LucentNative.podspec"), "utf8")).toMatch(
+      /^lucent_project = "\.\."$/m,
+    );
+  });
+
+  it("precompiles the runtime's umbrella header in both platforms' builds", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const out = path.join(dir, "native");
+    writeNativePackage(program(dir), out, { root: dir });
+    const podspec = fs.readFileSync(path.join(out, "LucentNative.podspec"), "utf8");
+    const cmake = fs.readFileSync(path.join(out, "android/CMakeLists.txt"), "utf8");
+    const prefix = fs.readFileSync(path.join(out, "cpp/lucent/prefix.h"), "utf8");
+
+    expect(podspec).toContain('s.prefix_header_file = "cpp/lucent/prefix.h"');
+    expect(podspec).toContain('"GCC_PRECOMPILE_PREFIX_HEADER" => "YES"');
+    expect(cmake).toContain(
+      'target_precompile_headers(lucentnative PRIVATE\n    "$<$<COMPILE_LANGUAGE:CXX>:${LUCENT_ROOT}/cpp/lucent/prefix.h>")',
+    );
+    // C sources (the regular expression engine) compile without it.
+    expect(prefix).toMatch(/#if defined\(__cplusplus\)\n#include "lucent.h"\n#endif/);
+  });
+
   it("writes the lucent:core declarations for the app's tsconfig paths", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
     const src = path.join(dir, "sample.lucent.ts");
@@ -393,7 +428,9 @@ describe("native package", () => {
     expect(podspec).toContain(`\\"$(PODS_TARGET_SRCROOT)/${pkg}/native/ios\\"`);
     expect(podspec).toContain(`s.resources = ["${pkg}/assets/beep.caf"]`);
     expect(podspec).toContain(`s.resource_bundles = { "OrbitAssets" => ["${pkg}/assets/ios"] }`);
-    expect(podspec).toContain(`s.vendored_frameworks = ["${pkg}/vendor/Orbit.xcframework"]`);
+    expect(podspec).toContain(
+      `s.vendored_frameworks = lucent_frameworks + ["${pkg}/vendor/Orbit.xcframework"]`,
+    );
 
     const gradle = read("android/build.gradle");
     expect(gradle).toContain('apply plugin: "org.jetbrains.kotlin.android"');
@@ -513,6 +550,22 @@ describe("native package", () => {
     );
     expect(podspec).toContain(
       'spm_dependency(s, url: "https://github.com/orbit/orbit-swift", requirement: { kind: "upToNextMajorVersion", minimumVersion: "1.2.0" }, products: ["Orbit", "OrbitMaps"])',
+    );
+  });
+
+  it("links a local Swift package the code imports by its path, as the app's project does", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const out = path.join(dir, "native");
+    const pkg = path.join(dir, "Packages/Dials");
+
+    writeNativePackage({ ...program(dir), swiftPackages: ["dials@local"] }, out, {
+      app: { localSwiftPackages: [{ identity: "dials", path: pkg, products: ["Dials"] }] },
+    });
+
+    const podspec = fs.readFileSync(path.join(out, "LucentNative.podspec"), "utf8");
+    // React Native's spm_dependency takes a path that exists as a local package.
+    expect(podspec).toContain(
+      `spm_dependency(s, url: ${JSON.stringify(pkg)}, requirement: {}, products: ["Dials"])`,
     );
   });
 

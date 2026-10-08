@@ -10,6 +10,23 @@ import { duration, table } from "../ui/format.ts";
 import { plainSteps, type Steps } from "../ui/steps.ts";
 import { version } from "../version.ts";
 
+/** The targets `--platforms` may name. */
+const TARGETS: readonly Target[] = ["ios", "android", "host"];
+
+/**
+ * The targets `--platforms` names (undefined: none given), or why they
+ * are not targets: a misspelt one would otherwise build nothing for it,
+ * and remove what the last build wrote for the others.
+ */
+export function parsePlatforms(flag: string | boolean | undefined): Target[] | undefined | string {
+  if (typeof flag !== "string" || !flag) return undefined;
+  const given = flag.split(",").map((p) => p.trim());
+  const unknown = given.filter((p) => !TARGETS.includes(p as Target));
+  if (unknown.length || !given.length)
+    return `--platforms takes ${TARGETS.join(", ")} (comma-separated), not ${unknown.join(", ") || JSON.stringify(flag)}`;
+  return [...new Set(given)] as Target[];
+}
+
 /** `lucent build` and `lucent check`: check always, write the native package for build. */
 export async function buildOrCheck(
   command: "build" | "check",
@@ -24,6 +41,12 @@ export async function buildOrCheck(
       `${n.level === "ok" ? theme.success(theme.symbols.ok) : theme.warn(theme.symbols.warn)} ${n.text}`,
     );
   };
+  const platforms = parsePlatforms(flags.platforms);
+  if (typeof platforms === "string") {
+    if (out.json) out.data({ ok: false, error: platforms });
+    else out.error(`${theme.error(theme.symbols.fail)} ${platforms}`);
+    return 2;
+  }
   if (command === "build")
     out.print(
       `${theme.brand(theme.symbols.brand)} ${theme.bold("lucent")} ${theme.dim(version())}\n`,
@@ -42,10 +65,7 @@ export async function buildOrCheck(
       {
         mode: command,
         force: !!flags.force,
-        platforms:
-          typeof flags.platforms === "string" && flags.platforms
-            ? (flags.platforms.split(",") as Target[])
-            : undefined,
+        platforms,
         out: typeof flags.out === "string" ? flags.out : undefined,
         prefetch: true,
         frozen: !!flags.frozen,

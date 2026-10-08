@@ -116,9 +116,12 @@ function createPlugin(loadCompiler) {
           // Bound again each check: headers (and packages) change too; unchanged ones are read once.
           const extensions = compiler.projectExtensions(root);
           const checked = compiler.filesInBuild(root, files);
+          // What the build binds from: the app's pods, Swift packages, resolved Gradle classpath
+          // and its packages' binaries, so the editor types what the build types.
+          const sdk = compiler.projectSdk(root);
           // TypeScript's own errors stay TypeScript's to report; kept for the fixes their hints carry.
           session ??= compiler.CompileSession && new compiler.CompileSession();
-          const options = session ? { extensions, session } : { extensions };
+          const options = session ? { extensions, sdk, session } : { extensions, sdk };
           for (const d of compiler.checkSources(checked, readSource, options)) {
             if (!d.file || (d.code === TYPESCRIPT_PASSTHROUGH && !d.quickFix)) continue;
             const list = byFile.get(d.file) || [];

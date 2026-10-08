@@ -39,6 +39,8 @@ export const Codes = {
   ModuleNameClash: "LUCENT3010",
   NotIsolated: "LUCENT3011",
   NotTransferable: "LUCENT3012",
+  UnmatchedRequirement: "LUCENT3013",
+  IncompatiblePackage: "LUCENT3014",
   ComponentExport: "LUCENT3020",
   ComponentContract: "LUCENT3021",
   ComponentMainThread: "LUCENT3022",
@@ -469,7 +471,7 @@ export const Explanations: Record<Code, Explanation> = {
   LUCENT3007: {
     title: "Platform API newer than the app's oldest OS",
     summary:
-      "A platform API newer than the oldest OS the app runs on, used without an `available()` or `SDK_INT` check around it. That OS is the app's iOS deployment target, at least 15.1, or Android API 24.",
+      "A platform API newer than the oldest OS the app runs on, used without an `available()` or `SDK_INT` check around it. That OS is the app's iOS deployment target, at least 15.1, or its Android `minSdk`, else API 24.",
     details:
       "Apps run on older OS versions than the SDK they build with. An API introduced later crashes there, so Lucent requires a check that the running OS has it.",
     fix: 'check first: if (available("ios", 16)) …, if (available("android", 26)) … or Build_VERSION.SDK_INT >= 26',
@@ -554,6 +556,39 @@ export const Explanations: Record<Code, Explanation> = {
     right: ex(
       'import { compute } from "lucent:core";\nfunction total(values: number[]): number {\n  return values.reduce((a, b) => a + b, 0);\n}\nexport async function run(values: number[]): Promise<number> {\n  return await compute(total, values);\n}\n',
     ),
+  },
+  LUCENT3013: {
+    title: "Method that matches no protocol requirement",
+    summary:
+      "A method of a class implementing an SDK protocol, named like one of its requirements but matching none, which the platform never calls.",
+    details:
+      "TypeScript checks that a class implements a protocol's required methods. An optional one, as most delegate methods are, spelled wrong is another method: the platform never calls it, and nothing fails. Lucent warns when a method matches no requirement but its name is a few edits from one's, or starts with the same word.",
+    fix: "rename the method to the requirement the warning names, or make it private if it is a helper",
+    severity: "warning",
+    wrong: ex(
+      'import { PLATFORM } from "lucent:platform";\nimport { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";\nclass Updates implements CLLocationManagerDelegate {\n  locationManager_didUpdateLocations(manager: CLLocationManager, locations: CLLocation[]): void {}\n  locationManager_didFailWithErorr(manager: CLLocationManager, error: Error): void {}\n}\nexport async function watch(): Promise<boolean> {\n  if (PLATFORM === "ios") return new Updates() !== null;\n  return false;\n}\n',
+    ),
+    right: ex(
+      'import { PLATFORM } from "lucent:platform";\nimport { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";\nclass Updates implements CLLocationManagerDelegate {\n  locationManager_didUpdateLocations(manager: CLLocationManager, locations: CLLocation[]): void {}\n  locationManager_didFailWithError(manager: CLLocationManager, error: Error): void {}\n}\nexport async function watch(): Promise<boolean> {\n  if (PLATFORM === "ios") return new Updates() !== null;\n  return false;\n}\n',
+    ),
+    sdk: "ios",
+  },
+  LUCENT3014: {
+    title: "Package for another Lucent version",
+    summary:
+      "A Lucent package whose `lucent.compatible` range in package.json leaves out the Lucent that compiles it.",
+    details:
+      "A package states the Lucent versions it was tested with, as an npm range such as `^0.2.0`. Under 0.x a minor version can change what compiles, so Lucent refuses to compile the package's modules with a version outside the range. To try it anyway, set `LUCENT_IGNORE_COMPATIBLE=1`: the problem is then a warning.",
+    fix: "update the package or @lucent-lang/lucent so the range includes this Lucent",
+    wrong: {
+      "package.json":
+        '{ "name": "lucent-clock", "version": "1.0.0", "lucent": { "compatible": "^99.0.0" } }\n',
+      "clock.lucent.ts": "export function now(): number {\n  return Date.now();\n}\n",
+    },
+    right: {
+      "package.json": '{ "name": "lucent-clock", "version": "1.0.0", "lucent": {} }\n',
+      "clock.lucent.ts": "export function now(): number {\n  return Date.now();\n}\n",
+    },
   },
   LUCENT3020: {
     title: "Export that cannot be a component",
@@ -694,7 +729,7 @@ export const Explanations: Record<Code, Explanation> = {
     summary:
       "Lucent failed to compile a function it accepted: a bug in the compiler, reported at the function instead of stopping the build.",
     details:
-      "The compiler checks the code it generates for each function before writing it. It stops at a function whose code would be wrong, rather than writing invalid C++. The rest of the program still compiles, so other diagnostics stay accurate. The message names what went wrong; the function itself may be valid TypeScript in the subset.",
+      "The compiler checks each function's generated code and stops at one that would be wrong, instead of writing invalid C++. The rest of the program still compiles, so other diagnostics stay accurate. The message names what went wrong; the function itself may be valid TypeScript in the subset.",
     fix: "report the code at the diagnostic as a Lucent bug; rewriting that expression usually avoids it",
     wrong: ex(
       "// No program should report LUCENT9002: one that does found a compiler bug.\nexport function double(n: number): number {\n  return n * 2;\n}\n",

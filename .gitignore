@@ -26,6 +26,8 @@ vendor/
 .hermes/
 packages/lucent/lib/
 packages/lucent/runtime/
+# The prebuilt runtime, built for a release (scripts/prebuilt-runtime.ts).
+/packages/runtime/prebuilt/
 
 # SwiftPM builds (an editor indexing a package fixture writes one).
 .build/

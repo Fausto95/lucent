@@ -10,6 +10,7 @@
  * to Lucent are retained; arguments are borrowed.
  */
 import { createHash } from "node:crypto";
+import { OWN_SWIFT_MODULE } from "@lucent-lang/bindgen";
 import { cpp, swift } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
@@ -41,6 +42,7 @@ import {
   noteFramework,
   numberToNative,
   primArgLt,
+  primLt,
   toObjc,
   toNativeNumber,
   toObjcExpr,
@@ -113,6 +115,42 @@ const SCALARS: Record<string, { swift: string; c: string } | undefined> = SWIFT_
 export const isVoid = (t: SdkType) => t.k === "prim" && t.name === "void";
 const isBool = (t: SdkType) => t.k === "prim" && (t.name === "bool" || t.name === "boolean");
 
+/** A number or boolean a shim passes by value: an optional one crosses as an NSNumber. */
+export const isScalar = (t: SdkType): t is SdkType & { k: "prim" } => t.k === "prim" && !t.nullable;
+
+/**
+ * An Objective-C enum (NS_ENUM, NS_OPTIONS) in a Swift signature: its
+ * Swift type, which crosses as its raw value; an option set's
+ * init(rawValue:) is not failable.
+ */
+export function objcEnum(t: SdkType): { name: string; options: boolean } | undefined {
+  if (t.k !== "ref") return undefined;
+  const info = sdkTypeInfo("ios", t.module, t.name);
+  if (info?.kind !== "enum" || info.swift) return undefined;
+  return {
+    name: swift.printType(swiftType({ ...t, nullable: false })),
+    options: !!info.options,
+  };
+}
+
+/** `E(rawValue: .init(truncatingIfNeeded: v))`: an Objective-C enum from the raw value that crossed. */
+const fromRaw = (e: { name: string; options: boolean }, v: swift.Expr) => {
+  const value = swift.call(n(e.name), [
+    {
+      label: "rawValue",
+      value: swift.call(n(".init"), [{ label: "truncatingIfNeeded", value: v }]),
+    },
+  ]);
+  return e.options ? value : swift.forceUnwrap(value);
+};
+
+/** The Objective-C enum of type `t` the raw value `v` that crossed is. */
+export const enumFromRaw = (t: SdkType, v: swift.Expr) => fromRaw(objcEnum(t)!, v);
+
+/** `Int(truncatingIfNeeded: v.rawValue)`: an Objective-C enum's raw value, as it crosses. */
+const toRaw = (v: swift.Expr) =>
+  swift.call(n("Int"), [{ label: "truncatingIfNeeded", value: swift.member(v, "rawValue") }]);
+
 /** A Swift enum without payloads: its Swift name and cases, which cross as indexes. */
 export function swiftEnum(t: SdkType): { name: string; cases: string[] } | undefined {
   if (t.k !== "ref" || sdkTypeInfo("ios", t.module, t.name)?.kind !== "enum") return undefined;
@@ -162,6 +200,9 @@ function cStruct(t: SdkType): string | undefined {
 
 /** A Lucent value `c` of type `t` as the object it crosses as. */
 export function objectOf(t: SdkType, c: cpp.Expr): cpp.Expr {
+  // An optional number or boolean: an NSNumber, nil for null.
+  if (t.k === "prim" && t.nullable)
+    return ifPresent(c, (x) => cpp.box(toObjcExpr(nonNull(t), x, false, "a value")));
   return cStruct(t)
     ? cpp.call("lucent::objc::structBytes", [toObjcExpr(t, c, false)])
     : toObjcExpr(t, c, false);
@@ -169,9 +210,34 @@ export function objectOf(t: SdkType, c: cpp.Expr): cpp.Expr {
 
 /** An object `code` that crossed as type `t`, as a Lucent value of type `lt`. */
 export function valueOf(em: FnEmitter, code: cpp.Expr, t: SdkType, lt: LType, what: string): E {
+  // An optional number or boolean crossed as an NSNumber; a plain one as its scalar.
+  if (t.k === "prim" && t.nullable) return optionalNumber(em, code, t, lt, what);
   const s = cStruct(t);
   const c = s ? cpp.call("lucent::objc::structFromBytes", [code], [cpp.type(s)]) : code;
   return fromObjc(em, c, t, lt, what);
+}
+
+/** An NSNumber (or nil) that crossed for an optional number or boolean, as its Lucent value. */
+function optionalNumber(
+  em: FnEmitter,
+  code: cpp.Expr,
+  t: SdkType & { k: "prim" },
+  lt: LType,
+  what: string,
+): E {
+  const opt: LType = lt.k === "opt" ? lt : { k: "opt", inner: lt };
+  const optional = em.reg.cppType(opt);
+  return {
+    c: cpp.statementExpr(
+      [cpp.varDecl(cpp.type("id"), "e_", code)],
+      cpp.conditional(
+        cpp.id("e_"),
+        cpp.construct(optional, [fromObjcItem(em, nonNull(t), opt.inner, what)]),
+        cpp.construct(optional, [cpp.id("lucent::null")]),
+      ),
+    ),
+    t: opt,
+  };
 }
 
 /** A class's name in Swift: a Swift type's own, an Objective-C class's Swift name. */
@@ -184,7 +250,7 @@ function swiftClassName(module: string, cls: SdkClassSchema): string {
  * objects. Whether they can is the plans' (requireCrossing).
  */
 export function crossing(t: SdkType): Crossing {
-  if (t.k === "prim") return "scalar";
+  if (t.k === "prim") return t.nullable ? "object" : "scalar";
   if (t.k === "ref" && sdkTypeInfo("ios", t.module, t.name)?.kind === "enum") return "enum";
   return "object";
 }
@@ -246,6 +312,7 @@ export function swiftCall(
       case "enum":
         return toNativeNumber(cpp.type("NSInteger"), em.exprAs(a, T.number));
       case "object":
+        if (t.k === "prim") return objectOf(t, em.exprAs(a, unionOf([primLt(t), T.null])));
         if (cStruct(t)) return cpp.call("lucent::objc::structBytes", [toObjc(em, a, t, member)]);
         if (!hasUnion(t)) return toObjc(em, a, t, member);
         // Unions convert from the parameter's declared type (the argument's may be a case).
@@ -283,6 +350,7 @@ export function swiftSet(
         return toNativeNumber(cpp.type("NSInteger"), v);
       case "object":
         if (hasUnion(t)) return unionToObjc(em, use, t, v, 0);
+        if (t.k === "prim") return objectOf(t, v);
         return t.nullable
           ? ifPresent(v, (x) => toObjcExpr({ ...t, nullable: false } as SdkType, x, false))
           : objectOf(t, v);
@@ -1038,26 +1106,47 @@ export const nonNull = (t: SdkType) => ({ ...t, nullable: false }) as SdkType;
 
 /** The shim's parameter `p` as the Swift value of type `t` it carries. */
 function paramValue(t: SdkType, p: string): swift.Expr {
-  if (t.k === "prim") return n(p);
+  if (isScalar(t)) return n(p);
   const e = swiftEnum(t);
   if (e) return swift.index(casesOf(e), n(p));
+  const raw = objcEnum(t);
+  if (raw) return fromRaw(raw, n(p));
   if (t.nullable) return each(n(p), "map", fromObject(nonNull(t), call1("lucentObject", n("$0"))));
   return fromObject(t, call1("lucentObject", n(p)));
 }
 
 /** A Swift result `v` of type `t` as the shim returns it. */
 export function resultValue(t: SdkType, v: swift.Expr): swift.Expr {
-  if (t.k === "prim") return v;
+  if (isScalar(t)) return v;
+  // A sequence: boxed with what makes each element the object it crosses as.
+  if (t.k === "sequence")
+    return call1(
+      "lucentRetained",
+      swift.call(
+        n("LucentSequence"),
+        [{ value: v }],
+        swift.closure([], [swift.ret(elementObject(t.of, n("$0")))]),
+      ),
+    );
   const e = swiftEnum(t);
   if (e) return indexOf(e, v);
+  if (objcEnum(t)) return toRaw(v);
   if (t.nullable) return each(v, "map", call1("lucentRetained", toObject(nonNull(t), n("$0"))));
   return call1("lucentRetained", toObject(t, v));
 }
 
+/** An element of a sequence as the object it crosses as: numbers and enums as NSNumbers. */
+function elementObject(t: SdkType, v: swift.Expr): swift.Expr {
+  if (t.k === "prim") return swift.cast(v, "as", swift.type("NSNumber"));
+  const e = swiftEnum(t);
+  if (e) return swift.call(n("NSNumber"), [{ label: "value", value: indexOf(e, v) }]);
+  return swift.cast(toObject(t, v), "as", swift.type("AnyObject"));
+}
+
 /** The type of the shim's parameter or result for a value of type `t`. */
 export function shimType(t: SdkType, optional = false): swift.Type {
-  if (t.k === "prim") return swift.type(SCALARS[t.name]!.swift);
-  if (swiftEnum(t)) return swift.type("Int");
+  if (isScalar(t)) return swift.type(SCALARS[t.name]!.swift);
+  if (swiftEnum(t) || objcEnum(t)) return swift.type("Int");
   return t.nullable || optional ? swift.optional(raw) : raw;
 }
 
@@ -1100,7 +1189,7 @@ function shimFunction(s: SwiftShim): swift.Decl {
   // A protocol with associated types is opened from a variable: Swift does
   // not open a cast (`x as! any P`) it is passed.
   const args = s.params.map((t, i) =>
-    t.k === "prim" || swiftEnum(t)
+    isScalar(t) || swiftEnum(t) || objcEnum(t)
       ? paramValue(t, `a${i}`)
       : isOpened(t)
         ? bound(`v${i}`, paramValue(t, `a${i}`))
@@ -1273,6 +1362,65 @@ function taskHelpers(): swift.Decl[] {
           ),
         ),
       ],
+    },
+  ];
+}
+
+/**
+ * What collecting Swift AsyncSequences needs (ios_sequence.h is the
+ * glue's side): a box erasing a sequence to its elements as objects, the
+ * task iterating one (each element handed over with a continuation the
+ * glue resumes once Lucent code has handled it: the sequence waits), and
+ * the continuation's box.
+ */
+function sequenceHelpers(): swift.Decl[] {
+  return [
+    {
+      k: "comment",
+      text: "A Swift AsyncSequence as Lucent collects it: its elements as objects, one at a time.",
+    },
+    {
+      k: "verbatim",
+      text: `final class LucentSequence: NSObject {
+  let iterate: (@escaping (AnyObject) async -> Void) async throws -> Void
+
+  init<S: AsyncSequence>(_ s_: S, _ object: @escaping (S.Element) -> AnyObject) {
+    iterate = { each in
+      for try await e in s_ { await each(object(e)) }
+    }
+  }
+}
+
+final class LucentResume: NSObject {
+  let k: CheckedContinuation<Void, Never>
+
+  init(_ k: CheckedContinuation<Void, Never>) {
+    self.k = k
+  }
+}
+
+@_cdecl("lucent_swift_resume")
+public func lucent_swift_resume(_ r: UnsafeMutableRawPointer) {
+  (lucentTaken(r) as! LucentResume).k.resume()
+}
+
+@_cdecl("lucent_swift_collect")
+public func lucent_swift_collect(_ s: UnsafeMutableRawPointer, _ ctx: UnsafeMutableRawPointer, _ element: @convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> Void, _ done: @convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> Void) -> UnsafeMutableRawPointer {
+  let sequence = lucentObject(s) as! LucentSequence
+  let task = Task {
+    do {
+      try await sequence.iterate { e in
+        await withCheckedContinuation { (k: CheckedContinuation<Void, Never>) in
+          element(ctx, lucentRetained(e), lucentRetained(LucentResume(k)))
+        }
+      }
+      done(ctx, nil)
+    } catch {
+      done(ctx, lucentRetained(error as NSError))
+    }
+  }
+  return lucentRetained(LucentTask(task))
+}`,
     },
   ];
 }
@@ -1460,7 +1608,7 @@ export function unionsOf(
 
 /** The modules a type's Swift name needs imported. */
 export function modulesOf(t: SdkType): string[] {
-  if (t.k === "array" || t.k === "record") return modulesOf(t.of);
+  if (t.k === "array" || t.k === "record" || t.k === "sequence") return modulesOf(t.of);
   return t.k === "ref" ? [t.module] : [];
 }
 
@@ -1475,6 +1623,7 @@ export interface ProxyParts {
 export function shimsFile(
   shims: Iterable<SwiftShim>,
   proxies: ProxyParts = { decls: [], types: [], modules: [] },
+  opts: { sequences?: boolean } = {},
 ): string {
   const all = [...shims].sort((a, b) => a.symbol.localeCompare(b.symbol));
   const unions = new Map<string, { name: string; cases: PayloadCase[] }>();
@@ -1487,12 +1636,16 @@ export function shimsFile(
     ...[...unions.values()].flatMap((e) => e.cases.flatMap((c) => c.params.map((p) => p.type))),
   ];
   for (const m of [...all.map((s) => s.module), ...types.flatMap(modulesOf)]) modules.add(m);
+  // The Swift of the app's Lucent packages is LucentNative's, as these shims are.
+  modules.delete(OWN_SWIFT_MODULE);
+  const sequences = opts.sequences || all.some((s) => s.ret.k === "sequence");
   return swift.printUnit({
     banner: "Generated by Lucent. Do not edit.",
     decls: [
       ...[...modules].sort().map((module): swift.Decl => ({ k: "import", module })),
       ...helpers(),
-      ...(all.some((x) => x.member.async) ? taskHelpers() : []),
+      ...(all.some((x) => x.member.async) || sequences ? taskHelpers() : []),
+      ...(sequences ? sequenceHelpers() : []),
       ...[...unions.values()].sort((a, b) => a.name.localeCompare(b.name)).flatMap(unionFunctions),
       ...all.map(shimFunction),
       ...proxies.decls,

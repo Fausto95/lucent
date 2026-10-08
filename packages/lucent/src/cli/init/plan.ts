@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { findOwnFiles, LUCENT_EXTENSION } from "@lucent-lang/compiler/packages";
 import { type PackageManager, packageManagerOf, runner } from "../package-manager.ts";
-import { withLucentTsconfig } from "../tsconfig.ts";
+import { withLucentTsconfig, withVscodeSettings } from "../tsconfig.ts";
 import {
   addExpoPlugin,
   applyGradleTask,
@@ -20,6 +20,8 @@ export interface Change {
   why: string;
   before: string | undefined;
   after: string;
+  /** The file is deleted (lucent uninstall): `after` is "". */
+  remove?: true;
 }
 
 /** A change init cannot make safely: what to add by hand. */
@@ -102,7 +104,8 @@ export function planInit(root: string): InitPlan {
 
   const tsconfig = read(root, "tsconfig.json");
   if (tsconfig !== undefined) {
-    const tsWhy = "let editors and tsc resolve lucent:* and check indexing as the compiler does";
+    const tsWhy =
+      "let editors and tsc resolve lucent:*, check indexing as the compiler does, and show Lucent's errors as you type";
     try {
       change("tsconfig.json", tsWhy, withLucentTsconfig(tsconfig));
     } catch (e) {
@@ -110,9 +113,14 @@ export function planInit(root: string): InitPlan {
         file: "tsconfig.json",
         why: `${tsWhy} (${(e as Error).message})`,
         snippet:
-          '"noUncheckedIndexedAccess": true,\n"paths": { "lucent:*": ["./.lucent/native/types/*"] }',
+          '"noUncheckedIndexedAccess": true,\n"paths": { "lucent:*": ["./.lucent/native/types/*"] },\n"plugins": [{ "name": "@lucent-lang/lucent/ts-plugin" }]',
       });
     }
+    change(
+      ".vscode/settings.json",
+      "have VS Code use the project's TypeScript, which loads the editor plugin",
+      withVscodeSettings(read(root, ".vscode/settings.json")),
+    );
   }
   change(
     ".gitignore",
@@ -135,7 +143,15 @@ export function planInit(root: string): InitPlan {
 /** Writes the changes. */
 export function applyChanges(root: string, changes: Change[]): void {
   for (const c of changes) {
-    fs.mkdirSync(path.dirname(path.join(root, c.file)), { recursive: true });
-    fs.writeFileSync(path.join(root, c.file), c.after);
+    const file = path.join(root, c.file);
+    if (c.remove) {
+      fs.rmSync(file, { force: true });
+      // A directory init made for it (.vscode/), left empty.
+      const dir = path.dirname(file);
+      if (dir !== root && fs.existsSync(dir) && !fs.readdirSync(dir).length) fs.rmdirSync(dir);
+      continue;
+    }
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, c.after);
   }
 }

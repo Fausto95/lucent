@@ -140,6 +140,35 @@ export async function allTicks(): Promise<string> {
   return log.join(", ");
 }
 
+/**
+ * An async function that never awaits runs its body when called and settles
+ * then; what awaits it still resumes after the caller's synchronous code,
+ * and its throw rejects instead of escaping the call.
+ */
+export async function eagerOrder(): Promise<string> {
+  const log: string[] = [];
+  const now = async (tag: string): Promise<string> => {
+    log.push(`run ${tag}`);
+    return tag;
+  };
+  const refuse = async (): Promise<number> => {
+    log.push("refuse");
+    throw new RangeError("refused");
+  };
+  const waiting = (async () => {
+    log.push(`got ${await now("a")}`);
+  })();
+  const refused = refuse();
+  log.push("sync after");
+  await waiting;
+  try {
+    await refused;
+  } catch (e) {
+    log.push(`${(e as Error).name} ${(e as Error).message}`);
+  }
+  return log.join(", ");
+}
+
 /** new Promise: the executor runs at once; resolve and reject settle it once. */
 export function promised(v: number): Promise<number> {
   return new Promise((resolve) => {

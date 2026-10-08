@@ -144,7 +144,7 @@ function typedScalar(t: ViewType): ScalarType | undefined {
  * objects that encode it. An object is a struct of its own, whose fields
  * are read by place.
  */
-class SwiftValues {
+export class SwiftValues {
   /** The structs of the objects met, by their view type. */
   readonly structs: swift.Decl[] = [];
 
@@ -192,21 +192,28 @@ class SwiftValues {
     }
   }
 
-  /** The value of type `t` the Foundation object `x` encodes. */
-  decode(t: ViewType, x: swift.Expr): swift.Expr {
+  /**
+   * The value of type `t` the Foundation object `x` encodes, `what` (its
+   * place, for the error a value of another type reports): checked casts,
+   * through the file's `lucentDecode…` functions (see `decoders`).
+   */
+  decode(t: ViewType, x: swift.Expr, what: string): swift.Expr {
+    const checked = (fn: string) =>
+      swift.call(swift.name(fn), [{ value: x }, { value: swift.str(what) }]);
+
     switch (t.k) {
       case "number":
-        return swift.member(swift.cast(x, "as!", swift.type("NSNumber")), "doubleValue");
+        return swift.member(checked("lucentDecodeNumber"), "doubleValue");
       case "boolean":
-        return swift.member(swift.cast(x, "as!", swift.type("NSNumber")), "boolValue");
+        return swift.member(checked("lucentDecodeNumber"), "boolValue");
       case "string":
       case "enum":
-        return swift.cast(x, "as!", swift.type("String"));
+        return checked("lucentDecodeString");
       case "nullable":
         return swift.cast(
           swift.conditional(
             swift.binary(swift.cast(x, "as?", swift.type("NSNull")), "==", swift.nil),
-            this.decode(t.inner, x),
+            this.decode(t.inner, x, what),
             swift.nil,
           ),
           "as",
@@ -214,13 +221,71 @@ class SwiftValues {
         );
       case "array":
         return swift.call(
-          swift.member(swift.cast(x, "as!", swift.array(swift.type("Any"))), "map"),
+          swift.member(checked("lucentDecodeList"), "map"),
           [],
-          swift.closure([], [swift.exprStmt(this.decode(t.element, swift.name("$0")))]),
+          swift.closure(
+            [],
+            [swift.exprStmt(this.decode(t.element, swift.name("$0"), `${what}[]`))],
+          ),
         );
       case "object":
         return swift.call(swift.name(this.struct(t)), [{ value: x }]);
     }
+  }
+
+  /**
+   * The checked casts `decode` calls: each gives what `x` holds as the
+   * type it names, or stops with an error naming the value and the type
+   * it holds instead (where `as!` would stop with a bare cast failure).
+   * The C++ glue encodes what it passes, so a mismatch is a Lucent bug.
+   */
+  static decoders(): swift.Decl[] {
+    const cast = (name: string, type: swift.Type, expected: string): swift.Decl => ({
+      k: "func",
+      modifiers: ["fileprivate"],
+      name,
+      params: [
+        { external: "_", name: "x", type: swift.type("Any") },
+        { external: "_", name: "what", type: swift.type("String") },
+      ],
+      ret: type,
+      body: [
+        {
+          k: "ifLet",
+          name: "value",
+          value: swift.cast(swift.name("x"), "as?", type),
+          body: [swift.ret(swift.name("value"))],
+        },
+        swift.exprStmt(
+          swift.call(swift.name("fatalError"), [
+            {
+              value: swift.binary(
+                swift.binary(
+                  swift.binary(swift.str("Lucent: "), "+", swift.name("what")),
+                  "+",
+                  swift.str(` should be ${expected}, got `),
+                ),
+                "+",
+                swift.call(swift.name("String"), [
+                  {
+                    label: "describing",
+                    value: swift.call(swift.name("type"), [
+                      { label: "of", value: swift.name("x") },
+                    ]),
+                  },
+                ]),
+              ),
+            },
+          ]),
+        ),
+      ],
+    });
+
+    return [
+      cast("lucentDecodeNumber", swift.type("NSNumber"), "a number"),
+      cast("lucentDecodeString", swift.type("String"), "a string"),
+      cast("lucentDecodeList", swift.array(swift.type("Any")), "a list"),
+    ];
   }
 
   /** The struct of an object type: its fields (f0, f1… in order), read from a record. */
@@ -260,7 +325,10 @@ class SwiftValues {
           body: [
             swift.letStmt(
               "fields",
-              swift.cast(swift.name("x"), "as!", swift.array(swift.type("Any"))),
+              swift.call(swift.name("lucentDecodeList"), [
+                { value: swift.name("x") },
+                { value: swift.str(name) },
+              ]),
             ),
             ...t.fields.map((f, i) => {
               const type: ViewType =
@@ -269,7 +337,7 @@ class SwiftValues {
               return swift.exprStmt(
                 swift.assign(
                   swift.name(`f${i}`),
-                  this.decode(type, swift.index(fields, swift.num(i))),
+                  this.decode(type, swift.index(fields, swift.num(i)), `${name}.${f.name}`),
                 ),
               );
             }),
@@ -2282,6 +2350,7 @@ function swiftUIFile(body: SwiftUIBody): ToolkitFile {
                     ),
                     [],
                   ),
+                  s.name,
                 ),
           ),
         ),
@@ -2353,6 +2422,7 @@ function swiftUIFile(body: SwiftUIBody): ToolkitFile {
         { k: "import", module: "SwiftUI" },
         { k: "import", module: "UIKit" },
         actions,
+        ...SwiftValues.decoders(),
         ...values.structs,
         ...items,
         modelClass,
@@ -2413,7 +2483,10 @@ function itemClass(values: SwiftValues, crossings: Crossings, list: ListSlot): s
         name: "update",
         params: [{ external: "_", name: "record", type: swift.array(swift.type("Any")) }],
         body: list.values.flatMap((v, i) => [
-          swift.letStmt(v.name, values.decode(v.type, swift.index(record, swift.num(i + 1)))),
+          swift.letStmt(
+            v.name,
+            values.decode(v.type, swift.index(record, swift.num(i + 1)), `${list.name}.${v.name}`),
+          ),
           {
             k: "if" as const,
             test: swift.binary(self(v.name), "!=", swift.name(v.name)),
@@ -2466,7 +2539,10 @@ function listMembers(values: SwiftValues, crossings: Crossings, list: ListSlot):
           "next",
           swift.call(
             swift.member(
-              swift.cast(swift.name("records"), "as!", swift.array(swift.type("Any"))),
+              swift.call(swift.name("lucentDecodeList"), [
+                { value: swift.name("records") },
+                { value: swift.str(list.name) },
+              ]),
               "map",
             ),
             [],
@@ -2476,11 +2552,10 @@ function listMembers(values: SwiftValues, crossings: Crossings, list: ListSlot):
                 swift.exprStmt(
                   swift.call(swift.name(one), [
                     {
-                      value: swift.cast(
-                        swift.name("record"),
-                        "as!",
-                        swift.array(swift.type("Any")),
-                      ),
+                      value: swift.call(swift.name("lucentDecodeList"), [
+                        { value: swift.name("record") },
+                        { value: swift.str(`${list.name}'s record`) },
+                      ]),
                     },
                   ]),
                 ),
@@ -2524,7 +2599,11 @@ function listMembers(values: SwiftValues, crossings: Crossings, list: ListSlot):
       body: [
         swift.letStmt(
           "key",
-          values.decode(keyType(list), swift.index(swift.name("record"), swift.num(0))),
+          values.decode(
+            keyType(list),
+            swift.index(swift.name("record"), swift.num(0)),
+            `${list.name}'s key`,
+          ),
         ),
         swift.letStmt(
           "item",

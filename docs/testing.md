@@ -27,6 +27,7 @@ the build.
 | `pnpm test:all`                               | the unit tests with the slow ones: whole programs built and run with the platforms' toolchains, SDKs extracted into an empty cache (CI runs these)                                                                                                     | no           |
 | `pnpm test:runtime`                           | C++ runtime unit tests (`packages/runtime/test/*_test.cpp`), with corpora checked against JavaScript: BigInt against node, the UI reactive graph against a JavaScript reference                                                                        | no           |
 | `packages/runtime/test/jsi/run.sh`            | the JSI host across runtimes (teardown, reload, stale objects) and a hand-written module in Hermes; `SANITIZE=1` or `thread` add sanitizers                                                                                                            | yes          |
+| `packages/runtime/test/jni/run.sh`            | the JNI glue (`platform/android.cpp`) on a desktop JVM with `-Xcheck:jni`: what crosses from Java into Lucent code, and the local references it leaves; needs a JDK, skipped without one                                                               | no           |
 | `pnpm test:e2e [case…]`                       | differential end-to-end cases                                                                                                                                                                                                                          | yes          |
 | `pnpm test:fuzz [--seed N] [--count N]`       | random programs in the subset, run as differential cases                                                                                                                                                                                               | yes          |
 | `node scripts/app-check.ts apps/bare-example` | an example app's real Metro bundle against its generated C++                                                                                                                                                                                           | yes          |
@@ -63,6 +64,13 @@ it. C++ is compared as tokens, so layout changes pass. Files that then
 differ only in parentheses or braces are counted apart; any other change
 shows as a diff. Run it before and after a change to code generation that
 should keep the output's meaning.
+
+With `--host`, the corpus is the end-to-end cases for the host only, without
+`#line` directives: what any machine generates without a platform SDK. That
+corpus is committed (`packages/compiler/test/corpus`), and
+`test/codegen-corpus.test.ts` (part of `pnpm test`, so CI's unit tests) fails
+with the diff whenever the generated code changes. Review it, then write the
+corpus again with `pnpm corpus:write` in the same commit as the change.
 
 ## Declaration audit
 
@@ -123,7 +131,10 @@ built, it runs three of them too.
 SANITIZE=1 pnpm test:runtime            # ASan + UBSan, clang and libc++ on macOS
 SANITIZE=1 CXX=g++ pnpm test:runtime    # the same with libstdc++ (CI runs both)
 SANITIZE=1 pnpm test:e2e                # e2e cases under ASan + UBSan
-SANITIZE=thread pnpm test:runtime       # TSan: the Lucent lock and the scheduler
+SANITIZE=thread pnpm test:runtime       # TSan: the module locks, the scheduler, contexts and scopes
+SANITIZE=thread CXX=g++ pnpm test:runtime  # the same with libstdc++
+SANITIZE=thread pnpm test:e2e async compute  # TSan over cases that cross threads
+packages/runtime/test/jni/run.sh        # the JNI glue on a desktop JVM (needs a JDK); SANITIZE as above
 ```
 
 Run the runtime suite with and without `SANITIZE=1` after every runtime change,
@@ -144,14 +155,20 @@ host's native code.
 
 `scripts/bench.ts` times the kernels in `cases/kernels.lucent.ts`, compiled
 and called over JSI, against the same code as JavaScript in one Hermes
-runtime. `--check` fails when a kernel's speedup drops below its minimum in
+runtime. The JavaScript runs as a release build ships it: bytecode compiled
+with `hermesc -O` (as React Native's Xcode script and Gradle plugin do for
+release), when `$HERMES_DIR/build/bin/hermesc` is built; otherwise from
+source, with a warning, which is slower and flatters Lucent. `--check` fails when a kernel's speedup drops below its minimum in
 `scripts/bench-budgets.json`. The budgets are calibrated on the CI runner.
 
 It also times the boundary (`cases/boundary.lucent.ts`): batched calls
 against 1,000 single ones (`scripts/bench-boundary-budgets.json`), and one
 call against the same call to a bare JSI host function that converts like a
 codegen C++ TurboModule (`scripts/bench-floor.cpp`,
-`scripts/bench-floor-budgets.json`).
+`scripts/bench-floor-budgets.json`). And it measures the generated code's
+objects at -O2 and installing Lucent (the host, then every module's exports),
+against `scripts/bench-size-budgets.json`: the size is enforced everywhere,
+the install time reported on a shared runner.
 
 Budgets compare the best of 11 rounds; JavaScript and Lucent rounds
 alternate, so drift affects both. `--json <file>` writes the run as data
@@ -162,11 +179,19 @@ the clock itself; Apple Silicon's clock ticks every 42 ns) and the compiled
 size of the generated code. p95 is reported from 20 samples and p99 from
 100; a throughput sample is the mean of a batch, not one call's latency.
 
+`node scripts/bench-publish.ts <results.json>` copies a `--json` run to
+`benchmarks/results/`, which the website's comparison page shows as a dated
+table ([benchmarks/README.md](../benchmarks/README.md)).
+
 `scripts/bench-build.ts` times the development loop on every differential
 case module in one app, built for the host: a cold build, a build with
 nothing to do, a build and a check after a function body changes. Times
 include starting the CLI; the check step's own time comes from
-`.lucent/build-record.json`. It takes `--rounds N` and `--json <file>`.
+`.lucent/build-record.json`. With clang, it also times compiling the edited
+module's C++ unit as the native builds do, with the runtime's umbrella header
+precompiled (`native/body-edit`) and without (`native/body-edit-no-pch`). It
+takes `--rounds N` and `--json <file>`; `--check` holds each scenario's p95 to
+`scripts/bench-build-budgets.json`.
 
 On devices, the example apps' Compare tab runs NitroBenchmarks
 (github.com/mrousavy/NitroBenchmarks): 100,000 calls of `addNumbers` and
@@ -181,8 +206,8 @@ runs.
 CI builds the bare example for the iOS simulator and for Android, but does
 not run it. Before a release, run both example apps on an iOS simulator and an
 Android emulator, as Release builds: every Lab screen must pass, and three
-reloads must not crash. ROADMAP.md's Validation section records the last
-run.
+reloads must not crash. [Validation](tasks.md#validation) in docs/tasks.md records the
+last run.
 
 The Lab has four screens, and each runs when it opens: Tests (every e2e
 case), SDK (the platform probes and the ports' parity cases), Benchmark and

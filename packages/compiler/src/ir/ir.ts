@@ -170,6 +170,8 @@ export type IrOp =
       place: PlaceId;
       type: LType;
       name: string;
+      /** Its name in the backend's code, for a local the compiler makes up (a loop variable's copy). */
+      spelled?: string;
       boxed?: boolean;
       int?: IntKind;
       source: SourceSpan;

@@ -15,10 +15,23 @@ const { nativePackage } = require("./native-package.cjs");
  * per build in Metro's output (it never reads Metro's keys; for the full
  * dashboard, run `lucent dev` in a terminal of its own). Set
  * `{ watch: false }` or LUCENT_WATCH=0 to turn that off (LUCENT_WATCH=1 forces it).
+ *
+ * `{ js: true }` (or LUCENT_JS=1) is JS dev mode: Metro bundles each module
+ * as its JavaScript, so edits refresh without a native rebuild, and
+ * platform SDK calls throw (js-dev.cjs). Development builds only.
  */
 function withLucent(config, options = {}) {
   const root = config.projectRoot || process.cwd();
   if (shouldWatch(options)) startWatcher(root);
+  // JS dev mode (metro/js-dev.cjs): modules run as JavaScript. Transformer workers inherit it.
+  const js = options.js ?? process.env.LUCENT_JS === "1";
+  process.env.LUCENT_JS_DEV = js ? "1" : "0";
+  if (js && !jsDevNoted) {
+    jsDevNoted = true;
+    process.stderr.write(
+      "Lucent: JS dev mode: *.lucent.ts modules run as JavaScript (edits refresh without a native rebuild); platform SDK calls throw LUCENT_JS_DEV_NATIVE. Development only.\n",
+    );
+  }
   const upstream =
     (config.transformer && config.transformer.babelTransformerPath) || defaultTransformer();
   // Transformer workers inherit the environment.
@@ -74,6 +87,7 @@ function shouldWatch(options) {
 }
 
 let watcher;
+let jsDevNoted = false;
 
 function startWatcher(root) {
   // Metro may load the config more than once in a process.

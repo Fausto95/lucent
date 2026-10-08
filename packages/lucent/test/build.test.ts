@@ -13,7 +13,7 @@ describe("the published build", () => {
     for (const f of fs.readdirSync(bindgen).sort())
       if (/\.(ts|js)$/.test(f)) h.update(fs.readFileSync(path.join(bindgen, f)));
     const expected = h.digest("hex").slice(0, 8);
-    // The build the run started from (vitest.setup-build.ts).
+    // The build the run started from (config/vitest.setup-build.ts).
     const dist = fs
       .readdirSync(path.join(pkg, "dist"))
       .filter((f) => f.endsWith(".js"))

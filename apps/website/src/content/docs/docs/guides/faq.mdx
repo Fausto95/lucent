@@ -1,0 +1,54 @@
+---
+title: Frequently asked questions
+sidebar_label: FAQ
+description: Short answers to the questions people ask first, each with a link to the details.
+kind: reference
+---
+
+## Can I use Lucent in production?
+
+No. It's experimental, its APIs change without a migration path, and it hasn't run on physical devices. The [roadmap](/docs/releases/roadmap/) tracks what's left.
+
+## Which React Native and Expo versions does it need?
+
+React Native 0.88 or Expo SDK 58, neither a stable release yet: install `react-native@next` or `expo@next`. [Compatibility](/docs/api/compatibility/) lists every version.
+
+## Can I develop on Linux or Windows?
+
+Linux builds and checks Android code, and leaves iOS code untyped and unbuilt. iOS needs macOS and Xcode. Windows is unsupported: WSL works as Linux does ([Compatibility](/docs/api/compatibility/#operating-systems)).
+
+## Does it work in Expo Go?
+
+No. Lucent adds native code, which Expo Go can't load. Use a development build, with `npx expo run:ios` or EAS Build ([Install Lucent](/docs/guides/install/)).
+
+## Is my module's code in the JS bundle?
+
+No. Metro bundles a small proxy instead, and the code runs as C++ in the app binary ([How Lucent works](/docs/architecture/)).
+
+## Can a module import npm packages?
+
+Only other modules, `lucent:*` modules and Lucent packages' modules. The JavaScript around it imports anything, as usual ([Modules](/docs/api/language/modules/)).
+
+## Is it faster than JavaScript?
+
+For work on data that stays in native code, often by a lot. Copying large data across the boundary can cost more than it saves. [`lucent bench`](/docs/guides/measure-performance/) measures your own modules.
+
+## Can I call any iOS or Android API?
+
+Most of them, typed from your installed SDKs and the app's pods and Gradle dependencies. Some shapes aren't bound yet ([iOS APIs](/docs/api/ios-sdk/), [Android APIs](/docs/api/android-sdk/)).
+
+## Do I still need Xcode and Android Studio?
+
+You need their SDKs, to build the app and to type the SDK imports. You don't write Swift, Kotlin or Objective-C.
+
+## How do I debug a module?
+
+Errors reach JavaScript with their `.lucent.ts` line, and native crashes point at your source ([Find the source line of a native crash](/docs/guides/symbolicate-a-native-crash/)). [Troubleshooting](/docs/guides/troubleshooting/) lists the build and setup errors.
+
+## Can I publish a package written in Lucent?
+
+Yes: an npm package that ships its modules as source, compiled by each app that installs it ([Publish a package](/docs/packages/publish-a-package/)).
+
+## How does it compare with Nitro or Expo Modules?
+
+They have you write Swift, Kotlin or C++, and Lucent has you write TypeScript. [The comparison](/docs/guides/comparison/) has the details.

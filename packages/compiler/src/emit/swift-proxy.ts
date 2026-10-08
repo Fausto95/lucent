@@ -42,6 +42,9 @@ import {
   registerUnions,
   resultValue,
   sdkTypeOf,
+  enumFromRaw,
+  isScalar,
+  objcEnum,
   shimType,
   swiftEnum,
   swiftLabels,
@@ -416,7 +419,7 @@ function crossBack(em: FnEmitter, ret: SdkType, r: cpp.Expr, lt: LType, what: st
   switch (crossing(ret)) {
     case "object":
       return retained(
-        ret.nullable
+        ret.nullable && ret.k !== "prim"
           ? ifPresent(r, (x) => toObjcExpr({ ...ret, nullable: false } as SdkType, x, false))
           : objectOf(ret, r),
       );
@@ -717,7 +720,7 @@ function proxyDecls(p: SwiftProxy): swift.Decl[] {
   /** A Swift argument as the C function takes it: `Self` as the Lucent object it holds. */
   const argument = (t: SdkType, a: swift.Expr) => {
     if (isSelf(t)) return swift.member(a, "ctx_");
-    if (t.k === "prim") return a;
+    if (isScalar(t)) return a;
 
     const e = swiftEnum(t);
     return e ? indexOf(e, a) : resultValue(t, a);
@@ -725,10 +728,11 @@ function proxyDecls(p: SwiftProxy): swift.Decl[] {
   /** What a C function gave back, as the Swift value of type `t`. */
   const value = (t: SdkType, v: swift.Expr): swift.Expr => {
     if (isSelf(t)) return swift.cast(call1("lucentTaken", v), "as!", proxyType);
-    if (t.k === "prim") return v;
+    if (isScalar(t)) return v;
 
     const e = swiftEnum(t);
     if (e) return swift.index(casesOf(e), v);
+    if (objcEnum(t)) return enumFromRaw(t, v);
     if (t.nullable) return each(v, "map", fromObject(nonNull(t), call1("lucentTaken", n("$0"))));
     return fromObject(t, call1("lucentTaken", v));
   };
@@ -822,7 +826,8 @@ function proxyDecls(p: SwiftProxy): swift.Decl[] {
 
     // The error the glue gives back, thrown; the result only without one.
     const result =
-      isSelf(r.ret) || (r.ret.k !== "prim" && !swiftEnum(r.ret) && !r.ret.nullable)
+      isSelf(r.ret) ||
+      (!isScalar(r.ret) && !swiftEnum(r.ret) && !objcEnum(r.ret) && !r.ret.nullable)
         ? swift.forceUnwrap(n("v"))
         : n("v");
     members.push({
@@ -925,10 +930,11 @@ function resumeFunction(
     const v = n("v_");
     if (isSelf(r.ret))
       return swift.cast(call1("lucentTaken", swift.forceUnwrap(v)), "as!", valueType);
-    if (r.ret.k === "prim") return v;
+    if (isScalar(r.ret)) return v;
 
     const e = swiftEnum(r.ret);
     if (e) return swift.index(casesOf(e), v);
+    if (objcEnum(r.ret)) return enumFromRaw(r.ret, v);
     if (r.ret.nullable)
       return each(v, "map", fromObject(nonNull(r.ret), call1("lucentTaken", n("$0"))));
     return fromObject(r.ret, call1("lucentTaken", throws ? swift.forceUnwrap(v) : v));

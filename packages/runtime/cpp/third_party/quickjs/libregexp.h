@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "lucent_prefix.h" /* Lucent: see README.md */
 #ifndef LIBREGEXP_H
 #define LIBREGEXP_H
 

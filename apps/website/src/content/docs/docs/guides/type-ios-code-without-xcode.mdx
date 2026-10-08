@@ -1,0 +1,23 @@
+---
+title: Type-check iOS code on a machine without Xcode
+sidebar_label: Type iOS code without Xcode
+description: "Run `lucent sdk lock --schemas` on a Mac and commit `lucent-sdk.schemas/`: `lucent check` and `lucent build` read the iOS bindings from it where Xcode isn't installed."
+kind: guide
+---
+
+```sh title="terminal"
+npx lucent sdk lock --schemas
+```
+
+```sh title="terminal" nocopy
+✓ lucent-sdk.lock.json  5 symbols of 2 modules, for android and ios
+✓ lucent-sdk.schemas/  9 schemas
+```
+
+A Linux CI machine, or a teammate on Linux or Windows, has no iOS SDK, so iOS code goes unchecked there. Run the command where the SDKs are installed.
+
+It writes `lucent-sdk.schemas/` beside the [SDK lock](/docs/guides/pin-sdks/): one JSON file per module your code uses, and per module those modules' types come from. Commit the directory.
+
+Where a platform's SDK isn't installed, `lucent check` and `lucent build` read that platform's bindings from it. iOS code then type-checks and generates on Linux. An installed SDK always wins.
+
+A module the directory doesn't have fails with [`LUCENT3004`](/docs/api/diagnostics/#lucent3004): run `lucent sdk lock --schemas` again on a Mac. The native build itself still needs Xcode.

@@ -92,6 +92,9 @@ export function javaSubclass(info: ClassInfo): { path: string; source: string } 
       );
     const { params, ret } = javaTypes(d);
     const ps = params.map((t, i) => java.param(t, `a${i}`));
+    // A primitive result has its zero value when the call gives none (a
+    // Lucent method that threw: its error is reported), not an NPE.
+    const primitive = ret.k === "primitive" && ret.name !== "void";
     const dispatch = java.call(proxy, "dispatch", [
       handle,
       java.str(javaKey(method)),
@@ -99,6 +102,7 @@ export function javaSubclass(info: ClassInfo): { path: string; source: string } 
         java.type("Object"),
         ps.map((p) => java.name(p.name)),
       ),
+      ...(primitive ? [java.access(java.name(ret.name), "class")] : []),
     ]);
     const body =
       ret.k === "primitive" && ret.name === "void"

@@ -9,7 +9,7 @@ import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { isInside } from "../analysis/scopes.ts";
 import { Codes, fail } from "../diagnostics.ts";
-import { intOperand, operand } from "../ir/cpp.ts";
+import { intOperand, operand, takenOperand } from "../ir/cpp.ts";
 import type { ValueId } from "../ir/ir.ts";
 import {
   IrUnsupported,
@@ -307,16 +307,17 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
           );
 
         if (t.k === "array") {
-          const [k, out] = [cpp.id("k"), cpp.id("keys")];
+          // Temporaries end in `_` (see cppIdent): `v` may be a program name.
+          const [k, out] = [cpp.id("k_"), cpp.id("keys_")];
           const index = cpp.call("lucent::numberToString", [cpp.staticCast(cpp.type("double"), k)]);
 
           return {
             c: cpp.statementExpr(
               [
-                cpp.varDecl(strings, "keys"),
+                cpp.varDecl(strings, "keys_"),
                 {
                   k: "for",
-                  init: cpp.varDecl(cpp.type("size_t"), "k", cpp.num(0)),
+                  init: cpp.varDecl(cpp.type("size_t"), "k_", cpp.num(0)),
                   test: cpp.binary(k, "<", cpp.call(cpp.dot(v, "size"))),
                   update: cpp.postfix("++", k),
                   body: [cpp.exprStmt(cpp.call(cpp.dot(out, "push"), [index]))],
@@ -346,6 +347,15 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
           code: direct ? cpp.assign(direct, operand(v)) : set!(operand(v)),
           type: T.void,
         }),
+        ...(direct && lv.type.k === "string"
+          ? {
+              append: (current: ValueId, part: ValueId) => ({
+                name: `${name} +=`,
+                code: cpp.call("lucent::appendTo", [direct, takenOperand(current), operand(part)]),
+                type: T.void,
+              }),
+            }
+          : {}),
         ...(assign
           ? {
               assign: (v: ValueId, from: LType) => ({

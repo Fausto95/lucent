@@ -28,6 +28,11 @@
       "type": "integer",
       "minimum": 0,
       "description": "SDK symbols the project uses"
+    },
+    "schemas": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "With --schemas: the schemas exported to lucent-sdk.schemas/"
     }
   }
 }

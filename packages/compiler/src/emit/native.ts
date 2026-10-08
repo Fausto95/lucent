@@ -32,7 +32,7 @@ import {
   loadSdkModule,
   jniDescriptor,
   mainThreadOnly,
-  MIN_ANDROID_API,
+  oldestAndroid,
   oldestIos,
   sdkTypeInfo,
   parseSdkType,
@@ -61,6 +61,7 @@ import { kotlinShim, type KotlinUse, suspending, type Suspending } from "./kotli
 import { callbackEntry, setupOf } from "./setups.ts";
 import {
   isPayloadEnum,
+  sdkTypeOf,
   swiftCall,
   swiftLabels,
   swiftRuntimeSince,
@@ -766,7 +767,13 @@ export function toObjc(
   use: Pick<BindingPlan, "display" | "symbol" | "artifact">,
   owned = false,
 ): cpp.Expr {
-  if (t.k === "error") throw new Error(`${use.display}: an error its plan refuses`);
+  // An error as an NSError (nil for null), as Swift's own APIs take them.
+  if (t.k === "error") {
+    const v = em.exprAs(arg, t.nullable ? unionOf([T.error, T.null, T.undefined]) : T.error);
+    return t.nullable
+      ? ifPresent(v, (x) => cpp.call("lucent::objc::toNSError", [x]))
+      : cpp.call("lucent::objc::toNSError", [v]);
+  }
   if (t.k === "fn") {
     const f = em.expr(arg);
     // No block: `null` or `undefined` where the platform takes none.
@@ -951,6 +958,9 @@ export function fromObjc(
       return lt.k === "opt"
         ? { c: objc("fromNSErrorOpt", code), t: lt }
         : { c: objc("fromNSError", code, w), t: lt };
+    // A Swift AsyncSequence: the shim's box of it, collected with lucent:ios's AsyncSequence.collect.
+    case "sequence":
+      return wrap(code);
     // A tuple (from a Swift shim): the array of its elements' objects.
     case "tuple": {
       const tuple = elem(lt);
@@ -1239,7 +1249,8 @@ function jniOf(em: FnEmitter, arg: ts.Expression, t: SdkType, value: E): cpp.Exp
       if (!named)
         fail(arg, Codes.UnsupportedSyntax, "pass the class itself (for example `Vibrator`)");
       requireAvailable(em, arg, named, named.cls.since, named.cls.name);
-      return jni("findClass", javaClass(em, named.cls.native));
+      // Looked up once per call site: findClass takes a lock and a lookup by name.
+      return cpp.call("LUCENT_JNI_CLASS", [javaClass(em, named.cls.native)]);
     }
     case "ref":
       if (value.t.k === "fn") return javaProxy(em, arg, value, t);
@@ -2491,7 +2502,7 @@ function needOf(platform: Platform, since: number | string | undefined): Need | 
   if (typeof since !== (platform === "android" ? "number" : "string")) return undefined;
 
   const version = String(since);
-  const oldest = platform === "ios" ? oldestIos() : String(MIN_ANDROID_API);
+  const oldest = platform === "ios" ? oldestIos() : String(oldestAndroid());
   return compareVersions(version, oldest) > 0 ? { platform, version } : undefined;
 }
 
@@ -2522,7 +2533,7 @@ export function requireAvailable(
     Codes.Unavailable,
     need.platform === "ios"
       ? `${what} needs iOS ${need.version} (apps run from iOS ${oldestIos()}): use it under if (available("ios", ${availableArgs(need)}))`
-      : `${what} needs API ${need.version} (apps run from API ${MIN_ANDROID_API}): use it under if (available("android", ${need.version})) or Build_VERSION.SDK_INT >= ${need.version}`,
+      : `${what} needs API ${need.version} (apps run from API ${oldestAndroid()}): use it under if (available("android", ${need.version})) or Build_VERSION.SDK_INT >= ${need.version}`,
   );
 }
 
@@ -2854,6 +2865,18 @@ export function nativeStaticProperty(
     const sdk = sdkModuleOf(decl.getSourceFile())!;
     const e = findSdkType(sdk.platform, sdk.module, (decl.parent as ts.EnumDeclaration).name.text);
     const value = em.checker.getConstantValue(decl);
+    if (e?.kind === "enum") {
+      const ref = { platform: sdk.platform };
+      const name = decl.name.getText();
+      requireAvailable(em, node, ref, e.since, e.name);
+      requireAvailable(
+        em,
+        node,
+        ref,
+        e.cases.find((x) => x.name === name)?.since,
+        `${e.name}.${name}`,
+      );
+    }
     // A Swift enum's values are its cases' indexes, which the shims convert: nothing to check.
     if (e?.kind === "enum" && !e.swift && sdk.platform === "ios" && typeof value === "number") {
       const c = e.cases.find((x) => x.name === decl.name.getText())!;
@@ -3399,6 +3422,7 @@ export function nativeFunctionCall(em: FnEmitter, node: ts.CallExpression): E | 
   const f = schema.functions?.find((x) => x.name === name);
   if (!f) fail(node, Codes.UnsupportedCall, `${name} has no binding`);
   const plan = requirePlan(node, sdk, f, "call");
+  requireAvailable(em, node, sdk, f.since, name);
   if (f.swift) {
     const params = f.params.map((p) => parseSdkType(p.type, sdk.module));
     const ret = parseSdkType(f.returns, sdk.module);
@@ -3414,6 +3438,61 @@ export function nativeFunctionCall(em: FnEmitter, node: ts.CallExpression): E | 
   return fromObjc(em, cpp.call(name, a), ret, declaredLt(em, "ios", ret, node), `${name}()`, owned);
 }
 
+/**
+ * `sequence.collect(f, signal?)` on lucent:ios's AsyncSequence (what a
+ * Swift AsyncSequence is in Lucent): each element, which crossed as an
+ * object, converted to the Lucent type the sequence's type argument says
+ * and given to `f` on the Lucent thread (ios_sequence.h).
+ */
+export function collectSequence(em: FnEmitter, obj: E, name: string, node: ts.CallExpression): E {
+  if (name !== "collect")
+    fail(node, Codes.UnsupportedCall, `${name} is not a method of AsyncSequence`);
+  const args = argsOf(node);
+  const f = args[0];
+  if (!f) fail(node, Codes.UnsupportedCall, "collect takes the function each element is given");
+  if (
+    (ts.isArrowFunction(f) || ts.isFunctionExpression(f)) &&
+    ts.getModifiers(f)?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword)
+  )
+    fail(
+      f,
+      Codes.UnsupportedType,
+      "collect takes a function that is not async: the sequence would not wait for its promise",
+    );
+
+  const receiver = ts.isPropertyAccessExpression(node.expression)
+    ? node.expression.expression
+    : node.expression;
+  const seqType = em.checker.getTypeAtLocation(receiver);
+  const [elementT] = em.checker.getTypeArguments(seqType as ts.TypeReference);
+  if (!elementT) fail(node, Codes.UnsupportedType, "the sequence's element type is not known");
+  const lt = em.reg.lower(elementT, node);
+  // The schema type the element crossed as: bigints as 64-bit integers, the rest as sdkTypeOf says.
+  const of: SdkType =
+    elementT.flags & ts.TypeFlags.BigIntLike
+      ? { k: "prim", name: "int64", nullable: false }
+      : sdkTypeOf(em, elementT, node);
+
+  const fnT: LType = { k: "fn", params: [lt], ret: T.void };
+  const fn = em.exprAs(f, fnT);
+  const e = cpp.id("e_");
+  const value =
+    of.k === "prim"
+      ? fromObjcItem(em, of, lt, "AsyncSequence.collect")
+      : fromObjc(em, e, of, lt, "AsyncSequence.collect").c;
+  const each = cpp.lambda(
+    [{ name: "f_", init: fn }],
+    [cpp.param(cpp.type("id"), "e_")],
+    [cpp.exprStmt(cpp.call("f_", [value]))],
+  );
+  em.ctx.nativeUnit(em.opts.module).include("lucent/platform/ios_sequence.h");
+  em.ctx.swiftSequences = true;
+  return {
+    c: cpp.call("lucent::objc::collectSequence", [obj.c, each, ...signalArg(em, args[1])]),
+    t: { k: "promise", inner: T.undefined },
+  };
+}
+
 /** A C global constant of an SDK module (iOS): `kSecClass`. */
 export function nativeConstant(em: FnEmitter, id: ts.Identifier): E | undefined {
   const decl = resolved(em, id)?.valueDeclaration;
@@ -3424,6 +3503,7 @@ export function nativeConstant(em: FnEmitter, id: ts.Identifier): E | undefined 
   const c = schema.constants?.find((x) => x.name === id.text);
   if (!c) fail(id, Codes.UnsupportedSyntax, `${id.text} has no binding`);
   requirePlan(id, sdk, c, "get");
+  requireAvailable(em, id, sdk, c.since, c.name);
   const ct = parseSdkType(c.type, sdk.module);
   if (c.swift)
     return swiftCall(em, swiftUse(id, sdk, c, "get", [], ct, c.name, true), undefined, []);
@@ -3584,6 +3664,37 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
         c: cpp.call("lucent::objc::mainQueue"),
         t: { k: "native", platform: "ios", module: "lucent:ios", name: "NSObject" },
       };
+    case "lucent:ios.serialQueue":
+      unit.include("lucent/platform/ios.h");
+      return {
+        c: cpp.call("lucent::objc::serialQueue", [em.exprAs(args[0]!, T.string)]),
+        t: { k: "native", platform: "ios", module: "lucent:ios", name: "NSObject" },
+      };
+    case "lucent:ios.withPixelBytes": {
+      unit.include("lucent/platform/ios_pixels.h");
+      em.ctx.frameworks.add("CoreVideo");
+      const nsObject: LType = {
+        k: "native",
+        platform: "ios",
+        module: "lucent:ios",
+        name: "NSObject",
+      };
+      const t = em.lt(node);
+      const read: LType = { k: "fn", params: [T.bytes, T.number, T.number, T.number], ret: t };
+      const f = args[1]!;
+      const closure =
+        ts.isArrowFunction(f) || ts.isFunctionExpression(f)
+          ? em.coerce(em.closure(f, read), read, f)
+          : em.exprAs(f, read);
+      return {
+        c: cpp.call("lucent::objc::withPixelBytes", [
+          em.exprAs(args[0]!, nsObject),
+          closure,
+          ...(args[2] ? [em.exprAs(args[2], T.number)] : []),
+        ]),
+        t,
+      };
+    }
     case "lucent:ios.present": {
       const build = args[0];
       if (

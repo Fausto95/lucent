@@ -13,6 +13,8 @@
 #endif
 
 #include <atomic>
+#include <deque>
+#include <thread>
 #include <cstdint>
 #include <cstdlib>
 #include <mutex>
@@ -263,7 +265,9 @@ jobject unit(JNIEnv* e) {
 void rethrowPending(JNIEnv* e) {
   jthrowable t = e->ExceptionOccurred();
   e->ExceptionClear();
-  throw Exception(errorOf(e, t));
+  Error error = errorOf(e, t);
+  e->DeleteLocalRef(t);
+  throw Exception(std::move(error));
 }
 
 namespace {
@@ -278,16 +282,23 @@ Error errorOf(JNIEnv* e, jobject t, bool take) {
     err->code = String::fromLatin1("java.util.concurrent.CancellationException");
     return err;
   }
-  // These throw only when out of memory, which leaves the defaults below:
-  // cleared after each call, before the next JNI call (as CheckJNI requires).
-  auto read = [e](jobject o, const char* cls, const char* name, const char* sig) {
-    jobject r = e->CallObjectMethod(o, e->GetMethodID(e->FindClass(cls), name, sig));
+  // Every reference made here is freed here: the caller may be a thread
+  // Lucent attached, which never returns to Java to free them.
+  LocalFrame frame(e);
+  // The methods, found once (global class references). These calls throw
+  // only when out of memory, which leaves the defaults below: cleared after
+  // each call, before the next JNI call (as CheckJNI requires).
+  static jmethodID getClass = method(findClass("java/lang/Object"), "getClass", "()Ljava/lang/Class;");
+  static jmethodID getName = method(findClass("java/lang/Class"), "getName", "()Ljava/lang/String;");
+  static jmethodID getMessage = method(findClass("java/lang/Throwable"), "getMessage", "()Ljava/lang/String;");
+  auto read = [e](jobject o, jmethodID m) {
+    jobject r = e->CallObjectMethod(o, m);
     e->ExceptionClear();
     return r;
   };
-  jobject cls = read(t, "java/lang/Object", "getClass", "()Ljava/lang/Class;");
-  auto name = static_cast<jstring>(cls ? read(cls, "java/lang/Class", "getName", "()Ljava/lang/String;") : nullptr);
-  auto message = static_cast<jstring>(read(t, "java/lang/Throwable", "getMessage", "()Ljava/lang/String;"));
+  jobject cls = read(t, getClass);
+  auto name = static_cast<jstring>(cls ? read(cls, getName) : nullptr);
+  auto message = static_cast<jstring>(read(t, getMessage));
   String className = name ? fromJString(e, name, "") : String::fromLatin1("java.lang.Throwable");
   Error err = makeError(String::fromLatin1("Error"), message ? fromJString(e, message, "") : className);
   err->code = className;
@@ -546,33 +557,44 @@ std::unordered_map<std::pair<const void*, std::string>, ProxyEntry, KeyHash>& pr
   return *m;
 }
 
+void releaseProxy(JNIEnv* e, jlong handle);
+
+/// A proxy method's call. What Lucent code throws is reported, as for any
+/// platform callback (callNow), and the call returns null: NativeProxy
+/// answers a method that returns a primitive with its zero value (0,
+/// false), not a NullPointerException hiding the error.
 jobject JNICALL proxyCall(JNIEnv* e, jclass, jlong handle, jstring method, jobjectArray args) {
-  auto* t = reinterpret_cast<ProxyTarget*>(handle);
-  const char* chars = e->GetStringUTFChars(method, nullptr);
-  std::string name(chars);
-  e->ReleaseStringUTFChars(method, chars);
-  auto it = t->methods.find(name);
-  if (it == t->methods.end()) {
-    e->ThrowNew(e->FindClass("java/lang/AbstractMethodError"), ("Lucent does not implement " + name).c_str());
-    return nullptr;
-  }
-  try {
+  return reported(e, "Java callback", static_cast<jobject>(nullptr), [&]() -> jobject {
+    auto* t = reinterpret_cast<ProxyTarget*>(handle);
+    const char* chars = e->GetStringUTFChars(method, nullptr);
+    if (!chars) return nullptr;  // OutOfMemoryError pending
+    std::string name(chars);
+    e->ReleaseStringUTFChars(method, chars);
+    auto it = t->methods.find(name);
+    if (it == t->methods.end()) {
+      e->ThrowNew(e->FindClass("java/lang/AbstractMethodError"), ("Lucent does not implement " + name).c_str());
+      return nullptr;
+    }
     return it->second(e, args);
-  } catch (...) {
-    reportUncaught(std::current_exception(), "Java callback");
-    return nullptr;
-  }
+  });
 }
 
 jboolean JNICALL proxyHas(JNIEnv* e, jclass, jlong handle, jstring key) {
-  auto* t = reinterpret_cast<ProxyTarget*>(handle);
-  const char* chars = e->GetStringUTFChars(key, nullptr);
-  bool found = t->methods.count(chars) > 0;
-  e->ReleaseStringUTFChars(key, chars);
-  return found ? JNI_TRUE : JNI_FALSE;
+  return reported(e, "Java callback", static_cast<jboolean>(JNI_FALSE), [&] {
+    auto* t = reinterpret_cast<ProxyTarget*>(handle);
+    const char* chars = e->GetStringUTFChars(key, nullptr);
+    if (!chars) return static_cast<jboolean>(JNI_FALSE);
+    bool found = t->methods.count(chars) > 0;
+    e->ReleaseStringUTFChars(key, chars);
+    return found ? static_cast<jboolean>(JNI_TRUE) : static_cast<jboolean>(JNI_FALSE);
+  });
 }
 
 void JNICALL proxyRelease(JNIEnv* e, jclass, jlong handle) {
+  reported(e, "a proxy's release", [&] { releaseProxy(e, handle); });
+}
+
+void releaseProxy(JNIEnv* e, jlong handle) {
   auto* t = reinterpret_cast<ProxyTarget*>(handle);
   {
     std::lock_guard<std::mutex> g(proxiesMutex);
@@ -756,7 +778,48 @@ bool available(double api) {
 #ifdef __ANDROID__
 namespace lucent {
 
-void postToMain(std::function<void()> job) {
+namespace {
+
+/// Jobs for the main thread, drained by one runnable on the main Looper:
+/// posting one is a lock and a push, and a runnable (a JNI object, three
+/// JNI calls) is posted only when the queue was empty, not per job.
+struct MainQueue {
+  std::mutex m;
+  std::deque<std::function<void()>> jobs;
+  bool scheduled = false;
+};
+
+MainQueue& mainQueue() {
+  static auto* q = new MainQueue();
+  return *q;
+}
+
+/// The main thread's id, once known: the thread the main Looper's
+/// runnables run on, recorded by the first one (and by a first
+/// onMainThread() asked there).
+std::atomic<std::thread::id> mainThreadId{};
+
+/// Runs what is queued, up to what was there when it began: what those
+/// jobs post waits for the next runnable, so the Looper's other messages
+/// (input, frames) are not starved by a job that keeps posting.
+void drainMain() {
+  mainThreadId.store(std::this_thread::get_id(), std::memory_order_relaxed);
+
+  MainQueue& q = mainQueue();
+  std::deque<std::function<void()>> batch;
+  {
+    std::lock_guard<std::mutex> g(q.m);
+    batch.swap(q.jobs);
+    q.scheduled = false;
+  }
+
+  for (auto& job : batch) {
+    detail::runGuarded(job, "main thread job");
+    job = nullptr;
+  }
+}
+
+void scheduleDrain() {
   using facebook::jni::JNativeRunnable;
   JNIEnv* e = jni::env();
   static jobject handler = [e] {
@@ -772,19 +835,53 @@ void postToMain(std::function<void()> job) {
   // Lucent thread's class loader cannot see: create and post the runnable
   // with the app's loader.
   facebook::jni::ThreadScope::WithClassLoader([&] {
-    auto runnable = JNativeRunnable::newObjectCxxArgs(std::move(job));
+    jni::LocalFrame frame(e);
+    auto runnable = JNativeRunnable::newObjectCxxArgs([] { drainMain(); });
     e->CallBooleanMethod(handler, post, runnable.get());
   });
   jni::check(e);
 }
 
+}  // namespace
+
+void postToMain(std::function<void()> job) {
+  MainQueue& q = mainQueue();
+  bool schedule = false;
+  {
+    std::lock_guard<std::mutex> g(q.m);
+    q.jobs.push_back(std::move(job));
+    schedule = !std::exchange(q.scheduled, true);
+  }
+
+  if (!schedule) return;
+
+  try {
+    scheduleDrain();
+  } catch (...) {
+    // Not posted: the next post tries again, and the jobs stay queued.
+    {
+      std::lock_guard<std::mutex> g(q.m);
+      q.scheduled = false;
+    }
+    throw;
+  }
+}
+
 bool onMainThread() {
+  std::thread::id self = std::this_thread::get_id();
+  std::thread::id main = mainThreadId.load(std::memory_order_relaxed);
+  if (main != std::thread::id()) return main == self;
+
+  // Not known yet (nothing has run on the main Looper through Lucent):
+  // ask the Looper, and remember the answer when it is yes.
   JNIEnv* e = jni::env();
   jclass looperCls = jni::findClass("android/os/Looper");
   static jmethodID mainLooper = jni::staticMethod(looperCls, "getMainLooper", "()Landroid/os/Looper;");
   static jmethodID myLooper = jni::staticMethod(looperCls, "myLooper", "()Landroid/os/Looper;");
   jni::LocalFrame frame(e);
-  return e->IsSameObject(e->CallStaticObjectMethod(looperCls, mainLooper), e->CallStaticObjectMethod(looperCls, myLooper));
+  bool onMain = e->IsSameObject(e->CallStaticObjectMethod(looperCls, mainLooper), e->CallStaticObjectMethod(looperCls, myLooper));
+  if (onMain) mainThreadId.store(self, std::memory_order_relaxed);
+  return onMain;
 }
 
 }  // namespace lucent

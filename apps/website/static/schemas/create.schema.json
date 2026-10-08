@@ -1,0 +1,41 @@
+{
+  "$id": "https://lucent-lang.dev/schemas/create.schema.json",
+  "title": "lucent create --json",
+  "oneOf": [
+    {
+      "type": "object",
+      "description": "The project was created",
+      "required": ["ok", "template", "dir", "files", "installed", "next"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "const": true },
+        "template": { "enum": ["expo", "bare", "view", "library", "module"] },
+        "dir": { "type": "string", "description": "Absolute path of the project" },
+        "files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "What was written, relative to the project"
+        },
+        "installed": {
+          "type": "boolean",
+          "description": "Its dependencies were installed (not with --skip-install)"
+        },
+        "next": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "The commands to run next, in order"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "description": "Nothing was created",
+      "required": ["ok", "error"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "const": false },
+        "error": { "type": "string", "description": "Why: a usage error exits with code 2" }
+      }
+    }
+  ]
+}

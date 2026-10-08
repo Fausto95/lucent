@@ -2,7 +2,7 @@
 
 Status: **proposal** (2026-09-23), since largely implemented; what exists is
 described in [platform-bindings.md](../platform-bindings.md), and its progress
-in [ROADMAP.md](../../ROADMAP.md#earlier-plans). The examples
+in [decision 0004](../decisions/0004-full-sdk-plan.md). The examples
 here predate the implementation: `lucent:android/context`, for instance, is
 `lucent:android`.
 
@@ -30,7 +30,11 @@ export function batteryLevel(): number {
 ```
 
 No Swift or Kotlin is generated, and the app keeps one C++ TurboModule. iOS
-calls become ObjC++; Android calls become JNI from C++.
+calls become ObjC++; Android calls become JNI from C++. (Superseded in
+part: Swift-only and Kotlin-only APIs are now called through generated
+Swift and Kotlin shims, [swift-shims.md](swift-shims.md); the one
+TurboModule stays. [platform-bindings.md](../platform-bindings.md) is the
+current behavior.)
 
 ## What the SDKs give us (measured)
 

@@ -24,6 +24,9 @@ JNIEnv* env();
 /// A global reference to a class, from the app's class loader when the
 /// system one cannot see it. Throws for unknown classes.
 jclass findClass(const char* name);
+/// `findClass(name)` once per use site (a class passed as an argument): a
+/// global reference kept for the program's life, as findClass's are.
+#define LUCENT_JNI_CLASS(name) ([]() -> jclass { static const jclass c = ::lucent::jni::findClass(name); return c; }())
 jmethodID method(jclass cls, const char* name, const char* sig);
 jmethodID staticMethod(jclass cls, const char* name, const char* sig);
 jfieldID field(jclass cls, const char* name, const char* sig);
@@ -229,6 +232,31 @@ jthrowable throwableOf(JNIEnv* env, Error error);
 
 /// Throws `error` to Java, as throwableOf makes it.
 void throwToJava(JNIEnv* env, Error error);
+
+/// The body of a native method Java calls (RegisterNatives): nothing `f`
+/// throws unwinds into the JVM, which would abort. As for every platform
+/// callback into Lucent (callNow), it is reported, with a Java exception a
+/// failed JNI call left pending, and the native returns `fallback`: these
+/// run on the main thread (a view's measure, layout or update) or for a
+/// platform listener, where an exception thrown to Java would end the app.
+template <class R, class F>
+R reported(JNIEnv* env, const char* where, R fallback, F f) noexcept {
+  try {
+    return f();
+  } catch (...) {
+    if (env->ExceptionCheck()) env->ExceptionClear();
+    reportUncaught(std::current_exception(), where);
+    return fallback;
+  }
+}
+
+template <class F>
+void reported(JNIEnv* env, const char* where, F f) noexcept {
+  reported(env, where, 0, [&] {
+    f();
+    return 0;
+  });
+}
 
 /**
  * How a Kotlin suspend function a Lucent class implements ends: resumes

@@ -81,11 +81,11 @@ The operators on bigints are on [Statements](/docs/api/language/statements/#bigi
 | `slice`, `substring`, `substr`, `concat`, `repeat`, `padStart`, `padEnd` | |
 | `trim`, `trimStart`, `trimEnd`, `trimLeft`, `trimRight` | |
 | `toUpperCase`, `toLowerCase`, `toLocaleUpperCase`, `toLocaleLowerCase` | Unicode's full case mappings, final sigma included, for the root locale. The locale methods ignore their argument. |
-| `localeCompare(other)` | The platform's collator for the device's locale, as in Hermes. A locales or options argument is ignored. |
+| `localeCompare(other)` | The platform's collator for the device's locale, as in Hermes. A locales or options argument fails with [LUCENT1003](/docs/api/diagnostics/#lucent1003). |
 | `split(separator?, limit?)` | The separator is a string or a `RegExp`. |
-| `replace`, `replaceAll` | The pattern is a string or a `RegExp`; a replacement function needs a `RegExp`. With a string pattern, `$` patterns in the replacement are inserted as written. |
+| `replace`, `replaceAll` | The pattern is a string or a `RegExp`; a replacement function needs a `RegExp`. `$` patterns in the replacement expand, with either pattern. |
 | `match`, `matchAll`, `search` | With a `RegExp` only. |
-| `normalize`, `toString`, `valueOf` | `normalize` returns the string unchanged. |
+| `toString`, `valueOf` | |
 | `String.fromCharCode`, `String.fromCodePoint` | |
 
 `String.raw` and other tagged templates aren't available ([LUCENT1001](/docs/api/diagnostics/#lucent1001)).
@@ -97,7 +97,7 @@ The operators on bigints are on [Statements](/docs/api/language/statements/#bigi
 | `length` | Read and write. Setting a larger length needs an element type that includes `undefined`, or it throws a `RangeError`. |
 | `push`, `pop`, `shift`, `unshift` | `unshift` takes one item. `push` takes items, or one spread: `push(...more)`. |
 | `slice`, `splice`, `concat`, `join`, `fill`, `reverse` | |
-| `indexOf`, `lastIndexOf`, `includes` | A `fromIndex` argument is ignored. Elements can't be functions ([LUCENT1002](/docs/api/diagnostics/#lucent1002)). |
+| `indexOf`, `lastIndexOf`, `includes` | With `fromIndex` too, as in JavaScript. Elements can't be functions ([LUCENT1002](/docs/api/diagnostics/#lucent1002)). |
 | `at`, `find`, `findIndex`, `filter`, `some`, `every` | |
 | `forEach`, `map`, `flatMap`, `reduce`, `reduceRight` | |
 | `sort(compare?)` | Stable. Without a comparator it compares elements as strings, as JavaScript does. |
@@ -125,8 +125,7 @@ The operators on bigints are on [Statements](/docs/api/language/statements/#bigi
 
 | Function | Notes |
 | --- | --- |
-| `Object.keys(x)` | A record's keys. For an object type, every declared field, set or not. |
-| `Object.values(r)`, `Object.entries(r)` | Records only. |
+| `Object.keys(r)`, `Object.values(r)`, `Object.entries(r)` | Records only. On an object type they fail with [LUCENT1003](/docs/api/diagnostics/#lucent1003). |
 | `Object.fromEntries(pairs)` | Makes a record from `[key, value]` pairs. |
 
 Other `Object` functions, such as `assign`, `freeze` and `is`, aren't available. Spread makes a copy: `{ ...a, ...b }`.
@@ -165,10 +164,10 @@ The string methods that take a `RegExp` are on [String](/docs/api/language/built
 
 | Member | Notes |
 | --- | --- |
-| `new Error(message?)`, `new TypeError(message?)`, `new RangeError(message?)` | A second argument, `{ cause }`, is dropped. |
-| `class ParseError extends Error` | An error class of your own ([Types](/docs/api/language/types/)). Give it a constructor that calls `super(message)`: without one, the message is dropped. |
+| `new Error(message?)`, `new TypeError(message?)`, `new RangeError(message?)`, `new SyntaxError(message?)` | A second argument, `{ cause }`, fails with [LUCENT1003](/docs/api/diagnostics/#lucent1003). |
+| `class ParseError extends Error` | An error class of your own ([Types](/docs/api/language/types/)). Without a constructor it takes the message, as in JavaScript. |
 | `name`, `message`, `stack`, `toString()` | `name` and `message` are read-only, except in an error class. `stack` is `undefined` unless the error came from JavaScript. |
-| `e instanceof Error`, and `TypeError`, `RangeError`, `SyntaxError` | `BigInt()` and `JSON.parse` throw a `SyntaxError`. Don't make one: `new SyntaxError()` makes an error named `Error`. |
+| `e instanceof Error`, and `TypeError`, `RangeError`, `SyntaxError` | As in JavaScript. `BigInt()` and `JSON.parse` throw a `SyntaxError`. |
 | `error(code, message)`, `errorCode(e)` | From [lucent:core](/docs/api/lucent-core/#error): an error with a `code` that JavaScript reads. |
 
 `AggregateError`, `EvalError`, `ReferenceError` and `URIError` aren't available ([LUCENT2002](/docs/api/diagnostics/#lucent2002)).
@@ -189,13 +188,20 @@ The string methods that take a `RegExp` are on [String](/docs/api/language/built
 | Member | Notes |
 | --- | --- |
 | `new Uint8Array(length)`, `new Uint8Array(numbers)`, `new Uint8Array(bytes)` | From an array or another `Uint8Array`, the bytes are copied. |
+| `new Uint8Array(buffer, byteOffset?, length?)`, `buffer`, `byteOffset` | A view of an `ArrayBuffer`'s bytes, shared as in JavaScript. Ranges are checked with a `RangeError` (case `array-buffers`). |
 | `length`, `byteLength`, `bytes[i]` | A read out of range is `undefined`, and a write out of range does nothing. Written values wrap to 0–255. |
 | `subarray`, `slice` | `subarray` shares the bytes; `slice` copies them. |
 | `set(source, offset?)` | From a `Uint8Array` or a `number[]`. A `RangeError` if it doesn't fit. |
-| `fill(value)`, `indexOf(value)`, `includes(value)` | A start, end or `fromIndex` argument is ignored. |
+| `fill(value, start?, end?)`, `indexOf(value, fromIndex?)`, `includes(value, fromIndex?)` | As in JavaScript. |
 | `forEach`, `map`, `reduce`, `join` | `reduce` needs an initial value. |
 
-`for…of` reads the bytes; other members, such as `at`, `filter` and `buffer`, aren't available. Other typed arrays, `ArrayBuffer` and `DataView` fail with [LUCENT2002](/docs/api/diagnostics/#lucent2002). For bytes that shouldn't be copied, use a [NativeBuffer](/docs/api/lucent-core/#nativebuffer).
+`for…of` reads the bytes; other members, such as `at` and `filter`, aren't available.
+
+## ArrayBuffer
+
+`new ArrayBuffer(length)`, `byteLength` and `slice(start?, end?)`, which copies. Resizable buffers and `ArrayBuffer.isView` aren't available.
+
+Other typed arrays, `DataView` and `SharedArrayBuffer` fail with [LUCENT2002](/docs/api/diagnostics/#lucent2002). For bytes that shouldn't be copied, use a [NativeBuffer](/docs/api/lucent-core/#nativebuffer).
 
 ## Symbol
 
@@ -234,4 +240,4 @@ What JavaScript's built-ins lack has a native implementation in `lucent:core`. [
 | `queueMicrotask(f)` | LUCENT9001: not declared | `await Promise.resolve()`, then the code |
 | `fetch` | LUCENT9001: not declared | Call it from JavaScript, or the platform's HTTP API through `lucent:ios` or `lucent:android` |
 | `eval`, `Reflect`, `globalThis` | LUCENT1003, LUCENT1001 | None |
-| `new Proxy(target, handler)` | LUCENT1003 for a plain object target; a class instance target is a [known gap](/docs/api/language/differences/#known-gaps) | None |
+| `new Proxy(target, handler)`, `str.normalize()` | LUCENT1003 | None; normalize the string in JavaScript before passing it |

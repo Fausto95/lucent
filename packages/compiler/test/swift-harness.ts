@@ -225,9 +225,6 @@ const run = (cmd: string, args: string[], cwd?: string) => {
  * per change of its sources and shared by test processes (published by
  * rename).
  */
-/** The host's C++ compiler, as a command line: Xcode's on macOS. */
-export const hostCxx = process.platform === "darwin" ? ["xcrun", "clang++"] : ["clang++"];
-
 export function hostRuntime(): string {
   const cppDir = path.join(runtimeDir(), "cpp");
   const { cxx, c } = runtimeSources(cppDir);
@@ -251,10 +248,11 @@ export function hostRuntime(): string {
   }
 
   const work = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-host-runtime-"));
+  const darwin = process.platform === "darwin";
   const jobs = own.map((f) => ({
-    cmd: hostCxx[0]!,
+    cmd: darwin ? "xcrun" : f.endsWith(".c") ? "clang" : "clang++",
     args: [
-      ...hostCxx.slice(1),
+      ...(darwin ? ["clang++"] : []),
       ...(f.endsWith(".c")
         ? ["-x", "c", ...cFlags]
         : ["-std=c++20", "-ffp-contract=off", "-O1", "-g", `-I${cppDir}`]),
@@ -269,8 +267,7 @@ export function hostRuntime(): string {
   if (missing.length) throw new Error(`the host runtime did not compile:\n${printed}`);
 
   const tmp = `${lib}.${process.pid}`;
-  if (process.platform === "darwin")
-    run("xcrun", ["libtool", "-static", "-o", tmp, ...jobs.map((j) => j.object)]);
+  if (darwin) run("xcrun", ["libtool", "-static", "-o", tmp, ...jobs.map((j) => j.object)]);
   else run("ar", ["rcs", tmp, ...jobs.map((j) => j.object)]);
   fs.renameSync(tmp, lib);
   fs.rmSync(work, { recursive: true, force: true });

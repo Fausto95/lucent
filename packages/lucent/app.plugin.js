@@ -8,6 +8,36 @@ const { spawnSync } = require("node:child_process");
 
 let built = false;
 
+/**
+ * The platforms `expo prebuild` writes: its `--platform` (`-p`) flag, or
+ * both. Every mod sees only its own platform, and the first build must
+ * build them all: a build of one platform removes the other's code.
+ */
+function prebuildPlatforms(argv = process.argv) {
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    const value = a === "--platform" || a === "-p" ? argv[i + 1] : /^--platform=(.*)$/.exec(a)?.[1];
+    if (value === "ios" || value === "android") return [value];
+    if (value === "all") break;
+  }
+  return ["ios", "android"];
+}
+
+/**
+ * `lucent build`'s arguments for prebuilding `platforms`: one platform
+ * alone, or none for both, so the build compiles what this machine can
+ * (Linux has no iOS SDK) and leaves Android to the Gradle build when its
+ * dependencies are not resolved yet.
+ */
+function buildArgs(projectRoot, platforms) {
+  return [
+    "build",
+    "--root",
+    projectRoot,
+    ...(platforms.length === 1 ? ["--platforms", platforms[0]] : []),
+  ];
+}
+
 function buildOnce(projectRoot) {
   if (built) return;
   built = true;
@@ -15,7 +45,7 @@ function buildOnce(projectRoot) {
   // No Gradle during prebuild: android/ is half-written, and a Gradle run would cache it so
   // (autolinking with the template's package). The Gradle task this plugin applies resolves
   // the classpath and builds Android when the app is built.
-  const r = spawnSync(process.execPath, [cli, "build", "--root", projectRoot], {
+  const r = spawnSync(process.execPath, [cli, ...buildArgs(projectRoot, prebuildPlatforms())], {
     stdio: "inherit",
     env: { ...process.env, LUCENT_NO_GRADLE: "1" },
   });
@@ -24,13 +54,21 @@ function buildOnce(projectRoot) {
   linkNativePackage(projectRoot);
 }
 
+/** The entry earlier versions wrote: the root alone, never built (src/cli/init/patch.ts). */
+const PLAIN_ENTRY =
+  /(["']?)lucent(?:-native)?\1\s*:\s*\{\s*root:\s*require\(["']path["']\)\.join\(__dirname,\s*["']\.lucent["'],\s*["']native["']\)\s*,?\s*\}/;
+
 /** Makes the app's react-native.config.js link the native package lucent build writes. */
 function linkNativePackage(projectRoot) {
   const rnConfig = path.join(projectRoot, "react-native.config.js");
-  const entry = `"lucent": { root: require("path").join(__dirname, ".lucent", "native") }`;
+  // Built first when missing or stale (autolink/index.cjs): EAS and CI clone without .lucent/.
+  const entry = `"lucent": require("@lucent-lang/lucent/autolink")(__dirname)`;
   const text = fs.existsSync(rnConfig) ? fs.readFileSync(rnConfig, "utf8") : undefined;
   if (text === undefined) {
     fs.writeFileSync(rnConfig, `module.exports = {\n  dependencies: {\n    ${entry},\n  },\n};\n`);
+  } else if (PLAIN_ENTRY.test(text)) {
+    // Earlier versions linked the root alone, which a fresh clone lacks.
+    fs.writeFileSync(rnConfig, text.replace(PLAIN_ENTRY, entry));
   } else if (text.includes('"lucent-native"')) {
     // Earlier versions named the dependency lucent-native.
     fs.writeFileSync(rnConfig, text.replace('"lucent-native"', '"lucent"'));
@@ -122,14 +160,16 @@ function withLucent(config) {
     return c;
   });
   // Keys the app sets itself win.
+  // `expo config --type introspect` evaluates these mods to show the config: it reads what the
+  // last build resolved, and builds nothing.
   config = withInfoPlist(config, (c) => {
-    buildOnce(c.modRequest.projectRoot);
+    if (!c.modRequest.introspect) buildOnce(c.modRequest.projectRoot);
     const { ios } = resolvedNative(c.modRequest.projectRoot);
     c.modResults = withPackageEntries(c.modResults, ios.infoPlist || {});
     return c;
   });
   config = withEntitlementsPlist(config, (c) => {
-    buildOnce(c.modRequest.projectRoot);
+    if (!c.modRequest.introspect) buildOnce(c.modRequest.projectRoot);
     const { ios } = resolvedNative(c.modRequest.projectRoot);
     c.modResults = withPackageEntries(c.modResults, ios.entitlements || {});
     return c;
@@ -138,7 +178,7 @@ function withLucent(config) {
     config = withDangerousMod(config, [
       platform,
       async (c) => {
-        buildOnce(c.modRequest.projectRoot);
+        if (!c.modRequest.introspect) buildOnce(c.modRequest.projectRoot);
         return c;
       },
     ]);
@@ -149,5 +189,7 @@ function withLucent(config) {
 module.exports = withLucent;
 module.exports.GRADLE_LINES = GRADLE_LINES;
 module.exports.applyGradleTask = applyGradleTask;
+module.exports.buildArgs = buildArgs;
+module.exports.prebuildPlatforms = prebuildPlatforms;
 module.exports.linkNativePackage = linkNativePackage;
 module.exports.withPackageEntries = withPackageEntries;

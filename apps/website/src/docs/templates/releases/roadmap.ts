@@ -31,6 +31,6 @@ export const blocks: Block[] = [
   ]),
   {
     kind: "p",
-    text: "This page is generated from [ROADMAP.md](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md) in the repository.",
+    text: "This page is generated from [ROADMAP.md](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md) and [docs/limitations.md](https://github.com/Fausto95/lucent/blob/main/docs/limitations.md) in the repository. Each task is in [docs/tasks.md](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md).",
   },
 ];

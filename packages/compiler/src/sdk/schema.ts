@@ -4,6 +4,7 @@
  */
 
 import {
+  androidLevels,
   formatSchemaType,
   parseSchemaType,
   type Platform,
@@ -30,7 +31,7 @@ import { compareVersions } from "../package-versions.ts";
 
 export { formatSchemaType, PLATFORMS };
 
-/** The oldest OS the app runs on (React Native's minimum). */
+/** The oldest OS an app runs on (React Native's minimum), where its project says no other. */
 export const MIN_ANDROID_API = 24;
 export const MIN_IOS = "15.1";
 
@@ -94,6 +95,15 @@ export function oldestIos(): string {
 }
 
 /**
+ * The oldest Android API level the app runs on: its minSdk (the app's
+ * Gradle build, as the SDK options say), else React Native's minimum.
+ * An API newer than it needs a check.
+ */
+export function oldestAndroid(): number {
+  return androidLevels(sdkOptions()).minSdk ?? MIN_ANDROID_API;
+}
+
+/**
  * Runs `f` in a compile context with these SDK locations (the defaults
  * when undefined), and the platforms whose SDK imports resolve only
  * later: its artifacts are resolved anew, as installed now. For callers
@@ -114,7 +124,7 @@ export function withSdkOptions<T>(
 
 /** What to do about a native member Lucent does not bind: call it through code of the app's own. */
 export const WRAP_UNBOUND: Record<Platform, string> = {
-  ios: "wrap it in Swift of your own whose types Lucent binds, in a local pod the app depends on",
+  ios: "wrap it in Swift of your own whose types Lucent binds: in a Lucent package's ios.nativeSources (lucent:ios/LucentNative), or in a local pod the app depends on",
   android:
     "wrap it in Kotlin of your own whose types Lucent binds, in a Gradle module the app depends on",
 };
@@ -273,6 +283,7 @@ export function jniDescriptor(
       case "out":
       case "fn":
       case "error":
+      case "sequence":
         return fail(`${t.k} is not a Java type`);
       case "ref": {
         if (t.module === "java.lang") return `Ljava/lang/${t.name};`;

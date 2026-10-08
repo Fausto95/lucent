@@ -76,9 +76,6 @@ save("", "dark").catch((e: Error) => {
 
 The full rules are in [The boundary](/docs/api/language/boundary/#errors), and how errors differ from JavaScript's in [Errors and cancellation](/docs/api/language/differences/#errors-and-cancellation).
 
-:::caution
-Give an error subclass a constructor that calls `super(message)`. Without one, the message is dropped ([Known gaps](/docs/api/language/differences/#known-gaps)).
-:::
 
 ## Errors that reach Lucent
 

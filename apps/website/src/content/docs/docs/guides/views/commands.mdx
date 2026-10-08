@@ -85,9 +85,7 @@ export function Field(props: FieldProps): View {
 ```tsx title="App.tsx"
 import { useRef } from "react";
 import { Button, View } from "react-native";
-import * as field from "./field.lucent";
-
-const { Field } = field as unknown as typeof import("./.lucent/native/types/views/field");
+import { Field } from "lucent:views/field";
 
 type FieldRef = { focus(): void; clear(): void; text(): Promise<string> };
 
