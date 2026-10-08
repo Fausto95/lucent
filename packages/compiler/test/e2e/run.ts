@@ -26,7 +26,12 @@ import {
   resolveNative,
 } from "../../src/index.ts";
 import { exec, pool } from "../../../runtime/test/parallel.ts";
-import { cFlags, hostLibs, runtimeSources } from "../../../runtime/test/sources.ts";
+import {
+  cFlags,
+  hostLibs,
+  prefixMapFlags,
+  runtimeSources,
+} from "../../../runtime/test/sources.ts";
 
 // One time zone with daylight saving time for both runs (the native host
 // inherits it), so local-time code is exercised even on UTC machines.
@@ -61,6 +66,7 @@ const baseFlags = [
   "-Wno-unused-label",
   "-Wno-unused-but-set-variable",
   "-Wno-unused-function",
+  ...prefixMapFlags(path.resolve(here, "../../../..")),
   `-I${path.join(runtimeDir, "cpp")}`,
   `-I${path.join(hermes, "API")}`,
   `-I${path.join(hermes, "API/jsi")}`,
@@ -185,7 +191,7 @@ function casePackages(c: Case): { native: NativeInputs; packages: LucentPackage[
 async function nativeBuild(c: Case, lib: string): Promise<string[]> {
   const found = casePackages(c);
   const extensions = found ? bindExtensions(found.native.extensions) : undefined;
-  const result = compile(c.files, { extensions });
+  const result = compile(c.files, { extensions, root: path.resolve(here, "../../../..") });
   if (!result.ok) throw new Error(`compile errors:\n${report(result.diagnostics)}`);
   const dir = path.join(work, "cases", c.name);
   fs.rmSync(dir, { recursive: true, force: true });

@@ -534,7 +534,7 @@ export async function buildProject(
   const tCheck = Date.now();
   // Until the Gradle build resolves them, Android's imports are untyped in the iOS program.
   const deferred: Platform[] = deferAndroid && !platforms?.includes("android") ? ["android"] : [];
-  const result = compile(files, { platforms, sdk, extensions, deferred });
+  const result = compile(files, { platforms, sdk, extensions, deferred, root });
   read = [...new Set([...result.read.keys(), ...result.realpaths.keys()])];
   const relative = (d: Diagnostic) => ({ ...d, file: d.file && path.relative(root, d.file) });
   const diagnostics = result.diagnostics.map(relative);
@@ -622,6 +622,7 @@ export async function buildProject(
 
   const tWrite = Date.now();
   const w = writeNativePackage(result, outDir, {
+    root,
     check,
     native,
     androidDeferred: deferred.includes("android"),

@@ -254,7 +254,7 @@ The IR marks these values and locals, so chains of bitwise operations never go t
 
 - `cppIdent()` keeps a name's spelling, so a debugger shows it as written. It escapes what C++ can't spell, such as `$` or non-ASCII letters, as `_u<hex>_`. It renames C++ keywords, names the glue uses (`std`, `self`, `env`), and names with `__`, a leading `_` and capital, a `LUCENT_` prefix or a trailing `_`. Every temporary the compiler makes up ends in `_` (`obj_3_`, `coll0_`, `fc0ex_`, `t_i_it_`), a spelling `cppIdent()` never gives a program's name, so a local called `obj_3` can't meet one.
 - The C library and the SDK headers define macros under ordinary names (`HUGE`, `DOMAIN`, `pascal`, `si_value`). Each generated file undefines every name the program declares that it spells, after its includes, and restores them at its end (`emit/macros.ts`).
-- `#line` directives name the source's canonical absolute path. Compiler errors, debuggers and crash symbolication then point at the module.
+- `#line` directives name the source's path relative to the project, before every line of the statement it covers. Compiler errors, debuggers and crash symbolication then point at the module's line. The native package's builds map the project's directory to `.` (`-ffile-prefix-map`), so binaries hold no machine's path.
 - An Error made in Lucent code records the same site (`lucent::withSite`), and the boundary puts that frame at the top of the JavaScript error's `stack`.
 - Each binding names where its export is declared (`LUCENT_TRACE_SITE_AT`), and a native span inside Lucent code (`LUCENT_TRACE_SCOPE`) takes the site of the `#line` in force.
 

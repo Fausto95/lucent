@@ -36,6 +36,7 @@ import type { ExtensionBinding } from "./extensions/bind.ts";
 import { bindExtensions } from "./extensions/bind.ts";
 import { extensionDts } from "./extensions/dts.ts";
 import { withExtensions } from "./extensions/registry.ts";
+import { withSourceRoot } from "./lowering/source.ts";
 import { resolveNative } from "./package-config.ts";
 import { fileHashes } from "./package-files.ts";
 import { lucentPackages } from "./packages.ts";
@@ -192,6 +193,11 @@ export interface CompileOptions {
    * own build checks it.
    */
   deferred?: Platform[];
+  /**
+   * The project's directory: `#line` directives, error sites and trace
+   * sites name sources relative to it (default: the working directory).
+   */
+  root?: string;
 }
 
 /** Compiles `*.lucent.ts` files to C++ sources and JS proxies. */
@@ -208,7 +214,11 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
   } = recordReads(() =>
     recordSdkUses(() =>
       withExtensions(options.extensions, () =>
-        withSdkOptions(options.sdk, () => compileWith(files, options), deferred),
+        withSdkOptions(
+          options.sdk,
+          () => withSourceRoot(options.root, () => compileWith(files, options)),
+          deferred,
+        ),
       ),
     ),
   );

@@ -63,6 +63,24 @@ describe("native package", () => {
     }
   });
 
+  it("maps the project's directory to . in both platforms' builds", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const out = path.join(dir, "build/lucent-native");
+    writeNativePackage(program(dir), out, { root: dir });
+    const podspec = fs.readFileSync(path.join(out, "LucentNative.podspec"), "utf8");
+    const cmake = fs.readFileSync(path.join(out, "android/CMakeLists.txt"), "utf8");
+
+    expect(podspec).toMatch(/^lucent_project = "\.\.\/\.\."$/m);
+    expect(podspec).toContain("-ffile-prefix-map=");
+    expect(cmake).toMatch(/^set\(LUCENT_PROJECT "\.\.\/\.\."\)$/m);
+    expect(cmake).toContain("-ffile-prefix-map=${LUCENT_PROJECT_ROOT}=.");
+
+    writeNativePackage(program(dir), path.join(dir, "native"), { root: dir });
+    expect(fs.readFileSync(path.join(dir, "native/LucentNative.podspec"), "utf8")).toMatch(
+      /^lucent_project = "\.\."$/m,
+    );
+  });
+
   it("writes the lucent:core declarations for the app's tsconfig paths", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
     const src = path.join(dir, "sample.lucent.ts");

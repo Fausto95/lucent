@@ -32,7 +32,7 @@ lucent_app::m_tree::sum(std::__1::shared_ptr<lucent_app::S_Node>) (in MyApp) (tr
 lucent_app::m_tree::sum(std::__1::shared_ptr<lucent_app::S_Node>) (in MyApp) (tree.lucent.ts:6)
 ```
 
-`chainTotal(1_000_000)` recurses until the native stack overflows, which crashes the app: Lucent has no recursion limit ([Differences](/docs/api/language/differences/#arrays-and-collections)). The generated C++ carries `#line` directives that name your `.lucent.ts` lines, so its debug information points at your file. Release builds keep it: Xcode archives a dSYM, and Gradle builds with debug information, then strips the copy it packages.
+`chainTotal(1_000_000)` recurses until the native stack overflows, which crashes the app: Lucent has no recursion limit ([Differences](/docs/api/language/differences/#arrays-and-collections)). The generated C++ carries `#line` directives that name your `.lucent.ts` lines, so its debug information points at your file, by its path in the project: the build maps the project's directory to `.`, so the binary holds no path of your machine. Release builds keep it: Xcode archives a dSYM, and Gradle builds with debug information, then strips the copy it packages.
 
 ## Symbolicate the report
 
@@ -55,7 +55,7 @@ adb logcat | $ANDROID_HOME/ndk/<version>/ndk-stack -sym android/app/build/interm
 
 - On iOS, Xcode's Organizer symbolicates the crashes of the archives it built. For a `.ips` file, give `atos` the dSYM, the app's load address from the report's binary images, and the frame's address.
 - On Android, Lucent's C++ is part of the app's `libappmodules.so`. The APK carries it stripped, so a module's frames there have no names or lines. `ndk-stack` reads the unstripped copy in the build directory: `debug` and `mergeDebugNativeLibs` for a debug build.
-- Under a debugger, Xcode or Android Studio, the app stops at the crash, and the frames open at their `.lucent.ts` lines.
+- Under a debugger, Xcode or Android Studio, the app stops at the crash, and the frames open at their `.lucent.ts` lines. A debugger that doesn't find the file looks for it from its working directory: run it from the project's, or map `.` to it (LLDB: `settings set target.source-map . /path/to/app`).
 
 ## What the frames name
 

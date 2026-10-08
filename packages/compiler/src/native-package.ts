@@ -14,6 +14,7 @@ import {
   libraryBuildGradle,
   packagesCmake,
   podspec,
+  withProjectDir,
 } from "./native-build-files.ts";
 import type { NativeInputs, PackagePath } from "./package-config.ts";
 import { inNativePackage } from "./package-files.ts";
@@ -184,6 +185,8 @@ export function writeNativePackage(
     androidDeferred?: boolean;
     /** The app's Xcode project: its deployment target, and the Swift packages it links. */
     app?: { deploymentTarget?: string; swiftPackages?: BuiltSwiftPackage[] };
+    /** The project's directory, which the build maps to "." (default: the package's grandparent). */
+    root?: string;
   } = {},
 ): WriteResult {
   const rt = runtimeDir();
@@ -225,10 +228,15 @@ export function writeNativePackage(
   const sources = inPackage(native?.ios.nativeSources ?? []);
   const inSources = (f: string) => sources.some((dir) => f.startsWith(`${dir}/`));
 
+  // The project's directory, which the build maps to "." (see the templates).
+  const projectDir = path.relative(outDir, options.root ?? path.resolve(outDir, "../.."));
+  const cmakeFile = path.join(outDir, "android/CMakeLists.txt");
+  want.set(cmakeFile, withProjectDir(want.get(cmakeFile)!.toString(), projectDir));
+
   const podspecFile = path.join(outDir, "LucentNative.podspec");
   want.set(
     podspecFile,
-    podspec(want.get(podspecFile)!.toString(), {
+    podspec(withProjectDir(want.get(podspecFile)!.toString(), projectDir), {
       frameworks: ["CoreFoundation", ...[...frameworks].sort()],
       swift:
         [...result.files.keys()].some((f) => f.endsWith(".swift")) ||

@@ -44,7 +44,12 @@ import {
   writeResults,
 } from "../packages/lucent/src/cli/bench-results.ts";
 import { cores, pool, run } from "../packages/runtime/test/parallel.ts";
-import { cFlags, hostLibs, runtimeSources } from "../packages/runtime/test/sources.ts";
+import {
+  cFlags,
+  hostLibs,
+  prefixMapFlags,
+  runtimeSources,
+} from "../packages/runtime/test/sources.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const hermes = process.env.HERMES_DIR ?? path.join(os.homedir(), "hermes");
@@ -87,7 +92,7 @@ fs.rmSync(work, { recursive: true, force: true });
 fs.mkdirSync(work, { recursive: true });
 
 // Native: the kernels compiled like a release build of the app.
-const result = compile([kernels, boundary]);
+const result = compile([kernels, boundary], { root });
 if (!result.ok) throw new Error(report(result.diagnostics));
 for (const [name, content] of result.files) fs.writeFileSync(path.join(work, name), content);
 const flags = [
@@ -96,6 +101,7 @@ const flags = [
   "-O2",
   "-DNDEBUG",
   "-w",
+  ...prefixMapFlags(root),
   `-I${runtime}`,
   `-I${work}`,
   `-I${hermes}/API`,

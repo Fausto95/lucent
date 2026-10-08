@@ -132,9 +132,16 @@ Notable lowering choices:
   runs in C++ lambdas, which cannot be coroutines, so a receiver or argument
   that awaits (`(await file()).getName()`) is evaluated into a temporary
   first, with the operands before it.
-- **`#line` directives** use the source's canonical absolute path, so compiler
-  errors, debugger stepping and the DWARF line table (crash symbolication
-  with the app's dSYM or unstripped `.so`) point at the `.lucent.ts` file.
+- **`#line` directives** name the source by its path relative to the
+  project (`CompileOptions.root`), so compiler errors, debugger stepping
+  and the DWARF line table (crash symbolication with the app's dSYM or
+  unstripped `.so`) point at the `.lucent.ts` file, and no machine's path
+  is in the output. The native package's builds map the project's
+  directory to `.` (`-ffile-prefix-map`, in the podspec and CMakeLists),
+  as the test harnesses map the repository's. The printer repeats the
+  directive before every physical line it covers (a `#line N` counts the
+  lines after it up), and after a function names the generated file's own
+  line again.
   Errors created in Lucent code record the same `__FILE__`/`__LINE__` and
   enclosing function (`lucent::withSite`), and the JSI boundary puts that
   frame at the top of the JS error's `stack`.
@@ -148,7 +155,7 @@ Notable lowering choices:
   restores them at its end (`emit/macros.ts`). The `#line` paths are
   strings, so the sources' directory never changes the guards.
 - **Trace sites**: each binding names where its export is declared
-  (`LUCENT_TRACE_SITE_AT`, the same path as `#line`), so a trace of a call
+  (`LUCENT_TRACE_SITE_AT`, the same relative path as `#line`), so a trace of a call
   points at the `.lucent.ts` declaration rather than at generated code;
   native spans inside Lucent code (`LUCENT_TRACE_SCOPE`) get theirs from
   the `#line` in force.
@@ -914,7 +921,7 @@ identity (`src/emit/identity.ts`):
   `static_assert`s it as it builds;
 - per target (`ios`, `android`, `host`, or `all` for a program every
   target shares), the **program hash**: the generated files' content,
-  without `#line` directives (machine paths; code moved to other lines is
+  without `#line` directives (code moved to other lines is
   the same program);
 - per target and module, the **API hash**: what JavaScript sees of the
   module, its exports and their signatures, with the struct fields, class
