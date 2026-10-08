@@ -422,12 +422,14 @@ describe.skipIf(!javac)("the exported schemas", () => {
     expect(text).not.toContain(a.root);
     expect(text).not.toContain(os.homedir());
 
-    // A teammate without it: no jars, no classpath, another cache.
+    // A teammate without it: no jars, no classpath, another cache, and no
+    // Android SDK in the usual places either (a Mac runner's ~/Library/Android/sdk).
     fs.rmSync(path.join(a.root, ".lucent"), { recursive: true, force: true });
     const without = {
       LUCENT_ANDROID_JARS: "",
       ANDROID_HOME: path.join(a.root, "no-sdk"),
       ANDROID_SDK_ROOT: "",
+      HOME: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-lock-home-")),
       LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-lock-cache-")),
     };
     const checked = a.lucent(["check"], without);
