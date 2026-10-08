@@ -45,7 +45,7 @@ using namespace lucent::js;
 void install_m_compute(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "edges", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Bytes>::fromJs(rt, arg(args, count, 0), Path{"edges", "argument 'bytes'"});
       auto a1 = optionalFromJs<lucent::AbortSignal>(rt, arg(args, count, 1), Path{"edges", "argument 'signal'"}, false, "an AbortSignal or undefined");
       return callAsync<lucent::Array<double>>(rt, host, LUCENT_TRACE_SITE_AT("edges", "packages/compiler/test/e2e/cases/compute.lucent.ts", 14), [a0, a1]() {
@@ -55,7 +55,7 @@ void install_m_compute(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "root", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"root", "argument 'n'"});
       return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("root", "packages/compiler/test/e2e/cases/compute.lucent.ts", 24), [a0]() {
         return lucent_app::m_compute::root(a0);
@@ -64,7 +64,7 @@ void install_m_compute(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "cancelled", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"cancelled", "argument 'when'"});
       return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("cancelled", "packages/compiler/test/e2e/cases/compute.lucent.ts", 41), [a0]() {
         return lucent_app::m_compute::cancelled(a0);
@@ -73,7 +73,7 @@ void install_m_compute(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "snapshot", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("snapshot", "packages/compiler/test/e2e/cases/compute.lucent.ts", 67), []() {
         return lucent_app::m_compute::snapshot();
       });
@@ -81,7 +81,7 @@ void install_m_compute(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "graph", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("graph", "packages/compiler/test/e2e/cases/compute.lucent.ts", 90), []() {
         return lucent_app::m_compute::graph();
       });
@@ -89,7 +89,7 @@ void install_m_compute(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "results", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("results", "packages/compiler/test/e2e/cases/compute.lucent.ts", 111), []() {
         return lucent_app::m_compute::results();
       });
@@ -97,7 +97,7 @@ void install_m_compute(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "objects", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("objects", "packages/compiler/test/e2e/cases/compute.lucent.ts", 136), []() {
         return lucent_app::m_compute::objects();
       });
@@ -105,7 +105,7 @@ void install_m_compute(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "bytes", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("bytes", "packages/compiler/test/e2e/cases/compute.lucent.ts", 150), []() {
         return lucent_app::m_compute::bytes();
       });
@@ -113,7 +113,7 @@ void install_m_compute(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "many", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("many", "packages/compiler/test/e2e/cases/compute.lucent.ts", 166), []() {
         return lucent_app::m_compute::many();
       });
@@ -128,7 +128,7 @@ void install_m_compute(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "constants", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("constants", "packages/compiler/test/e2e/cases/compute.lucent.ts", 214), []() {
         return lucent_app::m_compute::constants();
       });
@@ -136,7 +136,7 @@ void install_m_compute(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "conversions", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("conversions", "packages/compiler/test/e2e/cases/compute.lucent.ts", 225), []() {
         return lucent_app::m_compute::conversions();
       });

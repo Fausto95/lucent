@@ -135,7 +135,7 @@ void proto_C_Writer(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineFunction(rt, proto, "write", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Writer>>::fromJs(rt, thisVal, Path{"Writer.write", "this"});
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Writer.write", "argument 's'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"Writer.write", "argument 'ms'"});
@@ -206,7 +206,7 @@ void proto_C_Cache(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineFunction(rt, proto, "read", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Cache>>::fromJs(rt, thisVal, Path{"Cache.read", "this"});
       return callAsync<double>(rt, host, LUCENT_TRACE_SITE_AT("Cache.read", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 50), [self]() {
         return self->read();
@@ -228,7 +228,7 @@ using namespace lucent::js;
 void install_m_promise_u2d_fields(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "serialized", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("serialized", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 21), []() {
         return lucent_app::m_promise_u2d_fields::serialized();
       });
@@ -236,7 +236,7 @@ void install_m_promise_u2d_fields(jsi::Runtime& rt, Host& host, jsi::Object& exp
   });
   defineFunction(rt, exports, "cached", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("cached", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 61), []() {
         return lucent_app::m_promise_u2d_fields::cached();
       });

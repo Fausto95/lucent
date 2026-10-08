@@ -162,7 +162,7 @@ void install_m_array_u2d_buffers(jsi::Runtime& rt, Host& host, jsi::Object& expo
   });
   defineFunction(rt, exports, "digest", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"digest", "argument 'n'"});
       return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("digest", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 108), [a0]() {
         return lucent_app::m_array_u2d_buffers::digest(a0);

@@ -81,7 +81,7 @@ void install_m_using_(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "inAsync", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       return callAsync<lucent::Array<lucent::String>>(rt, host, LUCENT_TRACE_SITE_AT("inAsync", "packages/compiler/test/e2e/cases/using.lucent.ts", 105), []() {
         return lucent_app::m_using_::inAsync();
       });

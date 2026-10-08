@@ -161,7 +161,7 @@ void install_m_conditional_u2d_objects(jsi::Runtime& rt, Host& host, jsi::Object
   });
   defineFunction(rt, exports, "pick", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"pick", "argument 'first'"});
       return callAsync<double>(rt, host, LUCENT_TRACE_SITE_AT("pick", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 93), [a0]() {
         return lucent_app::m_conditional_u2d_objects::pick(a0);
