@@ -104,6 +104,28 @@ describe("Metro transformer", () => {
     expect(transform(source.replace('"s"', "1"))).toMatch(/require\(/);
   });
 
+  it("finds the problems of a project Metro reaches through a symlink", () => {
+    // As macOS's temporary directory (/var → /private/var): the build records realpaths.
+    const real = metroProject();
+    const root = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-link-")), "app");
+    fs.symlinkSync(real, root);
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app" }));
+    const source = 'export function f(): number {\n  const n: number = "s";\n  return n;\n}\n';
+    fs.writeFileSync(path.join(root, "bad.lucent.ts"), source);
+
+    const r = runLucent(["build", "--platforms", "host", "--root", root], {
+      env: { ...process.env, NO_COLOR: "1" },
+    });
+    expect(r.status).toBe(1);
+    expect(() =>
+      transformer().transform({
+        filename: "bad.lucent.ts",
+        src: source,
+        options: { projectRoot: root },
+      }),
+    ).toThrow(/bad\.lucent\.ts does not compile/);
+  });
+
   it("keys the cache on the native package of the projectRoot Metro passes", () => {
     const root = metroProject();
     expect(path.resolve(root)).not.toBe(process.cwd());
