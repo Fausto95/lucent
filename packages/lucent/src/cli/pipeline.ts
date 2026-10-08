@@ -67,6 +67,7 @@ import {
   usedModules,
   writeUsage,
 } from "./sdk-usage.ts";
+import { writeProblems } from "./problems.ts";
 import type { Steps } from "./ui/steps.ts";
 
 export type Platform = "ios" | "android";
@@ -172,6 +173,9 @@ export async function buildProject(
     const actions = o.actions ?? [];
     const record = graph.toRecord(requiredAction(next, targets, changedUnits, actions), actions);
     writeBuildRecord(path.join(root, ".lucent/build-record.json"), record);
+    // What Metro shows of this build: its modules' problems, none once it passes. A build
+    // stopped before checking (fatal, superseded) leaves the last record as it was.
+    if (build && (o.ok || o.diagnostics?.length)) writeProblems(root, o.diagnostics ?? []);
 
     return {
       ok: false,
@@ -346,6 +350,13 @@ export async function buildProject(
     }
   }
 
+  // Android left to the Gradle build in a build asked for it (the config plugin's, prebuilding
+  // Android alone): the other platforms asked for are built, or the deferred build below.
+  if (deferAndroid && platforms?.includes("android")) {
+    platforms = platforms.filter((p) => p !== "android");
+    skipped.push({ platform: "android", reason: deferReason });
+  }
+
   // Nothing resolves the modules the app's dependencies declare when it has no Android project
   // yet (Expo before prebuild), or when this build leaves Android out (--platforms ios): Android
   // waits for the project, or for the Android build.
@@ -393,19 +404,30 @@ export async function buildProject(
     const installed = (["ios", "android"] as const).filter(
       (p) => !skipped.some((s) => s.platform === p),
     );
-    if (!installed.length) {
-      // Android waiting for its project (or Gradle) is no missing SDK.
-      const detail = deferAndroid
-        ? `no platform to build here: ${skipped.map((s) => `${s.platform}: ${s.reason}`).join("; ")}`
-        : "no platform SDK is installed";
+    if (installed.length) {
+      platforms = installed;
+      if (build && options.prefetch) backgroundPrefetch(root, files, installed);
+    } else if (deferAndroid || !build) {
+      // Android waiting for its project (or Gradle) is no missing SDK: what can be built here is
+      // (the shared code, checked, and the native package for the Gradle build), and a check
+      // still reports the shared code's problems, with the platforms' SDK imports untyped.
+      platforms = ["host"];
+      notify({
+        level: "warn",
+        text: deferAndroid
+          ? "no platform is built here: checked the shared code and wrote the native package, whose Android code the Gradle build compiles"
+          : "no platform SDK is installed: checked with the platforms' SDK imports untyped (as --platforms host does)",
+      });
+    } else {
+      const detail = "no platform SDK is installed";
 
       graph.record("resolve:platforms", "resolve", "failed", { detail });
       return outcome({ fatal: detail });
     }
-
-    platforms = installed;
-    if (build && options.prefetch) backgroundPrefetch(root, files, installed);
   }
+
+  // Every platform asked for is left to a later build: the shared code is checked (host).
+  if (platforms && !platforms.length) platforms = ["host"];
 
   for (const { platform, reason } of skipped)
     if (lock?.targets.includes(platform))

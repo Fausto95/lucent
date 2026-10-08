@@ -190,12 +190,22 @@ describe("lucent clean --cache --stale", () => {
 
 describe("lucent --version", () => {
   it("names the SDKs it sees", () => {
+    // A home without Android Studio's default SDK, which a CI runner may have.
+    const home = project();
+    const isolated = { HOME: home, USERPROFILE: home, LOCALAPPDATA: home, ANDROID_SDK_ROOT: "" };
     const r = lucent(["--version"], {
-      ANDROID_HOME: path.join(os.tmpdir(), "no-android-sdk"),
-      ANDROID_SDK_ROOT: "",
+      ...isolated,
+      ANDROID_HOME: path.join(home, "no-android-sdk"),
     });
     expect(r.out).toMatch(/^lucent \d+\.\d+\.\d+\n/);
     expect(r.out).toMatch(/Android SDK +not found/);
+
+    const sdk = path.join(home, "sdk");
+    fs.mkdirSync(path.join(sdk, "platforms/android-34"), { recursive: true });
+    fs.mkdirSync(path.join(sdk, "platforms/android-35"), { recursive: true });
+    expect(lucent(["--version"], { ...isolated, ANDROID_HOME: sdk }).out).toMatch(
+      /Android SDK +android-35/,
+    );
     // oxlint-disable-next-line vitest/no-conditional-expect -- only macOS reports an iOS SDK
     if (process.platform === "darwin") expect(r.out).toMatch(/iOS SDK +(\d+\.\d+|not found)/);
   });

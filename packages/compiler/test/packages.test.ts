@@ -38,7 +38,7 @@ function app(): string {
     JSON.stringify({
       name: "lucent-a",
       version: "1.0.0",
-      lucent: { sources: "src", compatible: ">=0.0.3" },
+      lucent: { sources: "src", compatible: "^0.2.0" },
       dependencies: { "lucent-b": "1.0.0" },
     }),
   );
@@ -141,7 +141,7 @@ describe("Lucent packages", () => {
     expect(projectFiles(root)).toHaveLength(4);
   });
 
-  it("fails for a package whose Lucent versions do not include this one, naming it", () => {
+  it("reports a package whose Lucent versions do not include this one, at its package.json", () => {
     const root = app();
     const pkg = path.join(root, "node_modules/lucent-b/package.json");
     fs.writeFileSync(
@@ -152,9 +152,34 @@ describe("Lucent packages", () => {
         lucent: { sources: "lib", compatible: "^9.0.0" },
       }),
     );
-    expect(() => lucentPackages(root)).toThrow(
-      /lucent-b@2\.0\.0 supports Lucent \^9\.0\.0, not \d+\.\d+\.\d+/,
+    // Found: the build reports it, and the rest of the app still resolves.
+    expect(lucentPackages(root).map((p) => p.name)).toEqual(["lucent-a", "lucent-b"]);
+
+    const r = compile(projectFiles(root));
+    expect(r.ok).toBe(false);
+    const [d] = r.diagnostics.filter((d) => d.code === "LUCENT3014");
+    expect(d?.message).toMatch(/lucent-b@2\.0\.0 supports Lucent \^9\.0\.0, not \d+\.\d+\.\d+/);
+    expect(d?.file && fs.realpathSync(d.file)).toBe(fs.realpathSync(pkg));
+  });
+
+  it("compiles it anyway with LUCENT_IGNORE_COMPATIBLE=1, warning", () => {
+    const root = app();
+    fs.writeFileSync(
+      path.join(root, "node_modules/lucent-b/package.json"),
+      JSON.stringify({
+        name: "lucent-b",
+        version: "2.0.0",
+        lucent: { sources: "lib", compatible: "^9.0.0" },
+      }),
     );
+    process.env.LUCENT_IGNORE_COMPATIBLE = "1";
+    try {
+      const r = compile(projectFiles(root));
+      expect(r.diagnostics).toEqual([]);
+      expect(r.warnings?.map((w) => [w.code, w.severity])).toEqual([["LUCENT3014", "warning"]]);
+    } finally {
+      delete process.env.LUCENT_IGNORE_COMPATIBLE;
+    }
   });
 });
 
@@ -351,7 +376,7 @@ describe("Lucent packages inside the project's directory", () => {
       JSON.stringify({
         name: "lucent-a",
         version: "1.0.0",
-        lucent: { sources: "src", compatible: ">=0.0.3" },
+        lucent: { sources: "src", compatible: "^0.2.0" },
         dependencies: { "lucent-b": "1.0.0", "lucent-c": "1.0.0" },
       }),
     );

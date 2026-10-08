@@ -3,19 +3,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { frameworkSearchPath, lockedPods, swiftPackages, xcodeApp } from "@lucent-lang/bindgen";
+import { lockedPods } from "@lucent-lang/bindgen";
 import {
   closesPodspec,
-  fileHashes,
   forgetLoadedSdks,
   libraryBuildGradle,
-  lucentPackages,
   type NativeInputs,
   packagePods,
   type Platform,
   type PlistValue,
-  podsSearchPaths,
-  resolveNative,
   type ResolvedNative,
   runtimeDir,
   type SdkOptions,
@@ -24,12 +20,10 @@ import {
   writeWhole,
 } from "@lucent-lang/compiler";
 import { gradleFailure } from "./gradle-output.ts";
-import { linkNativePackage } from "./init/patch.ts";
+import { linksNativePackage } from "./init/patch.ts";
 import { withLucentPaths } from "./tsconfig.ts";
 import { packageFile } from "./version.ts";
 
-/** The exported schema set, beside lucent-sdk.lock.json: committed with the app. */
-export const SCHEMA_SET_DIR = "lucent-sdk.schemas";
 
 /** Something a command did to the project, or asks the user to do. */
 export type Notice = { level: "ok" | "warn"; text: string };
@@ -49,75 +43,14 @@ export function mapLucentPaths(root: string): Notice | undefined {
   }
   if (text === undefined) return undefined;
   fs.writeFileSync(file, text);
-  return { level: "ok", text: "mapped lucent:* in tsconfig.json" };
-}
-
-/**
- * Where this project's bindings come from: the SDKs, and what the app
- * links: its pods, Swift packages and Gradle classpath, and the prebuilt
- * frameworks and libraries its Lucent packages ship (`native`, resolved
- * here when not given); and the iOS version it is deployed to.
- */
-export function projectSdk(root: string, native?: NativeInputs): SdkOptions {
-  const { binaries, swiftSources } = native ?? packageBinaries(root);
-  const pods = podsSearchPaths(path.join(root, "ios"));
-
-  // The app's Xcode project: the iOS version it is deployed to, and its Swift packages, built.
-  const app = xcodeApp(path.join(root, "ios"));
-  const project = app
-    ? {
-        ...(app.deploymentTarget ? { deploymentTarget: app.deploymentTarget } : {}),
-        ...(app.packages.length || app.localPackages?.length
-          ? { swiftPackages: swiftPackages(app) }
-          : {}),
-      }
-    : {};
-
-  const frameworkPaths = [
-    ...new Set(
-      binaries.ios.map(frameworkSearchPath).filter((dir): dir is string => dir !== undefined),
-    ),
-  ];
-  const ios: NonNullable<SdkOptions["ios"]> | undefined =
-    pods || frameworkPaths.length || app || swiftSources.length
-      ? { ...pods, ...project, ...(swiftSources.length ? { swiftSources } : {}) }
-      : undefined;
-
-  // The schemas a teammate's `lucent sdk lock --schemas` exported: a platform without its SDK here.
-  const schemas = path.join(root, SCHEMA_SET_DIR);
-
+  // The app's file: say what changed, and that it's a one-time edit init makes too.
   return {
-    ...(fs.existsSync(schemas) ? { schemas } : {}),
-    android: {
-      classpath: path.join(root, ".lucent/android-classpath.json"),
-      ...(binaries.android.length ? { libraries: binaries.android } : {}),
-    },
-    ...(ios
-      ? { ios: { ...ios, frameworkPaths: [...(ios.frameworkPaths ?? []), ...frameworkPaths] } }
-      : {}),
+    level: "warn",
+    text: 'edited tsconfig.json: added "lucent:*": ["./.lucent/native/types/*"] to compilerOptions.paths, so editors and tsc resolve lucent:* (once; lucent init sets this up)',
   };
 }
 
-/**
- * The binaries and Swift the project's Lucent packages ship, for commands
- * that bind without building (lucent sdk …): none when a lucent.json is
- * invalid, which the build reports.
- */
-function packageBinaries(root: string): Pick<NativeInputs, "binaries" | "swiftSources"> {
-  const hashes = projectHashes(root);
-
-  try {
-    const { binaries, swiftSources } = resolveNative(lucentPackages(root), { hashes });
-    hashes.save();
-    return { binaries, swiftSources };
-  } catch {
-    return { binaries: { ios: [], android: [] }, swiftSources: [] };
-  }
-}
-
-/** The project's memo of its packages' file hashes, by their stats. */
-export const projectHashes = (root: string) =>
-  fileHashes(path.join(root, ".lucent/file-hashes.json"));
+export { projectHashes, projectSdk, SCHEMA_SET_DIR } from "@lucent-lang/compiler";
 
 /**
  * An Android import that android.jar does not have is looked up in the app's
@@ -393,8 +326,7 @@ export function podsToInstall(
   wrote: boolean,
 ): Notice | undefined {
   const config = path.join(root, "react-native.config.js");
-  const linked =
-    fs.existsSync(config) && linkNativePackage(fs.readFileSync(config, "utf8")) === undefined;
+  const linked = fs.existsSync(config) && linksNativePackage(fs.readFileSync(config, "utf8"));
   if (!linked || !fs.existsSync(path.join(root, "ios/Podfile"))) return undefined;
 
   const installed = new Set(sdk.ios?.lockfile ? lockedPods(sdk.ios.lockfile).keys() : []);

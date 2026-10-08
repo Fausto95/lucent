@@ -10,12 +10,14 @@ kind: internals
 ```js title="react-native.config.js" nocopy
 module.exports = {
   dependencies: {
-    "lucent": { root: require("path").join(__dirname, ".lucent", "native") },
+    "lucent": require("@lucent-lang/lucent/autolink")(__dirname),
   },
 };
 ```
 
-That is the app's entry, which `lucent init` adds (`linkNativePackage()` in `init/patch.ts`). The Expo config plugin (`app.plugin.js`) runs `lucent build` during prebuild, then writes the entry, or fails asking for it. The autolinking of React Native's CLI and Expo's both read it.
+That is the app's entry, which `lucent init` adds (`linkNativePackage()` in `init/patch.ts`). `autolink/index.cjs` returns `{ root: ".lucent/native" }`. It first runs `lucent build` without Gradle, printing to stderr, when the package is missing or older than a module.
+
+Autolinking reads the config on a fresh clone too, where `.lucent/` isn't checked in. The Expo config plugin (`app.plugin.js`) runs `lucent build` during prebuild, then writes the entry, or fails asking for it. The autolinking of React Native's CLI and Expo's both read it.
 
 ## The native package
 

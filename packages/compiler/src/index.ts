@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { type Code, docsUrl, Explanations } from "./codes.ts";
+import { type Code, Codes, docsUrl, Explanations } from "./codes.ts";
 import { CompileError, type Diagnostic, formatDiagnostic, toDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
 import {
@@ -33,7 +33,7 @@ import { extensionDts } from "./extensions/dts.ts";
 import { withSourceRoot } from "./lowering/source.ts";
 import { resolveNative } from "./package-config.ts";
 import { fileHashes } from "./package-files.ts";
-import { lucentPackages } from "./packages.ts";
+import { ignoreCompatible, incompatibility, lucentPackageOf, lucentPackages } from "./packages.ts";
 import { compileContext, runInCompile } from "./compile-context.ts";
 import { sdkUsesOf } from "./sdk/usage.ts";
 import { analyzeViews, hasComponentModules } from "./ui/analyze.ts";
@@ -66,6 +66,7 @@ export {
 } from "./program.ts";
 export { closesPodspec, libraryBuildGradle, withPodDependencies } from "./native-build-files.ts";
 export { fileHashes, type FileHashes, inNativePackage } from "./package-files.ts";
+export { projectHashes, projectSdk, SCHEMA_SET_DIR } from "./project-sdk.ts";
 export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-lang/bindgen";
 export {
   jsxToolkits,
@@ -77,6 +78,8 @@ export { viewCoverage, type ViewCoverage } from "./ui/view-coverage.ts";
 export {
   LUCENT_EXTENSION,
   lucentPackages,
+  ignoreCompatible,
+  incompatibility,
   lucentVersion,
   satisfies,
   type LucentPackage,
@@ -225,6 +228,17 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
     options.session.realpaths = new Map(realpaths);
   }
 
+  // The Lucent packages of the files whose `compatible` range leaves this Lucent out.
+  const incompatible = packageProblems(files);
+  const ignored = ignoreCompatible();
+  if (incompatible.length && !ignored) {
+    result.ok = false;
+    result.diagnostics.push(...incompatible);
+  } else if (incompatible.length)
+    (result.warnings ??= []).push(
+      ...incompatible.map((d) => ({ ...d, severity: "warning" as const })),
+    );
+
   // Every extension's declarations, for editors and tsc: what an import resolves to.
   const types = new Map(result.types ?? []);
   for (const ext of options.extensions ?? []) types.set(`ext/${ext.name}.d.ts`, extensionDts(ext));
@@ -238,6 +252,28 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
     read,
     realpaths,
   };
+}
+
+/** LUCENT3014 for each Lucent package of `files` this Lucent is outside the range of, at its package.json. */
+function packageProblems(files: readonly string[]): Diagnostic[] {
+  const seen = new Set<string>();
+  const out: Diagnostic[] = [];
+
+  for (const f of files) {
+    const pkg = lucentPackageOf(f);
+    if (!pkg || seen.has(pkg.dir)) continue;
+    seen.add(pkg.dir);
+
+    const why = incompatibility(pkg);
+    if (why)
+      out.push({
+        code: Codes.IncompatiblePackage,
+        message: why,
+        file: path.join(pkg.dir, "package.json"),
+      });
+  }
+
+  return out;
 }
 
 /** The session part of a program's options: its target's program to reuse, under `key`. */
@@ -395,8 +431,9 @@ function compileChecked(
   const checks = [
     ...lp.diagnostics.filter((d) => !inUntypedPlatformCode(lp, d, untyped)),
     ...declarations.flatMap((d) => declarationErrors(lp, d)),
+    // A split module's declaration (the host's stub) names each platform's types, in no code.
     ...lp.modules
-      .filter((m) => !platformOf(m.file))
+      .filter((m) => !platformOf(m.file) && !m.stub)
       .flatMap((m) => platformScopes(lp.checker, m.sourceFile).errors),
   ];
   // Stop at TypeScript errors: the checker's types are unreliable past them.
@@ -470,7 +507,7 @@ function dedupe(ds: Diagnostic[]): Diagnostic[] {
 export function checkSources(
   files: string[],
   readSource?: ReadSource,
-  options: { extensions?: readonly ExtensionBinding[]; session?: CompileSession } = {},
+  options: { extensions?: readonly ExtensionBinding[]; sdk?: SdkOptions; session?: CompileSession } = {},
 ): Diagnostic[] {
   const r = compile(files, { readSource, ...options });
   return [...r.diagnostics, ...(r.warnings ?? [])];

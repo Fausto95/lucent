@@ -108,10 +108,14 @@ describe("lucent build", () => {
       path.join(root, "tsconfig.json"),
       '{ "compilerOptions": { "strict": true } }\n',
     );
-    expect(lucent(root, "build").status).toBe(0);
+    const r = lucent(root, "build");
+    expect(r.status).toBe(0);
     expect(fs.readFileSync(path.join(root, "tsconfig.json"), "utf8")).toContain(
       '"lucent:*": ["./.lucent/native/types/*"]',
     );
+    // The app's own file: the build says what it changed, once.
+    expect(r.out).toMatch(/edited tsconfig\.json: added "lucent:\*".*compilerOptions\.paths/);
+    expect(lucent(root, "build", "--force").out).not.toMatch(/edited tsconfig/);
   });
 
   it("rebuilds when the output was deleted", () => {
@@ -728,10 +732,21 @@ describe("lucent init", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
     expect(lucent(root, "init", "--yes").status).toBe(0);
     const config = fs.readFileSync(path.join(root, "react-native.config.js"), "utf8");
-    expect(config).toContain(
-      '"lucent": { root: require("path").join(__dirname, ".lucent", "native") }',
-    );
+    // Built first when missing or stale: a fresh clone has no .lucent/.
+    expect(config).toContain('"lucent": require("@lucent-lang/lucent/autolink")(__dirname)');
     expect(config).not.toContain("lucent-native");
+  });
+
+  it("makes an entry naming the root alone build it first", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
+    fs.writeFileSync(
+      path.join(root, "react-native.config.js"),
+      'module.exports = {\n  dependencies: {\n    "lucent": { root: require("path").join(__dirname, ".lucent", "native") },\n  },\n};\n',
+    );
+    expect(lucent(root, "init", "--yes").status).toBe(0);
+    expect(fs.readFileSync(path.join(root, "react-native.config.js"), "utf8")).toBe(
+      'module.exports = {\n  dependencies: {\n    "lucent": require("@lucent-lang/lucent/autolink")(__dirname),\n  },\n};\n',
+    );
   });
 
   it("maps lucent:* in tsconfig.json to the generated declarations", () => {
@@ -1570,6 +1585,32 @@ describe("--json", () => {
       expect(await validate("check", value)).toEqual([]);
       expect(r.status).toBe(value.ok ? 0 : 1);
     }
+  });
+
+  it("lucent build and check --json match their schemas when a problem stops them", async () => {
+    const root = project();
+    // A Lucent package the app depends on, whose lucent.json is invalid: the build stops at once.
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "app", dependencies: { broken: "1.0.0" } }),
+    );
+    const broken = path.join(root, "node_modules/broken");
+    fs.mkdirSync(broken, { recursive: true });
+    fs.writeFileSync(
+      path.join(broken, "package.json"),
+      JSON.stringify({ name: "broken", version: "1.0.0", lucent: {} }),
+    );
+    fs.writeFileSync(path.join(broken, "lucent.json"), "{ nope");
+
+    for (const name of ["build", "check"] as const)
+      for (const args of [[], ["--platforms", "iso"]]) {
+        const r = lucent(root, name, "--json", ...args);
+        const value = JSON.parse(r.stdout) as { ok: boolean; error?: string };
+        expect(value.ok).toBe(false);
+        expect(value.error).toEqual(expect.any(String));
+        expect(await validate(name, value)).toEqual([]);
+        expect(r.status).not.toBe(0);
+      }
   });
 
   it("lucent doctor --json matches its schema", async () => {

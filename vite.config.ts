@@ -55,6 +55,7 @@ const slow = [
   "packages/lucent/test/bare-example-bundle.test.ts",
   "packages/lucent/test/component-types.test.ts",
   "packages/lucent/test/swift-packages.test.ts",
+  "packages/lucent/test/prebuilt-runtime-build.test.ts",
 ];
 const all = !!process.env.CI || !!process.env.LUCENT_ALL_TESTS;
 

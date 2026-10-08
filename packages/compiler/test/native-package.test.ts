@@ -428,7 +428,9 @@ describe("native package", () => {
     expect(podspec).toContain(`\\"$(PODS_TARGET_SRCROOT)/${pkg}/native/ios\\"`);
     expect(podspec).toContain(`s.resources = ["${pkg}/assets/beep.caf"]`);
     expect(podspec).toContain(`s.resource_bundles = { "OrbitAssets" => ["${pkg}/assets/ios"] }`);
-    expect(podspec).toContain(`s.vendored_frameworks = ["${pkg}/vendor/Orbit.xcframework"]`);
+    expect(podspec).toContain(
+      `s.vendored_frameworks = lucent_frameworks + ["${pkg}/vendor/Orbit.xcframework"]`,
+    );
 
     const gradle = read("android/build.gradle");
     expect(gradle).toContain('apply plugin: "org.jetbrains.kotlin.android"');

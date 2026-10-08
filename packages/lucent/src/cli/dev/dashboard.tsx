@@ -14,8 +14,8 @@ export interface DashboardOptions {
   root: string;
   stdout?: NodeJS.WriteStream;
   stdin?: NodeJS.ReadStream;
-  /** Opens a problem's file at its line in the user's editor. */
-  open(file: string, line: number): void;
+  /** Opens a problem's file at its line in the user's editor; `failed` says why it could not. */
+  open(file: string, line: number, failed: (why: string) => void): void;
   /** Runs doctor's checks. */
   doctor(): Check[];
 }
@@ -53,6 +53,7 @@ function Dashboard({ session, theme: t, root, open, doctor }: DashboardOptions) 
   const { exit } = useApp();
   const [selected, setSelected] = useState(0);
   const [checks, setChecks] = useState<Check[] | undefined>(undefined);
+  const [notice, setNotice] = useState<string | undefined>(undefined);
   const problem = s.problems[Math.min(selected, s.problems.length - 1)];
 
   useInput((input, key) => {
@@ -60,8 +61,10 @@ function Dashboard({ session, theme: t, root, open, doctor }: DashboardOptions) 
     else if (input === "r") session.rebuild();
     else if (input === "c") session.clearCache();
     else if (input === "d") setChecks(checks ? undefined : doctor());
-    else if (input === "o" && problem?.file) open(problem.file, problem.line ?? 1);
-    else if (key.upArrow) setSelected((i) => Math.max(0, i - 1));
+    else if (input === "o" && problem?.file) {
+      setNotice(undefined);
+      open(problem.file, problem.line ?? 1, setNotice);
+    } else if (key.upArrow) setSelected((i) => Math.max(0, i - 1));
     else if (key.downArrow) setSelected((i) => Math.min(s.problems.length - 1, i + 1));
   });
 
@@ -112,6 +115,7 @@ function Dashboard({ session, theme: t, root, open, doctor }: DashboardOptions) 
         </Text>
       )}
       {status ? <Text>{`\n${status}`}</Text> : null}
+      {notice ? <Text>{`\n${t.warn(`${t.symbols.warn} ${notice}`)}`}</Text> : null}
       {s.problems.length ? (
         <Box flexDirection="column" marginTop={1}>
           <Text>{rule(`problems (${s.problems.length})`)}</Text>

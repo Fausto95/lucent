@@ -16,7 +16,9 @@ Every command finds the `*.lucent.ts` files under the project, skipping `node_mo
 | [`lucent dev`](#lucent-dev) | Rebuild on every change: a live dashboard of modules, platforms and problems (one line per build outside a terminal) |
 | [`lucent doctor`](#lucent-doctor) | Check the machine, the app and its builds: Node, React Native, Xcode, CocoaPods, Android, the JDK, Metro, versions |
 | [`lucent init`](#lucent-init) | Set an app up for Lucent: the Metro config, the Expo plugin or the Gradle task, tsconfig.json, .gitignore, a first module |
-| [`lucent new module`](#lucent-new-module) | Scaffold a module in src/: shared, or with --ios / --android one module that branches on PLATFORM |
+| [`lucent uninstall`](#lucent-uninstall) | Revert what lucent init and the Expo plugin changed: the Metro config, app.json, the Gradle task, react-native.config.js, tsconfig.json, .gitignore |
+| [`lucent create`](#lucent-create) | Create a project from a template: an Expo, bare or native-view app, a Lucent library, or modules alone |
+| [`lucent new module`](#lucent-new-module) | Scaffold a module in src/ from a template (function, async, events, view, sdk-ios-android), or with --ios / --android one that branches on PLATFORM |
 | [`lucent new view`](#lucent-new-view) | Scaffold a component in src/: its declaration, and each platform's native views in a Flex |
 | [`lucent explain`](#lucent-explain) | What a LUCENT diagnostic code means, and how to fix it (every code without one) |
 | [`lucent bench`](#lucent-bench) | Time the cases of your \*.bench.ts files natively and as JavaScript, and show the speedup (needs a desktop Hermes) |
@@ -70,7 +72,8 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
 - When nothing changed since the last build, it says so and writes nothing, unless `--force`. Otherwise it rewrites only the files whose content changed.
 - `next` says what the app needs: a rebuild (after `pod install` when files were added or removed), a reload, or nothing. `actions` lists each thing the changes need, on which platforms, and the generated files behind it.
 - Actions come from what changed. A body edit recompiles native code, and new exports also reload JavaScript. A package's resources are repackaged, its libraries relinked. `Info.plist` entries, entitlements and manifest components need a reinstall. Other JavaScript needs nothing: Metro refreshes it.
-- A platform whose SDK isn't installed is skipped, with a warning. `--platforms host` builds stubs whose platform code throws, for tests.
+- A platform whose SDK isn't installed is skipped, with a warning. `--platforms host` builds stubs whose platform code throws, for tests. `--platforms` takes `ios`, `android` and `host`, comma-separated; any other name exits with code 2.
+- Android whose dependencies the Gradle build resolves (during `expo prebuild`) is left to that build. When no platform is left, as on Linux without the iOS SDK, the build checks the shared code. It still writes the native package for the Gradle build.
 - On a problem, nothing is written and the exit code is 1.
 
 ## lucent check
@@ -79,11 +82,14 @@ Type-check and validate every module without writing anything
 
 | Flag | Meaning |
 | --- | --- |
+| `--platforms <list>` | Targets for platform code: ios, android, host (default: the SDKs installed; host, with SDK imports untyped, when none is) |
 | `--frozen` | Fail unless the SDKs and SDK symbols are the ones lucent-sdk.lock.json records, with every target it lists (CI, releases) |
 
 With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-check---json).
 
 It reports problems as the [diagnostics](/docs/api/diagnostics/) page shows them, and writes nothing. A pass is remembered, so checking an unchanged project takes a fraction of a second. Use it in CI.
+
+Without any platform SDK, as on a Linux CI runner, it warns and checks as `--platforms host` does. It checks the shared code and each module's declaration, with `lucent:ios/*` and `lucent:android/*` imports untyped. Pass `--platforms host` to say so and skip the warning.
 
 ## lucent dev
 
@@ -133,12 +139,48 @@ It has no JSON output: with `--json`, it exits with code 2.
 
 It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/guides/install/) lists the changes for Expo and bare apps. Running it again changes nothing.
 
-## lucent new module
+## lucent uninstall
 
-Scaffold a module in src/: shared, or with --ios / --android one module that branches on PLATFORM
+Revert what lucent init and the Expo plugin changed: the Metro config, app.json, the Gradle task, react-native.config.js, tsconfig.json, .gitignore
 
 | Flag | Meaning |
 | --- | --- |
+| `--yes` | Apply every change without asking |
+
+It has no JSON output: with `--json`, it exits with code 2.
+
+It reverts what `lucent init` and the Expo config plugin changed, shown as diffs like init's. It unwraps the Metro config and removes these:
+
+- the plugin in `app.json`, the Gradle line and the `react-native.config.js` entry
+- the `lucent:*` path and the editor plugin in `tsconfig.json`
+- VS Code's TypeScript settings and the `.gitignore` lines
+
+A file init created whole is deleted. The app's modules stay, and so does `noUncheckedIndexedAccess`. [Remove Lucent](/docs/guides/remove-lucent/) gives the steps after it.
+
+## lucent create
+
+Create a project from a template: an Expo, bare or native-view app, a Lucent library, or modules alone
+
+| Flag | Meaning |
+| --- | --- |
+| `--template <name>` | expo, bare, view, library or module (default: asked in a terminal, expo elsewhere) |
+| `--yes` | Take the defaults without asking |
+| `--skip-install` | Write the project without installing its dependencies |
+
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-create---json).
+
+It writes `./<name>` from a template shipped in the package and sets the app up as `lucent init` does. Then it installs the dependencies with the package manager that ran it. In a terminal, it asks which template to use.
+
+[Create a project](/docs/guides/create-a-project/) lists the templates. A directory that exists and isn't empty is refused, and nothing is written.
+
+## lucent new module
+
+Scaffold a module in src/ from a template (function, async, events, view, sdk-ios-android), or with --ios / --android one that branches on PLATFORM
+
+| Flag | Meaning |
+| --- | --- |
+| `--template <name>` | function, async, events, view or sdk-ios-android (default: asked in a terminal, function elsewhere) |
+| `--yes` | Take the default template without asking |
 | `--ios` | Implement the iOS branch (without --android, the Android branch throws) |
 | `--android` | Implement the Android branch (without --ios, the iOS branch throws) |
 | `--shared` | One module for every platform (the default) |

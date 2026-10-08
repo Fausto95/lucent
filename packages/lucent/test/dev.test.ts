@@ -98,17 +98,22 @@ describe("lucent dev dashboard", () => {
       width: 100,
     });
     const opened: string[] = [];
+    let failure: string | undefined;
     const running = dashboard({
       session,
       theme,
       root: "/app",
       stdout: t.stdout,
       stdin: t.stdin,
-      open: (file, line) => void opened.push(`${file}:${line}`),
+      open: (file, line, failed) => {
+        opened.push(`${file}:${line}`);
+        if (failure) failed(failure);
+      },
       doctor: () => [],
     });
     const tick = () => new Promise((r) => setTimeout(r, 40));
-    return { store, calls, t, running, opened, tick };
+    const failOpen = (why: string) => (failure = why);
+    return { store, calls, t, running, opened, tick, failOpen };
   }
 
   it("shows modules by platform, the last build, and problems with their fix", async () => {
@@ -180,5 +185,37 @@ describe("lucent dev dashboard", () => {
     expect(t.raw()).toContain("\x1b[?1049h");
     expect(t.raw().lastIndexOf("\x1b[?1049l")).toBeGreaterThan(t.raw().lastIndexOf("\x1b[?1049h"));
     expect(t.raw()).toContain("\x1b[?25h");
+  });
+
+  it("shows why it could not open a problem", async () => {
+    const { store, t, tick, running, failOpen } = await setup();
+    failOpen("could not open a.lucent.ts: code was not found");
+    store.set({
+      building: false,
+      watching: ["."],
+      modules: [],
+      problems: [{ code: "LUCENT1001", message: "use let", file: "a.lucent.ts", line: 2 }],
+    });
+    await tick();
+    t.stdin.write("o");
+    for (let i = 0; i < 50 && !/code was not found/.test(t.text()); i++) await tick();
+    expect(t.text()).toMatch(/could not open a\.lucent\.ts: code was not found/);
+    t.stdin.write("q");
+    await running;
+  });
+});
+
+describe("opening a problem in the editor", () => {
+  it("says why when the editor isn't installed, instead of crashing", async () => {
+    const { openInEditor } = await import("../src/cli/commands/dev.ts");
+    const why = await new Promise<string>((resolve) =>
+      openInEditor("/app/a.lucent.ts", 2, resolve, {
+        ...process.env,
+        VISUAL: "",
+        EDITOR: "lucent-no-such-editor --wait",
+      }),
+    );
+    expect(why).toMatch(/could not open a\.lucent\.ts: lucent-no-such-editor was not found/);
+    expect(why).toMatch(/\$VISUAL or \$EDITOR/);
   });
 });

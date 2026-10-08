@@ -218,6 +218,25 @@ export async function toast(): Promise<boolean> {
       expect(fixes(s, "a.lucent.ts", d!, [2322])).toEqual([]);
     });
 
+    it("checks with the project's SDK options, as the build does", async () => {
+      let given: compiler.SdkOptions | undefined;
+      const stub = {
+        ...compiler,
+        projectExtensions: () => [],
+        checkSources: (_files: string[], _read: unknown, o: { sdk?: compiler.SdkOptions }) => {
+          given = o.sdk;
+          return [];
+        },
+      } as unknown as typeof compiler;
+      const s = service({ "a.lucent.ts": "export const a = 1;\n" }, {}, stub);
+      await s.ready;
+      s.ls.getSemanticDiagnostics(s.file("a.lucent.ts"));
+
+      // The classpath the app's Gradle build resolved: without it, its dependencies'
+      // modules were LUCENT3004 in the editor while the build typed them.
+      expect(given?.android?.classpath).toBe(s.file(".lucent/android-classpath.json"));
+    });
+
     it("offers the fix a TypeScript error's Lucent hint carries, on TypeScript's own error", async () => {
       const source = "class A {\n  protected constructor() {}\n}\nexport const a = new A();\n";
       const at = source.indexOf("new A()");

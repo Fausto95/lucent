@@ -36,6 +36,12 @@ export const commands: CommandSpec[] = [
     summary: "Type-check and validate every module without writing anything",
     flags: [
       {
+        name: "platforms",
+        value: "list",
+        description:
+          "Targets for platform code: ios, android, host (default: the SDKs installed; host, with SDK imports untyped, when none is)",
+      },
+      {
         name: "frozen",
         description:
           "Fail unless the SDKs and SDK symbols are the ones lucent-sdk.lock.json records, with every target it lists (CI, releases)",
@@ -71,11 +77,45 @@ export const commands: CommandSpec[] = [
     load: () => import("./commands/init.ts"),
   },
   {
+    name: "uninstall",
+    summary:
+      "Revert what lucent init and the Expo plugin changed: the Metro config, app.json, the Gradle task, react-native.config.js, tsconfig.json, .gitignore",
+    flags: [{ name: "yes", description: "Apply every change without asking" }],
+    load: () => import("./commands/uninstall.ts"),
+  },
+  {
+    name: "create",
+    json: "create",
+    summary:
+      "Create a project from a template: an Expo, bare or native-view app, a Lucent library, or modules alone",
+    flags: [
+      {
+        name: "template",
+        value: "name",
+        description:
+          "expo, bare, view, library or module (default: asked in a terminal, expo elsewhere)",
+      },
+      { name: "yes", description: "Take the defaults without asking" },
+      {
+        name: "skip-install",
+        description: "Write the project without installing its dependencies",
+      },
+    ],
+    load: () => import("./commands/create.ts"),
+  },
+  {
     name: "new module",
     json: "new",
     summary:
-      "Scaffold a module in src/: shared, or with --ios / --android one module that branches on PLATFORM",
+      "Scaffold a module in src/ from a template (function, async, events, view, sdk-ios-android), or with --ios / --android one that branches on PLATFORM",
     flags: [
+      {
+        name: "template",
+        value: "name",
+        description:
+          "function, async, events, view or sdk-ios-android (default: asked in a terminal, function elsewhere)",
+      },
+      { name: "yes", description: "Take the default template without asking" },
       {
         name: "ios",
         description: "Implement the iOS branch (without --android, the Android branch throws)",

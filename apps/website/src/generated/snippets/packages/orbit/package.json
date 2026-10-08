@@ -15,6 +15,6 @@
   },
   "lucent": {
     "sources": "src",
-    "compatible": ">=0.0.3"
+    "compatible": "^0.2.0"
   }
 }

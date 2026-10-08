@@ -130,7 +130,16 @@ export function emitProgram(
   const here = (s: ts.Statement) =>
     !components.has(s) &&
     !helperStatement(lp.checker, s) &&
+    !untypedStub(s) &&
     (!scoped.has(s) || scoped.get(s) === ctx.platform);
+  // A split module's declaration, stubbed on the host, of a component whose views' SDKs are
+  // missing: it returns an untyped view, which no host code can make. Each platform builds it.
+  const stubs = new Set(lp.modules.filter((m) => m.stub).map((m) => m.sourceFile));
+  function untypedStub(s: ts.Statement): boolean {
+    if (!ts.isFunctionDeclaration(s) || s.body || !stubs.has(s.getSourceFile())) return false;
+    const signature = lp.checker.getSignatureFromDeclaration(s);
+    return !!(signature && lp.checker.getReturnTypeOfSignature(signature).flags & ts.TypeFlags.Any);
+  }
 
   // Pass 1: classes, then functions and variables, so every body can refer to
   // any top-level declaration.

@@ -17,6 +17,7 @@ import {
   withProjectDir,
 } from "./native-build-files.ts";
 import type { NativeInputs, PackagePath } from "./package-config.ts";
+import { prebuiltRuntimeFiles } from "./prebuilt-runtime.ts";
 import { inNativePackage } from "./package-files.ts";
 import { coreTypesPath } from "./program.ts";
 import { currentReads, currentRealpaths, readsKey } from "./reads.ts";
@@ -71,7 +72,9 @@ export function inputsKey(files: string[], outDir: string, sdk?: SdkOptions): st
     ...listFiles(runtimeDir()).filter(
       (f) =>
         !f.includes(`${path.sep}test${path.sep}`) &&
-        !f.includes(`${path.sep}node_modules${path.sep}`),
+        !f.includes(`${path.sep}node_modules${path.sep}`) &&
+        // The prebuilt runtime's artifacts (megabytes): its manifest names what they were built from.
+        !(f.includes(`${path.sep}prebuilt${path.sep}`) && !f.endsWith(`${path.sep}manifest.json`)),
     ),
     coreTypesPath(),
   ];
@@ -209,6 +212,10 @@ export function writeNativePackage(
   copyTree(path.join(rt, "cpp/rn"), path.join(outDir, "cpp/rn"), () => true);
   copyTree(path.join(rt, "cpp/third_party"), path.join(outDir, "cpp/third_party"), () => true);
   copyTree(path.join(rt, "native"), outDir, () => true);
+  // The runtime's core, prebuilt for this runtime when the package has it: the podspec and
+  // CMake link it instead of compiling those sources (prebuilt-runtime.ts).
+  for (const [file, content] of prebuiltRuntimeFiles(rt))
+    want.set(path.join(outDir, "prebuilt", file), content);
   for (const [name, content] of result.files)
     want.set(path.join(outDir, "cpp/generated", name), content);
 

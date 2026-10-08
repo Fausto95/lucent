@@ -113,8 +113,11 @@ export function podspec(template: string, inputs: PodspecInputs): string {
             .join(", ")} }`,
         ]
       : []),
+    // After the prebuilt runtime's (lucent_frameworks, in the template), when it has one.
     ...(inputs.vendoredFrameworks.length
-      ? [`  s.vendored_frameworks = ${list(inputs.vendoredFrameworks)}`]
+      ? [
+          `  s.vendored_frameworks = ${/lucent_frameworks/.test(template) ? "lucent_frameworks + " : ""}${list(inputs.vendoredFrameworks)}`,
+        ]
       : []),
     ...inputs.pods.map((pod) => podLine(pod)),
     ...inputs.importedPods.map((pod) => podLine([pod, []], false)),
