@@ -8,6 +8,8 @@
 #undef allTicks
 #pragma push_macro("askJs")
 #undef askJs
+#pragma push_macro("eagerOrder")
+#undef eagerOrder
 #pragma push_macro("failing")
 #undef failing
 #pragma push_macro("noAwait")
@@ -56,6 +58,7 @@ lucent::Promise<double> noAwait(double p0_);
 lucent::Promise<lucent::String> allRejectsEarly();
 lucent::Promise<lucent::String> tupleRejectsEarly();
 lucent::Promise<lucent::String> allTicks();
+lucent::Promise<lucent::String> eagerOrder();
 lucent::Promise<double> promised(double p0_);
 lucent::Promise<double> promiseRejects();
 lucent::Promise<double> promiseThrows();
@@ -82,6 +85,7 @@ void init();
 #pragma pop_macro("orderCheck")
 #pragma pop_macro("noAwait")
 #pragma pop_macro("failing")
+#pragma pop_macro("eagerOrder")
 #pragma pop_macro("askJs")
 #pragma pop_macro("allTicks")
 #pragma pop_macro("allRejectsEarly")

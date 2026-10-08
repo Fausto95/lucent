@@ -994,7 +994,11 @@ integers`: its int locals, and `for` counters as int64s), or a plan's
   runs before and after it is explicit, and returning a promise returns
   what it fulfils with. A generator (`IrFunction.generator`, its element
   type) gives each element with `produce`; `yield* xs` iterates `xs`,
-  producing each element. Their C++ is a coroutine: `co_await`,
+  producing each element. An async function with no `await` is not a
+  coroutine: its body runs to its end when called (as a coroutine's would,
+  its initial suspend never suspending), so it returns its promise
+  settled, `Promise::resolved(v)`, or `rejected` with what it threw. Their
+  C++ is otherwise a coroutine: `co_await`,
   `co_yield`, `co_return`, a body that only throws still being one, an
   async closure's captures passed to its coroutine as parameters (a
   coroutine frame must not reference a lambda's captures), and no

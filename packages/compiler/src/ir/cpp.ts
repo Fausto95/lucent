@@ -115,6 +115,18 @@ export function toCpp(fn: IrFunction, backend: CppBackend, env: VerifyEnv = {}):
   };
 }
 
+/**
+ * Whether `fn` is an async function that never awaits: its body runs to
+ * its end when it is called (a coroutine's initial_suspend never
+ * suspends), settling its promise before it returns, so it is a plain
+ * function returning `Promise<T>::resolved(v)`, or `rejected` with what it
+ * threw. No coroutine frame is allocated. What awaits the promise still
+ * resumes later, as JavaScript's await of a settled promise does.
+ */
+function eagerAsync(fn: IrFunction): boolean {
+  return fn.async && !fn.regions.some((r) => r.ops.some((op) => op.kind === "await"));
+}
+
 /** What a function's C++ returns: its result, a promise of it, or a generator's iterator. */
 function returnType(fn: IrFunction, b: CppBackend): cpp.Type {
   if (fn.async) return cpp.type("lucent::Promise", b.cppRetType(fn.result));
@@ -179,6 +191,8 @@ class Emitter {
   private framesMade = 0;
   /** An async function's or a generator's body: a C++ coroutine. */
   private readonly coroutine: boolean;
+  /** An async function that never suspends: a plain function settling its promise (see eagerAsync). */
+  private readonly eager: boolean;
   /** Whether the body emitted so far suspends or returns as a coroutine (co_await, co_yield, co_return). */
   private suspended = false;
   private line?: string;
@@ -190,7 +204,8 @@ class Emitter {
     this.fn = fn;
     this.backend = backend;
     this.top = top;
-    this.coroutine = fn.async || fn.generator !== undefined;
+    this.eager = eagerAsync(fn);
+    this.coroutine = (fn.async && !this.eager) || fn.generator !== undefined;
 
     for (const p of fn.modulePlaces) {
       this.places.set(p.place, cpp.id(p.symbol));
@@ -331,6 +346,23 @@ class Emitter {
    */
   body(): cpp.Stmt[] {
     const body = this.region(this.fn.body);
+
+    if (this.eager) {
+      // What it throws rejects its promise, as a coroutine's unhandled_exception does.
+      const end = completes(this.fn, this.fn.body) ? [this.ret(undefined)] : [];
+      const promise = returnType(this.fn, this.backend);
+      const rejected = cpp.call(cpp.scoped(promise, "rejected"), [
+        cpp.call("lucent::currentError", [cpp.call("std::current_exception")]),
+      ]);
+      const first = this.top ? (this.backend.prologue ?? []) : [];
+
+      return [
+        ...first,
+        ...this.prologue,
+        { k: "try", body: [...body, ...end], catches: [{ body: [cpp.ret(rejected)] }] },
+      ];
+    }
+
     const end = this.coroutine && completes(this.fn, this.fn.body) ? [cpp.coReturn()] : [];
     const result = this.fn.result;
     const none = isVoidish(result)
@@ -841,6 +873,12 @@ class Emitter {
   /** `return value`; past a finally, the value is kept and the finally runs first. */
   ret(value: cpp.Expr | undefined): cpp.Stmt {
     if (!this.frames.length) {
+      if (this.eager) {
+        const promise = returnType(this.fn, this.backend);
+
+        return cpp.ret(cpp.call(cpp.scoped(promise, "resolved"), value ? [value] : []));
+      }
+
       if (!this.coroutine) return cpp.ret(value);
 
       this.suspending();
@@ -1152,7 +1190,7 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
     const ret = returnType(fn, e.backend);
     const body = inner.body();
     // A coroutine's frame must not reference the lambda's captures: they are its parameters.
-    const coroutine = fn.async || fn.generator !== undefined;
+    const coroutine = (fn.async && !eagerAsync(fn)) || fn.generator !== undefined;
     const names = captures.map((c) => c.name);
     const lambda = coroutine
       ? cpp.lambda(

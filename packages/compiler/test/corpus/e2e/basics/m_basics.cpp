@@ -48,9 +48,13 @@ double m_basics::hash(lucent::String p0_, lucent::Opt<double> p1_) {
 }
 
 lucent::Promise<lucent::Array<double>> m_basics::hashMany(lucent::Array<lucent::String> p0_) {
-  co_return p0_.template map<double>([](lucent::String p0_, double p1_, lucent::Array<lucent::String> p2_) mutable -> double {
-    return lucent_app::m_basics::hash(p0_, lucent::Opt<double>(lucent::undefined));
-  });
+  try {
+    return lucent::Promise<lucent::Array<double>>::resolved(p0_.template map<double>([](lucent::String p0_, double p1_, lucent::Array<lucent::String> p2_) mutable -> double {
+      return lucent_app::m_basics::hash(p0_, lucent::Opt<double>(lucent::undefined));
+    }));
+  } catch (...) {
+    return lucent::Promise<lucent::Array<double>>::rejected(lucent::currentError(std::current_exception()));
+  }
 }
 
 double m_basics::clamp(double p0_, double p1_, double p2_) {

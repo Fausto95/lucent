@@ -16,6 +16,7 @@ exports.noAwait = m.noAwait;
 exports.allRejectsEarly = m.allRejectsEarly;
 exports.tupleRejectsEarly = m.tupleRejectsEarly;
 exports.allTicks = m.allTicks;
+exports.eagerOrder = m.eagerOrder;
 exports.promised = m.promised;
 exports.promiseRejects = m.promiseRejects;
 exports.promiseThrows = m.promiseThrows;

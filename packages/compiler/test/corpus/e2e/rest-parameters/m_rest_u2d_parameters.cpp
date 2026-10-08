@@ -122,7 +122,11 @@ lucent::String m_rest_u2d_parameters::tag(lucent::String p0_, lucent::Array<std:
 }
 
 lucent::Promise<lucent::String> m_rest_u2d_parameters::later(lucent::Array<lucent::String> p0_) {
-  co_return p0_.join(LUCENT_STR(" "));
+  try {
+    return lucent::Promise<lucent::String>::resolved(p0_.join(LUCENT_STR(" ")));
+  } catch (...) {
+    return lucent::Promise<lucent::String>::rejected(lucent::currentError(std::current_exception()));
+  }
 }
 
 lucent::String m_rest_u2d_parameters::internal() {

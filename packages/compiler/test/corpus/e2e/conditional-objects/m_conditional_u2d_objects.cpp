@@ -230,7 +230,11 @@ double m_conditional_u2d_objects::radiusOf(bool p0_) {
 }
 
 lucent::Promise<double> m_conditional_u2d_objects::later(double p0_) {
-  co_return p0_;
+  try {
+    return lucent::Promise<double>::resolved(p0_);
+  } catch (...) {
+    return lucent::Promise<double>::rejected(lucent::currentError(std::current_exception()));
+  }
 }
 
 lucent::Promise<double> m_conditional_u2d_objects::pick(bool p0_) {

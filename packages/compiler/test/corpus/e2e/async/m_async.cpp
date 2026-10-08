@@ -17,6 +17,8 @@
 #undef cache
 #pragma push_macro("e")
 #undef e
+#pragma push_macro("eagerOrder")
+#undef eagerOrder
 #pragma push_macro("failing")
 #undef failing
 #pragma push_macro("fast")
@@ -35,8 +37,12 @@
 #undef log
 #pragma push_macro("n")
 #undef n
+#pragma push_macro("name")
+#undef name
 #pragma push_macro("noAwait")
 #undef noAwait
+#pragma push_macro("now")
+#undef now
 #pragma push_macro("order")
 #undef order
 #pragma push_macro("orderCheck")
@@ -61,6 +67,10 @@
 #undef r_double_
 #pragma push_macro("recovers")
 #undef recovers
+#pragma push_macro("refuse")
+#undef refuse
+#pragma push_macro("refused")
+#undef refused
 #pragma push_macro("reject")
 #undef reject
 #pragma push_macro("resolve")
@@ -85,6 +95,8 @@
 #undef value
 #pragma push_macro("voidAsync")
 #undef voidAsync
+#pragma push_macro("waiting")
+#undef waiting
 #pragma push_macro("withProgress")
 #undef withProgress
 #pragma push_macro("x")
@@ -274,7 +286,11 @@ lucent::Promise<void> m_async::voidAsync(lucent::Fn<void(lucent::String)> p0_) {
 }
 
 lucent::Promise<double> m_async::noAwait(double p0_) {
-  co_return p0_ + 1.0;
+  try {
+    return lucent::Promise<double>::resolved(p0_ + 1.0);
+  } catch (...) {
+    return lucent::Promise<double>::rejected(lucent::currentError(std::current_exception()));
+  }
 }
 
 lucent::Promise<lucent::String> m_async::allRejectsEarly() {
@@ -414,6 +430,62 @@ lucent::Promise<lucent::String> m_async::allTicks() {
   co_return log.join(LUCENT_STR(", "));
 }
 
+lucent::Promise<lucent::String> m_async::eagerOrder() {
+  lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
+  lucent::Fn<lucent::Promise<lucent::String>(lucent::String)> v2_ = lucent::Fn<lucent::Promise<lucent::String>(lucent::String)>([log = log](lucent::String p0_) mutable -> lucent::Promise<lucent::String> {
+    try {
+      lucent::String v3_ = lucent::String(LUCENT_STR("run ")) + p0_;
+      (void)log.push(v3_);
+      return lucent::Promise<lucent::String>::resolved(p0_);
+    } catch (...) {
+      return lucent::Promise<lucent::String>::rejected(lucent::currentError(std::current_exception()));
+    }
+  });
+  lucent::Fn<lucent::Promise<lucent::String>(lucent::String)> now = std::move(v2_);
+  lucent::Fn<lucent::Promise<double>()> v4_ = lucent::Fn<lucent::Promise<double>()>([log = log]() mutable -> lucent::Promise<double> {
+    try {
+      (void)log.push(LUCENT_STR("refuse"));
+      lucent::Error v4_ = lucent::withSite(lucent::makeError(LUCENT_STR("RangeError"), LUCENT_STR("refused")), __FILE__, __LINE__, "refuse");
+      lucent::throwError(v4_);
+    } catch (...) {
+      return lucent::Promise<double>::rejected(lucent::currentError(std::current_exception()));
+    }
+  });
+  lucent::Fn<lucent::Promise<double>()> refuse = std::move(v4_);
+  lucent::Fn<lucent::Promise<void>()> v7_ = lucent::Fn<lucent::Promise<void>()>([log = log, now = now]() -> lucent::Promise<void> {
+    return [](auto log, auto now) -> lucent::Promise<void> {
+      lucent::Promise<lucent::String> v4_ = now(LUCENT_STR("a"));
+      lucent::String v5_ = co_await v4_;
+      lucent::String v6_ = lucent::String(LUCENT_STR("got ")) + v5_;
+      (void)log.push(v6_);
+      co_return;
+    }(log, now);
+  });
+  lucent::Promise<void> waiting = v7_();
+  lucent::Promise<double> refused = refuse();
+  (void)log.push(LUCENT_STR("sync after"));
+  co_await waiting;
+  {
+    std::exception_ptr ex18_;
+    try {
+      (void)co_await refused;
+    } catch (const lucent::GeneratorReturn&) {
+      throw;
+    } catch (...) {
+      ex18_ = std::current_exception();
+    }
+    if (ex18_) {
+      lucent::Error v18_ = lucent::currentError(ex18_);
+      lucent::Error e = std::move(v18_);
+      lucent::String v21_ = e->name;
+      lucent::String v24_ = e->message;
+      lucent::String v26_ = lucent::concat(v21_, LUCENT_STR(" "), v24_);
+      (void)log.push(v26_);
+    }
+  }
+  co_return log.join(LUCENT_STR(", "));
+}
+
 lucent::Promise<double> m_async::promised(double p0_) {
   lucent::Fn<void(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)> v1_ = lucent::Fn<void(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)>([v = p0_](lucent::Fn<void(double)> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> void {
     lucent::Fn<lucent::Promise<void>()> v3_ = lucent::Fn<lucent::Promise<void>()>([resolve = p0_, v = v]() -> lucent::Promise<void> {
@@ -538,6 +610,7 @@ void m_async::init() {
 
 #pragma pop_macro("x")
 #pragma pop_macro("withProgress")
+#pragma pop_macro("waiting")
 #pragma pop_macro("voidAsync")
 #pragma pop_macro("value")
 #pragma pop_macro("v")
@@ -550,6 +623,8 @@ void m_async::init() {
 #pragma pop_macro("s")
 #pragma pop_macro("resolve")
 #pragma pop_macro("reject")
+#pragma pop_macro("refused")
+#pragma pop_macro("refuse")
 #pragma pop_macro("recovers")
 #pragma pop_macro("r_double_")
 #pragma pop_macro("promised")
@@ -562,7 +637,9 @@ void m_async::init() {
 #pragma pop_macro("out")
 #pragma pop_macro("orderCheck")
 #pragma pop_macro("order")
+#pragma pop_macro("now")
 #pragma pop_macro("noAwait")
+#pragma pop_macro("name")
 #pragma pop_macro("n")
 #pragma pop_macro("log")
 #pragma pop_macro("loads")
@@ -572,6 +649,7 @@ void m_async::init() {
 #pragma pop_macro("hit")
 #pragma pop_macro("fast")
 #pragma pop_macro("failing")
+#pragma pop_macro("eagerOrder")
 #pragma pop_macro("e")
 #pragma pop_macro("cache")
 #pragma pop_macro("c")

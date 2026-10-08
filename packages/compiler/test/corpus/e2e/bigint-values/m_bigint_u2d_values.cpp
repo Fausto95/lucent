@@ -394,10 +394,12 @@ lucent::Promise<lucent::BigInt> m_bigint_u2d_values::factorialLater(lucent::BigI
 }
 
 lucent::Promise<lucent::String> m_bigint_u2d_values::sumLater(lucent::Array<lucent::BigInt> p0_) {
-  lucent::Fn<lucent::Promise<lucent::BigInt>(lucent::BigInt, double, lucent::Array<lucent::BigInt>)> v1_ = lucent::Fn<lucent::Promise<lucent::BigInt>(lucent::BigInt, double, lucent::Array<lucent::BigInt>)>([](lucent::BigInt p0_, double p1_, lucent::Array<lucent::BigInt> p2_) -> lucent::Promise<lucent::BigInt> {
-    return [](lucent::BigInt p0_, double p1_, lucent::Array<lucent::BigInt> p2_) -> lucent::Promise<lucent::BigInt> {
-      co_return lucent::BigInt::pow(p0_, lucent::BigInt::fromInt64(3));
-    }(p0_, p1_, p2_);
+  lucent::Fn<lucent::Promise<lucent::BigInt>(lucent::BigInt, double, lucent::Array<lucent::BigInt>)> v1_ = lucent::Fn<lucent::Promise<lucent::BigInt>(lucent::BigInt, double, lucent::Array<lucent::BigInt>)>([](lucent::BigInt p0_, double p1_, lucent::Array<lucent::BigInt> p2_) mutable -> lucent::Promise<lucent::BigInt> {
+    try {
+      return lucent::Promise<lucent::BigInt>::resolved(lucent::BigInt::pow(p0_, lucent::BigInt::fromInt64(3)));
+    } catch (...) {
+      return lucent::Promise<lucent::BigInt>::rejected(lucent::currentError(std::current_exception()));
+    }
   });
   lucent::Array<lucent::Promise<lucent::BigInt>> v2_ = p0_.template map<lucent::Promise<lucent::BigInt>>(v1_);
   lucent::Promise<lucent::Array<lucent::BigInt>> v3_ = lucent::promiseAll(v2_);

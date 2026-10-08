@@ -122,12 +122,14 @@ lucent::Promise<double> C_Cache::read() {
   lucent::Promise<lucent::Ref<lucent_app::S_Point>> v0_ = this->point;
   lucent::Ref<lucent_app::S_Point> v1_ = co_await v0_;
   lucent::Ref<lucent_app::S_Point> p = std::move(v1_);
-  lucent::Fn<lucent::Promise<double>()> v3_ = lucent::Fn<lucent::Promise<double>()>([p = p]() -> lucent::Promise<double> {
-    return [](auto p) -> lucent::Promise<double> {
+  lucent::Fn<lucent::Promise<double>()> v3_ = lucent::Fn<lucent::Promise<double>()>([p = p]() mutable -> lucent::Promise<double> {
+    try {
       double v1_ = p->x;
       double v3_ = p->y;
-      co_return v1_ + v3_;
-    }(p);
+      return lucent::Promise<double>::resolved(v1_ + v3_);
+    } catch (...) {
+      return lucent::Promise<double>::rejected(lucent::currentError(std::current_exception()));
+    }
   });
   lucent::Promise<double> v4_ = v3_();
   lucent::Opt<lucent::Promise<double>> v5_ = lucent::Opt<lucent::Promise<double>>(v4_);

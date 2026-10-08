@@ -11,6 +11,8 @@
 #undef askJs
 #pragma push_macro("c")
 #undef c
+#pragma push_macro("eagerOrder")
+#undef eagerOrder
 #pragma push_macro("failing")
 #undef failing
 #pragma push_macro("load")
@@ -226,35 +228,43 @@ void install_m_async(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
       });
     });
   });
+  defineFunction(rt, exports, "eagerOrder", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, [&]() -> jsi::Value {
+      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("eagerOrder", "packages/compiler/test/e2e/cases/async.lucent.ts", 148), []() {
+        return lucent_app::m_async::eagerOrder();
+      });
+    });
+  });
   defineFunction(rt, exports, "promised", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("promised", "packages/compiler/test/e2e/cases/async.lucent.ts", 144), [&]() -> jsi::Value {
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("promised", "packages/compiler/test/e2e/cases/async.lucent.ts", 173), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"promised", "argument 'v'"});
       return Convert<lucent::Promise<double>>::toJs(rt, host, lucent_app::m_async::promised(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "promiseRejects", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("promiseRejects", "packages/compiler/test/e2e/cases/async.lucent.ts", 154), [&]() -> jsi::Value {
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("promiseRejects", "packages/compiler/test/e2e/cases/async.lucent.ts", 183), [&]() -> jsi::Value {
       return Convert<lucent::Promise<double>>::toJs(rt, host, lucent_app::m_async::promiseRejects());
     });
   });
   defineFunction(rt, exports, "promiseThrows", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("promiseThrows", "packages/compiler/test/e2e/cases/async.lucent.ts", 158), [&]() -> jsi::Value {
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("promiseThrows", "packages/compiler/test/e2e/cases/async.lucent.ts", 187), [&]() -> jsi::Value {
       return Convert<lucent::Promise<double>>::toJs(rt, host, lucent_app::m_async::promiseThrows());
     });
   });
   defineFunction(rt, exports, "promiseSettlesOnce", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("promiseSettlesOnce", "packages/compiler/test/e2e/cases/async.lucent.ts", 164), [&]() -> jsi::Value {
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("promiseSettlesOnce", "packages/compiler/test/e2e/cases/async.lucent.ts", 193), [&]() -> jsi::Value {
       return Convert<lucent::Promise<lucent::String>>::toJs(rt, host, lucent_app::m_async::promiseSettlesOnce());
     });
   });
   defineFunction(rt, exports, "promiseOfNothing", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
     return callSync(rt, host, [&]() -> jsi::Value {
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("promiseOfNothing", "packages/compiler/test/e2e/cases/async.lucent.ts", 172), []() {
+      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("promiseOfNothing", "packages/compiler/test/e2e/cases/async.lucent.ts", 201), []() {
         return lucent_app::m_async::promiseOfNothing();
       });
     });
@@ -304,6 +314,7 @@ void resetModuleState() {
 #pragma pop_macro("loads")
 #pragma pop_macro("load")
 #pragma pop_macro("failing")
+#pragma pop_macro("eagerOrder")
 #pragma pop_macro("c")
 #pragma pop_macro("askJs")
 #pragma pop_macro("allTicks")

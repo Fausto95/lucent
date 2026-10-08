@@ -75,12 +75,13 @@ double m_exported_u2d_errors::failToken(lucent::String p0_) {
 }
 
 lucent::Promise<double> m_exported_u2d_errors::later(double p0_) {
-  lucent::String v3_ = lucent::String(LUCENT_STR("later ")) + lucent::toJsString(p0_);
-  lucent::Ref<lucent_app::C_ParseError> v4_ = lucent_app::C_ParseError::create(v3_, p0_);
-  lucent::throwError(v4_);
-  co_return []() -> double {
-    lucent::unreachable();
-  }();
+  try {
+    lucent::String v3_ = lucent::String(LUCENT_STR("later ")) + lucent::toJsString(p0_);
+    lucent::Ref<lucent_app::C_ParseError> v4_ = lucent_app::C_ParseError::create(v3_, p0_);
+    lucent::throwError(v4_);
+  } catch (...) {
+    return lucent::Promise<double>::rejected(lucent::currentError(std::current_exception()));
+  }
 }
 
 void m_exported_u2d_errors::raise(lucent::Ref<lucent_app::C_ParseError> p0_) {
