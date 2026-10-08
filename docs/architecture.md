@@ -201,7 +201,7 @@ Notable lowering choices:
   library's `map`, a native call's during-call callback, a function it
   passes to a parameter its callee calls) and, at each native call, the
   Lucent code native code may call back while the call runs: not what
-  the platform's call queues on the Lucent thread (its binding plan's
+  the platform's call queues on the actor's thread (its binding plan's
   `queued` delivery, a turn of its own) nor compute tasks, which the
   runtime runs. What code called back does (a kept callback, an override
   of a platform class, a requirement) is recorded apart, as `calledBack`:
@@ -319,7 +319,7 @@ Notable lowering choices:
   changes it; calling an event prop sends it along its route; setup and
   every function it creates run on the main thread, and a function setup
   gives the platform (a block, a listener) enters the main context when
-  called, never taking the Lucent lock (a Lucent class given to the
+  called, never taking an actor's lock (a Lucent class given to the
   platform from a setup is refused: its methods run in module code).
   Every function setup creates also enters its mount whenever it runs
   (the IR's `closure` op `enters` the setup's ambient mount,
@@ -614,13 +614,19 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
   order on its executor, each turn followed by the context's own
   microtasks, and owns a root scope (`scope.h`): disposing a scope under it
   from another thread, or dropping its last reference there, posts the
-  disposal to the context. The legacy module context
-  (`Scheduler`) runs every module's code: its turns run on the Lucent
-  thread, and synchronous calls from other threads enter it by taking one
-  recursive lock (`LucentScope`), which serializes all module code. The
-  lock is fair (a ticket lock): threads get it in the order they asked, so
-  the Lucent thread, retaking it between the turns of a loop that yields,
-  queues behind a JS thread already waiting to call in. Its
+  disposal to the context. Module actors (`Actor`, `scheduler.h`) run
+  modules' code, one per import component (the compiler's
+  `lucent_app::actor_N`; `Actor::shared()` for code of none): an actor's
+  turns run on its own thread, and synchronous calls from other threads
+  enter it by taking its recursive lock (`LucentScope`), which serializes
+  that actor's code, so packages run in parallel. The lock is fair (a
+  ticket lock): threads get it in the order they asked, so the actor's
+  thread, retaking it between the turns of a loop that yields, queues
+  behind a JS thread already waiting to call in. The main thread never
+  takes a ticket (it waits only for the holder in place, or defers), a
+  synchronous JavaScript callback lends its thread's actors to the main
+  thread, and a nested wait for another actor that would close a cycle
+  throws. Its
   microtasks run only once the stack is empty: at the end of a turn, or in
   a turn posted when a call from another thread leaves. The main context
   runs on the platform's UI loop and never takes the lock; isolated
@@ -696,7 +702,7 @@ signal)` starts native work that completes later, on any thread (a
   own input and a `TaskContext`) on a bounded pool, and returns a promise
   that settles on the calling context; the result is moved back, not
   copied. The pool has one worker fewer than the cores (at least one),
-  each an isolated context that never takes the Lucent lock or waits for
+  each an isolated context that never takes an actor's lock or waits for
   the UI loop, and a queue of 1024 tasks waiting for a worker; a
   submission that finds it full is rejected at once with a
   `QuotaExceededError`, never blocking the caller. A task is an
@@ -783,7 +789,7 @@ signal)` starts native work that completes later, on any thread (a
   `.lucent.ts` line the compiler gives `effect()`.
 - `reactive.h`: the UI's reactive graph (the state a view keeps), owned by
   one execution context, the main one for views: used from any other
-  thread it throws, and it never takes the Lucent lock or waits for the JS
+  thread it throws, and it never takes an actor's lock or waits for the JS
   thread. A signal notifies when a write changes its value by `Object.is`
   (NaN is itself, 0 and -0 differ): an object by identity, so mutating one
   in place notifies nothing until a new one is set; `Opt` keeps missing,
@@ -819,7 +825,7 @@ signal)` starts native work that completes later, on any thread (a
 - `trace.h`: tracing, off by default (one relaxed load where it is
   checked). Started, it keeps the latest events in a bounded buffer and
   counts those it drops: a posted job's wait for its owner and its run, a
-  wait for the Lucent lock, a compute task's wait for a worker, run and
+  wait for an actor's lock, a compute task's wait for a worker, run and
   delivery (and the pool's saturation), a copy's bytes, native buffer
   copies and allocations, and native spans (`LUCENT_TRACE_SCOPE`) with the
   source site their `#line` names. Events that belong together share a
@@ -842,7 +848,7 @@ signal)` starts native work that completes later, on any thread (a
   end, a new host) disposes it: posted work that has not started is
   dropped, and Lucent code awaiting a JS promise, or a JS callback's,
   resumes with an `AbortError`. A task for the JS thread that never runs
-  is released on the legacy module context, with the values it carries.
+  is released on the actor that posted it, with the values it carries.
   Torn down while the runtime is usable (`invalidate()`), the host first
   rejects the JS promises it still owes. A native instance has one JS
   object per runtime (the identity cache is keyed by the instance), and
@@ -871,7 +877,7 @@ signal)` starts native work that completes later, on any thread (a
 - `abort.h`: `AbortController` / `AbortSignal`. A signal from JavaScript is
   mirrored by a native signal stored as `NativeState` on the JS object; an
   `abort` listener on the JS signal aborts the mirror synchronously on the JS
-  thread, under the Lucent lock, so native listeners run in the same turn as
+  thread, under the actor's lock, so native listeners run in the same turn as
   JavaScript's. A signal belongs to the context it was made in: aborting it
   or changing its listeners from another thread is posted there, where the
   listeners run, and what a listener throws goes to `reportUncaught`.
