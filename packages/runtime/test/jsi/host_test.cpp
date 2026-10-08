@@ -700,7 +700,9 @@ static void tasksRunningAcrossAReloadReadNoModuleStorage() {
   js.run([](jsi::Runtime&) {
     for (int i = 0; i < 3; i++) m_t::startMeasure(0);
   });
-  CHECK(within(2000, [] { return m_t::tasksRunning.load() == 3; }));
+  // As many as the shared pool runs at once (one worker on a two-core machine).
+  const int running = static_cast<int>(std::min<size_t>(3, ComputePool::shared()->workers()));
+  CHECK(within(2000, [&] { return m_t::tasksRunning.load() == running; }));
 
   for (int reload = 0; reload < 20; reload++) install(js);
 
