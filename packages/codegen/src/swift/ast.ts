@@ -61,7 +61,7 @@ export type Expr =
   | { k: "available"; platforms: string[] };
 
 /** `...`: a closed range (`0 ... 1`). */
-export type BinaryOp = "==" | "!=" | "&&" | "||" | "??" | "<" | ">" | "...";
+export type BinaryOp = "==" | "!=" | "&&" | "||" | "??" | "<" | ">" | "..." | "+";
 
 // --- statements ------------------------------------------------------------------------
 

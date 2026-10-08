@@ -1,6 +1,6 @@
 {
   "name": "@lucent-lang/codegen",
-  "version": "0.0.3",
+  "version": "0.2.0",
   "private": true,
   "description": "Syntax trees and printers for the code Lucent generates (C++ and Objective-C++, Java, TypeScript)",
   "license": "MIT",

@@ -24,6 +24,9 @@ JNIEnv* env();
 /// A global reference to a class, from the app's class loader when the
 /// system one cannot see it. Throws for unknown classes.
 jclass findClass(const char* name);
+/// `findClass(name)` once per use site (a class passed as an argument): a
+/// global reference kept for the program's life, as findClass's are.
+#define LUCENT_JNI_CLASS(name) ([]() -> jclass { static const jclass c = ::lucent::jni::findClass(name); return c; }())
 jmethodID method(jclass cls, const char* name, const char* sig);
 jmethodID staticMethod(jclass cls, const char* name, const char* sig);
 jfieldID field(jclass cls, const char* name, const char* sig);

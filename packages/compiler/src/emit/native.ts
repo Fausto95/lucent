@@ -1228,7 +1228,8 @@ function jniOf(em: FnEmitter, arg: ts.Expression, t: SdkType, value: E): cpp.Exp
       if (!named)
         fail(arg, Codes.UnsupportedSyntax, "pass the class itself (for example `Vibrator`)");
       requireAvailable(em, arg, named, named.cls.since, named.cls.name);
-      return jni("findClass", javaClass(em, named.cls.native));
+      // Looked up once per call site: findClass takes a lock and a lookup by name.
+      return cpp.call("LUCENT_JNI_CLASS", [javaClass(em, named.cls.native)]);
     }
     case "ref":
       if (value.t.k === "fn") return javaProxy(em, arg, value, t);

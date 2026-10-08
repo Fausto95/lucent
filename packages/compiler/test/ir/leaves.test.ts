@@ -118,4 +118,28 @@ export function name(): string {
 
     expect(r.diagnostics).toEqual([]);
   });
+
+  it("takes a reduce's initial value, whatever it is, before the callback runs", () => {
+    const file = module(`export function total(xs: number[], o: { n: number }): number {
+  return xs.reduce((a, c) => a + c, o.n);
+}
+`);
+    const total = body(cppOf(file), "total");
+
+    // The callback is still the lambda the method's template calls directly.
+    expect(inOrder(total, "p1_->n", ".reduce([](double p0_")).toBe(true);
+  });
+
+  it("lets a callback be made after operands that run code", () => {
+    const file = module(`let n = 0;
+function bump(): number {
+  return ++n;
+}
+export function f(xs: number[]): number {
+  return xs.reduce((a, c) => a + c + bump(), bump());
+}
+`);
+    // The callback comes first in the source, but making it runs none of its code.
+    expect(compile([file]).diagnostics).toEqual([]);
+  });
 });

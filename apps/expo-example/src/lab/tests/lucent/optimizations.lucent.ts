@@ -69,6 +69,27 @@ export function unbounded(): string {
   return `${big} ${c} ${near}`;
 }
 
+/**
+ * A counter stepping by more than 1 toward a bound past 2^53: where its
+ * sums round as doubles, so the counter is one too. `2e9` is a multiple of
+ * 1024, so its sums stay exact; 2147483647's past 2^53 round.
+ */
+export function pastExact(): string {
+  let n = 0;
+  let last = 0;
+  for (let i = 0; i < 2 ** 54; i += 2e9) {
+    n++;
+    last = i;
+  }
+  let m = 0;
+  let odd = 0;
+  for (let i = 0; i < 2 ** 54; i += 2147483647) {
+    m++;
+    odd = i;
+  }
+  return `${n} ${last} ${m} ${odd}`;
+}
+
 /** Must not apply: a local that is sometimes fractional. */
 export function sometimesFractional(n: number): number {
   let t = 0;
@@ -203,6 +224,45 @@ export function building(n: number): string {
   const numbers = [1, -2.5, 1e21, 0.1, -0].join(",");
   const split = joined.split("-").filter((p) => p === "π").length;
   return `${s.length} ${shared.length} ${s.slice(-3)} ${w} ${w.length} ${joined.length} ${split} ${numbers} ${joined.slice(0, 20)}`;
+}
+
+/** Appends to a field and a module variable: in place, read before the right side runs. */
+class Log {
+  text = "";
+  add(part: string): void {
+    this.text += part;
+  }
+  /** The right side replaces the field: the append is to what was read first. */
+  replacing(): string {
+    this.text += this.reset("new");
+    return this.text;
+  }
+  reset(to: string): string {
+    this.text = to;
+    return "+";
+  }
+}
+
+let journal = "";
+
+function rewrite(): string {
+  journal = "rewritten";
+  return "!";
+}
+
+export function appends(n: number): string {
+  const log = new Log();
+  journal = "";
+  for (let i = 0; i < n; i++) {
+    log.add(i % 7 ? "ab" : "ψ");
+    journal += `${i},`;
+  }
+  const held = log.text;
+  log.add("|end");
+  const before = journal;
+  journal += rewrite();
+  const tagged = `<${n}:${held.length}:${log.text.slice(-6)}:${before.length}>`;
+  return `${tagged} ${log.text.length} ${held.length} ${journal} ${log.replacing()}`;
 }
 
 /** Numbers as strings: the integer fast path and the rest. */

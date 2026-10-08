@@ -20,8 +20,10 @@ function ios(src: string, sdk?: SdkOptions) {
     Object.keys(files).map((f) => path.join(dir, f)),
     { platforms: ["ios"], sdk },
   );
-  // Whitespace collapsed: the assertions are about the code, not its layout.
-  return { r, mm: (r.files.get("ios/m_m.mm") ?? "").replace(/\s+/g, " "), dir };
+  // #line directives dropped and whitespace collapsed: the assertions are
+  // about the code, not its layout or where it maps to.
+  const mm = (r.files.get("ios/m_m.mm") ?? "").replace(/^#line .*\n/gm, "").replace(/\s+/g, " ");
+  return { r, mm, dir };
 }
 
 const caches = `import { NSCache } from "lucent:ios/Foundation";

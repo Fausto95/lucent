@@ -11,6 +11,13 @@
  *
  *   node scripts/codegen-corpus.ts write <dir>     write the corpus to <dir>
  *   node scripts/codegen-corpus.ts compare <dir>   compare today's output with <dir>
+ *
+ * --host: only the end-to-end cases, for the host, with no `#line`
+ * directives (they move with every edit to a case): what any machine
+ * builds without a platform SDK. packages/compiler/test/corpus holds this
+ * corpus, and test/corpus.test.ts compares the compiler's output with it;
+ * after a change to code generation, look at the diff it prints, then
+ * write it again (`pnpm corpus:write`) in the same commit.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -27,9 +34,11 @@ import {
 import { projectSdk } from "../packages/lucent/src/cli/project.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const [command, target] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const hostOnly = argv.includes("--host");
+const [command, target] = argv.filter((a) => a !== "--host");
 if ((command !== "write" && command !== "compare") || !target) {
-  process.stderr.write("usage: node scripts/codegen-corpus.ts write|compare <dir>\n");
+  process.stderr.write("usage: node scripts/codegen-corpus.ts write|compare [--host] <dir>\n");
   process.exit(2);
 }
 
@@ -59,7 +68,7 @@ function corpus(): Map<string, string> {
     const extensions = found ? bindExtensions(found.native.extensions) : undefined;
     add(`e2e/${c.name}`, compile(c.files, { extensions }));
   }
-  for (const app of ["apps/bare-example", "apps/expo-example"]) {
+  for (const app of hostOnly ? [] : ["apps/bare-example", "apps/expo-example"]) {
     const dir = path.join(root, app);
     const sdk = projectSdk(dir);
     const files = projectFiles(dir);
@@ -67,12 +76,16 @@ function corpus(): Map<string, string> {
       add(`${path.basename(app)}/${t}`, compile(files, { platforms: [t], sdk }));
   }
   // Absolute paths (#line directives, stack frames) differ between machines.
-  for (const [k, v] of all) all.set(k, v.split(root).join("<root>"));
+  for (const [k, v] of all) {
+    const text = v.split(root).join("<root>");
+    all.set(k, hostOnly ? text.replace(/^#line .*\n/gm, "") : text);
+  }
   return all;
 }
 
 const clangFormat =
-  spawnSync("xcrun", ["--find", "clang-format"], { encoding: "utf8" }).stdout.trim() ||
+  (process.platform === "darwin" &&
+    spawnSync("xcrun", ["--find", "clang-format"], { encoding: "utf8" }).stdout?.trim()) ||
   "clang-format";
 
 /** C++ in one canonical layout. */
@@ -86,6 +99,8 @@ function normalized(file: string, text: string): string {
     ],
     { input: text, encoding: "utf8", maxBuffer: 256 << 20 },
   );
+  // Without clang-format, the diff is of the text as it is.
+  if (r.error) return text;
   if (r.status !== 0) throw new Error(`clang-format ${file}: ${r.stderr}`);
   return r.stdout;
 }

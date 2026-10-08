@@ -118,12 +118,14 @@ describe.skipIf(!android)("components whose content is Compose", () => {
     // What the content reads from the setup: an effect each, calling the function computing it,
     // the text computed in C++.
     expect(glue).toMatch(
-      /lucent::Fn<bool\(\)> (v\d+_) = lucent::Fn<bool\(\)>\(\[on = on\]\(\) mutable -> bool \{[^}]*return on\.get\(\);[^]*lucent::ui::effect\(lucent::ui::mainGraph\(\), lucent::ui::inContent\(lucent_content, \[content_\d+, lucent_get = \1\]\(\) mutable \{/,
+      /lucent::Fn<bool\(\)> (v\d+_) = lucent::Fn<bool\(\)>\(\[on = on\]\(\) mutable -> bool \{[^}]*return on\.get\(\);[^]*lucent::ui::effect\(lucent::ui::mainGraph\(\), lucent::ui::inContent\(lucent_content, \[content_\d+_, lucent_get = \1\]\(\) mutable \{/,
     );
     expect(glue).toMatch(/double (v\d+_) = pulses\.get\(\);[^}]*return \1 == 0\.0;/);
-    expect(glue).toContain('+ LUCENT_STR(" taps")');
+    expect(glue).toMatch(/lucent::concat\([^;]*LUCENT_STR\(" taps"\)\);/);
     // The mount's end disposes the composition.
-    expect(glue).toMatch(/->onCleanup\(\[content_\d+\]\(\) \{\n\s+content_\d+\.dispose\(\);/);
+    expect(glue).toMatch(
+      /->onCleanup\(\[content_\d+_\]\(\) \{\n(?:#line .*\n)?\s+content_\d+_\.dispose\(\);/,
+    );
   }, 300_000);
 
   it("build the Android library with the Compose compiler and libraries", () => {

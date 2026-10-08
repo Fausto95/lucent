@@ -13,6 +13,7 @@
  * LUCENT3024.
  */
 import ts from "typescript";
+import { cacheOf } from "../checker-caches.ts";
 import { platformOf } from "../program.ts";
 import { compositionStatements } from "./composition.ts";
 import { type FunctionLike, toolkitRootType } from "./roots.ts";
@@ -98,8 +99,8 @@ export function helperStatement(checker: ts.TypeChecker, s: ts.Node): boolean {
   });
 }
 
-/** Each helper's facts, checked once. */
-const checked = new WeakMap<FunctionLike, ViewHelper>();
+/** Each helper's facts, checked once per program (source files outlive one: CompileSession). */
+const checked = new WeakMap<ts.TypeChecker, WeakMap<FunctionLike, ViewHelper>>();
 
 /** The helper view an element's tag (or a call's callee) names, checked; none for any other name. */
 export function helperAt(checker: ts.TypeChecker, name: ts.Node): ViewHelper | undefined {
@@ -112,11 +113,12 @@ export function helperAt(checker: ts.TypeChecker, name: ts.Node): ViewHelper | u
   if (!fn || !isViewHelper(checker, fn)) return undefined;
 
   const helperFn = fn as FunctionLike;
-  let helper = checked.get(helperFn);
+  const ofChecker = cacheOf(checked, checker);
+  let helper = ofChecker.get(helperFn);
 
   if (!helper) {
     helper = check(checker, helperFn, name);
-    checked.set(helperFn, helper);
+    ofChecker.set(helperFn, helper);
   }
 
   return helper;

@@ -2,7 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { compile } from "../src/index.ts";
+import { compile, CompileSession } from "../src/index.ts";
+import { declarationCacheSize } from "../src/program.ts";
 
 // Rebuilds compare sources in the same directory, as a project would.
 function build(
@@ -61,5 +62,68 @@ describe("generated files for incremental native builds", () => {
     );
     const changed = [...before.keys()].filter((k) => before.get(k) !== after.get(k)).sort();
     expect(changed).toEqual(["lucent_bindings.cpp", "lucent_identity.cpp", "m_a.cpp", "m_a.h"]);
+  });
+});
+
+describe("checks that reuse the last program", () => {
+  const write = (dir: string, name: string, src: string) => {
+    const f = path.join(dir, `${name}.lucent.ts`);
+    fs.writeFileSync(f, src);
+    return f;
+  };
+
+  it("parse again only what changed, and report as a fresh compile does", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-session-"));
+    const files = [write(dir, "a", a), write(dir, "b", b), write(dir, "c", c)];
+    const session = new CompileSession();
+
+    expect(compile(files, { session }).diagnostics).toEqual([]);
+
+    const first = session.programs.get("program")!;
+
+    write(dir, "c", "export function hello(): string { return 1; }");
+
+    const again = compile(files, { session });
+    const fresh = compile(files);
+
+    expect(again.diagnostics).toEqual(fresh.diagnostics);
+    expect(again.diagnostics.map((d) => d.code)).toEqual(["LUCENT9001"]);
+
+    const second = session.programs.get("program")!;
+
+    expect(second).not.toBe(first);
+    // The unchanged modules and the library are the same parsed files.
+    for (const f of [files[0]!, files[1]!])
+      expect(second.getSourceFile(f)).toBe(first.getSourceFile(f));
+    expect(second.getSourceFile(files[2]!)).not.toBe(first.getSourceFile(files[2]!));
+    expect(again.read.get(files[2]!)).toBe(fresh.read.get(files[2]!));
+
+    write(dir, "c", c);
+
+    const fixed = compile(files, { session });
+
+    expect(fixed.diagnostics).toEqual([]);
+    expect([...fixed.files.keys()].sort()).toEqual([...compile(files).files.keys()].sort());
+  });
+
+  it("resolve again when a file resolution looked at changes", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-session-"));
+    const user = write(
+      dir,
+      "user",
+      'import { twice } from "./lib/a.lucent";\nexport function f(): number { return twice(2); }\n',
+    );
+    const session = new CompileSession();
+
+    expect(compile([user], { session }).diagnostics.map((d) => d.code)).toContain("LUCENT9001");
+
+    fs.mkdirSync(path.join(dir, "lib"));
+    const lib = write(path.join(dir, "lib"), "a", a);
+
+    expect(compile([user, lib], { session }).diagnostics).toEqual([]);
+  });
+
+  it("keep the declaration cache bounded", () => {
+    expect(declarationCacheSize()).toBeLessThanOrEqual(4000);
   });
 });

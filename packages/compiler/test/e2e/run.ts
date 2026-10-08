@@ -7,7 +7,9 @@
  *   node packages/compiler/test/e2e/run.ts [case-name...]
  *
  * Env: HERMES_DIR (Hermes checkout built into build/), SANITIZE=1 (ASan and
- * UBSan) or SANITIZE=thread (TSan: async cases' threads), CXX.
+ * UBSan) or SANITIZE=thread (TSan: async cases' threads), CXX;
+ * LUCENT_E2E_CASES, a directory of cases to run instead of cases/ (fuzz.ts
+ * writes its programs to one).
  */
 import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -27,14 +29,14 @@ import {
   resolveNative,
 } from "../../src/index.ts";
 import { exec, pool } from "../../../runtime/test/parallel.ts";
-import { cFlags, hostLibs, runtimeSources } from "../../../runtime/test/sources.ts";
+import { cFlags, hostLibs, prefixMapFlags, runtimeSources } from "../../../runtime/test/sources.ts";
 
 // One time zone with daylight saving time for both runs (the native host
 // inherits it), so local-time code is exercised even on UTC machines.
 process.env.TZ = process.env.LUCENT_TEST_TZ ?? "America/New_York";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const casesDir = path.join(here, "cases");
+const casesDir = process.env.LUCENT_E2E_CASES ?? path.join(here, "cases");
 const runtimeDir = path.resolve(here, "../../../runtime");
 const coreJs = coreJsPath();
 const runtimeJs = path.join(runtimeDir, "js/index.js");
@@ -65,6 +67,7 @@ const baseFlags = [
   "-Wno-unused-label",
   "-Wno-unused-but-set-variable",
   "-Wno-unused-function",
+  ...prefixMapFlags(path.resolve(here, "../../../..")),
   `-I${path.join(runtimeDir, "cpp")}`,
   `-I${path.join(hermes, "API")}`,
   `-I${path.join(hermes, "API/jsi")}`,
@@ -182,7 +185,7 @@ function casePackages(c: Case): { native: NativeInputs; packages: LucentPackage[
 async function nativeBuild(c: Case, lib: string): Promise<string[]> {
   const found = casePackages(c);
   const extensions = found ? bindExtensions(found.native.extensions) : undefined;
-  const result = compile(c.files, { extensions });
+  const result = compile(c.files, { extensions, root: path.resolve(here, "../../../..") });
   if (!result.ok) throw new Error(`compile errors:\n${report(result.diagnostics)}`);
   const dir = path.join(work, "cases", c.name);
   fs.rmSync(dir, { recursive: true, force: true });

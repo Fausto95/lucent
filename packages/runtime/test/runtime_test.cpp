@@ -369,6 +369,29 @@ static void stringStorage() {
   a += S("!");
   CHECK_STR(b, "1234567890123456");
   CHECK_STR(a, "1234567890123456!");
+  // appendTo: grows the place's own string in place, and appends to what was read even when
+  // the right side replaced the place meanwhile, or shares the string.
+  String field = sixteen + S("x");
+  String read = field;
+  appendTo(field, std::move(read), S("y"));
+  for (int i = 0; i < 100; i++) {
+    String again = field;
+    appendTo(field, std::move(again), S("z"));
+  }
+  CHECK(field.length() == 118 && field.slice(0, 18) == sixteen + S("xy"));
+  String kept = field;
+  String current = field;
+  appendTo(field, std::move(current), S("!"));
+  CHECK(kept.length() == 118 && field.length() == 119);
+  String replaced = S("old");
+  String readFirst = replaced;
+  replaced = S("new");
+  appendTo(replaced, std::move(readFirst), S("+"));
+  CHECK_STR(replaced, "old+");
+  String self = sixteen;
+  String selfRead = self;
+  appendTo(self, std::move(selfRead), self);
+  CHECK(self == sixteen + sixteen);
   // A moved-from string is the empty string, inline or not.
   String movedInline = fifteen;
   String to = std::move(movedInline);

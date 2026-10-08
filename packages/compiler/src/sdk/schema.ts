@@ -25,6 +25,7 @@ import {
   type SdkOptions,
   sdkSourceModule,
 } from "@lucent-lang/bindgen";
+import { compileContext, currentCompile, runInCompile } from "../compile-context.ts";
 import { compareVersions } from "../package-versions.ts";
 
 export { formatSchemaType, PLATFORMS };
@@ -77,38 +78,38 @@ export function parseSdkType(
   return typeof s === "string" ? parseSchemaType(s, module, typeParams) : s;
 }
 
-let sdkOptions: SdkOptions = {};
-let deferredPlatforms: readonly Platform[] = [];
+/** The SDK locations of the compile running (the defaults outside one). */
+function sdkOptions(): SdkOptions {
+  return currentCompile()?.sdk ?? {};
+}
 
-/**
- * Runs `f` with the SDK locations a compile uses (compile options, else the
- * defaults), and the platforms whose SDK imports resolve only later. Each
- * compile gets its own options object: its artifacts are resolved anew,
- * as installed now.
- */
 /**
  * The oldest iOS the app runs on: its deployment target (its Xcode
  * project's, as the SDK options say), never below React Native's minimum.
  * An API newer than it needs an availability check.
  */
 export function oldestIos(): string {
-  const target = sdkOptions.ios?.deploymentTarget;
+  const target = sdkOptions().ios?.deploymentTarget;
   return target && compareVersions(target, MIN_IOS) > 0 ? target : MIN_IOS;
 }
 
+/**
+ * Runs `f` in a compile context with these SDK locations (the defaults
+ * when undefined), and the platforms whose SDK imports resolve only
+ * later: its artifacts are resolved anew, as installed now. For callers
+ * outside a compile (`lucent sdk show`, tests); a compile makes its own.
+ */
 export function withSdkOptions<T>(
   opts: SdkOptions | undefined,
   f: () => T,
   deferred: readonly Platform[] = [],
 ): T {
-  const saved = [sdkOptions, deferredPlatforms] as const;
-  sdkOptions = { ...opts };
-  deferredPlatforms = deferred;
-  try {
-    return f();
-  } finally {
-    [sdkOptions, deferredPlatforms] = saved;
-  }
+  const outer = currentCompile();
+  const context = outer
+    ? { ...outer, sdk: { ...opts }, deferred }
+    : compileContext({ ...(opts ? { sdk: opts } : {}), deferred });
+
+  return runInCompile(context, f);
 }
 
 /** What to do about a native member Lucent does not bind: call it through code of the app's own. */
@@ -124,18 +125,19 @@ export const WRAP_UNBOUND: Record<Platform, string> = {
  * that platform's code is untyped there (the target's program types it).
  */
 export function platformSdkTyped(platform: Platform): boolean {
-  return !deferredPlatforms.includes(platform) && sdkAvailable(platform, sdkOptions);
+  const c = currentCompile();
+  return !(c?.deferred ?? []).includes(platform) && sdkAvailable(platform, sdkOptions());
 }
 
 /** `lucent:<platform>/<module>`: its schema (extracted on first use), or why there is none. */
 
 export function sdkLookup(platform: Platform, module: string): SdkLookup {
-  return sdkModule(platform, module, sdkOptions);
+  return sdkModule(platform, module, sdkOptions());
 }
 
 /** A module written as source (a toolkit's: SwiftUI), extracted on first use, or why there is none. */
 export function sourceModuleLookup(platform: Platform, module: string): SdkLookup {
-  return sdkSourceModule(platform, module, sdkOptions);
+  return sdkSourceModule(platform, module, sdkOptions());
 }
 
 /** The schema of `lucent:<platform>/<module>`, or undefined when there is none. */
@@ -156,24 +158,24 @@ export function sdkTypeInfo(
   module: string,
   name: string,
 ): NamesIndex["types"][string] | undefined {
-  const n = sdkNames(platform, module, sdkOptions);
+  const n = sdkNames(platform, module, sdkOptions());
   return "names" in n ? n.names.types[name] : undefined;
 }
 
 /** A module's type names, for typing other modules' signatures (iOS). */
 export function sdkNamesOf(platform: Platform, module: string): NamesIndex | undefined {
-  const n = sdkNames(platform, module, sdkOptions);
+  const n = sdkNames(platform, module, sdkOptions());
   return "names" in n ? n.names : undefined;
 }
 
 /** Where the SDK cache is, for the caches kept beside it. */
 export function sdkCacheDir(): string | undefined {
-  return sdkOptions.cacheDir;
+  return sdkOptions().cacheDir;
 }
 
 /** What identifies the SDKs in use, for build caches. */
 export function currentSdkIdentity(): string {
-  return sdkIdentity(sdkOptions);
+  return sdkIdentity(sdkOptions());
 }
 
 export function findSdkType(

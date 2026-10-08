@@ -433,6 +433,49 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-08: CI runs what a change needs, and main's runs finish.**
+A pull request runs the jobs its files can affect (`scripts/ci-changes.ts`
+maps paths to jobs; one `CI` check sums them, skipped ones passing); a
+push to `main`, the nightly run and a manual one run everything. Main's
+runs are no longer cancelled by the next merge; the coverage of every
+SDK module and the device runs (the bare example's Tests screen on the
+iOS simulator and on an Android emulator under KVM) moved to the nightly
+run, to pull requests that change the runtime or the compiler (device
+runs), and to the version PR's merge. Each platform's unit-test shards
+are balanced by that platform's own timings. Actions are pinned by
+commit SHA, Xcode by version, Vale by checksum; the runtime also runs
+under TSan. _Why:_ of 23 pushes to `main` from 2026-10-05 to 10-08, 21
+were cancelled by the next merge, so `main` was almost never verified
+and its ccache (saved from `main` alone) rarely saved; successful runs
+took a median of 182 minutes, of which the macOS jobs waited 95 to 158
+minutes for a runner and ran 9 to 16, while every Linux job ran under 10. _Changed:_ `ci.yml` (the `Changed areas` job, the `CI` gate, the
+nightly schedule, cancel-in-progress for pull requests only),
+`devices.yml`, `config/test-timings.json` (per platform),
+`.github/actions/` (Xcode, caches).
+
+**2026-10-08: A compiler fault is a diagnostic at its function.** An IR
+verifier or builder error, which used to stop the whole build with a
+stack trace, is now `LUCENT9002` at the function it was lowering: the
+other functions still compile, so the rest of the diagnostics stay
+accurate, and no invalid C++ is written. Options and records a compile
+reads (SDK paths, extensions, files read, SDK uses) moved from module
+state into a per-compile context (`compile-context.ts`), so the editor
+plugin's checks and `lucent dev`'s builds in one process cannot see each
+other's. A random-program differential fuzzer (`pnpm test:fuzz`) joins
+the e2e cases; it is opt-in (`LUCENT_FUZZ=1`) rather than on every CI
+run, since each program costs a native build.
+
+**2026-10-08: Benchmarks run JavaScript as release builds do.** The
+kernels' JavaScript baseline was source Hermes ran unoptimized; release
+builds ship `hermesc -O` bytecode. `scripts/bench.ts` now compiles it so
+(when hermesc is built), which lowers the measured speedups (mandelbrot
+14x → 5.4x on the development container) without changing the budgets:
+they were calibrated as minimums, and the CI runner's numbers decide
+whether one needs a new decision. The generated code's object size gets
+a budget, enforced everywhere, and the install time one reported on
+shared runners. _Why:_ a speedup against unoptimized JavaScript claimed
+more than an app would see.
+
 **2026-10-07: Views without a switch.** The maintainer removed the
 internal `LUCENT_VIEWS=fabric` switch: every compile resolves `lucent:ui`,
 the toolkits and JSX, and generates components' Fabric sources, so a
@@ -1613,6 +1656,36 @@ the runtime, size and build budgets, rather than only producing shorter C++.
 
 **Notes:**
 
+- Review follow-ups (2026-10-08, fix/review-codegen): a field's or module
+  variable's string `+=` appends in place (`lucent::appendTo`) and a
+  template literal is one `lucent::concat`; a counter's test compares
+  integer registers (a `length` has an int64 form), and a counter stepping
+  by more than 1 is an int64 only toward a bound short of 2^53; `for … of`
+  binds each element by `const&` where its body calls nothing (a map entry
+  as a tuple of references, so an unused key is not copied); an async
+  function without `await` returns a settled promise without a coroutine
+  frame; `lucent::Fn` allocates once; boundary paths are rendered only on
+  failure and `Promise` is looked up once per runtime; a Java class passed
+  as an argument is looked up once per call site; SwiftUI values decode
+  with checked casts. The native builds precompile the runtime's umbrella
+  header (`cpp/lucent/prefix.h`): one edited unit 6.5 s → 4.3 s
+  (`bench-build.ts`'s `native/body-edit`, budgeted). `bench.ts` runs the
+  JavaScript baseline as `hermesc -O` bytecode, as release builds do
+  (mandelbrot 14x → 5.4x against its 5x budget on a 2-core Xeon), and
+  budgets the generated objects' size and the install time. The host-only
+  generated-code corpus is committed and compared by `pnpm test`. Not done,
+  and why: splitting `lucent_app.h` per module (a struct's shape change
+  rebuilding only its users) needs every class, interface and JSON writer
+  ordered by the complete types it needs, across modules: its own task;
+  integer element types for local arrays (the `crc32` table) change the
+  array's C++ type, which every call, return and conversion of it sees, so
+  they need the representation to follow the array through the IR rather
+  than a local inference; and stack-allocating non-escaping object
+  literals would give `Ref<T>`'s holders an object with no owner count,
+  which `===` identity, closures and `lucent::Object`'s weak references
+  rely on. The JNI call sites stay a lambda each: a function template's
+  arguments would be evaluated before its local frame is pushed, and their
+  local references would outlive it.
 - Against handwritten C++ (the same kernels, written natively, on the same
   host): `fnv1a`, `xorshift`, `mandelbrot`, `sortNumbers`, `wordCount` and
   `strings` are within 20% or faster; `murmur`, `crc32` and `sieve` are
@@ -2540,6 +2613,20 @@ iOS simulator and the Android emulator; physical-device checks are
   (see the decision of the same date); e2e `optional-arguments` and the
   extended `collections`, `strings`, `numbers`, `errors`, `kind-checks`
   and `misc` cases check them against Hermes.
+- **Compiler review** (2026-10-08) Fixed the review's miscompiles: a
+  `for (let …)` counter the body assigns is copied per iteration
+  (`renew`), `??` and `??=` test a type parameter's value and `??=` on a
+  present type compiles, recursive struct shapes key by their whole
+  shape, reduce takes a computed initial value, and the effects analysis
+  counts checked `as`, narrowed element reads and bigint `/ % **` as
+  throwing. The IR verifier checks plans' operands and thrown classes,
+  and a region's completion is decided once (linear, not quadratic). A
+  compiler fault is a `LUCENT9002` at its function; each compile has its
+  own context; checks reuse the last program (`oldProgram`); logical
+  operators lower only in the IR. e2e `loop-closures`,
+  `nullish-generics`, `recursive-shapes` and `reduce-operands` cover
+  them, and `pnpm test:fuzz` runs random programs in the subset against
+  JavaScript (see docs/testing.md).
 
 ### Runtime and execution
 

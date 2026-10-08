@@ -4,6 +4,13 @@ cmake_minimum_required(VERSION 3.13)
 set(CMAKE_VERBOSE_MAKEFILE on)
 
 set(LUCENT_ROOT ${CMAKE_CURRENT_LIST_DIR}/..)
+# The project's directory, relative to this package's (lucent build writes
+# it). Generated code names its sources relative to it, and the build maps
+# it to "." (debug information, __FILE__), so no machine's path reaches the
+# binary: a debugger maps "." back with a source map.
+set(LUCENT_PROJECT "../..")
+get_filename_component(LUCENT_PROJECT_ROOT "${LUCENT_ROOT}/${LUCENT_PROJECT}" REALPATH)
+set(LUCENT_PREFIX_MAP -ffile-prefix-map=${LUCENT_PROJECT_ROOT}=.)
 file(GLOB_RECURSE LUCENT_SOURCES CONFIGURE_DEPENDS ${LUCENT_ROOT}/cpp/*.cpp)
 # Projects with platform modules generate one set of files per target
 # (cpp/generated/ios, cpp/generated/android); Android builds its own.
@@ -16,7 +23,7 @@ add_library(lucentregexp STATIC ${LUCENT_C_SOURCES})
 set_target_properties(lucentregexp PROPERTIES POSITION_INDEPENDENT_CODE ON C_STANDARD 11)
 # Hidden, and prefixed lucent_ (third_party/quickjs/lucent_prefix.h): an app
 # linking another QuickJS has no clash.
-target_compile_options(lucentregexp PRIVATE -w -O2 -fvisibility=hidden)
+target_compile_options(lucentregexp PRIVATE -w -O2 -fvisibility=hidden ${LUCENT_PREFIX_MAP})
 
 add_library(lucentnative OBJECT ${LUCENT_SOURCES})
 
@@ -35,6 +42,7 @@ endif()
 # PLT of the app's shared library (a string argument made three such calls).
 # Natives are bound with RegisterNatives, so nothing is looked up by name.
 target_compile_options(lucentnative PRIVATE
+  ${LUCENT_PREFIX_MAP}
   -fvisibility=hidden
   $<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>
   $<$<COMPILE_LANGUAGE:CXX>:-std=c++20>
@@ -49,6 +57,14 @@ target_compile_options(lucentnative PRIVATE
   $<$<COMPILE_LANGUAGE:CXX>:-Wno-parentheses-equality>
   $<$<COMPILE_LANGUAGE:CXX>:-Wno-comma>
 )
+
+# Every generated unit parses the runtime's umbrella header (the standard
+# library with it): precompiled once, an edited module recompiles in about
+# half the time. C sources see nothing of it (cpp/lucent/prefix.h).
+if(COMMAND target_precompile_headers AND NOT LUCENT_NO_PCH)
+  target_precompile_headers(lucentnative PRIVATE
+    "$<$<COMPILE_LANGUAGE:CXX>:${LUCENT_ROOT}/cpp/lucent/prefix.h>")
+endif()
 
 target_link_libraries(lucentnative jsi reactnative fbjni log android lucentregexp)
 

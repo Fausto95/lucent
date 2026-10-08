@@ -29,6 +29,7 @@ the build.
 | `packages/runtime/test/jsi/run.sh`            | the JSI host across runtimes (teardown, reload, stale objects) and a hand-written module in Hermes; `SANITIZE=1` or `thread` add sanitizers                                                                                                            | yes          |
 | `packages/runtime/test/jni/run.sh`            | the JNI glue (`platform/android.cpp`) on a desktop JVM with `-Xcheck:jni`: what crosses from Java into Lucent code, and the local references it leaves; needs a JDK, skipped without one                                                               | no           |
 | `pnpm test:e2e [case…]`                       | differential end-to-end cases                                                                                                                                                                                                                          | yes          |
+| `pnpm test:fuzz [--seed N] [--count N]`       | random programs in the subset, run as differential cases                                                                                                                                                                                               | yes          |
 | `node scripts/app-check.ts apps/bare-example` | an example app's real Metro bundle against its generated C++                                                                                                                                                                                           | yes          |
 | `node scripts/bench.ts --check`               | performance budgets                                                                                                                                                                                                                                    | yes          |
 | `node scripts/smoke-install.ts`               | packed packages install and run in an empty project                                                                                                                                                                                                    | no           |
@@ -63,6 +64,13 @@ it. C++ is compared as tokens, so layout changes pass. Files that then
 differ only in parentheses or braces are counted apart; any other change
 shows as a diff. Run it before and after a change to code generation that
 should keep the output's meaning.
+
+With `--host`, the corpus is the end-to-end cases for the host only, without
+`#line` directives: what any machine generates without a platform SDK. That
+corpus is committed (`packages/compiler/test/corpus`), and
+`test/codegen-corpus.test.ts` (part of `pnpm test`, so CI's unit tests) fails
+with the diff whenever the generated code changes. Review it, then write the
+corpus again with `pnpm corpus:write` in the same commit as the change.
 
 ## Declaration audit
 
@@ -103,6 +111,20 @@ documents the deviation in [semantics.md](semantics.md). After changing cases,
 run `node scripts/sync-examples.ts`: the example apps' on-device test
 screens run the same cases.
 
+### The differential fuzzer
+
+`pnpm test:fuzz [--seed N] [--count N]` (`packages/compiler/test/e2e/fuzz.ts`)
+writes random programs in the subset (loops whose closures capture their
+`let` counters, `??` and `??=` on type parameters, compound assignments,
+reduce, throwing bigint division) and runs each through `run.ts` as a case.
+A program the compiler refuses with a LUCENT diagnostic is skipped; a type
+error, an internal error (`LUCENT9002`), a crash or a different output
+fails. A seed gives one program on every machine: `--keep DIR` keeps them,
+to rerun one with `LUCENT_E2E_CASES=DIR pnpm test:e2e fuzz-<seed>` and turn
+it into a case. `packages/compiler/test/fuzz.test.ts` checks that its
+programs compile; with `LUCENT_FUZZ=1` (and `LUCENT_FUZZ_SEED`) and Hermes
+built, it runs three of them too.
+
 ## Sanitizers
 
 ```sh
@@ -133,14 +155,20 @@ host's native code.
 
 `scripts/bench.ts` times the kernels in `cases/kernels.lucent.ts`, compiled
 and called over JSI, against the same code as JavaScript in one Hermes
-runtime. `--check` fails when a kernel's speedup drops below its minimum in
+runtime. The JavaScript runs as a release build ships it: bytecode compiled
+with `hermesc -O` (as React Native's Xcode script and Gradle plugin do for
+release), when `$HERMES_DIR/build/bin/hermesc` is built; otherwise from
+source, with a warning, which is slower and flatters Lucent. `--check` fails when a kernel's speedup drops below its minimum in
 `scripts/bench-budgets.json`. The budgets are calibrated on the CI runner.
 
 It also times the boundary (`cases/boundary.lucent.ts`): batched calls
 against 1,000 single ones (`scripts/bench-boundary-budgets.json`), and one
 call against the same call to a bare JSI host function that converts like a
 codegen C++ TurboModule (`scripts/bench-floor.cpp`,
-`scripts/bench-floor-budgets.json`).
+`scripts/bench-floor-budgets.json`). And it measures the generated code's
+objects at -O2 and installing Lucent (the host, then every module's exports),
+against `scripts/bench-size-budgets.json`: the size is enforced everywhere,
+the install time reported on a shared runner.
 
 Budgets compare the best of 11 rounds; JavaScript and Lucent rounds
 alternate, so drift affects both. `--json <file>` writes the run as data
@@ -155,7 +183,11 @@ size of the generated code. p95 is reported from 20 samples and p99 from
 case module in one app, built for the host: a cold build, a build with
 nothing to do, a build and a check after a function body changes. Times
 include starting the CLI; the check step's own time comes from
-`.lucent/build-record.json`. It takes `--rounds N` and `--json <file>`.
+`.lucent/build-record.json`. With clang, it also times compiling the edited
+module's C++ unit as the native builds do, with the runtime's umbrella header
+precompiled (`native/body-edit`) and without (`native/body-edit-no-pch`). It
+takes `--rounds N` and `--json <file>`; `--check` holds each scenario's p95 to
+`scripts/bench-build-budgets.json`.
 
 On devices, the example apps' Compare tab runs NitroBenchmarks
 (github.com/mrousavy/NitroBenchmarks): 100,000 calls of `addNumbers` and

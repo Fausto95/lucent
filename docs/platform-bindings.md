@@ -454,7 +454,7 @@ _exercised_ (listed in an `--exercised` file of symbol keys that tests or
 probes write). A stage without evidence is unknown (`-`, `null` in JSON),
 not 0. `--members` lists every member with its stage, symbol key, native
 symbol, artifact and reason. CI fails when a module's unrepresentable
-share grows past `sdk-coverage.json`. `--all` takes every module of each
+share grows past `config/sdk-coverage.json`. `--all` takes every module of each
 SDK there is, listing the ones its extractor cannot read rather than
 failing (IOKit, and the cross-import overlays, for the simulator), and
 `--summary <file>` appends a markdown summary: the members in total and

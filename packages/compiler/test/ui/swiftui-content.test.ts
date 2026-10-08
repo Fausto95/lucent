@@ -142,7 +142,7 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
     expect(glue).toMatch(/->add\(lucent_key, lucent_item\);/);
     expect(glue).toContain("lucent::swiftui::record({lucent::swiftui::value(lucent_key), ");
     // An action given the item finds it by key, and does nothing once it is gone.
-    expect(glue).toMatch(/auto found0 = items_0_\d+->find\(p0\);/);
+    expect(glue).toMatch(/auto found0 = items_0_\d+_->find\(p0\);/);
     expect(swiftErrors(built)).toBe("");
   }, 300_000);
 
@@ -205,7 +205,7 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
     const glue = generated(built.result, /^ios\/m_counter\.mm$/);
 
     expect(glue).toMatch(
-      /\[signal = draft\]\(lucent::String value\) mutable \{\s+signal\.set\(value\);/,
+      /\[signal = draft\]\(lucent::String value\) mutable \{\s+(?:#line .*\n\s*)?signal\.set\(value\);/,
     );
     expect(swiftErrors(built)).toBe("");
   }, 300_000);
@@ -502,7 +502,7 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
     const glue = generated(built.result, /^ios\/m_counter\.mm$/);
 
     expect(glue).toMatch(
-      /double (v\d+_) = speed\.peek\(\);\n.*double (v\d+_) = \1 \* 2\.0;[^]*double lucent_a0 = \2;/,
+      /double (v\d+_) = speed\.peek\(\);\n(?:#line .*\n)?.*double (v\d+_) = \1 \* 2\.0;[^]*double lucent_a0 = \2;/,
     );
     expect(swiftErrors(built)).toBe("");
   }, 300_000);

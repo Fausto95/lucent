@@ -319,6 +319,7 @@ void Host::tearDown(bool runtimeUsable) {
   if (auto e = scope_->dispose()) reportUncaught(e, "host");
 
   functions_.clear();
+  promiseConstructor_.reset();
   prototypes_.clear();
   modules_.clear();
   exported_.clear();
@@ -394,7 +395,8 @@ jsi::Value Host::createPromise(jsi::Runtime& rt, uint64_t& id) {
         slot->second.emplace(args[1].getObject(rt).getFunction(rt));
         return jsi::Value::undefined();
       });
-  jsi::Value promise = rt.global().getPropertyAsFunction(rt, "Promise").callAsConstructor(rt, executor);
+  if (!promiseConstructor_) promiseConstructor_.emplace(rt.global().getPropertyAsFunction(rt, "Promise"));
+  jsi::Value promise = promiseConstructor_->callAsConstructor(rt, executor);
   promises_.emplace(id, Resolvers{std::move(*slot->first), std::move(*slot->second)});
   slot->first.reset();
   slot->second.reset();

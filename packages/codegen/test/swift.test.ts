@@ -59,6 +59,20 @@ describe("Swift expressions", () => {
     expect(printExpr(swift.nil)).toBe("nil");
   });
 
+  it("print string literals as Swift spells them, not JSON", () => {
+    const str = (v: string) => printExpr(swift.str(v));
+
+    expect(str("a\\b\t\n\r\"'")).toBe(String.raw`"a\\b\t\n\r\"\'"`);
+    // NUL and the other controls, which JSON writes \u0000, Swift as \0 and \u{…}.
+    expect(str("\0\u0001\u001f\u007f")).toBe(String.raw`"\0\u{1}\u{1f}\u{7f}"`);
+    // Interpolation does not start in a literal.
+    expect(str("\\(x)")).toBe(String.raw`"\\(x)"`);
+    // Non-ASCII stays as it is, line and paragraph separators escaped.
+    expect(str("é🌍\u2028\u2029")).toBe(String.raw`"é🌍\u{2028}\u{2029}"`);
+    // A Swift String cannot hold a lone surrogate: it is U+FFFD, as bridging an NSString makes it.
+    expect(str("a\uD800b\uDC00")).toBe(String.raw`"a\u{fffd}b\u{fffd}"`);
+  });
+
   it("print array literals and subscripts", () => {
     const cases = swift.arrayLiteral([
       member(name("Palette"), "red"),
@@ -573,6 +587,22 @@ describe("Swift declarations", () => {
         "}",
         "",
       ].join("\n"),
+    );
+  });
+});
+
+describe("Swift addition", () => {
+  it("binds tighter than a comparison and a cast, left to right", () => {
+    const [a, b, c] = [name("a"), name("b"), name("c")];
+
+    expect(printExpr(swift.binary(swift.binary(a, "+", b), "+", c))).toBe("a + b + c");
+    expect(printExpr(swift.binary(a, "+", swift.binary(b, "+", c)))).toBe("a + (b + c)");
+    expect(printExpr(swift.binary(swift.binary(a, "+", b), "==", c))).toBe("a + b == c");
+    expect(printExpr(swift.cast(swift.binary(a, "+", b), "as", swift.type("String")))).toBe(
+      "a + b as String",
+    );
+    expect(printExpr(swift.binary(swift.cast(a, "as", swift.type("String")), "+", b))).toBe(
+      "(a as String) + b",
     );
   });
 });
