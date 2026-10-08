@@ -2,10 +2,23 @@
   "$schema": "../node_modules/@changesets/config/schema.json",
   "baseBranch": "main",
   "access": "public",
-  "changelog": ["@changesets/changelog-github", { "repo": "Fausto95/lucent" }],
+  "changelog": [
+    "@changesets/changelog-github",
+    {
+      "repo": "Fausto95/lucent"
+    }
+  ],
   "commit": false,
   "format": false,
-  "fixed": [],
+  "fixed": [
+    [
+      "@lucent-lang/lucent",
+      "@lucent-lang/compiler",
+      "@lucent-lang/runtime",
+      "@lucent-lang/bindgen",
+      "@lucent-lang/codegen"
+    ]
+  ],
   "linked": [],
   "ignore": [
     "bare-example",
@@ -17,5 +30,9 @@
     "bench-turbo",
     "bench-turbo-cxx"
   ],
-  "updateInternalDependencies": "patch"
+  "updateInternalDependencies": "patch",
+  "privatePackages": {
+    "version": true,
+    "tag": false
+  }
 }
