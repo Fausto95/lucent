@@ -81,9 +81,10 @@ export async function pulsesUntilAborted(stopAt: number): Promise<string> {
   );
 
   orb.emitPulses(stopAt + 5, false);
+  // An abort ends the subscription: it resolves, as a stopped watch does.
   try {
     await watching;
-    return "ended";
+    return `${levels.join(" ")}; ended; attached ${orb.attachedCount}`;
   } catch (e) {
     return `${levels.join(" ")}; ${(e as Error).name}; attached ${orb.attachedCount()}`;
   }
