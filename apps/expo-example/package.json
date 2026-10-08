@@ -36,6 +36,6 @@
   "devDependencies": {
     "@lucent-lang/lucent": "workspace:*",
     "@types/react": "~19.3.0",
-    "typescript": "~6.0.3"
+    "typescript": "~7.0.2"
   }
 }
