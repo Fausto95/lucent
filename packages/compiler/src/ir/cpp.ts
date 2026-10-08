@@ -34,7 +34,7 @@ import {
   regionsOf,
   resultOf,
   type RegionId,
-  runsThrough,
+  Completion,
   type TargetId,
   type UnaryOp,
   type ValueId,
@@ -205,6 +205,8 @@ class Emitter {
   /** Whether the body emitted so far suspends or returns as a coroutine (co_await, co_yield, co_return). */
   private suspended = false;
   private line?: string;
+  /** Which of the function's regions complete, decided once each. */
+  private completion?: Completion;
 
   /** Whether this is the function's own body, not a closure's. */
   private readonly top: boolean;
@@ -828,7 +830,8 @@ class Emitter {
 
   /** Whether running `op` can reach what follows it. */
   completes(op: IrOp): boolean {
-    return runsThrough(this.fn, [op]);
+    this.completion ??= new Completion(this.fn);
+    return this.completion.ops([op]);
   }
 
   /** The exception pending in the innermost finally region being emitted. */

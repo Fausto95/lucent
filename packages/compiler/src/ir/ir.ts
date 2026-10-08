@@ -666,58 +666,74 @@ export function placeOf(op: IrOp): PlaceId | undefined {
  * `break` leaves, or a `block` that neither ends nor is left.
  */
 export function completes(fn: Pick<IrFunction, "regions">, id: RegionId): boolean {
-  return runsThrough(fn, fn.regions[id]?.ops ?? []);
+  return new Completion(fn).region(id);
 }
 
 /** Whether running `ops`, operations of `fn`, can reach their end (see `completes`). */
 export function runsThrough(fn: Pick<IrFunction, "regions">, ops: readonly IrOp[]): boolean {
-  const broken = brokenTargets(fn);
-  const run = (region: RegionId): boolean => through(fn.regions[region]?.ops ?? []);
-  const through = (ops: readonly IrOp[]): boolean => {
+  return new Completion(fn).ops(ops);
+}
+
+/**
+ * Which regions of a function can reach their end (see `completes`), each
+ * region decided once: asking of every operation of a function is linear
+ * in its size. Its function must not change while it is used.
+ */
+export class Completion {
+  private readonly fn: Pick<IrFunction, "regions">;
+  private broken?: Set<TargetId>;
+  private readonly known = new Map<RegionId, boolean>();
+
+  constructor(fn: Pick<IrFunction, "regions">) {
+    this.fn = fn;
+  }
+
+  region(id: RegionId): boolean {
+    let r = this.known.get(id);
+
+    if (r === undefined) {
+      r = this.ops(this.fn.regions[id]?.ops ?? []);
+      this.known.set(id, r);
+    }
+    return r;
+  }
+
+  ops(ops: readonly IrOp[]): boolean {
     for (const op of ops) {
       // A yield gives its if's result: what follows the if runs next.
       if (op.kind === "yield") return true;
 
       if (isTerminator(op)) return false;
 
-      if (op.kind === "if" && !run(op.whenTrue) && !run(op.whenFalse)) return false;
+      if (op.kind === "if" && !this.region(op.whenTrue) && !this.region(op.whenFalse)) return false;
 
-      if (op.kind === "loop" && !broken.has(op.target)) return false;
+      if (op.kind === "loop" && !this.left(op.target)) return false;
 
-      const left = op.kind === "block" && op.target !== undefined && broken.has(op.target);
+      const left = op.kind === "block" && op.target !== undefined && this.left(op.target);
 
-      if (op.kind === "block" && !left && !run(op.body)) return false;
+      if (op.kind === "block" && !left && !this.region(op.body)) return false;
 
       // A try completes when its body or its catch does, and so does its finally.
       if (op.kind === "try") {
-        const normal = run(op.body) || (op.catch !== undefined && run(op.catch.region));
+        const normal =
+          this.region(op.body) || (op.catch !== undefined && this.region(op.catch.region));
 
-        if (!normal || (op.finally !== undefined && !run(op.finally))) return false;
+        if (!normal || (op.finally !== undefined && !this.region(op.finally))) return false;
       }
     }
     return true;
-  };
+  }
 
-  return through(ops);
-}
+  /** Whether some `break` leaves `target`. */
+  private left(target: TargetId): boolean {
+    if (!this.broken) {
+      this.broken = new Set();
 
-/** The targets some `break` leaves, of each function's regions (computed once per regions array). */
-const BROKEN = new WeakMap<readonly IrRegion[], { ops: number; targets: Set<TargetId> }>();
-
-function brokenTargets(fn: Pick<IrFunction, "regions">): Set<TargetId> {
-  // A builder's regions grow while it lowers: what was computed holds while no op was added.
-  const ops = fn.regions.reduce((n, r) => n + r.ops.length, 0);
-  const known = BROKEN.get(fn.regions);
-
-  if (known && known.ops === ops) return known.targets;
-
-  const targets = new Set<TargetId>();
-
-  for (const r of fn.regions)
-    for (const op of r.ops) if (op.kind === "break") targets.add(op.target);
-
-  BROKEN.set(fn.regions, { ops, targets });
-  return targets;
+      for (const r of this.fn.regions)
+        for (const op of r.ops) if (op.kind === "break") this.broken.add(op.target);
+    }
+    return this.broken.has(target);
+  }
 }
 
 const TERMINATORS = new Set<IrOp["kind"]>([
