@@ -433,6 +433,19 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-08: Lucent makes Swift modules that a build would.** A Swift
+pod's module and a Lucent package's `ios.nativeSources` Swift
+(`lucent:ios/LucentNative`, the native package's own module) are emitted
+with `swiftc -emit-module` against the app's pods on first import, keyed
+by their sources' contents, and a local Swift package is built from a
+copy of its directory. _Why:_ the diagnostic for an unbindable member
+says to wrap it in Swift of your own, which was then not callable: these
+modules exist only after Xcode builds the app, and binding must work
+before that build, as it does for pods. Building pod targets with
+`xcodebuild` was rejected: it builds their dependencies (React Native's)
+for nothing Lucent reads. Reading Xcode's DerivedData was rejected, as
+for Swift packages on 2026-10-04.
+
 **2026-10-08: Swift AsyncSequences are collected as Flows are.** An
 AsyncSequence (AsyncStream, `some AsyncSequence<E, F>`, or a module's type
 conforming to it, such as StoreKit's `Transaction.Transactions`) is
@@ -2170,6 +2183,17 @@ targets.
       one: the app target's `IPHONEOS_DEPLOYMENT_TARGET` (the expo
       example's 16.4) is the extraction target, and the oldest iOS the
       availability checks and the generated pod use (never below 15.1).
+- [x] Carried over from the 2026-10-08 review: bind the app's own Swift
+      that is not in a module before a build. Local packages
+      (`XCLocalSwiftPackageReference`) build from a copy of their
+      directory, keyed by its contents (`spm:identity@local`); Swift pods
+      (static library or `use_frameworks!`, no public Objective-C headers)
+      and a Lucent package's `ios.nativeSources` Swift
+      (`lucent:ios/LucentNative`) are made with `swiftc -emit-module`
+      against the app's pods; pods' XCFrameworks bind through their
+      simulator slice. Verified on Linux against a stand-in for Xcode
+      (`own-swift.test.ts`, `pods.test.ts`, `swift-packages.test.ts`,
+      `xcode.test.ts`); not yet run against real Xcode.
 
 `packages/lucent/test/swift-packages.test.ts` adds a package tagged 1.0.0
 to an app deployed to iOS 16.4: it binds from `spm:gauges@1.0.0` read for
