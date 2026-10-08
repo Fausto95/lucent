@@ -213,7 +213,8 @@ describe("SDK declarations", () => {
     expect(d).toContain("  static readonly NEVER: 9223372036854775807n;");
     expect(d).toContain("  static readonly WINDOW_LONG: 60000;");
     expect(d).toContain("  static elapsed(): bigint;");
-    expect(d).toContain("  static sleep(ms: bigint): void;");
+    // A parameter takes a number too, checked to be a safe integer.
+    expect(d).toContain("  static sleep(ms: bigint | number): void;");
     expect(d).toContain("  setWindow(window: number): void;");
     expect(d).toContain("  times(): bigint[];");
   });
