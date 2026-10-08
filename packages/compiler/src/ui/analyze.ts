@@ -235,9 +235,7 @@ function returnsOnlyUntyped(
   // A declaration (the host's stub of a split module): its declared return type.
   if (!fn.body) {
     const signature = checker.getSignatureFromDeclaration(fn);
-    return !!(
-      signature && checker.getReturnTypeOfSignature(signature).flags & ts.TypeFlags.Any
-    );
+    return !!(signature && checker.getReturnTypeOfSignature(signature).flags & ts.TypeFlags.Any);
   }
   const returned = returnedExpressions(checker, fn, platform);
   return (

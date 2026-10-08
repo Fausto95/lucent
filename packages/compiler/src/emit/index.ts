@@ -137,9 +137,7 @@ export function emitProgram(
   function untypedStub(s: ts.Statement): boolean {
     if (!ts.isFunctionDeclaration(s) || s.body || !stubs.has(s.getSourceFile())) return false;
     const signature = lp.checker.getSignatureFromDeclaration(s);
-    return !!(
-      signature && lp.checker.getReturnTypeOfSignature(signature).flags & ts.TypeFlags.Any
-    );
+    return !!(signature && lp.checker.getReturnTypeOfSignature(signature).flags & ts.TypeFlags.Any);
   }
 
   // Pass 1: classes, then functions and variables, so every body can refer to
