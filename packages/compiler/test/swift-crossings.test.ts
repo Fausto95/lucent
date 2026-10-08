@@ -87,6 +87,18 @@ const set = () =>
               returns: "Kit.KITCorners",
               swift: { name: "corners()" },
             },
+            {
+              name: "area",
+              params: [],
+              returns: "double",
+              swift: { name: "area()" },
+            },
+            {
+              name: "ready",
+              params: [],
+              returns: "bool",
+              swift: { name: "ready()", async: true },
+            },
           ],
           properties: [{ name: "limit", type: "int64?", swift: { name: "limit" } }],
         },
@@ -118,6 +130,23 @@ export async function run(): Promise<string> {
     expect(p.mm).toContain("doubleValue");
     expect(p.mm).toContain("boolValue");
     expect(p.mm).toContain("longLongValue");
+  });
+
+  it("reads numbers and booleans that aren't optional back as scalars", () => {
+    const p = setProgram(
+      `import { Meter } from "lucent:ios/Gauges";
+export async function run(): Promise<string> {
+  const m = new Meter();
+  return \`\${m.area()} \${await m.ready()}\`;
+}
+`,
+      set(),
+    );
+
+    expect(p.messages).toEqual([]);
+    // The shim gives a Double and a Bool, which the glue reads as they are.
+    expect(p.mm).toMatch(/double r_ = lucent_swift_/);
+    expect(p.mm).not.toContain("id e_ = r_");
   });
 
   it("passes Objective-C enums to Swift as their raw values", () => {
