@@ -1,0 +1,159 @@
+name: Device run
+
+# The bare example's Tests screen (every end-to-end case, through the C++ the compiler wrote and
+# the platform's own toolchain built) on the iOS simulator or the Android emulator, until it
+# shows its verdict (testID lucent-summary, logged as LUCENT_SUMMARY). ci.yml calls it nightly,
+# for pull requests that change the runtime or the compiler, and before a release; it can be
+# run by hand too.
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        description: ios or android
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: ios or android
+        required: true
+        type: choice
+        options: [ios, android]
+
+permissions:
+  contents: read
+
+env:
+  # As in ci.yml: a called workflow has its own env.
+  XCODE_VERSION: "26.6"
+  LANG: en_US.UTF-8
+  LC_ALL: en_US.UTF-8
+  DEVICE_CHECK_OUT: ${{ github.workspace }}/device-check
+
+jobs:
+  ios:
+    name: iOS simulator
+    if: inputs.platform == 'ios'
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      USE_CCACHE: "1"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: apps/bare-example
+      - uses: ./.github/actions/sdk-cache
+        with:
+          key: devices-ios
+      # The iOS app build's objects: the same compiler and flags as ci.yml's build for the simulator.
+      - uses: ./.github/actions/ccache
+        with:
+          key: ios
+      - name: Install pods (their headers, for lucent build)
+        working-directory: apps/bare-example/ios
+        run: bundle exec pod install
+      - name: Generate the native package, for iOS
+        working-directory: apps/bare-example
+        run: pnpm lucent --platforms ios
+      - name: Install pods (linking the native package)
+        working-directory: apps/bare-example/ios
+        run: bundle exec pod install
+      - name: Build for the simulator
+        working-directory: apps/bare-example/ios
+        timeout-minutes: 35
+        run: |
+          set -o pipefail
+          xcodebuild -workspace BareExample.xcworkspace -scheme BareExample \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tee build.log | tail -n 200
+      # A Debug build loads its bundle from Metro: started here, and asked for the bundle once
+      # so that the app's first request doesn't wait for the whole build.
+      - name: Start Metro
+        working-directory: apps/bare-example
+        run: |
+          nohup pnpm exec react-native start --port 8081 > "$RUNNER_TEMP/metro.log" 2>&1 &
+          for _ in $(seq 60); do curl -sf http://localhost:8081/status && break; sleep 2; done
+          curl -sSf --max-time 600 -o /dev/null 'http://localhost:8081/index.bundle?platform=ios&dev=true&minify=false'
+      - name: Run the Tests screen
+        run: node scripts/device-check.ts ios --app apps/bare-example/ios/build/Build/Products/Debug-iphonesimulator/BareExample.app
+      - name: Keep the logs and the screen
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: device-run-ios
+          path: |
+            device-check/
+            apps/bare-example/ios/build.log
+            ${{ runner.temp }}/metro.log
+          if-no-files-found: ignore
+
+  android:
+    name: Android emulator
+    if: inputs.platform == 'android'
+    # Linux with KVM: an emulator two to three times faster than on macOS, and no macOS runner held.
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/sdk-cache
+        with:
+          key: devices-android
+      - uses: ./.github/actions/ccache
+        with:
+          key: android
+      - name: Generate the native package, for Android
+        working-directory: apps/bare-example
+        run: pnpm lucent --platforms android
+      - name: Build
+        working-directory: apps/bare-example/android
+        run: ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --build-cache --parallel
+      - name: Start Metro
+        working-directory: apps/bare-example
+        run: |
+          nohup pnpm exec react-native start --port 8081 > "$RUNNER_TEMP/metro.log" 2>&1 &
+          for _ in $(seq 60); do curl -sf http://localhost:8081/status && break; sleep 2; done
+          curl -sSf --max-time 600 -o /dev/null 'http://localhost:8081/index.bundle?platform=android&dev=true&minify=false'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run the Tests screen on the emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          ram-size: 4096M
+          disk-size: 6000M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: node scripts/device-check.ts android --apk apps/bare-example/android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Keep the logs and the screen
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: device-run-android
+          path: |
+            device-check/
+            ${{ runner.temp }}/metro.log
+          if-no-files-found: ignore

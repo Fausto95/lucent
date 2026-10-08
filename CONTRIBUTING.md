@@ -35,18 +35,18 @@ The repository layout, and the rules every change follows, are in
 
 ## Tests
 
-| Command                                       | Checks                                                           | Needs  |
-| --------------------------------------------- | ---------------------------------------------------------------- | ------ |
-| `pnpm test`                                   | compiler, CLI and website unit tests, without the slow ones      |        |
-| `pnpm test:all`                               | the unit tests with the slow ones (as CI runs them)              |        |
-| `pnpm test:runtime`                           | the C++ runtime; add `SANITIZE=1` (and `CXX=g++`) for sanitizers |        |
-| `pnpm test:e2e [case…]`                       | each language feature, native against JavaScript                 | Hermes |
-| `node scripts/app-check.ts apps/bare-example` | an example app's bundle against its C++                          | Hermes |
-| `node scripts/bench.ts --check`               | performance budgets                                              | Hermes |
-| `node scripts/smoke-install.ts`               | the packed package, installed alone in a fresh app               |        |
-| `pnpm typecheck`                              | the repository's TypeScript                                      |        |
-| `pnpm check`                                  | formatting (Oxfmt), lint (Oxlint) and `pnpm typecheck`           |        |
-| `node scripts/website.ts --check`             | the website (below)                                              | Vale   |
+| Command                                       | Checks                                                                                  | Needs  |
+| --------------------------------------------- | --------------------------------------------------------------------------------------- | ------ |
+| `pnpm test`                                   | compiler, CLI and website unit tests, without the slow ones                             |        |
+| `pnpm test:all`                               | the unit tests with the slow ones (as CI runs them)                                     |        |
+| `pnpm test:runtime`                           | the C++ runtime; `SANITIZE=1` (ASan, UBSan) or `SANITIZE=thread` (TSan), with `CXX=g++` |        |
+| `pnpm test:e2e [case…]`                       | each language feature, native against JavaScript                                        | Hermes |
+| `node scripts/app-check.ts apps/bare-example` | an example app's bundle against its C++                                                 | Hermes |
+| `node scripts/bench.ts --check`               | performance budgets                                                                     | Hermes |
+| `node scripts/smoke-install.ts`               | the packed package, installed alone in a fresh app                                      |        |
+| `pnpm typecheck`                              | the repository's TypeScript                                                             |        |
+| `pnpm check`                                  | formatting (Oxfmt), lint (Oxlint) and `pnpm typecheck`                                  |        |
+| `node scripts/website.ts --check`             | the website (below)                                                                     | Vale   |
 
 CI shards the unit tests by how long each file takes on each runner's
 platform (`config/test-timings.json`, read by `config/vitest.sequencer.ts`).
@@ -60,8 +60,21 @@ build side by side, one compiler per core; `LUCENT_TEST_JOBS` (and, for
 e2e's cases, `LUCENT_E2E_JOBS`) set how many.
 
 [docs/testing.md](docs/testing.md) explains the differential suites. Device
-checks run the example apps' test screens on the iOS simulator and the
-Android emulator before a release.
+runs (`.github/workflows/devices.yml`, with `scripts/device-check.ts`) open
+the bare example's Tests screen on the iOS simulator and an Android
+emulator and wait for its verdict: nightly, on pull requests that change
+the runtime or the compiler, and before a release.
+
+### What CI runs
+
+A pull request runs the jobs its files can affect: `scripts/ci-changes.ts`
+maps paths to jobs (a docs-only change runs the Linux unit tests; a
+website change adds the website job; a change under `packages/` runs
+everything but the device runs), and a path it doesn't place runs
+everything. The one check to require is **CI**, which passes when every
+job passed or was skipped. A push to `main` and the nightly run run every
+job; the nightly one adds `sdk coverage --all`. Main's runs are never
+cancelled: each one gates the release that follows it.
 
 ## Commits
 
