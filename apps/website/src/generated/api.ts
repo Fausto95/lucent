@@ -156,8 +156,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "signature": "function subscribe<T>(\n  register: (\n    next: (value: T) => void,\n    end: () => void,\n    fail: (error: Error) => void,\n  ) => (() => void) | void,\n  onValue: (value: T) => void,\n  signal?: AbortSignal,\n): Promise<void>;",
         "doc": [
           "Passes what a listener reports to `onValue` until the subscription ends, and resolves when it does. `register` starts listening at once, and may return the cleanup that stops it.",
-          "`next(value)` calls `onValue(value)` while the subscription is open, and does nothing after. The first of `end()`, `fail(error)`, `onValue` throwing and the signal aborting ends it. The promise then resolves (`end`) or rejects, with the error or the signal's reason.",
-          "The cleanup, a throw from `register`, an aborted signal and calls from other threads behave as in `fromCallback`."
+          "`next(value)` calls `onValue(value)` while the subscription is open, and does nothing after. The first of `end()`, `fail(error)`, `onValue` throwing and the signal aborting ends it. The promise then resolves (`end()`, or the signal: aborting is how the caller ends it) or rejects with the error.",
+          "The cleanup, a throw from `register` and calls from other threads behave as in `fromCallback`. With a signal already aborted, the promise resolves, and `register` is not called."
         ],
         "examples": [],
         "members": [],
@@ -178,7 +178,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "name": "signal",
             "type": "AbortSignal",
             "optional": true,
-            "doc": "Ends the subscription, rejecting with its reason."
+            "doc": "Ends the subscription, and resolves the promise."
           }
         ]
       },

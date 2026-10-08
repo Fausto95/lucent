@@ -54,9 +54,7 @@ export default function App() {
 
   useEffect(() => {
     const controller = new AbortController();
-    watchDownloads(setProgress, controller.signal).catch((e: Error) => {
-      if (e.name !== "AbortError") console.error(e);
-    });
+    watchDownloads(setProgress, controller.signal).catch(console.error);
     return () => controller.abort();
   }, []);
 
@@ -74,9 +72,9 @@ export default function App() {
 
 `subscribe(register, onValue, signal)` calls `register` at once, with `next`, `end` and `fail`. Here it adds `next` to the listeners, and returns the cleanup that removes it. Each `next(value)` passes the value to `onValue` while the subscription is open.
 
-The signal aborting, `end()` or `fail(error)` ends the subscription, and its cleanup then runs once. The promise resolves on `end()` and rejects otherwise.
+The signal aborting, `end()` or `fail(error)` ends the subscription, and its cleanup then runs once. The promise resolves on `end()` and on the signal, and rejects on `fail(error)`.
 
-- When the component unmounts, `abort()` ends the subscription, and `watchDownloads` rejects with an `AbortError`, which the `catch` ignores.
+- When the component unmounts, `abort()` ends the subscription, and `watchDownloads` resolves.
 - Each value reaches JavaScript as a copy, posted to the JS thread. So `onProgress` returns `void`, and what it throws is only logged ([Call a JavaScript callback](/docs/guides/accept-a-js-callback/)).
 - A JavaScript reload doesn't end a subscription that module code made. End each one from JavaScript, as the effect's cleanup does ([What a reload does](/docs/api/language/modules/#what-a-reload-does)).
 

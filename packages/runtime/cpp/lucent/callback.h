@@ -151,9 +151,11 @@ std::function<void()> registerWith(const Fn<Returned(Handed...)>& registration, 
 }
 
 /// Starts an operation of the calling context that `start` registers (with
-/// the composition), following `signal`, and the promise it settles.
+/// the composition), following `signal`, and the promise it settles. The
+/// signal rejects the promise with its reason, or, `abortResolves` (a
+/// subscription its caller ended), resolves it.
 template <class T, class Start>
-Promise<T> compose(const Opt<AbortSignal>& signal, Start start) {
+Promise<T> compose(const Opt<AbortSignal>& signal, Start start, bool abortResolves = false) {
   using Op = Operation<T>;
 
   ContextRef owner = ExecutionContext::currentRef();
@@ -170,12 +172,22 @@ Promise<T> compose(const Opt<AbortSignal>& signal, Start start) {
       },
       abortedBy(signal));
 
-  op->onSettled([promise](const typename Op::Outcome& outcome) {
+  op->onSettled([promise, signal, abortResolves](const typename Op::Outcome& outcome) {
     if (outcome.state == OperationState::Succeeded) {
       promise.resolve(*outcome.value);
-    } else {
-      promise.reject(outcome.error);
+      return;
     }
+    (void)signal;
+    (void)abortResolves;
+    if constexpr (std::is_void_v<T>) {
+      // Cancelled by the signal, not by its scope's end.
+      bool aborted = signal.has() && signal.get() && signal.get()->aborted.load();
+      if (abortResolves && outcome.state == OperationState::Cancelled && aborted) {
+        promise.resolve(undefined);
+        return;
+      }
+    }
+    promise.reject(outcome.error);
   });
 
   return promise;
@@ -207,8 +219,9 @@ Promise<T> fromCallback(const Fn<Returned(Resolve, Fn<void(Error)>)>& registrati
 /// `subscribe(register, onValue, signal)` (lucent:core): calls
 /// `registration` with `next`, `end` and `fail`; `next` calls `onValue`
 /// until the subscription ends, at the first of `end`, `fail`, `onValue`
-/// throwing and the signal. Returns the promise of that end. What
-/// `onValue` returns is ignored.
+/// throwing and the signal. Returns the promise of that end, which the
+/// signal resolves: aborting is how its caller ends it. What `onValue`
+/// returns is ignored.
 template <class Next, class Returned, class OnValue>
 Promise<void> subscribe(const Fn<Returned(Next, Fn<void()>, Fn<void(Error)>)>& registration, OnValue onValue,
                         Opt<AbortSignal> signal = {}) {
@@ -224,7 +237,7 @@ Promise<void> subscribe(const Fn<Returned(Next, Fn<void()>, Fn<void(Error)>)>& r
     Fn<void(Error)> fail = [c](Error error) { c->fail(std::move(error)); };
 
     return detail::registerWith(registration, std::move(next), std::move(end), std::move(fail));
-  });
+  }, true);
 }
 
 }  // namespace lucent

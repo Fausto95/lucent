@@ -102,14 +102,16 @@ export declare function fromCallback<T>(
  * `next(value)` calls `onValue(value)` while the subscription is open, and
  * does nothing after. The first of `end()`, `fail(error)`, `onValue`
  * throwing and the signal aborting ends it. The promise then resolves
- * (`end`) or rejects, with the error or the signal's reason.
+ * (`end()`, or the signal: aborting is how the caller ends it) or rejects
+ * with the error.
  *
- * The cleanup, a throw from `register`, an aborted signal and calls from
- * other threads behave as in `fromCallback`.
+ * The cleanup, a throw from `register` and calls from other threads behave
+ * as in `fromCallback`. With a signal already aborted, the promise
+ * resolves, and `register` is not called.
  *
  * @param register Starts listening with `next`, `end` and `fail`, and may return the cleanup.
  * @param onValue Called with each value while the subscription is open.
- * @param signal Ends the subscription, rejecting with its reason.
+ * @param signal Ends the subscription, and resolves the promise.
  */
 export declare function subscribe<T>(
   register: (

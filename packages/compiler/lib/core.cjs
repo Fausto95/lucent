@@ -113,10 +113,12 @@ function reportUncaught(e) {
 
 // One promise that settles once, at the first of what `start`'s callbacks
 // report and the signal aborting; the cleanup `start` returns runs once, as
-// soon as it settles.
-function compose(signal, start) {
+// soon as it settles. The signal rejects with its reason, or resolves
+// (`abortResolves`: a subscription the caller ended).
+function compose(signal, start, abortResolves = false) {
   return new Promise((resolve, reject) => {
-    if (signal && signal.aborted) return void reject(signal.reason);
+    if (signal && signal.aborted)
+      return void (abortResolves ? resolve(undefined) : reject(signal.reason));
 
     let settled = false;
     let registered = false;
@@ -141,7 +143,8 @@ function compose(signal, start) {
       if (registered) runCleanup();
     };
 
-    const onAbort = () => settle(reject, signal.reason);
+    const onAbort = () =>
+      abortResolves ? settle(resolve, undefined) : settle(reject, signal.reason);
     if (signal) signal.addEventListener("abort", onAbort);
 
     try {
@@ -183,7 +186,7 @@ function subscribe(register, onValue, signal) {
       () => void c.resolve(undefined),
       (error) => void c.reject(error),
     );
-  });
+  }, true);
 }
 
 // --- native buffers ---------------------------------------------------------

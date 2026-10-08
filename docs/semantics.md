@@ -313,13 +313,15 @@ end?)`, which copies. `new Uint8Array(buffer, byteOffset?, length?)` views
   listening, at once, and may return the cleanup that stops it.
   - The first of the callbacks (`resolve`/`reject`; `end`/`fail`, or
     `onValue` throwing, for a subscription) and the signal aborting settles
-    the promise. Later callbacks do nothing, `next` included.
+    the promise. Later callbacks do nothing, `next` included. The signal
+    rejects `fromCallback`'s promise with its reason, and resolves a
+    subscription's: aborting is how its caller ends it.
   - The cleanup runs exactly once, inside the call that settles, before any
     continuation of the promise; or right after `register` returns, if it
     settled during registration.
   - A throw from `register` rejects the promise, unless it had settled. An
-    already aborted signal rejects it with the signal's reason, and
-    `register` is not called.
+    already aborted signal settles it as aborting does, and `register` is
+    not called.
   - A cleanup that throws is reported as uncaught; the promise keeps its
     outcome.
   - The callbacks may be called from any thread: they take effect on the

@@ -573,8 +573,8 @@ Board_top(…) = …top<T>(…)`), which the JVM erases. A value class property
   `subscribe` from `lucent:core` too: its register starts
   `collect(next, signal)` with an `AbortController` of its own, calls
   `end` or `fail` when the collection settles, and returns what aborts
-  it, so the subscription's signal and a throwing `onValue` cancel the
-  coroutine.
+  it, so the subscription's signal (which resolves it) and a throwing
+  `onValue` (which rejects it) cancel the coroutine.
 - **Swift-only APIs** (iOS): a Swift member the program calls gets a
   `@_cdecl` shim in `LucentShims.swift`, which the glue calls as a C
   function ([design](design/swift-shims.md)). Swift structs are boxed
