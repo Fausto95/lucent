@@ -46,6 +46,10 @@ export default defineConfig({
     copy: [
       { from: "../compiler/lib", to: "." },
       { from: ["../runtime/cpp", "../runtime/js", "../runtime/native"], to: "runtime" },
+      // The prebuilt runtime, when the release built it (scripts/prebuilt-runtime.ts).
+      ...(fs.existsSync(path.join(packages, "runtime/prebuilt"))
+        ? [{ from: "../runtime/prebuilt", to: "runtime" }]
+        : []),
       // lucent bench builds a desktop JSI host around the runtime with it.
       { from: "../runtime/test/jsi/harness.cpp", to: "runtime/test/jsi" },
     ],

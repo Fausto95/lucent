@@ -9,12 +9,27 @@ file(GLOB_RECURSE LUCENT_SOURCES CONFIGURE_DEPENDS ${LUCENT_ROOT}/cpp/*.cpp)
 # (cpp/generated/ios, cpp/generated/android); Android builds its own.
 list(FILTER LUCENT_SOURCES EXCLUDE REGEX "/cpp/generated/(ios|host)/")
 
-# The vendored regular expression engine is C. It is a library of its own so
-# that React Native's C++ compile options never reach it.
-file(GLOB LUCENT_C_SOURCES CONFIGURE_DEPENDS ${LUCENT_ROOT}/cpp/third_party/quickjs/*.c)
-add_library(lucentregexp STATIC ${LUCENT_C_SOURCES})
-set_target_properties(lucentregexp PROPERTIES POSITION_INDEPENDENT_CODE ON C_STANDARD 11)
-target_compile_options(lucentregexp PRIVATE -w -O2)
+# The runtime's core, prebuilt for this ABI when the package has it (lucent
+# build copies it for the runtime it was built from): its sources, listed in
+# core-sources.txt, are linked from it instead of compiled. Without it, or
+# with LUCENT_RUNTIME_FROM_SOURCE=1 at build time, they compile here.
+set(LUCENT_PREBUILT ${LUCENT_ROOT}/prebuilt/android/${ANDROID_ABI}/liblucentcore.a)
+if(EXISTS ${LUCENT_PREBUILT} AND NOT "$ENV{LUCENT_RUNTIME_FROM_SOURCE}" STREQUAL "1")
+  file(STRINGS ${LUCENT_ROOT}/prebuilt/core-sources.txt LUCENT_CORE)
+  foreach(f ${LUCENT_CORE})
+    list(REMOVE_ITEM LUCENT_SOURCES ${LUCENT_ROOT}/${f})
+  endforeach()
+  add_library(lucentregexp STATIC IMPORTED)
+  set_target_properties(lucentregexp PROPERTIES IMPORTED_LOCATION ${LUCENT_PREBUILT})
+  message(STATUS "Lucent: the runtime's core is prebuilt (${LUCENT_PREBUILT})")
+else()
+  # The vendored regular expression engine is C. It is a library of its own so
+  # that React Native's C++ compile options never reach it.
+  file(GLOB LUCENT_C_SOURCES CONFIGURE_DEPENDS ${LUCENT_ROOT}/cpp/third_party/quickjs/*.c)
+  add_library(lucentregexp STATIC ${LUCENT_C_SOURCES})
+  set_target_properties(lucentregexp PROPERTIES POSITION_INDEPENDENT_CODE ON C_STANDARD 11)
+  target_compile_options(lucentregexp PRIVATE -w -O2)
+endif()
 
 add_library(lucentnative OBJECT ${LUCENT_SOURCES})
 

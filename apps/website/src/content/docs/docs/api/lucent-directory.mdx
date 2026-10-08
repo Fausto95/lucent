@@ -66,6 +66,7 @@ kind: reference
 | `cpp/lucent/` | Lucent's C++ runtime, copied from `@lucent-lang/lucent`. |
 | `cpp/rn/` | The TurboModule that React Native calls, and the host of components' views. |
 | `cpp/third_party/` | Vendored libraries for number formatting and regular expressions. |
+| `prebuilt/` | The runtime's core, prebuilt for each Android ABI and for iOS, when the installed package has it for this runtime. The podspec and CMake link it instead of compiling those sources; `LUCENT_RUNTIME_FROM_SOURCE=1` compiles them. |
 | `cpp/generated/` | Each module compiled to C++, and the Swift shims on iOS. A project with platform code gets one set per target, such as `ios/` and `android/`. |
 | `ios/LucentRegistration.mm` | Registers the TurboModule when the app loads, without codegen or a change to the app delegate. |
 | `android/` | The Android library: `build.gradle`, and the C++ build in `CMakeLists.txt`. When Lucent packages ship C or C++ sources, `packages.cmake` adds them. |

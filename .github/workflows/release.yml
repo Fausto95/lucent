@@ -19,8 +19,26 @@ permissions:
   id-token: write # npm provenance
 
 jobs:
+  # The runtime's core prebuilt for iOS (scripts/prebuilt-runtime.ts), which only macOS can
+  # build; the release job adds Android's and packs both into @lucent-lang/lucent.
+  prebuilt-ios:
+    name: Prebuilt runtime (iOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: brew list ninja >/dev/null 2>&1 || brew install ninja
+      - run: node scripts/prebuilt-runtime.ts ios
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prebuilt-ios
+          path: packages/runtime/prebuilt
+
   release:
     name: Version or publish
+    needs: prebuilt-ios
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +53,13 @@ jobs:
           # Writes an npm userconfig that reads NODE_AUTH_TOKEN; pnpm publish honours it.
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
+      # The prebuilt runtime: iOS's from its job, then each Android ABI with the runner's NDK
+      # ($ANDROID_NDK_HOME), into packages/runtime/prebuilt, which the package build copies.
+      - uses: actions/download-artifact@v4
+        with:
+          name: prebuilt-ios
+          path: packages/runtime/prebuilt
+      - run: node scripts/prebuilt-runtime.ts android
       - run: pnpm build
 
       # The gate before a version PR is opened or a release published. Commits

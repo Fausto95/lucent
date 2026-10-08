@@ -14,6 +14,15 @@ Pod::Spec.new do |s|
   # runtime's Android glue is guarded by __ANDROID__.
   s.source_files = ["cpp/**/*.{h,cpp,inc,c,mm}", "ios/**/*.{h,mm}"]
   s.exclude_files = ["cpp/generated/android/**", "cpp/generated/host/**"]
+  # The runtime's core, prebuilt when the package has it (lucent build copies it for the
+  # runtime it was built from): its sources are linked from the xcframework instead of
+  # compiled. LUCENT_RUNTIME_FROM_SOURCE=1 at pod install compiles them.
+  lucent_frameworks = []
+  if File.directory?(File.join(__dir__, "prebuilt", "ios", "LucentCore.xcframework")) && ENV["LUCENT_RUNTIME_FROM_SOURCE"] != "1"
+    s.exclude_files += File.readlines(File.join(__dir__, "prebuilt", "core-sources.txt"), chomp: true).reject(&:empty?)
+    lucent_frameworks << "prebuilt/ios/LucentCore.xcframework"
+  end
+  s.vendored_frameworks = lucent_frameworks
   s.frameworks   = "CoreFoundation"
   s.header_mappings_dir = "cpp"
   s.pod_target_xcconfig = {
