@@ -151,6 +151,8 @@ import * as usingModule from "../lucent/using.lucent";
 import usingRun from "./using";
 import * as voidOrUndefinedModule from "../lucent/void-or-undefined.lucent";
 import voidOrUndefinedRun from "./void-or-undefined";
+import * as weakRefsModule from "../lucent/weak-refs.lucent";
+import weakRefsRun from "./weak-refs";
 
 export const cases: TestCase[] = [
   { name: "abort", module: abortModule, run: abortRun, expected: ["stopped: AbortError","finished","stopped: AbortError","thrown AbortError running","no signal thrown AbortError","ticked, then aborted","aborted before the first tick","before false, listener, after true, caught AbortError, thrown AbortError","Error: stop please","js aborted, caught Error, aborted=true"] },
@@ -228,4 +230,5 @@ export const cases: TestCase[] = [
   { name: "union-generics", module: unionGenericsModule, run: unionGenericsRun, expected: ["1 2 b number:3 string:x number:4","true false true","1 null 5  x","true false true null","false true true undefined"] },
   { name: "using", module: usingModule, run: usingRun, expected: ["open a, open b, body a b, flush b, close b, close a, after","open r, close r, early","open r, late, close r, late","open r, using r, close r, caught boom","open x, close x, open y, close y","open maybe, some, close maybe","none","open bad, using bad, close bad, caught cannot close bad","open bad, using bad, close bad, caught SuppressedError: An error was suppressed during disposal.","open async, awaited async, close async","open explicit, close explicit"] },
   { name: "void-or-undefined", module: voidOrUndefinedModule, run: voidOrUndefinedRun, expected: ["undefined undefined arrow,callback | undefined undefined ","undefined undefined  | undefined undefined finished","undefined true kept | undefined true "] },
+  { name: "weak-refs", module: weakRefsModule, run: weakRefsRun, expected: ["t saw 1,2","root/a/b true true","false true true x","r/c true undefined"] },
 ];
