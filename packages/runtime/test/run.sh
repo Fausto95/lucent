@@ -45,6 +45,17 @@ for c in "$cpp"/third_party/quickjs/*.c; do
   bg ${CC:-clang} -std=c11 -O2 -w $([[ "${SANITIZE:-0}" == "1" ]] && echo -fsanitize=address,undefined) $([[ "${SANITIZE:-0}" == "thread" ]] && echo -fsanitize=thread) -c "$c" -o "$o"
   cobjs+=("$o")
 done
+drain
+
+# The vendored C defines only lucent_ symbols (lucent_prefix.h): an app
+# that links another QuickJS gets no duplicate or interposed one.
+leaked=$(nm -g --defined-only "${cobjs[@]}" | awk 'NF == 3 && $3 !~ /^_?lucent_/ { print $3 }' | sort -u)
+if [[ -n "$leaked" ]]; then
+  echo "symbols: the vendored QuickJS defines unprefixed global symbols:" $leaked >&2
+  exit 1
+fi
+echo "symbols: the vendored QuickJS's global symbols are all prefixed"
+
 robjs=()
 for f in "$cpp"/lucent/*.cpp; do
   o="$objs/runtime_$(basename "$f" .cpp).o"
