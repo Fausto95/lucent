@@ -58,10 +58,11 @@ Works in bare React Native 0.88 and Expo SDK 58 (development builds). Neither
 is a stable release yet: on npm, `react-native@latest` is 0.87 and
 `expo@latest` is SDK 57, so Lucent needs the React Native 0.88 release
 candidate (`react-native@next`) or the Expo SDK 58 preview (`expo@next`).
-Building for iOS needs macOS; Linux builds Android and skips iOS code with a
-warning; Windows is untested.
-[Compatibility](https://lucent-lang.dev/docs/api/compatibility/) has the
-details.
+Develop on macOS for iOS and Android. Linux builds Android only: iOS code
+is untyped there and skipped with a warning. Windows is unsupported; WSL
+works as Linux does.
+[Compatibility](https://lucent-lang.dev/docs/api/compatibility/#operating-systems)
+has the details.
 
 ## Install
 

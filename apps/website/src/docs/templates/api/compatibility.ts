@@ -41,12 +41,15 @@ export const blocks: Block[] = [
     kind: "table",
     head: ["Machine", "What works"],
     rows: [
-      ["macOS", "Everything: iOS and Android builds, and checks of both platforms' code."],
+      [
+        "macOS",
+        "Everything. iOS needs macOS: Xcode types iOS code and builds it, and nothing else does.",
+      ],
       [
         "Linux",
-        "Android builds and checks. Without Xcode, iOS code is untyped: `lucent build` and `lucent check` skip iOS with a warning.",
+        "Android builds and checks. iOS code is untyped and isn't compiled: `lucent build` and `lucent check` skip iOS with a warning. Lucent can't import iOS types from another machine, so type errors in iOS code show only on a Mac.",
       ],
-      ["Windows", "Untested. WSL is a Linux machine."],
+      ["Windows", "Unsupported and untested. Use WSL, which is a Linux machine: Android only."],
     ],
   },
   {

@@ -26,9 +26,9 @@ No stable release meets these yet. In October 2026, `react-native@latest` is 0.8
 
 | Machine | What works |
 | --- | --- |
-| macOS | Everything: iOS and Android builds, and checks of both platforms' code. |
-| Linux | Android builds and checks. Without Xcode, iOS code is untyped: `lucent build` and `lucent check` skip iOS with a warning. |
-| Windows | Untested. WSL is a Linux machine. |
+| macOS | Everything. iOS needs macOS: Xcode types iOS code and builds it, and nothing else does. |
+| Linux | Android builds and checks. iOS code is untyped and isn't compiled: `lucent build` and `lucent check` skip iOS with a warning. Lucent can't import iOS types from another machine, so type errors in iOS code show only on a Mac. |
+| Windows | Unsupported and untested. Use WSL, which is a Linux machine: Android only. |
 
 `lucent doctor` checks these on your machine, and this table is generated from the same numbers.
 
