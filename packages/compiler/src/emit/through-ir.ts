@@ -102,7 +102,13 @@ export function initThroughIr(
 ): CppFunction {
   // The analysis does not count a module's initializing its own variables as writing state: the
   // IR's record is its own.
-  const init = { id: `${module.ns}::init`, source: module.sourceFile, initializers };
+  const init = {
+    id: `${module.ns}::init`,
+    source: module.sourceFile,
+    initializers,
+    // A platform module's constants are its declaration file's.
+    ...(module.declaration ? { elsewhere: [module.declaration] } : {}),
+  };
   const opts = { module, async: false };
 
   return initializationThroughIr(ctx, init, opts, "<module>", ir);

@@ -54,7 +54,7 @@ using namespace lucent::js;
 void install_m_buffers(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "sample", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return callAsync<double>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("sample", "packages/compiler/test/e2e/cases/buffers.lucent.ts", 17), []() {
         return lucent_app::m_buffers::sample();
       });
@@ -121,7 +121,7 @@ void install_m_buffers(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "handoff", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("handoff", "packages/compiler/test/e2e/cases/buffers.lucent.ts", 184), []() {
         return lucent_app::m_buffers::handoff();
       });
@@ -129,7 +129,7 @@ void install_m_buffers(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "borrowedHandoff", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("borrowedHandoff", "packages/compiler/test/e2e/cases/buffers.lucent.ts", 203), []() {
         return lucent_app::m_buffers::borrowedHandoff();
       });
@@ -137,7 +137,7 @@ void install_m_buffers(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "inputs", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("inputs", "packages/compiler/test/e2e/cases/buffers.lucent.ts", 233), []() {
         return lucent_app::m_buffers::inputs();
       });
@@ -145,7 +145,7 @@ void install_m_buffers(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "copies", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"copies", "argument 'size'"});
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("copies", "packages/compiler/test/e2e/cases/buffers.lucent.ts", 263), [a0]() {
         return lucent_app::m_buffers::copies(a0);
@@ -154,7 +154,7 @@ void install_m_buffers(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "stream", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"stream", "argument 'chunks'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"stream", "argument 'size'"});
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("stream", "packages/compiler/test/e2e/cases/buffers.lucent.ts", 286), [a0, a1]() {

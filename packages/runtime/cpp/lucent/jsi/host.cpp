@@ -346,13 +346,24 @@ void Host::tearDown(bool runtimeUsable) {
 
   owed.clear();
 
-  // Cancels its operations and runs its cleanups on each actor.
-  std::vector<std::shared_ptr<Scope>> scopes;
+  // Module code's destroy hooks for this runtime's state, each in its
+  // actor, before the next initialization (Host::create tears the old host
+  // down first); then each scope cancels its operations and runs its
+  // cleanups.
+  std::vector<std::pair<const ExecutionContext*, std::shared_ptr<Scope>>> scopes;
   {
     std::lock_guard<std::mutex> g(scopesMutex_);
-    for (auto& [actor, scope] : scopes_) scopes.push_back(scope);
+    for (auto& [context, scope] : scopes_) scopes.emplace_back(context, scope);
   }
-  for (auto& scope : scopes)
+  for (auto& [context, scope] : scopes) {
+    if (auto* actor = dynamic_cast<const Actor*>(context)) {
+      LucentScope lock(const_cast<Actor&>(*actor));
+      runDestroyHooks(scope.get());
+    } else {
+      runDestroyHooks(scope.get());
+    }
+  }
+  for (auto& [context, scope] : scopes)
     if (auto e = scope->dispose()) reportUncaught(e, "host");
 
   functions_.clear();

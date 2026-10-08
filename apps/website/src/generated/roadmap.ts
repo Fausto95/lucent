@@ -66,6 +66,10 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       {
         "status": "done",
         "text": "`NativeBuffer`, which hands bytes to tasks and JavaScript without copying them."
+      },
+      {
+        "status": "done",
+        "text": "Events JavaScript listens to with `EventEmitter`, and module hooks with `onDestroy`."
       }
     ],
     "goal": "Self-contained modules, such as parsers, codecs and data structures."
@@ -96,6 +100,14 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       {
         "status": "done",
         "text": "Native 64-bit integers as `bigint`, so IDs and sizes stay exact."
+      },
+      {
+        "status": "done",
+        "text": "SDK objects kept in exported classes, as each platform's private members."
+      },
+      {
+        "status": "done",
+        "text": "The SDK's own error objects, read back with `nativeError`."
       },
       {
         "status": "done",
@@ -150,8 +162,8 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "The app's Swift packages, bound against the iOS version the app targets."
       },
       {
-        "status": "later",
-        "text": "Weak references."
+        "status": "done",
+        "text": "Weak references with `WeakRef`, for delegates and back references."
       }
     ],
     "goal": "Call the iOS and Android SDKs directly from Lucent."
@@ -264,7 +276,9 @@ export const limitations: { title: string; items: string[] }[] = [
   {
     "title": "Language, runtime and bindings",
     "items": [
-      "Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)).",
+      "Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)): break them with `WeakRef`. `WeakMap` and `WeakSet` are refused, and so is a `WeakRef` to an SDK object ([TA37](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#ta37)).",
+      "On iOS, module code has no event for the URLs the app opens and no hook for a push token. Both reach only the app delegate, which Lucent does not replace ([TA37](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#ta37)). On Android, `onActivityEvent(\"newIntent\", …)` carries the URLs.",
+      "A declaration file of platform files can't declare a class (`export declare class`): a shared class with platform members holds platform objects instead ([TA37](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#ta37)).",
       "A few language features differ from JavaScript without a diagnostic; the website lists them under [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps), generated from `apps/website/src/docs/language.ts`.",
       "Refused built-ins give `LUCENT1003` unless noted. They are `normalize()`, `locales`/`options` arguments, an error's `cause` and `new Proxy`; decorators give `LUCENT1005` and default exports `LUCENT3003`. On object types, `Object.keys`, `values` and `entries` are refused, and so are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`). So is `new Array(n)` without a whole `.fill(v)`, even when each index is then assigned. So is `Array.from({ length: n })` without a map function when elements can't be `undefined`. Writing past an array's end or growing its `length` throws `RangeError`.",
       "Compute tasks are named top-level functions; safepoints are only in module functions' task variants. The JavaScript reference differs from native in three cases. The copy of an object loses its `#private` fields, and native throws `DataCloneError` for a subclass instance behind a base type. An abort that lands after the task ran but before the promise settled rejects natively and resolves in JavaScript.",

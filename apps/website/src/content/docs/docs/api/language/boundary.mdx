@@ -81,6 +81,7 @@ midpoint(saved, home); // TypeError: midpoint: argument 'a'.y must be a number, 
 | `AbortSignal` | Into Lucent only | An `AbortSignal` |
 | `Iterable<T>`, as a parameter | A snapshot, taken with `Array.from` | An iterable, or a string |
 | `NativeBuffer` | A reference, with its identity | A `NativeBuffer` that came from Lucent |
+| `EventEmitter`, `EventSubscription` | A reference, with its identity: [Stream events to JavaScript](/docs/guides/send-events-to-javascript/) | One that came from Lucent |
 | `Error` | Its name, message, code and stack | Any value |
 | `void` | `undefined` | |
 
@@ -88,7 +89,7 @@ midpoint(saved, home); // TypeError: midpoint: argument 'a'.y must be a number, 
 
 ## When a value doesn't match
 
-The call throws a `TypeError` before the module's code runs. An `async` export throws it too, rather than returning a rejected promise. The message names the function, the argument, and the path to the wrong value:
+The call throws a `TypeError` before the module's code runs. An `async` export returns a promise rejected with it instead, as an `async` function's throw does. The message names the function, the argument, and the path to the wrong value:
 
 ```sh title="TypeError messages" nocopy
 hash: argument 'input' must be a string, got a number
@@ -182,4 +183,4 @@ So a `Uint8Array` that a JavaScript callback keeps doesn't follow the buffer. Un
 | A generic function or class | [LUCENT2007](/docs/api/diagnostics/#lucent2007) |
 | A union whose object members have no string-literal field to tell them apart | [LUCENT2005](/docs/api/diagnostics/#lucent2005) |
 
-An SDK object stays in native code: keep it in a Lucent class, and export the values JavaScript needs.
+An SDK object stays in native code. Keep it in a private field of an exported Lucent class, a [platform member](/docs/api/language/platform-code/#platform-members), and give the class methods that use it. JavaScript holds the instance as a reference.

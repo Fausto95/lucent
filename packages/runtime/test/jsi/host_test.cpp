@@ -448,9 +448,22 @@ void callBack(Fn<void()> f) { f(); }
 String label;
 std::atomic<int> initialized{0};
 
+/// What the destroy hooks init() registers saw: the label of the state they ended.
+std::atomic<int> destroyed{0};
+String destroyedLabel;
+std::atomic<int> unregistered{0};
+
 void init() {
   label = String::fromUtf8("a label init() computes, too long to fit inline");
   initialized++;
+  int generation = initialized;
+  onDestroy(Fn<void()>([generation] {
+    destroyed++;
+    destroyedLabel = String::fromUtf8(label.toUtf8() + " " + std::to_string(generation));
+  }));
+  // A hook removed before its state ends never runs.
+  Fn<void()> stop = onDestroy(Fn<void()>([] { unregistered++; }));
+  stop();
 }
 
 /// Compute tasks, as the compiler lowers one that reads a literal module
@@ -486,6 +499,10 @@ void startMeasure(double n) {
   LucentScope scope;
   (void)compute(measureEntry, std::tuple<double>{n}, ComputeOptions{Opt<AbortSignal>(), moduleScope()});
 }
+
+/// An emitter module code keeps, whose listeners JavaScript adds.
+using TickEvents = EventEmitterObject<Fn<void(double)>>;
+Ref<TickEvents> tickEvents = TickEvents::create({"tick"});
 
 }  // namespace m_t
 
@@ -596,6 +613,12 @@ void installT(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
                  [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
                    Host& host = Host::from(rt, installed);
                    return callSync(rt, host, [&] { return callAsync<void>(rt, host, [] { return m_t::spin(); }); });
+                 });
+
+  defineFunction(rt, exports, "tickEvents", 0,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] { return Convert<Ref<m_t::TickEvents>>::toJs(rt, host, m_t::tickEvents); });
                  });
 
   defineFunction(rt, exports, "listen", 0,
@@ -1018,6 +1041,64 @@ static void callbacksDroppedWithTheRuntimeReject() {
 
   LucentScope scope;
   m_t::kept = undefined;
+}
+
+// --- module hooks -------------------------------------------------------------
+
+/// Module code's destroy hooks run when its state ends: before a reload
+/// initializes it again (seeing the state they belong to), and when the
+/// runtime goes.
+static void destroyHooksRunWhenModuleStateEnds() {
+  JsThread js;
+  install(js);
+  int before = m_t::destroyed;
+  int generation = m_t::initialized;
+
+  install(js);
+  CHECK(m_t::destroyed == before + 1);
+  CHECK(m_t::destroyedLabel.toUtf8() == "a label init() computes, too long to fit inline " + std::to_string(generation));
+
+  js.destroyRuntime();
+  CHECK(within(2000, [&] { return m_t::destroyed == before + 2; }));
+  CHECK(m_t::unregistered == 0);
+}
+
+// --- events -------------------------------------------------------------------
+
+/// A listener JavaScript added belongs to its runtime: after a reload,
+/// module code no longer counts or calls it, and the new runtime's work.
+static void listenersEndWithTheirRuntime() {
+  JsThread js;
+  install(js);
+
+  js.eval("var got = []; mods.t.tickEvents().addListener('tick', (n) => got.push(n));");
+  {
+    LucentScope scope;
+    CHECK(m_t::tickEvents->listenerCount(0) == 1);
+    m_t::tickEvents->emit<0>(1.0);
+  }
+  CHECK(js.string("got.join()") == "1");
+  CHECK(js.string("mods.t.tickEvents() === mods.t.tickEvents()") == "true");
+  CHECK(js.string("(() => { try { mods.t.tickEvents().addListener('tock', () => {}); } catch (e) { return e.message; } })()") ==
+        "EventEmitter.addListener: unknown event \"tock\" (\"tick\")");
+
+  // A reload: the runtime gets a new host.
+  js.run([&](jsi::Runtime& rt) { Host::create(rt, js.poster()); });
+  {
+    LucentScope scope;
+    CHECK(m_t::tickEvents->listenerCount(0) == 0);
+    m_t::tickEvents->emit<0>(2.0);
+  }
+  CHECK(js.string("got.join()") == "1");
+
+  js.eval("mods.t.tickEvents().addListener('tick', (n) => got.push(n));");
+  {
+    LucentScope scope;
+    CHECK(m_t::tickEvents->listenerCount(0) == 1);
+    m_t::tickEvents->emit<0>(3.0);
+    m_t::tickEvents->removeAllListeners();
+  }
+  CHECK(js.string("got.join()") == "1,3");
 }
 
 /// A reload (a new host for the runtime, or the runtime's end) stops what
@@ -1457,6 +1538,8 @@ int main() {
   workDoesNotStartAfterTeardown();
   awaitedJsPromisesRejectAtTeardown();
   callbacksDroppedWithTheRuntimeReject();
+  destroyHooksRunWhenModuleStateEnds();
+  listenersEndWithTheirRuntime();
   reloadsStopModuleWork();
   resultsThatCannotCrossReject();
   eachRuntimeHasItsOwnObjectForAnInstance();

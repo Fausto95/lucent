@@ -59,7 +59,7 @@ describe("Swift async sequences", () => {
 
     expect(p.messages).toEqual([]);
     expect(dts).toMatch(/static readonly updates: AsyncSequence<Transaction>;/);
-    expect(dts).toMatch(/static counts\(upTo: bigint\): AsyncSequence<bigint>;/);
+    expect(dts).toMatch(/static counts\(upTo: bigint \| number\): AsyncSequence<bigint>;/);
   });
 
   it("iterate in a Swift task, each element delivered to the Lucent function", () => {

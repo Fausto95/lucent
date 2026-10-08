@@ -54,7 +54,8 @@ first and honest evidence. The design in brief is
 
 Not planned: running JavaScript in native code (there is no engine there);
 reflection, `eval` and prototypes; freeing reference cycles automatically
-(they leak until broken, and Debug builds report what's left at teardown).
+(they leak until broken or go through a `WeakRef`, and Debug builds report
+what's left at teardown).
 
 ## Status at a glance
 
@@ -118,6 +119,7 @@ Goal: Self-contained modules, such as parsers, codecs and data structures.
 - ✅ Lucent code runs one piece at a time, so it has no data races.
 - ✅ Heavy work on worker threads with `compute`, checked so a task shares no state.
 - ✅ `NativeBuffer`, which hands bytes to tasks and JavaScript without copying them.
+- ✅ Events JavaScript listens to with `EventEmitter`, and module hooks with `onDestroy`.
 
 ### Platform APIs
 
@@ -129,6 +131,8 @@ Goal: Call the iOS and Android SDKs directly from Lucent.
 - ✅ Swift-only APIs, such as StoreKit 2 and CryptoKit, through generated Swift.
 - ✅ Kotlin-only APIs, such as `suspend` functions and `Flow`, through generated Kotlin.
 - ✅ Native 64-bit integers as `bigint`, so IDs and sizes stay exact.
+- ✅ SDK objects kept in exported classes, as each platform's private members.
+- ✅ The SDK's own error objects, read back with `nativeError`.
 - ✅ Callback APIs as promises and subscriptions, with `fromCallback` and `subscribe`.
 - ✅ Members of generic classes on both platforms, such as `List<E>.get`.
 - ✅ Classes extended in Lucent on both platforms, such as a `UIViewController`.
@@ -142,7 +146,7 @@ Goal: Call the iOS and Android SDKs directly from Lucent.
 - ✅ Ports of Expo and community modules, checked against the originals.
 - ✅ Native libraries nobody has seen before, bound and run with no change to Lucent.
 - ✅ The app's Swift packages, bound against the iOS version the app targets.
-- 🔭 Weak references.
+- ✅ Weak references with `WeakRef`, for delegates and back references.
 
 ### Views
 

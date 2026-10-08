@@ -25,6 +25,7 @@ import {
   spanMethod,
   spanProperty,
 } from "./buffers.ts";
+import { emitterMethod, emitterNew, subscriptionMethod } from "./events.ts";
 import { assignedRead } from "../lowering/unassigned.ts";
 import { DISPOSE, findMember } from "./classes.ts";
 import { type E, type Lvalue } from "./context.ts";
@@ -444,7 +445,7 @@ function staticMember(
   name: string,
 ): { decl: ts.ClassElement | undefined; owner: ClassInfo } {
   for (const c of [info, ...em.reg.ancestors(info)]) {
-    const decl = c.decl.members.find(
+    const decl = c.members.find(
       (m) => m.name && ts.isIdentifier(m.name) && m.name.text === name && isStatic(m),
     );
     if (decl) return { decl, owner: c };
@@ -1189,6 +1190,14 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       break;
     case "buffer":
       return bufferMethod(em, obj, name, node);
+    case "weak":
+      if (name === "deref" && !a.length)
+        return { c: cpp.call(cpp.arrow(o, "deref"), []), t: unionOf([t.inner, T.undefined]) };
+      break;
+    case "emitter":
+      return emitterMethod(em, obj, name, node);
+    case "subscription":
+      return subscriptionMethod(obj, name, node);
     case "span":
       return spanMethod(em, obj, name, node);
     case "error":
@@ -1997,6 +2006,7 @@ const BIGINT_FROM: Partial<Record<LType["k"], (v: cpp.Expr) => cpp.Expr>> = {
 /** The kind each library constructor makes (the errors are added by name). */
 const LIB_CONSTRUCTORS: Record<string, LType["k"]> = {
   AbortController: "abortController",
+  WeakRef: "weak",
   RegExp: "regexp",
   Date: "date",
   Map: "map",
@@ -2035,6 +2045,19 @@ export function newBuiltin(
         c: cpp.call("std::make_shared", [], [cpp.type("lucent::AbortControllerObject")]),
         t,
       };
+    case "emitter":
+      return emitterNew(em, node, t);
+    case "weak": {
+      if (a.length !== 1) fail(node, Codes.UnsupportedBuiltin, "new WeakRef() takes its target");
+      return {
+        c: cpp.call(
+          "std::make_shared",
+          [em.exprAs(a[0]!, t.inner)],
+          [cpp.type("lucent::WeakRefObject", em.reg.cppType(t.inner))],
+        ),
+        t,
+      };
+    }
     case "regexp": {
       const flags = a[1]
         ? cpp.construct(cpp.type("lucent::Opt", cpp.type("lucent::String")), [

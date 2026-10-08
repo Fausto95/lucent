@@ -185,6 +185,23 @@ const T& assigned(const T& v, const char* what) {
   return v;
 }
 
+/// `WeakRef<T>`: a reference to `R`'s object (a class instance, an
+/// interface or object value) that does not keep it alive. Reference
+/// counting frees an object with its last strong reference, so deref()
+/// gives undefined from then on: a cycle through a WeakRef frees.
+template <class R>
+struct WeakRefObject : Object {
+  explicit WeakRefObject(const R& target) : target_(target) {}
+
+  Opt<R> deref() const {
+    if (auto strong = target_.lock()) return Opt<R>(std::move(strong));
+    return Opt<R>(undefined);
+  }
+
+ private:
+  std::weak_ptr<typename R::element_type> target_;
+};
+
 /// Boxes a local that a closure captures and later mutates, so the closure and
 /// the enclosing function share one variable, as in JavaScript.
 template <class T>

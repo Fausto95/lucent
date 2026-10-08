@@ -197,8 +197,8 @@ describe("a package's adapter around a native listener", () => {
         "resolved 1",
         // Every pulse, then the failure; the listener is detached.
         "resolved 1 2 3 4; the orb broke; attached 0",
-        // Aborted from the value handler: nothing after, detached.
-        "resolved 1 2 3; AbortError; attached 0",
+        // Aborted from the value handler: it ends, nothing after, detached.
+        "resolved 1 2 3; ended; attached 0",
         // Already aborted: the listener is never attached.
         "rejected AbortError: signal is aborted without reason",
       ]);

@@ -169,7 +169,10 @@ export function analyzeViews(lp: LucentProgram, env: ViewEnv = sdkViews(lp)): Vi
     ...(lp.platform ? { platform: lp.platform } : {}),
     native: env.native,
     posts: postedCalls(checker, env, candidates),
-    mainRoots: candidates.flatMap((c) => [c.fn, ...commandFunctions(checker, c, calls.exposes)]),
+    mainRoots: candidates.flatMap((c) => [
+      c.fn,
+      ...commandFunctions(checker, c, calls.exposes, lp.platform),
+    ]),
   });
   const types = new ViewTypes(checker, (t, name) => facts.transfer(t, name));
   const components: ComponentDescription[] = [];
@@ -203,8 +206,9 @@ function commandFunctions(
   checker: ts.TypeChecker,
   c: Candidate,
   exposes: readonly ts.CallExpression[],
+  target: Platform | undefined,
 ): ts.Node[] {
-  const { commands } = setupExpose(c.name, c.fn, exposes);
+  const { commands } = setupExpose(checker, c.name, c.fn, exposes, target);
 
   if (!commands) return [];
 
@@ -576,7 +580,7 @@ function describeComponent(
 
   slotProblems(lp, env, c, props, calls.slots).forEach(report);
 
-  const exposed = setupExpose(c.name, c.fn, calls.exposes);
+  const exposed = setupExpose(checker, c.name, c.fn, calls.exposes, lp.platform);
 
   exposed.problems.forEach(report);
 

@@ -102,6 +102,9 @@ export class BindingsEmitter {
       case "fn":
         t.params.forEach((p) => this.use(p, node));
         return this.use(t.ret, node);
+      case "emitter":
+        // JavaScript adds listeners, and emits.
+        return t.events.forEach((e) => this.use(e.fn, node));
       case "tparam":
         fail(node, Codes.GenericBoundary, "generic values cannot cross the JavaScript boundary");
       case "iter":
@@ -153,6 +156,12 @@ export class BindingsEmitter {
           Codes.BoundaryType,
           "an AbortController cannot cross the JavaScript boundary; pass its signal instead",
         );
+      case "weak":
+        fail(
+          node,
+          Codes.BoundaryType,
+          "a WeakRef cannot cross the JavaScript boundary: pass its target, from deref()",
+        );
       case "span":
         fail(
           node,
@@ -193,6 +202,14 @@ export class BindingsEmitter {
       case "fn":
         t.params.forEach((p) => this.flow(p, !out, node));
         return this.flow(t.ret, out, node);
+      case "emitter":
+        // A listener JavaScript adds gets the arguments; an emit from JavaScript gives them.
+        return t.events.forEach((e) =>
+          e.fn.params.forEach((p) => {
+            this.flow(p, true, node);
+            this.flow(p, false, node);
+          }),
+        );
     }
   }
 
@@ -783,11 +800,13 @@ export class BindingsEmitter {
       : isVoidish(ret)
         ? [cpp.exprStmt(moved), cpp.ret(cpp.call("jsi::Value::undefined"))]
         : [cpp.ret(toJs(this.reg.cppType(ret), host, moved))];
-    // An async call is traced by callAsync, which carries its id on.
+    // An async call is traced by callAsync, which carries its id on, and its
+    // arguments' checks reject its promise.
     return sync(
       this.ctx.actorAt(declaration),
       [...(prelude ? [prelude] : []), ...conv, ...result],
       isAsync ? undefined : site,
+      isAsync ? "callAsyncEntry" : "callSync",
     );
   }
 
@@ -892,10 +911,13 @@ export class BindingsEmitter {
         : value;
 
       // A `let` the module may reassign is read live, as an ES module
-      // binding; a `const` binding never changes, so one copy is enough.
+      // binding. A `const` binding never changes: a primitive is set once,
+      // and an object is read through the live host too, so a host that
+      // replaces this one (Lucent reinstalled in the same runtime) hands
+      // out its own handle to the module's object.
       body.push(
         cpp.exprStmt(
-          c.isConst
+          c.isConst && primitive(c.type)
             ? cpp.call(cpp.dot(exports, "setProperty"), [rt, name, value])
             : cpp.call("defineAccessor", [
                 rt,
@@ -1120,6 +1142,14 @@ const COMPARED = new Set<LType["k"]>([
  * (Host::exported) rather than at each read: one the boundary copies,
  * made only of what strictEquals compares.
  */
+/** Whether every value of `t` is a primitive JavaScript copies, never a handle to an object. */
+function primitive(t: LType): boolean {
+  const kinds = new Set<LType["k"]>(["number", "string", "boolean", "bigint", "null", "undefined"]);
+  const members = (x: LType): LType[] =>
+    x.k === "opt" ? members(x.inner) : x.k === "union" ? x.ms.flatMap(members) : [x];
+  return members(t).every((m) => kinds.has(m.k));
+}
+
 function copiedOnce(t: LType): boolean {
   const members = (x: LType): LType[] =>
     x.k === "opt" ? members(x.inner) : x.k === "union" ? x.ms.flatMap(members) : [x];
@@ -1150,6 +1180,8 @@ const DESCRIPTIONS: Partial<Record<LType["k"], string>> = {
   regexp: "a RegExp",
   abortSignal: "an AbortSignal",
   buffer: "a NativeBuffer",
+  emitter: "an EventEmitter",
+  subscription: "an EventSubscription",
 };
 const JS_VALUE = cpp.type("jsi::Value");
 const RUNTIME = cpp.param(cpp.reference(cpp.type("jsi::Runtime")), "rt");
@@ -1191,10 +1223,10 @@ const makeShared = (cppName: string) =>
   cpp.call("std::make_shared", [], [cpp.type(`lucent_app::${cppName}`)]);
 
 /**
- * `Host& host = …; return callSync(rt, host, actor, [site,] [&]() -> jsi::Value { … });`:
- * the call enters `actor`, its module's.
+ * `Host& host = …; return callSync(rt, host, actor, [site,] [&]() -> jsi::Value { … });` (or
+ * `entry`'s): the call enters `actor`, its module's.
  */
-function sync(actor: cpp.Expr, body: cpp.Stmt[], site?: cpp.Expr): cpp.Stmt[] {
+function sync(actor: cpp.Expr, body: cpp.Stmt[], site?: cpp.Expr, entry = "callSync"): cpp.Stmt[] {
   const lambda = cpp.lambda(["&"], [], body, { ret: JS_VALUE });
 
   return [
@@ -1203,7 +1235,7 @@ function sync(actor: cpp.Expr, body: cpp.Stmt[], site?: cpp.Expr): cpp.Stmt[] {
       "host",
       cpp.call("Host::from", [rt, cpp.id("installed")]),
     ),
-    cpp.ret(cpp.call("callSync", [rt, cpp.id("host"), actor, ...(site ? [site] : []), lambda])),
+    cpp.ret(cpp.call(entry, [rt, cpp.id("host"), actor, ...(site ? [site] : []), lambda])),
   ];
 }
 
@@ -1288,7 +1320,7 @@ function lowerMembers(ctx: Ctx, info: ClassInfo, statics: boolean): PublicMember
     module: undefined as unknown as LucentModule,
     async: false,
   });
-  const ctor = statics ? undefined : info.decl.members.find(ts.isConstructorDeclaration);
+  const ctor = statics ? undefined : info.members.find(ts.isConstructorDeclaration);
   for (const p of parameterProperties(ctor)) {
     if (!isPublic(p)) continue;
     const readonly = !!ts.getModifiers(p)?.some((x) => x.kind === ts.SyntaxKind.ReadonlyKeyword);
@@ -1303,7 +1335,7 @@ function lowerMembers(ctx: Ctx, info: ClassInfo, statics: boolean): PublicMember
     );
   }
   const accessors = new Map<string, PublicMember>();
-  for (const m of info.decl.members) {
+  for (const m of info.members) {
     // Symbol-keyed methods ([Symbol.dispose]) are for Lucent code: JSI names properties by string.
     if (!isPublic(m) || (m.name && ts.isComputedPropertyName(m.name))) continue;
     ctx.guard(() => lowerMember(m));

@@ -89,6 +89,11 @@ inline void jsonWrite(JsonWriter& w, const NativeRef&) { w.raw("{}"); }
 class NativeBufferObject;
 /// A NativeBuffer: an opaque handle, with no enumerable own properties either.
 inline void jsonWrite(JsonWriter& w, const Ref<NativeBufferObject>&) { w.raw("{}"); }
+/// A WeakRef has no enumerable own properties.
+template <class R>
+void jsonWrite(JsonWriter& w, const Ref<WeakRefObject<R>>&) {
+  w.raw("{}");
+}
 /// A promise: no enumerable own properties.
 template <class T>
 void jsonWrite(JsonWriter& w, const Promise<T>&) {

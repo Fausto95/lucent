@@ -116,8 +116,8 @@ export function findMember(
 ): { decl: InstanceMember; owner: ClassChain[number] } | undefined {
   for (const owner of chain) {
     const decls: InstanceMember[] = [
-      ...owner.info.decl.members,
-      ...parameterProperties(owner.info.decl.members.find(ts.isConstructorDeclaration)),
+      ...owner.info.members,
+      ...parameterProperties(owner.info.members.find(ts.isConstructorDeclaration)),
     ];
     for (const m of decls)
       if (!isStatic(m) && nameOf(m.name) === name && test(m)) return { decl: m, owner };
@@ -149,7 +149,7 @@ export function emitClass(
   const reg = ctx.reg;
   // A decorator may replace what it decorates or add initializers when the
   // class is defined: the class compiles without it, so its uses still check.
-  for (const n of [decl, ...decl.members])
+  for (const n of [decl, ...info.members])
     for (const d of (ts.canHaveDecorators(n) && ts.getDecorators(n)) || [])
       ctx.guard(() =>
         fail(
@@ -182,7 +182,7 @@ export function emitClass(
   const body: cpp.Member[] = [];
   const members: cpp.Decl[] = [];
   const statics: ClassOutput["statics"] = [];
-  const ctor = decl.members.find(ts.isConstructorDeclaration);
+  const ctor = info.members.find(ts.isConstructorDeclaration);
   const virtuals = ctx.guard(() => virtualMembers(ctx, info)) ?? new Set<string>();
 
   const fieldType = (n: ts.Node) => reg.lower(ctx.checker.getTypeAtLocation(n), n);
@@ -205,7 +205,7 @@ export function emitClass(
   // Its native object, held while the constructor runs (objc-subclass.ts).
   if (nativeSubclass) body.push(cpp.field(cpp.type("lucent::NativeRef"), "lucentNative_"));
   for (const p of parameterProperties(ctor)) declareField(p, fieldType(p));
-  for (const m of decl.members) {
+  for (const m of info.members) {
     if (!ts.isPropertyDeclaration(m)) continue;
     const t = fieldType(m);
     const name = cppIdent(memberName(m));
@@ -377,7 +377,7 @@ export function emitClass(
   const fieldInitializers = (): Initializer[] => {
     const write = (name: string) => (v: ValueId) =>
       assigns(`this.${name} =`, self(cppIdent(name)), v);
-    const fields = decl.members.filter(
+    const fields = info.members.filter(
       (m): m is ts.PropertyDeclaration & { initializer: ts.Expression } =>
         ts.isPropertyDeclaration(m) && !isStatic(m) && !!m.initializer,
     );
@@ -502,7 +502,7 @@ export function emitClass(
     );
   }
 
-  for (const m of decl.members) {
+  for (const m of info.members) {
     if (ts.isMethodDeclaration(m)) {
       if (!m.body) {
         if (ts.getModifiers(m)?.some((x) => x.kind === ts.SyntaxKind.AbstractKeyword)) {
@@ -586,10 +586,10 @@ const ERROR_MESSAGE: ParamInfo = {
  * arguments to its base's).
  */
 export function constructorOf(ctx: Ctx, t: LType & { k: "class" }): ParamInfo[] {
-  const owner = ctx.reg.chain(t).find((c) => c.info.decl.members.some(ts.isConstructorDeclaration));
+  const owner = ctx.reg.chain(t).find((c) => c.info.members.some(ts.isConstructorDeclaration));
   if (!owner) return ctx.reg.cls(t.id).isError ? [ERROR_MESSAGE] : [];
 
-  const ctor = owner.info.decl.members.find(ts.isConstructorDeclaration)!;
+  const ctor = owner.info.members.find(ts.isConstructorDeclaration)!;
   const fn = ctx.reg.lowerSignature(
     ctx.checker.getSignatureFromDeclaration(ctor)!,
     ctor,

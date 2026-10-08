@@ -250,9 +250,10 @@ describe.skipIf(!ios)("platform modules", () => {
     expect(codes(mismatch)).toEqual(["LUCENT3005"]);
     expect(mismatch.diagnostics[0]!.message).toMatch(/model/);
 
+    // A platform without its file gets stubs (platform-files.test.ts).
     const { "haptics.android.lucent.ts": _android, ...iosOnly } = haptics;
     void _android;
-    expect(codes(compile(project(iosOnly)))).toEqual(["LUCENT3005"]);
+    expect(codes(compile(project(iosOnly)))).not.toContain("LUCENT3005");
   });
 
   it("allows only declarations in a platform module's shared file", () => {

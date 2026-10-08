@@ -63,7 +63,7 @@ void install_m_boundary_u2d_paths(jsi::Runtime& rt, Host& host, jsi::Object& exp
   });
   defineFunction(rt, exports, "awaited", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Promise<double>>::fromJs(rt, arg(args, count, 0), Path{"awaited", "argument 'p'"});
       return callAsync<double>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("awaited", "packages/compiler/test/e2e/cases/boundary-paths.lucent.ts", 30), [a0]() {
         return lucent_app::m_boundary_u2d_paths::awaited(a0);
@@ -72,7 +72,7 @@ void install_m_boundary_u2d_paths(jsi::Runtime& rt, Host& host, jsi::Object& exp
   });
   defineFunction(rt, exports, "asked", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Fn<lucent::Promise<lucent::String>(lucent::String)>>::fromJs(rt, arg(args, count, 0), Path{"asked", "argument 'f'"});
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("asked", "packages/compiler/test/e2e/cases/boundary-paths.lucent.ts", 34), [a0]() {
         return lucent_app::m_boundary_u2d_paths::asked(a0);

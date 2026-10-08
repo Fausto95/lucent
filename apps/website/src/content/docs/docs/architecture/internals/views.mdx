@@ -55,7 +55,7 @@ A component's description (`ComponentDescription` in `ui/contract.ts`) is plain 
 | `registration` | `Lucent<export>_<hash>`, the hash being the first 12 hex digits of the id's SHA-256. It is valid in C++, Objective-C and Java. |
 | `props` | The props object's type: numbers, strings, booleans, string literal unions, arrays and plain objects, each maybe null or missing (`ui/values.ts`) |
 | `events` | Callback props named `on…` that return nothing. Each has a slot number, in prop order, and a delivery: discrete, or `Continuous<F>` or `Coalesced<F>` from `lucent:ui`. |
-| `commands` | The object literal setup gives `expose()` once, at its top level (`ui/expose.ts`). A void command enqueues; any other answers a promise. |
+| `commands` | The object literal setup gives `expose()` once, at its top level or a PLATFORM branch's there, once per platform (`ui/expose.ts`). A void command enqueues; any other answers a promise. |
 | `children` | A `children` prop of type `Children`. Setup makes its slot once, in a top-level `const`: `slot<UIView>()`, or `slot<ViewGroup>()` on Android (`ui/slot.ts`). |
 | `platforms` | Per platform, the root class the component returns, and the class its host registers |
 

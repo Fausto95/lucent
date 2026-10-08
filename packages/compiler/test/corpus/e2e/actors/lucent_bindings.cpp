@@ -39,7 +39,7 @@ void install_m_clock(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "later", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"later", "argument 'x'"});
       return callAsync<double>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("later", "packages/compiler/test/e2e/cases/actors/clock.lucent.ts", 11), [a0]() {
         return lucent_app::m_clock::later(a0);
@@ -64,7 +64,7 @@ void install_m_counter(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "steps", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_1(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_1(), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"steps", "argument 'n'"});
       return callAsync<double>(rt, host, lucent_app::actor_1(), LUCENT_TRACE_SITE_AT("steps", "packages/compiler/test/e2e/cases/actors/counter.lucent.ts", 18), [a0]() {
         return lucent_app::m_counter::steps(a0);

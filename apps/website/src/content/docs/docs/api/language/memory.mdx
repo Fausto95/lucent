@@ -67,24 +67,28 @@ try {
 
 Values that reference each other, directly or through others, keep each other alive and are never freed. A closure stored on an object it captures is such a cycle. So is a Lucent object that an SDK object holds as its delegate, while the Lucent object holds the SDK object.
 
+Break a cycle when you're done with it: set a field to `undefined`, or delete the entry from a collection. Or don't make one: a `WeakRef` reaches an object without keeping it alive.
+
 ```ts title="tree.lucent.ts"
 export class TreeNode {
-  parent: TreeNode | undefined;
-  children: TreeNode[] = [];
+  private parentRef: WeakRef<TreeNode> | undefined;
+  readonly children: TreeNode[] = [];
 
   add(child: TreeNode): void {
-    child.parent = this; // child and parent now hold each other
+    child.parentRef = new WeakRef(this); // the child doesn't keep its parent
     this.children.push(child);
   }
 
-  clear(): void {
-    for (const child of this.children) child.parent = undefined; // breaks each cycle
-    this.children = [];
+  get parent(): TreeNode | undefined {
+    return this.parentRef?.deref();
   }
 }
 ```
 
-Break a cycle when you're done with it: set a field to `undefined`, or delete the entry from a collection. Lucent has no weak references, so `WeakRef`, `WeakMap` and `WeakSet` fail with [LUCENT2002](/docs/api/diagnostics/#lucent2002) ([roadmap](/docs/releases/roadmap/#known-limitations)).
+- `new WeakRef(target)` takes a class instance, an interface value or an object. Its `deref()` gives the target while something else holds it.
+- The target is freed with its last strong reference, and `deref()` gives `undefined` from then on. JavaScript frees it later, when its garbage collector runs.
+- A delegate keeps its owner as a `WeakRef`, so the owner can hold the SDK object, the SDK object the delegate, and nothing leaks.
+- A `WeakRef` doesn't cross to JavaScript ([LUCENT2006](/docs/api/diagnostics/#lucent2006)). `WeakMap` and `WeakSet` fail with [LUCENT2002](/docs/api/diagnostics/#lucent2002).
 
 ## Native references
 

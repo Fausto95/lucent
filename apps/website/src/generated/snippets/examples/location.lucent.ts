@@ -77,7 +77,7 @@ class Updates implements CLLocationManagerDelegate {
 }
 
 // Managers deliver to the thread that made them: they are made on the main
-// thread and kept here while in use.
+// thread, and a request's is kept here until its position or error comes.
 const managers = new Map<number, CLLocationManager>();
 
 function iosCurrentPosition(): Promise<LocationObject> {
@@ -193,8 +193,6 @@ async function androidCurrentPosition(): Promise<LocationObject> {
   return fromLocation(location);
 }
 
-const listeners = new Map<number, (location: Location) => void>();
-
 // --- The module --------------------------------------------------------------
 
 export async function getForegroundPermissionsAsync(): Promise<LocationPermissionResponse> {
@@ -251,36 +249,53 @@ export function getCurrentPositionAsync(): Promise<LocationObject> {
   return PLATFORM === "ios" ? iosCurrentPosition() : androidCurrentPosition();
 }
 
-/** Calls `callback` with each position until stopWatching(id). */
-export async function watchPositionAsync(
-  callback: (location: LocationObject) => void,
-): Promise<number> {
-  const id = nextId++;
-  if (PLATFORM === "ios") {
-    const updates = new Updates(callback, () => {});
-    await main(() => {
-      const manager = new CLLocationManager();
-      manager.delegate = updates;
-      managers.set(id, manager);
-      manager.startUpdatingLocation();
-    });
-  } else {
-    const listener = (location: Location) => callback(fromLocation(location));
-    listeners.set(id, listener);
-    const looper = Looper.getMainLooper();
-    if (looper) locationManager().requestLocationUpdates(provider(), 1000n, 0, listener, looper);
+/**
+ * A watch, as expo-location's subscription: it holds the platform's
+ * object that delivers the positions, and remove() stops it.
+ */
+export class LocationSubscription {
+  // iOS: the manager, made on the main thread, which calls its delegate there.
+  private manager: CLLocationManager | null = null;
+  // Android: the listener LocationManager calls, the same Java object each time.
+  private listener: ((location: Location) => void) | null = null;
+
+  /** Starts a watch: calls `callback` with each position until remove(). */
+  static async start(callback: (location: LocationObject) => void): Promise<LocationSubscription> {
+    const subscription = new LocationSubscription();
+    if (PLATFORM === "ios") {
+      const updates = new Updates(callback, () => {});
+      await main(() => {
+        const manager = new CLLocationManager();
+        manager.delegate = updates;
+        subscription.manager = manager;
+        manager.startUpdatingLocation();
+      });
+    } else {
+      const listener = (location: Location) => callback(fromLocation(location));
+      subscription.listener = listener;
+      const looper = Looper.getMainLooper();
+      if (looper) locationManager().requestLocationUpdates(provider(), 1000n, 0, listener, looper);
+    }
+    return subscription;
   }
-  return id;
+
+  /** Stops the watch's updates; removing it again does nothing. */
+  remove(): void {
+    if (PLATFORM === "ios") {
+      const manager = this.manager;
+      this.manager = null;
+      if (manager) void main(() => manager.stopUpdatingLocation());
+    } else {
+      const listener = this.listener;
+      this.listener = null;
+      if (listener) locationManager().removeUpdates(listener);
+    }
+  }
 }
 
-export async function stopWatching(id: number): Promise<void> {
-  if (PLATFORM === "ios") {
-    const manager = managers.get(id);
-    managers.delete(id);
-    if (manager) await main(() => manager.stopUpdatingLocation());
-  } else {
-    const listener = listeners.get(id);
-    listeners.delete(id);
-    if (listener) locationManager().removeUpdates(listener);
-  }
+/** Calls `callback` with each position until the subscription's remove(). */
+export function watchPositionAsync(
+  callback: (location: LocationObject) => void,
+): Promise<LocationSubscription> {
+  return LocationSubscription.start(callback);
 }

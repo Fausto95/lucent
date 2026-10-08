@@ -7,7 +7,6 @@ import {
   conformanceErrors,
   declarationErrors,
   inUntypedPlatformCode,
-  missingImplementations,
   planModules,
   platformScopes,
   type Target,
@@ -322,16 +321,23 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
         target,
       );
     } else {
-      const missing = missingImplementations(plan, target);
-      if (missing.length) {
-        out.diagnostics.push(...missing);
-        continue;
-      }
-      const impls = plan.platformModules.map((pm) => pm.implementations[target]!);
-      const lp = createLucentProgram([...plan.shared, ...impls], options.readSource, target, {
-        references: declarations,
-        ...sessionFor(options, target),
-      });
+      // A platform module without this target's file compiles its declaration as stubs,
+      // as the host does: each export throws, or rejects.
+      const present = plan.platformModules.filter((pm) => pm.implementations[target]);
+      const stubbed = plan.platformModules
+        .filter((pm) => !pm.implementations[target])
+        .map((pm) => pm.declaration!);
+      const impls = present.map((pm) => pm.implementations[target]!);
+      const lp = createLucentProgram(
+        [...plan.shared, ...impls, ...stubbed],
+        options.readSource,
+        target,
+        {
+          references: present.map((pm) => pm.declaration!),
+          stubs: stubbed,
+          ...sessionFor(options, target),
+        },
+      );
       result = compileOnce(lp, declarations);
       collectTypes(lp, (out.types ??= new Map()));
     }

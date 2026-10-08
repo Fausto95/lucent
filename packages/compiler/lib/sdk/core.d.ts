@@ -5,6 +5,30 @@
  */
 
 /**
+ * Runs `hook` when this module's state ends: before a JavaScript reload
+ * initializes the module again, or when the app's JavaScript runtime goes,
+ * as Expo's `OnDestroy` does. Module state is initialized for each runtime:
+ * a module's top-level code is its create hook. Stop there what module
+ * code started for this state and that a reload would leave running, such
+ * as an SDK observer.
+ *
+ * Hooks run in a turn of the module's code, the last registered first,
+ * while the module's state is still the one ending. What one throws goes
+ * to the platform log, and the others run.
+ *
+ * ```ts
+ * import { onDestroy } from "lucent:core";
+ *
+ * let watching: (() => void) | undefined;
+ * const stopWatching = onDestroy(() => watching?.());
+ * ```
+ *
+ * @param hook What to run when the module's state ends.
+ * @returns The function that removes the hook first.
+ */
+export declare function onDestroy(hook: () => void): () => void;
+
+/**
  * Resolves after `ms` milliseconds; rejects with the signal's reason if it aborts first.
  *
  * @param ms How long to wait, in milliseconds.
@@ -102,14 +126,16 @@ export declare function fromCallback<T>(
  * `next(value)` calls `onValue(value)` while the subscription is open, and
  * does nothing after. The first of `end()`, `fail(error)`, `onValue`
  * throwing and the signal aborting ends it. The promise then resolves
- * (`end`) or rejects, with the error or the signal's reason.
+ * (`end()`, or the signal: aborting is how the caller ends it) or rejects
+ * with the error.
  *
- * The cleanup, a throw from `register`, an aborted signal and calls from
- * other threads behave as in `fromCallback`.
+ * The cleanup, a throw from `register` and calls from other threads behave
+ * as in `fromCallback`. With a signal already aborted, the promise
+ * resolves, and `register` is not called.
  *
  * @param register Starts listening with `next`, `end` and `fail`, and may return the cleanup.
  * @param onValue Called with each value while the subscription is open.
- * @param signal Ends the subscription, rejecting with its reason.
+ * @param signal Ends the subscription, and resolves the promise.
  */
 export declare function subscribe<T>(
   register: (
@@ -120,6 +146,63 @@ export declare function subscribe<T>(
   onValue: (value: T) => void,
   signal?: AbortSignal,
 ): Promise<void>;
+
+/** What `addListener` returns: `remove()` takes the listener off. */
+export interface EventSubscription {
+  /** Removes the listener. Removing it again does nothing. */
+  remove(): void;
+}
+
+/**
+ * Events a module sends to its listeners, in Lucent and in JavaScript.
+ * `Events` names each event and its listener's signature, as Expo's
+ * `EventEmitter` does: `EventEmitter<{ progress: (percent: number) => void }>`.
+ *
+ * `emit(name, ...args)` calls the event's listeners, in the order they
+ * were added; those added or removed while it runs take effect at the
+ * next emit. A listener's throw ends the emit and reaches its caller. In
+ * Lucent, an event's name is a string literal.
+ *
+ * An EventEmitter crosses to JavaScript as the same object each time,
+ * with the same methods.
+ *
+ * A JavaScript listener is a callback Lucent holds. During a synchronous
+ * call from JavaScript it runs at once. From anywhere else it is posted to
+ * the JS thread, with copies of its arguments.
+ *
+ * Each JavaScript listener belongs to its runtime: a reload removes it,
+ * and `listenerCount` stops counting it. In JavaScript, naming an event
+ * that the type doesn't declare throws a TypeError.
+ *
+ * ```ts
+ * import { EventEmitter } from "lucent:core";
+ *
+ * export const downloads = new EventEmitter<{
+ *   progress: (url: string, percent: number) => void;
+ *   done: (url: string) => void;
+ * }>();
+ *
+ * export async function download(url: string): Promise<void> {
+ *   for (let percent = 0; percent <= 100; percent += 10) downloads.emit("progress", url, percent);
+ *   downloads.emit("done", url);
+ * }
+ * ```
+ */
+export declare class EventEmitter<Events extends { [name: string]: (...args: never[]) => void }> {
+  constructor();
+
+  /** Adds `listener` to the event's listeners, last; the subscription removes it. */
+  addListener<K extends keyof Events & string>(name: K, listener: Events[K]): EventSubscription;
+
+  /** Calls each of the event's listeners with `args`. */
+  emit<K extends keyof Events & string>(name: K, ...args: Parameters<Events[K]>): void;
+
+  /** How many listeners the event has. */
+  listenerCount(name: keyof Events & string): number;
+
+  /** Removes the event's listeners, or every event's without a name. */
+  removeAllListeners(name?: keyof Events & string): void;
+}
 
 /** How a compute task runs. */
 export interface ComputeOptions {

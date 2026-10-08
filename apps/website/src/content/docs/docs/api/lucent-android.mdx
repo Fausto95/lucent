@@ -51,6 +51,32 @@ For an adapter whose callback API reports failure with a Throwable, `reject(erro
 | --- | --- | --- | --- |
 | `throwable` | `Throwable` | yes | The exception, such as one a callback received. |
 
+### nativeError()
+
+```ts title="android.d.ts"
+function nativeError(error: Error): Throwable | null;
+```
+
+The Java exception `error` came from: what a call threw, or a callback gave `errorOf`. Test its class with `instanceof` and read its members, rather than matching `code`. Null for an error Lucent or JavaScript made.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `error` | `Error` | yes | A caught error. |
+
+```ts title="nativeError.lucent.ts"
+import { nativeError } from "lucent:android";
+import { FileInputStream, FileNotFoundException } from "lucent:android/java.io";
+
+function open(path: string): FileInputStream | null {
+  try {
+    return new FileInputStream(path);
+  } catch (e) {
+    if (nativeError(e as Error) instanceof FileNotFoundException) return null;
+    throw e;
+  }
+}
+```
+
 ### available()
 
 ```ts title="android.d.ts"

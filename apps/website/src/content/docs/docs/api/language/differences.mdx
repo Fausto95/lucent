@@ -21,8 +21,10 @@ Each e2e case is a module in `packages/compiler/test/e2e/cases/`, run natively a
 | Setting a larger `length` leaves holes. | Throws a `RangeError`, whatever the element type. | A Lucent array has no holes. | `collections` |
 | `new Array(n)` has `n` holes. | Refused unless a `.fill(v)` follows it ([LUCENT1003](/docs/api/diagnostics/#lucent1003)). Write `new Array(n).fill(v)` or `Array.from({ length: n }, (_, i) => …)`. | A Lucent array has no holes, and its element type may have no `undefined`. | `collections` |
 | `x!` does nothing at run time. | Throws a `TypeError` when `x` is `undefined` or `null`, such as an index out of range. | The assertion is checked, so a wrong one fails where it's made. | None |
+| `x as T` does nothing at run time. | Taking a member out of a union, such as `x as number` on a `string \| number`, checks the value: another member throws a `TypeError`. | A native union holds one member's layout, so the value can't be read as another. | None |
 | `map.keys()`, `values()` and `entries()`, and the same methods of arrays and sets, return iterators. | They return arrays, holding the contents at the time of the call. | An array serves everywhere these iterators are read: `for…of`, spread and `Array.from`. | `collections` |
-| Garbage collection frees cycles. | Reference counting never frees a cycle. Break it by clearing a field ([Memory](/docs/api/language/memory/#cycles-leak)). | Lucent counts references, and no collector runs. | None |
+| Garbage collection frees cycles. | Reference counting never frees a cycle. Break it by clearing a field, or hold one side in a `WeakRef` ([Memory](/docs/api/language/memory/#cycles-leak)). | Lucent counts references, and no collector runs. | None |
+| A `WeakRef`'s target lives until the garbage collector runs, so `deref()` may still return it after the last other reference goes. | The target is freed with its last strong reference, and `deref()` returns `undefined` at once. | Lucent counts references, so a target goes when its count reaches zero. | `weak-refs` |
 | Deep recursion throws a `RangeError`. | Deep recursion may overflow the native stack, which crashes the app. | Lucent code runs on the native stack, with no depth check. | None |
 
 ## Objects
@@ -58,6 +60,7 @@ Each e2e case is a module in `packages/compiler/test/e2e/cases/`, run natively a
 | --- | --- | --- | --- |
 | Type annotations are erased: any value reaches a function. | Each argument from JavaScript is checked against its declared type, and a mismatch throws a `TypeError` before the code runs ([The boundary](/docs/api/language/boundary/#when-a-value-doesnt-match)). | A native value needs the declared layout. | `null-or-undefined` |
 | An exported `let` holding an object is the module's object. | JavaScript reads the binding live, but gets a copy of each object, array, map or set the module assigns. Changes the module makes inside that value don't reach JavaScript ([Modules](/docs/api/language/modules/#exports)). | The value is copied at the boundary like any other. | `exported-variables` |
+| An `EventEmitter` takes any event name. | From JavaScript, an `EventEmitter` from Lucent takes only the events its type declares: another name throws a `TypeError`. | Native code numbers the events when it compiles, so a name the type lacks has nowhere to keep its listeners. | `events` |
 | Arrays and objects passed to other code are shared. | Copied at the boundary; inside Lucent they're shared. | JavaScript objects belong to the JS thread, and Lucent code runs on others. | `reference-identity` |
 | `Date` objects passed to other code are shared. | Copied at the boundary; inside Lucent they're shared. | The same as for arrays and objects. | `dates` |
 | A function JavaScript passes returns its value whenever it's called. | Called off the JS thread, it's posted there, so it must return `void` or a `Promise`. | Lucent code never waits for the JS thread. | `async` |

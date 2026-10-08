@@ -6,6 +6,7 @@
 #pragma once
 
 #include <exception>
+#include <memory>
 #include <string>
 
 #include "core.h"
@@ -23,6 +24,10 @@ struct ErrorObject : Object {
   Opt<String> site;
   /// Class name when a Lucent class extends Error, for `instanceof`.
   const char* kind = "Error";
+  /// The platform's error it came from (a NativeRef to an NSError or a
+  /// Throwable), which `nativeError` from lucent:ios and lucent:android
+  /// gives back; empty for Lucent's and JavaScript's errors.
+  std::shared_ptr<const void> native;
 };
 using Error = Ref<ErrorObject>;
 

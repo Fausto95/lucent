@@ -501,7 +501,7 @@ static void subscriptionFailures() {
   CHECK(a->waitIdle(2000));
   CHECK(thrown->text() == "value, value, cleanup, rejected DataError");
 
-  // fail() rejects; abort rejects with the reason.
+  // fail() rejects; aborting, how the caller ends it, resolves.
   auto failed = std::make_shared<Log>();
   auto aborted = std::make_shared<Log>();
   AbortController controller;
@@ -522,7 +522,7 @@ static void subscriptionFailures() {
   inside(*a, [&] { controller->abort(E("TimeoutError")); });
   CHECK(a->waitIdle(2000));
   CHECK(failed->text() == "cleanup, rejected NotFoundError");
-  CHECK(aborted->text() == "value 1, cleanup, rejected TimeoutError");
+  CHECK(aborted->text() == "value 1, cleanup, resolved");
 
   a->shutdown();
 }

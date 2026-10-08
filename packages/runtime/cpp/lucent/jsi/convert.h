@@ -15,6 +15,8 @@
 
 #include <optional>
 #include <string>
+#include <tuple>
+#include <typeinfo>
 #include <vector>
 
 #include "../lucent.h"
@@ -746,6 +748,29 @@ jsi::Value callSync(jsi::Runtime& rt, Host& host, Actor& actor, const trace::Sit
   return callSync(rt, host, actor, std::forward<F>(body));
 }
 
+/// A JS promise rejected with `reason`.
+jsi::Value rejectedPromise(jsi::Runtime& rt, const jsi::Value& reason);
+
+/// A call from JS of an async export: as callSync, but what converting its
+/// arguments (or `this`) throws rejects the promise it returns, as an async
+/// function's throw does, instead of throwing from the call.
+template <class F>
+jsi::Value callAsyncEntry(jsi::Runtime& rt, Host& host, Actor& actor, F&& body) {
+  RuntimeEntry entry(host.id());
+  try {
+    LucentScope scope(actor);
+    return body();
+  } catch (const Exception& e) {
+    return rejectedPromise(rt, host.errorToJs(rt, e.error()));
+  } catch (const jsi::JSError& e) {
+    return rejectedPromise(rt, e.value());
+  } catch (const jsi::JSIException&) {
+    throw;
+  } catch (const std::exception&) {
+    return rejectedPromise(rt, host.errorToJs(rt, currentError(std::current_exception())));
+  }
+}
+
 /// In the shared actor.
 template <class F>
 jsi::Value callSync(jsi::Runtime& rt, Host& host, F&& body) {
@@ -809,5 +834,130 @@ template <class T, class F>
 jsi::Value callAsync(jsi::Runtime& rt, Host& host, const trace::Site* site, F&& start) {
   return callAsync<T>(rt, host, Actor::shared(), site, std::forward<F>(start));
 }
+
+// --- events ------------------------------------------------------------------------------
+
+/// An EventSubscription crosses as an object with `remove()`.
+template <>
+struct Convert<EventSubscription> {
+  static EventSubscription fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+    auto s = std::dynamic_pointer_cast<EventSubscriptionObject>(instanceOf(rt, v));
+    if (!s) throwBoundaryError(rt, p, "an EventSubscription", v);
+    return s;
+  }
+
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const EventSubscription& s) {
+    return h.wrap(rt, s, "lucent:EventSubscription", proto);
+  }
+
+ private:
+  static void proto(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
+    defineFunction(rt, proto, "remove", 0,
+                   [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& self, const jsi::Value*, size_t) -> jsi::Value {
+                     Host& host = Host::from(rt, installed);
+                     auto s = fromJs(rt, self, Path{"EventSubscription.remove", "this"});
+                     return callSync(rt, host, s->actor(), [&]() -> jsi::Value {
+                       s->remove();
+                       return jsi::Value::undefined();
+                     });
+                   });
+  }
+};
+
+template <class F>
+struct ListenerArgs;
+template <class... A>
+struct ListenerArgs<Fn<void(A...)>> {
+  using Tuple = std::tuple<std::decay_t<A>...>;
+};
+
+/// An EventEmitter crosses as the same JS object each time, with
+/// `addListener(name, listener)`, `emit(name, ...args)`,
+/// `listenerCount(name)` and `removeAllListeners(name?)`. A listener
+/// JavaScript adds is called as any JS callback Lucent holds: at once on
+/// the JS thread, posted from elsewhere. It belongs to this runtime: a
+/// reload removes it.
+template <class... Fns>
+struct Convert<Ref<EventEmitterObject<Fns...>>> {
+  using Emitter = EventEmitterObject<Fns...>;
+
+  static Ref<Emitter> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+    auto e = std::dynamic_pointer_cast<Emitter>(instanceOf(rt, v));
+    if (!e) throwBoundaryError(rt, p, "an EventEmitter", v);
+    return e;
+  }
+
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Ref<Emitter>& e) {
+    static const std::string key = std::string("lucent:EventEmitter:") + typeid(Emitter).name();
+    return h.wrap(rt, e, key.c_str(), proto);
+  }
+
+ private:
+  /// The index of the event JavaScript names, or a TypeError naming the events there are.
+  static size_t event(jsi::Runtime& rt, const Emitter& e, const jsi::Value& name, const char* method) {
+    if (!name.isString()) throwBoundaryError(rt, Path{method, "argument 'name'"}, "a string", name);
+    std::string n = name.getString(rt).utf8(rt);
+    size_t i = e.indexOf(n);
+    if (i < Emitter::kEvents) return i;
+    std::string known;
+    for (const auto& k : e.names()) known += (known.empty() ? "\"" : ", \"") + k + "\"";
+    throwTypeError((std::string(method) + ": unknown event \"" + n + "\" (" + (known.empty() ? "it has none" : known) + ")").c_str());
+  }
+
+  template <class F>
+  static void define(jsi::Runtime& rt, Host& host, jsi::Object& proto, const char* name, unsigned argc, F body) {
+    defineFunction(rt, proto, name, argc,
+                   [installed = host.shared_from_this(), body, name](jsi::Runtime& rt, const jsi::Value& self, const jsi::Value* args, size_t count) -> jsi::Value {
+                     Host& host = Host::from(rt, installed);
+                     // In the actor of the module that made the emitter, as its own code runs.
+                     Actor& actor = fromJs(rt, self, Path{name, "this"})->actor();
+                     return callSync(rt, host, actor, [&]() -> jsi::Value { return body(rt, host, self, args, count); });
+                   });
+  }
+
+  template <class T, size_t... I>
+  static T argsFromJs(jsi::Runtime& rt, const jsi::Value* args, size_t count, std::index_sequence<I...>) {
+    return T{Convert<std::tuple_element_t<I, T>>::fromJs(rt, arg(args, count, I + 1), Path::argument("EventEmitter.emit", I + 1))...};
+  }
+
+  static void proto(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
+    define(rt, host, proto, "addListener", 2, [](jsi::Runtime& rt, Host& host, const jsi::Value& self, const jsi::Value* args, size_t count) {
+      auto e = fromJs(rt, self, Path{"EventEmitter.addListener", "this"});
+      size_t i = event(rt, *e, arg(args, count, 0), "EventEmitter.addListener");
+      jsi::Value out = jsi::Value::undefined();
+      detail::withIndex<Emitter::kEvents>(i, [&](auto I) {
+        using F = typename Emitter::template Listener<decltype(I)::value>;
+        F fn = Convert<F>::fromJs(rt, arg(args, count, 1), Path{"EventEmitter.addListener", "argument 'listener'"});
+        std::weak_ptr<Host> weak = host.weak_from_this();
+        auto alive = [weak] {
+          auto h = weak.lock();
+          return h && h->alive();
+        };
+        out = Convert<EventSubscription>::toJs(rt, host, e->template addListener<decltype(I)::value>(std::move(fn), alive));
+      });
+      return out;
+    });
+    define(rt, host, proto, "emit", 1, [](jsi::Runtime& rt, Host&, const jsi::Value& self, const jsi::Value* args, size_t count) {
+      auto e = fromJs(rt, self, Path{"EventEmitter.emit", "this"});
+      size_t i = event(rt, *e, arg(args, count, 0), "EventEmitter.emit");
+      detail::withIndex<Emitter::kEvents>(i, [&](auto I) {
+        using Tuple = typename ListenerArgs<typename Emitter::template Listener<decltype(I)::value>>::Tuple;
+        Tuple values = argsFromJs<Tuple>(rt, args, count, std::make_index_sequence<std::tuple_size_v<Tuple>>{});
+        std::apply([&](auto&... v) { e->template emit<decltype(I)::value>(v...); }, values);
+      });
+      return jsi::Value::undefined();
+    });
+    define(rt, host, proto, "listenerCount", 1, [](jsi::Runtime& rt, Host&, const jsi::Value& self, const jsi::Value* args, size_t count) {
+      auto e = fromJs(rt, self, Path{"EventEmitter.listenerCount", "this"});
+      return jsi::Value(e->listenerCount(event(rt, *e, arg(args, count, 0), "EventEmitter.listenerCount")));
+    });
+    define(rt, host, proto, "removeAllListeners", 1, [](jsi::Runtime& rt, Host&, const jsi::Value& self, const jsi::Value* args, size_t count) {
+      auto e = fromJs(rt, self, Path{"EventEmitter.removeAllListeners", "this"});
+      if (arg(args, count, 0).isUndefined()) e->removeAllListeners();
+      else e->removeAllListeners(event(rt, *e, arg(args, count, 0), "EventEmitter.removeAllListeners"));
+      return jsi::Value::undefined();
+    });
+  }
+};
 
 }  // namespace lucent::js

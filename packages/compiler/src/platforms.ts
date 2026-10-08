@@ -63,18 +63,7 @@ export function planModules(files: string[]): ModulePlan {
   return { shared, platformModules: platformModules.filter((pm) => pm.declaration), diagnostics };
 }
 
-/** Platform modules without an implementation for `platform`. */
-export function missingImplementations(plan: ModulePlan, platform: Platform): Diagnostic[] {
-  return plan.platformModules
-    .filter((pm) => !pm.implementations[platform])
-    .map((pm) => ({
-      code: Codes.PlatformConformance,
-      message: `${path.basename(pm.declaration!)} declares a platform module: add ${pm.name}.${platform}.lucent.ts`,
-      file: pm.declaration!,
-    }));
-}
-
-/** A platform module's shared file holds only declarations: `export declare function`, types and imports. */
+/** A platform module's shared file holds only declarations: `export declare function`, constants, enums, types and imports. */
 export function declarationErrors(lp: LucentProgram, declaration: string): Diagnostic[] {
   const sf = lp.program.getSourceFile(path.resolve(declaration));
   if (!sf) return [];
@@ -83,17 +72,24 @@ export function declarationErrors(lp: LucentProgram, declaration: string): Diagn
     const declared =
       ts.canHaveModifiers(s) &&
       !!ts.getModifiers(s)?.some((m) => m.kind === ts.SyntaxKind.DeclareKeyword);
+    const constant =
+      ts.isVariableStatement(s) &&
+      !declared &&
+      !!(s.declarationList.flags & ts.NodeFlags.Const) &&
+      s.declarationList.declarations.every((d) => !!d.initializer);
     if (
       ts.isImportDeclaration(s) ||
       ts.isTypeAliasDeclaration(s) ||
       ts.isInterfaceDeclaration(s) ||
+      (ts.isEnumDeclaration(s) && !declared) ||
+      constant ||
       (ts.isFunctionDeclaration(s) && declared && !s.body)
     )
       continue;
     out.push(
       at(
         s,
-        `${path.basename(declaration)} declares a platform module (it has ${PLATFORMS.map((p) => `.${p}`).join("/")} implementations), so it may only contain \`export declare function\`s, types and imports; move shared code to another module`,
+        `${path.basename(declaration)} declares a platform module (it has ${PLATFORMS.map((p) => `.${p}`).join("/")} implementations), so it may only contain \`export declare function\`s, constants, enums, types and imports; move other shared code to another module`,
       ),
     );
   }
@@ -150,7 +146,22 @@ export function conformanceErrors(lp: LucentProgram): Diagnostic[] {
     const declName = path.basename(m.declaration.fileName);
     const implName = path.basename(m.file);
     const impl = new Map(values(m.sourceFile).map((s) => [s.name, s]));
+    // Its constants and enums are the declaration file's own, not declared for the platforms.
+    const own = (d: ts.Symbol) => {
+      const decl = d.valueDeclaration ?? d.declarations?.[0];
+      return !!decl && (ts.isEnumDeclaration(decl) || ts.isVariableDeclaration(decl));
+    };
     for (const d of values(m.declaration)) {
+      if (own(d)) {
+        const again = impl.get(d.name);
+        impl.delete(d.name);
+        const decl = again && (again.valueDeclaration ?? again.declarations?.[0]);
+        if (decl)
+          out.push(
+            at(decl, `${d.name} is ${declName}'s: import it from there instead of exporting it`),
+          );
+        continue;
+      }
       const i = impl.get(d.name);
       impl.delete(d.name);
       if (!i) {
@@ -226,8 +237,52 @@ export function isPlatformValue(checker: ts.TypeChecker, e: ts.Expression): bool
   return !!decl && builtinSdkModuleOf(decl.getSourceFile()) === "lucent:platform";
 }
 
+/**
+ * The declaration of a `const` that holds a platform test, which
+ * `isIos` in `const isIos = PLATFORM === "ios"` reads: a const without a
+ * type annotation, as TypeScript narrows through it.
+ */
+export function platformTestConst(
+  checker: ts.TypeChecker,
+  e: ts.Expression,
+): (ts.VariableDeclaration & { initializer: ts.Expression }) | undefined {
+  if (!ts.isIdentifier(e)) return undefined;
+  let sym = checker.getSymbolAtLocation(e);
+  if (sym && sym.flags & ts.SymbolFlags.Alias) sym = checker.getAliasedSymbol(sym);
+  const d = sym?.valueDeclaration;
+  if (!d || !ts.isVariableDeclaration(d) || d.name === e) return undefined;
+  return holdsPlatformTest(checker, d) ? d : undefined;
+}
+
+/** Whether `d` is `const x = PLATFORM === "ios"` (a comparison, not another such const), without a type annotation. */
+export function holdsPlatformTest(
+  checker: ts.TypeChecker,
+  d: ts.VariableDeclaration,
+): d is ts.VariableDeclaration & { initializer: ts.Expression } {
+  if (
+    !ts.isIdentifier(d.name) ||
+    d.type ||
+    !d.initializer ||
+    !ts.isVariableDeclarationList(d.parent) ||
+    !(d.parent.flags & ts.NodeFlags.Const)
+  )
+    return false;
+  return !!directTest(checker, d.initializer);
+}
+
 /** `PLATFORM === "ios"`, `"android" !== PLATFORM`…: the platform named, and whether the test is equality. */
 export function platformTest(
+  checker: ts.TypeChecker,
+  e: ts.Expression,
+): { platform: Platform; equal: boolean } | undefined {
+  while (ts.isParenthesizedExpression(e)) e = e.expression;
+  // A const that holds a test tests as it does.
+  const held = platformTestConst(checker, e);
+  if (held) return directTest(checker, held.initializer);
+  return directTest(checker, e);
+}
+
+function directTest(
   checker: ts.TypeChecker,
   e: ts.Expression,
 ): { platform: Platform; equal: boolean } | undefined {
@@ -408,14 +463,24 @@ export function branchPlatform(checker: ts.TypeChecker, node: ts.Node): Platform
   return undefined;
 }
 
-const PLATFORM_NAMES: Record<Platform, string> = { ios: "iOS", android: "Android" };
+export const PLATFORM_NAMES: Record<Platform, string> = { ios: "iOS", android: "Android" };
 
 /** What a shared module's platform code is: which platform each top-level declaration belongs to, and misuses. */
 export interface PlatformScopes {
   /** Top-level statements that use a platform's SDK (or such a statement) outside a platform branch: they compile on that target only. */
   platforms: Map<ts.Statement, Platform>;
+  /**
+   * Private members of shared classes that use one platform's code outside
+   * a branch: they compile on that target only, and the class on both.
+   */
+  members: Map<ts.ClassElement, Platform>;
   errors: Diagnostic[];
 }
+
+/** A shared module's code that may belong to a platform: a top-level statement, or a private member of a class. */
+type ScopeUnit = ts.Statement | ts.ClassElement;
+
+const scopesCache = new WeakMap<ts.TypeChecker, WeakMap<ts.SourceFile, PlatformScopes>>();
 
 /**
  * A top-level declaration that uses a platform's SDK outside a platform
@@ -423,12 +488,54 @@ export interface PlatformScopes {
  * platform. Every use of platform code must then be in that platform's
  * branch or declarations; lucent:thread needs one of either platform (the
  * host has no main thread). Exports run on both platforms, so they branch.
+ *
+ * A private member of an exported class, or of a class that uses both
+ * platforms, belongs to a platform the same way, and the class stays
+ * shared: `private manager: CLLocationManager | null` is an iOS field, used
+ * in iOS code only, and the Android build leaves it out.
  */
 export function platformScopes(checker: ts.TypeChecker, sf: ts.SourceFile): PlatformScopes {
+  let byFile = scopesCache.get(checker);
+  if (!byFile) scopesCache.set(checker, (byFile = new WeakMap()));
+  const cached = byFile.get(sf);
+  if (cached) return cached;
+  const out = computeScopes(checker, sf);
+  byFile.set(sf, out);
+  return out;
+}
+
+/** The members of a class that a target compiles: those of another platform (all platforms', on the host) are left out. */
+export function classMembersFor(
+  checker: ts.TypeChecker,
+  decl: ts.ClassLikeDeclaration,
+  target: Platform | undefined,
+): readonly ts.ClassElement[] {
+  if (platformOf(decl.getSourceFile().fileName)) return decl.members;
+  const scoped = platformScopes(checker, decl.getSourceFile()).members;
+  if (!scoped.size) return decl.members;
+  return decl.members.filter((m) => {
+    const p = scoped.get(m);
+    return p === undefined || p === target;
+  });
+}
+
+/** Whether a class member may belong to a platform: private, so only the class's own code uses it. */
+function platformMember(m: ts.ClassElement): boolean {
+  if (ts.isConstructorDeclaration(m) || ts.isClassStaticBlockDeclaration(m)) return false;
+  if (m.name && ts.isPrivateIdentifier(m.name)) return true;
+  return (
+    ts.canHaveModifiers(m) &&
+    !!ts.getModifiers(m)?.some((x) => x.kind === ts.SyntaxKind.PrivateKeyword)
+  );
+}
+
+function computeScopes(checker: ts.TypeChecker, sf: ts.SourceFile): PlatformScopes {
   const imported = new Map<ts.Symbol, { spec: string; platform?: Platform }>();
   // By local name too: an untyped platform's imports (its SDK not installed) resolve to no symbol as types.
   const importedNames = new Map<string, { spec: string; platform?: Platform }>();
   const declared = new Map<ts.Symbol, ts.Statement>();
+  // Private members of top-level classes, which may belong to a platform.
+  const declaredMembers = new Map<ts.Symbol, ts.ClassElement>();
   for (const s of sf.statements) {
     if (ts.isImportDeclaration(s)) {
       if (!ts.isStringLiteral(s.moduleSpecifier) || !s.importClause) continue;
@@ -462,25 +569,34 @@ export function platformScopes(checker: ts.TypeChecker, sf: ts.SourceFile): Plat
       const sym = checker.getSymbolAtLocation(n);
       if (sym) declared.set(sym, s);
     }
+    if (ts.isClassDeclaration(s))
+      for (const m of s.members) {
+        const sym = platformMember(m) && m.name && checker.getSymbolAtLocation(m.name);
+        if (sym) declaredMembers.set(sym, m);
+      }
   }
   const platforms = new Map<ts.Statement, Platform>();
+  const members = new Map<ts.ClassElement, Platform>();
   const errors: Diagnostic[] = [];
-  if (!imported.size) return { platforms, errors };
+  if (!imported.size) return { platforms, members, errors };
 
   // Each statement's references to platform code, and the branch they sit in.
   type Ref = {
-    id: ts.Identifier;
+    id: ts.Identifier | ts.PrivateIdentifier;
     stmt: ts.Statement;
+    /** The private class member the reference is in, if any. */
+    member?: ts.ClassElement;
     branch?: Platform;
     spec?: string;
     platform?: Platform;
-    target?: ts.Statement;
+    target?: ScopeUnit;
   };
   const refs: Ref[] = [];
   for (const stmt of sf.statements) {
     if (ts.isImportDeclaration(stmt)) continue;
-    const visit = (n: ts.Node): void => {
-      if (ts.isIdentifier(n)) {
+    const visit = (n: ts.Node, member: ts.ClassElement | undefined): void => {
+      if (ts.isClassElement(n) && n.parent === stmt && platformMember(n)) member = n;
+      if (ts.isIdentifier(n) || ts.isPrivateIdentifier(n)) {
         const sym = checker.getSymbolAtLocation(n);
         const untyped =
           !sym ||
@@ -493,66 +609,125 @@ export function platformScopes(checker: ts.TypeChecker, sf: ts.SourceFile): Plat
           );
         const from =
           (sym && imported.get(sym)) ??
-          (untyped && !ts.isPropertyAccessExpression(n.parent)
+          (untyped && ts.isIdentifier(n) && !ts.isPropertyAccessExpression(n.parent)
             ? importedNames.get(n.text)
             : undefined);
-        const target = sym && declared.get(sym);
+        const target = sym && (declared.get(sym) ?? declaredMembers.get(sym));
+        const base = { id: n, stmt, ...(member ? { member } : {}) };
         if (from)
           refs.push({
-            id: n,
-            stmt,
+            ...base,
             branch: branchPlatform(checker, n),
             spec: from.spec,
             platform: from.platform,
           });
-        else if (target && target !== stmt)
-          refs.push({ id: n, stmt, branch: branchPlatform(checker, n), target });
+        else if (target && target !== stmt && target !== member)
+          refs.push({ ...base, branch: branchPlatform(checker, n), target });
       }
-      ts.forEachChild(n, visit);
+      ts.forEachChild(n, (c) => visit(c, member));
     };
-    visit(stmt);
+    visit(stmt, undefined);
   }
-  // Platforms of statements, to a fixed point through the declarations they use.
-  const uses = new Map<ts.Statement, Set<Platform>>();
-  // The toolkit a statement's platform comes from (a helper view), for messages.
-  const toolkits = new Map<ts.Statement, ToolkitName>();
-  const add = (stmt: ts.Statement, p: Platform) => {
-    const set = uses.get(stmt) ?? new Set<Platform>();
-    const grew = !set.has(p);
-    set.add(p);
-    uses.set(stmt, set);
-    return grew;
-  };
-  for (let changed = true; changed;) {
-    changed = false;
-    for (const r of refs) {
-      if (r.branch) continue;
-      const p = r.platform ?? (r.target ? only(uses.get(r.target)) : undefined);
-      const toolkit = r.spec ? toolkitOfModule(r.spec) : r.target && toolkits.get(r.target);
-      if (toolkit && !toolkits.has(r.stmt)) toolkits.set(r.stmt, toolkit);
-      if (p && add(r.stmt, p)) changed = true;
+
+  const classOf = (m: ts.ClassElement) => m.parent as ts.ClassDeclaration;
+  // Classes whose private members are units of their own: exported classes,
+  // and classes found to use both platforms (a shared class with platform members).
+  const split = new Set<ts.Statement>(
+    sf.statements.filter((s) => ts.isClassDeclaration(s) && isExported(s)),
+  );
+  const unitOf = (r: Ref): ScopeUnit => (r.member && split.has(r.stmt) ? r.member : r.stmt);
+  // A member of a class that is not split is its class.
+  const unitOfTarget = (t: ScopeUnit): ScopeUnit =>
+    ts.isClassElement(t) && !split.has(classOf(t)) ? classOf(t) : t;
+
+  // Platforms of units, to a fixed point through the declarations they use;
+  // again whenever a class turns out to be split.
+  let uses = new Map<ScopeUnit, Set<Platform>>();
+  // The toolkit a unit's platform comes from (a helper view), for messages.
+  let toolkits = new Map<ScopeUnit, ToolkitName>();
+  for (let again = true; again;) {
+    again = false;
+    uses = new Map();
+    toolkits = new Map();
+    const add = (u: ScopeUnit, p: Platform) => {
+      const set = uses.get(u) ?? new Set<Platform>();
+      const grew = !set.has(p);
+      set.add(p);
+      uses.set(u, set);
+      return grew;
+    };
+    for (let changed = true; changed;) {
+      changed = false;
+      for (const r of refs) {
+        if (r.branch) continue;
+        const unit = unitOf(r);
+        const target = r.target && unitOfTarget(r.target);
+        if (target === unit) continue;
+        const p = r.platform ?? (target ? only(uses.get(target)) : undefined);
+        const toolkit = r.spec ? toolkitOfModule(r.spec) : target && toolkits.get(target);
+        if (toolkit && !toolkits.has(unit)) toolkits.set(unit, toolkit);
+        if (p && add(unit, p)) changed = true;
+      }
+    }
+    for (const s of sf.statements) {
+      if (!ts.isClassDeclaration(s) || split.has(s) || (uses.get(s)?.size ?? 0) < 2) continue;
+      // Both platforms: split the class if its private members use platform code.
+      const own = refs.some((r) => r.stmt === s && r.member && !r.branch);
+      if (own) {
+        split.add(s);
+        again = true;
+      }
     }
   }
-  const blamed = new Set<ts.Statement>();
-  for (const [stmt, set] of uses) {
-    const name = declaredNames(stmt)[0] ?? stmt;
-    const what = ts.isIdentifier(name) ? name.text : "this statement";
+
+  const blamed = new Set<ScopeUnit>();
+  for (const [unit, set] of uses) {
     if (set.size > 1) {
+      const what = ts.isClassElement(unit)
+        ? `${classOf(unit).name?.text ?? "class"}.${unit.name?.getText() ?? "member"}`
+        : (() => {
+            const name = declaredNames(unit)[0];
+            return name ? name.text : "this statement";
+          })();
+      const where = ts.isClassElement(unit)
+        ? (unit.name ?? unit)
+        : (declaredNames(unit)[0] ?? unit);
       errors.push(
         at(
-          name,
+          where,
           `${what} uses lucent:ios and lucent:android outside a platform branch: branch with PLATFORM, or split it`,
           Codes.SdkImport,
         ),
       );
-      blamed.add(stmt);
-    } else if (!isExported(stmt)) platforms.set(stmt, only(set)!);
+      blamed.add(unit);
+    } else if (ts.isClassElement(unit)) members.set(unit, only(set)!);
+    else if (!isExported(unit)) platforms.set(unit, only(set)!);
     // Exports run on both platforms: their uses of platform code are reported below, where they are.
   }
+  // A platform's class has no other platform's members: they would never compile.
+  for (const [m, p] of members) {
+    const cls = platforms.get(classOf(m));
+    if (!cls || cls === p) continue;
+    errors.push(
+      at(
+        m.name ?? m,
+        `${classOf(m).name?.text ?? "class"}.${m.name?.getText() ?? "member"} is ${PLATFORM_NAMES[p]} code in a class that is ${PLATFORM_NAMES[cls]} code: export the class, or move the member's platform code into a branch`,
+        Codes.SdkImport,
+      ),
+    );
+    members.delete(m);
+    blamed.add(m);
+  }
+  const assigned = (u: ScopeUnit): Platform | undefined =>
+    ts.isClassElement(u) ? members.get(u) : platforms.get(u);
   for (const r of refs) {
-    if (blamed.has(r.stmt)) continue;
-    const home = r.branch ?? platforms.get(r.stmt);
-    const needed = r.platform ?? (r.target ? platforms.get(r.target) : undefined);
+    const unit = unitOf(r);
+    if (blamed.has(unit) || blamed.has(r.stmt)) continue;
+    const home =
+      r.branch ?? assigned(unit) ?? (unit !== r.stmt ? platforms.get(r.stmt) : undefined);
+    const target = r.target && unitOfTarget(r.target);
+    if (target === unit) continue;
+    const needed = r.platform ?? (target ? assigned(target) : undefined);
     if (r.spec && !r.platform) {
       // lucent:thread: in either platform's code.
       if (!home)
@@ -566,7 +741,7 @@ export function platformScopes(checker: ts.TypeChecker, sf: ts.SourceFile): Plat
       continue;
     }
     if (!needed || home === needed) continue;
-    const toolkit = r.spec ? toolkitOfModule(r.spec) : r.target && toolkits.get(r.target);
+    const toolkit = r.spec ? toolkitOfModule(r.spec) : target && toolkits.get(target);
     if (toolkit) {
       errors.push(
         at(
@@ -586,7 +761,7 @@ export function platformScopes(checker: ts.TypeChecker, sf: ts.SourceFile): Plat
       ),
     );
   }
-  return { platforms, errors };
+  return { platforms, members, errors };
 }
 
 function only<T>(set: Set<T> | undefined): T | undefined {
@@ -642,8 +817,19 @@ export function inUntypedPlatformCode(
   const p =
     (ts.isIdentifier(node) ? importedFrom(sf, node.text) : undefined) ??
     branchPlatform(lp.checker, node) ??
-    (stmt ? platformScopes(lp.checker, sf).platforms.get(stmt) : undefined);
+    (stmt ? platformScopes(lp.checker, sf).platforms.get(stmt) : undefined) ??
+    memberPlatform(lp.checker, node);
   return !!p && untyped.includes(p);
+}
+
+/** The platform of the private class member around `node`, if it belongs to one. */
+function memberPlatform(checker: ts.TypeChecker, node: ts.Node): Platform | undefined {
+  for (let n: ts.Node | undefined = node; n; n = n.parent)
+    if (ts.isClassElement(n)) {
+      const p = platformScopes(checker, n.getSourceFile()).members.get(n);
+      if (p) return p;
+    }
+  return undefined;
 }
 
 /** The platform whose SDK or toolkit module (lucent:ios/UIKit, lucent:swiftui) a file imports `name` from. */

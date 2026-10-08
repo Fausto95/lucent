@@ -81,6 +81,6 @@ The full rules are in [The boundary](/docs/api/language/boundary/#errors), and h
 
 `catch` handles the errors the SDK throws, and a rejected promise you `await`, a callback's included. It also catches a JavaScript callback's throw when Lucent calls the callback during a synchronous call. A posted `void` callback's throw is only logged ([Callbacks](/docs/api/language/boundary/#callbacks)).
 
-An `NSError`'s code is `"<domain>:<code>"` ([iOS](/docs/api/ios-sdk/#errors)), and a Java exception's is its class name ([Android](/docs/api/android-sdk/#errors)).
+An `NSError`'s code is `"<domain>:<code>"` ([iOS](/docs/api/ios-sdk/#errors)), and a Java exception's is its class name ([Android](/docs/api/android-sdk/#errors)). `nativeError(e)` from `lucent:ios` or `lucent:android` gives back the `NSError` or the `Throwable` itself. Read its domain and code as the SDK types them, or test its class with `instanceof`.
 
 Only an `Error` can be thrown: `throw "text"` fails with [LUCENT1006](/docs/api/diagnostics/#lucent1006).

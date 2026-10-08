@@ -65,7 +65,8 @@ describe("lucent:core's fromCallback in JavaScript", () => {
     const aborted = AbortSignal.abort(new RangeError("stop"));
 
     await expect(core.fromCallback(register, aborted)).rejects.toThrow("stop");
-    await expect(core.subscribe(register, () => {}, aborted)).rejects.toThrow("stop");
+    // Aborting is how a subscription's caller ends it: it resolves.
+    await expect(core.subscribe(register, () => {}, aborted)).resolves.toBeUndefined();
     expect(register).not.toHaveBeenCalled();
   });
 

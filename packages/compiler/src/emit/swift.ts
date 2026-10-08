@@ -41,6 +41,7 @@ import {
   linkModule,
   noteFramework,
   numberToNative,
+  primArgLt,
   primLt,
   toObjc,
   toNativeNumber,
@@ -302,7 +303,12 @@ export function swiftCall(
     const a = args[i]!;
     switch (crossing(t)) {
       case "scalar":
-        return numberToNative(t, cType(t), em.exprAs(a, primLt(t)), argumentWhat(em, a));
+        return numberToNative(
+          t,
+          cType(t),
+          em.exprAs(a, primArgLt(t, em.lt(a))),
+          argumentWhat(em, a),
+        );
       case "enum":
         return toNativeNumber(cpp.type("NSInteger"), em.exprAs(a, T.number));
       case "object":

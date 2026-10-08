@@ -137,7 +137,7 @@ void install_m_exported_u2d_errors(jsi::Runtime& rt, Host& host, jsi::Object& ex
   });
   defineFunction(rt, exports, "later", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"later", "argument 'line'"});
       return callAsync<double>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("later", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 34), [a0]() {
         return lucent_app::m_exported_u2d_errors::later(a0);

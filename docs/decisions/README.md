@@ -23,6 +23,13 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                    | Date       | Decision                                                                    |
 | ------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| [0071](0071-module-hooks-not-app-delegate-hooks.md)                       | 2026-10-08 | Module hooks, not app-delegate hooks                                        |
+| [0070](0070-64-bit-parameters-take-safe-integer-numbers.md)               | 2026-10-08 | 64-bit parameters take safe-integer numbers                                 |
+| [0069](0069-native-errors-stay-errors-with-their-source-kept.md)          | 2026-10-08 | Native errors stay Errors, with their source kept                           |
+| [0068](0068-weakref-not-a-weak-modifier.md)                               | 2026-10-08 | WeakRef, not a `weak` modifier                                              |
+| [0067](0067-platform-files-may-stand-alone.md)                            | 2026-10-08 | Platform files may stand alone                                              |
+| [0066](0066-eventemitter-typed-like-expos.md)                             | 2026-10-08 | EventEmitter, typed like Expo's                                             |
+| [0065](0065-platform-members-not-platform-classes.md)                     | 2026-10-08 | Platform members, not platform classes                                      |
 | [0064](0064-an-actor-per-package-and-the-main-thread-never-queues.md)     | 2026-10-08 | An actor per package; the main thread never queues                          |
 | [0063](0063-a-value-only-its-own-local-sees-may-change-representation.md) | 2026-10-08 | A value only its own local sees may change representation                   |
 | [0062](0062-device-runs-are-nightly-only-until-they-are-reliable.md)      | 2026-10-08 | Device runs are nightly only, until they are reliable                       |

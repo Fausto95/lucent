@@ -111,7 +111,7 @@ The person must have allowed location first: see [Ask for a runtime permission](
 - On iOS, `delegate` is a weak property, but your object stays alive while the property holds it. Hold the SDK object itself: here the cleanup holds `manager`, which would otherwise be freed, and its updates would stop.
 - `subscribe()` runs the cleanup once, when the stream ends: JavaScript aborts, or the delegate calls `fail`. [Stream events to JavaScript](/docs/guides/send-events-to-javascript/) covers the JavaScript side.
 - A JavaScript reload doesn't end it, so the old delegate keeps hearing from the SDK beside the new one ([What a reload does](/docs/api/language/modules/#what-a-reload-does)).
-- Don't store the SDK object in your delegate. The two would hold each other and never be freed ([cycles leak](/docs/api/language/memory/#cycles-leak)), so use the `manager` each method receives.
+- Don't store the SDK object in your delegate. The two would hold each other and never be freed ([cycles leak](/docs/api/language/memory/#cycles-leak)), so use the `manager` each method receives. A delegate that needs the object that owns the SDK object keeps it as a `WeakRef`.
 
 ## Which thread its methods run on
 

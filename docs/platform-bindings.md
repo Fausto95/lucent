@@ -27,7 +27,10 @@ export async function model(): Promise<string> {
 ```
 
 - The tests are `PLATFORM === "ios"` and `!==` (either side, either
-  platform), in `if`/`else` and in `? :`, alone or leading `&&`s
+  platform), and a `const` holding one without a type annotation
+  (`const isIos = PLATFORM === "ios"`; the host build reads `PLATFORM`
+  where a top-level one is used, not at the module's initialization), in
+  `if`/`else` and in `? :`, alone or leading `&&`s
   (`PLATFORM === "ios" && ready`: the then-branch is iOS code, the
   else-branch runs on both platforms). `switch (PLATFORM)` runs each
   platform's case and what it falls through to; a clause both platforms reach
@@ -43,9 +46,19 @@ export async function model(): Promise<string> {
   that target only. A declaration using both platforms outside branches is an
   error; exports run on both platforms, so they branch inside (their
   platform code outside a branch is reported where it is used).
-- A platform's code (its imports and declarations) may only be used inside
-  its branch or its declarations, and `lucent:thread` in either platform's
-  code (LUCENT3004 otherwise).
+- A private member (`private` or `#`) of an exported class, or of a class
+  that uses both platforms, belongs to a platform the same way, and the class
+  stays shared: `private manager: CLLocationManager | null` is an iOS field,
+  and `private media(): MediaPlayer` an Android method. Each build compiles
+  its own platform's members only (the host build neither), so a class
+  JavaScript constructs on both platforms keeps SDK objects. A non-exported
+  class whose platform code is all one platform's still belongs to that
+  platform as a whole; a member of the other platform in a platform's class,
+  and a member using both, are errors. Public members, constructors and
+  parameter properties are shared code: their platform code branches.
+- A platform's code (its imports, declarations and members) may only be used
+  inside its branch or its declarations and members, and `lucent:thread` in
+  either platform's code (LUCENT3004 otherwise).
 - Every target type-checks both branches. Where the other platform's SDK is
   not installed, its modules are untyped there and TypeScript's errors in its
   code are ignored (that code is never emitted on that target); values that
@@ -85,9 +98,16 @@ haptics.ios.lucent.ts      the iOS implementation (imports lucent:ios/…)
 haptics.android.lucent.ts  the Android implementation (imports lucent:android/…)
 ```
 
-- The shared file may contain only `export declare function`s, types and
-  imports (LUCENT3005 otherwise). Put shared code and enums in another
-  module that all three import.
+- The shared file may contain only `export declare function`s, types,
+  imports, and the `const`s and enums the implementations share
+  (LUCENT3005 otherwise): those compile into each platform's module (its
+  initialization runs them first), and the implementations import them
+  from the shared file without exporting them again. Put other shared code
+  in another module that all three import.
+- A module may have one platform's implementation only: the other
+  platform's build compiles the shared file's declarations as stubs, as
+  the host build does, which throw or reject "`<module>.<name>` is not
+  available on Android" (or iOS).
 - Each implementation must export exactly the declared values, with types
   assignable to the declarations (LUCENT3005). JavaScript imports the shared
   file, so it sees one API; the proxy and the JSI bindings are the same on
@@ -606,8 +626,8 @@ Board_top(…) = …top<T>(…)`), which the JVM erases. A value class property
   `subscribe` from `lucent:core` too: its register starts
   `collect(next, signal)` with an `AbortController` of its own, calls
   `end` or `fail` when the collection settles, and returns what aborts
-  it, so the subscription's signal and a throwing `onValue` cancel the
-  coroutine.
+  it, so the subscription's signal (which resolves it) and a throwing
+  `onValue` (which rejects it) cancel the coroutine.
 - **Swift-only APIs** (iOS): a Swift member the program calls gets a
   `@_cdecl` shim in `LucentShims.swift`, which the glue calls as a C
   function ([design](design/swift-shims.md)). Swift structs are boxed
@@ -718,7 +738,10 @@ UIViewController`): a generated Objective-C subclass stands for each
   (`java.lang.IllegalArgumentException`) and whose message is the
   exception's. `errorOf(throwable)` from `lucent:android` makes the same
   error of a `Throwable` a callback API reports, so an adapter's
-  `reject(errorOf(e))` rejects as the call would have thrown. A
+  `reject(errorOf(e))` rejects as the call would have thrown;
+  `nativeError(error)` gives the `Throwable` back (the error keeps a
+  global reference to it), for `instanceof` and its members, and on iOS
+  the `NSError` an error was made from. A
   `nil`/`null` result where the schema promises an object throws
   `TypeError`.
 - A `Task`, a `ListenableFuture`, a `CompletionStage` or any other Java
@@ -870,9 +893,19 @@ its own, whose disposal cancels the presentation.
 
 Presentations and subscriptions made from module code belong to its
 JavaScript runtime's scope (`ownedScope`): a reload ends them, as it
-ends module code's operations, callbacks and timers. Not yet: URLs and user activities the app opens have no event yet (React
-Native's `Linking` has them), and apps that support several scenes are
-covered by unit tests only.
+ends module code's operations, callbacks and timers. An `onDestroy` hook
+from `lucent:core` runs when the module state ends too (before a reload
+initializes it again, holding the Lucent lock; `lucent/hooks.h`), for
+state of its own to release. Not yet: URLs and user activities the app
+opens have no event yet (React Native's `Linking` has them: the app's
+delegate forwards them to `RCTLinkingManager`, which posts
+`RCTOpenURLNotification`, the notification a Lucent event would
+observe); on Android, `onActivityEvent("newIntent", …)` and the created
+Activity's intent carry them. A push token has no hook either: it
+reaches only the app delegate's
+`application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`, which
+Lucent does not replace. Apps that support several scenes are covered by
+unit tests only.
 
 ## Verified in the spike
 

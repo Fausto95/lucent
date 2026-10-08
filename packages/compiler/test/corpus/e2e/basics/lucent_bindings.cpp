@@ -39,7 +39,7 @@ void install_m_basics(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "hashMany", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<lucent::String>>::fromJs(rt, arg(args, count, 0), Path{"hashMany", "argument 'inputs'"});
       return callAsync<lucent::Array<double>>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("hashMany", "packages/compiler/test/e2e/cases/basics.lucent.ts", 10), [a0]() {
         return lucent_app::m_basics::hashMany(a0);

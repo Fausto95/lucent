@@ -422,7 +422,7 @@ void install_m_bigint_u2d_values(jsi::Runtime& rt, Host& host, jsi::Object& expo
   });
   defineFunction(rt, exports, "factorialLater", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::BigInt>::fromJs(rt, arg(args, count, 0), Path{"factorialLater", "argument 'n'"});
       return callAsync<lucent::BigInt>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("factorialLater", "packages/compiler/test/e2e/cases/bigint-values.lucent.ts", 128), [a0]() {
         return lucent_app::m_bigint_u2d_values::factorialLater(a0);
@@ -431,7 +431,7 @@ void install_m_bigint_u2d_values(jsi::Runtime& rt, Host& host, jsi::Object& expo
   });
   defineFunction(rt, exports, "sumLater", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<lucent::BigInt>>::fromJs(rt, arg(args, count, 0), Path{"sumLater", "argument 'xs'"});
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("sumLater", "packages/compiler/test/e2e/cases/bigint-values.lucent.ts", 138), [a0]() {
         return lucent_app::m_bigint_u2d_values::sumLater(a0);
@@ -440,7 +440,7 @@ void install_m_bigint_u2d_values(jsi::Runtime& rt, Host& host, jsi::Object& expo
   });
   defineFunction(rt, exports, "failLater", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"failLater", "argument 'text'"});
       return callAsync<lucent::BigInt>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("failLater", "packages/compiler/test/e2e/cases/bigint-values.lucent.ts", 145), [a0]() {
         return lucent_app::m_bigint_u2d_values::failLater(a0);
@@ -469,7 +469,14 @@ void install_m_bigint_u2d_values(jsi::Runtime& rt, Host& host, jsi::Object& expo
     });
   });
   exports.setProperty(rt, "BIG", Convert<lucent::BigInt>::toJs(rt, host, lucent_app::m_bigint_u2d_values::BIG));
-  exports.setProperty(rt, "LIMITS", Convert<lucent::Ref<lucent_app::S_Object_e0719fe9>>::toJs(rt, host, lucent_app::m_bigint_u2d_values::LIMITS));
+  defineAccessor(rt, exports, "LIMITS", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+      return host.exported(rt, lucent_app::m_bigint_u2d_values::LIMITS, [&]() -> jsi::Value {
+        return Convert<lucent::Ref<lucent_app::S_Object_e0719fe9>>::toJs(rt, host, lucent_app::m_bigint_u2d_values::LIMITS);
+      });
+    });
+  }, nullptr);
 }
 
 const ModuleDef kModules[] = {{"bigint-values", install_m_bigint_u2d_values, &lucent_app::actor_0}};

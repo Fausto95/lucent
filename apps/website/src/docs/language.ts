@@ -388,6 +388,13 @@ export const differences: { title: string; rows: Difference[] }[] = [
         cases: [],
       },
       {
+        js: "`x as T` does nothing at run time.",
+        lucent:
+          "Taking a member out of a union, such as `x as number` on a `string | number`, checks the value: another member throws a `TypeError`.",
+        why: "A native union holds one member's layout, so the value can't be read as another.",
+        cases: [],
+      },
+      {
         js: "`map.keys()`, `values()` and `entries()`, and the same methods of arrays and sets, return iterators.",
         lucent: "They return arrays, holding the contents at the time of the call.",
         why: "An array serves everywhere these iterators are read: `for…of`, spread and `Array.from`.",
@@ -396,9 +403,16 @@ export const differences: { title: string; rows: Difference[] }[] = [
       {
         js: "Garbage collection frees cycles.",
         lucent:
-          "Reference counting never frees a cycle. Break it by clearing a field ([Memory](/docs/api/language/memory/#cycles-leak)).",
+          "Reference counting never frees a cycle. Break it by clearing a field, or hold one side in a `WeakRef` ([Memory](/docs/api/language/memory/#cycles-leak)).",
         why: "Lucent counts references, and no collector runs.",
         cases: [],
+      },
+      {
+        js: "A `WeakRef`'s target lives until the garbage collector runs, so `deref()` may still return it after the last other reference goes.",
+        lucent:
+          "The target is freed with its last strong reference, and `deref()` returns `undefined` at once.",
+        why: "Lucent counts references, so a target goes when its count reaches zero.",
+        cases: ["weak-refs"],
       },
       {
         js: "Deep recursion throws a `RangeError`.",
@@ -526,6 +540,13 @@ export const differences: { title: string; rows: Difference[] }[] = [
           "JavaScript reads the binding live, but gets a copy of each object, array, map or set the module assigns. Changes the module makes inside that value don't reach JavaScript ([Modules](/docs/api/language/modules/#exports)).",
         why: "The value is copied at the boundary like any other.",
         cases: ["exported-variables"],
+      },
+      {
+        js: "An `EventEmitter` takes any event name.",
+        lucent:
+          "From JavaScript, an `EventEmitter` from Lucent takes only the events its type declares: another name throws a `TypeError`.",
+        why: "Native code numbers the events when it compiles, so a name the type lacks has nowhere to keep its listeners.",
+        cases: ["events"],
       },
       {
         js: "Arrays and objects passed to other code are shared.",

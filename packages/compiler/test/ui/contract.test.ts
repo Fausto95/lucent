@@ -510,7 +510,7 @@ export function plain(): number {
 `);
 
     expect(messages(a, "LUCENT3021")).toEqual([
-      "`Maybe` calls expose inside a statement: call it once, at the top level of its setup",
+      "`Maybe` calls expose inside a statement: call it once, at the top level of its setup or of a PLATFORM branch",
       "`Named` gives expose `commands`: give it an object literal, so its commands are known",
       "expose is for components, and `plain` is not one: a component is an exported function returning a view",
     ]);
@@ -543,6 +543,56 @@ export function Bad(props: { value: number }): Label {
       "`Twice` calls expose more than once: expose every command in one object",
       "`Bad`'s command `version` is not a function: every exposed member is a command",
       "`Bad`'s command `attach` takes `v`, which is a main-thread native object (View): views take plain data (numbers, strings, booleans, arrays and plain objects)",
+    ]);
+  });
+
+  it("take expose in a platform branch, once per platform", () => {
+    const source = `import { PLATFORM } from "lucent:platform";
+import { Label } from "./native";
+import { expose } from "./ui";
+
+export function Field(props: { value: number }): Label {
+  const label = new Label();
+  if (PLATFORM === "ios") {
+    expose({ focus: () => {}, text: (): string => label.text });
+  } else {
+    expose({ focus: () => {}, text: (): string => "android" });
+  }
+  return label;
+}
+`;
+    // The fixture's iOS root is View, and its Android root Widget.
+    const sources = {
+      ios: source,
+      android: source.replaceAll("Label", "Widget").replace("label.text", '"ios"'),
+    };
+    for (const platform of ["ios", "android"] as const) {
+      const a = views({ "m.lucent.tsx": sources[platform] }, { platform });
+      expect(a.diagnostics).toEqual([]);
+      expect(a.components[0]!.commands.map((c) => c.name)).toEqual(["focus", "text"]);
+    }
+  });
+
+  it("refuse expose in a platform branch and outside it, or under another condition", () => {
+    const a = one(`import { PLATFORM } from "lucent:platform";
+import { Label } from "./native";
+import { expose } from "./ui";
+
+export function Both(props: { value: number }): Label {
+  expose({ a: () => {} });
+  if (PLATFORM === "ios") expose({ a: () => {} });
+  return new Label();
+}
+
+export function Ready(props: { ready: boolean }): Label {
+  if (PLATFORM === "ios" && props.ready) expose({ a: () => {} });
+  return new Label();
+}
+`);
+
+    expect(messages(a, "LUCENT3021")).toEqual([
+      "`Both` calls expose more than once: expose every command in one object",
+      "`Ready` calls expose inside a statement: call it once, at the top level of its setup or of a PLATFORM branch",
     ]);
   });
 });

@@ -398,6 +398,8 @@ export interface Initialization {
   first?: (params: ValueId[]) => Leaf;
   initializers: Initializer[];
   effects?: EffectSummary;
+  /** Code its initializers come from besides `source` (a platform module's declaration file). */
+  elsewhere?: ts.Node[];
 }
 
 export function lowerInit(init: Initialization, host: LowerHost): Lowered {
@@ -511,6 +513,8 @@ class Lowerer {
   initialization(init: Initialization): Lowered {
     const span = spanOf(init.source);
     const params = this.input.params.map((t, i) => this.b.param(i, t, span));
+
+    for (const n of init.elsewhere ?? []) this.b.elsewhere.push(spanOf(n));
 
     if (init.first) this.planOf(init.first(params), params, span);
 
@@ -2108,9 +2112,12 @@ class Lowerer {
     // A function as a value, a platform's or the SDK's constant…
     if (g?.kind !== "var") return this.leaf(id);
 
-    // A literal constant is read as its literal, not from module storage.
+    // A literal constant is read as its literal, not from module storage; a
+    // constant whose value is code (the host's platform test) is the backend's.
     if (g?.kind === "var" && g.literal)
-      return this.coerce(this.b.const(literalValue(g.literal), spanOf(id)), g.type, id);
+      return isLiteral(g.literal)
+        ? this.coerce(this.b.const(literalValue(g.literal), spanOf(id)), g.type, id)
+        : this.leaf(id);
 
     return this.b.load(this.place(id).place, spanOf(id));
   }
@@ -2850,6 +2857,11 @@ const LITERALS: Partial<Record<ts.SyntaxKind, (n: never) => Constant>> = {
   [ts.SyntaxKind.TrueKeyword]: () => true,
   [ts.SyntaxKind.FalseKeyword]: () => false,
 };
+
+/** Whether `n` is a literal, or a negated one. */
+function isLiteral(n: ts.Expression): boolean {
+  return ts.isPrefixUnaryExpression(n) ? isLiteral(n.operand) : n.kind in LITERALS;
+}
 
 /** A literal's value; a literal constant's may be negated (`-1`, `-2n`). */
 function literalValue(n: ts.Expression): Constant {

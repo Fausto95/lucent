@@ -9,7 +9,7 @@ Tasks live here, in the repository, rather than in GitHub issues, so an
 agent's commit updates the task it works on. A commit that finishes,
 changes or adds a task updates its entry here in the same commit: its
 status line, its checklist and the table below. A new task takes the next
-free id (`TA37` next) and never reuses one.
+free id (`TA38` next) and never reuses one.
 
 ## Status
 
@@ -26,6 +26,7 @@ free id (`TA37` next) and never reuses one.
 | [TA25](#ta25) | Fix the bare app's FlatList crash from a second react-native copy | done (#76, 2026-10-04)                                                                                                            |
 | [TA26](#ta26) | Lay out the slot after a native-only move on iOS                  | done (#77, 2026-10-04)                                                                                                            |
 | [TA36](#ta36) | Close the gaps four reference ports need                          | done (#128, #129, 2026-10-07)                                                                                                     |
+| [TA37](#ta37) | Close the language gaps the review found                          | in review (2026-10-08)                                                                                                            |
 | **G4**        | **Production candidate**                                          |                                                                                                                                   |
 | [T54](#t54)   | Implement measured compiler and runtime optimizations             | done (#90, #92, #93, #100, 2026-10-06)                                                                                            |
 | [T55](#t55)   | Implement native recycled and virtualized lists                   | waiting (needs the maintainer); needs T52                                                                                         |
@@ -595,6 +596,80 @@ original has one.
 - MMKV through its pod and Gradle library binds today; whether it keeps
   Nitro's speed on Android (JNI against Nitro's direct C++) is for T54's
   measurements.
+
+<a id="ta37"></a>
+
+### TA37: Close the language gaps the review found
+
+**Goal:** Give ports what Nitro's HybridObjects and Expo's modules give
+them without ids and string codes: native objects in exported classes,
+events, platform files without twins, cycles without leaks, typed native
+errors, 64-bit parameters from numbers, and lifecycle hooks.
+
+- **Status:** in review (2026-10-08): the items checked below pass on
+  their branch; the two left open are recorded as not done, with why.
+- **Area:** Compiler, runtime, docs.
+- **Needs:** none.
+- **Verify:** V1, V3.
+- **Where:** `platforms.ts` (`platformScopes`, `classMembersFor`,
+  `platformTestConst`), `types.ts` (`ClassInfo.members`, the `emitter`
+  and `weak` types), `emit/events.ts`, `runtime/cpp/lucent/events.h`,
+  `hooks.h`, `jsi/convert.h` (`callAsyncEntry`), the tests named below;
+  `test/fake-android.ts` and the JNI host on Linux run the Android parts.
+
+- [x] Native objects in exported classes: a private member that uses one
+      platform's code belongs to that platform, and the class stays
+      shared (`platform-members.test.ts`, which runs the Android build of
+      such a class on the desktop JNI host, now also on Linux against
+      `fake-android.ts`'s stand-ins). The expo-location port's watch is
+      a `LocationSubscription` holding its manager or listener, as
+      expo-location's. Class instances as view props stay refused
+      ([0065](decisions/0065-platform-members-not-platform-classes.md)).
+- [x] `EventEmitter` in `lucent:core`: typed events by name, crossing
+      to JavaScript as one object whose `addListener` returns a
+      subscription; JavaScript's listeners end with their runtime (e2e
+      `events`, `host_test.cpp`'s `listenersEndWithTheirRuntime`,
+      `events.test.ts`). `subscribe` resolves when its signal aborts.
+- [x] Platform files without a twin (the other platform's build gets
+      stubs), shared constants and enums in a declaration file, and a
+      `const` holding a platform test (`platform-files.test.ts`, its
+      Android builds run on the JNI host). `export declare class` in a
+      declaration file is not done: a shared class with platform members
+      covers what it was for, and a declared class's type would need
+      routing to each platform's class.
+- [x] Weak references for cycles: `WeakRef<T>` of a class instance,
+      interface or object value, freed with its last strong reference
+      (e2e `weak-refs`, `runtime_test.cpp`'s `weakReferences`).
+      `WeakMap` and `WeakSet` stay refused.
+- [x] Async exports reject a bad argument instead of throwing from the
+      call (e2e `async-arguments`).
+- [x] Typed native errors: `nativeError(e)` from `lucent:android` and
+      `lucent:ios` gives back the `Throwable` or `NSError` an error came
+      from (`native-errors.test.ts` on the JNI host; the iOS side is
+      written but unverified here, without Xcode).
+- [x] 64-bit integer parameters from safe-integer numbers: the SDK
+      declarations type a member's own 64-bit parameter `bigint | number`,
+      and a number is checked to be a safe integer (`wide-arguments.test.ts`
+      on the JNI host; the Objective-C and Swift glue share the
+      conversion, unverified here).
+- [x] Module create and destroy hooks: top-level code creates, and
+      `onDestroy` from `lucent:core` runs before a reload initializes the
+      module again (`host_test.cpp`'s
+      `destroyHooksRunWhenModuleStateEnds`, e2e `module-hooks`).
+- [ ] Deep links and push tokens: not done. iOS would observe
+      `RCTOpenURLNotification`, which React Native's `RCTLinkingManager`
+      posts when the app delegate forwards a URL or user activity, and
+      nothing here can run that; a push token reaches only the app
+      delegate, which Lucent does not replace. Android's deep links come
+      through `onActivityEvent("newIntent")` and the Activity's intent.
+- [x] `expose()` inside a PLATFORM branch at the top level of setup,
+      once per platform (`ui/contract.test.ts`; the component glue is
+      compiled per platform, unverified here without an SDK). The
+      platform-views guide no longer says platform files are required.
+
+**Done when:** each item has its e2e case or test, docs and changeset.
+
+**Notes:** From the 2026-10-08 language review.
 
 <a id="g4-production-candidate"></a>
 

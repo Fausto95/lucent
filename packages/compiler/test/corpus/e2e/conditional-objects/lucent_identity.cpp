@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"conditional-objects", 
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "73635489957617ab", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "6cab0d53f0986391", kModuleIdentities, 1};
   return identity;
 }
 

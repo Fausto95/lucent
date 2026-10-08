@@ -396,7 +396,7 @@ void install_m_interfaces(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "loadVia", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"loadVia", "argument 'key'"});
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("loadVia", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 109), [a0]() {
         return lucent_app::m_interfaces::loadVia(a0);

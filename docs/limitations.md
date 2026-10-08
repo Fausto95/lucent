@@ -76,7 +76,16 @@ generated from this file.
 
 ## Language, runtime and bindings
 
-- Reference cycles are not collected (see [Not planned](../ROADMAP.md#not-planned)).
+- Reference cycles are not collected (see [Not planned](../ROADMAP.md#not-planned)):
+  break them with `WeakRef`. `WeakMap` and `WeakSet` are refused, and so
+  is a `WeakRef` to an SDK object ([TA37](tasks.md#ta37)).
+- On iOS, module code has no event for the URLs the app opens and no
+  hook for a push token. Both reach only the app delegate, which Lucent
+  does not replace ([TA37](tasks.md#ta37)). On Android,
+  `onActivityEvent("newIntent", …)` carries the URLs.
+- A declaration file of platform files can't declare a class
+  (`export declare class`): a shared class with platform members holds
+  platform objects instead ([TA37](tasks.md#ta37)).
 - A few language features differ from JavaScript without a diagnostic;
   the website lists them under
   [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps),

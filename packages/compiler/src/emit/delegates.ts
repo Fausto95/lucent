@@ -91,7 +91,7 @@ export function requirementMethods(
   for (const p of protocols) {
     for (const m of p.cls.methods ?? []) {
       if (m.static) continue;
-      const impl = info.decl.members.find(
+      const impl = info.members.find(
         (x): x is ts.MethodDeclaration =>
           ts.isMethodDeclaration(x) && memberName(x) === m.name && !!x.body,
       );

@@ -505,7 +505,7 @@ export async function run(): Promise<string> {
     expect(r.diagnostics).toEqual([]);
     // Heap blocks made from C++ lambdas, which own the Lucent function.
     expect(mm).toMatch(
-      /block:lucent::objc::block<void \(\^\)\(NSTimer\*\)>\(\[f_ = [^]*?\]\(NSTimer\* a0_\) \{ lucent::postCallback\(\[f_, a0_\]/,
+      /block:lucent::objc::block<void \(\^\)\(NSTimer\*\)>\(\[f_ = [^]*?\]\(NSTimer\* a0_\) \{ lucent::postCallback\([^,]+, \[f_, a0_\]/,
     );
     expect(mm).toMatch(
       /comparator:lucent::objc::block<NSComparisonResult \(\^\)\(id, id\)>\([^]*?\(id a0_, id a1_\) \{ return lucent::callNow\(/,

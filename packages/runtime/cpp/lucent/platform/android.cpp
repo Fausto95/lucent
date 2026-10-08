@@ -302,6 +302,8 @@ Error errorOf(JNIEnv* e, jobject t, bool take) {
   String className = name ? fromJString(e, name, "") : String::fromLatin1("java.lang.Throwable");
   Error err = makeError(String::fromLatin1("Error"), message ? fromJString(e, message, "") : className);
   err->code = className;
+  // The exception itself, for nativeError: a global reference, kept with the error.
+  err->native = std::make_shared<const NativeRef>(wrap(e, e->NewLocalRef(t), "an exception"));
   return err;
 }
 
@@ -310,6 +312,11 @@ Error errorOf(JNIEnv* e, jobject t, bool take) {
 Error errorOf(JNIEnv* e, jobject t) { return errorOf(e, t, true); }
 
 Error errorOf(const NativeRef& throwable) { return errorOf(env(), unwrap(throwable), false); }
+
+Opt<NativeRef> nativeError(const Error& error) {
+  if (!error || !error->native) return Opt<NativeRef>(null);
+  return *std::static_pointer_cast<const NativeRef>(error->native);
+}
 
 void close(const NativeRef& closeable) {
   JNIEnv* e = env();

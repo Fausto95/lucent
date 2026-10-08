@@ -243,7 +243,14 @@ void install_m_misc(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     });
   });
   exports.setProperty(rt, "VERSION", Convert<lucent::String>::toJs(rt, host, lucent_app::m_misc::VERSION));
-  exports.setProperty(rt, "LIMITS", Convert<lucent::Ref<lucent_app::S_Object_eb4e300f>>::toJs(rt, host, lucent_app::m_misc::LIMITS));
+  defineAccessor(rt, exports, "LIMITS", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+      return host.exported(rt, lucent_app::m_misc::LIMITS, [&]() -> jsi::Value {
+        return Convert<lucent::Ref<lucent_app::S_Object_eb4e300f>>::toJs(rt, host, lucent_app::m_misc::LIMITS);
+      });
+    });
+  }, nullptr);
 }
 
 const ModuleDef kModules[] = {{"misc", install_m_misc, &lucent_app::actor_0}};

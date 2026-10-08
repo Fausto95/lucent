@@ -43,7 +43,7 @@ using namespace lucent::js;
 void install_m_listeners(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "settlesOnce", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("settlesOnce", "packages/compiler/test/e2e/cases/listeners.lucent.ts", 72), []() {
         return lucent_app::m_listeners::settlesOnce();
       });
@@ -51,7 +51,7 @@ void install_m_listeners(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "completesDuringRegistration", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("completesDuringRegistration", "packages/compiler/test/e2e/cases/listeners.lucent.ts", 88), []() {
         return lucent_app::m_listeners::completesDuringRegistration();
       });
@@ -59,7 +59,7 @@ void install_m_listeners(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "namedRegistration", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("namedRegistration", "packages/compiler/test/e2e/cases/listeners.lucent.ts", 112), []() {
         return lucent_app::m_listeners::namedRegistration();
       });
@@ -67,7 +67,7 @@ void install_m_listeners(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "registrationThrows", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("registrationThrows", "packages/compiler/test/e2e/cases/listeners.lucent.ts", 122), []() {
         return lucent_app::m_listeners::registrationThrows();
       });
@@ -75,7 +75,7 @@ void install_m_listeners(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "rejects", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("rejects", "packages/compiler/test/e2e/cases/listeners.lucent.ts", 138), []() {
         return lucent_app::m_listeners::rejects();
       });
@@ -83,7 +83,7 @@ void install_m_listeners(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "aborts", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("aborts", "packages/compiler/test/e2e/cases/listeners.lucent.ts", 149), []() {
         return lucent_app::m_listeners::aborts();
       });
@@ -91,7 +91,7 @@ void install_m_listeners(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "waitsForJavaScript", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::AbortSignal>::fromJs(rt, arg(args, count, 0), Path{"waitsForJavaScript", "argument 'signal'"});
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("waitsForJavaScript", "packages/compiler/test/e2e/cases/listeners.lucent.ts", 187), [a0]() {
         return lucent_app::m_listeners::waitsForJavaScript(a0);
@@ -100,7 +100,7 @@ void install_m_listeners(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "voidResults", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("voidResults", "packages/compiler/test/e2e/cases/listeners.lucent.ts", 195), []() {
         return lucent_app::m_listeners::voidResults();
       });
@@ -108,7 +108,7 @@ void install_m_listeners(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "cleanupOrder", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("cleanupOrder", "packages/compiler/test/e2e/cases/listeners.lucent.ts", 206), []() {
         return lucent_app::m_listeners::cleanupOrder();
       });
@@ -116,7 +116,7 @@ void install_m_listeners(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "subscriptions", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("subscriptions", "packages/compiler/test/e2e/cases/listeners.lucent.ts", 220), []() {
         return lucent_app::m_listeners::subscriptions();
       });
@@ -124,7 +124,7 @@ void install_m_listeners(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "subscriptionEnds", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("subscriptionEnds", "packages/compiler/test/e2e/cases/listeners.lucent.ts", 251), []() {
         return lucent_app::m_listeners::subscriptionEnds();
       });

@@ -651,6 +651,10 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
   contexts each have a thread. A context is entered synchronously only on
   its own thread (`ContextEntry`); everything else crosses as posted jobs,
   so no context waits for another.
+- `events.h`: `EventEmitter` (`lucent:core`), each event's listeners by
+  the event's index in the emitter's type, which generated code knows from
+  the name; the instance keeps the names for JavaScript, whose conversion
+  (`jsi/convert.h`) adds listeners that its host's teardown ends.
 - `callback.h`: `fromCallback` and `subscribe` (`lucent:core`), a promise
   or a subscription over any callback API. Each is an `Operation` under the
   scope the calling context's work belongs to (`ownedScope`: module code's

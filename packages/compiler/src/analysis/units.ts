@@ -7,7 +7,7 @@
  * target runs.
  */
 import ts from "typescript";
-import { branchPlatform, platformScopes } from "../platforms.ts";
+import { branchPlatform, classMembersFor, platformScopes } from "../platforms.ts";
 import type { Platform } from "../sdk/schema.ts";
 import { isToolkitBody } from "../ui/toolkit-body.ts";
 import { isViewHelper } from "../ui/view-helpers.ts";
@@ -163,6 +163,10 @@ class Finder {
 
     this.inits.set(m.name, init);
 
+    // A platform module's constants, from its declaration file: they start first.
+    for (const s of m.declaration?.statements ?? [])
+      if (ts.isVariableStatement(s)) this.variables(s, m.name, init, code);
+
     for (const s of here) {
       // A helper view is its toolkit's code: none of it runs as the program's.
       if (ts.isFunctionDeclaration(s) && s.body && s.name && !isViewHelper(this.checker, s))
@@ -291,10 +295,12 @@ class Finder {
     parent?: Unit,
   ): void {
     const name = c.name?.text ?? "class";
-    const ctor = c.members.find(
+    // A private member of another platform is not this program's code.
+    const own = classMembersFor(this.checker, c, this.platform);
+    const ctor = own.find(
       (m): m is ts.ConstructorDeclaration => ts.isConstructorDeclaration(m) && !!m.body,
     );
-    const fields = c.members.filter(
+    const fields = own.filter(
       (m): m is ts.PropertyDeclaration =>
         ts.isPropertyDeclaration(m) && !hasModifier(m, ts.SyntaxKind.StaticKeyword),
     );
@@ -326,7 +332,7 @@ class Finder {
 
     const members = new Map<string, Unit[]>();
 
-    for (const m of c.members) {
+    for (const m of own) {
       const isStatic = hasModifier(m, ts.SyntaxKind.StaticKeyword);
 
       if (

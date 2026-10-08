@@ -114,4 +114,4 @@ export function StepCount(props: { steps: number }) {
 }
 ```
 
-Platform files suit components whose platforms share little code, or whose commands differ: `expose()` can't stand in a branch. A one-file component leaves its return type out ([One file or platform files](/docs/api/views/components/#one-file-or-platform-files)).
+Platform files suit components whose platforms share little code; commands that differ can be exposed once in each branch. A one-file component leaves its return type out ([One file or platform files](/docs/api/views/components/#one-file-or-platform-files)).

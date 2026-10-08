@@ -642,6 +642,34 @@ static void optionalsAndUnions() {
   }
 }
 
+/// Two objects that reach each other, one of them weakly (a delegate's owner).
+struct Owner : Object {
+  Ref<Object> delegate;
+};
+struct Delegate : Object {
+  Ref<WeakRefObject<Ref<Owner>>> owner;
+};
+
+static void weakReferences() {
+  auto owner = std::make_shared<Owner>();
+  auto delegate = std::make_shared<Delegate>();
+  owner->delegate = delegate;
+  delegate->owner = std::make_shared<WeakRefObject<Ref<Owner>>>(owner);
+
+  // deref() gives the target while something holds it.
+  CHECK(delegate->owner->deref().has() && delegate->owner->deref().value() == owner);
+  CHECK(strictEquals(delegate->owner, delegate->owner));
+
+  // The cycle frees with its last strong reference, and deref() then gives undefined.
+  std::weak_ptr<Owner> watched = owner;
+  std::weak_ptr<Delegate> watchedDelegate = delegate;
+  auto weak = delegate->owner;
+  owner.reset();
+  delegate.reset();
+  CHECK(watched.expired() && watchedDelegate.expired());
+  CHECK(weak->deref().isUndefined());
+}
+
 // Generated code calls lucent::strictEquals qualified, which finds no
 // hidden friend: every overload has to be declared at namespace scope.
 static void qualifiedStrictEquals() {
@@ -1185,6 +1213,7 @@ int main() {
   arrays();
   maps();
   optionalsAndUnions();
+  weakReferences();
   qualifiedStrictEquals();
   qualifiedToJsString();
   mixedStrictEquals();

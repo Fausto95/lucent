@@ -5,7 +5,7 @@ import { literalConstant, programFacts } from "../analysis/index.ts";
 import { Codes, fail } from "../diagnostics.ts";
 import type { CppFunction } from "../ir/cpp.ts";
 import { LUCENT_EXTENSION, lucentPackageOf } from "../packages.ts";
-import { platformScopes } from "../platforms.ts";
+import { holdsPlatformTest, PLATFORM_NAMES, platformScopes } from "../platforms.ts";
 import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
 import { actorDecls, actorsOf } from "./actors.ts";
@@ -174,6 +174,9 @@ export function emitProgram(
     for (const s of m.sourceFile.statements) {
       if (here(s)) ctx.guard(() => collect(ctx, m, s, exportsOf.get(m)!, imports.get(m)!, byFile));
     }
+    // A platform module's shared constants and enums, from its declaration file.
+    for (const s of m.declaration ? declarationValues(m.declaration) : [])
+      ctx.guard(() => collect(ctx, m, s, exportsOf.get(m)!, imports.get(m)!, byFile));
   }
   // Calls from other modules resolve to the declarations; route them to the
   // platform implementation.
@@ -308,7 +311,14 @@ export function emitProgram(
         .map((g) => ({
           decl: g.decl,
           init: {
-            value: initialValue(ctx, g.decl.initializer, g.type),
+            // On the host, a const holding a platform test is not read when the module starts.
+            value: initialValue(
+              ctx,
+              !ctx.platform && holdsPlatformTest(lp.checker, g.decl)
+                ? undefined
+                : g.decl.initializer,
+              g.type,
+            ),
             type: g.type,
             into: {
               variable: {
@@ -322,7 +332,13 @@ export function emitProgram(
           },
         })),
     ]
-      .sort((a, b) => a.decl.getStart() - b.decl.getStart())
+      // A declaration file's constants first: the platform file's code reads them.
+      .sort(
+        (a, b) =>
+          Number(a.decl.getSourceFile() === m.sourceFile) -
+            Number(b.decl.getSourceFile() === m.sourceFile) ||
+          a.decl.getStart() - b.decl.getStart(),
+      )
       .map((s) => s.init);
     const body = [
       ...(ctx.guard(() => initThroughIr(ctx, m, initializers, ir).body) ?? []),
@@ -615,6 +631,11 @@ function notCompiled(node: ts.Node, spec: string, file: string): never {
   );
 }
 
+/** What a platform module's declaration file holds besides declarations: its constants and enums. */
+export function declarationValues(sf: ts.SourceFile): ts.Statement[] {
+  return sf.statements.filter((s) => ts.isEnumDeclaration(s) || ts.isVariableStatement(s));
+}
+
 function collect(
   ctx: Ctx,
   m: LucentModule,
@@ -649,7 +670,8 @@ function collect(
         `Lucent modules can only import other *.lucent.ts files and lucent: modules (got "${spec}")`,
       );
     }
-    deps.push(dep);
+    // A platform file importing its own declaration file's constants and enums.
+    if (dep !== m) deps.push(dep);
     return;
   }
   if (ts.isTypeAliasDeclaration(s) || ts.isInterfaceDeclaration(s) || ts.isClassDeclaration(s))
@@ -714,7 +736,10 @@ function collect(
         ctx.failed.add(sym);
         throw e;
       }
-      const literal = literalConstant(d);
+      // The host reads PLATFORM where a const holding a test is used: there it throws.
+      const literal =
+        literalConstant(d) ??
+        (!ctx.platform && holdsPlatformTest(checker, d) ? d.initializer : undefined);
       const g: Global = {
         kind: "var",
         cpp: `lucent_app::${m.ns}::${cppIdent(d.name.text)}`,
@@ -793,7 +818,9 @@ function platformStub(
   const params = g.params.map((p, i) => cpp.param(ctx.reg.cppType(p.cppType), `p${i}_`));
   const error = cpp.call("lucent::makeError", [
     stringExpr("Error"),
-    stringExpr(`${g.module.name}.${name} is not available on this platform`),
+    stringExpr(
+      `${g.module.name}.${name} is not available on ${ctx.platform ? PLATFORM_NAMES[ctx.platform] : "this platform"}`,
+    ),
   ]);
   const promised = ret.k === "promise" ? ctx.reg.cppRetType(ret.inner) : undefined;
   const body: cpp.Stmt = promised
@@ -929,9 +956,9 @@ function jsonWriters(ctx: Ctx): {
     const fields = new Set<string>();
     // Base fields first, as super() creates them; parameter properties before declared fields.
     for (const { info } of chain.toReversed()) {
-      const ctor = info.decl.members.find(ts.isConstructorDeclaration);
+      const ctor = info.members.find(ts.isConstructorDeclaration);
       for (const p of parameterProperties(ctor)) fields.add(memberName(p));
-      for (const m of info.decl.members)
+      for (const m of info.members)
         if (ts.isPropertyDeclaration(m) && !ts.isPrivateIdentifier(m.name) && !declaredOnly(m))
           fields.add(memberName(m));
     }
@@ -954,7 +981,7 @@ function jsonWriters(ctx: Ctx): {
     }
 
     for (const { info } of chain) {
-      const method = info.decl.members.find(
+      const method = info.members.find(
         (m): m is ts.MethodDeclaration =>
           ts.isMethodDeclaration(m) &&
           !isStatic(m) &&
@@ -976,8 +1003,8 @@ function jsonWriters(ctx: Ctx): {
 
 /** A class's own fields named toJSON, parameter properties included. */
 function toJsonFields(info: ClassInfo): (ts.PropertyDeclaration | ts.ParameterDeclaration)[] {
-  const ctor = info.decl.members.find(ts.isConstructorDeclaration);
-  const declared = info.decl.members.filter(
+  const ctor = info.members.find(ts.isConstructorDeclaration);
+  const declared = info.members.filter(
     (m): m is ts.PropertyDeclaration =>
       ts.isPropertyDeclaration(m) && !ts.isPrivateIdentifier(m.name) && !declaredOnly(m),
   );
@@ -1213,7 +1240,10 @@ function jsProxy(m: ModuleExports, components: readonly ComponentDescription[]):
   for (const c of m.consts) {
     const name = c.decl.name.getText();
     decls.push(
-      c.isConst
+      // A primitive literal is copied once; anything else is read from the native module each
+      // time, as a `let` is: the handle a host gave out ends with that host (a reload, a test
+      // harness that tears hosts down), while the module's value lives on.
+      c.isConst && primitiveLiteral(c.decl.initializer)
         ? exported(name, js.member(mod, name))
         : js.stmt(
             js.exprStmt(
@@ -1286,4 +1316,21 @@ function toolkitFiles(ctx: Ctx, toolkit: ToolkitName): [string, string][] {
 
       return [name, text];
     });
+}
+
+/** Whether `e` is a literal JavaScript copies as a value: a number, string, boolean or bigint. */
+function primitiveLiteral(e: ts.Expression | undefined): boolean {
+  if (!e) return false;
+  if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isSatisfiesExpression(e))
+    return primitiveLiteral(e.expression);
+  if (ts.isPrefixUnaryExpression(e) && e.operator === ts.SyntaxKind.MinusToken)
+    return primitiveLiteral(e.operand);
+  return (
+    ts.isNumericLiteral(e) ||
+    ts.isBigIntLiteral(e) ||
+    ts.isStringLiteral(e) ||
+    ts.isNoSubstitutionTemplateLiteral(e) ||
+    e.kind === ts.SyntaxKind.TrueKeyword ||
+    e.kind === ts.SyntaxKind.FalseKeyword
+  );
 }

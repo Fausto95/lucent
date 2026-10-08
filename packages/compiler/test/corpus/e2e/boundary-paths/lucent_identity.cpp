@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"boundary-paths", "bc92
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "e807b8938e8f99bb", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "117f8b18b30abe16", kModuleIdentities, 1};
   return identity;
 }
 

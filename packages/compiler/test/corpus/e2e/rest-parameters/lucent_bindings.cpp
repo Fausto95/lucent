@@ -221,7 +221,7 @@ void install_m_rest_u2d_parameters(jsi::Runtime& rt, Host& host, jsi::Object& ex
   });
   defineFunction(rt, exports, "later", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       lucent::Array<lucent::String> a0;
       for (size_t i = 0; i < count; i++) {
         a0.push(Convert<lucent::String>::fromJs(rt, args[i], Path::argument("later", i + 1)));

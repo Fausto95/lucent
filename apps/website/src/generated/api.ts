@@ -8,6 +8,27 @@ export const apiModules: Record<string, ModuleDeclarations> = {
     "experimental": false,
     "declarations": [
       {
+        "name": "onDestroy",
+        "kind": "function",
+        "signature": "function onDestroy(hook: () => void): () => void;",
+        "doc": [
+          "Runs `hook` when this module's state ends: before a JavaScript reload initializes the module again, or when the app's JavaScript runtime goes, as Expo's `OnDestroy` does. Module state is initialized for each runtime: a module's top-level code is its create hook. Stop there what module code started for this state and that a reload would leave running, such as an SDK observer.",
+          "Hooks run in a turn of the module's code, the last registered first, while the module's state is still the one ending. What one throws goes to the platform log, and the others run."
+        ],
+        "examples": [
+          "import { onDestroy } from \"lucent:core\";\n\nlet watching: (() => void) | undefined;\nconst stopWatching = onDestroy(() => watching?.());"
+        ],
+        "members": [],
+        "params": [
+          {
+            "name": "hook",
+            "type": "() => void",
+            "optional": false,
+            "doc": "What to run when the module's state ends."
+          }
+        ]
+      },
+      {
         "name": "delay",
         "kind": "function",
         "signature": "function delay(ms: number, signal?: AbortSignal): Promise<void>;",
@@ -156,8 +177,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "signature": "function subscribe<T>(\n  register: (\n    next: (value: T) => void,\n    end: () => void,\n    fail: (error: Error) => void,\n  ) => (() => void) | void,\n  onValue: (value: T) => void,\n  signal?: AbortSignal,\n): Promise<void>;",
         "doc": [
           "Passes what a listener reports to `onValue` until the subscription ends, and resolves when it does. `register` starts listening at once, and may return the cleanup that stops it.",
-          "`next(value)` calls `onValue(value)` while the subscription is open, and does nothing after. The first of `end()`, `fail(error)`, `onValue` throwing and the signal aborting ends it. The promise then resolves (`end`) or rejects, with the error or the signal's reason.",
-          "The cleanup, a throw from `register`, an aborted signal and calls from other threads behave as in `fromCallback`."
+          "`next(value)` calls `onValue(value)` while the subscription is open, and does nothing after. The first of `end()`, `fail(error)`, `onValue` throwing and the signal aborting ends it. The promise then resolves (`end()`, or the signal: aborting is how the caller ends it) or rejects with the error.",
+          "The cleanup, a throw from `register` and calls from other threads behave as in `fromCallback`. With a signal already aborted, the promise resolves, and `register` is not called."
         ],
         "examples": [],
         "members": [],
@@ -178,9 +199,69 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "name": "signal",
             "type": "AbortSignal",
             "optional": true,
-            "doc": "Ends the subscription, rejecting with its reason."
+            "doc": "Ends the subscription, and resolves the promise."
           }
         ]
+      },
+      {
+        "name": "EventSubscription",
+        "kind": "interface",
+        "signature": "interface EventSubscription {\n  remove(): void;\n}",
+        "doc": [
+          "What `addListener` returns: `remove()` takes the listener off."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "remove",
+            "signature": "remove(): void;",
+            "doc": "Removes the listener. Removing it again does nothing."
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "EventEmitter",
+        "kind": "class",
+        "signature": "class EventEmitter<Events extends { [name: string]: (...args: never[]) => void }> {\n  constructor();\n  addListener<K extends keyof Events & string>(name: K, listener: Events[K]): EventSubscription;\n  emit<K extends keyof Events & string>(name: K, ...args: Parameters<Events[K]>): void;\n  listenerCount(name: keyof Events & string): number;\n  removeAllListeners(name?: keyof Events & string): void;\n}",
+        "doc": [
+          "Events a module sends to its listeners, in Lucent and in JavaScript. `Events` names each event and its listener's signature, as Expo's `EventEmitter` does: `EventEmitter<{ progress: (percent: number) => void }>`.",
+          "`emit(name, ...args)` calls the event's listeners, in the order they were added; those added or removed while it runs take effect at the next emit. A listener's throw ends the emit and reaches its caller. In Lucent, an event's name is a string literal.",
+          "An EventEmitter crosses to JavaScript as the same object each time, with the same methods.",
+          "A JavaScript listener is a callback Lucent holds. During a synchronous call from JavaScript it runs at once. From anywhere else it is posted to the JS thread, with copies of its arguments.",
+          "Each JavaScript listener belongs to its runtime: a reload removes it, and `listenerCount` stops counting it. In JavaScript, naming an event that the type doesn't declare throws a TypeError."
+        ],
+        "examples": [
+          "import { EventEmitter } from \"lucent:core\";\n\nexport const downloads = new EventEmitter<{\n  progress: (url: string, percent: number) => void;\n  done: (url: string) => void;\n}>();\n\nexport async function download(url: string): Promise<void> {\n  for (let percent = 0; percent <= 100; percent += 10) downloads.emit(\"progress\", url, percent);\n  downloads.emit(\"done\", url);\n}"
+        ],
+        "members": [
+          {
+            "name": "constructor",
+            "signature": "constructor();",
+            "doc": ""
+          },
+          {
+            "name": "addListener",
+            "signature": "addListener<K extends keyof Events & string>(name: K, listener: Events[K]): EventSubscription;",
+            "doc": "Adds `listener` to the event's listeners, last; the subscription removes it."
+          },
+          {
+            "name": "emit",
+            "signature": "emit<K extends keyof Events & string>(name: K, ...args: Parameters<Events[K]>): void;",
+            "doc": "Calls each of the event's listeners with `args`."
+          },
+          {
+            "name": "listenerCount",
+            "signature": "listenerCount(name: keyof Events & string): number;",
+            "doc": "How many listeners the event has."
+          },
+          {
+            "name": "removeAllListeners",
+            "signature": "removeAllListeners(name?: keyof Events & string): void;",
+            "doc": "Removes the event's listeners, or every event's without a name."
+          }
+        ],
+        "params": []
       },
       {
         "name": "ComputeOptions",
@@ -648,6 +729,26 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         ]
       },
       {
+        "name": "nativeError",
+        "kind": "function",
+        "signature": "function nativeError(error: Error): NSError | null;",
+        "doc": [
+          "The NSError `error` came from: what a throwing method, an `NSError**` out-parameter or a completion handler gave. Read its `domain`, `code` and `userInfo` as the SDK types them, rather than parsing `code` (`\"NSCocoaErrorDomain:260\"`). Null for an error Lucent or JavaScript made."
+        ],
+        "examples": [
+          "import { nativeError } from \"lucent:ios\";\nimport { FileManager, NSCocoaErrorDomain } from \"lucent:ios/Foundation\";\n\nfunction exists(path: string): boolean {\n  try {\n    FileManager.default.attributesOfItem(path);\n    return true;\n  } catch (e) {\n    const ns = nativeError(e as Error);\n    // NSFileReadNoSuchFileError: the file isn't there.\n    if (ns?.domain === NSCocoaErrorDomain && ns.code === 260n) return false;\n    throw e;\n  }\n}"
+        ],
+        "members": [],
+        "params": [
+          {
+            "name": "error",
+            "type": "Error",
+            "optional": false,
+            "doc": "A caught error."
+          }
+        ]
+      },
+      {
         "name": "Out",
         "kind": "class",
         "signature": "class Out<T> {\n  constructor();\n  value: T | null;\n}",
@@ -834,6 +935,26 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "type": "Throwable",
             "optional": false,
             "doc": "The exception, such as one a callback received."
+          }
+        ]
+      },
+      {
+        "name": "nativeError",
+        "kind": "function",
+        "signature": "function nativeError(error: Error): Throwable | null;",
+        "doc": [
+          "The Java exception `error` came from: what a call threw, or a callback gave `errorOf`. Test its class with `instanceof` and read its members, rather than matching `code`. Null for an error Lucent or JavaScript made."
+        ],
+        "examples": [
+          "import { nativeError } from \"lucent:android\";\nimport { FileInputStream, FileNotFoundException } from \"lucent:android/java.io\";\n\nfunction open(path: string): FileInputStream | null {\n  try {\n    return new FileInputStream(path);\n  } catch (e) {\n    if (nativeError(e as Error) instanceof FileNotFoundException) return null;\n    throw e;\n  }\n}"
+        ],
+        "members": [],
+        "params": [
+          {
+            "name": "error",
+            "type": "Error",
+            "optional": false,
+            "doc": "A caught error."
           }
         ]
       },
@@ -1189,7 +1310,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "kind": "function",
         "signature": "function expose<T extends object>(commands: T): void;",
         "doc": [
-          "Gives the component's React ref `commands`: called once, at the top of setup, with an object literal of functions. A command returning nothing runs on the main thread; one returning a value (or a promise) answers JavaScript's promise."
+          "Gives the component's React ref `commands`: called once, at the top of setup or of a PLATFORM branch there, with an object literal of functions. A command returning nothing runs on the main thread; one returning a value (or a promise) answers JavaScript's promise."
         ],
         "examples": [],
         "members": [],

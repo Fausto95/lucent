@@ -1,6 +1,6 @@
 ---
 title: Stream events to JavaScript
-description: "Export an async function that takes a callback and an `AbortSignal`, and hand both to `subscribe()`; JavaScript stops the stream with `abort()`."
+description: "Export an `EventEmitter` from `lucent:core` and call its `emit()`; JavaScript listens with `addListener()`, and the subscription it returns removes the listener."
 kind: guide
 ---
 
@@ -8,36 +8,21 @@ kind: guide
 <TabItem label="module">
 
 ```ts title="downloads.lucent.ts"
-import { delay, subscribe } from "lucent:core";
+import { delay, EventEmitter } from "lucent:core";
 
 export type Progress = { url: string; percent: number };
 
-const listeners = new Map<number, (progress: Progress) => void>();
-let nextId = 0;
+export const downloads = new EventEmitter<{
+  progress: (progress: Progress) => void;
+  done: (url: string) => void;
+}>();
 
 export async function download(url: string): Promise<void> {
   for (let percent = 0; percent <= 100; percent += 10) {
-    for (const listener of listeners.values()) listener({ url, percent });
+    downloads.emit("progress", { url, percent });
     await delay(200); // stand-in for the network
   }
-}
-
-/** Sends every download's progress to `onProgress`, until `signal` aborts. */
-export async function watchDownloads(
-  onProgress: (progress: Progress) => void,
-  signal: AbortSignal,
-): Promise<void> {
-  await subscribe<Progress>(
-    (next) => {
-      const id = nextId++;
-      listeners.set(id, next);
-      return () => {
-        listeners.delete(id);
-      };
-    },
-    onProgress,
-    signal,
-  );
+  downloads.emit("done", url);
 }
 ```
 
@@ -47,17 +32,14 @@ export async function watchDownloads(
 ```tsx title="App.tsx"
 import { useEffect, useState } from "react";
 import { Button, Text, View } from "react-native";
-import { type Progress, download, watchDownloads } from "./src/downloads.lucent";
+import { type Progress, download, downloads } from "./src/downloads.lucent";
 
 export default function App() {
   const [progress, setProgress] = useState<Progress>();
 
   useEffect(() => {
-    const controller = new AbortController();
-    watchDownloads(setProgress, controller.signal).catch((e: Error) => {
-      if (e.name !== "AbortError") console.error(e);
-    });
-    return () => controller.abort();
+    const subscription = downloads.addListener("progress", setProgress);
+    return () => subscription.remove();
   }, []);
 
   return (
@@ -72,12 +54,17 @@ export default function App() {
 </TabItem>
 </Tabs>
 
-`subscribe(register, onValue, signal)` calls `register` at once, with `next`, `end` and `fail`. Here it adds `next` to the listeners, and returns the cleanup that removes it. Each `next(value)` passes the value to `onValue` while the subscription is open.
+The type argument names each event and its listener's signature, as Expo's `EventEmitter` does. `emit(name, ...args)` calls the event's listeners in the order they were added.
 
-The signal aborting, `end()` or `fail(error)` ends the subscription, and its cleanup then runs once. The promise resolves on `end()` and rejects otherwise.
+- JavaScript gets the same object each time, with `addListener`, `emit`, `listenerCount` and `removeAllListeners`. Naming an event the type doesn't declare throws a `TypeError`.
+- Each value reaches JavaScript as a copy, posted to the JS thread, so a listener's throw is only logged ([Call a JavaScript callback](/docs/guides/accept-a-js-callback/)). During a synchronous call from JavaScript, its listeners run at once.
+- A reload removes JavaScript's listeners, and `listenerCount` stops counting them. So a module can start an SDK listener while the count is above 0.
+- In Lucent, an event's name is a string literal, and Lucent code may add listeners too.
 
-- When the component unmounts, `abort()` ends the subscription, and `watchDownloads` rejects with an `AbortError`, which the `catch` ignores.
-- Each value reaches JavaScript as a copy, posted to the JS thread. So `onProgress` returns `void`, and what it throws is only logged ([Call a JavaScript callback](/docs/guides/accept-a-js-callback/)).
-- A JavaScript reload doesn't end a subscription that module code made. End each one from JavaScript, as the effect's cleanup does ([What a reload does](/docs/api/language/modules/#what-a-reload-does)).
+The full contract is on [lucent:core](/docs/api/lucent-core/#eventemitter).
 
-The full contract is on [lucent:core](/docs/api/lucent-core/#subscribe). For events from an SDK listener, `register` adds the listener and the cleanup removes it: see [Implement an SDK delegate or listener](/docs/guides/implement-a-delegate/). For one value rather than a stream, [Turn a callback API into a promise](/docs/guides/await-a-callback-api/).
+## A stream for one caller
+
+For a stream that one caller starts and stops, export an async function that takes a callback and an `AbortSignal`, and pass both to [subscribe()](/docs/api/lucent-core/#subscribe). Its `register` adds the listener and returns the cleanup that removes it. JavaScript's `abort()` ends the stream: the cleanup runs once, and the promise resolves.
+
+[Implement an SDK delegate or listener](/docs/guides/implement-a-delegate/) uses one. For one value rather than a stream, see [Turn a callback API into a promise](/docs/guides/await-a-callback-api/).
