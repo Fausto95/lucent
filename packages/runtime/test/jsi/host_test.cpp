@@ -408,6 +408,24 @@ Promise<void> ticker() {
   }
 }
 
+/// A value whose conversion to JavaScript throws a Lucent error (not a
+/// jsi::JSError), as a struct converter's checks can.
+struct Unconvertible : Object {};
+
+Promise<Ref<Unconvertible>> unconvertible() {
+  co_await delay(0);
+  co_return std::make_shared<Unconvertible>();
+}
+
+/// A void JS callback, called from the Lucent thread with an argument whose
+/// conversion throws.
+Fn<void(Ref<Unconvertible>)> told;
+
+void tell(Fn<void(Ref<Unconvertible>)> f) {
+  told = f;
+  Scheduler::instance().post([] { told(std::make_shared<Unconvertible>()); });
+}
+
 /// Traced exports, as the compiler emits them: with their .lucent.ts site.
 double measured(double x) {
   LUCENT_TRACE_SCOPE("measured.work");
@@ -473,6 +491,11 @@ struct Convert<Ref<m_t::Payload>> {
 };
 
 void handleProto(jsi::Runtime& rt, Host& host, jsi::Object& proto);
+
+template <>
+struct Convert<Ref<m_t::Unconvertible>> {
+  static jsi::Value toJs(jsi::Runtime&, Host&, const Ref<m_t::Unconvertible>&) { throwTypeError("cannot cross"); }
+};
 
 template <>
 struct Convert<Ref<m_t::Handle>> {
@@ -578,6 +601,21 @@ void installT(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
                  [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
                    Host& host = Host::from(rt, installed);
                    return callSync(rt, host, [&] { return callAsync<void>(rt, host, [] { return m_t::ticker(); }); });
+                 });
+
+  defineFunction(rt, exports, "unconvertible", 0,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] { return callAsync<Ref<m_t::Unconvertible>>(rt, host, [] { return m_t::unconvertible(); }); });
+                 });
+
+  defineFunction(rt, exports, "tell", 1,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t n) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] {
+                     m_t::tell(Convert<Fn<void(Ref<m_t::Unconvertible>)>>::fromJs(rt, arg(args, n, 0), Path{"tell", "argument 'f'"}));
+                     return jsi::Value::undefined();
+                   });
                  });
 
   defineFunction(rt, exports, "keep", 1,
@@ -900,6 +938,27 @@ static void reloadsStopModuleWork() {
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
     CHECK(m_t::ticks == at);
   }
+}
+
+/// A result that cannot cross to JavaScript, whatever it throws, rejects
+/// the promise JavaScript waits for; a void callback's arguments that
+/// cannot cross are reported. Neither escapes the JS thread's task.
+static void resultsThatCannotCrossReject() {
+  JsThread js;
+  install(js);
+
+  js.eval("var crossed = 'pending'; mods.t.unconvertible().then(() => { crossed = 'resolved'; }, (e) => { crossed = e.name + ': ' + e.message; });");
+  CHECK(within(2000, [&] { return js.string("crossed") != "pending"; }));
+  CHECK(js.string("crossed") == "TypeError: cannot cross");
+
+  js.eval("var calls = 0; mods.t.tell(() => { calls++; });");
+  CHECK(Scheduler::instance().waitIdle(2000));
+  js.run([](jsi::Runtime&) {});
+  CHECK(js.number("calls") == 0);
+  CHECK(js.number("1 + 1") == 2);
+
+  LucentScope scope;
+  m_t::told = {};
 }
 
 // --- instances ----------------------------------------------------------------
@@ -1285,6 +1344,7 @@ int main() {
   awaitedJsPromisesRejectAtTeardown();
   callbacksDroppedWithTheRuntimeReject();
   reloadsStopModuleWork();
+  resultsThatCannotCrossReject();
   eachRuntimeHasItsOwnObjectForAnInstance();
   objectsOfATornDownHostAreRefused();
   collectedInstancesReleaseOnTheirThread();
