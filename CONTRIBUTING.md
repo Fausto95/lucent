@@ -109,10 +109,12 @@ say what a change means for people using Lucent.
   global object".
 - **Release flow.** Merged changesets collect in a "Version packages" PR
   that the release workflow opens and keeps current: it bumps the version
-  and writes `packages/lucent/CHANGELOG.md`, each entry linking its PR and
-  author. Merging that PR publishes to npm with provenance, tags the
-  release and creates the GitHub release, after `pnpm check`, the tests,
-  the runtime tests and `smoke-install` pass.
+  (the bundled packages move with it) and writes
+  `packages/lucent/CHANGELOG.md`, each entry linking its PR and author.
+  The release workflow runs only after CI passed on that commit of
+  `main`; merging the PR, once CI passes on its merge (device runs
+  included), publishes to npm through trusted publishing (no token, with
+  provenance), tags the release and creates the GitHub release.
 
 ## Docs
 
