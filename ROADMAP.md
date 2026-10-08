@@ -460,9 +460,16 @@ JavaScript had made it. Work started by module code belongs to the
 runtime whose call started it (a thread-local the posts carry), so
 tearing one of two runtimes down no longer cancels the other's work (the
 T64 suspicion), module state is reset only when no other runtime is live,
-and view request ids carry their runtime. _Changed:_ `lucent::Actor`
-replaces `Scheduler`; generated code names its actor
-(`lucent_app::actor_N`) at every entry; `callNow`/`postCallback` take it.
+and view request ids carry their runtime. Module variables stay the
+process's: per-runtime storage would change every module variable's
+access. _Limits:_ a reload whose old runtime is still live when the new
+one creates its host keeps the module state (React Native tears the old
+instance down first; unverified on devices); a delegate that must answer
+on the main thread still waits for the job holding its package then; the
+iOS and Android glue changes were compiled only through the generated
+code's host tests. _Changed:_ `lucent::Actor` replaces `Scheduler`;
+generated code names its actor (`lucent_app::actor_N`) at every entry;
+`callNow`/`postCallback` take it.
 
 **2026-10-07: Views without a switch.** The maintainer removed the
 internal `LUCENT_VIEWS=fabric` switch: every compile resolves `lucent:ui`,
