@@ -69,6 +69,9 @@ jobs:
       - name: Install pods (linking the native package)
         working-directory: apps/bare-example/ios
         run: bundle exec pod install
+      # FORCE_BUNDLING embeds the bundle in the Debug build too: the app takes it when its check
+      # that Metro runs (6 seconds for /status, at launch) times out, as it did on a simulator
+      # still busy from its boot ("No script URL provided").
       - name: Build for the simulator
         working-directory: apps/bare-example/ios
         timeout-minutes: 35
@@ -77,7 +80,7 @@ jobs:
           xcodebuild -workspace BareExample.xcworkspace -scheme BareExample \
             -configuration Debug -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tee build.log | tail -n 200
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO FORCE_BUNDLING=1 build | tee build.log | tail -n 200
       # A Debug build loads its bundle from Metro: started here, and asked for the bundle once
       # so that the app's first request doesn't wait for the whole build.
       - name: Start Metro
