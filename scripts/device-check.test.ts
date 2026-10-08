@@ -149,6 +149,18 @@ describe("crashLines and jsErrorLines", () => {
     expect(crashLines(log)).toHaveLength(3);
     expect(crashLines(log)[2]).toContain("UnsatisfiedLinkError");
   });
+
+  it("take a red box's message, not UIKit's lines about the red box", () => {
+    // The iOS run of 2026-10-08: Metro's /status check timed out at launch.
+    const log = [
+      "2026-10-08 15:03:57.727 E  BareExample[32454:16795] [com.apple.app_launch_measurement:General] Failed to send CA Event for app launch measurements",
+      "2026-10-08 15:03:57.731 E  BareExample[32454:15674] [com.facebook.react.log:native] No script URL provided. Make sure the packager is running or you have embedded a JS bundle in your application bundle.",
+      "2026-10-08 15:03:58.417 Df BareExample[32454:15674] [com.apple.UIKit:KeyboardSceneDelegate] Reloading input views for key-window scene responder: <RCTRedBoxController: 0x1029e0500; > force:N",
+    ].join("\n");
+    expect(jsErrorLines(log)).toHaveLength(1);
+    expect(jsErrorLines(log)[0]).toContain("No script URL provided");
+    expect(appLines(log)).toEqual([jsErrorLines(log)[0]]);
+  });
 });
 
 describe("crashReport", () => {
