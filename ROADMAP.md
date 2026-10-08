@@ -2125,6 +2125,12 @@ module code and in views.
 - Found by T28: `var onTurn: ((Double) -> Unit)?` is typed as the class
   `Function1<number, Unit>`; a `fun interface` property rejects a function
   (TS2322), and a view refuses an object implementing it.
+- Found by the 2026-10-08 review, fixed on its branch: Android
+  constructors newer than the app's `minSdk` compiled without
+  `LUCENT3007` (`api-versions.xml` writes them `&lt;init>`); class files'
+  string constants were read as UTF-8, not modified UTF-8 (NUL, emoji);
+  and the extraction cache keeps other Lucent versions' entries only
+  until they go unused for two weeks.
 
 <a id="ta31"></a>
 
@@ -2277,6 +2283,19 @@ and what to do.
   (`NSCoder.decodeTopLevelObject(forKey:)`, `RunLoop.schedule(after:…)`
   were dropped unsaid); all are kept, an Objective-C member of that name
   still winning.
+- Found by the 2026-10-08 review, fixed on its branch: members after
+  `@backDeployed(before:)` were read with the attribute's arguments as
+  their type; the header index's owners depended on the order the file
+  system listed headers, and missed `CF_ENUM`/`CF_OPTIONS` types and
+  indexed categories as classes; C functions, globals, typed string keys
+  and enum cases newer than the deployment target compiled without
+  `LUCENT3007`; optional numbers and booleans, Objective-C enums in Swift
+  signatures and errors passed to Objective-C now cross shims (as
+  NSNumbers, raw values and NSErrors); a method of a class implementing a
+  protocol that matches no requirement but is named like one warns
+  (`LUCENT3013`); Swift `AsyncSequence`s are collected
+  (`AsyncSequence<E>.collect`); and two builds asking for one Swift
+  package build it once (a lock in the cache).
 
 <a id="ta34"></a>
 
