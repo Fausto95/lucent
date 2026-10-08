@@ -34,7 +34,7 @@
     "@types/mdast": "^4.0.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "mdast-util-directive": "^3.1.0",
+    "mdast-util-directive": "^3.1.1",
     "mdast-util-mdx": "^3.0.0",
     "remark-directive": "^4.0.0",
     "remark-gfm": "^4.0.1",
