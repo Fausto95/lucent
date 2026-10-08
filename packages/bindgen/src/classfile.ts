@@ -3,6 +3,7 @@
  * access flags, descriptors, generic signatures, constant values,
  * annotations (for nullability) and inner-class records.
  */
+import { ConstantPool } from "./constant-pool.ts";
 
 export const ACC = {
   PUBLIC: 0x0001,
@@ -59,10 +60,9 @@ export interface ClassFile {
   innerClasses: InnerClass[];
 }
 
-type Constant = { tag: number; a?: number; b?: number; value?: string | number | bigint };
-
 export function parseClass(buf: Buffer): ClassFile {
-  let p = 0;
+  const pool = new ConstantPool(buf);
+  let p = pool.end;
   const u1 = () => buf.readUInt8(p++);
   const u2 = () => {
     const v = buf.readUInt16BE(p);
@@ -74,68 +74,9 @@ export function parseClass(buf: Buffer): ClassFile {
     p += 4;
     return v;
   };
-  if (u4() !== 0xcafebabe) throw new Error("not a class file");
-  p += 4; // minor, major
-
-  const count = u2();
-  const cp: Constant[] = new Array(count);
-  for (let i = 1; i < count; i++) {
-    const tag = u1();
-    switch (tag) {
-      case 1: {
-        const len = u2();
-        cp[i] = { tag, value: buf.toString("utf8", p, p + len) };
-        p += len;
-        break;
-      }
-      case 3:
-        cp[i] = { tag, value: buf.readInt32BE(p) };
-        p += 4;
-        break;
-      case 4:
-        cp[i] = { tag, value: buf.readFloatBE(p) };
-        p += 4;
-        break;
-      case 5:
-        cp[i] = { tag, value: buf.readBigInt64BE(p) };
-        p += 8;
-        i++; // longs take two entries
-        break;
-      case 6:
-        cp[i] = { tag, value: buf.readDoubleBE(p) };
-        p += 8;
-        i++;
-        break;
-      case 7:
-      case 8:
-      case 16:
-      case 19:
-      case 20:
-        cp[i] = { tag, a: u2() };
-        break;
-      case 9:
-      case 10:
-      case 11:
-      case 12:
-      case 17:
-      case 18:
-        cp[i] = { tag, a: u2(), b: u2() };
-        break;
-      case 15:
-        cp[i] = { tag, a: u1(), b: u2() };
-        break;
-      default:
-        throw new Error(`class file: unknown constant tag ${tag}`);
-    }
-  }
-  const utf8 = (i: number) => cp[i]!.value as string;
-  const className = (i: number) => utf8(cp[i]!.a!);
-  const constant = (i: number): number | bigint | string => {
-    const c = cp[i]!;
-    if (c.tag === 8) return utf8(c.a!);
-
-    return c.value as number | bigint;
-  };
+  const utf8 = (i: number) => pool.utf8(i);
+  const className = (i: number) => pool.className(i);
+  const constant = (i: number) => pool.value(i);
 
   /** An element value: a string's or an enum constant's name; undefined for any other. */
   const elementValue = (): string | undefined => {

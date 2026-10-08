@@ -97,7 +97,9 @@ Notable lowering choices:
 - **Integer inference** (`emit/integers.ts`): a local whose every write is
   a bitwise result (`|`, `^`, `>>>`, `Math.imul`, …) or an integer literal
   lives in an `int32_t`, `uint32_t` or `int64_t`, and a `for` counter stepped
-  by an integer is an `int64_t`. Values are exact in both representations, so
+  by ±1, or by a larger integer toward a bound (a literal, a `length`) short
+  of 2^53, is an `int64_t` (past 2^53 a double's sums round where int64's
+  would not). Values are exact in both representations, so
   reads convert to `double` without changing results; expressions also carry
   their integer form, so chains of bitwise operations never round-trip through
   `double`. Arithmetic (`+`, `-`, `*`, `%`, compound assignments, `++`) keeps a
@@ -132,9 +134,16 @@ Notable lowering choices:
   runs in C++ lambdas, which cannot be coroutines, so a receiver or argument
   that awaits (`(await file()).getName()`) is evaluated into a temporary
   first, with the operands before it.
-- **`#line` directives** use the source's canonical absolute path, so compiler
-  errors, debugger stepping and the DWARF line table (crash symbolication
-  with the app's dSYM or unstripped `.so`) point at the `.lucent.ts` file.
+- **`#line` directives** name the source by its path relative to the
+  project (`CompileOptions.root`), so compiler errors, debugger stepping
+  and the DWARF line table (crash symbolication with the app's dSYM or
+  unstripped `.so`) point at the `.lucent.ts` file, and no machine's path
+  is in the output. The native package's builds map the project's
+  directory to `.` (`-ffile-prefix-map`, in the podspec and CMakeLists),
+  as the test harnesses map the repository's. The printer repeats the
+  directive before every physical line it covers (a `#line N` counts the
+  lines after it up), and after a function names the generated file's own
+  line again.
   Errors created in Lucent code record the same `__FILE__`/`__LINE__` and
   enclosing function (`lucent::withSite`), and the JSI boundary puts that
   frame at the top of the JS error's `stack`.
@@ -148,7 +157,7 @@ Notable lowering choices:
   restores them at its end (`emit/macros.ts`). The `#line` paths are
   strings, so the sources' directory never changes the guards.
 - **Trace sites**: each binding names where its export is declared
-  (`LUCENT_TRACE_SITE_AT`, the same path as `#line`), so a trace of a call
+  (`LUCENT_TRACE_SITE_AT`, the same relative path as `#line`), so a trace of a call
   points at the `.lucent.ts` declaration rather than at generated code;
   native spans inside Lucent code (`LUCENT_TRACE_SCOPE`) get theirs from
   the `#line` in force.
@@ -583,7 +592,8 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
   words); any other is one allocation, a header (atomic reference count,
   cached hash, length, capacity) followed by its units. When the handle is
   the only owner, `+=` appends in place, so building a string in a loop is
-  linear; moving a handle is a memcpy, which libc++'s vector uses as it grows.
+  linear (`appendTo` does the same for a field or module variable, whose
+  value was read into a temporary first); moving a handle is a memcpy, which libc++'s vector uses as it grows.
 - `number.h`: ECMAScript number semantics. `toString` and `toExponential()`
   produce the shortest digits that read back as the double, the closest of
   those, with Dragonbox (`cpp/third_party/dragonbox`, as Hermes does);
@@ -629,7 +639,8 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
   so no context waits for another.
 - `callback.h`: `fromCallback` and `subscribe` (`lucent:core`), a promise
   or a subscription over any callback API. Each is an `Operation` under the
-  calling context's root scope, following the signal until it settles: it
+  scope the calling context's work belongs to (`ownedScope`: module code's
+  is its JavaScript runtime's, so a reload ends it), following the signal until it settles: it
   settles once, at the first of its callbacks, the signal and the scope's
   disposal, and runs the registration's cleanup once, then (or when the
   registration returns it, if it settled during registration). Everything
@@ -648,7 +659,7 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
 - `operation.h`: native work as a promise. `nativeOperation(registration,
 signal)` starts native work that completes later, on any thread (a
   Kotlin coroutine, a platform callback), as an `Operation` under the
-  calling context's root scope, and returns a promise that settles on that
+  scope the calling context's work belongs to (`ownedScope`), and returns a promise that settles on that
   context. The registration begins the work and returns what ends it.
   Disposing the scope, or the signal aborting, cancels it: the promise
   rejects at once, the work is told to stop, and a result it produces
@@ -699,7 +710,7 @@ signal)` starts native work that completes later, on any thread (a
   the UI loop, and a queue of 1024 tasks waiting for a worker; a
   submission that finds it full is rejected at once with a
   `QuotaExceededError`, never blocking the caller. A task is an
-  `Operation` under a scope (by default the calling context's root): it
+  `Operation` under a scope (by default the calling context's, `ownedScope`): it
   settles once, from its outcome or from a cancellation (its signal, its
   scope's disposal, the pool's shutdown), which rejects the promise at
   once. A queued task then leaves the queue; a running one stops at its
@@ -914,7 +925,7 @@ identity (`src/emit/identity.ts`):
   `static_assert`s it as it builds;
 - per target (`ios`, `android`, `host`, or `all` for a program every
   target shares), the **program hash**: the generated files' content,
-  without `#line` directives (machine paths; code moved to other lines is
+  without `#line` directives (code moved to other lines is
   the same program);
 - per target and module, the **API hash**: what JavaScript sees of the
   module, its exports and their signatures, with the struct fields, class
@@ -1104,6 +1115,16 @@ build caches, and stop:
 - before the check, when a used or locked module is read from other
   artifacts than recorded, or is not recorded;
 - after the check, when the code uses symbols the lock does not record.
+
+With `--schemas`, `lucent sdk lock` also exports what the check read from
+installed SDKs (`exportSchemaSet` in `bindgen/src/provider.ts`) to
+`lucent-sdk.schemas/<platform>/<module>.json`: each module's schema
+(`.source.json` for source modules such as SwiftUI) and the modules its
+types name (`.names.json` on iOS), with the artifacts and cache entry the
+lock records. `projectSdk` passes the directory as `SdkOptions.schemas`;
+where a platform's SDK is missing, `sdkModule`, `sdkNames`,
+`sdkSourceModule`, `sdkModuleArtifacts` and `sdkAvailable` answer from
+it, and `sdkIdentity` names its contents. An installed SDK wins.
 
 `lucent sdk diff` finds each locked symbol in the installed SDK by native
 symbol or by name and signature, then by name alone when one member of

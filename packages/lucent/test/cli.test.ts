@@ -6,6 +6,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "@lucent-lang/compiler";
 import { bin, runLucent } from "./run-to-exit.ts";
 import { runJar, runJavac } from "../../bindgen/test/jvm-tools.ts";
+import { javac } from "../../bindgen/test/java-fixtures.ts";
 
 const android = sdkAvailable("android");
 
@@ -502,6 +503,90 @@ describe("lucent sdk coverage", () => {
     expect(text).toMatch(/1 module: \d+ members, \d+ representable/);
     expect(text).toMatch(/\| \d+ \| .+ \|/);
   });
+});
+
+describe("lucent sdk coverage's baseline", () => {
+  /** A project and an Android SDK whose android.jar has android.os and android.view. */
+  function sdkProject() {
+    const root = project();
+    const sdk = path.join(root, "sdk");
+    const src = path.join(root, "jar-src");
+    for (const [file, text] of Object.entries({
+      "android/os/Build.java": "package android.os; public class Build { public Build() {} }",
+      "android/view/View.java": "package android.view; public class View { public View() {} }",
+    })) {
+      fs.mkdirSync(path.dirname(path.join(src, file)), { recursive: true });
+      fs.writeFileSync(path.join(src, file), text);
+    }
+    const classes = path.join(root, "classes");
+    const cc = runJavac([
+      "--release",
+      "11",
+      "-d",
+      classes,
+      path.join(src, "android/os/Build.java"),
+      path.join(src, "android/view/View.java"),
+    ]);
+    if (cc.status !== 0) throw new Error(cc.stderr);
+    fs.mkdirSync(path.join(sdk, "platforms/android-36"), { recursive: true });
+    runJar(["cf", path.join(sdk, "platforms/android-36/android.jar"), "-C", classes, "."]);
+    const env = {
+      ...process.env,
+      ANDROID_HOME: sdk,
+      ANDROID_SDK_ROOT: sdk,
+      LUCENT_ANDROID_PLATFORM: "android-36",
+      LUCENT_CACHE_DIR: path.join(root, "cache"),
+    };
+    return {
+      root,
+      run: (...args: string[]) => runLucent(["sdk", "coverage", ...args, "--root", root], { env }),
+    };
+  }
+
+  it.skipIf(!javac)("records the reports and the SDK they were read from, and gates them", () => {
+    const { root, run } = sdkProject();
+    const baseline = path.join(root, "baseline.json");
+    fs.writeFileSync(
+      baseline,
+      JSON.stringify([{ module: "android.view", unrepresentable: 0, total: 1 }]),
+    );
+
+    const update = run("--android", "android.*", "--update", baseline);
+    expect(update.status).toBe(0);
+    const written = JSON.parse(fs.readFileSync(baseline, "utf8")) as {
+      module: string;
+      sdk?: string;
+      members?: unknown;
+    }[];
+    // Every module read, each with its SDK, members left out; the order kept, new ones after.
+    expect(written.map((c) => [c.module, c.sdk])).toEqual([
+      ["android.view", "android-sdk:36"],
+      ["android.os", "android-sdk:36"],
+    ]);
+    expect(written.every((c) => c.members === undefined)).toBe(true);
+    expect(run("--android", "android.*", "--check", baseline).status).toBe(0);
+  });
+
+  it.skipIf(!javac)(
+    "names a gated module the baseline lacks, and a baseline without its SDK",
+    () => {
+      const { root, run } = sdkProject();
+      const baseline = path.join(root, "baseline.json");
+      fs.writeFileSync(
+        baseline,
+        JSON.stringify([{ module: "android.view", unrepresentable: 0, total: 1, reasons: {} }]),
+      );
+
+      const check = run("--android", "android.*", "--check", baseline);
+      expect(check.status).toBe(0);
+      expect(check.stderr).toMatch(
+        /1 module \(android\.os\) not in the baseline, so not gated: add them with --update/,
+      );
+      expect(check.stderr).toMatch(
+        /the baseline does not say which SDK 1 module \(android\.view\) were read from \(these are android-sdk:36\)/,
+      );
+    },
+  );
 });
 
 describe("lucent sdk coverage of views", () => {

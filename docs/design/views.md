@@ -395,7 +395,10 @@ platforms (`ui/toolkit-body.ts`, `emit/toolkit.ts`):
   value that may be null) crosses encoded (`emit/toolkit-values.ts`):
   Foundation objects on iOS, boxed Java objects on Android, an object
   being an array of its fields in the order its type declares them. The
-  body reads it back as a Swift struct or a Kotlin data class.
+  body reads it back as a Swift struct or a Kotlin data class; Swift
+  reads each Foundation object with a checked cast (`lucentDecode…`),
+  which stops naming the value and the type it held if the two sides ever
+  disagree, never with `as!`'s bare cast failure.
 - A setup function the body calls from a callback, or passes as one, is
   an action slot. The toolkit calls it on the main thread, and it runs in
   the main context, entering its mount like any function the setup made,

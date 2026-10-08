@@ -64,4 +64,4 @@ An over-the-air update built with the new Lucent still runs the native code your
 
 Release a new build of the app before you ship updates built with the new version.
 
-SDK bindings an older Lucent read stay in the SDK cache. `npx lucent clean --cache` removes the project's `.lucent/` and the whole SDK cache. The next build writes the native package and reads the SDK bindings again.
+SDK bindings an older Lucent read stay in the SDK cache until builds have not used them for two weeks. `npx lucent clean --cache --stale` removes them now, and `npx lucent clean --cache` removes the project's `.lucent/` and the whole SDK cache. The next build writes the native package and reads the SDK bindings again.

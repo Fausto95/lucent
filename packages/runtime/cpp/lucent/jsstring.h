@@ -243,6 +243,21 @@ class StringBuilder {
 #define LUCENT_STR16(literal) \
   ([]() -> const ::lucent::String& { static const ::lucent::String s = ::lucent::String::fromUtf16(literal, sizeof(literal) / sizeof(char16_t) - 1); return s; }())
 
+/// `place = current + part`, where `current` is what was read from `place`
+/// before `part` ran (a field's or a module variable's `+=`): the place lets
+/// go of its handle first, so a string nothing else holds grows in place
+/// instead of being copied whole on each append.
+inline void appendTo(String& place, String current, const String& part) {
+  if (&part == &place) {
+    current += String(part);
+    place = std::move(current);
+    return;
+  }
+  place = String();
+  current += part;
+  place = std::move(current);
+}
+
 bool isJsWhitespace(char16_t c);
 
 }  // namespace lucent

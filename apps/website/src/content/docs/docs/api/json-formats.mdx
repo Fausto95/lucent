@@ -234,6 +234,8 @@ Schema: `https://lucent-lang.dev/schemas/sdk-coverage.schema.json`.
 | `[].unrepresentable` | `integer` | yes |  |
 | `[].total` | `integer` | yes |  |
 | `[].reasons` | `{ [name]: integer }` | yes | Why members are unrepresentable, with how many |
+| `[].plumbing` | `integer` |  | Members left out of the counts: Swift's Hashable, Equatable and Codable plumbing (hash(into:), ==, encode(to:), init(from:), hashValue) |
+| `[].sdk` | `string` |  | The SDK the module was read from (sdk:iphonesimulator27.0, android-sdk:36), so a baseline says which it was made with |
 | `[].stages` | `object` | yes | How many members reach each stage; null without evidence for it |
 | `[].stages.discovered` | `integer` | yes |  |
 | `[].stages.representable` | `integer` | yes |  |
@@ -285,6 +287,7 @@ Schema: `https://lucent-lang.dev/schemas/sdk-lock-result.schema.json`.
 | `targets` | `string[]` | yes | The platforms it records |
 | `modules` | `integer` | yes | SDK modules the project uses |
 | `symbols` | `integer` | yes | SDK symbols the project uses |
+| `schemas` | `integer` |  | With --schemas: the schemas exported to lucent-sdk.schemas/ |
 
 ## lucent sdk prefetch --json
 

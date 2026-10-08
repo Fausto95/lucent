@@ -1,0 +1,20 @@
+name: SDK binding cache
+description: The SDK schemas Lucent extracts on demand (~/.cache/lucent), keyed by SDK and extractor, kept per job.
+inputs:
+  key:
+    description: What names this job's cache (a job and its shard), so that each keeps what it extracted.
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      with:
+        path: ~/.cache/lucent
+        # One per job: the first job to finish would otherwise save the only cache, without the
+        # others' modules.
+        key: lucent-sdk-${{ runner.os }}-${{ inputs.key }}-${{ hashFiles('packages/bindgen/src/**') }}
+        # An older cache still serves, another job's too: its entries are keyed by SDK and
+        # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
+        restore-keys: |
+          lucent-sdk-${{ runner.os }}-${{ inputs.key }}-
+          lucent-sdk-${{ runner.os }}-

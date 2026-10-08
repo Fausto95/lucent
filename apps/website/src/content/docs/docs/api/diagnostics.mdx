@@ -50,13 +50,14 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT3004`](#lucent3004) | A platform SDK import in a file whose platform cannot use it, an SDK module without bindings, or platform code used outside its platform. |
 | [`LUCENT3005`](#lucent3005) | Platform implementations that do not match their shared declaration file. |
 | [`LUCENT3006`](#lucent3006) | A main-thread-only platform API used outside `main(() => …)`. |
-| [`LUCENT3007`](#lucent3007) | A platform API newer than the oldest OS the app runs on, used without an `available()` or `SDK_INT` check around it. That OS is the app's iOS deployment target, at least 15.1, or Android API 24. |
+| [`LUCENT3007`](#lucent3007) | A platform API newer than the oldest OS the app runs on, used without an `available()` or `SDK_INT` check around it. That OS is the app's iOS deployment target, at least 15.1, or its Android `minSdk`, else API 24. |
 | [`LUCENT3008`](#lucent3008) (warning) | An Android SDK argument that is a constant outside the @IntDef or @StringDef group the SDK allows there. |
 | [`LUCENT3009`](#lucent3009) (warning) | An Android SDK member marked @WorkerThread, called inside main(() =\> …) or a main-thread callback. |
 | [`LUCENT3010`](#lucent3010) | Two Lucent modules in one app whose files give them the same module name. |
 | [`LUCENT3011`](#lucent3011) | A compute() task touches module state or a computed constant, native code unfit for workers, code the compiler cannot follow, or asynchronous work. |
 | [`LUCENT3012`](#lucent3012) | A compute() task's input or result holds something other than data, such as a function, a promise or a main-thread native object. |
-| [`LUCENT3013`](#lucent3013) | A Lucent package whose `lucent.compatible` range in package.json leaves out the Lucent that compiles it. |
+| [`LUCENT3013`](#lucent3013) (warning) | A method of a class implementing an SDK protocol, named like one of its requirements but matching none, which the platform never calls. |
+| [`LUCENT3014`](#lucent3014) | A Lucent package whose `lucent.compatible` range in package.json leaves out the Lucent that compiles it. |
 | [`LUCENT3020`](#lucent3020) | An exported `.lucent.tsx` function that returns a view but cannot be a component, or Lucent code calling a component. |
 | [`LUCENT3021`](#lucent3021) | A component prop, event or ref command whose type views cannot carry, or whose name React or the host keeps. |
 | [`LUCENT3022`](#lucent3022) | A component's setup, or a function it creates, using module state, code the compiler cannot follow, or native code unfit for the main thread. |
@@ -66,6 +67,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT3030`](#lucent3030) | A span that withRead or withWrite lends escapes its callback: returned, stored, kept by a closure or callee, or held across await. |
 | [`LUCENT3031`](#lucent3031) | A NativeBuffer is used after transfer() or after it was handed to compute(), which move its bytes to another buffer. |
 | [`LUCENT9001`](#lucent9001) | A TypeScript error. Lucent stops at type errors, because it compiles from the checker's types. |
+| [`LUCENT9002`](#lucent9002) | Lucent failed to compile a function it accepted: a bug in the compiler, reported at the function instead of stopping the build. |
 
 ## Syntax and built-ins (1xxx)
 
@@ -1204,6 +1206,49 @@ export async function run(values: number[]): Promise<number> {
 
 ### LUCENT3013
 
+**Method that matches no protocol requirement** (a warning)
+
+TypeScript checks that a class implements a protocol's required methods. An optional one, as most delegate methods are, spelled wrong is another method: the platform never calls it, and nothing fails. Lucent warns when a method matches no requirement but its name is a few edits from one's, or starts with the same word.
+
+**Fix:** rename the method to the requirement the warning names, or make it private if it is a helper.
+
+<Tabs>
+<TabItem label="✗ example.lucent.ts">
+
+```ts title="example.lucent.ts (wrong)"
+import { PLATFORM } from "lucent:platform";
+import { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";
+class Updates implements CLLocationManagerDelegate {
+  locationManager_didUpdateLocations(manager: CLLocationManager, locations: CLLocation[]): void {}
+  locationManager_didFailWithErorr(manager: CLLocationManager, error: Error): void {}
+}
+export async function watch(): Promise<boolean> {
+  if (PLATFORM === "ios") return new Updates() !== null;
+  return false;
+}
+```
+
+</TabItem>
+<TabItem label="✓ example.lucent.ts">
+
+```ts title="example.lucent.ts (right)"
+import { PLATFORM } from "lucent:platform";
+import { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";
+class Updates implements CLLocationManagerDelegate {
+  locationManager_didUpdateLocations(manager: CLLocationManager, locations: CLLocation[]): void {}
+  locationManager_didFailWithError(manager: CLLocationManager, error: Error): void {}
+}
+export async function watch(): Promise<boolean> {
+  if (PLATFORM === "ios") return new Updates() !== null;
+  return false;
+}
+```
+
+</TabItem>
+</Tabs>
+
+### LUCENT3014
+
 **Package for another Lucent version**
 
 A package states the Lucent versions it was tested with, as an npm range such as `^0.2.0`. Under 0.x a minor version can change what compiles, so Lucent refuses to compile the package's modules with a version outside the range. To try it anyway, set `LUCENT_IGNORE_COMPATIBLE=1`: the problem is then a warning.
@@ -1840,6 +1885,26 @@ export function double(n: number): number {
 ```
 
 </TabItem>
+<TabItem label="✓ example.lucent.ts">
+
+```ts title="example.lucent.ts (right)"
+export function double(n: number): number {
+  return n * 2;
+}
+```
+
+</TabItem>
+</Tabs>
+
+### LUCENT9002
+
+**Internal compiler error**
+
+The compiler checks each function's generated code and stops at one that would be wrong, instead of writing invalid C++. The rest of the program still compiles, so other diagnostics stay accurate. The message names what went wrong; the function itself may be valid TypeScript in the subset.
+
+**Fix:** report the code at the diagnostic as a Lucent bug; rewriting that expression usually avoids it.
+
+<Tabs>
 <TabItem label="✓ example.lucent.ts">
 
 ```ts title="example.lucent.ts (right)"

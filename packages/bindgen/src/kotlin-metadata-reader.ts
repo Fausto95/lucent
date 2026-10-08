@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { ConstantPool } from "./constant-pool.ts";
 import { decodeClass, decodePackage } from "./kotlin-metadata-decode.ts";
 import {
   KOTLIN_METADATA_FORMAT,
@@ -145,9 +146,8 @@ function forEachClassFile(input: string, visit: (bytes: Buffer) => void): void {
  * are decoded only when needed. Undefined for a class without Kotlin metadata.
  */
 export function readMetadataHeader(buf: Buffer): MetadataHeader | undefined {
-  if (buf.readUInt32BE(0) !== 0xcafebabe) throw new Error("not a class file");
-
-  let p = 8;
+  const pool = new ConstantPool(buf);
+  let p = pool.end;
   const u1 = () => buf[p++]!;
   const u2 = () => {
     const v = buf.readUInt16BE(p);
@@ -159,37 +159,11 @@ export function readMetadataHeader(buf: Buffer): MetadataHeader | undefined {
     p += 4;
     return v;
   };
-
-  const count = u2();
-  const offsets = new Int32Array(count);
-  const tags = new Uint8Array(count);
-
-  for (let i = 1; i < count; i++) {
-    const tag = u1();
-    tags[i] = tag;
-    offsets[i] = p;
-
-    if (tag === 1) p += 2 + buf.readUInt16BE(p);
-    else if (tag === 5 || tag === 6) {
-      p += 8;
-      i++;
-    } else if ([3, 4, 9, 10, 11, 12, 17, 18].includes(tag)) p += 4;
-    else if ([7, 8, 16, 19, 20].includes(tag)) p += 2;
-    else if (tag === 15) p += 3;
-    else throw new Error(`class file: unknown constant tag ${tag}`);
-  }
-
-  const utf8 = (i: number) => {
-    if (tags[i] !== 1) throw new Error(`class file: constant ${i} is not a string`);
-    return modifiedUtf8(buf, offsets[i]! + 2, offsets[i]! + 2 + buf.readUInt16BE(offsets[i]!));
-  };
-  const int = (i: number) => {
-    if (tags[i] !== 3) throw new Error(`class file: constant ${i} is not an int`);
-    return buf.readInt32BE(offsets[i]!);
-  };
+  const utf8 = (i: number) => pool.utf8(i);
+  const int = (i: number) => pool.int(i);
 
   p += 2; // access flags
-  const jvmName = utf8(buf.readUInt16BE(offsets[u2()]!));
+  const jvmName = pool.className(u2());
   p += 2; // super class
   const interfaces = u2();
   p += 2 * interfaces;
@@ -279,33 +253,4 @@ export function readMetadataHeader(buf: Buffer): MetadataHeader | undefined {
   }
 
   return undefined;
-}
-
-/** Decodes a class file string (JVMS §4.4.7: `\0` as two bytes, supplementary characters as surrogate pairs). */
-function modifiedUtf8(buf: Buffer, start: number, end: number): string {
-  let ascii = true;
-  for (let i = start; i < end; i++) {
-    if (buf[i]! >= 0x80) {
-      ascii = false;
-      break;
-    }
-  }
-  if (ascii) return buf.toString("latin1", start, end);
-
-  const codes: number[] = [];
-  for (let i = start; i < end;) {
-    const b = buf[i++]!;
-
-    if (b < 0x80) codes.push(b);
-    else if ((b & 0xe0) === 0xc0) codes.push(((b & 0x1f) << 6) | (buf[i++]! & 0x3f));
-    else {
-      codes.push(((b & 0x0f) << 12) | ((buf[i]! & 0x3f) << 6) | (buf[i + 1]! & 0x3f));
-      i += 2;
-    }
-  }
-
-  let out = "";
-  for (let i = 0; i < codes.length; i += 8192)
-    out += String.fromCharCode(...codes.slice(i, i + 8192));
-  return out;
 }

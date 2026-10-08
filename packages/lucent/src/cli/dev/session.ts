@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  CompileSession,
   type Diagnostic,
   LUCENT_EXTENSION,
   lucentPackages,
@@ -98,6 +99,8 @@ export function startSession(root: string): DevSession {
   });
   let building: AbortController | undefined;
   let queued: { force: boolean } | undefined;
+  // Each build's check reuses the last one's programs: only what changed is checked again.
+  const compileSession = new CompileSession();
   let timer: NodeJS.Timeout | undefined;
   // What the last build read of Lucent packages: their lucent.json and listed native paths.
   let nativeInputs: string[] = [];
@@ -136,7 +139,7 @@ export function startSession(root: string): DevSession {
     const at = new Date();
     const r = await buildProject(
       root,
-      { mode: "build", force, signal: controller.signal },
+      { mode: "build", force, signal: controller.signal, session: compileSession },
       plainSteps(() => {}, theme),
       (n) => notices.push(n),
     );

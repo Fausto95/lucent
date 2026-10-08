@@ -39,13 +39,21 @@ export { kotlinClassOf } from "./kotlin-metadata-decode.ts";
 export { extractIos, buildIosSchemas, type IosOptions } from "./ios.ts";
 export {
   androidJars,
+  androidLevels,
   cachedModules,
   cachedSchema,
   extractionCount,
   forgetLoadedSdks,
   type NativeArtifact,
   nativeArtifacts,
+  exportSchemaSet,
   prefetch,
+  type PrunedEntry,
+  SCHEMA_SET_FORMAT,
+  type SchemaSetEntry,
+  sdkFromSchemaSet,
+  sdkTypeLookup,
+  pruneStaleCache,
   sdkAvailable,
   sdkIdentity,
   sdkModule,
@@ -72,11 +80,20 @@ export { cacheRoot } from "./cache.ts";
 export { lockedPods, sourcesHash } from "./provenance.ts";
 export { buildSourceSchema, isScalarProtocol } from "./swift-source.ts";
 export { boundValue } from "./source-plan.ts";
-export { type PodFramework, podsSearchPaths, type PodsSearchPaths } from "./pods.ts";
-export { type SwiftPackagePin, type XcodeApp, xcodeApp } from "./xcode.ts";
 export {
+  type PodFramework,
+  podsSearchPaths,
+  type PodsSearchPaths,
+  type PodXcframework,
+  type SwiftPod,
+} from "./pods.ts";
+export { OWN_SWIFT_MODULE, swiftFilesUnder } from "./swift-modules.ts";
+export { type LocalSwiftPackage, type SwiftPackagePin, type XcodeApp, xcodeApp } from "./xcode.ts";
+export {
+  type BuiltLocalSwiftPackage,
   type BuiltSwiftPackage,
   DEFAULT_DEPLOYMENT_TARGET,
+  LOCAL_VERSION,
   type SwiftPackageModule,
   type SwiftPackages,
   swiftPackages,

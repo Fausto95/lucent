@@ -1,0 +1,17 @@
+PODS:
+  - dial-kit (1.0.0)
+  - OrbitSDK (3.1.0)
+
+DEPENDENCIES:
+  - dial-kit (from `../dial-kit`)
+  - OrbitSDK (~> 3.1)
+
+EXTERNAL SOURCES:
+  dial-kit:
+    :path: "../dial-kit"
+
+SPEC CHECKSUMS:
+  dial-kit: 0123456789abcdef
+  OrbitSDK: fedcba9876543210
+
+COCOAPODS: 1.16.2

@@ -1,5 +1,5 @@
 import { defineConfig } from "vite-plus";
-import TimedSequencer from "./vitest.sequencer.ts";
+import TimedSequencer from "./config/vitest.sequencer.ts";
 
 // Left alone by vp fmt and vp lint: what scripts generate (formatting it would
 // only make the next run's output differ), vendored code, and native projects.
@@ -22,7 +22,9 @@ const generated = [
   "apps/website/.docusaurus/**",
   "apps/website/build/**",
   // Written by lucent sdk coverage --json.
-  "sdk-coverage.json",
+  "config/sdk-coverage.json",
+  // Written by scripts/codegen-corpus.ts (pnpm corpus:write), compared byte for byte.
+  "packages/compiler/test/corpus/**",
   // Written by scripts/sync-examples.ts from the e2e cases and scripts/example-app.
   "apps/bare-example/src/**",
   "apps/expo-example/src/**",
@@ -70,13 +72,20 @@ export default defineConfig({
       "apps/website/test/**/*.test.ts",
       // The example app's plain logic (routes, summaries), without React Native.
       "scripts/example-app/**/*.test.ts",
+      // The repository's own scripts and config (the CI change classifier, the sequencer).
+      "scripts/*.test.ts",
+      "config/*.test.ts",
     ],
     exclude: ["**/node_modules/**", "**/.git/**", ...(all ? [] : slow)],
     testTimeout: 60000,
-    // Shards balanced by each file's time (test-timings.json), not by its path.
+    // Shards balanced by each file's time (config/test-timings.json), not by its path.
     sequence: { sequencer: TimedSequencer },
-    globalSetup: ["./vitest.setup-tmp.ts", "./vitest.setup-sdk.ts", "./vitest.setup-build.ts"],
-    setupFiles: ["./vitest.setup-yield.ts"],
+    globalSetup: [
+      "./config/vitest.setup-tmp.ts",
+      "./config/vitest.setup-sdk.ts",
+      "./config/vitest.setup-build.ts",
+    ],
+    setupFiles: ["./config/vitest.setup-yield.ts"],
     // As on CI, wherever the tests run: libraries that change behaviour under CI
     // (Ink renders only the last frame) do so locally too.
     env: { CI: "true" },

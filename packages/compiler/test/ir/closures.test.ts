@@ -46,9 +46,41 @@ describe("closures in the IR", () => {
 `);
     const late = body(cppOf(file), "late");
 
-    expect(late).toContain("lucent::Box<double> i_it{};");
+    expect(late).toContain("lucent::Box<double> i{};");
 
-    expect(late).toContain("[i = i_it]");
+    expect(late).toContain("[i = i]");
+
+    // The next iteration's box, made before the incrementor steps it.
+    expect(late).toMatch(/i = lucent::Box<double>\(\*i\);\s+double \w+ = \*i;\s+\*i = /);
+  });
+
+  it("copies a for loop's let for each iteration even when the body assigns it", () => {
+    const file = module(`export function skipping(): number[] {
+  const fns: (() => number)[] = [];
+  for (let i = 0; i < 6; i++) {
+    fns.push(() => i);
+    i++;
+  }
+  return fns.map((f) => f());
+}
+`);
+    const skipping = body(cppOf(file), "skipping");
+
+    expect(skipping).toContain("i = lucent::Box<double>(*i);");
+  });
+
+  it("gives a closure in a for loop's initializer the first iteration's variable", () => {
+    const file = module(`export function first(): number {
+  let get = (): number => -1;
+  for (let i = 0, g = (): number => i; i < 2; i++) get = g;
+  return get();
+}
+`);
+    const first = body(cppOf(file), "first");
+    const renews = first.match(/i = lucent::Box<double>\(\*i\);/g) ?? [];
+
+    // Before the first iteration, and before each incrementor.
+    expect(renews).toHaveLength(2);
   });
 
   it("hoists nested function declarations, and lets a recursive arrow call itself", () => {

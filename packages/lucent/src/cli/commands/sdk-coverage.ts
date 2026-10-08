@@ -10,7 +10,14 @@ import {
   toolkitsFrom,
   viewCoverage,
 } from "@lucent-lang/compiler";
-import { coverageSummary, sdkSourceModule, symbolKey } from "@lucent-lang/bindgen";
+import {
+  coverageSummary,
+  ownTypes,
+  sdkSourceModule,
+  sdkTypeLookup,
+  symbolKey,
+  type TypeLookup,
+} from "@lucent-lang/bindgen";
 import type { Invocation } from "../args.ts";
 import { projectSdk, sdkImports } from "../project.ts";
 import { readUsage, USAGE_FILE } from "../sdk-usage.ts";
@@ -26,6 +33,9 @@ import { table } from "../ui/format.ts";
  * JSX tags take by rule, and what the rules leave out. `--all` takes
  * every module of each SDK there is; `--summary <file>` appends a markdown
  * summary (CI's step summary) of the reasons members are left out.
+ * `--check <baseline>` fails when a module's unrepresentable share grows
+ * past the baseline's; `--update <baseline>` writes the reports into it,
+ * each with the SDK it was read from.
  */
 export function run({ root, flags, out }: Invocation): number {
   const t = out.theme;
@@ -63,13 +73,25 @@ export function run({ root, flags, out }: Invocation): number {
       const all = sdkModules(platform, sdk);
       return "missing" in all ? [] : all;
     };
-    const modules = wanted[platform].flatMap((m) =>
-      m === "*"
-        ? listed()
-        : m.endsWith(".*")
-          ? listed().filter((x) => x.startsWith(m.slice(0, -1)))
-          : [m],
-    );
+    const modules: string[] = [];
+    for (const m of wanted[platform]) {
+      const matched =
+        m === "*"
+          ? listed()
+          : m.endsWith(".*")
+            ? listed().filter((x) => x.startsWith(m.slice(0, -1)))
+            : [m];
+      // A prefix a gate names must match: one that matches nothing would gate nothing.
+      if (!matched.length && m !== "*" && !flags.all) {
+        out.error(
+          `${t.error(t.symbols.fail)} ${m}: no ${platform} module matches${platform === "android" ? " (androidx and Play services packages are the app's dependencies: run it in the app, after its Gradle build has resolved them)" : ""}`,
+        );
+        return 1;
+      }
+      modules.push(...matched);
+    }
+    // Members are judged with the types other modules declare, as builds judge them.
+    const others = sdkTypeLookup(platform, sdk);
     for (const m of modules) {
       const r = sdkModule(platform, m, sdk);
       if ("missing" in r) {
@@ -87,7 +109,10 @@ export function run({ root, flags, out }: Invocation): number {
         return "missing" in found ? undefined : found.schema;
       };
       const views = flags.views ? viewCoverage(r.schema, moduleOf) : undefined;
-      reports.push({ ...sdkCoverage(r.schema, undefined, evidence), ...(views ? { views } : {}) });
+      const own = ownTypes(r.schema);
+      const types: TypeLookup = (module, name) =>
+        module === r.schema.module ? own(module, name) : others(module, name);
+      reports.push({ ...sdkCoverage(r.schema, types, evidence), ...(views ? { views } : {}) });
 
       // A toolkit generated from the module (lucent:swiftui), under its own name.
       for (const toolkit of toolkitsFrom(platform, m)) {
@@ -162,6 +187,26 @@ export function run({ root, flags, out }: Invocation): number {
   if (typeof flags.summary === "string")
     fs.appendFileSync(path.resolve(root, flags.summary), coverageSummary(reports, 20, unread));
 
+  // The reports as a baseline records them: without members, each with the SDK it was read from.
+  const updateFile = typeof flags.update === "string" ? flags.update : "";
+  if (updateFile) {
+    const file = path.resolve(root, updateFile);
+    const before = fs.existsSync(file)
+      ? (JSON.parse(fs.readFileSync(file, "utf8")) as SdkCoverage[])
+      : [];
+    const now = new Map(
+      reports.map((report) => {
+        const c: Partial<typeof report> = { ...report };
+        delete c.members;
+        delete c.views;
+        return [report.module, c];
+      }),
+    );
+    const kept = before.map((b) => now.get(b.module) ?? b);
+    const added = [...now.values()].filter((c) => !before.some((b) => b.module === c.module));
+    fs.writeFileSync(file, `${JSON.stringify([...kept, ...added], null, 2)}\n`);
+  }
+
   const baselineFile = typeof flags.check === "string" ? flags.check : "";
   if (!baselineFile) return 0;
   const baseline = new Map(
@@ -170,8 +215,28 @@ export function run({ root, flags, out }: Invocation): number {
   // Shares, not counts: another SDK version has other members.
   const share = (c: SdkCoverage) => (c.total ? (100 * c.unrepresentable) / c.total : 0);
   let dropped = false;
+  // A module the gate reads and the baseline lacks gates nothing: said, so a widened gate is seen.
+  const listed = (ms: string[]) =>
+    `${ms.length} module${ms.length === 1 ? "" : "s"} (${ms.slice(0, 5).join(", ")}${ms.length > 5 ? ", …" : ""})`;
+  const ungated = reports.filter((c) => !baseline.has(c.module)).map((c) => c.module);
+  if (ungated.length)
+    process.stderr.write(
+      `${t.symbols.warn} ${listed(ungated)} not in the baseline, so not gated: add them with --update ${baselineFile}\n`,
+    );
+  const unknown = reports.filter(
+    (c) => c.sdk && baseline.get(c.module) && !baseline.get(c.module)!.sdk,
+  );
+  if (unknown.length)
+    process.stderr.write(
+      `${t.symbols.warn} the baseline does not say which SDK ${listed(unknown.map((c) => c.module))} were read from (these are ${[...new Set(unknown.map((c) => c.sdk))].join(", ")}): record it with --update ${baselineFile}\n`,
+    );
   for (const c of reports) {
     const b = baseline.get(c.module);
+    // Another SDK has other members: the share still gates, and the note says why it moved.
+    if (b?.sdk && c.sdk && b.sdk !== c.sdk)
+      process.stderr.write(
+        `${t.symbols.warn} ${c.module}: read from ${c.sdk}, the baseline from ${b.sdk}\n`,
+      );
     if (b && share(c) > share(b) + 0.05) {
       // stderr even with --json: CI redirects the report and reads this.
       process.stderr.write(

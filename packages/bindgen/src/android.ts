@@ -166,6 +166,16 @@ export interface ApiLevels {
   member: Map<string, number>;
 }
 
+/** XML's predefined entities and character references, as api-versions.xml writes `&lt;init>`. */
+const unescapeXml = (s: string) =>
+  s.replace(/&(lt|gt|amp|quot|apos|#\d+|#x[0-9a-f]+);/gi, (_, e: string) => {
+    if (e[0] === "#")
+      return String.fromCodePoint(
+        e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : Number(e.slice(1)),
+      );
+    return { lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" }[e.toLowerCase()]!;
+  });
+
 function readApiLevels(file: string | undefined): ApiLevels {
   const levels: ApiLevels = { cls: new Map(), member: new Map() };
   if (!file) return levels;
@@ -173,12 +183,12 @@ function readApiLevels(file: string | undefined): ApiLevels {
   for (const line of fs.readFileSync(file, "utf8").split("\n")) {
     const c = /<class name="([^"]+)"(?:[^>]*\bsince="(\d+)")?/.exec(line);
     if (c) {
-      current = c[1]!;
+      current = unescapeXml(c[1]!);
       if (c[2]) levels.cls.set(current, Number(c[2]));
       continue;
     }
     const m = /<(method|field) name="([^"]+)"[^>]*\bsince="(\d+)"/.exec(line);
-    if (m && current) levels.member.set(`${current}#${m[2]}`, Number(m[3]));
+    if (m && current) levels.member.set(`${current}#${unescapeXml(m[2]!)}`, Number(m[3]));
   }
   return levels;
 }

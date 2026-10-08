@@ -17,12 +17,21 @@ export interface SwiftPackagePin {
   revision: string;
 }
 
+/** A Swift package the app's project references by its directory (XCLocalSwiftPackageReference). */
+export interface LocalSwiftPackage {
+  /** SwiftPM's identity: the directory's name, lowercased. */
+  identity: string;
+  path: string;
+}
+
 export interface XcodeApp {
   project: string;
   /** The app target's IPHONEOS_DEPLOYMENT_TARGET (else the project's). */
   deploymentTarget?: string;
   /** The Swift packages the project references (their dependencies aside). */
   packages: SwiftPackagePin[];
+  /** The local packages it references: no pin, their directory is their version. */
+  localPackages?: LocalSwiftPackage[];
   /** The Package.resolved that pins them. */
   resolved?: string;
 }
@@ -61,13 +70,22 @@ export function xcodeApp(iosDir: string): XcodeApp | undefined {
   const deploymentTarget = deploymentOf(app) ?? deploymentOf(projectObject);
 
   // The packages the project references, by identity: LucentNative links their products.
+  const references = list(projectObject?.packageReferences).map(object);
   const referenced = new Set(
-    list(projectObject?.packageReferences)
-      .map(object)
+    references
       .map((r) => r?.repositoryURL)
       .filter((url): url is string => typeof url === "string")
       .map(identityOf),
   );
+  // Local ones by their directory, relative to the project's (ios/).
+  const localPackages = references
+    .filter((r) => r?.isa === "XCLocalSwiftPackageReference")
+    .map((r) => r?.relativePath)
+    .filter((p): p is string => typeof p === "string")
+    .map((p) => path.resolve(iosDir, p))
+    .filter((p) => fs.existsSync(path.join(p, "Package.swift")))
+    .map((p) => ({ identity: identityOf(p), path: p }));
+  const local = new Set(localPackages.map((p) => p.identity));
 
   const resolved = [
     path.join(iosDir, name.replace(/\.xcodeproj$/, ".xcworkspace")),
@@ -76,12 +94,15 @@ export function xcodeApp(iosDir: string): XcodeApp | undefined {
     .map((w) => path.join(w, "xcshareddata/swiftpm/Package.resolved"))
     .find((f) => fs.existsSync(f));
 
-  const packages = (resolved ? pinsOf(resolved) : []).filter((p) => referenced.has(p.identity));
+  const packages = (resolved ? pinsOf(resolved) : []).filter(
+    (p) => referenced.has(p.identity) && !local.has(p.identity),
+  );
 
   return {
     project,
     ...(deploymentTarget ? { deploymentTarget } : {}),
     packages,
+    ...(localPackages.length ? { localPackages } : {}),
     ...(resolved ? { resolved } : {}),
   };
 }

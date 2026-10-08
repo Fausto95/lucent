@@ -30,11 +30,20 @@ import {
   type LockedPod,
   lockedPods,
 } from "./provenance.ts";
-import type { PodFramework } from "./pods.ts";
+import type { PodFramework, SwiftPod } from "./pods.ts";
 import type { SwiftPackages } from "./swift-packages.ts";
+import {
+  emitSwiftModule,
+  importsOf,
+  OWN_SWIFT_MODULE,
+  type PlannedSwiftModule,
+  planSwiftModules,
+  type SwiftModuleContext,
+} from "./swift-modules.ts";
 import { cSwiftNames } from "./c-swift-names.ts";
 import { buildSourceSchema } from "./swift-source.ts";
 import type { SymbolGraph } from "./symbols.ts";
+import type { TypeLookup } from "./binding-plan.ts";
 import {
   canonicalSchema,
   hasSchemaFormat,
@@ -57,13 +66,29 @@ export type { NativeArtifact } from "./artifacts.ts";
 export interface SdkOptions {
   /** Default: $LUCENT_CACHE_DIR, else $XDG_CACHE_HOME/lucent, else ~/.cache/lucent. */
   cacheDir?: string;
+  /**
+   * An exported schema set (lucent-sdk.schemas/, which `lucent sdk lock
+   * --schemas` writes beside the lock): the schemas a platform's code
+   * used, read where that platform's SDK is not installed (a Linux CI
+   * typing iOS code). An installed SDK wins.
+   */
+  schemas?: string;
   android?: {
     /** The jars to bind (default: the SDK platform's android.jar). */
     jars?: string[];
     /** Where to look for the Android SDK (default: $ANDROID_HOME, $ANDROID_SDK_ROOT, the usual install locations). */
     sdkRoots?: string[];
-    /** platforms/<name> to use (default: $LUCENT_ANDROID_PLATFORM, else the newest installed). */
+    /**
+     * platforms/<name> to use (default: $LUCENT_ANDROID_PLATFORM, else
+     * the app's compileSdk's when installed, else the newest installed).
+     */
     platform?: string;
+    /**
+     * The oldest API level the app runs on (its minSdk): APIs newer than
+     * it need a check. Default: the classpath file's, else React Native's
+     * minimum (24).
+     */
+    minSdk?: number;
     /**
      * The app's resolved compile classpath (.lucent/android-classpath.json,
      * written by the lucentClasspath Gradle task): its jars and AARs are
@@ -96,6 +121,13 @@ export interface SdkOptions {
     deploymentTarget?: string;
     /** The Swift packages the app links, built for it (see swiftPackages). */
     swiftPackages?: SwiftPackages;
+    /** Swift pods built as static libraries (the app's pods: see podsSearchPaths), emitted for it. */
+    swiftPods?: SwiftPod[];
+    /**
+     * The Swift files of the app's Lucent packages' ios.nativeSources: the
+     * module `lucent:ios/LucentNative`, as the native package builds them.
+     */
+    swiftSources?: string[];
     xcrun?: string;
   };
 }
@@ -123,6 +155,9 @@ const headerIndexes = new Map<string, Record<string, string>>();
 /** Forgets what this process loaded, as a new process would (tests). */
 export function forgetLoadedSdks(): void {
   loaded.clear();
+  served.clear();
+  setEntries.clear();
+  setIdentities.clear();
   iosSdks.clear();
   headerIndexes.clear();
   locatedByObject = new WeakMap();
@@ -164,6 +199,8 @@ interface Resolved {
     sources: Map<string, IosModuleSource>;
     /** The app's Swift packages that could not be built, and why. */
     packageFailures: string[];
+    /** Swift modules emitted from source on first use (Swift pods, packages' Swift), and how. */
+    swiftModules: { planned: Map<string, PlannedSwiftModule>; ctx: SwiftModuleContext };
   };
 }
 
@@ -290,7 +327,13 @@ function locateAndroid(opts: SdkOptions): Resolved | { missing: string } {
       : [];
     const wanted = opts.android?.platform ?? process.env.LUCENT_ANDROID_PLATFORM;
     const version = (p: string) => Number(/(\d+(\.\d+)?)/.exec(p)?.[1] ?? 0);
-    const name = wanted ?? platforms.sort((a, b) => version(b) - version(a))[0];
+    // The platform the app compiles against, as its Gradle build says; else the newest.
+    const compileSdk = androidLevels(opts).compileSdk;
+    const compiled = compileSdk
+      ? (platforms.find((p) => p === `android-${compileSdk}`) ??
+        platforms.find((p) => Math.floor(version(p)) === compileSdk))
+      : undefined;
+    const name = wanted ?? compiled ?? platforms.sort((a, b) => version(b) - version(a))[0];
     if (!root || !name || !platforms.includes(name)) {
       return {
         missing: `the Android SDK${wanted ? ` platform ${wanted}` : ""} was not found (looked in ${roots.join(", ") || "no locations"}). Install it with Android Studio, or set ANDROID_HOME to its location.`,
@@ -344,6 +387,19 @@ function locateAndroid(opts: SdkOptions): Resolved | { missing: string } {
       classpath,
     },
   });
+}
+
+/** The app's SDK levels: the options', else what its Gradle build wrote with the classpath. */
+export function androidLevels(opts: SdkOptions = {}): { minSdk?: number; compileSdk?: number } {
+  const file = opts.android?.classpath;
+  const cp = file
+    ? (readCached(file) as { minSdk?: unknown; compileSdk?: unknown } | undefined)
+    : undefined;
+  const level = (v: unknown) =>
+    typeof v === "number" && Number.isInteger(v) && v > 0 ? v : undefined;
+  const minSdk = level(opts.android?.minSdk) ?? level(cp?.minSdk);
+  const compileSdk = level(cp?.compileSdk);
+  return { ...(minSdk ? { minSdk } : {}), ...(compileSdk ? { compileSdk } : {}) };
 }
 
 /** Each artifact once: the first of those with the same classes (a library and Gradle's copy of it). */
@@ -401,7 +457,11 @@ function run(cmd: string, args: string[]): string | undefined {
 function filesUnder(dir: string, pattern: RegExp): string[] {
   const out: string[] = [];
   if (!fs.existsSync(dir)) return out;
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+  // In a fixed order, whatever the file system's: the header index keeps the first module found.
+  const entries = fs
+    .readdirSync(dir, { withFileTypes: true })
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  for (const e of entries) {
     const full = path.join(dir, e.name);
     if (e.isDirectory()) out.push(...filesUnder(full, pattern));
     else if (pattern.test(e.name)) out.push(full);
@@ -472,9 +532,12 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
   const umbrellas = new Map<string, string>();
   const frameworkDirs = new Map<string, string>();
   const sources = new Map<string, IosModuleSource>();
+  // Sorted: which module a type shared by two headers' scans is indexed under must not depend
+  // on the order the file system lists them in.
   const sdkFrameworks = (fs.existsSync(frameworks) ? fs.readdirSync(frameworks) : [])
     .filter((f) => f.endsWith(".framework"))
-    .map((f) => f.slice(0, -".framework".length));
+    .map((f) => f.slice(0, -".framework".length))
+    .sort();
   for (const f of sdkFrameworks) modules.set(f, undefined);
 
   const readMap = (map: string) => {
@@ -528,9 +591,12 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
       const name = f.slice(0, -".framework".length);
       const framework = path.join(dir, f);
       modules.set(name, filesUnder(path.join(framework, "Headers"), /\.h$/));
+      // A Swift-only framework has no Headers.
       sources.set(name, {
         kind: "framework",
-        files: ["Headers", "Modules"].map((d) => path.join(framework, d)),
+        files: ["Headers", "Modules"]
+          .map((d) => path.join(framework, d))
+          .filter((d) => fs.existsSync(d)),
       });
       frameworkDirs.set(name, dir);
     }
@@ -549,6 +615,52 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
   // A module whose files are in Pods/ is its pod's, at the version Podfile.lock installed.
   const lockfile = opts.ios?.lockfile;
   const pods = lockfile ? lockedPods(lockfile) : new Map<string, LockedPod>();
+
+  // Swift made into modules on first use: Swift pods built as static libraries (their module is a
+  // build's product), and the app's Lucent packages' Swift, which LucentNative builds.
+  const deployment = opts.ios?.deploymentTarget;
+  const targetTriple = iosTarget(
+    deployment ? { target: `arm64-apple-ios${deployment}-simulator` } : {},
+  );
+  const swiftPods = (opts.ios?.swiftPods ?? []).filter((p) => !modules.has(p.module));
+  const swiftSources = opts.ios?.swiftSources ?? [];
+  const ownModules = [
+    ...swiftPods.map((p) => ({
+      module: p.module,
+      sources: p.sources,
+      ...(pods.has(p.pod) ? { pod: `${p.pod}@${pods.get(p.pod)!.version}` } : {}),
+      dependencies: importsOf(p.sources),
+    })),
+    ...(swiftSources.length
+      ? [{ module: OWN_SWIFT_MODULE, sources: swiftSources, dependencies: importsOf(swiftSources) }]
+      : []),
+  ];
+  const swiftModules = {
+    ctx: {
+      ...(opts.cacheDir ? { cacheDir: opts.cacheDir } : {}),
+      xcrun,
+      sdk: { path: sdk, version, build },
+      target: targetTriple,
+      includePaths: [...includePaths, ...packageDirs],
+      frameworkPaths,
+      moduleMaps,
+      defines,
+    },
+    planned: new Map<string, PlannedSwiftModule>(),
+  };
+  const planned = planSwiftModules(ownModules, swiftModules.ctx);
+  swiftModules.planned = planned.planned;
+  const swiftFailures = [...planned.failures].map(([m, why]) => `${m}: ${why}`);
+  for (const m of planned.planned.values()) {
+    modules.set(m.module, []);
+    sources.set(m.module, {
+      kind: "swift-module",
+      files: m.sources,
+      ...(m.pod ? { pod: m.pod } : {}),
+    });
+  }
+  const ownDirs = [...planned.planned.values()].map((m) => m.dir);
+
   if (lockfile) {
     const podsDir = path.join(path.dirname(lockfile), "Pods");
     for (const source of sources.values()) {
@@ -557,17 +669,15 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
     }
   }
 
-  const deployment = opts.ios?.deploymentTarget;
   const ios: IosOptions = {
     modules: [],
-    includePaths: [...includePaths, ...packageDirs],
+    includePaths: [...includePaths, ...packageDirs, ...ownDirs],
     frameworkPaths,
     moduleMaps,
     defines,
     xcrun,
     ...(deployment ? { target: `arm64-apple-ios${deployment}-simulator` } : {}),
   };
-  const targetTriple = iosTarget(ios);
 
   const artifacts = iosArtifacts(memo, {
     sdk: { path: sdk, version, build, frameworks: sdkFrameworks },
@@ -604,7 +714,8 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
         umbrellas,
         frameworkDirs,
         sources,
-        packageFailures: packages?.failures ?? [],
+        packageFailures: [...(packages?.failures ?? []), ...swiftFailures],
+        swiftModules,
       },
     },
     (a) => a.modules.filter((m) => byModule.get(m) === a),
@@ -719,10 +830,21 @@ function readGraph(dir: string, module: string): SymbolGraph | undefined {
 const graphErrors = new Map<string, string>();
 
 /** Symbol graphs of `modules`, extracted six at a time. */
-function graphs(r: Resolved, modules: string[]): Map<string, SymbolGraph> {
+function graphs(r: Resolved, wanted: string[]): Map<string, SymbolGraph> {
+  let modules = wanted;
   const out = new Map<string, SymbolGraph>();
   if (!modules.length) return out;
-  const { ios, sdk: sdkPath } = r.ios!;
+  const { ios, sdk: sdkPath, swiftModules } = r.ios!;
+  // Swift made into modules on first use: emitted (once, into the cache) before it is read.
+  const emitted = new Map<string, string>();
+  modules = modules.filter((m) => {
+    const why = swiftModules.planned.has(m)
+      ? emitSwiftModule(swiftModules.planned, m, swiftModules.ctx, emitted)
+      : undefined;
+    if (why) graphErrors.set(m, why);
+    return !why;
+  });
+  if (!modules.length) return out;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-graphs-"));
   const q = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
   const lines = modules.map(
@@ -805,15 +927,21 @@ function extractIosModule(r: Resolved, module: string): Extracted {
   const g = graphs(r, [module]).get(module);
   if (!g)
     return {
-      missing: `lucent:ios/${module}: swift-symbolgraph-extract produced no symbol graph:\n${graphErrors.get(module) ?? ""}`,
+      missing: r.ios!.swiftModules.planned.has(module)
+        ? `lucent:ios/${module}: its Swift could not be made into a module: ${graphErrors.get(module) ?? ""}`
+        : `lucent:ios/${module}: swift-symbolgraph-extract produced no symbol graph:\n${graphErrors.get(module) ?? ""}`,
     };
   extractions++;
   const own = namesOf(module, g);
   publishEntry(path.join(r.scope, module), "names", { inputs: inputsOf(r, [module]), names: own });
   // Types of other modules keep their Swift names: those modules' graphs supply them.
   const owners = headerIndex(r);
+  // The modules whose graphs this build has read say what they declare; the headers' scan the rest.
+  const declaredBy: Record<string, string> = {};
+  for (const n of namesRead.get(r)?.values() ?? [])
+    for (const usr of Object.keys(n.refs)) declaredBy[usr] ??= n.module;
   const referenced = new Set(
-    [...externalUsrs(g)].map((u) => ownerOf(u, owners)).filter((m): m is string => !!m),
+    [...externalUsrs(g)].map((u) => ownerOf(u, owners, declaredBy)).filter((m): m is string => !!m),
   );
   referenced.delete(module);
   const deps = [...referenced].filter((m) => modules.has(m));
@@ -929,9 +1057,10 @@ export function sdkSourceModule(
   if (!/^\w+$/.test(module)) return { missing: `${module} is not a module name` };
 
   const r = locate(platform, opts);
-  if ("missing" in r) return r;
+  if ("missing" in r) return fromSet(platform, module, "source", opts, r.missing);
   if (!r.providers.has(module)) return iosNotFound(r, module);
 
+  serve(platform, module, "source");
   const memo = `${platform}|source|${r.scope}|${r.key}|${module}`;
   const hit = loaded.get(memo);
   if (hit) return hit.lookup;
@@ -976,7 +1105,138 @@ function locate(platform: Platform, opts: SdkOptions): Resolved | { missing: str
   if (byObject) return byObject;
   const found = platform === "android" ? locateAndroid(opts) : locateIos(opts);
   locatedByObject.set(opts, (locatedByObject.get(opts) ?? new Map()).set(platform, found));
+  if (!("missing" in found)) {
+    markUsed(found.scope);
+    markUsed(found.memo);
+    autoPrune(cacheRoot(opts.cacheDir));
+  }
   return found;
+}
+
+// --- pruning -------------------------------------------------------------------------
+
+/** The file in each extractor-versioned directory saying which extractor wrote it, and when it was last used. */
+const MARK = ".extractor";
+
+const marked = new Set<string>();
+
+/** Records that this extractor uses `dir` now (once per process): pruning keeps it. */
+function markUsed(dir: string): void {
+  if (marked.has(dir)) return;
+  marked.add(dir);
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, MARK), `${extractorVersion()}\n`);
+  } catch {
+    // A read-only cache is used as it is.
+  }
+}
+
+/** A directory the cache keeps per extractor: each SDK scope, and each memo directory. */
+function versionedDirs(root: string): string[] {
+  const children = (dir: string) => {
+    try {
+      return fs
+        .readdirSync(dir, { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => path.join(dir, e.name));
+    } catch {
+      return [];
+    }
+  };
+  return [
+    ...children(path.join(root, "sdk/ios")),
+    ...children(path.join(root, "sdk/android")),
+    ...children(path.join(root, "memo")),
+  ];
+}
+
+/** Bytes under `p`. */
+function bytesUnder(p: string): number {
+  try {
+    const st = fs.statSync(p);
+    if (!st.isDirectory()) return st.size;
+    return fs.readdirSync(p).reduce((n, e) => n + bytesUnder(path.join(p, e)), 0);
+  } catch {
+    return 0;
+  }
+}
+
+/** A cache directory pruning removed, and the bytes it freed. */
+export interface PrunedEntry {
+  path: string;
+  bytes: number;
+}
+
+/**
+ * Removes what another extractor (an older or newer Lucent) wrote to the
+ * cache: SDK scopes and memo directories this one never reads, their
+ * keys holding the extractor's version. `unusedFor` keeps those another
+ * Lucent on this machine used more recently than that (in ms): a project
+ * pinning another version reads its own. Entries without a mark predate
+ * marking: another extractor's.
+ */
+export function pruneStaleCache(
+  opts: { cacheDir?: string; unusedFor?: number } = {},
+): PrunedEntry[] {
+  const root = cacheRoot(opts.cacheDir);
+  const current = extractorVersion();
+  const now = Date.now();
+  const out: PrunedEntry[] = [];
+
+  for (const dir of versionedDirs(root)) {
+    const mark = path.join(dir, MARK);
+    let version: string | undefined;
+    let used = 0;
+    try {
+      version = fs.readFileSync(mark, "utf8").trim();
+      used = fs.statSync(mark).mtimeMs;
+    } catch {
+      used = (() => {
+        try {
+          return fs.statSync(dir).mtimeMs;
+        } catch {
+          return now;
+        }
+      })();
+    }
+    if (version === current || path.basename(dir) === current) continue;
+    if (opts.unusedFor !== undefined && now - used < opts.unusedFor) continue;
+
+    const bytes = bytesUnder(dir);
+    // Renamed away first: a reader sees the whole directory or none of it.
+    const doomed = `${dir}.${process.pid}.pruned`;
+    try {
+      fs.renameSync(dir, doomed);
+    } catch {
+      continue;
+    }
+    fs.rmSync(doomed, { recursive: true, force: true });
+    out.push({ path: dir, bytes });
+  }
+
+  return out;
+}
+
+/** How long another extractor's entries stay unused before builds prune them on their own. */
+const AUTO_PRUNE_AFTER = 14 * 24 * 3600 * 1000;
+
+/** Prunes, at most once a day per cache, entries other extractors have not used for two weeks. */
+function autoPrune(root: string): void {
+  if (process.env.LUCENT_NO_CACHE_PRUNE) return;
+  const stamp = path.join(root, "pruned");
+  try {
+    if (Date.now() - fs.statSync(stamp).mtimeMs < 24 * 3600 * 1000) return;
+  } catch {
+    // Never pruned.
+  }
+  try {
+    fs.mkdirSync(root, { recursive: true });
+    fs.writeFileSync(stamp, "");
+    pruneStaleCache({ cacheDir: root, unusedFor: AUTO_PRUNE_AFTER });
+  } catch {
+    // Pruning is housekeeping: a build goes on without it.
+  }
 }
 
 /** A module's schema from the cache, else extracted once (whoever holds its lock) and published. */
@@ -1017,7 +1277,7 @@ export function sdkModule(platform: Platform, module: string, opts: SdkOptions =
     return { missing: `lucent:${platform}/${module} is not a module name` };
 
   const r = locate(platform, opts);
-  if ("missing" in r) return r;
+  if ("missing" in r) return fromSet(platform, module, "schema", opts, r.missing);
 
   const memo = `${platform}|${r.scope}|${r.key}|${module}`;
   let hit = loaded.get(memo);
@@ -1025,6 +1285,7 @@ export function sdkModule(platform: Platform, module: string, opts: SdkOptions =
     hit = load(platform, r, module);
     loaded.set(memo, hit);
   }
+  if ("schema" in hit.lookup) serve(platform, module, "schema");
 
   return hit.lookup;
 }
@@ -1039,7 +1300,11 @@ export function sdkModuleArtifacts(
   opts: SdkOptions = {},
 ): NativeArtifact[] {
   const r = locate(platform, opts);
-  if ("missing" in r || "missing" in sdkModule(platform, module, opts)) return [];
+  if ("missing" in r) {
+    const entry = setEntry(platform, module, "schema", opts);
+    return (entry?.artifacts ?? []).map(lockedArtifact(platform));
+  }
+  if ("missing" in sdkModule(platform, module, opts)) return [];
 
   const inputs = loaded.get(`${platform}|${r.scope}|${r.key}|${module}`)?.inputs ?? {};
   const read = [r.sdk, ...Object.keys(inputs).flatMap((n) => r.providers.get(n) ?? [])];
@@ -1059,7 +1324,12 @@ export function nativeArtifacts(
 
 /** Whether a platform's SDK is installed. */
 export function sdkAvailable(platform: Platform, opts: SdkOptions = {}): boolean {
-  return !("missing" in locate(platform, opts));
+  return !("missing" in locate(platform, opts)) || setModules(platform, opts).length > 0;
+}
+
+/** Whether a platform's bindings come from the exported schema set: its SDK is not installed. */
+export function sdkFromSchemaSet(platform: Platform, opts: SdkOptions = {}): boolean {
+  return "missing" in locate(platform, opts) && setModules(platform, opts).length > 0;
 }
 
 /**
@@ -1070,7 +1340,10 @@ export function sdkIdentity(opts: SdkOptions = {}): string {
   return (["ios", "android"] as const)
     .map((p) => {
       const r = locate(p, opts);
-      return "missing" in r ? "none" : hash([path.basename(r.scope), r.key]);
+      // The app's minSdk decides which uses need a check: builds of another one differ.
+      const levels = p === "android" ? [`minSdk ${androidLevels(opts).minSdk ?? ""}`] : [];
+      if (!("missing" in r)) return hash([path.basename(r.scope), r.key, ...levels]);
+      return setModules(p, opts).length ? `set-${setIdentity(p, opts)}` : "none";
     })
     .join("|");
 }
@@ -1086,7 +1359,7 @@ export function sdkSchemaEntry(
   opts: SdkOptions = {},
 ): string | undefined {
   const r = locate(platform, opts);
-  if ("missing" in r) return undefined;
+  if ("missing" in r) return setEntry(platform, module, "schema", opts)?.entry;
 
   const inputs = loaded.get(`${platform}|${r.scope}|${r.key}|${module}`)?.inputs;
   return inputs ? `${path.basename(r.scope)}/${entryKey(inputs)}` : undefined;
@@ -1132,7 +1405,15 @@ export function cachedModules(
   opts: SdkOptions = {},
 ): { schemas: string[]; names: string[] } | { missing: string } {
   const r = locate(platform, opts);
-  if ("missing" in r) return r;
+  if ("missing" in r) {
+    const set = setModules(platform, opts);
+    return set.length
+      ? {
+          schemas: set.filter((m) => setEntry(platform, m, "schema", opts)),
+          names: set.filter((m) => !setEntry(platform, m, "schema", opts)),
+        }
+      : r;
+  }
 
   // Only entries this build would read: another build's pods or classpath may differ.
   const dirs = fs.existsSync(r.scope)
@@ -1153,10 +1434,64 @@ export function sdkModules(
   opts: SdkOptions = {},
 ): string[] | { missing: string } {
   const r = locate(platform, opts);
-  if ("missing" in r) return r;
+  if ("missing" in r) {
+    const set = setModules(platform, opts).filter((m) => setEntry(platform, m, "schema", opts));
+    return set.length ? set : r;
+  }
   if (platform === "android")
     return [...jarIndex(r.android!.jars, r.android!.apiVersions).packages].sort();
   return [...r.ios!.modules.keys()].sort();
+}
+
+/**
+ * The facts of the types a platform's members name, from the modules
+ * declaring them (their names on iOS, which cost a symbol graph, their
+ * schemas on Android), for judging members as a build would (coverage):
+ * a module there is no reading of is taken as declaring its types, of
+ * unknown kind, as plans without lookups do.
+ */
+export function sdkTypeLookup(platform: Platform, opts: SdkOptions = {}): TypeLookup {
+  const names = new Map<string, NamesIndex | undefined>();
+  return (module, name) => {
+    if (!names.has(module)) {
+      const n = sdkNames(platform, module, opts);
+      names.set(module, "names" in n ? n.names : undefined);
+    }
+    const index = names.get(module);
+    if (!index) return {};
+    const t = index.types[name];
+    if (!t) return undefined;
+    return {
+      kind: t.kind,
+      ...(t.cf ? { cf: true } : {}),
+      ...(t.typeParams ? { typeParams: t.typeParams } : {}),
+      ...(t.swift ? { swift: true as const } : {}),
+    };
+  };
+}
+
+/** A schema's type names, as a names index gives them: what glue reads of a type it does not import. */
+export function namesOfSchema(schema: SdkModuleSchema): NamesIndex {
+  const types: NamesIndex["types"] = {};
+  for (const t of schema.types) {
+    if (t.kind === "class")
+      types[t.name] = {
+        kind: t.interface ? "protocol" : "class",
+        native: t.native,
+        ...(t.cf ? { cf: true } : {}),
+        ...(t.swift ? { swift: true } : {}),
+        ...(t.typeParams?.length ? { typeParams: t.typeParams.length } : {}),
+      };
+    else if (t.kind === "enum")
+      types[t.name] = {
+        kind: "enum",
+        native: t.native,
+        ...(t.swift ? { swift: true } : {}),
+        ...(t.options ? { options: true } : {}),
+      };
+    else types[t.name] = { kind: "struct", native: t.native, fields: t.fields };
+  }
+  return { module: schema.module, refs: {}, aliases: {}, types };
 }
 
 /** The jars Android bindings come from (tests and tools). */
@@ -1178,21 +1513,271 @@ export function sdkNames(
   opts: SdkOptions = {},
 ): SdkNamesLookup {
   const r = locate(platform, opts);
+  if ("missing" in r) {
+    const names = setEntry(platform, module, "names", opts)?.names;
+    if (names) return { names };
+  }
   if (platform === "android" || "missing" in r) {
     const found = sdkModule(platform, module, opts);
     if ("missing" in found) return found;
-    const types: NamesIndex["types"] = {};
-    for (const t of found.schema.types)
-      types[t.name] =
-        t.kind === "class"
-          ? { kind: t.interface ? "protocol" : "class", native: t.native }
-          : { kind: t.kind, native: t.native };
-    return { names: { module, refs: {}, aliases: {}, types } };
+    return { names: namesOfSchema(found.schema) };
   }
   if (!r.ios!.modules.has(module))
     return { missing: `lucent:ios/${module} was not found in the SDK or the app's dependencies` };
   const [names] = namesFor(r, [module]);
+  if (names) serve(platform, module, "names");
   return names
     ? { names }
     : { missing: `lucent:ios/${module}: swift-symbolgraph-extract produced no symbol graph` };
+}
+
+// --- the exported schema set -----------------------------------------------------------
+
+/**
+ * The schema set's format: what each of its files holds. A file of
+ * another format, or holding a schema of another SCHEMA_FORMAT, is not
+ * read: `lucent sdk lock --schemas` writes the set again.
+ */
+export const SCHEMA_SET_FORMAT = 1;
+
+type SetKind = "schema" | "source" | "names";
+
+/** One module in the set: `<set>/<platform>/<module>.json` (`.source.json`, `.names.json`). */
+export interface SchemaSetEntry {
+  format: number;
+  platform: Platform;
+  module: string;
+  kind: SetKind;
+  /** The artifacts it was read from (`id#contentHash`), as the lock records them. */
+  artifacts: string[];
+  /** Where the exporting machine's cache keeps it (the lock's `schema`). */
+  entry?: string;
+  schema?: SdkModuleSchema;
+  names?: NamesIndex;
+}
+
+/** What this process served from an installed SDK: what an export writes. */
+const served = new Map<string, { platform: Platform; module: string; kind: SetKind }>();
+const setEntries = new Map<string, SchemaSetEntry | null>();
+const setIdentities = new Map<string, string>();
+
+function serve(platform: Platform, module: string, kind: SetKind): void {
+  served.set(`${platform}|${kind}|${module}`, { platform, module, kind });
+}
+
+const setSuffix = (kind: SetKind) =>
+  kind === "schema" ? ".json" : kind === "source" ? ".source.json" : ".names.json";
+
+function setFile(dir: string, platform: Platform, module: string, kind: SetKind): string {
+  return path.join(dir, platform, `${module}${setSuffix(kind)}`);
+}
+
+/** A module's entry in the set, when it has one of this format. */
+function setEntry(
+  platform: Platform,
+  module: string,
+  kind: SetKind,
+  opts: SdkOptions,
+): SchemaSetEntry | undefined {
+  if (!opts.schemas || !/^[\w.]+$/.test(module)) return undefined;
+
+  const file = setFile(opts.schemas, platform, module, kind);
+  let entry = setEntries.get(file);
+  if (entry === undefined) {
+    const value = readCached(file) as Partial<SchemaSetEntry> | undefined;
+    const whole =
+      value?.format === SCHEMA_SET_FORMAT &&
+      value.platform === platform &&
+      value.module === module &&
+      (kind === "names" ? !!value.names : hasSchemaFormat(value.schema));
+    entry = whole ? (value as SchemaSetEntry) : null;
+    setEntries.set(file, entry);
+  }
+
+  return entry ?? undefined;
+}
+
+/** The modules the set has for a platform, whatever their kind. */
+function setModules(platform: Platform, opts: SdkOptions): string[] {
+  if (!opts.schemas) return [];
+
+  let files: string[];
+  try {
+    files = fs.readdirSync(path.join(opts.schemas, platform));
+  } catch {
+    return [];
+  }
+
+  const modules = files
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => f.replace(/(\.source|\.names)?\.json$/, ""));
+  return [...new Set(modules)].sort();
+}
+
+/** What identifies the set's files for a platform, for build caches: their contents. */
+function setIdentity(platform: Platform, opts: SdkOptions): string {
+  const dir = path.join(opts.schemas!, platform);
+  let id = setIdentities.get(dir);
+  if (id === undefined) {
+    const files = fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith(".json"))
+      .sort();
+    id = hash(files.map((f) => `${f} ${contentHash([path.join(dir, f)])}`));
+    setIdentities.set(dir, id);
+  }
+
+  return id;
+}
+
+/** A lookup from the set, where the platform's SDK is `missing`. */
+function fromSet(
+  platform: Platform,
+  module: string,
+  kind: "schema" | "source",
+  opts: SdkOptions,
+  missing: string,
+): SdkLookup {
+  if (!setModules(platform, opts).length) return { missing };
+
+  const entry = setEntry(platform, module, kind, opts);
+  if (entry?.schema) return { schema: entry.schema };
+
+  const other = fs.existsSync(setFile(opts.schemas!, platform, module, kind));
+  return {
+    missing: other
+      ? `lucent:${platform}/${module} in ${opts.schemas} was exported by another Lucent (schema format ${SCHEMA_FORMAT} here)`
+      : `lucent:${platform}/${module} is not in the exported schemas (${opts.schemas}), and ${missing}`,
+    fix: "run lucent sdk lock --schemas where the SDK is installed, and commit lucent-sdk.schemas/",
+  };
+}
+
+/** An artifact as the set records it: its identity alone. */
+const lockedArtifact =
+  (platform: Platform) =>
+  (identityText: string): NativeArtifact => {
+    const at = identityText.lastIndexOf("#");
+    return {
+      id: identityText.slice(0, at),
+      target: platform,
+      kind: "sdk",
+      contentHash: identityText.slice(at + 1),
+      targetTriple: "",
+      dependencies: [],
+      modules: [],
+      declarationInputs: [],
+      includePaths: [],
+      compilerArguments: [],
+      origin: { package: "", version: "", buildFile: "" },
+    };
+  };
+
+/** The modules a schema names types of, besides its own. */
+function referencedModules(schema: SdkModuleSchema): Set<string> {
+  const out = new Set<string>();
+  const visit = (v: unknown): void => {
+    if (Array.isArray(v)) {
+      for (const x of v) visit(x);
+      return;
+    }
+    if (!v || typeof v !== "object") return;
+    const o = v as Record<string, unknown>;
+    if (o.k === "ref" && typeof o.module === "string") out.add(o.module);
+    for (const [k, x] of Object.entries(o)) {
+      if ((k === "extends" || k === "implements") && x) {
+        for (const ref of [x].flat())
+          if (typeof ref === "string" && ref.includes("."))
+            out.add(ref.slice(0, ref.lastIndexOf(".")));
+      } else visit(x);
+    }
+  };
+  visit(schema.types);
+  visit(schema.functions);
+  visit(schema.constants);
+  out.delete(schema.module);
+  return out;
+}
+
+/**
+ * Writes what this process read from installed SDKs (a check's schemas,
+ * source modules and names) as the schema set in `dir`, for `platforms`,
+ * with the modules those schemas name types of: their names on iOS,
+ * their schemas on Android (whose declarations read other modules'
+ * types). Each platform's directory is replaced whole. The files it wrote.
+ */
+export function exportSchemaSet(
+  dir: string,
+  platforms: readonly Platform[],
+  opts: SdkOptions = {},
+): string[] {
+  const written: string[] = [];
+
+  for (const platform of platforms) {
+    if ("missing" in locate(platform, opts)) {
+      // No SDK here: the set this check read stays as it is.
+      if (opts.schemas && path.resolve(opts.schemas) === path.resolve(dir)) continue;
+      throw new Error(`the ${platform} SDK is not installed: its schemas cannot be exported`);
+    }
+
+    const wanted = new Map<string, { module: string; kind: SetKind }>();
+    for (const s of served.values())
+      if (s.platform === platform) wanted.set(`${s.kind}|${s.module}`, s);
+
+    // The modules served schemas name: what declarations and glue look up beside them.
+    // oxlint-disable-next-line unicorn/no-useless-spread -- the loop adds to it: one level, not all
+    for (const s of [...wanted.values()]) {
+      if (s.kind === "names") continue;
+      const found =
+        s.kind === "schema"
+          ? sdkModule(platform, s.module, opts)
+          : sdkSourceModule(platform, s.module, opts);
+      if (!("schema" in found)) continue;
+      for (const m of referencedModules(found.schema)) {
+        const kind: SetKind = platform === "ios" ? "names" : "schema";
+        if (!wanted.has(`schema|${m}`)) wanted.set(`${kind}|${m}`, { module: m, kind });
+      }
+    }
+
+    const entries: SchemaSetEntry[] = [];
+    for (const { module, kind } of [...wanted.values()].sort((a, b) =>
+      `${a.module} ${a.kind}` < `${b.module} ${b.kind}` ? -1 : 1,
+    )) {
+      if (kind === "names" && wanted.has(`schema|${module}`)) continue;
+      const artifacts = sdkModuleArtifacts(platform, module, opts).map(identity).sort();
+      const base = { format: SCHEMA_SET_FORMAT, platform, module, kind, artifacts };
+      if (kind === "names") {
+        const n = sdkNames(platform, module, opts);
+        if ("names" in n) entries.push({ ...base, names: n.names });
+        continue;
+      }
+      const found =
+        kind === "schema"
+          ? sdkModule(platform, module, opts)
+          : sdkSourceModule(platform, module, opts);
+      if (!("schema" in found)) continue;
+      const entry = kind === "schema" ? sdkSchemaEntry(platform, module, opts) : undefined;
+      entries.push({ ...base, ...(entry ? { entry } : {}), schema: found.schema });
+      // Its names too (iOS): what the symbol graph says that the schema does not (aliases, refs).
+      if (platform === "ios" && kind === "schema") {
+        const n = sdkNames(platform, module, opts);
+        if ("names" in n) entries.push({ ...base, kind: "names", names: n.names });
+      }
+    }
+
+    const target = path.join(dir, platform);
+    const tmp = `${target}.${process.pid}.tmp`;
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.mkdirSync(tmp, { recursive: true });
+    for (const e of entries) {
+      const file = setFile(dir, platform, e.module, e.kind);
+      fs.writeFileSync(path.join(tmp, path.basename(file)), `${JSON.stringify(e, null, 1)}\n`);
+      written.push(file);
+    }
+    fs.rmSync(target, { recursive: true, force: true });
+    fs.renameSync(tmp, target);
+    setIdentities.delete(target);
+    for (const f of setEntries.keys()) if (f.startsWith(target + path.sep)) setEntries.delete(f);
+  }
+
+  return written;
 }

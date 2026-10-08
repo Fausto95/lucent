@@ -24,6 +24,7 @@ import { linksNativePackage } from "./init/patch.ts";
 import { withLucentPaths } from "./tsconfig.ts";
 import { packageFile } from "./version.ts";
 
+
 /** Something a command did to the project, or asks the user to do. */
 export type Notice = { level: "ok" | "warn"; text: string };
 
@@ -49,7 +50,7 @@ export function mapLucentPaths(root: string): Notice | undefined {
   };
 }
 
-export { projectHashes, projectSdk } from "@lucent-lang/compiler";
+export { projectHashes, projectSdk, SCHEMA_SET_DIR } from "@lucent-lang/compiler";
 
 /**
  * An Android import that android.jar does not have is looked up in the app's

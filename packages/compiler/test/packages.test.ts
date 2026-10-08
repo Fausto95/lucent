@@ -157,7 +157,7 @@ describe("Lucent packages", () => {
 
     const r = compile(projectFiles(root));
     expect(r.ok).toBe(false);
-    const [d] = r.diagnostics.filter((d) => d.code === "LUCENT3013");
+    const [d] = r.diagnostics.filter((d) => d.code === "LUCENT3014");
     expect(d?.message).toMatch(/lucent-b@2\.0\.0 supports Lucent \^9\.0\.0, not \d+\.\d+\.\d+/);
     expect(d?.file && fs.realpathSync(d.file)).toBe(fs.realpathSync(pkg));
   });
@@ -176,7 +176,7 @@ describe("Lucent packages", () => {
     try {
       const r = compile(projectFiles(root));
       expect(r.diagnostics).toEqual([]);
-      expect(r.warnings?.map((w) => [w.code, w.severity])).toEqual([["LUCENT3013", "warning"]]);
+      expect(r.warnings?.map((w) => [w.code, w.severity])).toEqual([["LUCENT3014", "warning"]]);
     } finally {
       delete process.env.LUCENT_IGNORE_COMPATIBLE;
     }

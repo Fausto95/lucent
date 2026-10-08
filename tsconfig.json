@@ -25,10 +25,7 @@
     "packages/*/vite.config.ts",
     "scripts",
     "vite.config.ts",
-    "vitest.setup-build.ts",
-    "vitest.setup-sdk.ts",
-    "vitest.setup-tmp.ts",
-    "vitest.setup-yield.ts"
+    "config/*.ts"
   ],
   "exclude": [
     "node_modules",

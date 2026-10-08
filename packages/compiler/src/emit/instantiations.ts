@@ -16,6 +16,7 @@
  * mention its type parameters, and substituted at each instantiation.
  */
 import ts from "typescript";
+import { cacheOf } from "../checker-caches.ts";
 import { CompileError } from "../diagnostics.ts";
 import { isLibFile } from "../program.ts";
 import { type LType, substitute } from "../types.ts";
@@ -59,7 +60,7 @@ const ARRAY_SEARCHES: readonly string[] = ["indexOf", "lastIndexOf", "includes"]
 
 const KEYED: readonly string[] = ["Map", "Set"];
 
-const known = new WeakMap<Generic, GenericFacts>();
+const known = new WeakMap<ts.TypeChecker, WeakMap<Generic, GenericFacts>>();
 
 /** The generic of the program's sources that `node` instantiates, if any. */
 export function instanceAt(
@@ -125,13 +126,14 @@ export function genericFacts(
   lower: Lower,
   generic: Generic,
 ): GenericFacts {
-  const cached = known.get(generic);
+  const ofChecker = cacheOf(known, checker);
+  const cached = ofChecker.get(generic);
   if (cached) return cached;
 
   const facts: GenericFacts = { comparisons: [], types: [] };
 
   // A generic that reaches itself again adds nothing on the way round.
-  known.set(generic, facts);
+  ofChecker.set(generic, facts);
 
   const typeAt = (node: ts.Node) =>
     unlessRefused(() => lower(checker.getTypeAtLocation(node), node));

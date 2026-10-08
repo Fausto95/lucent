@@ -275,6 +275,8 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
       moduleMaps: [path.join(root, "Headers/Public/WidgetsPod/WidgetsPod.modulemap")],
       frameworks: [],
       defines: ["COCOAPODS=1"],
+      swiftPods: [],
+      xcframeworks: [],
       lockfile: path.join(fixtures, "pods/Podfile.lock"),
     });
     const r = sdkModule("ios", "WidgetsPod", { ios: pods });

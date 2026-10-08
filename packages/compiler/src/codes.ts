@@ -39,7 +39,8 @@ export const Codes = {
   ModuleNameClash: "LUCENT3010",
   NotIsolated: "LUCENT3011",
   NotTransferable: "LUCENT3012",
-  IncompatiblePackage: "LUCENT3013",
+  UnmatchedRequirement: "LUCENT3013",
+  IncompatiblePackage: "LUCENT3014",
   ComponentExport: "LUCENT3020",
   ComponentContract: "LUCENT3021",
   ComponentMainThread: "LUCENT3022",
@@ -49,6 +50,7 @@ export const Codes = {
   BorrowEscape: "LUCENT3030",
   UseAfterMove: "LUCENT3031",
   TypeScript: "LUCENT9001",
+  InternalError: "LUCENT9002",
 } as const;
 
 export type Code = (typeof Codes)[keyof typeof Codes];
@@ -75,6 +77,8 @@ export interface Explanation {
   severity?: "warning";
   /** About views (components): the diagnostics reference groups them apart. */
   views?: true;
+  /** A fault of the compiler's: no program should report it, so `wrong` shows none. */
+  internal?: true;
 }
 
 const ex = (source: string, name = "example.lucent.ts"): Example => ({ [name]: source });
@@ -467,7 +471,7 @@ export const Explanations: Record<Code, Explanation> = {
   LUCENT3007: {
     title: "Platform API newer than the app's oldest OS",
     summary:
-      "A platform API newer than the oldest OS the app runs on, used without an `available()` or `SDK_INT` check around it. That OS is the app's iOS deployment target, at least 15.1, or Android API 24.",
+      "A platform API newer than the oldest OS the app runs on, used without an `available()` or `SDK_INT` check around it. That OS is the app's iOS deployment target, at least 15.1, or its Android `minSdk`, else API 24.",
     details:
       "Apps run on older OS versions than the SDK they build with. An API introduced later crashes there, so Lucent requires a check that the running OS has it.",
     fix: 'check first: if (available("ios", 16)) …, if (available("android", 26)) … or Build_VERSION.SDK_INT >= 26',
@@ -554,6 +558,22 @@ export const Explanations: Record<Code, Explanation> = {
     ),
   },
   LUCENT3013: {
+    title: "Method that matches no protocol requirement",
+    summary:
+      "A method of a class implementing an SDK protocol, named like one of its requirements but matching none, which the platform never calls.",
+    details:
+      "TypeScript checks that a class implements a protocol's required methods. An optional one, as most delegate methods are, spelled wrong is another method: the platform never calls it, and nothing fails. Lucent warns when a method matches no requirement but its name is a few edits from one's, or starts with the same word.",
+    fix: "rename the method to the requirement the warning names, or make it private if it is a helper",
+    severity: "warning",
+    wrong: ex(
+      'import { PLATFORM } from "lucent:platform";\nimport { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";\nclass Updates implements CLLocationManagerDelegate {\n  locationManager_didUpdateLocations(manager: CLLocationManager, locations: CLLocation[]): void {}\n  locationManager_didFailWithErorr(manager: CLLocationManager, error: Error): void {}\n}\nexport async function watch(): Promise<boolean> {\n  if (PLATFORM === "ios") return new Updates() !== null;\n  return false;\n}\n',
+    ),
+    right: ex(
+      'import { PLATFORM } from "lucent:platform";\nimport { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";\nclass Updates implements CLLocationManagerDelegate {\n  locationManager_didUpdateLocations(manager: CLLocationManager, locations: CLLocation[]): void {}\n  locationManager_didFailWithError(manager: CLLocationManager, error: Error): void {}\n}\nexport async function watch(): Promise<boolean> {\n  if (PLATFORM === "ios") return new Updates() !== null;\n  return false;\n}\n',
+    ),
+    sdk: "ios",
+  },
+  LUCENT3014: {
     title: "Package for another Lucent version",
     summary:
       "A Lucent package whose `lucent.compatible` range in package.json leaves out the Lucent that compiles it.",
@@ -703,6 +723,19 @@ export const Explanations: Record<Code, Explanation> = {
     fix: "fix the type error; your editor shows the same message",
     wrong: ex('export function double(n: number): number {\n  return n + "";\n}\n'),
     right: ex("export function double(n: number): number {\n  return n * 2;\n}\n"),
+  },
+  LUCENT9002: {
+    title: "Internal compiler error",
+    summary:
+      "Lucent failed to compile a function it accepted: a bug in the compiler, reported at the function instead of stopping the build.",
+    details:
+      "The compiler checks each function's generated code and stops at one that would be wrong, instead of writing invalid C++. The rest of the program still compiles, so other diagnostics stay accurate. The message names what went wrong; the function itself may be valid TypeScript in the subset.",
+    fix: "report the code at the diagnostic as a Lucent bug; rewriting that expression usually avoids it",
+    wrong: ex(
+      "// No program should report LUCENT9002: one that does found a compiler bug.\nexport function double(n: number): number {\n  return n * 2;\n}\n",
+    ),
+    right: ex("export function double(n: number): number {\n  return n * 2;\n}\n"),
+    internal: true,
   },
 };
 

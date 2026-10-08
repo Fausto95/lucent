@@ -1,7 +1,14 @@
 #include "execution.h"
 
+#include <pthread.h>
+
+#if defined(__APPLE__)
+#include <dlfcn.h>
+#endif
+
 #include <mutex>
 #include <stdexcept>
+#include <system_error>
 
 // The legacy module context is entered by its lock rather than by the
 // thread-local below, so current() asks the lock first.
@@ -44,6 +51,37 @@ class MainContext final : public ExecutionContext {
 
 }  // namespace
 
+#if defined(__APPLE__)
+namespace {
+
+/// libobjc's pool functions, found once: every Apple process has libobjc
+/// loaded, but a host binary (tests, tools) need not link it.
+struct PoolFunctions {
+  void* (*push)() = nullptr;
+  void (*pop)(void*) = nullptr;
+
+  PoolFunctions()
+      : push(reinterpret_cast<void* (*)()>(dlsym(RTLD_DEFAULT, "objc_autoreleasePoolPush"))),
+        pop(reinterpret_cast<void (*)(void*)>(dlsym(RTLD_DEFAULT, "objc_autoreleasePoolPop"))) {}
+};
+
+const PoolFunctions& poolFunctions() {
+  static const PoolFunctions functions;
+  return functions;
+}
+
+}  // namespace
+
+detail::AutoreleasePool::AutoreleasePool() {
+  const PoolFunctions& f = poolFunctions();
+  if (f.push && f.pop) pool_ = f.push();
+}
+
+detail::AutoreleasePool::~AutoreleasePool() {
+  if (pool_) poolFunctions().pop(pool_);
+}
+#endif
+
 void detail::runGuarded(Job& job, const char* where) {
   try {
     job();
@@ -69,10 +107,32 @@ void detail::runOn(ExecutionContext* on, Job job) {
 std::shared_ptr<WorkerThread> WorkerThread::start(Run run) {
   std::shared_ptr<WorkerThread> worker(new WorkerThread(std::move(run)));
 
-  std::thread thread([worker] { worker->loop(); });
-  worker->id_ = thread.get_id();
-  thread.detach();
+  // pthreads, for the stack size std::thread cannot set. The thread owns a
+  // reference until it ends.
+  auto* owned = new std::shared_ptr<WorkerThread>(worker);
+  auto body = [](void* p) -> void* {
+    std::unique_ptr<std::shared_ptr<WorkerThread>> self(static_cast<std::shared_ptr<WorkerThread>*>(p));
+    (*self)->loop();
+    return nullptr;
+  };
 
+  pthread_attr_t attr;
+  pthread_attr_init(&attr);
+  pthread_attr_setstacksize(&attr, kThreadStackSize);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+  // Known before the thread runs any job: isCurrent() reads it unlocked.
+  std::unique_lock<std::mutex> g(worker->m_);
+  pthread_t thread;
+  int failed = pthread_create(&thread, &attr, body, owned);
+  pthread_attr_destroy(&attr);
+
+  if (failed) {
+    delete owned;
+    throw std::system_error(failed, std::generic_category(), "Lucent could not start a thread");
+  }
+
+  worker->idCv_.wait(g, [&] { return worker->started_; });
   return worker;
 }
 
@@ -136,6 +196,9 @@ bool WorkerThread::waitStopped(double timeoutMs) {
 
 void WorkerThread::loop() {
   std::unique_lock<std::mutex> g(m_);
+  id_ = std::this_thread::get_id();
+  started_ = true;
+  idCv_.notify_all();
 
   while (!stopping_) {
     auto now = std::chrono::steady_clock::now();
@@ -150,9 +213,13 @@ void WorkerThread::loop() {
       running_++;
       g.unlock();
 
-      run_(job);
-      // Unlocked: what the job captured may post again.
-      job = nullptr;
+      {
+        detail::AutoreleasePool pool;
+
+        run_(job);
+        // Unlocked: what the job captured may post again.
+        job = nullptr;
+      }
 
       g.lock();
       running_--;
@@ -176,12 +243,16 @@ void WorkerThread::loop() {
   auto timers = std::move(timers_);
   g.unlock();
 
-  if (last) detail::runGuarded(last, "job");
+  {
+    detail::AutoreleasePool pool;
 
-  // Released here, on this thread, like the jobs that ran.
-  last = nullptr;
-  dropped.clear();
-  timers = {};
+    if (last) detail::runGuarded(last, "job");
+
+    // Released here, on this thread, like the jobs that ran.
+    last = nullptr;
+    dropped.clear();
+    timers = {};
+  }
 
   g.lock();
   stopped_ = true;
@@ -243,6 +314,8 @@ void setModuleScope(std::shared_ptr<Scope> scope) {
 
   state.scope = std::move(scope);
 }
+
+std::shared_ptr<Scope> ownedScope(const ContextRef& owner) { return owner ? owner->root() : moduleScope(); }
 
 ExecutionContext& ExecutionContext::main() {
   // Leaked, like the main loop it stands for.

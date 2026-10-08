@@ -150,7 +150,7 @@ The app's binary and its JavaScript are built apart. A build identity says what 
 | Part | What it covers |
 | --- | --- |
 | Runtime ABI | `RUNTIME_ABI`, which must equal the runtime's `kRuntimeAbi` (both 1). A change that breaks generated code or proxies takes a new number. |
-| Program hash | The target's generated files and Java, sorted by name. Lines starting with `#line` are left out, and so are trace sites' files and lines, which hold machine paths. |
+| Program hash | The target's generated files and Java, sorted by name. Lines starting with `#line` are left out, and so are trace sites' files and lines: code moved to other lines is the same program. |
 | API hash, per module | `apiSurface()`: each export with its signature, then each type that crosses with it: struct fields, class members, bases, subclasses and an interface's implementations |
 
 A component's contract (its registration, props, events and commands) is part of its module's API. An interface is named by its file's name only, so the hash holds no path. The same sources build the same identity on any machine.

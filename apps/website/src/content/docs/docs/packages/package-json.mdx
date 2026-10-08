@@ -59,10 +59,10 @@ Put a platform file next to its declaration file, as `haptics.ios.lucent.ts`, no
 
 ### compatible
 
-The range of Lucent versions the package supports. Lucent's version is that of the `@lucent-lang/lucent` that runs the command. Outside the range, `lucent check`, `lucent build`, each `lucent dev` build and the editor report [LUCENT3013](/docs/api/diagnostics/#lucent3013) at the package's `package.json`, and nothing is built:
+The range of Lucent versions the package supports. Lucent's version is that of the `@lucent-lang/lucent` that runs the command. Outside the range, `lucent check`, `lucent build`, each `lucent dev` build and the editor report [LUCENT3014](/docs/api/diagnostics/#lucent3014) at the package's `package.json`, and nothing is built:
 
 ```sh title="terminal" nocopy
-error LUCENT3013  lucent-haptics@0.0.1 supports Lucent ^0.0.3, not {{lucent-version}}: update one of them
+error LUCENT3014  lucent-haptics@0.0.1 supports Lucent ^0.0.3, not {{lucent-version}}: update one of them
 ```
 
 `lucent doctor` reports the same under "Lucent versions". Without `compatible`, every Lucent version is accepted. To try a package outside its range anyway, set `LUCENT_IGNORE_COMPATIBLE=1`: the problem is then a warning.

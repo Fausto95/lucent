@@ -174,7 +174,13 @@ export const commands: CommandSpec[] = [
     name: "clean",
     json: "clean",
     summary: "Remove the generated .lucent/ (the next build starts over)",
-    flags: [{ name: "cache", description: "Also remove the SDK bindings cache" }],
+    flags: [
+      { name: "cache", description: "Also remove the SDK bindings cache" },
+      {
+        name: "stale",
+        description: "With --cache: remove only what other Lucent versions wrote to the SDK cache",
+      },
+    ],
     load: () => import("./commands/clean.ts"),
   },
   {
@@ -227,6 +233,11 @@ export const commands: CommandSpec[] = [
         description:
           "Targets to record: ios, android (default: every platform the project has code for, each needing its SDK)",
       },
+      {
+        name: "schemas",
+        description:
+          "Also export the schemas the code uses to lucent-sdk.schemas/, so machines without a platform's SDK type its code",
+      },
     ],
     load: () => import("./commands/sdk-lock.ts"),
   },
@@ -260,6 +271,12 @@ export const commands: CommandSpec[] = [
         name: "check",
         value: "baseline",
         description: "Fail when the unrepresentable share grows past a baseline JSON",
+      },
+      {
+        name: "update",
+        value: "baseline",
+        description:
+          "Write the reports into a baseline JSON: its modules replaced, new ones added, each with its SDK",
       },
       {
         name: "exercised",

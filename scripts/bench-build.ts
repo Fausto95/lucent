@@ -13,10 +13,16 @@
  *   diagnostics/body-edit     the editor's diagnostics after editing a
  *                             function body: the ts-plugin in a language
  *                             service, as tsserver runs it, already warm
+ *   native/body-edit          compiling the edited module's C++ unit, as
+ *                             the native builds do: with the runtime's
+ *                             umbrella header precompiled (cpp/lucent/
+ *                             prefix.h; CMake's target_precompile_headers,
+ *                             the podspec's prefix header), -O2, clang++
+ *   native/body-edit-no-pch   the same unit without it, for comparison
  *
  * Wall-clock times include starting the CLI, as a developer waits for it;
  * the check step's own time comes from .lucent/build-record.json.
- * Native compile, link and install are not part of this loop. With
+ * Linking and installing are not part of this loop. With
  * --check, a scenario whose p95 exceeds its budget
  * (scripts/bench-build-budgets.json: the design's feedback targets) fails.
  */
@@ -31,6 +37,7 @@ import {
   hostManifest,
   writeResults,
 } from "../packages/lucent/src/cli/bench-results.ts";
+import { spawnSync } from "node:child_process";
 import ts from "typescript";
 import * as compiler from "../packages/compiler/src/index.ts";
 import { runLucent } from "../packages/lucent/test/run-to-exit.ts";
@@ -167,6 +174,53 @@ async function editor() {
   };
 }
 
+/**
+ * The native compile of the edited module's unit, as the native builds
+ * compile it (`.lucent/native/cpp`, its headers; -O2, C++20), with the
+ * prefix header precompiled once (`pch`) or not: the time of one unit.
+ */
+const cxx = process.env.CXX ?? "clang++";
+const native = path.join(app, ".lucent/native/cpp");
+const unit = path.join(native, "generated/m_basics.cpp");
+const nativeFlags = () => [
+  "-std=c++20",
+  "-ffp-contract=off",
+  "-O2",
+  "-w",
+  `-I${native}`,
+  `-I${path.join(native, "generated/host")}`,
+  `-I${path.join(native, "generated")}`,
+];
+const pch = path.join(app, "prefix.h.pch");
+function precompile(): void {
+  const r = spawnSync(
+    cxx,
+    [...nativeFlags(), "-x", "c++-header", path.join(native, "lucent/prefix.h"), "-o", pch],
+    { encoding: "utf8" },
+  );
+  if (r.status !== 0) throw new Error(`precompiling prefix.h failed:\n${r.stderr}`);
+}
+function compileUnit(precompiled: boolean): { ms: number } {
+  const t = performance.now();
+  const r = spawnSync(
+    cxx,
+    [
+      ...nativeFlags(),
+      ...(precompiled ? ["-include-pch", pch] : []),
+      "-c",
+      unit,
+      "-o",
+      path.join(app, "unit.o"),
+    ],
+    { encoding: "utf8" },
+  );
+  const ms = performance.now() - t;
+  if (r.status !== 0) throw new Error(`compiling ${unit} failed:\n${r.stderr}`);
+  return { ms };
+}
+/** Only clang reads clang's precompiled headers: with another compiler, no native scenario. */
+const clang = /clang/.test(spawnSync(cxx, ["--version"], { encoding: "utf8" }).stdout ?? "");
+
 // One warmup build: the first run compiles nothing but loads everything.
 lucent("build");
 const diagnostics = await editor();
@@ -185,6 +239,13 @@ for (let i = 0; i < rounds; i++) {
   add("check/body-edit", lucent("check"));
 
   add("diagnostics/body-edit", diagnostics());
+
+  if (clang) {
+    // The cold build wrote the runtime's headers again: precompiled again, as a build would.
+    precompile();
+    add("native/body-edit", compileUnit(true));
+    add("native/body-edit-no-pch", compileUnit(false));
+  }
 }
 
 const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[xs.length >> 1]!;
