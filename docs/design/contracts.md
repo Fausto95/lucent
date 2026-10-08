@@ -2483,7 +2483,7 @@ export interface BuildIdentity {
   (the first check or build after it runs again).
 - **v1.6** (2026-10-08, proposed): the exported schema set
   (`lucent-sdk.schemas/`, `SdkOptions.schemas`, `lucent sdk lock
-  --schemas`, `sdk lock --json`'s `schemas`). Migration: none
+--schemas`, `sdk lock --json`'s `schemas`). Migration: none
   (additive).
 
 ## C-TRACE: correlated tracing

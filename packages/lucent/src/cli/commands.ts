@@ -138,8 +138,7 @@ export const commands: CommandSpec[] = [
       { name: "cache", description: "Also remove the SDK bindings cache" },
       {
         name: "stale",
-        description:
-          "With --cache: remove only what other Lucent versions wrote to the SDK cache",
+        description: "With --cache: remove only what other Lucent versions wrote to the SDK cache",
       },
     ],
     load: () => import("./commands/clean.ts"),
