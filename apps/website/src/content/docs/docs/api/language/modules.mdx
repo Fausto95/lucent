@@ -187,6 +187,9 @@ A JavaScript reload, such as Metro's reload command, starts a new JavaScript run
 | Native objects that only the old module state held | Released, as the new initialization replaces them. |
 | Module code | Unchanged: the native code the app was built with. Changing a module needs a native rebuild ([Apply a change](/docs/guides/apply-a-change/)). |
 
-Module code gets no reload event, so after a full reload the old requests and subscriptions keep running beside the new ones. Let JavaScript end what it starts, with a returned stop function or an `AbortSignal` parameter. End it when the screen is done.
+So after a full reload, the old requests and subscriptions keep running beside the new ones, unless something ends them:
+
+- Let JavaScript end what it starts, with a returned stop function or an `AbortSignal` parameter. End it when the screen is done.
+- Module code ends what it started for its own state in an [onDestroy](/docs/api/lucent-core/#ondestroy) hook from `lucent:core`. The hook runs before the reload initializes the module again, so the old state is still there to read. It also runs when the app's JavaScript runtime goes. A module's top-level code is its create hook.
 
 As the old runtime goes, a debug build logs how many SDK objects module code still holds ([At teardown](/docs/api/language/memory/#at-teardown)).

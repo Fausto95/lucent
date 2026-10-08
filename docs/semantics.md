@@ -310,7 +310,14 @@ end?)`, which copies. `new Uint8Array(buffer, byteOffset?, length?)` views
 - **Date**: `new Date(…)`, `Date.now()`, `Date.parse`, `Date.UTC`, `get…`/`set…` in local time and UTC, `getTimezoneOffset`, `toISOString`, `toString`, `toDateString`, `toTimeString`, `toUTCString`; not the `toLocale…` methods.
 - **lucent:core**: `delay`, `error(code, message)`, `errorCode(e)`,
   `utf8Encode`, `utf8Decode`, `now()`, `fromCallback(register, signal?)`,
-  `subscribe(register, onValue, signal?)`, `EventEmitter`, `NativeBuffer`.
+  `subscribe(register, onValue, signal?)`, `onDestroy(hook)`, `EventEmitter`,
+  `NativeBuffer`.
+- **Module hooks**: a module's top-level code runs for each JavaScript
+  runtime (its create hook). `onDestroy(hook)` from `lucent:core` runs
+  `hook` when that state ends: before a reload initializes the module
+  again (with the old state still in place) or when the runtime goes; the
+  last registered runs first, and the function it returns removes the
+  hook. Run as JavaScript, module state never ends, so hooks never run.
 - **Events** (`EventEmitter<Events>` from `lucent:core`): `Events` names
   each event and its listener's signature, which returns `void`.
   `addListener(name, listener)` adds the event's last listener and returns

@@ -19,6 +19,7 @@
 #include "function.h"
 #include "generator.h"
 #include "helpers.h"
+#include "hooks.h"
 #include "json.h"
 #include "json_parse.h"
 #include "map.h"

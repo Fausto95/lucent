@@ -433,6 +433,17 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-08: Module hooks, not app-delegate hooks.** A module's
+top-level code is its create hook, run for each JavaScript runtime, and
+`onDestroy` from `lucent:core` its destroy hook: it runs when the host
+of the state it was registered for is torn down, holding the Lucent
+lock, before a reload initializes the modules again, so it reads the
+state that is ending. Deep links and push tokens were left out: Lucent
+replaces no app or scene delegate, a push token reaches nothing else,
+and iOS URLs would come from React Native's `RCTOpenURLNotification`,
+which no host here can post; Android's arrive as new intents, which
+`onActivityEvent` already reports.
+
 **2026-10-08: 64-bit parameters take safe-integer numbers.** A
 method's or function's own 64-bit integer parameter (a Java `long`, a
 Swift `Int`) is declared `bigint | number`: a number must be a safe
@@ -2420,7 +2431,16 @@ errors, 64-bit parameters from numbers, and lifecycle hooks.
       and a number is checked to be a safe integer (`wide-arguments.test.ts`
       on the JNI host; the Objective-C and Swift glue share the
       conversion, unverified here).
-- [ ] Lifecycle hooks: deep links, push tokens, module create/destroy.
+- [x] Module create and destroy hooks: top-level code creates, and
+      `onDestroy` from `lucent:core` runs before a reload initializes the
+      module again (`host_test.cpp`'s
+      `destroyHooksRunWhenModuleStateEnds`, e2e `module-hooks`).
+- [ ] Deep links and push tokens: not done. iOS would observe
+      `RCTOpenURLNotification`, which React Native's `RCTLinkingManager`
+      posts when the app delegate forwards a URL or user activity, and
+      nothing here can run that; a push token reaches only the app
+      delegate, which Lucent does not replace. Android's deep links come
+      through `onActivityEvent("newIntent")` and the Activity's intent.
 - [ ] `expose()` inside a platform branch.
 
 **Done when:** each item has its e2e case or test, docs and changeset.

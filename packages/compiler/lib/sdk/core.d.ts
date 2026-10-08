@@ -5,6 +5,30 @@
  */
 
 /**
+ * Runs `hook` when this module's state ends: before a JavaScript reload
+ * initializes the module again, or when the app's JavaScript runtime goes,
+ * as Expo's `OnDestroy` does. Module state is initialized for each runtime:
+ * a module's top-level code is its create hook. Stop there what module
+ * code started for this state and that a reload would leave running, such
+ * as an SDK observer.
+ *
+ * Hooks run in a turn of the module's code, the last registered first,
+ * while the module's state is still the one ending. What one throws goes
+ * to the platform log, and the others run.
+ *
+ * ```ts
+ * import { onDestroy } from "lucent:core";
+ *
+ * let watching: (() => void) | undefined;
+ * const stopWatching = onDestroy(() => watching?.());
+ * ```
+ *
+ * @param hook What to run when the module's state ends.
+ * @returns The function that removes the hook first.
+ */
+export declare function onDestroy(hook: () => void): () => void;
+
+/**
  * Resolves after `ms` milliseconds; rejects with the signal's reason if it aborts first.
  *
  * @param ms How long to wait, in milliseconds.

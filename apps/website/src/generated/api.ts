@@ -8,6 +8,27 @@ export const apiModules: Record<string, ModuleDeclarations> = {
     "experimental": false,
     "declarations": [
       {
+        "name": "onDestroy",
+        "kind": "function",
+        "signature": "function onDestroy(hook: () => void): () => void;",
+        "doc": [
+          "Runs `hook` when this module's state ends: before a JavaScript reload initializes the module again, or when the app's JavaScript runtime goes, as Expo's `OnDestroy` does. Module state is initialized for each runtime: a module's top-level code is its create hook. Stop there what module code started for this state and that a reload would leave running, such as an SDK observer.",
+          "Hooks run in a turn of the module's code, the last registered first, while the module's state is still the one ending. What one throws goes to the platform log, and the others run."
+        ],
+        "examples": [
+          "import { onDestroy } from \"lucent:core\";\n\nlet watching: (() => void) | undefined;\nconst stopWatching = onDestroy(() => watching?.());"
+        ],
+        "members": [],
+        "params": [
+          {
+            "name": "hook",
+            "type": "() => void",
+            "optional": false,
+            "doc": "What to run when the module's state ends."
+          }
+        ]
+      },
+      {
         "name": "delay",
         "kind": "function",
         "signature": "function delay(ms: number, signal?: AbortSignal): Promise<void>;",

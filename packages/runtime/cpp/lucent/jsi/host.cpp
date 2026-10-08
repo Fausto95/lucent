@@ -308,6 +308,13 @@ void Host::tearDown(bool runtimeUsable) {
 
   owed.clear();
 
+  // Module code's destroy hooks for this runtime's state, before the next
+  // initialization (Host::create tears the old host down first).
+  {
+    LucentScope lock;
+    runDestroyHooks(scope_.get());
+  }
+
   // Cancels its operations and runs its cleanups on the module context.
   if (auto e = scope_->dispose()) reportUncaught(e, "host");
 

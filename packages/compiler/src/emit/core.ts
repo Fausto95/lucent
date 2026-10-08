@@ -154,6 +154,11 @@ const CORE: Record<string, CoreHelper> = {
 
   now: () => ({ c: cpp.call("lucent::monotonicNow"), t: T.number }),
 
+  onDestroy: (em, node) => ({
+    c: cpp.call("lucent::onDestroy", [argAs(em, node, 0, fn([], T.void))]),
+    t: fn([], T.void),
+  }),
+
   fromCallback: (em, node) => {
     const value = reportedValue(em, node);
     const register = registrationArg(em, node, [reporter(value), reject]);

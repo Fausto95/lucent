@@ -347,6 +347,7 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "lucent:core.error": ALLOCATES,
   "lucent:core.errorCode": NONE,
   "lucent:core.now": NONE,
+  "lucent:core.onDestroy": CONTINUES,
   "lucent:core.utf8Decode": ALLOCATES,
   "lucent:core.utf8Encode": ALLOCATES,
   "lucent:thread.main": { allocates: true, schedules: true, main: true },

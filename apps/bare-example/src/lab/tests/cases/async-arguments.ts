@@ -32,10 +32,17 @@ export default function run(mod, print, lucentClass, mods) {
 
     const greeter = new mod.Greeter("hello");
     print(await outcome(() => greeter.greet("you")));
-    await boundary(() => greeter.greet(null), "Greeter.greet: argument 'name' must be a string, got null");
+    await boundary(
+      () => greeter.greet(null),
+      "Greeter.greet: argument 'name' must be a string, got null",
+    );
 
     // A synchronous export still throws.
-    print(native ? await outcome(() => mod.greetNow(1)) : "threw TypeError: greetNow: argument 'name' must be a string, got a number");
+    print(
+      native
+        ? await outcome(() => mod.greetNow(1))
+        : "threw TypeError: greetNow: argument 'name' must be a string, got a number",
+    );
   })();
 
 }

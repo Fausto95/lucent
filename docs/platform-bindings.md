@@ -849,10 +849,19 @@ its own, whose disposal cancels the presentation.
 
 Not yet: presentations and subscriptions made from Lucent code belong to
 the calling context's root scope, so a JavaScript reload does not end
-them (their JavaScript callbacks are dropped); stop them, or pass a
-signal. URLs and user activities the app opens have no event yet (React
-Native's `Linking` has them), and apps that support several scenes are
-covered by unit tests only.
+them (their JavaScript callbacks are dropped); stop them, pass a signal,
+or stop them in an `onDestroy` hook from `lucent:core`, which runs when
+the module state they belong to ends (before a reload initializes it
+again, holding the Lucent lock; `lucent/hooks.h`). URLs and user
+activities the app opens have no event yet (React Native's `Linking` has
+them: the app's delegate forwards them to `RCTLinkingManager`, which
+posts `RCTOpenURLNotification`, the notification a Lucent event would
+observe); on Android, `onActivityEvent("newIntent", …)` and the created
+Activity's intent carry them. A push token has no hook either: it
+reaches only the app delegate's
+`application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`, which
+Lucent does not replace. Apps that support several scenes are covered by
+unit tests only.
 
 ## Verified in the spike
 

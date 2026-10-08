@@ -99,6 +99,12 @@ function utf8Decode(bytes) {
   return out;
 }
 
+// Module state never ends in a JavaScript run: no reload to run the hooks.
+function onDestroy(hook) {
+  if (typeof hook !== "function") throw new TypeError("onDestroy takes a function");
+  return () => {};
+}
+
 function now() {
   return typeof performance !== "undefined" && performance.now ? performance.now() : Date.now();
 }
@@ -530,6 +536,7 @@ module.exports = {
   utf8Encode,
   utf8Decode,
   now,
+  onDestroy,
   fromCallback,
   subscribe,
   compute,
