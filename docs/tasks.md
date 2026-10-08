@@ -159,8 +159,8 @@ snapshots, or renaming a class that is already handled, is not enough.
   error alone; Android's JNI runtime reading a `Throwable` skipped
   exception checks between calls (HotSpot's `-Xcheck:jni` reports it; the
   desktop JNI host runs with it).
-- New gaps: a Kotlin function type is bound as the `Function1` class; a
-  property of an interface type takes no Lucent function, and a view may
+- New gaps, all closed since (TA30 and TA33 are done): a Kotlin function
+  type is bound as the `Function1` class; a property of an interface type takes no Lucent function, and a view may
   not give it an object either, so a view cannot set one (both
   [TA30](#ta30)); a class whose superclass's module is only named gets a
   misleading error for its inherited initializers ([TA33](#ta33)).
@@ -171,17 +171,18 @@ snapshots, or renaming a class that is already handled, is not enough.
   method; check cache invalidation, stable unaffected names and an
   actionable missing-member diagnostic. Execute at least one call, one
   callback and one view.
-- Known gaps, now tasks. From T26 ([TA31](#ta31)): Kotlin shims refuse generic members,
-  Lucent functions passed as `suspend` functions, assigning value classes,
-  and implementing such members; defaults are not optional for generic
-  members. From T11 ([TA32](#ta32)): Swift Package Manager modules are not
-  discovered (packages can declare and link them), the iOS target used for
-  extraction is fixed rather than read from the project, and
-  `use_frameworks!` with dynamic linkage is not built ([T62](#t62)). From
-  T25 ([TA34](#ta34)): a `lucent:android` helper turning a `Throwable` into
-  the `Error` a thrown one becomes would let adapters keep the error's
-  `code`. From the improvement plan (2026-09-23, not rechecked since,
-  [TA33](#ta33)): factory initializers that Swift imports as `init` are
+- Known gaps, turned into tasks that are all done (2026-10-04 to 2026-10-05;
+  each task's entry says what it closed). From T26 ([TA31](#ta31)): Kotlin
+  shims refuse generic members, Lucent functions passed as `suspend`
+  functions, assigning value classes, and implementing such members; defaults
+  are not optional for generic members. From T11 ([TA32](#ta32)): Swift
+  Package Manager modules are not discovered (packages can declare and link
+  them), the iOS target used for extraction is fixed rather than read from the
+  project, and `use_frameworks!` with dynamic linkage is not built
+  ([T62](#t62)). From T25 ([TA34](#ta34)): a `lucent:android` helper turning a
+  `Throwable` into the `Error` a thrown one becomes would let adapters keep
+  the error's `code`. From the improvement plan (2026-09-23, not rechecked
+  since, [TA33](#ta33)): factory initializers that Swift imports as `init` are
   dropped by the extractor, and functions Swift imports as members of
   CoreFoundation-style handles (`cgImage.width`) are not bound.
 
