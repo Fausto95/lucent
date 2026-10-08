@@ -5,6 +5,7 @@ import {
   bindExtensions,
   checkRecord,
   compile,
+  type CompileSession,
   deferredLibraryGradle,
   type Diagnostic,
   type ExtensionBinding,
@@ -135,6 +136,8 @@ export interface BuildOptions {
    * nothing is taken from the caches of earlier builds.
    */
   frozen?: boolean;
+  /** What the last build of a long-running session (`lucent dev`) kept, which this check reuses. */
+  session?: CompileSession;
 }
 
 const NONE: Next = { rebuild: false, podInstall: false, reload: false };
@@ -534,7 +537,14 @@ export async function buildProject(
   const tCheck = Date.now();
   // Until the Gradle build resolves them, Android's imports are untyped in the iOS program.
   const deferred: Platform[] = deferAndroid && !platforms?.includes("android") ? ["android"] : [];
-  const result = compile(files, { platforms, sdk, extensions, deferred, root });
+  const result = compile(files, {
+    platforms,
+    sdk,
+    extensions,
+    deferred,
+    root,
+    ...(options.session ? { session: options.session } : {}),
+  });
   read = [...new Set([...result.read.keys(), ...result.realpaths.keys()])];
   const relative = (d: Diagnostic) => ({ ...d, file: d.file && path.relative(root, d.file) });
   const diagnostics = result.diagnostics.map(relative);

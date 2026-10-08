@@ -1698,6 +1698,8 @@ function arrayMethod(
           c: cpp.call(cpp.dot(o, name), [cb([e, e, T.number, self], e).c]),
           t: e,
         };
+      // The initial value is lowered before the callback, which follows it in the source: making
+      // a callback runs none of its code, and made last it is passed to the method as the lambda.
       const init = em.exprAs(a[1]!, rt);
       return {
         c: cpp.call(cpp.dot(o, name), [

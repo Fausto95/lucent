@@ -29,7 +29,7 @@ describe("explanations", () => {
 
   describe.each(Object.entries(Explanations))("%s", (code, e) => {
     const missing = e.sdk && !sdkAvailable(e.sdk);
-    it.skipIf(missing)("its wrong example reports it", () => {
+    it.skipIf(missing || e.internal)("its wrong example reports it", () => {
       const r = compileExample(e.wrong);
       const reported = e.severity === "warning" ? (r.warnings ?? []) : r.diagnostics;
       expect(reported.map((d) => d.code)).toContain(code);

@@ -205,27 +205,25 @@ lucent::String m_integers::counters() {
         if (v77_) {
           break;
         }
-        lucent::Box<double> t_i_it_{};
-        double v78_ = *i;
-        *t_i_it_ = v78_;
-        lucent::Fn<double()> v80_ = lucent::Fn<double()>([i = t_i_it_]() mutable -> double {
+        lucent::Fn<double()> v79_ = lucent::Fn<double()>([i = i]() mutable -> double {
           double v0_ = *i;
           return v0_ * 10.0;
         });
-        (void)fs.push(v80_);
+        (void)fs.push(v79_);
       }
-      double v82_ = *i;
-      *i = v82_ + 1.0;
+      i = lucent::Box<double>(*i);
+      double v81_ = *i;
+      *i = v81_ + 1.0;
     }
   }
   {
     auto coll6_ = fs;
     for (size_t i6_ = 0; i6_ < coll6_.size(); i6_++) {
-      lucent::Fn<double()> v86_ = coll6_.at(i6_);
+      lucent::Fn<double()> v85_ = coll6_.at(i6_);
       {
-        lucent::Fn<double()> f = std::move(v86_);
-        double v89_ = f();
-        (void)out.push(v89_);
+        lucent::Fn<double()> f = std::move(v85_);
+        double v88_ = f();
+        (void)out.push(v88_);
       }
     }
   }

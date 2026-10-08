@@ -19,6 +19,7 @@
     "test:runtime": "packages/runtime/test/run.sh",
     "test:e2e": "node packages/compiler/test/e2e/run.ts",
     "corpus:write": "node scripts/codegen-corpus.ts write --host packages/compiler/test/corpus",
+    "test:fuzz": "node packages/compiler/test/e2e/fuzz.ts",
     "website": "pnpm --filter @lucent-lang/website dev",
     "website:build": "pnpm --filter @lucent-lang/website build",
     "lucent": "vp run @lucent-lang/lucent#build >&2 && node packages/lucent/bin/lucent.cjs",

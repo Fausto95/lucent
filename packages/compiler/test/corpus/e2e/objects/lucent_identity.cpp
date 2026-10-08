@@ -5,7 +5,7 @@ static_assert(lucent::js::kRuntimeAbi == 2, "generated for Lucent runtime ABI 2:
 
 namespace {
 
-const lucent::js::ModuleIdentity kModuleIdentities[] = {{"objects", "62cc89fd8f8d16a6"}};
+const lucent::js::ModuleIdentity kModuleIdentities[] = {{"objects", "fec3470b5c4a5643"}};
 
 }  // namespace
 

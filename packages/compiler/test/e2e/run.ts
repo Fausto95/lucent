@@ -6,7 +6,9 @@
  *
  *   node packages/compiler/test/e2e/run.ts [case-name...]
  *
- * Env: HERMES_DIR (Hermes checkout built into build/), SANITIZE=1, CXX.
+ * Env: HERMES_DIR (Hermes checkout built into build/), SANITIZE=1, CXX;
+ * LUCENT_E2E_CASES, a directory of cases to run instead of cases/ (fuzz.ts
+ * writes its programs to one).
  */
 import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -33,7 +35,7 @@ import { cFlags, hostLibs, prefixMapFlags, runtimeSources } from "../../../runti
 process.env.TZ = process.env.LUCENT_TEST_TZ ?? "America/New_York";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const casesDir = path.join(here, "cases");
+const casesDir = process.env.LUCENT_E2E_CASES ?? path.join(here, "cases");
 const runtimeDir = path.resolve(here, "../../../runtime");
 const coreJs = coreJsPath();
 const runtimeJs = path.join(runtimeDir, "js/index.js");

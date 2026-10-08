@@ -946,7 +946,11 @@ export interface EffectRef {
   place is `boxed`. Nested function declarations are boxed locals from
   the start of their block, defined there (or where written, when they
   capture a variable the block declares); a `for` loop's boxed `let`
-  variables get a copy per iteration, as in JavaScript.
+  variables get a copy per iteration, as in JavaScript: a `renew` op
+  gives the place a box of its own, holding its value, before the
+  first iteration (when the initializer makes closures) and before
+  each incrementor, which steps the new copy, even when the body
+  assigns the variable (CreatePerIterationEnvironment).
 - A function's ambients (`LowerInput.ambient`) are values its backend
   declares around it (a component setup's mount): code reads one where a
   leaf asks for it (`LeafOperands.ambient`), as a capture of the

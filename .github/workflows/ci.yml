@@ -2,12 +2,21 @@ name: CI
 
 on:
   push:
-    branches: [main, cpp-jsi]
+    branches: [main]
   pull_request:
+  # Nightly: every job, the slow SDK coverage of every module, and the device runs.
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
 
+# A pull request's new push cancels its older run; main's runs all finish, so each saves its
+# caches (ccache is saved from main alone) and gates its release (release.yml).
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 env:
   # Every run step sources this: a failing step's output becomes an error annotation.
@@ -15,10 +24,38 @@ env:
   # The Hermes revision the e2e and app-check harnesses are verified against.
   HERMES_REF: 7508017ae267ecffe4c4df38656713034f35d9bf
   HERMES_DIR: ${{ github.workspace }}/.hermes
+  # The Xcode the macOS jobs select (.github/actions/setup): the image's default moves with it.
+  XCODE_VERSION: "26.6"
 
 # Each job times out well past its slowest run on cold caches, not at GitHub's six hours: a
 # hung runner would otherwise hold one of the five macOS runners the account has.
 jobs:
+  # Which jobs this change needs (scripts/ci-changes.ts): the Linux unit tests always run, the
+  # rest when a file they read changes. A push, the nightly run and a manual one run everything.
+  changes:
+    name: Changed areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      runtime: ${{ steps.plan.outputs.runtime }}
+      harnesses: ${{ steps.plan.outputs.harnesses }}
+      website: ${{ steps.plan.outputs.website }}
+      ios-test: ${{ steps.plan.outputs.iosTest }}
+      ios-checks: ${{ steps.plan.outputs.iosChecks }}
+      apps: ${{ steps.plan.outputs.apps }}
+      devices: ${{ steps.plan.outputs.devices }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          # A pull request checks out its merge commit: HEAD^ is the base it merges into.
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .node-version
+      - id: plan
+        run: node scripts/ci-changes.ts ${{ github.event_name == 'pull_request' && 'HEAD^' || '' }}
+
   # Linux jobs side by side: the unit tests (two shards), the runtime's own tests, and the
   # harnesses that run compiled code (below).
   test:
@@ -30,31 +67,38 @@ jobs:
       matrix:
         shard: [1, 2]
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - uses: ./.github/actions/hermes
-      - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
-        uses: actions/cache@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          path: ~/.cache/lucent
-          # One per job: each keeps what it extracted (the first job to finish would otherwise save
-          # the only cache, without the others' modules).
-          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
-          # An older cache still serves, another job's too: its entries are keyed by SDK and
-          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
-          restore-keys: |
-            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
-            lucent-sdk-${{ runner.os }}-
-      - run: pnpm typecheck
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/sdk-cache
+        with:
+          key: test-${{ matrix.shard }}
+      # Formatting and lint (vp check), then the typecheck: they ran only before a release.
+      - run: pnpm check
         if: matrix.shard == 1
-      - run: pnpm exec vp test run --shard=${{ matrix.shard }}/2
+      # Each shard's report keeps its files' times, for config/test-timings.json.
+      - run: pnpm exec vp test run --shard=${{ matrix.shard }}/2 --reporter=default --reporter=json --outputFile.json=unit-test-report.json
+      - name: Keep the timings
+        if: always() && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: unit-test-report-linux-${{ matrix.shard }}
+          path: unit-test-report.json
+          retention-days: 14
+          if-no-files-found: ignore
 
   runtime:
     name: Runtime and JSI host
+    needs: changes
+    if: needs.changes.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/hermes
       - uses: ./.github/actions/ccache
@@ -72,49 +116,55 @@ jobs:
         if: always()
         run: ccache --show-stats
 
-  # The harnesses that run compiled code, one job each: each takes minutes.
+  # The Lucent lock, execution contexts, the compute pool and scopes under ThreadSanitizer: a
+  # job of its own beside the other, since an instrumented build compiles everything again.
+  runtime-tsan:
+    name: Runtime (TSan, GCC)
+    needs: changes
+    if: needs.changes.outputs.runtime == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/ccache
+        with:
+          key: runtime-tsan
+      - name: Runtime unit tests (TSan, GCC)
+        run: SANITIZE=thread CXX=g++ CC=gcc packages/runtime/test/run.sh
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache --show-stats
+
+  # The harnesses that run compiled code, one job each: each takes minutes. scripts/ci-changes.ts
+  # lists them (name, key, command), the ones this change needs.
   e2e:
     name: ${{ matrix.name }}
+    needs: changes
+    if: needs.changes.outputs.harnesses != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: End-to-end (native vs. JavaScript)
-            key: e2e
-            run: pnpm test:e2e
-          - name: Performance budgets, fresh install
-            key: bench
-            # The kernels' budgets enforced; the CPU-bound ratios reported (see scripts/bench.ts).
-            run: node scripts/bench.ts --check --shared-runner && node scripts/smoke-install.ts
-          - name: App check (bare)
-            key: app-check-bare
-            run: node scripts/app-check.ts apps/bare-example
-          - name: App check (Expo)
-            key: app-check-expo
-            run: node scripts/app-check.ts apps/expo-example
+        include: ${{ fromJSON(needs.changes.outputs.harnesses) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       # The app checks' device builds resolve the apps' Android dependencies with Gradle.
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        if: startsWith(matrix.key, 'app-check')
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/hermes
       - uses: ./.github/actions/ccache
         with:
           key: ${{ matrix.key }}
-      - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
-        uses: actions/cache@v4
+      - uses: ./.github/actions/sdk-cache
         with:
-          path: ~/.cache/lucent
-          # One per job: each keeps what it extracted (the first job to finish would otherwise save
-          # the only cache, without the others' modules).
-          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
-          # An older cache still serves, another job's too: its entries are keyed by SDK and
-          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
-          restore-keys: |
-            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
-            lucent-sdk-${{ runner.os }}-
+          key: ${{ matrix.key }}
       - name: ${{ matrix.name }}
         run: ${{ matrix.run }}
       - name: Compiler cache statistics
@@ -123,18 +173,30 @@ jobs:
 
   website:
     name: Website (samples compile, prose rules, generated files current, build)
+    needs: changes
+    if: needs.changes.outputs.website == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      VALE_VERSION: 3.22.0
+      # sha256 of vale_3.22.0_Linux_64-bit.tar.gz, as the release's checksums file lists it.
+      VALE_SHA256: 52f5cd0314a1b7384cac6aa102a68193977312f6ba9c9f3ae001b5deec8e3a10
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Install Vale
-        run: curl -sSL https://github.com/errata-ai/vale/releases/download/v3.22.0/vale_3.22.0_Linux_64-bit.tar.gz | sudo tar -xz -C /usr/local/bin vale
+      - name: Install Vale (checksum verified)
+        run: |
+          archive="vale_${VALE_VERSION}_Linux_64-bit.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$archive" "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/$archive"
+          echo "$VALE_SHA256  $RUNNER_TEMP/$archive" | sha256sum --check --strict
+          sudo tar -xzf "$RUNNER_TEMP/$archive" -C /usr/local/bin vale
       - name: Every Lucent sample compiles; prose follows the rules; generated C++ and diagnostics are current
         run: node scripts/website.ts --check
       - run: pnpm --filter @lucent-lang/website typecheck
@@ -144,6 +206,8 @@ jobs:
   # macOS jobs, as many as the account runs at once.
   ios-test:
     name: Unit tests with the iOS SDK (${{ matrix.shard }}/3)
+    needs: changes
+    if: needs.changes.outputs.ios-test == 'true'
     runs-on: macos-26
     timeout-minutes: 40
     strategy:
@@ -154,66 +218,68 @@ jobs:
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
         with:
           ruby-version: "3.3"
           bundler-cache: true
           working-directory: apps/bare-example
-      - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
-        uses: actions/cache@v4
+      - uses: ./.github/actions/sdk-cache
         with:
-          path: ~/.cache/lucent
-          # One per job: each keeps what it extracted (the first job to finish would otherwise save
-          # the only cache, without the others' modules).
-          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
-          # An older cache still serves, another job's too: its entries are keyed by SDK and
-          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
-          restore-keys: |
-            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
-            lucent-sdk-${{ runner.os }}-
+          key: ios-test-${{ matrix.shard }}
       - name: Compiler and bindgen tests with the iOS SDK (the Linux job skips them)
-        run: pnpm exec vp test run --shard=${{ matrix.shard }}/3
+        run: pnpm exec vp test run --shard=${{ matrix.shard }}/3 --reporter=default --reporter=json --outputFile.json=unit-test-report.json
+      - name: Keep the timings
+        if: always() && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: unit-test-report-darwin-${{ matrix.shard }}
+          path: unit-test-report.json
+          retention-days: 14
+          if-no-files-found: ignore
 
-  # Beside the app build: SDK coverage and the runtime under libc++'s sanitizers.
+  # Beside the app build: SDK coverage and the runtime under libc++'s sanitizers. The coverage
+  # of every module (12 minutes of its own, reporting only) runs nightly and on a manual run.
   ios-checks:
     name: SDK coverage, runtime (libc++)
+    needs: changes
+    if: needs.changes.outputs.ios-checks == 'true'
     runs-on: macos-26
     timeout-minutes: 75
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
-      - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
-        uses: actions/cache@v4
+      - uses: ./.github/actions/sdk-cache
         with:
-          path: ~/.cache/lucent
-          # One per job: each keeps what it extracted (the first job to finish would otherwise save
-          # the only cache, without the others' modules).
-          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
-          # An older cache still serves, another job's too: its entries are keyed by SDK and
-          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
-          restore-keys: |
-            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
-            lucent-sdk-${{ runner.os }}-
-      - name: SDK coverage (fails when a module's unrepresentable share grows past sdk-coverage.json)
-        run: node packages/lucent/bin/lucent.cjs sdk coverage --ios UIKit,Foundation,AVFoundation,StoreKit,CryptoKit --android 'android.*' --json --check sdk-coverage.json > sdk-coverage.current.json
-      - name: SDK coverage of every module (the top reasons in the job summary; fails nothing)
-        timeout-minutes: 45
-        run: node packages/lucent/bin/lucent.cjs sdk coverage --all --json --summary "$GITHUB_STEP_SUMMARY" > sdk-coverage.all.json
-      - name: Keep the coverage reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: sdk-coverage
-          path: |
-            sdk-coverage.current.json
-            sdk-coverage.all.json
+          key: ios-checks
       - name: Runtime unit tests (ASan/UBSan, libc++)
         run: SANITIZE=1 packages/runtime/test/run.sh
+      - name: SDK coverage (fails when a module's unrepresentable share grows past config/sdk-coverage.json)
+        run: node packages/lucent/bin/lucent.cjs sdk coverage --ios UIKit,Foundation,AVFoundation,StoreKit,CryptoKit --android 'android.*' --json --check config/sdk-coverage.json > sdk-coverage.current.json
+      - name: SDK coverage of every module (the top reasons in the job summary; fails nothing)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        timeout-minutes: 45
+        run: node packages/lucent/bin/lucent.cjs sdk coverage --all --json --summary "$GITHUB_STEP_SUMMARY" > sdk-coverage.all.json
+      # Keeping a report fails nothing: an artifact service timeout failed main's run once.
+      - name: Keep the coverage reports
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: sdk-coverage
+          path: sdk-coverage.*.json
+          if-no-files-found: ignore
 
   ios:
     name: Bare example (iOS simulator build)
+    needs: changes
+    if: needs.changes.outputs.apps == 'true'
     runs-on: macos-26
     timeout-minutes: 45
     env:
@@ -222,25 +288,18 @@ jobs:
       # React Native's pods compile through ccache when pod install sees this.
       USE_CCACHE: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
         with:
           ruby-version: "3.3"
           bundler-cache: true
           working-directory: apps/bare-example
-      - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
-        uses: actions/cache@v4
+      - uses: ./.github/actions/sdk-cache
         with:
-          path: ~/.cache/lucent
-          # One per job: each keeps what it extracted (the first job to finish would otherwise save
-          # the only cache, without the others' modules).
-          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
-          # An older cache still serves, another job's too: its entries are keyed by SDK and
-          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
-          restore-keys: |
-            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
-            lucent-sdk-${{ runner.os }}-
+          key: ios
       - uses: ./.github/actions/ccache
         with:
           key: ios
@@ -269,7 +328,7 @@ jobs:
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tee build.log | tail -n 200
       - name: Keep the build log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: ios-build-log
           path: apps/bare-example/ios/build.log
@@ -279,6 +338,8 @@ jobs:
 
   android:
     name: Bare example (Android build)
+    needs: changes
+    if: needs.changes.outputs.apps == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -286,25 +347,18 @@ jobs:
       CMAKE_C_COMPILER_LAUNCHER: ccache
       CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       - uses: ./.github/actions/setup
-      - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
-        uses: actions/cache@v4
+      - uses: ./.github/actions/sdk-cache
         with:
-          path: ~/.cache/lucent
-          # One per job: each keeps what it extracted (the first job to finish would otherwise save
-          # the only cache, without the others' modules).
-          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
-          # An older cache still serves, another job's too: its entries are keyed by SDK and
-          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
-          restore-keys: |
-            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
-            lucent-sdk-${{ runner.os }}-
+          key: android
       - uses: ./.github/actions/ccache
         with:
           key: android
@@ -317,3 +371,47 @@ jobs:
       - name: Compiler cache statistics
         if: always()
         run: ccache --show-stats
+
+  # The compiled modules on the platforms themselves: the bare example's Tests screen (every
+  # end-to-end case through the compiled C++) on the iOS simulator and the Android emulator.
+  # Nightly and on a manual run only, until they run reliably; they don't gate the CI check.
+  devices:
+    name: Device run (${{ matrix.platform }})
+    needs: changes
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ios, android]
+    uses: ./.github/workflows/devices.yml
+    with:
+      platform: ${{ matrix.platform }}
+
+  # One check to require: it passes when every job passed or was skipped as not needed.
+  ci:
+    name: CI
+    if: always()
+    needs:
+      [
+        changes,
+        test,
+        runtime,
+        runtime-tsan,
+        e2e,
+        website,
+        ios-test,
+        ios-checks,
+        ios,
+        android,
+      ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          if [[ "$FAILED" == "true" ]]; then
+            echo "::error::A job failed or was cancelled."
+            exit 1
+          fi

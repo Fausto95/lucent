@@ -1,0 +1,22 @@
+name: Feature request
+description: A language feature, an SDK Lucent should bind, or a workflow it should support.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you're trying to do
+      description: The module or app you're writing, and what Lucent doesn't let you do today. If the compiler refuses something, paste its diagnostic.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help
+      description: The TypeScript you'd like to write, or the behavior you'd like. JavaScript's semantics are the contract, so say how it should behave against the same code run as JavaScript.
+      render: ts
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead
+      description: A workaround, or another tool (a Turbo or Nitro module, Expo Modules) you use for it now.

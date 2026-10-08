@@ -72,17 +72,15 @@ lucent::Array<double> m_closures::makeAdders() {
         if (v5_) {
           break;
         }
-        lucent::Box<double> t_i_it_{};
-        double v6_ = *i;
-        *t_i_it_ = v6_;
-        lucent::Fn<double(double)> v8_ = lucent::Fn<double(double)>([i = t_i_it_](double p0_) mutable -> double {
+        lucent::Fn<double(double)> v7_ = lucent::Fn<double(double)>([i = i](double p0_) mutable -> double {
           double v1_ = *i;
           return p0_ + v1_;
         });
-        (void)fns.push(v8_);
+        (void)fns.push(v7_);
       }
-      double v10_ = *i;
-      *i = v10_ + 1.0;
+      i = lucent::Box<double>(*i);
+      double v9_ = *i;
+      *i = v9_ + 1.0;
     }
   }
   return fns.template map<double>([](lucent::Fn<double(double)> p0_, double p1_, lucent::Array<lucent::Fn<double(double)>> p2_) mutable -> double {

@@ -6,6 +6,7 @@
  * (or, for a call, discarded with `(void)`).
  */
 import { cpp } from "@lucent-lang/codegen";
+import ts from "typescript";
 import { Codes, CompileError } from "../diagnostics.ts";
 import { type ConversionStep, conversionStep } from "../lowering/conversions.ts";
 import { heldAs, throughMembers } from "../lowering/members.ts";
@@ -33,7 +34,7 @@ import {
   regionsOf,
   resultOf,
   type RegionId,
-  runsThrough,
+  Completion,
   type TargetId,
   type UnaryOp,
   type ValueId,
@@ -41,13 +42,13 @@ import {
 import {
   IrUnsupported,
   lower,
-  type Lowered,
   type LowerHost,
   type LowerInput,
   lowerInit,
   type Initialization,
 } from "./lower.ts";
-import { verify, type VerifyEnv } from "./verify.ts";
+import { IrVerifyError, verify, type VerifyEnv } from "./verify.ts";
+import { IrBuildError } from "./build.ts";
 
 /**
  * A function lowered through the IR, verified and turned into C++. What
@@ -59,27 +60,49 @@ export function lowerToCpp(
   host: LowerHost,
   backend: CppBackend,
 ): CppFunction {
-  let lowered: Lowered;
+  const at = "initializers" in input ? input.source : input.decl;
 
   try {
-    lowered = "initializers" in input ? lowerInit(input, host) : lower(input, host);
+    const { fn, signatures, effects } =
+      "initializers" in input ? lowerInit(input, host) : lower(input, host);
+
+    return toCpp(fn, backend, {
+      signature: (id) => signatures.get(id),
+      effects: (id) => effects.get(id),
+      ...(host.isError ? { isError: (t: LType) => host.isError!(t) } : {}),
+    });
   } catch (e) {
-    if (e instanceof IrUnsupported)
-      throw new CompileError(
-        e.node,
-        Codes.UnsupportedSyntax,
-        `Lucent does not compile ${e.what} yet`,
-      );
-
-    throw e;
+    throw asDiagnostic(e, at);
   }
+}
 
-  const { fn, signatures, effects } = lowered;
+/**
+ * What lowering one function threw, as a diagnostic: what the IR does
+ * not support at its code, and the compiler's own faults (invalid IR, a
+ * builder's refusal) at the function, so one bad function cannot stop
+ * the whole build or the editor's checks.
+ */
+function asDiagnostic(e: unknown, at: ts.Node): unknown {
+  if (e instanceof IrUnsupported)
+    return new CompileError(
+      e.node,
+      Codes.UnsupportedSyntax,
+      `Lucent does not compile ${e.what} yet`,
+    );
 
-  return toCpp(fn, backend, {
-    signature: (id) => signatures.get(id),
-    effects: (id) => effects.get(id),
-  });
+  // The compiler's faults; any other error class is a signal of its own (a diagnostic reported).
+  const fault =
+    e instanceof IrVerifyError ||
+    e instanceof IrBuildError ||
+    (e instanceof Error && [Error, TypeError, RangeError].includes(e.constructor as never));
+
+  if (!fault) return e;
+
+  const what = e instanceof IrVerifyError ? `invalid IR for ${e.fn}: ${e.problems[0]}` : e.message;
+  const named = at as ts.Node & { name?: ts.Node };
+  const node = named.name && ts.isIdentifier(named.name) ? named.name : at;
+
+  return new CompileError(node, Codes.InternalError, `internal compiler error: ${what}`);
 }
 
 /** What the compiler provides: its type representation, and the name Errors record as their site. */
@@ -196,6 +219,8 @@ class Emitter {
   /** Whether the body emitted so far suspends or returns as a coroutine (co_await, co_yield, co_return). */
   private suspended = false;
   private line?: string;
+  /** Which of the function's regions complete, decided once each. */
+  private completion?: Completion;
 
   /** Whether this is the function's own body, not a closure's. */
   private readonly top: boolean;
@@ -569,7 +594,7 @@ class Emitter {
   intValue(v: ValueId): cpp.Expr {
     const int = this.ints.get(v);
 
-    if (!int) throw new Error(`IR value v${v} has no integer register form`);
+    if (!int) throw new IrBuildError(`IR value v${v} has no integer register form`);
 
     return int;
   }
@@ -971,7 +996,8 @@ class Emitter {
 
   /** Whether running `op` can reach what follows it. */
   completes(op: IrOp): boolean {
-    return runsThrough(this.fn, [op]);
+    this.completion ??= new Completion(this.fn);
+    return this.completion.ops([op]);
   }
 
   /** The exception pending in the innermost finally region being emitted. */
@@ -1071,6 +1097,13 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
     if (next?.kind === "store" && next.place === op.place) return;
 
     e.emit(op, cpp.varDecl(type, name, undefined, { style: "brace" }));
+  },
+
+  // The variable's own box is replaced; closures holding the old one keep it.
+  renew: (op, e) => {
+    const type = boxOf(e.backend.cppType(op.type), true);
+
+    e.emit(op, cpp.exprStmt(cpp.assign(e.box(op.place), cpp.construct(type, [e.place(op.place)]))));
   },
 
   load: (op, e) => {

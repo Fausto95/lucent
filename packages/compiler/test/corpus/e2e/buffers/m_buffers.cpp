@@ -768,27 +768,25 @@ lucent::Promise<lucent::String> m_buffers::stream(double p0_, double p1_) {
         if (v7_) {
           break;
         }
-        lucent::Box<double> t_i_it_{};
-        double v8_ = *i;
-        *t_i_it_ = v8_;
         lucent::NativeBuffer chunk = lucent::NativeBufferObject::allocate(p1_);
-        lucent::Fn<void(lucent::MutableByteSpan)> v11_ = lucent::Fn<void(lucent::MutableByteSpan)>([i = t_i_it_](lucent::MutableByteSpan p0_) mutable -> void {
+        lucent::Fn<void(lucent::MutableByteSpan)> v10_ = lucent::Fn<void(lucent::MutableByteSpan)>([i = i](lucent::MutableByteSpan p0_) mutable -> void {
           double v1_ = *i;
           p0_.fill(v1_);
           return;
         });
-        lucent::withWrite(chunk, v11_);
-        lucent::Promise<double> v15_ = lucent::compute(lucent_tasks::m_buffers::entry_scan, std::tuple<lucent::NativeBuffer>{chunk}, lucent::ComputeOptions{lucent::Opt<lucent::AbortSignal>(), lucent::moduleScope()});
-        double v16_ = co_await v15_;
-        sum = sum + v16_;
+        lucent::withWrite(chunk, v10_);
+        lucent::Promise<double> v14_ = lucent::compute(lucent_tasks::m_buffers::entry_scan, std::tuple<lucent::NativeBuffer>{chunk}, lucent::ComputeOptions{lucent::Opt<lucent::AbortSignal>(), lucent::moduleScope()});
+        double v15_ = co_await v14_;
+        sum = sum + v15_;
       }
-      double v18_ = *i;
-      *i = v18_ + 1.0;
+      i = lucent::Box<double>(*i);
+      double v17_ = *i;
+      *i = v17_ + 1.0;
     }
   }
-  lucent::String v22_ = lucent::toJsString(sum);
-  lucent::String v25_ = lucent_app::m_buffers::since(before);
-  co_return lucent::concat(v22_, LUCENT_STR(" ("), v25_, LUCENT_STR(")"));
+  lucent::String v21_ = lucent::toJsString(sum);
+  lucent::String v24_ = lucent_app::m_buffers::since(before);
+  co_return lucent::concat(v21_, LUCENT_STR(" ("), v24_, LUCENT_STR(")"));
 }
 
 lucent::String m_buffers::texts() {
