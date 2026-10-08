@@ -83,8 +83,8 @@ describe("lucent uninstall", () => {
       };
       expect(json(after["tsconfig.json"]!)).toEqual(json(before["tsconfig.json"]!));
       // app.json is rewritten as JSON, as init writes it.
-      if (before["app.json"])
-        expect(JSON.parse(after["app.json"]!)).toEqual(JSON.parse(before["app.json"]));
+      const app = (s: Record<string, string>) => (s["app.json"] ? JSON.parse(s["app.json"]) : null);
+      expect(app(after)).toEqual(app(before));
       const rest = (s: Record<string, string>) =>
         Object.fromEntries(
           Object.entries(s).filter(([f]) => f !== "tsconfig.json" && f !== "app.json"),

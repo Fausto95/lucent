@@ -118,9 +118,9 @@ describe("the Expo config plugin's Gradle task", () => {
 describe("the Expo config plugin's build", () => {
   it("builds the platforms expo prebuild writes", () => {
     expect(plugin.prebuildPlatforms(["node", "expo", "prebuild"])).toEqual(["ios", "android"]);
-    expect(plugin.prebuildPlatforms(["node", "expo", "prebuild", "--platform", "android"])).toEqual([
-      "android",
-    ]);
+    expect(plugin.prebuildPlatforms(["node", "expo", "prebuild", "--platform", "android"])).toEqual(
+      ["android"],
+    );
     expect(plugin.prebuildPlatforms(["node", "expo", "prebuild", "-p", "ios"])).toEqual(["ios"]);
     expect(plugin.prebuildPlatforms(["node", "expo", "prebuild", "--platform=all"])).toEqual([
       "ios",
@@ -148,7 +148,10 @@ describe("the Expo config plugin's build", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-plugin-"));
     fs.writeFileSync(path.join(root, "package.json"), '{ "name": "app" }\n');
     // A build would write .lucent/.
-    fs.writeFileSync(path.join(root, "a.lucent.ts"), "export function one(): number { return 1; }\n");
+    fs.writeFileSync(
+      path.join(root, "a.lucent.ts"),
+      "export function one(): number { return 1; }\n",
+    );
 
     // A fresh copy: the plugin builds once per process.
     delete require.cache[require.resolve("../app.plugin.js")];

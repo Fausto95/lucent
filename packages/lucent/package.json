@@ -13,9 +13,6 @@
   "bin": {
     "lucent": "./bin/lucent.cjs"
   },
-  "engines": {
-    "node": ">=22.12"
-  },
   "files": [
     "app.plugin.js",
     "autolink",
@@ -65,5 +62,8 @@
     "ink": "^7.1.1",
     "ink-testing-library": "^4.0.0",
     "react": "19.3.0"
+  },
+  "engines": {
+    "node": ">=22.12"
   }
 }

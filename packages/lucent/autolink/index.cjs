@@ -77,7 +77,7 @@ function lucentDependency(root, options = {}) {
         // Gradle may be the one reading this config: Android's dependencies wait for its
         // lucentBuild task, which runs after autolinking.
         env: { ...process.env, LUCENT_NO_GRADLE: "1", NO_COLOR: process.env.NO_COLOR ?? "1" },
-        ...(options.spawn ?? {}),
+        ...options.spawn,
       },
     );
     // A build whose check failed still writes the package it links (what pod install and

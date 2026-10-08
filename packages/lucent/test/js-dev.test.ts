@@ -124,11 +124,9 @@ export function later(): Promise<number> {
     expect(() => android.model!()).toThrow(
       /Build \(lucent:android\/android\.os\) is native code, which JS dev mode can't run/,
     );
-    try {
-      android.model!();
-    } catch (e) {
-      expect((e as { code?: string }).code).toBe("LUCENT_JS_DEV_NATIVE");
-    }
+    expect(() => android.model!()).toThrow(
+      expect.objectContaining({ code: "LUCENT_JS_DEV_NATIVE" }) as Error,
+    );
     const ios = load(root, "src/device.lucent.ts", "ios") as Record<string, () => unknown>;
     expect(ios.name!()).toBe("phone");
     expect(() => ios.model!()).toThrow(/UIDevice \(lucent:ios\/UIKit\)/);

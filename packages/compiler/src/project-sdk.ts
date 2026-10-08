@@ -4,7 +4,12 @@
  * resolved Gradle classpath, and the Lucent packages' prebuilt binaries).
  */
 import path from "node:path";
-import { frameworkSearchPath, podsSearchPaths, swiftPackages, xcodeApp } from "@lucent-lang/bindgen";
+import {
+  frameworkSearchPath,
+  podsSearchPaths,
+  swiftPackages,
+  xcodeApp,
+} from "@lucent-lang/bindgen";
 import { type NativeInputs, resolveNative } from "./package-config.ts";
 import { fileHashes } from "./package-files.ts";
 import { lucentPackages } from "./packages.ts";

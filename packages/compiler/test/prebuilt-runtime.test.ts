@@ -55,14 +55,16 @@ describe("the prebuilt runtime", () => {
     expect(prebuiltRuntimeFiles(withPrebuilt(), { LUCENT_RUNTIME_FROM_SOURCE: "1" }).size).toBe(0);
   });
 
+  it.skipIf(spawnSync("ruby", ["--version"]).status !== 0)("keeps the podspec valid Ruby", () => {
+    expect(
+      spawnSync("ruby", ["-c", path.join(runtime, "native/LucentNative.podspec")]).status,
+    ).toBe(0);
+  });
+
   it("is what the native package's podspec and CMake link instead of those sources", () => {
     const podspec = fs.readFileSync(path.join(runtime, "native/LucentNative.podspec"), "utf8");
     expect(podspec).toMatch(/prebuilt", "ios", "LucentCore\.xcframework"/);
     expect(podspec).toMatch(/core-sources\.txt/);
-    if (spawnSync("ruby", ["--version"]).status === 0)
-      expect(
-        spawnSync("ruby", ["-c", path.join(runtime, "native/LucentNative.podspec")]).status,
-      ).toBe(0);
 
     const cmake = fs.readFileSync(path.join(runtime, "native/android/CMakeLists.txt"), "utf8");
     expect(cmake).toMatch(/prebuilt\/android\/\$\{ANDROID_ABI\}\/liblucentcore\.a/);
