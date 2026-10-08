@@ -22,6 +22,7 @@
 #include <type_traits>
 
 #include "lucent/compute.h"
+#include "lucent/operation.h"
 #include "lucent/jsi/convert.h"
 #include "lucent/jsi/host.h"
 #include "lucent/trace.h"
@@ -367,6 +368,46 @@ Promise<void> spin() {
   }
 }
 
+/// Work module code starts for a runtime that a reload must stop: a
+/// callback composition, a subscription and a native operation, each with
+/// a cleanup, and a loop of timers (`ticker`).
+std::atomic<int> workCleanups{0};
+std::atomic<int> workAborted{0};
+std::atomic<int> ticks{0};
+std::atomic<int> tickerEnded{0};
+
+template <class T>
+void countAbort(const Promise<T>& p) {
+  p.onSettled([p] {
+    if (!p.fulfilled() && p.error()->name.toUtf8() == "AbortError") workAborted++;
+  });
+}
+
+void listen() {
+  using Resolve = Fn<void(double)>;
+  using Reject = Fn<void(Error)>;
+  using Next = Fn<void(double)>;
+
+  countAbort(fromCallback<double>(Fn<Fn<void()>(Resolve, Reject)>([](Resolve, Reject) { return Fn<void()>([] { workCleanups++; }); })));
+  countAbort(subscribe(Fn<Fn<void()>(Next, Fn<void()>, Fn<void(Error)>)>(
+                           [](Next, Fn<void()>, Fn<void(Error)>) { return Fn<void()>([] { workCleanups++; }); }),
+                       [](double) {}));
+  countAbort(nativeOperation<double>([](const std::shared_ptr<Operation<double>>&) -> std::function<void()> {
+    return [] { workCleanups++; };
+  }));
+}
+
+Promise<void> ticker() {
+  try {
+    for (;;) {
+      co_await delay(2);
+      ticks++;
+    }
+  } catch (const Exception&) {
+    tickerEnded++;
+  }
+}
+
 /// Traced exports, as the compiler emits them: with their .lucent.ts site.
 double measured(double x) {
   LUCENT_TRACE_SCOPE("measured.work");
@@ -522,6 +563,21 @@ void installT(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
                  [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
                    Host& host = Host::from(rt, installed);
                    return callSync(rt, host, [&] { return callAsync<void>(rt, host, [] { return m_t::spin(); }); });
+                 });
+
+  defineFunction(rt, exports, "listen", 0,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] {
+                     m_t::listen();
+                     return jsi::Value::undefined();
+                   });
+                 });
+
+  defineFunction(rt, exports, "ticker", 0,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] { return callAsync<void>(rt, host, [] { return m_t::ticker(); }); });
                  });
 
   defineFunction(rt, exports, "keep", 1,
@@ -810,6 +866,38 @@ static void callbacksDroppedWithTheRuntimeReject() {
 
   LucentScope scope;
   m_t::kept = undefined;
+}
+
+/// A reload (a new host for the runtime, or the runtime's end) stops what
+/// module code started for it: compositions, subscriptions and native
+/// operations cancel and run their cleanups, and timers stop.
+static void reloadsStopModuleWork() {
+  for (bool destroy : {false, true}) {
+    JsThread js;
+    install(js);
+    m_t::workCleanups = 0;
+    m_t::workAborted = 0;
+    m_t::ticks = 0;
+    m_t::tickerEnded = 0;
+
+    js.eval("mods.t.listen(); mods.t.ticker().catch(() => {});");
+    CHECK(within(2000, [] { return m_t::ticks.load() > 3; }));
+    CHECK(m_t::workCleanups == 0 && m_t::workAborted == 0);
+
+    if (destroy) {
+      js.destroyRuntime();
+    } else {
+      install(js);
+    }
+
+    CHECK(within(2000, [] { return m_t::workCleanups.load() == 3; }));
+    CHECK(within(2000, [] { return m_t::workAborted.load() == 3; }));
+    CHECK(within(2000, [] { return m_t::tickerEnded.load() == 1; }));
+
+    int at = m_t::ticks;
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    CHECK(m_t::ticks == at);
+  }
 }
 
 // --- instances ----------------------------------------------------------------
@@ -1194,6 +1282,7 @@ int main() {
   workDoesNotStartAfterTeardown();
   awaitedJsPromisesRejectAtTeardown();
   callbacksDroppedWithTheRuntimeReject();
+  reloadsStopModuleWork();
   eachRuntimeHasItsOwnObjectForAnInstance();
   objectsOfATornDownHostAreRefused();
   collectedInstancesReleaseOnTheirThread();
