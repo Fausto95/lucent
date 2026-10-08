@@ -444,11 +444,11 @@ export function decl(d: Decl, indent = ""): string[] {
       const ret = d.ctor ? "" : `${printType(d.ret)} `;
       const head = `${template}${indent}${attrs}${d.static ? "static " : ""}${d.inline ? "inline " : ""}${ret}${name}(${params(d.params)})${d.const ? " const" : ""}`;
       if (!d.body) return [`${head};`];
-      return [
+      return resetting([
         `${head}${initializers(d.initializers, indent)} {`,
         ...d.body.flatMap((x) => stmt(x, indent + INDENT)),
         `${indent}}`,
-      ];
+      ]);
     }
     case "struct": {
       const kw = d.class ? "class" : "struct";
@@ -458,17 +458,19 @@ export function decl(d: Decl, indent = ""): string[] {
       const bases = d.bases?.length
         ? ` : ${d.bases.map((b) => `${b.public ? "public " : ""}${b.virtual ? "virtual " : ""}${printType(b.type)}`).join(", ")}`
         : "";
-      return [
+      return resetting([
         `${template}${indent}${kw} ${name}${d.final ? " final" : ""}${bases} {`,
         ...d.members.flatMap((m) => member(m, indent + INDENT)),
         `${indent}};`,
-      ];
+      ]);
     }
     case "var":
-      return stmt(d.stmt, indent).map((l, i) =>
-        i === 0
-          ? l.replace(/^(\s*)/, `$1${d.extern ? "extern " : ""}${d.inline ? "inline " : ""}`)
-          : l,
+      return resetting(
+        stmt(d.stmt, indent).map((l, i) =>
+          i === 0
+            ? l.replace(/^(\s*)/, `$1${d.extern ? "extern " : ""}${d.inline ? "inline " : ""}`)
+            : l,
+        ),
       );
     case "using":
       return [`${indent}using ${d.name} = ${printType(d.type)};`];
@@ -491,7 +493,7 @@ export function decl(d: Decl, indent = ""): string[] {
       ];
     }
     case "objcImplementation":
-      return [`@implementation ${d.name}`, ...d.methods.flatMap(objcMethod), "@end"];
+      return resetting([`@implementation ${d.name}`, ...d.methods.flatMap(objcMethod), "@end"]);
     // Preprocessor lines, at column 0 as they are written.
     case "withoutMacros": {
       if (!d.names.length) return declList(d.body, indent);
@@ -555,11 +557,11 @@ function member(m: Member, indent: string): string[] {
       if (m.pure) return [`${head} = 0;`];
       if (m.default) return [`${head} = default;`];
       if (!m.body) return [`${head};`];
-      return [
+      return resetting([
         `${head}${initializers(m.initializers, indent)} {`,
         ...m.body.flatMap((x) => stmt(x, indent + INDENT)),
         `${indent}}`,
-      ];
+      ]);
     }
     case "access":
       return [`${indent.slice(INDENT.length)} ${m.level}:`];
@@ -581,18 +583,61 @@ function objcMethod(m: ObjcMethod): string[] {
   const sig = m.parts
     .map((p) => (p.param ? `${p.name}:(${printType(p.param.type)})${p.param.name}` : p.name))
     .join(" ");
-  return [
+  return resetting([
     `${m.static ? "+" : "-"} (${printType(m.ret)})${sig} {`,
     ...m.body.flatMap((x) => stmt(x, INDENT)),
     "}",
-  ];
+  ]);
+}
+
+// --- source lines ----------------------------------------------------------------------
+
+/** Ends a declaration that named source lines: what follows is the generated file's own again. */
+const RESET = "\u0000reset";
+
+/** A declaration's lines, then RESET when they name source lines. */
+function resetting(lines: string[]): string[] {
+  return lines.some((l) => l.startsWith("#line ")) ? [...lines, RESET] : lines;
+}
+
+/**
+ * `lines` with every line a `#line` covers mapped to that source line: a
+ * directive counts the lines after it up (N, N + 1…), so a statement printed
+ * on several lines, or the braces closing a block, would name the lines
+ * after its own. Each such line gets the directive again. At a RESET, the
+ * lines are the generated file's (`file`) again, numbered as they are in
+ * it; without a `file`, the RESET is dropped.
+ */
+function sourceLines(lines: string[], file?: string): string[] {
+  const out: string[] = [];
+  let current: string | undefined;
+  let marked = false;
+
+  // A lambda's or a statement expression's body is one item of several lines.
+  for (const l of lines.flatMap((x) => x.split("\n"))) {
+    if (l === RESET) {
+      if (current !== undefined && file !== undefined)
+        out.push(`#line ${out.length + 2} ${JSON.stringify(file)}`);
+      current = undefined;
+    } else if (l.startsWith("#line ")) {
+      // Repeated without the file name, which a `#line` keeps.
+      current = l.replace(/^(#line \d+) .*$/, "$1");
+      marked = true;
+      out.push(l);
+    } else {
+      if (current !== undefined && !marked && l.trim() !== "") out.push(current);
+      marked = false;
+      out.push(l);
+    }
+  }
+  return out;
 }
 
 // --- units -----------------------------------------------------------------------------
 
 export function printUnit(u: Unit): string {
   const lines = [...(u.banner ? [`// ${u.banner}`] : []), ...declList(u.decls, "")];
-  return `${lines.join("\n")}\n`;
+  return `${sourceLines(lines, u.file).join("\n")}\n`;
 }
 
 export function printExpr(e: Expr): string {
@@ -600,9 +645,9 @@ export function printExpr(e: Expr): string {
 }
 
 export function printDecls(decls: Decl[]): string {
-  return declList(decls, "").join("\n");
+  return sourceLines(declList(decls, "")).join("\n");
 }
 
 export function printStmts(stmts: Stmt[], indent = ""): string {
-  return stmts.flatMap((s) => stmt(s, indent)).join("\n");
+  return sourceLines(stmts.flatMap((s) => stmt(s, indent))).join("\n");
 }

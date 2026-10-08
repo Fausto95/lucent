@@ -1,5 +1,6 @@
 {
   "diagnostics/body-edit": 500,
   "check/body-edit": 1000,
-  "build/body-edit": 1000
+  "build/body-edit": 1000,
+  "native/body-edit": 5000
 }

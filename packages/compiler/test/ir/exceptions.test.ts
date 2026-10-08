@@ -48,7 +48,7 @@ export function walk(xs: number[]): number {
 
     expect(walk).toContain("goto fin0_;");
 
-    expect(inOrder(walk, "fin0_:", "std::rethrow_exception(fc0_ex);", "if (fc0_ == 1) {")).toBe(
+    expect(inOrder(walk, "fin0_:", "std::rethrow_exception(fc0ex_);", "if (fc0_ == 1) {")).toBe(
       true,
     );
   });
@@ -89,7 +89,7 @@ export function scoped(): string {
 `);
     const scoped = body(cppOf(file), "scoped");
 
-    expect(scoped).toContain("lucent::suppressedError(std::current_exception(), fc1_ex)");
+    expect(scoped).toContain("lucent::suppressedError(std::current_exception(), fc1ex_)");
 
     expect(inOrder(scoped, "fin1_:", "fin0_:")).toBe(true);
   });

@@ -1,12 +1,21 @@
 name: Release
 
-# Changesets drive releases. On main, pending changesets (.changeset/*.md)
-# open or update a "Version packages" PR that bumps @lucent-lang/lucent and
-# writes its CHANGELOG.md. Merging that PR publishes the new version to npm
-# with provenance, tags it and creates the GitHub release.
+# Changesets drive releases. After CI passes on a push to main, pending
+# changesets (.changeset/*.md) open or update a "Version packages" PR that
+# bumps @lucent-lang/lucent and writes its CHANGELOG.md. Merging that PR
+# (CI passing on its merge, device runs included) publishes the new
+# version to npm, tags it and creates the GitHub release.
+#
+# Publishing uses npm's trusted publishing: npm exchanges this job's OIDC
+# token (id-token: write) for a one-time credential, so the repository
+# holds no npm token, and the package gets provenance. It needs a trusted
+# publisher on npmjs.com (the package's Settings: repository
+# Fausto95/lucent, workflow release.yml) and npm 11.5.1 or later.
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
 
 concurrency:
@@ -14,42 +23,93 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write # the version commit, tags and GitHub releases
-  pull-requests: write # the "Version packages" PR
-  id-token: write # npm provenance
+  contents: read
 
 jobs:
+  # The runtime's core prebuilt for iOS (scripts/prebuilt-runtime.ts), which only macOS can
+  # build; the release job adds Android's and packs both into @lucent-lang/lucent.
+  prebuilt-ios:
+    name: Prebuilt runtime (iOS)
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .node-version
+      - run: brew list ninja >/dev/null 2>&1 || brew install ninja
+      - run: node scripts/prebuilt-runtime.ts ios
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: prebuilt-ios
+          path: packages/runtime/prebuilt
+
   release:
     name: Version or publish
+    needs: prebuilt-ios
+    # Only a full run on a push to main that passed: not a pull request's, a nightly or a manual one.
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # the version commit, tags and GitHub releases
+      pull-requests: write # the "Version packages" PR
+      id-token: write # npm trusted publishing and provenance
     steps:
-      - uses: actions/checkout@v4
+      # The commit CI verified. The Changesets action works from main's tip, so a run for an
+      # older commit (main moved on while CI ran) stops here: the newer commit's run follows.
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           # The changelog links each entry to the commit that added its changeset.
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - name: Main is still at the verified commit
+        id: current
+        env:
+          VERIFIED: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          tip=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [[ "$tip" != "$VERIFIED" ]]; then
+            echo "::notice::main moved on to $tip since CI verified $VERIFIED; its own run releases."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+        if: steps.current.outputs.current == 'true'
+      # No registry-url: its npmrc would read NODE_AUTH_TOKEN, and trusted publishing needs none.
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        if: steps.current.outputs.current == 'true'
         with:
           node-version-file: .node-version
           cache: pnpm
-          # Writes an npm userconfig that reads NODE_AUTH_TOKEN; pnpm publish honours it.
-          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm 11.5.1 or later; pnpm publish runs this npm.
+      - run: npm install --global npm@11.21.0 && npm --version
+        if: steps.current.outputs.current == 'true'
       - run: pnpm install --frozen-lockfile
+        if: steps.current.outputs.current == 'true'
+      # CI ran the checks, tests and harnesses on this commit; this builds what gets packed.
+      # The prebuilt runtime: iOS's from its job, then each Android ABI with the runner's NDK
+      # ($ANDROID_NDK_HOME), into packages/runtime/prebuilt, which the package build copies.
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        if: steps.current.outputs.current == 'true'
+        with:
+          name: prebuilt-ios
+          path: packages/runtime/prebuilt
+      - run: node scripts/prebuilt-runtime.ts android
+        if: steps.current.outputs.current == 'true'
       - run: pnpm build
-
-      # The gate before a version PR is opened or a release published. Commits
-      # the action pushes with GITHUB_TOKEN never trigger ci.yml, so the
-      # version PR gets no other check.
-      - run: pnpm check
-      - run: pnpm test
-      - run: packages/runtime/test/run.sh
-      - name: Fresh install from the packed packages
-        run: node scripts/smoke-install.ts
+        if: steps.current.outputs.current == 'true'
 
       # v2 is the action for Changesets v3: it learns what was published from
       # the CLI's output file (CHANGESETS_OUTPUT), where v1 parsed stdout that
       # v3 no longer prints, and so pushed no tag and created no release.
-      - uses: changesets/action@v2
+      - uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        if: steps.current.outputs.current == 'true'
         with:
           version-script: pnpm run version-packages
           # An app installs @lucent-lang/lucent; everything else is bundled into it.
@@ -58,5 +118,4 @@ jobs:
           commit-message: "chore(release): version packages"
           create-github-releases: true
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"

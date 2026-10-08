@@ -2,7 +2,7 @@
  * Lucent packages: npm packages that ship Lucent modules as sources. A
  * package declares them in package.json:
  *
- *   "lucent": { "sources": "src", "compatible": ">=0.0.3" }
+ *   "lucent": { "sources": "src", "compatible": "^0.2.0" }
  *
  * The app's build compiles every Lucent package it depends on (transitively,
  * found as Node resolves them) into its one native package, and names a
@@ -109,8 +109,8 @@ export function findOwnFiles(root: string, pattern: RegExp): string[] {
 
 /**
  * The Lucent packages `root` (the app) depends on, transitively, each once,
- * sorted by name. Throws for one whose `compatible` range excludes this
- * Lucent, naming it.
+ * sorted by name. One whose `compatible` range excludes this Lucent is
+ * among them: compiling its modules reports it (incompatibility).
  */
 export function lucentPackages(root: string): LucentPackage[] {
   const found = new Map<string, LucentPackage>();
@@ -120,11 +120,6 @@ export function lucentPackages(root: string): LucentPackage[] {
       if (!dir || found.has(dir)) continue;
       const pkg = lucentPackageOf(path.join(dir, "package.json"));
       if (!pkg || pkg.dir !== dir) continue;
-      if (pkg.compatible && !satisfies(lucentVersion(), pkg.compatible)) {
-        throw new Error(
-          `${pkg.name}@${pkg.version} supports Lucent ${pkg.compatible}, not ${lucentVersion()}: update one of them`,
-        );
-      }
       found.set(dir, pkg);
       visit(dir, read(path.join(dir, "package.json"))?.dependencies ?? {});
     }
@@ -142,11 +137,33 @@ function resolvePackage(from: string, name: string): string | undefined {
   }
 }
 
+/**
+ * Why `pkg` can't be compiled by this Lucent (its `compatible` range
+ * leaves it out), or undefined when it can.
+ */
+export function incompatibility(pkg: LucentPackage): string | undefined {
+  if (!pkg.compatible || satisfies(lucentVersion(), pkg.compatible)) return undefined;
+  return `${pkg.name}@${pkg.version} supports Lucent ${pkg.compatible}, not ${lucentVersion()}: update one of them`;
+}
+
+/** Whether an incompatible package is compiled anyway, its problem a warning (LUCENT_IGNORE_COMPATIBLE=1). */
+export const ignoreCompatible = (env: NodeJS.ProcessEnv = process.env) =>
+  env.LUCENT_IGNORE_COMPATIBLE === "1";
+
 let version: string | undefined;
-/** This Lucent's version (the compiler's). */
+/**
+ * This Lucent's version: @lucent-lang/lucent's, which bundles the
+ * compiler (dist/ is next to its package.json). Run from the repository's
+ * sources, the compiler's package.json is above this file, and the
+ * published package's is beside it.
+ */
 export function lucentVersion(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
   version ??=
-    read(path.join(path.dirname(fileURLToPath(import.meta.url)), "../package.json"))?.version ??
+    [path.join(here, "../package.json"), path.join(here, "../../lucent/package.json")]
+      .map((f) => read(f))
+      .find((p) => p?.name === "@lucent-lang/lucent")?.version ??
+    read(path.join(here, "../package.json"))?.version ??
     "0.0.0";
   return version;
 }

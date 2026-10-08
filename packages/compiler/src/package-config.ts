@@ -9,6 +9,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { swiftFilesUnder } from "@lucent-lang/bindgen";
 import {
   DIRECTORY,
   eachFile,
@@ -137,6 +138,8 @@ export interface NativeInputs {
   read: string[];
   /** The prebuilt frameworks (iOS) and jars and AARs (Android) packages ship, absolute: bindings read them. */
   binaries: { ios: string[]; android: string[] };
+  /** The Swift files of the packages' ios.nativeSources, absolute: `lucent:ios/LucentNative` binds them. */
+  swiftSources: string[];
   /** The packages' native extensions, by name. */
   extensions: ExtensionInput[];
 }
@@ -403,6 +406,7 @@ export function resolveNative(
     files: new Map([...files].sort(byKey)),
     read: [...new Set(read)].sort(),
     binaries: { ios: at(ios.vendoredFrameworks), android: at(android.libraries) },
+    swiftSources: swiftFilesUnder(at(ios.nativeSources)),
     extensions: extensions.map(
       ({ name, pkg, header, include, includePaths, declaration, hash }) => ({
         name,

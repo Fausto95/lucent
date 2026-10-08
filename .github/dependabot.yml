@@ -1,0 +1,39 @@
+# Weekly updates for the workflows' actions (pinned by commit SHA; Dependabot moves the SHA and
+# its version comment together) and the npm dependencies, grouped to keep the PRs few.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # React Native and its tooling move with the example apps, by hand: an upgrade there changes
+    # the native builds, not just a version.
+    ignore:
+      - dependency-name: react-native
+      - dependency-name: "@react-native/*"
+      - dependency-name: "@react-native-community/*"
+      - dependency-name: expo
+      - dependency-name: "expo-*"
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+      dependencies:
+        dependency-type: production
+        update-types: [patch]
+    commit-message:
+      prefix: chore
+      prefix-development: chore

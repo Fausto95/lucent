@@ -687,6 +687,36 @@ the runtime, size and build budgets, rather than only producing shorter C++.
 
 **Notes:**
 
+- Review follow-ups (2026-10-08, fix/review-codegen): a field's or module
+  variable's string `+=` appends in place (`lucent::appendTo`) and a
+  template literal is one `lucent::concat`; a counter's test compares
+  integer registers (a `length` has an int64 form), and a counter stepping
+  by more than 1 is an int64 only toward a bound short of 2^53; `for … of`
+  binds each element by `const&` where its body calls nothing (a map entry
+  as a tuple of references, so an unused key is not copied); an async
+  function without `await` returns a settled promise without a coroutine
+  frame; `lucent::Fn` allocates once; boundary paths are rendered only on
+  failure and `Promise` is looked up once per runtime; a Java class passed
+  as an argument is looked up once per call site; SwiftUI values decode
+  with checked casts. The native builds precompile the runtime's umbrella
+  header (`cpp/lucent/prefix.h`): one edited unit 6.5 s → 4.3 s
+  (`bench-build.ts`'s `native/body-edit`, budgeted). `bench.ts` runs the
+  JavaScript baseline as `hermesc -O` bytecode, as release builds do
+  (mandelbrot 14x → 5.4x against its 5x budget on a 2-core Xeon), and
+  budgets the generated objects' size and the install time. The host-only
+  generated-code corpus is committed and compared by `pnpm test`. Not done,
+  and why: splitting `lucent_app.h` per module (a struct's shape change
+  rebuilding only its users) needs every class, interface and JSON writer
+  ordered by the complete types it needs, across modules: its own task;
+  integer element types for local arrays (the `crc32` table) change the
+  array's C++ type, which every call, return and conversion of it sees, so
+  they need the representation to follow the array through the IR rather
+  than a local inference; and stack-allocating non-escaping object
+  literals would give `Ref<T>`'s holders an object with no owner count,
+  which `===` identity, closures and `lucent::Object`'s weak references
+  rely on. The JNI call sites stay a lambda each: a function template's
+  arguments would be evaluated before its local frame is pushed, and their
+  local references would outlive it.
 - Against handwritten C++ (the same kernels, written natively, on the same
   host): `fnv1a`, `xorshift`, `mandelbrot`, `sortNumbers`, `wordCount` and
   `strings` are within 20% or faster; `murmur`, `crc32` and `sieve` are
@@ -786,7 +816,11 @@ explicit backpressure and ownership.
 
 - [ ] Keep camera, audio and image buffers native across several processing
       steps; expose intentional handles or snapshots at the JavaScript
-      boundary.
+      boundary. (Started: lucent:ios's `withPixelBytes` reads a
+      CVPixelBuffer's plane under its read lock, as one copy, and
+      `serialQueue(label)` gives capture delegates a queue off the main
+      thread; a zero-copy view of a locked buffer waits on Uint8Arrays over
+      memory the runtime does not own.)
 - [ ] Define bounded queues and distinct lossless, latest-value and
       frame-dropping policies; dispose dropped and cancelled buffers exactly
       once.
@@ -891,6 +925,16 @@ coherent workflow.
       in CI and show the top 20 skip reasons in the job summary (CI checks
       five iOS modules and `android.*` today): `--all` and `--summary`; 526
       modules locally, 53 unreadable for the simulator and listed.
+- [ ] Carried over from the 2026-10-08 review: gate the app's Android
+      dependencies and record which SDK the baseline was measured with.
+      (Started: the Android job gates `androidx.core.*` and
+      `com.google.android.gms.*` in the bare example after Gradle resolves
+      them; `--update` writes reports with their `sdk`, and `--check` names
+      modules the baseline lacks and entries without an SDK. Left: commit
+      the `sdk-coverage.updated.json` both jobs upload, which adds those
+      packages and every entry's SDK; until then they are reported, not
+      gated. Swift's Hashable, Equatable and Codable plumbing is already
+      counted apart.)
 
 **Done when:** a developer can build and diagnose a module or view through
 one coherent workflow, and machine-readable consumers share its schema.
@@ -1138,6 +1182,12 @@ module code and in views.
 - Found by T28: `var onTurn: ((Double) -> Unit)?` is typed as the class
   `Function1<number, Unit>`; a `fun interface` property rejects a function
   (TS2322), and a view refuses an object implementing it.
+- Found by the 2026-10-08 review, fixed on its branch: Android
+  constructors newer than the app's `minSdk` compiled without
+  `LUCENT3007` (`api-versions.xml` writes them `&lt;init>`); class files'
+  string constants were read as UTF-8, not modified UTF-8 (NUL, emoji);
+  and the extraction cache keeps other Lucent versions' entries only
+  until they go unused for two weeks.
 
 <a id="ta31"></a>
 
@@ -1204,6 +1254,17 @@ targets.
       one: the app target's `IPHONEOS_DEPLOYMENT_TARGET` (the expo
       example's 16.4) is the extraction target, and the oldest iOS the
       availability checks and the generated pod use (never below 15.1).
+- [x] Carried over from the 2026-10-08 review: bind the app's own Swift
+      that is not in a module before a build. Local packages
+      (`XCLocalSwiftPackageReference`) build from a copy of their
+      directory, keyed by its contents (`spm:identity@local`); Swift pods
+      (static library or `use_frameworks!`, no public Objective-C headers)
+      and a Lucent package's `ios.nativeSources` Swift
+      (`lucent:ios/LucentNative`) are made with `swiftc -emit-module`
+      against the app's pods; pods' XCFrameworks bind through their
+      simulator slice. Verified on Linux against a stand-in for Xcode
+      (`own-swift.test.ts`, `pods.test.ts`, `swift-packages.test.ts`,
+      `xcode.test.ts`); not yet run against real Xcode.
 
 `packages/lucent/test/swift-packages.test.ts` adds a package tagged 1.0.0
 to an app deployed to iOS 16.4: it binds from `spm:gauges@1.0.0` read for
@@ -1276,6 +1337,19 @@ and what to do.
   (`NSCoder.decodeTopLevelObject(forKey:)`, `RunLoop.schedule(after:…)`
   were dropped unsaid); all are kept, an Objective-C member of that name
   still winning.
+- Found by the 2026-10-08 review, fixed on its branch: members after
+  `@backDeployed(before:)` were read with the attribute's arguments as
+  their type; the header index's owners depended on the order the file
+  system listed headers, and missed `CF_ENUM`/`CF_OPTIONS` types and
+  indexed categories as classes; C functions, globals, typed string keys
+  and enum cases newer than the deployment target compiled without
+  `LUCENT3007`; optional numbers and booleans, Objective-C enums in Swift
+  signatures and errors passed to Objective-C now cross shims (as
+  NSNumbers, raw values and NSErrors); a method of a class implementing a
+  protocol that matches no requirement but is named like one warns
+  (`LUCENT3013`); Swift `AsyncSequence`s are collected
+  (`AsyncSequence<E>.collect`); and two builds asking for one Swift
+  package build it once (a lock in the cache).
 
 <a id="ta34"></a>
 

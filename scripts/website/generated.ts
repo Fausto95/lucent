@@ -111,9 +111,9 @@ function cli(): string {
 
 /** The same explanations as `lucent explain`; their examples are checked by the compiler's tests. */
 function diagnostics(): string {
-  return `${header}export const explanations: { code: string; title: string; summary: string; details: string; fix: string; wrong: Record<string, string>; right: Record<string, string>; warning?: true; views?: true }[] = ${json(
+  return `${header}export const explanations: { code: string; title: string; summary: string; details: string; fix: string; wrong: Record<string, string>; right: Record<string, string>; warning?: true; views?: true; internal?: true }[] = ${json(
     Object.entries(Explanations).map(
-      ([code, { title, summary, details, fix, wrong, right, severity, views }]) => ({
+      ([code, { title, summary, details, fix, wrong, right, severity, views, internal }]) => ({
         code,
         title,
         summary,
@@ -123,6 +123,7 @@ function diagnostics(): string {
         right,
         ...(severity === "warning" ? { warning: true } : {}),
         ...(views ? { views: true } : {}),
+        ...(internal ? { internal: true } : {}),
       }),
     ),
   )};\n`;

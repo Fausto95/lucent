@@ -13,12 +13,11 @@ export function installedSdks(): { ios?: string; android?: string } {
     });
     if (r.status === 0 && r.stdout.trim()) out.ios = r.stdout.trim();
   }
-  const home =
-    process.env.ANDROID_HOME ||
-    process.env.ANDROID_SDK_ROOT ||
-    path.join(os.homedir(), process.platform === "darwin" ? "Library/Android/sdk" : "Android/Sdk");
-  const platforms = path.join(home, "platforms");
-  if (fs.existsSync(platforms)) {
+  const home = androidSdkCandidates(process.platform, os.homedir(), process.env).find((d) =>
+    fs.existsSync(path.join(d, "platforms")),
+  );
+  const platforms = home && path.join(home, "platforms");
+  if (platforms) {
     const newest = fs
       .readdirSync(platforms)
       .filter((p) => /^android-\d+/.test(p))
@@ -26,4 +25,23 @@ export function installedSdks(): { ios?: string; android?: string } {
     if (newest) out.android = newest;
   }
   return out;
+}
+
+/**
+ * Where the Android SDK may be, first first: $ANDROID_HOME,
+ * $ANDROID_SDK_ROOT, then Android Studio's default for the OS
+ * (~/Library/Android/sdk, %LOCALAPPDATA%\Android\Sdk, ~/Android/Sdk).
+ */
+export function androidSdkCandidates(
+  platform: NodeJS.Platform,
+  home: string,
+  env: Record<string, string | undefined>,
+): string[] {
+  const studio =
+    platform === "darwin"
+      ? path.join(home, "Library/Android/sdk")
+      : platform === "win32"
+        ? path.join(env.LOCALAPPDATA || path.join(home, "AppData", "Local"), "Android", "Sdk")
+        : path.join(home, "Android/Sdk");
+  return [env.ANDROID_HOME, env.ANDROID_SDK_ROOT, studio].filter((d): d is string => !!d);
 }

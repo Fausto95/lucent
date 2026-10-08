@@ -219,10 +219,10 @@ describe("binding plans: Objective-C rules", () => {
     ).toBeUndefined();
   });
 
-  it("refuses passing errors, and blocks nested three deep or read taking blocks", () => {
-    expect(unsupportedReason(planBinding(view, method(view, "report"), kit, kitTypes))).toBe(
-      "passing errors to Objective-C is not supported yet",
-    );
+  it("passes errors as NSErrors, and refuses blocks nested three deep or read taking blocks", () => {
+    const report = planBinding(view, method(view, "report"), kit, kitTypes);
+    expect(unsupportedReason(report)).toBeUndefined();
+    expect(report.inputs[0]).toMatchObject({ op: "error" });
     expect(unsupportedReason(planBinding(view, method(view, "nest"), kit, kitTypes))).toBe(
       "blocks that take blocks that take blocks are not supported",
     );
@@ -883,8 +883,9 @@ describe("binding plans: Swift rules", () => {
     unsupportedReason(planBinding(cls, method(cls, name), shapes, types, role));
 
   it("refuses what cannot cross to Swift, as the call would, and takes closures blocks can be", () => {
-    expect(reason(pen, "width")).toBe("optional numbers and booleans cannot cross to Swift yet");
-    expect(reason(pen, "style")).toBe("Objective-C enums (KITEdges) cannot cross to Swift yet");
+    // Optional numbers and booleans cross as NSNumbers, Objective-C enums as their raw values.
+    expect(reason(pen, "width")).toBeUndefined();
+    expect(reason(pen, "style")).toBeUndefined();
     expect(reason(pen, "each")).toBeUndefined();
     expect(reason(pen, "visit")).toBe(
       "closures taking or giving values other than numbers, booleans, strings and Objective-C objects cannot cross to Swift yet",
@@ -994,9 +995,10 @@ describe("binding plans: Swift rules", () => {
       planConversion(T(s), { backend: "swift-shim", platform: "ios", flow }, types);
 
     expect(one("NSInteger", "in")).toMatchObject({ op: "bigint", detail: "NSInteger" });
-    expect(one("bool?", "out")).toMatchObject({
+    expect(one("bool?", "out")).toMatchObject({ op: "optional", of: [{ op: "passthrough" }] });
+    expect(one("NSData?[]", "out")).toMatchObject({
       op: "unsupported",
-      reason: "optional numbers and booleans cannot cross to Swift yet",
+      reason: "collections of optional values cannot cross to Swift yet",
     });
   });
 });
@@ -1005,15 +1007,14 @@ describe("coverage from binding plans", () => {
   it("counts members every use of which is refused as unrepresentable, with the plan's reason", () => {
     const c = coverage(kit, kitTypes);
 
-    // grid, report, nest, handler: refused; enumerate, later, measure: callable by a function
+    // grid, nest, handler: refused; enumerate, later, measure: callable by a function
     // leaving the pointer out.
     expect(c.reasons).toEqual({
       "nested collections from Objective-C are not supported yet": 1,
-      "passing errors to Objective-C is not supported yet": 1,
       "blocks that take blocks that take blocks are not supported": 1,
       "blocks that take blocks cannot be called from Lucent yet": 1,
     });
-    expect(c.unrepresentable).toBe(4);
+    expect(c.unrepresentable).toBe(3);
     expect(c.total).toBe(c.idiomatic + c.raw + c.unrepresentable);
   });
 

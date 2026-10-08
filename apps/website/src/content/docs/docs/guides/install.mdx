@@ -5,10 +5,12 @@ description: "Add `@lucent-lang/lucent`, run `npx lucent init` to set up the app
 kind: start
 ---
 
-Lucent works in bare React Native and Expo apps. It needs what React Native builds with: Xcode and CocoaPods, the Android SDK and NDK, and a JDK ([Compatibility](/docs/api/compatibility/)). iOS needs a Mac, and Linux builds Android alone.
+For a new app, [create it from a template](/docs/guides/create-a-project/) instead.
+
+Lucent works in bare React Native and Expo apps. It needs what React Native builds with: Xcode and CocoaPods, the Android SDK and NDK, and a JDK ([Compatibility](/docs/api/compatibility/)). iOS needs a Mac.
 
 :::note
-Expo Go can't load the native code Lucent adds to the app. Use a development build: `npx expo run:ios`, `npx expo run:android` or EAS Build.
+Expo Go isn't supported: it can't load Lucent's native code. Use a development build: `npx expo run:ios`, `npx expo run:android` or [EAS Build](/docs/guides/build-in-ci-and-eas/).
 :::
 
 <Steps>
@@ -37,7 +39,8 @@ Expo Go can't load the native code Lucent adds to the app. Use a development bui
 
    ✓ metro.config.js  bundle each *.lucent.ts as the proxy of its native module
    ✓ app.json  compile the modules during expo prebuild, and link the native package
-   ✓ tsconfig.json  let editors and tsc resolve lucent:* and check indexing as the compiler does
+   ✓ tsconfig.json  let editors and tsc resolve lucent:*, check indexing as the compiler does, and show Lucent's errors as you type
+   ✓ .vscode/settings.json  have VS Code use the project's TypeScript, which loads the editor plugin
    ✓ .gitignore  the native package is generated, like a build output
    ✓ src/hello.lucent.ts  a first module to try
 
@@ -55,7 +58,8 @@ Expo Go can't load the native code Lucent adds to the app. Use a development bui
    ✓ metro.config.js  bundle each *.lucent.ts as the proxy of its native module
    ✓ android/app/build.gradle  run lucent build before every Android build
    ✓ react-native.config.js  autolink the generated native package (.lucent/native)
-   ✓ tsconfig.json  let editors and tsc resolve lucent:* and check indexing as the compiler does
+   ✓ tsconfig.json  let editors and tsc resolve lucent:*, check indexing as the compiler does, and show Lucent's errors as you type
+   ✓ .vscode/settings.json  have VS Code use the project's TypeScript, which loads the editor plugin
    ✓ .gitignore  the native package is generated, like a build output
    ✓ src/hello.lucent.ts  a first module to try
 
@@ -132,11 +136,10 @@ Expo Go can't load the native code Lucent adds to the app. Use a development bui
 - an `app.config.js` or `app.config.ts`, in an Expo app without `app.json`;
 - a Metro config without `module.exports = …`;
 - a `react-native.config.js` without `dependencies`;
-- a `tsconfig.json` it can't parse;
-- an `android/app/build.gradle.kts`, which needs the line in Kotlin ([Kotlin build scripts](/docs/api/integrations/#kotlin-build-scripts)).
+- a `tsconfig.json` it can't parse.
 
 Add the lines, then run `npx lucent init` again: it lists what's still missing.
 
 ## See errors in your editor
 
-`lucent init` doesn't add the [editor plugin](/docs/api/integrations/#editor-plugin), which shows Lucent's errors as you type. Add it to `tsconfig.json` yourself.
+`lucent init` adds the [editor plugin](/docs/api/integrations/#editor-plugin), which shows Lucent's errors as you type. In VS Code, accept the prompt to use the workspace's TypeScript, which loads it.

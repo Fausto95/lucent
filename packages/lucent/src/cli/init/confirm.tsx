@@ -37,7 +37,7 @@ export function Confirm({
       </Static>
       {current ? (
         <Box flexDirection="column" marginTop={1}>
-          <Text>{`${theme.bold(current.file)}${current.before === undefined ? theme.dim(" (new)") : ""}  ${theme.dim(current.why)}`}</Text>
+          <Text>{`${theme.bold(current.file)}${current.before === undefined ? theme.dim(" (new)") : current.remove ? theme.dim(" (removed)") : ""}  ${theme.dim(current.why)}`}</Text>
           <Text>{renderDiff(current.before ?? "", current.after, theme)}</Text>
           <Text>{`Apply? ${theme.dim("(Y/n)")}`}</Text>
         </Box>

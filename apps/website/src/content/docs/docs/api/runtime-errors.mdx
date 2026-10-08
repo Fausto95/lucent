@@ -59,6 +59,19 @@ Check that `react-native.config.js` has the `lucent` entry for `.lucent/native`,
 </TabItem>
 </Tabs>
 
+### A module does not compile
+
+```text title="JavaScript error" nocopy
+Lucent: scanner.lucent.ts does not compile
+
+  error LUCENT9001  TS2322: Type 'string' is not assignable to type 'number'.
+  …
+```
+
+The last build of the module failed. Metro shows its errors in place of the module, with their code frames, as the terminal does.
+
+Fix them and save. Metro's watcher builds again, and Metro bundles the module once the build passes. It waits up to five seconds for the build of a saved file.
+
 ### A module has not been compiled
 
 ```text title="JavaScript error" nocopy
@@ -100,6 +113,16 @@ When the two differ in a way calls can't survive, the load throws an `Error` who
 | `the app's native code cannot answer view commands` | A component's request rejects with it when the app was built before Lucent answered requests. Views are experimental. | `compile-native` |
 
 [Get a module change into the running app](/docs/guides/apply-a-change/) shows which change needs which action.
+
+## LUCENT_JS_DEV_NATIVE
+
+```text title="JavaScript error" nocopy
+Lucent: UIDevice (lucent:ios/UIKit) is native code, which JS dev mode can't run: it runs *.lucent.ts modules as JavaScript. Start Metro without LUCENT_JS (or withLucent's js option) and rebuild the app to call it.
+```
+
+In [JS dev mode](/docs/guides/iterate-in-javascript/), a module runs as JavaScript, which can't reach the platform's SDK. The code read, called or constructed something that a `lucent:ios/*`, `lucent:android/*`, `lucent:ext/*` or toolkit import gives. The error's `code` is `"LUCENT_JS_DEV_NATIVE"`.
+
+Run the code natively to call it.
 
 ## The installed implementation runs
 

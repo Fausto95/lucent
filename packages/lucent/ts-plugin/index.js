@@ -95,8 +95,10 @@ function createPlugin(loadCompiler) {
         (e) => log(`could not load the Lucent compiler: ${e && e.stack ? e.stack : e}`),
       );
 
-      // One check serves every file until any Lucent source changes.
+      // One check serves every file until any Lucent source changes; the next one reuses its
+      // programs, so only what changed is parsed and checked again.
       let cache = { key: undefined, byFile: new Map() };
+      let session;
       function lucentDiagnostics(fileName) {
         const files = info.project.getFileNames().filter((f) => LUCENT_FILE.test(f));
         const key = files
@@ -114,8 +116,13 @@ function createPlugin(loadCompiler) {
           // Bound again each check: headers (and packages) change too; unchanged ones are read once.
           const extensions = compiler.projectExtensions(root);
           const checked = compiler.filesInBuild(root, files);
+          // What the build binds from: the app's pods, Swift packages, resolved Gradle classpath
+          // and its packages' binaries, so the editor types what the build types.
+          const sdk = compiler.projectSdk(root);
           // TypeScript's own errors stay TypeScript's to report; kept for the fixes their hints carry.
-          for (const d of compiler.checkSources(checked, readSource, { extensions })) {
+          session ??= compiler.CompileSession && new compiler.CompileSession();
+          const options = session ? { extensions, sdk, session } : { extensions, sdk };
+          for (const d of compiler.checkSources(checked, readSource, options)) {
             if (!d.file || (d.code === TYPESCRIPT_PASSTHROUGH && !d.quickFix)) continue;
             const list = byFile.get(d.file) || [];
             list.push(d);

@@ -94,6 +94,7 @@ describe("jsonOutputs", () => {
         "build",
         "check",
         "clean",
+        "create",
         "doctor",
         "explain",
         "new module",

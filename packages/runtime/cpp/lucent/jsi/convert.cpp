@@ -22,7 +22,7 @@ namespace {
 
 /// `sumPoints: argument 'ps'[3].x must be a number, got a string`
 [[noreturn]] void throwMismatch(jsi::Runtime& rt, const Path& path, const char* expected, const std::string& got) {
-  std::string message = std::string(path.fn) + ": " + path.where() + " must be " + expected + ", got " + got;
+  std::string message = path.function() + ": " + path.where() + " must be " + expected + ", got " + got;
   jsi::Object err = rt.global()
                         .getPropertyAsFunction(rt, "TypeError")
                         .callAsConstructor(rt, jsi::String::createFromUtf8(rt, message))

@@ -1,5 +1,7 @@
 // Unit tests for the Lucent C++ runtime. Built and run by
 // `packages/runtime/test/run.sh` (optionally under ASan/UBSan).
+#include <pthread.h>
+
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -51,6 +53,63 @@ static int checks = 0;
   } while (0)
 
 static String S(const char* s) { return String::fromUtf8(s); }
+
+/// Runs `f` on a thread with a stack of `bytes` (smaller than iOS's 512 KB
+/// default for secondary threads) and waits for it.
+template <class F>
+static void onSmallStack(size_t bytes, F f) {
+  pthread_attr_t attr;
+  pthread_attr_init(&attr);
+  pthread_attr_setstacksize(&attr, bytes);
+
+  pthread_t thread;
+  auto run = [](void* p) -> void* {
+    (*static_cast<F*>(p))();
+    return nullptr;
+  };
+  pthread_create(&thread, &attr, run, &f);
+  pthread_join(thread, nullptr);
+  pthread_attr_destroy(&attr);
+}
+
+/// A regular expression nested deeper than the stack allows is refused
+/// with a SyntaxError, as engines refuse one, instead of overflowing the
+/// native stack. Nesting the stack has room for still compiles, and
+/// matching it does not recurse.
+static void deepRegExps() {
+  auto nested = [](int depth, const char* open) {
+    std::string src;
+    for (int i = 0; i < depth; i++) src += open;
+    src += "a";
+    src += std::string(depth, ')');
+    return String::fromUtf8(src);
+  };
+
+  bool refused = false;
+  bool shallowWorks = false;
+  std::string other;
+
+  onSmallStack(256 * 1024, [&] {
+    try {
+      RegExp deep = std::make_shared<RegExpObject>(nested(200000, "(?:"), String());
+      other = "compiled";
+    } catch (const Exception& e) {
+      refused = e.error()->name.toUtf8() == "SyntaxError";
+      if (!refused) other = e.error()->name.toUtf8();
+    }
+
+    try {
+      RegExp shallow = std::make_shared<RegExpObject>(nested(100, "("), String());
+      shallowWorks = shallow->test(S("a"));
+    } catch (const Exception& e) {
+      other = "shallow: " + e.error()->name.toUtf8();
+    }
+  });
+
+  CHECK(refused);
+  CHECK(shallowWorks);
+  CHECK(other.empty());
+}
 
 static void numbers() {
   CHECK_STR(numberToString(0), "0");
@@ -310,6 +369,29 @@ static void stringStorage() {
   a += S("!");
   CHECK_STR(b, "1234567890123456");
   CHECK_STR(a, "1234567890123456!");
+  // appendTo: grows the place's own string in place, and appends to what was read even when
+  // the right side replaced the place meanwhile, or shares the string.
+  String field = sixteen + S("x");
+  String read = field;
+  appendTo(field, std::move(read), S("y"));
+  for (int i = 0; i < 100; i++) {
+    String again = field;
+    appendTo(field, std::move(again), S("z"));
+  }
+  CHECK(field.length() == 118 && field.slice(0, 18) == sixteen + S("xy"));
+  String kept = field;
+  String current = field;
+  appendTo(field, std::move(current), S("!"));
+  CHECK(kept.length() == 118 && field.length() == 119);
+  String replaced = S("old");
+  String readFirst = replaced;
+  replaced = S("new");
+  appendTo(replaced, std::move(readFirst), S("+"));
+  CHECK_STR(replaced, "old+");
+  String self = sixteen;
+  String selfRead = self;
+  appendTo(self, std::move(selfRead), self);
+  CHECK(self == sixteen + sixteen);
   // A moved-from string is the empty string, inline or not.
   String movedInline = fifteen;
   String to = std::move(movedInline);
@@ -1076,6 +1158,7 @@ static void nativeRefJson() {
 }
 
 int main() {
+  deepRegExps();
   numbers();
   exactIntegers();
   nativeRefJson();

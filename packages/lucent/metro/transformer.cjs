@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { nativePackage } = require("./native-package.cjs");
+const jsDev = require("./js-dev.cjs");
 
 const upstream = require(process.env.LUCENT_UPSTREAM_TRANSFORMER);
 const LUCENT = /\.lucent\.tsx?$/;
@@ -58,6 +59,61 @@ function proxyFor(filename, projectRoot) {
   return `module.exports = require(${JSON.stringify(rel.startsWith(".") ? rel : `./${rel}`)});\n`;
 }
 
+/** The file's content hash, as the build records it (src/cli/problems.ts). */
+const hashOf = (text) => crypto.createHash("sha256").update(text).digest("hex").slice(0, 16);
+
+/** `file`'s realpath, or `file` if it does not exist. */
+function realpath(file) {
+  try {
+    return fs.realpathSync(file);
+  } catch {
+    return file;
+  }
+}
+
+/** The last build's problems for `file` (absolute), as `lucent build` printed them: { hash, text }. */
+function problemsOf(projectRoot, file) {
+  try {
+    const record = JSON.parse(
+      fs.readFileSync(path.join(projectRoot, ".lucent", "problems.json"), "utf8"),
+    );
+    if (!record.files) return undefined;
+    // The build records realpaths (the CLI resolves --root); Metro's projectRoot may be a
+    // symlink to the project, as macOS's temporary directory is.
+    return record.files[file] || record.files[realpath(file)];
+  } catch {
+    return undefined;
+  }
+}
+
+/** How long a transform waits for the build of an edit the last build's problems predate. */
+const PENDING_MS = Number(process.env.LUCENT_TRANSFORM_WAIT_MS || 5000);
+
+/**
+ * Fails the transform with the last build's diagnostics for this module
+ * (their code frames), which Metro shows in the app's RedBox: the
+ * module's last build failed. Problems recorded for other content than
+ * Metro's (an edit the watcher is building) are waited for, until the
+ * build records this content's problems, or none: a transform that
+ * succeeded meanwhile would be cached for this content and hide them.
+ */
+function failOnProblems(projectRoot, file, src) {
+  const hash = hashOf(src);
+  const sleeper = new Int32Array(new SharedArrayBuffer(4));
+  for (const start = Date.now(); ;) {
+    const p = problemsOf(projectRoot, file);
+    if (!p) return;
+    if (p.hash === hash) {
+      const error = new Error(`Lucent: ${path.basename(file)} does not compile\n\n${p.text}`);
+      // Metro shows a transform error's message and code frame; this one is ours.
+      error.filename = file;
+      throw error;
+    }
+    if (Date.now() - start > PENDING_MS) return;
+    Atomics.wait(sleeper, 0, 0, 50);
+  }
+}
+
 /** The module names the native package's manifest lists, which name each module's proxy. */
 function moduleNames(pkg) {
   try {
@@ -72,9 +128,13 @@ module.exports = {
   transform(args) {
     if (LUCENT.test(args.filename)) {
       const root = (args.options && args.options.projectRoot) || process.cwd();
-      const src = proxyFor(args.filename, root);
+      const file = path.resolve(root, args.filename);
+      failOnProblems(root, file, args.src);
+      const src = jsDev.enabled()
+        ? jsDev.module(file, args, () => proxyFor(file, root))
+        : undefined;
       // The proxy is plain JavaScript, which the TypeScript pipeline accepts.
-      return upstream.transform({ ...args, src });
+      return upstream.transform({ ...args, src: src ?? proxyFor(args.filename, root) });
     }
     return upstream.transform(args);
   },
@@ -87,8 +147,8 @@ module.exports = {
     return crypto
       .createHash("sha1")
       .update(base)
-      .update(JSON.stringify([pkg, moduleNames(pkg)]))
-      .update("lucent-2")
+      .update(JSON.stringify([pkg, moduleNames(pkg), jsDev.enabled()]))
+      .update("lucent-3")
       .digest("hex");
   },
 };

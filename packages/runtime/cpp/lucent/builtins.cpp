@@ -1,6 +1,7 @@
 #include <cstdio>
 
 #include "async.h"
+#include "operation.h"
 #include "bytes.h"
 #include "generator.h"
 #include "console.h"
@@ -60,14 +61,27 @@ String utf8Decode(const Bytes& b) {
   return String::fromUtf8(std::string_view(reinterpret_cast<const char*>(b.data()), b.size()));
 }
 
-Promise<void> delay(double ms) {
-  Promise<void> p;
+Promise<void> delay(double ms, Opt<AbortSignal> signal) {
+  ContextRef owner = ExecutionContext::currentRef();
 
-  // On the context the promise belongs to: the calling one.
-  ExecutionContext::of(ExecutionContext::currentRef()).postDelayed(ms, [p] { p.resolve(undefined); });
+  // A timer is work like any other: under the scope the caller's work
+  // belongs to, so a reload (that scope disposed) rejects it with an
+  // AbortError and what awaits it unwinds instead of waiting forever.
+  return nativeOperation<void>(
+      [owner, ms](const std::shared_ptr<Operation<void>>& op) -> std::function<void()> {
+        std::weak_ptr<Operation<void>> pending = op;
 
-  return p;
+        // On the context the promise belongs to: the calling one.
+        ExecutionContext::of(owner).postDelayed(ms, [pending] {
+          if (auto op = pending.lock()) op->succeed();
+        });
+
+        return {};
+      },
+      std::move(signal));
 }
+
+Promise<void> delay(double ms) { return delay(ms, Opt<AbortSignal>()); }
 
 namespace {
 ConsoleSink& sink() {

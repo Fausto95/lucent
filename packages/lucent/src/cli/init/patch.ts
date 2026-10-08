@@ -56,13 +56,28 @@ export function addExpoPlugin(text: string): string | undefined {
   return `${JSON.stringify(json, null, indent)}\n`;
 }
 
-const RN_ENTRY = `"lucent": { root: require("path").join(__dirname, ".lucent", "native") }`;
+/**
+ * The dependency entry linking .lucent/native: the autolink helper builds
+ * it first when it is missing or stale (a fresh clone, CI, EAS), since
+ * autolinking skips a missing root without a word.
+ */
+export const RN_ENTRY = `"lucent": require("@lucent-lang/lucent/autolink")(__dirname)`;
+
+/** The entry earlier versions wrote: the root alone, never built. */
+const PLAIN_ENTRY =
+  /(["']?)lucent(?:-native)?\1\s*:\s*\{\s*root:\s*require\(["']path["']\)\.join\(__dirname,\s*["']\.lucent["'],\s*["']native["']\)\s*,?\s*\}/;
+
+/** Whether react-native.config.js links .lucent/native, with either entry. */
+export const linksNativePackage = (text: string): boolean =>
+  /@lucent-lang\/lucent\/autolink/.test(text) || /["']?lucent["']?\s*:\s*\{\s*root:/.test(text);
 
 /** react-native.config.js linking .lucent/native, or undefined when it does; "manual" when it exists without a place to add it. */
 export function linkNativePackage(text: string | undefined): string | "manual" | undefined {
   if (text === undefined)
     return `module.exports = {\n  dependencies: {\n    ${RN_ENTRY},\n  },\n};\n`;
+  if (PLAIN_ENTRY.test(text)) return text.replace(PLAIN_ENTRY, RN_ENTRY);
   if (text.includes('"lucent-native"')) return text.replace('"lucent-native"', '"lucent"');
+  if (/@lucent-lang\/lucent\/autolink/.test(text)) return undefined;
   if (/["']?lucent["']?\s*:\s*\{\s*root:/.test(text)) return undefined;
   const deps = /dependencies\s*:\s*\{/.exec(text);
   if (!deps) return "manual";

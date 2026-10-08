@@ -13,6 +13,11 @@ if [ -z "${LUCENT_CI_TRAP:-}" ] && [ -n "${GITHUB_ACTIONS:-}" ]; then
       sleep 0.3
       local text
       text="$(sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' "$__lucent_log" | grep -v '^::' | tail -n 120)"
+      # An annotation keeps its message's first 4096 characters: send the output's last ones.
+      if [ "${#text}" -gt 3800 ]; then
+        text="${text: -3800}"
+        text="…${text#*$'\n'}"
+      fi
       text="${text//'%'/'%25'}"
       text="${text//$'\r'/'%0D'}"
       text="${text//$'\n'/'%0A'}"

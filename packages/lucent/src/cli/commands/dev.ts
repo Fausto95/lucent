@@ -24,24 +24,39 @@ export async function run({ root, flags, out }: Invocation): Promise<number> {
     session,
     theme: out.theme,
     root,
-    open: (file, line) => openInEditor(path.resolve(root, file), line),
+    open: (file, line, failed) => openInEditor(path.resolve(root, file), line, failed),
     doctor: () => diagnose(root, systemProbe(version())),
   });
   return 0;
 }
 
-/** Opens `file` at `line` in $VISUAL or $EDITOR, or VS Code. */
-function openInEditor(file: string, line: number): void {
-  const editor = process.env.VISUAL || process.env.EDITOR || "code";
-  const name = path.basename(editor.split(" ")[0]!);
+/**
+ * Opens `file` at `line` in $VISUAL or $EDITOR, or VS Code; calls
+ * `failed` with why when the editor cannot be started (not installed,
+ * not on the PATH), instead of crashing the dashboard.
+ */
+export function openInEditor(
+  file: string,
+  line: number,
+  failed: (why: string) => void,
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  const editor = env.VISUAL || env.EDITOR || "code";
+  const [command, ...own] = editor.split(" ").filter(Boolean);
+  const name = path.basename(command!);
   // Editors spell "at this line" differently.
   const args = ["code", "cursor", "codium", "windsurf", "zed", "subl"].includes(name)
     ? ["-g", `${file}:${line}`]
     : name === "idea" || name === "webstorm"
       ? ["--line", String(line), file]
       : [`+${line}`, file];
-  spawn(editor.split(" ")[0]!, [...editor.split(" ").slice(1), ...args], {
-    stdio: "ignore",
-    detached: true,
-  }).unref();
+  const child = spawn(command!, [...own, ...args], { stdio: "ignore", detached: true, env });
+  child.on("error", (e: NodeJS.ErrnoException) =>
+    failed(
+      e.code === "ENOENT"
+        ? `could not open ${path.basename(file)}: ${command} was not found; set $VISUAL or $EDITOR to your editor`
+        : `could not open ${path.basename(file)} with ${command}: ${e.message}`,
+    ),
+  );
+  child.unref();
 }

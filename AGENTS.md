@@ -1,8 +1,16 @@
 # Lucent (cpp-jsi)
 
 Ahead-of-time compiler: a TypeScript subset in `*.lucent.ts` becomes C++ that
-React Native calls over JSI through one C++ TurboModule. No JavaScript engine,
-Swift or Kotlin runs on the native side.
+React Native calls over JSI through one C++ TurboModule. No JavaScript engine
+runs on the native side. Where an SDK API only Swift or Kotlin can call (a
+Swift-only type or member, an AsyncSequence, a Kotlin suspend function,
+default or value class), the compiler also generates Swift
+(`LucentShims.swift`, `@_cdecl` functions; the pod then sets
+`swift_version`) or Kotlin shims (`dev.lucent.shims`), and components'
+SwiftUI or Compose bodies; the native build compiles them with the C++.
+Kotlin shims need the Kotlin Android Gradle plugin in the app's build and
+kotlinx-coroutines (1.7.3, or the app's newer one), which the generated
+library's build.gradle applies and depends on.
 
 ## Layout
 

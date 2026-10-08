@@ -35,6 +35,7 @@
 #include <vector>
 
 #include "jsstring.h"
+#include "report.h"
 
 namespace lucent::ui {
 
@@ -364,15 +365,26 @@ class LayoutNode {
     YGNodeSetContext(node_, this);
   }
 
-  static YGSize measured(YGNodeConstRef node, float width, YGMeasureMode wm, float height, YGMeasureMode hm) {
+  // Yoga is C: nothing may unwind through it. A measure that throws (a
+  // pending Java exception, say) is reported, and the leaf is empty.
+  static YGSize measured(YGNodeConstRef node, float width, YGMeasureMode wm, float height, YGMeasureMode hm) noexcept {
     auto* self = static_cast<LayoutNode*>(YGNodeGetContext(node));
-    const LayoutSize s = self->measure_(width, layout_detail::modeOf(wm), height, layout_detail::modeOf(hm));
-    return {s.width, s.height};
+    try {
+      const LayoutSize s = self->measure_(width, layout_detail::modeOf(wm), height, layout_detail::modeOf(hm));
+      return {s.width, s.height};
+    } catch (...) {
+      reportUncaught(std::current_exception(), "a leaf's measure");
+      return {0, 0};
+    }
   }
 
-  static void dirtied(YGNodeConstRef node) {
+  static void dirtied(YGNodeConstRef node) noexcept {
     auto* self = static_cast<LayoutNode*>(YGNodeGetContext(node));
-    if (self->dirtied_) self->dirtied_();
+    try {
+      if (self->dirtied_) self->dirtied_();
+    } catch (...) {
+      reportUncaught(std::current_exception(), "a layout node's dirtied");
+    }
   }
 
   YGConfigRef config_;
