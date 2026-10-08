@@ -11,6 +11,7 @@ import type {
   ValueId,
 } from "../../src/ir/ir.ts";
 import { IrVerifyError, verify, type VerifyEnv } from "../../src/ir/verify.ts";
+import { Completion } from "../../src/ir/ir.ts";
 import { type LType, T } from "../../src/types.ts";
 
 const FILE = "/app/order.lucent.ts";
@@ -454,5 +455,69 @@ describe("IR verifier", () => {
     expect(() => verify(f, SIGNATURES)).toThrow(
       /invalid IR for pair\n {2}r0\[5\] return[^]*fn pair\(\) -> number/,
     );
+  });
+});
+
+describe("completion", () => {
+  /** `try { try { … throw } catch {} } finally {}`, `depth` deep, counting reads of its regions. */
+  function nested(depth: number): { f: IrFunction; reads: () => number } {
+    const b = new IrBuilder("deep", T.undefined, at(0, 100));
+    const inner = (n: number): void => {
+      if (n === 0) {
+        b.throw(b.const(null, at(1)), at(1));
+        return;
+      }
+      b.try(
+        at(n),
+        () => inner(n - 1),
+        () => {},
+        () => {},
+      );
+    };
+
+    inner(depth);
+    b.return(undefined, at(99));
+
+    const f = b.finish();
+    let reads = 0;
+    const regions = new Proxy(f.regions, {
+      get(target, key, receiver) {
+        if (typeof key === "string" && /^\d+$/.test(key)) reads++;
+        return Reflect.get(target, key, receiver);
+      },
+    });
+
+    return { f: { ...f, regions }, reads: () => reads };
+  }
+
+  it("decides each region once, however many operations ask", () => {
+    const { f, reads } = nested(200);
+    const tries = f.regions.flatMap((r) => r.ops.filter((op) => op.kind === "try"));
+    const outer = f.regions[f.body]!.ops.filter((op) => op.kind === "try");
+    const before = reads();
+    const c = new Completion(f);
+
+    // Every try asks, as the emitter does: once each is linear, not quadratic.
+    for (const op of tries) c.ops([op]);
+
+    expect(c.ops(outer)).toBe(true);
+    expect(c.region(f.body)).toBe(false);
+    expect(reads() - before).toBeLessThanOrEqual(f.regions.length);
+  });
+
+  it("does not complete a try whose body throws and whose catch never ends", () => {
+    const b = new IrBuilder("stuck", T.number, at(0, 100));
+
+    b.try(
+      at(1),
+      () => b.throw(b.const(null, at(2)), at(2)),
+      () => b.return(b.const(1, at(3)), at(3)),
+    );
+    b.return(b.const(2, at(4)), at(4));
+
+    const f = b.finish();
+    const tries = f.regions[f.body]!.ops.filter((op) => op.kind === "try");
+
+    expect(new Completion(f).ops(tries)).toBe(false);
   });
 });
