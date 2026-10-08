@@ -23,6 +23,8 @@ const generated = [
   "apps/website/build/**",
   // Written by lucent sdk coverage --json.
   "sdk-coverage.json",
+  // Written by scripts/bench-publish.ts.
+  "benchmarks/results/**",
   // Written by scripts/sync-examples.ts from the e2e cases and scripts/example-app.
   "apps/bare-example/src/**",
   "apps/expo-example/src/**",
