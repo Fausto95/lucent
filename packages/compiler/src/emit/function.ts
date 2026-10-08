@@ -35,6 +35,7 @@ import {
   type Ctx,
   type E,
   type IntKind,
+  intCppType,
   type ParamInfo,
   type Lvalue,
 } from "./context.ts";
@@ -278,6 +279,16 @@ export class FnEmitter {
     if (e.int)
       return e.int.kind === "u32" ? e.int.c : cpp.staticCast(cpp.type("uint32_t"), e.int.c);
     return cpp.call("lucent::toUint32", [this.num(e, node)]);
+  }
+
+  /**
+   * A number the integer analysis proved an exact integer `kind` holds (an
+   * element of an array of integer elements), as that register type: each
+   * conversion is exact.
+   */
+  asInteger(e: E, kind: IntKind, node: ts.Node): cpp.Expr {
+    if (e.int) return e.int.kind === kind ? e.int.c : cpp.staticCast(intCppType(kind), e.int.c);
+    return cpp.staticCast(intCppType(kind), this.num(e, node));
   }
 
   /** A value the analysis proved fits `kind`, as that register type. */
@@ -1277,9 +1288,16 @@ export class FnEmitter {
       if (ot.k === "array" || ot.k === "bytes" || (ot.k === "span" && ot.writable)) {
         const elemT = ot.k === "array" ? ot.e : T.number;
         const idx = this.exprAs(target.argumentExpression, T.number);
+        // Integer elements take what the analysis proved an exact integer of their kind.
+        const kind = obj.elements;
         return {
           get: cpp.call("lucent::elementAt", [obj.c, idx]),
-          set: (v) => cpp.call("lucent::setElement", [obj.c, idx, v]),
+          set: (v) =>
+            cpp.call("lucent::setElement", [
+              obj.c,
+              idx,
+              kind ? cpp.staticCast(intCppType(kind), v) : v,
+            ]),
           type: elemT,
         };
       }
@@ -2088,6 +2106,15 @@ export class FnEmitter {
         const read = i.int
           ? cpp.call(cpp.dot(obj.c, "getIndex"), [cpp.staticCast(cpp.type("int64_t"), i.int.c)])
           : cpp.call(cpp.dot(obj.c, "get"), [this.coerce(i, T.number, arg)]);
+        if (obj.elements) {
+          // Integer elements (integers.ts): `a[i]!` is the element as such, checked as `!` checks;
+          // a plain read is the number it reads as, or undefined.
+          if (ts.isNonNullExpression(node.parent) && node.parent.expression === node) {
+            const element = cpp.call(cpp.dot(read, "value"));
+            return this.intE(element, obj.elements);
+          }
+          return { c: cpp.call("lucent::numberOf", [read]), t: unionOf([t.e, T.undefined]) };
+        }
         return { c: read, t: unionOf([t.e, T.undefined]) };
       }
       case "regexMatch":

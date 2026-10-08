@@ -59,6 +59,11 @@ export interface IrValue {
   owner?: OwnerId;
   /** A number known to be an exact integer of this kind (see `intKindOf`). */
   int?: IntKind;
+  /**
+   * An array of numbers whose every element is an exact integer of this
+   * kind, held as such (emit/integers.ts proves it): only plans use it.
+   */
+  elements?: IntKind;
 }
 
 /** A module variable the function reads or writes: a place declared outside its body. */
@@ -174,6 +179,8 @@ export type IrOp =
       spelled?: string;
       boxed?: boolean;
       int?: IntKind;
+      /** An array of numbers whose every element is an exact integer of this kind, held as such. */
+      elements?: IntKind;
       source: SourceSpan;
     }
   | { kind: "load"; result: ValueId; place: PlaceId; source: SourceSpan }

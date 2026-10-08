@@ -173,6 +173,8 @@ export interface Leaf {
   type: LType;
   /** Its value as an exact integer too, when the backend's code gives one. */
   int?: { code: unknown; kind: IntKind };
+  /** An array of numbers it gives as integer elements of this kind (`LeafHost.elements`). */
+  elements?: IntKind;
 }
 
 /** The subexpressions of a leaf, lowered before it in evaluation order. */
@@ -184,6 +186,8 @@ export interface LeafOperands {
   isLocal(symbol: ts.Symbol): boolean;
   /** The integer kind `v` is known to be an exact integer of, if any. */
   intOf(v: ValueId): IntKind | undefined;
+  /** The integer kind of the elements `v`, an array, holds as such, if any. */
+  elementsOf(v: ValueId): IntKind | undefined;
   /** The function value of `node`, a function the leaf takes, as the type `target` it becomes. */
   closure(node: ts.ArrowFunction | ts.FunctionExpression, target?: LType): ValueId;
   /** The value of the ambient `name` (see `LowerInput.ambient`), here. */
@@ -225,6 +229,11 @@ export interface LeafHost {
    * shape); throws IrUnsupported when it cannot plan it.
    */
   plan(node: ts.Expression, operands: LeafOperands, hint?: LType): Leaf;
+  /**
+   * `node`, an array literal of numbers each an exact integer of `kind`
+   * (emit/integers.ts proves it), as an array holding them as such.
+   */
+  elements?(node: ts.ArrayLiteralExpression, kind: IntKind, operands: LeafOperands): Leaf;
   /** `value`, a `from`, as a `to`, where `convert` does not apply (an interface, a function's shape…). */
   convert(value: ValueId, from: LType, to: LType, node: ts.Node): Leaf;
   /** The place `target` names (a field, an element…), what it takes lowered as operands. */
@@ -1098,8 +1107,11 @@ class Lowerer {
       const type = declared.k === "never" ? T.undefined : declared;
       const boxed = this.host.isBoxed?.(sym) === true;
       const early = boxed ? this.declareLocal(sym, d.name.text, type, d) : undefined;
+      const elements = this.elementsOf(sym, type, boxed);
       const value =
-        d.initializer && this.coerce(this.expr(d.initializer, type), type, d.initializer);
+        elements && d.initializer && ts.isArrayLiteralExpression(d.initializer)
+          ? this.integerArray(d.initializer, elements)
+          : d.initializer && this.coerce(this.expr(d.initializer, type), type, d.initializer);
       const place = early ?? this.declareLocal(sym, d.name.text, type, d);
 
       if (value !== undefined) this.b.store(place, value, spanOf(d));
@@ -1601,6 +1613,7 @@ class Lowerer {
       },
       typeOf: (v) => this.b.typeOf(v),
       intOf: (v) => this.b.intOf(v),
+      elementsOf: (v) => this.b.elementsOf(v),
       isLocal: (sym) => this.variableOf(sym) !== undefined,
     };
 
@@ -1611,7 +1624,7 @@ class Lowerer {
   planOf(leaf: Leaf, args: ValueId[], span: SourceSpan): ValueId {
     const result = isVoidish(leaf.type) ? undefined : leaf.type;
     const v =
-      this.b.plan(leaf.name, leaf.code, args, result, span, leaf.int) ??
+      this.b.plan(leaf.name, leaf.code, args, result, span, leaf.int, leaf.elements) ??
       this.nothing(leaf.type, span);
 
     this.planned.add(v);
@@ -1779,7 +1792,8 @@ class Lowerer {
     const boxed = always || this.host.isBoxed?.(sym) === true;
     // A number local every write of which is an exact integer lives in an integer register.
     const int = !boxed && type.k === "number" ? this.integers().get(sym) : undefined;
-    const place = this.b.local(name, type, spanOf(node), boxed, int);
+    const elements = this.elementsOf(sym, type, boxed);
+    const place = this.b.local(name, type, spanOf(node), boxed, int, undefined, elements);
 
     this.locals.set(sym, place);
     this.localTypes.set(place, type);
@@ -1787,6 +1801,28 @@ class Lowerer {
     if (boxed) this.boxed.add(place);
 
     return place;
+  }
+
+  /** The kind of the integer elements the local `sym`, an array of numbers, holds as such. */
+  elementsOf(sym: ts.Symbol, type: LType, boxed: boolean): IntKind | undefined {
+    return !boxed && type.k === "array" && type.e.k === "number"
+      ? this.integers().get(sym)
+      : undefined;
+  }
+
+  /** `node`, the array literal a local of integer elements starts as, held as such. */
+  integerArray(node: ts.ArrayLiteralExpression, kind: IntKind): ValueId {
+    const host = this.host.leaves;
+
+    if (!host?.elements) this.unsupported(node, "arrays of integer elements");
+
+    const { operands, args } = this.operands();
+
+    return this.planOf(
+      { ...host.elements(node, kind, operands), elements: kind },
+      args,
+      spanOf(node),
+    );
   }
 
   private ints?: ReadonlyMap<ts.Symbol, IntKind>;

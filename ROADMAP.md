@@ -1660,7 +1660,15 @@ the runtime, size and build budgets, rather than only producing shorter C++.
   (`test/incremental.test.ts`). JSON.parse's readers are one header, which
   the units that parse include. `native/body-edit` on the 73-module
   fixture: 4.3 s → 2.0 s (median), as `m_basics.cpp` no longer parses
-  every module's types.
+  every module's types. A local `number[]` that only ever holds exact
+  integers (its literal, `push` and `a[i] = v` give it int32, uint32 or
+  bounded values) and that nothing but `push`, an index and `length` sees
+  (no call, return, capture, other method or compound write) holds them as
+  such (`lucent::Array<uint32_t>` for the `crc32` table): `a[i]!` is the
+  element in its integer register, a plain read the number or undefined it
+  reads as, and the IR verifier checks that only plans see such an array.
+  The earlier concern does not arise, as no call, return or conversion sees
+  one.
 - Against handwritten C++ (the same kernels, written natively, on the same
   host): `fnv1a`, `xorshift`, `mandelbrot`, `sortNumbers`, `wordCount` and
   `strings` are within 20% or faster; `murmur`, `crc32` and `sieve` are

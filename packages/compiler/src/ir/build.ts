@@ -42,6 +42,8 @@ export class IrBuilder {
   private readonly placeTypes: LType[] = [];
   /** The places held in integer registers, by their kind. */
   private readonly placeInts = new Map<PlaceId, IntKind>();
+  /** The arrays held as integer elements, by their kind. */
+  private readonly placeElements = new Map<PlaceId, IntKind>();
   private readonly params: ValueId[] = [];
   private readonly body: IrRegion;
   /** The region operations are appended to. */
@@ -79,6 +81,11 @@ export class IrBuilder {
   /** The integer kind `v` is an exact integer of, if any. */
   intOf(v: ValueId): IntKind | undefined {
     return this.values[v]?.int;
+  }
+
+  /** The integer kind of the elements `v`, an array, holds as such, if any. */
+  elementsOf(v: ValueId): IntKind | undefined {
+    return this.values[v]?.elements;
   }
 
   /** The operations appended so far to the body. */
@@ -154,10 +161,13 @@ export class IrBuilder {
     boxed = false,
     int?: IntKind,
     spelled?: string,
+    elements?: IntKind,
   ): PlaceId {
     const place = this.place(type);
 
     if (int) this.placeInts.set(place, int);
+
+    if (elements) this.placeElements.set(place, elements);
 
     this.push({
       kind: "local",
@@ -167,6 +177,7 @@ export class IrBuilder {
       ...(spelled ? { spelled } : {}),
       ...(boxed ? { boxed } : {}),
       ...(int ? { int } : {}),
+      ...(elements ? { elements } : {}),
       source,
     });
     return place;
@@ -249,8 +260,11 @@ export class IrBuilder {
 
     const result = this.value(type, source);
     const int = this.placeInts.get(place);
+    const elements = this.placeElements.get(place);
 
     if (int) this.values[result]!.int = int;
+
+    if (elements) this.values[result]!.elements = elements;
 
     this.push({ kind: "load", result, place, source });
     return result;
@@ -288,11 +302,14 @@ export class IrBuilder {
     result: LType | undefined,
     source: SourceSpan,
     int?: { code: unknown; kind: IntKind },
+    elements?: IntKind,
   ): ValueId | undefined {
     const id = result && this.value(result, source);
     const exact = id !== undefined && int && result?.k === "number" ? int : undefined;
 
     if (exact) this.values[id!]!.int = exact.kind;
+
+    if (id !== undefined && elements) this.values[id]!.elements = elements;
 
     this.push({
       kind: "plan",

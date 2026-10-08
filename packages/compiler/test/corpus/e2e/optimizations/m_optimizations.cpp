@@ -425,7 +425,7 @@ lucent::String m_optimizations::toInt32(lucent::Array<double> p0_) {
 }
 
 double m_optimizations::crc(double p0_) {
-  lucent::Array<double> table = lucent::Array<double>{};
+  lucent::Array<uint32_t> table = lucent::Array<uint32_t>{};
   {
     int64_t i = static_cast<int64_t>(0);
     while (true) {
@@ -456,7 +456,7 @@ double m_optimizations::crc(double p0_) {
           }
         }
         uint32_t v32_ = static_cast<uint32_t>(c) >> (static_cast<uint32_t>(0) & 31u);
-        (void)table.push(static_cast<double>(v32_));
+        (void)table.push(v32_);
       }
       i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
     }
@@ -471,9 +471,8 @@ double m_optimizations::crc(double p0_) {
           break;
         }
         int32_t v49_ = (static_cast<int32_t>(crc) ^ (static_cast<int32_t>(i) & 255)) & 255;
-        lucent::Opt<double> v50_ = table.getIndex(static_cast<int64_t>(v49_));
-        double v51_ = v50_.value();
-        crc = static_cast<int64_t>(lucent::toInt32(v51_) ^ static_cast<int32_t>(static_cast<uint32_t>(crc) >> (static_cast<uint32_t>(8) & 31u)));
+        uint32_t v50_ = table.getIndex(static_cast<int64_t>(v49_)).value();
+        crc = static_cast<int64_t>(static_cast<int32_t>(v50_) ^ static_cast<int32_t>(static_cast<uint32_t>(crc) >> (static_cast<uint32_t>(8) & 31u)));
       }
       i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
     }
@@ -483,7 +482,7 @@ double m_optimizations::crc(double p0_) {
 
 lucent::String m_optimizations::intElements(double p0_) {
   double v3_ = -2.0;
-  lucent::Array<double> t = lucent::Array<double>{1.0, v3_, 3.0};
+  lucent::Array<int64_t> t = lucent::Array<int64_t>{static_cast<int64_t>(1), static_cast<int64_t>(v3_), static_cast<int64_t>(3)};
   {
     int64_t i = static_cast<int64_t>(0);
     while (true) {
@@ -494,73 +493,72 @@ lucent::String m_optimizations::intElements(double p0_) {
         }
         int32_t v15_ = lucent::toInt32(static_cast<double>(i) * 7.0) & 255;
         int32_t v18_ = static_cast<int32_t>(i) & 3;
-        (void)t.push(static_cast<double>(v15_), static_cast<double>(v18_));
+        (void)t.push(static_cast<int64_t>(v15_), static_cast<int64_t>(v18_));
       }
       i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
     }
   }
   uint32_t v26_ = 4294967295u >> (static_cast<uint32_t>(0) & 31u);
   int32_t v30_ = lucent::toInt32(-2147483648.0) | 0;
-  (void)t.push(static_cast<double>(v26_), static_cast<double>(v30_));
+  (void)t.push(static_cast<int64_t>(v26_), static_cast<int64_t>(v30_));
   double v35_ = -5.0;
-  lucent::setElement(t, 0.0, v35_);
+  lucent::setElement(t, 0.0, static_cast<int64_t>(v35_));
   int64_t v38_ = static_cast<int64_t>(t.size());
   bool v40_ = static_cast<int64_t>(v38_) > static_cast<int64_t>(3);
   if (v40_) {
-    lucent::Opt<double> v45_ = t.getIndex(static_cast<int64_t>(2));
-    int32_t v48_ = lucent::toInt32(v45_.value()) ^ 1;
-    lucent::setElement(t, 3.0, static_cast<double>(v48_));
+    int64_t v45_ = t.getIndex(static_cast<int64_t>(2)).value();
+    int32_t v47_ = static_cast<int32_t>(v45_) ^ 1;
+    lucent::setElement(t, 3.0, static_cast<int64_t>(static_cast<double>(v47_)));
   }
   double s = 0.0;
   {
     int64_t i = static_cast<int64_t>(0);
     while (true) {
       {
-        int64_t v54_ = static_cast<int64_t>(t.size());
-        bool v56_ = !(i < v54_);
-        if (v56_) {
+        int64_t v53_ = static_cast<int64_t>(t.size());
+        bool v55_ = !(i < v53_);
+        if (v55_) {
           break;
         }
-        lucent::Opt<double> v60_ = t.getIndex(static_cast<int64_t>(i));
-        s = s + v60_.value();
+        int64_t v59_ = t.getIndex(static_cast<int64_t>(i)).value();
+        s = s + static_cast<double>(v59_);
       }
       i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
     }
   }
-  lucent::Opt<double> v68_ = t.getIndex(static_cast<int64_t>(1));
-  double v69_ = v68_.value();
-  int64_t v72_ = static_cast<int64_t>(t.size());
-  double v74_ = static_cast<double>(v72_) - 2.0;
-  lucent::Opt<double> v75_ = t.get(v74_);
-  int32_t h = lucent::toInt32(v69_) ^ lucent::toInt32(v75_.value());
-  int64_t v80_ = static_cast<int64_t>(t.size());
-  lucent::Opt<double> missing = t.getIndex(static_cast<int64_t>(v80_));
-  double v84_ = -1.0;
-  lucent::Opt<double> negative = t.get(v84_);
-  lucent::Opt<double> fraction = t.get(1.5);
-  double first = t.getIndex(static_cast<int64_t>(0)).value();
-  lucent::Opt<double> second = t.getIndex(static_cast<int64_t>(1));
-  lucent::Opt<double> v98_ = t.getIndex(static_cast<int64_t>(1));
-  double sign = 1.0 / v98_.value();
-  lucent::String v102_ = lucent::toJsString(s);
-  lucent::String v105_ = lucent::toJsString(static_cast<double>(h));
-  lucent::String v108_ = lucent::toJsString(missing);
-  lucent::String v111_ = lucent::toJsString(negative);
-  lucent::String v114_ = lucent::toJsString(fraction);
-  lucent::String v117_ = lucent::toJsString(first);
-  lucent::String v120_ = lucent::toJsString(second);
-  int64_t v123_ = static_cast<int64_t>(t.size());
-  lucent::String v124_ = lucent::toJsString(static_cast<double>(v123_));
-  lucent::String v127_ = lucent::toJsString(sign);
-  int64_t v131_ = static_cast<int64_t>(t.size());
-  double v133_ = static_cast<double>(v131_) - 1.0;
-  lucent::Opt<double> v134_ = t.get(v133_);
-  lucent::String v138_ = lucent::toJsString(v134_.value() - 1.0);
-  return lucent::concat(v102_, LUCENT_STR(" "), v105_, LUCENT_STR(" "), v108_, LUCENT_STR(" "), v111_, LUCENT_STR(" "), v114_, LUCENT_STR(" "), v117_, LUCENT_STR(" "), v120_, LUCENT_STR(" "), v124_, LUCENT_STR(" "), v127_, LUCENT_STR(" "), v138_);
+  int64_t v66_ = t.getIndex(static_cast<int64_t>(1)).value();
+  int64_t v69_ = static_cast<int64_t>(t.size());
+  double v71_ = static_cast<double>(v69_) - 2.0;
+  int64_t v72_ = t.get(v71_).value();
+  int32_t h = static_cast<int32_t>(v66_) ^ static_cast<int32_t>(v72_);
+  int64_t v76_ = static_cast<int64_t>(t.size());
+  lucent::Opt<double> missing = lucent::numberOf(t.getIndex(static_cast<int64_t>(v76_)));
+  double v80_ = -1.0;
+  lucent::Opt<double> negative = lucent::numberOf(t.get(v80_));
+  lucent::Opt<double> fraction = lucent::numberOf(t.get(1.5));
+  double first = lucent::numberOf(t.getIndex(static_cast<int64_t>(0))).value();
+  lucent::Opt<double> second = lucent::numberOf(t.getIndex(static_cast<int64_t>(1)));
+  int64_t v94_ = t.getIndex(static_cast<int64_t>(1)).value();
+  double sign = 1.0 / static_cast<double>(v94_);
+  lucent::String v97_ = lucent::toJsString(s);
+  lucent::String v100_ = lucent::toJsString(static_cast<double>(h));
+  lucent::String v103_ = lucent::toJsString(missing);
+  lucent::String v106_ = lucent::toJsString(negative);
+  lucent::String v109_ = lucent::toJsString(fraction);
+  lucent::String v112_ = lucent::toJsString(first);
+  lucent::String v115_ = lucent::toJsString(second);
+  int64_t v118_ = static_cast<int64_t>(t.size());
+  lucent::String v119_ = lucent::toJsString(static_cast<double>(v118_));
+  lucent::String v122_ = lucent::toJsString(sign);
+  int64_t v126_ = static_cast<int64_t>(t.size());
+  double v128_ = static_cast<double>(v126_) - 1.0;
+  int64_t v129_ = t.get(v128_).value();
+  lucent::String v132_ = lucent::toJsString(static_cast<double>(v129_) - 1.0);
+  return lucent::concat(v97_, LUCENT_STR(" "), v100_, LUCENT_STR(" "), v103_, LUCENT_STR(" "), v106_, LUCENT_STR(" "), v109_, LUCENT_STR(" "), v112_, LUCENT_STR(" "), v115_, LUCENT_STR(" "), v119_, LUCENT_STR(" "), v122_, LUCENT_STR(" "), v132_);
 }
 
 double m_optimizations::boundedElements(double p0_) {
-  lucent::Array<double> xs = lucent::Array<double>{};
+  lucent::Array<int64_t> xs = lucent::Array<int64_t>{};
   {
     int64_t i = static_cast<int64_t>(0);
     while (true) {
@@ -571,12 +569,12 @@ double m_optimizations::boundedElements(double p0_) {
         }
         int32_t v9_ = static_cast<int32_t>(i) & 1023;
         double v15_ = lucent::jsMod(static_cast<double>(v9_) * static_cast<double>(static_cast<int32_t>(i) & 1023), 1000.0);
-        (void)xs.push(v15_);
+        (void)xs.push(static_cast<int64_t>(v15_));
       }
       i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
     }
   }
-  double best = 0.0;
+  int64_t best = static_cast<int64_t>(0);
   {
     int64_t i = static_cast<int64_t>(0);
     while (true) {
@@ -586,18 +584,17 @@ double m_optimizations::boundedElements(double p0_) {
         if (v26_) {
           break;
         }
-        lucent::Opt<double> v29_ = xs.getIndex(static_cast<int64_t>(i));
-        double x = v29_.value();
-        bool v33_ = x > best;
-        if (v33_) {
+        int64_t x = xs.getIndex(static_cast<int64_t>(i)).value();
+        bool v32_ = x > best;
+        if (v32_) {
           best = x;
         }
       }
       i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
     }
   }
-  int64_t v40_ = static_cast<int64_t>(xs.size());
-  return best + static_cast<double>(v40_);
+  int64_t v39_ = static_cast<int64_t>(xs.size());
+  return static_cast<double>(best) + static_cast<double>(v39_);
 }
 
 lucent::String m_optimizations::doubleElements(double p0_) {

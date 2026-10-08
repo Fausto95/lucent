@@ -18,6 +18,14 @@ import type { IntKind } from "./context.ts";
  * A `for` counter (`let i = <int>; …; i++ / i-- / i += <int>`) that nothing
  * else writes becomes an `i64`: exact for every value JavaScript can count to
  * by ones, and, for a larger step, when its test stops it short of 2^53.
+ *
+ * A local `number[]` initialized with an array literal whose every element
+ * is written the same way holds integer elements (`arrays`): each element
+ * it is given (by its literal, `push`, or `a[i] = v`) is an integer of the
+ * kind, and nothing else sees the array (it is only pushed to, indexed and
+ * measured, outside any nested function), so its elements read as the same
+ * numbers. `a[i]!` is then an integer of that kind too, and its range the
+ * hull of what was stored.
  */
 
 const I32_MIN = -2147483648;
@@ -51,7 +59,28 @@ const COUNTER: Range = { lo: -EXACT, hi: EXACT };
 interface RangeContext {
   ranges: ReadonlyMap<ts.Symbol, Interval>;
   kinds: ReadonlyMap<ts.Symbol, IntKind | "any">;
-  opts: Pick<InferOptions, "checker" | "isMath">;
+  opts: KindOptions;
+}
+
+/** What reading kinds and ranges needs: the checker, `Math`, and the arrays of integer candidates. */
+type KindOptions = Pick<InferOptions, "checker" | "isMath"> & {
+  /** Arrays whose elements may be integers: `a[i]!` reads one, of the array's kind and range. */
+  arrays?: ReadonlySet<ts.Symbol>;
+};
+
+/** The array `e` reads an element of with `!` (`a[i]!`), when it is one of `arrays`. */
+function elementRead(e: ts.Expression, opts: KindOptions): ts.Symbol | undefined {
+  if (!opts.arrays?.size || !ts.isNonNullExpression(e)) return undefined;
+
+  const read = e.expression;
+
+  if (!ts.isElementAccessExpression(read) || read.questionDotToken) return undefined;
+
+  if (!ts.isIdentifier(read.expression)) return undefined;
+
+  const sym = opts.checker.getSymbolAtLocation(read.expression);
+
+  return sym && opts.arrays.has(sym) ? sym : undefined;
 }
 
 /** The smallest interval holding both. */
@@ -112,6 +141,12 @@ const COMPOUND_ARITHMETIC = new Map<ts.SyntaxKind, ts.SyntaxKind>([
 /** The range of the number `e` gives, from the ranges of the locals it reads. */
 export function rangeOf(e: ts.Expression, cx: RangeContext): Interval {
   if (ts.isParenthesizedExpression(e)) return rangeOf(e.expression, cx);
+  const array = elementRead(e, cx.opts);
+  if (array) {
+    if (cx.ranges.has(array)) return cx.ranges.get(array);
+    const k = cx.kinds.get(array);
+    return k === "i32" ? I32 : k === "u32" ? U32 : k === "i64" ? COUNTER : undefined;
+  }
   if (ts.isNumericLiteral(e)) {
     const v = Number(e.text.replace(/_/g, ""));
     return Number.isInteger(v) && Math.abs(v) <= EXACT ? { lo: v, hi: v } : undefined;
@@ -160,7 +195,7 @@ export function rangeOf(e: ts.Expression, cx: RangeContext): Interval {
   if (ts.isConditionalExpression(e)) return hull(rangeOf(e.whenTrue, cx), rangeOf(e.whenFalse, cx));
   if (ts.isIdentifier(e)) {
     const sym = cx.opts.checker.getSymbolAtLocation(e);
-    if (!sym) return undefined;
+    if (!sym || cx.opts.arrays?.has(sym)) return undefined;
     if (cx.ranges.has(sym)) return cx.ranges.get(sym);
     const k = cx.kinds.get(sym);
     return k === "i32" ? I32 : k === "u32" ? U32 : k === "i64" ? COUNTER : undefined;
@@ -172,12 +207,16 @@ export interface IntegerFacts {
   locals: Map<ts.Symbol, IntKind>;
   /** `for` counters, which are i64. */
   counters: Set<ts.Symbol>;
+  /** Local arrays of numbers whose elements are integers of the kind. */
+  arrays: Map<ts.Symbol, IntKind>;
 }
 
 export interface InferOptions {
   checker: ts.TypeChecker;
   /** A local that may be an integer: a non-boxed number. */
   candidate: (decl: ts.VariableDeclaration, sym: ts.Symbol) => boolean;
+  /** A local that may hold integer elements: a non-boxed array of numbers. */
+  arrayCandidate?: (decl: ts.VariableDeclaration, sym: ts.Symbol) => boolean;
   isBoxed: (sym: ts.Symbol) => boolean;
   /** Whether `id` is the global `Math`. */
   isMath: (id: ts.Expression) => boolean;
@@ -197,10 +236,15 @@ function literalWrite(v: number): Write {
 export function writeKind(
   e: ts.Expression,
   kinds: ReadonlyMap<ts.Symbol, IntKind | "any">,
-  opts: Pick<InferOptions, "checker" | "isMath">,
+  opts: KindOptions,
   ranges: ReadonlyMap<ts.Symbol, Interval> = new Map(),
 ): Write {
   if (ts.isParenthesizedExpression(e)) return writeKind(e.expression, kinds, opts, ranges);
+  const array = elementRead(e, opts);
+  if (array) {
+    const k = kinds.get(array);
+    return k === "any" ? "small" : k;
+  }
   if (ts.isBinaryExpression(e) && ARITHMETIC.has(e.operatorToken.kind)) {
     const r = rangeOf(e, { ranges, kinds, opts });
     return typeof r === "object" ? "i64" : undefined;
@@ -251,7 +295,7 @@ export function writeKind(
   }
   if (ts.isIdentifier(e)) {
     const sym = opts.checker.getSymbolAtLocation(e);
-    const k = sym ? kinds.get(sym) : undefined;
+    const k = sym && !opts.arrays?.has(sym) ? kinds.get(sym) : undefined;
     return k === "any" ? "small" : k;
   }
   return undefined;
@@ -280,7 +324,7 @@ function isAssignment(k: ts.SyntaxKind): boolean {
 }
 
 /** Whether `id` is written by something other than a plain or compound assignment to it. */
-function isOtherWrite(id: ts.Identifier): boolean {
+function isOtherWrite(id: ts.Expression): boolean {
   let n: ts.Node = id;
   let p = n.parent;
   if (ts.isPrefixUnaryExpression(p) || ts.isPostfixUnaryExpression(p)) {
@@ -373,7 +417,7 @@ const WIDEN_AFTER = 8;
 function inferRanges(
   writes: ReadonlyMap<ts.Symbol, WriteOf[]>,
   kinds: ReadonlyMap<ts.Symbol, IntKind>,
-  opts: Pick<InferOptions, "checker" | "isMath">,
+  opts: KindOptions,
 ): Map<ts.Symbol, Interval> {
   const ranges = new Map<ts.Symbol, Interval>([...writes.keys()].map((s) => [s, EMPTY]));
   const cx: RangeContext = { ranges, kinds, opts };
@@ -412,6 +456,7 @@ function inferRanges(
 export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
   const { checker } = opts;
   const decls = new Map<ts.Symbol, ts.VariableDeclaration>();
+  const arrayDecls = new Map<ts.Symbol, ts.VariableDeclaration>();
   const counters = new Set<ts.Symbol>();
   const destructured = destructuredSymbols(body, checker);
   const collect = (n: ts.Node): void => {
@@ -433,6 +478,17 @@ export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
         opts.candidate(n, sym)
       )
         decls.set(sym, n);
+      else if (
+        sym &&
+        !destructured.has(sym) &&
+        !inForOf &&
+        ts.isVariableDeclarationList(list) &&
+        list.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const) &&
+        ts.isArrayLiteralExpression(n.initializer) &&
+        n.initializer.elements.every((e) => !ts.isSpreadElement(e) && !ts.isOmittedExpression(e)) &&
+        opts.arrayCandidate?.(n, sym)
+      )
+        arrayDecls.set(sym, n);
     }
     if (n !== body && isFunctionBoundary(n)) return;
     ts.forEachChild(n, collect);
@@ -443,10 +499,13 @@ export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
   // is boxed and was never a candidate, but reads through closures are fine).
   const writes = new Map<ts.Symbol, WriteOf[]>();
   for (const [sym, d] of decls) writes.set(sym, [d.initializer!]);
+  const arrays = arrayWrites(body, arrayDecls, checker);
+  for (const [sym, list] of arrays) writes.set(sym, list);
+  const kindOpts: KindOptions = { checker, isMath: opts.isMath, arrays: new Set(arrays.keys()) };
   const visit = (n: ts.Node): void => {
     if (ts.isIdentifier(n)) {
       const sym = checker.getSymbolAtLocation(n);
-      const list = sym ? writes.get(sym) : undefined;
+      const list = sym && !arrays.has(sym) ? writes.get(sym) : undefined;
       if (list) {
         const p = n.parent;
         if (ts.isBinaryExpression(p) && p.left === n && isAssignment(p.operatorToken.kind)) {
@@ -473,9 +532,11 @@ export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
   visit(body);
 
   const counterKinds = new Map<ts.Symbol, IntKind>([...counters].map((c) => [c, "i64"]));
-  const ranges = inferRanges(writes, counterKinds, opts);
+  const ranges = inferRanges(writes, counterKinds, kindOpts);
 
-  const kinds = new Map<ts.Symbol, IntKind | "any">([...decls.keys()].map((s) => [s, "any"]));
+  const kinds = new Map<ts.Symbol, IntKind | "any">(
+    [...decls.keys(), ...arrays.keys()].map((s) => [s, "any"]),
+  );
   const withCounters = () => new Map<ts.Symbol, IntKind | "any">([...kinds, ...counterKinds]);
   for (let changed = true; changed;) {
     changed = false;
@@ -486,7 +547,7 @@ export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
         if (w === "other") return undefined;
         if (typeof w === "string") return w;
         if ("op" in w) return typeof ranges.get(sym) === "object" ? "i64" : undefined;
-        return writeKind(w, known, opts, ranges);
+        return writeKind(w, known, kindOpts, ranges);
       });
       const k = join(ws);
       if (k === undefined) {
@@ -499,8 +560,98 @@ export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
     }
   }
   const locals = new Map<ts.Symbol, IntKind>();
-  for (const [sym, k] of kinds) if (k !== "any") locals.set(sym, k);
-  return { locals, counters };
+  const elements = new Map<ts.Symbol, IntKind>();
+  for (const [sym, k] of kinds) if (k !== "any") (arrays.has(sym) ? elements : locals).set(sym, k);
+  return { locals, counters, arrays: elements };
+}
+
+/**
+ * What each of `decls`, local arrays of numbers, is given: its literal's
+ * elements, what it is pushed, what is assigned to an element. Only the
+ * arrays nothing else sees: every other use of one (passing, returning or
+ * capturing it, another method, a compound write, a write of its
+ * `length`) leaves it out.
+ */
+function arrayWrites(
+  body: ts.Node,
+  decls: ReadonlyMap<ts.Symbol, ts.VariableDeclaration>,
+  checker: ts.TypeChecker,
+): Map<ts.Symbol, WriteOf[]> {
+  const writes = new Map<ts.Symbol, WriteOf[]>();
+  if (!decls.size) return writes;
+
+  for (const [sym, d] of decls)
+    writes.set(sym, [...(d.initializer as ts.ArrayLiteralExpression).elements]);
+  const escaped = new Set<ts.Symbol>();
+
+  const use = (id: ts.Identifier, sym: ts.Symbol, nested: boolean): void => {
+    const list = writes.get(sym)!;
+    const p = id.parent;
+    if (nested) return void escaped.add(sym);
+    if (ts.isPropertyAccessExpression(p) && p.expression === id && !p.questionDotToken) {
+      const call = p.parent;
+      if (p.name.text === "length" && !isWritten(p)) return;
+      if (
+        p.name.text === "push" &&
+        ts.isCallExpression(call) &&
+        call.expression === p &&
+        !call.questionDotToken &&
+        call.arguments.every((a) => !ts.isSpreadElement(a))
+      ) {
+        list.push(...call.arguments);
+        return;
+      }
+    }
+    if (ts.isElementAccessExpression(p) && p.expression === id && !p.questionDotToken) {
+      const parent = p.parent;
+      if (
+        ts.isBinaryExpression(parent) &&
+        parent.left === p &&
+        parent.operatorToken.kind === ts.SyntaxKind.EqualsToken
+      ) {
+        list.push(parent.right);
+        return;
+      }
+      if (!isWritten(p)) return;
+    }
+    escaped.add(sym);
+  };
+
+  const visit = (n: ts.Node, nested: boolean): void => {
+    if (ts.isIdentifier(n)) {
+      const sym = checker.getSymbolAtLocation(n);
+      if (sym && writes.has(sym) && decls.get(sym)!.name !== n) use(n, sym, nested);
+      return;
+    }
+    ts.forEachChild(n, (c) => visit(c, nested || (c !== body && isFunctionBoundary(c))));
+  };
+  visit(body, false);
+
+  for (const sym of escaped) writes.delete(sym);
+  return writes;
+}
+
+/** Whether `e` is written: assigned (also by a compound operator or destructuring), counted, or deleted. */
+function isWritten(e: ts.Expression): boolean {
+  // `(a[i])`, `a[i]!` and `a[i] as number` are the same place.
+  let n: ts.Expression = e;
+  while (
+    ts.isParenthesizedExpression(n.parent) ||
+    ts.isNonNullExpression(n.parent) ||
+    ts.isAsExpression(n.parent) ||
+    ts.isTypeAssertionExpression(n.parent) ||
+    ts.isSatisfiesExpression(n.parent)
+  )
+    n = n.parent;
+  const p = n.parent;
+  if (ts.isBinaryExpression(p) && p.left === n && isAssignment(p.operatorToken.kind)) return true;
+  if (ts.isDeleteExpression(p)) return true;
+  if (
+    (ts.isPrefixUnaryExpression(p) || ts.isPostfixUnaryExpression(p)) &&
+    (p.operator === ts.SyntaxKind.PlusPlusToken || p.operator === ts.SyntaxKind.MinusMinusToken)
+  )
+    return true;
+  return isOtherWrite(n);
 }
 
 /**

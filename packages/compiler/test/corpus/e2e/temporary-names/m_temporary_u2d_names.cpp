@@ -138,7 +138,7 @@ lucent::String m_temporary_u2d_names::objects() {
 }
 
 lucent::String m_temporary_u2d_names::loops() {
-  lucent::Array<double> u_coll0_ = lucent::Array<double>{9.0};
+  lucent::Array<int32_t> u_coll0_ = lucent::Array<int32_t>{9};
   lucent::String coll0_v = LUCENT_STR("v");
   lucent::String coll0_close = LUCENT_STR("close");
   lucent::String coll0_guard = LUCENT_STR("guard");

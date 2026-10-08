@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"optimizations", "eb3d1
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "cac48369de25047d", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "92ed44d31956584c", kModuleIdentities, 1};
   return identity;
 }
 

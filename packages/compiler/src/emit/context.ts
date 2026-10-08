@@ -20,7 +20,13 @@ export interface E {
   t: LType;
   /** The same number as an exact integer expression, when one is known. */
   int?: { c: cpp.Expr; kind: IntKind };
+  /** An array of numbers holding its elements as exact integers of this kind (integers.ts). */
+  elements?: IntKind;
 }
+
+/** The C++ type of an integer register of `kind`. */
+export const intCppType = (kind: IntKind) =>
+  cpp.type(kind === "i32" ? "int32_t" : kind === "u32" ? "uint32_t" : "int64_t");
 
 /**
  * An assignable place: `direct` is a C++ lvalue when one exists; otherwise

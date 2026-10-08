@@ -105,6 +105,42 @@ describe("integer elements", () => {
     expect(bounded).toContain("int64_t x = ");
   });
 
+  it("keeps doubles for an array anything but push, an index or length sees", () => {
+    const file = module(`export function seen(xs: number[]): number {
+  const captured: number[] = [1];
+  const read = () => captured[0]!;
+  const aliased: number[] = [1];
+  const alias = aliased;
+  const iterated: number[] = [1];
+  let sum = 0;
+  for (const x of iterated) sum += x;
+  const shrunk: number[] = [1];
+  shrunk.length = 0;
+  const added: number[] = [1];
+  added[0]! += 1;
+  const counted: number[] = [1];
+  counted[0]!++;
+  const asserted: number[] = [1];
+  asserted[0]! = 0.5;
+  const wrapped: number[] = [1];
+  [wrapped[0]!] = [0.5];
+  const spread: number[] = [1];
+  spread.push(...xs);
+  const destructured: number[] = [1];
+  [destructured[0]] = [2];
+  let replaced: number[] = [1];
+  replaced = [2];
+  const optional: number[] = [1];
+  const o = optional?.[0];
+  return read() + alias.length + sum + shrunk.length + added[0]! + counted[0]! + spread.length +
+    destructured[0]! + replaced[0]! + (o ?? 0) + asserted[0]! + wrapped[0]!;
+}
+`);
+    const fn = body(cppOf(file), "seen");
+
+    expect(fn).not.toMatch(/Array<u?int/);
+  });
+
   it("keeps doubles for what could be -0, a fraction or past 2^53, and for an array that escapes", () => {
     const fn = body(cpp, "doubleElements");
 

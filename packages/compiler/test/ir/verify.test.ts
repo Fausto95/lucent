@@ -344,6 +344,26 @@ describe("IR verifier", () => {
     expect(problemsOf(f)).toContain("v0 is held in an u32 register, but is a string");
   });
 
+  it("rejects integer elements on anything but a local array of numbers, or seen by anything but plans", () => {
+    const numbers = { k: "array", e: T.number } as const;
+    const b = new IrBuilder("elements", T.number, at(0, 100));
+    const table = b.local("table", numbers, at(1), false, undefined, undefined, "u32");
+
+    b.local("names", { k: "array", e: T.string }, at(2), false, undefined, undefined, "i32");
+    b.store(table, b.plan("[…]", "made", [], numbers, at(3), undefined, "u32")!, at(3));
+
+    const read = b.load(table, at(4));
+    const other = b.local("other", numbers, at(5));
+
+    b.store(other, read, at(6));
+    b.return(b.plan(".length", "length", [read], T.number, at(7))!, at(8));
+
+    expect(problemsOf(b.finish())).toEqual([
+      "r0[1] local holds p1 as i32 elements, but it is not a local array of numbers",
+      "r0[6] store uses v1, an array of u32 elements, which only plans read",
+    ]);
+  });
+
   it("rejects throwing a value that is not an Error", () => {
     const b = new IrBuilder("boom", T.string, at(0, 100));
 

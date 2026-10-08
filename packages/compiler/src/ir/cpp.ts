@@ -768,7 +768,7 @@ class Emitter {
     if (this.used(v)) {
       const name = `v${v}_`;
 
-      this.emit(op, cpp.varDecl(this.backend.cppType(this.fn.values[v]!.type), name, c));
+      this.emit(op, cpp.varDecl(this.valueType(v), name, c));
       this.exprs.set(v, cpp.id(name));
       this.temporaries.set(v, this.current!);
     } else if (effect) {
@@ -785,7 +785,7 @@ class Emitter {
 
     const name = `v${v}_`;
     const lent = this.lent.has(c);
-    const type = this.backend.cppType(this.typeOf(v));
+    const type = this.valueType(v);
 
     this.exprs.set(v, cpp.id(name));
 
@@ -839,11 +839,15 @@ class Emitter {
   declareEmpty(op: IrOp, v: ValueId): void {
     const name = `v${v}_`;
 
-    this.emit(
-      op,
-      cpp.varDecl(this.backend.cppType(this.typeOf(v)), name, undefined, { style: "brace" }),
-    );
+    this.emit(op, cpp.varDecl(this.valueType(v), name, undefined, { style: "brace" }));
     this.exprs.set(v, cpp.id(name));
+  }
+
+  /** The C++ type of `v`: its type's, or an array of integer elements' (`elements`). */
+  valueType(v: ValueId): cpp.Type {
+    const value = this.fn.values[v]!;
+
+    return value.elements ? integerArray(value.elements) : this.backend.cppType(value.type);
   }
 
   /**
@@ -1063,7 +1067,11 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
   local: (op, e, index, ops) => {
     const name = op.spelled ?? cppIdent(op.name);
     const next = ops[index + 1];
-    const type = op.int ? cpp.type(INT_CPP[op.int]) : boxOf(e.backend.cppType(op.type), op.boxed);
+    const type = op.int
+      ? cpp.type(INT_CPP[op.int])
+      : op.elements
+        ? integerArray(op.elements)
+        : boxOf(e.backend.cppType(op.type), op.boxed);
 
     e.declarePlace(op.place, name, op.boxed, op.int);
 
@@ -1096,7 +1104,11 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
         return;
       }
 
-      const type = int ? cpp.type(INT_CPP[int]) : boxOf(e.backend.cppType(prev.type), prev.boxed);
+      const type = int
+        ? cpp.type(INT_CPP[int])
+        : prev.elements
+          ? integerArray(prev.elements)
+          : boxOf(e.backend.cppType(prev.type), prev.boxed);
       const style = prev.boxed ? { style: "construct" as const } : {};
       const value = int ? e.stored(op.value, int) : e.taken(op.value);
 
@@ -1777,6 +1789,9 @@ const INT_COMPARISONS: Partial<Record<BinaryOp, cpp.BinaryOp>> = {
 
 /** The C++ type of each integer register. */
 const INT_CPP: Record<IntKind, string> = { i32: "int32_t", u32: "uint32_t", i64: "int64_t" };
+
+/** An array holding integer elements of `kind` as such. */
+const integerArray = (kind: IntKind) => cpp.type("lucent::Array", cpp.type(INT_CPP[kind]));
 
 /** A place's C++ type: `lucent::Box<T>` when it is boxed. */
 function boxOf(type: cpp.Type, boxed: boolean | undefined): cpp.Type {

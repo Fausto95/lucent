@@ -23,7 +23,7 @@ import { numberExpr } from "../lowering/literals.ts";
 import { type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
 import { disposeCall, methodCall } from "./builtins.ts";
 import { safepoint } from "./compute.ts";
-import type { Ctx, E } from "./context.ts";
+import { type Ctx, type E, intCppType } from "./context.ts";
 import { type FnOptions, FnEmitter, type Local } from "./function.ts";
 import { isEventCall } from "./setups.ts";
 
@@ -46,12 +46,15 @@ class LeafEmitter extends FnEmitter {
 
     const v = this.operands.operand(node, hint);
     const int = this.operands.intOf(v);
+    const elements = this.operands.elementsOf(v);
 
-    // An exact integer has its integer register form too (integers.ts), which code like Math.imul's uses.
+    // An exact integer has its integer register form too (integers.ts), which code like Math.imul's
+    // uses; an array of integer elements holds them as such, which its reads and writes spell.
     return {
       c: operand(v),
       t: this.operands.typeOf(v),
       ...(int ? { int: { c: intOperand(v), kind: int } } : {}),
+      ...(elements ? { elements } : {}),
     };
   }
 
@@ -177,6 +180,7 @@ function noOperands(node: ts.Node): LeafOperands {
       throw new IrUnsupported(node, "an operand here");
     },
     intOf: () => undefined,
+    elementsOf: () => undefined,
     isLocal: () => false,
   };
 }
@@ -186,6 +190,19 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
   return {
     plan: (node, operands, hint) =>
       planned(node, () => new LeafEmitter(ctx, opts, node, operands).expr(node, hint)),
+
+    // Each element an exact integer of `kind`: its register form, or the double's, as one.
+    elements: (node, kind, operands) =>
+      planned(node, () => {
+        const em = new LeafEmitter(ctx, opts, node, operands);
+        const items = node.elements.map((x) => em.asInteger(em.expr(x, T.number), kind, x));
+
+        return {
+          c: cpp.construct(cpp.type("lucent::Array", intCppType(kind)), items, true),
+          t: { k: "array", e: T.number },
+          elements: kind,
+        };
+      }),
 
     convert: (value: ValueId, from: LType, to: LType, node: ts.Node) =>
       planned(node, () => {

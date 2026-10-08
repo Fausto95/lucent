@@ -417,6 +417,17 @@ static void arrays() {
   CHECK(a.getIndex(int64_t{-1}).isUndefined());
   CHECK(a.getIndex(int64_t{1} << 40).isUndefined());
   CHECK(a.get(1).get() == 2);
+  // Integer elements (a table the compiler proved holds only integers): the numbers they read as.
+  Array<uint32_t> table{0, 4294967295u};
+  table.push(7);
+  CHECK(numberOf(table.getIndex(int64_t{1})).get() == 4294967295.0);
+  CHECK(numberOf(table.get(2)).get() == 7);
+  CHECK(numberOf(table.get(1.5)).isUndefined());
+  CHECK(numberOf(table.getIndex(int64_t{3})).isUndefined());
+  CHECK(!std::signbit(numberOf(table.getIndex(int64_t{0})).get()));
+  CHECK_THROWS(table.getIndex(int64_t{-1}).value(), "TypeError");
+  setElement(table, 0, uint32_t{9});
+  CHECK(table.at(0) == 9 && table.length() == 3);
   CHECK_THROWS(a.set(10, 5), "RangeError");
   a.set(4, 11);
   CHECK(a.size() == 5);

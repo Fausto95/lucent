@@ -146,7 +146,7 @@ double m_kernels::fnv1a(double p0_) {
 }
 
 double m_kernels::crc32(double p0_) {
-  lucent::Array<double> table = lucent::Array<double>{};
+  lucent::Array<uint32_t> table = lucent::Array<uint32_t>{};
   {
     int64_t i = static_cast<int64_t>(0);
     while (true) {
@@ -177,7 +177,7 @@ double m_kernels::crc32(double p0_) {
           }
         }
         uint32_t v32_ = static_cast<uint32_t>(c) >> (static_cast<uint32_t>(0) & 31u);
-        (void)table.push(static_cast<double>(v32_));
+        (void)table.push(v32_);
       }
       i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
     }
@@ -192,9 +192,8 @@ double m_kernels::crc32(double p0_) {
           break;
         }
         int32_t v49_ = (static_cast<int32_t>(crc) ^ (static_cast<int32_t>(i) & 255)) & 255;
-        lucent::Opt<double> v50_ = table.getIndex(static_cast<int64_t>(v49_));
-        double v51_ = v50_.value();
-        crc = static_cast<int64_t>(lucent::toInt32(v51_) ^ static_cast<int32_t>(static_cast<uint32_t>(crc) >> (static_cast<uint32_t>(8) & 31u)));
+        uint32_t v50_ = table.getIndex(static_cast<int64_t>(v49_)).value();
+        crc = static_cast<int64_t>(static_cast<int32_t>(v50_) ^ static_cast<int32_t>(static_cast<uint32_t>(crc) >> (static_cast<uint32_t>(8) & 31u)));
       }
       i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
     }

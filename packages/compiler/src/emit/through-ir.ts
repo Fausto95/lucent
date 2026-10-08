@@ -233,14 +233,18 @@ function irHost(ctx: Ctx, facts: ProgramFacts, opts: FnOptions): LowerHost {
 
       const em = new FnEmitter(ctx, opts);
       const isBoxed = (sym: ts.Symbol) => ctx.capture.isBoxed(sym);
-      const number = (d: ts.VariableDeclaration, sym: ts.Symbol) => {
+      const lowered = (d: ts.VariableDeclaration, sym: ts.Symbol) => {
         try {
-          return (
-            ctx.reg.lower(ctx.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name).k === "number"
-          );
+          return ctx.reg.lower(ctx.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name);
         } catch {
-          return false;
+          return undefined;
         }
+      };
+      const number = (d: ts.VariableDeclaration, sym: ts.Symbol) => lowered(d, sym)?.k === "number";
+      const numbers = (d: ts.VariableDeclaration, sym: ts.Symbol) => {
+        const t = lowered(d, sym);
+
+        return t?.k === "array" && t.e.k === "number";
       };
       const runs = (d: ts.Node) => {
         const p = branchPlatform(ctx.checker, d);
@@ -251,14 +255,17 @@ function irHost(ctx: Ctx, facts: ProgramFacts, opts: FnOptions): LowerHost {
         checker: ctx.checker,
         // Locals of code this target never runs are not lowered: their types stay out of its output.
         candidate: (d, sym) => runs(d) && !isBoxed(sym) && number(d, sym),
+        arrayCandidate: (d, sym) => runs(d) && !isBoxed(sym) && numbers(d, sym),
         isBoxed,
         isMath: (id) => isMathGlobal(em, id),
       });
 
-      // A `for` counter is an int64: exact for every value JavaScript can count to.
+      // A `for` counter is an int64: exact for every value JavaScript can count to. An array of
+      // numbers in the map holds integer elements of the kind.
       return new Map([
         ...facts.locals,
         ...[...facts.counters].map((c) => [c, "i64" as const] as const),
+        ...facts.arrays,
       ]);
     },
     leaves: leafHost(ctx, opts),
