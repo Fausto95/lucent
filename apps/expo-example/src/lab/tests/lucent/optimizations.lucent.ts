@@ -205,6 +205,45 @@ export function building(n: number): string {
   return `${s.length} ${shared.length} ${s.slice(-3)} ${w} ${w.length} ${joined.length} ${split} ${numbers} ${joined.slice(0, 20)}`;
 }
 
+/** Appends to a field and a module variable: in place, read before the right side runs. */
+class Log {
+  text = "";
+  add(part: string): void {
+    this.text += part;
+  }
+  /** The right side replaces the field: the append is to what was read first. */
+  replacing(): string {
+    this.text += this.reset("new");
+    return this.text;
+  }
+  reset(to: string): string {
+    this.text = to;
+    return "+";
+  }
+}
+
+let journal = "";
+
+function rewrite(): string {
+  journal = "rewritten";
+  return "!";
+}
+
+export function appends(n: number): string {
+  const log = new Log();
+  journal = "";
+  for (let i = 0; i < n; i++) {
+    log.add(i % 7 ? "ab" : "ψ");
+    journal += `${i},`;
+  }
+  const held = log.text;
+  log.add("|end");
+  const before = journal;
+  journal += rewrite();
+  const tagged = `<${n}:${held.length}:${log.text.slice(-6)}:${before.length}>`;
+  return `${tagged} ${log.text.length} ${held.length} ${journal} ${log.replacing()}`;
+}
+
 /** Numbers as strings: the integer fast path and the rest. */
 export function numberStrings(): string {
   const xs = [

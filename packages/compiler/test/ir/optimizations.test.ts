@@ -120,3 +120,21 @@ export function picked(xs: number[]): number[] {
     expect(body(cpp, "picked")).toContain("lucent::Fn<");
   });
 });
+
+describe("string appends and template literals", () => {
+  const cpp = cppOf(CASE);
+
+  it("appends to a field and a module variable in place, from what was read first", () => {
+    expect(body(cpp, "add")).toMatch(/lucent::appendTo\(this->text, std::move\(v\d+_\), /);
+
+    expect(body(cpp, "appends")).toMatch(/lucent::appendTo\(lucent_app::m_\w+::journal, /);
+  });
+
+  it("builds a template literal with one concatenation", () => {
+    const fn = body(cpp, "appends");
+
+    expect(fn).toMatch(/lucent::concat\(LUCENT_STR\("<"\), [^;]*LUCENT_STR\(">"\)\)/);
+
+    expect(fn).not.toContain("lucent::String(lucent::String(");
+  });
+});

@@ -33,4 +33,5 @@ print(mod.keptCallbacks([2, 1, 3]));
 print(mod.mutatingCallbacks());
 print(mod.stringKeys());
 print(mod.building(0), mod.building(1), mod.building(100));
+print(mod.appends(0), mod.appends(1), mod.appends(40));
 print(mod.numberStrings());
