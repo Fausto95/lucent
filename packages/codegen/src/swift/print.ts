@@ -4,6 +4,38 @@ const INDENT = "  ";
 
 // --- types -----------------------------------------------------------------------------
 
+/** Swift's escapes of the characters a string literal cannot hold as they are. */
+const ESCAPES: Record<string, string> = {
+  "\0": "\\0",
+  "\\": "\\\\",
+  "\t": "\\t",
+  "\n": "\\n",
+  "\r": "\\r",
+  '"': '\\"',
+  "'": "\\'",
+};
+
+/**
+ * A Swift string literal of `s`: `\0 \\ \t \n \r \" \'`, other controls and
+ * the line and paragraph separators as `\u{…}`, the rest as it is (a
+ * backslash escaped, so `\(` never interpolates). A Swift String holds
+ * Unicode scalars, which a lone surrogate is not: it becomes U+FFFD, as
+ * it does when an NSString holding one bridges to String.
+ */
+export function quoted(s: string): string {
+  let out = '"';
+  for (const ch of s) {
+    const cp = ch.codePointAt(0)!;
+    const escaped = ESCAPES[ch];
+    if (escaped) out += escaped;
+    else if (cp >= 0xd800 && cp <= 0xdfff) out += "\\u{fffd}";
+    else if (cp < 0x20 || cp === 0x7f || cp === 0x2028 || cp === 0x2029)
+      out += `\\u{${cp.toString(16)}}`;
+    else out += ch;
+  }
+  return `${out}"`;
+}
+
 export function printType(t: Type): string {
   switch (t.k) {
     case "named":
@@ -96,7 +128,7 @@ function bare(e: Expr, indent: string): string {
     case "number":
       return e.text;
     case "string":
-      return JSON.stringify(e.value);
+      return quoted(e.value);
     case "bool":
       return String(e.value);
     case "nil":
