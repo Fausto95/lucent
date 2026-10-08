@@ -3,6 +3,7 @@ print(mod.compound(0), mod.compound(1000));
 print(mod.negativeRemainder());
 print(mod.signedProducts(0));
 print(mod.unbounded());
+print(mod.pastExact());
 print(mod.sometimesFractional(10), mod.sometimesFractional(11));
 print(
   mod.toInt32([
@@ -33,4 +34,5 @@ print(mod.keptCallbacks([2, 1, 3]));
 print(mod.mutatingCallbacks());
 print(mod.stringKeys());
 print(mod.building(0), mod.building(1), mod.building(100));
+print(mod.appends(0), mod.appends(1), mod.appends(40));
 print(mod.numberStrings());

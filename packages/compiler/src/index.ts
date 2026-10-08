@@ -30,6 +30,7 @@ import { type Platform, PLATFORMS, platformSdkTyped, type SdkOptions } from "./s
 import type { ExtensionBinding } from "./extensions/bind.ts";
 import { bindExtensions } from "./extensions/bind.ts";
 import { extensionDts } from "./extensions/dts.ts";
+import { withSourceRoot } from "./lowering/source.ts";
 import { resolveNative } from "./package-config.ts";
 import { fileHashes } from "./package-files.ts";
 import { lucentPackages } from "./packages.ts";
@@ -193,6 +194,11 @@ export interface CompileOptions {
    * own build checks it.
    */
   deferred?: Platform[];
+  /**
+   * The project's directory: `#line` directives, error sites and trace
+   * sites name sources relative to it (default: the working directory).
+   */
+  root?: string;
 }
 
 /** Compiles `*.lucent.ts` files to C++ sources and JS proxies. */
@@ -209,7 +215,9 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
     deferred,
     ...(options.extensions ? { extensions: options.extensions } : {}),
   });
-  const result = runInCompile(context, () => compileWith(files, options));
+  const result = runInCompile(context, () =>
+    withSourceRoot(options.root, () => compileWith(files, options)),
+  );
   const [read, realpaths, uses] = [context.reads, context.realpaths, sdkUsesOf(context)];
 
   if (options.session) {

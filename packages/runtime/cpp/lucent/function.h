@@ -11,19 +11,44 @@ namespace lucent {
 template <class Sig>
 class Fn;
 
+namespace detail {
+
+/// What a function value calls: the callable itself lives in the same
+/// allocation as its reference count (make_shared of a Callable<F>), where a
+/// shared std::function would be a second one for any capture past its
+/// small buffer.
+template <class R, class... A>
+struct Callee {
+  virtual ~Callee() = default;
+  virtual R call(A... args) = 0;
+};
+
+template <class F, class R, class... A>
+struct Callable final : Callee<R, A...> {
+  template <class G>
+  explicit Callable(G&& g) : f(std::forward<G>(g)) {}
+  R call(A... args) override {
+    if constexpr (std::is_void_v<R>) f(std::forward<A>(args)...);
+    else return f(std::forward<A>(args)...);
+  }
+  F f;
+};
+
+}  // namespace detail
+
 /// A first-class function value. Copies alias the same function, so `===`
-/// compares identity as in JavaScript.
+/// compares identity as in JavaScript. Making one allocates once.
 template <class R, class... A>
 class Fn<R(A...)> {
  public:
   using Signature = R(A...);
   Fn() = default;
   template <class F, std::enable_if_t<!std::is_same_v<std::decay_t<F>, Fn> && std::is_invocable_v<F&, A...>, int> = 0>
-  Fn(F&& f) : f_(std::make_shared<std::function<R(A...)>>(std::forward<F>(f))) {}
+  Fn(F&& f) : f_(std::make_shared<detail::Callable<std::decay_t<F>, R, A...>>(std::forward<F>(f))) {}
 
   R operator()(A... args) const {
     if (!f_) throwTypeError("Called an uninitialized function value");
-    return (*f_)(std::forward<A>(args)...);
+    return f_->call(std::forward<A>(args)...);
   }
   explicit operator bool() const { return f_ != nullptr; }
   const void* identity() const { return f_.get(); }
@@ -31,7 +56,7 @@ class Fn<R(A...)> {
   friend bool operator!=(const Fn& a, const Fn& b) { return a.f_ != b.f_; }
 
  private:
-  std::shared_ptr<std::function<R(A...)>> f_;
+  std::shared_ptr<detail::Callee<R, A...>> f_;
 };
 
 /// Calls `f` with as many of (a, b, c) as it accepts, the way JavaScript

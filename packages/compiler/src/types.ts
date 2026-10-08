@@ -483,6 +483,14 @@ export function cppIdent(name: string): string {
   return out.endsWith("_") && !out.startsWith("u_") ? `r_${out}` : out;
 }
 
+/**
+ * A temporary's name made from a program name: `t_<name>_<what>_`. It ends
+ * in `_` without the `u_` or `r_` prefix every program name that does has.
+ */
+export function temporary(name: string, what: string): string {
+  return `t_${safeIdent(name)}_${what}_`;
+}
+
 /** A C++-safe identifier: characters escaped, reserved words and `__` given a trailing `_`. */
 function safeIdent(name: string): string {
   let out = name.replace(/[^A-Za-z0-9_]/g, (c) => `_u${c.codePointAt(0)!.toString(16)}_`);

@@ -542,6 +542,7 @@ export async function buildProject(
     sdk,
     extensions,
     deferred,
+    root,
     ...(options.session ? { session: options.session } : {}),
   });
   read = [...new Set([...result.read.keys(), ...result.realpaths.keys()])];
@@ -631,6 +632,7 @@ export async function buildProject(
 
   const tWrite = Date.now();
   const w = writeNativePackage(result, outDir, {
+    root,
     check,
     native,
     androidDeferred: deferred.includes("android"),

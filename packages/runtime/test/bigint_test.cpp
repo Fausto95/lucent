@@ -384,6 +384,32 @@ static void measure() {
               bigAdd, intAdd, bigMul, intMul, convert, multiLimb);
 }
 
+/// Function values (lucent::Fn): one allocation each, whatever they capture
+/// (this binary counts allocations), copies sharing it, as `===` sees.
+static void functionValuesAllocateOnce() {
+  std::string big(64, 'x');
+  long made = allocationsIn([&] {
+    Fn<size_t(size_t)> f([big](size_t n) { return big.size() + n; });
+    CHECK(f(1) == 65);
+  });
+  // The capture's own string, and the function value: two, where a shared std::function made three.
+  CHECK(made == 2);
+
+  Fn<double(double)> twice([](double x) { return x * 2; });
+  long copied = allocationsIn([&] {
+    Fn<double(double)> alias = twice;
+    CHECK(alias == twice && alias.identity() == twice.identity() && alias(4) == 8);
+  });
+  CHECK(copied == 0);
+
+  // Arguments a call moves (a string), and void results.
+  String seen;
+  Fn<void(String)> keep([&seen](String s) { seen = std::move(s); });
+  keep(String::fromLatin1("kept"));
+  CHECK(seen == String::fromLatin1("kept"));
+  CHECK(!Fn<void()>() && Fn<void()>([] {}));
+}
+
 int main(int argc, char** argv) {
   if (argc < 2) {
     std::fprintf(stderr, "usage: bigint_test <corpus> (run.sh writes it with bigint/corpus.ts)\n");
@@ -399,6 +425,7 @@ int main(int argc, char** argv) {
   whatTheCompilerEmits();
   nativeIntegersForTheGlue();
   computeTasksTakeThemAsTheyAre();
+  functionValuesAllocateOnce();
 
   if (const char* bench = std::getenv("LUCENT_BIGINT_BENCH"); bench && std::string(bench) == "1") measure();
 
