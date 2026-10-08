@@ -97,7 +97,9 @@ Notable lowering choices:
 - **Integer inference** (`emit/integers.ts`): a local whose every write is
   a bitwise result (`|`, `^`, `>>>`, `Math.imul`, …) or an integer literal
   lives in an `int32_t`, `uint32_t` or `int64_t`, and a `for` counter stepped
-  by an integer is an `int64_t`. Values are exact in both representations, so
+  by ±1, or by a larger integer toward a bound (a literal, a `length`) short
+  of 2^53, is an `int64_t` (past 2^53 a double's sums round where int64's
+  would not). Values are exact in both representations, so
   reads convert to `double` without changing results; expressions also carry
   their integer form, so chains of bitwise operations never round-trip through
   `double`. Arithmetic (`+`, `-`, `*`, `%`, compound assignments, `++`) keeps a
