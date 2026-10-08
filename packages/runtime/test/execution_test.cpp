@@ -122,7 +122,7 @@ class StderrCapture {
 static void contextsAreDistinct() {
   auto a = IsolatedContext::create();
   auto b = IsolatedContext::create();
-  ExecutionContext& legacy = ExecutionContext::legacy();
+  ExecutionContext& legacy = Actor::shared();
   ExecutionContext& main = ExecutionContext::main();
 
   std::set<ContextId> ids{legacy.id(), main.id(), a->id(), b->id()};
@@ -132,7 +132,7 @@ static void contextsAreDistinct() {
   CHECK(roots.size() == 4 && !roots.count(nullptr));
   CHECK(a->root()->state() == Scope::State::Active);
 
-  CHECK(&legacy == &Scheduler::instance());
+  CHECK(&legacy == &Actor::shared());
   CHECK(ExecutionContext::current() == nullptr);
 
   {
@@ -140,7 +140,8 @@ static void contextsAreDistinct() {
 
     CHECK(ExecutionContext::current() == &legacy);
     CHECK(legacy.isCurrent() && !main.isCurrent());
-    CHECK(ExecutionContext::currentRef() == nullptr);
+    // An actor is named as itself; null names the shared actor too.
+    CHECK(ExecutionContext::currentRef().get() == &legacy && &ExecutionContext::of(nullptr) == &legacy);
   }
 
   CHECK(inside(legacy, [] { return ExecutionContext::current(); }) == &legacy);
@@ -162,7 +163,7 @@ static void microtasksStayInTheirContext() {
   inside(*a, [&] {
     a->enqueueMicrotask([&] { log.push_back(ExecutionContext::current() == a.get() ? "microtask on a" : "elsewhere"); });
 
-    othersEmpty = !b->hasMicrotasks() && !ExecutionContext::main().hasMicrotasks() && !Scheduler::microtasksPending();
+    othersEmpty = !b->hasMicrotasks() && !ExecutionContext::main().hasMicrotasks() && !Actor::shared().hasMicrotasks();
     log.push_back("job");
   });
 
@@ -217,8 +218,8 @@ static void turnsRunTheirMicrotasksFirst() {
 static void legacyMicrotasksWaitForAnEmptyStack() {
   std::string log;
 
-  Scheduler::instance().post([&] {
-    Scheduler::instance().enqueueMicrotask([&] { log += "microtask "; });
+  Actor::shared().post([&] {
+    Actor::shared().enqueueMicrotask([&] { log += "microtask "; });
 
     // A platform callback into module code during the job (callNow).
     { LucentScope nested; }
@@ -226,7 +227,7 @@ static void legacyMicrotasksWaitForAnEmptyStack() {
     log += "job end ";
   });
 
-  CHECK(Scheduler::instance().waitIdle(2000));
+  CHECK(Actor::shared().waitIdle(2000));
   CHECK(log == "job end microtask ");
 }
 
@@ -239,18 +240,18 @@ static void mainContextNeverTakesTheLucentLock() {
   std::atomic<bool> jobSawMain{false};
   ExecutionContext* mainCurrent = nullptr;
 
-  Scheduler::instance().post([&] {
+  Actor::shared().post([&] {
     ExecutionContext::main().post([&] {
       mainCurrent = ExecutionContext::current();
-      lockHeldMeanwhile = !Scheduler::lock().try_lock();
-      if (!lockHeldMeanwhile) Scheduler::lock().unlock();
+      lockHeldMeanwhile = !Actor::shared().lock().try_lock();
+      if (!lockHeldMeanwhile) Actor::shared().lock().unlock();
       mainRan = true;
     });
 
     jobSawMain = within(2000, [&] { return mainRan.load(); });
   });
 
-  CHECK(Scheduler::instance().waitIdle(5000));
+  CHECK(Actor::shared().waitIdle(5000));
   CHECK(jobSawMain && lockHeldMeanwhile);
   CHECK(mainCurrent == &ExecutionContext::main());
 }
@@ -263,7 +264,7 @@ static void noSynchronousEntryAcrossContexts() {
   // (LucentScope enters that one).
   CHECK(refused([&] { ContextEntry entry(main); }));
   CHECK(refused([&] { ContextEntry entry(*a); }));
-  CHECK(refused([] { ContextEntry entry(ExecutionContext::legacy()); }));
+  CHECK(refused([] { ContextEntry entry(Actor::shared()); }));
   CHECK(inside(*a, [&] { return refused([&] { ContextEntry entry(main); }); }));
 
   // Module code on the main thread (the legacy main(f)) cannot enter the
@@ -467,7 +468,7 @@ static void registrationAndSettlementRace() {
     for (int i = 0; i < 4; i++) {
       threads.emplace_back([p, &continued] {
         p.onSettled([&continued] {
-          if (Scheduler::lock().heldByCurrentThread()) continued++;
+          if (Actor::shared().lock().heldByCurrentThread()) continued++;
         });
       });
       threads.emplace_back([p, i] { p.resolve(i); });
@@ -545,7 +546,7 @@ static void settlementAfterShutdownIsDropped() {
   CHECK(a->waitStopped(2000));
 
   std::thread([p] { p.resolve(1); }).join();
-  CHECK(Scheduler::instance().waitIdle(2000));
+  CHECK(Actor::shared().waitIdle(2000));
   CHECK(!p.settled() && !continued);
 }
 
@@ -563,7 +564,7 @@ static void mainCallbacksAvoidTheLucentLock() {
   std::thread([&, captured = std::move(captured)]() mutable {
     postTo(main, [&, captured = std::move(captured)] {
       inMain = main.isCurrent() && onMainThread();
-      locked = Scheduler::lock().heldByCurrentThread();
+      locked = Actor::shared().lock().heldByCurrentThread();
       ran = true;
     });
   }).join();
@@ -578,7 +579,7 @@ static void mainCallbacksAvoidTheLucentLock() {
     std::string log;
     double result = callNowIn(main, [&] {
       main.enqueueMicrotask([&] { log += "microtask "; });
-      log += Scheduler::lock().heldByCurrentThread() ? "locked " : "unlocked ";
+      log += Actor::shared().lock().heldByCurrentThread() ? "locked " : "unlocked ";
       return 2.5;
     });
     log += result == 2.5 ? "returned" : "wrong result";
@@ -608,10 +609,10 @@ static void runInSettlesWithTheCaller() {
     LucentScope scope;
 
     fromModule = runIn(main, [&] {
-      ranUnlocked = onMainThread() && !Scheduler::lock().heldByCurrentThread();
+      ranUnlocked = onMainThread() && !Actor::shared().lock().heldByCurrentThread();
       return 42.0;
     });
-    fromModule.onSettled([&] { continuedLocked = Scheduler::lock().heldByCurrentThread(); });
+    fromModule.onSettled([&] { continuedLocked = Actor::shared().lock().heldByCurrentThread(); });
 
     failed = runIn(*a, [] { throwError(String::fromLatin1("RangeError"), String::fromLatin1("in a")); });
   }
@@ -643,7 +644,7 @@ static void legacyMainStillHoldsTheLock() {
 
   {
     LucentScope scope;
-    p = runOnMain([] { return onMainThread() && Scheduler::lock().heldByCurrentThread(); });
+    p = runOnMain([] { return onMainThread() && Actor::shared().lock().heldByCurrentThread(); });
   }
 
   CHECK(within(2000, [&] { return p.settled(); }));
@@ -651,7 +652,7 @@ static void legacyMainStillHoldsTheLock() {
 }
 
 static void aReleasedLockGoesToItsWaiter() {
-  LucentLock& lock = Scheduler::lock();
+  LucentLock& lock = Actor::shared().lock();
   std::atomic<bool> trying{false};
   std::atomic<int> turns{0};
   int waiterGotInAt = -1;
@@ -696,12 +697,14 @@ static Promise<void> yieldUntil(std::atomic<bool>* stop, std::atomic<int>* turns
   }
 }
 
-static void callsEnterBetweenYieldingTurns() {
+/// Calls from the JS thread into `actor` while its thread runs a loop that
+/// yields: each waits for about one turn, on any actor.
+static void callsEnterBetweenYieldingTurns(Actor& actor) {
   std::atomic<bool> stop{false};
   std::atomic<int> turns{0};
 
-  { LucentScope scope; }
-  Scheduler::instance().post([&] { yieldUntil(&stop, &turns); });
+  { LucentScope scope(actor); }
+  actor.post([&] { yieldUntil(&stop, &turns); });
   CHECK(within(2000, [&] { return turns.load() > 10; }));
 
   // The JS thread's calls into module code, each waiting for the lock.
@@ -714,7 +717,7 @@ static void callsEnterBetweenYieldingTurns() {
 
     auto asked = Clock::now();
 
-    { LucentScope scope; }
+    { LucentScope scope(actor); }
 
     longest = std::max(longest, std::chrono::duration<double, std::milli>(Clock::now() - asked).count());
   }
@@ -722,10 +725,10 @@ static void callsEnterBetweenYieldingTurns() {
   double total = std::chrono::duration<double, std::milli>(Clock::now() - start).count();
 
   stop = true;
-  CHECK(Scheduler::instance().waitIdle(2000));
+  CHECK(actor.waitIdle(2000));
 
   // Each call waits for about the turn running when it asked.
-  std::printf("execution: 50 calls against a yielding loop took %.1f ms, the longest %.2f ms\n", total, longest);
+  std::printf("execution: 50 calls into %s against a yielding loop took %.1f ms, the longest %.2f ms\n", actor.name(), total, longest);
   CHECK(longest < 50);
   CHECK(total < 1000);
 }
@@ -847,9 +850,9 @@ static void disposalRunsOnTheOwner() {
   CHECK(inside(*a, [&] { return here->dispose() != nullptr && here->state() == Scope::State::Disposed; }));
 
   // Module scopes: on the Lucent thread, holding the lock.
-  auto module = Scope::create(0, ExecutionContext::legacy().root());
+  auto module = Scope::create(0, Actor::shared().root());
   std::atomic<bool> locked{false};
-  module->onDispose([&] { locked = Scheduler::lock().heldByCurrentThread() && Scheduler::instance().onLucentThread(); });
+  module->onDispose([&] { locked = Actor::shared().lock().heldByCurrentThread() && Actor::shared().onActorThread(); });
   module->dispose();
   CHECK(within(2000, [&] { return locked.load(); }));
 
@@ -922,7 +925,7 @@ static size_t stackSize() {
 static void threadsHaveTheirStack() {
   std::atomic<size_t> lucent{0}, isolated{0}, clock{0};
 
-  Scheduler::instance().post([&] { lucent = stackSize(); });
+  Actor::shared().post([&] { lucent = stackSize(); });
 
   auto context = IsolatedContext::create();
   context->post([&] { isolated = stackSize(); });
@@ -973,7 +976,8 @@ int main() {
   runInSettlesWithTheCaller();
   legacyMainStillHoldsTheLock();
   aReleasedLockGoesToItsWaiter();
-  callsEnterBetweenYieldingTurns();
+  callsEnterBetweenYieldingTurns(Actor::shared());
+  callsEnterBetweenYieldingTurns(Actor::create("yielding"));
   abortRunsListenersOnTheOwner();
   listenerErrorsAreReported();
   delayAbortedFromAnotherContext();

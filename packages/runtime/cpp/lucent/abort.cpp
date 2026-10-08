@@ -22,7 +22,7 @@ void runListener(const std::function<void()>& f) {
 }  // namespace
 
 bool AbortSignalObject::onOwner() const {
-  return owner_ ? owner_->isCurrent() : Scheduler::lock().heldByCurrentThread();
+  return ExecutionContext::of(owner_).isCurrent();
 }
 
 void AbortSignalObject::toOwner(std::function<void(AbortSignalObject&)> change) {

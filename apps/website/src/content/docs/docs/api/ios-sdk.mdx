@@ -154,7 +154,7 @@ A pointer a method writes through (`CGFloat *`, `NSRange *`, `NSDate **`, `CFTyp
 - The promise rejects with the handler's error when the `async` form throws. Protocol requirements keep only the handler form, which a class implements.
 - A completion handler that receives several values keeps only the handler form.
 
-A block that returns nothing, outlives the call and runs off the main thread is queued on the Lucent thread. Any other block runs while the platform waits for it, holding the lock.
+A block that returns nothing, outlives the call and runs off the main thread is queued on its package's thread. Any other block runs while the platform waits for it, holding the lock.
 
 A block Swift runs on the main thread, marked `@MainActor` or not `@Sendable` in a main-actor method, runs there holding the lock. Main-thread-only APIs work in it. [Concurrency](/docs/api/language/concurrency/#where-each-kind-of-code-runs) says where each kind of code runs.
 
@@ -174,7 +174,7 @@ A block Swift runs on the main thread, marked `@MainActor` or not `@Sendable` in
 
 - A protocol is an abstract class that a Lucent class `implements`: `class Tracker implements CLLocationManagerDelegate`. Optional requirements are optional methods.
 - An instance goes wherever the SDK takes the protocol.
-- A requirement that returns nothing, or is `async`, is queued on the Lucent thread: Swift doesn't wait for an `async` one. One that returns a value, throws in Swift or runs on the main thread runs while the platform waits, holding the lock.
+- A requirement that returns nothing, or is `async`, is queued on its package's thread: Swift doesn't wait for an `async` one. One that returns a value, throws in Swift or runs on the main thread runs while the platform waits, holding the lock.
 
 [Implement a delegate](/docs/guides/implement-a-delegate/) keeps a delegate registered and cleans it up.
 
@@ -253,7 +253,7 @@ export async function digest(data: Uint8Array): Promise<Uint8Array> {
 | A member a module's protocol extension gives a type | A member of that type: `SHA256.hash` comes from `HashFunction`. |
 | A protocol's values (`any Drawable`) | Objects of the protocol's type. |
 
-`collect` calls your function with each element on the Lucent thread, in order, and the sequence waits for each call. It resolves when the sequence ends, and rejects with what the sequence or your function throws.
+`collect` calls your function with each element on its package's thread, in order, and the sequence waits for each call. It resolves when the sequence ends, and rejects with what the sequence or your function throws.
 
 Its `AbortSignal` cancels the task iterating the sequence. The function can't be `async`: the sequence wouldn't wait for its promise.
 

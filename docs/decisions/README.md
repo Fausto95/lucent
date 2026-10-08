@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                    | Date       | Decision                                                                    |
 | ------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| [0064](0064-an-actor-per-package-and-the-main-thread-never-queues.md)     | 2026-10-08 | An actor per package; the main thread never queues                          |
 | [0063](0063-a-value-only-its-own-local-sees-may-change-representation.md) | 2026-10-08 | A value only its own local sees may change representation                   |
 | [0062](0062-device-runs-are-nightly-only-until-they-are-reliable.md)      | 2026-10-08 | Device runs are nightly only, until they are reliable                       |
 | [0061](0061-a-build-with-only-deferred-platforms-succeeds.md)             | 2026-10-08 | A build with only deferred platforms succeeds                               |

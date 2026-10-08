@@ -78,14 +78,14 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Path>>::toJs(jsi::Runtime& r
 void proto_C_Path(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "parts", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Path>>::fromJs(rt, thisVal, Path{"Path.parts", "this"});
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, self->parts);
     });
   }, nullptr);
   defineFunction(rt, proto, "join", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Path.join", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 24), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Path.join", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 24), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Path>>::fromJs(rt, thisVal, Path{"Path.join", "this"});
       lucent::Array<lucent::String> a0;
       for (size_t i = 0; i < count; i++) {
@@ -114,7 +114,7 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Logger>>::toJs(jsi::Runtime&
 void proto_C_Logger(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineFunction(rt, proto, "log", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Logger.log", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 34), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Logger.log", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 34), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Logger>>::fromJs(rt, thisVal, Path{"Logger.log", "this"});
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Logger.log", "argument 'prefix'"});
       lucent::Array<double> a1;
@@ -141,7 +141,7 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_LoudLogger>>::toJs(jsi::Runt
 void proto_C_LoudLogger(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineFunction(rt, proto, "log", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("LoudLogger.log", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 40), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("LoudLogger.log", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 40), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_LoudLogger>>::fromJs(rt, thisVal, Path{"LoudLogger.log", "this"});
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"LoudLogger.log", "argument 'prefix'"});
       lucent::Array<double> a1;
@@ -200,7 +200,7 @@ using namespace lucent::js;
 void install_m_rest_u2d_parameters(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "sum", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("sum", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 1), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("sum", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 1), [&]() -> jsi::Value {
       lucent::Array<double> a0;
       for (size_t i = 0; i < count; i++) {
         a0.push(Convert<double>::fromJs(rt, args[i], Path::argument("sum", i + 1)));
@@ -210,7 +210,7 @@ void install_m_rest_u2d_parameters(jsi::Runtime& rt, Host& host, jsi::Object& ex
   });
   defineFunction(rt, exports, "tag", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("tag", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 5), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("tag", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 5), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"tag", "argument 'name'"});
       lucent::Array<std::variant<double, lucent::String>> a1;
       for (size_t i = 1; i < count; i++) {
@@ -221,25 +221,25 @@ void install_m_rest_u2d_parameters(jsi::Runtime& rt, Host& host, jsi::Object& ex
   });
   defineFunction(rt, exports, "later", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       lucent::Array<lucent::String> a0;
       for (size_t i = 0; i < count; i++) {
         a0.push(Convert<lucent::String>::fromJs(rt, args[i], Path::argument("later", i + 1)));
       }
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("later", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 9), [a0]() {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("later", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 9), [a0]() {
         return lucent_app::m_rest_u2d_parameters::later(a0);
       });
     });
   });
   defineFunction(rt, exports, "internal", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("internal", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 46), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("internal", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 46), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_rest_u2d_parameters::internal());
     });
   });
   defineClass(rt, host, exports, "Path", "rest-parameters.Path", proto_C_Path, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Path", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 13), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Path", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 13), [&]() -> jsi::Value {
       lucent::Array<std::variant<lucent::Ref<lucent_app::C_Path>, lucent::String>> a0;
       for (size_t i = 0; i < count; i++) {
         a0.push(Convert<std::variant<lucent::Ref<lucent_app::C_Path>, lucent::String>>::fromJs(rt, args[i], Path::argument("Path", i + 1)));
@@ -251,7 +251,7 @@ void install_m_rest_u2d_parameters(jsi::Runtime& rt, Host& host, jsi::Object& ex
     jsi::Object ctor = exports.getPropertyAsObject(rt, "Path");
     defineFunction(rt, ctor, "of", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, LUCENT_TRACE_SITE_AT("Path.of", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 28), [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Path.of", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 28), [&]() -> jsi::Value {
         lucent::Array<lucent::String> a0;
         for (size_t i = 0; i < count; i++) {
           a0.push(Convert<lucent::String>::fromJs(rt, args[i], Path::argument("Path.of", i + 1)));
@@ -262,19 +262,19 @@ void install_m_rest_u2d_parameters(jsi::Runtime& rt, Host& host, jsi::Object& ex
   }
   defineClass(rt, host, exports, "Logger", "rest-parameters.Logger", proto_C_Logger, 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Logger", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 33), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Logger", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 33), [&]() -> jsi::Value {
       return Convert<lucent::Ref<lucent_app::C_Logger>>::toJs(rt, host, lucent_app::C_Logger::create());
     });
   });
   defineClass(rt, host, exports, "LoudLogger", "rest-parameters.LoudLogger", proto_C_LoudLogger, 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("LoudLogger", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 39), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("LoudLogger", "packages/compiler/test/e2e/cases/rest-parameters.lucent.ts", 39), [&]() -> jsi::Value {
       return Convert<lucent::Ref<lucent_app::C_LoudLogger>>::toJs(rt, host, lucent_app::C_LoudLogger::create());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"rest-parameters", install_m_rest_u2d_parameters}};
+const ModuleDef kModules[] = {{"rest-parameters", install_m_rest_u2d_parameters, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -286,7 +286,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_rest_u2d_parameters::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_rest_u2d_parameters::init();
+  }
 }
 
 }  // namespace lucent::js

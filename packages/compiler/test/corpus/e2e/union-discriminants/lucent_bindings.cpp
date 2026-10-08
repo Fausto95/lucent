@@ -136,14 +136,14 @@ using namespace lucent::js;
 void install_m_union_u2d_discriminants(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "shape", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("shape", "packages/compiler/test/e2e/cases/union-discriminants.lucent.ts", 6), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("shape", "packages/compiler/test/e2e/cases/union-discriminants.lucent.ts", 6), [&]() -> jsi::Value {
       auto a0 = Convert<std::variant<lucent::Ref<lucent_app::S_Circle>, lucent::Ref<lucent_app::S_Square>>>::fromJs(rt, arg(args, count, 0), Path{"shape", "argument 's'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_union_u2d_discriminants::shape(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"union-discriminants", install_m_union_u2d_discriminants}};
+const ModuleDef kModules[] = {{"union-discriminants", install_m_union_u2d_discriminants, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -155,7 +155,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_union_u2d_discriminants::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_union_u2d_discriminants::init();
+  }
 }
 
 }  // namespace lucent::js

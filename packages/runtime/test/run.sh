@@ -30,7 +30,7 @@ source "$here/parallel.sh"
 # Each test binary is its test file linked with the runtime, which compiles
 # once for all of them.
 tests=(runtime_test scope_test callback_test resource_test lifecycle_test extension_test
-  execution_test compute_test buffer_test bigint_test number_test reactive_test view_test
+  execution_test actor_test compute_test buffer_test bigint_test number_test reactive_test view_test
   view_registry_test sizing_test slots_test items_test ui_children_test android_requests_test operation_test
   trace_test layout_test debug_test)
 binary() { [[ "$1" == runtime_test ]] && echo "$out" || echo "${out}_${1%_test}"; }
@@ -119,9 +119,13 @@ run_binary "$log" "${out}_resource"
 # conversions of what crosses into C.
 "${out}_extension"
 
-# Execution contexts: the legacy module context, the main context and
+# Execution contexts: module actors, the main context and
 # isolated contexts, with what crosses between their threads.
 run_binary "$log" "${out}_execution"
+
+# Module actors: a lock and a thread each, the main thread's entries, and
+# JavaScript callbacks that lend their actors to it; with fake threads.
+run_binary "$log" "${out}_actor"
 
 # Isolated compute: copying a task's input, the bounded pool and what
 # crosses between it and the task's owner.

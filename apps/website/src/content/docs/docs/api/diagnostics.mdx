@@ -1048,7 +1048,7 @@ export async function toast(): Promise<boolean> {
 
 @WorkerThread members do blocking work (disk, network, IPC). On the main thread they freeze the UI and can trigger an "application not responding" dialog. The call compiles, but Lucent warns, as Android lint does.
 
-**Fix:** call it outside main(() =\> …): async Lucent functions run on the Lucent thread.
+**Fix:** call it outside main(() =\> …): async Lucent functions run on their package's thread.
 
 <Tabs>
 <TabItem label="✗ example.lucent.ts">

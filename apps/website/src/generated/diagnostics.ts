@@ -363,7 +363,7 @@ export const explanations: { code: string; title: string; summary: string; detai
     "title": "Blocking call on the main thread",
     "summary": "An Android SDK member marked @WorkerThread, called inside main(() => …) or a main-thread callback.",
     "details": "@WorkerThread members do blocking work (disk, network, IPC). On the main thread they freeze the UI and can trigger an \"application not responding\" dialog. The call compiles, but Lucent warns, as Android lint does.",
-    "fix": "call it outside main(() => …): async Lucent functions run on the Lucent thread",
+    "fix": "call it outside main(() => …): async Lucent functions run on their package's thread",
     "wrong": {
       "example.lucent.ts": "import { PLATFORM } from \"lucent:platform\";\nimport { BlockedNumberContract } from \"lucent:android/android.provider\";\nimport { appContext } from \"lucent:android\";\nimport { main } from \"lucent:thread\";\nexport async function blocked(n: string): Promise<boolean> {\n  if (PLATFORM === \"android\") return main(() => BlockedNumberContract.isBlocked(appContext(), n));\n  return false;\n}\n"
     },

@@ -126,20 +126,20 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Circle>>::toJs(jsi::Runtime&
 void proto_C_Circle(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "kind", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Circle>>::fromJs(rt, thisVal, Path{"Circle.kind", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->kind);
     });
   }, nullptr);
   defineAccessor(rt, proto, "name", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Circle>>::fromJs(rt, thisVal, Path{"Circle.name", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->name);
     });
   }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Circle>>::fromJs(rt, thisVal, Path{"Circle.name", "this"});
       auto value = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Circle.name", "value"});
       self->name = value;
@@ -148,14 +148,14 @@ void proto_C_Circle(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineFunction(rt, proto, "area", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Circle.area", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 17), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Circle.area", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 17), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Circle>>::fromJs(rt, thisVal, Path{"Circle.area", "this"});
       return Convert<double>::toJs(rt, host, self->area());
     });
   });
   defineFunction(rt, proto, "describe", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Circle.describe", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 20), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Circle.describe", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 20), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Circle>>::fromJs(rt, thisVal, Path{"Circle.describe", "this"});
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Circle.describe", "argument 'prefix'"});
       return Convert<lucent::String>::toJs(rt, host, self->describe(std::move(a0)));
@@ -178,21 +178,21 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Rect>>::toJs(jsi::Runtime& r
 void proto_C_Rect(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "kind", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Rect>>::fromJs(rt, thisVal, Path{"Rect.kind", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->get_kind());
     });
   }, nullptr);
   defineFunction(rt, proto, "area", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Rect.area", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 33), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Rect.area", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 33), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Rect>>::fromJs(rt, thisVal, Path{"Rect.area", "this"});
       return Convert<double>::toJs(rt, host, self->area());
     });
   });
   defineFunction(rt, proto, "describe", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Rect.describe", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 36), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Rect.describe", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 36), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Rect>>::fromJs(rt, thisVal, Path{"Rect.describe", "this"});
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Rect.describe", "argument 'prefix'"});
       return Convert<lucent::String>::toJs(rt, host, self->describe(std::move(a0)));
@@ -215,13 +215,13 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Item>>::toJs(jsi::Runtime& r
 void proto_C_Item(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "label", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Item>>::fromJs(rt, thisVal, Path{"Item.label", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->label);
     });
   }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Item>>::fromJs(rt, thisVal, Path{"Item.label", "this"});
       auto value = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Item.label", "value"});
       self->label = value;
@@ -230,7 +230,7 @@ void proto_C_Item(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineFunction(rt, proto, "tag", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Item.tag", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 168), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Item.tag", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 168), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Item>>::fromJs(rt, thisVal, Path{"Item.tag", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->tag());
     });
@@ -252,13 +252,13 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Special>>::toJs(jsi::Runtime
 void proto_C_Special(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "label", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Special>>::fromJs(rt, thisVal, Path{"Special.label", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->label);
     });
   }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Special>>::fromJs(rt, thisVal, Path{"Special.label", "this"});
       auto value = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Special.label", "value"});
       self->label = value;
@@ -267,7 +267,7 @@ void proto_C_Special(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineFunction(rt, proto, "tag", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Special.tag", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 175), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Special.tag", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 175), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Special>>::fromJs(rt, thisVal, Path{"Special.tag", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->tag());
     });
@@ -347,27 +347,27 @@ using namespace lucent::js;
 void install_m_interfaces(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "totalArea", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("totalArea", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 41), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("totalArea", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 41), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<lucent::Ref<lucent_app::I_Shape>>>::fromJs(rt, arg(args, count, 0), Path{"totalArea", "argument 'shapes'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_interfaces::totalArea(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "describeAll", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("describeAll", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 47), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("describeAll", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 47), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_interfaces::describeAll());
     });
   });
   defineFunction(rt, exports, "largest", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("largest", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 52), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("largest", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 52), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<lucent::Ref<lucent_app::I_Shape>>>::fromJs(rt, arg(args, count, 0), Path{"largest", "argument 'shapes'"});
       return Convert<lucent::Opt<lucent::Ref<lucent_app::I_Shape>>>::toJs(rt, host, lucent_app::m_interfaces::largest(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "same", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("same", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 58), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("same", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 58), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::I_Shape>>::fromJs(rt, arg(args, count, 0), Path{"same", "argument 'a'"});
       auto a1 = Convert<lucent::Ref<lucent_app::I_Shape>>::fromJs(rt, arg(args, count, 1), Path{"same", "argument 'b'"});
       return Convert<bool>::toJs(rt, host, lucent_app::m_interfaces::same(std::move(a0), std::move(a1)));
@@ -375,7 +375,7 @@ void install_m_interfaces(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "rename", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("rename", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 62), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("rename", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 62), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::I_Named>>::fromJs(rt, arg(args, count, 0), Path{"rename", "argument 'n'"});
       auto a1 = Convert<lucent::String>::fromJs(rt, arg(args, count, 1), Path{"rename", "argument 'to'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_interfaces::rename(std::move(a0), std::move(a1)));
@@ -383,54 +383,54 @@ void install_m_interfaces(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "circleNames", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("circleNames", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 67), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("circleNames", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 67), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<lucent::Ref<lucent_app::I_Shape>>>::fromJs(rt, arg(args, count, 0), Path{"circleNames", "argument 'shapes'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_interfaces::circleNames(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "counters", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("counters", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 91), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("counters", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 91), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_interfaces::counters());
     });
   });
   defineFunction(rt, exports, "loadVia", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"loadVia", "argument 'key'"});
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("loadVia", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 109), [a0]() {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("loadVia", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 109), [a0]() {
         return lucent_app::m_interfaces::loadVia(a0);
       });
     });
   });
   defineFunction(rt, exports, "feeds", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("feeds", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 149), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("feeds", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 149), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_interfaces::feeds());
     });
   });
   defineFunction(rt, exports, "tagged", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("tagged", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 184), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("tagged", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 184), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_interfaces::tagged());
     });
   });
   defineFunction(rt, exports, "exportTagged", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("exportTagged", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 189), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("exportTagged", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 189), [&]() -> jsi::Value {
       return Convert<lucent::Ref<lucent_app::I_Tagged>>::toJs(rt, host, lucent_app::m_interfaces::exportTagged());
     });
   });
   defineClass(rt, host, exports, "Circle", "interfaces.Circle", proto_C_Circle, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Circle", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 13), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Circle", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 13), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Circle", "argument 'r'"});
       return Convert<lucent::Ref<lucent_app::C_Circle>>::toJs(rt, host, lucent_app::C_Circle::create(std::move(a0)));
     });
   });
   defineClass(rt, host, exports, "Rect", "interfaces.Rect", proto_C_Rect, 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Rect", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 25), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Rect", "packages/compiler/test/e2e/cases/interfaces.lucent.ts", 25), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Rect", "argument 'w'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"Rect", "argument 'h'"});
       return Convert<lucent::Ref<lucent_app::C_Rect>>::toJs(rt, host, lucent_app::C_Rect::create(std::move(a0), std::move(a1)));
@@ -438,7 +438,7 @@ void install_m_interfaces(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
 }
 
-const ModuleDef kModules[] = {{"interfaces", install_m_interfaces}};
+const ModuleDef kModules[] = {{"interfaces", install_m_interfaces, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -450,7 +450,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_interfaces::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_interfaces::init();
+  }
 }
 
 }  // namespace lucent::js

@@ -103,6 +103,11 @@ void detail::ComputeTask::finishRun() {
   context_.end();
 
   if (timed()) finished_ = now();
+
+  if (ComputePool* pool = runningOn_) {
+    std::lock_guard<std::mutex> g(pool->m_);
+    pool->stats_.finished++;
+  }
 }
 
 // --- ComputePool ----------------------------------------------------------------
@@ -242,6 +247,7 @@ void ComputePool::runOn(size_t index, TaskRef task) {
   if (task->timed()) task->started_ = detail::ComputeTask::now();
 
   task->tracePhase("compute.wait", "compute.run");
+  task->runningOn_ = this;
 
   bool posted;
   {
@@ -260,8 +266,9 @@ void ComputePool::runOn(size_t index, TaskRef task) {
     auto it = std::find(assigned_.begin(), assigned_.end(), task);
     if (it != assigned_.end()) assigned_.erase(it);
     task->place_ = detail::ComputeTask::Place::None;
+    task->runningOn_ = nullptr;
 
-    stats_.finished++;
+    // Finished was counted before the outcome left (finishRun).
     if (!posted) stats_.abandoned++;
 
     if (!closed_ && !queue_.empty()) {

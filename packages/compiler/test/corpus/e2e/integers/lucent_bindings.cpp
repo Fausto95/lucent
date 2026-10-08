@@ -77,13 +77,13 @@ using namespace lucent::js;
 void install_m_integers(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "wraparound", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("wraparound", "packages/compiler/test/e2e/cases/integers.lucent.ts", 4), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("wraparound", "packages/compiler/test/e2e/cases/integers.lucent.ts", 4), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_integers::wraparound());
     });
   });
   defineFunction(rt, exports, "shifts", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("shifts", "packages/compiler/test/e2e/cases/integers.lucent.ts", 17), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("shifts", "packages/compiler/test/e2e/cases/integers.lucent.ts", 17), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"shifts", "argument 'value'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"shifts", "argument 'by'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_integers::shifts(std::move(a0), std::move(a1)));
@@ -91,33 +91,33 @@ void install_m_integers(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "mixed", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("mixed", "packages/compiler/test/e2e/cases/integers.lucent.ts", 27), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("mixed", "packages/compiler/test/e2e/cases/integers.lucent.ts", 27), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"mixed", "argument 'seed'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_integers::mixed(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "signedZero", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("signedZero", "packages/compiler/test/e2e/cases/integers.lucent.ts", 37), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("signedZero", "packages/compiler/test/e2e/cases/integers.lucent.ts", 37), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_integers::signedZero());
     });
   });
   defineFunction(rt, exports, "counters", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("counters", "packages/compiler/test/e2e/cases/integers.lucent.ts", 45), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("counters", "packages/compiler/test/e2e/cases/integers.lucent.ts", 45), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_integers::counters());
     });
   });
   defineFunction(rt, exports, "unsignedAccumulate", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("unsignedAccumulate", "packages/compiler/test/e2e/cases/integers.lucent.ts", 60), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("unsignedAccumulate", "packages/compiler/test/e2e/cases/integers.lucent.ts", 60), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"unsignedAccumulate", "argument 'n'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_integers::unsignedAccumulate(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "destructured", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("destructured", "packages/compiler/test/e2e/cases/integers.lucent.ts", 69), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("destructured", "packages/compiler/test/e2e/cases/integers.lucent.ts", 69), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_Object_1e208747>>::fromJs(rt, arg(args, count, 0), Path{"destructured", "argument 'p'"});
       auto a1 = Convert<lucent::Array<double>>::fromJs(rt, arg(args, count, 1), Path{"destructured", "argument 'xs'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_integers::destructured(std::move(a0), std::move(a1)));
@@ -125,7 +125,7 @@ void install_m_integers(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
 }
 
-const ModuleDef kModules[] = {{"integers", install_m_integers}};
+const ModuleDef kModules[] = {{"integers", install_m_integers, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -137,7 +137,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_integers::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_integers::init();
+  }
 }
 
 }  // namespace lucent::js

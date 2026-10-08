@@ -32,48 +32,48 @@ using namespace lucent::js;
 void install_m_optional_u2d_calls(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "statements", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("statements", "packages/compiler/test/e2e/cases/optional-calls.lucent.ts", 27), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("statements", "packages/compiler/test/e2e/cases/optional-calls.lucent.ts", 27), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"statements", "argument 'present'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optional_u2d_calls::statements(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "expressions", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("expressions", "packages/compiler/test/e2e/cases/optional-calls.lucent.ts", 38), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("expressions", "packages/compiler/test/e2e/cases/optional-calls.lucent.ts", 38), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"expressions", "argument 'present'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optional_u2d_calls::expressions(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "chains", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("chains", "packages/compiler/test/e2e/cases/optional-calls.lucent.ts", 58), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("chains", "packages/compiler/test/e2e/cases/optional-calls.lucent.ts", 58), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"chains", "argument 'hasChild'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optional_u2d_calls::chains(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "callbacks", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("callbacks", "packages/compiler/test/e2e/cases/optional-calls.lucent.ts", 72), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("callbacks", "packages/compiler/test/e2e/cases/optional-calls.lucent.ts", 72), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"callbacks", "argument 'listen'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optional_u2d_calls::callbacks(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "listens", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("listens", "packages/compiler/test/e2e/cases/optional-calls.lucent.ts", 91), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("listens", "packages/compiler/test/e2e/cases/optional-calls.lucent.ts", 91), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<lucent::AbortSignal>(rt, arg(args, count, 0), Path{"listens", "argument 'signal'"}, false, "an AbortSignal or undefined");
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optional_u2d_calls::listens(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "asserted", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("asserted", "packages/compiler/test/e2e/cases/optional-calls.lucent.ts", 107), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("asserted", "packages/compiler/test/e2e/cases/optional-calls.lucent.ts", 107), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optional_u2d_calls::asserted());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"optional-calls", install_m_optional_u2d_calls}};
+const ModuleDef kModules[] = {{"optional-calls", install_m_optional_u2d_calls, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -85,7 +85,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_optional_u2d_calls::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_optional_u2d_calls::init();
+  }
 }
 
 }  // namespace lucent::js

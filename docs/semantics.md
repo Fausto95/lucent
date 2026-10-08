@@ -459,31 +459,65 @@ null }` and `{ v: string | undefined }` share one native layout). A body
 
 ## Concurrency model
 
-Lucent code runs **one piece at a time**, like JavaScript. Every entry into
-Lucent code holds the Lucent lock: a synchronous call from the JS thread, or a
-job on the Lucent thread.
+Lucent code runs **one piece at a time per package**, like JavaScript. Modules
+that import one another (a package, or an app's own modules) share an
+**actor**: a lock and a thread of their own. Every entry into a module holds
+its actor's lock: a synchronous call from the JS thread, a job on the actor's
+thread, or a platform callback.
 
 - A synchronous exported function runs on the JS thread.
-- An `async` exported function starts on the **Lucent thread**, so heavy work
-  does not block the JS thread. Its awaits interleave with other Lucent async
-  work exactly as in JavaScript, and its result resolves on the JS thread.
-- Lucent code never races with itself, so there are no data races.
+- An `async` exported function starts on its **actor's thread**, so heavy
+  work does not block the JS thread. Its awaits interleave with its actor's
+  other async work exactly as in JavaScript, and its result resolves on the JS
+  thread.
+- A module never races with itself, so there are no data races: modules on
+  different actors share no objects (only values JavaScript copies between
+  them).
+- Actors run in parallel: a long job in one package delays neither another
+  package nor the main thread.
 
 Consequence: while a long async computation runs, synchronous calls from
-JavaScript wait for it to reach an `await`. Keep synchronous functions short, or
-make heavy ones `async`.
+JavaScript into the **same package** wait for it to reach an `await`. Keep
+synchronous functions short, or make heavy ones `async`.
+
+**The main thread never queues behind module jobs.** `main(f)`, `present()`
+and lifecycle listeners (`onAppEvent`, `onSceneEvent`) run on the main thread
+once their actor is free; until then the main thread goes on with other work.
+A platform callback that must answer now (a delegate method's result) waits
+only for the code holding the actor at that moment, ahead of every other
+waiting entry; a debug build logs when that wait passes 50 ms. While a
+synchronous Lucent function calls a JavaScript callback, the main thread may
+enter its actor, as that JavaScript could: so JavaScript that waits for the
+main thread (a native module method run on the main queue) inside a callback
+cannot deadlock it.
+
+**Calls across packages.** A module of one package reaches another only
+through JavaScript (a callback that calls the other package's export) or the
+platform (a delegate of another package called during a native call). The
+thread then holds both actors, nested. A nested wait that would close a cycle
+(two threads, each holding one package and waiting for the other's) is refused:
+the call that would wait throws an `Error` whose message starts with
+`Lucent: deadlock`, instead of hanging. Making one of the calls later (from a
+JavaScript promise callback, say) avoids it.
+
+**Several JavaScript runtimes.** Work module code starts (an async call, a
+timer, a compute task) belongs to the runtime whose call started it: tearing a
+runtime down (a reload) cancels its work only. Module variables are the
+process's: a runtime started while another is running (a second React Native
+instance) shares them, where the first runtime, and each reload, starts them
+anew.
 
 ## Recursion limits
 
 A Lucent function call is a native call: recursion uses the thread's
 native stack, with no check per call. The stack is 8 MB on every thread
-Lucent starts (the Lucent thread, isolated and compute contexts), where a
+Lucent starts (actors' threads, isolated and compute contexts), where a
 platform's default for a secondary thread is 512 KB (iOS) to 1 MB
 (Android). The JS thread and the main thread have the platform's: about
 8 MB on iOS's main thread, 8 MB on Android's, and React Native's JS thread
 its own (1 MB on Android, 512 KB or more on iOS, depending on the version).
 A synchronous exported function runs on the JS thread, so its recursion
-has the JS thread's stack; an `async` one starts on the Lucent thread.
+has the JS thread's stack; an `async` one starts on its actor's thread.
 
 A frame is a few hundred bytes for a small function, so thousands of
 levels fit on the JS thread and tens of thousands on Lucent's; recursion

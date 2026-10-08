@@ -1377,35 +1377,44 @@ Rules, each with a test:
 
 ### Execution contexts
 
-- Contexts: `legacy-module` (the Lucent thread and the Lucent lock, with
-  ordering unchanged), `main` (the platform UI loop; never takes the
-  Lucent lock), and bounded compute workers. Each has its own queue,
+- Contexts: module actors (one per import component, `Actor`: a thread
+  and a lock each, with ordering unchanged within one; the compiler's
+  `legacy-module` owner), `main` (the platform UI loop; never takes an
+  actor's lock), and bounded compute workers. Each has its own queue,
   microtask queue and root scope. No microtask queue is shared between
   contexts.
 - A promise continuation resumes on the context that registered it.
   Settlement from another thread posts an owned outcome to that context.
 - No synchronous cross-context waits: not UI to JavaScript, UI to worker,
   nor JavaScript to UI.
-- The existing `main(f)` (`runOnMain` holding the Lucent lock) stays as
-  the explicit legacy compatibility path; new UI code never uses it.
+- The existing `main(f)` (`runOnMain`, holding the calling actor's lock
+  once the main thread can take it without waiting) stays as the explicit
+  compatibility path; new UI code never uses it.
+- The main thread never takes an actor's ticket: deferred entries
+  (`enterFromMain`) retry once the lock is released; entries that must
+  answer (`callNow` there) wait only for the holder in place
+  (`lockFromMain`), which hands it the lock. A synchronous JavaScript
+  callback lends its thread's actors to the main thread (`ParkedActors`).
+- A nested wait for another actor's lock that would close a cycle throws
+  (`Lucent: deadlock`) instead of waiting.
 
 The API (`execution.h`):
 
 - `ExecutionContext` implements `Scope::Owner`: `current()`,
-  `currentRef()` (a null ref is the legacy module context), `legacy()`,
-  `main()`, `id()`, `root()`, `isCurrent()`, `onExecutor()`,
+  `currentRef()` (a null ref is the shared actor), `of(ref)`,
+  `isActor()`, `main()`, `id()`, `root()`, `isCurrent()`, `onExecutor()`,
   `post(Job[, owner scope])` (an owned post is dropped if its owner was
   disposed or regenerated), `postDelayed`. `enqueueMicrotask` and
   `drainMicrotasks` work only on the context's own thread
   (`std::logic_error` elsewhere).
 - `ContextEntry`: synchronous entry into a context on its own thread. It
-  refuses the legacy context, lock holders, and entry from another
-  context.
+  refuses actors, actor lock holders, and entry from another context.
 - `IsolatedContext`: `create`, `shutdown` (non-waiting).
-- `Scheduler` is the legacy context; the Lucent lock stays on its call
-  path.
-- `native.h`: the legacy `postCallback`, `callNow` and `runOnMain`, and
-  the lock-free `postTo`, `callNowIn` and `runIn`;
+- `Actor` (`scheduler.h`) is a module actor: `shared()`, `create(name)`,
+  `current()`; its lock stays on its call path.
+- `native.h`: the actor entries `postCallback(actor, f)`,
+  `callNow(actor, f)`, `enterFromMain(actor, f)` and `runOnMain`, and the
+  lock-free `postTo`, `callNowIn` and `runIn`;
   `detail::runOn(context, job)`.
 - A promise's owner is the context current at its creation. Its state
   changes only on the owner; settlement and registration from elsewhere
@@ -1482,13 +1491,16 @@ setTimingSink(fn), admit(task, signal) }`, with `TaskTiming` and
 
 ### Module scope, lifecycle and presentations (v1.6, proposed)
 
-- `std::shared_ptr<Scope> moduleScope()` and `setModuleScope(scope)`
-  (`execution.h`): the scope module code's work belongs to (a compute
-  task, say), which is the current JavaScript runtime's scope, installed
-  by `Host::create`. Tearing that runtime down (a reload) cancels the
-  work. A torn-down runtime's scope stays the module scope until another
-  replaces it, so nothing more starts for it. Without a runtime, it is
-  the legacy module context's root. Any thread. Compiled compute submits
+- `std::shared_ptr<Scope> moduleScope()` (`execution.h`): the scope
+  module code's work belongs to (a compute task, say): the scope, on the
+  calling actor, of the JavaScript runtime the thread runs for. That is
+  the runtime whose call it is in (`RuntimeEntry`, which every entry from
+  JavaScript makes, and which posts carry to their turns), else the last
+  attached that is live (`attachRuntime`, by `Host::create`). Tearing that
+  runtime down (a reload) cancels its work only; a second runtime's goes
+  on. A torn-down runtime's scope stays the default until another is
+  attached, so nothing more starts for it, and a gone runtime's is
+  disposed. Without a runtime, it is the actor's root. Any thread. Compiled compute submits
   under it.
 - `lifecycle.h`: a pure C++ core of app and scene lifecycle.
   - `SceneId` (`uint64_t`); `AppEvent` (`DidBecomeActive`,

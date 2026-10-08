@@ -33,65 +33,65 @@ using namespace lucent::js;
 void install_m_abort(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "waitOrStop", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"waitOrStop", "argument 'ms'"});
       auto a1 = Convert<lucent::AbortSignal>::fromJs(rt, arg(args, count, 1), Path{"waitOrStop", "argument 'signal'"});
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("waitOrStop", "packages/compiler/test/e2e/cases/abort.lucent.ts", 3), [a0, a1]() {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("waitOrStop", "packages/compiler/test/e2e/cases/abort.lucent.ts", 3), [a0, a1]() {
         return lucent_app::m_abort::waitOrStop(a0, a1);
       });
     });
   });
   defineFunction(rt, exports, "tickUntilAborted", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::AbortSignal>::fromJs(rt, arg(args, count, 0), Path{"tickUntilAborted", "argument 'signal'"});
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("tickUntilAborted", "packages/compiler/test/e2e/cases/abort.lucent.ts", 12), [a0]() {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("tickUntilAborted", "packages/compiler/test/e2e/cases/abort.lucent.ts", 12), [a0]() {
         return lucent_app::m_abort::tickUntilAborted(a0);
       });
     });
   });
   defineFunction(rt, exports, "check", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("check", "packages/compiler/test/e2e/cases/abort.lucent.ts", 21), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("check", "packages/compiler/test/e2e/cases/abort.lucent.ts", 21), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::AbortSignal>::fromJs(rt, arg(args, count, 0), Path{"check", "argument 'signal'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_abort::check(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "checkOptional", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("checkOptional", "packages/compiler/test/e2e/cases/abort.lucent.ts", 30), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("checkOptional", "packages/compiler/test/e2e/cases/abort.lucent.ts", 30), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<lucent::AbortSignal>(rt, arg(args, count, 0), Path{"checkOptional", "argument 'signal'"}, false, "an AbortSignal or undefined");
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_abort::checkOptional(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "controllerInLucent", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("controllerInLucent", "packages/compiler/test/e2e/cases/abort.lucent.ts", 34), []() {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("controllerInLucent", "packages/compiler/test/e2e/cases/abort.lucent.ts", 34), []() {
         return lucent_app::m_abort::controllerInLucent();
       });
     });
   });
   defineFunction(rt, exports, "customReason", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("customReason", "packages/compiler/test/e2e/cases/abort.lucent.ts", 55), []() {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("customReason", "packages/compiler/test/e2e/cases/abort.lucent.ts", 55), []() {
         return lucent_app::m_abort::customReason();
       });
     });
   });
   defineFunction(rt, exports, "abortedMidway", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::AbortSignal>::fromJs(rt, arg(args, count, 0), Path{"abortedMidway", "argument 'signal'"});
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("abortedMidway", "packages/compiler/test/e2e/cases/abort.lucent.ts", 66), [a0]() {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("abortedMidway", "packages/compiler/test/e2e/cases/abort.lucent.ts", 66), [a0]() {
         return lucent_app::m_abort::abortedMidway(a0);
       });
     });
   });
 }
 
-const ModuleDef kModules[] = {{"abort", install_m_abort}};
+const ModuleDef kModules[] = {{"abort", install_m_abort, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -103,7 +103,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_abort::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_abort::init();
+  }
 }
 
 }  // namespace lucent::js

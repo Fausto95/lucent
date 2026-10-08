@@ -90,6 +90,9 @@ function named(name, message) {
 const pending = new Map();
 let lastRequest = 0;
 let connected = false;
+// Where this runtime's request ids start, from the native host: an id
+// names the runtime that sent it (0 from a host that gives none).
+let requestBase = 0;
 
 /**
  * Settles request `id`: rejects it with `error` (a message) unless that is
@@ -123,7 +126,8 @@ function connect(ReactNative) {
     throw e;
   }
 
-  host.__lucentViewRequests(settleRequest);
+  const base = host.__lucentViewRequests(settleRequest);
+  requestBase = typeof base === "number" ? base : 0;
   connected = true;
 }
 
@@ -147,7 +151,7 @@ function commandsOf(config, host, mount, native, ReactNative) {
             connect(ReactNative);
 
             // The answer comes in a later turn of the JavaScript thread, after the id is pending.
-            const id = ++lastRequest;
+            const id = requestBase + ++lastRequest;
             native[command.name](host.current, id, ...encoded(args));
 
             pending.set(id, { resolve, reject, mount });

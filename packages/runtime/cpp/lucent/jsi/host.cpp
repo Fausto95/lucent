@@ -38,12 +38,12 @@ struct CachedHost {
 };
 thread_local CachedHost cached;
 
-/// Runs `job` on the legacy module context: here if this thread is in it,
-/// else as a turn there. Either way `job` is destroyed there, holding the
-/// Lucent lock, like the values it carries.
-void onModuleContext(Job job) {
-  if (!Scheduler::lock().heldByCurrentThread()) {
-    Scheduler::instance().post(std::move(job));
+/// Runs `job` on `actor`: here if this thread is in it, else as a turn
+/// there. Either way `job` is destroyed there, holding its lock, like the
+/// values it carries.
+void onActor(Actor& actor, Job job) {
+  if (!actor.isCurrent()) {
+    actor.post(std::move(job));
     return;
   }
 
@@ -65,13 +65,14 @@ class Counted {
 };
 
 /// A task for the JS thread. If it never runs there, it is released on the
-/// legacy module context, after `dropped`: the values it carries are the
-/// module context's, whichever thread gave up on the task. It counts as in
-/// flight until then.
+/// actor that posted it, after `dropped`: the values it carries are that
+/// actor's, whichever thread gave up on the task. It counts as in flight
+/// until then.
 struct Parcel {
   std::shared_ptr<Counted> counted;
   JsTask task;
   Job dropped;
+  Actor& actor = currentActor();
   std::atomic<bool> ran{false};
 
   Parcel(std::shared_ptr<Counted> c, JsTask t, Job d) : counted(std::move(c)), task(std::move(t)), dropped(std::move(d)) {}
@@ -79,7 +80,7 @@ struct Parcel {
   ~Parcel() {
     if (ran.load()) return;
 
-    onModuleContext([counted = std::move(counted), task = std::move(task), dropped = std::move(dropped)]() mutable {
+    onActor(actor, [counted = std::move(counted), task = std::move(task), dropped = std::move(dropped)]() mutable {
       if (dropped) dropped();
 
       task = nullptr;
@@ -191,10 +192,14 @@ std::shared_ptr<Host> Host::create(jsi::Runtime& rt, JsPoster poster) {
   rt.global().setProperty(rt, "__lucentDebug", Anchor::debugObject(rt, host));
 #endif
 
-  // Module code's work from now on belongs to this runtime: tearing it down cancels that work.
-  setModuleScope(host->scope());
-  {
-    LucentScope scope;
+  // Module code's work for this runtime belongs to it: tearing it down
+  // cancels that work, and only that.
+  attachRuntime(host->id(), host);
+
+  // Module state is the process's: a second runtime alongside a first
+  // shares it. Each module's initialization holds its actor.
+  if (!otherRuntimes(host->id())) {
+    RuntimeEntry entry(host->id());
     resetModuleState();
   }
   return host;
@@ -226,9 +231,29 @@ Host::Host(jsi::Runtime& rt, JsPoster poster)
       rt_(rt),
       poster_(std::move(poster)),
       jsThread_(std::this_thread::get_id()),
-      scope_(Scope::create(id_, Scheduler::instance().root())) {}
+      scope_(Scope::create(id_, Actor::shared().root())) {
+  scopes_.emplace(&Actor::shared(), scope_);
+}
+
+std::shared_ptr<Scope> Host::scopeFor(ExecutionContext& actor) {
+  std::shared_ptr<Scope> made;
+  {
+    std::lock_guard<std::mutex> g(scopesMutex_);
+    auto it = scopes_.find(&actor);
+    if (it != scopes_.end()) return it->second;
+
+    made = Scope::create(id_, actor.root());
+    scopes_.emplace(&actor, made);
+  }
+
+  // Torn down already: nothing more starts for this runtime.
+  if (!alive_.load()) made->dispose();
+  return made;
+}
 
 Host::~Host() {
+  detachRuntime(id_);
+
   std::lock_guard<std::mutex> g(registryMutex());
   auto it = registry().find(&rt_);
   if (it != registry().end() && it->second.expired()) registry().erase(it);
@@ -259,19 +284,19 @@ bool Host::postToJs(JsTask task, Job dropped) {
   return true;
 }
 
-void Host::postToModule(Job job) {
+void Host::postToModule(Actor& actor, Job job) {
   std::weak_ptr<Host> weak = weak_from_this();
 
   // The scope drops the job once disposed; until its disposal has run on
-  // the module context, the host's own state says it is torn down.
-  Scheduler::instance().post(
+  // the actor, the host's own state says it is torn down.
+  actor.post(
       [weak, counted = std::make_shared<Counted>(inFlight_), job = std::move(job)]() mutable {
         auto self = weak.lock();
         if (self && self->alive()) job();
 
         job = nullptr;
       },
-      scope_);
+      scopeFor(actor));
 }
 
 Host::Ownership Host::ownership() const {
@@ -280,13 +305,19 @@ Host::Ownership Host::ownership() const {
     if (weak.lock(rt_).isObject()) identities++;
   }
 
+  size_t registrations = 0;
+  {
+    std::lock_guard<std::mutex> g(scopesMutex_);
+    for (auto& [actor, scope] : scopes_) registrations += scope->registrations();
+  }
+
   return {id_,
           promises_.size(),
           functions_.size(),
           identities,
           prototypes_.size(),
           modules_.size(),
-          scope_->registrations(),
+          registrations,
           inFlight_->load()};
 }
 
@@ -315,8 +346,14 @@ void Host::tearDown(bool runtimeUsable) {
 
   owed.clear();
 
-  // Cancels its operations and runs its cleanups on the module context.
-  if (auto e = scope_->dispose()) reportUncaught(e, "host");
+  // Cancels its operations and runs its cleanups on each actor.
+  std::vector<std::shared_ptr<Scope>> scopes;
+  {
+    std::lock_guard<std::mutex> g(scopesMutex_);
+    for (auto& [actor, scope] : scopes_) scopes.push_back(scope);
+  }
+  for (auto& scope : scopes)
+    if (auto e = scope->dispose()) reportUncaught(e, "host");
 
   functions_.clear();
   promiseConstructor_.reset();
@@ -348,7 +385,8 @@ jsi::Value Host::module(jsi::Runtime& rt, const std::string& name) {
     if (name == defs[i].name) {
       jsi::Object exports(rt);
       {
-        LucentScope scope;
+        RuntimeEntry entry(id_);
+        LucentScope scope(defs[i].actor ? defs[i].actor() : Actor::shared());
         defs[i].install(rt, *this, exports);
       }
       jsi::Value v(rt, exports);

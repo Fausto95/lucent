@@ -6,20 +6,20 @@ import { DiagramNote } from "./DiagramNote";
 import { DiagramSvg } from "./DiagramSvg";
 
 const m = "threads-arrow";
-const lanes = ["JS", "LUCENT", "WORKERS", "MAIN"] as const;
+const lanes = ["JS", "PACKAGE", "WORKERS", "MAIN"] as const;
 const laneW = 130;
 const laneX = (i: number) => 8 + i * (laneW + 8);
 const x = (i: number) => laneX(i) + 8;
 const w = laneW - 16;
 const row = (i: number) => 40 + i * 70;
 
-/** What runs on each thread, which of it shares the lock module code takes, and how work moves between threads. */
+/** What runs on each thread, which of it takes its package's lock, and how work moves between threads. */
 export function ThreadsDiagram() {
   return (
     <DiagramSvg
       viewBox="0 0 560 380"
       markerId={m}
-      title="The JS thread, the Lucent thread, compute workers and the main thread, and what runs on each"
+      title="The JS thread, a package's thread, compute workers and the main thread, and what runs on each"
     >
       {lanes.map((label, i) => (
         <DiagramLane key={label} x={laneX(i)} y={10} w={laneW} h={310} label={label} />
@@ -41,8 +41,8 @@ export function ThreadsDiagram() {
         x={16}
         y={346}
         lines={[
-          "Module code takes turns under one lock: sync exports, async bodies, main(f).",
-          "Compute tasks and view setups run beside it, without the lock.",
+          "A package's code takes turns under its lock: sync exports, async bodies, main(f).",
+          "Other packages, compute tasks and view setups run beside it, without that lock.",
         ]}
       />
     </DiagramSvg>

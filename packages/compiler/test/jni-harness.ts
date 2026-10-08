@@ -65,7 +65,7 @@ function runtimeClasses(dir: string): string {
   return out;
 }
 
-/** Calls run() on the Lucent thread, the JVM started first, and prints what it settles with. */
+/** Calls run() on its module's actor, the JVM started first, and prints what it settles with. */
 const main = `#include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -78,7 +78,7 @@ int main(int, char** argv) {
   lucentStartJvm(argv[1]);
   std::atomic<bool> done{false};
 
-  lucent::postCallback([&done] {
+  lucent::postCallback(lucent_app::actor_0(), [&done] {
     lucent_app::m_m::init();
 
     auto p = lucent_app::m_m::run();

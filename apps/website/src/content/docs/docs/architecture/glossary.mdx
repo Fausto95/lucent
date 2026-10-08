@@ -85,27 +85,31 @@ Where JavaScript calls into Lucent code, and Lucent code calls back. Values are 
 
 ### Module code
 
-A module's exports, what runs after their `await`s, and the callbacks it registers: the code that holds the Lucent lock ([Concurrency](/docs/api/language/concurrency/)).
+A module's exports, what runs after their `await`s, and the callbacks it registers: the code that holds its package's lock ([Concurrency](/docs/api/language/concurrency/)).
 
 ### Module state
 
-A module's top-level variables and its classes' static fields, except a `const` or `readonly` one holding no object. All module code shares it, and compute tasks and view code can't use it ([Concurrency](/docs/api/language/concurrency/#the-lucent-lock)).
+A module's top-level variables and its classes' static fields, except a `const` or `readonly` one holding no object. All module code shares it, and compute tasks and view code can't use it ([Concurrency](/docs/api/language/concurrency/#packages-and-their-locks)).
 
 ### Turn
 
-A job of module code and the `await` continuations it queues, run under the Lucent lock from start to end ([The Lucent lock](/docs/api/language/concurrency/#the-lucent-lock)).
+A job of module code and the `await` continuations it queues, run under its package's lock from start to end ([Packages and their locks](/docs/api/language/concurrency/#packages-and-their-locks)).
+
+### Actor
+
+The modules that import one another, such as a package's. They share a lock and a thread, so their code runs one turn at a time, in parallel with other packages' ([Concurrency](/docs/api/language/concurrency/#packages-and-their-locks)).
 
 ### Lucent thread
 
-The background thread async module code runs on ([Threads](/docs/architecture/threads/)).
+A package's thread: the background thread its async module code runs on ([Threads](/docs/architecture/threads/)).
 
 ### Lucent lock
 
-The lock module code runs under, so it runs one turn at a time. [Concurrency](/docs/api/language/concurrency/) says which code holds it.
+A package's lock, which its module code runs under, so it runs one turn at a time. [Concurrency](/docs/api/language/concurrency/) says which code holds it.
 
 ### Main context
 
-Where view code runs, on the main thread: a component's setup, its effects and commands, and the callbacks it gives the platform. It never takes the Lucent lock. The function given to `main(f)` and main-thread SDK callbacks aren't in it: they're module code the main thread runs, holding the lock ([Concurrency](/docs/api/language/concurrency/#the-main-context)).
+Where view code runs, on the main thread: a component's setup, its effects and commands, and the callbacks it gives the platform. It never takes a package's lock. The function given to `main(f)` and main-thread SDK callbacks aren't in it: they're module code the main thread runs, holding their package's lock ([Concurrency](/docs/api/language/concurrency/#the-main-context)).
 
 ### Compute task
 

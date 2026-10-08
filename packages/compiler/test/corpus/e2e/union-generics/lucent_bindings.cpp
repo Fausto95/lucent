@@ -29,32 +29,32 @@ using namespace lucent::js;
 void install_m_union_u2d_generics(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "members", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("members", "packages/compiler/test/e2e/cases/union-generics.lucent.ts", 25), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("members", "packages/compiler/test/e2e/cases/union-generics.lucent.ts", 25), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_union_u2d_generics::members());
     });
   });
   defineFunction(rt, exports, "comparisons", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("comparisons", "packages/compiler/test/e2e/cases/union-generics.lucent.ts", 40), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("comparisons", "packages/compiler/test/e2e/cases/union-generics.lucent.ts", 40), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_union_u2d_generics::comparisons());
     });
   });
   defineFunction(rt, exports, "optionals", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("optionals", "packages/compiler/test/e2e/cases/union-generics.lucent.ts", 48), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("optionals", "packages/compiler/test/e2e/cases/union-generics.lucent.ts", 48), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_union_u2d_generics::optionals());
     });
   });
   defineFunction(rt, exports, "absent", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("absent", "packages/compiler/test/e2e/cases/union-generics.lucent.ts", 60), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("absent", "packages/compiler/test/e2e/cases/union-generics.lucent.ts", 60), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"absent", "argument 'flag'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_union_u2d_generics::absent(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"union-generics", install_m_union_u2d_generics}};
+const ModuleDef kModules[] = {{"union-generics", install_m_union_u2d_generics, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -66,7 +66,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_union_u2d_generics::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_union_u2d_generics::init();
+  }
 }
 
 }  // namespace lucent::js

@@ -430,8 +430,11 @@ Fn<void()> onAppEvent(const String& event, Fn<void()> listener, Opt<AbortSignal>
   AppEvent e = named(appNotifications(), event, "app event").event;
   if (abortedAlready(signal)) return Fn<void()>([] {});
 
+  // Run on the main thread holding the subscriber's actor once it is free:
+  // the main thread never waits for module code.
+  Actor* actor = &currentActor();
   auto subscription = Lifecycle::shared().subscribe(
-      e, [listener] { callNow([&] { listener(); }); }, detail::callerScope());
+      e, [listener, actor] { enterFromMain(*actor, [listener] { listener(); }); }, detail::callerScope());
 
   return stopper(std::move(subscription), signal);
 }
@@ -440,11 +443,12 @@ Fn<void()> onSceneEvent(const String& event, Fn<void(String)> listener, Opt<Abor
   SceneEvent e = named(sceneNotifications(), event, "scene event").event;
   if (abortedAlready(signal)) return Fn<void()>([] {});
 
+  Actor* actor = &currentActor();
   auto subscription = Lifecycle::shared().subscribe(
       e,
-      [listener](SceneId scene) {
+      [listener, actor](SceneId scene) {
         String identifier = identifierOf(scene);
-        callNow([&] { listener(identifier); });
+        enterFromMain(*actor, [listener, identifier] { listener(identifier); });
       },
       detail::callerScope());
 

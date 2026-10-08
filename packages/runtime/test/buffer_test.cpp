@@ -595,7 +595,7 @@ static void tasksTakeTheStorageWithoutACopy() {
   // The task's handle was the last: the storage went with it, on the worker.
   CHECK(within(2000, [&] { return native.destroyed.load() == 1; }));
   ExecutionContext* on = native.destroyedOn;
-  CHECK(on && on != owner.get() && on != &ExecutionContext::legacy() && on != &ExecutionContext::main());
+  CHECK(on && on != owner.get() && on != &Actor::shared() && on != &ExecutionContext::main());
 
   NativeBufferStats after = NativeBufferObject::stats();
   CHECK(after.copies == before.copies && after.transfers - before.transfers == 1);

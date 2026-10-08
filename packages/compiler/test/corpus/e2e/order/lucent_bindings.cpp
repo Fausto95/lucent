@@ -45,56 +45,56 @@ using namespace lucent::js;
 void install_m_order(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "reset", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("reset", "packages/compiler/test/e2e/cases/order.lucent.ts", 7), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("reset", "packages/compiler/test/e2e/cases/order.lucent.ts", 7), [&]() -> jsi::Value {
       lucent_app::m_order::reset();
       return jsi::Value::undefined();
     });
   });
   defineFunction(rt, exports, "trail", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("trail", "packages/compiler/test/e2e/cases/order.lucent.ts", 12), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("trail", "packages/compiler/test/e2e/cases/order.lucent.ts", 12), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_order::trail());
     });
   });
   defineFunction(rt, exports, "pair", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("pair", "packages/compiler/test/e2e/cases/order.lucent.ts", 31), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("pair", "packages/compiler/test/e2e/cases/order.lucent.ts", 31), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_order::pair());
     });
   });
   defineFunction(rt, exports, "firstThrows", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("firstThrows", "packages/compiler/test/e2e/cases/order.lucent.ts", 35), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("firstThrows", "packages/compiler/test/e2e/cases/order.lucent.ts", 35), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_order::firstThrows());
     });
   });
   defineFunction(rt, exports, "secondThrows", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("secondThrows", "packages/compiler/test/e2e/cases/order.lucent.ts", 39), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("secondThrows", "packages/compiler/test/e2e/cases/order.lucent.ts", 39), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_order::secondThrows());
     });
   });
   defineFunction(rt, exports, "operands", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("operands", "packages/compiler/test/e2e/cases/order.lucent.ts", 43), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("operands", "packages/compiler/test/e2e/cases/order.lucent.ts", 43), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_order::operands());
     });
   });
   defineFunction(rt, exports, "locals", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("locals", "packages/compiler/test/e2e/cases/order.lucent.ts", 47), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("locals", "packages/compiler/test/e2e/cases/order.lucent.ts", 47), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_order::locals());
     });
   });
   defineFunction(rt, exports, "counted", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("counted", "packages/compiler/test/e2e/cases/order.lucent.ts", 55), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("counted", "packages/compiler/test/e2e/cases/order.lucent.ts", 55), [&]() -> jsi::Value {
       return Convert<double>::toJs(rt, host, lucent_app::m_order::counted());
     });
   });
   defineFunction(rt, exports, "arithmetic", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("arithmetic", "packages/compiler/test/e2e/cases/order.lucent.ts", 66), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("arithmetic", "packages/compiler/test/e2e/cases/order.lucent.ts", 66), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"arithmetic", "argument 'a'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"arithmetic", "argument 'b'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_order::arithmetic(std::move(a0), std::move(a1)));
@@ -102,7 +102,7 @@ void install_m_order(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "mulAdd", 3, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("mulAdd", "packages/compiler/test/e2e/cases/order.lucent.ts", 74), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("mulAdd", "packages/compiler/test/e2e/cases/order.lucent.ts", 74), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"mulAdd", "argument 'a'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"mulAdd", "argument 'b'"});
       auto a2 = Convert<double>::fromJs(rt, arg(args, count, 2), Path{"mulAdd", "argument 'c'"});
@@ -111,20 +111,20 @@ void install_m_order(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
   defineFunction(rt, exports, "numbers", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("numbers", "packages/compiler/test/e2e/cases/order.lucent.ts", 78), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("numbers", "packages/compiler/test/e2e/cases/order.lucent.ts", 78), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_order::numbers());
     });
   });
   defineFunction(rt, exports, "negate", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("negate", "packages/compiler/test/e2e/cases/order.lucent.ts", 82), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("negate", "packages/compiler/test/e2e/cases/order.lucent.ts", 82), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"negate", "argument 'x'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_order::negate(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "compare", 4, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("compare", "packages/compiler/test/e2e/cases/order.lucent.ts", 86), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("compare", "packages/compiler/test/e2e/cases/order.lucent.ts", 86), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"compare", "argument 'a'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"compare", "argument 'b'"});
       auto a2 = Convert<lucent::String>::fromJs(rt, arg(args, count, 2), Path{"compare", "argument 's'"});
@@ -134,7 +134,7 @@ void install_m_order(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   });
 }
 
-const ModuleDef kModules[] = {{"order", install_m_order}};
+const ModuleDef kModules[] = {{"order", install_m_order, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -146,7 +146,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_order::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_order::init();
+  }
 }
 
 }  // namespace lucent::js

@@ -81,83 +81,83 @@ using namespace lucent::js;
 void install_m_implicit_u2d_constructors(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "parseError", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("parseError", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 40), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("parseError", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 40), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_implicit_u2d_constructors::parseError());
     });
   });
   defineFunction(rt, exports, "caught", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("caught", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 45), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("caught", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 45), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_implicit_u2d_constructors::caught());
     });
   });
   defineFunction(rt, exports, "withoutMessage", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("withoutMessage", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 53), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("withoutMessage", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 53), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_implicit_u2d_constructors::withoutMessage());
     });
   });
   defineFunction(rt, exports, "named", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("named", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 57), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("named", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 57), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_implicit_u2d_constructors::named());
     });
   });
   defineFunction(rt, exports, "inheritedName", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("inheritedName", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 64), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("inheritedName", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 64), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_implicit_u2d_constructors::inheritedName());
     });
   });
   defineFunction(rt, exports, "thrownNamed", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("thrownNamed", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 71), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("thrownNamed", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 71), [&]() -> jsi::Value {
       lucent_app::m_implicit_u2d_constructors::thrownNamed();
       return jsi::Value::undefined();
     });
   });
   defineFunction(rt, exports, "twoLevels", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("twoLevels", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 75), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("twoLevels", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 75), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_implicit_u2d_constructors::twoLevels());
     });
   });
   defineFunction(rt, exports, "derived", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("derived", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 80), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("derived", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 80), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_implicit_u2d_constructors::derived());
     });
   });
   defineFunction(rt, exports, "subCoded", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("subCoded", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 86), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("subCoded", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 86), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_implicit_u2d_constructors::subCoded());
     });
   });
   defineFunction(rt, exports, "thrown", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("thrown", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 91), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("thrown", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 91), [&]() -> jsi::Value {
       lucent_app::m_implicit_u2d_constructors::thrown();
       return jsi::Value::undefined();
     });
   });
   defineFunction(rt, exports, "messageOf", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("messageOf", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 95), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("messageOf", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 95), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::C_ParseError>>::fromJs(rt, arg(args, count, 0), Path{"messageOf", "argument 'e'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_implicit_u2d_constructors::messageOf(std::move(a0)));
     });
   });
   defineClass(rt, host, exports, "ParseError", "implicit-constructors.ParseError", proto_C_ParseError, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("ParseError", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 3), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("ParseError", "packages/compiler/test/e2e/cases/implicit-constructors.lucent.ts", 3), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<lucent::String>(rt, arg(args, count, 0), Path{"ParseError", "argument 'message'"}, false, "a string or undefined");
       return Convert<lucent::Ref<lucent_app::C_ParseError>>::toJs(rt, host, lucent_app::C_ParseError::create(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"implicit-constructors", install_m_implicit_u2d_constructors}};
+const ModuleDef kModules[] = {{"implicit-constructors", install_m_implicit_u2d_constructors, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -169,7 +169,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_implicit_u2d_constructors::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_implicit_u2d_constructors::init();
+  }
 }
 
 }  // namespace lucent::js

@@ -432,7 +432,7 @@ static void ownedByItsContext() {
 /// Updates run on the UI context while another thread holds the Lucent
 /// lock: nothing waits for the module lock or the JS thread.
 static void independentOfTheLucentLock() {
-  auto& lock = Scheduler::lock();
+  auto& lock = Actor::shared().lock();
   lock.lock();
 
   std::vector<double> seen = onUi([] {

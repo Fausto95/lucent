@@ -173,11 +173,19 @@ export function forward(
     const now = cpp.lambda(["&"], [], [cpp.varDecl(cpp.auto, "r_", call), cpp.ret(result)], {
       ret: objcType(ret),
     });
-    if (!outs.length) return method([owner, cpp.ret(cpp.call("lucent::callNow", [now]))]);
+    if (!outs.length)
+      return method([
+        owner,
+        cpp.ret(cpp.call("lucent::callNow", [em.ctx.actorAt(em.opts.module), now])),
+      ]);
     return method([
       owner,
       ...before,
-      cpp.varDecl(objcType(ret), "b_", cpp.call("lucent::callNow", [now])),
+      cpp.varDecl(
+        objcType(ret),
+        "b_",
+        cpp.call("lucent::callNow", [em.ctx.actorAt(em.opts.module), now]),
+      ),
       ...after,
       cpp.ret(cpp.id("b_")),
     ]);
@@ -186,7 +194,12 @@ export function forward(
     return method([
       owner,
       ...before,
-      cpp.exprStmt(cpp.call("lucent::callNow", [cpp.lambda(["&"], [], [discard])])),
+      cpp.exprStmt(
+        cpp.call("lucent::callNow", [
+          em.ctx.actorAt(em.opts.module),
+          cpp.lambda(["&"], [], [discard]),
+        ]),
+      ),
       ...after,
     ]);
   const later = cpp.lambda(
@@ -194,5 +207,7 @@ export function forward(
     [],
     [discard],
   );
-  return method([cpp.exprStmt(cpp.call("lucent::postCallback", [later]))]);
+  return method([
+    cpp.exprStmt(cpp.call("lucent::postCallback", [em.ctx.actorAt(em.opts.module), later])),
+  ]);
 }

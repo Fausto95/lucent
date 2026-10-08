@@ -61,7 +61,7 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Registry>>::toJs(jsi::Runtim
 void proto_C_Registry(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "seen", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Registry>>::fromJs(rt, thisVal, Path{"Registry.seen", "this"});
       return Convert<double>::toJs(rt, host, self->seen);
     });
@@ -98,13 +98,13 @@ using namespace lucent::js;
 void install_m_exported_u2d_statics(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "read", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("read", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 28), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("read", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 28), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_exported_u2d_statics::read());
     });
   });
   defineClass(rt, host, exports, "Registry", "exported-statics.Registry", proto_C_Registry, 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Registry", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 1), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Registry", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 1), [&]() -> jsi::Value {
       return Convert<lucent::Ref<lucent_app::C_Registry>>::toJs(rt, host, lucent_app::C_Registry::create());
     });
   });
@@ -112,12 +112,12 @@ void install_m_exported_u2d_statics(jsi::Runtime& rt, Host& host, jsi::Object& e
     jsi::Object ctor = exports.getPropertyAsObject(rt, "Registry");
     defineAccessor(rt, ctor, "count", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<double>::toJs(rt, host, lucent_app::C_Registry::count);
       });
     }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         auto value = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Registry.count", "value"});
         lucent_app::C_Registry::count = value;
         return jsi::Value::undefined();
@@ -125,12 +125,12 @@ void install_m_exported_u2d_statics(jsi::Runtime& rt, Host& host, jsi::Object& e
     });
     defineAccessor(rt, ctor, "label", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<lucent::String>::toJs(rt, host, lucent_app::C_Registry::label);
       });
     }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         auto value = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Registry.label", "value"});
         lucent_app::C_Registry::label = value;
         return jsi::Value::undefined();
@@ -138,18 +138,18 @@ void install_m_exported_u2d_statics(jsi::Runtime& rt, Host& host, jsi::Object& e
     });
     defineAccessor(rt, ctor, "limit", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<double>::toJs(rt, host, lucent_app::C_Registry::limit);
       });
     }, nullptr);
     defineAccessor(rt, ctor, "names", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::C_Registry::names);
       });
     }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         auto value = Convert<lucent::Array<lucent::String>>::fromJs(rt, arg(args, count, 0), Path{"Registry.names", "value"});
         lucent_app::C_Registry::names = value;
         return jsi::Value::undefined();
@@ -157,21 +157,21 @@ void install_m_exported_u2d_statics(jsi::Runtime& rt, Host& host, jsi::Object& e
     });
     defineFunction(rt, ctor, "add", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, LUCENT_TRACE_SITE_AT("Registry.add", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 9), [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Registry.add", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 9), [&]() -> jsi::Value {
         auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Registry.add", "argument 'name'"});
         return Convert<double>::toJs(rt, host, lucent_app::C_Registry::add(std::move(a0)));
       });
     });
     defineFunction(rt, ctor, "summary", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, LUCENT_TRACE_SITE_AT("Registry.summary", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 15), [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Registry.summary", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 15), [&]() -> jsi::Value {
         return Convert<lucent::String>::toJs(rt, host, lucent_app::C_Registry::summary());
       });
     });
   }
   defineClass(rt, host, exports, "Scoped", "exported-statics.Scoped", proto_C_Scoped, 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Scoped", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 20), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Scoped", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 20), [&]() -> jsi::Value {
       return Convert<lucent::Ref<lucent_app::C_Scoped>>::toJs(rt, host, lucent_app::C_Scoped::create());
     });
   });
@@ -179,12 +179,12 @@ void install_m_exported_u2d_statics(jsi::Runtime& rt, Host& host, jsi::Object& e
     jsi::Object ctor = exports.getPropertyAsObject(rt, "Scoped");
     defineAccessor(rt, ctor, "scope", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<lucent::String>::toJs(rt, host, lucent_app::C_Scoped::scope);
       });
     }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         auto value = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Scoped.scope", "value"});
         lucent_app::C_Scoped::scope = value;
         return jsi::Value::undefined();
@@ -192,18 +192,18 @@ void install_m_exported_u2d_statics(jsi::Runtime& rt, Host& host, jsi::Object& e
     });
     defineFunction(rt, ctor, "where", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, LUCENT_TRACE_SITE_AT("Scoped.where", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 23), [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Scoped.where", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 23), [&]() -> jsi::Value {
         return Convert<lucent::String>::toJs(rt, host, lucent_app::C_Scoped::where());
       });
     });
     defineAccessor(rt, ctor, "count", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<double>::toJs(rt, host, lucent_app::C_Registry::count);
       });
     }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         auto value = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Scoped.count", "value"});
         lucent_app::C_Registry::count = value;
         return jsi::Value::undefined();
@@ -211,12 +211,12 @@ void install_m_exported_u2d_statics(jsi::Runtime& rt, Host& host, jsi::Object& e
     });
     defineAccessor(rt, ctor, "label", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<lucent::String>::toJs(rt, host, lucent_app::C_Registry::label);
       });
     }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         auto value = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Scoped.label", "value"});
         lucent_app::C_Registry::label = value;
         return jsi::Value::undefined();
@@ -224,18 +224,18 @@ void install_m_exported_u2d_statics(jsi::Runtime& rt, Host& host, jsi::Object& e
     });
     defineAccessor(rt, ctor, "limit", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<double>::toJs(rt, host, lucent_app::C_Registry::limit);
       });
     }, nullptr);
     defineAccessor(rt, ctor, "names", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::C_Registry::names);
       });
     }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         auto value = Convert<lucent::Array<lucent::String>>::fromJs(rt, arg(args, count, 0), Path{"Scoped.names", "value"});
         lucent_app::C_Registry::names = value;
         return jsi::Value::undefined();
@@ -243,21 +243,21 @@ void install_m_exported_u2d_statics(jsi::Runtime& rt, Host& host, jsi::Object& e
     });
     defineFunction(rt, ctor, "add", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, LUCENT_TRACE_SITE_AT("Scoped.add", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 9), [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Scoped.add", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 9), [&]() -> jsi::Value {
         auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Scoped.add", "argument 'name'"});
         return Convert<double>::toJs(rt, host, lucent_app::C_Registry::add(std::move(a0)));
       });
     });
     defineFunction(rt, ctor, "summary", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, LUCENT_TRACE_SITE_AT("Scoped.summary", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 15), [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Scoped.summary", "packages/compiler/test/e2e/cases/exported-statics.lucent.ts", 15), [&]() -> jsi::Value {
         return Convert<lucent::String>::toJs(rt, host, lucent_app::C_Registry::summary());
       });
     });
   }
 }
 
-const ModuleDef kModules[] = {{"exported-statics", install_m_exported_u2d_statics}};
+const ModuleDef kModules[] = {{"exported-statics", install_m_exported_u2d_statics, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -269,7 +269,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_exported_u2d_statics::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_exported_u2d_statics::init();
+  }
 }
 
 }  // namespace lucent::js

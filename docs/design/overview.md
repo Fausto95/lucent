@@ -86,11 +86,11 @@ Installed SDKs and linked dependencies ──► metadata readers ──► bind
 
 ## Execution and ownership
 
-| Context         | Runs                                                                   | Rules                                                                 |
-| --------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Module (legacy) | Exported functions and their async continuations, on the Lucent thread | One fair global lock (`LucentLock`) serializes module code, as before |
-| Main            | Views, their effects and commands, main-thread SDK calls               | Never takes the module lock; runs on the platform's UI loop           |
-| Compute         | `compute(task, input, { signal })`                                     | A bounded worker pool (cores − 1); checked tasks share no state       |
+| Context      | Runs                                                                    | Rules                                                                                                                   |
+| ------------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Module actor | Exported functions and their async continuations, on the actor's thread | One fair lock per import component (a package): packages run in parallel; a nested wait that would close a cycle throws |
+| Main         | Views, their effects and commands, main-thread SDK calls                | Never takes an actor's lock; runs on the platform's UI loop. Main-thread module entries never queue behind module jobs  |
+| Compute      | `compute(task, input, { signal })`                                      | A bounded worker pool (cores − 1); checked tasks share no state                                                         |
 
 - A promise resumes on the context that created it; a result from another
   thread is posted there. No context ever waits synchronously for another.
@@ -100,6 +100,9 @@ Installed SDKs and linked dependencies ──► metadata readers ──► bind
   never revives it.
 - Each JS runtime has its own `Host`. Reload invalidates it, cancels its
   work and rejects its promises while JavaScript can still observe them.
+  Work belongs to the runtime whose call started it, so two runtimes at
+  once keep their own; module variables are the process's, and a second
+  runtime alongside a first shares them.
 - `compute` runs a top-level function on a snapshot of its input. The
   compiler rejects tasks that touch module state, main-thread or unknown
   native code, or untracked functions (`LUCENT3011`), and inputs or

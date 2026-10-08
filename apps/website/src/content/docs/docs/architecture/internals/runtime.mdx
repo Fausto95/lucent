@@ -54,8 +54,8 @@ void install_m_stats(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
 }
 ```
 
-- `callSync` (`jsi/convert.h`) holds the Lucent lock while its body runs on the JS thread, and turns a Lucent error into a JavaScript one.
-- `total` converts its argument under the lock too. `callAsync` then makes a JavaScript promise and posts the body to the Lucent thread, through `Host::postToModule`.
+- `callSync` (`jsi/convert.h`) holds the module's actor, `lucent_app::actor_0()`, while its body runs on the JS thread, and turns a Lucent error into a JavaScript one.
+- `total` converts its argument under the lock too. `callAsync` then makes a JavaScript promise and posts the body to the actor's thread, through `Host::postToModule`.
 - The body is a coroutine. `lucent::compute()` copies the array into the task's input, and the body's result settles the JavaScript promise on the JS thread.
 - `LUCENT_TRACE_SITE_AT` gives each entry its export's name, file and line, which [tracing](#tracing) records.
 
@@ -68,7 +68,7 @@ void install_m_stats(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
 | `array.h`, `map.h`, `bytes.h`, `date.h`, `regexp.h` | `Array`, `Map`, `Set`, `Dict`, `Bytes` (a `Uint8Array`), `Date` and `RegExp` |
 | `function.h`, `async.h`, `generator.h` | `Fn`, `Promise` and `Iter`, with coroutines behind the last two |
 | `jserror.h`, `json.h`, `json_parse.h`, `ops.h`, `equality.h`, `conversions.h`, `helpers.h`, `console.h` | Errors, JSON, operators, conversions and `console` |
-| `execution.h`, `scheduler.h` | Execution contexts, the Lucent lock and the Lucent thread |
+| `execution.h`, `scheduler.h` | Execution contexts, and the module actors with their locks and threads |
 | `scope.h`, `operation.h`, `callback.h`, `resource.h`, `abort.h` | Scopes, one-shot operations, `fromCallback` and `subscribe`, resources and `AbortSignal` |
 | `native.h`, `extension.h`, `lifecycle.h`, `presentation.h`, `platform/` | SDK objects, platform callbacks, native extensions' handles, the app's lifecycle, presentations and the glue helpers |
 | `transport.h`, `compute.h`, `buffer.h` | Compute tasks' inputs, the compute pool and native buffers |
@@ -100,44 +100,47 @@ Numbers and bigints are checked against Node: `test/number/corpus.ts` and `test/
 
 An execution context runs code one piece at a time. Its executor runs turns in the order they were posted, and each turn runs its job, then the context's own microtasks. [Threads](/docs/architecture/threads/) explains why; this section names the code.
 
-| Context | Class | Runs on | Takes the Lucent lock |
+| Context | Class | Runs on | Takes an actor's lock |
 | --- | --- | --- | --- |
-| The legacy module context | `Scheduler` | The Lucent thread, and any thread holding the lock | Yes: holding it is what makes it current |
+| A module actor, one per import component | `Actor` (`lucent_app::actor_N()`, and `Actor::shared()` for code of no module) | Its thread, and any thread holding its lock | Yes: holding it is what makes it current |
 | The main context | `ExecutionContext::main()` | The platform's UI loop, or a stand-in thread on hosts without one | No |
 | An isolated context | `IsolatedContext` | A thread of its own: each compute worker is one | No |
 
-- `ExecutionContext::current()` is the legacy module context while the thread holds the lock, else the context it entered, else null.
-- A `ContextRef` names a context as an owner, and null names the legacy module context.
+- `ExecutionContext::current()` is the innermost actor whose lock the thread holds (`Actor::current()`, a thread-local stack of `LucentScope`s), else the context it entered, else null.
+- A `ContextRef` names a context as an owner, and null names the shared actor.
 - `post(job)` runs a job as a turn, from any thread. `post(job, scope)` drops it if the scope was disposed before its turn, and `postDelayed` waits first.
-- `enqueueMicrotask` throws `std::logic_error` unless the context is current: in a turn or an entry, or, for the legacy one, holding the lock.
-- `WorkerThread` is the thread behind the Lucent thread and isolated contexts. It runs posted jobs, and timers once due, one at a time.
+- `enqueueMicrotask` throws `std::logic_error` unless the context is current: in a turn or an entry, or, for an actor, holding its lock.
+- `WorkerThread` is the thread behind each actor and isolated context. It runs posted jobs, and timers once due, one at a time.
 
 No context waits for another. Work crosses between contexts as posted jobs that own what they carry, as the C-EXEC contract says ([contracts.md](https://github.com/Fausto95/lucent/blob/main/docs/design/contracts.md#c-exec-execution-identities-scopes-and-operations)).
 
-### The Lucent lock
+### Actors and their locks
 
-`LucentLock` in `scheduler.h` serializes module code. Every synchronous call from JavaScript and every turn of the Lucent thread holds it.
+`LucentLock` in `scheduler.h` serializes an actor's code. Every synchronous call from JavaScript into the actor's modules and every turn of its thread holds it.
 
 - It is recursive, because a Lucent call may call JavaScript that calls Lucent again. A relaxed load of the owner's thread id tells a nested entry, which only counts its depth.
 - It is a fair ticket lock: two atomics, the next ticket and the one served. A thread that releases it and asks again queues behind the threads already waiting.
 - Waiters block in `atomic::wait`, which is a futex, or `__ulock` on Apple platforms. Uncontended, taking it costs one atomic increment and a load.
-- Code holding it never waits for another thread. So any thread may block on it without a deadlock.
+- Code holding it never waits for another thread, except for another actor's lock. A thread that waits nested (holding an actor) registers its wait, and one whose wait would close a cycle throws `Lucent: deadlock` instead.
+- The main thread never takes a ticket. `lockFromMain` waits for the holder in place, which hands it the lock on leaving, ahead of queued tickets; new tickets wait for it meanwhile. Debug builds log a wait past `mainWaitWarningMs()` (50 ms). `tryLockFromMain` and `whenFree` let deferred entries (`enterFromMain`) retry once the lock is released, without waiting.
+- `ParkedActors`, around a synchronous call into JavaScript, lends the thread's actors (`park`). The main thread may borrow one meanwhile; the lending thread takes it back when the call returns or JavaScript re-enters.
 
-`LucentScope` enters the legacy module context by taking the lock. Leaving on another thread with microtasks pending, it posts an empty turn to the Lucent thread, whose end runs them. With tracing on, the wait becomes a `lucent-lock` span.
+`LucentScope(actor)` enters an actor by taking its lock. Leaving on another thread with microtasks pending, it posts an empty turn to the actor's thread, whose end runs them. With tracing on, the wait becomes a `lucent-lock` span.
 
 ### Entering another context
 
-`ContextEntry` enters a context other than the legacy one, synchronously, for a platform callback that needs an answer now. It throws `std::logic_error` when the thread isn't the context's own, holds the Lucent lock, or is already in another context. Leaving the outermost entry runs the context's microtasks.
+`ContextEntry` enters a context other than an actor, synchronously, for a platform callback that needs an answer now. It throws `std::logic_error` when the thread isn't the context's own, holds an actor's lock, or is already in another context. Leaving the outermost entry runs the context's microtasks.
 
 `native.h` gives platform glue one function per way in:
 
 | Function | Runs `f` | For |
 | --- | --- | --- |
-| `postCallback(f)` | As a turn of the legacy module context, on the Lucent thread | A callback that returns nothing and outlives the call, so the platform never waits for Lucent code |
-| `callNow(f)` | On the calling thread, holding the Lucent lock | A callback the platform waits for: for its result, during the call, or on the main thread |
-| `runOnMain(f)` | On the main thread, holding the Lucent lock | `main(f)` from `lucent:thread`: a promise of its result, settled on the caller's context |
+| `postCallback(actor, f)` | As a turn of `actor`, on its thread | A callback that returns nothing and outlives the call, so the platform never waits for Lucent code |
+| `callNow(actor, f)` | On the calling thread, holding `actor`'s lock (`lockFromMain` on the main thread) | A callback the platform waits for: for its result, during the call, or on the main thread |
+| `enterFromMain(actor, f)` | On the main thread, holding `actor`'s lock, once it can be taken without waiting | Lifecycle listeners, `present` |
+| `runOnMain(f)` | On the main thread, holding the calling actor's lock (`enterFromMain`) | `main(f)` from `lucent:thread`: a promise of its result, settled on the caller's context |
 | `postTo(context, f)` | As a turn of `context` | What `postCallback` does, for any context |
-| `callNowIn(context, f)` | Now, inside `context`, on that context's own thread | What `callNow` does, for a context other than the legacy one; its microtasks run before it returns |
+| `callNowIn(context, f)` | Now, inside `context`, on that context's own thread | What `callNow` does, for a context other than an actor; its microtasks run before it returns |
 | `runIn(context, f)` | As a turn of `context` | What `runOnMain` does, for any context; neither side waits |
 
 `callNow` and `callNowIn` report a Lucent error, and the platform gets a default result.
@@ -206,12 +209,12 @@ In debug builds, `LucentModule`'s destructor posts a check of `moduleNativeRefs(
 A `Host` (`jsi/host.h`) owns every JSI reference Lucent keeps: promise resolvers, retained functions, class prototypes and the identity cache. JSI values may be touched only on the JS thread, so native code refers to them by id and hops there.
 
 - `retain()` gives a JavaScript function an id, and `release(id)` from any thread releases it on the JS thread. `createPromise()` gives a JavaScript promise one too.
-- `postToJs(task)` runs a task through React Native's `CallInvoker`. A task that never runs is released on the legacy module context, with what it carries.
+- `postToJs(task)` runs a task through React Native's `CallInvoker`. A task that never runs is released on the actor that posted it, with what it carries.
 - A class instance's JavaScript object carries an `InstanceState`: the native object and its host. The identity cache gives one JavaScript object per instance per runtime.
-- `id()` is a `RuntimeId` no other host has had, and `scope()` is a child of the legacy module context's root.
+- `id()` is a `RuntimeId` no other host has had. `scopeFor(actor)` is the root of the runtime's work on an actor, a child of the actor's root; `scope()` is the shared actor's.
 - `Host::from()` finds the host a host function was installed with. It skips the `thread_local` lookup, which Android builds with a `minSdk` below 29 emulate.
 
-`Host::create()` replaces a runtime's previous host, which it tears down. It sets an anchor on `global` as `__lucentHost`, makes the new scope the module scope (`setModuleScope`), and runs `resetModuleState()` under the lock.
+`Host::create()` replaces a runtime's previous host, which it tears down. It sets an anchor on `global` as `__lucentHost` and attaches the runtime (`attachRuntime`: work started for it belongs to its scopes). Unless another runtime is live, it runs `resetModuleState()`, which holds each module's actor: module state is the process's.
 
 Tearing a host down (`invalidate()`) rejects the JavaScript promises it owes with an `AbortError`, disposes its scope and drops its JSI references. Lucent code awaiting a JavaScript promise resumes with an `AbortError`, and an object the old host made is refused with a `TypeError`. When the runtime itself is destroyed, the anchor's destructor tears the host down without running JavaScript.
 
@@ -241,7 +244,7 @@ The rules are C-BUFFER ([contracts.md](https://github.com/Fausto95/lucent/blob/m
 - `callAsync` makes the id. Its entry span, its job's wait and run, the result's wait for the JS thread and the delivery all carry it.
 - `LUCENT_TRACE_SITE_AT` and `LUCENT_TRACE_SCOPE` keep their site in a function-local static. Inside Lucent code, `#line` makes `__FILE__` and `__LINE__` the module's.
 
-`Scheduler`'s constructor calls `startFromEnvironment()` once, so tracing starts with the first module. It reads `LUCENT_TRACE`, or the `debug.lucent.trace` property on Android, and a value ending in `.json` registers an `atexit` that calls `writeChromeJson`.
+`Actor::shared()` calls `startFromEnvironment()` once, so tracing starts with the first module. It reads `LUCENT_TRACE`, or the `debug.lucent.trace` property on Android, and a value ending in `.json` registers an `atexit` that calls `writeChromeJson`.
 
 `chromeJson()` writes one object per event under process 1, then a pair of flow events between each two consecutive spans sharing an id. The buffer's dropped count goes in `otherData.dropped`. Live mirroring goes to `os_signpost` (log `dev.lucent`, one interval name per category) or to ATrace's async sections, looked up with `dlsym`.
 
