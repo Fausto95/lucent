@@ -2,7 +2,14 @@ import fs from "node:fs";
 import { findOwnFiles, LUCENT_EXTENSION, lucentPackageOf, lucentPackages } from "./packages.ts";
 import path from "node:path";
 import { type CompileContext, currentCompile } from "./compile-context.ts";
-import { directoryExists, fileExists, readText, realpath } from "./reads.ts";
+import {
+  currentReads,
+  currentRealpaths,
+  directoryExists,
+  fileExists,
+  readText,
+  realpath,
+} from "./reads.ts";
 import { fileURLToPath } from "node:url";
 import { ts as dts } from "@lucent-lang/codegen";
 import ts from "typescript";
@@ -332,14 +339,85 @@ export function findLucentFiles(root: string): string[] {
 export type ReadSource = (file: string) => string | undefined;
 
 // Library and dependency declarations parse once per process: editors check
-// on every edit, and re-parsing lib.es2022 dominates otherwise.
+// on every edit, and re-parsing lib.es2022 dominates otherwise. Bounded: an
+// entry whose file was not asked for in the last DECLARATIONS_KEPT lookups
+// goes (each check asks for every file it uses, so what it uses stays).
 const declarationCache = new Map<string, { text: string; sf: ts.SourceFile }>();
+const DECLARATIONS_KEPT = 4000;
+
+/** `f`'s declaration source file with `text`, parsed once while it holds that text. */
+function cachedDeclaration(
+  f: string,
+  text: string,
+  language: ts.ScriptTarget | ts.CreateSourceFileOptions,
+): ts.SourceFile {
+  const cached = declarationCache.get(f);
+
+  // Most recently used last: a Map keeps insertion order.
+  declarationCache.delete(f);
+
+  const entry =
+    cached?.text === text ? cached : { text, sf: ts.createSourceFile(f, text, language, true) };
+
+  declarationCache.set(f, entry);
+
+  for (const old of declarationCache.keys()) {
+    if (declarationCache.size <= DECLARATIONS_KEPT) break;
+    declarationCache.delete(old);
+  }
+  return entry.sf;
+}
+
+/** How many declaration files the process keeps parsed (for tests). */
+export function declarationCacheSize(): number {
+  return declarationCache.size;
+}
+
+/**
+ * What one check keeps for the next, in an editor or a watcher: each
+ * target's last program, which the next one's TypeScript reuses (only
+ * changed files are parsed and bound again, resolutions are kept), and
+ * the sources it parsed, by their text. Without a session every compile
+ * starts from nothing but the process's declaration cache.
+ */
+export class CompileSession {
+  /** Each target's last program (host, ios, android, or the one program of a project without platforms). */
+  readonly programs = new Map<string, ts.Program>();
+  /** Each source file parsed, with the text it was parsed from. */
+  readonly sources = new Map<string, { text: string; sf: ts.SourceFile }>();
+  /** What the last compile read, and where its paths led: a reused program's resolutions rest on them. */
+  reads: ReadonlyMap<string, string> = new Map();
+  realpaths: ReadonlyMap<string, string> = new Map();
+}
+
+/**
+ * Whether what the last compile of `session` read and resolved, but this
+ * one has not read again, is still as it was: a reused program keeps its
+ * module resolutions, which rest on those files (a package.json, a
+ * directory looked through). When it is, this compile records it too, so
+ * its own record stays complete.
+ */
+function resolutionsHold(session: CompileSession, context: CompileContext | undefined): boolean {
+  const reads = [...session.reads].filter(([f]) => !context?.reads.has(f));
+  const realpaths = [...session.realpaths].filter(([f]) => !context?.realpaths.has(f));
+  const nowRead = currentReads(reads.map(([f]) => f));
+  const nowLed = currentRealpaths(realpaths.map(([f]) => f));
+
+  if (reads.some(([f, found]) => nowRead.get(f) !== found)) return false;
+
+  if (realpaths.some(([f, led]) => nowLed.get(f) !== led)) return false;
+
+  for (const [f, found] of reads) context?.reads.set(f, found);
+  for (const [f, led] of realpaths) context?.realpaths.set(f, led);
+  return true;
+}
 
 function compilerHost(
   options: ts.CompilerOptions,
   readSource: ReadSource | undefined,
   direct: Set<string>,
   context: CompileContext | undefined,
+  session?: CompileSession,
 ): ts.CompilerHost {
   const host = ts.createCompilerHost(options, true);
   const sdkTexts = new Map<string, string | undefined>();
@@ -388,13 +466,15 @@ function compilerHost(
     });
   const getSourceFile = host.getSourceFile.bind(host);
   host.getSourceFile = (f, language, onError, shouldCreate) => {
-    if (!f.endsWith(".d.ts")) return getSourceFile(f, language, onError, shouldCreate);
     const text = host.readFile(f);
     if (text === undefined) return getSourceFile(f, language, onError, shouldCreate);
-    const cached = declarationCache.get(f);
-    if (cached?.text === text) return cached.sf;
+    if (f.endsWith(".d.ts")) return cachedDeclaration(f, text, language);
+    // A source is parsed again only when its text changed since the session's last check: the
+    // same SourceFile lets the next program reuse its binding and resolutions.
+    const kept = session?.sources.get(f);
+    if (kept && kept.text === text && !shouldCreate) return kept.sf;
     const sf = ts.createSourceFile(f, text, language, true);
-    declarationCache.set(f, { text, sf });
+    session?.sources.set(f, { text, sf });
     return sf;
   };
   return host;
@@ -494,7 +574,13 @@ export function createLucentProgram(
   files: string[],
   readSource?: ReadSource,
   platform?: Platform,
-  extra: { references?: string[]; stubs?: string[]; libCheck?: boolean } = {},
+  extra: {
+    references?: string[];
+    stubs?: string[];
+    libCheck?: boolean;
+    /** What the last check kept, which this program reuses; under `key`, its target's program. */
+    session?: { session: CompileSession; key: string };
+  } = {},
 ): LucentProgram {
   const references = extra.references ?? [];
   const stubs = new Set((extra.stubs ?? []).map((f) => path.resolve(f)));
@@ -511,17 +597,26 @@ export function createLucentProgram(
   }
 
   const direct = directSdkImports(files, readSource);
-  const host = compilerHost(options, readSource, direct, currentCompile());
-  const program = ts.createProgram(
-    [
-      ...files.map((f) => path.resolve(f)),
-      ...references.map((f) => path.resolve(f)),
-      globalsPath(),
-      UNTYPED,
-    ],
+  const session = extra.session;
+  const context = currentCompile();
+  const host = compilerHost(options, readSource, direct, context, session?.session);
+  const rootNames = [
+    ...files.map((f) => path.resolve(f)),
+    ...references.map((f) => path.resolve(f)),
+    globalsPath(),
+    UNTYPED,
+  ];
+  const oldProgram = session?.session.programs.get(session.key);
+  let program = ts.createProgram({
+    rootNames,
     options,
     host,
-  );
+    ...(oldProgram ? { oldProgram } : {}),
+  });
+  // A file resolution looked at changed (a package.json, a link): resolve everything again.
+  if (oldProgram && !resolutionsHold(session!.session, context))
+    program = ts.createProgram({ rootNames, options, host });
+  session?.session.programs.set(session.key, program);
   const checker = program.getTypeChecker();
   const diagnostics: Diagnostic[] = [];
   const modules: LucentModule[] = [];
