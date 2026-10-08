@@ -61,21 +61,24 @@ describe("lucent create", () => {
       for (const f of created.files) expect(fs.existsSync(path.join(created.dir, f)), f).toBe(true);
 
       compiles(created.dir);
-      if (template === "library") {
-        // The example app uses the library, as an app installing it from npm does.
-        const example = path.join(created.dir, "example");
-        fs.mkdirSync(path.join(example, "node_modules"));
-        for (const dep of fs.readdirSync(path.join(repo, "node_modules")))
-          fs.symlinkSync(
-            path.join(repo, "node_modules", dep),
-            path.join(example, "node_modules", dep),
-          );
-        fs.symlinkSync(created.dir, path.join(example, "node_modules", "my-library"));
-        const build = lucent(example, "build", "--platforms", "host", "--root", example);
-        expect(build.status, build.out).toBe(0);
-        expect(build.out).toMatch(/my-library\/device/);
-      }
     }, 120_000);
+
+  it("scaffolds a library whose example app builds it, as an app installing it does", () => {
+    const at = tmp();
+    expect(
+      lucent(at, "create", "my-library", "--template", "library", "--skip-install").status,
+    ).toBe(0);
+    const dir = path.join(at, "my-library");
+    const example = path.join(dir, "example");
+    fs.mkdirSync(path.join(example, "node_modules"));
+    for (const dep of fs.readdirSync(path.join(repo, "node_modules")))
+      fs.symlinkSync(path.join(repo, "node_modules", dep), path.join(example, "node_modules", dep));
+    fs.symlinkSync(dir, path.join(example, "node_modules", "my-library"));
+
+    const build = lucent(example, "build", "--platforms", "host", "--root", example);
+    expect(build.status, build.out).toBe(0);
+    expect(build.out).toMatch(/my-library\/device/);
+  }, 120_000);
 
   it("sets the apps up as lucent init does, and names the bare app's native projects", () => {
     const at = tmp();

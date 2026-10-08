@@ -68,6 +68,12 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
       text: "It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/guides/install/) lists the changes for Expo and bare apps. Running it again changes nothing.",
     },
   ],
+  create: [
+    {
+      kind: "p",
+      text: "It writes `./<name>` from a template shipped in the package, sets the app up as `lucent init` does, and installs its dependencies with the package manager that ran it. In a terminal, it asks which template to use. [Create a project](/docs/guides/create-a-project/) lists the templates. A directory that exists and isn't empty is refused, and nothing is written.",
+    },
+  ],
   uninstall: [
     {
       kind: "p",

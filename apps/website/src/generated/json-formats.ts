@@ -595,6 +595,71 @@ export const jsonOutputs: { command: string; file: string; description: string; 
     ]
   },
   {
+    "command": "create",
+    "file": "create.schema.json",
+    "description": "",
+    "variants": [
+      {
+        "description": "The project was created",
+        "fields": [
+          {
+            "field": "ok",
+            "type": "true",
+            "required": true,
+            "description": ""
+          },
+          {
+            "field": "template",
+            "type": "\"expo\" or \"bare\" or \"view\" or \"library\" or \"module\"",
+            "required": true,
+            "description": ""
+          },
+          {
+            "field": "dir",
+            "type": "string",
+            "required": true,
+            "description": "Absolute path of the project"
+          },
+          {
+            "field": "files",
+            "type": "string[]",
+            "required": true,
+            "description": "What was written, relative to the project"
+          },
+          {
+            "field": "installed",
+            "type": "boolean",
+            "required": true,
+            "description": "Its dependencies were installed (not with --skip-install)"
+          },
+          {
+            "field": "next",
+            "type": "string[]",
+            "required": true,
+            "description": "The commands to run next, in order"
+          }
+        ]
+      },
+      {
+        "description": "Nothing was created",
+        "fields": [
+          {
+            "field": "ok",
+            "type": "false",
+            "required": true,
+            "description": ""
+          },
+          {
+            "field": "error",
+            "type": "string",
+            "required": true,
+            "description": "Why: a usage error exits with code 2"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "command": "doctor",
     "file": "doctor.schema.json",
     "description": "",

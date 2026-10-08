@@ -24,6 +24,7 @@
     "metro",
     "runtime",
     "schemas",
+    "templates",
     "ts-plugin"
   ],
   "main": "./app.plugin.js",

@@ -76,9 +76,36 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
     ]
   },
   {
-    "name": "new module",
-    "summary": "Scaffold a module in src/: shared, or with --ios / --android one module that branches on PLATFORM",
+    "name": "create",
+    "summary": "Create a project from a template: an Expo or bare React Native app, a native-view app, a Lucent library or modules alone, with sample modules",
     "flags": [
+      {
+        "flag": "--template <name>",
+        "description": "expo, bare, view, library or module (default: asked in a terminal, expo elsewhere)"
+      },
+      {
+        "flag": "--yes",
+        "description": "Take the defaults without asking"
+      },
+      {
+        "flag": "--skip-install",
+        "description": "Write the project without installing its dependencies"
+      }
+    ],
+    "json": "create"
+  },
+  {
+    "name": "new module",
+    "summary": "Scaffold a module in src/ from a template (function, async, events, view, sdk-ios-android), or with --ios / --android one that branches on PLATFORM",
+    "flags": [
+      {
+        "flag": "--template <name>",
+        "description": "function, async, events, view or sdk-ios-android (default: asked in a terminal, function elsewhere)"
+      },
+      {
+        "flag": "--yes",
+        "description": "Take the default template without asking"
+      },
       {
         "flag": "--ios",
         "description": "Implement the iOS branch (without --android, the Android branch throws)"

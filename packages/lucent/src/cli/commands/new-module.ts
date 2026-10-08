@@ -1,92 +1,81 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Invocation } from "../args.ts";
+import {
+  MODULE_TEMPLATE_SUMMARIES,
+  MODULE_TEMPLATES,
+  type ModuleTemplate,
+  platformSource,
+  starterModule,
+} from "../templates/modules.ts";
+import { pick } from "../templates/pick.ts";
 
-const platforms = ["ios", "android"] as const;
-type Platform = (typeof platforms)[number];
-
-/** Each platform's branch of the scaffold: what it imports and what `hello` does there. */
-const branches: Record<Platform, { label: string; imports: string[]; body: string[] }> = {
-  ios: {
-    label: "iOS",
-    imports: [
-      'import { UIDevice } from "lucent:ios/UIKit";',
-      'import { main } from "lucent:thread";',
-    ],
-    body: [
-      "const system = await main(() => UIDevice.current.systemName);",
-      "return `Hello, ${name}, from ${system}`;",
-    ],
-  },
-  android: {
-    label: "Android",
-    imports: ['import { Build_VERSION } from "lucent:android/android.os";'],
-    body: ['return `Hello, ${name}, from Android ${Build_VERSION.RELEASE ?? ""}`;'],
-  },
-};
-
-const unimplemented = (p: Platform) => [
-  `throw error("ERR_UNIMPLEMENTED", "hello is not implemented on ${branches[p].label} yet");`,
-];
-
-/** One module for both platforms, branching on PLATFORM; a platform not asked for throws. */
-function platformModule(name: string, wanted: Platform[]): string {
-  const missing = platforms.filter((p) => !wanted.includes(p));
-  const imports = [
-    'import { PLATFORM } from "lucent:platform";',
-    ...wanted.flatMap((p) => branches[p].imports),
-    ...(missing.length ? ['import { error } from "lucent:core";'] : []),
-  ];
-  const body = (p: Platform) =>
-    (wanted.includes(p) ? branches[p].body : unimplemented(p)).map((l) => `    ${l}`).join("\n");
-  return `// Runs natively on each platform; JavaScript imports it from "./src/${name}.lucent".
-${imports.join("\n")}
-
-export async function hello(name: string): Promise<string> {
-  if (PLATFORM === "ios") {
-${body("ios")}
-  } else {
-${body("android")}
-  }
-}
-`;
-}
-
-const sharedModule = (
-  name: string,
-) => `// Runs as C++; JavaScript imports it from "./src/${name}.lucent".
-export function hello(name: string): string {
-  return \`Hello, \${name}, from native code\`;
-}
-`;
-
-/** `lucent new module <name>`: a module in src/, shared or with a branch per platform. */
-export function run({ root, flags, positionals, out }: Invocation): number {
+/**
+ * `lucent new module <name>`: a starter module in src/, from a template
+ * (--template; picked in a terminal), or with --ios / --android one module
+ * that branches on PLATFORM, the other branch throwing.
+ */
+export async function run({ root, flags, positionals, out }: Invocation): Promise<number> {
   const t = out.theme;
   const [name] = positionals;
-  if (!name || !/^[A-Za-z_$][\w$]*$/.test(name)) {
+  if (!name || !/^[A-Za-z_$][\w$-]*$/.test(name)) {
     out.error(
-      `${t.error(t.symbols.fail)} ${name ? `${name} is not a module name: use letters, digits and _, like a JavaScript name` : "name the module: lucent new module <name>"}`,
+      `${t.error(t.symbols.fail)} ${name ? `${name} is not a module name: use letters, digits, - and _, starting with a letter` : "name the module: lucent new module <name>"}`,
     );
     return 2;
   }
-  const wanted = platforms.filter((p) => flags[p]);
-  const file = `src/${name}.lucent.ts`;
-  const target = path.join(root, file);
-  if (fs.existsSync(target)) {
-    out.error(`${t.error(t.symbols.fail)} ${file} exists; nothing was written`);
+
+  const wanted = (["ios", "android"] as const).filter((p) => flags[p]);
+  let template: ModuleTemplate | undefined;
+  if (typeof flags.template === "string") {
+    if (!(MODULE_TEMPLATES as readonly string[]).includes(flags.template)) {
+      out.error(
+        `${t.error(t.symbols.fail)} no module template ${flags.template}: ${MODULE_TEMPLATES.join(", ")}`,
+      );
+      return 2;
+    }
+    template = flags.template as ModuleTemplate;
+  } else if (!wanted.length && !flags.shared && !flags.yes && !out.json && out.terminal.interactive)
+    template = await pick(
+      "Which module?",
+      MODULE_TEMPLATES.map((v) => ({ value: v, label: v, hint: MODULE_TEMPLATE_SUMMARIES[v] })),
+      t,
+    );
+
+  const starter =
+    wanted.length && !template
+      ? {
+          files: { [`src/${name}.lucent.ts`]: platformSource(name, wanted) },
+          import: `import { hello } from "./src/${name}.lucent";`,
+        }
+      : starterModule(template ?? "function", name);
+
+  const files = Object.keys(starter.files);
+  const taken = files.filter((f) => fs.existsSync(path.join(root, f)));
+  // A module of that name in the other extension is the same module.
+  const twin = files
+    .map((f) => (f.endsWith(".tsx") ? f.slice(0, -1) : `${f}x`))
+    .filter((f) => fs.existsSync(path.join(root, f)));
+  if (taken.length || twin.length) {
+    out.error(
+      `${t.error(t.symbols.fail)} ${[...taken, ...twin].join(", ")} exists; nothing was written`,
+    );
     return 1;
   }
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  fs.writeFileSync(target, wanted.length ? platformModule(name, wanted) : sharedModule(name));
+  for (const [file, text] of Object.entries(starter.files)) {
+    fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+    fs.writeFileSync(path.join(root, file), text);
+  }
+
   if (out.json) {
-    out.data({ files: [file], import: `import { hello } from "./src/${name}.lucent";` });
+    out.data({ files, import: starter.import });
     return 0;
   }
-  out.print(`${t.success(t.symbols.ok)} ${file}`);
-  const missing = wanted.length ? platforms.find((p) => !wanted.includes(p)) : undefined;
-  if (missing)
-    out.print(t.dim(`\nThe ${branches[missing].label} branch throws until you implement it.`));
-  out.print(`\n${t.dim("use it")}  import { hello } from "./src/${name}.lucent";`);
+  for (const f of files) out.print(`${t.success(t.symbols.ok)} ${f}`);
+  const missing = wanted.length === 1 ? (wanted[0] === "ios" ? "Android" : "iOS") : undefined;
+  if (missing) out.print(t.dim(`\nThe ${missing} branch throws until you implement it.`));
+  if (template === "view")
+    out.print(t.dim("\nA component builds for a platform whose SDK is installed: lucent build."));
+  out.print(`\n${t.dim("use it")}  ${starter.import}`);
   return 0;
 }

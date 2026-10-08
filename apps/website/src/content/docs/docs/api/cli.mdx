@@ -17,7 +17,8 @@ Every command finds the `*.lucent.ts` files under the project, skipping `node_mo
 | [`lucent doctor`](#lucent-doctor) | Check the machine, the app and its builds: Node, React Native, Xcode, CocoaPods, Android, the JDK, Metro, versions |
 | [`lucent init`](#lucent-init) | Set an app up for Lucent: the Metro config, the Expo plugin or the Gradle task, tsconfig.json, .gitignore, a first module |
 | [`lucent uninstall`](#lucent-uninstall) | Revert what lucent init and the Expo plugin changed: the Metro config, app.json, the Gradle task, react-native.config.js, tsconfig.json, .gitignore |
-| [`lucent new module`](#lucent-new-module) | Scaffold a module in src/: shared, or with --ios / --android one module that branches on PLATFORM |
+| [`lucent create`](#lucent-create) | Create a project from a template: an Expo or bare React Native app, a native-view app, a Lucent library or modules alone, with sample modules |
+| [`lucent new module`](#lucent-new-module) | Scaffold a module in src/ from a template (function, async, events, view, sdk-ios-android), or with --ios / --android one that branches on PLATFORM |
 | [`lucent new view`](#lucent-new-view) | Scaffold a component in src/: its declaration, and each platform's native views in a Flex |
 | [`lucent explain`](#lucent-explain) | What a LUCENT diagnostic code means, and how to fix it (every code without one) |
 | [`lucent bench`](#lucent-bench) | Time the cases of your \*.bench.ts files natively and as JavaScript, and show the speedup (needs a desktop Hermes) |
@@ -150,12 +151,28 @@ It has no JSON output: with `--json`, it exits with code 2.
 
 It reverts what `lucent init` and the Expo config plugin changed, shown as diffs like init's: it unwraps the Metro config, removes the plugin from `app.json`, the Gradle line, the `react-native.config.js` entry, the `lucent:*` path and the editor plugin from `tsconfig.json`, VS Code's TypeScript settings and the `.gitignore` lines. A file init created whole is deleted. The app's modules stay, and so does `noUncheckedIndexedAccess`. [Remove Lucent](/docs/guides/remove-lucent/) gives the steps after it.
 
-## lucent new module
+## lucent create
 
-Scaffold a module in src/: shared, or with --ios / --android one module that branches on PLATFORM
+Create a project from a template: an Expo or bare React Native app, a native-view app, a Lucent library or modules alone, with sample modules
 
 | Flag | Meaning |
 | --- | --- |
+| `--template <name>` | expo, bare, view, library or module (default: asked in a terminal, expo elsewhere) |
+| `--yes` | Take the defaults without asking |
+| `--skip-install` | Write the project without installing its dependencies |
+
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-create---json).
+
+It writes `./<name>` from a template shipped in the package, sets the app up as `lucent init` does, and installs its dependencies with the package manager that ran it. In a terminal, it asks which template to use. [Create a project](/docs/guides/create-a-project/) lists the templates. A directory that exists and isn't empty is refused, and nothing is written.
+
+## lucent new module
+
+Scaffold a module in src/ from a template (function, async, events, view, sdk-ios-android), or with --ios / --android one that branches on PLATFORM
+
+| Flag | Meaning |
+| --- | --- |
+| `--template <name>` | function, async, events, view or sdk-ios-android (default: asked in a terminal, function elsewhere) |
+| `--yes` | Take the default template without asking |
 | `--ios` | Implement the iOS branch (without --android, the Android branch throws) |
 | `--android` | Implement the Android branch (without --ios, the iOS branch throws) |
 | `--shared` | One module for every platform (the default) |

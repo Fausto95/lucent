@@ -140,6 +140,28 @@ Schema: `https://lucent-lang.dev/schemas/clean.schema.json`.
 | `removed[].path` | `string` | yes |  |
 | `removed[].bytes` | `integer` | yes |  |
 
+## lucent create --json
+
+Schema: `https://lucent-lang.dev/schemas/create.schema.json`.
+
+### The project was created
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
+| `ok` | `true` | yes |  |
+| `template` | `"expo" or "bare" or "view" or "library" or "module"` | yes |  |
+| `dir` | `string` | yes | Absolute path of the project |
+| `files` | `string[]` | yes | What was written, relative to the project |
+| `installed` | `boolean` | yes | Its dependencies were installed (not with --skip-install) |
+| `next` | `string[]` | yes | The commands to run next, in order |
+
+### Nothing was created
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
+| `ok` | `false` | yes |  |
+| `error` | `string` | yes | Why: a usage error exits with code 2 |
+
 ## lucent doctor --json
 
 Schema: `https://lucent-lang.dev/schemas/doctor.schema.json`.

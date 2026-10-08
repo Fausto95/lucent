@@ -31,7 +31,13 @@ export const docsSections: DocSection[] = [
     groups: [
       {
         label: "The Basics",
-        items: ["", "guides/install", "guides/first-module", "guides/platform-code"],
+        items: [
+          "",
+          "guides/create-a-project",
+          "guides/install",
+          "guides/first-module",
+          "guides/platform-code",
+        ],
       },
       {
         label: "Workflow",
