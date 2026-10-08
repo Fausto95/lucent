@@ -1,0 +1,5 @@
+{
+  "android": {
+    "permissions": ["android.permission.INTERNET"]
+  }
+}

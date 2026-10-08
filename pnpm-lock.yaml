@@ -301,11 +301,21 @@ importers:
 
   benchmarks/bench-turbo-cxx: {}
 
+  examples/lucent-camera: {}
+
   examples/lucent-haptics: {}
+
+  examples/lucent-http: {}
+
+  examples/lucent-kv-storage: {}
 
   examples/lucent-orbit: {}
 
+  examples/lucent-rating: {}
+
   examples/lucent-secure-store: {}
+
+  examples/lucent-sensors: {}
 
   packages/bindgen: {}
 
