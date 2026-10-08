@@ -59,6 +59,20 @@ describe("Swift expressions", () => {
     expect(printExpr(swift.nil)).toBe("nil");
   });
 
+  it("print string literals as Swift spells them, not JSON", () => {
+    const str = (v: string) => printExpr(swift.str(v));
+
+    expect(str("a\\b\t\n\r\"'")).toBe(String.raw`"a\\b\t\n\r\"\'"`);
+    // NUL and the other controls, which JSON writes \u0000, Swift as \0 and \u{…}.
+    expect(str("\0\u0001\u001f\u007f")).toBe(String.raw`"\0\u{1}\u{1f}\u{7f}"`);
+    // Interpolation does not start in a literal.
+    expect(str("\\(x)")).toBe(String.raw`"\\(x)"`);
+    // Non-ASCII stays as it is, line and paragraph separators escaped.
+    expect(str("é🌍\u2028\u2029")).toBe(String.raw`"é🌍\u{2028}\u{2029}"`);
+    // A Swift String cannot hold a lone surrogate: it is U+FFFD, as bridging an NSString makes it.
+    expect(str("a\uD800b\uDC00")).toBe(String.raw`"a\u{fffd}b\u{fffd}"`);
+  });
+
   it("print array literals and subscripts", () => {
     const cases = swift.arrayLiteral([
       member(name("Palette"), "red"),
