@@ -1,0 +1,16 @@
+{
+  "name": "lucent-http",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HTTP requests in Lucent: URLSession's async data(for:) on iOS and HttpURLConnection on Android, with methods, headers, a body, timeouts and errors with codes. An example Lucent package.",
+  "files": [
+    "index.ts",
+    "src",
+    "lucent.json"
+  ],
+  "main": "index.ts",
+  "lucent": {
+    "sources": "src",
+    "compatible": ">=0.2.0"
+  }
+}

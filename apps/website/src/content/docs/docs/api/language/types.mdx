@@ -40,6 +40,7 @@ An array is a reference: assigning it shares it. A tuple is a value, and `===` c
 | `[A, B]` | A tuple, which is a value. `===` compares its elements, and an element can't be assigned (`LUCENT1008`). | |
 | `Record<string, V>`, `{ [key: string]: V }` | A shared dictionary. Its keys keep JavaScript's order: integer-like keys ascending, then the others in insertion order. | `collections` |
 | `Map<K, V>`, `Set<T>` | Shared, in insertion order, with keys compared by SameValueZero. | `collections` |
+| `ArrayBuffer` | Bytes that `Uint8Array` views share, as in JavaScript. | `array-buffers` |
 | Object types: `type` aliases, object literals, interfaces without methods | A shared object with a fixed set of fields: see [Object types](#object-types). | `objects` |
 | Classes | A shared object with methods, accessors and static members. Each instance has one identity. | `classes`, `inheritance` |
 | Interfaces with methods, or named in a class's `implements` | An instance of a class that declares `implements`: see [Interfaces](#interfaces). | `interfaces` |
@@ -50,7 +51,7 @@ An array is a reference: assigning it shares it. A tuple is a value, and `===` c
 | `Uint8Array` | A view of bytes in a shared buffer. | `misc`, `buffers` |
 | `Date` | A shared, mutable time. Local time comes from the device's time zone database. | `dates` |
 | `RegExp` | A regular expression: see [Regular expressions](/docs/api/language/statements/#regular-expressions). | `regexps` |
-| `Error`, `TypeError`, `RangeError`, `SyntaxError`, classes that extend `Error` | An error with a `name` and a `message`, and the `code` that [error()](/docs/api/lucent-core/#error) gives it. `new SyntaxError()` in a module makes a plain `Error` ([known gap](/docs/api/language/differences/#known-gaps)). | `errors` |
+| `Error`, `TypeError`, `RangeError`, `SyntaxError`, classes that extend `Error` | An error with a `name` and a `message`, and the `code` that [error()](/docs/api/lucent-core/#error) gives it. | `errors` |
 | `Generator<T>`, `Iterable<T>` | A lazy sequence: see [Generators](/docs/api/language/statements/#generators). | `generators`, `iterable-spread` |
 | `AbortSignal`, `AbortController` | See [Globals](/docs/api/globals/). | `abort` |
 | `NativeBuffer`, `ByteSpan`, `MutableByteSpan` | See [lucent:core](/docs/api/lucent-core/#nativebuffer). | `buffers` |

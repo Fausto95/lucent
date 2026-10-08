@@ -1,6 +1,6 @@
 ---
 title: Render a UIKit or Android view
-description: "Write the component as platform files, each returning its platform's view classes as JSX, with properties and setters as attributes."
+description: "Return each platform's view classes as JSX, with properties and setters as attributes, from a branch of one file or from platform files."
 kind: guide
 views: true
 sidebar_class_name: experimental
@@ -67,9 +67,7 @@ export function Pedometer(props: PedometerProps): View {
 ```tsx title="App.tsx"
 import { useState } from "react";
 import { Button, View } from "react-native";
-import * as pedometer from "./pedometer.lucent";
-
-const { Pedometer } = pedometer as unknown as typeof import("./.lucent/native/types/views/pedometer");
+import { Pedometer } from "lucent:views/pedometer";
 
 export default function App() {
   const [steps, setSteps] = useState(0);
@@ -100,6 +98,20 @@ A plain `UIView` or `ViewGroup` doesn't lay out its children, so put them in a `
 
 [UIKit and Android views in JSX](/docs/api/views/platform-views/) gives every rule, and how to list a module's tags.
 
-## Why platform files
+## Write it as one file
 
-Platform-view JSX ends setup, so in one file only the last platform could return it ([Where native JSX goes](/docs/api/views/platform-views/#where-native-jsx-goes)).
+A component fits in one file too: each `PLATFORM` branch returns its platform's views, and only that platform compiles its branch.
+
+```tsx title="step-count.lucent.tsx"
+import { PLATFORM } from "lucent:platform";
+import { TextView } from "lucent:android/android.widget";
+import { UILabel } from "lucent:ios/UIKit";
+
+export function StepCount(props: { steps: number }) {
+  if (PLATFORM === "ios") return <UILabel text={`${props.steps} steps`} />;
+
+  return <TextView text={`${props.steps} steps`} />;
+}
+```
+
+Platform files suit components whose platforms share little code, or whose commands differ: `expose()` can't stand in a branch. A one-file component leaves its return type out ([One file or platform files](/docs/api/views/components/#one-file-or-platform-files)).

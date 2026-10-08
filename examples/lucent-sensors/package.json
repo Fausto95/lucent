@@ -1,0 +1,16 @@
+{
+  "name": "lucent-sensors",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The accelerometer and gyroscope in Lucent: CoreMotion's CMMotionManager (iOS) and SensorManager with a SensorEventListener (Android), streamed to JavaScript. An example Lucent package.",
+  "files": [
+    "index.ts",
+    "src",
+    "lucent.json"
+  ],
+  "main": "index.ts",
+  "lucent": {
+    "sources": "src",
+    "compatible": ">=0.2.0"
+  }
+}

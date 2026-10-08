@@ -1,7 +1,7 @@
 ---
 title: "Which statements and expressions does Lucent support?"
 sidebar_label: Statements
-description: "JavaScript's statements, operators, functions, classes, async code and generators, run in JavaScript's order; `var`, rest parameters and async generators fail to compile."
+description: "JavaScript's statements, operators, functions, classes, async code and generators, run in JavaScript's order; `var`, decorators and async generators fail to compile."
 kind: reference
 ---
 
@@ -40,7 +40,7 @@ export function firstTagged(items: Item[], tag: string): string | undefined {
 | --- | --- | --- |
 | `if`, `while`, `do…while`, `for` | As in JavaScript. A `let` in a `for` gets a new binding on each iteration. | `control-flow`, `closures` |
 | `for…of` | Over arrays, strings (by code point), `Map`s (their entries), `Set`s, `Uint8Array`s, generators and `Iterable<T>`s. `for await` fails with [LUCENT1009](/docs/api/diagnostics/#lucent1009). | `control`, `iterable-spread` |
-| `for…in` | Over a record's keys, an array's indexes as strings, or an object type's declared fields. An unset optional field is included, unlike JavaScript ([known gap](/docs/api/language/differences/#known-gaps)). | `control` |
+| `for…in` | Over a record's keys, or an array's indexes as strings. Over an object type it fails with [LUCENT1009](/docs/api/diagnostics/#lucent1009): its layout doesn't record which optional fields are set. | `control`, `object-keys` |
 | `switch` | With fall-through, and `default` anywhere. A clause can't use a `let` or `const` that another clause declares (`LUCENT1001`): wrap each clause in a block. | `switch-returns` |
 | Labels | On any statement. `break label` leaves it, and `continue label` continues a labeled loop. | `control-flow` |
 | `try`, `catch`, `finally` | As in JavaScript, with `return` or `break` inside `try`. The `catch` binding is optional. Its type is `unknown`, so it can't be destructured: narrow it with `instanceof`. | `control`, `errors` |
@@ -60,7 +60,7 @@ export function firstTagged(items: Item[], tag: string): string | undefined {
 | `===`, `!==`, `==`, `!=` | See [Equality](#equality). |
 | `? :`, `,`, `void`, `typeof` | As in JavaScript. |
 | `instanceof` | With a Lucent or SDK class, `Error`, `TypeError`, `RangeError`, `SyntaxError`, `Array`, `Map`, `Set`, `Uint8Array` or `Date`. Anything else fails with [LUCENT1002](/docs/api/diagnostics/#lucent1002), and so does a generic class. |
-| `in` | On a record, whether it has the key. On an object type, whether the type declares the field: unlike JavaScript, an unset optional field gives `true` ([known gap](/docs/api/language/differences/#known-gaps)). Anything else fails with `LUCENT1002`. |
+| `in` | On a record, whether it has the key. On an object type or anything else it fails with `LUCENT1002`: compare an optional field with `undefined`. |
 | `delete` | On a record entry only, `delete record[key]` (`LUCENT1002`). Set an optional field to `undefined` instead. |
 | `x!` | Checked: it throws a `TypeError` when `x` is `null` or `undefined`. It works as an assignment target too: `xs[i]! += 1`. |
 | `?.` | `a?.b`, `a?.[i]`, `a?.m()` and `f?.()`. |
@@ -88,14 +88,14 @@ Cases: `bigint-arith`, `bigint-unions`.
 - Template literals work, and so does spread in array literals, over any iterable: `[...map]`, `[...set]`, `[...text]`, `[...generator()]` (case `iterable-spread`).
 - An object literal holds fields, spread objects and properties whose value is a function, `name: (…) => …`. A method fails with [LUCENT2002](/docs/api/diagnostics/#lucent2002), and a getter or setter with `LUCENT1001`: use a class.
 - A computed key, `{ [key]: value }`, works in a record literal only. Reading an object type's field by a computed key, `obj[key]`, fails with `LUCENT1001`: use a `Record` or a `Map`.
-- A spread argument works in three calls, as the only argument: `Math.min(...xs)`, `Math.max(...xs)` and `xs.push(...ys)`. Spreading into a function's parameters fails with [LUCENT1007](/docs/api/diagnostics/#lucent1007), and into other calls with `LUCENT1001` or `LUCENT1003`. Pass the elements one by one instead.
+- A spread argument works into a rest parameter, `sum(...xs)`, and in `Math.min(...xs)`, `Math.max(...xs)` and `xs.push(...ys)`. Spreading into fixed parameters fails with [LUCENT1007](/docs/api/diagnostics/#lucent1007), and into other built-ins with `LUCENT1001` or `LUCENT1003`. Pass the elements one by one instead.
 - `eval` fails with [LUCENT1003](/docs/api/diagnostics/#lucent1003), `new Function` with `LUCENT2002`, and tagged templates with `LUCENT1001`.
 
 ## Functions
 
 - Function declarations, arrow functions, function expressions and recursion work as in JavaScript.
 - A closure shares the variables it captures with the scope that declares them (case `closures`).
-- Parameters may be optional or have defaults. Rest parameters, `...xs: T[]`, fail with `LUCENT2002`: take an array.
+- Parameters may be optional or have defaults. A rest parameter, `...xs: T[]`, gathers the arguments into an array on a function declaration, a method or a constructor, from Lucent and from JavaScript (case `rest-parameters`). Such a function is called, not used as a value, and a function type can't have one (`LUCENT2002`).
 - Overload signatures of a top-level function fail with [LUCENT3002](/docs/api/diagnostics/#lucent3002). A generic function can't be used as a value (`LUCENT1001`).
 - `this` works inside class members only (`LUCENT1001`), and `call`, `apply` and `bind` fail with `LUCENT1003`.
 
@@ -107,7 +107,7 @@ Cases: `bigint-arith`, `bigint-unions`.
 - `[Symbol.dispose]()` is the one member a class may name with a symbol: see [using declarations](#using-declarations).
 - Extending a built-in class other than `Error` fails with [LUCENT1005](/docs/api/diagnostics/#lucent1005). So do static blocks, index signatures, and an override whose parameter or result types differ from the base method's.
 - Class expressions fail with `LUCENT2002`.
-- Decorators compile but never run, on a class or on a member: Lucent ignores them, so don't use one ([known gap](/docs/api/language/differences/#known-gaps)). A decorator function with a parameter type Lucent refuses, such as `ClassMethodDecoratorContext` (`LUCENT2002`), fails to compile.
+- Decorators, on a class or a member, fail with [LUCENT1005](/docs/api/diagnostics/#lucent1005): call the function yourself.
 
 ## Async
 

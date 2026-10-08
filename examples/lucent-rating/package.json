@@ -1,0 +1,15 @@
+{
+  "name": "lucent-rating",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native views from Lucent components (experimental): a like button in SwiftUI and Jetpack Compose, and a star rating made of UIKit and Android views, with props, an event and a command. An example Lucent package.",
+  "files": [
+    "index.ts",
+    "src"
+  ],
+  "main": "index.ts",
+  "lucent": {
+    "sources": "src",
+    "compatible": ">=0.2.0"
+  }
+}

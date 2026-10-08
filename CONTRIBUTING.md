@@ -48,6 +48,7 @@ The repository layout, and the rules every change follows, are in
 | `pnpm typecheck`                              | the repository's TypeScript                                                             |        |
 | `pnpm check`                                  | formatting (Oxfmt), lint (Oxlint) and `pnpm typecheck`                                  |        |
 | `node scripts/website.ts --check`             | the website (below)                                                                     | Vale   |
+| `node scripts/website.ts --check-live`        | the deployed site: every page, old URL and README link answers                          |        |
 
 CI shards the unit tests by how long each file takes on each runner's
 platform (`config/test-timings.json`, read by `config/vitest.sequencer.ts`).
@@ -84,9 +85,12 @@ cancelled: each one gates the release that follows it.
 - One unit of meaning per commit. A test lands in its own commit, failing,
   before the commit that makes it pass.
 - Living docs change in the same commit as the behavior they describe:
-  `docs/`, the website, `ROADMAP.md`. `ROADMAP.md` is the plan and its
-  status: a commit that finishes, changes or adds a task updates its entry
-  there.
+  `docs/`, the website, `ROADMAP.md`. A commit that finishes, changes or
+  adds a task updates its entry in [docs/tasks.md](docs/tasks.md); a
+  decision is a new file in [docs/decisions/](docs/decisions/README.md);
+  a limitation found or lifted changes
+  [docs/limitations.md](docs/limitations.md). [ROADMAP.md](ROADMAP.md)
+  changes when the gates or what's next do.
 
 ## Changesets
 
@@ -131,6 +135,7 @@ checks them, and CI runs it with `--check`:
   prose with Vale (`brew install vale`).
 
 `docs/` is for contributors: [architecture](docs/architecture.md), the
-language's [semantics](docs/semantics.md), [testing](docs/testing.md), and
-proposals in [docs/design/](docs/design/). What users need lives on the
-website.
+language's [semantics](docs/semantics.md), [testing](docs/testing.md), the
+[tasks](docs/tasks.md), [decisions](docs/decisions/README.md) and
+[limitations](docs/limitations.md), and the design in
+[docs/design/](docs/design/). What users need lives on the website.

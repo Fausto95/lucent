@@ -179,6 +179,10 @@ the clock itself; Apple Silicon's clock ticks every 42 ns) and the compiled
 size of the generated code. p95 is reported from 20 samples and p99 from
 100; a throughput sample is the mean of a batch, not one call's latency.
 
+`node scripts/bench-publish.ts <results.json>` copies a `--json` run to
+`benchmarks/results/`, which the website's comparison page shows as a dated
+table ([benchmarks/README.md](../benchmarks/README.md)).
+
 `scripts/bench-build.ts` times the development loop on every differential
 case module in one app, built for the host: a cold build, a build with
 nothing to do, a build and a check after a function body changes. Times
@@ -202,8 +206,8 @@ runs.
 CI builds the bare example for the iOS simulator and for Android, but does
 not run it. Before a release, run both example apps on an iOS simulator and an
 Android emulator, as Release builds: every Lab screen must pass, and three
-reloads must not crash. ROADMAP.md's Validation section records the last
-run.
+reloads must not crash. [Validation](tasks.md#validation) in docs/tasks.md records the
+last run.
 
 The Lab has four screens, and each runs when it opens: Tests (every e2e
 case), SDK (the platform probes and the ports' parity cases), Benchmark and

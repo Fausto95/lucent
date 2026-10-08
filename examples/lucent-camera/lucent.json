@@ -1,0 +1,16 @@
+{
+  "ios": {
+    "frameworks": ["AVFoundation"],
+    "infoPlist": {
+      "NSCameraUsageDescription": "Take photos in this app."
+    }
+  },
+  "android": {
+    "permissions": ["android.permission.CAMERA"],
+    "dependencies": {
+      "androidx.camera:camera-core": "1.3.4",
+      "androidx.camera:camera-camera2": "1.3.4",
+      "androidx.camera:camera-lifecycle": "1.3.4"
+    }
+  }
+}

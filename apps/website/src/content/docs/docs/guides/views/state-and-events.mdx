@@ -78,9 +78,7 @@ export function Countdown(props: {
 ```tsx title="App.tsx"
 import { useState } from "react";
 import { Alert, Button, View } from "react-native";
-import * as countdown from "./countdown.lucent";
-
-const { Countdown } = countdown as unknown as typeof import("./.lucent/native/types/views/countdown");
+import { Countdown } from "lucent:views/countdown";
 
 export default function App() {
   const [seconds, setSeconds] = useState(10);

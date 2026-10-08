@@ -76,8 +76,11 @@ link: the following page of its section, or the doc the frontmatter's
 `pagination_next` names, in the same section. `sidebar_label` shortens a
 long title in the sidebar. A page whose samples are views (`views: true`)
 sets `sidebar_class_name: experimental`, which the sidebar marks: views are
-in preview. A removed page gets no redirect: update the
-links to it. The search indexes every page when the site is built.
+in preview. A page that moves or goes adds its old slug to
+`src/docs/redirects.ts`, which `scripts/website.ts` writes into
+`vercel.json` as a permanent redirect and checks against the sidebar:
+published CLIs and READMEs link to the old URLs. Update the links in the
+repository too. The search indexes every page when the site is built.
 
 Pages import nothing: the site gives every page the components below
 (`src/theme/MDXComponents.tsx`).

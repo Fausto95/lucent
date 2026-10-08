@@ -1,0 +1,15 @@
+{
+  "name": "lucent-kv-storage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A small key-value store in Lucent: UserDefaults (iOS) and SharedPreferences (Android), with strings, numbers, booleans, JSON values and change events. An example Lucent package.",
+  "files": [
+    "index.ts",
+    "src"
+  ],
+  "main": "index.ts",
+  "lucent": {
+    "sources": "src",
+    "compatible": ">=0.2.0"
+  }
+}

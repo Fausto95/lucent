@@ -122,6 +122,8 @@ export const docsSections: DocSection[] = [
           "guides/fix-a-compile-error",
           "guides/read-errors-and-logs",
           "guides/symbolicate-a-native-crash",
+          "guides/troubleshooting",
+          "guides/faq",
         ],
       },
       { label: "Testing", items: ["guides/test-a-module"] },

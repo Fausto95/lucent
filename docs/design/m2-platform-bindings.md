@@ -2,7 +2,7 @@
 
 Status: **proposal** (2026-09-23), since largely implemented; what exists is
 described in [platform-bindings.md](../platform-bindings.md), and its progress
-in [ROADMAP.md](../../ROADMAP.md#earlier-plans). The examples
+in [decision 0004](../decisions/0004-full-sdk-plan.md). The examples
 here predate the implementation: `lucent:android/context`, for instance, is
 `lucent:android`.
 

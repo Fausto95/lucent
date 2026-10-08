@@ -1,7 +1,7 @@
 /**
  * The Releases section's data: the package's changelog, read from
  * packages/lucent/CHANGELOG.md (written by changesets), and the known
- * limitations of ROADMAP.md that users meet.
+ * limitations of docs/limitations.md that users meet.
  */
 
 export interface Release {
@@ -51,27 +51,27 @@ export function parseChangelog(text: string): Release[] {
   return releases;
 }
 
-/** The limitation groups users meet; the rest of the section is the maintainer's. */
+/** The limitation groups users meet; the rest of the file is the maintainer's. */
 const USER_FACING = ["Views", "Language, runtime and bindings"];
 
+const BLOB = "https://github.com/Fausto95/lucent/blob/main";
+
 /**
- * ROADMAP.md's known limitations users meet, by group. Links to a task's
- * anchor point at ROADMAP.md on GitHub, where the task is.
+ * docs/limitations.md's groups users meet (its `## ` sections). Relative
+ * links point at the repository on GitHub, where the tasks are: the page
+ * is on the website.
  */
-export function knownLimitations(roadmap: string): { title: string; items: string[] }[] {
-  const section = /^## Known limitations and deferred checks\n([\s\S]*?)(?=^## )/m.exec(roadmap);
-  if (!section) throw new Error('ROADMAP.md has no "## Known limitations and deferred checks"');
-  const groups = section[1]!.split(/^### /m).slice(1);
+export function knownLimitations(limitations: string): { title: string; items: string[] }[] {
+  const groups = limitations.split(/^## /m).slice(1);
   return USER_FACING.map((title) => {
     const group = groups.find((g) => g.startsWith(`${title}\n`));
-    if (!group) throw new Error(`ROADMAP.md's known limitations have no "### ${title}"`);
+    if (!group) throw new Error(`docs/limitations.md has no "## ${title}"`);
     return {
       title,
       items: items(group.split("\n").slice(1)).map((item) =>
-        item.replace(
-          /\]\(#([\w-]+)\)/g,
-          "](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#$1)",
-        ),
+        item
+          .replace(/\]\(tasks\.md#([\w-]+)\)/g, `](${BLOB}/docs/tasks.md#$1)`)
+          .replace(/\]\(\.\.\/ROADMAP\.md#([\w-]+)\)/g, `](${BLOB}/ROADMAP.md#$1)`),
       ),
     };
   });

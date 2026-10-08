@@ -22,27 +22,24 @@ const CHANGELOG = `# @lucent-lang/lucent
 - Fix the loader.
 `;
 
-const ROADMAP = `## Status at a glance
+const LIMITATIONS = `# Known limitations and deferred checks
 
-- ✅ Things.
+What Lucent doesn't do yet.
 
-## Known limitations and deferred checks
-
-### Deferred checks (need the maintainer)
+## Deferred checks (need the maintainer)
 
 - **Physical devices.** Not run.
 
-### Views
+## Views
 
 - Views are in preview: \`lucent:ui\` and its toolkits may change
   without notice.
-- Native views' JSX has fixed children ([T49](#t49)'s).
+- Native views' JSX has fixed children ([T49](tasks.md#t49)'s).
+- Cycles leak ([Not planned](../ROADMAP.md#not-planned)).
 
-### Language, runtime and bindings
+## Language, runtime and bindings
 
 - Weak references are missing.
-
-## Design slices and tasks
 `;
 
 describe("parseChangelog", () => {
@@ -75,13 +72,14 @@ describe("parseChangelog", () => {
 });
 
 describe("knownLimitations", () => {
-  it("reads the user-facing limitations, with task links pointing at ROADMAP.md", () => {
-    expect(knownLimitations(ROADMAP)).toEqual([
+  it("reads the user-facing limitations of docs/limitations.md, with links to GitHub", () => {
+    expect(knownLimitations(LIMITATIONS)).toEqual([
       {
         title: "Views",
         items: [
           "Views are in preview: `lucent:ui` and its toolkits may change without notice.",
-          "Native views' JSX has fixed children ([T49](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t49)'s).",
+          "Native views' JSX has fixed children ([T49](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t49)'s).",
+          "Cycles leak ([Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)).",
         ],
       },
       { title: "Language, runtime and bindings", items: ["Weak references are missing."] },
