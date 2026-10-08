@@ -13,6 +13,6 @@ exports.jsonOut = m.jsonOut;
 exports.counterKeys = m.counterKeys;
 exports.bytesFrom = m.bytesFrom;
 exports.VERSION = m.VERSION;
-exports.LIMITS = m.LIMITS;
+Object.defineProperty(exports, "LIMITS", { enumerable: true, get: () => m.LIMITS });
 exports.Color = Object.freeze({ "Red": "red", "Green": "green" });
 exports.Level = Object.freeze({ "Low": 0, "0": "Low", "High": 10, "10": "High" });

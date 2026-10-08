@@ -27,5 +27,5 @@ exports.failLater = m.failLater;
 exports.tupled = m.tupled;
 exports.records = m.records;
 exports.Account = lucentClass(m.Account);
-exports.BIG = m.BIG;
-exports.LIMITS = m.LIMITS;
+Object.defineProperty(exports, "BIG", { enumerable: true, get: () => m.BIG });
+Object.defineProperty(exports, "LIMITS", { enumerable: true, get: () => m.LIMITS });

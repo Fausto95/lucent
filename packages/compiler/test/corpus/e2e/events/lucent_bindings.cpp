@@ -171,7 +171,12 @@ void install_m_events(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
       return Convert<lucent::Ref<lucent_app::C_Channel>>::toJs(rt, host, lucent_app::C_Channel::create());
     });
   });
-  exports.setProperty(rt, "downloads", Convert<lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(lucent::Ref<lucent_app::S_Progress>)>, lucent::Fn<void(lucent::String, bool)>, lucent::Fn<void()>>>>::toJs(rt, host, lucent_app::m_events::downloads));
+  defineAccessor(rt, exports, "downloads", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, [&]() -> jsi::Value {
+      return Convert<lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(lucent::Ref<lucent_app::S_Progress>)>, lucent::Fn<void(lucent::String, bool)>, lucent::Fn<void()>>>>::toJs(rt, host, lucent_app::m_events::downloads);
+    });
+  }, nullptr);
 }
 
 const ModuleDef kModules[] = {{"events", install_m_events}};

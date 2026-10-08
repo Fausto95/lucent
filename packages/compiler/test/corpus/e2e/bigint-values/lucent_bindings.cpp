@@ -466,7 +466,14 @@ void install_m_bigint_u2d_values(jsi::Runtime& rt, Host& host, jsi::Object& expo
     });
   });
   exports.setProperty(rt, "BIG", Convert<lucent::BigInt>::toJs(rt, host, lucent_app::m_bigint_u2d_values::BIG));
-  exports.setProperty(rt, "LIMITS", Convert<lucent::Ref<lucent_app::S_Object1>>::toJs(rt, host, lucent_app::m_bigint_u2d_values::LIMITS));
+  defineAccessor(rt, exports, "LIMITS", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, [&]() -> jsi::Value {
+      return host.exported(rt, lucent_app::m_bigint_u2d_values::LIMITS, [&]() -> jsi::Value {
+        return Convert<lucent::Ref<lucent_app::S_Object1>>::toJs(rt, host, lucent_app::m_bigint_u2d_values::LIMITS);
+      });
+    });
+  }, nullptr);
 }
 
 const ModuleDef kModules[] = {{"bigint-values", install_m_bigint_u2d_values}};

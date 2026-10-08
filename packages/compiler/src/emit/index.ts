@@ -1183,7 +1183,10 @@ function jsProxy(m: ModuleExports, components: readonly ComponentDescription[]):
   for (const c of m.consts) {
     const name = c.decl.name.getText();
     decls.push(
-      c.isConst
+      // A primitive literal is copied once; anything else is read from the native module each
+      // time, as a `let` is: the handle a host gave out ends with that host (a reload, a test
+      // harness that tears hosts down), while the module's value lives on.
+      c.isConst && primitiveLiteral(c.decl.initializer)
         ? exported(name, js.member(mod, name))
         : js.stmt(
             js.exprStmt(
@@ -1256,4 +1259,21 @@ function toolkitFiles(ctx: Ctx, toolkit: ToolkitName): [string, string][] {
 
       return [name, text];
     });
+}
+
+/** Whether `e` is a literal JavaScript copies as a value: a number, string, boolean or bigint. */
+function primitiveLiteral(e: ts.Expression | undefined): boolean {
+  if (!e) return false;
+  if (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isSatisfiesExpression(e))
+    return primitiveLiteral(e.expression);
+  if (ts.isPrefixUnaryExpression(e) && e.operator === ts.SyntaxKind.MinusToken)
+    return primitiveLiteral(e.operand);
+  return (
+    ts.isNumericLiteral(e) ||
+    ts.isBigIntLiteral(e) ||
+    ts.isStringLiteral(e) ||
+    ts.isNoSubstitutionTemplateLiteral(e) ||
+    e.kind === ts.SyntaxKind.TrueKeyword ||
+    e.kind === ts.SyntaxKind.FalseKeyword
+  );
 }

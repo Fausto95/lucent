@@ -11,4 +11,4 @@ exports.make = m.make;
 exports.ping = m.ping;
 exports.channelJson = m.channelJson;
 exports.Channel = lucentClass(m.Channel);
-exports.downloads = m.downloads;
+Object.defineProperty(exports, "downloads", { enumerable: true, get: () => m.downloads });

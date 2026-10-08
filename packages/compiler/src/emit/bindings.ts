@@ -871,10 +871,13 @@ export class BindingsEmitter {
         : value;
 
       // A `let` the module may reassign is read live, as an ES module
-      // binding; a `const` binding never changes, so one copy is enough.
+      // binding. A `const` binding never changes: a primitive is set once,
+      // and an object is read through the live host too, so a host that
+      // replaces this one (Lucent reinstalled in the same runtime) hands
+      // out its own handle to the module's object.
       body.push(
         cpp.exprStmt(
-          c.isConst
+          c.isConst && primitive(c.type)
             ? cpp.call(cpp.dot(exports, "setProperty"), [rt, name, value])
             : cpp.call("defineAccessor", [
                 rt,
@@ -1099,6 +1102,14 @@ const COMPARED = new Set<LType["k"]>([
  * (Host::exported) rather than at each read: one the boundary copies,
  * made only of what strictEquals compares.
  */
+/** Whether every value of `t` is a primitive JavaScript copies, never a handle to an object. */
+function primitive(t: LType): boolean {
+  const kinds = new Set<LType["k"]>(["number", "string", "boolean", "bigint", "null", "undefined"]);
+  const members = (x: LType): LType[] =>
+    x.k === "opt" ? members(x.inner) : x.k === "union" ? x.ms.flatMap(members) : [x];
+  return members(t).every((m) => kinds.has(m.k));
+}
+
 function copiedOnce(t: LType): boolean {
   const members = (x: LType): LType[] =>
     x.k === "opt" ? members(x.inner) : x.k === "union" ? x.ms.flatMap(members) : [x];
