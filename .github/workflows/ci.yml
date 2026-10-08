@@ -82,7 +82,7 @@ jobs:
       - name: Keep the timings
         if: always() && github.ref == 'refs/heads/main'
         continue-on-error: true
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: unit-test-report-linux-${{ matrix.shard }}
           path: unit-test-report.json
@@ -235,7 +235,7 @@ jobs:
       - name: Keep the timings
         if: always() && github.ref == 'refs/heads/main'
         continue-on-error: true
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: unit-test-report-darwin-${{ matrix.shard }}
           path: unit-test-report.json
@@ -274,7 +274,7 @@ jobs:
       - name: Keep the coverage reports
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sdk-coverage
           path: sdk-coverage.*.json
@@ -332,7 +332,7 @@ jobs:
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tee build.log | tail -n 200
       - name: Keep the build log
         if: failure()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ios-build-log
           path: apps/bare-example/ios/build.log
@@ -378,7 +378,7 @@ jobs:
           node ../../packages/lucent/bin/lucent.cjs sdk coverage --android 'androidx.core.*,com.google.android.gms.*' --json --check ../../config/sdk-coverage.json --update ../../sdk-coverage.updated.json > ../../sdk-coverage.android.json
       - name: Keep the coverage reports
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: sdk-coverage-android
           path: |
