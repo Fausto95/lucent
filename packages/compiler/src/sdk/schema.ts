@@ -123,7 +123,7 @@ export function withSdkOptions<T>(
 
 /** What to do about a native member Lucent does not bind: call it through code of the app's own. */
 export const WRAP_UNBOUND: Record<Platform, string> = {
-  ios: "wrap it in Swift of your own whose types Lucent binds, in a local pod the app depends on",
+  ios: "wrap it in Swift of your own whose types Lucent binds: in a Lucent package's ios.nativeSources (lucent:ios/LucentNative), or in a local pod the app depends on",
   android:
     "wrap it in Kotlin of your own whose types Lucent binds, in a Gradle module the app depends on",
 };

@@ -80,7 +80,14 @@ export { cacheRoot } from "./cache.ts";
 export { lockedPods, sourcesHash } from "./provenance.ts";
 export { buildSourceSchema, isScalarProtocol } from "./swift-source.ts";
 export { boundValue } from "./source-plan.ts";
-export { type PodFramework, podsSearchPaths, type PodsSearchPaths } from "./pods.ts";
+export {
+  type PodFramework,
+  podsSearchPaths,
+  type PodsSearchPaths,
+  type PodXcframework,
+  type SwiftPod,
+} from "./pods.ts";
+export { OWN_SWIFT_MODULE, swiftFilesUnder } from "./swift-modules.ts";
 export { type SwiftPackagePin, type XcodeApp, xcodeApp } from "./xcode.ts";
 export {
   type BuiltSwiftPackage,

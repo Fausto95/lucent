@@ -2907,14 +2907,16 @@ Array(n)` without a whole `.fill(v)`, even when each index is then
   which names no steps. The config plugin builds before the pods are
   installed and before it links the native package. A pod binds through
   the module it defines: `DEFINES_MODULE`, modular headers, a prebuilt
-  `.framework`, or `use_frameworks!`. A Swift pod built as a static
-  library, or one that ships an `.xcframework`, is not bound. Binding a
+  `.framework` or `.xcframework`, `use_frameworks!`, or, for a Swift pod,
+  a module Lucent makes from its sources with `swiftc` (a Swift pod with
+  public Objective-C headers binds through those alone). Binding a
   package's own pod in an Expo app is [TA35](#ta35).
 - An Android app with product flavors binds the libraries of its first
   debug variant by name. A library only another flavor depends on is not
   bindable.
-- Typed native extensions: Swift and Kotlin sources in a package are not
-  typed yet, and extension calls cannot be cancelled.
+- Typed native extensions: Kotlin sources in a package are not typed
+  yet (Swift ones are `lucent:ios/LucentNative`), and extension calls
+  cannot be cancelled.
 - Tracing records allocations for native buffers only, and its buffer
   uses one mutex: fine for debugging, not for continuous production use.
 - The known binding gaps, tasks [TA30](#ta30) to [TA34](#ta34), are in review.

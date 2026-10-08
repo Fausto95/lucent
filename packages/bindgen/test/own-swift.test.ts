@@ -71,10 +71,16 @@ describe("Swift outside modules, made into modules", () => {
 
   it("emits a Swift pod again when its sources change", () => {
     const { dir, xcode, pods, cacheDir } = app();
-    const opts = () => ({ cacheDir, ios: { ...podsSearchPaths(path.join(dir, "ios"))!, xcrun: xcode.xcrun } });
+    const opts = () => ({
+      cacheDir,
+      ios: { ...podsSearchPaths(path.join(dir, "ios"))!, xcrun: xcode.xcrun },
+    });
 
     sdkModule("ios", "DialKit", opts());
-    fs.appendFileSync(path.join(dir, "dial-kit/ios/Dial.swift"), "\npublic func zero() -> Double { 0 }\n");
+    fs.appendFileSync(
+      path.join(dir, "dial-kit/ios/Dial.swift"),
+      "\npublic func zero() -> Double { 0 }\n",
+    );
     forgetLoadedSdks();
     sdkModule("ios", "DialKit", opts());
 
@@ -118,10 +124,15 @@ describe("Swift outside modules, made into modules", () => {
 
   it("says why a Swift pod could not be made into a module", () => {
     const { dir, xcode, cacheDir } = app();
-    const support = path.join(dir, "ios/Pods/Target Support Files/dial-kit/dial-kit.debug.xcconfig");
+    const support = path.join(
+      dir,
+      "ios/Pods/Target Support Files/dial-kit/dial-kit.debug.xcconfig",
+    );
     fs.writeFileSync(
       support,
-      fs.readFileSync(support, "utf8").replace("PRODUCT_MODULE_NAME = DialKit", "PRODUCT_MODULE_NAME = BrokenKit"),
+      fs
+        .readFileSync(support, "utf8")
+        .replace("PRODUCT_MODULE_NAME = DialKit", "PRODUCT_MODULE_NAME = BrokenKit"),
     );
     const pods = podsSearchPaths(path.join(dir, "ios"))!;
 

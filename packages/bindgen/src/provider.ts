@@ -30,8 +30,16 @@ import {
   type LockedPod,
   lockedPods,
 } from "./provenance.ts";
-import type { PodFramework } from "./pods.ts";
+import type { PodFramework, SwiftPod } from "./pods.ts";
 import type { SwiftPackages } from "./swift-packages.ts";
+import {
+  emitSwiftModule,
+  importsOf,
+  OWN_SWIFT_MODULE,
+  type PlannedSwiftModule,
+  planSwiftModules,
+  type SwiftModuleContext,
+} from "./swift-modules.ts";
 import { cSwiftNames } from "./c-swift-names.ts";
 import { buildSourceSchema } from "./swift-source.ts";
 import type { SymbolGraph } from "./symbols.ts";
@@ -113,6 +121,13 @@ export interface SdkOptions {
     deploymentTarget?: string;
     /** The Swift packages the app links, built for it (see swiftPackages). */
     swiftPackages?: SwiftPackages;
+    /** Swift pods built as static libraries (the app's pods: see podsSearchPaths), emitted for it. */
+    swiftPods?: SwiftPod[];
+    /**
+     * The Swift files of the app's Lucent packages' ios.nativeSources: the
+     * module `lucent:ios/LucentNative`, as the native package builds them.
+     */
+    swiftSources?: string[];
     xcrun?: string;
   };
 }
@@ -184,6 +199,8 @@ interface Resolved {
     sources: Map<string, IosModuleSource>;
     /** The app's Swift packages that could not be built, and why. */
     packageFailures: string[];
+    /** Swift modules emitted from source on first use (Swift pods, packages' Swift), and how. */
+    swiftModules: { planned: Map<string, PlannedSwiftModule>; ctx: SwiftModuleContext };
   };
 }
 
@@ -311,8 +328,8 @@ function locateAndroid(opts: SdkOptions): Resolved | { missing: string } {
     // The platform the app compiles against, as its Gradle build says; else the newest.
     const compileSdk = androidLevels(opts).compileSdk;
     const compiled = compileSdk
-      ? platforms.find((p) => p === `android-${compileSdk}`) ??
-        platforms.find((p) => Math.floor(version(p)) === compileSdk)
+      ? (platforms.find((p) => p === `android-${compileSdk}`) ??
+        platforms.find((p) => Math.floor(version(p)) === compileSdk))
       : undefined;
     const name = wanted ?? compiled ?? platforms.sort((a, b) => version(b) - version(a))[0];
     if (!root || !name || !platforms.includes(name)) {
@@ -376,7 +393,8 @@ export function androidLevels(opts: SdkOptions = {}): { minSdk?: number; compile
   const cp = file
     ? (readCached(file) as { minSdk?: unknown; compileSdk?: unknown } | undefined)
     : undefined;
-  const level = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v > 0 ? v : undefined);
+  const level = (v: unknown) =>
+    typeof v === "number" && Number.isInteger(v) && v > 0 ? v : undefined;
   const minSdk = level(opts.android?.minSdk) ?? level(cp?.minSdk);
   const compileSdk = level(cp?.compileSdk);
   return { ...(minSdk ? { minSdk } : {}), ...(compileSdk ? { compileSdk } : {}) };
@@ -571,9 +589,12 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
       const name = f.slice(0, -".framework".length);
       const framework = path.join(dir, f);
       modules.set(name, filesUnder(path.join(framework, "Headers"), /\.h$/));
+      // A Swift-only framework has no Headers.
       sources.set(name, {
         kind: "framework",
-        files: ["Headers", "Modules"].map((d) => path.join(framework, d)),
+        files: ["Headers", "Modules"]
+          .map((d) => path.join(framework, d))
+          .filter((d) => fs.existsSync(d)),
       });
       frameworkDirs.set(name, dir);
     }
@@ -592,6 +613,52 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
   // A module whose files are in Pods/ is its pod's, at the version Podfile.lock installed.
   const lockfile = opts.ios?.lockfile;
   const pods = lockfile ? lockedPods(lockfile) : new Map<string, LockedPod>();
+
+  // Swift made into modules on first use: Swift pods built as static libraries (their module is a
+  // build's product), and the app's Lucent packages' Swift, which LucentNative builds.
+  const deployment = opts.ios?.deploymentTarget;
+  const targetTriple = iosTarget(
+    deployment ? { target: `arm64-apple-ios${deployment}-simulator` } : {},
+  );
+  const swiftPods = (opts.ios?.swiftPods ?? []).filter((p) => !modules.has(p.module));
+  const swiftSources = opts.ios?.swiftSources ?? [];
+  const ownModules = [
+    ...swiftPods.map((p) => ({
+      module: p.module,
+      sources: p.sources,
+      ...(pods.has(p.pod) ? { pod: `${p.pod}@${pods.get(p.pod)!.version}` } : {}),
+      dependencies: importsOf(p.sources),
+    })),
+    ...(swiftSources.length
+      ? [{ module: OWN_SWIFT_MODULE, sources: swiftSources, dependencies: importsOf(swiftSources) }]
+      : []),
+  ];
+  const swiftModules = {
+    ctx: {
+      ...(opts.cacheDir ? { cacheDir: opts.cacheDir } : {}),
+      xcrun,
+      sdk: { path: sdk, version, build },
+      target: targetTriple,
+      includePaths: [...includePaths, ...packageDirs],
+      frameworkPaths,
+      moduleMaps,
+      defines,
+    },
+    planned: new Map<string, PlannedSwiftModule>(),
+  };
+  const planned = planSwiftModules(ownModules, swiftModules.ctx);
+  swiftModules.planned = planned.planned;
+  const swiftFailures = [...planned.failures].map(([m, why]) => `${m}: ${why}`);
+  for (const m of planned.planned.values()) {
+    modules.set(m.module, []);
+    sources.set(m.module, {
+      kind: "swift-module",
+      files: m.sources,
+      ...(m.pod ? { pod: m.pod } : {}),
+    });
+  }
+  const ownDirs = [...planned.planned.values()].map((m) => m.dir);
+
   if (lockfile) {
     const podsDir = path.join(path.dirname(lockfile), "Pods");
     for (const source of sources.values()) {
@@ -600,17 +667,15 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
     }
   }
 
-  const deployment = opts.ios?.deploymentTarget;
   const ios: IosOptions = {
     modules: [],
-    includePaths: [...includePaths, ...packageDirs],
+    includePaths: [...includePaths, ...packageDirs, ...ownDirs],
     frameworkPaths,
     moduleMaps,
     defines,
     xcrun,
     ...(deployment ? { target: `arm64-apple-ios${deployment}-simulator` } : {}),
   };
-  const targetTriple = iosTarget(ios);
 
   const artifacts = iosArtifacts(memo, {
     sdk: { path: sdk, version, build, frameworks: sdkFrameworks },
@@ -647,7 +712,8 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
         umbrellas,
         frameworkDirs,
         sources,
-        packageFailures: packages?.failures ?? [],
+        packageFailures: [...(packages?.failures ?? []), ...swiftFailures],
+        swiftModules,
       },
     },
     (a) => a.modules.filter((m) => byModule.get(m) === a),
@@ -762,10 +828,21 @@ function readGraph(dir: string, module: string): SymbolGraph | undefined {
 const graphErrors = new Map<string, string>();
 
 /** Symbol graphs of `modules`, extracted six at a time. */
-function graphs(r: Resolved, modules: string[]): Map<string, SymbolGraph> {
+function graphs(r: Resolved, wanted: string[]): Map<string, SymbolGraph> {
+  let modules = wanted;
   const out = new Map<string, SymbolGraph>();
   if (!modules.length) return out;
-  const { ios, sdk: sdkPath } = r.ios!;
+  const { ios, sdk: sdkPath, swiftModules } = r.ios!;
+  // Swift made into modules on first use: emitted (once, into the cache) before it is read.
+  const emitted = new Map<string, string>();
+  modules = modules.filter((m) => {
+    const why = swiftModules.planned.has(m)
+      ? emitSwiftModule(swiftModules.planned, m, swiftModules.ctx, emitted)
+      : undefined;
+    if (why) graphErrors.set(m, why);
+    return !why;
+  });
+  if (!modules.length) return out;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-graphs-"));
   const q = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
   const lines = modules.map(
@@ -848,7 +925,9 @@ function extractIosModule(r: Resolved, module: string): Extracted {
   const g = graphs(r, [module]).get(module);
   if (!g)
     return {
-      missing: `lucent:ios/${module}: swift-symbolgraph-extract produced no symbol graph:\n${graphErrors.get(module) ?? ""}`,
+      missing: r.ios!.swiftModules.planned.has(module)
+        ? `lucent:ios/${module}: its Swift could not be made into a module: ${graphErrors.get(module) ?? ""}`
+        : `lucent:ios/${module}: swift-symbolgraph-extract produced no symbol graph:\n${graphErrors.get(module) ?? ""}`,
     };
   extractions++;
   const own = namesOf(module, g);
@@ -860,9 +939,7 @@ function extractIosModule(r: Resolved, module: string): Extracted {
   for (const n of namesRead.get(r)?.values() ?? [])
     for (const usr of Object.keys(n.refs)) declaredBy[usr] ??= n.module;
   const referenced = new Set(
-    [...externalUsrs(g)]
-      .map((u) => ownerOf(u, owners, declaredBy))
-      .filter((m): m is string => !!m),
+    [...externalUsrs(g)].map((u) => ownerOf(u, owners, declaredBy)).filter((m): m is string => !!m),
   );
   referenced.delete(module);
   const deps = [...referenced].filter((m) => modules.has(m));
@@ -1663,9 +1740,7 @@ export function exportSchemaSet(
       `${a.module} ${a.kind}` < `${b.module} ${b.kind}` ? -1 : 1,
     )) {
       if (kind === "names" && wanted.has(`schema|${module}`)) continue;
-      const artifacts = sdkModuleArtifacts(platform, module, opts)
-        .map(identity)
-        .sort();
+      const artifacts = sdkModuleArtifacts(platform, module, opts).map(identity).sort();
       const base = { format: SCHEMA_SET_FORMAT, platform, module, kind, artifacts };
       if (kind === "names") {
         const n = sdkNames(platform, module, opts);
@@ -1692,10 +1767,7 @@ export function exportSchemaSet(
     fs.mkdirSync(tmp, { recursive: true });
     for (const e of entries) {
       const file = setFile(dir, platform, e.module, e.kind);
-      fs.writeFileSync(
-        path.join(tmp, path.basename(file)),
-        `${JSON.stringify(e, null, 1)}\n`,
-      );
+      fs.writeFileSync(path.join(tmp, path.basename(file)), `${JSON.stringify(e, null, 1)}\n`);
       written.push(file);
     }
     fs.rmSync(target, { recursive: true, force: true });

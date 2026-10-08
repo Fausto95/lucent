@@ -1,6 +1,16 @@
 {
-  "metadata": { "formatVersion": { "major": 0, "minor": 6, "patch": 0 }, "generator": "Apple Swift version 6.2" },
-  "module": { "name": "__MODULE__", "platform": { "architecture": "arm64", "operatingSystem": { "name": "ios", "minimumVersion": { "major": 15, "minor": 1 } }, "environment": "simulator" } },
+  "metadata": {
+    "formatVersion": { "major": 0, "minor": 6, "patch": 0 },
+    "generator": "Apple Swift version 6.2"
+  },
+  "module": {
+    "name": "__MODULE__",
+    "platform": {
+      "architecture": "arm64",
+      "operatingSystem": { "name": "ios", "minimumVersion": { "major": 15, "minor": 1 } },
+      "environment": "simulator"
+    }
+  },
   "symbols": [
     {
       "kind": { "identifier": "swift.class", "displayName": "Class" },
@@ -16,7 +26,10 @@
     },
     {
       "kind": { "identifier": "swift.init", "displayName": "Initializer" },
-      "identifier": { "precise": "s:__LEN____MODULE__5GaugeC5valueACSd_tcfc", "interfaceLanguage": "swift" },
+      "identifier": {
+        "precise": "s:__LEN____MODULE__5GaugeC5valueACSd_tcfc",
+        "interfaceLanguage": "swift"
+      },
       "pathComponents": ["Gauge", "init(value:)"],
       "names": { "title": "init(value:)" },
       "declarationFragments": [
@@ -43,7 +56,10 @@
     },
     {
       "kind": { "identifier": "swift.property", "displayName": "Instance Property" },
-      "identifier": { "precise": "s:__LEN____MODULE__5GaugeC5valueSdvp", "interfaceLanguage": "swift" },
+      "identifier": {
+        "precise": "s:__LEN____MODULE__5GaugeC5valueSdvp",
+        "interfaceLanguage": "swift"
+      },
       "pathComponents": ["Gauge", "value"],
       "names": { "title": "value" },
       "declarationFragments": [
@@ -57,7 +73,10 @@
     },
     {
       "kind": { "identifier": "swift.method", "displayName": "Instance Method" },
-      "identifier": { "precise": "s:__LEN____MODULE__5GaugeC4fill2toS2d_tF", "interfaceLanguage": "swift" },
+      "identifier": {
+        "precise": "s:__LEN____MODULE__5GaugeC4fill2toS2d_tF",
+        "interfaceLanguage": "swift"
+      },
       "pathComponents": ["Gauge", "fill(to:)"],
       "names": { "title": "fill(to:)" },
       "declarationFragments": [
@@ -91,8 +110,20 @@
     }
   ],
   "relationships": [
-    { "kind": "memberOf", "source": "s:__LEN____MODULE__5GaugeC5valueACSd_tcfc", "target": "s:__LEN____MODULE__5GaugeC" },
-    { "kind": "memberOf", "source": "s:__LEN____MODULE__5GaugeC5valueSdvp", "target": "s:__LEN____MODULE__5GaugeC" },
-    { "kind": "memberOf", "source": "s:__LEN____MODULE__5GaugeC4fill2toS2d_tF", "target": "s:__LEN____MODULE__5GaugeC" }
+    {
+      "kind": "memberOf",
+      "source": "s:__LEN____MODULE__5GaugeC5valueACSd_tcfc",
+      "target": "s:__LEN____MODULE__5GaugeC"
+    },
+    {
+      "kind": "memberOf",
+      "source": "s:__LEN____MODULE__5GaugeC5valueSdvp",
+      "target": "s:__LEN____MODULE__5GaugeC"
+    },
+    {
+      "kind": "memberOf",
+      "source": "s:__LEN____MODULE__5GaugeC4fill2toS2d_tF",
+      "target": "s:__LEN____MODULE__5GaugeC"
+    }
   ]
 }
