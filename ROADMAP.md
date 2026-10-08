@@ -433,6 +433,17 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-08: Benchmarks run JavaScript as release builds do.** The
+kernels' JavaScript baseline was source Hermes ran unoptimized; release
+builds ship `hermesc -O` bytecode. `scripts/bench.ts` now compiles it so
+(when hermesc is built), which lowers the measured speedups (mandelbrot
+14x → 5.4x on the development container) without changing the budgets:
+they were calibrated as minimums, and the CI runner's numbers decide
+whether one needs a new decision. The generated code's object size gets
+a budget, enforced everywhere, and the install time one reported on
+shared runners. _Why:_ a speedup against unoptimized JavaScript claimed
+more than an app would see.
+
 **2026-10-07: Views without a switch.** The maintainer removed the
 internal `LUCENT_VIEWS=fabric` switch: every compile resolves `lucent:ui`,
 the toolkits and JSX, and generates components' Fabric sources, so a
@@ -1613,6 +1624,36 @@ the runtime, size and build budgets, rather than only producing shorter C++.
 
 **Notes:**
 
+- Review follow-ups (2026-10-08, fix/review-codegen): a field's or module
+  variable's string `+=` appends in place (`lucent::appendTo`) and a
+  template literal is one `lucent::concat`; a counter's test compares
+  integer registers (a `length` has an int64 form), and a counter stepping
+  by more than 1 is an int64 only toward a bound short of 2^53; `for … of`
+  binds each element by `const&` where its body calls nothing (a map entry
+  as a tuple of references, so an unused key is not copied); an async
+  function without `await` returns a settled promise without a coroutine
+  frame; `lucent::Fn` allocates once; boundary paths are rendered only on
+  failure and `Promise` is looked up once per runtime; a Java class passed
+  as an argument is looked up once per call site; SwiftUI values decode
+  with checked casts. The native builds precompile the runtime's umbrella
+  header (`cpp/lucent/prefix.h`): one edited unit 6.5 s → 4.3 s
+  (`bench-build.ts`'s `native/body-edit`, budgeted). `bench.ts` runs the
+  JavaScript baseline as `hermesc -O` bytecode, as release builds do
+  (mandelbrot 14x → 5.4x against its 5x budget on a 2-core Xeon), and
+  budgets the generated objects' size and the install time. The host-only
+  generated-code corpus is committed and compared by `pnpm test`. Not done,
+  and why: splitting `lucent_app.h` per module (a struct's shape change
+  rebuilding only its users) needs every class, interface and JSON writer
+  ordered by the complete types it needs, across modules: its own task;
+  integer element types for local arrays (the `crc32` table) change the
+  array's C++ type, which every call, return and conversion of it sees, so
+  they need the representation to follow the array through the IR rather
+  than a local inference; and stack-allocating non-escaping object
+  literals would give `Ref<T>`'s holders an object with no owner count,
+  which `===` identity, closures and `lucent::Object`'s weak references
+  rely on. The JNI call sites stay a lambda each: a function template's
+  arguments would be evaluated before its local frame is pushed, and their
+  local references would outlive it.
 - Against handwritten C++ (the same kernels, written natively, on the same
   host): `fnv1a`, `xorshift`, `mandelbrot`, `sortNumbers`, `wordCount` and
   `strings` are within 20% or faster; `murmur`, `crc32` and `sieve` are
