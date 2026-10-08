@@ -1677,7 +1677,17 @@ the runtime, size and build budgets, rather than only producing shorter C++.
   (native, -O2). Passing one to a function that does not keep it was left
   out: it would need a `Ref` with no owner count, whose safety would rest
   on the escape facts being complete for every runtime method, and a gap
-  would be a use after free rather than a slower program.
+  would be a use after free rather than a slower program. A JNI call
+  site stays a lambda, its receiver read before its frame and its
+  arguments converted inside it, but its environment, local frame, class
+  and member are one line, `LUCENT_JNI_SITE(lookup, class, member,
+descriptor)`, a macro expanding to the same four declarations in the
+  same order (one static holding both IDs), and the exception check
+  wraps the call (`lucent::jni::checked`): 108 → 70 lines for five
+  calls with their `#line`s. A function template taking each argument
+  as a lambda (frame first, then each argument in order) would keep the
+  order too, but every lambda prints as a block of its own lines, which
+  is longer than what it replaces.
 - Against handwritten C++ (the same kernels, written natively, on the same
   host): `fnv1a`, `xorshift`, `mandelbrot`, `sortNumbers`, `wordCount` and
   `strings` are within 20% or faster; `murmur`, `crc32` and `sieve` are
