@@ -63,11 +63,16 @@ function lineRows(dump: string): { line: number; file: string }[] {
 }
 
 /** SAMPLE compiled with debug information: its object file and line table. */
-function built(options: { root?: boolean } = {}): { dir: string; obj: string; dump: string } {
+function built(options: { root?: boolean } = {}): {
+  dir: string;
+  obj: string;
+  dump: string;
+  files: Map<string, string>;
+} {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-dbg-")));
   const src = path.join(dir, "sample.lucent.ts");
   fs.writeFileSync(src, SAMPLE);
-  const r = compile([src]);
+  const r = compile([src], options.root ? { root: dir } : {});
   for (const [name, content] of r.files) fs.writeFileSync(path.join(dir, name), content);
   const obj = path.join(dir, "m_sample.o");
   const cc = spawnSync(
@@ -90,7 +95,7 @@ function built(options: { root?: boolean } = {}): { dir: string; obj: string; du
     encoding: "utf8",
     maxBuffer: 1 << 28,
   }).stdout;
-  return { dir, obj, dump };
+  return { dir, obj, dump, files: r.files };
 }
 
 describe("debug information", () => {
@@ -107,4 +112,14 @@ describe("debug information", () => {
       expect(mapped.some((r) => r.line === l)).toBe(true);
   });
 
+  it.skipIf(!dwarfdump)("names the source relative to the project, no machine path", () => {
+    const { dir, obj, dump, files } = built({ root: true });
+
+    // Debuggers and crash symbolication find it from the project's directory.
+    expect(dump).toContain('name: "sample.lucent.ts"');
+    expect(fs.readFileSync(obj).includes(dir)).toBe(false);
+    // Nor do the error and trace sites, which are strings: no generated file names the directory.
+    expect([...files].filter(([, text]) => text.includes(dir)).map(([name]) => name)).toEqual([]);
+    expect(files.get("lucent_bindings.cpp")).toContain('LUCENT_TRACE_SITE_AT("add", "sample.lucent.ts"');
+  });
 });
