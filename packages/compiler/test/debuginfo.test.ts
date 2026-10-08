@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import ts from "typescript";
 import { describe, expect, it } from "vite-plus/test";
 import { compile, runtimeDir } from "../src/index.ts";
 
@@ -9,37 +10,101 @@ const dwarfdump = ["llvm-dwarfdump", "dwarfdump"].find(
   (t) => spawnSync(t, ["--version"]).status === 0,
 );
 
+/** Statements spanning lines, apart by blank lines a drifting line would land on. */
+const SAMPLE = `export function add(a: number, b: number): number {
+  const c = a + b;
+
+  return c * 2;
+}
+
+export function sum(xs: number[]): number {
+  let s = 0;
+
+  for (const x of xs) {
+    s += x;
+  }
+
+  const point = {
+    x: s,
+    y: s * 2,
+  };
+
+  const g = (k: number) => {
+    return k + point.y;
+  };
+
+  return g(s);
+}
+`;
+
+/** The source line ranges of every statement in `text` (1-based, inclusive). */
+function statementSpans(text: string): [number, number][] {
+  const sf = ts.createSourceFile("sample.lucent.ts", text, ts.ScriptTarget.Latest, true);
+  const spans: [number, number][] = [];
+  const line = (pos: number) => sf.getLineAndCharacterOfPosition(pos).line + 1;
+  const visit = (n: ts.Node) => {
+    if (ts.isStatement(n) || ts.isFunctionDeclaration(n))
+      spans.push([line(n.getStart(sf)), line(n.getEnd())]);
+    n.forEachChild(visit);
+  };
+  visit(sf);
+  return spans;
+}
+
+/** Each row of the line table: its line and the name of its file. */
+function lineRows(dump: string): { line: number; file: string }[] {
+  const names = new Map<number, string>();
+  for (const m of dump.matchAll(/file_names\[\s*(\d+)\]:\s*\n\s*name: "([^"]*)"/g))
+    names.set(Number(m[1]), m[2]!);
+  const rows: { line: number; file: string }[] = [];
+  for (const m of dump.matchAll(/^0x[0-9a-f]+\s+(\d+)\s+\d+\s+(\d+)\s/gm))
+    rows.push({ line: Number(m[1]), file: names.get(Number(m[2])) ?? "?" });
+  return rows;
+}
+
+/** SAMPLE compiled with debug information: its object file and line table. */
+function built(options: { root?: boolean } = {}): { dir: string; obj: string; dump: string } {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-dbg-")));
+  const src = path.join(dir, "sample.lucent.ts");
+  fs.writeFileSync(src, SAMPLE);
+  const r = compile([src]);
+  for (const [name, content] of r.files) fs.writeFileSync(path.join(dir, name), content);
+  const obj = path.join(dir, "m_sample.o");
+  const cc = spawnSync(
+    "clang++",
+    [
+      "-std=c++20",
+      "-g",
+      "-c",
+      ...(options.root ? [`-ffile-prefix-map=${dir}=.`] : []),
+      `-I${path.join(runtimeDir(), "cpp")}`,
+      `-I${dir}`,
+      path.join(dir, "m_sample.cpp"),
+      "-o",
+      obj,
+    ],
+    { encoding: "utf8", cwd: dir },
+  );
+  expect(cc.stderr).toBe("");
+  const dump = spawnSync(dwarfdump!, ["--debug-line", obj], {
+    encoding: "utf8",
+    maxBuffer: 1 << 28,
+  }).stdout;
+  return { dir, obj, dump };
+}
+
 describe("debug information", () => {
-  it.skipIf(!dwarfdump)("maps native code to the .lucent.ts source lines", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-dbg-"));
-    const src = path.join(dir, "sample.lucent.ts");
-    fs.writeFileSync(
-      src,
-      "export function add(a: number, b: number): number {\n  const c = a + b;\n  return c * 2;\n}\n",
-    );
-    const r = compile([src]);
-    for (const [name, content] of r.files) fs.writeFileSync(path.join(dir, name), content);
-    const obj = path.join(dir, "m_sample.o");
-    const cc = spawnSync(
-      "clang++",
-      [
-        "-std=c++20",
-        "-g",
-        "-c",
-        `-I${path.join(runtimeDir(), "cpp")}`,
-        `-I${dir}`,
-        path.join(dir, "m_sample.cpp"),
-        "-o",
-        obj,
-      ],
-      { encoding: "utf8" },
-    );
-    expect(cc.stderr).toBe("");
-    const lines = spawnSync(dwarfdump!, ["--debug-line", obj], { encoding: "utf8" }).stdout;
-    // The line table names the source file by its canonical absolute path
-    // (DWARF splits it into a directory and a name), so debuggers and crash
-    // symbolication open the right file.
-    expect(lines).toContain(`"${fs.realpathSync(dir).replace(/\\/g, "/")}"`);
-    expect(lines).toContain('name: "sample.lucent.ts"');
+  it.skipIf(!dwarfdump)("maps every line of native code into a statement of the source", () => {
+    const { dump } = built();
+    const spans = statementSpans(SAMPLE);
+    const mapped = lineRows(dump).filter((r) => r.file === "sample.lucent.ts" && r.line > 0);
+
+    expect(mapped.length).toBeGreaterThan(10);
+    const outside = mapped.filter((r) => !spans.some(([a, b]) => r.line >= a && r.line <= b));
+    expect(outside.map((r) => r.line)).toEqual([]);
+    // Every statement with code has some.
+    for (const l of [2, 4, 8, 10, 11, 14, 19, 20, 23])
+      expect(mapped.some((r) => r.line === l)).toBe(true);
   });
+
 });
