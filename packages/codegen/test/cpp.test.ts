@@ -128,7 +128,7 @@ describe("C++ expressions", () => {
 describe("C++ statements and declarations", () => {
   it("chain else-if, and print #line directives on their own lines, at column 0", () => {
     expect(printStmts([cpp.block([cpp.lineDirective(4, "/a/b.lucent.ts"), cpp.ret(num(1))])])).toBe(
-      ["{", '#line 4 "/a/b.lucent.ts"', "  return 1;", "}"].join("\n"),
+      ["{", '#line 4 "/a/b.lucent.ts"', "  return 1;", "#line 4", "}"].join("\n"),
     );
     const s = cpp.ifStmt(
       x,
@@ -139,14 +139,49 @@ describe("C++ statements and declarations", () => {
       [
         '#line 3 "/a/b.lucent.ts"',
         "if (x) {",
+        "#line 3",
         "  return 1;",
+        "#line 3",
         "} else if (y) {",
+        "#line 3",
         "  return 2;",
+        "#line 3",
         "} else {",
+        "#line 3",
         "  return 3;",
+        "#line 3",
         "}",
       ].join("\n"),
     );
+  });
+
+  it("name a #line's source line on every line it covers, then the file's own after a function", () => {
+    const body = [
+      cpp.lineDirective(7, "src/a.lucent.ts"),
+      cpp.varDecl(cpp.auto, "f", cpp.lambda([], [], [cpp.ret(num(1))])),
+      cpp.ret(id("f")),
+    ];
+    const unit = cpp.printUnit({
+      file: "m_a.cpp",
+      decls: [cpp.fn("g", cpp.type("int"), [], body), cpp.fn("h", cpp.type("int"), [], [])],
+    });
+    const lines = unit.split("\n");
+
+    expect(lines.slice(0, 9)).toEqual([
+      "int g() {",
+      '#line 7 "src/a.lucent.ts"',
+      "  auto f = []() {",
+      "#line 7",
+      "    return 1;",
+      "#line 7",
+      "  };",
+      "#line 7",
+      "  return f;",
+    ]);
+    // After g, the lines are m_a.cpp's again, numbered as they are in it.
+    const reset = lines.findIndex((l) => l.startsWith('#line') && l.includes("m_a.cpp"));
+    expect(lines[reset]).toBe(`#line ${reset + 2} "m_a.cpp"`);
+    expect(lines.slice(reset + 1)).toEqual(["", "int h() {", "}", ""]);
   });
 
   it("print variables in each initialization style", () => {
