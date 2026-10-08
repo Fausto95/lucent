@@ -21,6 +21,7 @@
 
 #include "core.h"
 #include "function.h"
+#include "json.h"
 #include "jsstring.h"
 
 namespace lucent {
@@ -153,5 +154,12 @@ class EventEmitterObject : public Object {
   std::tuple<std::vector<Entry<Fns>>...> listeners_;
   uint64_t nextId_ = 1;
 };
+
+/// An emitter and a subscription have no enumerable own properties.
+template <class... Fns>
+void jsonWrite(JsonWriter& w, const Ref<EventEmitterObject<Fns...>>&) {
+  w.raw("{}");
+}
+inline void jsonWrite(JsonWriter& w, const EventSubscription&) { w.raw("{}"); }
 
 }  // namespace lucent
