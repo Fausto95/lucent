@@ -80,13 +80,14 @@ describe.skipIf(!android)("platform members of a shared class", () => {
     const { r, shown } = build(player, ["android", "host"]);
     expect(shown).toEqual([]);
 
-    const header = r.files.get("android/lucent_app.h")!;
+    // Each type has a header of its own (type-headers.ts).
+    const header = r.files.get("android/lucent_app_C_Player.h")!;
     const struct = header.slice(header.indexOf("struct C_Player :"));
     expect(struct).toContain("lucent::Opt<lucent::NativeRef> android{};");
     expect(struct).not.toMatch(/\bios\b/);
     expect(r.files.get("android/m_m.cpp")).toContain("C_Player::media()");
 
-    const host = r.files.get("host/lucent_app.h")!;
+    const host = r.files.get("host/lucent_app_C_Player.h")!;
     const hostStruct = host.slice(host.indexOf("struct C_Player :"));
     expect(hostStruct).not.toMatch(/\b(ios|android|media)\b/);
     expect(hostStruct).toContain("play()");
