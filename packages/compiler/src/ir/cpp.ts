@@ -503,6 +503,21 @@ class Emitter {
     return parts;
   }
 
+  /** Whether one store in the function writes the place `p`, and no closure captures it. */
+  storedOnce(p: number): boolean {
+    let stores = 0;
+
+    for (const r of this.fn.regions)
+      for (const op of r.ops) {
+        if (op.kind === "store" && op.place === p) stores++;
+
+        if (op.kind === "closure" && op.from.some((f) => "place" in f && f.place === p))
+          return false;
+      }
+
+    return stores === 1;
+  }
+
   /** Whether the load `v` is spelled as its variable. */
   aliased(v: ValueId): boolean {
     return this.aliases.has(v);
@@ -578,6 +593,25 @@ class Emitter {
     return kind === "u32"
       ? this.intValue(v)
       : cpp.staticCast(cpp.type("uint32_t"), this.intValue(v));
+  }
+
+  /**
+   * `left op right`, a comparison of two exact integers, on their integer
+   * registers (as int64s when their kinds differ): never NaN nor -0, they
+   * order and compare as the doubles do.
+   */
+  intComparison(op: IrOp & { kind: "binary" }): cpp.Expr | undefined {
+    const symbol = INT_COMPARISONS[op.op];
+    const [l, r] = [this.intKind(op.left), this.intKind(op.right)];
+
+    if (!symbol || !l || !r) return undefined;
+
+    const operand = (v: ValueId, kind: IntKind) =>
+      kind === l && kind === r
+        ? this.intValue(v)
+        : cpp.staticCast(cpp.type("int64_t"), this.intValue(v));
+
+    return cpp.binary(operand(op.left, l), symbol, operand(op.right, r));
   }
 
   /** `left op right` for an int32 operator, on integer registers: shift counts taken modulo 32. */
@@ -718,10 +752,55 @@ class Emitter {
     if (!this.used(v)) return [];
 
     const name = `v${v}_`;
+    const lent = this.lent.has(c);
+    const type = this.backend.cppType(this.typeOf(v));
 
     this.exprs.set(v, cpp.id(name));
-    this.temporaries.set(v, home);
-    return [cpp.varDecl(this.backend.cppType(this.typeOf(v)), name, c)];
+
+    // A lent element is the collection's: a reference, never moved from.
+    if (lent) this.references.add(v);
+    else this.temporaries.set(v, home);
+
+    // `const auto&`: a map entry's tuple of references, kept as one (its type would copy them).
+    return [cpp.varDecl(lent ? cpp.reference(cpp.constType(cpp.auto)) : type, name, c)];
+  }
+
+  /** The C++ of elements read where their collection holds them (see `lendsElements`). */
+  private readonly lent = new Set<cpp.Expr>();
+  /** Values that are references to a collection's element. */
+  private readonly references = new Set<ValueId>();
+
+  /** `c`, an element its collection holds, read in place. */
+  lend(c: cpp.Expr): cpp.Expr {
+    this.lent.add(c);
+    return c;
+  }
+
+  /** Whether `v` is a reference to a collection's element, which a store copies. */
+  isReference(v: ValueId): boolean {
+    return this.references.has(v);
+  }
+
+  /**
+   * Whether the body of `op`, a `for … of`, may read its element where the
+   * collection holds it, rather than a copy: an element that is not a
+   * scalar (copying a reference or a string counts it up and down), and a
+   * body that cannot change the collection. It calls nothing (no function,
+   * no closure, no suspension: a call could push to the array, which moves
+   * its elements) and its plans only read (see `readsOnly`). Writing a
+   * local that holds the collection is not a change: the loop holds its own
+   * handle.
+   */
+  lendsElements(op: IrOp & { kind: "iterate" }): boolean {
+    const t = this.typeOf(op.iterable);
+    const element = this.typeOf(op.element);
+    const scalar = ["number", "boolean", "undefined", "null"].includes(element.k);
+
+    if (!["array", "map", "dict"].includes(t.k) || (t.k === "array" && scalar)) return false;
+
+    return this.fn.regions[op.body]!.ops.every((o) =>
+      deep(this.fn, o).every((d) => INERT.has(d.kind) || (d.kind === "plan" && readsOnly(d.code))),
+    );
   }
 
   /** `v` declared empty here, for later statements to assign (an if's result). */
@@ -913,6 +992,14 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
       return;
     }
 
+    // Exact integers compare as their registers: no conversion to double on each loop test.
+    const ints = e.intComparison(op);
+
+    if (ints) {
+      e.define(op, op.result, ints);
+      return;
+    }
+
     // A chain of string `+`s (a template literal's parts) joins once: lucent::concat sizes the
     // result before allocating it, where each nested `+` would copy what came before.
     const parts = e.concatenation(op);
@@ -963,6 +1050,14 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
     const int = e.placeInt(op.place);
 
     if (prev?.kind === "local" && prev.place === op.place) {
+      // `const p` of a lent element: a reference to it too, as nothing else writes it.
+      if (!int && !prev.boxed && e.isReference(op.value) && e.storedOnce(op.place)) {
+        const type = cpp.reference(cpp.constType(cpp.auto));
+
+        e.emit(op, cpp.varDecl(type, prev.spelled ?? cppIdent(prev.name), e.value(op.value)));
+        return;
+      }
+
       const type = int ? cpp.type(INT_CPP[int]) : boxOf(e.backend.cppType(prev.type), prev.boxed);
       const style = prev.boxed ? { style: "construct" as const } : {};
       const value = int ? e.stored(op.value, int) : e.taken(op.value);
@@ -1230,7 +1325,9 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
       });
       const at = (items: cpp.Expr) => cpp.call(cpp.dot(items, "at"), [idx]);
       const size = (items: cpp.Expr) => cpp.call(cpp.dot(items, "size"));
-      const loop = ITERATIONS[t.k]!({ name, coll, idx, t, e, body, counted, at, size });
+      // An element the body only reads (it cannot change the collection) is read where it is.
+      const lent = e.lendsElements(op);
+      const loop = ITERATIONS[t.k]!({ name, coll, idx, t, e, body, counted, at, size, lent });
 
       return [
         cpp.block([cpp.varDecl(cpp.auto, name, e.value(op.iterable)), ...loop]),
@@ -1327,6 +1424,8 @@ interface Iteration {
   counted(size: cpp.Expr, body: cpp.Stmt[]): cpp.Stmt;
   at(items: cpp.Expr): cpp.Expr;
   size(items: cpp.Expr): cpp.Expr;
+  /** Whether the body may read the element where the collection holds it (Emitter.lendsElements). */
+  lent: boolean;
 }
 
 /** A hash table's slots, live ones only, while it is guarded against changes that move them. */
@@ -1344,18 +1443,36 @@ function tableLoop(it: Iteration, element: (slot: cpp.Expr) => cpp.Expr): cpp.St
   ];
 }
 
-/** A map's or a record's `[key, value]` entry of a table slot. */
+/**
+ * A map's or a record's `[key, value]` entry of a table slot: a tuple of
+ * references to the slot's when the body only reads them (an unused key is
+ * then never copied), a copy otherwise.
+ */
 function entry(it: Iteration, key: cpp.Type, val: LType): (slot: cpp.Expr) => cpp.Expr {
-  return (slot) =>
-    cpp.construct(cpp.type("std::tuple", key, it.e.backend.cppType(val)), [
+  const value = it.e.backend.cppType(val);
+  const [k, v] = it.lent
+    ? [cpp.reference(cpp.constType(key)), cpp.reference(cpp.constType(value))]
+    : [key, value];
+
+  return (slot) => {
+    const tuple = cpp.construct(cpp.type("std::tuple", k, v), [
       cpp.dot(slot, "key"),
       cpp.dot(slot, "value"),
     ]);
+
+    return it.lent ? it.e.lend(tuple) : tuple;
+  };
 }
 
 /** How `for … of` goes over each kind of collection, as the legacy emitter's loops do. */
 const ITERATIONS: Partial<Record<LType["k"], (it: Iteration) => cpp.Stmt[]>> = {
-  array: (it) => [it.counted(it.size(it.coll), it.body(it.at(it.coll)))],
+  array: (it) => {
+    const element = it.lent
+      ? it.e.lend(cpp.index(cpp.call(cpp.dot(it.coll, "items")), it.idx))
+      : it.at(it.coll);
+
+    return [it.counted(it.size(it.coll), it.body(element))];
+  },
 
   bytes: (it) => [it.counted(it.size(it.coll), it.body(it.at(it.coll)))],
 
@@ -1403,6 +1520,113 @@ const ITERATIONS: Partial<Record<LType["k"], (it: Iteration) => cpp.Stmt[]>> = {
     ];
   },
 };
+
+/** The operations that run no code of the program's own and change no collection. */
+const INERT = new Set<IrOp["kind"]>([
+  "const",
+  "param",
+  "unary",
+  "binary",
+  "convert",
+  "local",
+  "load",
+  "store",
+  "if",
+  "loop",
+  "block",
+  "iterate",
+  "break",
+  "continue",
+  "yield",
+  "return",
+  "throw",
+  "never",
+  "unreachable",
+]);
+
+/** The runtime functions plan code may call that only read their arguments. */
+const READING_FUNCTIONS = new Set([
+  "std::get",
+  "lucent::assigned",
+  "lucent::toJsString",
+  "lucent::truthy",
+  "lucent::typeOf",
+  "lucent::jsMod",
+  "lucent::jsPow",
+  "lucent::toInt32",
+  "lucent::toUint32",
+  "lucent::strictEquals",
+  "lucent::concat",
+  "lucent::numberToString",
+  "lucent::elementAt",
+  "lucent::entryAt",
+  "LUCENT_STR",
+  "LUCENT_STR16",
+]);
+
+/** The runtime methods plan code may call that only read their object. */
+const READING_METHODS = new Set([
+  "length",
+  "size",
+  "at",
+  "get",
+  "getIndex",
+  "has",
+  "value",
+  "charCodeAt",
+  "includes",
+  "indexOf",
+  "startsWith",
+  "endsWith",
+]);
+
+/**
+ * Whether plan code only reads: members, and calls of the runtime's
+ * reading functions and methods; no assignment, no other call (one could
+ * run the program's code: an accessor, a method), no statement.
+ */
+function readsOnly(code: unknown): boolean {
+  const visit = (node: unknown): boolean => {
+    if (Array.isArray(node)) return node.every(visit);
+
+    if (typeof node !== "object" || node === null) return true;
+
+    const n = node as { k?: string; callee?: { k?: string; name?: unknown; arrow?: boolean } };
+
+    if (
+      [
+        "assign",
+        "statementExpr",
+        "coAwait",
+        "lambda",
+        "new",
+        "postfix",
+        "blockLiteral",
+        "send",
+      ].includes(n.k ?? "")
+    )
+      return false;
+
+    if (n.k === "unary" && ["++", "--"].includes((node as { op?: string }).op ?? "")) return false;
+
+    if (n.k === "call") {
+      const callee = n.callee;
+      const name = typeof callee?.name === "string" ? callee.name : "";
+      const reads =
+        (callee?.k === "id" && READING_FUNCTIONS.has(name)) ||
+        // A runtime value's method (`xs.size()`), not an object's (`p->size()`, the program's).
+        (callee?.k === "member" && !callee.arrow && READING_METHODS.has(name));
+
+      if (!reads) return false;
+    }
+
+    return Object.entries(node).every(([k, v]) =>
+      k === "callee" ? visit((v as { object?: unknown }).object) : visit(v),
+    );
+  };
+
+  return visit(code);
+}
 
 /** `value`, after what evaluating `effect` does (nothing, when it is a name or a literal). */
 function after(effect: cpp.Expr, value: cpp.Expr): cpp.Expr {
@@ -1500,6 +1724,18 @@ function deep(fn: IrFunction, op: IrOp): IrOp[] {
 
 /** The arithmetic `Emitter.int64` computes in int64. */
 const INT64_ARITHMETIC = new Set<BinaryOp>(["+", "-", "*", "%"]);
+
+/** The comparisons of exact integers, as C++ spells them on integer registers. */
+const INT_COMPARISONS: Partial<Record<BinaryOp, cpp.BinaryOp>> = {
+  "<": "<",
+  "<=": "<=",
+  ">": ">",
+  ">=": ">=",
+  "===": "==",
+  "!==": "!=",
+  "==": "==",
+  "!=": "!=",
+};
 
 /** The C++ type of each integer register. */
 const INT_CPP: Record<IntKind, string> = { i32: "int32_t", u32: "uint32_t", i64: "int64_t" };

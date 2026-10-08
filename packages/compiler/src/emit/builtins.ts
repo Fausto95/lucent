@@ -139,6 +139,12 @@ const num = (c: cpp.Expr): E => ({ c, t: T.number });
 const big = (c: cpp.Expr): E => ({ c, t: T.bigint });
 const bool = (c: cpp.Expr): E => ({ c, t: T.boolean });
 const str = (c: cpp.Expr): E => ({ c, t: T.string });
+/** A number that is a size (`size_t`), with its int64 form. */
+const sized = (size: cpp.Expr): E => {
+  const c = cpp.staticCast(cpp.type("int64_t"), size);
+
+  return { c: cpp.staticCast(cpp.type("double"), c), t: T.number, int: { c, kind: "i64" } };
+};
 
 // --- properties -----------------------------------------------------------------------
 
@@ -146,12 +152,12 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
   const t = obj.t;
   const o = obj.c;
   switch (t.k) {
+    // A length is an exact integer: its int64 form compares with a for counter's without doubles.
     case "string":
-      if (name === "length")
-        return num(cpp.staticCast(cpp.type("double"), cpp.call(cpp.dot(o, "length"), [])));
+      if (name === "length") return sized(cpp.call(cpp.dot(o, "length"), []));
       break;
     case "array":
-      if (name === "length") return num(cpp.call(cpp.dot(o, "length"), []));
+      if (name === "length") return sized(cpp.call(cpp.dot(o, "size"), []));
       break;
     case "tuple":
       if (name === "length") return num(numberExpr(t.es.length));

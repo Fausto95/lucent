@@ -983,7 +983,11 @@ integers`: its int locals, and `for` counters as int64s), or a plan's
   string appends in place (a field's or a module variable's `+=` too,
   through `lucent::appendTo`: the place lets go of its handle, so the
   string read from it grows in place), a chain of string `+`s (a template
-  literal) is one `lucent::concat`, sized before it allocates, and a pure
+  literal) is one `lucent::concat`, sized before it allocates, a comparison
+  of two exact integers (a counter and a `length`) compares their
+  registers, a `for … of` whose body cannot change its collection (no
+  call, plans that only read) reads each element where the collection
+  holds it (a `const&`, a map entry a tuple of references), and a pure
   operation used once by the next is written inline there. Each call stays a statement of its own.
 - An async function (`IrFunction.async`) returns what its promise
   fulfils with; each `await` is a suspension point of its own, so what
