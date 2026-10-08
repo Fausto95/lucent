@@ -6,6 +6,7 @@ export default function run(mod, print, lucentClass, mods) {
   print(mod.negativeRemainder());
   print(mod.signedProducts(0));
   print(mod.unbounded());
+  print(mod.pastExact());
   print(mod.sometimesFractional(10), mod.sometimesFractional(11));
   print(
     mod.toInt32([

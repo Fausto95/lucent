@@ -138,3 +138,29 @@ describe("string appends and template literals", () => {
     expect(fn).not.toContain("lucent::String(lucent::String(");
   });
 });
+
+describe("for counters", () => {
+  const cpp = cppOf(CASE);
+
+  it("keeps a counter a double where a step past 1 could take it past 2^53", () => {
+    const fn = body(cpp, "pastExact");
+
+    expect(fn).not.toContain("int64_t i = ");
+  });
+
+  it("keeps a counter stepping by 1, or toward a bound within 2^53, an int64", () => {
+    expect(body(cpp, "boundedSum")).toContain("int64_t i = ");
+
+    const file = module(`export function stepped(xs: number[]): number {
+  let t = 0;
+  for (let i = 0; i < 1000; i += 7) t += i;
+  for (let i = 0; i < xs.length; i += 2) t += xs[i]!;
+  for (let i = 100; i > 0; i -= 3) t += i;
+  return t;
+}
+`);
+    const fn = body(cppOf(file), "stepped");
+
+    expect(fn.match(/int64_t i = /g)).toHaveLength(3);
+  });
+});

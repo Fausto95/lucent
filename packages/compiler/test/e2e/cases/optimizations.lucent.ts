@@ -69,6 +69,27 @@ export function unbounded(): string {
   return `${big} ${c} ${near}`;
 }
 
+/**
+ * A counter stepping by more than 1 toward a bound past 2^53: where its
+ * sums round as doubles, so the counter is one too. `2e9` is a multiple of
+ * 1024, so its sums stay exact; 2147483647's past 2^53 round.
+ */
+export function pastExact(): string {
+  let n = 0;
+  let last = 0;
+  for (let i = 0; i < 2 ** 54; i += 2e9) {
+    n++;
+    last = i;
+  }
+  let m = 0;
+  let odd = 0;
+  for (let i = 0; i < 2 ** 54; i += 2147483647) {
+    m++;
+    odd = i;
+  }
+  return `${n} ${last} ${m} ${odd}`;
+}
+
 /** Must not apply: a local that is sometimes fractional. */
 export function sometimesFractional(n: number): number {
   let t = 0;
