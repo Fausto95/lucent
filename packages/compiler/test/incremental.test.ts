@@ -63,3 +63,74 @@ describe("generated files for incremental native builds", () => {
     expect(changed).toEqual(["lucent_bindings.cpp", "lucent_identity.cpp", "m_a.cpp", "m_a.h"]);
   });
 });
+
+/** The generated files `unit` reads: itself and every generated header it includes, transitively. */
+function closure(files: Map<string, string>, unit: string): Map<string, string> {
+  const seen = new Map<string, string>();
+  const visit = (name: string) => {
+    const text = files.get(name);
+    if (text === undefined || seen.has(name)) return;
+    seen.set(name, text);
+    for (const [, inc] of text.matchAll(/^#include "([^"]+)"/gm)) visit(inc!);
+  };
+  visit(unit);
+  return seen;
+}
+
+/** The units whose inputs differ between two builds: what a native build compiles again. */
+function rebuilt(before: Map<string, string>, after: Map<string, string>): string[] {
+  const units = [...after.keys()].filter((f) => f.endsWith(".cpp"));
+  return units
+    .filter((u) => {
+      const [x, y] = [closure(before, u), closure(after, u)];
+      return x.size !== y.size || [...x].some(([k, v]) => y.get(k) !== v);
+    })
+    .sort();
+}
+
+describe("the types' headers", () => {
+  const point = (fields: string) => `export interface Point { ${fields} }
+export function norm(p: Point): number { return Math.hypot(p.x, p.y); }
+export function origin(): Point { return { x: 0, y: 0 } as Point; }`;
+  const label = `export interface Label { text: string; size: number }
+export class Tag { constructor(public label: Label) {} }
+export function tag(text: string): Tag { return new Tag({ text, size: text.length }); }
+export function render(t: Tag): string { return JSON.stringify(t.label); }`;
+  const user = `import { norm, origin } from "./point.lucent";
+export function far(): number { return norm(origin()) + 1; }`;
+  const anonymous = `export function pair(n: number): { first: number; second: number } {
+  return { first: n, second: n + 1 };
+}
+export function sum(n: number): number { const p = pair(n); return p.first + p.second; }`;
+
+  it("recompiles only the units that use a struct when its shape changes", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-inc-"));
+    const sources = { point: point("x: number; y: number"), label, user, anonymous };
+    const before = build(sources, dir);
+    const after = build({ ...sources, point: point("x: number; y: number; z?: number") }, dir);
+    expect(rebuilt(before, after)).toEqual([
+      "lucent_bindings.cpp",
+      "lucent_identity.cpp",
+      "m_point.cpp",
+      "m_user.cpp",
+    ]);
+  });
+
+  it("recompiles only a class's users when its fields change", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-inc-"));
+    const sources = { point: point("x: number; y: number"), label, user, anonymous };
+    const before = build(sources, dir);
+    const after = build(
+      {
+        ...sources,
+        label: label.replace("public label: Label", "public label: Label, public n = 1"),
+      },
+      dir,
+    );
+    expect(rebuilt(before, after)).toEqual([
+      "lucent_bindings.cpp",
+      "lucent_identity.cpp",
+      "m_label.cpp",
+    ]);
+  });
+});
