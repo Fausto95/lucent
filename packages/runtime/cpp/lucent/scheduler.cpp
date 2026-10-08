@@ -60,26 +60,11 @@ void setMainWaitWarningMs(double ms) { mainWaitWarning.store(ms > 0 ? ms : 0); }
 
 // --- LucentLock -------------------------------------------------------------------
 
-bool LucentLock::takeIfFree(std::thread::id self) {
-  // Free is no ticket handed out beyond the one served: take that one.
-  uint32_t serving = serving_.load(std::memory_order_seq_cst);
-  uint32_t expected = serving;
-  if (!next_.compare_exchange_strong(expected, serving + 1, std::memory_order_seq_cst, std::memory_order_relaxed)) {
-    return false;
-  }
-
-  owner_.store(self, std::memory_order_relaxed);
-  depth_ = 1;
-  return true;
-}
-
 void LucentLock::lockSlow(std::thread::id self) {
   // Holding another actor: this wait must not close a cycle.
   const bool nested = LucentScope::top() != nullptr;
 
   if (nested) {
-    if (takeIfFree(self)) return;
-
     checkCycle(this);
   } else if (mainWaiting_.load(std::memory_order_seq_cst) != 0) [[unlikely]] {
     // The main thread waits for the holder: it goes first. A thread that

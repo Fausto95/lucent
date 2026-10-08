@@ -83,6 +83,10 @@ class LucentLock {
       return;
     }
 
+    // Free (no main-thread wait either: it holds the lock, or was handed it).
+    if (takeIfFree(self)) [[likely]]
+      return;
+
     lockSlow(self);
   }
 
@@ -190,7 +194,19 @@ class LucentLock {
   static constexpr int kMainWaiter = 2;
 
   void lockSlow(std::thread::id self);
-  bool takeIfFree(std::thread::id self);
+
+  bool takeIfFree(std::thread::id self) {
+    // Free is no ticket handed out beyond the one served: take that one.
+    uint32_t serving = serving_.load(std::memory_order_seq_cst);
+    uint32_t expected = serving;
+    if (!next_.compare_exchange_strong(expected, serving + 1, std::memory_order_seq_cst, std::memory_order_relaxed)) {
+      return false;
+    }
+
+    owner_.store(self, std::memory_order_relaxed);
+    depth_ = 1;
+    return true;
+  }
   void reclaim();
   void lend();
   void giveBack();
