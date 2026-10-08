@@ -6,10 +6,10 @@
 // microtasks. Its root scope is the ancestor of every scope created for
 // work that lives there. There are three kinds:
 //
-// - the legacy module context (Scheduler, scheduler.h): the Lucent thread,
-//   also entered from any thread by taking the Lucent lock. Every module's
-//   code runs there, serialized as it always was.
-// - the main context: the platform's UI loop. It never takes the Lucent
+// - module actors (Actor, scheduler.h): each a thread of its own, also
+//   entered from any thread by taking the actor's lock. A module's code
+//   runs on its actor, serialized as JavaScript is.
+// - the main context: the platform's UI loop. It never takes an actor's
 //   lock, so it never waits behind module code.
 // - isolated contexts, each with a thread of its own.
 //
@@ -120,9 +120,10 @@ class WorkerThread : public std::enable_shared_from_this<WorkerThread> {
 };
 
 class ExecutionContext;
+class Actor;
 
-/// A context as an owner: null names the legacy module context, which owns
-/// whatever no other context does.
+/// A context as an owner: null names the shared actor (Actor::shared()),
+/// which owns whatever no other context does.
 using ContextRef = std::shared_ptr<ExecutionContext>;
 
 /// Also the owner of its root scope and the scopes under it: their disposal
@@ -133,20 +134,20 @@ class ExecutionContext : public Scope::Owner, public std::enable_shared_from_thi
   ExecutionContext& operator=(const ExecutionContext&) = delete;
   virtual ~ExecutionContext() = default;
 
-  /// The context the calling thread is in: the legacy module context while
-  /// the thread holds the Lucent lock, else the one it entered (a turn, or
-  /// a ContextEntry); null outside any.
+  /// The context the calling thread is in: the innermost actor whose lock
+  /// it holds (Actor::current()), else the one it entered (a turn, or a
+  /// ContextEntry); null outside any.
   static ExecutionContext* current();
 
-  /// current() as an owner reference (null for the legacy module context,
-  /// and outside any context).
+  /// current() as an owner reference (null outside any context).
   static ContextRef currentRef();
 
-  /// The legacy module context (Scheduler::instance()).
-  static ExecutionContext& legacy();
+  /// The context `ref` names: the shared actor for null.
+  static ExecutionContext& of(const ContextRef& ref);
 
-  /// The context `ref` names.
-  static ExecutionContext& of(const ContextRef& ref) { return ref ? *ref : legacy(); }
+  /// A module actor (scheduler.h): its work belongs to the JavaScript
+  /// runtime it runs for (moduleScope), not to its root.
+  virtual bool isActor() const { return false; }
 
   /// The platform's UI loop (a stand-in thread on hosts without one).
   static ExecutionContext& main();
@@ -183,10 +184,7 @@ class ExecutionContext : public Scope::Owner, public std::enable_shared_from_thi
   bool hasMicrotasks() const { return *pendingMicrotasks_ > 0; }
 
  protected:
-  /// `microtaskCount` is where the context counts its microtasks, if not in
-  /// itself: the legacy module context's is a static, which every call from
-  /// JavaScript reads without reaching the instance.
-  explicit ExecutionContext(size_t* microtaskCount = nullptr);
+  ExecutionContext();
 
   /// Gives the context its root scope, owned by it. Called once, by the
   /// factory: the context must already be shared.
@@ -208,14 +206,14 @@ class ExecutionContext : public Scope::Owner, public std::enable_shared_from_thi
 
   std::deque<Job> microtasks_;
   size_t ownMicrotasks_ = 0;
-  size_t* const pendingMicrotasks_;
+  size_t* const pendingMicrotasks_ = &ownMicrotasks_;
 };
 
-/// Enters a context other than the legacy module context (which is entered
-/// with LucentScope) on the calling thread: for a platform callback that
-/// needs an answer now. The thread must be the context's own (the main
-/// thread for the main context), not holding the Lucent lock. Leaving the
-/// outermost entry runs the context's microtasks.
+/// Enters a context other than an actor (which is entered with
+/// LucentScope) on the calling thread: for a platform callback that needs
+/// an answer now. The thread must be the context's own (the main thread for
+/// the main context), in no actor. Leaving the outermost entry runs the
+/// context's microtasks.
 class ContextEntry {
  public:
   explicit ContextEntry(ExecutionContext& context);
@@ -259,21 +257,74 @@ class IsolatedContext final : public ExecutionContext {
   std::atomic<bool> stopping_{false};
 };
 
-/// The scope module code's work belongs to (a compute task, say): the scope
-/// of the JavaScript runtime its modules run for, so tearing that runtime
-/// down (a reload) cancels the work; the legacy module context's root while
-/// no runtime is attached. A torn-down runtime's scope stays the module
-/// scope until another replaces it: nothing more starts for it. Any thread.
+// --- JavaScript runtimes ------------------------------------------------------------
+//
+// Module code's work (a compute task, a timer, an operation) belongs to the
+// JavaScript runtime it runs for, so tearing that runtime down (a reload)
+// cancels it, and only it: two runtimes at once (two React Native
+// instances) each keep their own. The runtime a thread runs for is the one
+// whose call it is in (RuntimeEntry, which every entry from JavaScript
+// makes); a post carries it to the turn it posts. Elsewhere (a platform
+// callback no call made), it is the default: the runtime attached last
+// that is not torn down, else the last attached (torn down: nothing more
+// starts for it until another runtime is attached).
+
+/// A JavaScript runtime's work, as its Host keeps it: a scope per actor.
+class RuntimeWork {
+ public:
+  virtual ~RuntimeWork() = default;
+
+  /// The scope of this runtime's work on `actor`, under the actor's root:
+  /// made on first use, disposed when the runtime is torn down (and
+  /// returned disposed after, so nothing more starts for it).
+  virtual std::shared_ptr<Scope> scopeFor(ExecutionContext& actor) = 0;
+
+  /// Not torn down.
+  virtual bool live() const = 0;
+};
+
+/// Makes `work` the runtime `id`'s (Host::create); it is the default one
+/// until another is attached. Any thread.
+void attachRuntime(RuntimeId id, std::weak_ptr<RuntimeWork> work);
+
+/// Forgets runtime `id` (its Host's end): a thread running for it then
+/// starts nothing. Any thread.
+void detachRuntime(RuntimeId id);
+
+/// The runtime the calling thread runs for, or 0: the one whose call it
+/// is in, else the default.
+RuntimeId currentRuntime();
+
+/// How many attached runtimes are live (not torn down), but `except`.
+size_t otherRuntimes(RuntimeId except);
+
+/// Runs the calling thread for runtime `id` while it lives.
+class RuntimeEntry {
+ public:
+  explicit RuntimeEntry(RuntimeId id);
+  ~RuntimeEntry();
+
+  RuntimeEntry(const RuntimeEntry&) = delete;
+  RuntimeEntry& operator=(const RuntimeEntry&) = delete;
+
+ private:
+  RuntimeId previous_;
+};
+
+/// The scope module code's work belongs to: that of the runtime the thread
+/// runs for (currentRuntime) on the calling actor (the shared one outside
+/// any); the actor's root while no runtime is attached. A runtime torn
+/// down, or gone, gives a disposed scope: nothing more starts for it. Any
+/// thread.
 std::shared_ptr<Scope> moduleScope();
 
-/// Makes `scope` the module scope (null: none); Host::create gives it the
-/// new runtime's.
-void setModuleScope(std::shared_ptr<Scope> scope);
+/// As moduleScope(), on `actor`.
+std::shared_ptr<Scope> moduleScope(ExecutionContext& actor);
 
-/// The scope work started on `owner` belongs to: module code's (the legacy
-/// module context, a null ref) the module scope, so a reload stops it;
-/// another context's its root. Every promise-returning API that registers
-/// work (operations, callbacks, timers, requests) starts it here.
+/// The scope work started on `owner` belongs to: an actor's (a null ref is
+/// the shared actor) its module scope, so a reload stops it; another
+/// context's its root. Every promise-returning API that registers work
+/// (operations, callbacks, timers, requests) starts it here.
 std::shared_ptr<Scope> ownedScope(const ContextRef& owner);
 
 namespace detail {

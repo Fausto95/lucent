@@ -75,7 +75,7 @@ Module code runs one turn at a time, under the Lucent lock. A turn lasts until a
 - an async call, whose arguments are checked holding the lock before it returns its promise;
 - `abort()` on a signal JavaScript passed to the module.
 
-`await delay(0)` from [lucent:core](/docs/api/lucent-core/#delay) ends the turn, so the calls waiting run before the loop goes on. `await delay(ms)` waits `ms` milliseconds without holding the lock. [The Lucent lock](/docs/api/language/concurrency/#the-lucent-lock) has the rules.
+`await delay(0)` from [lucent:core](/docs/api/lucent-core/#delay) ends the turn, so the calls waiting run before the loop goes on. `await delay(ms)` waits `ms` milliseconds without holding the lock. [Packages and their locks](/docs/api/language/concurrency/#packages-and-their-locks) has the rules.
 
 :::note
 An export that returns a `Promise` without being `async` runs on the JS thread until it returns. Mark it `async` to move its work off.

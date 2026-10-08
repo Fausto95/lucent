@@ -8,6 +8,7 @@ import { LUCENT_EXTENSION, lucentPackageOf } from "../packages.ts";
 import { platformScopes } from "../platforms.ts";
 import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
+import { actorDecls, actorsOf } from "./actors.ts";
 import { BindingsEmitter, type ModuleExports } from "./bindings.ts";
 import {
   type ClassOutput,
@@ -116,6 +117,7 @@ export function emitProgram(
   // Importers of a platform module see its shared declaration file.
   for (const m of lp.modules)
     if (m.declaration) byFile.set(path.resolve(m.declaration.fileName), m);
+  ctx.actors = actorsOf(lp.checker, lp.modules, byFile);
   const exportsOf = new Map<LucentModule, ModuleExports>();
   const imports = new Map<LucentModule, LucentModule[]>();
   // A shared module's declarations of another platform (all of them, on the host) are left out.
@@ -360,7 +362,13 @@ export function emitProgram(
   const readers = ctx.guard(() => jsonReaders(ctx)) ?? { decls: [], defs: [] };
 
   const app = (body: cpp.Decl[]) => cpp.namespace("lucent_app", body);
-  const types = [...structDecls, ...ifaceFwd, ...classFwd, ...structDefs];
+  const types = [
+    ...actorDecls(ctx.actors),
+    ...structDecls,
+    ...ifaceFwd,
+    ...classFwd,
+    ...structDefs,
+  ];
   const defined = [
     ...ifaceDefs,
     ...classDefs,

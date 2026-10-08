@@ -57,8 +57,8 @@ jsi::Value LucentModule::requestsConnector(jsi::Runtime& runtime) {
         if (!host || count < 1 || !args[0].isObject() || !args[0].asObject(rt).isFunction(rt))
           throw jsi::JSError(rt, "Lucent: __lucentViewRequests takes the function that settles view requests");
 
-        lucent::views::connectRequests(host, rt, args[0].asObject(rt).asFunction(rt));
-        return jsi::Value::undefined();
+        // The base its request ids start from: they name this runtime.
+        return jsi::Value(lucent::views::connectRequests(host, rt, args[0].asObject(rt).asFunction(rt)));
       });
 }
 

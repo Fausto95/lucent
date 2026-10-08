@@ -1,11 +1,11 @@
 ---
 title: Which code runs on which thread, and what runs at once?
 sidebar_label: Concurrency
-description: "Module code takes turns under one lock, on the JS, Lucent or main thread; compute tasks and views run in parallel, without it."
+description: "Each package's module code takes turns under its own lock, on the JS thread, its own thread or the main thread; packages, compute tasks and views run in parallel."
 kind: reference
 ---
 
-Module code is a module's exports, what runs after their `await`s, and the callbacks it registers. It shares one lock, the Lucent lock, so it runs one turn at a time, like JavaScript, whichever thread it's on. Compute tasks and view code never take the lock, and run while module code does.
+Module code is a module's exports, what runs after their `await`s, and the callbacks it registers. Modules that import one another, such as a package's, share a lock and a thread: an actor. A package's code runs one turn at a time, like JavaScript, whichever thread it's on. Other packages, compute tasks and view code run while it does.
 
 ## Example
 
@@ -19,7 +19,7 @@ export function progress(): number {
   return done;
 }
 
-/** Async: runs on the Lucent thread. */
+/** Async: runs on this package's thread. */
 export async function crunch(values: number[]): Promise<number> {
   let sum = 0;
   for (let i = 0; i < values.length; i++) {
@@ -35,37 +35,40 @@ Without the `await delay(0)`, a call to `progress()` from JavaScript would wait 
 
 ## Where each kind of code runs
 
-| Code | Runs on | Holds the Lucent lock |
+| Code | Runs on | Holds its package's lock |
 | --- | --- | --- |
 | A synchronous export, method, getter, setter or constructor that JavaScript calls | The JS thread, while JavaScript waits | Yes |
 | The argument checks of an `async` export or method | The JS thread, before the call returns | Yes |
-| An `async` export or method that JavaScript calls, from its first line, and module code after an `await` | The Lucent thread | Yes |
+| An `async` export or method that JavaScript calls, from its first line, and module code after an `await` | Its package's thread | Yes |
 | A JavaScript callback that module code calls | The JS thread: at once during a synchronous call, else posted | Yes |
-| The function passed to `main(f)` | The main thread | Yes |
-| An SDK callback the platform waits for: it returns a value, fills an out-parameter, throws in Swift, or runs during the SDK call | The thread the platform calls it on | Yes |
+| The function passed to `main(f)` | The main thread, once its package is free | Yes |
+| An SDK callback the platform waits for: it returns a value, fills an out-parameter, throws in Swift, or runs during the SDK call | The thread the platform calls it on (on the main thread, it waits only for the code holding its package then) | Yes |
 | An iOS block or requirement Swift runs on the main thread, such as a UIKit delegate's method, even one returning `void`. An `async` requirement is posted instead: see [Blocks](/docs/api/ios-sdk/#blocks-and-completion-handlers) and [Protocols](/docs/api/ios-sdk/#protocols). | The main thread, at once | Yes |
 | An iOS override, in a Lucent class that extends an SDK class | The thread the platform calls it on | Yes |
-| A listener of `onAppEvent` or `onSceneEvent` from `lucent:ios` | The main thread | Yes |
-| Any other SDK callback, such as a listener, an Android method returning `void`, or another delegate method | Posted to the Lucent thread | Yes |
-| A handler of `onActivityEvent` from `lucent:android` | Posted to the context that subscribed: the Lucent thread, for module code | Yes |
+| A listener of `onAppEvent` or `onSceneEvent` from `lucent:ios` | The main thread, once its package is free | Yes |
+| Any other SDK callback, such as a listener, an Android method returning `void`, or another delegate method | Posted to its package's thread | Yes |
+| A handler of `onActivityEvent` from `lucent:android` | Posted to the context that subscribed: its package's thread, for module code | Yes |
 | A compute task | A worker thread | No |
 | A component's setup, effects and commands, and the callbacks it gives the platform | The main thread, in the main context | No |
 
-## The Lucent lock
+## Packages and their locks
 
-- All module code, of every module, shares one lock. Two pieces of module code never run at once, so module state has no data races.
-- Module code runs in turns. A turn is a job and the `await` continuations it queues, and it holds the lock from start to end.
+- Modules that import one another share a lock and a thread: an actor. A package's modules, and an app's own, are one each, unless they import one another. Two pieces of one package's code never run at once, so module state has no data races.
+- Packages run in parallel. A long job in one delays neither another nor the main thread.
+- Module code runs in turns. A turn is a job and the `await` continuations it queues, and it holds its package's lock from start to end.
 - An `await` on a promise that has already settled continues in the same turn. An `await` that has to wait, such as `await delay(0)`, ends the turn.
 - The lock is fair: threads get it in the order they asked. A synchronous call from JavaScript waits for the current turn to end, then runs before the next one.
 - It is reentrant. Module code that calls a JavaScript callback, which calls into Lucent again, goes on without waiting.
+- The main thread never waits behind queued work. `main(f)` and lifecycle listeners start once the package is free. A delegate method that must answer waits only for the code holding the lock at that moment, before anything else waiting; debug builds log a wait over 50 ms. While module code calls a JavaScript callback, the main thread may run the package's code, as that JavaScript could.
+- A JavaScript callback can call another package, which then waits for that package's lock. A wait that would close a cycle, with two threads each holding one package and waiting for the other, throws an `Error` (`Lucent: deadlock: …`) instead of hanging.
 
 Keep turns short. Split a long loop with `await delay(0)`, and move heavy work to a compute task. [Run work off the JS thread](/docs/guides/run-work-off-the-js-thread/) shows both.
 
 ## main(f)
 
 - `main(f)` from [lucent:thread](/docs/api/lucent-thread/#main) runs `f` on the main thread: the main queue on iOS, the main Looper on Android. It returns a promise of `f`'s result.
-- `f` runs holding the Lucent lock, so the main thread waits for a running turn to end before `f` starts. Keep `f` short.
-- The caller doesn't wait for the main thread. In module code, what follows `await main(f)` runs on the Lucent thread.
+- `f` runs holding its package's lock, so it can use module state. The main thread doesn't wait for it: `f` starts once the package is free, so a running turn delays `f`, not the main thread. Keep `f` short.
+- The caller doesn't wait for the main thread. In module code, what follows `await main(f)` runs on its package's thread.
 - `f` can't be `async` ([LUCENT1007](/docs/api/diagnostics/#lucent1007)), and `main` is called in platform code, such as a platform branch ([LUCENT3004](/docs/api/diagnostics/#lucent3004)).
 
 A main-thread-only SDK API compiles only on the main thread ([LUCENT3006](/docs/api/diagnostics/#lucent3006)). That is `f`, a function or method the SDK or `lucent:ios` calls on the main thread, a main-thread iOS subclass's members, and view code.
@@ -77,7 +80,7 @@ An Android `@WorkerThread` API called there compiles with a warning ([LUCENT3009
 ## Compute tasks
 
 - `compute(task, input)` from [lucent:core](/docs/api/lucent-core/#compute) runs `task` on a pool of worker threads, one fewer than the cores, and at least one.
-- Tasks run in parallel with each other and with module code. They never take the Lucent lock.
+- Tasks run in parallel with each other and with module code. They never take a package's lock.
 - A task can't touch what module code shares: module state, main-thread or unknown native code, or anything asynchronous ([LUCENT3011](/docs/api/diagnostics/#lucent3011)).
 - Its input is copied when `compute` is called, except a `NativeBuffer`, which moves ([lucent:core](/docs/api/lucent-core/#nativebuffer)). Its result comes back to the caller. Both must be data ([LUCENT3012](/docs/api/diagnostics/#lucent3012)).
 
@@ -85,7 +88,7 @@ An Android `@WorkerThread` API called there compiles with a warning ([LUCENT3009
 
 View code runs on the main thread, in the main context. It's a component's setup, its effects and commands, and the callbacks it gives the platform.
 
-The main context never takes the Lucent lock, so a view never waits behind module code. Without the lock, view code can't use module state ([LUCENT3022](/docs/api/diagnostics/#lucent3022)). Views are experimental: [Native views](/docs/architecture/views/) has the rest.
+The main context never takes a package's lock, so a view never waits behind module code. Without the lock, view code can't use module state ([LUCENT3022](/docs/api/diagnostics/#lucent3022)). Views are experimental: [Native views](/docs/architecture/views/) has the rest.
 
 ### Main-thread state
 
@@ -101,11 +104,11 @@ Module code reaches it through `main(f)`. A class JavaScript makes can keep its 
 ## Where promises settle
 
 - A promise settles on the context that made it. Code that awaits it resumes on its own context, and a result from another thread is posted there.
-- So module code resumes on the Lucent thread after awaiting `main(f)`, `compute`, a JavaScript promise or an SDK completion.
+- So module code resumes on its package's thread after awaiting `main(f)`, `compute`, a JavaScript promise or an SDK completion.
 - `fromCallback` and `subscribe` take calls from any thread, and apply them on the context that called them, in order ([lucent:core](/docs/api/lucent-core/#fromcallback)).
 - The JavaScript promise of an `async` export settles on the JS thread.
 
-No context waits for another to finish its work: what one hands another is posted. The only wait is for the Lucent lock, by the threads that run module code.
+No context waits for another to finish its work: what one hands another is posted. The only wait is for a package's lock, by the threads that run module code.
 
 ## Diagnostics
 

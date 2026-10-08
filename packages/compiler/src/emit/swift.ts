@@ -442,7 +442,7 @@ function later(
       ),
       ...(nothing ? [] : [taken(use, cpp.id("v_"))]),
       cpp.varDecl(cpp.pointer(cpp.type("NSError")), "err_", takenError(cpp.id("e_"))),
-      cpp.exprStmt(cpp.call("lucent::postCallback", [settle])),
+      cpp.exprStmt(cpp.call("lucent::postCallback", [em.ctx.actorAt(em.opts.module), settle])),
     ],
   );
   // Starts the task; what ends it, once the operation settles.

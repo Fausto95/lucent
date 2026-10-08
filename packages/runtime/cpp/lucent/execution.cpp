@@ -10,8 +10,8 @@
 #include <stdexcept>
 #include <system_error>
 
-// The legacy module context is entered by its lock rather than by the
-// thread-local below, so current() asks the lock first.
+// An actor is entered by its lock (LucentScope) rather than by the
+// thread-local below, so current() asks it first.
 #include "scheduler.h"
 #include "trace.h"
 
@@ -22,8 +22,11 @@ namespace {
 // Constant-initialized: safe to use during static initialization.
 std::atomic<ContextId> nextContextId{1};
 
-// The context this thread entered, other than the legacy module context.
+// The context this thread entered, other than an actor.
 thread_local ExecutionContext* entered = nullptr;
+
+// The JavaScript runtime this thread runs for (RuntimeEntry), or 0.
+thread_local RuntimeId runningFor = 0;
 
 /// Runs the main context's timers: the platform's main loop has none that
 /// every platform shares, and they must not wait behind module code.
@@ -262,60 +265,141 @@ void WorkerThread::loop() {
 
 // --- ExecutionContext -----------------------------------------------------------
 
-ExecutionContext::ExecutionContext(size_t* microtaskCount)
-    : id_(nextContextId.fetch_add(1, std::memory_order_relaxed)),
-      pendingMicrotasks_(microtaskCount ? microtaskCount : &ownMicrotasks_) {}
+ExecutionContext::ExecutionContext() : id_(nextContextId.fetch_add(1, std::memory_order_relaxed)) {}
 
 ExecutionContext* ExecutionContext::current() {
-  if (Scheduler::lock().heldByCurrentThread()) return &Scheduler::instance();
+  if (Actor* actor = Actor::current()) return actor;
 
   return entered;
 }
 
 ContextRef ExecutionContext::currentRef() {
-  if (Scheduler::lock().heldByCurrentThread()) return nullptr;
-
-  ExecutionContext* context = entered;
+  ExecutionContext* context = current();
   return context ? context->shared_from_this() : nullptr;
 }
 
-ExecutionContext& ExecutionContext::legacy() { return Scheduler::instance(); }
+ExecutionContext& ExecutionContext::of(const ContextRef& ref) { return ref ? *ref : Actor::shared(); }
+
+// --- JavaScript runtimes ---------------------------------------------------------
 
 namespace {
 
-struct ModuleScope {
+struct Runtimes {
   std::mutex m;
-  std::shared_ptr<Scope> scope;
+  /// In the order they were attached: the last still there is the default.
+  std::vector<std::pair<RuntimeId, std::weak_ptr<RuntimeWork>>> attached;
 };
 
 /// Never destroyed: a scope released during static destruction could need
 /// contexts already gone.
-ModuleScope& moduleScopeState() {
-  static auto* state = new ModuleScope();
+Runtimes& runtimes() {
+  static auto* state = new Runtimes();
   return *state;
+}
+
+/// The default runtime: the last attached that is live, else the last
+/// attached that is still there. Under the lock.
+RuntimeId defaultRuntime(Runtimes& r) {
+  RuntimeId fallback = 0;
+
+  for (auto it = r.attached.rbegin(); it != r.attached.rend(); ++it) {
+    auto work = it->second.lock();
+    if (!work) continue;
+    if (work->live()) return it->first;
+    if (!fallback) fallback = it->first;
+  }
+
+  return fallback;
+}
+
+/// A scope disposed once made: the module scope of a runtime that is gone.
+const std::shared_ptr<Scope>& goneScope() {
+  static auto* scope = [] {
+    auto* s = new std::shared_ptr<Scope>(Scope::create(0));
+    (*s)->dispose();
+    return s;
+  }();
+  return *scope;
 }
 
 }  // namespace
 
+void attachRuntime(RuntimeId id, std::weak_ptr<RuntimeWork> work) {
+  Runtimes& r = runtimes();
+  std::lock_guard<std::mutex> g(r.m);
+
+  std::erase_if(r.attached, [](const auto& entry) { return entry.second.expired(); });
+  r.attached.emplace_back(id, std::move(work));
+}
+
+void detachRuntime(RuntimeId id) {
+  Runtimes& r = runtimes();
+  std::lock_guard<std::mutex> g(r.m);
+
+  std::erase_if(r.attached, [id](const auto& entry) { return entry.first == id || entry.second.expired(); });
+}
+
+RuntimeId currentRuntime() {
+  if (runningFor) return runningFor;
+
+  Runtimes& r = runtimes();
+  std::lock_guard<std::mutex> g(r.m);
+  return defaultRuntime(r);
+}
+
+size_t otherRuntimes(RuntimeId except) {
+  Runtimes& r = runtimes();
+  std::lock_guard<std::mutex> g(r.m);
+
+  size_t n = 0;
+  for (auto& [id, weak] : r.attached) {
+    if (id == except) continue;
+    if (auto work = weak.lock(); work && work->live()) n++;
+  }
+  return n;
+}
+
+RuntimeEntry::RuntimeEntry(RuntimeId id) : previous_(runningFor) { runningFor = id; }
+
+RuntimeEntry::~RuntimeEntry() { runningFor = previous_; }
+
 std::shared_ptr<Scope> moduleScope() {
-  ModuleScope& state = moduleScopeState();
+  ExecutionContext* context = ExecutionContext::current();
+  return moduleScope(context && context->isActor() ? *context : Actor::shared());
+}
+
+std::shared_ptr<Scope> moduleScope(ExecutionContext& actor) {
+  std::shared_ptr<RuntimeWork> work;
 
   {
-    std::lock_guard<std::mutex> g(state.m);
-    if (state.scope) return state.scope;
+    Runtimes& r = runtimes();
+    std::lock_guard<std::mutex> g(r.m);
+
+    RuntimeId id = runningFor ? runningFor : defaultRuntime(r);
+    if (!id) return actor.root();
+
+    for (auto& [attached, w] : r.attached) {
+      if (attached != id) continue;
+
+      work = w.lock();
+      break;
+    }
   }
 
-  return ExecutionContext::legacy().root();
+  // Outside the lock: making the scope may take the host's.
+  if (work) {
+    if (auto scope = work->scopeFor(actor)) return scope;
+  }
+
+  // The runtime the thread runs for is gone (or never attached): nothing
+  // more starts for it.
+  return goneScope();
 }
 
-void setModuleScope(std::shared_ptr<Scope> scope) {
-  ModuleScope& state = moduleScopeState();
-  std::lock_guard<std::mutex> g(state.m);
-
-  state.scope = std::move(scope);
+std::shared_ptr<Scope> ownedScope(const ContextRef& owner) {
+  ExecutionContext& context = ExecutionContext::of(owner);
+  return context.isActor() ? moduleScope(context) : context.root();
 }
-
-std::shared_ptr<Scope> ownedScope(const ContextRef& owner) { return owner ? owner->root() : moduleScope(); }
 
 ExecutionContext& ExecutionContext::main() {
   // Leaked, like the main loop it stands for.
@@ -360,11 +444,26 @@ Job traced(Job job) {
 
 }  // namespace
 
+namespace {
+
+/// `job`, run for the runtime the poster runs for (RuntimeEntry).
+Job forRuntime(Job job) {
+  RuntimeId id = runningFor;
+  if (!id) return job;
+
+  return [id, job = std::move(job)]() mutable {
+    RuntimeEntry entry(id);
+    job();
+  };
+}
+
+}  // namespace
+
 bool ExecutionContext::post(Job job) {
   if (trace::enabled()) [[unlikely]]
     job = traced(std::move(job));
 
-  return dispatch(std::move(job));
+  return dispatch(forRuntime(std::move(job)));
 }
 
 bool ExecutionContext::post(Job job, const std::shared_ptr<Scope>& owner) {
@@ -383,12 +482,12 @@ bool ExecutionContext::post(Job job, const std::shared_ptr<Scope>& owner) {
   });
 }
 
-bool ExecutionContext::postDelayed(double ms, Job job) { return dispatchDelayed(ms, std::move(job)); }
+bool ExecutionContext::postDelayed(double ms, Job job) { return dispatchDelayed(ms, forRuntime(std::move(job))); }
 
 void ExecutionContext::enqueueMicrotask(Job job) {
   if (!isCurrent()) throw std::logic_error("A microtask is queued on its own context; post to another one");
 
-  microtasks_.push_back(std::move(job));
+  microtasks_.push_back(forRuntime(std::move(job)));
   ++*pendingMicrotasks_;
 }
 
@@ -414,10 +513,10 @@ void ExecutionContext::runTurn(Job& job) {
 // --- ContextEntry ---------------------------------------------------------------
 
 ContextEntry::ContextEntry(ExecutionContext& context) : context_(context), previous_(entered) {
-  if (&context == &ExecutionContext::legacy()) throw std::logic_error("The legacy module context is entered with LucentScope");
+  if (context.isActor()) throw std::logic_error("An actor is entered with LucentScope");
 
-  if (Scheduler::lock().heldByCurrentThread()) {
-    throw std::logic_error("Code holding the Lucent lock cannot enter another context; post to it");
+  if (Actor::current()) {
+    throw std::logic_error("Code holding an actor's lock cannot enter another context; post to it");
   }
 
   if (previous_ && previous_ != &context) throw std::logic_error("A context cannot enter another one; post to it");

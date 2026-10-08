@@ -309,19 +309,32 @@ void resumeWithResult(const Resume& resume, F call, B box) {
 /**
  * A Lucent function a generated shim runs as a Kotlin suspend function (a
  * suspend function argument, a fun interface's suspending function), which
- * Kotlin waits for: `f` runs on the calling thread holding the Lucent lock
- * and gives the boxed result. What it throws is thrown to Kotlin (see
+ * Kotlin waits for: `f` runs on the calling thread holding `actor`'s lock
+ * (as callNow takes it: on the main thread, without queueing behind module
+ * jobs) and gives the boxed result. What it throws is thrown to Kotlin (see
  * throwToJava), so the Kotlin call ends with that error.
  */
 template <class F>
-jobject callSuspending(JNIEnv* env, F f) {
-  LucentScope scope;
+jobject callSuspending(JNIEnv* env, Actor& actor, F f) {
   try {
+    std::optional<LucentScope> scope;
+    if (onMainThread()) {
+      scope.emplace(actor, LucentScope::FromMain{});
+    } else {
+      scope.emplace(actor);
+    }
+
     return f();
   } catch (...) {
     throwToJava(env, currentError(std::current_exception()));
     return nullptr;
   }
+}
+
+/// On the shared actor.
+template <class F>
+jobject callSuspending(JNIEnv* env, F f) {
+  return callSuspending(env, Actor::shared(), std::move(f));
 }
 
 namespace detail {

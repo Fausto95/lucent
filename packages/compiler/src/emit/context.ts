@@ -10,6 +10,7 @@ import type { SwiftShim } from "./swift.ts";
 import type { SwiftProxy } from "./swift-proxy.ts";
 import type { ToolkitName } from "../ui/toolkits.ts";
 import type { Setup } from "./setups.ts";
+import { type Actors, actorCall } from "./actors.ts";
 
 /** Integer registers a number can live in (see integers.ts). */
 export type IntKind = "i32" | "u32" | "i64";
@@ -115,6 +116,26 @@ export class Ctx {
   private tmp = 0;
   readonly checker: ts.TypeChecker;
   readonly modules: LucentModule[];
+  /** Each module's actor (actors.ts): set before any code is emitted. */
+  actors: Actors = { of: new Map(), names: [] };
+
+  /**
+   * The actor module code at `at` runs on: `lucent_app::actor_N()`, which
+   * its entries (calls from JavaScript, platform callbacks) enter. The
+   * shared actor for code of no module.
+   */
+  actorAt(at: ts.Node | LucentModule): cpp.Expr {
+    const m =
+      "sourceFile" in at && "ns" in at
+        ? at
+        : this.modules.find((x) => {
+            const sf = (at as ts.Node).getSourceFile();
+            return x.sourceFile === sf || x.declaration === sf;
+          });
+    const i = m ? this.actors.of.get(m) : undefined;
+
+    return i === undefined ? cpp.call("lucent::Actor::shared", []) : actorCall(i);
+  }
 
   /** Reports a warning at `node`: the code still compiles. */
   warn(node: ts.Node, code: string, message: string): void {

@@ -151,6 +151,7 @@ export function swiftDelegate(
       // The Lucent object goes on the Lucent thread.
       cpp.exprStmt(
         cpp.call("lucent::postCallback", [
+          em.ctx.actorAt(em.opts.module),
           cpp.lambda(
             [{ name: "o_", init: cpp.staticCast(cpp.pointer(self), cpp.id("ctx_")) }],
             [],
@@ -479,7 +480,12 @@ function propertyFunction(
       ],
       { ret: cRet },
     );
-    return staticFn(name, cRet, [ctx], [owner, cpp.ret(cpp.call("lucent::callNow", [now]))]);
+    return staticFn(
+      name,
+      cRet,
+      [ctx],
+      [owner, cpp.ret(cpp.call("lucent::callNow", [em.ctx.actorAt(em.opts.module), now]))],
+    );
   }
 
   const place = classMemberLvalue(em, s, classT, r.prop.name, r.node);
@@ -490,7 +496,11 @@ function propertyFunction(
     name,
     cpp.voidType,
     [ctx, cpp.param(cType(r.type), "a0")],
-    [owner, ...takenObjects([r.type]), cpp.exprStmt(cpp.call("lucent::callNow", [now]))],
+    [
+      owner,
+      ...takenObjects([r.type]),
+      cpp.exprStmt(cpp.call("lucent::callNow", [em.ctx.actorAt(em.opts.module), now])),
+    ],
   );
 }
 
@@ -558,12 +568,12 @@ function methodFunction(
     return staticFn(name, cRet, cParams, [
       owner,
       ...takenObjects(r.params),
-      cpp.exprStmt(cpp.call("lucent::postCallback", [later])),
+      cpp.exprStmt(cpp.call("lucent::postCallback", [em.ctx.actorAt(em.opts.module), later])),
     ]);
   }
 
   const now = cpp.lambda(["&"], [], guarded, isVoid(r.ret) ? {} : { ret: cRet });
-  const run = cpp.call("lucent::callNow", [now]);
+  const run = cpp.call("lucent::callNow", [em.ctx.actorAt(em.opts.module), now]);
   return staticFn(name, cRet, cParams, [
     owner,
     ...takenObjects(r.params),
@@ -662,7 +672,7 @@ function asyncFunction(
   return staticFn(name, cpp.voidType, cParams, [
     cpp.varDecl(cpp.auto, "s_", lucentObject(self, cpp.id("ctx_"))),
     ...takenObjects(r.params),
-    cpp.exprStmt(cpp.call("lucent::postCallback", [start])),
+    cpp.exprStmt(cpp.call("lucent::postCallback", [em.ctx.actorAt(em.opts.module), start])),
   ]);
 }
 

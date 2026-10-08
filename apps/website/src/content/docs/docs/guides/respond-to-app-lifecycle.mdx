@@ -58,12 +58,12 @@ Each subscription returns the function that stops it. `onBackground` returns one
 | --- | --- | --- |
 | Function | `onAppEvent()`, and `onSceneEvent()` for each scene | `onActivityEvent()` |
 | Events | the lifecycle notifications in [AppEvent](/docs/api/lucent-ios/#appevent) and [SceneEvent](/docs/api/lucent-ios/#sceneevent) | the Activity events in [ActivityEvent](/docs/api/lucent-android/#activityevent), `"newIntent"` included |
-| Runs on | the main thread, so UIKit calls compile there without `main()` | the Lucent thread, for module code: put main-thread calls in `main()` |
+| Runs on | the main thread, so UIKit calls compile there without `main()` | its package's thread, for module code: put main-thread calls in `main()` |
 | Stops | when you call the returned function, or `signal` aborts | when you call the returned function |
 
 - Android reports Activities, not the app. With one Activity, as React Native's template has, `"stopped"` means the app went to the background.
 - `onSceneEvent()` gives your function the scene's `persistentIdentifier`, for iPad apps with several windows.
-- Your function runs holding the Lucent lock, so keep it short. On iOS, the UI waits while it runs.
+- Your function runs holding its package's lock, so keep it short. On iOS, the UI waits while it runs, and a listener starts once the package is free: a long job of the package delays it, not the UI.
 - On iOS, Lucent observes the notifications, so your app delegate stays as it is.
 - A function that throws is logged, and the app goes on.
 

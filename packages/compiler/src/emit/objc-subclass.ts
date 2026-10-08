@@ -281,6 +281,7 @@ export function iosSubclass(
       ),
       cpp.exprStmt(
         cpp.call("lucent::postCallback", [
+          em.ctx.actorAt(em.opts.module),
           cpp.lambda(
             ["o_"],
             [],

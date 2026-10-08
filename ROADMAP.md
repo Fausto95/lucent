@@ -306,11 +306,11 @@ Installed SDKs and linked dependencies ──► metadata readers ──► bind
 
 ### Execution and ownership
 
-| Context         | Runs                                                                   | Rules                                                                 |
-| --------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Module (legacy) | Exported functions and their async continuations, on the Lucent thread | One fair global lock (`LucentLock`) serializes module code, as before |
-| Main            | Views, their effects and commands, main-thread SDK calls               | Never takes the module lock; runs on the platform's UI loop           |
-| Compute         | `compute(task, input, { signal })`                                     | A bounded worker pool (cores − 1); checked tasks share no state       |
+| Context      | Runs                                                                    | Rules                                                                                                                   |
+| ------------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Module actor | Exported functions and their async continuations, on the actor's thread | One fair lock per import component (a package): packages run in parallel; a nested wait that would close a cycle throws |
+| Main         | Views, their effects and commands, main-thread SDK calls                | Never takes an actor's lock; runs on the platform's UI loop. Main-thread module entries never queue behind module jobs  |
+| Compute      | `compute(task, input, { signal })`                                      | A bounded worker pool (cores − 1); checked tasks share no state                                                         |
 
 - A promise resumes on the context that created it; a result from another
   thread is posted there. No context ever waits synchronously for another.
@@ -320,6 +320,9 @@ Installed SDKs and linked dependencies ──► metadata readers ──► bind
   never revives it.
 - Each JS runtime has its own `Host`. Reload invalidates it, cancels its
   work and rejects its promises while JavaScript can still observe them.
+  Work belongs to the runtime whose call started it, so two runtimes at
+  once keep their own; module variables are the process's, and a second
+  runtime alongside a first shares them.
 - `compute` runs a top-level function on a snapshot of its input. The
   compiler rejects tasks that touch module state, main-thread or unknown
   native code, or untracked functions (`LUCENT3011`), and inputs or
@@ -432,6 +435,34 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
+
+**2026-10-08: An actor per package; the main thread never queues.** The
+single process-wide Lucent lock became one lock and one thread per import
+component (an actor: a package, or the app's own modules, unless they
+import one another; type-only imports count, since a value of an imported
+type can arrive through JavaScript). A long job in one package no longer
+delays another, or the main thread. Modules on different actors share no
+objects, so the model keeps "a module never races with itself". Calls
+across packages happen only through JavaScript or platform re-entry, and
+nest the two locks; a fixed lock order was rejected (JavaScript decides
+the order), and so was hopping (a synchronous call needs its result):
+instead a nested wait that would close a cycle is detected (a wait-for
+graph over the threads waiting nested) and throws `Lucent: deadlock`. The
+main thread never takes a ticket: `main(f)`, `present()` and lifecycle
+listeners run once their actor is free (retried when it is released),
+and a callback that must answer now waits only for the holder in place,
+which hands it the lock ahead of queued tickets; debug builds warn past
+50 ms. A synchronous JavaScript callback lends its thread's actors to the
+main thread (the suspected deadlock: the JS thread holding the lock in a
+callback that waits on `RCTUnsafeExecuteOnMainQueueSync` while the main
+thread waits for the lock); a main-thread entry then is as if the
+JavaScript had made it. Work started by module code belongs to the
+runtime whose call started it (a thread-local the posts carry), so
+tearing one of two runtimes down no longer cancels the other's work (the
+T64 suspicion), module state is reset only when no other runtime is live,
+and view request ids carry their runtime. _Changed:_ `lucent::Actor`
+replaces `Scheduler`; generated code names its actor
+(`lucent_app::actor_N`) at every entry; `callNow`/`postCallback` take it.
 
 **2026-10-07: Views without a switch.** The maintainer removed the
 internal `LUCENT_VIEWS=fabric` switch: every compile resolves `lucent:ui`,
@@ -1932,10 +1963,11 @@ stale-owner access and resource leak under stress.
 - [ ] Run the applicable sanitizers plus real platform background,
       recreation, camera and audio scenarios; minimize every failure into a
       regression fixture.
-- [ ] Carried over from T30: check whether tearing down one of several JSI
-      runtimes cancels the other runtimes' compute tasks (one process-wide
-      module scope follows the last `Host::create`; suspected, not
-      verified).
+- [x] Carried over from T30: tearing down one of several JSI runtimes
+      cancelled the others' work (one process-wide module scope followed
+      the last `Host::create`). Work now belongs to the runtime whose call
+      started it (`twoRuntimesKeepTheirOwnWork`,
+      `tearingOneRuntimeDownSparesAnother`).
 
 **Done when:** no reproducible deadlock, use-after-free, stale-owner access,
 cross-thread JSI access or unbounded owned-resource growth remains.

@@ -1639,7 +1639,7 @@ function kotlinFunction(
       cpp.param(cpp.pointer(cpp.type("JNIEnv")), "env"),
       cpp.param(cpp.type("jobjectArray"), "args_"),
     ],
-    [cpp.ret(jni("callSuspending", env, run))],
+    [cpp.ret(jni("callSuspending", env, em.ctx.actorAt(em.opts.module), run))],
     { ret: cpp.type("jobject") },
   );
 
@@ -3121,7 +3121,7 @@ function iosPromiseCall(
       cpp.lambda(
         ["p_"],
         handler.params.map((x, i) => cpp.param(objcType(x), names[i])),
-        [cpp.exprStmt(cpp.call("lucent::postCallback", [later]))],
+        [cpp.exprStmt(cpp.call("lucent::postCallback", [em.ctx.actorAt(em.opts.module), later]))],
       ),
     ],
     [objcType({ ...handler, nullable: false })],
