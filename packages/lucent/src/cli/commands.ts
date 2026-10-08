@@ -87,7 +87,7 @@ export const commands: CommandSpec[] = [
     name: "create",
     json: "create",
     summary:
-      "Create a project from a template: an Expo or bare React Native app, a native-view app, a Lucent library or modules alone, with sample modules",
+      "Create a project from a template: an Expo, bare or native-view app, a Lucent library, or modules alone",
     flags: [
       {
         name: "template",

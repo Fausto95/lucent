@@ -11,7 +11,13 @@ npx lucent clean
 npm uninstall @lucent-lang/lucent
 ```
 
-`lucent uninstall` reverts each change [`lucent init`](/docs/api/cli/#lucent-init) and the Expo plugin made, as diffs you confirm; `--yes` applies them all. It unwraps the Metro config and removes the plugin from `app.json`, the Gradle line, the `react-native.config.js` entry, the `lucent:*` path and the editor plugin from `tsconfig.json`, VS Code's TypeScript settings and the `.gitignore` lines. It keeps `noUncheckedIndexedAccess`, which your code may rely on, and prints the lines to remove by hand from a file it can't change safely, such as `app.config.ts`.
+`lucent uninstall` reverts each change [`lucent init`](/docs/api/cli/#lucent-init) and the Expo plugin made, as diffs you confirm; `--yes` applies them all. It unwraps the Metro config and removes these:
+
+- the plugin in `app.json`, the Gradle line and the `react-native.config.js` entry
+- the `lucent:*` path and the editor plugin in `tsconfig.json`
+- VS Code's TypeScript settings and the `.gitignore` lines
+
+It keeps `noUncheckedIndexedAccess`, which your code may rely on. For a file it can't change safely, such as `app.config.ts`, it prints the lines to remove by hand.
 
 `lucent clean` removes `.lucent/`. Then:
 

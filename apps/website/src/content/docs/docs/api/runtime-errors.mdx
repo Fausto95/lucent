@@ -68,7 +68,9 @@ Lucent: scanner.lucent.ts does not compile
   …
 ```
 
-The last build of the module failed, and Metro shows its errors in place of the module, with their code frames, as the terminal does. Fix them and save: Metro's watcher builds again, and Metro bundles the module once the build passes. Metro waits up to five seconds for the build of a file just saved.
+The last build of the module failed. Metro shows its errors in place of the module, with their code frames, as the terminal does.
+
+Fix them and save. Metro's watcher builds again, and Metro bundles the module once the build passes. It waits up to five seconds for the build of a saved file.
 
 ### A module has not been compiled
 
@@ -118,7 +120,9 @@ When the two differ in a way calls can't survive, the load throws an `Error` who
 Lucent: UIDevice (lucent:ios/UIKit) is native code, which JS dev mode can't run: it runs *.lucent.ts modules as JavaScript. Start Metro without LUCENT_JS (or withLucent's js option) and rebuild the app to call it.
 ```
 
-In [JS dev mode](/docs/guides/iterate-in-javascript/), a module runs as JavaScript, which can't reach the platform's SDK: code read, called or constructed something a `lucent:ios/*`, `lucent:android/*`, `lucent:ext/*` or toolkit import gives. The error's `code` is `"LUCENT_JS_DEV_NATIVE"`. Run the code natively to call it.
+In [JS dev mode](/docs/guides/iterate-in-javascript/), a module runs as JavaScript, which can't reach the platform's SDK. The code read, called or constructed something that a `lucent:ios/*`, `lucent:android/*`, `lucent:ext/*` or toolkit import gives. The error's `code` is `"LUCENT_JS_DEV_NATIVE"`.
+
+Run the code natively to call it.
 
 ## The installed implementation runs
 

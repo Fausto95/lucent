@@ -77,7 +77,7 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
   },
   {
     "name": "create",
-    "summary": "Create a project from a template: an Expo or bare React Native app, a native-view app, a Lucent library or modules alone, with sample modules",
+    "summary": "Create a project from a template: an Expo, bare or native-view app, a Lucent library, or modules alone",
     "flags": [
       {
         "flag": "--template <name>",

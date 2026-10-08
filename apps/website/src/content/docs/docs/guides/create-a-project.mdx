@@ -13,7 +13,7 @@ In a terminal, `lucent create` asks which template to start from, writes the pro
 
 | `--template` | What you get | Run it |
 | --- | --- | --- |
-| `expo` | An Expo app run as a development build, with a shared module and one that calls each platform's SDK, and an `eas.json` that caches the SDK bindings. | `npx expo run:ios` |
+| `expo` | An Expo app run as a development build, with a shared module and one that calls each platform's SDK. Its `eas.json` caches the SDK bindings. | `npx expo run:ios` |
 | `bare` | A bare React Native app with its `ios/` and `android/` projects, from React Native's template, and the same modules. | `npm run pods`, then `npx react-native run-ios` |
 | `view` | An Expo app whose screen renders a [native view](/docs/guides/views/) written in a `.lucent.tsx` file. | `npx expo run:ios` |
 | `library` | A [Lucent package](/docs/packages/) to publish to npm: its modules, a README, `lucent.compatible`, and an Expo example app that installs it from its directory. | `npx lucent check`, then `npx expo run:ios` in `example/` |

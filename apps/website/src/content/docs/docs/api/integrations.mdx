@@ -80,7 +80,7 @@ A module whose last build failed is a transform error that shows the build's dia
 
 The plugin takes no options. During `npx expo prebuild`, for either platform, it:
 
-- runs `lucent build` once, without Gradle: the Gradle task resolves Android's dependencies when the app builds. It builds the platforms prebuild writes: `--platform android` builds Android alone, and both platforms build what the machine has SDKs for. When Android waits for the Gradle build and there's no iOS SDK, as on Linux, it checks the shared code and writes the native package. A failed build stops prebuild with its errors.
+- runs `lucent build` once, without Gradle: the Gradle task resolves Android's dependencies when the app builds. It builds the platforms prebuild writes: `--platform android` builds Android alone, and both platforms build what the machine has SDKs for. When Android waits for the Gradle build and there's no iOS SDK, as on Linux, it checks the shared code. It still writes the native package. A failed build stops prebuild with its errors.
 - builds nothing during `npx expo config --type introspect`, which shows the `Info.plist` and entitlements the last build resolved.
 - writes `react-native.config.js` with the `lucent` entry. If the file exists without that entry, prebuild stops and names the entry to add.
 - applies the [Gradle tasks](/docs/api/integrations/#gradle-tasks) to `android/app/build.gradle`, after React Native's plugin, or to a [Kotlin build script](/docs/api/integrations/#kotlin-build-scripts), at its end.
@@ -119,7 +119,7 @@ apply from: new File(new File(["node", "--print", "require.resolve('@lucent-lang
 </Tabs>
 
 - The `react-native.config.js` entry links `.lucent/native`. React Native's autolinking finds the `LucentNative` pod and the Android library there.
-- Git ignores `.lucent/`, so a fresh clone, a CI runner or an EAS build has no native package, and autolinking would skip it without a word: the app would build without Lucent and fail when a module loads. The entry runs `lucent build` first when `.lucent/native` is missing, or older than a module or `package.json`, printing why on stderr; `pod install` and Gradle's settings read it, so both get the package. `LUCENT_AUTOLINK_BUILD=0` turns that build off. An entry that names the root alone, `{ root: … }`, as earlier versions wrote, still links; `lucent init` replaces it, and `lucent doctor` warns about it.
+- Git ignores `.lucent/`, so a fresh clone, a CI runner or an EAS build has no native package. Autolinking would skip it without a word, and the app would fail when a module loads. The entry runs `lucent build` first when `.lucent/native` is missing, or older than a module or `package.json`, printing why on stderr. `pod install` and Gradle's settings read the entry, so both get the package. `LUCENT_AUTOLINK_BUILD=0` turns that build off. An entry that names the root alone, `{ root: … }`, as earlier versions wrote, still links; `lucent init` replaces it, and `lucent doctor` warns about it.
 - The Gradle line asks Node where `@lucent-lang/lucent` is installed, so it works with any package manager's layout. A Kotlin build script gets [its own line](/docs/api/integrations/#kotlin-build-scripts).
 - iOS has no build hook. Run `lucent build`, or keep `lucent dev` or Metro's watcher running, before you build in Xcode.
 - Run `pod install` after the first build. Run it again when `lucent build` says `iOS: pod install first`: the build added or removed native files.
@@ -170,7 +170,7 @@ It applies the same Groovy script, `gradle/lucent.gradle`, which hooks into `pre
 | `noUncheckedIndexedAccess` | `lucent init` | Types an indexed read as possibly `undefined`, as the compiler always does. |
 | `plugins` | `lucent init` | Loads the editor plugin, after the app's own plugins. |
 
-`lucent build` edits `tsconfig.json` only to add the `lucent:*` path when it's missing, such as in an app set up by hand, and says so in a warning naming the entry it added. It never touches the other settings.
+`lucent build` edits `tsconfig.json` only to add the `lucent:*` path when it's missing, such as in an app set up by hand. A warning names the entry it added. It never touches the other settings.
 
 `lucent init` also writes `.vscode/settings.json` with `"typescript.tsdk": "node_modules/typescript/lib"` and `"typescript.enablePromptUseWorkspaceTsdk": true`, so VS Code offers the workspace's TypeScript, which loads the plugin. A `typescript.tsdk` the app sets stays.
 
