@@ -14,20 +14,33 @@ import { runJavac, runKotlinc } from "../../bindgen/test/jvm-tools.ts";
 import type { KotlinToolchain } from "../../bindgen/test/kotlin-toolchain.ts";
 import { type CompileResult, runtimeDir } from "../src/index.ts";
 import { compileAll } from "./parallel-build.ts";
-import { hostRuntime } from "./swift-harness.ts";
+import { hostLibs } from "../../runtime/test/sources.ts";
+import { hostCxx, hostRuntime } from "./swift-harness.ts";
 
 const host = path.join(import.meta.dirname, "jni-host");
 
 /** The JDK whose jni.h the glue compiles against and whose libjvm it starts. */
 export const jdk = (() => {
-  if (process.platform !== "darwin") return undefined;
+  const darwin = process.platform === "darwin";
+  if (!darwin && process.platform !== "linux") return undefined;
 
   const home =
     process.env.JAVA_HOME ??
-    spawnSync("/usr/libexec/java_home", { encoding: "utf8" }).stdout?.trim();
+    (darwin
+      ? spawnSync("/usr/libexec/java_home", { encoding: "utf8" }).stdout?.trim()
+      : // The JDK javac is in: /usr/lib/jvm/<jdk>/bin/javac.
+        (() => {
+          const javac = spawnSync("sh", ["-c", "readlink -f $(command -v javac)"], {
+            encoding: "utf8",
+          }).stdout?.trim();
+          return javac ? path.dirname(path.dirname(javac)) : undefined;
+        })());
   const lib = home && path.join(home, "lib/server");
+  const libjvm = darwin ? "libjvm.dylib" : "libjvm.so";
 
-  return lib && fs.existsSync(path.join(lib, "libjvm.dylib")) ? { home, lib } : undefined;
+  return lib && fs.existsSync(path.join(lib, libjvm))
+    ? { home, lib, os: darwin ? "darwin" : "linux" }
+    : undefined;
 })();
 
 /** Lucent's Java classes the glue loads, beside the Android stand-ins they read. */
@@ -115,16 +128,16 @@ function glueFlags(out: string): string[] {
     `-I${host}`,
     `-I${path.join(out, "android")}`,
     `-I${path.join(jdk!.home, "include")}`,
-    `-I${path.join(jdk!.home, "include/darwin")}`,
+    `-I${path.join(jdk!.home, "include", jdk!.os)}`,
   ];
 }
 
 /** What the host's clang says of the runtime's Android `source` (desktop JNI host build): nothing when it compiles. */
 export function runtimeAndroidErrors(dir: string, source: string): string {
   const check = spawnSync(
-    "xcrun",
+    hostCxx[0]!,
     [
-      "clang++",
+      ...hostCxx.slice(1),
       ...glueFlags(dir),
       "-DLUCENT_JNI_HOST",
       "-fsyntax-only",
@@ -140,8 +153,8 @@ export function runtimeAndroidErrors(dir: string, source: string): string {
 export function glueErrors(r: CompileResult, dir: string, file: string): string {
   const out = writeOut(r, dir);
   const check = spawnSync(
-    "xcrun",
-    ["clang++", ...glueFlags(out), "-fsyntax-only", path.join(out, file)],
+    hostCxx[0]!,
+    [...hostCxx.slice(1), ...glueFlags(out), "-fsyntax-only", path.join(out, file)],
     { encoding: "utf8" },
   );
 
@@ -198,8 +211,8 @@ export function jvmRun(
     { source: path.join(out, "android/m_m.cpp"), extra: [] },
     { source: path.join(out, "android/main.cpp"), extra: [] },
   ].map(({ source, extra }) => ({
-    cmd: "xcrun",
-    args: ["clang++", ...flags, ...extra, "-c", source],
+    cmd: hostCxx[0]!,
+    args: [...hostCxx.slice(1), ...flags, ...extra, "-c", source],
     object: path.join(dir, `${path.basename(source)}.o`),
   }));
 
@@ -209,17 +222,17 @@ export function jvmRun(
 
   const exe = path.join(dir, "run");
   const link = spawnSync(
-    "xcrun",
+    hostCxx[0]!,
     [
-      "clang++",
+      ...hostCxx.slice(1),
       ...jobs.map((j) => j.object),
       hostRuntime(),
       `-L${jdk!.lib}`,
       "-ljvm",
       `-Wl,-rpath,${jdk!.lib}`,
-      // The host runtime's localeCompare.
-      "-framework",
-      "CoreFoundation",
+      // The host runtime's localeCompare, on macOS.
+      ...hostLibs,
+      ...(process.platform === "linux" ? ["-lpthread"] : []),
       "-o",
       exe,
     ],
@@ -228,5 +241,7 @@ export function jvmRun(
   if (link.status !== 0) return { status: null, stdout: "", stderr: link.stderr };
 
   const run = spawnSync(exe, [jars.join(":")], { encoding: "utf8", timeout: 60_000 });
-  return { status: run.status, stdout: run.stdout, stderr: run.stderr };
+  // The JVM announces options the environment sets (JAVA_TOOL_OPTIONS): not the program's output.
+  const stderr = run.stderr.replace(/^Picked up \w+: .*\n/gm, "");
+  return { status: run.status, stdout: run.stdout, stderr };
 }
