@@ -292,7 +292,7 @@ describe.skipIf(!toolchain)("Kotlin shims", () => {
 
     // The Kotlin source's signature, with no trace of the JVM's continuation.
     expect(dts).toContain(
-      "search(prefix: string, limit?: number, latency?: bigint, signal?: AbortSignal): Promise<",
+      "search(prefix: string, limit?: number, latency?: bigint | number, signal?: AbortSignal): Promise<",
     );
     for (const text of [kotlin, cpp, dts]) expect(text).not.toContain("Continuation");
   });
@@ -357,13 +357,14 @@ export async function run(): Promise<string> {
 
     expect(r.diagnostics).toEqual([]);
 
-    // Every Long is a bigint: value classes over one, defaults, results, suspend functions.
+    // Every Long is a bigint, and a Long parameter takes a number too: value classes over one,
+    // defaults, results, suspend functions.
     for (const declared of [
-      "constructor(value: bigint);",
+      "constructor(value: bigint | number);",
       "readonly value: bigint;",
-      "next(id: Id, step?: bigint): Id;",
-      "plus(step?: bigint): bigint;",
-      "offset(by: bigint, signal?: AbortSignal): Promise<bigint>;",
+      "next(id: Id, step?: bigint | number): Id;",
+      "plus(step?: bigint | number): bigint;",
+      "offset(by: bigint | number, signal?: AbortSignal): Promise<bigint>;",
       "first(signal?: AbortSignal): Promise<Id>;",
       "range(count: number): bigint[];",
       "sum(values: bigint[]): bigint;",

@@ -867,7 +867,7 @@ struct Convert<Ref<EventEmitterObject<Fns...>>> {
 
   template <class T, size_t... I>
   static T argsFromJs(jsi::Runtime& rt, const jsi::Value* args, size_t count, std::index_sequence<I...>) {
-    return T{Convert<std::tuple_element_t<I, T>>::fromJs(rt, arg(args, count, I + 1), Path{"EventEmitter.emit", "argument " + std::to_string(I + 1)})...};
+    return T{Convert<std::tuple_element_t<I, T>>::fromJs(rt, arg(args, count, I + 1), Path::argument("EventEmitter.emit", I + 1))...};
   }
 
   static void proto(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
