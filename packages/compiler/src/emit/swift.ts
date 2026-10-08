@@ -200,7 +200,7 @@ function cStruct(t: SdkType): string | undefined {
 /** A Lucent value `c` of type `t` as the object it crosses as. */
 export function objectOf(t: SdkType, c: cpp.Expr): cpp.Expr {
   // An optional number or boolean: an NSNumber, nil for null.
-  if (t.k === "prim")
+  if (t.k === "prim" && t.nullable)
     return ifPresent(c, (x) => cpp.box(toObjcExpr(nonNull(t), x, false, "a value")));
   return cStruct(t)
     ? cpp.call("lucent::objc::structBytes", [toObjcExpr(t, c, false)])
@@ -209,7 +209,8 @@ export function objectOf(t: SdkType, c: cpp.Expr): cpp.Expr {
 
 /** An object `code` that crossed as type `t`, as a Lucent value of type `lt`. */
 export function valueOf(em: FnEmitter, code: cpp.Expr, t: SdkType, lt: LType, what: string): E {
-  if (t.k === "prim") return optionalNumber(em, code, t, lt, what);
+  // An optional number or boolean crossed as an NSNumber; a plain one as its scalar.
+  if (t.k === "prim" && t.nullable) return optionalNumber(em, code, t, lt, what);
   const s = cStruct(t);
   const c = s ? cpp.call("lucent::objc::structFromBytes", [code], [cpp.type(s)]) : code;
   return fromObjc(em, c, t, lt, what);
