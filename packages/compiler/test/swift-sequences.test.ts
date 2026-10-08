@@ -54,7 +54,7 @@ ${body}
 
 describe("Swift async sequences", () => {
   it("are declared as lucent:ios's AsyncSequence, collected with a function and a signal", () => {
-    const p = program("  return \"\";");
+    const p = program('  return "";');
     const dts = p.types.get("ios/Store.d.ts") ?? "";
 
     expect(p.messages).toEqual([]);
@@ -98,10 +98,7 @@ describe("Swift async sequences", () => {
   return "";`);
 
     expect(p.messages).toEqual([
-      [
-        "LUCENT2002",
-        expect.stringMatching(/collect takes a function that is not async/),
-      ],
+      ["LUCENT2002", expect.stringMatching(/collect takes a function that is not async/)],
     ]);
   });
 });

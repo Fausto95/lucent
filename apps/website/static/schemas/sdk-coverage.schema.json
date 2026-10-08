@@ -5,15 +5,7 @@
   "description": "One report per module (a toolkit generated from one under its own name)",
   "items": {
     "type": "object",
-    "required": [
-      "module",
-      "idiomatic",
-      "raw",
-      "unrepresentable",
-      "total",
-      "reasons",
-      "stages"
-    ],
+    "required": ["module", "idiomatic", "raw", "unrepresentable", "total", "reasons", "stages"],
     "properties": {
       "module": {
         "type": "string"
@@ -59,12 +51,7 @@
       },
       "stages": {
         "type": "object",
-        "required": [
-          "discovered",
-          "representable",
-          "generated",
-          "exercised"
-        ],
+        "required": ["discovered", "representable", "generated", "exercised"],
         "additionalProperties": false,
         "properties": {
           "discovered": {
@@ -76,17 +63,11 @@
             "minimum": 0
           },
           "generated": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": ["integer", "null"],
             "minimum": 0
           },
           "exercised": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": ["integer", "null"],
             "minimum": 0
           }
         },

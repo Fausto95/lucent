@@ -62,7 +62,8 @@ const warnings = (p: ReturnType<typeof program>) =>
 describe("methods named like a requirement", () => {
   it("warn when they match none, naming the one meant", () => {
     // One right (TypeScript refuses a class with nothing in common with a weak type), two typos.
-    const p = program(`  locationManager_didFailWithError(manager: LOCManager, error: Error): void {}
+    const p =
+      program(`  locationManager_didFailWithError(manager: LOCManager, error: Error): void {}
   locationManager_didFailWithErorr(manager: LOCManager, error: Error): void {}
   locationManagerDidPuase(manager: LOCManager): void {}`);
 

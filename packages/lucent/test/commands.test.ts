@@ -182,8 +182,9 @@ describe("lucent clean --cache --stale", () => {
     expect(fs.existsSync(old)).toBe(false);
     expect(fs.existsSync(oldMemo)).toBe(false);
     expect(fs.existsSync(path.join(cache, "sdk"))).toBe(true);
-    expect(lucent(["clean", "--cache", "--stale", "--root", root], { LUCENT_CACHE_DIR: cache }).out)
-      .toMatch(/nothing stale in the SDK cache/);
+    expect(
+      lucent(["clean", "--cache", "--stale", "--root", root], { LUCENT_CACHE_DIR: cache }).out,
+    ).toMatch(/nothing stale in the SDK cache/);
   });
 });
 

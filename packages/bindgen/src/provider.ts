@@ -1722,6 +1722,7 @@ export function exportSchemaSet(
       if (s.platform === platform) wanted.set(`${s.kind}|${s.module}`, s);
 
     // The modules served schemas name: what declarations and glue look up beside them.
+    // oxlint-disable-next-line unicorn/no-useless-spread -- the loop adds to it: one level, not all
     for (const s of [...wanted.values()]) {
       if (s.kind === "names") continue;
       const found =
