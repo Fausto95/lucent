@@ -49,6 +49,7 @@ export function fakeAndroid(
   const base = javaBase();
   if (!base) return undefined;
 
+  if (!Object.keys(sources).length) return { bind: [base], run: [] };
   const standIns = javaJar(path.join(dir, "android-stand-ins.jar"), sources);
   return { bind: [base, standIns], run: [standIns] };
 }
