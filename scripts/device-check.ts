@@ -76,7 +76,7 @@ const CRASH =
 
 /** Lines that say JavaScript failed: a red box, a fatal JS error, a bundle that didn't load. */
 const JS_ERROR =
-  /RedBox|RCTFatal|Unhandled JS Exception|Uncaught (Error|TypeError|ReferenceError)|E ReactNativeJS|Could not connect to (the )?development server|Unable to load script|No (script|bundle) URL|Invariant Violation|SyntaxError:|TypeError:|ReferenceError:|Requiring unknown module/;
+  /RedBox|RCTFatal|Unhandled JS Exception|Uncaught (Error|TypeError|ReferenceError)|E ReactNativeJS|Could not connect to (the )?development server|Unable to load script|No (script|bundle) URL|Invariant Violation|SyntaxError:|TypeError:|ReferenceError:|Requiring unknown module|Packager status check/;
 
 /** The app's own lines: Lucent, React Native, JavaScript, crashes, its errors. */
 const APP_LINE =
@@ -84,7 +84,7 @@ const APP_LINE =
 
 /** Lines from the app's process that match the patterns above but say nothing about it. */
 const NOISE =
-  /com\.apple\.network|com\.apple\.CFNetwork:Default|com\.apple\.UIKit:BackgroundTask|BKSProcessAssertion|nw_(flow|connection|endpoint)|boringssl|dexopt|Compiler allocated|JIT profile/;
+  /com\.apple\.network|com\.apple\.CFNetwork:Default|com\.apple\.UIKit|com\.apple\.app_launch_measurement|BKSProcessAssertion|nw_(flow|connection|endpoint)|boringssl|dexopt|Compiler allocated|JIT profile/;
 
 const keep = (l: string, re: RegExp) => re.test(l) && !NOISE.test(l);
 
