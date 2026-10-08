@@ -1,7 +1,9 @@
 /**
  * Times the benchmark kernels (packages/compiler/test/e2e/cases/kernels.lucent.ts)
  * in one Hermes runtime: compiled by Lucent to C++ and called over JSI, against
- * the same TypeScript run as JavaScript. Sizes come from kernels.bench.json.
+ * the same TypeScript run as JavaScript, compiled to bytecode with
+ * `hermesc -O` as a release build compiles it. Sizes come from
+ * kernels.bench.json.
  *
  *   HERMES_DIR=~/hermes node scripts/bench.ts [scale] [--check]
  *
@@ -23,6 +25,12 @@
  * what a C++ TurboModule's does: add() and concat() are timed again as bare
  * host functions (scripts/bench-floor.cpp), and --check fails when Lucent's
  * costs more than its budget times that (scripts/bench-floor-budgets.json).
+ *
+ * And what the code weighs and costs to start: the kernels' and boundary's
+ * generated objects at -O2, and installing Lucent (the host, then every
+ * module's exports), against scripts/bench-size-budgets.json. The size is
+ * enforced everywhere; the install time, as a time, is reported on a
+ * shared runner.
  *
  * --shared-runner (CI): those two kinds of budget compare one crossing with
  * another, a ratio that moves with the CPU (CI's runners differ from run to
@@ -219,6 +227,7 @@ var single = {
   floorAdd: function () { return __floor.add(1, 2); },
 };
 for (var name in single) print(JSON.stringify({ latency: name, samples: latencies(single[name], 2000) }));
+print(JSON.stringify({ install: __installMs }));
 for (var name in sizes) {
   var n = Math.max(1, Math.round(sizes[name] * scale));
   var same = jsKernels[name](n) === native[name](n);
@@ -227,7 +236,17 @@ for (var name in sizes) {
 }
 `,
 );
-const r = spawnSync(exe, [script], { encoding: "utf8", timeout: 600000 });
+// As a release build ships it: bytecode compiled with `hermesc -O` (react-native-xcode.sh and the
+// Gradle plugin both pass -O for release), not source Hermes compiles lazily without optimizing.
+const hermesc = path.join(hermes, "build/bin/hermesc");
+const bytecode = path.join(work, "bench.hbc");
+const optimized = fs.existsSync(hermesc);
+if (optimized) sh(hermesc, ["-emit-binary", "-O", "-out", bytecode, script]);
+else
+  console.warn(
+    `warning: no hermesc at ${hermesc} (build Hermes's hermesc target): JavaScript runs from source, slower than a release build`,
+  );
+const r = spawnSync(exe, [optimized ? bytecode : script], { encoding: "utf8", timeout: 600000 });
 if (r.status !== 0) throw new Error(`bench failed:\n${r.stderr}\n${r.stdout}`);
 const lines = r.stdout
   .trim()
@@ -248,6 +267,11 @@ const crossings = lines.filter((l) => "boundary" in l) as {
   samples: number[];
 }[];
 const singles = lines.filter((l) => "latency" in l) as { latency: string; samples: number[] }[];
+const installMs = (lines.find((l) => "install" in l) as { install: number }).install;
+/** The generated code's object size and the modules' install time, against scripts/bench-size-budgets.json. */
+const sizeBudgets: { generatedKB: number; installMs: number } = JSON.parse(
+  fs.readFileSync(path.join(root, "scripts/bench-size-budgets.json"), "utf8"),
+);
 const cpus = os.cpus();
 console.log(`machine: ${cpus[0]?.model ?? "unknown CPU"}, ${cpus.length} cores\n`);
 console.log(`kernel        size       JS (ms)  Lucent (ms)  speedup  budget`);
@@ -287,12 +311,30 @@ for (const [name, budget] of Object.entries(floorBudgets)) {
     `${name.padEnd(16)} ${us(name).toFixed(1).padStart(9)}  ${floor.toFixed(1).padStart(18)}  ${`${ratio.toFixed(2)}x`.padStart(5)}  ${budget}x`,
   );
 }
+const generatedKB = generatedBytes / 1024;
+console.log(`\nsize and startup              measured  budget`);
+console.log(
+  `generated objects (-O2)      ${`${generatedKB.toFixed(0)} KB`.padStart(9)}  ${sizeBudgets.generatedKB} KB`,
+);
+console.log(
+  `install (host and modules)   ${`${installMs.toFixed(2)} ms`.padStart(9)}  ${sizeBudgets.installMs} ms`,
+);
+// What the code weighs depends on the compiler, not the CPU: enforced everywhere.
+if (generatedKB > sizeBudgets.generatedKB)
+  failures.push(
+    `generated objects: ${generatedKB.toFixed(0)} KB, budget ${sizeBudgets.generatedKB} KB`,
+  );
+// A time: a shared runner reports it.
+if (installMs > sizeBudgets.installMs)
+  ratios.push(`install: ${installMs.toFixed(2)} ms, budget ${sizeBudgets.installMs} ms`);
+
 if (jsonFile) {
   const manifest = hostManifest(
     {
       cxx,
       hermes: gitSha(hermes) ?? "unknown",
       flags: flags.filter((f) => !f.startsWith("-I")).join(" "),
+      js: optimized ? "hermesc -O bytecode" : "source",
     },
     { cwd: root, notes: [`scale ${scale}`, "host Hermes; not a device measurement"] },
   );
@@ -368,6 +410,21 @@ if (jsonFile) {
         note: "kernels and boundary modules, -O2",
       },
       [generatedBytes],
+    ),
+  );
+
+  results.push(
+    benchmarkResult(
+      {
+        ...base,
+        scenario: "startup/install",
+        implementation: "lucent",
+        metric: "latency",
+        unit: "ms",
+        outputVerified: false,
+        note: "Host::create and every module's exports, once",
+      },
+      [installMs],
     ),
   );
 

@@ -136,14 +136,20 @@ host's native code.
 
 `scripts/bench.ts` times the kernels in `cases/kernels.lucent.ts`, compiled
 and called over JSI, against the same code as JavaScript in one Hermes
-runtime. `--check` fails when a kernel's speedup drops below its minimum in
+runtime. The JavaScript runs as a release build ships it: bytecode compiled
+with `hermesc -O` (as React Native's Xcode script and Gradle plugin do for
+release), when `$HERMES_DIR/build/bin/hermesc` is built; otherwise from
+source, with a warning, which is slower and flatters Lucent. `--check` fails when a kernel's speedup drops below its minimum in
 `scripts/bench-budgets.json`. The budgets are calibrated on the CI runner.
 
 It also times the boundary (`cases/boundary.lucent.ts`): batched calls
 against 1,000 single ones (`scripts/bench-boundary-budgets.json`), and one
 call against the same call to a bare JSI host function that converts like a
 codegen C++ TurboModule (`scripts/bench-floor.cpp`,
-`scripts/bench-floor-budgets.json`).
+`scripts/bench-floor-budgets.json`). And it measures the generated code's
+objects at -O2 and installing Lucent (the host, then every module's exports),
+against `scripts/bench-size-budgets.json`: the size is enforced everywhere,
+the install time reported on a shared runner.
 
 Budgets compare the best of 11 rounds; JavaScript and Lucent rounds
 alternate, so drift affects both. `--json <file>` writes the run as data
