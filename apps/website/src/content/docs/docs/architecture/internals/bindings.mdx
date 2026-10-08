@@ -286,11 +286,11 @@ Each value gets a `ConversionPlan`: `passthrough`, `number`, `bigint`, a copy (`
 
 A value that can't cross is `unsupported`, with its reason. The backend's ABI rules decide, knowing which way the value flows:
 
-- **Objective-C and C**: collections read from Objective-C hold plain values. Errors don't go in, and blocks go in only as arguments, never nested three deep.
+- **Objective-C and C**: collections read from Objective-C hold plain values. Errors and blocks go in only as arguments (an error as an `NSError`, `toNSError`), blocks never nested three deep.
 - **Objective-C blocks**: a block native code gives back takes no blocks.
 - **Objective-C pointers**: a pointer a block or requirement receives is written back only while the platform waits, and only to a number or enum.
 - **JNI**: an array of a type parameter's values can't be passed, since its Java class depends on the values. Kotlin functions taking or giving functions are refused.
-- **Swift shims**: scalars, Swift enums, objects and tuples cross, and closures as Objective-C blocks of numbers, booleans, strings and Objective-C objects. Optional scalars and closures, Objective-C enums, and tuples of optional values or C structs don't yet.
+- **Swift shims**: scalars, Swift enums, objects and tuples cross, and closures as Objective-C blocks of numbers, booleans, strings and Objective-C objects. Optional scalars cross as `NSNumber`s (nil for null), and Objective-C enums as their raw values (`Int`, made back with `init(rawValue:)`). In collections those don't yet, nor do optional closures or Objective-C enums, or tuples of optional values or C structs.
 - **Kotlin source**: a vararg's values and Kotlin's `Char` have no Lucent value yet.
 
 A value a use may leave out is `omissible`: an argument with a default, or one a block offers a Lucent function. Its refusal counts only against the uses that give or take it (`takenReason`).
@@ -349,7 +349,9 @@ An Objective-C subclass's native object holds the Lucent object, and each Lucent
 
 ### Availability
 
-`requireAvailable()` checks a member's `since` against the oldest OS the app runs on, from `sdk/schema.ts`. On iOS that's `oldestIos()`: the deployment target `xcodeApp()` read, never below `MIN_IOS` (15.1). On Android it's `MIN_ANDROID_API` (24).
+`requireAvailable()` checks a member's `since` against the oldest OS the app runs on, from `sdk/schema.ts`. On iOS that's `oldestIos()`: the deployment target `xcodeApp()` read, never below `MIN_IOS` (15.1).
+
+On Android it's `oldestAndroid()`: the app's `minSdk`, else `MIN_ANDROID_API` (24). The `lucentClasspath` Gradle task writes `minSdk` beside the classpath, and `androidLevels()` reads it. The same file's `compileSdk` picks the platform bound, when installed.
 
 A newer API outside a check of the running OS fails with [LUCENT3007](/docs/api/diagnostics/#lucent3007). A package's `deploymentTarget` or `minSdk` raises the native package's, not this floor.
 
@@ -378,7 +380,9 @@ A program without platform code writes one set of files, `cpp/generated/*`. With
 - A stage without evidence is `null`, never 0. An unreadable usage report counts as none, with a warning.
 - Coverage also counts members reached through an idiom: an `async` form, or a getter read as a property.
 
-CI runs `lucent sdk coverage --check config/sdk-coverage.json` over UIKit, Foundation, AVFoundation, StoreKit, CryptoKit and every `android.*` package. It fails when a module's unrepresentable share grows past the baseline by more than 0.05 points. It compares shares, not counts, because another SDK version has other members.
+CI runs `lucent sdk coverage --check config/sdk-coverage.json` over UIKit, Foundation, AVFoundation, StoreKit, CryptoKit and every `android.*` package. In the bare example, once Gradle has resolved its dependencies, it also runs over every `androidx.core.*` and `com.google.android.gms.*` package.
+
+It fails when a module's unrepresentable share grows past the baseline by more than 0.05 points. It compares shares, not counts, because another SDK version has other members. Each job uploads `sdk-coverage.updated.json`, the baseline rewritten by `--update` with each module's SDK, to commit when shares move for a reason.
 
 ## Native extensions
 

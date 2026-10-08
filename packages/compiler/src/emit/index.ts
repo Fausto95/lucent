@@ -18,6 +18,7 @@ import {
   parameterProperties,
 } from "./classes.ts";
 import { bindCompute, emitTaskVariants, taskHeader } from "./compute.ts";
+import { checkRequirementNames } from "./requirement-names.ts";
 import { objcDelegate } from "./delegates.ts";
 import { iosSubclass } from "./objc-subclass.ts";
 import {
@@ -211,6 +212,8 @@ export function emitProgram(
     ).push(out.definition);
     moduleDefs.get(m)!.push(...out.members);
     statics.get(m)!.push(...out.statics);
+    // Methods named like a requirement of its SDK protocols that match none (a typo).
+    ctx.guard(() => checkRequirementNames(ctx, info));
     // Classes implementing SDK protocols: an Objective-C object per instance.
     const objc = ctx.guard(() => objcDelegate(ctx, m, info));
     if (objc) {
@@ -442,10 +445,12 @@ export function emitProgram(
     );
   }
   // The Swift-only members the iOS glue calls.
-  if (ctx.swiftShims.size || ctx.swiftProxies.length)
+  if (ctx.swiftShims.size || ctx.swiftProxies.length || ctx.swiftSequences)
     files.set(
       "LucentShims.swift",
-      shimsFile(ctx.swiftShims.values(), proxyParts(ctx.swiftProxies)),
+      shimsFile(ctx.swiftShims.values(), proxyParts(ctx.swiftProxies), {
+        sequences: ctx.swiftSequences,
+      }),
     );
   files.set(
     "lucent_bindings.cpp",

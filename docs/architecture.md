@@ -1116,6 +1116,16 @@ build caches, and stop:
   artifacts than recorded, or is not recorded;
 - after the check, when the code uses symbols the lock does not record.
 
+With `--schemas`, `lucent sdk lock` also exports what the check read from
+installed SDKs (`exportSchemaSet` in `bindgen/src/provider.ts`) to
+`lucent-sdk.schemas/<platform>/<module>.json`: each module's schema
+(`.source.json` for source modules such as SwiftUI) and the modules its
+types name (`.names.json` on iOS), with the artifacts and cache entry the
+lock records. `projectSdk` passes the directory as `SdkOptions.schemas`;
+where a platform's SDK is missing, `sdkModule`, `sdkNames`,
+`sdkSourceModule`, `sdkModuleArtifacts` and `sdkAvailable` answer from
+it, and `sdkIdentity` names its contents. An installed SDK wins.
+
 `lucent sdk diff` finds each locked symbol in the installed SDK by native
 symbol or by name and signature, then by name alone when one member of
 that name is left (a JVM descriptor changes with the signature; not for

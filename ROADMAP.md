@@ -476,6 +476,51 @@ a budget, enforced everywhere, and the install time one reported on
 shared runners. _Why:_ a speedup against unoptimized JavaScript claimed
 more than an app would see.
 
+**2026-10-08: Lucent makes Swift modules that a build would.** A Swift
+pod's module and a Lucent package's `ios.nativeSources` Swift
+(`lucent:ios/LucentNative`, the native package's own module) are emitted
+with `swiftc -emit-module` against the app's pods on first import, keyed
+by their sources' contents, and a local Swift package is built from a
+copy of its directory. _Why:_ the diagnostic for an unbindable member
+says to wrap it in Swift of your own, which was then not callable: these
+modules exist only after Xcode builds the app, and binding must work
+before that build, as it does for pods. Building pod targets with
+`xcodebuild` was rejected: it builds their dependencies (React Native's)
+for nothing Lucent reads. Reading Xcode's DerivedData was rejected, as
+for Swift packages on 2026-10-04.
+
+**2026-10-08: Swift AsyncSequences are collected as Flows are.** An
+AsyncSequence (AsyncStream, `some AsyncSequence<E, F>`, or a module's type
+conforming to it, such as StoreKit's `Transaction.Transactions`) is
+lucent:ios's `AsyncSequence<E>`, whose `collect(f, signal?)` iterates it
+in a Swift task, waiting for `f` on the Lucent thread at each element,
+and settles when the sequence ends or throws; the signal cancels the
+task. _Why:_ Kotlin's Flow.collect has the same shape, so ports read the
+same on both platforms; a JavaScript async iterator was rejected because
+Lucent has no `for await` over native values yet, and a subscription
+without backpressure would buffer a fast sequence without bound.
+
+**2026-10-08: Android's oldest API is the app's minSdk.** The
+`lucentClasspath` Gradle task writes the app's `minSdk` and `compileSdk`
+beside its classpath; `LUCENT3007` checks Android APIs against that
+`minSdk` (24 until Gradle has run), and the bound platform is the
+`compileSdk`'s when installed, else the newest. _Why:_ a fixed 24 made
+apps at a higher `minSdk` write checks their devices never fail, and the
+newest platform could bind APIs the app's `compileSdk` does not have.
+
+**2026-10-08: Exported schemas type a platform without its SDK.** `lucent
+sdk lock --schemas` writes `lucent-sdk.schemas/` beside the lock: the
+schemas the code's modules were read with, the modules their types name
+(names only on iOS, schemas on Android), each with the artifacts the
+lock records. Where a platform's SDK is not installed the provider
+serves that platform from the directory, so a Linux CI or a teammate
+without Xcode type-checks and generates iOS code; an installed SDK
+always wins, and a module the directory lacks is `LUCENT3004` with the
+fix. _Why:_ iOS branches were untyped on Linux (`lucent:ios/*` as an
+untyped wildcard), so errors in them surfaced only on a Mac. Shipping
+whole SDK schemas was rejected: UIKit's alone is megabytes, and the set
+the code uses is what a review sees change.
+
 **2026-10-07: Views without a switch.** The maintainer removed the
 internal `LUCENT_VIEWS=fabric` switch: every compile resolves `lucent:ui`,
 the toolkits and JSX, and generates components' Fabric sources, so a
@@ -1785,7 +1830,11 @@ explicit backpressure and ownership.
 
 - [ ] Keep camera, audio and image buffers native across several processing
       steps; expose intentional handles or snapshots at the JavaScript
-      boundary.
+      boundary. (Started: lucent:ios's `withPixelBytes` reads a
+      CVPixelBuffer's plane under its read lock, as one copy, and
+      `serialQueue(label)` gives capture delegates a queue off the main
+      thread; a zero-copy view of a locked buffer waits on Uint8Arrays over
+      memory the runtime does not own.)
 - [ ] Define bounded queues and distinct lossless, latest-value and
       frame-dropping policies; dispose dropped and cancelled buffers exactly
       once.
@@ -1891,6 +1940,16 @@ coherent workflow.
       in CI and show the top 20 skip reasons in the job summary (CI checks
       five iOS modules and `android.*` today): `--all` and `--summary`; 526
       modules locally, 53 unreadable for the simulator and listed.
+- [ ] Carried over from the 2026-10-08 review: gate the app's Android
+      dependencies and record which SDK the baseline was measured with.
+      (Started: the Android job gates `androidx.core.*` and
+      `com.google.android.gms.*` in the bare example after Gradle resolves
+      them; `--update` writes reports with their `sdk`, and `--check` names
+      modules the baseline lacks and entries without an SDK. Left: commit
+      the `sdk-coverage.updated.json` both jobs upload, which adds those
+      packages and every entry's SDK; until then they are reported, not
+      gated. Swift's Hashable, Equatable and Codable plumbing is already
+      counted apart.)
 
 **Done when:** a developer can build and diagnose a module or view through
 one coherent workflow, and machine-readable consumers share its schema.
@@ -2139,6 +2198,12 @@ module code and in views.
 - Found by T28: `var onTurn: ((Double) -> Unit)?` is typed as the class
   `Function1<number, Unit>`; a `fun interface` property rejects a function
   (TS2322), and a view refuses an object implementing it.
+- Found by the 2026-10-08 review, fixed on its branch: Android
+  constructors newer than the app's `minSdk` compiled without
+  `LUCENT3007` (`api-versions.xml` writes them `&lt;init>`); class files'
+  string constants were read as UTF-8, not modified UTF-8 (NUL, emoji);
+  and the extraction cache keeps other Lucent versions' entries only
+  until they go unused for two weeks.
 
 <a id="ta31"></a>
 
@@ -2207,6 +2272,17 @@ targets.
       one: the app target's `IPHONEOS_DEPLOYMENT_TARGET` (the expo
       example's 16.4) is the extraction target, and the oldest iOS the
       availability checks and the generated pod use (never below 15.1).
+- [x] Carried over from the 2026-10-08 review: bind the app's own Swift
+      that is not in a module before a build. Local packages
+      (`XCLocalSwiftPackageReference`) build from a copy of their
+      directory, keyed by its contents (`spm:identity@local`); Swift pods
+      (static library or `use_frameworks!`, no public Objective-C headers)
+      and a Lucent package's `ios.nativeSources` Swift
+      (`lucent:ios/LucentNative`) are made with `swiftc -emit-module`
+      against the app's pods; pods' XCFrameworks bind through their
+      simulator slice. Verified on Linux against a stand-in for Xcode
+      (`own-swift.test.ts`, `pods.test.ts`, `swift-packages.test.ts`,
+      `xcode.test.ts`); not yet run against real Xcode.
 
 `packages/lucent/test/swift-packages.test.ts` adds a package tagged 1.0.0
 to an app deployed to iOS 16.4: it binds from `spm:gauges@1.0.0` read for
@@ -2280,6 +2356,19 @@ and what to do.
   (`NSCoder.decodeTopLevelObject(forKey:)`, `RunLoop.schedule(after:…)`
   were dropped unsaid); all are kept, an Objective-C member of that name
   still winning.
+- Found by the 2026-10-08 review, fixed on its branch: members after
+  `@backDeployed(before:)` were read with the attribute's arguments as
+  their type; the header index's owners depended on the order the file
+  system listed headers, and missed `CF_ENUM`/`CF_OPTIONS` types and
+  indexed categories as classes; C functions, globals, typed string keys
+  and enum cases newer than the deployment target compiled without
+  `LUCENT3007`; optional numbers and booleans, Objective-C enums in Swift
+  signatures and errors passed to Objective-C now cross shims (as
+  NSNumbers, raw values and NSErrors); a method of a class implementing a
+  protocol that matches no requirement but is named like one warns
+  (`LUCENT3013`); Swift `AsyncSequence`s are collected
+  (`AsyncSequence<E>.collect`); and two builds asking for one Swift
+  package build it once (a lock in the cache).
 
 <a id="ta34"></a>
 
@@ -2958,14 +3047,16 @@ Array(n)` without a whole `.fill(v)`, even when each index is then
   which names no steps. The config plugin builds before the pods are
   installed and before it links the native package. A pod binds through
   the module it defines: `DEFINES_MODULE`, modular headers, a prebuilt
-  `.framework`, or `use_frameworks!`. A Swift pod built as a static
-  library, or one that ships an `.xcframework`, is not bound. Binding a
+  `.framework` or `.xcframework`, or `use_frameworks!`. A Swift pod
+  binds through a module Lucent makes from its sources with `swiftc`, or
+  through its public Objective-C headers alone if it has them. Binding a
   package's own pod in an Expo app is [TA35](#ta35).
 - An Android app with product flavors binds the libraries of its first
   debug variant by name. A library only another flavor depends on is not
   bindable.
-- Typed native extensions: Swift and Kotlin sources in a package are not
-  typed yet, and extension calls cannot be cancelled.
+- Typed native extensions: Kotlin sources in a package are not typed
+  yet (Swift ones are `lucent:ios/LucentNative`), and extension calls
+  cannot be cancelled.
 - Tracing records allocations for native buffers only, and its buffer
   uses one mutex: fine for debugging, not for continuous production use.
 - The known binding gaps, tasks [TA30](#ta30) to [TA34](#ta34), are in review.

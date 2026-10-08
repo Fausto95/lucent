@@ -28,6 +28,9 @@ import { linkNativePackage } from "./init/patch.ts";
 import { withLucentPaths } from "./tsconfig.ts";
 import { packageFile } from "./version.ts";
 
+/** The exported schema set, beside lucent-sdk.lock.json: committed with the app. */
+export const SCHEMA_SET_DIR = "lucent-sdk.schemas";
+
 /** Something a command did to the project, or asks the user to do. */
 export type Notice = { level: "ok" | "warn"; text: string };
 
@@ -56,7 +59,7 @@ export function mapLucentPaths(root: string): Notice | undefined {
  * here when not given); and the iOS version it is deployed to.
  */
 export function projectSdk(root: string, native?: NativeInputs): SdkOptions {
-  const binaries = native?.binaries ?? packageBinaries(root);
+  const { binaries, swiftSources } = native ?? packageBinaries(root);
   const pods = podsSearchPaths(path.join(root, "ios"));
 
   // The app's Xcode project: the iOS version it is deployed to, and its Swift packages, built.
@@ -64,7 +67,9 @@ export function projectSdk(root: string, native?: NativeInputs): SdkOptions {
   const project = app
     ? {
         ...(app.deploymentTarget ? { deploymentTarget: app.deploymentTarget } : {}),
-        ...(app.packages.length ? { swiftPackages: swiftPackages(app) } : {}),
+        ...(app.packages.length || app.localPackages?.length
+          ? { swiftPackages: swiftPackages(app) }
+          : {}),
       }
     : {};
 
@@ -74,9 +79,15 @@ export function projectSdk(root: string, native?: NativeInputs): SdkOptions {
     ),
   ];
   const ios: NonNullable<SdkOptions["ios"]> | undefined =
-    pods || frameworkPaths.length || app ? { ...pods, ...project } : undefined;
+    pods || frameworkPaths.length || app || swiftSources.length
+      ? { ...pods, ...project, ...(swiftSources.length ? { swiftSources } : {}) }
+      : undefined;
+
+  // The schemas a teammate's `lucent sdk lock --schemas` exported: a platform without its SDK here.
+  const schemas = path.join(root, SCHEMA_SET_DIR);
 
   return {
+    ...(fs.existsSync(schemas) ? { schemas } : {}),
     android: {
       classpath: path.join(root, ".lucent/android-classpath.json"),
       ...(binaries.android.length ? { libraries: binaries.android } : {}),
@@ -88,19 +99,19 @@ export function projectSdk(root: string, native?: NativeInputs): SdkOptions {
 }
 
 /**
- * The binaries the project's Lucent packages ship, for commands that bind
- * without building (lucent sdk …): none when a lucent.json is invalid,
- * which the build reports.
+ * The binaries and Swift the project's Lucent packages ship, for commands
+ * that bind without building (lucent sdk …): none when a lucent.json is
+ * invalid, which the build reports.
  */
-function packageBinaries(root: string): NativeInputs["binaries"] {
+function packageBinaries(root: string): Pick<NativeInputs, "binaries" | "swiftSources"> {
   const hashes = projectHashes(root);
 
   try {
-    const { binaries } = resolveNative(lucentPackages(root), { hashes });
+    const { binaries, swiftSources } = resolveNative(lucentPackages(root), { hashes });
     hashes.save();
-    return binaries;
+    return { binaries, swiftSources };
   } catch {
-    return { ios: [], android: [] };
+    return { binaries: { ios: [], android: [] }, swiftSources: [] };
   }
 }
 

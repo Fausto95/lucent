@@ -598,6 +598,13 @@ Opt<T> setOut(const NativeRef& r, Opt<T> v) {
 /// `mainQueue()` from lucent:ios: the main dispatch queue (an OS object).
 inline NativeRef mainQueue() { return wrap(dispatch_get_main_queue(), "mainQueue"); }
 
+/// `serialQueue(label)` from lucent:ios: a new serial dispatch queue (an OS
+/// object, released with its last reference).
+inline NativeRef serialQueue(const String& label) {
+  std::string name = label.toUtf8();
+  return wrap(dispatch_queue_create(name.c_str(), DISPATCH_QUEUE_SERIAL), "serialQueue");
+}
+
 /// `available("ios", major, minor)`.
 inline bool available(double major, double minor = 0) {
   NSOperatingSystemVersion v = {static_cast<NSInteger>(major), static_cast<NSInteger>(minor), 0};

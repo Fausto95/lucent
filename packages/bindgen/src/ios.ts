@@ -17,6 +17,7 @@ import {
 } from "./schema.ts";
 import {
   afterColon,
+  ASYNC_SEQUENCE,
   bridgedSwiftType,
   declText,
   escapingParams,
@@ -381,6 +382,39 @@ function optionSets(g: SymbolGraph): Set<string> {
   return found;
 }
 
+/**
+ * The module's types that conform to AsyncSequence, with the fragments of
+ * their Element (their `Element` typealias; AsyncIteratorProtocol's
+ * `next()` result where that is all there is), by USR. Generic ones are
+ * left out: their Element depends on type arguments.
+ */
+function asyncSequences(g: SymbolGraph): Map<string, Fragment[]> {
+  const out = new Map<string, Fragment[]>();
+  const byUsr = new Map(g.symbols.map((s) => [s.identifier.precise, s]));
+  const members = new Map<string, SymbolGraphSymbol[]>();
+  for (const r of g.relationships)
+    if (r.kind === "memberOf" && byUsr.has(r.source))
+      members.set(r.target, [...(members.get(r.target) ?? []), byUsr.get(r.source)!]);
+
+  for (const r of g.relationships) {
+    if (r.kind !== "conformsTo" || r.target !== ASYNC_SEQUENCE) continue;
+    const s = byUsr.get(r.source);
+    if (!s || s.swiftGenerics?.parameters?.length) continue;
+    const alias = (members.get(r.source) ?? []).find(
+      (m) => m.kind.identifier === "swift.typealias" && m.pathComponents.at(-1) === "Element",
+    );
+    const frags = alias?.declarationFragments ?? [];
+    const eq = frags.findIndex((f) => f.kind === "text" && f.spelling.includes("="));
+    if (eq < 0) continue;
+    const rest = frags[eq]!.spelling.slice(frags[eq]!.spelling.indexOf("=") + 1);
+    out.set(r.source, [
+      ...(rest.trim() ? [{ kind: "text", spelling: rest }] : []),
+      ...frags.slice(eq + 1),
+    ]);
+  }
+  return out;
+}
+
 export function namesOf(module: string, g: SymbolGraph): NamesIndex {
   const refs: Record<string, string> = {};
   const aliases: Record<string, Fragment[]> = {};
@@ -454,6 +488,15 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
     if (k === "swift.struct" && /^c:.*@T@/.test(usr))
       aliases[usr] = [{ kind: "typeIdentifier", spelling: "String", preciseIdentifier: "s:SS" }];
   }
+  // A type of the module's that is an AsyncSequence (StoreKit's Transaction.Transactions): the
+  // sequence of its Element, as AsyncStream is.
+  for (const [usr, element] of asyncSequences(g))
+    aliases[usr] = [
+      { kind: "typeIdentifier", spelling: "AsyncStream", preciseIdentifier: "s:ScS" },
+      { kind: "text", spelling: "<" },
+      ...element,
+      { kind: "text", spelling: ">" },
+    ];
   // Swift types (structs, classes, enums, protocols), called through shims;
   // a protocol's associated types are its type parameters.
   const associated = associatedTypesOf(g);
@@ -932,10 +975,13 @@ export function buildIosSchema(
         )
         .map((m) => {
           const native = m.identifier.precise.slice(s.identifier.precise.length + 1);
+          const v = since(m);
           return {
             name: m.pathComponents[m.pathComponents.length - 1]!,
             native,
             value: enumValueMap.get(cName)?.get(native),
+            // A case newer than its enum.
+            ...(v && v !== since(s) ? { since: v } : {}),
           };
         });
       if (cases.some((c) => c.value === undefined)) {
@@ -951,6 +997,7 @@ export function buildIosSchema(
         symbol: graphSymbol(s.identifier.precise),
         cases: cases as SdkEnumSchema["cases"],
         ...(optionSets(g).has(s.identifier.precise) ? { options: true as const } : {}),
+        ...(since(s) ? { since: since(s)! } : {}),
       };
       mod.types.push(e);
     }
@@ -985,6 +1032,7 @@ export function buildIosSchema(
       for (const mem of members.get(s.identifier.precise) ?? []) {
         const global = /^c:@([A-Za-z_]\w*)$/.exec(mem.identifier.precise)?.[1];
         if (!global || mem.kind.identifier !== "swift.type.property" || unavailable(mem)) continue;
+        const v = since(mem);
         props.push({
           name: mem.pathComponents[mem.pathComponents.length - 1]!,
           static: true,
@@ -992,14 +1040,17 @@ export function buildIosSchema(
           type: parseSchemaType("string"),
           global,
           symbol: graphSymbol(mem.identifier.precise),
+          ...(v && v !== since(s) ? { since: v } : {}),
         });
       }
+      const v = since(s);
       if (props.length)
         mod.types.push({
           kind: "class",
           name: s.pathComponents.join("_"),
           native: s.identifier.precise.replace(/^.*@T@/, ""),
           symbol: graphSymbol(s.identifier.precise),
+          ...(v ? { since: v } : {}),
           properties: props,
         });
     }
@@ -1342,6 +1393,8 @@ export function buildIosSchema(
             type: parseType(afterColon(s.declarationFragments ?? []), resolver()),
             symbol: graphSymbol(usr),
           };
+          const v = since(s);
+          if (v) c.since = v;
           (mod.constants ??= []).push(c);
         }
       } catch (e) {

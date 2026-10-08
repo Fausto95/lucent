@@ -164,6 +164,30 @@ describe("lucent clean", () => {
   });
 });
 
+describe("lucent clean --cache --stale", () => {
+  it("removes what other Lucent versions wrote to the SDK cache, and keeps this one's", () => {
+    const root = project();
+    const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cache-"));
+    const old = path.join(cache, "sdk/android/android-35-0123456789abcdef");
+    fs.mkdirSync(old, { recursive: true });
+    fs.writeFileSync(path.join(old, ".extractor"), "deadbeef\n");
+    fs.writeFileSync(path.join(old, "x.json"), "x".repeat(1000));
+    const oldMemo = path.join(cache, "memo/deadbeef");
+    fs.mkdirSync(oldMemo, { recursive: true });
+
+    const r = lucent(["clean", "--cache", "--stale", "--root", root], { LUCENT_CACHE_DIR: cache });
+
+    expect(r.status).toBe(0);
+    expect(r.out).toMatch(/removed 2 SDK cache entries other Lucent versions wrote/);
+    expect(fs.existsSync(old)).toBe(false);
+    expect(fs.existsSync(oldMemo)).toBe(false);
+    expect(fs.existsSync(path.join(cache, "sdk"))).toBe(true);
+    expect(
+      lucent(["clean", "--cache", "--stale", "--root", root], { LUCENT_CACHE_DIR: cache }).out,
+    ).toMatch(/nothing stale in the SDK cache/);
+  });
+});
+
 describe("lucent --version", () => {
   it("names the SDKs it sees", () => {
     const r = lucent(["--version"], {

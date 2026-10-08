@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 import { parseSchemaType } from "../src/schema.ts";
-import { type Fragment, parseType, type Resolver, Unsupported } from "../src/symbols.ts";
+import {
+  afterColon,
+  type Fragment,
+  parseType,
+  propertyType,
+  type Resolver,
+  Unsupported,
+} from "../src/symbols.ts";
 
 /** Declaration fragments: strings are text, `[spelling, usr]` pairs type identifiers. */
 const frags = (...parts: (string | [string, string])[]): Fragment[] =>
@@ -76,6 +83,73 @@ describe("Swift types without a Lucent value", () => {
     );
     expect(reason(["KITView", "c:objc(cs)KITView"], " & ", NSCOPYING)).toBe(
       "values of several types at once (KITView & NSCopying) have no Lucent type yet",
+    );
+  });
+});
+
+describe("declaration fragments", () => {
+  it("read a type after attributes whose arguments hold a colon", () => {
+    // StoreKit's Transaction.currentEntitlements: `@backDeployed(before: iOS 18.0) static var …`.
+    const decl = frags(
+      "",
+      "@backDeployed",
+      "(before: iOS 18.0)\n",
+      "static var currentEntitlements: ",
+      ["KITView", "c:objc(cs)KITView"],
+      " { get }",
+    );
+    decl[1]!.kind = "attribute";
+
+    expect(parseType(propertyType(decl), resolver)).toEqual(parseSchemaType("Kit.KITView"));
+    expect(parseType(afterColon(decl.slice(0, 5)), resolver)).toEqual(
+      parseSchemaType("Kit.KITView"),
+    );
+  });
+});
+
+describe("declaration fragments after @escaping", () => {
+  it("keep a closure type's parentheses, which are not the attribute's arguments", () => {
+    // UNUserNotificationCenter.add(_:withCompletionHandler:): `@escaping ((any Error)?) -> Void`.
+    const param = frags(
+      "completionHandler: ",
+      "@escaping",
+      " ((",
+      "any",
+      " ",
+      ["Error", "s:s5ErrorP"],
+      ")?) -> ",
+      ["Void", "s:s4Voida"],
+    );
+    param[1]!.kind = "attribute";
+    param[3]!.kind = "keyword";
+
+    expect(
+      afterColon(param)
+        .map((f) => f.spelling)
+        .join(""),
+    ).toBe("((any Error)?) -> Void");
+  });
+});
+
+describe("Swift async sequences", () => {
+  const INT: [string, string] = ["Int", "s:Si"];
+  const parse = (...parts: (string | [string, string])[]) => {
+    const f = frags(...parts);
+    return parseType(f, resolver);
+  };
+
+  it("read AsyncStream, AsyncThrowingStream and some AsyncSequence as sequences of their elements", () => {
+    const ints = parseSchemaType("AsyncSequence<NSInteger>");
+
+    expect(parse(["AsyncStream", "s:ScS"], "<", INT, ">")).toEqual(ints);
+    expect(
+      parse(["AsyncThrowingStream", "s:Scs"], "<", INT, ", ", ["Error", "s:s5ErrorP"], ">"),
+    ).toEqual(ints);
+    expect(
+      parse("some ", ["AsyncSequence", "s:Sci"], "<", INT, ", ", ["Never", "s:s5NeverO"], ">"),
+    ).toEqual(ints);
+    expect(parse(["AsyncStream", "s:ScS"], "<", ["KITView", "c:objc(cs)KITView"], ">?")).toEqual(
+      parseSchemaType("AsyncSequence<Kit.KITView>?"),
     );
   });
 });

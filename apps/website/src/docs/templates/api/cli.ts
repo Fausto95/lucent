@@ -57,6 +57,12 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
       text: "It watches the app and each Lucent package it links from outside it, such as a workspace package. It rebuilds when a file a build reads changes: a module, a `package.json` or `lucent.json`, or a native file a package lists. What builds write never triggers one, and a change during a build stops it before it writes anything.",
     },
   ],
+  clean: [
+    {
+      kind: "p",
+      text: "Each Lucent version reads its own SDK cache entries. Builds remove other versions' entries on their own once those have gone unused for two weeks (`LUCENT_NO_CACHE_PRUNE=1` keeps them); `lucent clean --cache --stale` removes them all now.",
+    },
+  ],
   init: [
     {
       kind: "p",

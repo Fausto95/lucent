@@ -261,7 +261,11 @@ jobs:
       - name: Runtime unit tests (ASan/UBSan, libc++)
         run: SANITIZE=1 packages/runtime/test/run.sh
       - name: SDK coverage (fails when a module's unrepresentable share grows past config/sdk-coverage.json)
-        run: node packages/lucent/bin/lucent.cjs sdk coverage --ios UIKit,Foundation,AVFoundation,StoreKit,CryptoKit --android 'android.*' --json --check config/sdk-coverage.json > sdk-coverage.current.json
+        # --update writes the reports, each with the SDK it was read from, into a copy of the
+        # baseline: the artifact to commit as config/sdk-coverage.json when shares move for a reason.
+        run: |
+          cp config/sdk-coverage.json sdk-coverage.updated.json
+          node packages/lucent/bin/lucent.cjs sdk coverage --ios UIKit,Foundation,AVFoundation,StoreKit,CryptoKit --android 'android.*' --json --check config/sdk-coverage.json --update sdk-coverage.updated.json > sdk-coverage.current.json
       - name: SDK coverage of every module (the top reasons in the job summary; fails nothing)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         timeout-minutes: 45
@@ -365,6 +369,21 @@ jobs:
       - name: Generate the native package, for Android (the app this job builds)
         working-directory: apps/bare-example
         run: pnpm lucent --platforms android
+      # The app's dependencies are resolved now (lucentClasspath): androidx and Play services are
+      # gated where they exist, in the app. The baseline holds the iOS job's modules too.
+      - name: SDK coverage of the app's androidx and Play services packages (fails as the iOS job's does)
+        working-directory: apps/bare-example
+        run: |
+          cp ../../config/sdk-coverage.json ../../sdk-coverage.updated.json
+          node ../../packages/lucent/bin/lucent.cjs sdk coverage --android 'androidx.core.*,com.google.android.gms.*' --json --check ../../config/sdk-coverage.json --update ../../sdk-coverage.updated.json > ../../sdk-coverage.android.json
+      - name: Keep the coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-coverage-android
+          path: |
+            sdk-coverage.android.json
+            sdk-coverage.updated.json
       - name: Build
         working-directory: apps/bare-example/android
         run: ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --build-cache --parallel

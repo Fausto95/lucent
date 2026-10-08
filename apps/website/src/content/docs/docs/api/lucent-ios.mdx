@@ -51,6 +51,38 @@ function mainQueue(): NSObject;
 
 The main dispatch queue (dispatch\_get\_main\_queue()), for APIs that take a queue.
 
+### serialQueue()
+
+```ts title="ios.d.ts"
+function serialQueue(label: string): NSObject;
+```
+
+A new serial dispatch queue (`dispatch_queue_create(label, DISPATCH_QUEUE_SERIAL)`). It's for APIs that call their delegate on a queue you pass, such as AVCaptureVideoDataOutput's `setSampleBufferDelegate(_:queue:)`. Their callbacks then run off the main thread, one at a time, and Lucent code in them runs as in any other callback.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `label` | `string` | yes | The queue's name, as Instruments and crash reports show it, such as `"camera.frames"`. |
+
+### withPixelBytes()
+
+```ts title="ios.d.ts"
+function withPixelBytes<R>(
+  pixelBuffer: NSObject,
+  f: (bytes: Uint8Array, bytesPerRow: number, width: number, height: number) => R,
+  plane?: number,
+): R;
+```
+
+Calls `f` with a CVPixelBuffer's bytes, locked for reading while it runs. The lock is `CVPixelBufferLockBaseAddress` with `kCVPixelBufferLock_ReadOnly`, released after `f`, also when it throws. `f` gets the plane's bytes, its row stride (`bytesPerRow`), width and height.
+
+For a planar format (YUV), the plane is the one given; otherwise plane 0. The bytes are copied once, under the lock, so they stay valid after `f` returns. The buffer itself is locked only while `f` runs.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `pixelBuffer` | `NSObject` | yes | A CVPixelBuffer, such as `CMSampleBufferGetImageBuffer(sample)`. |
+| `f` | `(bytes: Uint8Array, bytesPerRow: number, width: number, height: number) => R` | yes | What reads the bytes; its result is withPixelBytes's. |
+| `plane` | `number` | no | The plane of a planar format; 0 when left out. |
+
 ### asString()
 
 ```ts title="ios.d.ts"
@@ -193,6 +225,19 @@ class Out<T> {
 ```
 
 What a method writes through a pointer (`CGFloat *`, `NSRange *`, `NSDate **`, `CFTypeRef *`): pass it, then read `value`. For a pointer the method also reads (a number or a struct), set `value` first.
+
+### AsyncSequence
+
+```ts title="ios.d.ts"
+class AsyncSequence<T> {
+  protected constructor();
+  collect(f: (value: T) => void, signal?: AbortSignal): Promise<void>;
+}
+```
+
+A Swift AsyncSequence, such as StoreKit's `Transaction.updates` or an `AsyncStream`, collected as Kotlin's Flow is. `collect` calls `f` with each element in order on the Lucent thread, and the sequence waits for each call. It settles when the sequence ends, rejecting with what the sequence or `f` throws.
+
+Aborting `signal` cancels the iteration's task.
 
 ## Types
 

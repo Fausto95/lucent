@@ -30,6 +30,8 @@ export interface PodspecInputs {
   vendoredFrameworks: string[];
   /** Package URL → its requirement and the products the pod links. */
   swiftPackages: [string, SwiftPackage][];
+  /** Local packages by their absolute path → the products the pod links. */
+  localSwiftPackages?: [string, string[]][];
   /** The lowest iOS version the packages run on, if they need one. */
   deploymentTarget?: string;
 }
@@ -120,6 +122,11 @@ export function podspec(template: string, inputs: PodspecInputs): string {
     ...inputs.swiftPackages.map(
       ([url, { requirement, products }]) =>
         `  spm_dependency(s, url: ${JSON.stringify(url)}, requirement: ${rubyHash(requirement)}, products: ${list(products)})`,
+    ),
+    // A path that exists is a local package to spm_dependency, which takes no requirement for it.
+    ...(inputs.localSwiftPackages ?? []).map(
+      ([dir, products]) =>
+        `  spm_dependency(s, url: ${JSON.stringify(dir)}, requirement: {}, products: ${list(products)})`,
     ),
   ];
 
