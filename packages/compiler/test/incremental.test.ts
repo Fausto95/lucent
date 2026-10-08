@@ -116,6 +116,21 @@ export function sum(n: number): number { const p = pair(n); return p.first + p.s
     ]);
   });
 
+  it("names an object type by its shape, so another module's new one renames none", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-inc-"));
+    // A type and no new temporaries: the compiler numbers those in the program's order.
+    const extra = `export function unbox(b: { value: number }): number { return b.value; }\n`;
+    const sources = { point: point("x: number; y: number"), label, user, anonymous };
+    const before = build(sources, dir);
+    const after = build({ ...sources, point: `${extra}${sources.point}` }, dir);
+    expect(rebuilt(before, after)).toEqual([
+      "lucent_bindings.cpp",
+      "lucent_identity.cpp",
+      "m_point.cpp",
+      "m_user.cpp",
+    ]);
+  });
+
   it("recompiles only a class's users when its fields change", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-inc-"));
     const sources = { point: point("x: number; y: number"), label, user, anonymous };
