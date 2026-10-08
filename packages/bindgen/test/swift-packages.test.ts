@@ -2,7 +2,7 @@
  * Swift packages built into the cache (TA32), with stand-ins for git,
  * swift and xcodebuild: what the build does with the cache, not Xcode.
  */
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -64,5 +64,48 @@ console.log(JSON.stringify(swiftPackages(${JSON.stringify(app)}, { cacheDir: ${J
       .split("\n")
       .filter((l) => l.startsWith("xcodebuild build"));
     expect(builds).toHaveLength(1);
+  }, 60_000);
+});
+
+describe("local Swift packages", () => {
+  it("are built from their directory, without a clone, again when their sources change", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-spm-local-"));
+    const log = path.join(dir, "calls.log");
+    const bin = fakeTools(dir, log);
+    const pkg = path.join(dir, "Packages/Gauges");
+    fs.mkdirSync(path.join(pkg, "Sources/Gauges"), { recursive: true });
+    fs.writeFileSync(path.join(pkg, "Package.swift"), "// swift-tools-version:5.9\n");
+    fs.writeFileSync(path.join(pkg, "Sources/Gauges/Gauges.swift"), "public struct Gauge {}\n");
+    const app = {
+      project: path.join(dir, "App.xcodeproj"),
+      packages: [],
+      localPackages: [{ identity: "gauges", path: pkg }],
+    };
+    const build = () => {
+      const script = `import { swiftPackages } from ${JSON.stringify(src)};
+console.log(JSON.stringify(swiftPackages(${JSON.stringify(app)}, { cacheDir: ${JSON.stringify(path.join(dir, "cache"))} })));`;
+      const r = spawnSync(process.execPath, ["--input-type=module", "-e", script], {
+        env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}` },
+        encoding: "utf8",
+      });
+      if (r.status !== 0) throw new Error(r.stderr);
+      return JSON.parse(r.stdout.trim().split("\n").at(-1)!) as {
+        modules: { module: string; package: string }[];
+        packages: { identity: string; path?: string; products: string[] }[];
+      };
+    };
+
+    const first = build();
+    expect(first.modules).toEqual([
+      expect.objectContaining({ module: "Gauges", package: "gauges@local" }),
+    ]);
+    expect(first.packages).toEqual([{ identity: "gauges", path: pkg, products: ["Gauges"] }]);
+    build();
+    fs.appendFileSync(path.join(pkg, "Sources/Gauges/Gauges.swift"), "public struct Dial {}\n");
+    build();
+
+    const calls = fs.readFileSync(log, "utf8").split("\n");
+    expect(calls.filter((l) => l.startsWith("git"))).toEqual([]);
+    expect(calls.filter((l) => l.startsWith("xcodebuild build"))).toHaveLength(2);
   }, 60_000);
 });
