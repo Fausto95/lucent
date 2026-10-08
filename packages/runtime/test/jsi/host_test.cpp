@@ -422,6 +422,10 @@ void startMeasure(double n) {
   (void)compute(measureEntry, std::tuple<double>{n}, ComputeOptions{Opt<AbortSignal>(), moduleScope()});
 }
 
+/// An emitter module code keeps, whose listeners JavaScript adds.
+using Ticks = EventEmitterObject<Fn<void(double)>>;
+Ref<Ticks> ticks = Ticks::create({"tick"});
+
 }  // namespace m_t
 
 namespace lucent::js {
@@ -522,6 +526,12 @@ void installT(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
                  [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
                    Host& host = Host::from(rt, installed);
                    return callSync(rt, host, [&] { return callAsync<void>(rt, host, [] { return m_t::spin(); }); });
+                 });
+
+  defineFunction(rt, exports, "ticks", 0,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] { return Convert<Ref<m_t::Ticks>>::toJs(rt, host, m_t::ticks); });
                  });
 
   defineFunction(rt, exports, "keep", 1,
@@ -810,6 +820,44 @@ static void callbacksDroppedWithTheRuntimeReject() {
 
   LucentScope scope;
   m_t::kept = undefined;
+}
+
+// --- events -------------------------------------------------------------------
+
+/// A listener JavaScript added belongs to its runtime: after a reload,
+/// module code no longer counts or calls it, and the new runtime's work.
+static void listenersEndWithTheirRuntime() {
+  JsThread js;
+  install(js);
+
+  js.eval("var got = []; mods.t.ticks().addListener('tick', (n) => got.push(n));");
+  {
+    LucentScope scope;
+    CHECK(m_t::ticks->listenerCount(0) == 1);
+    m_t::ticks->emit<0>(1.0);
+  }
+  CHECK(js.string("got.join()") == "1");
+  CHECK(js.string("mods.t.ticks() === mods.t.ticks()") == "true");
+  CHECK(js.string("(() => { try { mods.t.ticks().addListener('tock', () => {}); } catch (e) { return e.message; } })()") ==
+        "EventEmitter.addListener: unknown event \"tock\" (\"tick\")");
+
+  // A reload: the runtime gets a new host.
+  js.run([&](jsi::Runtime& rt) { Host::create(rt, js.poster()); });
+  {
+    LucentScope scope;
+    CHECK(m_t::ticks->listenerCount(0) == 0);
+    m_t::ticks->emit<0>(2.0);
+  }
+  CHECK(js.string("got.join()") == "1");
+
+  js.eval("mods.t.ticks().addListener('tick', (n) => got.push(n));");
+  {
+    LucentScope scope;
+    CHECK(m_t::ticks->listenerCount(0) == 1);
+    m_t::ticks->emit<0>(3.0);
+    m_t::ticks->removeAllListeners();
+  }
+  CHECK(js.string("got.join()") == "1,3");
 }
 
 // --- instances ----------------------------------------------------------------
@@ -1194,6 +1242,7 @@ int main() {
   workDoesNotStartAfterTeardown();
   awaitedJsPromisesRejectAtTeardown();
   callbacksDroppedWithTheRuntimeReject();
+  listenersEndWithTheirRuntime();
   eachRuntimeHasItsOwnObjectForAnInstance();
   objectsOfATornDownHostAreRefused();
   collectedInstancesReleaseOnTheirThread();
