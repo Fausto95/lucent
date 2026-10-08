@@ -42,7 +42,9 @@ Where each kind of code runs. Module code takes turns under one lock; compute ta
 
 ## Module code takes turns
 
-Module code is your modules' code outside components and compute tasks. Like JavaScript, a package's module code runs one piece at a time: every entry into it holds the package's lock, whichever thread it runs on. Modules that import one another share a lock and a thread (an actor); packages that don't run in parallel, so a long job in one never delays another, or the main thread.
+Module code is your modules' code outside components and compute tasks. Like JavaScript, a package's module code runs one piece at a time. Every entry into it holds the package's lock, whichever thread it runs on.
+
+Modules that import one another share a lock and a thread (an actor). Packages that don't run in parallel, so a long job in one never delays another, or the main thread.
 
 A synchronous export holds the lock on the JS thread, and an `async` export's body holds it on its package's thread. Async code lets go of it only when it awaits something that hasn't settled yet. So two pieces of a package's code never run at once, and module state needs no guard.
 
@@ -50,7 +52,9 @@ A synchronous export holds the lock on the JS thread, and an `async` export's bo
 
 A synchronous call needs the lock too. While other module code holds it, on any thread, the call waits on the JS thread.
 
-The lock is fair: threads get it in the order they asked. So the package's thread, taking it again between turns, queues behind a call already waiting. The main thread never queues: it waits only for the code holding the lock at that moment, and only for a callback that must answer now.
+The lock is fair: threads get it in the order they asked. So the package's thread, taking it again between turns, queues behind a call already waiting.
+
+The main thread never queues. It waits only for the code holding the lock at that moment, and only for a callback that must answer now.
 
 In long work that JavaScript may call into meanwhile, `await delay(0)` between chunks lets those calls through. Heavy work belongs in a compute task: [Run work off the JS thread](/docs/guides/run-work-off-the-js-thread/) shows both.
 
@@ -64,9 +68,13 @@ An async call: its body is posted to its package's thread, and its result is pos
 
 Apart from taking a lock, no thread waits for another. Work for another thread is posted to it as a job. An async export posts its body to its package's thread; the body posts its result back to the JS thread, settling the promise.
 
-A promise settles on the context that made it, so an `await` resumes where its code started. Code holding a lock never waits for another thread, except for another package's lock (a JavaScript callback calling that package), and a wait that would close a cycle throws instead. So any thread can wait for a lock without a deadlock. While module code calls a JavaScript callback, the main thread may enter its package, so JavaScript waiting for the main thread there can't deadlock it either.
+A promise settles on the context that made it, so an `await` resumes where its code started. Code holding a lock never waits for another thread, except for another package's lock. That happens when a JavaScript callback calls that package, and a wait that would close a cycle throws instead.
 
-A platform callback that returns nothing and runs later is queued on its package's thread, so the SDK doesn't wait for Lucent code. On iOS, one known to run on the main thread is the exception, such as a `@MainActor` delegate method. Those, and callbacks that return a value or run during the SDK call, run at once on the calling thread, holding the lock. An `onAppEvent` listener runs on the main thread once its package is free.
+So any thread can wait for a lock without a deadlock. While module code calls a JavaScript callback, the main thread may enter its package. JavaScript waiting for the main thread there can't deadlock it either.
+
+A platform callback that returns nothing and runs later is queued on its package's thread, so the SDK doesn't wait for Lucent code. On iOS, one known to run on the main thread is the exception, such as a `@MainActor` delegate method.
+
+Those, and callbacks that return a value or run during the SDK call, run at once on the calling thread, holding the lock. An `onAppEvent` listener runs on the main thread once its package is free.
 
 ## `main()` and the main context
 

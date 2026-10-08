@@ -20,6 +20,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -273,6 +274,8 @@ class Host : public std::enable_shared_from_this<Host>, public RuntimeWork {
   const std::shared_ptr<std::atomic<size_t>> inFlight_ = std::make_shared<std::atomic<size_t>>(0);
   uint64_t nextId_ = 1;
   std::unordered_map<uint64_t, Resolvers> promises_;
+  /// The runtime's `Promise`, looked up on the first async call instead of each one.
+  std::optional<jsi::Function> promiseConstructor_;
   std::unordered_map<uint64_t, jsi::Function> functions_;
   std::unordered_map<std::string, jsi::Object> prototypes_;
   std::unordered_map<std::string, jsi::Value> modules_;

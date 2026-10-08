@@ -23,33 +23,61 @@
 
 namespace lucent::js {
 
-/// Where a value sits, for error messages: "fn: argument 'a.b[2]'".
+class Site;
+
 /// Where a value sits in what JavaScript passed, for error messages:
 /// `sumPoints: argument 'ps'[3].x`. Each step points at its parent on the
 /// stack and is rendered only when a conversion fails, so converting a large
 /// array allocates nothing for paths.
 struct Path {
+  /// The function: "sumPoints". It and `root` are literals or outlive the
+  /// conversion (a callback's site, which it keeps).
   const char* fn;
-  /// The root: "argument 'ps'", "this", "resolved value".
-  std::string root;
+  /// The root: "argument 'ps'", "this", "resolved value"; with `Step::Argument`,
+  /// "argument " followed by `idx` (a rest parameter's elements).
+  const char* root = "";
   const Path* parent = nullptr;
-  enum class Step : unsigned char { Root, Field, Index, Key } step = Step::Root;
+  enum class Step : unsigned char { Root, Argument, Field, Index, Key } step = Step::Root;
   const char* name = nullptr;
   size_t idx = 0;
-  const std::string* keyName = nullptr;
+  /// A record's key, read as UTF-8 only when the path is rendered.
+  jsi::Runtime* rt = nullptr;
+  const jsi::String* keyName = nullptr;
+  /// In place of `fn`, a callback's or a promise's site (see Site).
+  const Site* site = nullptr;
 
+  /// What a value from the callback or promise `site` converts at: its `root`.
+  static Path at(const Site& site, const char* root) {
+    Path p{"", root};
+    p.site = &site;
+    return p;
+  }
+  /// The function, as an error names it.
+  std::string function() const;
+
+  /// `argument <n>`, the number rendered only for an error.
+  static Path argument(const char* fn, size_t n) {
+    Path p{fn, "argument "};
+    p.step = Step::Argument;
+    p.idx = n;
+    return p;
+  }
   Path field(const char* n) const {
-    Path p{fn, {}, this, Step::Field};
+    Path p{fn, "", this, Step::Field};
+    p.site = site;
     p.name = n;
     return p;
   }
   Path index(size_t i) const {
-    Path p{fn, {}, this, Step::Index};
+    Path p{fn, "", this, Step::Index};
+    p.site = site;
     p.idx = i;
     return p;
   }
-  Path key(const std::string& k) const {
-    Path p{fn, {}, this, Step::Key};
+  Path key(jsi::Runtime& runtime, const jsi::String& k) const {
+    Path p{fn, "", this, Step::Key};
+    p.site = site;
+    p.rt = &runtime;
     p.keyName = &k;
     return p;
   }
@@ -57,13 +85,42 @@ struct Path {
   std::string where() const {
     switch (step) {
       case Step::Root: return root;
+      case Step::Argument: return root + std::to_string(idx);
       case Step::Field: return parent->where() + "." + name;
       case Step::Index: return parent->where() + "[" + std::to_string(idx) + "]";
-      case Step::Key: return parent->where() + "[\"" + *keyName + "\"]";
+      case Step::Key: return parent->where() + "[\"" + keyName->utf8(*rt) + "\"]";
     }
     return root;
   }
 };
+
+/// Where a callback or a promise JavaScript gave was converted, rendered
+/// (`fn (callback argument 'f')`) only when an error needs it: a call that
+/// passes a function allocates no message.
+class Site {
+ public:
+  Site(const Path& p, const char* prefix, const char* suffix) : fn_(p.fn), prefix_(prefix), suffix_(suffix) {
+    // A path's steps live on the converting call's stack, and a site's own text in its owner:
+    // a root (a literal) is kept as it is; anything else, rendered now.
+    if (p.step == Path::Step::Root && !p.site) root_ = p.root;
+    else where_ = p.where();
+    if (p.site) outer_ = p.site->text();
+  }
+  /// `sumMapped (callback argument 'f')`
+  std::string text() const {
+    return (outer_.empty() ? std::string(fn_) : outer_) + prefix_ + (root_ ? std::string(root_) : where_) + suffix_;
+  }
+
+ private:
+  const char* fn_;
+  const char* prefix_;
+  const char* suffix_;
+  const char* root_ = nullptr;
+  std::string where_;
+  std::string outer_;
+};
+
+inline std::string Path::function() const { return site ? site->text() : std::string(fn); }
 
 [[noreturn]] void throwBoundaryError(jsi::Runtime& rt, const Path& path, const char* expected, const jsi::Value& actual);
 /// A union's discriminant `got` (at `path`) names none of its members, `accepted`
@@ -239,8 +296,7 @@ struct Convert<Dict<V>> {
     size_t n = names.size(rt);
     for (size_t i = 0; i < n; i++) {
       jsi::String key = names.getValueAtIndex(rt, i).getString(rt);
-      std::string k = key.utf8(rt);
-      out.set(stringFromJs(rt, key), Convert<V>::fromJs(rt, o.getProperty(rt, jsi::PropNameID::forString(rt, key)), p.key(k)));
+      out.set(stringFromJs(rt, key), Convert<V>::fromJs(rt, o.getProperty(rt, jsi::PropNameID::forString(rt, key)), p.key(rt, key)));
     }
     return out;
   }
@@ -482,11 +538,11 @@ struct Convert<Fn<R(A...)>> {
     if (!v.isObject() || !v.getObject(rt).isFunction(rt)) throwBoundaryError(rt, p, "a function", v);
     Host& host = Host::get(rt);
     auto cb = std::make_shared<JsCallback>(host, host.retain(rt, v.getObject(rt).getFunction(rt)));
-    std::string where = std::string(p.fn) + " (callback " + p.where() + ")";
+    auto where = std::make_shared<const Site>(p, " (callback ", ")");
     return Fn<R(A...)>([cb, where](A... args) -> R { return invoke(cb, where, std::move(args)...); });
   }
 
-  static R invoke(const std::shared_ptr<JsCallback>& cb, const std::string& where, A... args) {
+  static R invoke(const std::shared_ptr<JsCallback>& cb, const std::shared_ptr<const Site>& where, A... args) {
     auto host = cb->host();
     if (!host || !host->alive()) {
       if constexpr (std::is_void_v<R>) return;
@@ -509,7 +565,7 @@ struct Convert<Fn<R(A...)>> {
       if constexpr (std::is_void_v<R>) {
         return;
       } else {
-        return Convert<R>::fromJs(rt, result, Path{where.c_str(), "return value"});
+        return Convert<R>::fromJs(rt, result, Path::at(*where, "return value"));
       }
     }
     Actor* actor = &currentActor();
@@ -554,7 +610,7 @@ struct Convert<Fn<R(A...)>> {
             ParkedActors parked;
             result = fn->call(rt, static_cast<const jsi::Value*>(argv.data()), argv.size());
           }
-          R inner = Convert<R>::fromJs(rt, result, Path{where.c_str(), "return value"});
+          R inner = Convert<R>::fromJs(rt, result, Path::at(*where, "return value"));
           inner.onSettled([inner, out] {
             if (inner.fulfilled()) {
               if constexpr (std::is_void_v<typename R::value_type>) out.resolve(undefined);
@@ -572,7 +628,7 @@ struct Convert<Fn<R(A...)>> {
       return out;
     } else {
       throwError(String::fromLatin1("Error"),
-                 String::fromUtf8(where + ": a callback that returns a value can only be called synchronously; make it return a Promise"));
+                 String::fromUtf8(where->text() + ": a callback that returns a value can only be called synchronously; make it return a Promise"));
     }
   }
 
@@ -600,12 +656,11 @@ struct Convert<Fn<R(A...)>> {
   template <size_t... I>
   static jsi::Value call(jsi::Runtime& rt, Host& h, const Fn<R(A...)>& f, const jsi::Value* args, size_t count, std::index_sequence<I...>) {
     static const jsi::Value undef = jsi::Value::undefined();
-    Path p{"function", ""};
     if constexpr (std::is_void_v<R>) {
-      f(Convert<std::decay_t<A>>::fromJs(rt, I < count ? args[I] : undef, Path{"function", "argument " + std::to_string(I)})...);
+      f(Convert<std::decay_t<A>>::fromJs(rt, I < count ? args[I] : undef, Path::argument("function", I))...);
       return jsi::Value::undefined();
     } else {
-      return Convert<R>::toJs(rt, h, f(Convert<std::decay_t<A>>::fromJs(rt, I < count ? args[I] : undef, Path{"function", "argument " + std::to_string(I)})...));
+      return Convert<R>::toJs(rt, h, f(Convert<std::decay_t<A>>::fromJs(rt, I < count ? args[I] : undef, Path::argument("function", I))...));
     }
   }
 };
@@ -632,7 +687,7 @@ Promise<T> Convert<Promise<T>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, co
     if (auto s = owner.lock()) s->remove(pending);
   };
 
-  std::string where = std::string(p.fn) + " " + p.where();
+  auto where = std::make_shared<const Site>(p, " ", "");
   auto onFulfilled = jsi::Function::createFromHostFunction(
       rt, jsi::PropNameID::forAscii(rt, "onFulfilled"), 1,
       [out, where, settled, actor](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
@@ -640,7 +695,7 @@ Promise<T> Convert<Promise<T>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, co
         LucentScope scope(*actor);
         try {
           if constexpr (std::is_void_v<T>) out.resolve(undefined);
-          else out.resolve(Convert<T>::fromJs(rt, arg(args, count, 0), Path{where.c_str(), "resolved value"}));
+          else out.resolve(Convert<T>::fromJs(rt, arg(args, count, 0), Path::at(*where, "resolved value")));
         } catch (const jsi::JSError& e) {
           out.reject(Host::errorFromJs(rt, e));
         } catch (...) {

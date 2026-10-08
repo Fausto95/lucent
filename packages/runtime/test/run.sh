@@ -6,7 +6,7 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 cpp="$here/../cpp"
 out="${TMPDIR:-/tmp}/lucent-runtime-test"
-flags=(-std=c++20 -ffp-contract=off -g -O1 -Wall -Wextra -Wno-unused-parameter -I"$cpp")
+flags=(-std=c++20 -ffp-contract=off -ffile-prefix-map="$(cd "$here/../../.." && pwd)"=. -g -O1 -Wall -Wextra -Wno-unused-parameter -I"$cpp")
 if [[ "${SANITIZE:-0}" == "1" ]]; then
   flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined)
   # Also stack use after return: a posted job or a coroutine frame reading
@@ -49,8 +49,9 @@ drain
 
 # The vendored C defines only lucent_ symbols (lucent_prefix.h): an app
 # that links another QuickJS gets no duplicate or interposed one. The
-# sanitizers add symbols of their own (__asan_globals_registered, …).
-leaked=$(nm -g --defined-only "${cobjs[@]}" | awk 'NF == 3 && $3 !~ /^_?lucent_/ && $3 !~ /^_*(odr_)?[at]san/ { print $3 }' | sort -u)
+# sanitizers' own symbols (___asan_globals_registered, __odr_asan_gen_…)
+# are the instrumentation's, not the engine's.
+leaked=$(nm -g --defined-only "${cobjs[@]}" | awk 'NF == 3 && $3 !~ /^_?lucent_/ && $3 !~ /^_*(asan|odr_asan|tsan|ubsan)/ { print $3 }' | sort -u)
 if [[ -n "$leaked" ]]; then
   echo "symbols: the vendored QuickJS defines unprefixed global symbols:" $leaked >&2
   exit 1

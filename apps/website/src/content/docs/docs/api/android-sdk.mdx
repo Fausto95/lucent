@@ -152,7 +152,7 @@ No class is recognized by name: a Play services `Task` is a Java object like any
 - A Lucent class `implements` a Java interface. Each instance is one Java object per interface it's passed as.
 - A function goes where Java takes an interface with one abstract method. The same function passed twice is the same Java object, so a listener added with one call is removed with another.
 - A default method is optional to implement. Calling one takes a `!`: `manager.getCredential!(context, request)`.
-- A method Java calls that returns nothing is queued on the Lucent thread. One that returns a value runs while Java waits, holding the lock. [Concurrency](/docs/api/language/concurrency/) defines the lock.
+- A method Java calls that returns nothing is queued on its package's thread. One that returns a value runs while Java waits, holding the lock. [Concurrency](/docs/api/language/concurrency/#packages-and-their-locks) defines the lock.
 - A method Java calls can't take a `char` yet, nor return an array or a list.
 - An `async` method implements a Kotlin interface's `suspend` member. Kotlin suspends until its promise settles, and a rejection throws there.
 
@@ -164,7 +164,7 @@ A Lucent class can extend a Java class, abstract or not, that has a constructor 
 
 - Lucent generates a Java subclass. The methods the Lucent class defines override the base's, and the others keep the SDK's code.
 - An instance goes wherever the base is taken.
-- An override that returns nothing is queued on the Lucent thread. One that returns a value runs while Java waits, holding the lock, as an interface method does.
+- An override that returns nothing is queued on its package's thread. One that returns a value runs while Java waits, holding the lock, as an interface method does.
 
 [Subclass an SDK class](/docs/guides/subclass-an-sdk-class/) shows a whole subclass.
 
@@ -176,7 +176,7 @@ Java's `AutoCloseable`, and so `Closeable`, `Cursor` and the rest, declares `[Sy
 
 - A class or method annotated `@UiThread` or `@MainThread` compiles only in code the main thread runs, such as a `main(() => …)` function (`LUCENT3006`). A member annotated `@AnyThread` is the exception: every member of `View` but those is main-only.
 - A method annotated `@WorkerThread` called in code the main thread runs compiles with a `LUCENT3009` warning: it blocks the UI.
-- An API newer than the oldest Android Lucent supports compiles only under `available("android", N)` or `Build_VERSION.SDK_INT >= N` (`LUCENT3007`). [Compatibility](/docs/api/compatibility/) gives that level, and [Check the OS version](/docs/guides/check-the-os-version/) the forms of the check.
+- An API newer than your app's `minSdk` (API 24 before its Gradle build has run) compiles only under `available("android", N)` or `Build_VERSION.SDK_INT >= N` (`LUCENT3007`). [Compatibility](/docs/api/compatibility/) gives that level, and [Check the OS version](/docs/guides/check-the-os-version/) the forms of the check.
 - `appContext()`, `currentActivity()`, activity results and permission requests come from [lucent:android](/docs/api/lucent-android/).
 
 ### @RequiresPermission
@@ -187,9 +187,7 @@ When module code calls an SDK method annotated `@RequiresPermission`, the native
 - A permission Android calls dangerous still needs the user's grant: ask with `requestPermissions` from [lucent:android](/docs/api/lucent-android/#requestpermissions).
 - A Lucent package declares any other permission it needs in [lucent.json](/docs/packages/lucent-json/).
 
-:::caution
-Only a method call adds its permissions. Reading the property a getter gives, such as `activeNetwork` for `getActiveNetwork()`, doesn't: call the method.
-:::
+Reading the property a getter gives, such as `activeNetwork` for `getActiveNetwork()`, adds the getter's permissions, as calling it does. Writing a property adds its setter's, and `+=` both.
 
 [Ask for a permission](/docs/guides/ask-for-a-permission/) walks through a request.
 

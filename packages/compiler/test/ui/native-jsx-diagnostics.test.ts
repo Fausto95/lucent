@@ -100,10 +100,11 @@ describe("native view JSX diagnostics", () => {
         "  return <UIButton preferredMenuElementOrder={UIContextMenuConfiguration_ElementOrder.fixed} />;",
       ),
     ).toEqual([
+      // The enum is as new as the attribute, and its case, read first, is gated too.
       expect.objectContaining({
         code: "LUCENT3007",
         message:
-          'UIButton.preferredMenuElementOrder needs iOS 16.0 (apps run from iOS 15.1): use it under if (available("ios", 16))',
+          'UIContextMenuConfiguration_ElementOrder needs iOS 16.0 (apps run from iOS 15.1): use it under if (available("ios", 16))',
       }),
     ]);
   });

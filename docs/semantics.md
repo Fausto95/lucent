@@ -1,8 +1,12 @@
 # Lucent semantics
 
 The specification of what Lucent accepts and how it behaves, for people
-working on the compiler and runtime. The user-facing tutorial is the website's
-Language section; when the two disagree, this file and the e2e cases win.
+working on the compiler and runtime. Users read the website's
+[API › Language](https://lucent-lang.dev/docs/api/language/) pages, whose
+subset tables and known gaps are generated from
+`apps/website/src/docs/language.ts` and checked against the compiler. When
+this file, the website and the compiler disagree, the e2e cases decide,
+and the other two are fixed in the same change.
 
 A `*.lucent.ts` file must type-check with TypeScript in strict mode, plus
 `noUncheckedIndexedAccess`. Lucent accepts the subset below; everything else
@@ -374,7 +378,8 @@ static methods; its static fields stay inside Lucent.
 
 - **Arguments are validated**, because JavaScript callers can pass anything:
   `hash: argument 'input' must be a string, got a number`, or for nested values
-  `midpoint: argument 'a'.y must be a number, got undefined`.
+  `midpoint: argument 'a'.y must be a number, got undefined`. The path is
+  rendered only when a check fails: checking a value allocates nothing for it.
 - **`null` and `undefined` are told apart** where TypeScript does: an
   argument, a setter's value or an object's field typed `T | undefined` (or
   `x?: T`) rejects `null`, and one typed `T | null` rejects `undefined`
@@ -533,6 +538,7 @@ explicitly, for example by clearing a field.
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `arr[i] = v` with `i > length`, or `arr.length = n` above the length, creates holes             | throws `RangeError`, whatever the element type; append with `push` or assign at `length`                                                                                                                                                                                                                                 |
 | `arr[i]` / `record[k]` out of range → `undefined`                                               | same, and the type says `T \| undefined`; `!` throws `TypeError` if absent                                                                                                                                                                                                                                               |
+| `x as T` changes nothing at run time: a wrong assertion goes unnoticed                          | taking a member out of a union (`x as number` on a `string \| number`) checks the value: another member throws `TypeError` where the assertion is made, since the native value holds one member's layout                                                                                                                 |
 | arrays and objects passed to native code are shared                                             | copied at the boundary (inside Lucent they are shared)                                                                                                                                                                                                                                                                   |
 | garbage collection frees cycles                                                                 | reference counting leaks cycles                                                                                                                                                                                                                                                                                          |
 | deep recursion throws `RangeError`                                                              | recursion runs on the native stack and may overflow it, ending the app: see [Recursion limits](#recursion-limits). A regular expression nested past the stack's room throws `SyntaxError` ("stack overflow") instead                                                                                                     |

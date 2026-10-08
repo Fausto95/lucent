@@ -20,23 +20,24 @@ import {
   type SdkMethodSchema,
   type SdkPropertySchema,
 } from "./schema.ts";
-
-let recording: Map<string, UsedSymbol> | undefined;
+import {
+  type CompileContext,
+  compileContext,
+  currentCompile,
+  runInCompile,
+} from "../compile-context.ts";
 
 /** Runs `f`, and lists the SDK symbols the code it compiles uses, sorted by key. */
 export function recordSdkUses<T>(f: () => T): { value: T; uses: UsedSymbol[] } {
-  const saved = recording;
-  const uses = new Map<string, UsedSymbol>();
-  recording = uses;
+  const context = compileContext();
+  const value = runInCompile(context, f);
 
-  try {
-    const value = f();
-    const sorted = [...uses.keys()].sort().map((k) => uses.get(k)!);
+  return { value, uses: sdkUsesOf(context) };
+}
 
-    return { value, uses: sorted };
-  } finally {
-    recording = saved;
-  }
+/** The SDK symbols a compile used, sorted by key. */
+export function sdkUsesOf(context: CompileContext): UsedSymbol[] {
+  return [...context.sdkUses.keys()].sort().map((k) => context.sdkUses.get(k)!);
 }
 
 /** A use of `member` (of `owner`, in `module`) that `plan` accepts. */
@@ -47,7 +48,11 @@ export function noteSdkUse(
   member: SdkMethodSchema | SdkPropertySchema | SdkCallable,
   plan: BindingPlan,
 ): void {
-  if (!recording) return;
+  const uses = currentCompile()?.sdkUses;
+
+  if (!uses) return;
+
+  const add = (symbol: UsedSymbol, role?: Role) => addUse(uses, symbol, role);
 
   add(memberSymbol(platform, module, owner, member), plan.role);
 
@@ -61,12 +66,12 @@ export function noteSdkUse(
   for (const t of schema.types) if (named.has(t.name)) add(typeSymbol(platform, module, t));
 }
 
-function add(symbol: UsedSymbol, role?: Role): void {
+function addUse(uses: Map<string, UsedSymbol>, symbol: UsedSymbol, role?: Role): void {
   const key = symbolKey(symbol);
-  const known = recording!.get(key) ?? symbol;
+  const known = uses.get(key) ?? symbol;
   const roles = new Set([...(known.roles ?? []), ...(role ? [role] : [])]);
 
-  recording!.set(key, roles.size ? { ...known, roles: [...roles].sort() } : known);
+  uses.set(key, roles.size ? { ...known, roles: [...roles].sort() } : known);
 }
 
 /** The names of `module`'s types that `t` refers to, anywhere inside it. */

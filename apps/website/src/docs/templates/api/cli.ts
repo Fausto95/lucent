@@ -27,7 +27,8 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
         "When nothing changed since the last build, it says so and writes nothing, unless `--force`. Otherwise it rewrites only the files whose content changed.",
         "`next` says what the app needs: a rebuild (after `pod install` when files were added or removed), a reload, or nothing. `actions` lists each thing the changes need, on which platforms, and the generated files behind it.",
         "Actions come from what changed. A body edit recompiles native code, and new exports also reload JavaScript. A package's resources are repackaged, its libraries relinked. `Info.plist` entries, entitlements and manifest components need a reinstall. Other JavaScript needs nothing: Metro refreshes it.",
-        "A platform whose SDK isn't installed is skipped, with a warning. `--platforms host` builds stubs whose platform code throws, for tests.",
+        "A platform whose SDK isn't installed is skipped, with a warning. `--platforms host` builds stubs whose platform code throws, for tests. `--platforms` takes `ios`, `android` and `host`, comma-separated; any other name exits with code 2.",
+        "Android whose dependencies the Gradle build resolves (during `expo prebuild`) is left to that build. When no platform is left, as on Linux without the iOS SDK, the build checks the shared code. It still writes the native package for the Gradle build.",
         "On a problem, nothing is written and the exit code is 1.",
       ],
     },
@@ -36,6 +37,10 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
     {
       kind: "p",
       text: "It reports problems as the [diagnostics](/docs/api/diagnostics/) page shows them, and writes nothing. A pass is remembered, so checking an unchanged project takes a fraction of a second. Use it in CI.",
+    },
+    {
+      kind: "p",
+      text: "Without any platform SDK, as on a Linux CI runner, it warns and checks as `--platforms host` does. It checks the shared code and each module's declaration, with `lucent:ios/*` and `lucent:android/*` imports untyped. Pass `--platforms host` to say so and skip the warning.",
     },
   ],
   dev: [
@@ -57,10 +62,44 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
       text: "It watches the app and each Lucent package it links from outside it, such as a workspace package. It rebuilds when a file a build reads changes: a module, a `package.json` or `lucent.json`, or a native file a package lists. What builds write never triggers one, and a change during a build stops it before it writes anything.",
     },
   ],
+  clean: [
+    {
+      kind: "p",
+      text: "Each Lucent version reads its own SDK cache entries. Builds remove other versions' entries on their own once those have gone unused for two weeks (`LUCENT_NO_CACHE_PRUNE=1` keeps them); `lucent clean --cache --stale` removes them all now.",
+    },
+  ],
   init: [
     {
       kind: "p",
       text: "It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/guides/install/) lists the changes for Expo and bare apps. Running it again changes nothing.",
+    },
+  ],
+  create: [
+    {
+      kind: "p",
+      text: "It writes `./<name>` from a template shipped in the package and sets the app up as `lucent init` does. Then it installs the dependencies with the package manager that ran it. In a terminal, it asks which template to use.",
+    },
+    {
+      kind: "p",
+      text: "[Create a project](/docs/guides/create-a-project/) lists the templates. A directory that exists and isn't empty is refused, and nothing is written.",
+    },
+  ],
+  uninstall: [
+    {
+      kind: "p",
+      text: "It reverts what `lucent init` and the Expo config plugin changed, shown as diffs like init's. It unwraps the Metro config and removes these:",
+    },
+    {
+      kind: "list",
+      items: [
+        "the plugin in `app.json`, the Gradle line and the `react-native.config.js` entry",
+        "the `lucent:*` path and the editor plugin in `tsconfig.json`",
+        "VS Code's TypeScript settings and the `.gitignore` lines",
+      ],
+    },
+    {
+      kind: "p",
+      text: "A file init created whole is deleted. The app's modules stay, and so does `noUncheckedIndexedAccess`. [Remove Lucent](/docs/guides/remove-lucent/) gives the steps after it.",
     },
   ],
   doctor: [

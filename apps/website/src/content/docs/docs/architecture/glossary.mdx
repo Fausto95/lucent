@@ -97,7 +97,7 @@ A job of module code and the `await` continuations it queues, run under its pack
 
 ### Actor
 
-The modules that import one another, such as a package's: they share a lock and a thread, so their code runs one turn at a time, and in parallel with other packages' ([Concurrency](/docs/api/language/concurrency/#packages-and-their-locks)).
+The modules that import one another, such as a package's. They share a lock and a thread, so their code runs one turn at a time, in parallel with other packages' ([Concurrency](/docs/api/language/concurrency/#packages-and-their-locks)).
 
 ### Lucent thread
 

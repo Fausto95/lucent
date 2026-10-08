@@ -123,7 +123,7 @@ No context waits for another. Work crosses between contexts as posted jobs that 
 - Waiters block in `atomic::wait`, which is a futex, or `__ulock` on Apple platforms. Uncontended, taking it costs one atomic increment and a load.
 - Code holding it never waits for another thread, except for another actor's lock. A thread that waits nested (holding an actor) registers its wait, and one whose wait would close a cycle throws `Lucent: deadlock` instead.
 - The main thread never takes a ticket. `lockFromMain` waits for the holder in place, which hands it the lock on leaving, ahead of queued tickets; new tickets wait for it meanwhile. Debug builds log a wait past `mainWaitWarningMs()` (50 ms). `tryLockFromMain` and `whenFree` let deferred entries (`enterFromMain`) retry once the lock is released, without waiting.
-- `ParkedActors`, around a synchronous call into JavaScript, lends the thread's actors (`park`): the main thread may borrow one meanwhile, and the lending thread takes it back when the call returns or JavaScript re-enters.
+- `ParkedActors`, around a synchronous call into JavaScript, lends the thread's actors (`park`). The main thread may borrow one meanwhile; the lending thread takes it back when the call returns or JavaScript re-enters.
 
 `LucentScope(actor)` enters an actor by taking its lock. Leaving on another thread with microtasks pending, it posts an empty turn to the actor's thread, whose end runs them. With tracing on, the wait becomes a `lucent-lock` span.
 
@@ -168,7 +168,9 @@ An `Operation<T>` is one pending request with exactly one outcome: a value, an e
 - An outcome that loses the race is counted, and its value is released, through `onLateOutcome` when one is set, never delivered.
 - An `OperationToken` names it without a pointer: a runtime id, a scope id, the scope's generation and an operation id. A late native callback checks it with `Scope::validates`.
 
-`fromCallback` and `subscribe` (`callback.h`) and `nativeOperation` (`operation.h`) are operations under the scope the calling context's work belongs to (`ownedScope`): for module code, the scope of its JavaScript runtime, so a reload cancels them, runs their cleanups and stops its timers (`delay` is an operation too); for another context, its root. Android's activity results and permission requests and iOS presentations are operations too, and so is each compute task.
+`fromCallback` and `subscribe` (`callback.h`) and `nativeOperation` (`operation.h`) are operations under the scope the calling context's work belongs to (`ownedScope`). That is the JavaScript runtime's scope for module code, and the root for another context. A reload cancels them, runs their cleanups and stops their timers (`delay` is an operation too).
+
+Activity results, permission requests, iOS presentations and compute tasks are operations as well.
 
 A `Resource` (`resource.h`) is something Lucent code opens and closes once. It closes at the first of `close()`, its scope's disposal or its last reference going. Its release runs once: on the context it names, if any, else on the thread that closes it.
 
@@ -212,7 +214,7 @@ A `Host` (`jsi/host.h`) owns every JSI reference Lucent keeps: promise resolvers
 - `id()` is a `RuntimeId` no other host has had. `scopeFor(actor)` is the root of the runtime's work on an actor, a child of the actor's root; `scope()` is the shared actor's.
 - `Host::from()` finds the host a host function was installed with. It skips the `thread_local` lookup, which Android builds with a `minSdk` below 29 emulate.
 
-`Host::create()` replaces a runtime's previous host, which it tears down. It sets an anchor on `global` as `__lucentHost`, attaches the runtime (`attachRuntime`: work started for it belongs to its scopes), and runs `resetModuleState()`, which holds each module's actor, unless another runtime is live: module state is the process's.
+`Host::create()` replaces a runtime's previous host, which it tears down. It sets an anchor on `global` as `__lucentHost` and attaches the runtime (`attachRuntime`: work started for it belongs to its scopes). Unless another runtime is live, it runs `resetModuleState()`, which holds each module's actor: module state is the process's.
 
 Tearing a host down (`invalidate()`) rejects the JavaScript promises it owes with an `AbortError`, disposes its scope and drops its JSI references. Lucent code awaiting a JavaScript promise resumes with an `AbortError`, and an object the old host made is refused with a `TypeError`. When the runtime itself is destroyed, the anchor's destructor tears the host down without running JavaScript.
 

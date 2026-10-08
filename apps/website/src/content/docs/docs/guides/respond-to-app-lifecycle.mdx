@@ -63,7 +63,7 @@ Each subscription returns the function that stops it. `onBackground` returns one
 
 - Android reports Activities, not the app. With one Activity, as React Native's template has, `"stopped"` means the app went to the background.
 - `onSceneEvent()` gives your function the scene's `persistentIdentifier`, for iPad apps with several windows.
-- Your function runs holding its package's lock, so keep it short. On iOS, the UI waits while it runs, and a listener starts once the package is free: a long job of the package delays it, not the UI.
+- Your function runs holding its package's lock, so keep it short. On iOS, the UI waits while it runs. A listener starts once the package is free: a long job of the package delays it, not the UI.
 - On iOS, Lucent observes the notifications, so your app delegate stays as it is.
 - A function that throws is logged, and the app goes on.
 

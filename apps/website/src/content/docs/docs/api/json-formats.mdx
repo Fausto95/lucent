@@ -18,6 +18,8 @@ Each document follows a JSON Schema served at `https://lucent-lang.dev/schemas/`
 
 Schema: `https://lucent-lang.dev/schemas/build.schema.json`.
 
+### A build that ran
+
 | Field | Type | Always there | Meaning |
 | --- | --- | --- | --- |
 | `ok` | `boolean` | yes | The native package was written (or was up to date); the exit code is 0 exactly then |
@@ -67,9 +69,18 @@ Schema: `https://lucent-lang.dev/schemas/build.schema.json`.
 | `actions[].files` | `string[]` | yes | Relative to the native package; resolved.json#ios.infoPlist names a part of the resolved manifest |
 | `ms` | `number` | yes |  |
 
+### A problem that stopped it
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
+| `ok` | `false` | yes |  |
+| `error` | `string` | yes | What stopped it before any module was checked: an invalid lucent.json, an unknown --platforms target, a frozen build's SDKs. The exit code is 1, or 2 for a usage error |
+
 ## lucent check --json
 
 Schema: `https://lucent-lang.dev/schemas/check.schema.json`.
+
+### A check that ran
 
 | Field | Type | Always there | Meaning |
 | --- | --- | --- | --- |
@@ -112,6 +123,13 @@ Schema: `https://lucent-lang.dev/schemas/check.schema.json`.
 | `errors` | `integer` | yes |  |
 | `ms` | `number` | yes |  |
 
+### A problem that stopped it
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
+| `ok` | `false` | yes |  |
+| `error` | `string` | yes | What stopped it before any module was checked: an invalid lucent.json, an unknown --platforms target, a frozen build's SDKs. The exit code is 1, or 2 for a usage error |
+
 ## lucent clean --json
 
 Schema: `https://lucent-lang.dev/schemas/clean.schema.json`.
@@ -121,6 +139,28 @@ Schema: `https://lucent-lang.dev/schemas/clean.schema.json`.
 | `removed` | `object[]` | yes | What was removed: .lucent, and with --cache the SDK cache |
 | `removed[].path` | `string` | yes |  |
 | `removed[].bytes` | `integer` | yes |  |
+
+## lucent create --json
+
+Schema: `https://lucent-lang.dev/schemas/create.schema.json`.
+
+### The project was created
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
+| `ok` | `true` | yes |  |
+| `template` | `"expo" or "bare" or "view" or "library" or "module"` | yes |  |
+| `dir` | `string` | yes | Absolute path of the project |
+| `files` | `string[]` | yes | What was written, relative to the project |
+| `installed` | `boolean` | yes | Its dependencies were installed (not with --skip-install) |
+| `next` | `string[]` | yes | The commands to run next, in order |
+
+### Nothing was created
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
+| `ok` | `false` | yes |  |
+| `error` | `string` | yes | Why: a usage error exits with code 2 |
 
 ## lucent doctor --json
 
@@ -194,6 +234,8 @@ Schema: `https://lucent-lang.dev/schemas/sdk-coverage.schema.json`.
 | `[].unrepresentable` | `integer` | yes |  |
 | `[].total` | `integer` | yes |  |
 | `[].reasons` | `{ [name]: integer }` | yes | Why members are unrepresentable, with how many |
+| `[].plumbing` | `integer` |  | Members left out of the counts: Swift's Hashable, Equatable and Codable plumbing (hash(into:), ==, encode(to:), init(from:), hashValue) |
+| `[].sdk` | `string` |  | The SDK the module was read from (sdk:iphonesimulator27.0, android-sdk:36), so a baseline says which it was made with |
 | `[].stages` | `object` | yes | How many members reach each stage; null without evidence for it |
 | `[].stages.discovered` | `integer` | yes |  |
 | `[].stages.representable` | `integer` | yes |  |
@@ -245,6 +287,7 @@ Schema: `https://lucent-lang.dev/schemas/sdk-lock-result.schema.json`.
 | `targets` | `string[]` | yes | The platforms it records |
 | `modules` | `integer` | yes | SDK modules the project uses |
 | `symbols` | `integer` | yes | SDK symbols the project uses |
+| `schemas` | `integer` |  | With --schemas: the schemas exported to lucent-sdk.schemas/ |
 
 ## lucent sdk prefetch --json
 

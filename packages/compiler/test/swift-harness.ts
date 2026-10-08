@@ -248,10 +248,11 @@ export function hostRuntime(): string {
   }
 
   const work = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-host-runtime-"));
+  const darwin = process.platform === "darwin";
   const jobs = own.map((f) => ({
-    cmd: "xcrun",
+    cmd: darwin ? "xcrun" : f.endsWith(".c") ? "clang" : "clang++",
     args: [
-      "clang++",
+      ...(darwin ? ["clang++"] : []),
       ...(f.endsWith(".c")
         ? ["-x", "c", ...cFlags]
         : ["-std=c++20", "-ffp-contract=off", "-O1", "-g", `-I${cppDir}`]),
@@ -266,7 +267,8 @@ export function hostRuntime(): string {
   if (missing.length) throw new Error(`the host runtime did not compile:\n${printed}`);
 
   const tmp = `${lib}.${process.pid}`;
-  run("xcrun", ["libtool", "-static", "-o", tmp, ...jobs.map((j) => j.object)]);
+  if (darwin) run("xcrun", ["libtool", "-static", "-o", tmp, ...jobs.map((j) => j.object)]);
+  else run("ar", ["rcs", tmp, ...jobs.map((j) => j.object)]);
   fs.renameSync(tmp, lib);
   fs.rmSync(work, { recursive: true, force: true });
   fs.rmSync(lock, { recursive: true, force: true });

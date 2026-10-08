@@ -15,6 +15,7 @@
   },
   "files": [
     "app.plugin.js",
+    "autolink",
     "bin",
     "core",
     "dist",
@@ -23,6 +24,7 @@
     "metro",
     "runtime",
     "schemas",
+    "templates",
     "ts-plugin"
   ],
   "main": "./app.plugin.js",
@@ -32,6 +34,7 @@
       "types": "./metro/index.d.ts",
       "default": "./metro/index.cjs"
     },
+    "./autolink": "./autolink/index.cjs",
     "./ts-plugin": {
       "types": "./ts-plugin/index.d.ts",
       "default": "./ts-plugin/index.js"
@@ -47,9 +50,7 @@
     "prepack": "vp run build"
   },
   "dependencies": {
-    "ink": "^7.1.1",
     "picocolors": "^1.1.1",
-    "react": "19.3.0",
     "typescript": "~5.9.3"
   },
   "devDependencies": {
@@ -59,6 +60,11 @@
     "@lucent-lang/runtime": "workspace:*",
     "@types/react": "^19.2.0",
     "ajv": "^8",
-    "ink-testing-library": "^4.0.0"
+    "ink": "^7.1.1",
+    "ink-testing-library": "^4.0.0",
+    "react": "19.3.0"
+  },
+  "engines": {
+    "node": ">=22.12"
   }
 }

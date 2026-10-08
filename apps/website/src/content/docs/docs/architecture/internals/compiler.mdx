@@ -245,16 +245,16 @@ A module's `init()` assigns its classes' static fields, then its variables, in o
 `emit/integers.ts` proves which locals hold exact integers. A local whose every write is a bitwise result or an integer literal lives in an `int32_t`, `uint32_t` or `int64_t`.
 
 - `|`, `&`, `^`, `<<`, `>>`, `~`, `Math.imul` and `Math.clz32` give an int32, `>>>` a uint32, and a mix of both an int64.
-- A `for` counter that nothing else writes, stepped by an integer, is an `int64_t`.
+- A `for` counter that nothing else writes, stepped by ±1 (or by a larger integer toward a bound short of 2^53), is an `int64_t`.
 - Arithmetic (`+`, `-`, `*`, `%`, `+=`, `++`) keeps a local a `double`, because `x + 1` does not wrap in JavaScript. The exception is a local whose every value `rangeOf` proves an exact integer within ±2^53, never -0. It is an `int64_t`, and its writes are computed in int64: `sum = (sum + (x >>> 0)) % 1000000007`.
 
 The IR marks these values and locals, so chains of bitwise operations never go through a `double`. The value is exact in both forms, so reading it as a number changes no result.
 
 ### Names, macros and source lines
 
-- `cppIdent()` keeps a name's spelling, so a debugger shows it as written. It escapes what C++ can't spell, such as `$` or non-ASCII letters, as `_u<hex>_`. It renames C++ keywords, names the glue uses (`std`, `self`, `env`), and names with `__`, a leading `_` and capital, a `LUCENT_` prefix or a trailing `_`.
+- `cppIdent()` keeps a name's spelling, so a debugger shows it as written. It escapes what C++ can't spell, such as `$` or non-ASCII letters, as `_u<hex>_`. It renames C++ keywords, names the glue uses (`std`, `self`, `env`), and names with `__`, a leading `_` and capital, a `LUCENT_` prefix or a trailing `_`. Every temporary the compiler makes up ends in `_` (`obj_3_`, `coll0_`, `fc0ex_`, `t_i_it_`), a spelling `cppIdent()` never gives a program's name, so a local called `obj_3` can't meet one.
 - The C library and the SDK headers define macros under ordinary names (`HUGE`, `DOMAIN`, `pascal`, `si_value`). Each generated file undefines every name the program declares that it spells, after its includes, and restores them at its end (`emit/macros.ts`).
-- `#line` directives name the source's canonical absolute path. Compiler errors, debuggers and crash symbolication then point at the module.
+- `#line` directives name the source's path relative to the project, before every line of the statement it covers. Compiler errors, debuggers and crash symbolication then point at the module's line. The native package's builds map the project's directory to `.` (`-ffile-prefix-map`), so binaries hold no machine's path.
 - An Error made in Lucent code records the same site (`lucent::withSite`), and the boundary puts that frame at the top of the JavaScript error's `stack`.
 - Each binding names where its export is declared (`LUCENT_TRACE_SITE_AT`), and a native span inside Lucent code (`LUCENT_TRACE_SCOPE`) takes the site of the `#line` in force.
 

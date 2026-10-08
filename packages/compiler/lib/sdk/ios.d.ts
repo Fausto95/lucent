@@ -23,6 +23,38 @@ export type ObjCValue = string | number | boolean | Uint8Array | Date | NSObject
 /** The main dispatch queue (dispatch_get_main_queue()), for APIs that take a queue. */
 export declare function mainQueue(): NSObject;
 
+/**
+ * A new serial dispatch queue (`dispatch_queue_create(label, DISPATCH_QUEUE_SERIAL)`).
+ * It's for APIs that call their delegate on a queue you pass, such as
+ * AVCaptureVideoDataOutput's `setSampleBufferDelegate(_:queue:)`. Their
+ * callbacks then run off the main thread, one at a time, and Lucent
+ * code in them runs as in any other callback.
+ *
+ * @param label The queue's name, as Instruments and crash reports show it, such as `"camera.frames"`.
+ */
+export declare function serialQueue(label: string): NSObject;
+
+/**
+ * Calls `f` with a CVPixelBuffer's bytes, locked for reading while it
+ * runs. The lock is `CVPixelBufferLockBaseAddress` with
+ * `kCVPixelBufferLock_ReadOnly`, released after `f`, also when it throws.
+ * `f` gets the plane's bytes, its row stride (`bytesPerRow`), width and
+ * height.
+ *
+ * For a planar format (YUV), the plane is the one given; otherwise plane
+ * 0. The bytes are copied once, under the lock, so they stay valid after
+ * `f` returns. The buffer itself is locked only while `f` runs.
+ *
+ * @param pixelBuffer A CVPixelBuffer, such as `CMSampleBufferGetImageBuffer(sample)`.
+ * @param f What reads the bytes; its result is withPixelBytes's.
+ * @param plane The plane of a planar format; 0 when left out.
+ */
+export declare function withPixelBytes<R>(
+  pixelBuffer: NSObject,
+  f: (bytes: Uint8Array, bytesPerRow: number, width: number, height: number) => R,
+  plane?: number,
+): R;
+
 /** Swift's `as? String`: the string an `Any` holds, or null. */
 export declare function asString(value: NSObject | null): string | null;
 /** Swift's `as? Double` (an NSNumber). */
@@ -42,6 +74,25 @@ export declare function asDate(value: NSObject | null): Date | null;
 export declare class Out<T> {
   constructor();
   value: T | null;
+}
+
+/**
+ * A Swift AsyncSequence, such as StoreKit's `Transaction.updates` or an
+ * `AsyncStream`, collected as Kotlin's Flow is. `collect` calls `f` with
+ * each element in order on its package's thread, and the sequence waits for
+ * each call. It settles when the sequence ends, rejecting with what the
+ * sequence or `f` throws.
+ *
+ * Aborting `signal` cancels the iteration's task.
+ */
+export declare class AsyncSequence<T> {
+  private readonly __lucent_AsyncSequence: never;
+  protected constructor();
+  /**
+   * @param f Called with each element; a function that is not async (the sequence would not wait for its promise).
+   * @param signal Cancels the iteration; the promise rejects with AbortError.
+   */
+  collect(f: (value: T) => void, signal?: AbortSignal): Promise<void>;
 }
 
 /**

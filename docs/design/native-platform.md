@@ -16,7 +16,7 @@ when written; many have since been implemented, some differently.
 
 The text below is kept as written, with short notes where a later
 decision replaced it. The decisions, with dates and reasons, are in
-[ROADMAP.md's decisions log](../../ROADMAP.md#decisions-log).
+[docs/decisions/](../decisions/README.md).
 
 - **SwiftUI and Compose are written in Lucent** (decided 2026-09-26). This
   replaces section 16.8's statement that Lucent does not translate SwiftUI
@@ -40,7 +40,7 @@ decision replaced it. The decisions, with dates and reasons, are in
   `int64`/`uint64`, `NSInteger`/`NSUInteger`, Swift `Int`/`Int64`/`UInt64`)
   crosses as `bigint` (decided 2026-09-25).
 - **Status of section 2.** The audit describes the repository on
-  2026-09-24. ROADMAP.md's status section replaces it.
+  2026-09-24. ROADMAP.md's status at a glance and docs/tasks.md replace it.
 
 Implementation navigation:
 

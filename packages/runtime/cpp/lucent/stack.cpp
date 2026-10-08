@@ -41,6 +41,10 @@ struct Bounds {
 
 thread_local Bounds bounds;
 
+/// Where the caller's frame is on the thread's stack. Not a local's address: AddressSanitizer
+/// can move locals to a "fake stack" on the heap, which would read as an exhausted stack.
+inline uintptr_t frameAddress() { return reinterpret_cast<uintptr_t>(__builtin_frame_address(0)); }
+
 }  // namespace
 
 bool stackExhausted(size_t need) {
@@ -50,16 +54,13 @@ bool stackExhausted(size_t need) {
     b.known = true;
 
     // The frame asking first is near the stack's top.
-    char here;
-    auto at = reinterpret_cast<uintptr_t>(&here);
+    uintptr_t at = frameAddress();
     if (b.limit && at > b.limit && (at - b.limit) / 4 < b.margin) b.margin = (at - b.limit) / 4;
   }
 
   if (!b.limit) return false;
 
-  char here;
-  auto at = reinterpret_cast<uintptr_t>(&here);
-  return at < b.limit + b.margin + need;
+  return frameAddress() < b.limit + b.margin + need;
 }
 
 }  // namespace lucent

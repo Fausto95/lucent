@@ -100,6 +100,8 @@ export class Ctx {
   readonly nativeUnits = new Map<LucentModule, NativeUnit>();
   /** The Swift-only members the iOS glue calls, by shim symbol. */
   readonly swiftShims = new Map<string, SwiftShim>();
+  /** Whether the program collects Swift AsyncSequences: the shims file defines lucent_swift_collect. */
+  swiftSequences = false;
   /** Lucent classes conforming to Swift-only protocols. */
   readonly swiftProxies: SwiftProxy[] = [];
   /** The Kotlin shims the Android glue calls, per SDK module, by name. */
@@ -165,8 +167,14 @@ export class Ctx {
     return u;
   }
 
+  /**
+   * A name for a temporary: `<prefix>_<n>_`. It ends in `_`, which no
+   * program name does once cppIdent spells it (those that would get a `u_`
+   * or `r_` prefix, which no prefix here has), and its `_<n>_` sets it
+   * apart from the IR backend's (`v<n>_`, `coll<n>_`).
+   */
   fresh(prefix = "t"): string {
-    return `${prefix}_${++this.tmp}`;
+    return `${prefix}_${++this.tmp}_`;
   }
 
   /** Runs `f`, recording a diagnostic instead of throwing on compile errors. */

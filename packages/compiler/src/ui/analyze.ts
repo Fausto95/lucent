@@ -46,6 +46,7 @@ import {
   classIdentity,
   elementsOf,
   type FunctionLike,
+  returnedExpressions,
   returnShape,
   type RootOf,
   SLOT_VIEWS,
@@ -225,6 +226,24 @@ function inSourceOrder(diagnostics: Diagnostic[]): Diagnostic[] {
   );
 }
 
+/** Whether every value `fn` returns, in the code `platform` runs, is untyped (`any`): its SDKs are missing. */
+function returnsOnlyUntyped(
+  checker: ts.TypeChecker,
+  fn: FunctionLike,
+  platform: Platform | undefined,
+): boolean {
+  // A declaration (the host's stub of a split module): its declared return type.
+  if (!fn.body) {
+    const signature = checker.getSignatureFromDeclaration(fn);
+    return !!(signature && checker.getReturnTypeOfSignature(signature).flags & ts.TypeFlags.Any);
+  }
+  const returned = returnedExpressions(checker, fn, platform);
+  return (
+    returned.length > 0 &&
+    returned.every((r) => !!(checker.getTypeAtLocation(r).flags & ts.TypeFlags.Any))
+  );
+}
+
 function isComponentFile(file: string): boolean {
   return file.endsWith(".tsx");
 }
@@ -297,6 +316,10 @@ function candidate(
       );
       return undefined;
     }
+
+    // Its views' SDKs aren't installed (a check on a machine without them): every value it
+    // returns is untyped. It's left out like a component, which its platforms' builds check.
+    if (returnsOnlyUntyped(checker, e.fn, lp.platform)) return undefined;
 
     return "value";
   }

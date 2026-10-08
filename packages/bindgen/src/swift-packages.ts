@@ -11,8 +11,9 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { cacheRoot, hash } from "./cache.ts";
-import { type SwiftPackagePin, type XcodeApp, pinsOf } from "./xcode.ts";
+import { cacheRoot, hash, publish, readCached, withLock } from "./cache.ts";
+import { contentHash } from "./provenance.ts";
+import { type LocalSwiftPackage, type SwiftPackagePin, type XcodeApp, pinsOf } from "./xcode.ts";
 
 /**
  * A Swift module a package's build gave: the directory with its
@@ -31,9 +32,16 @@ export interface BuiltSwiftPackage extends SwiftPackagePin {
   products: string[];
 }
 
+/** A local package as LucentNative links it: its directory, and its library products. */
+export interface BuiltLocalSwiftPackage extends LocalSwiftPackage {
+  products: string[];
+}
+
 export interface SwiftPackages {
   modules: SwiftPackageModule[];
   packages: BuiltSwiftPackage[];
+  /** The local packages, built from a copy of their directory. */
+  localPackages?: BuiltLocalSwiftPackage[];
   /** Package.resolved, which says which versions these are. */
   resolved?: string;
   /** What could not be built, and why: said where a module is missing. */
@@ -42,6 +50,9 @@ export interface SwiftPackages {
 
 /** The deployment target a build uses where the project sets none: React Native's minimum. */
 export const DEFAULT_DEPLOYMENT_TARGET = "15.1";
+
+/** A local package's version in `identity@version`: its directory is what it is. */
+export const LOCAL_VERSION = "local";
 
 /** `identity@version` (the revision where a branch or a commit is pinned). */
 export const pinName = (p: Pick<SwiftPackagePin, "identity" | "version" | "revision">) =>
@@ -58,23 +69,32 @@ export function swiftPackages(app: XcodeApp, opts: { cacheDir?: string } = {}): 
     ...(app.resolved ? { resolved: app.resolved } : {}),
     failures: [],
   };
-  if (!app.packages.length) return out;
+  const local = app.localPackages ?? [];
+  if (!app.packages.length && !local.length) return out;
   if (!xcode.ok) {
     out.failures.push(`xcodebuild did not run: ${xcode.output}`);
     return out;
   }
 
+  // One build per package and key, whoever asks (lucent dev, Metro, a terminal's build): the
+  // others wait for it. It builds in place (xcodebuild's products name their own paths), and
+  // modules.json, published whole and last, says it is done.
+  const once = (dir: string, f: () => void) => {
+    const done = path.join(dir, "modules.json");
+    if (!fs.existsSync(done)) withLock(`${dir}.build`, () => fs.existsSync(done), f);
+    const built = readCached(done) as
+      | { products: string[]; modules: SwiftPackageModule[] }
+      | undefined;
+    if (!built) throw new Error("its build recorded no modules");
+    return built;
+  };
+
   for (const pin of app.packages) {
     const key = hash([pin.identity, pin.revision, target, xcode.output]);
     const dir = path.join(cacheRoot(opts.cacheDir), "spm", `${pin.identity}-${key}`);
-    const done = path.join(dir, "modules.json");
 
     try {
-      if (!fs.existsSync(done)) build(pin, dir, target, app.resolved);
-      const built = JSON.parse(fs.readFileSync(done, "utf8")) as {
-        products: string[];
-        modules: SwiftPackageModule[];
-      };
+      const built = once(dir, () => build(pin, dir, target, app.resolved));
       out.packages.push({ ...pin, products: built.products });
       out.modules.push(...built.modules);
     } catch (e) {
@@ -82,8 +102,23 @@ export function swiftPackages(app: XcodeApp, opts: { cacheDir?: string } = {}): 
     }
   }
 
+  // A local package's version is its contents: built from a copy, so its directory stays as it is.
+  for (const pkg of local) {
+    const key = hash([pkg.identity, contentHash(packageFiles(pkg.path)), target, xcode.output]);
+    const dir = path.join(cacheRoot(opts.cacheDir), "spm", `${pkg.identity}-local-${key}`);
+
+    try {
+      const built = once(dir, () => build(pkg, dir, target, app.resolved));
+      (out.localPackages ??= []).push({ ...pkg, products: built.products });
+      out.modules.push(...built.modules);
+    } catch (e) {
+      out.failures.push(`${pkg.identity} (${pkg.path}): ${(e as Error).message}`);
+    }
+  }
+
   // A dependency's modules are its own package's, at the version the app pins.
   for (const m of out.modules) {
+    if (m.package.endsWith(`@${LOCAL_VERSION}`)) continue;
     const owner = pins.find((p) => p.identity === m.package.slice(0, m.package.lastIndexOf("@")));
     if (owner) m.package = pinName(owner);
     else if (m.package.endsWith("@")) m.package += "unpinned";
@@ -92,22 +127,54 @@ export function swiftPackages(app: XcodeApp, opts: { cacheDir?: string } = {}): 
   return out;
 }
 
-/** Checks `pin` out into `dir`, builds its products, and records the modules they gave. */
-function build(pin: SwiftPackagePin, dir: string, target: string, resolved?: string): void {
+/** A local package's files: its sources, not the builds an editor or SwiftPM left in it. */
+function packageFiles(dir: string): string[] {
+  const out: string[] = [];
+  const walk = (d: string) => {
+    for (const e of fs
+      .readdirSync(d, { withFileTypes: true })
+      .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
+      if (e.name.startsWith(".")) continue;
+      const full = path.join(d, e.name);
+      if (e.isDirectory()) walk(full);
+      else out.push(full);
+    }
+  };
+  walk(dir);
+  return out;
+}
+
+/**
+ * Checks `pin` out into `dir` (a local package: copies it there), builds
+ * its products, and records the modules they gave.
+ */
+function build(
+  pin: SwiftPackagePin | LocalSwiftPackage,
+  dir: string,
+  target: string,
+  resolved?: string,
+): void {
   const src = path.join(dir, "src");
   const derived = path.join(dir, "build");
 
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
 
-  const clone = run("git", ["clone", "--quiet", pin.location, src], dir);
-  if (!clone.ok) throw new Error(`git clone ${pin.location} failed: ${clone.output}`);
-  const checkout = run(
-    "git",
-    ["-c", "advice.detachedHead=false", "checkout", "--quiet", pin.revision],
-    src,
-  );
-  if (!checkout.ok) throw new Error(`git checkout ${pin.revision} failed: ${checkout.output}`);
+  if ("path" in pin) {
+    fs.cpSync(pin.path, src, {
+      recursive: true,
+      filter: (f) => !path.basename(f).startsWith(".") || f === pin.path,
+    });
+  } else {
+    const clone = run("git", ["clone", "--quiet", pin.location, src], dir);
+    if (!clone.ok) throw new Error(`git clone ${pin.location} failed: ${clone.output}`);
+    const checkout = run(
+      "git",
+      ["-c", "advice.detachedHead=false", "checkout", "--quiet", pin.revision],
+      src,
+    );
+    if (!checkout.ok) throw new Error(`git checkout ${pin.revision} failed: ${checkout.output}`);
+  }
 
   // Its dependencies at the versions the app resolved: SwiftPM keeps a pin it can use.
   if (resolved) fs.copyFileSync(resolved, path.join(src, "Package.resolved"));
@@ -165,20 +232,18 @@ function build(pin: SwiftPackagePin, dir: string, target: string, resolved?: str
       return [];
 
     const owner = ownerOf(module);
+    const own = "path" in pin ? `${pin.identity}@${LOCAL_VERSION}` : pinName(pin);
     return [
       {
         module,
         dir: built,
         ...(framework ? { framework: true as const } : {}),
-        package: owner === pin.identity ? pinName(pin) : `${owner}@`,
+        package: owner === pin.identity ? own : `${owner}@`,
       },
     ];
   });
 
-  fs.writeFileSync(
-    path.join(dir, "modules.json"),
-    `${JSON.stringify({ products, modules }, null, 2)}\n`,
-  );
+  publish(path.join(dir, "modules.json"), { products, modules });
 }
 
 function run(

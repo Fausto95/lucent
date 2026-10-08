@@ -5,5 +5,437 @@
   "devCommand": "pnpm run website",
   "outputDirectory": "apps/website/build",
   "trailingSlash": true,
-  "ignoreCommand": "git diff --quiet ${VERCEL_GIT_PREVIOUS_SHA:-HEAD^} HEAD -- apps/website vercel.json package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc .node-version"
+  "ignoreCommand": "git diff --quiet ${VERCEL_GIT_PREVIOUS_SHA:-HEAD^} HEAD -- apps/website vercel.json package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc .node-version",
+  "redirects": [
+    {
+      "source": "/docs/install/",
+      "destination": "/docs/guides/install/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/first-module/",
+      "destination": "/docs/guides/first-module/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/tutorial/1-shared-logic/",
+      "destination": "/docs/guides/first-module/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/tutorial/2-data/",
+      "destination": "/docs/guides/share-data-with-javascript/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/tutorial/3-async/",
+      "destination": "/docs/guides/run-work-off-the-js-thread/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/tutorial/4-errors/",
+      "destination": "/docs/guides/throw-and-handle-errors/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/tutorial/5-platform-code/",
+      "destination": "/docs/guides/platform-code/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/tutorial/6-callbacks/",
+      "destination": "/docs/guides/implement-a-delegate/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/tutorial/7-permissions/",
+      "destination": "/docs/guides/ask-for-a-permission/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/tutorial/8-publish/",
+      "destination": "/docs/packages/publish-a-package/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/how-it-works/",
+      "destination": "/docs/architecture/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/how-it-works/calls/",
+      "destination": "/docs/architecture/boundary/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/how-it-works/platform-calls/",
+      "destination": "/docs/architecture/sdk-bindings/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/thinking/three-places/",
+      "destination": "/docs/api/language/boundary/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/thinking/boundary-first/",
+      "destination": "/docs/architecture/api-design/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/thinking/shared-first/",
+      "destination": "/docs/guides/share-code-between-platforms/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/thinking/threads/",
+      "destination": "/docs/architecture/threads/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/thinking/memory/",
+      "destination": "/docs/architecture/memory/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/thinking/typescript/",
+      "destination": "/docs/api/language/differences/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/coming-from-native/",
+      "destination": "/docs/guides/coming-from-swift-or-kotlin/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/guides/publish-a-library/",
+      "destination": "/docs/packages/publish-a-package/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/guides/use-a-library/",
+      "destination": "/docs/guides/use-a-lucent-package/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/guides/debug-a-crash/",
+      "destination": "/docs/guides/symbolicate-a-native-crash/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/guides/upgrade/",
+      "destination": "/docs/guides/upgrade-lucent/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/reference/language/",
+      "destination": "/docs/api/language/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/reference/built-ins/",
+      "destination": "/docs/api/language/built-ins/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/reference/boundary-types/",
+      "destination": "/docs/api/language/boundary/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/reference/platform-types/",
+      "destination": "/docs/api/ios-sdk/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/reference/modules/",
+      "destination": "/docs/api/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/reference/cli/",
+      "destination": "/docs/api/cli/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/reference/lucent-json/",
+      "destination": "/docs/packages/lucent-json/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/reference/metro-and-expo/",
+      "destination": "/docs/api/integrations/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/reference/diagnostics/",
+      "destination": "/docs/api/diagnostics/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/reference/compatibility/",
+      "destination": "/docs/api/compatibility/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/examples/",
+      "destination": "/docs/guides/port-an-expo-module/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/examples/clipboard/",
+      "destination": "/docs/guides/examples/clipboard/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/examples/location/",
+      "destination": "/docs/guides/examples/location/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/examples/netinfo/",
+      "destination": "/docs/guides/examples/netinfo/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/examples/local-authentication/",
+      "destination": "/docs/guides/examples/local-authentication/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/examples/secure-store/",
+      "destination": "/docs/packages/examples/secure-store/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/examples/haptics/",
+      "destination": "/docs/packages/examples/haptics/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/comparison/",
+      "destination": "/docs/guides/comparison/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/faq/",
+      "destination": "/docs/guides/faq/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/roadmap/",
+      "destination": "/docs/releases/roadmap/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/getting-started/",
+      "destination": "/docs/guides/install/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/getting-started-expo/",
+      "destination": "/docs/guides/install/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/what-you-can-build/",
+      "destination": "/docs/releases/roadmap/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/status/",
+      "destination": "/docs/releases/roadmap/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/platform-apis/",
+      "destination": "/docs/guides/platform-code/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/",
+      "destination": "/docs/api/language/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/functions-and-control-flow/",
+      "destination": "/docs/api/language/statements/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/async-and-errors/",
+      "destination": "/docs/api/language/concurrency/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/unions/",
+      "destination": "/docs/api/language/types/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/native-classes/",
+      "destination": "/docs/api/language/types/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/events/",
+      "destination": "/docs/guides/accept-a-js-callback/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/native-views/",
+      "destination": "/docs/guides/views/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/threads/",
+      "destination": "/docs/architecture/threads/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/platform-and-capabilities/",
+      "destination": "/docs/guides/platform-code/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/types/",
+      "destination": "/docs/api/language/types/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/functions/",
+      "destination": "/docs/api/language/statements/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/classes/",
+      "destination": "/docs/api/language/types/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/generics/",
+      "destination": "/docs/api/language/types/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/async/",
+      "destination": "/docs/api/language/concurrency/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/modules/",
+      "destination": "/docs/api/language/modules/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/differences/",
+      "destination": "/docs/api/language/differences/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/diagnostics/",
+      "destination": "/docs/api/diagnostics/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/language/errors/",
+      "destination": "/docs/guides/throw-and-handle-errors/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/api/packages/",
+      "destination": "/docs/guides/platform-code/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/api/types/",
+      "destination": "/docs/api/language/boundary/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/api/objects/",
+      "destination": "/docs/api/language/boundary/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/api/events/",
+      "destination": "/docs/guides/accept-a-js-callback/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/api/ui/",
+      "destination": "/docs/guides/views/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/api/std/",
+      "destination": "/docs/api/lucent-core/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/api/config/",
+      "destination": "/docs/packages/lucent-json/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/api/runtime/",
+      "destination": "/docs/api/lucent-core/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/api/library-manifest/",
+      "destination": "/docs/packages/lucent-json/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/boundary/exports/",
+      "destination": "/docs/architecture/boundary/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/boundary/conversions/",
+      "destination": "/docs/api/language/boundary/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/boundary/identity/",
+      "destination": "/docs/api/language/boundary/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/boundary/callbacks/",
+      "destination": "/docs/guides/accept-a-js-callback/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/boundary/errors/",
+      "destination": "/docs/guides/throw-and-handle-errors/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/reference/metro/",
+      "destination": "/docs/api/integrations/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/reference/expo/",
+      "destination": "/docs/api/integrations/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/reference/core/",
+      "destination": "/docs/api/lucent-core/",
+      "permanent": true
+    },
+    {
+      "source": "/language/",
+      "destination": "/docs/api/language/",
+      "permanent": true
+    },
+    {
+      "source": "/get-started/",
+      "destination": "/docs/guides/install/",
+      "permanent": true
+    }
+  ]
 }

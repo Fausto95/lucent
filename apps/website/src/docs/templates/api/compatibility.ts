@@ -4,11 +4,15 @@ import { requirements } from "../../../generated/compatibility";
 export const frontmatter: DocFrontmatter = {
   title: "Compatibility",
   description:
-    "The React Native, Expo, Node, JDK, Android, iOS and TypeScript versions Lucent supports.",
+    "The React Native, Expo, Node, JDK, Android, iOS and TypeScript versions Lucent supports, and the machines it builds on.",
   kind: "reference",
 };
 
 export const blocks: Block[] = [
+  {
+    kind: "note",
+    text: `No stable release meets these yet. In October 2026, \`react-native@latest\` is 0.87 and \`expo@latest\` is SDK 57. Use the React Native ${requirements.reactNative} release candidate (\`react-native@next\`) or the Expo SDK ${requirements.expoSdk} preview (\`expo@next\`), as the example apps do.`,
+  },
   {
     kind: "table",
     head: ["", "Supported"],
@@ -30,6 +34,22 @@ export const blocks: Block[] = [
         `${requirements.typescript.replace(/^[~^]/, "")}, which the package brings; modules are checked against ${requirements.lib.map((l) => `\`${l.replace(/^lib\.|\.d\.ts$/g, "")}\``).join(" and ")}`,
       ],
       ["Xcode, Android SDK and NDK", "the versions your React Native version needs"],
+    ],
+  },
+  { kind: "h2", text: "Operating systems" },
+  {
+    kind: "table",
+    head: ["Machine", "What works"],
+    rows: [
+      [
+        "macOS",
+        "Everything. iOS needs macOS: Xcode types iOS code and builds it, and nothing else does.",
+      ],
+      [
+        "Linux",
+        "Android builds and checks. iOS code is untyped and isn't compiled: `lucent build` and `lucent check` skip iOS with a warning. Lucent can't import iOS types from another machine, so type errors in iOS code show only on a Mac.",
+      ],
+      ["Windows", "Unsupported and untested. Use WSL, which is a Linux machine: Android only."],
     ],
   },
   {

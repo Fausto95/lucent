@@ -37,4 +37,28 @@ export function last(xs: number[]): number {
       expect(r.diagnostics).toEqual([]);
     }
   });
+
+  it("tests a type parameter's value for null or undefined in ?? and ??=", () => {
+    const file = module(`function or<T>(x: T, d: T): T {
+  return x ?? d;
+}
+function fill<T>(x: T, d: T): T {
+  let v = x;
+  v ??= d;
+  return v;
+}
+export function use(): string {
+  return \`\${or<number | undefined>(undefined, 1)} \${fill<number | undefined>(undefined, 2)}\`;
+}
+`);
+    const r = compile([file]);
+
+    expect(r.diagnostics).toEqual([]);
+
+    const header = r.files.get("m_sample.h")!.replace(/^#line .*\n/gm, "");
+
+    expect(header).toContain("lucent::looseEqualsNull(p0_)");
+
+    expect(header).not.toMatch(/T or\(T p0_, T p1_\) \{\n  return p0_;/);
+  });
 });

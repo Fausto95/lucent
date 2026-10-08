@@ -72,9 +72,7 @@ export function Counter(props: {
 ```tsx title="App.tsx"
 import { useRef } from "react";
 import { Button, View } from "react-native";
-import * as counter from "./counter.lucent";
-
-const { Counter } = counter as unknown as typeof import("./.lucent/native/types/views/counter");
+import { Counter } from "lucent:views/counter";
 
 type CounterRef = { increment(): void; reset(): void; value(): Promise<number> };
 
@@ -274,7 +272,7 @@ export function Card(props: CardProps): FrameLayout {
 These rules hold, and breaking one fails with [LUCENT3021](/docs/api/diagnostics/#lucent3021):
 
 - The slot is the platform's container class: `slot<UIView>()` on iOS, `slot<ViewGroup>()` on Android.
-- Setup calls `slot()` once, in a `const` at its top level. So a component taking children is written as platform files: in one file, each platform's slot would stand in a branch.
+- Setup calls `slot()` once per platform, in a `const` at its top level or at the top level of a `PLATFORM` branch. That branch is an `if` that tests the platform alone, or a case of `switch (PLATFORM)`. A slot under a test with another condition, such as `PLATFORM === "ios" && ready`, fails.
 - Children without a slot, a slot without children, and setup reading `props.children` fail.
 
 React Native creates, lays out and removes the children: don't add or remove the slot's subviews in setup. Nothing checks this.
@@ -287,8 +285,8 @@ A component is one shared `.lucent.tsx` module with [platform branches](/docs/ap
 
 | Form | Files | Write it for |
 | --- | --- | --- |
-| One file | `counter.lucent.tsx`, with `if (PLATFORM === "ios")` branches | Components whose setup makes their views, and SwiftUI and Compose bodies. |
-| Platform files | `card.lucent.ts` with an `export declare function`, then `card.ios.lucent.tsx` and `card.android.lucent.tsx` | Components that take children, and components returning UIKit or Android JSX on both platforms. |
+| One file | `counter.lucent.tsx`, with `if (PLATFORM === "ios")` branches | Any component: each branch returns its platform's views or body, and makes its slot. |
+| Platform files | `card.lucent.ts` with an `export declare function`, then `card.ios.lucent.tsx` and `card.android.lucent.tsx` | Components whose platforms share little code, or whose commands differ by platform: `expose()` can't stand in a branch. |
 
 React sees one component on every platform, so [LUCENT3023](/docs/api/diagnostics/#lucent3023) holds these rules:
 
@@ -299,7 +297,7 @@ In one file, leave the return type out: a type naming both platforms' classes, s
 
 ## What React sees
 
-JavaScript imports a component from its module like any export. `lucent build` writes each module's components as React sees them to `.lucent/native/types/views/<module>.d.ts`. Your app's TypeScript still resolves `./counter.lucent` to the module's source, so cast the import to the generated type, as App.tsx does.
+JavaScript imports a component from `lucent:views/<module>`, as App.tsx does. `lucent build` writes each module's components as React sees them to `.lucent/native/types/views/<module>.d.ts`, which the `lucent:*` path that `lucent init` adds to `tsconfig.json` resolves. Metro's `withLucent` resolves the same name to the module, so both imports are one component.
 
 | Member | React type |
 | --- | --- |

@@ -91,7 +91,7 @@ After that, each exported function is a JSI host function. A call reaches your C
 ## What runs where
 
 - Synchronous exports run on the JS thread, while JavaScript waits.
-- `async` exports run on the Lucent thread, a background thread.
+- `async` exports run on their package's thread, a background thread.
 - `main(() => …)` runs on the main thread, and `compute` tasks on a pool of worker threads.
 
 [Threads](/docs/architecture/threads/) explains how they share work, and [memory](/docs/architecture/memory/) when native objects go away.

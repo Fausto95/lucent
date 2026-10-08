@@ -1,11 +1,13 @@
 ---
 title: Which code runs on which thread, and what runs at once?
 sidebar_label: Concurrency
-description: "Each package's module code takes turns under its own lock, on the JS thread, its own thread or the main thread; packages, compute tasks and views run in parallel."
+description: "Each package's module code takes turns under its own lock. Packages, compute tasks and views run in parallel."
 kind: reference
 ---
 
-Module code is a module's exports, what runs after their `await`s, and the callbacks it registers. Modules that import one another, such as a package's, share a lock and a thread: an actor. A package's code runs one turn at a time, like JavaScript, whichever thread it's on. Other packages, compute tasks and view code run while it does.
+Module code is a module's exports, what runs after their `await`s, and the callbacks it registers. Modules that import one another, such as a package's, share a lock and a thread: an actor.
+
+A package's code runs one turn at a time, like JavaScript, whichever thread it's on. Other packages, compute tasks and view code run while it does.
 
 ## Example
 
@@ -59,7 +61,8 @@ Without the `await delay(0)`, a call to `progress()` from JavaScript would wait 
 - An `await` on a promise that has already settled continues in the same turn. An `await` that has to wait, such as `await delay(0)`, ends the turn.
 - The lock is fair: threads get it in the order they asked. A synchronous call from JavaScript waits for the current turn to end, then runs before the next one.
 - It is reentrant. Module code that calls a JavaScript callback, which calls into Lucent again, goes on without waiting.
-- The main thread never waits behind queued work. `main(f)` and lifecycle listeners start once the package is free. A delegate method that must answer waits only for the code holding the lock at that moment, before anything else waiting; debug builds log a wait over 50 ms. While module code calls a JavaScript callback, the main thread may run the package's code, as that JavaScript could.
+- The main thread never waits behind queued work. `main(f)` and lifecycle listeners start once the package is free. A delegate method that must answer waits only for the code holding the lock, ahead of anything queued.
+- Debug builds log a main-thread wait over 50 ms. While module code calls a JavaScript callback, the main thread may run the package's code, as that JavaScript could.
 - A JavaScript callback can call another package, which then waits for that package's lock. A wait that would close a cycle, with two threads each holding one package and waiting for the other, throws an `Error` (`Lucent: deadlock: …`) instead of hanging.
 
 Keep turns short. Split a long loop with `await delay(0)`, and move heavy work to a compute task. [Run work off the JS thread](/docs/guides/run-work-off-the-js-thread/) shows both.

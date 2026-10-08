@@ -420,7 +420,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "signature": "function main<T>(f: () => T): Promise<T>;",
         "doc": [
           "Runs `f` on the platform's main thread (the main queue on iOS, the main Looper on Android), and resolves with its result. Main-thread-only SDK APIs may only be used inside `f`.",
-          "`f` runs holding the lock module code shares, and the main thread waits for any module job before it starts. Keep it short."
+          "`f` runs holding its module's lock (its package's actor), so it may use module state. The main thread never waits for module code. `f` starts once that actor is free: a long job of the same package delays `f`, not the main thread.",
+          "While `f` runs, the package's other work waits: keep it short."
         ],
         "examples": [],
         "members": [],
@@ -506,6 +507,55 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "examples": [],
         "members": [],
         "params": []
+      },
+      {
+        "name": "serialQueue",
+        "kind": "function",
+        "signature": "function serialQueue(label: string): NSObject;",
+        "doc": [
+          "A new serial dispatch queue (`dispatch_queue_create(label, DISPATCH_QUEUE_SERIAL)`). It's for APIs that call their delegate on a queue you pass, such as AVCaptureVideoDataOutput's `setSampleBufferDelegate(_:queue:)`. Their callbacks then run off the main thread, one at a time, and Lucent code in them runs as in any other callback."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "label",
+            "type": "string",
+            "optional": false,
+            "doc": "The queue's name, as Instruments and crash reports show it, such as `\"camera.frames\"`."
+          }
+        ]
+      },
+      {
+        "name": "withPixelBytes",
+        "kind": "function",
+        "signature": "function withPixelBytes<R>(\n  pixelBuffer: NSObject,\n  f: (bytes: Uint8Array, bytesPerRow: number, width: number, height: number) => R,\n  plane?: number,\n): R;",
+        "doc": [
+          "Calls `f` with a CVPixelBuffer's bytes, locked for reading while it runs. The lock is `CVPixelBufferLockBaseAddress` with `kCVPixelBufferLock_ReadOnly`, released after `f`, also when it throws. `f` gets the plane's bytes, its row stride (`bytesPerRow`), width and height.",
+          "For a planar format (YUV), the plane is the one given; otherwise plane 0. The bytes are copied once, under the lock, so they stay valid after `f` returns. The buffer itself is locked only while `f` runs."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "pixelBuffer",
+            "type": "NSObject",
+            "optional": false,
+            "doc": "A CVPixelBuffer, such as `CMSampleBufferGetImageBuffer(sample)`."
+          },
+          {
+            "name": "f",
+            "type": "(bytes: Uint8Array, bytesPerRow: number, width: number, height: number) => R",
+            "optional": false,
+            "doc": "What reads the bytes; its result is withPixelBytes's."
+          },
+          {
+            "name": "plane",
+            "type": "number",
+            "optional": true,
+            "doc": "The plane of a planar format; 0 when left out."
+          }
+        ]
       },
       {
         "name": "asString",
@@ -614,6 +664,29 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           {
             "name": "value",
             "signature": "value: T | null;",
+            "doc": ""
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "AsyncSequence",
+        "kind": "class",
+        "signature": "class AsyncSequence<T> {\n  protected constructor();\n  collect(f: (value: T) => void, signal?: AbortSignal): Promise<void>;\n}",
+        "doc": [
+          "A Swift AsyncSequence, such as StoreKit's `Transaction.updates` or an `AsyncStream`, collected as Kotlin's Flow is. `collect` calls `f` with each element in order on its package's thread, and the sequence waits for each call. It settles when the sequence ends, rejecting with what the sequence or `f` throws.",
+          "Aborting `signal` cancels the iteration's task."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "constructor",
+            "signature": "protected constructor();",
+            "doc": ""
+          },
+          {
+            "name": "collect",
+            "signature": "collect(f: (value: T) => void, signal?: AbortSignal): Promise<void>;",
             "doc": ""
           }
         ],

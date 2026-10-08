@@ -19,7 +19,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runLucent, runToExit } from "../packages/lucent/test/run-to-exit.ts";
 import { cores, pool, run } from "../packages/runtime/test/parallel.ts";
-import { cFlags, hostLibs, runtimeSources } from "../packages/runtime/test/sources.ts";
+import {
+  cFlags,
+  hostLibs,
+  prefixMapFlags,
+  runtimeSources,
+} from "../packages/runtime/test/sources.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const app = path.resolve(root, process.argv[2] ?? "apps/bare-example");
@@ -75,6 +80,7 @@ const flags = [
   "-ffp-contract=off",
   "-O1",
   "-w",
+  ...prefixMapFlags(app),
   `-I${cpp}`,
   `-I${generated}`,
   `-I${hermes}/API`,

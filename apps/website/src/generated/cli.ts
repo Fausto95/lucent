@@ -29,6 +29,10 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
     "summary": "Type-check and validate every module without writing anything",
     "flags": [
       {
+        "flag": "--platforms <list>",
+        "description": "Targets for platform code: ios, android, host (default: the SDKs installed; host, with SDK imports untyped, when none is)"
+      },
+      {
         "flag": "--frozen",
         "description": "Fail unless the SDKs and SDK symbols are the ones lucent-sdk.lock.json records, with every target it lists (CI, releases)"
       }
@@ -62,9 +66,46 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
     ]
   },
   {
-    "name": "new module",
-    "summary": "Scaffold a module in src/: shared, or with --ios / --android one module that branches on PLATFORM",
+    "name": "uninstall",
+    "summary": "Revert what lucent init and the Expo plugin changed: the Metro config, app.json, the Gradle task, react-native.config.js, tsconfig.json, .gitignore",
     "flags": [
+      {
+        "flag": "--yes",
+        "description": "Apply every change without asking"
+      }
+    ]
+  },
+  {
+    "name": "create",
+    "summary": "Create a project from a template: an Expo, bare or native-view app, a Lucent library, or modules alone",
+    "flags": [
+      {
+        "flag": "--template <name>",
+        "description": "expo, bare, view, library or module (default: asked in a terminal, expo elsewhere)"
+      },
+      {
+        "flag": "--yes",
+        "description": "Take the defaults without asking"
+      },
+      {
+        "flag": "--skip-install",
+        "description": "Write the project without installing its dependencies"
+      }
+    ],
+    "json": "create"
+  },
+  {
+    "name": "new module",
+    "summary": "Scaffold a module in src/ from a template (function, async, events, view, sdk-ios-android), or with --ios / --android one that branches on PLATFORM",
+    "flags": [
+      {
+        "flag": "--template <name>",
+        "description": "function, async, events, view or sdk-ios-android (default: asked in a terminal, function elsewhere)"
+      },
+      {
+        "flag": "--yes",
+        "description": "Take the default template without asking"
+      },
       {
         "flag": "--ios",
         "description": "Implement the iOS branch (without --android, the Android branch throws)"
@@ -119,6 +160,10 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
       {
         "flag": "--cache",
         "description": "Also remove the SDK bindings cache"
+      },
+      {
+        "flag": "--stale",
+        "description": "With --cache: remove only what other Lucent versions wrote to the SDK cache"
       }
     ],
     "json": "clean"
@@ -161,6 +206,10 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
       {
         "flag": "--platforms <list>",
         "description": "Targets to record: ios, android (default: every platform the project has code for, each needing its SDK)"
+      },
+      {
+        "flag": "--schemas",
+        "description": "Also export the schemas the code uses to lucent-sdk.schemas/, so machines without a platform's SDK type its code"
       }
     ],
     "json": "sdk-lock-result"
@@ -191,6 +240,10 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
       {
         "flag": "--check <baseline>",
         "description": "Fail when the unrepresentable share grows past a baseline JSON"
+      },
+      {
+        "flag": "--update <baseline>",
+        "description": "Write the reports into a baseline JSON: its modules replaced, new ones added, each with its SDK"
       },
       {
         "flag": "--exercised <file>",

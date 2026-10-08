@@ -127,8 +127,12 @@ int main(int argc, char** argv) {
   jsi::Runtime& rt = *runtime;
   int status = 0;
   {
+    // How long installing Lucent takes (the host, then every module's exports): __installMs.
+    auto installing = std::chrono::steady_clock::now();
     std::shared_ptr<Host> host = Host::create(rt, post);
     rt.global().setProperty(rt, "__lucent", host->modules(rt));
+    rt.global().setProperty(rt, "__installMs",
+                            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - installing).count());
     // What @lucent-lang/runtime's loader looks for outside React Native.
     rt.global().setProperty(rt, "__lucentModules", rt.global().getProperty(rt, "__lucent"));
     installHarnessExtras(rt);

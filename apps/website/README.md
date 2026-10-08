@@ -35,7 +35,9 @@ pnpm --filter @lucent-lang/website serve
 ```
 
 Vercel builds from the repository root (`vercel.json`: `pnpm run
-website:build`, output `apps/website/build`).
+website:build`, output `apps/website/build`). `vercel.json`'s `redirects`
+are generated from `src/docs/redirects.ts`: each docs URL the site used to
+serve, to the page that replaced it. `docusaurus serve` doesn't apply them.
 
 ## Source
 
