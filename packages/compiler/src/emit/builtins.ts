@@ -1181,6 +1181,10 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       break;
     case "buffer":
       return bufferMethod(em, obj, name, node);
+    case "weak":
+      if (name === "deref" && !a.length)
+        return { c: cpp.call(cpp.arrow(o, "deref"), []), t: unionOf([t.inner, T.undefined]) };
+      break;
     case "emitter":
       return emitterMethod(em, obj, name, node);
     case "subscription":
@@ -1988,6 +1992,7 @@ const BIGINT_FROM: Partial<Record<LType["k"], (v: cpp.Expr) => cpp.Expr>> = {
 /** The kind each library constructor makes (the errors are added by name). */
 const LIB_CONSTRUCTORS: Record<string, LType["k"]> = {
   AbortController: "abortController",
+  WeakRef: "weak",
   RegExp: "regexp",
   Date: "date",
   Map: "map",
@@ -2028,6 +2033,17 @@ export function newBuiltin(
       };
     case "emitter":
       return emitterNew(em, node, t);
+    case "weak": {
+      if (a.length !== 1) fail(node, Codes.UnsupportedBuiltin, "new WeakRef() takes its target");
+      return {
+        c: cpp.call(
+          "std::make_shared",
+          [em.exprAs(a[0]!, t.inner)],
+          [cpp.type("lucent::WeakRefObject", em.reg.cppType(t.inner))],
+        ),
+        t,
+      };
+    }
     case "regexp": {
       const flags = a[1]
         ? cpp.construct(cpp.type("lucent::Opt", cpp.type("lucent::String")), [

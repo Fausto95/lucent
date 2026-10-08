@@ -155,6 +155,12 @@ export class BindingsEmitter {
           Codes.BoundaryType,
           "an AbortController cannot cross the JavaScript boundary; pass its signal instead",
         );
+      case "weak":
+        fail(
+          node,
+          Codes.BoundaryType,
+          "a WeakRef cannot cross the JavaScript boundary: pass its target, from deref()",
+        );
       case "span":
         fail(
           node,

@@ -150,8 +150,8 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "The app's Swift packages, bound against the iOS version the app targets (in review)."
       },
       {
-        "status": "later",
-        "text": "Weak references."
+        "status": "done",
+        "text": "Weak references with `WeakRef`, for delegates and back references."
       }
     ],
     "goal": "Call the iOS and Android SDKs directly from Lucent."

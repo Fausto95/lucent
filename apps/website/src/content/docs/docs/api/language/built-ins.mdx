@@ -229,7 +229,7 @@ What JavaScript's built-ins lack has a native implementation in `lucent:core`. [
 | `Object.assign(a, b)` | LUCENT1003 | `{ ...a, ...b }` |
 | `Object.hasOwn(r, k)` | LUCENT1003 | `k in r` |
 | `Intl`, `toLocaleString()` | LUCENT2002, LUCENT1003 | `toFixed`, `padStart`, `toISOString` and the `Date` getters |
-| `WeakMap`, `WeakSet`, `WeakRef` | LUCENT2002 | A `Map` whose entries you delete ([Memory](/docs/api/language/memory/#cycles-leak)) |
+| `WeakMap`, `WeakSet` | LUCENT2002 | A `Map` whose entries you delete, or a `WeakRef` ([Memory](/docs/api/language/memory/#cycles-leak)) |
 | `structuredClone(x)` | LUCENT9001: not declared | A spread or `slice()`, which copies one level |
 | `queueMicrotask(f)` | LUCENT9001: not declared | `await Promise.resolve()`, then the code |
 | `fetch` | LUCENT9001: not declared | Call it from JavaScript, or the platform's HTTP API through `lucent:ios` or `lucent:android` |

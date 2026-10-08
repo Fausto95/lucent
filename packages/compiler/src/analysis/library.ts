@@ -318,6 +318,8 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "PromiseConstructor.resolve": PROMISE,
 
   "AbortController.new": ALLOCATES,
+  "WeakRefConstructor.new": ALLOCATES,
+  "WeakRef.deref": NONE,
   "AbortSignal.addEventListener": { calls: "later", keeps: "receiver" },
   "AbortSignal.throwIfAborted": { throws: true },
 

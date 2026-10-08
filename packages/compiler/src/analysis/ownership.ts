@@ -187,6 +187,7 @@ const OWNED: Record<string, string> = {
   Promise: "a promise, which settles on the context that made it",
   AbortSignal: "an abort signal, which belongs to the context that made it",
   AbortController: "an abort controller, which belongs to the context that made it",
+  WeakRef: "a weak reference, which belongs to the context that made it",
   Generator: "a generator, which runs code on the context that made it",
   Iterator: "an iterator, which runs code on the context that made it",
   IterableIterator: "an iterator, which runs code on the context that made it",

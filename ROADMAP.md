@@ -99,8 +99,8 @@ These hold for every task. A task is not done by weakening one of them.
 - Reflection, `eval` and prototypes.
 - Freeing reference cycles automatically. Cycles between Lucent objects, or
   between Lucent objects and the native objects that retain them as
-  delegates or listeners, leak until they are broken; Debug builds report
-  the native references left at teardown.
+  delegates or listeners, leak until they are broken or go through a
+  `WeakRef`; Debug builds report the native references left at teardown.
 
 ## Status at a glance
 
@@ -188,7 +188,7 @@ Goal: Call the iOS and Android SDKs directly from Lucent.
 - ✅ Ports of Expo and community modules, checked against the originals.
 - 🚧 Native libraries nobody has seen before, bound and run with no change to Lucent (in review).
 - 🚧 The app's Swift packages, bound against the iOS version the app targets (in review).
-- 🔭 Weak references.
+- ✅ Weak references with `WeakRef`, for delegates and back references.
 
 ### Views
 
@@ -432,6 +432,18 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
+
+**2026-10-08: WeakRef, not a `weak` modifier.** Cycles break through
+JavaScript's own `WeakRef<T>`, for class instances, interface values and
+objects, rather than a field modifier TypeScript doesn't have: the same
+source runs as JavaScript, and a delegate keeps its owner as
+`WeakRef<Owner>`. Reference counting frees the target with its last
+strong reference, so `deref()` gives `undefined` from then on, where
+JavaScript keeps the target until its collector runs (a documented
+deviation). `WeakMap` and `WeakSet` stay refused: a map keyed by object
+identity that forgets keys has no deterministic counterpart worth its
+cost yet. A weak reference to an SDK object is not offered either; hold
+the SDK object strongly and its Lucent delegate weakly.
 
 **2026-10-08: Platform files may stand alone.** A split module may have
 one platform's file: the other platform's build compiles its
@@ -2373,7 +2385,10 @@ errors, 64-bit parameters from numbers, and lifecycle hooks.
       declaration file is not done: a shared class with platform members
       covers what it was for, and a declared class's type would need
       routing to each platform's class.
-- [ ] Weak references for cycles.
+- [x] Weak references for cycles: `WeakRef<T>` of a class instance,
+      interface or object value, freed with its last strong reference
+      (e2e `weak-refs`, `runtime_test.cpp`'s `weakReferences`).
+      `WeakMap` and `WeakSet` stay refused.
 - [ ] Typed native errors, and async exports rejecting bad arguments.
 - [ ] 64-bit integer parameters from safe-integer numbers.
 - [ ] Lifecycle hooks: deep links, push tokens, module create/destroy.

@@ -75,7 +75,9 @@ export type LType =
   /** lucent:core's EventEmitter: its events' names and listener types, in declaration order. */
   | { k: "emitter"; events: { name: string; fn: LType & { k: "fn" } }[] }
   /** What an EventEmitter's addListener returns (lucent::EventSubscription). */
-  | { k: "subscription" };
+  | { k: "subscription" }
+  /** `WeakRef<T>` of an object `inner` (lucent::WeakRefObject): it does not keep its target alive. */
+  | { k: "weak"; inner: LType };
 
 /** The error constructors Lucent makes; an error is named after its constructor. */
 const ERROR_NAMES = ["Error", "TypeError", "RangeError", "SyntaxError"] as const;
@@ -164,6 +166,8 @@ function keyWith(t: LType, struct: (id: string) => string): string {
       return `Signal<${key(t.inner)}>`;
     case "props":
       return `Props:${t.component}`;
+    case "weak":
+      return `WeakRef<${key(t.inner)}>`;
     case "emitter":
       return `EventEmitter<{${t.events.map((e) => `${JSON.stringify(e.name)}:${key(e.fn)}`).join(",")}}>`;
     default:
@@ -1086,6 +1090,16 @@ export class TypeRegistry {
         case "IteratorYieldResult":
         case "IteratorReturnResult":
           return { k: "iterResult", e: this.lower(args[0]!, node) };
+        case "WeakRef": {
+          const inner = this.lower(args[0]!, node);
+          if (inner.k !== "class" && inner.k !== "iface" && inner.k !== "struct")
+            fail(
+              node,
+              Codes.UnsupportedType,
+              `a WeakRef holds a class instance or an object, not a ${typeKey(inner)}`,
+            );
+          return { k: "weak", inner };
+        }
         case "AbortSignal":
           return T.abortSignal;
         case "AbortController":
@@ -1508,6 +1522,8 @@ export class TypeRegistry {
         return lucent("Ref", this.cppEmitterType(t));
       case "subscription":
         return lucent("EventSubscription");
+      case "weak":
+        return lucent("Ref", lucent("WeakRefObject", this.cppType(t.inner)));
     }
   }
 
