@@ -407,8 +407,9 @@ function compileChecked(
   const checks = [
     ...lp.diagnostics.filter((d) => !inUntypedPlatformCode(lp, d, untyped)),
     ...declarations.flatMap((d) => declarationErrors(lp, d)),
+    // A split module's declaration (the host's stub) names each platform's types, in no code.
     ...lp.modules
-      .filter((m) => !platformOf(m.file))
+      .filter((m) => !platformOf(m.file) && !m.stub)
       .flatMap((m) => platformScopes(lp.checker, m.sourceFile).errors),
   ];
   // Stop at TypeScript errors: the checker's types are unreliable past them.
