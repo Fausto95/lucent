@@ -13,6 +13,8 @@
 #endif
 
 #include <atomic>
+#include <deque>
+#include <thread>
 #include <cstdint>
 #include <cstdlib>
 #include <mutex>
@@ -769,7 +771,48 @@ bool available(double api) {
 #ifdef __ANDROID__
 namespace lucent {
 
-void postToMain(std::function<void()> job) {
+namespace {
+
+/// Jobs for the main thread, drained by one runnable on the main Looper:
+/// posting one is a lock and a push, and a runnable (a JNI object, three
+/// JNI calls) is posted only when the queue was empty, not per job.
+struct MainQueue {
+  std::mutex m;
+  std::deque<std::function<void()>> jobs;
+  bool scheduled = false;
+};
+
+MainQueue& mainQueue() {
+  static auto* q = new MainQueue();
+  return *q;
+}
+
+/// The main thread's id, once known: the thread the main Looper's
+/// runnables run on, recorded by the first one (and by a first
+/// onMainThread() asked there).
+std::atomic<std::thread::id> mainThreadId{};
+
+/// Runs what is queued, up to what was there when it began: what those
+/// jobs post waits for the next runnable, so the Looper's other messages
+/// (input, frames) are not starved by a job that keeps posting.
+void drainMain() {
+  mainThreadId.store(std::this_thread::get_id(), std::memory_order_relaxed);
+
+  MainQueue& q = mainQueue();
+  std::deque<std::function<void()>> batch;
+  {
+    std::lock_guard<std::mutex> g(q.m);
+    batch.swap(q.jobs);
+    q.scheduled = false;
+  }
+
+  for (auto& job : batch) {
+    detail::runGuarded(job, "main thread job");
+    job = nullptr;
+  }
+}
+
+void scheduleDrain() {
   using facebook::jni::JNativeRunnable;
   JNIEnv* e = jni::env();
   static jobject handler = [e] {
@@ -785,19 +828,53 @@ void postToMain(std::function<void()> job) {
   // Lucent thread's class loader cannot see: create and post the runnable
   // with the app's loader.
   facebook::jni::ThreadScope::WithClassLoader([&] {
-    auto runnable = JNativeRunnable::newObjectCxxArgs(std::move(job));
+    jni::LocalFrame frame(e);
+    auto runnable = JNativeRunnable::newObjectCxxArgs([] { drainMain(); });
     e->CallBooleanMethod(handler, post, runnable.get());
   });
   jni::check(e);
 }
 
+}  // namespace
+
+void postToMain(std::function<void()> job) {
+  MainQueue& q = mainQueue();
+  bool schedule = false;
+  {
+    std::lock_guard<std::mutex> g(q.m);
+    q.jobs.push_back(std::move(job));
+    schedule = !std::exchange(q.scheduled, true);
+  }
+
+  if (!schedule) return;
+
+  try {
+    scheduleDrain();
+  } catch (...) {
+    // Not posted: the next post tries again, and the jobs stay queued.
+    {
+      std::lock_guard<std::mutex> g(q.m);
+      q.scheduled = false;
+    }
+    throw;
+  }
+}
+
 bool onMainThread() {
+  std::thread::id self = std::this_thread::get_id();
+  std::thread::id main = mainThreadId.load(std::memory_order_relaxed);
+  if (main != std::thread::id()) return main == self;
+
+  // Not known yet (nothing has run on the main Looper through Lucent):
+  // ask the Looper, and remember the answer when it is yes.
   JNIEnv* e = jni::env();
   jclass looperCls = jni::findClass("android/os/Looper");
   static jmethodID mainLooper = jni::staticMethod(looperCls, "getMainLooper", "()Landroid/os/Looper;");
   static jmethodID myLooper = jni::staticMethod(looperCls, "myLooper", "()Landroid/os/Looper;");
   jni::LocalFrame frame(e);
-  return e->IsSameObject(e->CallStaticObjectMethod(looperCls, mainLooper), e->CallStaticObjectMethod(looperCls, myLooper));
+  bool onMain = e->IsSameObject(e->CallStaticObjectMethod(looperCls, mainLooper), e->CallStaticObjectMethod(looperCls, myLooper));
+  if (onMain) mainThreadId.store(self, std::memory_order_relaxed);
+  return onMain;
 }
 
 }  // namespace lucent
