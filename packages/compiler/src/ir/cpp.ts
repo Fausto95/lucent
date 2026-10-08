@@ -454,6 +454,55 @@ class Emitter {
     return same && this.inlined.has(def.result) ? def.right : undefined;
   }
 
+  /**
+   * Of `store p = v` where `v` is `t + x` on strings and `t` a temporary
+   * holding what was read from `p` before `x` ran (a module variable's or a
+   * shared local's `+=`): `t` and `x`. The store appends to the place's own
+   * string (`lucent::appendTo`), so a loop of appends is linear.
+   */
+  readAppended(op: IrOp & { kind: "store" }): { current: ValueId; part: ValueId } | undefined {
+    const def = this.definitions.get(op.value);
+
+    if (def?.kind !== "binary" || def.op !== "+" || this.typeOf(def.result).k !== "string")
+      return undefined;
+
+    const left = this.definitions.get(def.left);
+    const read =
+      left?.kind === "load" &&
+      left.place === op.place &&
+      this.uses.get(def.left) === 1 &&
+      this.temporaries.get(def.left) === this.current &&
+      !this.concatenated.has(op.value);
+
+    return read && this.inlined.has(def.result)
+      ? { current: def.left, part: def.right }
+      : undefined;
+  }
+
+  /** The string `+`s spelled as one lucent::concat, with their parts. */
+  private readonly concatParts = new Map<ValueId, cpp.Expr[]>();
+  /** The string `+`s joined by a lucent::concat of more than two parts. */
+  private readonly concatenated = new Set<ValueId>();
+
+  /**
+   * The parts of `op`, a string `+` whose left side is another one spelled
+   * in place (each used once, nothing running between them): all of them,
+   * from the first, when there are more than two.
+   */
+  concatenation(op: IrOp & { kind: "binary" }): cpp.Expr[] | undefined {
+    if (op.op !== "+" || this.typeOf(op.result).k !== "string") return undefined;
+
+    const left = this.concatParts.get(op.left);
+    const parts = [...(left ?? [this.value(op.left)]), this.value(op.right)];
+
+    this.concatParts.set(op.result, parts);
+
+    if (!left || !this.inlined.has(op.left)) return undefined;
+
+    this.concatenated.add(op.result);
+    return parts;
+  }
+
   /** Whether the load `v` is spelled as its variable. */
   aliased(v: ValueId): boolean {
     return this.aliases.has(v);
@@ -864,6 +913,15 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
       return;
     }
 
+    // A chain of string `+`s (a template literal's parts) joins once: lucent::concat sizes the
+    // result before allocating it, where each nested `+` would copy what came before.
+    const parts = e.concatenation(op);
+
+    if (parts) {
+      e.define(op, op.result, cpp.call("lucent::concat", parts));
+      return;
+    }
+
     const [left, right] = [op.left, op.right].map((v) => ({ c: e.value(v), t: e.typeOf(v) }));
     const c = isEqualityOp(op.op)
       ? equality(op.op, left!, right!)
@@ -926,6 +984,20 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
       return;
     }
 
+    const read = e.readAppended(op);
+
+    if (read) {
+      const current = cpp.call("std::move", [e.value(read.current)]);
+
+      e.emit(
+        op,
+        cpp.exprStmt(
+          cpp.call("lucent::appendTo", [e.place(op.place), current, e.value(read.part)]),
+        ),
+      );
+      return;
+    }
+
     e.emit(op, cpp.exprStmt(cpp.assign(e.place(op.place), e.taken(op.value))));
   },
 
@@ -957,6 +1029,7 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
       op.code as cpp.Expr,
       (v) => e.value(v),
       (v) => e.intValue(v),
+      (v) => e.taken(v),
     );
 
     // What gives nothing may still be a value in C++ (`(void)x, lucent::undefined`): discarded.
@@ -1194,6 +1267,17 @@ export function operand(v: ValueId): cpp.Expr {
   return cpp.id(`${OPERAND}${v}`);
 }
 
+/** The prefix of the names plan code gives operands it takes over (see `taken`). */
+const TAKEN_OPERAND = "$t";
+
+/**
+ * How a plan's code names `v`, an operand it is the one use of: moved from
+ * when it is a temporary of the region (see Emitter.taken), as it is.
+ */
+export function takenOperand(v: ValueId): cpp.Expr {
+  return cpp.id(`${TAKEN_OPERAND}${v}`);
+}
+
 /** The prefix of the names plan code gives its operands' integer forms. */
 const INT_OPERAND = "$i";
 
@@ -1207,6 +1291,7 @@ function withOperands(
   code: cpp.Expr,
   value: (v: ValueId) => cpp.Expr,
   int: (v: ValueId) => cpp.Expr = value,
+  taken: (v: ValueId) => cpp.Expr = value,
 ): cpp.Expr {
   const replace = (node: unknown): unknown => {
     if (Array.isArray(node)) return node.map(replace);
@@ -1217,6 +1302,9 @@ function withOperands(
 
     if (n.k === "id" && typeof n.name === "string" && n.name.startsWith(INT_OPERAND))
       return int(Number(n.name.slice(INT_OPERAND.length)) as ValueId);
+
+    if (n.k === "id" && typeof n.name === "string" && n.name.startsWith(TAKEN_OPERAND))
+      return taken(Number(n.name.slice(TAKEN_OPERAND.length)) as ValueId);
 
     if (n.k === "id" && typeof n.name === "string" && n.name.startsWith(OPERAND))
       return value(Number(n.name.slice(OPERAND.length)) as ValueId);

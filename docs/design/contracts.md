@@ -980,8 +980,11 @@ integers`: its int locals, and `for` counters as int64s), or a plan's
   registers and converts to a double where one is needed; a leaf sees an
   operand's integer form too. Reads of a local nothing can write before
   their last use are spelled as the variable (no copy), `s = s + x` on a
-  string appends in place, and a pure operation used once by the next
-  is written inline there. Each call stays a statement of its own.
+  string appends in place (a field's or a module variable's `+=` too,
+  through `lucent::appendTo`: the place lets go of its handle, so the
+  string read from it grows in place), a chain of string `+`s (a template
+  literal) is one `lucent::concat`, sized before it allocates, and a pure
+  operation used once by the next is written inline there. Each call stays a statement of its own.
 - An async function (`IrFunction.async`) returns what its promise
   fulfils with; each `await` is a suspension point of its own, so what
   runs before and after it is explicit, and returning a promise returns

@@ -271,6 +271,12 @@ export interface LeafPlace {
   set(value: ValueId): Leaf;
   /** Writing a value of its own type, `from`: where what is written is not what is read. */
   assign?(value: ValueId, from: LType): Leaf;
+  /**
+   * Of a string place: storing `current + part`, where `current` is what
+   * was read from it, appending to the place's own string when nothing else
+   * holds it (a statement's `+=`).
+   */
+  append?(current: ValueId, part: ValueId): Leaf;
 }
 
 /** What a name holds in a function: a parameter's value, or a place. */
@@ -290,6 +296,8 @@ interface Target {
   write(value: ValueId, source: SourceSpan): void;
   /** Writes a value as it is, converted by the place: see LeafPlace.assign. */
   assign?(value: ValueId, source: SourceSpan): void;
+  /** Stores `current + part` on a string place: see LeafPlace.append. */
+  append?(current: ValueId, part: ValueId, source: SourceSpan): void;
 }
 
 /**
@@ -1024,7 +1032,14 @@ class Lowerer {
     const type = this.localTypes.get(place)!;
     const span = spanOf(node);
     // Spelled as a temporary (see cppIdent): no program name can be.
-    const copy = this.b.local(`${sym.name}_it`, type, span, true, undefined, temporary(sym.name, "it"));
+    const copy = this.b.local(
+      `${sym.name}_it`,
+      type,
+      span,
+      true,
+      undefined,
+      temporary(sym.name, "it"),
+    );
 
     this.b.store(copy, this.b.load(place, span), span);
     this.boxed.add(copy);
@@ -1631,7 +1646,7 @@ class Lowerer {
     const { operands, args } = this.operands();
     const place = host.place(node, operands);
 
-    const assign = place.assign;
+    const { assign, append } = place;
 
     return {
       type: place.type,
@@ -1639,6 +1654,12 @@ class Lowerer {
       write: (v, span) => void this.planOf(place.set(v), [...args, v], span),
       ...(assign
         ? { assign: (v, span) => void this.planOf(assign(v, this.b.typeOf(v)), [...args, v], span) }
+        : {}),
+      ...(append
+        ? {
+            append: (current, part, span) =>
+              void this.planOf(append(current, part), [...args, current, part], span),
+          }
         : {}),
     };
   }
@@ -2110,6 +2131,21 @@ class Lowerer {
       // The target is read before the right side runs, as in JavaScript.
       const target = this.target(node.left);
       const current = this.coerce(target.read(), this.typeAt(node.left), node.left);
+
+      // A statement appending to a string place: to the place's own string, in place.
+      if (
+        compound === "+" &&
+        target.append &&
+        target.type.k === "string" &&
+        this.b.typeOf(current).k === "string" &&
+        discarded(node)
+      ) {
+        const part = this.string(this.expr(node.right), node.right);
+
+        target.append(current, part, spanOf(node));
+        return this.b.const(undefined, spanOf(node));
+      }
+
       const value = this.operator(compound, current, this.expr(node.right), node);
 
       target.write(this.coerce(value, target.type, node), spanOf(node));
@@ -2421,6 +2457,15 @@ function isLibrary(sym: ts.Symbol): boolean {
   const decls = sym.declarations ?? [];
 
   return decls.length > 0 && decls.every((d) => d.getSourceFile().isDeclarationFile);
+}
+
+/** Whether nothing uses the value of `node`: a statement's expression, or a `for`'s update. */
+function discarded(node: ts.Expression): boolean {
+  const parent = node.parent;
+
+  return (
+    ts.isExpressionStatement(parent) || (ts.isForStatement(parent) && parent.incrementor === node)
+  );
 }
 
 /** Whether `body` writes the variable `sym`: assigns it (destructuring too), increments it, loops over it. */

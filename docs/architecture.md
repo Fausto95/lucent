@@ -590,7 +590,8 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
   words); any other is one allocation, a header (atomic reference count,
   cached hash, length, capacity) followed by its units. When the handle is
   the only owner, `+=` appends in place, so building a string in a loop is
-  linear; moving a handle is a memcpy, which libc++'s vector uses as it grows.
+  linear (`appendTo` does the same for a field or module variable, whose
+  value was read into a temporary first); moving a handle is a memcpy, which libc++'s vector uses as it grows.
 - `number.h`: ECMAScript number semantics. `toString` and `toExponential()`
   produce the shortest digits that read back as the double, the closest of
   those, with Dragonbox (`cpp/third_party/dragonbox`, as Hermes does);

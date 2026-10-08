@@ -9,7 +9,7 @@ import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { isInside } from "../analysis/scopes.ts";
 import { Codes, fail } from "../diagnostics.ts";
-import { intOperand, operand } from "../ir/cpp.ts";
+import { intOperand, operand, takenOperand } from "../ir/cpp.ts";
 import type { ValueId } from "../ir/ir.ts";
 import {
   IrUnsupported,
@@ -341,6 +341,15 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
           code: direct ? cpp.assign(direct, operand(v)) : set!(operand(v)),
           type: T.void,
         }),
+        ...(direct && lv.type.k === "string"
+          ? {
+              append: (current: ValueId, part: ValueId) => ({
+                name: `${name} +=`,
+                code: cpp.call("lucent::appendTo", [direct, takenOperand(current), operand(part)]),
+                type: T.void,
+              }),
+            }
+          : {}),
         ...(assign
           ? {
               assign: (v: ValueId, from: LType) => ({
