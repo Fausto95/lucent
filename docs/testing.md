@@ -63,6 +63,13 @@ differ only in parentheses or braces are counted apart; any other change
 shows as a diff. Run it before and after a change to code generation that
 should keep the output's meaning.
 
+With `--host`, the corpus is the end-to-end cases for the host only, without
+`#line` directives: what any machine generates without a platform SDK. That
+corpus is committed (`packages/compiler/test/corpus`), and
+`test/codegen-corpus.test.ts` (part of `pnpm test`, so CI's unit tests) fails
+with the diff whenever the generated code changes. Review it, then write the
+corpus again with `pnpm corpus:write` in the same commit as the change.
+
 ## Declaration audit
 
 Apps type-check with `skipLibCheck`, so errors inside generated SDK
