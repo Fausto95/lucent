@@ -1,5 +1,0 @@
----
-"@lucent-lang/lucent": minor
----
-
-Give each package its own lock and thread (an actor) instead of one lock for all module code: modules that import one another share one, so a long job in one package no longer delays calls into another, or the main thread. The main thread never queues behind module jobs: `main(f)`, `present()` and `onAppEvent`/`onSceneEvent` listeners run once their package is free, and a delegate method that must answer waits only for the code holding the package then (debug builds log a wait over 50 ms). A JavaScript callback called synchronously from Lucent lets the main thread in meanwhile, which fixes a deadlock when that JavaScript waits for the main thread. A call across packages that would deadlock (two threads each holding one package and waiting for the other's) throws `Lucent: deadlock` instead of hanging. Native code that names `lucent::Scheduler` or the "legacy module context" now uses `lucent::Actor` (`Actor::shared()` for code of no package); generated code must be rebuilt (`lucent build`).
