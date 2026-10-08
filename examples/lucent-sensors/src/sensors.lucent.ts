@@ -108,12 +108,14 @@ class Readings implements SensorEventListener {
   ) {}
 
   onSensorChanged(event: SensorEvent): void {
+    // A Java array field, so nullable; Android always fills it.
+    const v = event.values;
+    if (v === null) return;
     // event.timestamp is in nanoseconds since boot: a Java long, so a bigint.
     const timestamp = Number(event.timestamp / 1000n) / 1000;
     if (timestamp - this.last < this.intervalMs) return;
     this.last = timestamp;
     const scale = this.kind === "accelerometer" ? 1 / STANDARD_GRAVITY : 1;
-    const v = event.values;
     this.next({
       x: (v[0] ?? 0) * scale,
       y: (v[1] ?? 0) * scale,

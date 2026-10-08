@@ -7,6 +7,7 @@ import { PLATFORM } from "lucent:platform";
 import { UserDefaults } from "lucent:ios/Foundation";
 import { appContext } from "lucent:android";
 import { Context, type SharedPreferences } from "lucent:android/android.content";
+import type { Iterator as JavaIterator } from "lucent:android/java.util";
 
 export type Value = string | number | boolean;
 
@@ -59,7 +60,8 @@ function prefs(store: string): SharedPreferences {
 
 function prefsKeys(store: string): string[] {
   const keys: string[] = [];
-  const it = prefs(store).getAll()?.keySet()?.iterator();
+  // getAll() is a Map<String, ?>, which the wildcard leaves untyped: its keys are strings.
+  const it = prefs(store).getAll()?.keySet()?.iterator() as JavaIterator<string> | null | undefined;
   while (it?.hasNext()) {
     const key = it.next();
     if (key !== null) keys.push(key);
