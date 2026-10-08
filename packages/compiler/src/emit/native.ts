@@ -61,6 +61,7 @@ import { kotlinShim, type KotlinUse, suspending, type Suspending } from "./kotli
 import { callbackEntry, setupOf } from "./setups.ts";
 import {
   isPayloadEnum,
+  sdkTypeOf,
   swiftCall,
   swiftLabels,
   swiftRuntimeSince,
@@ -946,6 +947,9 @@ export function fromObjc(
       return lt.k === "opt"
         ? { c: objc("fromNSErrorOpt", code), t: lt }
         : { c: objc("fromNSError", code, w), t: lt };
+    // A Swift AsyncSequence: the shim's box of it, collected with lucent:ios's AsyncSequence.collect.
+    case "sequence":
+      return wrap(code);
     // A tuple (from a Swift shim): the array of its elements' objects.
     case "tuple": {
       const tuple = elem(lt);
@@ -3420,6 +3424,60 @@ export function nativeFunctionCall(em: FnEmitter, node: ts.CallExpression): E | 
   );
   const ret = parseSdkType(f.returns, sdk.module);
   return fromObjc(em, cpp.call(name, a), ret, declaredLt(em, "ios", ret, node), `${name}()`, owned);
+}
+
+/**
+ * `sequence.collect(f, signal?)` on lucent:ios's AsyncSequence (what a
+ * Swift AsyncSequence is in Lucent): each element, which crossed as an
+ * object, converted to the Lucent type the sequence's type argument says
+ * and given to `f` on the Lucent thread (ios_sequence.h).
+ */
+export function collectSequence(em: FnEmitter, obj: E, name: string, node: ts.CallExpression): E {
+  if (name !== "collect") fail(node, Codes.UnsupportedCall, `${name} is not a method of AsyncSequence`);
+  const args = argsOf(node);
+  const f = args[0];
+  if (!f) fail(node, Codes.UnsupportedCall, "collect takes the function each element is given");
+  if (
+    (ts.isArrowFunction(f) || ts.isFunctionExpression(f)) &&
+    ts.getModifiers(f)?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword)
+  )
+    fail(
+      f,
+      Codes.UnsupportedType,
+      "collect takes a function that is not async: the sequence would not wait for its promise",
+    );
+
+  const receiver = ts.isPropertyAccessExpression(node.expression)
+    ? node.expression.expression
+    : node.expression;
+  const seqType = em.checker.getTypeAtLocation(receiver);
+  const [elementT] = em.checker.getTypeArguments(seqType as ts.TypeReference);
+  if (!elementT) fail(node, Codes.UnsupportedType, "the sequence's element type is not known");
+  const lt = em.reg.lower(elementT, node);
+  // The schema type the element crossed as: bigints as 64-bit integers, the rest as sdkTypeOf says.
+  const of: SdkType =
+    elementT.flags & ts.TypeFlags.BigIntLike
+      ? { k: "prim", name: "int64", nullable: false }
+      : sdkTypeOf(em, elementT, node);
+
+  const fnT: LType = { k: "fn", params: [lt], ret: T.void };
+  const fn = em.exprAs(f, fnT);
+  const e = cpp.id("e_");
+  const value =
+    of.k === "prim"
+      ? fromObjcItem(em, of, lt, "AsyncSequence.collect")
+      : fromObjc(em, e, of, lt, "AsyncSequence.collect").c;
+  const each = cpp.lambda(
+    [{ name: "f_", init: fn }],
+    [cpp.param(cpp.type("id"), "e_")],
+    [cpp.exprStmt(cpp.call("f_", [value]))],
+  );
+  em.ctx.nativeUnit(em.opts.module).include("lucent/platform/ios_sequence.h");
+  em.ctx.swiftSequences = true;
+  return {
+    c: cpp.call("lucent::objc::collectSequence", [obj.c, each, ...signalArg(em, args[1])]),
+    t: { k: "promise", inner: T.undefined },
+  };
 }
 
 /** A C global constant of an SDK module (iOS): `kSecClass`. */

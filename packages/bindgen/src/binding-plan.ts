@@ -98,6 +98,8 @@ export type ConversionOp =
   | "enum"
   /** A C struct, by value. */
   | "struct"
+  /** A Swift AsyncSequence, collected by a Lucent function (`of[0]`: its elements). */
+  | "sequence"
   /** An Out<T> out-parameter. */
   | "out"
   /** A trampoline for a function-typed value; `detail` says when it runs. */
@@ -305,6 +307,7 @@ const NOT_JAVA = new Set<SchemaType["k"]>([
   "tuple",
   "out",
   "error",
+  "sequence",
 ]);
 
 /**
@@ -1008,6 +1011,8 @@ function kindConversion(t: SchemaType, place: Place, ctx: Context): ConversionPl
       return { op: "error", type: t };
     case "out":
       return { op: "out", type: t, of: [inner(t.of, { pointee: true })] };
+    case "sequence":
+      return { op: "sequence", type: t, of: [inner(t.of, { element: true })] };
     case "classOf":
       return { op: "retain-object", type: t, detail: `Class<${t.param}>` };
     case "tparam":
@@ -1280,6 +1285,20 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
       if (payload) return payload;
 
       return place.flow === "in" && !place.element && t.nullable ? optionalUnion : undefined;
+    }
+
+    // A sequence the shim gives (a result or property): collected in Lucent, elements as objects.
+    case "sequence": {
+      if (place.flow === "in" || place.element || place.offered)
+        return not("async sequences other than results");
+      const of = t.of;
+      const facts = of.k === "ref" ? ctx.types(of.module, of.name) : undefined;
+      if (!["prim", "string", "bytes", "date", "id", "ref"].includes(of.k) || of.nullable)
+        return not("async sequences of collections, closures or optional values");
+      if (facts?.kind === "enum" && !facts.swift)
+        return not(`async sequences of Objective-C enums (${(of as { name: string }).name})`);
+      if (isStruct(of, ctx)) return not("async sequences of C structs");
+      return t.nullable ? not("optional async sequences") : undefined;
     }
 
     default:

@@ -224,6 +224,17 @@ class Out<T> {
 
 What a method writes through a pointer (`CGFloat *`, `NSRange *`, `NSDate **`, `CFTypeRef *`): pass it, then read `value`. For a pointer the method also reads (a number or a struct), set `value` first.
 
+### AsyncSequence
+
+```ts title="ios.d.ts"
+class AsyncSequence<T> {
+  protected constructor();
+  collect(f: (value: T) => void, signal?: AbortSignal): Promise<void>;
+}
+```
+
+A Swift AsyncSequence (StoreKit's `Transaction.updates`, an `AsyncStream`), as Kotlin's Flow is: `collect` runs it, calling `f` with each element in order on the Lucent thread, the sequence waiting for each call, and settles when it ends (rejecting with what it throws, or what `f` throws). Aborting `signal` cancels the iteration's task.
+
 ## Types
 
 ### ObjCValue

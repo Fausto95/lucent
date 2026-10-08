@@ -243,6 +243,7 @@ export async function digest(data: Uint8Array): Promise<Uint8Array> {
 | An `enum` with payloads | A union discriminated by `kind`. A labeled payload is a field of its label, a lone unlabeled one is `value`, and several are `_0`, `_1`. |
 | `throws` | A thrown `Error`, as for Objective-C. |
 | An `async` method, function or getter | A promise. Methods and functions take an optional `AbortSignal` last: aborting rejects the promise at once and cancels the task. |
+| An `AsyncSequence`, such as `AsyncStream<E>` or StoreKit's `Transaction.updates` | An `AsyncSequence<E>` from [lucent:ios](/docs/api/lucent-ios/#asyncsequence), collected as a Kotlin `Flow` is: `await seq.collect((e) => …, signal)`. |
 | Default arguments at the end | Optional parameters. A defaulted parameter of a type Lucent can't pass is left out, and always takes its default. |
 | A generic member | A generic member: Lucent generates one Swift function per combination of type arguments your code uses. |
 | A tuple | A TypeScript tuple, its labels the elements' names: `(min: Int, max: Int)` is `[min: number, max: number]`. |
@@ -251,6 +252,22 @@ export async function digest(data: Uint8Array): Promise<Uint8Array> {
 | `some DataProtocol`, `some StringProtocol`, `some Collection<E>` | `Uint8Array`, `string`, `E[]`. |
 | A member a module's protocol extension gives a type | A member of that type: `SHA256.hash` comes from `HashFunction`. |
 | A protocol's values (`any Drawable`) | Objects of the protocol's type. |
+
+`collect` calls your function with each element on the Lucent thread, in order, and the sequence waits for each call. It resolves when the sequence ends, and rejects with what the sequence or your function throws. Its `AbortSignal` cancels the task iterating the sequence. The function can't be `async`: the sequence wouldn't wait for its promise.
+
+```ts title="purchases.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { Transaction } from "lucent:ios/StoreKit";
+
+/** Calls `onPurchase` with each verified transaction's product, until `signal` aborts. */
+export async function watchPurchases(onPurchase: (productId: string) => void, signal: AbortSignal): Promise<void> {
+  if (PLATFORM !== "ios") return;
+
+  await Transaction.updates.collect((result) => {
+    if (result.kind === "verified") onPurchase(result.value.productID);
+  }, signal);
+}
+```
 
 A case an OS update adds after your build reads as a `TypeError` in an enum with payloads, and as `-1` in an enum without them. Passing that `-1` back to Swift crashes the app. A Swift class can't be extended in Lucent: subclass it in Swift of your own, in a local pod the app depends on.
 

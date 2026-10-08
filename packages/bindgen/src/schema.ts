@@ -595,7 +595,16 @@ export type SchemaType =
    */
   | { k: "tparam"; name: string; nullable: boolean; bound?: SchemaType }
   /** A class or protocol; `args` are a generic class's type arguments (none: raw). */
-  | { k: "ref"; module: string; name: string; nullable: boolean; args?: SchemaType[] };
+  | { k: "ref"; module: string; name: string; nullable: boolean; args?: SchemaType[] }
+  /**
+   * A Swift AsyncSequence of `of` (AsyncStream, AsyncThrowingStream, `some
+   * AsyncSequence<T, E>`, or a type of the module conforming to it, such
+   * as StoreKit's Transaction.Transactions): lucent:ios's AsyncSequence,
+   * which a Lucent function collects as Kotlin's Flow is (iterated by
+   * the shims, each element given to the function, until the sequence
+   * ends, throws, or the AbortSignal aborts). Written `AsyncSequence<T>`.
+   */
+  | { k: "sequence"; of: SchemaType; nullable: boolean };
 
 export const PRIMS = [
   "void",
@@ -713,6 +722,7 @@ export function parseSchemaType(
       if (name === "Out") return { k: "out", of, nullable: false };
       if (name === "Set") return { k: "set", of, nullable: false };
       if (name === "List") return { k: "array", of, nullable: false, list: true };
+      if (name === "AsyncSequence") return { k: "sequence", of, nullable: false };
       const t = named(name, module, typeParams);
       if (t.k !== "ref") throw new Error(`schema type ${s}: ${name} takes no type arguments`);
       return { ...t, args };
@@ -789,6 +799,8 @@ export function formatSchemaType(t: SchemaType): string {
       return `Tuple<${t.of.map((x, i) => `${t.labels ? `${t.labels[i]}: ` : ""}${formatSchemaType(x)}`).join(", ")}>${q}`;
     case "out":
       return `Out<${formatSchemaType(t.of)}>${q}`;
+    case "sequence":
+      return `AsyncSequence<${formatSchemaType(t.of)}>${q}`;
     case "classOf":
       return `Class<${t.param}>${q}`;
     case "tparam":

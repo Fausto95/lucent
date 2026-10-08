@@ -286,6 +286,8 @@ function decl(d: Decl): string[] {
       return [`import ${d.module}`];
     case "comment":
       return d.text.split("\n").map((l) => `// ${l}`.trimEnd());
+    case "verbatim":
+      return d.text.split("\n");
     case "func":
       return func(d, "");
     case "class":

@@ -281,6 +281,7 @@ export function jniDescriptor(
       case "out":
       case "fn":
       case "error":
+      case "sequence":
         return fail(`${t.k} is not a Java type`);
       case "ref": {
         if (t.module === "java.lang") return `Ljava/lang/${t.name};`;

@@ -433,6 +433,17 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-08: Swift AsyncSequences are collected as Flows are.** An
+AsyncSequence (AsyncStream, `some AsyncSequence<E, F>`, or a module's type
+conforming to it, such as StoreKit's `Transaction.Transactions`) is
+lucent:ios's `AsyncSequence<E>`, whose `collect(f, signal?)` iterates it
+in a Swift task, waiting for `f` on the Lucent thread at each element,
+and settles when the sequence ends or throws; the signal cancels the
+task. _Why:_ Kotlin's Flow.collect has the same shape, so ports read the
+same on both platforms; a JavaScript async iterator was rejected because
+Lucent has no `for await` over native values yet, and a subscription
+without backpressure would buffer a fast sequence without bound.
+
 **2026-10-08: Android's oldest API is the app's minSdk.** The
 `lucentClasspath` Gradle task writes the app's `minSdk` and `compileSdk`
 beside its classpath; `LUCENT3007` checks Android APIs against that

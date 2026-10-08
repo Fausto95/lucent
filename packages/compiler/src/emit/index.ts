@@ -442,10 +442,12 @@ export function emitProgram(
     );
   }
   // The Swift-only members the iOS glue calls.
-  if (ctx.swiftShims.size || ctx.swiftProxies.length)
+  if (ctx.swiftShims.size || ctx.swiftProxies.length || ctx.swiftSequences)
     files.set(
       "LucentShims.swift",
-      shimsFile(ctx.swiftShims.values(), proxyParts(ctx.swiftProxies)),
+      shimsFile(ctx.swiftShims.values(), proxyParts(ctx.swiftProxies), {
+        sequences: ctx.swiftSequences,
+      }),
     );
   files.set(
     "lucent_bindings.cpp",

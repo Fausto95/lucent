@@ -142,6 +142,9 @@ const NSOBJECT_PROTOCOL = "c:objc(pl)NSObject";
 /** Swift's AnyHashable: an Objective-C object (id), as untyped NSDictionary keys and NSSet elements are. */
 const ANY_HASHABLE = "s:s11AnyHashableV";
 
+/** Swift's AsyncSequence protocol. */
+export const ASYNC_SEQUENCE = "s:Sci";
+
 /** The protocol of Swift value types that bridge to an Objective-C class, its `ReferenceType`. */
 export const REFERENCE_CONVERTIBLE = "s:10Foundation20ReferenceConvertibleP";
 
@@ -179,7 +182,12 @@ export const STANDARD_PROTOCOLS: Record<string, (args: SchemaType[]) => SchemaTy
   // Collection<E> and Sequence<E>: an array of E.
   "s:Sl": ([e]) => (e ? { k: "array", of: e, nullable: false } : undefined),
   "s:ST": ([e]) => (e ? { k: "array", of: e, nullable: false } : undefined),
+  // AsyncSequence<E, Failure>: a sequence Lucent collects.
+  [ASYNC_SEQUENCE]: ([e]) => (e ? { k: "sequence", of: e, nullable: false } : undefined),
 };
+
+/** AsyncStream<E> and AsyncThrowingStream<E, Failure>: sequences Lucent collects. */
+const ASYNC_STREAMS = new Set(["s:ScS", "s:Scs"]);
 
 /** Tokens of a type written in declaration fragments. */
 function tokens(frags: Fragment[]): (Fragment | string)[] {
@@ -285,7 +293,16 @@ export function parseType(frags: Fragment[], r: Resolver): SchemaType {
       if (toks[p] === "<") {
         p++;
         while (toks[p] !== ">") {
-          args.push(type());
+          // An AsyncSequence's Failure (`Never`, `any Error`): what it throws, not a value.
+          const failure = proto && typeof proto !== "string" && proto.preciseIdentifier === ASYNC_SEQUENCE && args.length === 1;
+          if (failure) {
+            let depth = 0;
+            while (p < toks.length && (depth > 0 || (toks[p] !== ">" && toks[p] !== ","))) {
+              if (toks[p] === "<") depth++;
+              else if (toks[p] === ">") depth--;
+              p++;
+            }
+          } else args.push(type());
           if (toks[p] === ",") p++;
           else if (toks[p] !== ">") throw new Unsupported(`type syntax ${tok}`);
         }
@@ -402,6 +419,18 @@ export function parseType(frags: Fragment[], r: Resolver): SchemaType {
       const inner = type();
       if (toks[p++] !== ">") throw new Unsupported("Unmanaged");
       return inner;
+    }
+    // AsyncStream<E>, AsyncThrowingStream<E, Error>: a sequence of E (its failure is thrown).
+    if (ASYNC_STREAMS.has(usr) && toks[p] === "<") {
+      p++;
+      const of = type();
+      // Its Failure (`any Error`): what it throws, not a value.
+      for (let depth = 0; p < toks.length && (depth > 0 || toks[p] !== ">"); p++) {
+        if (toks[p] === "<") depth++;
+        else if (toks[p] === ">") depth--;
+      }
+      if (toks[p++] !== ">") throw new Unsupported(`generic ${tok.spelling}`);
+      return { k: "sequence", of, nullable: false };
     }
     // Swift's Set (NSSet): a Lucent set.
     if (usr === "s:Sh" && toks[p] === "<") {

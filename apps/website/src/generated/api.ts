@@ -668,6 +668,28 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "params": []
       },
       {
+        "name": "AsyncSequence",
+        "kind": "class",
+        "signature": "class AsyncSequence<T> {\n  protected constructor();\n  collect(f: (value: T) => void, signal?: AbortSignal): Promise<void>;\n}",
+        "doc": [
+          "A Swift AsyncSequence (StoreKit's `Transaction.updates`, an `AsyncStream`), as Kotlin's Flow is: `collect` runs it, calling `f` with each element in order on the Lucent thread, the sequence waiting for each call, and settles when it ends (rejecting with what it throws, or what `f` throws). Aborting `signal` cancels the iteration's task."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "constructor",
+            "signature": "protected constructor();",
+            "doc": ""
+          },
+          {
+            "name": "collect",
+            "signature": "collect(f: (value: T) => void, signal?: AbortSignal): Promise<void>;",
+            "doc": ""
+          }
+        ],
+        "params": []
+      },
+      {
         "name": "AppEvent",
         "kind": "type",
         "signature": "type AppEvent =\n  | \"didBecomeActive\"\n  | \"willResignActive\"\n  | \"didEnterBackground\"\n  | \"willEnterForeground\"\n  | \"didReceiveMemoryWarning\"\n  | \"willTerminate\";",

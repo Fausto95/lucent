@@ -36,6 +36,7 @@ import { numberExpr, stringExpr } from "./literals.ts";
 import { handleDispose, handleMethodCall } from "./extensions.ts";
 import {
   inMainContext,
+  collectSequence,
   nativeCall,
   nativeInstanceOf,
   nativeLvalue,
@@ -1058,6 +1059,8 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
   if (t.k === "signal") return signalMethod(em, obj, name, node);
   if (t.k === "native" && name === DISPOSE)
     return { c: disposeCall(em, obj, node), t: T.undefined };
+  if (t.k === "native" && t.module === "lucent:ios" && t.name === "AsyncSequence")
+    return collectSequence(em, obj, name, node);
   if (t.k === "native")
     return (
       nativeCall(em, node, obj) ??

@@ -75,6 +75,23 @@ export declare class Out<T> {
 }
 
 /**
+ * A Swift AsyncSequence (StoreKit's `Transaction.updates`, an
+ * `AsyncStream`), as Kotlin's Flow is: `collect` runs it, calling `f` with
+ * each element in order on the Lucent thread, the sequence waiting for
+ * each call, and settles when it ends (rejecting with what it throws, or
+ * what `f` throws). Aborting `signal` cancels the iteration's task.
+ */
+export declare class AsyncSequence<T> {
+  private readonly __lucent_AsyncSequence: never;
+  protected constructor();
+  /**
+   * @param f Called with each element; a function that is not async (the sequence would not wait for its promise).
+   * @param signal Cancels the iteration; the promise rejects with AbortError.
+   */
+  collect(f: (value: T) => void, signal?: AbortSignal): Promise<void>;
+}
+
+/**
  * UIApplication's lifecycle notifications, by name: `"didBecomeActive"` is
  * `UIApplication.didBecomeActiveNotification`.
  */

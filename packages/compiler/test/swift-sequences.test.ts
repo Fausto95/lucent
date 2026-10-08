@@ -76,14 +76,19 @@ describe("Swift async sequences", () => {
   return \`\${ids.join(",")} \${total}\`;`);
 
     expect(p.messages).toEqual([]);
-    // The shim gives the sequence boxed; collecting it is a task iterating it.
-    expect(p.shims).toContain("LucentSequence(Store.Transaction.updates)");
-    expect(p.shims).toMatch(/for try await e in s_/);
-    expect(p.shims).toContain("@_cdecl(\"lucent_swift_collect\")");
-    // The glue delivers each element on the Lucent thread, as a native operation that settles at the end.
-    expect(p.mm).toContain("lucent::nativeOperation");
-    expect(p.mm).toContain("lucent_swift_collect");
-    expect(p.mm).toContain("lucent::postCallback");
+    // The shim gives the sequence boxed, each element as the object it crosses as.
+    expect(p.shims).toContain("let v = Store.Transaction.updates");
+    expect(p.shims).toContain("lucentRetained(LucentSequence(v) { LucentBox($0) as AnyObject })");
+    expect(p.shims).toContain("lucentRetained(LucentSequence(v) { $0 as NSNumber })");
+    // Collecting it is a task iterating it, waiting for each element to be handled.
+    expect(p.shims).toContain("for try await e in s_ { await each(object(e)) }");
+    expect(p.shims).toContain('@_cdecl("lucent_swift_collect")');
+    expect(p.shims).toContain('@_cdecl("lucent_swift_resume")');
+    // The glue converts each element and gives it to the function (ios_sequence.h posts it).
+    expect(p.mm).toContain("#include <lucent/platform/ios_sequence.h>");
+    expect(p.mm).toMatch(/lucent::objc::collectSequence\(v\d+_, \[f_ = v\d+_\]\(id e_\)/);
+    expect(p.mm).toContain('f_(lucent::objc::wrap(e_, "AsyncSequence.collect"))');
+    expect(p.mm).toContain("longLongValue");
   });
 
   it("refuse collecting with an async function: the sequence would not wait for it", () => {

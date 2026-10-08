@@ -417,7 +417,15 @@ closures (as Objective-C blocks, both ways: of numbers, booleans,
 strings and Objective-C objects), optional scalars (as NSNumbers, nil
 for none) and Objective-C enums (as their raw values), not those inside
 collections, nor optional Objective-C enums. Objective-C methods take
-errors (as NSErrors, `toNSError`) as arguments. A value that cannot cross is an `unsupported` conversion with
+errors (as NSErrors, `toNSError`) as arguments. A Swift AsyncSequence
+(`AsyncStream`, `AsyncThrowingStream`, `some AsyncSequence<E, F>`, or a
+non-generic type of the module conforming to it, by its `Element`) is the
+schema type `AsyncSequence<E>`, a result or property only: the shim boxes
+it as a `LucentSequence` with each element's object conversion, and
+lucent:ios's `AsyncSequence.collect` runs `lucent_swift_collect`, a task
+that hands each element to the glue with a continuation it resumes once
+the Lucent function has run (ios_sequence.h), as Kotlin's Flow.collect
+suspends for its collector. A value that cannot cross is an `unsupported` conversion with
 its reason; a member no use of which can work (a read-only property
 written, a Swift async initializer, a member of a protocol with associated
 types called, a static requirement implemented) is `refused`, with the

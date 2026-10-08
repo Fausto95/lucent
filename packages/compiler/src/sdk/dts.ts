@@ -122,6 +122,9 @@ function emitDts(
         case "out":
           use("lucent:ios", "Out");
           return ts.ref("Out", tsType(t.of, true));
+        case "sequence":
+          use("lucent:ios", "AsyncSequence");
+          return ts.ref("AsyncSequence", tsType(t.of, true));
         case "set":
           return ts.ref("Set", tsType(t.of, out));
         case "tuple":
