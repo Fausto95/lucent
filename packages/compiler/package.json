@@ -15,6 +15,6 @@
     "@lucent-lang/bindgen": "workspace:*",
     "@lucent-lang/codegen": "workspace:*",
     "@lucent-lang/runtime": "workspace:*",
-    "typescript": "~5.9.3"
+    "typescript": "~7.0.2"
   }
 }
