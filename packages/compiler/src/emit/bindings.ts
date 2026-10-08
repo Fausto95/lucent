@@ -690,11 +690,11 @@ export class BindingsEmitter {
       if (p.rest) {
         const elem = (p.cppType as LType & { k: "array" }).e;
         const at = cpp.id("i");
-        const which = cpp.binary(
-          cpp.str("argument "),
-          "+",
-          cpp.call("std::to_string", [cpp.binary(at, "+", cpp.num(1))]),
-        );
+        // `argument <n>`, its number rendered only for an error.
+        const which = cpp.call(cpp.scoped(cpp.type("Path"), "argument"), [
+          cpp.str(fname),
+          cpp.binary(at, "+", cpp.num(1)),
+        ]);
         conv.push(cpp.varDecl(t, n), {
           k: "for",
           init: cpp.varDecl(cpp.type("size_t"), "i", cpp.num(i)),
@@ -703,7 +703,7 @@ export class BindingsEmitter {
           body: [
             cpp.exprStmt(
               cpp.call(cpp.dot(cpp.id(n), "push"), [
-                this.convertFromJs(elem, cpp.index(cpp.id("args"), at), path(fname, which)),
+                this.convertFromJs(elem, cpp.index(cpp.id("args"), at), which),
               ]),
             ),
           ],
@@ -1138,12 +1138,8 @@ const fromJs = (t: cpp.Type, value: cpp.Expr, at: cpp.Expr) =>
 const toJs = (t: cpp.Type, host: cpp.Expr, value: cpp.Expr) =>
   cpp.call(cpp.scoped(cpp.type("Convert", t), "toJs"), [rt, host, value]);
 /** `Path{"Point.move", "argument 'dx'"}`: where a conversion failed, for its error. */
-const path = (fname: string, what: string | cpp.Expr) =>
-  cpp.construct(
-    cpp.type("Path"),
-    [cpp.str(fname), typeof what === "string" ? cpp.str(what) : what],
-    true,
-  );
+const path = (fname: string, what: string) =>
+  cpp.construct(cpp.type("Path"), [cpp.str(fname), cpp.str(what)], true);
 const boundaryError = (at: cpp.Expr, expected: string, got: cpp.Expr) =>
   cpp.exprStmt(cpp.call("throwBoundaryError", [rt, at, cpp.str(expected), got]));
 const argAt = (i: number) => cpp.call("arg", [cpp.id("args"), cpp.id("count"), cpp.num(i)]);

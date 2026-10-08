@@ -374,7 +374,8 @@ static methods; its static fields stay inside Lucent.
 
 - **Arguments are validated**, because JavaScript callers can pass anything:
   `hash: argument 'input' must be a string, got a number`, or for nested values
-  `midpoint: argument 'a'.y must be a number, got undefined`.
+  `midpoint: argument 'a'.y must be a number, got undefined`. The path is
+  rendered only when a check fails: checking a value allocates nothing for it.
 - **`null` and `undefined` are told apart** where TypeScript does: an
   argument, a setter's value or an object's field typed `T | undefined` (or
   `x?: T`) rejects `null`, and one typed `T | null` rejects `undefined`
