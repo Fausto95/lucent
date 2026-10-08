@@ -12,27 +12,35 @@ runs:
         if [[ "$RUNNER_OS" == "Linux" ]]; then
           sudo apt-get install -y ccache
           sudo update-ccache-symlinks
-          ls /usr/lib/ccache
           echo "/usr/lib/ccache" >> "$GITHUB_PATH"
         else
           HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install ccache
         fi
-        echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
-        # Bounded: each run's cache is saved whole, and the repository's caches share 10 GB.
-        echo "CCACHE_MAXSIZE=400M" >> "$GITHUB_ENV"
+        {
+          echo "CCACHE_DIR=$HOME/.ccache"
+          # Bounded: each run's cache is saved whole, and the repository's caches share 10 GB.
+          echo "CCACHE_MAXSIZE=400M"
+          # Paths under the checkout hash relative to it, so another checkout's objects match.
+          echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE"
+          # The runner's compilers are reinstalled with each image: their mtimes say nothing.
+          echo "CCACHE_COMPILERCHECK=content"
+        } >> "$GITHUB_ENV"
     # Saved from main's runs alone, which pull requests read: one per pull request push would
-    # evict the others within a few runs.
+    # evict the others within a few runs. Main's runs are never cancelled (ci.yml's concurrency),
+    # so each one that passes saves its objects.
     - name: Compiler cache (objects of main's earlier runs, saved)
       if: github.ref == 'refs/heads/main'
-      uses: actions/cache@v4
+      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: ~/.ccache
-        key: ccache-${{ inputs.key }}-${{ github.sha }}
-        restore-keys: ccache-${{ inputs.key }}-
+        key: ccache-${{ runner.os }}-${{ inputs.key }}-${{ github.sha }}
+        restore-keys: ccache-${{ runner.os }}-${{ inputs.key }}-
     - name: Compiler cache (objects of main's runs)
       if: github.ref != 'refs/heads/main'
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: ~/.ccache
-        key: ccache-${{ inputs.key }}-${{ github.sha }}
-        restore-keys: ccache-${{ inputs.key }}-
+        key: ccache-${{ runner.os }}-${{ inputs.key }}-${{ github.sha }}
+        restore-keys: ccache-${{ runner.os }}-${{ inputs.key }}-
+    - shell: bash
+      run: ccache --zero-stats >/dev/null

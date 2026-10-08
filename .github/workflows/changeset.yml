@@ -8,16 +8,21 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
+permissions:
+  contents: read
+
 jobs:
   changeset:
     name: Changeset for changes under packages/
     # The version PR removes changesets rather than adding one.
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-changeset') && github.head_ref != 'changeset-release/main' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: A changeset comes with changes under packages/
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
@@ -32,3 +37,10 @@ jobs:
             exit 1
           fi
           echo "Changesets: $added"
+          # Under 0.x a breaking change is a minor, not a major (CONTRIBUTING.md, Changesets).
+          for f in $added; do
+            if grep -Eq '^"?@lucent-lang/lucent"?: *major' "$f"; then
+              echo "::error file=$f::Lucent is 0.x: a breaking change is a minor bump (0.2 to 0.3), not a major one. Change \"major\" to \"minor\" and say what breaks in the summary."
+              exit 1
+            fi
+          done
