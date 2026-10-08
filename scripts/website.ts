@@ -20,6 +20,8 @@
  *
  *   node scripts/website.ts           regenerate, then check
  *   node scripts/website.ts --check   fail if generated files are stale, or Vale is missing (CI)
+ *   node scripts/website.ts --check-live   check the deployed site instead (scripts/website/live.ts):
+ *                                          every page, old URL and README link answers there
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -42,6 +44,34 @@ import { checkRedirects, vercelJson } from "./website/redirects.ts";
 import { checkLanguage } from "./website/language.ts";
 import { docsSlugs } from "../apps/website/src/docs/nav.ts";
 import { checkSamples, unbuiltProblems } from "./website/samples.ts";
+import { checkLive, siteUrlsIn } from "./website/live.ts";
+import { docsRedirects, publishedUrls, rootRedirects } from "../apps/website/src/docs/redirects.ts";
+import { docsHref } from "../apps/website/src/docs/types.ts";
+
+if (process.argv.includes("--check-live")) {
+  const base = process.env.LUCENT_SITE_URL ?? "https://lucent-lang.dev";
+  const readmes = ["README.md", "packages/lucent/README.md"];
+  for (const dir of fs.readdirSync(path.join(root, "examples")))
+    if (fs.existsSync(path.join(root, "examples", dir, "README.md")))
+      readmes.push(`examples/${dir}/README.md`);
+  const hrefs = [
+    "/",
+    "/blog/",
+    ...docsSlugs.map(docsHref),
+    ...Object.keys(docsRedirects).map(docsHref),
+    ...Object.keys(rootRedirects),
+    ...publishedUrls,
+    ...readmes.flatMap((f) => siteUrlsIn(fs.readFileSync(path.join(root, f), "utf8"))),
+    ...Object.keys(Explanations).flatMap((code) => siteUrlsIn(docsUrl(code))),
+  ];
+  const problems = await checkLive(base, hrefs);
+  if (problems.length) {
+    console.error(problems.map((p) => `✗ ${p}`).join("\n"));
+    process.exit(1);
+  }
+  console.log(`✓ ${base}: ${new Set(hrefs).size} URLs answer with a page`);
+  process.exit(0);
+}
 
 const check = process.argv.includes("--check");
 const problems: string[] = [];

@@ -47,6 +47,7 @@ The repository layout, and the rules every change follows, are in
 | `pnpm typecheck`                              | the repository's TypeScript                                      |        |
 | `pnpm check`                                  | formatting (Oxfmt), lint (Oxlint) and `pnpm typecheck`           |        |
 | `node scripts/website.ts --check`             | the website (below)                                              | Vale   |
+| `node scripts/website.ts --check-live`        | the deployed site: every page, old URL and README link answers   |        |
 
 CI shards the unit tests by how long each file takes (`test-timings.json`,
 read by `vitest.sequencer.ts`); after adding or much changing slow tests,
