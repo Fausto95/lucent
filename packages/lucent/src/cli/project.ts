@@ -67,7 +67,9 @@ export function projectSdk(root: string, native?: NativeInputs): SdkOptions {
   const project = app
     ? {
         ...(app.deploymentTarget ? { deploymentTarget: app.deploymentTarget } : {}),
-        ...(app.packages.length ? { swiftPackages: swiftPackages(app) } : {}),
+        ...(app.packages.length || app.localPackages?.length
+          ? { swiftPackages: swiftPackages(app) }
+          : {}),
       }
     : {};
 

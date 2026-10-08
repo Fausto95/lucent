@@ -91,7 +91,7 @@ console.log(JSON.stringify(swiftPackages(${JSON.stringify(app)}, { cacheDir: ${J
       if (r.status !== 0) throw new Error(r.stderr);
       return JSON.parse(r.stdout.trim().split("\n").at(-1)!) as {
         modules: { module: string; package: string }[];
-        packages: { identity: string; path?: string; products: string[] }[];
+        localPackages?: { identity: string; path: string; products: string[] }[];
       };
     };
 
@@ -99,7 +99,7 @@ console.log(JSON.stringify(swiftPackages(${JSON.stringify(app)}, { cacheDir: ${J
     expect(first.modules).toEqual([
       expect.objectContaining({ module: "Gauges", package: "gauges@local" }),
     ]);
-    expect(first.packages).toEqual([{ identity: "gauges", path: pkg, products: ["Gauges"] }]);
+    expect(first.localPackages).toEqual([{ identity: "gauges", path: pkg, products: ["Gauges"] }]);
     build();
     fs.appendFileSync(path.join(pkg, "Sources/Gauges/Gauges.swift"), "public struct Dial {}\n");
     build();

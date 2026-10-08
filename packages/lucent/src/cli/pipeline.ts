@@ -628,6 +628,7 @@ export async function buildProject(
     app: {
       ...(sdk.ios?.deploymentTarget ? { deploymentTarget: sdk.ios.deploymentTarget } : {}),
       swiftPackages: sdk.ios?.swiftPackages?.packages ?? [],
+      localSwiftPackages: sdk.ios?.swiftPackages?.localPackages ?? [],
     },
   });
   const inPackage = (f: string) => path.relative(outDir, f).split(path.sep).join("/");

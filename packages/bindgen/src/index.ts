@@ -88,10 +88,12 @@ export {
   type SwiftPod,
 } from "./pods.ts";
 export { OWN_SWIFT_MODULE, swiftFilesUnder } from "./swift-modules.ts";
-export { type SwiftPackagePin, type XcodeApp, xcodeApp } from "./xcode.ts";
+export { type LocalSwiftPackage, type SwiftPackagePin, type XcodeApp, xcodeApp } from "./xcode.ts";
 export {
+  type BuiltLocalSwiftPackage,
   type BuiltSwiftPackage,
   DEFAULT_DEPLOYMENT_TARGET,
+  LOCAL_VERSION,
   type SwiftPackageModule,
   type SwiftPackages,
   swiftPackages,

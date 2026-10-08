@@ -148,7 +148,31 @@ artifacts the app's build resolved (bindgen's `nativeArtifacts`):
   version the app resolved), so the app adds the package to its project
   without adding the product to its app target: linked by both, a static
   package's symbols would be duplicated, as React Native's SPM helper
-  warns.
+  warns. A local package (`XCLocalSwiftPackageReference`, its
+  `relativePath` from `ios/`) has no pin: it is built from a copy of its
+  directory, once per content of its files (hidden ones aside), as
+  `spm:identity@local`, and LucentNative links its products by the
+  package's path.
+- **iOS Swift pods**: a pod with Swift sources and no public Objective-C
+  headers (its target's products directory is on the app's library,
+  Swift include or framework search paths; its xcconfig's
+  `PRODUCT_MODULE_NAME` and `PODS_TARGET_SRCROOT` give its module and
+  sources) has its module written by Xcode, which is not there before a
+  build. Lucent makes it from the pod's `.swift` files (`node_modules` and
+  hidden directories aside) with `swiftc -emit-module` against the app's
+  pods, into the cache (`swift-modules/`), keyed by the sources' contents,
+  the SDK, the target, the defines and the keys of the Swift pods it
+  imports, which are made first. It is `pod:Name@version`, and a module
+  swiftc cannot make is `LUCENT3004` with its last errors. The Swift in
+  the app's Lucent packages' `ios.nativeSources` is made the same way, as
+  the module `LucentNative` (`swift-module:LucentNative`), which the
+  native package's pod builds them into: its shims call it without
+  importing it.
+- **iOS pods' XCFrameworks**: the frameworks CocoaPods lists in
+  `Target Support Files/<pod>/<pod>-xcframeworks-input-files.xcfilelist`
+  and copies to `PODS_XCFRAMEWORKS_BUILD_DIR` are read from `Pods/`
+  through the slice their `Info.plist` names for the iOS simulator, as
+  the pod's.
 - **iOS with `use_frameworks!`**: pods are frameworks Xcode builds later, in
   the build products directory the xcconfig's framework search paths name.
   Before that build, each is what CocoaPods wrote for it: the module map and
