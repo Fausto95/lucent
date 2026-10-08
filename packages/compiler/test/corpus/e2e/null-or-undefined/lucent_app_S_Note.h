@@ -9,9 +9,13 @@
 
 namespace lucent_app {
 
+struct S_Note;
+
 struct S_Note : lucent::Object {
   lucent::Opt<lucent::String> note{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Note>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Note>& v) {
   if (!v) {

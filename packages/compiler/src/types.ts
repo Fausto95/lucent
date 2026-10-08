@@ -1,4 +1,5 @@
 import { cpp } from "@lucent-lang/codegen";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import ts from "typescript";
 import { Codes, fail } from "./diagnostics.ts";
@@ -477,6 +478,11 @@ function safeIdent(name: string): string {
   if (RESERVED.has(out) || out.includes("__") || /^_[A-Z]/.test(out) || out.startsWith("LUCENT_"))
     out = `${out}_`;
   return out;
+}
+
+/** A short name for an object type's shape (its key): the same shape, the same name. */
+function shapeName(key: string): string {
+  return createHash("sha256").update(key).digest("hex").slice(0, 8);
 }
 
 /** Registry of every struct and class the program uses. */
@@ -1172,7 +1178,8 @@ export class TypeRegistry {
         (type.getSymbol()?.name && !type.getSymbol()!.name.startsWith("__")
           ? type.getSymbol()!.name
           : undefined);
-      let base = hint ? `S_${cppIdent(hint)}` : `S_Object${this.structs.size + 1}`;
+      // An object type without a name is named by its shape: what other modules add renames none.
+      let base = hint ? `S_${cppIdent(hint)}` : `S_Object_${shapeName(key)}`;
       let cppName = base;
       let n = 2;
       while (this.structNames.has(cppName)) cppName = `${base}_${n++}`;

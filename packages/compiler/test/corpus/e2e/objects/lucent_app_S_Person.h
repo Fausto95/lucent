@@ -17,12 +17,16 @@
 
 namespace lucent_app {
 
+struct S_Person;
+
 struct S_Person : lucent::Object {
   lucent::String name{};
   double age{};
   lucent::Opt<lucent::String> nickname{};
   lucent::Array<lucent::String> tags{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Person>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Person>& v) {
   if (!v) {

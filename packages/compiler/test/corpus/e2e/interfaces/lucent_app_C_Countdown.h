@@ -14,6 +14,8 @@
 
 namespace lucent_app {
 
+struct C_Countdown;
+
 struct C_Countdown : lucent::Object, virtual lucent_app::I_Feed<double> {
   double n{};
   double count{};

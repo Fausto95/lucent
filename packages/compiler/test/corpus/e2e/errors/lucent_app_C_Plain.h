@@ -4,6 +4,8 @@
 
 namespace lucent_app {
 
+struct C_Plain;
+
 struct C_Plain : lucent::ErrorObject {
   void construct(lucent::Opt<lucent::String> p0_);
   static lucent::Ref<C_Plain> create(lucent::Opt<lucent::String> p0_);

@@ -10,6 +10,8 @@
 
 namespace lucent_app {
 
+struct C_Shadowing;
+
 struct C_Shadowing : lucent_app::C_Method {
   lucent::Fn<lucent::String()> toJSON{};
   void construct();

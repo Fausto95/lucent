@@ -13,11 +13,15 @@
 
 namespace lucent_app {
 
+struct S_Ledger;
+
 struct S_Ledger : lucent::Object {
   lucent::BigInt r_id_{};
   lucent::String label{};
   lucent::Opt<lucent::BigInt> limit{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Ledger>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Ledger>& v) {
   if (!v) {

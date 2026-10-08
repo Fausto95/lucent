@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct S_NativeBufferStats;
+
 struct S_NativeBufferStats : lucent::Object {
   double allocated{};
   double adopted{};
@@ -14,6 +16,8 @@ struct S_NativeBufferStats : lucent::Object {
   double copies{};
   double bytesCopied{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_NativeBufferStats>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_NativeBufferStats>& v) {
   if (!v) {

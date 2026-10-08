@@ -13,12 +13,16 @@
 
 namespace lucent_app {
 
+struct S_Options;
+
 struct S_Options : lucent::Object {
   double size{};
   lucent::String color{};
   lucent::Opt<lucent::String> label{};
   lucent::Opt<double> width{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Options>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Options>& v) {
   if (!v) {

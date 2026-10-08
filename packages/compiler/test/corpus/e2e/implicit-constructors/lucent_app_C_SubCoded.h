@@ -8,6 +8,8 @@
 
 namespace lucent_app {
 
+struct C_SubCoded;
+
 struct C_SubCoded : lucent_app::C_CodedError {
   void construct(lucent::String p0_, double p1_);
   static lucent::Ref<C_SubCoded> create(lucent::String p0_, double p1_);

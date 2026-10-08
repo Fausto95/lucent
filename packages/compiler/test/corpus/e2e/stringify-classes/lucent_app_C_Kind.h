@@ -13,6 +13,8 @@
 
 namespace lucent_app {
 
+struct C_Kind;
+
 struct C_Kind : lucent::Object {
   lucent::String key{};
   double tag{};

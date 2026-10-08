@@ -24,6 +24,8 @@
 
 namespace lucent_app {
 
+struct C_Pulses;
+
 struct C_Pulses : lucent::Object {
   lucent::Array<lucent::Ref<lucent_app::S_Listener>> listeners{};
   double nextId{};

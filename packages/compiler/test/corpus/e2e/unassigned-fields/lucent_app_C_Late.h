@@ -8,6 +8,8 @@
 
 namespace lucent_app {
 
+struct C_Late;
+
 struct C_Late : lucent::Object {
   lucent::Ref<lucent_app::S_Opts> opts{};
   void construct();

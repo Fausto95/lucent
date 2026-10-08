@@ -18,6 +18,8 @@
 
 namespace lucent_app {
 
+struct S_Order;
+
 struct S_Order : lucent::Object {
   double r_id_{};
   lucent::Array<lucent::Ref<lucent_app::S_Item>> items{};
@@ -25,6 +27,8 @@ struct S_Order : lucent::Object {
   lucent::Dict<double> meta{};
   std::tuple<double, double> point{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Order>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Order>& v) {
   if (!v) {

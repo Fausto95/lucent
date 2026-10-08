@@ -12,6 +12,8 @@
 
 namespace lucent_app {
 
+struct C_Bird;
+
 struct C_Bird : lucent_app::C_Animal {
   lucent::String song{};
   void construct(lucent::String p0_);

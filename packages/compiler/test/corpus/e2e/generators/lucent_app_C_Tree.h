@@ -13,6 +13,8 @@
 
 namespace lucent_app {
 
+struct C_Tree;
+
 struct C_Tree : lucent::Object {
   lucent::String label{};
   lucent::Array<lucent::Ref<lucent_app::C_Tree>> children{};

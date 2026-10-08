@@ -10,6 +10,8 @@
 
 namespace lucent_app {
 
+struct C_TokenError;
+
 struct C_TokenError : lucent_app::C_ParseError {
   lucent::String token{};
   void construct(lucent::String p0_);

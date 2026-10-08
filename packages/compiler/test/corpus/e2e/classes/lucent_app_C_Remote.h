@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_Remote;
+
 struct C_Remote : lucent::Object {
   lucent::String host{};
   void construct(lucent::String p0_);

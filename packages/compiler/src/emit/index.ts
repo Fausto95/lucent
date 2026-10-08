@@ -181,14 +181,14 @@ export function emitProgram(
   // Pass 2: code.
   // The IR's effect records come from the program's analysis.
   const ir: IrMode = { facts: programFacts(lp) };
-  const structDecls: cpp.Decl[] = [];
   const classDefs: TypeItem[] = [];
   const genericClassDefs: TypeItem[] = [];
   const moduleDecls = new Map<LucentModule, cpp.Decl[]>();
   const moduleDefs = new Map<LucentModule, cpp.Decl[]>();
   const genericFns = new Map<LucentModule, cpp.Decl[]>();
   const statics = new Map<LucentModule, ClassOutput["statics"]>();
-  const nativeDecls: cpp.Decl[] = [];
+  /** Declarations of the native objects of classes (delegates, subclasses), by class. */
+  const nativeDecls: { owner: string; decl: cpp.Decl }[] = [];
   const java = new Map<string, string>();
   for (const m of lp.modules) {
     moduleDecls.set(m, []);
@@ -209,26 +209,26 @@ export function emitProgram(
     byDepth.some((c) => c.typeParams.length && ctx.reg.derives(info.id, c.id))
       ? genericClassDefs
       : classDefs
-    ).push({ name: info.cppName, defs: [out.definition], inline: [] });
+    ).push({ name: info.cppName, defs: [out.definition], decls: [], inline: [] });
     moduleDefs.get(m)!.push(...out.members);
     statics.get(m)!.push(...out.statics);
     // Classes implementing SDK protocols: an Objective-C object per instance.
     const objc = ctx.guard(() => objcDelegate(ctx, m, info));
     if (objc) {
       ctx.nativeUnit(m).add(`delegate ${info.id}`, objc.native);
-      nativeDecls.push(objc.decl);
+      nativeDecls.push({ owner: info.cppName, decl: objc.decl });
     }
     // Classes implementing Swift-only protocols: a Swift object per instance.
     const proxy = ctx.guard(() => swiftDelegate(ctx, m, info));
     if (proxy) {
       ctx.nativeUnit(m).add(`swift delegate ${info.id}`, proxy.native);
-      nativeDecls.push(proxy.decl);
+      nativeDecls.push({ owner: info.cppName, decl: proxy.decl });
     }
     // Classes extending iOS classes: an Objective-C subclass.
     const subclass = ctx.guard(() => iosSubclass(ctx, m, info));
     if (subclass) {
       ctx.nativeUnit(m).add(`subclass ${info.id}`, subclass.native);
-      nativeDecls.push(...subclass.decls);
+      nativeDecls.push(...subclass.decls.map((decl) => ({ owner: info.cppName, decl })));
     }
     // Classes extending Android SDK classes: a Java subclass.
     const sub =
@@ -328,10 +328,9 @@ export function emitProgram(
   const bindingsDecls = bindings.generate(mods, initOrder);
 
   const templateOf = (ps: string[]) => (ps.length ? { template: ps.map(cppIdent) } : {});
-  for (const s of ctx.reg.structs.values())
-    structDecls.push(cpp.struct(s.cppName, [], { forward: true }));
   const structDefs: TypeItem[] = [...ctx.reg.structs.values()].map((s) => ({
     name: s.cppName,
+    decls: [],
     defs: [
       cpp.struct(
         s.cppName,
@@ -361,7 +360,7 @@ export function emitProgram(
     .sort((a, b) => ifaceDepth(a.id) - ifaceDepth(b.id))
     .flatMap((i): TypeItem[] => {
       const d = ctx.guard(() => emitIface(ctx, i));
-      return d ? [{ name: i.cppName, defs: [d], inline: [] }] : [];
+      return d ? [{ name: i.cppName, defs: [d], decls: [], inline: [] }] : [];
     });
   const json = jsonWriters(ctx);
   const readers = ctx.guard(() => jsonReaders(ctx)) ?? { decls: [], defs: [] };
@@ -370,8 +369,19 @@ export function emitProgram(
   // Each type's definition and inline code in its header (type-headers.ts), in this order.
   const items = [...structDefs, ...ifaceDefs, ...classDefs, ...genericClassDefs];
   const byName = new Map(items.map((t) => [t.name, t]));
+  for (const [owner, decls] of json.decls) byName.get(owner)?.decls.push(...decls);
   for (const [owner, decls] of json.defs) byName.get(owner)?.inline.push(...decls);
-  const typeFiles = typeHeaders(items, readers, app);
+  // Each type's forward declaration: what its header and the readers' declarations start with.
+  const forward = new Map([
+    ...[...ctx.reg.structs.values()].map(
+      (s) => [s.cppName, cpp.struct(s.cppName, [], { forward: true })] as const,
+    ),
+    ...ifaceFwd.map((d) => [(d as { name: string }).name, d] as const),
+    ...classFwd.map((d) => [(d as { name: string }).name, d] as const),
+  ]);
+  const typeFiles = typeHeaders(items, forward, readers, app);
+  // The native objects' declarations name their classes only: declared with them.
+  const natives = [...new Set(nativeDecls.map((n) => n.owner))].map((o) => forward.get(o)!);
   const files = new Map<string, string>();
   // A platform module's exports may declare names (fields, parameters) only in its shared file.
   const declared = declaredNames(
@@ -396,9 +406,9 @@ export function emitProgram(
         ...(setups.size || lp.modules.some((m) => /["']lucent:ui["']/.test(m.sourceFile.text))
           ? [cpp.include("lucent/view.h", true)]
           : []),
-        ...shielded([
-          app([...structDecls, ...ifaceFwd, ...classFwd, ...nativeDecls, ...json.decls]),
-        ]),
+        ...(nativeDecls.length
+          ? shielded([app([...natives, ...nativeDecls.map((n) => n.decl)])])
+          : []),
       ],
     }),
   );
@@ -820,15 +830,19 @@ function topoSort(
   return out;
 }
 
-/** The JSON writers' declarations, and their inline definitions by the type each writes. */
-function jsonWriters(ctx: Ctx): { decls: cpp.Decl[]; defs: Map<string, cpp.Decl[]> } {
-  const decls: cpp.Decl[] = [];
+/** The JSON writers' declarations and inline definitions, by the type each writes. */
+function jsonWriters(ctx: Ctx): {
+  decls: Map<string, cpp.Decl[]>;
+  defs: Map<string, cpp.Decl[]>;
+} {
+  const decls = new Map<string, cpp.Decl[]>();
   const defs = new Map<string, cpp.Decl[]>();
-  const define = (owner: string, d: cpp.Decl) => {
-    const list = defs.get(owner);
+  const add = (to: Map<string, cpp.Decl[]>, owner: string, d: cpp.Decl) => {
+    const list = to.get(owner);
     if (list) list.push(d);
-    else defs.set(owner, [d]);
+    else to.set(owner, [d]);
   };
+  const define = (owner: string, d: cpp.Decl) => add(defs, owner, d);
   const [w, v, first, toJson] = [cpp.id("w"), cpp.id("v"), cpp.id("first"), cpp.id("toJson")];
   const raw = (text: string) => cpp.exprStmt(cpp.call(cpp.dot(w, "raw"), [cpp.str(text)]));
   /** A free function taking a struct's Ref, found by ADL. */
@@ -837,8 +851,8 @@ function jsonWriters(ctx: Ctx): { decls: cpp.Decl[]; defs: Map<string, cpp.Decl[
       jsonMemberParams[0]!,
       cpp.param(cpp.reference(cpp.constType(cpp.type("lucent::Ref", cpp.type(s)))), "v"),
     ];
-    // Inline where only declared too: a unit may see the declaration without the definition.
-    decls.push(cpp.fn(name, ret, params, undefined, { inline: true }));
+    // Declared first, as a type's inline code may write another of its header's types.
+    add(decls, s, cpp.fn(name, ret, params, undefined, { inline: true }));
     define(s, cpp.fn(name, ret, params, body, { inline: true }));
   };
   const object = (self: cpp.Expr, fields: string[]): cpp.Stmt[] => [

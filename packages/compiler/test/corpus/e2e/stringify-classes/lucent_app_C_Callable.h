@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct C_Callable;
+
 struct C_Callable : lucent::Object {
   void construct();
   static lucent::Ref<C_Callable> create();

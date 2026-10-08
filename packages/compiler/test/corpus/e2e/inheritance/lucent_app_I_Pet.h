@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct I_Pet;
+
 struct I_Pet {
   virtual ~I_Pet() = default;
   virtual lucent::String get_name() = 0;

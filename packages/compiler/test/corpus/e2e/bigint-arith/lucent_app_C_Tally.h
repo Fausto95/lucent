@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct C_Tally;
+
 struct C_Tally : lucent::Object {
   lucent::BigInt n{};
   lucent::Array<lucent::BigInt> items{};

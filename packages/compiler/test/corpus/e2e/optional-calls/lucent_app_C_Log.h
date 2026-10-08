@@ -17,6 +17,8 @@
 
 namespace lucent_app {
 
+struct C_Log;
+
 struct C_Log : lucent::Object {
   lucent::Array<lucent::String> lines{};
   lucent::Opt<lucent::Ref<lucent_app::C_Log>> child{};

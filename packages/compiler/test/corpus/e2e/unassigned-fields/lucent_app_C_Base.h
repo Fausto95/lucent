@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct C_Base;
+
 struct C_Base : lucent::Object {
   lucent::String seen{};
   void construct();

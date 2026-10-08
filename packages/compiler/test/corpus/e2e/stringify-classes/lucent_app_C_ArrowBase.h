@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_ArrowBase;
+
 struct C_ArrowBase : lucent::Object {
   lucent::String tag{};
   lucent::Fn<lucent::String()> toJSON{};

@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_NotCalled;
+
 struct C_NotCalled : lucent::Object {
   double toJSON{};
   lucent::String other{};

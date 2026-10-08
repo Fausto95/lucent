@@ -8,6 +8,8 @@
 
 namespace lucent_app {
 
+struct I_Tagged;
+
 struct I_Tagged : public virtual lucent_app::I_Labelled {
   virtual ~I_Tagged() = default;
   virtual lucent::String tag() = 0;

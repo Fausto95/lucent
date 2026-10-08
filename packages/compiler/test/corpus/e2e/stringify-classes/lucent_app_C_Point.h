@@ -13,6 +13,8 @@
 
 namespace lucent_app {
 
+struct C_Point;
+
 struct C_Point : lucent::Object {
   double x{};
   double y{};

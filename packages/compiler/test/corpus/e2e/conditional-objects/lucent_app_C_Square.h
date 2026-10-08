@@ -12,6 +12,8 @@
 
 namespace lucent_app {
 
+struct C_Square;
+
 struct C_Square : lucent_app::C_Shape {
   double side{};
   void construct();

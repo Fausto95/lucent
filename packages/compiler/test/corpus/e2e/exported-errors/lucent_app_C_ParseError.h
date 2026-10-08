@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct C_ParseError;
+
 struct C_ParseError : lucent::ErrorObject {
   double line{};
   void construct(lucent::String p0_, double p1_);

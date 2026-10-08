@@ -11,10 +11,14 @@
 
 namespace lucent_app {
 
+struct S_Point;
+
 struct S_Point : lucent::Object {
   double x{};
   double y{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Point>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Point>& v) {
   if (!v) {

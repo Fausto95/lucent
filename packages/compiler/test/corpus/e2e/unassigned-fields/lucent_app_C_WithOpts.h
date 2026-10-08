@@ -13,6 +13,8 @@
 
 namespace lucent_app {
 
+struct C_WithOpts;
+
 struct C_WithOpts : lucent_app::C_Base {
   lucent::Ref<lucent_app::S_Opts> opts{};
   void construct();

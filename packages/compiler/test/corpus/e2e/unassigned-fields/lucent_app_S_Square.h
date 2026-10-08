@@ -9,10 +9,14 @@
 
 namespace lucent_app {
 
+struct S_Square;
+
 struct S_Square : lucent::Object {
   lucent::String kind{};
   double s{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Square>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Square>& v) {
   if (!v) {

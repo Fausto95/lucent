@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct C_Eager;
+
 struct C_Eager : lucent::Object {
   lucent::String value{};
   void construct();

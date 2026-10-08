@@ -21,6 +21,9 @@
 namespace lucent_app {
 
 template <class T>
+struct C_ListSource;
+
+template <class T>
 struct C_ListSource : lucent::Object, virtual lucent_app::I_Feed<T> {
   lucent::Array<T> items{};
   double count{};

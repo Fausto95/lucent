@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct C_ValidationError;
+
 struct C_ValidationError : lucent::ErrorObject {
   lucent::String field{};
   void construct(lucent::String p0_, lucent::String p1_);

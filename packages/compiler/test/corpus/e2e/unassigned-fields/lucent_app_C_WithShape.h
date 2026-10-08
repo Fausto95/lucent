@@ -14,6 +14,8 @@
 
 namespace lucent_app {
 
+struct C_WithShape;
+
 struct C_WithShape : lucent_app::C_Base {
   std::variant<lucent::Ref<lucent_app::S_Circle>, lucent::Ref<lucent_app::S_Square>> shape{};
   void construct();

@@ -13,10 +13,14 @@
 
 namespace lucent_app {
 
+struct S_Box;
+
 struct S_Box : lucent::Object {
   double n{};
   lucent::String s{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Box>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Box>& v) {
   if (!v) {

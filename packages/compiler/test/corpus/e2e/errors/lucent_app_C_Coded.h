@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct C_Coded;
+
 struct C_Coded : lucent::ErrorObject {
   double code{};
   void construct(lucent::Opt<lucent::String> p0_);

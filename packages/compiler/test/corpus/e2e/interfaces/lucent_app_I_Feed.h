@@ -10,6 +10,9 @@
 namespace lucent_app {
 
 template <class T>
+struct I_Feed;
+
+template <class T>
 struct I_Feed {
   virtual ~I_Feed() = default;
   virtual double get_count() = 0;

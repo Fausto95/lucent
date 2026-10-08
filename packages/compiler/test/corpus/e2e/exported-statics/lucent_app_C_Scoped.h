@@ -12,6 +12,8 @@
 
 namespace lucent_app {
 
+struct C_Scoped;
+
 struct C_Scoped : lucent_app::C_Registry {
   static inline lucent::String scope{};
   void construct();

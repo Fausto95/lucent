@@ -14,6 +14,8 @@
 
 namespace lucent_app {
 
+struct C_Rect;
+
 struct C_Rect : lucent::Object, virtual lucent_app::I_Shape {
   double w{};
   double h{};

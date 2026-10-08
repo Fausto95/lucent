@@ -4,6 +4,8 @@
 
 namespace lucent_app {
 
+struct I_Labelled;
+
 struct I_Labelled {
   virtual ~I_Labelled() = default;
   virtual lucent::String get_label() = 0;

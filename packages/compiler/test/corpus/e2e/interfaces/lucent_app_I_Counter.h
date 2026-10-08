@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct I_Counter;
+
 struct I_Counter {
   virtual ~I_Counter() = default;
   virtual double next() = 0;

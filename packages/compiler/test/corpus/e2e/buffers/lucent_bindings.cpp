@@ -2,7 +2,7 @@
 #include "m_buffers.h"
 #include "lucent_app_S_Job.h"
 #include "lucent_app_S_NativeBufferStats.h"
-#include "lucent_app_S_Object3.h"
+#include "lucent_app_S_Object_d7e62d87.h"
 #include <lucent/jsi/convert.h>
 #include <lucent/jsi/host.h>
 

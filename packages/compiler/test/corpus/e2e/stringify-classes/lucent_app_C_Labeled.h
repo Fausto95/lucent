@@ -14,6 +14,8 @@
 
 namespace lucent_app {
 
+struct C_Labeled;
+
 struct C_Labeled : lucent_app::C_Cell<lucent::String> {
   lucent::String label{};
   void construct();

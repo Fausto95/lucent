@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct I_Shape;
+
 struct I_Shape {
   virtual ~I_Shape() = default;
   virtual lucent::String get_kind() = 0;

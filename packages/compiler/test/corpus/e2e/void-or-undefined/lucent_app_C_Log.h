@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct C_Log;
+
 struct C_Log : lucent::Object {
   lucent::Array<lucent::String> lines{};
   void construct();

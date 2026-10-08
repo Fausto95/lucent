@@ -10,6 +10,8 @@
 
 namespace lucent_app {
 
+struct C_Wrapper;
+
 struct C_Wrapper : lucent::Object {
   void construct();
   static lucent::Ref<C_Wrapper> create();

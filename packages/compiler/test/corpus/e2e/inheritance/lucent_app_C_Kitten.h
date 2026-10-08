@@ -12,6 +12,8 @@
 
 namespace lucent_app {
 
+struct C_Kitten;
+
 struct C_Kitten : lucent_app::C_Cat {
   void construct(lucent::String p0_);
   static lucent::Ref<C_Kitten> create(lucent::String p0_);

@@ -9,10 +9,14 @@
 
 namespace lucent_app {
 
+struct S_Job;
+
 struct S_Job : lucent::Object {
   lucent::NativeBuffer buffer{};
   double scale{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Job>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Job>& v) {
   if (!v) {

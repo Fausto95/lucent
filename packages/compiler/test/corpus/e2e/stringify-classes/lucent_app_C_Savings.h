@@ -24,6 +24,8 @@
 
 namespace lucent_app {
 
+struct C_Savings;
+
 struct C_Savings : lucent_app::C_Account {
   double years{};
   double rate{};

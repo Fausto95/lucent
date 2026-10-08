@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct I_Named;
+
 struct I_Named {
   virtual ~I_Named() = default;
   virtual lucent::String get_name() = 0;

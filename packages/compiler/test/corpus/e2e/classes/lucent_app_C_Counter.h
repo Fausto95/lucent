@@ -19,6 +19,8 @@
 
 namespace lucent_app {
 
+struct C_Counter;
+
 struct C_Counter : lucent::Object {
   double count{};
   lucent::String label{};

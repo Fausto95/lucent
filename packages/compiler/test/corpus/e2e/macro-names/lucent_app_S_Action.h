@@ -9,10 +9,14 @@
 
 namespace lucent_app {
 
+struct S_Action;
+
 struct S_Action : lucent::Object {
   lucent::String sa_handler{};
   double howmany{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Action>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Action>& v) {
   if (!v) {

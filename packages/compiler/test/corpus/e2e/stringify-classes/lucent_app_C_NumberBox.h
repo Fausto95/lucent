@@ -12,6 +12,8 @@
 
 namespace lucent_app {
 
+struct C_NumberBox;
+
 struct C_NumberBox : lucent_app::C_Box<double> {
   bool full{};
   void construct();

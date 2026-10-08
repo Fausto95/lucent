@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_Filter;
+
 struct C_Filter : lucent::Object {
   lucent::Handle _u23_native{};
   void construct(double p0_);

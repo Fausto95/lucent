@@ -12,6 +12,8 @@
 
 namespace lucent_app {
 
+struct C_Deeper;
+
 struct C_Deeper : lucent_app::C_Derived {
   double extra{};
   void construct(double p0_, lucent::Opt<lucent::String> p1_);

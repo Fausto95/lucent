@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_Vec;
+
 struct C_Vec : lucent::Object {
   double x{};
   double y{};

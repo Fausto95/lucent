@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct C_Cache;
+
 struct C_Cache : lucent::Object {
   static inline lucent::Opt<double> cached{};
   void construct();

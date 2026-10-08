@@ -14,6 +14,9 @@
 namespace lucent_app {
 
 template <class T>
+struct C_Cell;
+
+template <class T>
 struct C_Cell : lucent::Object {
   T value{};
   double count{};

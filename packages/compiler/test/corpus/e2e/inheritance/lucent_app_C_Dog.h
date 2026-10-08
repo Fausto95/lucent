@@ -18,6 +18,8 @@
 
 namespace lucent_app {
 
+struct C_Dog;
+
 struct C_Dog : lucent_app::C_Animal {
   lucent::String breed{};
   lucent::Array<lucent::String> tricks{};

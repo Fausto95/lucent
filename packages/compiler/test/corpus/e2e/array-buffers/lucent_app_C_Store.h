@@ -13,6 +13,8 @@
 
 namespace lucent_app {
 
+struct C_Store;
+
 struct C_Store : lucent::Object {
   lucent::Map<lucent::String, std::variant<lucent::ArrayBuffer, bool, double, lucent::String>> values{};
   void construct();

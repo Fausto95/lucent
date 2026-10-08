@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct C_Service;
+
 struct C_Service : lucent::Object {
   void construct();
   static lucent::Ref<C_Service> create();

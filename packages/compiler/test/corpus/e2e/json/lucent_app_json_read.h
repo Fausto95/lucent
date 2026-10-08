@@ -3,9 +3,9 @@
 #include "lucent_app_json.h"
 #include "lucent_app_S_Item.h"
 #include "lucent_app_S_Order.h"
-#include "lucent_app_S_Object3.h"
-#include "lucent_app_S_Object4.h"
-#include "lucent_app_S_Object5.h"
+#include "lucent_app_S_Object_80e62f5f.h"
+#include "lucent_app_S_Object_4b1186b8.h"
+#include "lucent_app_S_Object_3de914a4.h"
 
 #pragma push_macro("a")
 #undef a
@@ -66,36 +66,36 @@ inline lucent::Ref<lucent_app::S_Item> JsonRead<lucent::Ref<lucent_app::S_Item>>
   return out;
 }
 
-inline lucent::Ref<lucent_app::S_Object3> JsonRead<lucent::Ref<lucent_app::S_Object3>>::read(const JsonValue& v, const std::string& p) {
+inline lucent::Ref<lucent_app::S_Object_80e62f5f> JsonRead<lucent::Ref<lucent_app::S_Object_80e62f5f>>::read(const JsonValue& v, const std::string& p) {
   if (v.kind != JsonValue::Kind::Object) {
     jsonShapeError(p, "an object", v.describe());
   }
-  auto out = std::make_shared<lucent_app::S_Object3>();
+  auto out = std::make_shared<lucent_app::S_Object_80e62f5f>();
   out->kind = jsonMember<lucent::String>(v, "kind", p);
   out->r = jsonMember<double>(v, "r", p);
   return out;
 }
 
-inline lucent::Ref<lucent_app::S_Object4> JsonRead<lucent::Ref<lucent_app::S_Object4>>::read(const JsonValue& v, const std::string& p) {
+inline lucent::Ref<lucent_app::S_Object_4b1186b8> JsonRead<lucent::Ref<lucent_app::S_Object_4b1186b8>>::read(const JsonValue& v, const std::string& p) {
   if (v.kind != JsonValue::Kind::Object) {
     jsonShapeError(p, "an object", v.describe());
   }
-  auto out = std::make_shared<lucent_app::S_Object4>();
+  auto out = std::make_shared<lucent_app::S_Object_4b1186b8>();
   out->kind = jsonMember<lucent::String>(v, "kind", p);
   out->side = jsonMember<double>(v, "side", p);
   return out;
 }
 
-inline lucent::Ref<lucent_app::S_Object5> JsonRead<lucent::Ref<lucent_app::S_Object5>>::read(const JsonValue& v, const std::string& p) {
+inline lucent::Ref<lucent_app::S_Object_3de914a4> JsonRead<lucent::Ref<lucent_app::S_Object_3de914a4>>::read(const JsonValue& v, const std::string& p) {
   if (v.kind != JsonValue::Kind::Object) {
     jsonShapeError(p, "an object", v.describe());
   }
-  auto out = std::make_shared<lucent_app::S_Object5>();
+  auto out = std::make_shared<lucent_app::S_Object_3de914a4>();
   out->a = jsonMember<double>(v, "a", p);
   return out;
 }
 
-inline std::variant<lucent::Ref<lucent_app::S_Object3>, lucent::Ref<lucent_app::S_Object4>> JsonRead<std::variant<lucent::Ref<lucent_app::S_Object3>, lucent::Ref<lucent_app::S_Object4>>>::read(const JsonValue& v, const std::string& p) {
+inline std::variant<lucent::Ref<lucent_app::S_Object_80e62f5f>, lucent::Ref<lucent_app::S_Object_4b1186b8>> JsonRead<std::variant<lucent::Ref<lucent_app::S_Object_80e62f5f>, lucent::Ref<lucent_app::S_Object_4b1186b8>>>::read(const JsonValue& v, const std::string& p) {
   switch (v.kind) {
     case JsonValue::Kind::Object:
       {
@@ -104,10 +104,10 @@ inline std::variant<lucent::Ref<lucent_app::S_Object3>, lucent::Ref<lucent_app::
           jsonShapeError(p + ".kind", "one of the kind values", d ? d->describe() : "undefined");
         }
         if (d->string == LUCENT_STR("circle")) {
-          return std::variant<lucent::Ref<lucent_app::S_Object3>, lucent::Ref<lucent_app::S_Object4>>(std::in_place_type<lucent::Ref<lucent_app::S_Object3>>, JsonRead<lucent::Ref<lucent_app::S_Object3>>::read(v, p));
+          return std::variant<lucent::Ref<lucent_app::S_Object_80e62f5f>, lucent::Ref<lucent_app::S_Object_4b1186b8>>(std::in_place_type<lucent::Ref<lucent_app::S_Object_80e62f5f>>, JsonRead<lucent::Ref<lucent_app::S_Object_80e62f5f>>::read(v, p));
         }
         if (d->string == LUCENT_STR("square")) {
-          return std::variant<lucent::Ref<lucent_app::S_Object3>, lucent::Ref<lucent_app::S_Object4>>(std::in_place_type<lucent::Ref<lucent_app::S_Object4>>, JsonRead<lucent::Ref<lucent_app::S_Object4>>::read(v, p));
+          return std::variant<lucent::Ref<lucent_app::S_Object_80e62f5f>, lucent::Ref<lucent_app::S_Object_4b1186b8>>(std::in_place_type<lucent::Ref<lucent_app::S_Object_4b1186b8>>, JsonRead<lucent::Ref<lucent_app::S_Object_4b1186b8>>::read(v, p));
         }
         jsonShapeError(p + ".kind", "one of the kind values", "another string");
       }

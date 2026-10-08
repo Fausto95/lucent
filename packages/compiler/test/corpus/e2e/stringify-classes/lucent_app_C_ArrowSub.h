@@ -14,6 +14,8 @@
 
 namespace lucent_app {
 
+struct C_ArrowSub;
+
 struct C_ArrowSub : lucent_app::C_ArrowBase {
   double extra{};
   void construct();

@@ -5,6 +5,8 @@
 
 namespace lucent_app {
 
+struct C_Deeper;
+
 struct C_Deeper : lucent_app::C_Plain {
   void construct(lucent::Opt<lucent::String> p0_);
   static lucent::Ref<C_Deeper> create(lucent::Opt<lucent::String> p0_);

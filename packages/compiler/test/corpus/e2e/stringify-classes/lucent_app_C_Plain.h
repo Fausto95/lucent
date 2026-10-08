@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct C_Plain;
+
 struct C_Plain : lucent::Object {
   double a{};
   void construct();

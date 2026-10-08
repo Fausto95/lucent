@@ -12,6 +12,8 @@
 
 namespace lucent_app {
 
+struct C_Up;
+
 struct C_Up : lucent::Object, virtual lucent_app::I_Counter {
   double i{};
   void construct();

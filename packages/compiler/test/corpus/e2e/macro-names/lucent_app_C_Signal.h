@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct C_Signal;
+
 struct C_Signal : lucent::Object {
   lucent::String sa_handler{};
   void construct();

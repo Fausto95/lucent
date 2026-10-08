@@ -13,6 +13,8 @@
 
 namespace lucent_app {
 
+struct C_Lion;
+
 struct C_Lion : lucent_app::C_Animal, virtual lucent_app::I_Pet {
   void construct(lucent::String p0_);
   static lucent::Ref<C_Lion> create(lucent::String p0_);

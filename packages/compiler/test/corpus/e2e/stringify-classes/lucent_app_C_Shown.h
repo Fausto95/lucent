@@ -14,6 +14,9 @@
 namespace lucent_app {
 
 template <class T>
+struct C_Shown;
+
+template <class T>
 struct C_Shown : lucent::Object {
   T v{};
   void construct(T p0_) {

@@ -23,6 +23,8 @@
 
 namespace lucent_app {
 
+struct C_Account;
+
 struct C_Account : lucent::Object {
   lucent::String currency{};
   static inline double opened{};

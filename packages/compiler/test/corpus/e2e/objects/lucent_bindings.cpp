@@ -2,11 +2,11 @@
 #include "m_objects.h"
 #include "lucent_app_S_Point.h"
 #include "lucent_app_S_Person.h"
-#include "lucent_app_S_Object3.h"
-#include "lucent_app_S_Object4.h"
+#include "lucent_app_S_Object_b796e072.h"
+#include "lucent_app_S_Object_b972b24e.h"
 #include "lucent_app_S_Tree.h"
-#include "lucent_app_S_Object6.h"
-#include "lucent_app_S_Object7.h"
+#include "lucent_app_S_Object_1e208747.h"
+#include "lucent_app_S_Object_74d89ea4.h"
 #include <lucent/jsi/convert.h>
 #include <lucent/jsi/host.h>
 
@@ -98,17 +98,17 @@ struct Convert<lucent::Ref<lucent_app::S_Person>> {
 };
 
 template <>
-struct Convert<lucent::Ref<lucent_app::S_Object4>> {
-  static lucent::Ref<lucent_app::S_Object4> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
-  static lucent::Ref<lucent_app::S_Object4> fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p);
-  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object4>& v);
+struct Convert<lucent::Ref<lucent_app::S_Object_b972b24e>> {
+  static lucent::Ref<lucent_app::S_Object_b972b24e> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+  static lucent::Ref<lucent_app::S_Object_b972b24e> fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p);
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object_b972b24e>& v);
 };
 
 template <>
-struct Convert<lucent::Ref<lucent_app::S_Object3>> {
-  static lucent::Ref<lucent_app::S_Object3> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
-  static lucent::Ref<lucent_app::S_Object3> fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p);
-  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object3>& v);
+struct Convert<lucent::Ref<lucent_app::S_Object_b796e072>> {
+  static lucent::Ref<lucent_app::S_Object_b796e072> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+  static lucent::Ref<lucent_app::S_Object_b796e072> fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p);
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object_b796e072>& v);
 };
 
 template <>
@@ -119,23 +119,23 @@ struct Convert<lucent::Ref<lucent_app::S_Tree>> {
 };
 
 template <>
-struct Convert<lucent::Ref<lucent_app::S_Object7>> {
-  static lucent::Ref<lucent_app::S_Object7> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
-  static lucent::Ref<lucent_app::S_Object7> fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p);
-  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object7>& v);
+struct Convert<lucent::Ref<lucent_app::S_Object_74d89ea4>> {
+  static lucent::Ref<lucent_app::S_Object_74d89ea4> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+  static lucent::Ref<lucent_app::S_Object_74d89ea4> fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p);
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object_74d89ea4>& v);
 };
 
 template <>
-struct Convert<lucent::Ref<lucent_app::S_Object6>> {
-  static lucent::Ref<lucent_app::S_Object6> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
-  static lucent::Ref<lucent_app::S_Object6> fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p);
-  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object6>& v);
+struct Convert<lucent::Ref<lucent_app::S_Object_1e208747>> {
+  static lucent::Ref<lucent_app::S_Object_1e208747> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+  static lucent::Ref<lucent_app::S_Object_1e208747> fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p);
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object_1e208747>& v);
 };
 
 template <>
-struct Convert<std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>> {
-  static std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
-  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>& v);
+struct Convert<std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>> {
+  static std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>& v);
 };
 
 template <>
@@ -218,14 +218,14 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::S_Person>>::toJs(jsi::Runtime&
   return jsi::Value(std::move(o));
 }
 
-inline lucent::Ref<lucent_app::S_Object4> Convert<lucent::Ref<lucent_app::S_Object4>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+inline lucent::Ref<lucent_app::S_Object_b972b24e> Convert<lucent::Ref<lucent_app::S_Object_b972b24e>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
   if (!v.isObject()) {
     throwBoundaryError(rt, p, "an object", v);
   }
   return fromObject(rt, v.getObject(rt), p);
 }
 
-inline lucent::Ref<lucent_app::S_Object4> Convert<lucent::Ref<lucent_app::S_Object4>>::fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p) {
+inline lucent::Ref<lucent_app::S_Object_b972b24e> Convert<lucent::Ref<lucent_app::S_Object_b972b24e>>::fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p) {
   if (o.isArray(rt) || o.isFunction(rt)) {
     throwBoundaryError(rt, p, "an object", jsi::Value(rt, o));
   }
@@ -233,14 +233,14 @@ inline lucent::Ref<lucent_app::S_Object4> Convert<lucent::Ref<lucent_app::S_Obje
   static const PropName n0{"kind"};
   static const PropName n1{"w"};
   static const PropName n2{"h"};
-  auto out = std::make_shared<lucent_app::S_Object4>();
+  auto out = std::make_shared<lucent_app::S_Object_b972b24e>();
   out->kind = Convert<lucent::String>::fromJs(rt, o.getProperty(rt, h.prop(rt, n0)), p.field("kind"));
   out->w = Convert<double>::fromJs(rt, o.getProperty(rt, h.prop(rt, n1)), p.field("w"));
   out->h = Convert<double>::fromJs(rt, o.getProperty(rt, h.prop(rt, n2)), p.field("h"));
   return out;
 }
 
-inline jsi::Value Convert<lucent::Ref<lucent_app::S_Object4>>::toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object4>& v) {
+inline jsi::Value Convert<lucent::Ref<lucent_app::S_Object_b972b24e>>::toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object_b972b24e>& v) {
   if (!v) {
     return jsi::Value::null();
   }
@@ -254,27 +254,27 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::S_Object4>>::toJs(jsi::Runtime
   return jsi::Value(std::move(o));
 }
 
-inline lucent::Ref<lucent_app::S_Object3> Convert<lucent::Ref<lucent_app::S_Object3>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+inline lucent::Ref<lucent_app::S_Object_b796e072> Convert<lucent::Ref<lucent_app::S_Object_b796e072>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
   if (!v.isObject()) {
     throwBoundaryError(rt, p, "an object", v);
   }
   return fromObject(rt, v.getObject(rt), p);
 }
 
-inline lucent::Ref<lucent_app::S_Object3> Convert<lucent::Ref<lucent_app::S_Object3>>::fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p) {
+inline lucent::Ref<lucent_app::S_Object_b796e072> Convert<lucent::Ref<lucent_app::S_Object_b796e072>>::fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p) {
   if (o.isArray(rt) || o.isFunction(rt)) {
     throwBoundaryError(rt, p, "an object", jsi::Value(rt, o));
   }
   Host& h = Host::get(rt);
   static const PropName n0{"kind"};
   static const PropName n1{"radius"};
-  auto out = std::make_shared<lucent_app::S_Object3>();
+  auto out = std::make_shared<lucent_app::S_Object_b796e072>();
   out->kind = Convert<lucent::String>::fromJs(rt, o.getProperty(rt, h.prop(rt, n0)), p.field("kind"));
   out->radius = Convert<double>::fromJs(rt, o.getProperty(rt, h.prop(rt, n1)), p.field("radius"));
   return out;
 }
 
-inline jsi::Value Convert<lucent::Ref<lucent_app::S_Object3>>::toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object3>& v) {
+inline jsi::Value Convert<lucent::Ref<lucent_app::S_Object_b796e072>>::toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object_b796e072>& v) {
   if (!v) {
     return jsi::Value::null();
   }
@@ -318,14 +318,14 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::S_Tree>>::toJs(jsi::Runtime& r
   return jsi::Value(std::move(o));
 }
 
-inline lucent::Ref<lucent_app::S_Object7> Convert<lucent::Ref<lucent_app::S_Object7>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+inline lucent::Ref<lucent_app::S_Object_74d89ea4> Convert<lucent::Ref<lucent_app::S_Object_74d89ea4>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
   if (!v.isObject()) {
     throwBoundaryError(rt, p, "an object", v);
   }
   return fromObject(rt, v.getObject(rt), p);
 }
 
-inline lucent::Ref<lucent_app::S_Object7> Convert<lucent::Ref<lucent_app::S_Object7>>::fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p) {
+inline lucent::Ref<lucent_app::S_Object_74d89ea4> Convert<lucent::Ref<lucent_app::S_Object_74d89ea4>>::fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p) {
   if (o.isArray(rt) || o.isFunction(rt)) {
     throwBoundaryError(rt, p, "an object", jsi::Value(rt, o));
   }
@@ -334,15 +334,15 @@ inline lucent::Ref<lucent_app::S_Object7> Convert<lucent::Ref<lucent_app::S_Obje
   static const PropName n1{"y"};
   static const PropName n2{"label"};
   static const PropName n3{"inner"};
-  auto out = std::make_shared<lucent_app::S_Object7>();
+  auto out = std::make_shared<lucent_app::S_Object_74d89ea4>();
   out->x = Convert<double>::fromJs(rt, o.getProperty(rt, h.prop(rt, n0)), p.field("x"));
   out->y = Convert<double>::fromJs(rt, o.getProperty(rt, h.prop(rt, n1)), p.field("y"));
   out->label = optionalFromJs<lucent::String>(rt, o.getProperty(rt, h.prop(rt, n2)), p.field("label"), false, "a string or undefined");
-  out->inner = Convert<lucent::Ref<lucent_app::S_Object6>>::fromJs(rt, o.getProperty(rt, h.prop(rt, n3)), p.field("inner"));
+  out->inner = Convert<lucent::Ref<lucent_app::S_Object_1e208747>>::fromJs(rt, o.getProperty(rt, h.prop(rt, n3)), p.field("inner"));
   return out;
 }
 
-inline jsi::Value Convert<lucent::Ref<lucent_app::S_Object7>>::toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object7>& v) {
+inline jsi::Value Convert<lucent::Ref<lucent_app::S_Object_74d89ea4>>::toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object_74d89ea4>& v) {
   if (!v) {
     return jsi::Value::null();
   }
@@ -356,29 +356,29 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::S_Object7>>::toJs(jsi::Runtime
   if (!v->label.isUndefined()) {
     o.setProperty(rt, h.prop(rt, n2), Convert<lucent::Opt<lucent::String>>::toJs(rt, h, v->label));
   }
-  o.setProperty(rt, h.prop(rt, n3), Convert<lucent::Ref<lucent_app::S_Object6>>::toJs(rt, h, v->inner));
+  o.setProperty(rt, h.prop(rt, n3), Convert<lucent::Ref<lucent_app::S_Object_1e208747>>::toJs(rt, h, v->inner));
   return jsi::Value(std::move(o));
 }
 
-inline lucent::Ref<lucent_app::S_Object6> Convert<lucent::Ref<lucent_app::S_Object6>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+inline lucent::Ref<lucent_app::S_Object_1e208747> Convert<lucent::Ref<lucent_app::S_Object_1e208747>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
   if (!v.isObject()) {
     throwBoundaryError(rt, p, "an object", v);
   }
   return fromObject(rt, v.getObject(rt), p);
 }
 
-inline lucent::Ref<lucent_app::S_Object6> Convert<lucent::Ref<lucent_app::S_Object6>>::fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p) {
+inline lucent::Ref<lucent_app::S_Object_1e208747> Convert<lucent::Ref<lucent_app::S_Object_1e208747>>::fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p) {
   if (o.isArray(rt) || o.isFunction(rt)) {
     throwBoundaryError(rt, p, "an object", jsi::Value(rt, o));
   }
   Host& h = Host::get(rt);
   static const PropName n0{"z"};
-  auto out = std::make_shared<lucent_app::S_Object6>();
+  auto out = std::make_shared<lucent_app::S_Object_1e208747>();
   out->z = Convert<double>::fromJs(rt, o.getProperty(rt, h.prop(rt, n0)), p.field("z"));
   return out;
 }
 
-inline jsi::Value Convert<lucent::Ref<lucent_app::S_Object6>>::toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object6>& v) {
+inline jsi::Value Convert<lucent::Ref<lucent_app::S_Object_1e208747>>::toJs(jsi::Runtime& rt, Host& h, const lucent::Ref<lucent_app::S_Object_1e208747>& v) {
   if (!v) {
     return jsi::Value::null();
   }
@@ -392,16 +392,16 @@ jsi::Value errorInstanceToJs(jsi::Runtime& rt, Host& h, const Error& v) {
   return jsi::Value::undefined();
 }
 
-inline std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>> Convert<std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+inline std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>> Convert<std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
   if (v.isObject()) {
     jsi::Value dv = v.getObject(rt).getProperty(rt, "kind");
     if (dv.isString()) {
       std::string d = dv.getString(rt).utf8(rt);
       if (d == "rect") {
-        return std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>(Convert<lucent::Ref<lucent_app::S_Object4>>::fromJs(rt, v, p));
+        return std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>(Convert<lucent::Ref<lucent_app::S_Object_b972b24e>>::fromJs(rt, v, p));
       }
       if (d == "circle") {
-        return std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>(Convert<lucent::Ref<lucent_app::S_Object3>>::fromJs(rt, v, p));
+        return std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>(Convert<lucent::Ref<lucent_app::S_Object_b796e072>>::fromJs(rt, v, p));
       }
     }
     throwUnknownDiscriminant(rt, p.field("kind"), "\"rect\" or \"circle\"", dv);
@@ -409,7 +409,7 @@ inline std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::
   throwBoundaryError(rt, p, "an object", v);
 }
 
-inline jsi::Value Convert<std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>>::toJs(jsi::Runtime& rt, Host& h, const std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>& v) {
+inline jsi::Value Convert<std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>>::toJs(jsi::Runtime& rt, Host& h, const std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>& v) {
   return std::visit([&](const auto& x) -> jsi::Value {
     return Convert<std::decay_t<decltype(x)>>::toJs(rt, h, x);
   }, v);
@@ -488,7 +488,7 @@ void install_m_objects(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "area", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
     return callSync(rt, host, LUCENT_TRACE_SITE_AT("area", "packages/compiler/test/e2e/cases/objects.lucent.ts", 38), [&]() -> jsi::Value {
-      auto a0 = Convert<std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>>::fromJs(rt, arg(args, count, 0), Path{"area", "argument 's'"});
+      auto a0 = Convert<std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>>::fromJs(rt, arg(args, count, 0), Path{"area", "argument 's'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_objects::area(std::move(a0)));
     });
   });
@@ -496,7 +496,7 @@ void install_m_objects(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     Host& host = Host::from(rt, installed);
     return callSync(rt, host, LUCENT_TRACE_SITE_AT("shapes", "packages/compiler/test/e2e/cases/objects.lucent.ts", 47), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"shapes", "argument 'n'"});
-      return Convert<lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>>>::toJs(rt, host, lucent_app::m_objects::shapes(std::move(a0)));
+      return Convert<lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>>>::toJs(rt, host, lucent_app::m_objects::shapes(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "parseValue", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
@@ -559,14 +559,14 @@ void install_m_objects(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     Host& host = Host::from(rt, installed);
     return callSync(rt, host, LUCENT_TRACE_SITE_AT("toJson", "packages/compiler/test/e2e/cases/objects.lucent.ts", 104), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_Person>>::fromJs(rt, arg(args, count, 0), Path{"toJson", "argument 'p'"});
-      auto a1 = Convert<std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>>::fromJs(rt, arg(args, count, 1), Path{"toJson", "argument 's'"});
+      auto a1 = Convert<std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>>::fromJs(rt, arg(args, count, 1), Path{"toJson", "argument 's'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_objects::toJson(std::move(a0), std::move(a1)));
     });
   });
   defineFunction(rt, exports, "reassign", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
     return callSync(rt, host, LUCENT_TRACE_SITE_AT("reassign", "packages/compiler/test/e2e/cases/objects.lucent.ts", 116), [&]() -> jsi::Value {
-      auto a0 = Convert<lucent::Ref<lucent_app::S_Object7>>::fromJs(rt, arg(args, count, 0), Path{"reassign", "argument 'p'"});
+      auto a0 = Convert<lucent::Ref<lucent_app::S_Object_74d89ea4>>::fromJs(rt, arg(args, count, 0), Path{"reassign", "argument 'p'"});
       auto a1 = Convert<lucent::Array<double>>::fromJs(rt, arg(args, count, 1), Path{"reassign", "argument 'xs'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_objects::reassign(std::move(a0), std::move(a1)));
     });

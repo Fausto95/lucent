@@ -13,6 +13,8 @@
 
 namespace lucent_app {
 
+struct C_Counter;
+
 struct C_Counter : lucent::Object {
   double total{};
   void construct();

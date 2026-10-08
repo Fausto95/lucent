@@ -13,6 +13,8 @@
 
 namespace lucent_app {
 
+struct C_Labelled;
+
 struct C_Labelled : lucent::Object {
   lucent::String name{};
   double count{};

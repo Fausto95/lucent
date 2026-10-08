@@ -155,7 +155,7 @@ describe("objects on the stack", () => {
   it("makes an object only its fields' reads and writes see on the stack", () => {
     const fn = body(cpp, "stackObjects");
 
-    expect(fn).toMatch(/lucent_app::S_Object\d+ q = /);
+    expect(fn).toMatch(/lucent_app::S_Object_[0-9a-f]+ q = /);
 
     expect(fn).toContain("lucent_app::S_Point copy = ");
 

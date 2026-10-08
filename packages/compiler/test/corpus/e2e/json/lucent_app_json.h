@@ -5,6 +5,16 @@
 #pragma push_macro("v")
 #undef v
 
+namespace lucent_app {
+
+struct S_Item;
+struct S_Order;
+struct S_Object_80e62f5f;
+struct S_Object_4b1186b8;
+struct S_Object_3de914a4;
+
+}  // namespace lucent_app
+
 namespace lucent {
 
 template <>
@@ -18,23 +28,23 @@ struct JsonRead<lucent::Ref<lucent_app::S_Item>> {
 };
 
 template <>
-struct JsonRead<lucent::Ref<lucent_app::S_Object3>> {
-  static lucent::Ref<lucent_app::S_Object3> read(const JsonValue& v, const std::string& p);
+struct JsonRead<lucent::Ref<lucent_app::S_Object_80e62f5f>> {
+  static lucent::Ref<lucent_app::S_Object_80e62f5f> read(const JsonValue& v, const std::string& p);
 };
 
 template <>
-struct JsonRead<lucent::Ref<lucent_app::S_Object4>> {
-  static lucent::Ref<lucent_app::S_Object4> read(const JsonValue& v, const std::string& p);
+struct JsonRead<lucent::Ref<lucent_app::S_Object_4b1186b8>> {
+  static lucent::Ref<lucent_app::S_Object_4b1186b8> read(const JsonValue& v, const std::string& p);
 };
 
 template <>
-struct JsonRead<lucent::Ref<lucent_app::S_Object5>> {
-  static lucent::Ref<lucent_app::S_Object5> read(const JsonValue& v, const std::string& p);
+struct JsonRead<lucent::Ref<lucent_app::S_Object_3de914a4>> {
+  static lucent::Ref<lucent_app::S_Object_3de914a4> read(const JsonValue& v, const std::string& p);
 };
 
 template <>
-struct JsonRead<std::variant<lucent::Ref<lucent_app::S_Object3>, lucent::Ref<lucent_app::S_Object4>>> {
-  static std::variant<lucent::Ref<lucent_app::S_Object3>, lucent::Ref<lucent_app::S_Object4>> read(const JsonValue& v, const std::string& p);
+struct JsonRead<std::variant<lucent::Ref<lucent_app::S_Object_80e62f5f>, lucent::Ref<lucent_app::S_Object_4b1186b8>>> {
+  static std::variant<lucent::Ref<lucent_app::S_Object_80e62f5f>, lucent::Ref<lucent_app::S_Object_4b1186b8>> read(const JsonValue& v, const std::string& p);
 };
 
 template <>

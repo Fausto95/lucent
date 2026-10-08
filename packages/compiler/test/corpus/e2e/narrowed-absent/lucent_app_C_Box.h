@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct C_Box;
+
 struct C_Box : lucent::Object {
   lucent::Opt<lucent::String> label{};
   void construct();

@@ -13,6 +13,8 @@
 
 namespace lucent_app {
 
+struct C_Relay;
+
 struct C_Relay : lucent::Object {
   lucent::Fn<void(lucent::String)> onValue{};
   lucent::String last{};

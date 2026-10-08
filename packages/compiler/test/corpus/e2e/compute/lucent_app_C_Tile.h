@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_Tile;
+
 struct C_Tile : lucent::Object {
   double index{};
   static inline double SIDE{};

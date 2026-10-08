@@ -20,6 +20,9 @@
 namespace lucent_app {
 
 template <class T>
+struct C_Queue;
+
+template <class T>
 struct C_Queue : lucent::Object {
   lucent::Array<T> items{};
   void construct() {

@@ -8,6 +8,8 @@
 
 namespace lucent_app {
 
+struct C_NamedExplicit;
+
 struct C_NamedExplicit : lucent_app::C_Named {
   void construct(lucent::String p0_);
   static lucent::Ref<C_NamedExplicit> create(lucent::String p0_);

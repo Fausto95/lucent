@@ -15,6 +15,8 @@
 
 namespace lucent_app {
 
+struct C_Account;
+
 struct C_Account : lucent::Object {
   lucent::String owner{};
   lucent::Array<double> history{};

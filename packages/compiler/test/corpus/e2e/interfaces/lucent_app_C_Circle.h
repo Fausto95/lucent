@@ -21,6 +21,8 @@
 
 namespace lucent_app {
 
+struct C_Circle;
+
 struct C_Circle : lucent::Object, virtual lucent_app::I_Shape, virtual lucent_app::I_Named {
   double r{};
   lucent::String kind{};

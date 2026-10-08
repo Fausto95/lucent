@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_Dropped;
+
 struct C_Dropped : lucent::Object {
   double keep{};
   lucent::Fn<lucent::Opt<double>()> toJSON{};

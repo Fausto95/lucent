@@ -12,6 +12,8 @@
 
 namespace lucent_app {
 
+struct C_Plainer;
+
 struct C_Plainer : lucent_app::C_Plain {
   double b{};
   void construct();

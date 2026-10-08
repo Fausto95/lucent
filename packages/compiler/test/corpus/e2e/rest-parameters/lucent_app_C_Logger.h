@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct C_Logger;
+
 struct C_Logger : lucent::Object {
   void construct();
   static lucent::Ref<C_Logger> create();

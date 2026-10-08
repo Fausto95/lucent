@@ -15,6 +15,9 @@
 namespace lucent_app {
 
 template <class T>
+struct C_Tagged;
+
+template <class T>
 struct C_Tagged : lucent_app::C_Plain {
   T tag{};
   void construct(T p0_) {

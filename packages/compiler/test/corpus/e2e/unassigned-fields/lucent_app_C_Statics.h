@@ -8,6 +8,8 @@
 
 namespace lucent_app {
 
+struct C_Statics;
+
 struct C_Statics : lucent::Object {
   static inline lucent::Ref<lucent_app::S_Opts> o{};
   void construct();

@@ -10,6 +10,8 @@
 
 namespace lucent_app {
 
+struct C_Echo;
+
 struct C_Echo : lucent::Object, virtual lucent_app::I_Source {
   void construct();
   static lucent::Ref<C_Echo> create();

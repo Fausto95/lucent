@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct C_A;
+
 struct C_A : lucent::Object {
   static inline double z{};
   void construct();

@@ -13,12 +13,16 @@
 
 namespace lucent_app {
 
+struct S_Loose;
+
 struct S_Loose : lucent::Object {
   lucent::Opt<double> a{};
   lucent::Opt<double> b{};
   lucent::Opt<double> c{};
   lucent::String d{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Loose>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Loose>& v) {
   if (!v) {

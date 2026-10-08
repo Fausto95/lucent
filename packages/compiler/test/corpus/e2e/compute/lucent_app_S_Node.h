@@ -9,10 +9,14 @@
 
 namespace lucent_app {
 
+struct S_Node;
+
 struct S_Node : lucent::Object {
   lucent::String label{};
   lucent::Opt<lucent::Ref<lucent_app::S_Node>> next{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Node>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Node>& v) {
   if (!v) {

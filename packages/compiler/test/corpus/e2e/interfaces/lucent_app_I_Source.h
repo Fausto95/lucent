@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct I_Source;
+
 struct I_Source {
   virtual ~I_Source() = default;
   virtual lucent::Promise<lucent::String> load(lucent::String a0) = 0;

@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_Account;
+
 struct C_Account : lucent::Object {
   lucent::String name{};
   void construct(lucent::String p0_);

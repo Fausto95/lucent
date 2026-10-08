@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct C_C;
+
 struct C_C : lucent::Object {
   static inline double b{};
   static inline double note{};

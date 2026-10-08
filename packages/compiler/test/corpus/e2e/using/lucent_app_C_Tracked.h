@@ -10,6 +10,8 @@
 
 namespace lucent_app {
 
+struct C_Tracked;
+
 struct C_Tracked : lucent_app::C_Resource {
   void construct(lucent::String p0_, lucent::Opt<bool> p1_);
   static lucent::Ref<C_Tracked> create(lucent::String p0_, lucent::Opt<bool> p1_);

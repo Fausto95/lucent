@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_Loader;
+
 struct C_Loader : lucent::Object {
   lucent::Map<lucent::String, lucent::String> cache{};
   double loads{};

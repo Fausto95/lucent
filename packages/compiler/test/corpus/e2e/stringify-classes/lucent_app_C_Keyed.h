@@ -12,6 +12,8 @@
 
 namespace lucent_app {
 
+struct C_Keyed;
+
 struct C_Keyed : lucent_app::C_Kind {
   void construct();
   static lucent::Ref<C_Keyed> create();

@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct C_Link;
+
 struct C_Link : lucent::Object {
   lucent::Opt<lucent::Ref<lucent_app::C_Link>> prev{};
   lucent::String label{};

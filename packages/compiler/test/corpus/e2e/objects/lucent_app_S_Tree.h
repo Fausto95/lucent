@@ -13,10 +13,14 @@
 
 namespace lucent_app {
 
+struct S_Tree;
+
 struct S_Tree : lucent::Object {
   double value{};
   lucent::Array<lucent::Ref<lucent_app::S_Tree>> children{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Tree>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Tree>& v) {
   if (!v) {

@@ -12,6 +12,8 @@
 
 namespace lucent_app {
 
+struct C_Circle;
+
 struct C_Circle : lucent_app::C_Shape {
   double radius{};
   void construct();

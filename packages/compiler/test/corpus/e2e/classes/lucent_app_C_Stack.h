@@ -16,6 +16,8 @@
 
 namespace lucent_app {
 
+struct C_Stack;
+
 struct C_Stack : lucent::Object {
   lucent::Opt<lucent::Ref<lucent_app::C_Node>> head{};
   double size{};

@@ -20,6 +20,8 @@
 
 namespace lucent_app {
 
+struct C_Cache;
+
 struct C_Cache : lucent::Object {
   lucent::Promise<lucent::Ref<lucent_app::S_Point>> point{};
   lucent::Opt<lucent::Promise<double>> total{};

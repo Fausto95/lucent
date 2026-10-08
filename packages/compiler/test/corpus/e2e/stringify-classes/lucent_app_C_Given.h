@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_Given;
+
 struct C_Given : lucent::Object {
   lucent::String label{};
   lucent::Fn<lucent::String()> toJSON{};

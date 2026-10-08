@@ -10,6 +10,8 @@
 
 namespace lucent_app {
 
+struct C_Derived;
+
 struct C_Derived : lucent_app::C_Base {
   void construct(double p0_, lucent::Opt<lucent::String> p1_);
   static lucent::Ref<C_Derived> create(double p0_, lucent::Opt<lucent::String> p1_);

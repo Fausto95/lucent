@@ -18,6 +18,8 @@
 
 namespace lucent_app {
 
+struct C_Puppy;
+
 struct C_Puppy : lucent_app::C_Dog {
   void construct(lucent::String p0_, lucent::String p1_);
   static lucent::Ref<C_Puppy> create(lucent::String p0_, lucent::String p1_);

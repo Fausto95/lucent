@@ -17,6 +17,8 @@
 
 namespace lucent_app {
 
+struct S_Item;
+
 struct S_Item : lucent::Object {
   lucent::String name{};
   double price{};
@@ -24,6 +26,8 @@ struct S_Item : lucent::Object {
   lucent::Opt<lucent::String> note{};
   lucent::Opt<double> discount{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Item>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Item>& v) {
   if (!v) {

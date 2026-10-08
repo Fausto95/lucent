@@ -12,6 +12,8 @@
 
 namespace lucent_app {
 
+struct C_Shape;
+
 struct C_Shape : lucent::Object {
   lucent::String label{};
   lucent::Ref<lucent_app::C_Point> origin{};

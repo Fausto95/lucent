@@ -13,6 +13,9 @@
 namespace lucent_app {
 
 template <class T>
+struct C_Sub;
+
+template <class T>
 struct C_Sub : lucent_app::C_Shown<T> {
   void construct(T p0_) {
     this->lucent_app::C_Shown<T>::construct(p0_);

@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_Disk;
+
 struct C_Disk : lucent::Object {
   lucent::String path{};
   void construct(lucent::String p0_);

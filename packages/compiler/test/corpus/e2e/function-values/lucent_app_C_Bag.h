@@ -14,6 +14,9 @@
 namespace lucent_app {
 
 template <class T>
+struct C_Bag;
+
+template <class T>
 struct C_Bag : lucent::Object {
   lucent::Array<T> items{};
   void construct() {

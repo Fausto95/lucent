@@ -13,6 +13,8 @@
 
 namespace lucent_app {
 
+struct C_Special;
+
 struct C_Special : lucent::Object, virtual lucent_app::I_Tagged, virtual lucent_app::I_Labelled {
   lucent::String label{};
   void construct();

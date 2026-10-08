@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_Arrow;
+
 struct C_Arrow : lucent::Object {
   double n{};
   lucent::Fn<double()> toJSON{};

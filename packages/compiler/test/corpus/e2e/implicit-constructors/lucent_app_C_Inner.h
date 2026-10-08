@@ -5,6 +5,8 @@
 
 namespace lucent_app {
 
+struct C_Inner;
+
 struct C_Inner : lucent_app::C_Outer {
   void construct(lucent::Opt<lucent::String> p0_);
   static lucent::Ref<C_Inner> create(lucent::Opt<lucent::String> p0_);

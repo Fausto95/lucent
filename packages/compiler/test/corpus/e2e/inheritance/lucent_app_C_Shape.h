@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct C_Shape;
+
 struct C_Shape : lucent::Object {
   void construct();
   virtual double area() = 0;

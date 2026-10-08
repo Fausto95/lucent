@@ -12,6 +12,8 @@
 
 namespace lucent_app {
 
+struct C_Item;
+
 struct C_Item : lucent::Object, virtual lucent_app::I_Tagged {
   lucent::String label{};
   void construct(lucent::String p0_);

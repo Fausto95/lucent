@@ -19,6 +19,8 @@
 
 namespace lucent_app {
 
+struct C_Registry;
+
 struct C_Registry : lucent::Object {
   static inline double count{};
   static inline lucent::String label{};

@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct C_Animal;
+
 struct C_Animal : lucent::Object {
   lucent::String name{};
   void construct();

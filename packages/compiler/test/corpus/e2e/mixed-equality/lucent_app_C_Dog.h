@@ -10,6 +10,8 @@
 
 namespace lucent_app {
 
+struct C_Dog;
+
 struct C_Dog : lucent_app::C_Animal {
   bool barks{};
   void construct();

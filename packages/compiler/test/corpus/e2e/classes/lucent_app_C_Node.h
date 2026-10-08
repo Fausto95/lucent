@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct C_Node;
+
 struct C_Node : lucent::Object {
   double value{};
   lucent::Opt<lucent::Ref<lucent_app::C_Node>> next{};

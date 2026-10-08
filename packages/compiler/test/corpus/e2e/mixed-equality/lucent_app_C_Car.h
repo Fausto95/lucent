@@ -7,6 +7,8 @@
 
 namespace lucent_app {
 
+struct C_Car;
+
 struct C_Car : lucent::Object {
   double wheels{};
   void construct();

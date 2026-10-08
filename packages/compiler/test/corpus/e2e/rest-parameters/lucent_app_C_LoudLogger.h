@@ -8,6 +8,8 @@
 
 namespace lucent_app {
 
+struct C_LoudLogger;
+
 struct C_LoudLogger : lucent_app::C_Logger {
   void construct();
   static lucent::Ref<C_LoudLogger> create();

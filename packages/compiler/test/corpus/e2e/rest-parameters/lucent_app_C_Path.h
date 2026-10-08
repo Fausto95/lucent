@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_Path;
+
 struct C_Path : lucent::Object {
   lucent::Array<lucent::String> parts{};
   void construct(lucent::Array<std::variant<lucent::Ref<lucent_app::C_Path>, lucent::String>> p0_);

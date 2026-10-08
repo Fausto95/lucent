@@ -9,10 +9,14 @@
 
 namespace lucent_app {
 
+struct S_Shared;
+
 struct S_Shared : lucent::Object {
   lucent::Array<double> left{};
   lucent::Array<double> right{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Shared>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Shared>& v) {
   if (!v) {

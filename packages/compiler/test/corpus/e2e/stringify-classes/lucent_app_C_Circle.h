@@ -16,6 +16,8 @@
 
 namespace lucent_app {
 
+struct C_Circle;
+
 struct C_Circle : lucent_app::C_Shape {
   double r{};
   double _u23_area{};

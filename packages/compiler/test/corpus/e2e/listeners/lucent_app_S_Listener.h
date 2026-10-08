@@ -13,11 +13,15 @@
 
 namespace lucent_app {
 
+struct S_Listener;
+
 struct S_Listener : lucent::Object {
   double r_id_{};
   lucent::Fn<void(double)> onLevel{};
   lucent::Fn<void(lucent::Error)> onError{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Listener>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Listener>& v) {
   if (!v) {

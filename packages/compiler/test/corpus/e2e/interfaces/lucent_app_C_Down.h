@@ -12,6 +12,8 @@
 
 namespace lucent_app {
 
+struct C_Down;
+
 struct C_Down : lucent::Object, virtual lucent_app::I_Counter {
   double i{};
   void construct(double p0_);

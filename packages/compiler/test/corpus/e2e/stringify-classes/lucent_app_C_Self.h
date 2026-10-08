@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_Self;
+
 struct C_Self : lucent::Object {
   double x{};
   void construct();

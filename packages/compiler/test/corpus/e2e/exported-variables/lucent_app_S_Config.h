@@ -7,9 +7,13 @@
 
 namespace lucent_app {
 
+struct S_Config;
+
 struct S_Config : lucent::Object {
   double size{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Config>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Config>& v) {
   if (!v) {

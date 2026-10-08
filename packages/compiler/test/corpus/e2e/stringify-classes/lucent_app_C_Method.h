@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct C_Method;
+
 struct C_Method : lucent::Object {
   void construct();
   static lucent::Ref<C_Method> create();

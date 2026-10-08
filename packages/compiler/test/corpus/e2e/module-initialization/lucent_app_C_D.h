@@ -8,6 +8,8 @@
 
 namespace lucent_app {
 
+struct C_D;
+
 struct C_D : lucent_app::C_B {
   static inline double y{};
   void construct();

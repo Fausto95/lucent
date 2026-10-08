@@ -13,10 +13,14 @@
 
 namespace lucent_app {
 
+struct S_Options;
+
 struct S_Options : lucent::Object {
   lucent::String name{};
   lucent::Opt<double> size{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Options>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Options>& v) {
   if (!v) {

@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct C_Resource;
+
 struct C_Resource : lucent::Object {
   lucent::String name{};
   bool failOnDispose{};

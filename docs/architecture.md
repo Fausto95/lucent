@@ -29,8 +29,8 @@
  │                      LucentViewRequests (commands' answers), LucentViewValues
  │                      (values between React's side and setup's); the hosts:
  │                      LucentComponentView (iOS), LucentViewsAndroid (Android)
- ├── cpp/generated/     lucent_app.h (every type declared), lucent_app_<type>.h
- │                      (a type's definition: units include the ones they use),
+ ├── cpp/generated/     lucent_app.h (the runtime), lucent_app_<type>.h (a type's
+ │                      declaration and definition: units include those they use),
  │                      m_<module>.cpp, lucent_bindings.cpp,
  │                      lucent_identity.cpp (what the program was built from),
  │                      views/ (components' Fabric sources)

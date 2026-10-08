@@ -2,28 +2,35 @@
  * The program's types, one header per group of them, so a native build
  * compiles again only the units that use a type whose shape changed.
  *
- * `lucent_app.h` declares every struct, interface and class (and the
- * functions that take them: JSON writers, native objects), which needs no
- * type complete. Each type's definition, with its inline JSON writer, is in
- * `lucent_app_<name>.h`, which first includes the headers of the types it
- * spells: its bases must be complete, and its inline code writes and reads
- * its fields' types. Types that spell each other share a header (a strongly
- * connected component), in the order a single header defined them (structs,
- * interfaces by depth, classes by depth, generic classes; definitions before
- * inline code). A unit includes the headers of the types its own code
- * spells; a type it reaches without spelling it (a field's, or a function's
- * from another module) is spelled where that field or function is declared,
- * whose header the unit includes. JSON.parse's readers are template
- * specializations: `lucent_app_json.h` declares them (included before any
- * code that spells `jsonParse`), `lucent_app_json_read.h` defines them.
+ * Each type's forward declaration, definition, JSON writer declarations
+ * and inline JSON writers are in `lucent_app_<name>.h`, which first
+ * includes the headers of the types it spells: its bases must be complete,
+ * and its inline code writes and reads its fields' types. Types that spell
+ * each other share a header (a strongly connected component), in the order
+ * a single header defined them (structs, interfaces by depth, classes by
+ * depth, generic classes; declarations before definitions, definitions
+ * before inline code). `lucent_app.h` is the runtime's headers, and the
+ * native objects' declarations of the classes that have them. A unit
+ * includes the headers of the types its own code spells; a type it reaches
+ * without spelling it (a field's, or a function's from another module) is
+ * spelled where that field or function is declared, whose header the unit
+ * includes. So adding, removing or changing a type changes the units that
+ * spell it, and those including them, alone. JSON.parse's readers are
+ * template specializations: `lucent_app_json.h` declares them (included
+ * before any code that spells `jsonParse`), `lucent_app_json_read.h`
+ * defines them.
  */
 import { cpp } from "@lucent-lang/codegen";
 import { identifiers } from "./macros.ts";
 
-/** One type: its definition, and its inline code (JSON writers), which follows every definition. */
+/**
+ * One type: its definition, the declarations that follow every
+ * definition (its JSON writers'), and its inline code (their definitions).
+ */
 export interface TypeItem {
   name: string;
   defs: cpp.Decl[];
+  decls: cpp.Decl[];
   inline: cpp.Decl[];
 }
 
@@ -52,17 +59,26 @@ const READER_DEFS = "lucent_app_json_read.h";
 const spellsParse = (names: ReadonlySet<string>) => names.has("jsonParse");
 
 /**
- * Groups `items` (in the single header's order) into headers. `app` wraps
- * declarations in lucent_app's namespace; `readers` are the JSON readers'
- * declarations and definitions, in namespace lucent.
+ * Groups `items` (in the single header's order) into headers. `forward`
+ * declares each type; `app` wraps declarations in lucent_app's namespace;
+ * `readers` are the JSON readers' declarations and definitions, in
+ * namespace lucent.
  */
 export function typeHeaders(
   items: readonly TypeItem[],
+  forward: ReadonlyMap<string, cpp.Decl>,
   readers: { decls: cpp.Decl[]; defs: cpp.Decl[] },
   app: (body: cpp.Decl[]) => cpp.Decl,
 ): TypeHeaders {
   const index = new Map(items.map((t, i) => [t.name, i]));
-  const spelled = items.map((t) => identifiers(cpp.printDecls([...t.defs, ...t.inline])));
+  const spelled = items.map((t) =>
+    identifiers(cpp.printDecls([...t.defs, ...t.decls, ...t.inline])),
+  );
+  const declared = (names: ReadonlySet<string>) =>
+    [...names]
+      .filter((n) => index.has(n))
+      .sort((a, b) => index.get(a)! - index.get(b)!)
+      .map((n) => forward.get(n)!);
   const mentions = items.map((_, i) =>
     [...spelled[i]!].flatMap((n) => {
       const j = index.get(n);
@@ -127,9 +143,11 @@ export function typeHeaders(
   const files = new Map<string, cpp.Decl[]>();
   const hasReaders = readers.decls.length > 0;
   if (hasReaders) {
+    // The types it names declared, not included: a header of one may include this one.
     files.set(READER_DECLS, [
       { k: "pragmaOnce" },
       cpp.include(INDEX_HEADER),
+      app(declared(identifiers(cpp.printDecls(readers.decls)))),
       cpp.namespace("lucent", readers.decls),
     ]);
     const used = groupsSpelled(identifiers(cpp.printDecls(readers.defs)));
@@ -141,14 +159,19 @@ export function typeHeaders(
     ]);
   }
   groups.forEach((members, g) => {
-    const of = (part: "defs" | "inline") => members.flatMap((m) => items[m]![part]);
+    const of = (part: "defs" | "decls" | "inline") => members.flatMap((m) => items[m]![part]);
     files.set(headerOf(g), [
       { k: "pragmaOnce" },
       cpp.include(INDEX_HEADER),
       ...deps[g]!.map((d) => cpp.include(headerOf(d))),
       // Code that parses JSON sees the readers' specializations before it is instantiated.
       ...(hasReaders && groupParses[g] ? [cpp.include(READER_DECLS)] : []),
-      app([...of("defs"), ...of("inline")]),
+      app([
+        ...members.map((m) => forward.get(items[m]!.name)!),
+        ...of("defs"),
+        ...of("decls"),
+        ...of("inline"),
+      ]),
     ]);
   });
 

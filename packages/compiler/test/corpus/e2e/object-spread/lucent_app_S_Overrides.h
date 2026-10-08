@@ -13,12 +13,16 @@
 
 namespace lucent_app {
 
+struct S_Overrides;
+
 struct S_Overrides : lucent::Object {
   lucent::Opt<double> size{};
   lucent::Opt<lucent::String> color{};
   lucent::Opt<lucent::String> label{};
   lucent::Opt<double> width{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Overrides>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Overrides>& v) {
   if (!v) {

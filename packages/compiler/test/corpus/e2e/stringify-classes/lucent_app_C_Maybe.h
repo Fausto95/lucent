@@ -11,6 +11,8 @@
 
 namespace lucent_app {
 
+struct C_Maybe;
+
 struct C_Maybe : lucent::Object {
   lucent::Opt<double> v{};
   void construct(lucent::Opt<double> p0_);

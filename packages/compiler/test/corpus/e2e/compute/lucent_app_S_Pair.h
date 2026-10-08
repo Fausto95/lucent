@@ -14,12 +14,16 @@
 
 namespace lucent_app {
 
+struct S_Pair;
+
 struct S_Pair : lucent::Object {
   lucent::Ref<lucent_app::S_Node> a{};
   lucent::Ref<lucent_app::S_Node> b{};
   lucent::Array<double> list{};
   lucent::Array<double> same{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Pair>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Pair>& v) {
   if (!v) {

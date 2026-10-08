@@ -7,9 +7,13 @@
 
 namespace lucent_app {
 
+struct S_Named;
+
 struct S_Named : lucent::Object {
   lucent::Opt<lucent::String> name{};
 };
+
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Named>& v);
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Named>& v) {
   if (!v) {

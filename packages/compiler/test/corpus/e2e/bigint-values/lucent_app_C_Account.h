@@ -13,6 +13,8 @@
 
 namespace lucent_app {
 
+struct C_Account;
+
 struct C_Account : lucent::Object {
   lucent::BigInt r_id_{};
   lucent::BigInt balance{};

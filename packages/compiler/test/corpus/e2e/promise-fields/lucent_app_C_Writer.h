@@ -15,6 +15,8 @@
 
 namespace lucent_app {
 
+struct C_Writer;
+
 struct C_Writer : lucent::Object {
   lucent::Promise<void> pending{};
   lucent::Array<lucent::String> log{};

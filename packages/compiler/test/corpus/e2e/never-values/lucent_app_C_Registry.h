@@ -9,6 +9,8 @@
 
 namespace lucent_app {
 
+struct C_Registry;
+
 struct C_Registry : lucent::Object {
   lucent::Map<lucent::String, lucent::String> names{};
   void construct();

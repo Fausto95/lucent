@@ -14,6 +14,9 @@
 namespace lucent_app {
 
 template <class A, class B>
+struct C_Pair;
+
+template <class A, class B>
 struct C_Pair : lucent::Object {
   A first{};
   B second{};

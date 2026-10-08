@@ -17,6 +17,8 @@
 
 namespace lucent_app {
 
+struct C_Log;
+
 struct C_Log : lucent::Object {
   lucent::String text{};
   void construct();
