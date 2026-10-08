@@ -27,6 +27,7 @@ the build.
 | `pnpm test:all`                               | the unit tests with the slow ones: whole programs built and run with the platforms' toolchains, SDKs extracted into an empty cache (CI runs these)                                                                                                     | no           |
 | `pnpm test:runtime`                           | C++ runtime unit tests (`packages/runtime/test/*_test.cpp`), with corpora checked against JavaScript: BigInt against node, the UI reactive graph against a JavaScript reference                                                                        | no           |
 | `packages/runtime/test/jsi/run.sh`            | the JSI host across runtimes (teardown, reload, stale objects) and a hand-written module in Hermes; `SANITIZE=1` or `thread` add sanitizers                                                                                                            | yes          |
+| `packages/runtime/test/jni/run.sh`            | the JNI glue (`platform/android.cpp`) on a desktop JVM with `-Xcheck:jni`: what crosses from Java into Lucent code, and the local references it leaves; needs a JDK, skipped without one                                                               | no           |
 | `pnpm test:e2e [case…]`                       | differential end-to-end cases                                                                                                                                                                                                                          | yes          |
 | `node scripts/app-check.ts apps/bare-example` | an example app's real Metro bundle against its generated C++                                                                                                                                                                                           | yes          |
 | `node scripts/bench.ts --check`               | performance budgets                                                                                                                                                                                                                                    | yes          |
@@ -108,7 +109,10 @@ screens run the same cases.
 SANITIZE=1 pnpm test:runtime            # ASan + UBSan, clang and libc++ on macOS
 SANITIZE=1 CXX=g++ pnpm test:runtime    # the same with libstdc++ (CI runs both)
 SANITIZE=1 pnpm test:e2e                # e2e cases under ASan + UBSan
-SANITIZE=thread pnpm test:runtime       # TSan: the Lucent lock and the scheduler
+SANITIZE=thread pnpm test:runtime       # TSan: the module locks, the scheduler, contexts and scopes
+SANITIZE=thread CXX=g++ pnpm test:runtime  # the same with libstdc++
+SANITIZE=thread pnpm test:e2e async compute  # TSan over cases that cross threads
+packages/runtime/test/jni/run.sh        # the JNI glue on a desktop JVM (needs a JDK); SANITIZE as above
 ```
 
 Run the runtime suite with and without `SANITIZE=1` after every runtime change,
