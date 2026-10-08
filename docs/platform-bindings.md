@@ -1,9 +1,12 @@
 # Platform bindings — what is implemented
 
 The implemented part of [the design](design/m2-platform-bindings.md): platform
-modules, binding schemas extracted on demand from the installed SDKs,
-Objective-C++ and JNI glue, and `main()`. This page describes the current
-behavior; the design document describes where it is going.
+modules, binding schemas extracted on demand from the installed SDKs (or
+read from an exported schema set where one is missing), Objective-C++ and
+JNI glue, the Swift and Kotlin shims generated for what only those
+languages can call, and `main()`. This page describes the current
+behavior; the design document describes where it is going (it predates
+the shims: "no Swift or Kotlin is generated" there is no longer so).
 
 ## Platform code
 

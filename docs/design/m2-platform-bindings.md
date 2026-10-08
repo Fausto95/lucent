@@ -30,7 +30,11 @@ export function batteryLevel(): number {
 ```
 
 No Swift or Kotlin is generated, and the app keeps one C++ TurboModule. iOS
-calls become ObjC++; Android calls become JNI from C++.
+calls become ObjC++; Android calls become JNI from C++. (Superseded in
+part: Swift-only and Kotlin-only APIs are now called through generated
+Swift and Kotlin shims, [swift-shims.md](swift-shims.md); the one
+TurboModule stays. [platform-bindings.md](../platform-bindings.md) is the
+current behavior.)
 
 ## What the SDKs give us (measured)
 
