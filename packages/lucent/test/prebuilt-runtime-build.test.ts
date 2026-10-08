@@ -49,6 +49,8 @@ describe.skipIf(!tools)("the prebuilt runtime's host build", () => {
         ...rest,
         lib,
         "-lpthread",
+        // localeCompare uses CoreFoundation on Apple platforms, as run.sh links it.
+        ...(process.platform === "darwin" ? ["-framework", "CoreFoundation"] : []),
         "-o",
         test,
       ],
