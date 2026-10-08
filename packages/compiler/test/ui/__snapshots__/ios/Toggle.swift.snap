@@ -2,6 +2,27 @@
 import SwiftUI
 import UIKit
 
+fileprivate func lucentDecodeNumber(_ x: Any, _ what: String) -> NSNumber {
+  if let value = x as? NSNumber {
+    return value
+  }
+  fatalError("Lucent: " + what + " should be a number, got " + String(describing: type(of: x)))
+}
+
+fileprivate func lucentDecodeString(_ x: Any, _ what: String) -> String {
+  if let value = x as? String {
+    return value
+  }
+  fatalError("Lucent: " + what + " should be a string, got " + String(describing: type(of: x)))
+}
+
+fileprivate func lucentDecodeList(_ x: Any, _ what: String) -> [Any] {
+  if let value = x as? [Any] {
+    return value
+  }
+  fatalError("Lucent: " + what + " should be a list, got " + String(describing: type(of: x)))
+}
+
 fileprivate final class ToggleActions {
   let context: UnsafeMutableRawPointer
   let invoke: @convention(c) (UnsafeMutableRawPointer, Int32, UnsafeMutableRawPointer) -> Void

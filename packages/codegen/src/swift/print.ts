@@ -75,8 +75,9 @@ const PREC = {
   nilCoalescing: 7,
   cast: 8,
   range: 9,
-  prefix: 10,
-  postfix: 11,
+  addition: 10,
+  prefix: 11,
+  postfix: 12,
 };
 
 /** The side an operator's own group nests on without parentheses; none for a non-associative group. */
@@ -91,6 +92,7 @@ const BINARY: Record<BinaryOp, { prec: number; assoc: Associativity }> = {
   ">": { prec: PREC.comparison, assoc: "none" },
   "??": { prec: PREC.nilCoalescing, assoc: "right" },
   "...": { prec: PREC.range, assoc: "none" },
+  "+": { prec: PREC.addition, assoc: "left" },
 };
 
 function precedence(e: Expr): number {

@@ -590,3 +590,19 @@ describe("Swift declarations", () => {
     );
   });
 });
+
+describe("Swift addition", () => {
+  it("binds tighter than a comparison and a cast, left to right", () => {
+    const [a, b, c] = [name("a"), name("b"), name("c")];
+
+    expect(printExpr(swift.binary(swift.binary(a, "+", b), "+", c))).toBe("a + b + c");
+    expect(printExpr(swift.binary(a, "+", swift.binary(b, "+", c)))).toBe("a + (b + c)");
+    expect(printExpr(swift.binary(swift.binary(a, "+", b), "==", c))).toBe("a + b == c");
+    expect(printExpr(swift.cast(swift.binary(a, "+", b), "as", swift.type("String")))).toBe(
+      "a + b as String",
+    );
+    expect(printExpr(swift.binary(swift.cast(a, "as", swift.type("String")), "+", b))).toBe(
+      "(a as String) + b",
+    );
+  });
+});
