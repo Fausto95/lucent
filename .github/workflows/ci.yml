@@ -410,19 +410,7 @@ jobs:
   ci:
     name: CI
     if: always()
-    needs:
-      [
-        changes,
-        test,
-        runtime,
-        runtime-tsan,
-        e2e,
-        website,
-        ios-test,
-        ios-checks,
-        ios,
-        android,
-      ]
+    needs: [changes, test, runtime, runtime-tsan, e2e, website, ios-test, ios-checks, ios, android]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

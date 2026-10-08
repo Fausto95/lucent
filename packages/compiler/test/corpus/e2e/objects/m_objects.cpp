@@ -164,7 +164,7 @@ lucent::String m_objects::nickname(lucent::Ref<lucent_app::S_Person> p0_) {
   return v14_;
 }
 
-double m_objects::area(std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>> p0_) {
+double m_objects::area(std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>> p0_) {
   {
     lucent::String v1_ = ({ const auto& u_5_ = p0_; u_5_.index() == 0 ? std::get<0>(u_5_)->kind : std::get<1>(u_5_)->kind; });
     bool v3_ = v1_ == LUCENT_STR("circle");
@@ -184,10 +184,10 @@ double m_objects::area(std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::
     bool v12_ = v10_ <= 0.0;
     if (v12_) {
       double v13_ = 3.141592653589793;
-      lucent::Ref<lucent_app::S_Object3> v14_ = lucent::narrow<lucent::Ref<lucent_app::S_Object3>>(p0_);
+      lucent::Ref<lucent_app::S_Object_b796e072> v14_ = lucent::narrow<lucent::Ref<lucent_app::S_Object_b796e072>>(p0_);
       double v15_ = v14_->radius;
       double v16_ = v13_ * v15_;
-      lucent::Ref<lucent_app::S_Object3> v17_ = lucent::narrow<lucent::Ref<lucent_app::S_Object3>>(p0_);
+      lucent::Ref<lucent_app::S_Object_b796e072> v17_ = lucent::narrow<lucent::Ref<lucent_app::S_Object_b796e072>>(p0_);
       double v18_ = v17_->radius;
       double v21_ = v16_ * v18_ * 100.0;
       double v22_ = lucent::math::round(v21_);
@@ -195,9 +195,9 @@ double m_objects::area(std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::
     }
     bool v26_ = v10_ <= 1.0;
     if (v26_) {
-      lucent::Ref<lucent_app::S_Object4> v27_ = lucent::narrow<lucent::Ref<lucent_app::S_Object4>>(p0_);
+      lucent::Ref<lucent_app::S_Object_b972b24e> v27_ = lucent::narrow<lucent::Ref<lucent_app::S_Object_b972b24e>>(p0_);
       double v28_ = v27_->w;
-      lucent::Ref<lucent_app::S_Object4> v29_ = lucent::narrow<lucent::Ref<lucent_app::S_Object4>>(p0_);
+      lucent::Ref<lucent_app::S_Object_b972b24e> v29_ = lucent::narrow<lucent::Ref<lucent_app::S_Object_b972b24e>>(p0_);
       double v30_ = v29_->h;
       return v28_ * v30_;
     }
@@ -205,8 +205,8 @@ double m_objects::area(std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::
   lucent::unreachable();
 }
 
-lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>> m_objects::shapes(double p0_) {
-  lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>> out = lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>>{};
+lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>> m_objects::shapes(double p0_) {
+  lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>> out = lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>>{};
   {
     int64_t i = static_cast<int64_t>(1);
     while (true) {
@@ -216,13 +216,13 @@ lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucen
           break;
         }
         bool v10_ = lucent::truthy(lucent::jsMod(static_cast<double>(i), 2.0));
-        std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>> v20_{};
+        std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>> v20_{};
         if (v10_) {
-          lucent::Ref<lucent_app::S_Object3> v13_ = ({ auto obj_6_ = std::make_shared<lucent_app::S_Object3>(); obj_6_->kind = LUCENT_STR("circle"); obj_6_->radius = static_cast<double>(i); obj_6_; });
-          v20_ = std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>(v13_);
+          lucent::Ref<lucent_app::S_Object_b796e072> v13_ = ({ auto obj_6_ = std::make_shared<lucent_app::S_Object_b796e072>(); obj_6_->kind = LUCENT_STR("circle"); obj_6_->radius = static_cast<double>(i); obj_6_; });
+          v20_ = std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>(v13_);
         } else {
-          lucent::Ref<lucent_app::S_Object4> v18_ = ({ auto obj_7_ = std::make_shared<lucent_app::S_Object4>(); obj_7_->kind = LUCENT_STR("rect"); obj_7_->w = static_cast<double>(i); obj_7_->h = 2.0; obj_7_; });
-          v20_ = std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>>(v18_);
+          lucent::Ref<lucent_app::S_Object_b972b24e> v18_ = ({ auto obj_7_ = std::make_shared<lucent_app::S_Object_b972b24e>(); obj_7_->kind = LUCENT_STR("rect"); obj_7_->w = static_cast<double>(i); obj_7_->h = 2.0; obj_7_; });
+          v20_ = std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>(v18_);
         }
         (void)out.push(v20_);
       }
@@ -354,7 +354,7 @@ lucent::String m_objects::destructure(lucent::Ref<lucent_app::S_Person> p0_) {
   return lucent::concat(name, LUCENT_STR(" "), v20_, LUCENT_STR(" "), nickname, LUCENT_STR(" "), firstTag, LUCENT_STR(" "), v28_);
 }
 
-lucent::String m_objects::toJson(lucent::Ref<lucent_app::S_Person> p0_, std::variant<lucent::Ref<lucent_app::S_Object4>, lucent::Ref<lucent_app::S_Object3>> p1_) {
+lucent::String m_objects::toJson(lucent::Ref<lucent_app::S_Person> p0_, std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>> p1_) {
   lucent::String v2_ = lucent::json::stringify(p0_);
   lucent::String v4_ = lucent::String(v2_) + LUCENT_STR(" ");
   lucent::String v5_ = lucent::json::stringify(p1_);
@@ -366,7 +366,7 @@ lucent::String m_objects::toJson(lucent::Ref<lucent_app::S_Person> p0_, std::var
   return lucent::String(v16_) + v18_;
 }
 
-lucent::String m_objects::reassign(lucent::Ref<lucent_app::S_Object7> p0_, lucent::Array<double> p1_) {
+lucent::String m_objects::reassign(lucent::Ref<lucent_app::S_Object_153935d8> p0_, lucent::Array<double> p1_) {
   double x = 0.0;
   double y = 0.0;
   lucent::String label = LUCENT_STR("none");
@@ -392,7 +392,7 @@ lucent::String m_objects::reassign(lucent::Ref<lucent_app::S_Object7> p0_, lucen
     v32_ = v27_.value();
   }
   label = v32_;
-  lucent::Ref<lucent_app::S_Object6> v33_ = p0_->inner;
+  lucent::Ref<lucent_app::S_Object_1e208747> v33_ = p0_->inner;
   z = v33_->z;
   lucent::String v39_ = lucent::toJsString(z);
   lucent::String v41_ = lucent::concat(label, LUCENT_STR(" "), v39_);
@@ -422,7 +422,7 @@ lucent::String m_objects::reassign(lucent::Ref<lucent_app::S_Object7> p0_, lucen
   lucent::String v64_ = lucent::concat(v59_, LUCENT_STR(","), v62_);
   (void)out.push(v64_);
   a = p0_->x;
-  lucent::Ref<lucent_app::S_Object7> r = p0_;
+  lucent::Ref<lucent_app::S_Object_153935d8> r = p0_;
   lucent::String v69_ = lucent::toJsString(a);
   double v72_ = r->y;
   lucent::String v73_ = lucent::toJsString(v72_);

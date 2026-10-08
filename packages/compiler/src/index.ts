@@ -507,7 +507,11 @@ function dedupe(ds: Diagnostic[]): Diagnostic[] {
 export function checkSources(
   files: string[],
   readSource?: ReadSource,
-  options: { extensions?: readonly ExtensionBinding[]; sdk?: SdkOptions; session?: CompileSession } = {},
+  options: {
+    extensions?: readonly ExtensionBinding[];
+    sdk?: SdkOptions;
+    session?: CompileSession;
+  } = {},
 ): Diagnostic[] {
   const r = compile(files, { readSource, ...options });
   return [...r.diagnostics, ...(r.warnings ?? [])];

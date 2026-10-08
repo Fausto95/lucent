@@ -5,14 +5,14 @@ static_assert(lucent::js::kRuntimeAbi == 2, "generated for Lucent runtime ABI 2:
 
 namespace {
 
-const lucent::js::ModuleIdentity kModuleIdentities[] = {{"optimizations", "e80261f4a21bd64e"}};
+const lucent::js::ModuleIdentity kModuleIdentities[] = {{"optimizations", "ba86f3d5191bd507"}};
 
 }  // namespace
 
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "1218f3662adc8172", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "8839412eb096e83e", kModuleIdentities, 1};
   return identity;
 }
 

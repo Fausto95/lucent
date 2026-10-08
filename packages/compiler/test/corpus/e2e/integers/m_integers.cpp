@@ -250,7 +250,7 @@ double m_integers::unsignedAccumulate(double p0_) {
   return static_cast<double>(h);
 }
 
-lucent::String m_integers::destructured(lucent::Ref<lucent_app::S_Object1> p0_, lucent::Array<double> p1_) {
+lucent::String m_integers::destructured(lucent::Ref<lucent_app::S_Object_1e208747> p0_, lucent::Array<double> p1_) {
   double z = 0.0;
   z = p0_->z;
   double b = 0.0;

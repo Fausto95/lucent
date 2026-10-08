@@ -24,7 +24,6 @@ import { linksNativePackage } from "./init/patch.ts";
 import { withLucentPaths } from "./tsconfig.ts";
 import { packageFile } from "./version.ts";
 
-
 /** Something a command did to the project, or asks the user to do. */
 export type Notice = { level: "ok" | "warn"; text: string };
 

@@ -201,9 +201,9 @@ double m_closures::callTwice(lucent::Fn<double(double)> p0_, double p1_) {
   return p0_(v2_);
 }
 
-lucent::Array<lucent::String> m_closures::sortBy(lucent::Array<lucent::Ref<lucent_app::S_Object1>> p0_) {
-  lucent::Array<lucent::Ref<lucent_app::S_Object1>> v1_ = p0_.slice();
-  lucent::Array<lucent::Ref<lucent_app::S_Object1>> v3_ = v1_.sort([](lucent::Ref<lucent_app::S_Object1> p0_, lucent::Ref<lucent_app::S_Object1> p1_) mutable -> double {
+lucent::Array<lucent::String> m_closures::sortBy(lucent::Array<lucent::Ref<lucent_app::S_Object_6bd9ed01>> p0_) {
+  lucent::Array<lucent::Ref<lucent_app::S_Object_6bd9ed01>> v1_ = p0_.slice();
+  lucent::Array<lucent::Ref<lucent_app::S_Object_6bd9ed01>> v3_ = v1_.sort([](lucent::Ref<lucent_app::S_Object_6bd9ed01> p0_, lucent::Ref<lucent_app::S_Object_6bd9ed01> p1_) mutable -> double {
     double v2_ = p0_->age;
     double v3_ = p1_->age;
     double v4_ = v2_ - v3_;
@@ -218,7 +218,7 @@ lucent::Array<lucent::String> m_closures::sortBy(lucent::Array<lucent::Ref<lucen
     }
     return v9_;
   });
-  return v3_.template map<lucent::String>([](lucent::Ref<lucent_app::S_Object1> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::S_Object1>> p2_) mutable -> lucent::String {
+  return v3_.template map<lucent::String>([](lucent::Ref<lucent_app::S_Object_6bd9ed01> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::S_Object_6bd9ed01>> p2_) mutable -> lucent::String {
     return p0_->name;
   });
 }

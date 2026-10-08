@@ -39,7 +39,7 @@ export function caption(p: Photo): string {
     );
 
     expect(r.diagnostics).toEqual([]);
-    expect(preprocessor(r.files.get("ios/lucent_app.h")!)).toContain("#undef DOMAIN");
+    expect(preprocessor(r.files.get("ios/lucent_app_S_Photo.h")!)).toContain("#undef DOMAIN");
   });
 
   it("includes every header before undefining names", () => {

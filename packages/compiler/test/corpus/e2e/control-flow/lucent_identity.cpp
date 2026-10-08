@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"control-flow", "2546b5
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "a2f0afe3c8e099d2", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "acd96f1d43aa69ff", kModuleIdentities, 1};
   return identity;
 }
 
