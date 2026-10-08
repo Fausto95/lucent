@@ -73,9 +73,21 @@ export function identifiers(code: string): Set<string> {
   return new Set([...code.matchAll(TOKEN)].flatMap((m) => (m[1] ? [m[1]] : [])));
 }
 
+const spelledCache = new WeakMap<readonly cpp.Decl[], Set<string>>();
+
+/** The identifiers `decls` spell where a macro would expand, printed once per list. */
+export function spelledIn(decls: readonly cpp.Decl[]): Set<string> {
+  let names = spelledCache.get(decls);
+  if (!names) {
+    names = identifiers(cpp.printDecls([...decls]));
+    spelledCache.set(decls, names);
+  }
+  return names;
+}
+
 /** `decls` with the declared names they spell undefined as macros, when they spell any. */
 export function withoutMacros(decls: cpp.Decl[], declared: ReadonlySet<string>): cpp.Decl[] {
-  const spelled = identifiers(cpp.printDecls(decls));
+  const spelled = spelledIn(decls);
   const names = [...declared].filter((n) => spelled.has(n)).sort();
 
   return names.length ? [cpp.withoutMacros(names, decls)] : decls;

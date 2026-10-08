@@ -21,7 +21,7 @@
  * defines them.
  */
 import { cpp } from "@lucent-lang/codegen";
-import { identifiers } from "./macros.ts";
+import { identifiers, spelledIn } from "./macros.ts";
 
 /**
  * One type: its definition, the declarations that follow every
@@ -185,8 +185,8 @@ export function typeHeaders(
   }
 
   /** The groups the type headers among `decls`' includes reach. */
+  const byHeader = new Map(groups.map((_, g) => [headerOf(g), g]));
   const includedGroups = (decls: readonly cpp.Decl[]): Set<number> => {
-    const byHeader = new Map(groups.map((_, g) => [headerOf(g), g]));
     const out = new Set<number>();
     for (const d of decls)
       if (d.k === "include") {
@@ -199,7 +199,7 @@ export function typeHeaders(
   return {
     files,
     includes(decls, already = [], prefix = "") {
-      const names = identifiers(cpp.printDecls([...decls]));
+      const names = spelledIn(decls);
       const have = includedGroups(already);
       const want = groupsSpelled(names);
       const types = want.filter((g) => !have.has(g)).map((g) => cpp.include(prefix + headerOf(g)));
