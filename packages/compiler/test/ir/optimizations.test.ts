@@ -149,6 +149,33 @@ describe("integer elements", () => {
   });
 });
 
+describe("objects on the stack", () => {
+  const cpp = cppOf(CASE);
+
+  it("makes an object only its fields' reads and writes see on the stack", () => {
+    const fn = body(cpp, "stackObjects");
+
+    expect(fn).toMatch(/lucent_app::S_Object\d+ q = /);
+
+    expect(fn).toContain("lucent_app::S_Point copy = ");
+
+    // `p` is spread into `copy`, the nested object is a field's value, and `empty` is passed to
+    // JSON.stringify.
+    expect(fn).toContain("lucent::Ref<lucent_app::S_Point> p = ");
+
+    expect(fn.match(/std::make_shared/g)).toHaveLength(3);
+  });
+
+  it("keeps on the heap an object that is passed, returned, kept, captured, compared or spread", () => {
+    const fn = body(cpp, "heapObjects");
+
+    for (const name of ["passed", "kept", "captured", "compared", "spread"])
+      expect(fn).toContain(`lucent::Ref<lucent_app::S_Point> ${name} = `);
+
+    expect(body(cpp, "made")).toContain("lucent::Ref<lucent_app::S_Point> p = ");
+  });
+});
+
 describe("devirtualized callbacks", () => {
   const cpp = cppOf(CASE);
 

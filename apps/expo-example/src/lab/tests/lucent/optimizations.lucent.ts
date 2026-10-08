@@ -178,6 +178,62 @@ function keep(xs: number[]): number {
   return xs.length;
 }
 
+// --- Objects only their own function's code reads: on the stack --------------
+
+interface Point {
+  x: number;
+  y: number;
+  label?: string;
+}
+
+/**
+ * Applies: object literals whose fields alone are read and written, in a
+ * loop, with an optional field, a string, a nested object and a spread.
+ */
+export function stackObjects(n: number): string {
+  let sx = 0;
+  let sy = 0;
+  let names = "";
+  for (let i = 0; i < n; i++) {
+    const p: Point = { x: i % 10, y: (i * 7) % 10 };
+    const q = { x: p.y - p.x, y: p.x + p.y, inner: { z: i } };
+    q.x *= 2;
+    q.y++;
+    p.label = i % 3 ? undefined : `p${i}`;
+    sx += q.x + q.inner.z;
+    sy += q.y;
+    if (p.label !== undefined) names += p.label;
+    const copy = { ...p, y: 0 };
+    sy += copy.x + copy.y;
+  }
+  const empty = {};
+  return `${sx} ${sy} ${names} ${JSON.stringify(empty)}`;
+}
+
+/** Leaves alone: objects that are passed, returned, kept, captured, compared or spread. */
+export function heapObjects(n: number): string {
+  const passed: Point = { x: n, y: 1 };
+  const kept: Point = { x: 2, y: n };
+  const all: Point[] = [kept];
+  const captured: Point = { x: 3, y: 3 };
+  const read = () => captured.x;
+  const compared: Point = { x: 4, y: 4 };
+  const same = compared === all[0];
+  const spread: Point = { x: 5, y: 5 };
+  const copied = { ...spread };
+  copied.x = 6;
+  return `${norm(passed)} ${made(n).x} ${all.length} ${read()} ${same} ${spread.x} ${copied.x}`;
+}
+
+function norm(p: Point): number {
+  return p.x * p.x + p.y * p.y;
+}
+
+function made(n: number): Point {
+  const p: Point = { x: n, y: n };
+  return p;
+}
+
 // --- Callbacks a runtime method calls directly -------------------------------
 
 /** Applies: arrow functions passed straight to Array's methods. */
