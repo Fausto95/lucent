@@ -233,6 +233,12 @@ export const commands: CommandSpec[] = [
         description: "Fail when the unrepresentable share grows past a baseline JSON",
       },
       {
+        name: "update",
+        value: "baseline",
+        description:
+          "Write the reports into a baseline JSON: its modules replaced, new ones added, each with its SDK",
+      },
+      {
         name: "exercised",
         value: "file",
         description: "A JSON array of the symbol keys tests or probes ran (see --members)",

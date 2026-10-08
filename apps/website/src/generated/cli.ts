@@ -201,6 +201,10 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
         "description": "Fail when the unrepresentable share grows past a baseline JSON"
       },
       {
+        "flag": "--update <baseline>",
+        "description": "Write the reports into a baseline JSON: its modules replaced, new ones added, each with its SDK"
+      },
+      {
         "flag": "--exercised <file>",
         "description": "A JSON array of the symbol keys tests or probes ran (see --members)"
       },

@@ -33,6 +33,9 @@ import { table } from "../ui/format.ts";
  * JSX tags take by rule, and what the rules leave out. `--all` takes
  * every module of each SDK there is; `--summary <file>` appends a markdown
  * summary (CI's step summary) of the reasons members are left out.
+ * `--check <baseline>` fails when a module's unrepresentable share grows
+ * past the baseline's; `--update <baseline>` writes the reports into it,
+ * each with the SDK it was read from.
  */
 export function run({ root, flags, out }: Invocation): number {
   const t = out.theme;
@@ -184,6 +187,26 @@ export function run({ root, flags, out }: Invocation): number {
   if (typeof flags.summary === "string")
     fs.appendFileSync(path.resolve(root, flags.summary), coverageSummary(reports, 20, unread));
 
+  // The reports as a baseline records them: without members, each with the SDK it was read from.
+  const updateFile = typeof flags.update === "string" ? flags.update : "";
+  if (updateFile) {
+    const file = path.resolve(root, updateFile);
+    const before = fs.existsSync(file)
+      ? (JSON.parse(fs.readFileSync(file, "utf8")) as SdkCoverage[])
+      : [];
+    const now = new Map(
+      reports.map((report) => {
+        const c: Partial<typeof report> = { ...report };
+        delete c.members;
+        delete c.views;
+        return [report.module, c];
+      }),
+    );
+    const kept = before.map((b) => now.get(b.module) ?? b);
+    const added = [...now.values()].filter((c) => !before.some((b) => b.module === c.module));
+    fs.writeFileSync(file, `${JSON.stringify([...kept, ...added], null, 2)}\n`);
+  }
+
   const baselineFile = typeof flags.check === "string" ? flags.check : "";
   if (!baselineFile) return 0;
   const baseline = new Map(
@@ -192,6 +215,21 @@ export function run({ root, flags, out }: Invocation): number {
   // Shares, not counts: another SDK version has other members.
   const share = (c: SdkCoverage) => (c.total ? (100 * c.unrepresentable) / c.total : 0);
   let dropped = false;
+  // A module the gate reads and the baseline lacks gates nothing: said, so a widened gate is seen.
+  const listed = (ms: string[]) =>
+    `${ms.length} module${ms.length === 1 ? "" : "s"} (${ms.slice(0, 5).join(", ")}${ms.length > 5 ? ", …" : ""})`;
+  const ungated = reports.filter((c) => !baseline.has(c.module)).map((c) => c.module);
+  if (ungated.length)
+    process.stderr.write(
+      `${t.symbols.warn} ${listed(ungated)} not in the baseline, so not gated: add them with --update ${baselineFile}\n`,
+    );
+  const unknown = reports.filter(
+    (c) => c.sdk && baseline.get(c.module) && !baseline.get(c.module)!.sdk,
+  );
+  if (unknown.length)
+    process.stderr.write(
+      `${t.symbols.warn} the baseline does not say which SDK ${listed(unknown.map((c) => c.module))} were read from (these are ${[...new Set(unknown.map((c) => c.sdk))].join(", ")}): record it with --update ${baselineFile}\n`,
+    );
   for (const c of reports) {
     const b = baseline.get(c.module);
     // Another SDK has other members: the share still gates, and the note says why it moved.
