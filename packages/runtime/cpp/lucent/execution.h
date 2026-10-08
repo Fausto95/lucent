@@ -285,12 +285,13 @@ class AutoreleasePool {
 #if defined(__APPLE__)
   AutoreleasePool();
   ~AutoreleasePool();
+#else
+  // User-provided, so a pool held for its scope is not an unused variable.
+  AutoreleasePool() {}
+  ~AutoreleasePool() {}
 #endif
   AutoreleasePool(const AutoreleasePool&) = delete;
   AutoreleasePool& operator=(const AutoreleasePool&) = delete;
-#if !defined(__APPLE__)
-  AutoreleasePool() = default;
-#endif
 
  private:
   [[maybe_unused]] void* pool_ = nullptr;
