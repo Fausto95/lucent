@@ -56,6 +56,14 @@ target_compile_options(lucentnative PRIVATE
   $<$<COMPILE_LANGUAGE:CXX>:-Wno-comma>
 )
 
+# Every generated unit parses the runtime's umbrella header (the standard
+# library with it): precompiled once, an edited module recompiles in about
+# half the time. C sources see nothing of it (cpp/lucent/prefix.h).
+if(COMMAND target_precompile_headers AND NOT LUCENT_NO_PCH)
+  target_precompile_headers(lucentnative PRIVATE
+    "$<$<COMPILE_LANGUAGE:CXX>:${LUCENT_ROOT}/cpp/lucent/prefix.h>")
+endif()
+
 target_link_libraries(lucentnative jsi reactnative fbjni log android lucentregexp)
 
 # Lucent packages' C and C++ sources, when any (written by lucent build).

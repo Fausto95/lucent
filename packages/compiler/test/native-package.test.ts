@@ -81,6 +81,23 @@ describe("native package", () => {
     );
   });
 
+  it("precompiles the runtime's umbrella header in both platforms' builds", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const out = path.join(dir, "native");
+    writeNativePackage(program(dir), out, { root: dir });
+    const podspec = fs.readFileSync(path.join(out, "LucentNative.podspec"), "utf8");
+    const cmake = fs.readFileSync(path.join(out, "android/CMakeLists.txt"), "utf8");
+    const prefix = fs.readFileSync(path.join(out, "cpp/lucent/prefix.h"), "utf8");
+
+    expect(podspec).toContain('s.prefix_header_file = "cpp/lucent/prefix.h"');
+    expect(podspec).toContain('"GCC_PRECOMPILE_PREFIX_HEADER" => "YES"');
+    expect(cmake).toContain(
+      'target_precompile_headers(lucentnative PRIVATE\n    "$<$<COMPILE_LANGUAGE:CXX>:${LUCENT_ROOT}/cpp/lucent/prefix.h>")',
+    );
+    // C sources (the regular expression engine) compile without it.
+    expect(prefix).toMatch(/#if defined\(__cplusplus\)\n#include "lucent.h"\n#endif/);
+  });
+
   it("writes the lucent:core declarations for the app's tsconfig paths", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
     const src = path.join(dir, "sample.lucent.ts");

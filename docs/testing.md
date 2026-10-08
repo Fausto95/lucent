@@ -158,7 +158,11 @@ size of the generated code. p95 is reported from 20 samples and p99 from
 case module in one app, built for the host: a cold build, a build with
 nothing to do, a build and a check after a function body changes. Times
 include starting the CLI; the check step's own time comes from
-`.lucent/build-record.json`. It takes `--rounds N` and `--json <file>`.
+`.lucent/build-record.json`. With clang, it also times compiling the edited
+module's C++ unit as the native builds do, with the runtime's umbrella header
+precompiled (`native/body-edit`) and without (`native/body-edit-no-pch`). It
+takes `--rounds N` and `--json <file>`; `--check` holds each scenario's p95 to
+`scripts/bench-build-budgets.json`.
 
 On devices, the example apps' Compare tab runs NitroBenchmarks
 (github.com/mrousavy/NitroBenchmarks): 100,000 calls of `addNumbers` and

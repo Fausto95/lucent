@@ -25,8 +25,13 @@ Pod::Spec.new do |s|
   s.exclude_files = ["cpp/generated/android/**", "cpp/generated/host/**"]
   s.frameworks   = "CoreFoundation"
   s.header_mappings_dir = "cpp"
+  # Every generated unit parses the runtime's umbrella header (the standard
+  # library with it): Xcode precompiles the prefix header once, so an edited
+  # module recompiles in about half the time. C sources see nothing of it.
+  s.prefix_header_file = "cpp/lucent/prefix.h"
   s.pod_target_xcconfig = {
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++20",
+    "GCC_PRECOMPILE_PREFIX_HEADER" => "YES",
     "HEADER_SEARCH_PATHS" => "\"$(PODS_TARGET_SRCROOT)/cpp\" \"$(PODS_TARGET_SRCROOT)/cpp/generated/ios\" \"$(PODS_TARGET_SRCROOT)/cpp/generated\" \"$(PODS_TARGET_SRCROOT)/cpp/rn\"",
     # The vendored regular expression engine (third_party/quickjs) is C.
     "OTHER_CFLAGS" => "$(inherited) -w #{lucent_prefix_map}",
