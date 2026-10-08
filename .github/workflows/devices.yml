@@ -25,6 +25,8 @@ permissions:
   contents: read
 
 env:
+  # Every run step sources this: a failing step's output becomes an error annotation.
+  BASH_ENV: ${{ github.workspace }}/scripts/ci-trap.sh
   # As in ci.yml: a called workflow has its own env.
   XCODE_VERSION: "26.6"
   LANG: en_US.UTF-8
