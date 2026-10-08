@@ -77,3 +77,73 @@ describe("iOS schemas from symbol graphs", () => {
     ]);
   });
 });
+
+describe("Swift async sequences in symbol graphs", () => {
+  // StoreKit's shape: Transaction.updates is a Transaction.Transactions, an AsyncSequence of
+  // VerificationResult<Transaction>; here its elements are Transactions themselves.
+  const T = "s:5Store11TransactionV";
+  const TS = "s:5Store11TransactionV12TransactionsV";
+  const ref = (name: string, usr: string) => ({
+    kind: "typeIdentifier",
+    spelling: name,
+    preciseIdentifier: usr,
+  });
+  const store: SymbolGraph = {
+    symbols: [
+      sym("swift.struct", T, ["Transaction"]),
+      sym("swift.struct", TS, ["Transaction", "Transactions"]),
+      sym("swift.typealias", `${TS}7Elementa`, ["Transaction", "Transactions", "Element"], {
+        declarationFragments: [
+          { kind: "keyword", spelling: "typealias" },
+          { kind: "text", spelling: " Element = " },
+          ref("Transaction", T),
+        ],
+      }),
+      sym("swift.type.property", `${T}7updatesAC12TransactionsVvpZ`, ["Transaction", "updates"], {
+        declarationFragments: [
+          { kind: "text", spelling: "static var updates: " },
+          ref("Transaction", T),
+          { kind: "text", spelling: "." },
+          ref("Transactions", TS),
+          { kind: "text", spelling: " { get }" },
+        ],
+      }),
+      sym("swift.type.method", `${T}6countsScSySiGyFZ`, ["Transaction", "counts()"], {
+        names: { title: "counts()" },
+        declarationFragments: [{ kind: "text", spelling: "static func counts() -> " }],
+        functionSignature: {
+          parameters: [],
+          returns: [
+            ref("AsyncStream", "s:ScS"),
+            { kind: "text", spelling: "<" },
+            ref("Int", "s:Si"),
+            { kind: "text", spelling: ">" },
+          ],
+        },
+      }),
+    ],
+    relationships: [
+      { kind: "memberOf", source: TS, target: T },
+      { kind: "memberOf", source: `${TS}7Elementa`, target: TS },
+      { kind: "conformsTo", source: TS, target: "s:Sci" },
+      { kind: "memberOf", source: `${T}7updatesAC12TransactionsVvpZ`, target: T },
+      { kind: "memberOf", source: `${T}6countsScSySiGyFZ`, target: T },
+    ],
+  };
+
+  it("bind AsyncStreams and the module's AsyncSequence types as sequences of their elements", () => {
+    const [schema] = buildIosSchemas(new Map([["Store", store]]), () => new Map());
+    const transaction = schema!.types.find((t) => t.name === "Transaction");
+    if (transaction?.kind !== "class") throw new Error("no Transaction");
+
+    expect(transaction.properties?.find((p) => p.name === "updates")).toMatchObject({
+      static: true,
+      type: { k: "sequence", of: { k: "ref", module: "Store", name: "Transaction" } },
+    });
+    expect(transaction.methods?.find((m) => m.name === "counts")).toMatchObject({
+      returns: { k: "sequence", of: { k: "prim", name: "NSInteger" } },
+    });
+    // The sequence type itself is the sequence, not a class of its own.
+    expect(schema!.types.map((t) => t.name)).not.toContain("Transaction_Transactions");
+  });
+});

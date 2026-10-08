@@ -106,3 +106,26 @@ describe("declaration fragments", () => {
     );
   });
 });
+
+describe("Swift async sequences", () => {
+  const INT: [string, string] = ["Int", "s:Si"];
+  const parse = (...parts: (string | [string, string])[]) => {
+    const f = frags(...parts);
+    return parseType(f, resolver);
+  };
+
+  it("read AsyncStream, AsyncThrowingStream and some AsyncSequence as sequences of their elements", () => {
+    const ints = parseSchemaType("AsyncSequence<NSInteger>");
+
+    expect(parse(["AsyncStream", "s:ScS"], "<", INT, ">")).toEqual(ints);
+    expect(
+      parse(["AsyncThrowingStream", "s:Scs"], "<", INT, ", ", ["Error", "s:s5ErrorP"], ">"),
+    ).toEqual(ints);
+    expect(
+      parse("some ", ["AsyncSequence", "s:Sci"], "<", INT, ", ", ["Never", "s:s5NeverO"], ">"),
+    ).toEqual(ints);
+    expect(parse(["AsyncStream", "s:ScS"], "<", ["KITView", "c:objc(cs)KITView"], ">?")).toEqual(
+      parseSchemaType("AsyncSequence<Kit.KITView>?"),
+    );
+  });
+});
