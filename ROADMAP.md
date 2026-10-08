@@ -1867,6 +1867,16 @@ coherent workflow.
       in CI and show the top 20 skip reasons in the job summary (CI checks
       five iOS modules and `android.*` today): `--all` and `--summary`; 526
       modules locally, 53 unreadable for the simulator and listed.
+- [ ] Carried over from the 2026-10-08 review: gate the app's Android
+      dependencies and record which SDK the baseline was measured with.
+      (Started: the Android job gates `androidx.core.*` and
+      `com.google.android.gms.*` in the bare example after Gradle resolves
+      them; `--update` writes reports with their `sdk`, and `--check` names
+      modules the baseline lacks and entries without an SDK. Left: commit
+      the `sdk-coverage.updated.json` both jobs upload, which adds those
+      packages and every entry's SDK; until then they are reported, not
+      gated. Swift's Hashable, Equatable and Codable plumbing is already
+      counted apart.)
 
 **Done when:** a developer can build and diagnose a module or view through
 one coherent workflow, and machine-readable consumers share its schema.
