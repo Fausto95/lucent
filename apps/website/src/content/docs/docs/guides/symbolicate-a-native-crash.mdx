@@ -32,7 +32,7 @@ lucent_app::m_tree::sum(std::__1::shared_ptr<lucent_app::S_Node>) (in MyApp) (tr
 lucent_app::m_tree::sum(std::__1::shared_ptr<lucent_app::S_Node>) (in MyApp) (tree.lucent.ts:6)
 ```
 
-`chainTotal(1_000_000)` recurses until the native stack overflows, which crashes the app: Lucent has no recursion limit ([Differences](/docs/api/language/differences/#arrays-and-collections)). The generated C++ carries `#line` directives that name your `.lucent.ts` lines, so its debug information points at your file. Files are named by their path in the project: the build maps the project's directory to `.`, so the binary holds no path of your machine. Release builds keep it: Xcode archives a dSYM, and Gradle builds with debug information, then strips the copy it packages.
+`chainTotal(1_000_000)` recurses until the native stack overflows, which crashes the app: Lucent has no recursion limit ([Differences](/docs/api/language/differences/#arrays-and-collections)). The generated C++ carries `#line` directives that name your `.lucent.ts` lines, so its debug information points at your file. Files are named by their path in the project, and the binary holds no path of your machine. Release builds keep it: Xcode archives a dSYM, and Gradle builds with debug information, then strips the copy it packages.
 
 ## Symbolicate the report
 
