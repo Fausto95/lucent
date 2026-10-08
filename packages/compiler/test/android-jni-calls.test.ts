@@ -15,7 +15,9 @@ import { jdk, jvmRun } from "./jni-harness.ts";
  * Each call site stays a lambda of its own: its receiver is evaluated
  * before its local frame is pushed and its arguments inside it, which a
  * function template's arguments would not be (their local references
- * would outlive the call). See ROADMAP.md's decisions log.
+ * would outlive the call). Its environment, frame, class and member are
+ * one line, LUCENT_JNI_SITE, which expands to them in that order. See
+ * ROADMAP.md's decisions log.
  */
 
 const library = {
@@ -66,6 +68,19 @@ describe.skipIf(!javac || !jdk)("SDK call sites over JNI", () => {
     // The class argument is a static of its use, as the call site's own class is.
     expect(p.cpp).toContain('LUCENT_JNI_CLASS("dev/probe/Probe")');
     expect(p.cpp).not.toMatch(/, lucent::jni::findClass\(/);
+  });
+
+  it("starts each call site with one line: its environment, frame, class and member", () => {
+    const p = compiled();
+    const run = p.cpp.slice(p.cpp.indexOf("::run()"));
+
+    expect(run).toContain('LUCENT_JNI_SITE(method, "dev/probe/Probe", "bump", "()V");');
+    expect(run).toContain('LUCENT_JNI_SITE(staticMethod, "dev/probe/Probe", "twice", "(I)I");');
+    expect(run).not.toContain("LocalFrame");
+    // The receiver is read before the frame is pushed, the arguments inside it.
+    expect(run).toMatch(
+      /auto recv_ = p;\n(#line .*\n)?\s*LUCENT_JNI_SITE\(method, "dev\/probe\/Probe", "total"/,
+    );
   });
 
   it("gives what the JVM computes", () => {
