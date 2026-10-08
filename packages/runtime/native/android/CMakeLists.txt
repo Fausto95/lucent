@@ -21,7 +21,9 @@ list(FILTER LUCENT_SOURCES EXCLUDE REGEX "/cpp/generated/(ios|host)/")
 file(GLOB LUCENT_C_SOURCES CONFIGURE_DEPENDS ${LUCENT_ROOT}/cpp/third_party/quickjs/*.c)
 add_library(lucentregexp STATIC ${LUCENT_C_SOURCES})
 set_target_properties(lucentregexp PROPERTIES POSITION_INDEPENDENT_CODE ON C_STANDARD 11)
-target_compile_options(lucentregexp PRIVATE -w -O2 ${LUCENT_PREFIX_MAP})
+# Hidden, and prefixed lucent_ (third_party/quickjs/lucent_prefix.h): an app
+# linking another QuickJS has no clash.
+target_compile_options(lucentregexp PRIVATE -w -O2 -fvisibility=hidden ${LUCENT_PREFIX_MAP})
 
 add_library(lucentnative OBJECT ${LUCENT_SOURCES})
 

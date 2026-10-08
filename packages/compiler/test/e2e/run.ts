@@ -6,7 +6,8 @@
  *
  *   node packages/compiler/test/e2e/run.ts [case-name...]
  *
- * Env: HERMES_DIR (Hermes checkout built into build/), SANITIZE=1, CXX;
+ * Env: HERMES_DIR (Hermes checkout built into build/), SANITIZE=1 (ASan and
+ * UBSan) or SANITIZE=thread (TSan: async cases' threads), CXX;
  * LUCENT_E2E_CASES, a directory of cases to run instead of cases/ (fuzz.ts
  * writes its programs to one).
  */
@@ -42,8 +43,11 @@ const runtimeJs = path.join(runtimeDir, "js/index.js");
 const abortPolyfill = path.resolve(here, "../../../runtime/test/jsi/abort-polyfill.js");
 const hermes = process.env.HERMES_DIR ?? path.join(os.homedir(), "hermes");
 const sanitize = process.env.SANITIZE === "1";
+const tsan = process.env.SANITIZE === "thread";
+/** The C and C++ sanitizer flags for SANITIZE. */
+const sanitizers = sanitize ? ["-fsanitize=address,undefined"] : tsan ? ["-fsanitize=thread"] : [];
 const cxx = process.env.CXX ?? "clang++";
-const work = path.join(os.tmpdir(), `lucent-e2e${sanitize ? "-san" : ""}`);
+const work = path.join(os.tmpdir(), `lucent-e2e${sanitize ? "-san" : tsan ? "-tsan" : ""}`);
 
 // Generated code builds with -Werror in the NDK's appmodules build; match it
 // (and the podspec/CMake suppressions) so warnings fail here first.
@@ -56,7 +60,7 @@ const baseFlags = [
   "-ffp-contract=off",
   "-O1",
   // Debug info, for the sanitizers' reports: seconds of every compile otherwise.
-  ...(sanitize ? ["-g"] : []),
+  ...(sanitize || tsan ? ["-g"] : []),
   "-Wall",
   "-Wno-unused-parameter",
   "-Wno-unused-variable",
@@ -68,7 +72,7 @@ const baseFlags = [
   `-I${path.join(hermes, "API")}`,
   `-I${path.join(hermes, "API/jsi")}`,
   `-I${path.join(hermes, "public")}`,
-  ...(sanitize ? ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"] : []),
+  ...(sanitizers.length ? [...sanitizers, "-fno-omit-frame-pointer"] : []),
 ];
 
 /** How many cases, and how many runtime sources, compile at once. */
@@ -106,14 +110,7 @@ async function runtimeLib(): Promise<string> {
     pool(sources, jobs, async (src) => {
       const obj = path.join(dir, path.basename(src).replace(/\.cpp$/, ".o"));
       if (src.endsWith(".c"))
-        await sh(process.env.CC ?? "clang", [
-          ...cFlags,
-          ...(sanitize ? ["-fsanitize=address,undefined"] : []),
-          "-c",
-          src,
-          "-o",
-          obj,
-        ]);
+        await sh(process.env.CC ?? "clang", [...cFlags, ...sanitizers, "-c", src, "-o", obj]);
       else await sh(cxx, [...baseFlags, "-c", src, "-o", obj]);
       return obj;
     }),
@@ -265,6 +262,9 @@ async function nativeRun([exe, ...args]: string[]): Promise<string> {
   });
   if (r.status !== 0)
     throw new Error(`native run failed (${r.status ?? r.signal}):\n${r.stderr}\n${r.stdout}`);
+  // A report from another thread may not change the exit status.
+  if (/WARNING: ThreadSanitizer|ERROR: (Address|Leak)Sanitizer|runtime error:/.test(r.stderr))
+    throw new Error(`native run printed a sanitizer report:\n${r.stderr}`);
   if (r.stderr.trim()) process.stderr.write(r.stderr);
   return r.stdout;
 }

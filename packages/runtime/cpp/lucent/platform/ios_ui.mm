@@ -393,7 +393,7 @@ Error detail::dismissedError() {
   return makeError(String::fromLatin1("AbortError"), String::fromLatin1("The view controller was dismissed"));
 }
 
-std::shared_ptr<Scope> detail::callerScope() { return ExecutionContext::of(ExecutionContext::currentRef()).root(); }
+std::shared_ptr<Scope> detail::callerScope() { return ownedScope(ExecutionContext::currentRef()); }
 
 namespace {
 

@@ -396,6 +396,42 @@ void report(JNIEnv* env, jclass, jstring message) {
   logError(jni::fromJString(env, message, "message").toUtf8().c_str());
 }
 
+// What Java calls, on the main thread: nothing may unwind into the JVM
+// (which aborts) or leave a Java exception that would end the app. What the
+// bodies throw (a pending Java exception through jni::check, a conversion's
+// error, an allocation failure) is reported, and the view keeps what it had.
+jlong updateNative(JNIEnv* env, jclass cls, jlong handle, jobject view, jstring name, jint tag, jint surface, jobject props) {
+  return jni::reported(env, "a component's update", handle, [&] { return update(env, cls, handle, view, name, tag, surface, props); });
+}
+
+void attachNative(JNIEnv* env, jclass cls, jlong handle) {
+  jni::reported(env, "a component's mount", [&] { attach(env, cls, handle); });
+}
+
+void stateNative(JNIEnv* env, jclass cls, jlong handle, jobject wrapper) {
+  jni::reported(env, "a component's state", [&] { state(env, cls, handle, wrapper); });
+}
+
+void contentChangedNative(JNIEnv* env, jclass cls, jlong handle) {
+  jni::reported(env, "a component's content", [&] { contentChanged(env, cls, handle); });
+}
+
+void slotPlacedNative(JNIEnv* env, jclass cls, jlong handle, jintArray place, jboolean rtl, jboolean swapped) {
+  jni::reported(env, "a component's slot", [&] { slotPlaced(env, cls, handle, place, rtl, swapped); });
+}
+
+void commandNative(JNIEnv* env, jclass cls, jlong handle, jstring name, jobject args) {
+  jni::reported(env, "a component's command", [&] { command(env, cls, handle, name, args); });
+}
+
+void dropNative(JNIEnv* env, jclass cls, jlong handle) {
+  jni::reported(env, "a component's teardown", [&] { drop(env, cls, handle); });
+}
+
+void reportNative(JNIEnv* env, jclass cls, jstring message) {
+  jni::reported(env, "a view's report", [&] { report(env, cls, message); });
+}
+
 }  // namespace
 
 void installAndroidHost() {
@@ -406,16 +442,16 @@ void installAndroidHost() {
     JNINativeMethod natives[] = {
         {const_cast<char*>("update"),
          const_cast<char*>("(JLdev/lucent/LucentHostView;Ljava/lang/String;IILcom/facebook/react/bridge/NativeMap;)J"),
-         reinterpret_cast<void*>(update)},
-        {const_cast<char*>("attach"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(attach)},
+         reinterpret_cast<void*>(updateNative)},
+        {const_cast<char*>("attach"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(attachNative)},
         {const_cast<char*>("state"), const_cast<char*>("(JLcom/facebook/react/uimanager/StateWrapper;)V"),
-         reinterpret_cast<void*>(state)},
-        {const_cast<char*>("contentChanged"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(contentChanged)},
-        {const_cast<char*>("slotPlaced"), const_cast<char*>("(J[IZZ)V"), reinterpret_cast<void*>(slotPlaced)},
+         reinterpret_cast<void*>(stateNative)},
+        {const_cast<char*>("contentChanged"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(contentChangedNative)},
+        {const_cast<char*>("slotPlaced"), const_cast<char*>("(J[IZZ)V"), reinterpret_cast<void*>(slotPlacedNative)},
         {const_cast<char*>("command"), const_cast<char*>("(JLjava/lang/String;Lcom/facebook/react/bridge/NativeArray;)V"),
-         reinterpret_cast<void*>(command)},
-        {const_cast<char*>("drop"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(drop)},
-        {const_cast<char*>("report"), const_cast<char*>("(Ljava/lang/String;)V"), reinterpret_cast<void*>(report)},
+         reinterpret_cast<void*>(commandNative)},
+        {const_cast<char*>("drop"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(dropNative)},
+        {const_cast<char*>("report"), const_cast<char*>("(Ljava/lang/String;)V"), reinterpret_cast<void*>(reportNative)},
     };
 
     env->RegisterNatives(jni::findClass("dev/lucent/LucentViews"), natives, std::size(natives));

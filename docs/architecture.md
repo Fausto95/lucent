@@ -639,7 +639,8 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
   so no context waits for another.
 - `callback.h`: `fromCallback` and `subscribe` (`lucent:core`), a promise
   or a subscription over any callback API. Each is an `Operation` under the
-  calling context's root scope, following the signal until it settles: it
+  scope the calling context's work belongs to (`ownedScope`: module code's
+  is its JavaScript runtime's, so a reload ends it), following the signal until it settles: it
   settles once, at the first of its callbacks, the signal and the scope's
   disposal, and runs the registration's cleanup once, then (or when the
   registration returns it, if it settled during registration). Everything
@@ -658,7 +659,7 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
 - `operation.h`: native work as a promise. `nativeOperation(registration,
 signal)` starts native work that completes later, on any thread (a
   Kotlin coroutine, a platform callback), as an `Operation` under the
-  calling context's root scope, and returns a promise that settles on that
+  scope the calling context's work belongs to (`ownedScope`), and returns a promise that settles on that
   context. The registration begins the work and returns what ends it.
   Disposing the scope, or the signal aborting, cancels it: the promise
   rejects at once, the work is told to stop, and a result it produces
@@ -709,7 +710,7 @@ signal)` starts native work that completes later, on any thread (a
   the UI loop, and a queue of 1024 tasks waiting for a worker; a
   submission that finds it full is rejected at once with a
   `QuotaExceededError`, never blocking the caller. A task is an
-  `Operation` under a scope (by default the calling context's root): it
+  `Operation` under a scope (by default the calling context's, `ownedScope`): it
   settles once, from its outcome or from a cancellation (its signal, its
   scope's disposal, the pool's shutdown), which rejects the promise at
   once. A queued task then leaves the queue; a running one stops at its

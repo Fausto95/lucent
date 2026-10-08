@@ -356,6 +356,32 @@ static void outlivesItsParent() {
   CHECK(frameIs(child, 0, 0, 10, 10));
 }
 
+// A leaf whose measure function throws: Yoga is C, so nothing may unwind
+// through it. The leaf measures as empty, the error is reported, and the
+// tree lays out around it.
+static void survivesAThrowingMeasure() {
+  auto text = LayoutNode::create();
+  text->measureWith([](float, ui::MeasureMode, float, ui::MeasureMode) -> ui::LayoutSize {
+    throw std::runtime_error("measure failed");
+  });
+  auto row = LayoutNode::create();
+  row->set("flexDirection", s("row"));
+  row->set("alignItems", s("flex-start"));
+  row->insert(text, 0);
+  row->insert(leaf(10, 10), 1);
+
+  bool threw = false;
+  try {
+    row->calculate(none, none, ui::LayoutDirection::LTR);
+  } catch (...) {
+    threw = true;
+  }
+
+  CHECK(!threw);
+  CHECK(frameIs(text, 0, 0, 0, 0));
+  CHECK(frameIs(row, 0, 0, 10, 10));
+}
+
 int main() {
   laysOutARow();
   sizesAColumnByItsContent();
@@ -370,6 +396,7 @@ int main() {
   saysWhenItNeedsLayout();
   fitsWithinABound();
   outlivesItsParent();
+  survivesAThrowingMeasure();
 
   std::printf("layout: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

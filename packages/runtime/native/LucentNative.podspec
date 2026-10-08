@@ -34,8 +34,12 @@ Pod::Spec.new do |s|
     "GCC_PRECOMPILE_PREFIX_HEADER" => "YES",
     "HEADER_SEARCH_PATHS" => "\"$(PODS_TARGET_SRCROOT)/cpp\" \"$(PODS_TARGET_SRCROOT)/cpp/generated/ios\" \"$(PODS_TARGET_SRCROOT)/cpp/generated\" \"$(PODS_TARGET_SRCROOT)/cpp/rn\"",
     # The vendored regular expression engine (third_party/quickjs) is C.
-    "OTHER_CFLAGS" => "$(inherited) -w #{lucent_prefix_map}",
-    "OTHER_CPLUSPLUSFLAGS" => "$(inherited) #{lucent_prefix_map} -ffp-contract=off -fexceptions -frtti -Wno-gnu-statement-expression -Wno-unused-label -Wno-parentheses-equality -Wno-comma",
+    # Hidden by default, as on Android: the runtime's and the vendored C's
+    # symbols stay inside the app's binary (the C's are prefixed lucent_
+    # too, third_party/quickjs/lucent_prefix.h). The TurboModule registers
+    # itself at +load, so nothing is looked up by name.
+    "OTHER_CFLAGS" => "$(inherited) -w -fvisibility=hidden #{lucent_prefix_map}",
+    "OTHER_CPLUSPLUSFLAGS" => "$(inherited) #{lucent_prefix_map} -ffp-contract=off -fexceptions -frtti -fvisibility=hidden -fvisibility-inlines-hidden -Wno-gnu-statement-expression -Wno-unused-label -Wno-parentheses-equality -Wno-comma",
   }
 
   install_modules_dependencies(s)

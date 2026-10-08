@@ -12,6 +12,7 @@
 
 #include "jserror.h"
 #include "number.h"
+#include "stack.h"
 
 extern "C" {
 #include "../third_party/quickjs/libregexp.h"
@@ -19,7 +20,9 @@ extern "C" {
 
 // --- libregexp host callbacks --------------------------------------------------------------------
 
-extern "C" int lre_check_stack_overflow(void*, size_t) { return 0; }
+// The parser recurses once per nesting level: refused (a SyntaxError,
+// "stack overflow") before the stack runs out, on whichever thread compiles.
+extern "C" int lre_check_stack_overflow(void*, size_t alloca_size) { return lucent::stackExhausted(alloca_size) ? 1 : 0; }
 extern "C" int lre_check_timeout(void*) { return 0; }
 extern "C" void* lre_realloc(void*, void* ptr, size_t size) {
   if (size == 0) {

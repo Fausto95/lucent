@@ -1467,8 +1467,10 @@ setTimingSink(fn), admit(task, signal) }`, with `TaskTiming` and
 - `fromCallback<T>(register, Opt<AbortSignal>) -> Promise<T>` and
   `subscribe(register, onValue, Opt<AbortSignal>) -> Promise<void>`.
   `register` returns `void`, `Fn<X()>` or `Opt<Fn<X()>>`: the cleanup.
-- One `Operation<T>` per composition, under the calling context's root
-  scope.
+- One `Operation<T>` per composition, under the scope the calling
+  context's work belongs to (`ownedScope`, `execution.h`): module code's is
+  the module scope, its JavaScript runtime's, so a reload cancels it;
+  another context's is its root.
 - Arbitration happens on the owner: calls from other threads are posted
   in call order, the first to take effect wins, and stale reports are
   dropped.

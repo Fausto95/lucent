@@ -45,8 +45,19 @@ using ContextId = uint32_t;
 void postToMain(std::function<void()> job);
 bool onMainThread();
 
+/// The stack each of Lucent's own threads gets (the Lucent thread, isolated
+/// and compute contexts, the main context's clock): 8 MB, a macOS or Linux
+/// main thread's, where a secondary thread's default is 512 KB on Apple
+/// platforms and about 1 MB on Android. Only touched pages cost memory. Lucent code recurses on the native
+/// stack, so its depth limit is this size divided by its frames' (see
+/// docs/semantics.md, deep recursion).
+inline constexpr size_t kThreadStackSize = 8 * 1024 * 1024;
+
 /// A thread that runs posted jobs, and timers once due, one at a time in
-/// order. The thread keeps this object alive until it ends.
+/// order. The thread keeps this object alive until it ends. On Apple
+/// platforms each job runs in an autorelease pool of its own, so what the
+/// platform autoreleases during it is released when it ends rather than
+/// never (a thread Lucent starts has no pool otherwise).
 class WorkerThread : public std::enable_shared_from_this<WorkerThread> {
  public:
   /// How the thread runs a job (a context's turn).
@@ -97,6 +108,8 @@ class WorkerThread : public std::enable_shared_from_this<WorkerThread> {
   std::mutex m_;
   std::condition_variable cv_;
   std::condition_variable idleCv_;
+  std::condition_variable idCv_;
+  bool started_ = false;
   std::deque<Job> jobs_;
   std::priority_queue<Timer, std::vector<Timer>, std::greater<Timer>> timers_;
   uint64_t timerSeq_ = 0;
@@ -257,7 +270,33 @@ std::shared_ptr<Scope> moduleScope();
 /// new runtime's.
 void setModuleScope(std::shared_ptr<Scope> scope);
 
+/// The scope work started on `owner` belongs to: module code's (the legacy
+/// module context, a null ref) the module scope, so a reload stops it;
+/// another context's its root. Every promise-returning API that registers
+/// work (operations, callbacks, timers, requests) starts it here.
+std::shared_ptr<Scope> ownedScope(const ContextRef& owner);
+
 namespace detail {
+/// An Objective-C autorelease pool for the scope's lifetime on Apple
+/// platforms (objc_autoreleasePoolPush/Pop, which C++ can call); nothing
+/// elsewhere.
+class AutoreleasePool {
+ public:
+#if defined(__APPLE__)
+  AutoreleasePool();
+  ~AutoreleasePool();
+#else
+  // User-provided, so a pool held for its scope is not an unused variable.
+  AutoreleasePool() {}
+  ~AutoreleasePool() {}
+#endif
+  AutoreleasePool(const AutoreleasePool&) = delete;
+  AutoreleasePool& operator=(const AutoreleasePool&) = delete;
+
+ private:
+  [[maybe_unused]] void* pool_ = nullptr;
+};
+
 /// Runs `job`, reporting what it throws.
 void runGuarded(Job& job, const char* where);
 

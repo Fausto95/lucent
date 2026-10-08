@@ -93,17 +93,4 @@ Error abortError() {
   return makeError(String::fromLatin1("AbortError"), String::fromLatin1("signal is aborted without reason"));
 }
 
-Promise<void> delay(double ms, Opt<AbortSignal> signal) {
-  if (!signal.has()) return delay(ms);
-  AbortSignal s = signal.get();
-  if (s->aborted.load()) return Promise<void>::rejected(s->reason);
-  Promise<void> p;
-  uint64_t id = s->add([p, s] { p.reject(s->reason); });
-  ExecutionContext::of(ExecutionContext::currentRef()).postDelayed(ms, [p, s, id] {
-    s->remove(id);
-    p.resolve(undefined);
-  });
-  return p;
-}
-
 }  // namespace lucent
