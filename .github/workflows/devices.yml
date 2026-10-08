@@ -32,6 +32,8 @@ env:
   LANG: en_US.UTF-8
   LC_ALL: en_US.UTF-8
   DEVICE_CHECK_OUT: ${{ github.workspace }}/device-check
+  # Metro's output, which the Start Metro steps write and device-check.ts quotes on a failure.
+  METRO_LOG: ${{ github.workspace }}/device-check/metro.log
 
 jobs:
   ios:
@@ -81,7 +83,8 @@ jobs:
       - name: Start Metro
         working-directory: apps/bare-example
         run: |
-          nohup pnpm exec react-native start --port 8081 > "$RUNNER_TEMP/metro.log" 2>&1 &
+          mkdir -p "$DEVICE_CHECK_OUT"
+          nohup pnpm exec react-native start --port 8081 > "$METRO_LOG" 2>&1 &
           for _ in $(seq 60); do curl -sf http://localhost:8081/status && break; sleep 2; done
           curl -sSf --max-time 600 -o /dev/null 'http://localhost:8081/index.bundle?platform=ios&dev=true&minify=false'
       - name: Run the Tests screen
@@ -94,7 +97,6 @@ jobs:
           path: |
             device-check/
             apps/bare-example/ios/build.log
-            ${{ runner.temp }}/metro.log
           if-no-files-found: ignore
 
   android:
@@ -131,7 +133,8 @@ jobs:
       - name: Start Metro
         working-directory: apps/bare-example
         run: |
-          nohup pnpm exec react-native start --port 8081 > "$RUNNER_TEMP/metro.log" 2>&1 &
+          mkdir -p "$DEVICE_CHECK_OUT"
+          nohup pnpm exec react-native start --port 8081 > "$METRO_LOG" 2>&1 &
           for _ in $(seq 60); do curl -sf http://localhost:8081/status && break; sleep 2; done
           curl -sSf --max-time 600 -o /dev/null 'http://localhost:8081/index.bundle?platform=android&dev=true&minify=false'
       - name: Enable KVM
@@ -157,5 +160,4 @@ jobs:
           name: device-run-android
           path: |
             device-check/
-            ${{ runner.temp }}/metro.log
           if-no-files-found: ignore
