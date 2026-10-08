@@ -77,9 +77,9 @@ export declare function range(from: number, to: number): ClosedRange<number>;
 
 /**
  * Gives the component's React ref `commands`: called once, at the top of
- * setup, with an object literal of functions. A command returning nothing
- * runs on the main thread; one returning a value (or a promise) answers
- * JavaScript's promise.
+ * setup or of a PLATFORM branch there, with an object literal of functions.
+ * A command returning nothing runs on the main thread; one returning a
+ * value (or a promise) answers JavaScript's promise.
  *
  * @param commands An object literal of functions.
  */

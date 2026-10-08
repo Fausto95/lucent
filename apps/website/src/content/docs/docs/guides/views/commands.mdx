@@ -117,7 +117,7 @@ Call `expose()` once, as a statement at the top level of setup, with an object l
 - `text` returns a value: it's a request, and the ref's `text()` returns a `Promise<string>`. A function that returns a promise answers when that promise settles.
 - Arguments and results are plain data, as props are.
 
-`expose()` can't stand in a platform branch, so a component whose commands use each platform's own view is written as platform files. Both platforms expose the same commands. `.lucent/native/types/views/field.d.ts` types the ref, and App.tsx declares `FieldRef` to match it.
+Both platforms expose the same commands. A one-file component calls `expose()` in each [PLATFORM branch](/docs/api/language/platform-code/#branches) instead, once on each platform, so each platform's commands can use its own view. `.lucent/native/types/views/field.d.ts` types the ref, and App.tsx declares `FieldRef` to match it.
 
 ## When a call fails
 

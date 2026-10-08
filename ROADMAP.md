@@ -2441,7 +2441,10 @@ errors, 64-bit parameters from numbers, and lifecycle hooks.
       nothing here can run that; a push token reaches only the app
       delegate, which Lucent does not replace. Android's deep links come
       through `onActivityEvent("newIntent")` and the Activity's intent.
-- [ ] `expose()` inside a platform branch.
+- [x] `expose()` inside a PLATFORM branch at the top level of setup,
+      once per platform (`ui/contract.test.ts`; the component glue is
+      compiled per platform, unverified here without an SDK). The
+      platform-views guide no longer says platform files are required.
 
 **Done when:** each item has its e2e case or test, docs and changeset.
 

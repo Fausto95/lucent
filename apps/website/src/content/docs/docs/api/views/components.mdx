@@ -192,11 +192,13 @@ Marking an event both ways fails. Mark an event `Coalesced` when only its latest
 | `Promise<T>` | A request | `Promise<T>`, settled when the function's promise settles |
 | `Promise<void>` | A request | `Promise<void>` |
 
+`expose()` may stand in a [PLATFORM branch](/docs/api/language/platform-code/#branches) at the top level of setup instead, once on each platform. Then each platform's commands can use its own view.
+
 Commands and requests run on the main thread. Their arguments and results are plain data, as props are: a result may be `null`, but not `undefined`.
 
 These fail with [LUCENT3021](/docs/api/diagnostics/#lucent3021):
 
-- `expose` called twice, inside an `if` or a loop, or in a function setup makes.
+- `expose` called twice on one platform, inside an `if` other than a platform test or a loop, or in a function setup makes.
 - `expose` given a variable rather than an object literal.
 - A member of the object that isn't a function.
 - `expose` called outside a component.

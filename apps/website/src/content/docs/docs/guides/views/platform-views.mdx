@@ -100,6 +100,6 @@ A plain `UIView` or `ViewGroup` doesn't lay out its children, so put them in a `
 
 [UIKit and Android views in JSX](/docs/api/views/platform-views/) gives every rule, and how to list a module's tags.
 
-## Why platform files
+## One file or platform files
 
-Platform-view JSX ends setup, so in one file only the last platform could return it ([Where native JSX goes](/docs/api/views/platform-views/#where-native-jsx-goes)).
+The component could be one file too: each [PLATFORM branch](/docs/api/language/platform-code/#branches) of setup returns its platform's JSX ([Where native JSX goes](/docs/api/views/platform-views/#where-native-jsx-goes)). Platform files keep each platform's imports and views apart, which suits a component whose platforms share no code.

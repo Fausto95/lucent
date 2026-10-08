@@ -5,6 +5,8 @@
  * names (not only those it creates) are checked with the setup.
  */
 import ts from "typescript";
+import { branchPlatform, topLevel } from "../platforms.ts";
+import { type Platform, PLATFORMS } from "../sdk/schema.ts";
 import type { Located } from "./describe.ts";
 import type { FunctionLike } from "./roots.ts";
 
@@ -31,43 +33,60 @@ export interface SetupExpose {
   readonly problems: Located[];
 }
 
-/** The object component `name`'s setup `fn` exposes, among `calls`. */
+/**
+ * The object component `name`'s setup `fn` exposes, among `calls`, on
+ * `target` (none: the host, which runs no platform's code). It is called
+ * at the top level of setup, or of a PLATFORM branch there, once on each
+ * platform.
+ */
 export function setupExpose(
+  checker: ts.TypeChecker,
   name: string,
   fn: FunctionLike,
   calls: readonly ts.CallExpression[],
+  target: Platform | undefined,
 ): SetupExpose {
   const problems: Located[] = [];
-  const top: ts.CallExpression[] = [];
+  const top: { call: ts.CallExpression; platform?: Platform }[] = [];
 
   for (const call of calls) {
     const owner = enclosingFunction(call);
 
     if (!within(call, fn)) continue;
 
+    const statement = call.parent;
     if (owner !== fn)
       problems.push({
         message: `\`${name}\` calls expose in a nested function: a component exposes its commands once, while it sets up`,
         node: call,
       });
-    else if (!ts.isExpressionStatement(call.parent) || call.parent.parent !== fn.body)
+    else if (!ts.isExpressionStatement(statement) || !topLevel(checker, statement, fn))
       problems.push({
-        message: `\`${name}\` calls expose inside a statement: call it once, at the top level of its setup`,
+        message: `\`${name}\` calls expose inside a statement: call it once, at the top level of its setup or of a PLATFORM branch`,
         node: call,
       });
-    else top.push(call);
+    else {
+      const platform = branchPlatform(checker, statement);
+      top.push({ call, ...(platform ? { platform } : {}) });
+    }
   }
 
-  if (top.length > 1) {
+  // Once on each platform: a call both platforms run counts on each.
+  const runsOn = (p: Platform) => top.filter((t) => !t.platform || t.platform === p);
+  const twice = PLATFORMS.map(runsOn).find((on) => on.length > 1);
+  if (twice) {
     problems.push({
       message: `\`${name}\` calls expose more than once: expose every command in one object`,
-      node: top[1]!,
+      node: twice[1]!.call,
     });
 
     return { problems };
   }
 
-  const given = top[0]?.arguments[0];
+  // The host runs neither platform's branch, but describes the commands every platform has.
+  const here =
+    top.find((t) => !t.platform || t.platform === target) ?? (target ? undefined : top[0]);
+  const given = here?.call.arguments[0];
   const literal = given && skipParentheses(given);
 
   if (literal && !ts.isObjectLiteralExpression(literal)) {

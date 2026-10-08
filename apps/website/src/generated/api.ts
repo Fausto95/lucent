@@ -1237,7 +1237,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "kind": "function",
         "signature": "function expose<T extends object>(commands: T): void;",
         "doc": [
-          "Gives the component's React ref `commands`: called once, at the top of setup, with an object literal of functions. A command returning nothing runs on the main thread; one returning a value (or a promise) answers JavaScript's promise."
+          "Gives the component's React ref `commands`: called once, at the top of setup or of a PLATFORM branch there, with an object literal of functions. A command returning nothing runs on the main thread; one returning a value (or a promise) answers JavaScript's promise."
         ],
         "examples": [],
         "members": [],

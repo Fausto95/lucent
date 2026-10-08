@@ -25,6 +25,7 @@ import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { builtinSdkModuleOf, type LucentModule } from "../program.ts";
 import { cppIdent, type LType, T } from "../types.ts";
+import { branchPlatform, topLevel } from "../platforms.ts";
 import type { Platform } from "../sdk/schema.ts";
 import type { ComponentDescription } from "../ui/contract.ts";
 import { fabricNames } from "../ui/fabric.ts";
@@ -136,7 +137,7 @@ export function planSetup(
     return { name: e.name, field: `e${e.slot}_${cppIdent(e.name)}`, params };
   });
 
-  const exposed = exposedObject(checker, fn);
+  const exposed = exposedObject(checker, fn, ctx.platform);
   const commands = component.commands.map((c, i): SetupCommand => {
     const property = exposed?.properties.find((p) => p.name && propertyName(p.name) === c.name);
 
@@ -598,26 +599,43 @@ function uiHelper(checker: ts.TypeChecker, callee: ts.Expression): Helper | unde
   return isHelper(symbol.name) ? symbol.name : undefined;
 }
 
-/** The object literal a setup gives expose, at its top level. */
+/**
+ * The object literal a setup gives expose on `platform`: at its top level,
+ * or of a PLATFORM branch the platform runs (the view analysis checked
+ * there is one).
+ */
 function exposedObject(
   checker: ts.TypeChecker,
   fn: FunctionLike,
+  platform: Platform | undefined,
 ): ts.ObjectLiteralExpression | undefined {
   const body = fn.body;
   if (!body || !ts.isBlock(body)) return undefined;
 
-  for (const s of body.statements) {
-    if (!ts.isExpressionStatement(s) || !ts.isCallExpression(s.expression)) continue;
+  let found: ts.ObjectLiteralExpression | undefined;
+  const visit = (n: ts.Node): void => {
+    if (found || ts.isFunctionLike(n)) return;
 
-    const arg = s.expression.arguments[0];
+    const s = n;
+    if (ts.isExpressionStatement(s) && ts.isCallExpression(s.expression)) {
+      const arg = s.expression.arguments[0];
+      const runs = branchPlatform(checker, s);
 
-    if (uiHelper(checker, s.expression.expression) === "expose" && arg) {
-      const literal = skipParentheses(arg);
-      if (ts.isObjectLiteralExpression(literal)) return literal;
+      if (
+        uiHelper(checker, s.expression.expression) === "expose" &&
+        arg &&
+        topLevel(checker, s, fn) &&
+        (runs === undefined || runs === platform)
+      ) {
+        const literal = skipParentheses(arg);
+        if (ts.isObjectLiteralExpression(literal)) found = literal;
+      }
     }
-  }
+    ts.forEachChild(n, visit);
+  };
+  body.statements.forEach(visit);
 
-  return undefined;
+  return found;
 }
 
 function propertyName(name: ts.PropertyName): string | undefined {
