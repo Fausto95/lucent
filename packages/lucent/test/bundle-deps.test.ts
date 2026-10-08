@@ -19,8 +19,14 @@ function external(): Set<string> {
   const out = new Set<string>();
   for (const f of fs.readdirSync(dist).filter((f) => f.endsWith(".js"))) {
     const text = fs.readFileSync(path.join(dist, f), "utf8");
-    for (const m of text.matchAll(/^import .* from "([^".][^"]*)";$|\bimport\("([^".][^"]*)"\)/gm))
-      out.add((m[1] ?? m[2])!);
+    // Static imports: the bundler puts them first, so the header ends at the first line of code
+    // (below it is text, like the templates' sources, that only looks like imports).
+    const code = /^(?:\/\/#region|const |let |var |function |async |class |export )/m.exec(text);
+    const header = code ? text.slice(0, code.index) : text;
+    for (const m of header.matchAll(/^import (?:[\s\S]*? from )?"([^".][^"]*)";$/gm))
+      out.add(m[1]!);
+    // Dynamic imports of a literal name, anywhere (not a template's \`${…}\` text).
+    for (const m of text.matchAll(/\bimport\("([^".$][^"$]*)"\)/g)) out.add(m[1]!);
   }
   return out;
 }
