@@ -2,84 +2,12 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("count")
-#undef count
-#pragma push_macro("first")
-#undef first
-#pragma push_macro("label")
-#undef label
-#pragma push_macro("name")
-#undef name
-#pragma push_macro("size")
-#undef size
-#pragma push_macro("value")
-#undef value
-
 namespace lucent_app {
 
 struct S_Named;
 struct C_Counter;
 struct C_Eager;
 
-struct S_Named : lucent::Object {
-  lucent::String name{};
-  double size{};
-};
-
-struct C_Counter : lucent::Object {
-  double count{};
-  lucent::String label{};
-  void construct(double p0_);
-  static lucent::Ref<C_Counter> create(double p0_);
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-struct C_Eager : lucent::Object {
-  lucent::String value{};
-  void construct();
-  static lucent::Ref<C_Eager> create();
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Named>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Named>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "name", v->name);
-  lucent::jsonField(w, first, "size", v->size);
-  (void)first;
-  w.raw("}");
-}
-
-inline bool C_Counter::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "count", this->count);
-  lucent::jsonField(w, first, "label", this->label);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
-inline bool C_Eager::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "value", this->value);
-  (void)first;
-  w.raw("}");
-  return true;
-}
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Named>& v);
 
 }  // namespace lucent_app
-
-#pragma pop_macro("value")
-#pragma pop_macro("size")
-#pragma pop_macro("name")
-#pragma pop_macro("label")
-#pragma pop_macro("first")
-#pragma pop_macro("count")

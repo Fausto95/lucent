@@ -2,33 +2,6 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("a")
-#undef a
-#pragma push_macro("b")
-#undef b
-#pragma push_macro("d")
-#undef d
-#pragma push_macro("deep")
-#undef deep
-#pragma push_macro("e")
-#undef e
-#pragma push_macro("f")
-#undef f
-#pragma push_macro("flag")
-#undef flag
-#pragma push_macro("list")
-#undef list
-#pragma push_macro("max")
-#undef max
-#pragma push_macro("min")
-#undef min
-#pragma push_macro("name")
-#undef name
-#pragma push_macro("nested")
-#undef nested
-#pragma push_macro("retries")
-#undef retries
-
 namespace lucent_app {
 
 struct S_Object1;
@@ -38,137 +11,11 @@ struct S_Object4;
 struct S_Object5;
 struct S_Object6;
 
-struct S_Object1 : lucent::Object {
-  double min{};
-  double max{};
-};
-
-struct S_Object2 : lucent::Object {
-  lucent::Opt<lucent::String> deep{};
-};
-
-struct S_Config : lucent::Object {
-  lucent::String name{};
-  lucent::Opt<double> retries{};
-  lucent::Opt<lucent::Ref<lucent_app::S_Object2>> nested{};
-};
-
-struct S_Object4 : lucent::Object {
-  lucent::String b{};
-};
-
-struct S_Object5 : lucent::Object {
-  lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object4>, double>> a{};
-  lucent::Undefined d{};
-  lucent::Null e{};
-  bool f{};
-};
-
-struct S_Object6 : lucent::Object {
-  lucent::Array<double> list{};
-  lucent::String name{};
-  bool flag{};
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v);
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object2>& v);
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Config>& v);
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object4>& v);
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object5>& v);
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object6>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "min", v->min);
-  lucent::jsonField(w, first, "max", v->max);
-  (void)first;
-  w.raw("}");
-}
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object2>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "deep", v->deep);
-  (void)first;
-  w.raw("}");
-}
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Config>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "name", v->name);
-  lucent::jsonField(w, first, "retries", v->retries);
-  lucent::jsonField(w, first, "nested", v->nested);
-  (void)first;
-  w.raw("}");
-}
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object4>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "b", v->b);
-  (void)first;
-  w.raw("}");
-}
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object5>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "a", v->a);
-  lucent::jsonField(w, first, "d", v->d);
-  lucent::jsonField(w, first, "e", v->e);
-  lucent::jsonField(w, first, "f", v->f);
-  (void)first;
-  w.raw("}");
-}
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object6>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "list", v->list);
-  lucent::jsonField(w, first, "name", v->name);
-  lucent::jsonField(w, first, "flag", v->flag);
-  (void)first;
-  w.raw("}");
-}
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v);
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object2>& v);
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Config>& v);
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object4>& v);
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object5>& v);
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object6>& v);
 
 }  // namespace lucent_app
-
-#pragma pop_macro("retries")
-#pragma pop_macro("nested")
-#pragma pop_macro("name")
-#pragma pop_macro("min")
-#pragma pop_macro("max")
-#pragma pop_macro("list")
-#pragma pop_macro("flag")
-#pragma pop_macro("f")
-#pragma pop_macro("e")
-#pragma pop_macro("deep")
-#pragma pop_macro("d")
-#pragma pop_macro("b")
-#pragma pop_macro("a")

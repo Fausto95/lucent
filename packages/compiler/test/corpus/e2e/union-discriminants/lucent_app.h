@@ -2,59 +2,12 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("kind")
-#undef kind
-#pragma push_macro("r")
-#undef r
-#pragma push_macro("s")
-#undef s
-
 namespace lucent_app {
 
 struct S_Circle;
 struct S_Square;
 
-struct S_Circle : lucent::Object {
-  lucent::String kind{};
-  double r{};
-};
-
-struct S_Square : lucent::Object {
-  lucent::String kind{};
-  double s{};
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Circle>& v);
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Square>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Circle>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "kind", v->kind);
-  lucent::jsonField(w, first, "r", v->r);
-  (void)first;
-  w.raw("}");
-}
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Square>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "kind", v->kind);
-  lucent::jsonField(w, first, "s", v->s);
-  (void)first;
-  w.raw("}");
-}
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Circle>& v);
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Square>& v);
 
 }  // namespace lucent_app
-
-#pragma pop_macro("s")
-#pragma pop_macro("r")
-#pragma pop_macro("kind")

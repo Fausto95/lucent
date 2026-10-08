@@ -2,18 +2,6 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("add")
-#undef add
-#pragma push_macro("first")
-#undef first
-#pragma push_macro("n")
-#undef n
-#pragma push_macro("s")
-#undef s
-#pragma push_macro("step")
-#undef step
-#pragma push_macro("total")
-#undef total
 #pragma push_macro("v")
 #undef v
 
@@ -22,50 +10,8 @@ namespace lucent_app {
 struct S_Box;
 struct C_Counter;
 
-struct S_Box : lucent::Object {
-  double n{};
-  lucent::String s{};
-};
-
-struct C_Counter : lucent::Object {
-  double total{};
-  void construct();
-  static lucent::Ref<C_Counter> create();
-  double step();
-  double add();
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Box>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Box>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "n", v->n);
-  lucent::jsonField(w, first, "s", v->s);
-  (void)first;
-  w.raw("}");
-}
-
-inline bool C_Counter::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "total", this->total);
-  (void)first;
-  w.raw("}");
-  return true;
-}
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Box>& v);
 
 }  // namespace lucent_app
 
 #pragma pop_macro("v")
-#pragma pop_macro("total")
-#pragma pop_macro("step")
-#pragma pop_macro("s")
-#pragma pop_macro("n")
-#pragma pop_macro("first")
-#pragma pop_macro("add")

@@ -4,50 +4,12 @@
 
 #pragma push_macro("T")
 #undef T
-#pragma push_macro("first")
-#undef first
-#pragma push_macro("has")
-#undef has
-#pragma push_macro("items")
-#undef items
 
 namespace lucent_app {
 
 template <class T>
 struct C_Bag;
 
-template <class T>
-struct C_Bag : lucent::Object {
-  lucent::Array<T> items{};
-  void construct() {
-    lucent::Array<T> v0_ = lucent::Array<T>{};
-    this->items = v0_;
-  }
-  static lucent::Ref<C_Bag<T>> create() {
-    auto self = std::make_shared<C_Bag<T>>();
-    self->construct();
-    return self;
-  }
-  bool has(T p0_) {
-    lucent::Array<T> v1_ = this->items;
-    return v1_.includes(p0_);
-  }
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-template <class T>
-inline bool C_Bag<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "items", this->items);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
 }  // namespace lucent_app
 
-#pragma pop_macro("items")
-#pragma pop_macro("has")
-#pragma pop_macro("first")
 #pragma pop_macro("T")

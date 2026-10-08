@@ -97,7 +97,7 @@ describe("lucent build", () => {
     const r = lucent(root, "build");
     expect(r.out).not.toMatch(/Up to date/);
     expect(
-      fs.readFileSync(path.join(root, ".lucent/native/cpp/generated/lucent_app.h"), "utf8"),
+      fs.readFileSync(path.join(root, ".lucent/native/cpp/generated/lucent_app_S_Shape.h"), "utf8"),
     ).toContain("depth");
   });
 

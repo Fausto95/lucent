@@ -2,6 +2,7 @@
 #pragma once
 #include "lucent_app.h"
 #include "m_shapes.h"
+#include "lucent_app_S_Point.h"
 
 #pragma push_macro("far")
 #undef far

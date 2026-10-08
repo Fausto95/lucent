@@ -2,10 +2,6 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("items")
-#undef items
-#pragma push_macro("n")
-#undef n
 #pragma push_macro("v")
 #undef v
 
@@ -14,44 +10,8 @@ namespace lucent_app {
 struct S_Object1;
 struct C_Tally;
 
-struct S_Object1 : lucent::Object {
-  lucent::BigInt v{};
-};
-
-struct C_Tally : lucent::Object {
-  lucent::BigInt n{};
-  lucent::Array<lucent::BigInt> items{};
-  void construct();
-  static lucent::Ref<C_Tally> create();
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "v", v->v);
-  (void)first;
-  w.raw("}");
-}
-
-inline bool C_Tally::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "n", this->n);
-  lucent::jsonField(w, first, "items", this->items);
-  (void)first;
-  w.raw("}");
-  return true;
-}
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v);
 
 }  // namespace lucent_app
 
 #pragma pop_macro("v")
-#pragma pop_macro("n")
-#pragma pop_macro("items")

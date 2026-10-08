@@ -4,10 +4,6 @@
 
 #pragma push_macro("T")
 #undef T
-#pragma push_macro("m")
-#undef m
-#pragma push_macro("show")
-#undef show
 #pragma push_macro("v")
 #undef v
 
@@ -21,82 +17,9 @@ struct C_Shown;
 template <class T>
 struct C_Sub;
 
-struct S_Object1 : lucent::Object {
-  lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> m{};
-};
-
-template <class T>
-struct C_Shown : lucent::Object {
-  T v{};
-  void construct(T p0_) {
-    this->v = p0_;
-  }
-  static lucent::Ref<C_Shown<T>> create(T p0_) {
-    auto self = std::make_shared<C_Shown<T>>();
-    self->construct(p0_);
-    return self;
-  }
-  virtual lucent::String show() {
-    T v0_ = this->v;
-    return lucent::toJsString(v0_);
-  }
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-template <class T>
-struct C_Sub : lucent_app::C_Shown<T> {
-  void construct(T p0_) {
-    this->lucent_app::C_Shown<T>::construct(p0_);
-  }
-  static lucent::Ref<C_Sub<T>> create(T p0_) {
-    auto self = std::make_shared<C_Sub<T>>();
-    self->construct(p0_);
-    return self;
-  }
-  lucent::String show() override {
-    lucent::String v1_ = this->lucent_app::C_Shown<T>::show();
-    return lucent::String(LUCENT_STR("sub ")) + v1_;
-  }
-  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "m", v->m);
-  (void)first;
-  w.raw("}");
-}
-
-template <class T>
-inline bool C_Shown<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "v", this->v);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
-template <class T>
-inline bool C_Sub<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "v", this->v);
-  (void)first;
-  w.raw("}");
-  return true;
-}
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v);
 
 }  // namespace lucent_app
 
 #pragma pop_macro("v")
-#pragma pop_macro("show")
-#pragma pop_macro("m")
 #pragma pop_macro("T")

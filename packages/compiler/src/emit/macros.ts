@@ -69,7 +69,7 @@ const TOKEN =
   /\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|\.?\d(?:[eEpP][+-]|[\w.])*|([A-Za-z_]\w*)/g;
 
 /** The identifiers `code` spells where a macro would expand. */
-function identifiers(code: string): Set<string> {
+export function identifiers(code: string): Set<string> {
   return new Set([...code.matchAll(TOKEN)].flatMap((m) => (m[1] ? [m[1]] : [])));
 }
 

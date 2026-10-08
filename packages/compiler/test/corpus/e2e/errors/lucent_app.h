@@ -2,11 +2,6 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("code")
-#undef code
-#pragma push_macro("field")
-#undef field
-
 namespace lucent_app {
 
 struct C_ValidationError;
@@ -15,81 +10,4 @@ struct C_Coded;
 struct C_Deeper;
 struct C_Optioned;
 
-struct C_ValidationError : lucent::ErrorObject {
-  lucent::String field{};
-  void construct(lucent::String p0_, lucent::String p1_);
-  static lucent::Ref<C_ValidationError> create(lucent::String p0_, lucent::String p1_);
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-struct C_Plain : lucent::ErrorObject {
-  void construct(lucent::Opt<lucent::String> p0_);
-  static lucent::Ref<C_Plain> create(lucent::Opt<lucent::String> p0_);
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-struct C_Coded : lucent::ErrorObject {
-  double code{};
-  void construct(lucent::Opt<lucent::String> p0_);
-  static lucent::Ref<C_Coded> create(lucent::Opt<lucent::String> p0_);
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-struct C_Optioned : lucent::ErrorObject {
-  void construct(lucent::Opt<lucent::String> p0_);
-  static lucent::Ref<C_Optioned> create(lucent::Opt<lucent::String> p0_);
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-struct C_Deeper : lucent_app::C_Plain {
-  void construct(lucent::Opt<lucent::String> p0_);
-  static lucent::Ref<C_Deeper> create(lucent::Opt<lucent::String> p0_);
-  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
-};
-
-inline bool C_ValidationError::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "field", this->field);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
-inline bool C_Plain::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
-inline bool C_Coded::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "code", this->code);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
-inline bool C_Deeper::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
-inline bool C_Optioned::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
 }  // namespace lucent_app
-
-#pragma pop_macro("field")
-#pragma pop_macro("code")

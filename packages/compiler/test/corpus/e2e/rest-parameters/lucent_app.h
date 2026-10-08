@@ -2,72 +2,10 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("join")
-#undef join
-#pragma push_macro("log")
-#undef log
-#pragma push_macro("of")
-#undef of
-#pragma push_macro("parts")
-#undef parts
-
 namespace lucent_app {
 
 struct C_Path;
 struct C_Logger;
 struct C_LoudLogger;
 
-struct C_Path : lucent::Object {
-  lucent::Array<lucent::String> parts{};
-  void construct(lucent::Array<std::variant<lucent::Ref<lucent_app::C_Path>, lucent::String>> p0_);
-  static lucent::Ref<C_Path> create(lucent::Array<std::variant<lucent::Ref<lucent_app::C_Path>, lucent::String>> p0_);
-  lucent::String join(lucent::Array<lucent::String> p0_);
-  static lucent::Ref<lucent_app::C_Path> of(lucent::Array<lucent::String> p0_);
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-struct C_Logger : lucent::Object {
-  void construct();
-  static lucent::Ref<C_Logger> create();
-  virtual lucent::String log(lucent::String p0_, lucent::Array<double> p1_);
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-struct C_LoudLogger : lucent_app::C_Logger {
-  void construct();
-  static lucent::Ref<C_LoudLogger> create();
-  lucent::String log(lucent::String p0_, lucent::Array<double> p1_) override;
-  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
-};
-
-inline bool C_Path::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "parts", this->parts);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
-inline bool C_Logger::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
-inline bool C_LoudLogger::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
 }  // namespace lucent_app
-
-#pragma pop_macro("parts")
-#pragma pop_macro("of")
-#pragma pop_macro("log")
-#pragma pop_macro("join")

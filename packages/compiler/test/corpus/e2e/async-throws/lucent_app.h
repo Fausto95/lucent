@@ -2,28 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("load")
-#undef load
-
 namespace lucent_app {
 
 struct C_Service;
 
-struct C_Service : lucent::Object {
-  void construct();
-  static lucent::Ref<C_Service> create();
-  lucent::Promise<double> load(lucent::String p0_);
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-inline bool C_Service::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
 }  // namespace lucent_app
-
-#pragma pop_macro("load")

@@ -2,35 +2,6 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("SIDE")
-#undef SIDE
-#pragma push_macro("a")
-#undef a
-#pragma push_macro("area")
-#undef area
-#pragma push_macro("b")
-#undef b
-#pragma push_macro("bump")
-#undef bump
-#pragma push_macro("count")
-#undef count
-#pragma push_macro("index")
-#undef index
-#pragma push_macro("label")
-#undef label
-#pragma push_macro("left")
-#undef left
-#pragma push_macro("list")
-#undef list
-#pragma push_macro("next")
-#undef next
-#pragma push_macro("right")
-#undef right
-#pragma push_macro("same")
-#undef same
-#pragma push_macro("step")
-#undef step
-
 namespace lucent_app {
 
 struct S_Node;
@@ -39,118 +10,8 @@ struct S_Shared;
 struct C_Counter;
 struct C_Tile;
 
-struct S_Node : lucent::Object {
-  lucent::String label{};
-  lucent::Opt<lucent::Ref<lucent_app::S_Node>> next{};
-};
-
-struct S_Pair : lucent::Object {
-  lucent::Ref<lucent_app::S_Node> a{};
-  lucent::Ref<lucent_app::S_Node> b{};
-  lucent::Array<double> list{};
-  lucent::Array<double> same{};
-};
-
-struct S_Shared : lucent::Object {
-  lucent::Array<double> left{};
-  lucent::Array<double> right{};
-};
-
-struct C_Counter : lucent::Object {
-  double step{};
-  double count{};
-  void construct(double p0_);
-  static lucent::Ref<C_Counter> create(double p0_);
-  double bump();
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-struct C_Tile : lucent::Object {
-  double index{};
-  static inline double SIDE{};
-  void construct(double p0_);
-  static lucent::Ref<C_Tile> create(double p0_);
-  double area();
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Node>& v);
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Pair>& v);
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Shared>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Node>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "label", v->label);
-  lucent::jsonField(w, first, "next", v->next);
-  (void)first;
-  w.raw("}");
-}
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Pair>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "a", v->a);
-  lucent::jsonField(w, first, "b", v->b);
-  lucent::jsonField(w, first, "list", v->list);
-  lucent::jsonField(w, first, "same", v->same);
-  (void)first;
-  w.raw("}");
-}
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Shared>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "left", v->left);
-  lucent::jsonField(w, first, "right", v->right);
-  (void)first;
-  w.raw("}");
-}
-
-inline bool C_Counter::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "step", this->step);
-  lucent::jsonField(w, first, "count", this->count);
-  (void)first;
-  w.raw("}");
-  return true;
-}
-
-inline bool C_Tile::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "index", this->index);
-  (void)first;
-  w.raw("}");
-  return true;
-}
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Node>& v);
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Pair>& v);
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Shared>& v);
 
 }  // namespace lucent_app
-
-#pragma pop_macro("step")
-#pragma pop_macro("same")
-#pragma pop_macro("right")
-#pragma pop_macro("next")
-#pragma pop_macro("list")
-#pragma pop_macro("left")
-#pragma pop_macro("label")
-#pragma pop_macro("index")
-#pragma pop_macro("count")
-#pragma pop_macro("bump")
-#pragma pop_macro("b")
-#pragma pop_macro("area")
-#pragma pop_macro("a")
-#pragma pop_macro("SIDE")

@@ -2,94 +2,11 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("emit")
-#undef emit
-#pragma push_macro("fail")
-#undef fail
-#pragma push_macro("first")
-#undef first
-#pragma push_macro("listen")
-#undef listen
-#pragma push_macro("listeners")
-#undef listeners
-#pragma push_macro("log")
-#undef log
-#pragma push_macro("nextId")
-#undef nextId
-#pragma push_macro("onError")
-#undef onError
-#pragma push_macro("onLevel")
-#undef onLevel
-#pragma push_macro("r_id_")
-#undef r_id_
-#pragma push_macro("remove")
-#undef remove
-#pragma push_macro("snapshot")
-#undef snapshot
-
 namespace lucent_app {
 
 struct S_Listener;
 struct C_Pulses;
 
-struct S_Listener : lucent::Object {
-  double r_id_{};
-  lucent::Fn<void(double)> onLevel{};
-  lucent::Fn<void(lucent::Error)> onError{};
-};
-
-struct C_Pulses : lucent::Object {
-  lucent::Array<lucent::Ref<lucent_app::S_Listener>> listeners{};
-  double nextId{};
-  lucent::Array<lucent::String> log{};
-  void construct(lucent::Array<lucent::String> p0_);
-  static lucent::Ref<C_Pulses> create(lucent::Array<lucent::String> p0_);
-  double listen(lucent::Fn<void(double)> p0_, lucent::Fn<void(lucent::Error)> p1_);
-  void remove(double p0_);
-  void emit(double p0_, lucent::Opt<lucent::Array<lucent::Ref<lucent_app::S_Listener>>> p1_);
-  void fail(lucent::String p0_);
-  lucent::Array<lucent::Ref<lucent_app::S_Listener>> snapshot();
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Listener>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Listener>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "id", v->r_id_);
-  lucent::jsonField(w, first, "onLevel", v->onLevel);
-  lucent::jsonField(w, first, "onError", v->onError);
-  (void)first;
-  w.raw("}");
-}
-
-inline bool C_Pulses::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "listeners", this->listeners);
-  lucent::jsonField(w, first, "nextId", this->nextId);
-  lucent::jsonField(w, first, "log", this->log);
-  (void)first;
-  w.raw("}");
-  return true;
-}
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Listener>& v);
 
 }  // namespace lucent_app
-
-#pragma pop_macro("snapshot")
-#pragma pop_macro("remove")
-#pragma pop_macro("r_id_")
-#pragma pop_macro("onLevel")
-#pragma pop_macro("onError")
-#pragma pop_macro("nextId")
-#pragma pop_macro("log")
-#pragma pop_macro("listeners")
-#pragma pop_macro("listen")
-#pragma pop_macro("first")
-#pragma pop_macro("fail")
-#pragma pop_macro("emit")

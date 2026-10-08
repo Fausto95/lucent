@@ -2,10 +2,6 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("label")
-#undef label
-#pragma push_macro("prev")
-#undef prev
 #pragma push_macro("v")
 #undef v
 
@@ -14,46 +10,8 @@ namespace lucent_app {
 struct S_Object1;
 struct C_Link;
 
-struct S_Object1 : lucent::Object {
-  lucent::Ref<lucent_app::C_Link> prev{};
-  lucent::String label{};
-};
-
-struct C_Link : lucent::Object {
-  lucent::Opt<lucent::Ref<lucent_app::C_Link>> prev{};
-  lucent::String label{};
-  void construct();
-  static lucent::Ref<C_Link> create();
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "prev", v->prev);
-  lucent::jsonField(w, first, "label", v->label);
-  (void)first;
-  w.raw("}");
-}
-
-inline bool C_Link::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "prev", this->prev);
-  lucent::jsonField(w, first, "label", this->label);
-  (void)first;
-  w.raw("}");
-  return true;
-}
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v);
 
 }  // namespace lucent_app
 
 #pragma pop_macro("v")
-#pragma pop_macro("prev")
-#pragma pop_macro("label")

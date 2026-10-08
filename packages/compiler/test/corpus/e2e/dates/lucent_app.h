@@ -2,31 +2,10 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("d")
-#undef d
-
 namespace lucent_app {
 
 struct S_Object1;
 
-struct S_Object1 : lucent::Object {
-  lucent::Date d{};
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "d", v->d);
-  (void)first;
-  w.raw("}");
-}
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v);
 
 }  // namespace lucent_app
-
-#pragma pop_macro("d")

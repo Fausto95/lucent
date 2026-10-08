@@ -1642,10 +1642,7 @@ the runtime, size and build budgets, rather than only producing shorter C++.
   (mandelbrot 14x → 5.4x against its 5x budget on a 2-core Xeon), and
   budgets the generated objects' size and the install time. The host-only
   generated-code corpus is committed and compared by `pnpm test`. Not done,
-  and why: splitting `lucent_app.h` per module (a struct's shape change
-  rebuilding only its users) needs every class, interface and JSON writer
-  ordered by the complete types it needs, across modules: its own task;
-  integer element types for local arrays (the `crc32` table) change the
+  and why: integer element types for local arrays (the `crc32` table) change the
   array's C++ type, which every call, return and conversion of it sees, so
   they need the representation to follow the array through the IR rather
   than a local inference; and stack-allocating non-escaping object
@@ -1654,6 +1651,16 @@ the runtime, size and build budgets, rather than only producing shorter C++.
   rely on. The JNI call sites stay a lambda each: a function template's
   arguments would be evaluated before its local frame is pushed, and their
   local references would outlive it.
+- Second review follow-ups (2026-10-08, perf/review-codegen-2): each
+  struct, interface and class is defined in a header of its own
+  (`lucent_app_<type>.h`, types that spell each other sharing one), which
+  first includes the headers of the types it spells; `lucent_app.h` only
+  declares them, and a unit includes the headers of the types its code
+  spells, so a type's shape change recompiles its users' units alone
+  (`test/incremental.test.ts`). JSON.parse's readers are one header, which
+  the units that parse include. `native/body-edit` on the 73-module
+  fixture: 4.3 s → 2.0 s (median), as `m_basics.cpp` no longer parses
+  every module's types.
 - Against handwritten C++ (the same kernels, written natively, on the same
   host): `fnv1a`, `xorshift`, `mandelbrot`, `sortNumbers`, `wordCount` and
   `strings` are within 20% or faster; `murmur`, `crc32` and `sieve` are

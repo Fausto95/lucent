@@ -2,71 +2,16 @@
 #pragma once
 #include <lucent/lucent.h>
 
-#pragma push_macro("buffer")
-#undef buffer
-#pragma push_macro("getBuffer")
-#undef getBuffer
-#pragma push_macro("kinds")
-#undef kinds
-#pragma push_macro("set")
-#undef set
-#pragma push_macro("size")
-#undef size
 #pragma push_macro("v")
 #undef v
-#pragma push_macro("values")
-#undef values
 
 namespace lucent_app {
 
 struct S_Object1;
 struct C_Store;
 
-struct S_Object1 : lucent::Object {
-  lucent::ArrayBuffer buffer{};
-  double size{};
-};
-
-struct C_Store : lucent::Object {
-  lucent::Map<lucent::String, std::variant<lucent::ArrayBuffer, bool, double, lucent::String>> values{};
-  void construct();
-  static lucent::Ref<C_Store> create();
-  void set(lucent::String p0_, std::variant<lucent::ArrayBuffer, bool, double, lucent::String> p1_);
-  lucent::Opt<lucent::ArrayBuffer> getBuffer(lucent::String p0_);
-  lucent::String kinds();
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
-};
-
-void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v);
-
-inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v) {
-  if (!v) {
-    w.raw("null");
-    return;
-  }
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "buffer", v->buffer);
-  lucent::jsonField(w, first, "size", v->size);
-  (void)first;
-  w.raw("}");
-}
-
-inline bool C_Store::lucentJson_(lucent::JsonWriter& w, bool toJson) {
-  w.raw("{");
-  bool first = true;
-  lucent::jsonField(w, first, "values", this->values);
-  (void)first;
-  w.raw("}");
-  return true;
-}
+inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v);
 
 }  // namespace lucent_app
 
-#pragma pop_macro("values")
 #pragma pop_macro("v")
-#pragma pop_macro("size")
-#pragma pop_macro("set")
-#pragma pop_macro("kinds")
-#pragma pop_macro("getBuffer")
-#pragma pop_macro("buffer")
