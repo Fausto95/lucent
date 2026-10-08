@@ -74,7 +74,9 @@ export function sum(points: Point[], names: string[], xs: number[]): number {
 `);
     const sum = body(cppOf(file), "sum");
 
-    expect(sum).toMatch(/const auto& v\d+_ = coll\d+_\.items\(\)\[i\d+_\];\n.*\n\s+const auto& p = /);
+    expect(sum).toMatch(
+      /const auto& v\d+_ = coll\d+_\.items\(\)\[i\d+_\];\n.*\n\s+const auto& p = /,
+    );
 
     expect(sum).toMatch(/const auto& name = v\d+_;/);
 
@@ -111,7 +113,8 @@ export function sum(points: Point[], names: string[]): number {
   });
 
   it("reads a map's entries in place, copying neither an unused key nor a value", () => {
-    const file = module(`export function total(m: Map<string, number>, r: Record<string, string>): number {
+    const file =
+      module(`export function total(m: Map<string, number>, r: Record<string, string>): number {
   let s = 0;
   for (const [, v] of m) s += v;
   for (const [k] of m) s += k.length;

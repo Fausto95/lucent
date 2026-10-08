@@ -179,7 +179,7 @@ describe("C++ statements and declarations", () => {
       "  return f;",
     ]);
     // After g, the lines are m_a.cpp's again, numbered as they are in it.
-    const reset = lines.findIndex((l) => l.startsWith('#line') && l.includes("m_a.cpp"));
+    const reset = lines.findIndex((l) => l.startsWith("#line") && l.includes("m_a.cpp"));
     expect(lines[reset]).toBe(`#line ${reset + 2} "m_a.cpp"`);
     expect(lines.slice(reset + 1)).toEqual(["", "int h() {", "}", ""]);
   });

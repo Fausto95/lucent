@@ -26,12 +26,7 @@ import {
   resolveNative,
 } from "../../src/index.ts";
 import { exec, pool } from "../../../runtime/test/parallel.ts";
-import {
-  cFlags,
-  hostLibs,
-  prefixMapFlags,
-  runtimeSources,
-} from "../../../runtime/test/sources.ts";
+import { cFlags, hostLibs, prefixMapFlags, runtimeSources } from "../../../runtime/test/sources.ts";
 
 // One time zone with daylight saving time for both runs (the native host
 // inherits it), so local-time code is exercised even on UTC machines.

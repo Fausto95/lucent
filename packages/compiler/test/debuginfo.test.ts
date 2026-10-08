@@ -120,6 +120,8 @@ describe("debug information", () => {
     expect(fs.readFileSync(obj).includes(dir)).toBe(false);
     // Nor do the error and trace sites, which are strings: no generated file names the directory.
     expect([...files].filter(([, text]) => text.includes(dir)).map(([name]) => name)).toEqual([]);
-    expect(files.get("lucent_bindings.cpp")).toContain('LUCENT_TRACE_SITE_AT("add", "sample.lucent.ts"');
+    expect(files.get("lucent_bindings.cpp")).toContain(
+      'LUCENT_TRACE_SITE_AT("add", "sample.lucent.ts"',
+    );
   });
 });
