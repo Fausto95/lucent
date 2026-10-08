@@ -665,7 +665,11 @@ function skipParentheses(e: ts.Expression): ts.Expression {
  * Fabric header), which converts React's commits into the setup's signals,
  * its events into the host's, and its commands into the setup's table.
  */
-export function mountUnit(ctx: Ctx, s: Setup): { name: string; text: string } {
+export function mountUnit(
+  ctx: Ctx,
+  s: Setup,
+  types: (decls: cpp.Decl[]) => cpp.Decl[] = () => [],
+): { name: string; text: string } {
   const reg = ctx.reg;
   const c = s.component;
   const names = {
@@ -1039,6 +1043,8 @@ export function mountUnit(ctx: Ctx, s: Setup): { name: string; text: string } {
       cpp.include(`${c.registration}.h`),
       cpp.include("LucentViewValues.h"),
       cpp.include(`../${s.module.ns}.h`),
+      // The types the mount spells that its module's header does not bring.
+      ...types(decls),
       cpp.withoutMacros(
         [...new Set([...names.props, ...names.events.flat(), ...names.commands.flat()])].sort(),
         [cpp.namespace(`lucent::views::${c.registration}`, decls)],

@@ -1829,27 +1829,14 @@ function fromKotlinFunction(
 
   const call = envCall("CallObjectMethod", jni("unwrap", cpp.id("f_")), cpp.id("id_"), ...args);
   const body: cpp.Stmt[] = [
-    cpp.varDecl(cpp.pointer(cpp.type("JNIEnv")), "env", jni("env")),
-    cpp.varDecl(cpp.type("lucent::jni::LocalFrame"), "frame_", env, { style: "construct" }),
-    cpp.varDecl(
-      cpp.type("jclass"),
-      "cls_",
-      jni("findClass", javaClass(em, `kotlin/jvm/functions/Function${arity}`)),
-      { static: true },
+    jniSite(
+      em,
+      "method",
+      `kotlin/jvm/functions/Function${arity}`,
+      "invoke",
+      `(${"Ljava/lang/Object;".repeat(arity)})Ljava/lang/Object;`,
     ),
-    cpp.varDecl(
-      cpp.auto,
-      "id_",
-      jni(
-        "method",
-        cpp.id("cls_"),
-        cpp.str("invoke"),
-        javaDescriptor(em, `(${"Ljava/lang/Object;".repeat(arity)})Ljava/lang/Object;`),
-      ),
-      { static: true },
-    ),
-    cpp.varDecl(cpp.auto, "r_", call),
-    cpp.exprStmt(jni("check", env)),
+    cpp.varDecl(cpp.auto, "r_", jni("checked", env, call)),
     ...(result ? [cpp.ret(result)] : []),
   ];
   const lambda = cpp.lambda(
@@ -2437,6 +2424,22 @@ function fromJniList(
 }
 
 /**
+ * `LUCENT_JNI_SITE(lookup, "cls", "name", "desc");`: the start of a call
+ * site's code (lucent/platform/android.h), declaring `env`, its local frame
+ * and the site's `cls_` and `id_`, looked up once.
+ */
+function jniSite(em: FnEmitter, lookup: string, cls: string, name: string, desc: string): cpp.Stmt {
+  return cpp.exprStmt(
+    cpp.call("LUCENT_JNI_SITE", [
+      cpp.id(lookup),
+      javaClass(em, cls),
+      cpp.str(name),
+      javaDescriptor(em, desc),
+    ]),
+  );
+}
+
+/**
  * One JNI call: class and member IDs are looked up once per call site, local
  * references are freed, and a pending Java exception becomes a Lucent error.
  * `access` makes the call with the member ID; `pre` runs first (the receiver).
@@ -2460,20 +2463,12 @@ function jniCall(
   const out = fromJni(em, cpp.id("r_"), opts.ret, opts.lt, opts.what, opts.node);
   const id = cpp.id("id_");
   const body: cpp.Stmt[] = [
-    cpp.varDecl(cpp.pointer(cpp.type("JNIEnv")), "env", jni("env")),
+    // The receiver first, then (LUCENT_JNI_SITE) the environment, the frame and the member.
     ...(opts.pre ?? []),
-    cpp.varDecl(cpp.type("lucent::jni::LocalFrame"), "frame_", env, { style: "construct" }),
-    cpp.varDecl(cpp.type("jclass"), "cls_", jni("findClass", javaClass(em, opts.cls.native)), {
-      static: true,
-    }),
-    cpp.varDecl(
-      cpp.auto,
-      "id_",
-      jni(opts.lookup, cpp.id("cls_"), cpp.str(opts.name), javaDescriptor(em, opts.desc)),
-      { static: true },
-    ),
-    result ? cpp.exprStmt(opts.access(id)) : cpp.varDecl(cpp.auto, "r_", opts.access(id)),
-    cpp.exprStmt(jni("check", env)),
+    jniSite(em, opts.lookup, opts.cls.native, opts.name, opts.desc),
+    ...(result
+      ? [cpp.exprStmt(opts.access(id)), cpp.exprStmt(jni("check", env))]
+      : [cpp.varDecl(cpp.auto, "r_", jni("checked", env, opts.access(id)))]),
     cpp.ret(result ? cpp.id("lucent::undefined") : out.c),
   ];
   // Void calls are values too, so optional chains can use them.

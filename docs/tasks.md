@@ -624,7 +624,7 @@ errors, 64-bit parameters from numbers, and lifecycle hooks.
       `fake-android.ts`'s stand-ins). The expo-location port's watch is
       a `LocationSubscription` holding its manager or listener, as
       expo-location's. Class instances as view props stay refused
-      ([0063](decisions/0063-platform-members-not-platform-classes.md)).
+      ([0065](decisions/0065-platform-members-not-platform-classes.md)).
 - [x] `EventEmitter` in `lucent:core`: typed events by name, crossing
       to JavaScript as one object whose `addListener` returns a
       subscription; JavaScript's listeners end with their runtime (e2e
@@ -780,10 +780,7 @@ the runtime, size and build budgets, rather than only producing shorter C++.
   (mandelbrot 14x → 5.4x against its 5x budget on a 2-core Xeon), and
   budgets the generated objects' size and the install time. The host-only
   generated-code corpus is committed and compared by `pnpm test`. Not done,
-  and why: splitting `lucent_app.h` per module (a struct's shape change
-  rebuilding only its users) needs every class, interface and JSON writer
-  ordered by the complete types it needs, across modules: its own task;
-  integer element types for local arrays (the `crc32` table) change the
+  and why: integer element types for local arrays (the `crc32` table) change the
   array's C++ type, which every call, return and conversion of it sees, so
   they need the representation to follow the array through the IR rather
   than a local inference; and stack-allocating non-escaping object
@@ -792,6 +789,50 @@ the runtime, size and build budgets, rather than only producing shorter C++.
   rely on. The JNI call sites stay a lambda each: a function template's
   arguments would be evaluated before its local frame is pushed, and their
   local references would outlive it.
+- Second review follow-ups (2026-10-08, perf/review-codegen-2): each
+  struct, interface and class is declared and defined in a header of its
+  own (`lucent_app_<type>.h`, types that spell each other sharing one),
+  which first includes the headers of the types it spells; `lucent_app.h`
+  is the runtime's headers (and the native objects' declarations of the
+  classes that have them), and a unit includes the headers of the types
+  its code spells, so a type's shape change, or a new type, recompiles its
+  users' units alone (`test/incremental.test.ts`). An object type without
+  a name is named by a hash of its shape (`S_Object_<8 hex>`), not by the
+  order the compiler met it in. JSON.parse's readers are one header, which
+  the units that parse include. Still numbered in the program's order:
+  temporaries (`obj_3_`), so a body edit that adds one renames those of
+  the modules emitted after it, which then recompile; numbering them per
+  module needs every name made at namespace scope or in a shared platform
+  file checked first. `native/body-edit` on the 73-module
+  fixture: 4.3 s → 2.0 s (median), as `m_basics.cpp` no longer parses
+  every module's types. A local `number[]` that only ever holds exact
+  integers (its literal, `push` and `a[i] = v` give it int32, uint32 or
+  bounded values) and that nothing but `push`, an index and `length` sees
+  (no call, return, capture, other method or compound write) holds them as
+  such (`lucent::Array<uint32_t>` for the `crc32` table): `a[i]!` is the
+  element in its integer register, a plain read the number or undefined it
+  reads as, and the IR verifier checks that only plans see such an array.
+  The earlier concern does not arise, as no call, return or conversion sees
+  one. An object literal a local holds, whose only uses are that local's
+  field reads and writes (no call, return, capture, comparison, spread or
+  `o.f()`) and which the program analysis finds does not escape, is the
+  local itself, a C++ value on the stack (`stack-objects.ts`); nothing can
+  hold a reference to it, so identity and lifetimes are as they were. A
+  loop making two such points per iteration: 356 → 88 ms for 5 million
+  (native, -O2). Passing one to a function that does not keep it was left
+  out: it would need a `Ref` with no owner count, whose safety would rest
+  on the escape facts being complete for every runtime method, and a gap
+  would be a use after free rather than a slower program. A JNI call
+  site stays a lambda, its receiver read before its frame and its
+  arguments converted inside it, but its environment, local frame, class
+  and member are one line, `LUCENT_JNI_SITE(lookup, class, member,
+descriptor)`, a macro expanding to the same four declarations in the
+  same order (one static holding both IDs), and the exception check
+  wraps the call (`lucent::jni::checked`): 108 → 70 lines for five
+  calls with their `#line`s. A function template taking each argument
+  as a lambda (frame first, then each argument in order) would keep the
+  order too, but every lambda prints as a block of its own lines, which
+  is longer than what it replaces.
 - Against handwritten C++ (the same kernels, written natively, on the same
   host): `fnv1a`, `xorshift`, `mandelbrot`, `sortNumbers`, `wordCount` and
   `strings` are within 20% or faster; `murmur`, `crc32` and `sieve` are

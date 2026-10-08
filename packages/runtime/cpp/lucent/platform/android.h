@@ -109,6 +109,49 @@ class LocalFrame {
   JNIEnv* env_;
 };
 
+/// An SDK call site's class and member, looked up once per site (a static of it).
+template <class Id>
+struct Site {
+  jclass cls;
+  Id id;
+};
+inline Site<jmethodID> methodSite(const char* cls, const char* name, const char* sig) {
+  jclass c = findClass(cls);
+  return {c, method(c, name, sig)};
+}
+inline Site<jmethodID> staticMethodSite(const char* cls, const char* name, const char* sig) {
+  jclass c = findClass(cls);
+  return {c, staticMethod(c, name, sig)};
+}
+inline Site<jfieldID> fieldSite(const char* cls, const char* name, const char* sig) {
+  jclass c = findClass(cls);
+  return {c, field(c, name, sig)};
+}
+inline Site<jfieldID> staticFieldSite(const char* cls, const char* name, const char* sig) {
+  jclass c = findClass(cls);
+  return {c, staticField(c, name, sig)};
+}
+
+/// The start of an SDK call site's code, in this order: the thread's JNI
+/// environment (`env`), a local frame (`frame_`) freeing the local
+/// references the call's arguments and result make, then the class
+/// (`cls_`) and member (`id_`) LOOKUP (method, staticMethod, field,
+/// staticField) finds, once per site. What the site evaluates before it
+/// (its receiver) makes no local references in the frame.
+#define LUCENT_JNI_SITE(LOOKUP, CLASS, MEMBER, SIG)                            \
+  JNIEnv* env = ::lucent::jni::env();                                         \
+  ::lucent::jni::LocalFrame frame_(env);                                      \
+  static const auto site_ = ::lucent::jni::LOOKUP##Site(CLASS, MEMBER, SIG);  \
+  [[maybe_unused]] const jclass cls_ = site_.cls;                             \
+  [[maybe_unused]] const auto id_ = site_.id
+
+/// `r`, a JNI call's result, once a Java exception the call left pending is thrown as a Lucent error.
+template <class T>
+T checked(JNIEnv* env, T r) {
+  check(env);
+  return r;
+}
+
 [[noreturn]] void returnedNull(const char* what);
 
 /// A Java array of objects (or of arrays) as a Lucent array: `each` gets

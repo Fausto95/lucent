@@ -109,6 +109,8 @@ function asDiagnostic(e: unknown, at: ts.Node): unknown {
 export interface CppBackend {
   cppType(t: LType): cpp.Type;
   cppRetType(t: LType): cpp.Type;
+  /** An object of the object type `t` itself, which a local on the stack holds. */
+  objectType?(t: LType): cpp.Type;
   /** The function name the Errors it creates record as their site. */
   site: string;
   /** Statements the function's body starts with (a method coroutine's `self`). */
@@ -793,7 +795,7 @@ class Emitter {
     if (this.used(v)) {
       const name = `v${v}_`;
 
-      this.emit(op, cpp.varDecl(this.backend.cppType(this.fn.values[v]!.type), name, c));
+      this.emit(op, cpp.varDecl(this.valueType(v), name, c));
       this.exprs.set(v, cpp.id(name));
       this.temporaries.set(v, this.current!);
     } else if (effect) {
@@ -810,7 +812,7 @@ class Emitter {
 
     const name = `v${v}_`;
     const lent = this.lent.has(c);
-    const type = this.backend.cppType(this.typeOf(v));
+    const type = this.valueType(v);
 
     this.exprs.set(v, cpp.id(name));
 
@@ -864,11 +866,27 @@ class Emitter {
   declareEmpty(op: IrOp, v: ValueId): void {
     const name = `v${v}_`;
 
-    this.emit(
-      op,
-      cpp.varDecl(this.backend.cppType(this.typeOf(v)), name, undefined, { style: "brace" }),
-    );
+    this.emit(op, cpp.varDecl(this.valueType(v), name, undefined, { style: "brace" }));
     this.exprs.set(v, cpp.id(name));
+  }
+
+  /** The C++ type of `v`: its type's, an array of integer elements' (`elements`), or an object's. */
+  valueType(v: ValueId): cpp.Type {
+    const value = this.fn.values[v]!;
+
+    if (value.elements) return integerArray(value.elements);
+
+    return value.onStack ? this.objectType(value.type) : this.backend.cppType(value.type);
+  }
+
+  /** The places holding objects on the stack. */
+  readonly stackPlaces = new Set<number>();
+
+  /** The C++ type of an object of the object type `t` itself (an object on the stack). */
+  objectType(t: LType): cpp.Type {
+    if (!this.backend.objectType) throw new Error("internal: no objects on the stack here");
+
+    return this.backend.objectType(t);
   }
 
   /**
@@ -1089,9 +1107,17 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
   local: (op, e, index, ops) => {
     const name = op.spelled ?? cppIdent(op.name);
     const next = ops[index + 1];
-    const type = op.int ? cpp.type(INT_CPP[op.int]) : boxOf(e.backend.cppType(op.type), op.boxed);
+    const type = op.int
+      ? cpp.type(INT_CPP[op.int])
+      : op.elements
+        ? integerArray(op.elements)
+        : op.onStack
+          ? e.objectType(op.type)
+          : boxOf(e.backend.cppType(op.type), op.boxed);
 
     e.declarePlace(op.place, name, op.boxed, op.int);
+
+    if (op.onStack) e.stackPlaces.add(op.place);
 
     // Declared where it is first stored, as `T x = v;` (or `lucent::Box<T> x(v);`).
     if (next?.kind === "store" && next.place === op.place) return;
@@ -1109,7 +1135,9 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
   load: (op, e) => {
     const int = e.placeInt(op.place);
 
-    if (int && e.aliased(op.result)) e.inlineInt(op.result, e.place(op.place));
+    // An object on the stack is its variable: each read sees the object, as a reference would.
+    if (e.stackPlaces.has(op.place)) e.inline(op.result, e.place(op.place));
+    else if (int && e.aliased(op.result)) e.inlineInt(op.result, e.place(op.place));
     else if (int) e.defineInt(op, op.result, e.place(op.place));
     else if (e.aliased(op.result)) e.inline(op.result, e.read(op.place));
     else e.define(op, op.result, e.read(op.place));
@@ -1129,7 +1157,13 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
         return;
       }
 
-      const type = int ? cpp.type(INT_CPP[int]) : boxOf(e.backend.cppType(prev.type), prev.boxed);
+      const type = int
+        ? cpp.type(INT_CPP[int])
+        : prev.elements
+          ? integerArray(prev.elements)
+          : prev.onStack
+            ? e.objectType(prev.type)
+            : boxOf(e.backend.cppType(prev.type), prev.boxed);
       const style = prev.boxed ? { style: "construct" as const } : {};
       const value = int ? e.stored(op.value, int) : e.taken(op.value);
 
@@ -1810,6 +1844,9 @@ const INT_COMPARISONS: Partial<Record<BinaryOp, cpp.BinaryOp>> = {
 
 /** The C++ type of each integer register. */
 const INT_CPP: Record<IntKind, string> = { i32: "int32_t", u32: "uint32_t", i64: "int64_t" };
+
+/** An array holding integer elements of `kind` as such. */
+const integerArray = (kind: IntKind) => cpp.type("lucent::Array", cpp.type(INT_CPP[kind]));
 
 /** A place's C++ type: `lucent::Box<T>` when it is boxed. */
 function boxOf(type: cpp.Type, boxed: boolean | undefined): cpp.Type {

@@ -84,6 +84,98 @@ describe("proven integer arithmetic", () => {
   });
 });
 
+describe("integer elements", () => {
+  const cpp = cppOf(CASE);
+
+  it("holds a table of uint32 values as uint32s, read without ToInt32", () => {
+    const fn = body(cpp, "crc");
+
+    expect(fn).toContain("lucent::Array<uint32_t> table = ");
+
+    expect(fn).not.toContain("lucent::toInt32");
+  });
+
+  it("holds int32 and uint32 values alike, and bounded sums, as int64s", () => {
+    expect(body(cpp, "intElements")).toContain("lucent::Array<int64_t> t = ");
+
+    const bounded = body(cpp, "boundedElements");
+
+    expect(bounded).toContain("lucent::Array<int64_t> xs = ");
+
+    expect(bounded).toContain("int64_t x = ");
+  });
+
+  it("keeps doubles for an array anything but push, an index or length sees", () => {
+    const file = module(`export function seen(xs: number[]): number {
+  const captured: number[] = [1];
+  const read = () => captured[0]!;
+  const aliased: number[] = [1];
+  const alias = aliased;
+  const iterated: number[] = [1];
+  let sum = 0;
+  for (const x of iterated) sum += x;
+  const shrunk: number[] = [1];
+  shrunk.length = 0;
+  const added: number[] = [1];
+  added[0]! += 1;
+  const counted: number[] = [1];
+  counted[0]!++;
+  const asserted: number[] = [1];
+  asserted[0]! = 0.5;
+  const wrapped: number[] = [1];
+  [wrapped[0]!] = [0.5];
+  const spread: number[] = [1];
+  spread.push(...xs);
+  const destructured: number[] = [1];
+  [destructured[0]] = [2];
+  let replaced: number[] = [1];
+  replaced = [2];
+  const optional: number[] = [1];
+  const o = optional?.[0];
+  return read() + alias.length + sum + shrunk.length + added[0]! + counted[0]! + spread.length +
+    destructured[0]! + replaced[0]! + (o ?? 0) + asserted[0]! + wrapped[0]!;
+}
+`);
+    const fn = body(cppOf(file), "seen");
+
+    expect(fn).not.toMatch(/Array<u?int/);
+  });
+
+  it("keeps doubles for what could be -0, a fraction or past 2^53, and for an array that escapes", () => {
+    const fn = body(cpp, "doubleElements");
+
+    for (const name of ["zeros", "halves", "big", "products", "shared"])
+      expect(fn).toContain(`lucent::Array<double> ${name} = `);
+  });
+});
+
+describe("objects on the stack", () => {
+  const cpp = cppOf(CASE);
+
+  it("makes an object only its fields' reads and writes see on the stack", () => {
+    const fn = body(cpp, "stackObjects");
+
+    expect(fn).toMatch(/lucent_app::S_Object_[0-9a-f]+ q = /);
+
+    expect(fn).toContain("lucent_app::S_Point copy = ");
+
+    // `p` is spread into `copy`, the nested object is a field's value, and `empty` is passed to
+    // JSON.stringify.
+    expect(fn).toContain("lucent::Ref<lucent_app::S_Point> p = ");
+
+    expect(fn.match(/std::make_shared/g)).toHaveLength(3);
+  });
+
+  it("keeps on the heap an object that is passed, returned, kept, captured, compared or spread", () => {
+    const fn = body(cpp, "heapObjects");
+
+    for (const name of ["passed", "kept", "captured", "compared", "spread"])
+      expect(fn).toContain(`lucent::Ref<lucent_app::S_Point> ${name} = `);
+
+    expect(body(cpp, "made")).toContain("lucent::Ref<lucent_app::S_Point> p = ");
+  });
+});
+
 describe("devirtualized callbacks", () => {
   const cpp = cppOf(CASE);
 

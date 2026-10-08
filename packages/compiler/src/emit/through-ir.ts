@@ -4,7 +4,7 @@
  * it. The host it lowers with gives the program's types, declarations
  * and platform, and plans leaves with the emitter's code.
  */
-import type { cpp } from "@lucent-lang/codegen";
+import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import type { ProgramFacts } from "../analysis/index.ts";
 import type { FunctionLike } from "../analysis/scopes.ts";
@@ -23,6 +23,7 @@ import type { Ctx, ParamInfo } from "./context.ts";
 import { type FnOptions, FnEmitter, usesThisIn } from "./function.ts";
 import { functionName, isMathGlobal } from "./builtins.ts";
 import { inferIntegers } from "./integers.ts";
+import { stackObjects } from "./stack-objects.ts";
 import { leafHost } from "./leaf.ts";
 import { CONTENT, setupOf } from "./setups.ts";
 import { liftedStatement } from "./toolkit.ts";
@@ -84,6 +85,7 @@ export function throughIr(ctx: Ctx, unit: IrUnit, ir: IrMode): CppFunction {
   const backend = {
     cppType: (t: LType) => ctx.reg.cppType(t),
     cppRetType: (t: LType) => ctx.reg.cppRetType(t),
+    objectType: (t: LType) => objectType(ctx, t),
     site: unit.site,
     ...(unit.prologue ? { prologue: unit.prologue } : {}),
   };
@@ -123,10 +125,18 @@ export function initializationThroughIr(
   const backend = {
     cppType: (t: LType) => ctx.reg.cppType(t),
     cppRetType: (t: LType) => ctx.reg.cppRetType(t),
+    objectType: (t: LType) => objectType(ctx, t),
     site,
   };
 
   return lowerToCpp(init, irHost(ctx, ir.facts, opts), backend);
+}
+
+/** The C++ type of an object of the object type `t` itself, on the stack (stack-objects.ts). */
+function objectType(ctx: Ctx, t: LType): cpp.Type {
+  if (t.k !== "struct") throw new Error(`internal: a ${t.k} on the stack`);
+
+  return cpp.type(`lucent_app::${ctx.reg.struct(t.id).cppName}`);
 }
 
 /** The host a body with the emitter's options `opts` lowers with. */
@@ -239,14 +249,18 @@ function irHost(ctx: Ctx, facts: ProgramFacts, opts: FnOptions): LowerHost {
 
       const em = new FnEmitter(ctx, opts);
       const isBoxed = (sym: ts.Symbol) => ctx.capture.isBoxed(sym);
-      const number = (d: ts.VariableDeclaration, sym: ts.Symbol) => {
+      const lowered = (d: ts.VariableDeclaration, sym: ts.Symbol) => {
         try {
-          return (
-            ctx.reg.lower(ctx.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name).k === "number"
-          );
+          return ctx.reg.lower(ctx.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name);
         } catch {
-          return false;
+          return undefined;
         }
+      };
+      const number = (d: ts.VariableDeclaration, sym: ts.Symbol) => lowered(d, sym)?.k === "number";
+      const numbers = (d: ts.VariableDeclaration, sym: ts.Symbol) => {
+        const t = lowered(d, sym);
+
+        return t?.k === "array" && t.e.k === "number";
       };
       const runs = (d: ts.Node) => {
         const p = branchPlatform(ctx.checker, d);
@@ -257,15 +271,41 @@ function irHost(ctx: Ctx, facts: ProgramFacts, opts: FnOptions): LowerHost {
         checker: ctx.checker,
         // Locals of code this target never runs are not lowered: their types stay out of its output.
         candidate: (d, sym) => runs(d) && !isBoxed(sym) && number(d, sym),
+        arrayCandidate: (d, sym) => runs(d) && !isBoxed(sym) && numbers(d, sym),
         isBoxed,
         isMath: (id) => isMathGlobal(em, id),
       });
 
-      // A `for` counter is an int64: exact for every value JavaScript can count to.
+      // A `for` counter is an int64: exact for every value JavaScript can count to. An array of
+      // numbers in the map holds integer elements of the kind.
       return new Map([
         ...facts.locals,
         ...[...facts.counters].map((c) => [c, "i64" as const] as const),
+        ...facts.arrays,
       ]);
+    },
+    objects: (fn) => {
+      if (!fn.body) return new Set();
+
+      return stackObjects(fn.body, {
+        checker: ctx.checker,
+        candidate: (d, sym) => {
+          const platform = branchPlatform(ctx.checker, d);
+
+          if (ctx.capture.isBoxed(sym) || (platform !== undefined && platform !== ctx.platform))
+            return false;
+
+          try {
+            return (
+              ctx.reg.lower(ctx.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name).k ===
+              "struct"
+            );
+          } catch {
+            return false;
+          }
+        },
+        escapes: (sym) => facts.escapes(sym).length > 0,
+      });
     },
     leaves: leafHost(ctx, opts),
   };

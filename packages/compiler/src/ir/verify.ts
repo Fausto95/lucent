@@ -22,7 +22,11 @@
  *    operation list is the evaluation order.
  * 6. An integer register (`int`, which emit/integers.ts proves) holds a
  *    number: a value's is on a number, a local's on a number no closure
- *    shares in a box.
+ *    shares in a box. Integer elements (`elements`) are an array of
+ *    numbers' (a local's, unboxed), and only plans see such an array: a
+ *    value of one is a plan's operand, or stored into a local holding the
+ *    same elements. So is an object on the stack (`onStack`), a local of
+ *    an object type's.
  * 7. Nothing claims less than it does: a call's effect reference is at least
  *    as conservative as what is known of its callee, and the function's
  *    summary admits every exit, read and write its operations (and the
@@ -193,6 +197,12 @@ class Checker {
       if (v.int && v.type.k !== "number")
         this.problem(`v${i} is held in an ${v.int} register, but is a ${typeKey(v.type)}`);
 
+      if (v.elements && (v.type.k !== "array" || v.type.e.k !== "number"))
+        this.problem(`v${i} holds ${v.elements} elements, but is a ${typeKey(v.type)}`);
+
+      if (v.onStack && v.type.k !== "struct")
+        this.problem(`v${i} is held on the stack, but is a ${typeKey(v.type)}`);
+
       if (v.owner !== undefined && !OWNERS.includes(v.owner))
         this.problem(`v${i} has an unknown owner ${JSON.stringify(v.owner)}`);
 
@@ -272,7 +282,10 @@ class Checker {
 
       this.spanInside(op.source, where);
 
-      for (const v of operandsOf(op)) this.use(v, where);
+      for (const v of operandsOf(op)) {
+        this.use(v, where);
+        this.elementsUse(op, v, where);
+      }
 
       const check = CHECKS[op.kind] as ((op: IrOp, c: Checker, where: string) => void) | undefined;
 
@@ -283,6 +296,34 @@ class Checker {
 
       if (result !== undefined) this.define(result, where);
     });
+  }
+
+  /** The places that hold integer elements, by their kind. */
+  readonly placeElements = new Map<PlaceId, string>();
+
+  /** The places that hold objects on the stack. */
+  readonly stackPlaces = new Set<PlaceId>();
+
+  /**
+   * An array of integer elements, or an object on the stack, is only a
+   * plan's operand, or stored into a local holding it the same way.
+   */
+  private elementsUse(op: IrOp, v: ValueId, where: string): void {
+    const value = this.fn.values[v];
+    const kind = value?.elements;
+
+    if (
+      value?.onStack &&
+      op.kind !== "plan" &&
+      !(op.kind === "store" && this.stackPlaces.has(op.place))
+    )
+      this.problem(`${where} uses v${v}, an object on the stack, which only plans read`);
+
+    if (!kind || op.kind === "plan") return;
+
+    if (op.kind === "store" && this.placeElements.get(op.place) === kind) return;
+
+    this.problem(`${where} uses v${v}, an array of ${kind} elements, which only plans read`);
   }
 
   private use(v: ValueId, where: string): void {
@@ -686,6 +727,26 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
         where,
         `holds p${op.place} in an ${op.int} register, but it is not a local number`,
       );
+
+    if (op.elements) {
+      if (op.type.k !== "array" || op.type.e.k !== "number" || op.boxed)
+        c.problemAt(
+          where,
+          `holds p${op.place} as ${op.elements} elements, but it is not a local array of numbers`,
+        );
+
+      c.placeElements.set(op.place, op.elements);
+    }
+
+    if (op.onStack) {
+      if (op.type.k !== "struct" || op.boxed)
+        c.problemAt(
+          where,
+          `holds p${op.place} on the stack, but it is not a local of an object type`,
+        );
+
+      c.stackPlaces.add(op.place);
+    }
   },
 
   load: (op, c, where) => c.expectType(op.result, c.place(op.place, where)?.type, where),

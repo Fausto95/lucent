@@ -129,6 +129,13 @@ class Opt {
   State state_ = State::Undefined;
 };
 
+/// An array of integer elements' `a[i]`: the number the element reads as, or undefined.
+template <class T>
+  requires std::is_integral_v<T>
+Opt<double> numberOf(const Opt<T>& v) {
+  return v.has() ? Opt<double>(static_cast<double>(v.get())) : Opt<double>(undefined);
+}
+
 template <class T>
 struct IsOpt : std::false_type {};
 template <class T>

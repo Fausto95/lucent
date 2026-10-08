@@ -1570,6 +1570,9 @@ function arrayMethod(
   name: string,
   node: ts.CallExpression,
 ): E {
+  // Integer elements (integers.ts) are only pushed to, indexed and measured.
+  if (obj.elements && name !== "push")
+    throw new Error(`internal: ${name} on an array of integer elements`);
   const o = obj.c;
   const e = obj.t.e;
   const at = obj.t;
@@ -1593,10 +1596,12 @@ function arrayMethod(
         );
       if (a.some(ts.isSpreadElement))
         fail(node, Codes.UnsupportedBuiltin, "push(...items) with other arguments");
+      // Integer elements (integers.ts): each item, proved an exact integer of their kind, as one.
+      const kind = obj.elements;
       return num(
         cpp.call(
           cpp.dot(o, "push"),
-          a.map((x) => em.exprAs(x, e)),
+          a.map((x) => (kind ? em.asInteger(em.expr(x, T.number), kind, x) : em.exprAs(x, e))),
         ),
       );
     }

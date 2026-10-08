@@ -448,7 +448,7 @@ void m_bigint_u2d_values::init() {
   lucent_app::m_bigint_u2d_values::BIG = lucent::BigInt::pow(lucent::BigInt::fromInt64(2), lucent::BigInt::fromInt64(100));
   lucent::BigInt v6_ = -lucent::BigInt::pow(lucent::BigInt::fromInt64(2), lucent::BigInt::fromInt64(63));
   lucent::BigInt v11_ = lucent::BigInt::pow(lucent::BigInt::fromInt64(2), lucent::BigInt::fromInt64(63)) - lucent::BigInt::fromInt64(1);
-  lucent_app::m_bigint_u2d_values::LIMITS = ({ auto obj_7_ = std::make_shared<lucent_app::S_Object1>(); obj_7_->min = v6_; obj_7_->max = v11_; obj_7_; });
+  lucent_app::m_bigint_u2d_values::LIMITS = ({ auto obj_7_ = std::make_shared<lucent_app::S_Object_e0719fe9>(); obj_7_->min = v6_; obj_7_->max = v11_; obj_7_; });
 }
 
 }  // namespace lucent_app

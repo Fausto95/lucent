@@ -18,7 +18,7 @@
 
 namespace lucent_app {
 
-double m_reduce_u2d_operands::fromField(lucent::Array<double> p0_, lucent::Ref<lucent_app::S_Object1> p1_) {
+double m_reduce_u2d_operands::fromField(lucent::Array<double> p0_, lucent::Ref<lucent_app::S_Object_56857356> p1_) {
   double v2_ = p1_->n;
   return p0_.reduce([](double p0_, double p1_, double p2_, lucent::Array<double> p3_) mutable -> double {
     return p0_ + p1_;
