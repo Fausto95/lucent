@@ -105,13 +105,13 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Writer>>::toJs(jsi::Runtime&
 void proto_C_Writer(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "pending", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Writer>>::fromJs(rt, thisVal, Path{"Writer.pending", "this"});
       return Convert<lucent::Promise<void>>::toJs(rt, host, self->pending);
     });
   }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Writer>>::fromJs(rt, thisVal, Path{"Writer.pending", "this"});
       auto value = Convert<lucent::Promise<void>>::fromJs(rt, arg(args, count, 0), Path{"Writer.pending", "value"});
       self->pending = value;
@@ -120,13 +120,13 @@ void proto_C_Writer(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineAccessor(rt, proto, "log", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Writer>>::fromJs(rt, thisVal, Path{"Writer.log", "this"});
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, self->log);
     });
   }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Writer>>::fromJs(rt, thisVal, Path{"Writer.log", "this"});
       auto value = Convert<lucent::Array<lucent::String>>::fromJs(rt, arg(args, count, 0), Path{"Writer.log", "value"});
       self->log = value;
@@ -135,11 +135,11 @@ void proto_C_Writer(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineFunction(rt, proto, "write", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Writer>>::fromJs(rt, thisVal, Path{"Writer.write", "this"});
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Writer.write", "argument 's'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"Writer.write", "argument 'ms'"});
-      return callAsync<void>(rt, host, LUCENT_TRACE_SITE_AT("Writer.write", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 8), [self, a0, a1]() {
+      return callAsync<void>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Writer.write", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 8), [self, a0, a1]() {
         return self->write(a0, a1);
       });
     });
@@ -161,13 +161,13 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Cache>>::toJs(jsi::Runtime& 
 void proto_C_Cache(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "point", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Cache>>::fromJs(rt, thisVal, Path{"Cache.point", "this"});
       return Convert<lucent::Promise<lucent::Ref<lucent_app::S_Point>>>::toJs(rt, host, self->point);
     });
   }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Cache>>::fromJs(rt, thisVal, Path{"Cache.point", "this"});
       auto value = Convert<lucent::Promise<lucent::Ref<lucent_app::S_Point>>>::fromJs(rt, arg(args, count, 0), Path{"Cache.point", "value"});
       self->point = value;
@@ -176,13 +176,13 @@ void proto_C_Cache(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineAccessor(rt, proto, "total", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Cache>>::fromJs(rt, thisVal, Path{"Cache.total", "this"});
       return Convert<lucent::Opt<lucent::Promise<double>>>::toJs(rt, host, self->total);
     });
   }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Cache>>::fromJs(rt, thisVal, Path{"Cache.total", "this"});
       auto value = optionalFromJs<lucent::Promise<double>>(rt, arg(args, count, 0), Path{"Cache.total", "value"}, false, "a value or undefined");
       self->total = value;
@@ -191,13 +191,13 @@ void proto_C_Cache(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineAccessor(rt, proto, "loads", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Cache>>::fromJs(rt, thisVal, Path{"Cache.loads", "this"});
       return Convert<double>::toJs(rt, host, self->loads);
     });
   }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Cache>>::fromJs(rt, thisVal, Path{"Cache.loads", "this"});
       auto value = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Cache.loads", "value"});
       self->loads = value;
@@ -206,9 +206,9 @@ void proto_C_Cache(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineFunction(rt, proto, "read", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Cache>>::fromJs(rt, thisVal, Path{"Cache.read", "this"});
-      return callAsync<double>(rt, host, LUCENT_TRACE_SITE_AT("Cache.read", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 50), [self]() {
+      return callAsync<double>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Cache.read", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 50), [self]() {
         return self->read();
       });
     });
@@ -228,48 +228,48 @@ using namespace lucent::js;
 void install_m_promise_u2d_fields(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "serialized", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("serialized", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 21), []() {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("serialized", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 21), []() {
         return lucent_app::m_promise_u2d_fields::serialized();
       });
     });
   });
   defineFunction(rt, exports, "cached", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("cached", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 61), []() {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("cached", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 61), []() {
         return lucent_app::m_promise_u2d_fields::cached();
       });
     });
   });
   defineFunction(rt, exports, "stringified", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("stringified", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 70), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("stringified", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 70), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_promise_u2d_fields::stringified());
     });
   });
   defineFunction(rt, exports, "makeWriter", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("makeWriter", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 77), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("makeWriter", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 77), [&]() -> jsi::Value {
       return Convert<lucent::Ref<lucent_app::C_Writer>>::toJs(rt, host, lucent_app::m_promise_u2d_fields::makeWriter());
     });
   });
   defineClass(rt, host, exports, "Writer", "promise-fields.Writer", proto_C_Writer, 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Writer", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 4), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Writer", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 4), [&]() -> jsi::Value {
       return Convert<lucent::Ref<lucent_app::C_Writer>>::toJs(rt, host, lucent_app::C_Writer::create());
     });
   });
   defineClass(rt, host, exports, "Cache", "promise-fields.Cache", proto_C_Cache, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Cache", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 34), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Cache", "packages/compiler/test/e2e/cases/promise-fields.lucent.ts", 34), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Cache", "argument 'x'"});
       return Convert<lucent::Ref<lucent_app::C_Cache>>::toJs(rt, host, lucent_app::C_Cache::create(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"promise-fields", install_m_promise_u2d_fields}};
+const ModuleDef kModules[] = {{"promise-fields", install_m_promise_u2d_fields, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -281,7 +281,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_promise_u2d_fields::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_promise_u2d_fields::init();
+  }
 }
 
 }  // namespace lucent::js

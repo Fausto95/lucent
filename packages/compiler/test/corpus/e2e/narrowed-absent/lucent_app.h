@@ -7,6 +7,11 @@
 
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("narrowed-absent");
+  return a;
+}
+
 struct C_Box;
 
 struct C_Box : lucent::Object {

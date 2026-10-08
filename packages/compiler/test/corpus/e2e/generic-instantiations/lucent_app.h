@@ -4,6 +4,8 @@
 
 #pragma push_macro("T")
 #undef T
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("m")
 #undef m
 #pragma push_macro("show")
@@ -12,6 +14,11 @@
 #undef v
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("generic-instantiations");
+  return a;
+}
 
 struct S_Object1;
 
@@ -99,4 +106,5 @@ inline bool C_Sub<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("v")
 #pragma pop_macro("show")
 #pragma pop_macro("m")
+#pragma pop_macro("a")
 #pragma pop_macro("T")

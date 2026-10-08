@@ -2,6 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("age")
 #undef age
 #pragma push_macro("children")
@@ -36,6 +38,11 @@
 #undef z
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("objects");
+  return a;
+}
 
 struct S_Point;
 struct S_Person;
@@ -205,3 +212,4 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object7>& v) {
 #pragma pop_macro("h")
 #pragma pop_macro("children")
 #pragma pop_macro("age")
+#pragma pop_macro("a")

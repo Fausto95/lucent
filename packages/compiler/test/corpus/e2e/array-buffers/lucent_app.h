@@ -2,6 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("buffer")
 #undef buffer
 #pragma push_macro("getBuffer")
@@ -18,6 +20,11 @@
 #undef values
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("array-buffers");
+  return a;
+}
 
 struct S_Object1;
 struct C_Store;
@@ -70,3 +77,4 @@ inline bool C_Store::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("kinds")
 #pragma pop_macro("getBuffer")
 #pragma pop_macro("buffer")
+#pragma pop_macro("a")

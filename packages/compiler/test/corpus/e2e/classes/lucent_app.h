@@ -2,6 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("count")
 #undef count
 #pragma push_macro("created")
@@ -62,6 +64,11 @@
 #undef value
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("classes");
+  return a;
+}
 
 struct S_Object1;
 struct C_Counter;
@@ -309,3 +316,4 @@ inline bool C_Remote::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("deposit")
 #pragma pop_macro("created")
 #pragma pop_macro("count")
+#pragma pop_macro("a")

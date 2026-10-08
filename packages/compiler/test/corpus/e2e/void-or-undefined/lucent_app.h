@@ -9,6 +9,11 @@
 
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("void-or-undefined");
+  return a;
+}
+
 struct C_Log;
 
 struct C_Log : lucent::Object {

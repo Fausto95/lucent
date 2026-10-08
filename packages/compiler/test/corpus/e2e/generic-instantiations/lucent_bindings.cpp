@@ -27,25 +27,25 @@ using namespace lucent::js;
 void install_m_generic_u2d_instantiations(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "arrays", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("arrays", "packages/compiler/test/e2e/cases/generic-instantiations.lucent.ts", 29), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("arrays", "packages/compiler/test/e2e/cases/generic-instantiations.lucent.ts", 29), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_generic_u2d_instantiations::arrays());
     });
   });
   defineFunction(rt, exports, "positions", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("positions", "packages/compiler/test/e2e/cases/generic-instantiations.lucent.ts", 48), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("positions", "packages/compiler/test/e2e/cases/generic-instantiations.lucent.ts", 48), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_generic_u2d_instantiations::positions());
     });
   });
   defineFunction(rt, exports, "identity", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("identity", "packages/compiler/test/e2e/cases/generic-instantiations.lucent.ts", 76), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("identity", "packages/compiler/test/e2e/cases/generic-instantiations.lucent.ts", 76), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_generic_u2d_instantiations::identity());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"generic-instantiations", install_m_generic_u2d_instantiations}};
+const ModuleDef kModules[] = {{"generic-instantiations", install_m_generic_u2d_instantiations, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -57,7 +57,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_generic_u2d_instantiations::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_generic_u2d_instantiations::init();
+  }
 }
 
 }  // namespace lucent::js

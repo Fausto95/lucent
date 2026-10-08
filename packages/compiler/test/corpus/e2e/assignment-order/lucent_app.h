@@ -2,6 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("add")
 #undef add
 #pragma push_macro("first")
@@ -18,6 +20,11 @@
 #undef v
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("assignment-order");
+  return a;
+}
 
 struct S_Box;
 struct C_Counter;
@@ -69,3 +76,4 @@ inline bool C_Counter::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("n")
 #pragma pop_macro("first")
 #pragma pop_macro("add")
+#pragma pop_macro("a")

@@ -96,27 +96,27 @@ using namespace lucent::js;
 void install_m_control_u2d_flow(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "reset", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("reset", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 9), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("reset", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 9), [&]() -> jsi::Value {
       lucent_app::m_control_u2d_flow::reset();
       return jsi::Value::undefined();
     });
   });
   defineFunction(rt, exports, "trail", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("trail", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 15), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("trail", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 15), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::trail());
     });
   });
   defineFunction(rt, exports, "sign", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("sign", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 34), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("sign", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 34), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"sign", "argument 'x'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::sign(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "clamp", 3, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("clamp", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 42), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("clamp", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 42), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"clamp", "argument 'x'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"clamp", "argument 'lo'"});
       auto a2 = Convert<double>::fromJs(rt, arg(args, count, 2), Path{"clamp", "argument 'hi'"});
@@ -125,68 +125,68 @@ void install_m_control_u2d_flow(jsi::Runtime& rt, Host& host, jsi::Object& expor
   });
   defineFunction(rt, exports, "sumTo", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("sumTo", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 53), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("sumTo", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 53), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"sumTo", "argument 'n'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_control_u2d_flow::sumTo(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "countdown", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("countdown", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 64), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("countdown", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 64), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"countdown", "argument 'n'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::countdown(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "oddsBelow", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("oddsBelow", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 74), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("oddsBelow", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 74), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"oddsBelow", "argument 'n'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::oddsBelow(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "firstSquareOver", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("firstSquareOver", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 85), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("firstSquareOver", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 85), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"firstSquareOver", "argument 'limit'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_control_u2d_flow::firstSquareOver(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "pairs", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("pairs", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 97), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("pairs", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 97), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"pairs", "argument 'n'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::pairs(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "skipBlock", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("skipBlock", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 112), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("skipBlock", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 112), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"skipBlock", "argument 'early'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::skipBlock(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "doContinue", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("doContinue", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 123), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("doContinue", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 123), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"doContinue", "argument 'n'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::doContinue(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "conditions", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("conditions", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 137), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("conditions", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 137), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::conditions());
     });
   });
   defineFunction(rt, exports, "totals", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("totals", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 150), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("totals", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 150), [&]() -> jsi::Value {
       return Convert<double>::toJs(rt, host, lucent_app::m_control_u2d_flow::totals());
     });
   });
   defineFunction(rt, exports, "throwsOut", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("throwsOut", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 155), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("throwsOut", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 155), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"throwsOut", "argument 'n'"});
       lucent_app::m_control_u2d_flow::throwsOut(std::move(a0));
       return jsi::Value::undefined();
@@ -194,20 +194,20 @@ void install_m_control_u2d_flow(jsi::Runtime& rt, Host& host, jsi::Object& expor
   });
   defineFunction(rt, exports, "ternary", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("ternary", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 167), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("ternary", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 167), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"ternary", "argument 'x'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::ternary(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "increments", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("increments", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 174), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("increments", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 174), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::increments());
     });
   });
   defineFunction(rt, exports, "bits", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("bits", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 188), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("bits", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 188), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"bits", "argument 'x'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"bits", "argument 'y'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::bits(std::move(a0), std::move(a1)));
@@ -215,21 +215,21 @@ void install_m_control_u2d_flow(jsi::Runtime& rt, Host& host, jsi::Object& expor
   });
   defineFunction(rt, exports, "optionals", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("optionals", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 204), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("optionals", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 204), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<double>(rt, arg(args, count, 0), Path{"optionals", "argument 'x'"}, false, "a number or undefined");
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::optionals(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "kinds", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("kinds", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 219), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("kinds", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 219), [&]() -> jsi::Value {
       auto a0 = Convert<std::variant<bool, double, lucent::String>>::fromJs(rt, arg(args, count, 0), Path{"kinds", "argument 'v'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::kinds(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "truthy", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("truthy", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 227), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("truthy", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 227), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"truthy", "argument 's'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"truthy", "argument 'n'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::truthy(std::move(a0), std::move(a1)));
@@ -237,7 +237,7 @@ void install_m_control_u2d_flow(jsi::Runtime& rt, Host& host, jsi::Object& expor
   });
   defineFunction(rt, exports, "reassign", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("reassign", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 239), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("reassign", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 239), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"reassign", "argument 'n'"});
       auto a1 = Convert<lucent::String>::fromJs(rt, arg(args, count, 1), Path{"reassign", "argument 'label'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::reassign(std::move(a0), std::move(a1)));
@@ -245,27 +245,27 @@ void install_m_control_u2d_flow(jsi::Runtime& rt, Host& host, jsi::Object& expor
   });
   defineFunction(rt, exports, "scopes", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("scopes", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 251), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("scopes", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 251), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"scopes", "argument 'n'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::scopes(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "nanLoop", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("nanLoop", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 267), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("nanLoop", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 267), [&]() -> jsi::Value {
       return Convert<double>::toJs(rt, host, lucent_app::m_control_u2d_flow::nanLoop());
     });
   });
   defineFunction(rt, exports, "grade", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("grade", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 279), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("grade", "packages/compiler/test/e2e/cases/control-flow.lucent.ts", 279), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"grade", "argument 'score'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_control_u2d_flow::grade(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"control-flow", install_m_control_u2d_flow}};
+const ModuleDef kModules[] = {{"control-flow", install_m_control_u2d_flow, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -277,7 +277,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_control_u2d_flow::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_control_u2d_flow::init();
+  }
 }
 
 }  // namespace lucent::js

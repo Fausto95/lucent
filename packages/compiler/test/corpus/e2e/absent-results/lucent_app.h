@@ -7,6 +7,11 @@
 
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("absent-results");
+  return a;
+}
+
 struct S_Named;
 
 struct S_Named : lucent::Object {

@@ -2,6 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("add")
 #undef add
 #pragma push_macro("children")
@@ -12,6 +14,11 @@
 #undef walk
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("generators");
+  return a;
+}
 
 struct C_Tree;
 
@@ -41,3 +48,4 @@ inline bool C_Tree::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("label")
 #pragma pop_macro("children")
 #pragma pop_macro("add")
+#pragma pop_macro("a")

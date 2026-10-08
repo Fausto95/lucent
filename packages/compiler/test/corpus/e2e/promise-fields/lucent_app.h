@@ -33,6 +33,11 @@
 
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("promise-fields");
+  return a;
+}
+
 struct S_Point;
 struct S_Object2;
 struct C_Writer;

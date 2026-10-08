@@ -2,6 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("join")
 #undef join
 #pragma push_macro("log")
@@ -12,6 +14,11 @@
 #undef parts
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("rest-parameters");
+  return a;
+}
 
 struct C_Path;
 struct C_Logger;
@@ -71,3 +78,4 @@ inline bool C_LoudLogger::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("of")
 #pragma pop_macro("log")
 #pragma pop_macro("join")
+#pragma pop_macro("a")

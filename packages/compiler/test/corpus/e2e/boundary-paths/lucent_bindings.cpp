@@ -31,7 +31,7 @@ using namespace lucent::js;
 void install_m_boundary_u2d_paths(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "total", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("total", "packages/compiler/test/e2e/cases/boundary-paths.lucent.ts", 6), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("total", "packages/compiler/test/e2e/cases/boundary-paths.lucent.ts", 6), [&]() -> jsi::Value {
       lucent::Array<double> a0;
       for (size_t i = 0; i < count; i++) {
         a0.push(Convert<double>::fromJs(rt, args[i], Path::argument("total", i + 1)));
@@ -41,14 +41,14 @@ void install_m_boundary_u2d_paths(jsi::Runtime& rt, Host& host, jsi::Object& exp
   });
   defineFunction(rt, exports, "sizes", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("sizes", "packages/compiler/test/e2e/cases/boundary-paths.lucent.ts", 12), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("sizes", "packages/compiler/test/e2e/cases/boundary-paths.lucent.ts", 12), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Dict<lucent::Array<double>>>::fromJs(rt, arg(args, count, 0), Path{"sizes", "argument 'r'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_boundary_u2d_paths::sizes(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "mapped", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("mapped", "packages/compiler/test/e2e/cases/boundary-paths.lucent.ts", 18), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("mapped", "packages/compiler/test/e2e/cases/boundary-paths.lucent.ts", 18), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<double>>::fromJs(rt, arg(args, count, 0), Path{"mapped", "argument 'xs'"});
       auto a1 = Convert<lucent::Fn<double(double)>>::fromJs(rt, arg(args, count, 1), Path{"mapped", "argument 'f'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_boundary_u2d_paths::mapped(std::move(a0), std::move(a1)));
@@ -56,32 +56,32 @@ void install_m_boundary_u2d_paths(jsi::Runtime& rt, Host& host, jsi::Object& exp
   });
   defineFunction(rt, exports, "nested", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("nested", "packages/compiler/test/e2e/cases/boundary-paths.lucent.ts", 24), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("nested", "packages/compiler/test/e2e/cases/boundary-paths.lucent.ts", 24), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Dict<lucent::Fn<double(double)>>>::fromJs(rt, arg(args, count, 0), Path{"nested", "argument 'r'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_boundary_u2d_paths::nested(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "awaited", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Promise<double>>::fromJs(rt, arg(args, count, 0), Path{"awaited", "argument 'p'"});
-      return callAsync<double>(rt, host, LUCENT_TRACE_SITE_AT("awaited", "packages/compiler/test/e2e/cases/boundary-paths.lucent.ts", 30), [a0]() {
+      return callAsync<double>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("awaited", "packages/compiler/test/e2e/cases/boundary-paths.lucent.ts", 30), [a0]() {
         return lucent_app::m_boundary_u2d_paths::awaited(a0);
       });
     });
   });
   defineFunction(rt, exports, "asked", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Fn<lucent::Promise<lucent::String>(lucent::String)>>::fromJs(rt, arg(args, count, 0), Path{"asked", "argument 'f'"});
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("asked", "packages/compiler/test/e2e/cases/boundary-paths.lucent.ts", 34), [a0]() {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("asked", "packages/compiler/test/e2e/cases/boundary-paths.lucent.ts", 34), [a0]() {
         return lucent_app::m_boundary_u2d_paths::asked(a0);
       });
     });
   });
 }
 
-const ModuleDef kModules[] = {{"boundary-paths", install_m_boundary_u2d_paths}};
+const ModuleDef kModules[] = {{"boundary-paths", install_m_boundary_u2d_paths, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -93,7 +93,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_boundary_u2d_paths::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_boundary_u2d_paths::init();
+  }
 }
 
 }  // namespace lucent::js

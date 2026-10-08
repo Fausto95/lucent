@@ -2,6 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("cache")
 #undef cache
 #pragma push_macro("load")
@@ -10,6 +12,11 @@
 #undef loads
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("async");
+  return a;
+}
 
 struct C_Loader;
 
@@ -37,3 +44,4 @@ inline bool C_Loader::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("loads")
 #pragma pop_macro("load")
 #pragma pop_macro("cache")
+#pragma pop_macro("a")

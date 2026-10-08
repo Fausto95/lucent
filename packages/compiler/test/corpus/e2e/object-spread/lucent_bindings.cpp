@@ -206,42 +206,42 @@ using namespace lucent::js;
 void install_m_object_u2d_spread(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "maybeFirst", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("maybeFirst", "packages/compiler/test/e2e/cases/object-spread.lucent.ts", 9), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("maybeFirst", "packages/compiler/test/e2e/cases/object-spread.lucent.ts", 9), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<lucent::Ref<lucent_app::S_Q>>(rt, arg(args, count, 0), Path{"maybeFirst", "argument 'p'"}, false, "an object or undefined");
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_object_u2d_spread::maybeFirst(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "maybeLast", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("maybeLast", "packages/compiler/test/e2e/cases/object-spread.lucent.ts", 15), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("maybeLast", "packages/compiler/test/e2e/cases/object-spread.lucent.ts", 15), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<lucent::Ref<lucent_app::S_Q>>(rt, arg(args, count, 0), Path{"maybeLast", "argument 'p'"}, false, "an object or undefined");
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_object_u2d_spread::maybeLast(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "maybeReturned", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("maybeReturned", "packages/compiler/test/e2e/cases/object-spread.lucent.ts", 21), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("maybeReturned", "packages/compiler/test/e2e/cases/object-spread.lucent.ts", 21), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<lucent::Ref<lucent_app::S_Q>>(rt, arg(args, count, 0), Path{"maybeReturned", "argument 'p'"}, false, "an object or undefined");
       return Convert<lucent::Ref<lucent_app::S_Loose>>::toJs(rt, host, lucent_app::m_object_u2d_spread::maybeReturned(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "maybeOnce", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("maybeOnce", "packages/compiler/test/e2e/cases/object-spread.lucent.ts", 33), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("maybeOnce", "packages/compiler/test/e2e/cases/object-spread.lucent.ts", 33), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<lucent::Ref<lucent_app::S_Q>>(rt, arg(args, count, 0), Path{"maybeOnce", "argument 'p'"}, false, "an object or undefined");
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_object_u2d_spread::maybeOnce(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "merged", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("merged", "packages/compiler/test/e2e/cases/object-spread.lucent.ts", 46), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("merged", "packages/compiler/test/e2e/cases/object-spread.lucent.ts", 46), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_Overrides>>::fromJs(rt, arg(args, count, 0), Path{"merged", "argument 'overrides'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_object_u2d_spread::merged(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"object-spread", install_m_object_u2d_spread}};
+const ModuleDef kModules[] = {{"object-spread", install_m_object_u2d_spread, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -253,7 +253,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_object_u2d_spread::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_object_u2d_spread::init();
+  }
 }
 
 }  // namespace lucent::js

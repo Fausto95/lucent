@@ -2,6 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("add")
 #undef add
 #pragma push_macro("replacing")
@@ -14,6 +16,11 @@
 #undef w
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("optimizations");
+  return a;
+}
 
 struct C_Log;
 
@@ -43,3 +50,4 @@ inline bool C_Log::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("reset")
 #pragma pop_macro("replacing")
 #pragma pop_macro("add")
+#pragma pop_macro("a")

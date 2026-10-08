@@ -7,6 +7,11 @@
 
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("exported-variables");
+  return a;
+}
+
 struct S_Config;
 
 struct S_Config : lucent::Object {

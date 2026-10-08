@@ -41,49 +41,49 @@ using namespace lucent::js;
 void install_m_bigint_u2d_conversions(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "fromNumber", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("fromNumber", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 3), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("fromNumber", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 3), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"fromNumber", "argument 'n'"});
       return Convert<lucent::BigInt>::toJs(rt, host, lucent_app::m_bigint_u2d_conversions::fromNumber(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "fromString", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("fromString", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 7), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("fromString", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 7), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"fromString", "argument 's'"});
       return Convert<lucent::BigInt>::toJs(rt, host, lucent_app::m_bigint_u2d_conversions::fromString(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "fromBoolean", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("fromBoolean", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 11), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("fromBoolean", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 11), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"fromBoolean", "argument 'b'"});
       return Convert<lucent::Array<lucent::BigInt>>::toJs(rt, host, lucent_app::m_bigint_u2d_conversions::fromBoolean(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "same", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("same", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 15), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("same", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 15), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::BigInt>::fromJs(rt, arg(args, count, 0), Path{"same", "argument 'x'"});
       return Convert<lucent::BigInt>::toJs(rt, host, lucent_app::m_bigint_u2d_conversions::same(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "toNumber", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("toNumber", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 19), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("toNumber", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 19), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::BigInt>::fromJs(rt, arg(args, count, 0), Path{"toNumber", "argument 'x'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_bigint_u2d_conversions::toNumber(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "strings", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("strings", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 23), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("strings", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 23), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::BigInt>::fromJs(rt, arg(args, count, 0), Path{"strings", "argument 'x'"});
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_bigint_u2d_conversions::strings(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "radix", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("radix", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 38), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("radix", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 38), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::BigInt>::fromJs(rt, arg(args, count, 0), Path{"radix", "argument 'x'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"radix", "argument 'r'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_bigint_u2d_conversions::radix(std::move(a0), std::move(a1)));
@@ -91,7 +91,7 @@ void install_m_bigint_u2d_conversions(jsi::Runtime& rt, Host& host, jsi::Object&
   });
   defineFunction(rt, exports, "wrap", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("wrap", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 42), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("wrap", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 42), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"wrap", "argument 'bits'"});
       auto a1 = Convert<lucent::BigInt>::fromJs(rt, arg(args, count, 1), Path{"wrap", "argument 'x'"});
       return Convert<lucent::Array<lucent::BigInt>>::toJs(rt, host, lucent_app::m_bigint_u2d_conversions::wrap(std::move(a0), std::move(a1)));
@@ -99,7 +99,7 @@ void install_m_bigint_u2d_conversions(jsi::Runtime& rt, Host& host, jsi::Object&
   });
   defineFunction(rt, exports, "attempt", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("attempt", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 47), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("attempt", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 47), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"attempt", "argument 'what'"});
       auto a1 = Convert<lucent::String>::fromJs(rt, arg(args, count, 1), Path{"attempt", "argument 'text'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_bigint_u2d_conversions::attempt(std::move(a0), std::move(a1)));
@@ -107,21 +107,21 @@ void install_m_bigint_u2d_conversions(jsi::Runtime& rt, Host& host, jsi::Object&
   });
   defineFunction(rt, exports, "json", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("json", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 70), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("json", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 70), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::BigInt>::fromJs(rt, arg(args, count, 0), Path{"json", "argument 'x'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_bigint_u2d_conversions::json(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "roundTrip", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("roundTrip", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 74), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("roundTrip", "packages/compiler/test/e2e/cases/bigint-conversions.lucent.ts", 74), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::BigInt>::fromJs(rt, arg(args, count, 0), Path{"roundTrip", "argument 'x'"});
       return Convert<bool>::toJs(rt, host, lucent_app::m_bigint_u2d_conversions::roundTrip(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"bigint-conversions", install_m_bigint_u2d_conversions}};
+const ModuleDef kModules[] = {{"bigint-conversions", install_m_bigint_u2d_conversions, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -133,7 +133,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_bigint_u2d_conversions::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_bigint_u2d_conversions::init();
+  }
 }
 
 }  // namespace lucent::js

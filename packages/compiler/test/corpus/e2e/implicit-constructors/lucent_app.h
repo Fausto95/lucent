@@ -15,6 +15,11 @@
 
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("implicit-constructors");
+  return a;
+}
+
 struct C_ParseError;
 struct C_Named;
 struct C_NamedChild;

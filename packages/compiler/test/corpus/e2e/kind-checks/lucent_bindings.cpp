@@ -55,45 +55,45 @@ using namespace lucent::js;
 void install_m_kind_u2d_checks(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "isArrays", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("isArrays", "packages/compiler/test/e2e/cases/kind-checks.lucent.ts", 5), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("isArrays", "packages/compiler/test/e2e/cases/kind-checks.lucent.ts", 5), [&]() -> jsi::Value {
       auto a0 = Convert<std::variant<lucent::String, lucent::Array<lucent::String>>>::fromJs(rt, arg(args, count, 0), Path{"isArrays", "argument 'x'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_kind_u2d_checks::isArrays(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "tupleIsArray", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("tupleIsArray", "packages/compiler/test/e2e/cases/kind-checks.lucent.ts", 11), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("tupleIsArray", "packages/compiler/test/e2e/cases/kind-checks.lucent.ts", 11), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_kind_u2d_checks::tupleIsArray());
     });
   });
   defineFunction(rt, exports, "matchIsArray", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("matchIsArray", "packages/compiler/test/e2e/cases/kind-checks.lucent.ts", 17), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("matchIsArray", "packages/compiler/test/e2e/cases/kind-checks.lucent.ts", 17), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"matchIsArray", "argument 's'"});
       return Convert<bool>::toJs(rt, host, lucent_app::m_kind_u2d_checks::matchIsArray(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "unionOfArrays", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("unionOfArrays", "packages/compiler/test/e2e/cases/kind-checks.lucent.ts", 25), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("unionOfArrays", "packages/compiler/test/e2e/cases/kind-checks.lucent.ts", 25), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_kind_u2d_checks::unionOfArrays());
     });
   });
   defineFunction(rt, exports, "instanceOfArray", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("instanceOfArray", "packages/compiler/test/e2e/cases/kind-checks.lucent.ts", 38), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("instanceOfArray", "packages/compiler/test/e2e/cases/kind-checks.lucent.ts", 38), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_kind_u2d_checks::instanceOfArray());
     });
   });
   defineFunction(rt, exports, "instanceOfKinds", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("instanceOfKinds", "packages/compiler/test/e2e/cases/kind-checks.lucent.ts", 46), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("instanceOfKinds", "packages/compiler/test/e2e/cases/kind-checks.lucent.ts", 46), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_kind_u2d_checks::instanceOfKinds());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"kind-checks", install_m_kind_u2d_checks}};
+const ModuleDef kModules[] = {{"kind-checks", install_m_kind_u2d_checks, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -105,7 +105,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_kind_u2d_checks::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_kind_u2d_checks::init();
+  }
 }
 
 }  // namespace lucent::js

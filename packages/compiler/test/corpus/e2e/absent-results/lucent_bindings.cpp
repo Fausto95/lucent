@@ -29,37 +29,37 @@ using namespace lucent::js;
 void install_m_absent_u2d_results(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "asArguments", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("asArguments", "packages/compiler/test/e2e/cases/absent-results.lucent.ts", 45), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("asArguments", "packages/compiler/test/e2e/cases/absent-results.lucent.ts", 45), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_absent_u2d_results::asArguments());
     });
   });
   defineFunction(rt, exports, "asValues", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("asValues", "packages/compiler/test/e2e/cases/absent-results.lucent.ts", 51), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("asValues", "packages/compiler/test/e2e/cases/absent-results.lucent.ts", 51), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_absent_u2d_results::asValues());
     });
   });
   defineFunction(rt, exports, "asOperands", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("asOperands", "packages/compiler/test/e2e/cases/absent-results.lucent.ts", 62), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("asOperands", "packages/compiler/test/e2e/cases/absent-results.lucent.ts", 62), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_absent_u2d_results::asOperands());
     });
   });
   defineFunction(rt, exports, "throwsAsArgument", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("throwsAsArgument", "packages/compiler/test/e2e/cases/absent-results.lucent.ts", 71), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("throwsAsArgument", "packages/compiler/test/e2e/cases/absent-results.lucent.ts", 71), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_absent_u2d_results::throwsAsArgument());
     });
   });
   defineFunction(rt, exports, "throwsAsValue", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("throwsAsValue", "packages/compiler/test/e2e/cases/absent-results.lucent.ts", 75), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("throwsAsValue", "packages/compiler/test/e2e/cases/absent-results.lucent.ts", 75), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_absent_u2d_results::throwsAsValue());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"absent-results", install_m_absent_u2d_results}};
+const ModuleDef kModules[] = {{"absent-results", install_m_absent_u2d_results, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -71,7 +71,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_absent_u2d_results::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_absent_u2d_results::init();
+  }
 }
 
 }  // namespace lucent::js

@@ -13,6 +13,11 @@
 
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("main+1");
+  return a;
+}
+
 struct S_Point;
 struct C_Vec;
 

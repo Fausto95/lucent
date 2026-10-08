@@ -33,6 +33,11 @@
 
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("compute");
+  return a;
+}
+
 struct S_Node;
 struct S_Pair;
 struct S_Shared;

@@ -17,6 +17,11 @@
 
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("module-initialization");
+  return a;
+}
+
 struct C_C;
 struct C_B;
 struct C_D;

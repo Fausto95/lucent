@@ -4,12 +4,19 @@
 
 #pragma push_macro("HUGE")
 #undef HUGE
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("howmany")
 #undef howmany
 #pragma push_macro("sa_handler")
 #undef sa_handler
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("macro-names");
+  return a;
+}
 
 struct S_Action;
 struct C_Signal;
@@ -55,4 +62,5 @@ inline bool C_Signal::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("sa_handler")
 #pragma pop_macro("howmany")
+#pragma pop_macro("a")
 #pragma pop_macro("HUGE")

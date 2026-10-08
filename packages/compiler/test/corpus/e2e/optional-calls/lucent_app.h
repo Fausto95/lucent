@@ -2,6 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("add")
 #undef add
 #pragma push_macro("child")
@@ -16,6 +18,11 @@
 #undef r_self_
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("optional-calls");
+  return a;
+}
 
 struct C_Log;
 
@@ -50,3 +57,4 @@ inline bool C_Log::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("lines")
 #pragma pop_macro("child")
 #pragma pop_macro("add")
+#pragma pop_macro("a")

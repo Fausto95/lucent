@@ -2,7 +2,16 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
+
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("bigint-unions");
+  return a;
+}
 
 }  // namespace lucent_app
+
+#pragma pop_macro("a")

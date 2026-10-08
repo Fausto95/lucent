@@ -35,62 +35,62 @@ using namespace lucent::js;
 void install_m_narrowed_u2d_absent(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "assigned", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("assigned", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 16), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("assigned", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 16), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_narrowed_u2d_absent::assigned());
     });
   });
   defineFunction(rt, exports, "assignedLet", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("assignedLet", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 22), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("assignedLet", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 22), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"assignedLet", "argument 'fill'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_narrowed_u2d_absent::assignedLet(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "compared", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("compared", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 31), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("compared", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 31), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"compared", "argument 'key'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_narrowed_u2d_absent::compared(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "typeofTest", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("typeofTest", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 39), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("typeofTest", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 39), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"typeofTest", "argument 'key'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_narrowed_u2d_absent::typeofTest(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "nulled", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("nulled", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 47), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("nulled", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 47), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"nulled", "argument 'fill'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_narrowed_u2d_absent::nulled(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "parameter", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("parameter", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 56), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("parameter", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 56), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<double>(rt, arg(args, count, 0), Path{"parameter", "argument 'value'"}, false, "a number or undefined");
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_narrowed_u2d_absent::parameter(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "field", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("field", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 66), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("field", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 66), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"field", "argument 'fill'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_narrowed_u2d_absent::field(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "loose", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("loose", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 76), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("loose", "packages/compiler/test/e2e/cases/narrowed-absent.lucent.ts", 76), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"loose", "argument 'kind'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_narrowed_u2d_absent::loose(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"narrowed-absent", install_m_narrowed_u2d_absent}};
+const ModuleDef kModules[] = {{"narrowed-absent", install_m_narrowed_u2d_absent, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -102,7 +102,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_narrowed_u2d_absent::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_narrowed_u2d_absent::init();
+  }
 }
 
 }  // namespace lucent::js

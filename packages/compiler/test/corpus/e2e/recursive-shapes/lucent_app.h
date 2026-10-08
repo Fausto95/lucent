@@ -2,6 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("children")
 #undef children
 #pragma push_macro("items")
@@ -24,6 +26,11 @@
 #undef value
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("recursive-shapes");
+  return a;
+}
 
 struct S_TreeNode;
 struct S_ListA;
@@ -199,3 +206,4 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Doc>& v) {
 #pragma pop_macro("kids")
 #pragma pop_macro("items")
 #pragma pop_macro("children")
+#pragma pop_macro("a")

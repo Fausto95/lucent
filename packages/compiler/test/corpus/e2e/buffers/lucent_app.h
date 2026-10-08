@@ -2,6 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("buffer")
 #undef buffer
 #pragma push_macro("copies")
@@ -10,6 +12,11 @@
 #undef scale
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("buffers");
+  return a;
+}
 
 struct S_Job;
 struct S_NativeBufferStats;
@@ -82,3 +89,4 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object3>& v) {
 #pragma pop_macro("scale")
 #pragma pop_macro("copies")
 #pragma pop_macro("buffer")
+#pragma pop_macro("a")

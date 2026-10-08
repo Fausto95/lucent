@@ -4,6 +4,8 @@
 
 #pragma push_macro("T")
 #undef T
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("area")
 #undef area
 #pragma push_macro("count")
@@ -38,6 +40,11 @@
 #undef w
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("interfaces");
+  return a;
+}
 
 struct I_Shape;
 struct I_Named;
@@ -331,4 +338,5 @@ inline bool C_Special::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("describe")
 #pragma pop_macro("count")
 #pragma pop_macro("area")
+#pragma pop_macro("a")
 #pragma pop_macro("T")

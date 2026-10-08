@@ -97,63 +97,63 @@ using namespace lucent::js;
 void install_m_bigint_u2d_unions(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "toNumber", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("toNumber", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 4), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("toNumber", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 4), [&]() -> jsi::Value {
       auto a0 = Convert<std::variant<lucent::BigInt, double>>::fromJs(rt, arg(args, count, 0), Path{"toNumber", "argument 'x'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_bigint_u2d_unions::toNumber(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "toNumberOptional", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("toNumberOptional", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 8), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("toNumberOptional", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 8), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<lucent::BigInt>(rt, arg(args, count, 0), Path{"toNumberOptional", "argument 'x'"}, false, "a bigint or undefined");
       return Convert<double>::toJs(rt, host, lucent_app::m_bigint_u2d_unions::toNumberOptional(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "toNumberNullable", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("toNumberNullable", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 12), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("toNumberNullable", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 12), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<lucent::BigInt>(rt, arg(args, count, 0), Path{"toNumberNullable", "argument 'x'"}, true, "a bigint or null");
       return Convert<double>::toJs(rt, host, lucent_app::m_bigint_u2d_unions::toNumberNullable(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "toNumberEither", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("toNumberEither", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 16), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("toNumberEither", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 16), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Opt<std::variant<lucent::BigInt, double>>>::fromJs(rt, arg(args, count, 0), Path{"toNumberEither", "argument 'x'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_bigint_u2d_unions::toNumberEither(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "toNumberOfAnything", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("toNumberOfAnything", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 20), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("toNumberOfAnything", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 20), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<std::variant<lucent::BigInt, bool, double, lucent::String>>(rt, arg(args, count, 0), Path{"toNumberOfAnything", "argument 'x'"}, false, "a bigint or a boolean or a number or a string or undefined");
       return Convert<double>::toJs(rt, host, lucent_app::m_bigint_u2d_unions::toNumberOfAnything(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "toBigInt", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("toBigInt", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 24), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("toBigInt", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 24), [&]() -> jsi::Value {
       auto a0 = Convert<std::variant<lucent::BigInt, double>>::fromJs(rt, arg(args, count, 0), Path{"toBigInt", "argument 'x'"});
       return Convert<lucent::BigInt>::toJs(rt, host, lucent_app::m_bigint_u2d_unions::toBigInt(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "toBigIntOfAnything", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("toBigIntOfAnything", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 28), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("toBigIntOfAnything", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 28), [&]() -> jsi::Value {
       auto a0 = Convert<std::variant<lucent::BigInt, bool, double, lucent::String>>::fromJs(rt, arg(args, count, 0), Path{"toBigIntOfAnything", "argument 'x'"});
       return Convert<lucent::BigInt>::toJs(rt, host, lucent_app::m_bigint_u2d_unions::toBigIntOfAnything(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "strings", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("strings", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 32), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("strings", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 32), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Opt<std::variant<lucent::BigInt, double>>>::fromJs(rt, arg(args, count, 0), Path{"strings", "argument 'x'"});
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_bigint_u2d_unions::strings(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "compare", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("compare", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 36), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("compare", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 36), [&]() -> jsi::Value {
       auto a0 = Convert<std::variant<lucent::BigInt, double>>::fromJs(rt, arg(args, count, 0), Path{"compare", "argument 'a'"});
       auto a1 = Convert<std::variant<lucent::BigInt, double>>::fromJs(rt, arg(args, count, 1), Path{"compare", "argument 'b'"});
       return Convert<lucent::Array<bool>>::toJs(rt, host, lucent_app::m_bigint_u2d_unions::compare(std::move(a0), std::move(a1)));
@@ -161,7 +161,7 @@ void install_m_bigint_u2d_unions(jsi::Runtime& rt, Host& host, jsi::Object& expo
   });
   defineFunction(rt, exports, "compareOptional", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("compareOptional", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 40), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("compareOptional", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 40), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<lucent::BigInt>(rt, arg(args, count, 0), Path{"compareOptional", "argument 'a'"}, false, "a bigint or undefined");
       auto a1 = Convert<lucent::BigInt>::fromJs(rt, arg(args, count, 1), Path{"compareOptional", "argument 'b'"});
       return Convert<lucent::Array<bool>>::toJs(rt, host, lucent_app::m_bigint_u2d_unions::compareOptional(std::move(a0), std::move(a1)));
@@ -169,28 +169,28 @@ void install_m_bigint_u2d_unions(jsi::Runtime& rt, Host& host, jsi::Object& expo
   });
   defineFunction(rt, exports, "negate", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("negate", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 44), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("negate", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 44), [&]() -> jsi::Value {
       auto a0 = Convert<std::variant<lucent::BigInt, double>>::fromJs(rt, arg(args, count, 0), Path{"negate", "argument 'a'"});
       return Convert<std::variant<lucent::BigInt, double>>::toJs(rt, host, lucent_app::m_bigint_u2d_unions::negate(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "flip", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("flip", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 48), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("flip", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 48), [&]() -> jsi::Value {
       auto a0 = Convert<std::variant<lucent::BigInt, double>>::fromJs(rt, arg(args, count, 0), Path{"flip", "argument 'a'"});
       return Convert<std::variant<lucent::BigInt, double>>::toJs(rt, host, lucent_app::m_bigint_u2d_unions::flip(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "steps", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("steps", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 52), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("steps", "packages/compiler/test/e2e/cases/bigint-unions.lucent.ts", 52), [&]() -> jsi::Value {
       auto a0 = Convert<std::variant<lucent::BigInt, double>>::fromJs(rt, arg(args, count, 0), Path{"steps", "argument 'a'"});
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_bigint_u2d_unions::steps(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"bigint-unions", install_m_bigint_u2d_unions}};
+const ModuleDef kModules[] = {{"bigint-unions", install_m_bigint_u2d_unions, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -202,7 +202,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_bigint_u2d_unions::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_bigint_u2d_unions::init();
+  }
 }
 
 }  // namespace lucent::js

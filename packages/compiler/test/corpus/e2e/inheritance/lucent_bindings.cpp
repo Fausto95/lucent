@@ -116,13 +116,13 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Dog>>::toJs(jsi::Runtime& rt
 void proto_C_Dog(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "tricks", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Dog>>::fromJs(rt, thisVal, Path{"Dog.tricks", "this"});
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, self->tricks);
     });
   }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Dog>>::fromJs(rt, thisVal, Path{"Dog.tricks", "this"});
       auto value = Convert<lucent::Array<lucent::String>>::fromJs(rt, arg(args, count, 0), Path{"Dog.tricks", "value"});
       self->tricks = value;
@@ -131,14 +131,14 @@ void proto_C_Dog(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineFunction(rt, proto, "kind", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Dog.kind", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 33), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Dog.kind", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 33), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Dog>>::fromJs(rt, thisVal, Path{"Dog.kind", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->kind());
     });
   });
   defineFunction(rt, proto, "learn", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Dog.learn", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 36), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Dog.learn", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 36), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Dog>>::fromJs(rt, thisVal, Path{"Dog.learn", "this"});
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Dog.learn", "argument 'trick'"});
       return Convert<lucent::Ref<lucent_app::C_Dog>>::toJs(rt, host, self->learn(std::move(a0)));
@@ -181,13 +181,13 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Animal>>::toJs(jsi::Runtime&
 void proto_C_Animal(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "name", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Animal>>::fromJs(rt, thisVal, Path{"Animal.name", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->name);
     });
   }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Animal>>::fromJs(rt, thisVal, Path{"Animal.name", "this"});
       auto value = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Animal.name", "value"});
       self->name = value;
@@ -196,28 +196,28 @@ void proto_C_Animal(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineFunction(rt, proto, "speak", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Animal.speak", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 7), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Animal.speak", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 7), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Animal>>::fromJs(rt, thisVal, Path{"Animal.speak", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->speak());
     });
   });
   defineFunction(rt, proto, "describe", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Animal.describe", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 10), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Animal.describe", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 10), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Animal>>::fromJs(rt, thisVal, Path{"Animal.describe", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->describe());
     });
   });
   defineFunction(rt, proto, "kind", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Animal.kind", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 13), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Animal.kind", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 13), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Animal>>::fromJs(rt, thisVal, Path{"Animal.kind", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->kind());
     });
   });
   defineAccessor(rt, proto, "legs", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Animal>>::fromJs(rt, thisVal, Path{"Animal.legs", "this"});
       return Convert<double>::toJs(rt, host, self->get_legs());
     });
@@ -239,14 +239,14 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Puppy>>::toJs(jsi::Runtime& 
 void proto_C_Puppy(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineFunction(rt, proto, "speak", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Puppy.speak", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 43), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Puppy.speak", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 43), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Puppy>>::fromJs(rt, thisVal, Path{"Puppy.speak", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->speak());
     });
   });
   defineFunction(rt, proto, "kind", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Puppy.kind", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 46), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Puppy.kind", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 46), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Puppy>>::fromJs(rt, thisVal, Path{"Puppy.kind", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->kind());
     });
@@ -270,7 +270,7 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Kitten>>::toJs(jsi::Runtime&
 void proto_C_Kitten(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineFunction(rt, proto, "speak", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Kitten.speak", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 129), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Kitten.speak", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 129), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Kitten>>::fromJs(rt, thisVal, Path{"Kitten.speak", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->speak());
     });
@@ -297,7 +297,7 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Cat>>::toJs(jsi::Runtime& rt
 void proto_C_Cat(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineFunction(rt, proto, "speak", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Cat.speak", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 123), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Cat.speak", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 123), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Cat>>::fromJs(rt, thisVal, Path{"Cat.speak", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->speak());
     });
@@ -321,13 +321,13 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Bird>>::toJs(jsi::Runtime& r
 void proto_C_Bird(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "song", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Bird>>::fromJs(rt, thisVal, Path{"Bird.song", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->song);
     });
   }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Bird>>::fromJs(rt, thisVal, Path{"Bird.song", "this"});
       auto value = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Bird.song", "value"});
       self->song = value;
@@ -336,7 +336,7 @@ void proto_C_Bird(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineAccessor(rt, proto, "legs", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Bird>>::fromJs(rt, thisVal, Path{"Bird.legs", "this"});
       return Convert<double>::toJs(rt, host, self->get_legs());
     });
@@ -399,58 +399,58 @@ using namespace lucent::js;
 void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "shapes", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("shapes", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 84), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("shapes", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 84), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_inheritance::shapes());
     });
   });
   defineFunction(rt, exports, "zoo", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("zoo", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 89), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("zoo", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 89), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_inheritance::zoo());
     });
   });
   defineFunction(rt, exports, "tricks", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("tricks", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 100), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("tricks", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 100), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::C_Dog>>::fromJs(rt, arg(args, count, 0), Path{"tricks", "argument 'd'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_inheritance::tricks(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "narrow", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("narrow", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 104), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("narrow", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 104), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::C_Animal>>::fromJs(rt, arg(args, count, 0), Path{"narrow", "argument 'a'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_inheritance::narrow(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "counted", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("counted", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 109), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("counted", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 109), [&]() -> jsi::Value {
       return Convert<double>::toJs(rt, host, lucent_app::m_inheritance::counted());
     });
   });
   defineFunction(rt, exports, "makePuppy", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("makePuppy", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 113), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("makePuppy", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 113), [&]() -> jsi::Value {
       return Convert<lucent::Ref<lucent_app::C_Animal>>::toJs(rt, host, lucent_app::m_inheritance::makePuppy());
     });
   });
   defineFunction(rt, exports, "pets", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("pets", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 136), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("pets", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 136), [&]() -> jsi::Value {
       return Convert<lucent::Array<lucent::Ref<lucent_app::I_Pet>>>::toJs(rt, host, lucent_app::m_inheritance::pets());
     });
   });
   defineFunction(rt, exports, "greet", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("greet", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 140), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("greet", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 140), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::I_Pet>>::fromJs(rt, arg(args, count, 0), Path{"greet", "argument 'p'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_inheritance::greet(std::move(a0)));
     });
   });
   defineClass(rt, host, exports, "Animal", "inheritance.Animal", proto_C_Animal, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Animal", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 1), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Animal", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 1), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Animal", "argument 'name'"});
       return Convert<lucent::Ref<lucent_app::C_Animal>>::toJs(rt, host, lucent_app::C_Animal::create(std::move(a0)));
     });
@@ -459,12 +459,12 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     jsi::Object ctor = exports.getPropertyAsObject(rt, "Animal");
     defineAccessor(rt, ctor, "count", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<double>::toJs(rt, host, lucent_app::C_Animal::count);
       });
     }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         auto value = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Animal.count", "value"});
         lucent_app::C_Animal::count = value;
         return jsi::Value::undefined();
@@ -472,7 +472,7 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     });
     defineFunction(rt, ctor, "named", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, LUCENT_TRACE_SITE_AT("Animal.named", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 19), [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Animal.named", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 19), [&]() -> jsi::Value {
         auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Animal.named", "argument 'name'"});
         return Convert<lucent::Ref<lucent_app::C_Animal>>::toJs(rt, host, lucent_app::C_Animal::named(std::move(a0)));
       });
@@ -480,7 +480,7 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   }
   defineClass(rt, host, exports, "Dog", "inheritance.Dog", proto_C_Dog, 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Dog", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 24), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Dog", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 24), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Dog", "argument 'name'"});
       auto a1 = Convert<lucent::String>::fromJs(rt, arg(args, count, 1), Path{"Dog", "argument 'breed'"});
       return Convert<lucent::Ref<lucent_app::C_Dog>>::toJs(rt, host, lucent_app::C_Dog::create(std::move(a0), std::move(a1)));
@@ -490,12 +490,12 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     jsi::Object ctor = exports.getPropertyAsObject(rt, "Dog");
     defineAccessor(rt, ctor, "count", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<double>::toJs(rt, host, lucent_app::C_Animal::count);
       });
     }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         auto value = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Dog.count", "value"});
         lucent_app::C_Animal::count = value;
         return jsi::Value::undefined();
@@ -503,7 +503,7 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     });
     defineFunction(rt, ctor, "named", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, LUCENT_TRACE_SITE_AT("Dog.named", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 19), [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Dog.named", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 19), [&]() -> jsi::Value {
         auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Dog.named", "argument 'name'"});
         return Convert<lucent::Ref<lucent_app::C_Animal>>::toJs(rt, host, lucent_app::C_Animal::named(std::move(a0)));
       });
@@ -511,7 +511,7 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   }
   defineClass(rt, host, exports, "Puppy", "inheritance.Puppy", proto_C_Puppy, 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Puppy", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 42), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Puppy", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 42), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Puppy", "argument 'name'"});
       auto a1 = Convert<lucent::String>::fromJs(rt, arg(args, count, 1), Path{"Puppy", "argument 'breed'"});
       return Convert<lucent::Ref<lucent_app::C_Puppy>>::toJs(rt, host, lucent_app::C_Puppy::create(std::move(a0), std::move(a1)));
@@ -521,12 +521,12 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     jsi::Object ctor = exports.getPropertyAsObject(rt, "Puppy");
     defineAccessor(rt, ctor, "count", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<double>::toJs(rt, host, lucent_app::C_Animal::count);
       });
     }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         auto value = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Puppy.count", "value"});
         lucent_app::C_Animal::count = value;
         return jsi::Value::undefined();
@@ -534,7 +534,7 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     });
     defineFunction(rt, ctor, "named", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, LUCENT_TRACE_SITE_AT("Puppy.named", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 19), [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Puppy.named", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 19), [&]() -> jsi::Value {
         auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Puppy.named", "argument 'name'"});
         return Convert<lucent::Ref<lucent_app::C_Animal>>::toJs(rt, host, lucent_app::C_Animal::named(std::move(a0)));
       });
@@ -542,7 +542,7 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   }
   defineClass(rt, host, exports, "Bird", "inheritance.Bird", proto_C_Bird, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Bird", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 51), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Bird", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 51), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Bird", "argument 'name'"});
       return Convert<lucent::Ref<lucent_app::C_Bird>>::toJs(rt, host, lucent_app::C_Bird::create(std::move(a0)));
     });
@@ -551,12 +551,12 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     jsi::Object ctor = exports.getPropertyAsObject(rt, "Bird");
     defineAccessor(rt, ctor, "count", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<double>::toJs(rt, host, lucent_app::C_Animal::count);
       });
     }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         auto value = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Bird.count", "value"});
         lucent_app::C_Animal::count = value;
         return jsi::Value::undefined();
@@ -564,7 +564,7 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     });
     defineFunction(rt, ctor, "named", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, LUCENT_TRACE_SITE_AT("Bird.named", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 19), [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Bird.named", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 19), [&]() -> jsi::Value {
         auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Bird.named", "argument 'name'"});
         return Convert<lucent::Ref<lucent_app::C_Animal>>::toJs(rt, host, lucent_app::C_Animal::named(std::move(a0)));
       });
@@ -572,7 +572,7 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   }
   defineClass(rt, host, exports, "Cat", "inheritance.Cat", proto_C_Cat, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Cat", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 122), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Cat", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 122), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Cat", "argument 'name'"});
       return Convert<lucent::Ref<lucent_app::C_Cat>>::toJs(rt, host, lucent_app::C_Cat::create(std::move(a0)));
     });
@@ -581,12 +581,12 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     jsi::Object ctor = exports.getPropertyAsObject(rt, "Cat");
     defineAccessor(rt, ctor, "count", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<double>::toJs(rt, host, lucent_app::C_Animal::count);
       });
     }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         auto value = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Cat.count", "value"});
         lucent_app::C_Animal::count = value;
         return jsi::Value::undefined();
@@ -594,7 +594,7 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     });
     defineFunction(rt, ctor, "named", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, LUCENT_TRACE_SITE_AT("Cat.named", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 19), [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Cat.named", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 19), [&]() -> jsi::Value {
         auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Cat.named", "argument 'name'"});
         return Convert<lucent::Ref<lucent_app::C_Animal>>::toJs(rt, host, lucent_app::C_Animal::named(std::move(a0)));
       });
@@ -602,7 +602,7 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   }
   defineClass(rt, host, exports, "Kitten", "inheritance.Kitten", proto_C_Kitten, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Kitten", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 128), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Kitten", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 128), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Kitten", "argument 'name'"});
       return Convert<lucent::Ref<lucent_app::C_Kitten>>::toJs(rt, host, lucent_app::C_Kitten::create(std::move(a0)));
     });
@@ -611,12 +611,12 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     jsi::Object ctor = exports.getPropertyAsObject(rt, "Kitten");
     defineAccessor(rt, ctor, "count", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<double>::toJs(rt, host, lucent_app::C_Animal::count);
       });
     }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         auto value = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Kitten.count", "value"});
         lucent_app::C_Animal::count = value;
         return jsi::Value::undefined();
@@ -624,7 +624,7 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     });
     defineFunction(rt, ctor, "named", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, LUCENT_TRACE_SITE_AT("Kitten.named", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 19), [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Kitten.named", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 19), [&]() -> jsi::Value {
         auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Kitten.named", "argument 'name'"});
         return Convert<lucent::Ref<lucent_app::C_Animal>>::toJs(rt, host, lucent_app::C_Animal::named(std::move(a0)));
       });
@@ -632,7 +632,7 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   }
   defineClass(rt, host, exports, "Lion", "inheritance.Lion", proto_C_Lion, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Lion", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 134), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Lion", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 134), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Lion", "argument 'name'"});
       return Convert<lucent::Ref<lucent_app::C_Lion>>::toJs(rt, host, lucent_app::C_Lion::create(std::move(a0)));
     });
@@ -641,12 +641,12 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     jsi::Object ctor = exports.getPropertyAsObject(rt, "Lion");
     defineAccessor(rt, ctor, "count", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         return Convert<double>::toJs(rt, host, lucent_app::C_Animal::count);
       });
     }, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
         auto value = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Lion.count", "value"});
         lucent_app::C_Animal::count = value;
         return jsi::Value::undefined();
@@ -654,7 +654,7 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
     });
     defineFunction(rt, ctor, "named", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
       Host& host = Host::from(rt, installed);
-      return callSync(rt, host, LUCENT_TRACE_SITE_AT("Lion.named", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 19), [&]() -> jsi::Value {
+      return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Lion.named", "packages/compiler/test/e2e/cases/inheritance.lucent.ts", 19), [&]() -> jsi::Value {
         auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Lion.named", "argument 'name'"});
         return Convert<lucent::Ref<lucent_app::C_Animal>>::toJs(rt, host, lucent_app::C_Animal::named(std::move(a0)));
       });
@@ -662,7 +662,7 @@ void install_m_inheritance(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   }
 }
 
-const ModuleDef kModules[] = {{"inheritance", install_m_inheritance}};
+const ModuleDef kModules[] = {{"inheritance", install_m_inheritance, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -674,7 +674,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_inheritance::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_inheritance::init();
+  }
 }
 
 }  // namespace lucent::js

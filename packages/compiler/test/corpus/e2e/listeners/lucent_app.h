@@ -29,6 +29,11 @@
 
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("listeners");
+  return a;
+}
+
 struct S_Listener;
 struct C_Pulses;
 

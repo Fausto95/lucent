@@ -11,6 +11,11 @@
 
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("temporary-names");
+  return a;
+}
+
 struct S_Object1;
 struct C_Link;
 

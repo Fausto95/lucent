@@ -4,6 +4,8 @@
 
 #pragma push_macro("T")
 #undef T
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("first")
 #undef first
 #pragma push_macro("items")
@@ -18,6 +20,11 @@
 #undef w
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("generics");
+  return a;
+}
 
 template <class T>
 struct C_Queue;
@@ -67,4 +74,5 @@ inline bool C_Queue<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("push")
 #pragma pop_macro("items")
 #pragma pop_macro("first")
+#pragma pop_macro("a")
 #pragma pop_macro("T")

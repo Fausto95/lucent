@@ -60,7 +60,7 @@ void proto_C_ParseError(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineErrorPrototype(rt, host, proto);
   defineAccessor(rt, proto, "line", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_ParseError>>::fromJs(rt, thisVal, Path{"ParseError.line", "this"});
       return Convert<double>::toJs(rt, host, self->line);
     });
@@ -82,7 +82,7 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_TokenError>>::toJs(jsi::Runt
 void proto_C_TokenError(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineAccessor(rt, proto, "token", [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_TokenError>>::fromJs(rt, thisVal, Path{"TokenError.token", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->token);
     });
@@ -107,44 +107,44 @@ using namespace lucent::js;
 void install_m_exported_u2d_errors(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "parse", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("parse", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 18), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("parse", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 18), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"parse", "argument 'line'"});
       return Convert<lucent::Ref<lucent_app::C_ParseError>>::toJs(rt, host, lucent_app::m_exported_u2d_errors::parse(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "asError", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("asError", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 22), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("asError", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 22), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"asError", "argument 'line'"});
       return Convert<lucent::Error>::toJs(rt, host, lucent_app::m_exported_u2d_errors::asError(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "fail", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("fail", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 26), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("fail", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 26), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"fail", "argument 'line'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_exported_u2d_errors::fail(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "failToken", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("failToken", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 30), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("failToken", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 30), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"failToken", "argument 'token'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_exported_u2d_errors::failToken(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "later", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"later", "argument 'line'"});
-      return callAsync<double>(rt, host, LUCENT_TRACE_SITE_AT("later", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 34), [a0]() {
+      return callAsync<double>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("later", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 34), [a0]() {
         return lucent_app::m_exported_u2d_errors::later(a0);
       });
     });
   });
   defineFunction(rt, exports, "raise", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("raise", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 38), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("raise", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 38), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::C_ParseError>>::fromJs(rt, arg(args, count, 0), Path{"raise", "argument 'e'"});
       lucent_app::m_exported_u2d_errors::raise(std::move(a0));
       return jsi::Value::undefined();
@@ -152,21 +152,21 @@ void install_m_exported_u2d_errors(jsi::Runtime& rt, Host& host, jsi::Object& ex
   });
   defineFunction(rt, exports, "describe", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("describe", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 42), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("describe", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 42), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::C_ParseError>>::fromJs(rt, arg(args, count, 0), Path{"describe", "argument 'e'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_exported_u2d_errors::describe(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "kind", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("kind", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 46), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("kind", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 46), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Error>::fromJs(rt, arg(args, count, 0), Path{"kind", "argument 'e'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_exported_u2d_errors::kind(std::move(a0)));
     });
   });
   defineClass(rt, host, exports, "ParseError", "exported-errors.ParseError", proto_C_ParseError, 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("ParseError", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 1), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("ParseError", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 1), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"ParseError", "argument 'message'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"ParseError", "argument 'line'"});
       return Convert<lucent::Ref<lucent_app::C_ParseError>>::toJs(rt, host, lucent_app::C_ParseError::create(std::move(a0), std::move(a1)));
@@ -174,14 +174,14 @@ void install_m_exported_u2d_errors(jsi::Runtime& rt, Host& host, jsi::Object& ex
   });
   defineClass(rt, host, exports, "TokenError", "exported-errors.TokenError", proto_C_TokenError, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("TokenError", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 11), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("TokenError", "packages/compiler/test/e2e/cases/exported-errors.lucent.ts", 11), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"TokenError", "argument 'token'"});
       return Convert<lucent::Ref<lucent_app::C_TokenError>>::toJs(rt, host, lucent_app::C_TokenError::create(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"exported-errors", install_m_exported_u2d_errors}};
+const ModuleDef kModules[] = {{"exported-errors", install_m_exported_u2d_errors, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -193,7 +193,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_exported_u2d_errors::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_exported_u2d_errors::init();
+  }
 }
 
 }  // namespace lucent::js

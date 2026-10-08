@@ -90,63 +90,63 @@ using namespace lucent::js;
 void install_m_conditional_u2d_objects(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "declared", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("declared", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 10), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("declared", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 10), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"declared", "argument 'big'"});
       return Convert<lucent::Ref<lucent_app::S_Options>>::toJs(rt, host, lucent_app::m_conditional_u2d_objects::declared(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "returned", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("returned", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 16), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("returned", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 16), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"returned", "argument 'big'"});
       return Convert<lucent::Ref<lucent_app::S_Options>>::toJs(rt, host, lucent_app::m_conditional_u2d_objects::returned(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "nested", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("nested", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 20), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("nested", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 20), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"nested", "argument 'n'"});
       return Convert<lucent::Ref<lucent_app::S_Options>>::toJs(rt, host, lucent_app::m_conditional_u2d_objects::nested(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "assigned", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("assigned", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 24), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("assigned", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 24), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"assigned", "argument 'big'"});
       return Convert<lucent::Ref<lucent_app::S_Options>>::toJs(rt, host, lucent_app::m_conditional_u2d_objects::assigned(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "passed", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("passed", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 31), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("passed", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 31), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"passed", "argument 'big'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_conditional_u2d_objects::passed(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "listed", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("listed", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 35), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("listed", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 35), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"listed", "argument 'big'"});
       return Convert<lucent::Array<lucent::Ref<lucent_app::S_Options>>>::toJs(rt, host, lucent_app::m_conditional_u2d_objects::listed(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "describe", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("describe", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 39), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("describe", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 39), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Ref<lucent_app::S_Options>>::fromJs(rt, arg(args, count, 0), Path{"describe", "argument 'o'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_conditional_u2d_objects::describe(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "area", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("area", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 66), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("area", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 66), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"area", "argument 'round'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_conditional_u2d_objects::area(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "areaOf", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("areaOf", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 74), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("areaOf", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 74), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"areaOf", "argument 'round'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"areaOf", "argument 'n'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_conditional_u2d_objects::areaOf(std::move(a0), std::move(a1)));
@@ -154,23 +154,23 @@ void install_m_conditional_u2d_objects(jsi::Runtime& rt, Host& host, jsi::Object
   });
   defineFunction(rt, exports, "radiusOf", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("radiusOf", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 80), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("radiusOf", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 80), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"radiusOf", "argument 'round'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_conditional_u2d_objects::radiusOf(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "pick", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"pick", "argument 'first'"});
-      return callAsync<double>(rt, host, LUCENT_TRACE_SITE_AT("pick", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 93), [a0]() {
+      return callAsync<double>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("pick", "packages/compiler/test/e2e/cases/conditional-objects.lucent.ts", 93), [a0]() {
         return lucent_app::m_conditional_u2d_objects::pick(a0);
       });
     });
   });
 }
 
-const ModuleDef kModules[] = {{"conditional-objects", install_m_conditional_u2d_objects}};
+const ModuleDef kModules[] = {{"conditional-objects", install_m_conditional_u2d_objects, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -182,7 +182,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_conditional_u2d_objects::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_conditional_u2d_objects::init();
+  }
 }
 
 }  // namespace lucent::js

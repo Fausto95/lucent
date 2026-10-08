@@ -39,56 +39,56 @@ using namespace lucent::js;
 void install_m_generators(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "basics", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("basics", "packages/compiler/test/e2e/cases/generators.lucent.ts", 28), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("basics", "packages/compiler/test/e2e/cases/generators.lucent.ts", 28), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_generators::basics());
     });
   });
   defineFunction(rt, exports, "lazy", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("lazy", "packages/compiler/test/e2e/cases/generators.lucent.ts", 38), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("lazy", "packages/compiler/test/e2e/cases/generators.lucent.ts", 38), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_generators::lazy());
     });
   });
   defineFunction(rt, exports, "earlyExit", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("earlyExit", "packages/compiler/test/e2e/cases/generators.lucent.ts", 60), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("earlyExit", "packages/compiler/test/e2e/cases/generators.lucent.ts", 60), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_generators::earlyExit());
     });
   });
   defineFunction(rt, exports, "throwsInside", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("throwsInside", "packages/compiler/test/e2e/cases/generators.lucent.ts", 79), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("throwsInside", "packages/compiler/test/e2e/cases/generators.lucent.ts", 79), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_generators::throwsInside());
     });
   });
   defineFunction(rt, exports, "tree", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("tree", "packages/compiler/test/e2e/cases/generators.lucent.ts", 106), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("tree", "packages/compiler/test/e2e/cases/generators.lucent.ts", 106), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_generators::tree());
     });
   });
   defineFunction(rt, exports, "closures", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("closures", "packages/compiler/test/e2e/cases/generators.lucent.ts", 111), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("closures", "packages/compiler/test/e2e/cases/generators.lucent.ts", 111), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_generators::closures());
     });
   });
   defineFunction(rt, exports, "sumIterable", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("sumIterable", "packages/compiler/test/e2e/cases/generators.lucent.ts", 121), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("sumIterable", "packages/compiler/test/e2e/cases/generators.lucent.ts", 121), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Iter<double>>::fromJs(rt, arg(args, count, 0), Path{"sumIterable", "argument 'xs'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_generators::sumIterable(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "iterables", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("iterables", "packages/compiler/test/e2e/cases/generators.lucent.ts", 127), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("iterables", "packages/compiler/test/e2e/cases/generators.lucent.ts", 127), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_generators::iterables());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"generators", install_m_generators}};
+const ModuleDef kModules[] = {{"generators", install_m_generators, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -100,7 +100,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_generators::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_generators::init();
+  }
 }
 
 }  // namespace lucent::js

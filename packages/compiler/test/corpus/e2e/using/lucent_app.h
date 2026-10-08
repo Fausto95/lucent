@@ -2,12 +2,19 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("failOnDispose")
 #undef failOnDispose
 #pragma push_macro("name")
 #undef name
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("using");
+  return a;
+}
 
 struct C_Resource;
 struct C_Tracked;
@@ -52,3 +59,4 @@ inline bool C_Tracked::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("name")
 #pragma pop_macro("failOnDispose")
+#pragma pop_macro("a")

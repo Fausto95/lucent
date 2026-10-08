@@ -27,31 +27,31 @@ using namespace lucent::js;
 void install_m_loop_u2d_closures(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "skipping", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("skipping", "packages/compiler/test/e2e/cases/loop-closures.lucent.ts", 3), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("skipping", "packages/compiler/test/e2e/cases/loop-closures.lucent.ts", 3), [&]() -> jsi::Value {
       return Convert<lucent::Array<double>>::toJs(rt, host, lucent_app::m_loop_u2d_closures::skipping());
     });
   });
   defineFunction(rt, exports, "bumped", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("bumped", "packages/compiler/test/e2e/cases/loop-closures.lucent.ts", 13), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("bumped", "packages/compiler/test/e2e/cases/loop-closures.lucent.ts", 13), [&]() -> jsi::Value {
       return Convert<lucent::Array<double>>::toJs(rt, host, lucent_app::m_loop_u2d_closures::bumped());
     });
   });
   defineFunction(rt, exports, "continued", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("continued", "packages/compiler/test/e2e/cases/loop-closures.lucent.ts", 27), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("continued", "packages/compiler/test/e2e/cases/loop-closures.lucent.ts", 27), [&]() -> jsi::Value {
       return Convert<lucent::Array<double>>::toJs(rt, host, lucent_app::m_loop_u2d_closures::continued());
     });
   });
   defineFunction(rt, exports, "pairs", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("pairs", "packages/compiler/test/e2e/cases/loop-closures.lucent.ts", 40), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("pairs", "packages/compiler/test/e2e/cases/loop-closures.lucent.ts", 40), [&]() -> jsi::Value {
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_loop_u2d_closures::pairs());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"loop-closures", install_m_loop_u2d_closures}};
+const ModuleDef kModules[] = {{"loop-closures", install_m_loop_u2d_closures, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -63,7 +63,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_loop_u2d_closures::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_loop_u2d_closures::init();
+  }
 }
 
 }  // namespace lucent::js

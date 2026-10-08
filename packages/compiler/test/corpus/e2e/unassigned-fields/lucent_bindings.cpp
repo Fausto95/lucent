@@ -31,7 +31,7 @@ using namespace lucent::js;
 void install_m_unassigned_u2d_fields(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "setConfig", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("setConfig", "packages/compiler/test/e2e/cases/unassigned-fields.lucent.ts", 51), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("setConfig", "packages/compiler/test/e2e/cases/unassigned-fields.lucent.ts", 51), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"setConfig", "argument 'size'"});
       lucent_app::m_unassigned_u2d_fields::setConfig(std::move(a0));
       return jsi::Value::undefined();
@@ -39,37 +39,37 @@ void install_m_unassigned_u2d_fields(jsi::Runtime& rt, Host& host, jsi::Object& 
   });
   defineFunction(rt, exports, "baseReadsField", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("baseReadsField", "packages/compiler/test/e2e/cases/unassigned-fields.lucent.ts", 55), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("baseReadsField", "packages/compiler/test/e2e/cases/unassigned-fields.lucent.ts", 55), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_unassigned_u2d_fields::baseReadsField());
     });
   });
   defineFunction(rt, exports, "baseReadsUnion", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("baseReadsUnion", "packages/compiler/test/e2e/cases/unassigned-fields.lucent.ts", 59), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("baseReadsUnion", "packages/compiler/test/e2e/cases/unassigned-fields.lucent.ts", 59), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_unassigned_u2d_fields::baseReadsUnion());
     });
   });
   defineFunction(rt, exports, "definiteField", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("definiteField", "packages/compiler/test/e2e/cases/unassigned-fields.lucent.ts", 63), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("definiteField", "packages/compiler/test/e2e/cases/unassigned-fields.lucent.ts", 63), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_unassigned_u2d_fields::definiteField());
     });
   });
   defineFunction(rt, exports, "staticField", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("staticField", "packages/compiler/test/e2e/cases/unassigned-fields.lucent.ts", 67), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("staticField", "packages/compiler/test/e2e/cases/unassigned-fields.lucent.ts", 67), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_unassigned_u2d_fields::staticField());
     });
   });
   defineFunction(rt, exports, "moduleVariable", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("moduleVariable", "packages/compiler/test/e2e/cases/unassigned-fields.lucent.ts", 71), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("moduleVariable", "packages/compiler/test/e2e/cases/unassigned-fields.lucent.ts", 71), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_unassigned_u2d_fields::moduleVariable());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"unassigned-fields", install_m_unassigned_u2d_fields}};
+const ModuleDef kModules[] = {{"unassigned-fields", install_m_unassigned_u2d_fields, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -81,7 +81,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_unassigned_u2d_fields::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_unassigned_u2d_fields::init();
+  }
 }
 
 }  // namespace lucent::js

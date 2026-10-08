@@ -2,12 +2,19 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("code")
 #undef code
 #pragma push_macro("field")
 #undef field
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("errors");
+  return a;
+}
 
 struct C_ValidationError;
 struct C_Plain;
@@ -93,3 +100,4 @@ inline bool C_Optioned::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("field")
 #pragma pop_macro("code")
+#pragma pop_macro("a")

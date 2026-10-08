@@ -11,6 +11,11 @@
 
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("null-or-undefined");
+  return a;
+}
+
 struct S_Note;
 struct S_Unset;
 struct S_Pair;

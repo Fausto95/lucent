@@ -4,5 +4,9 @@
 
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("lone-surrogates");
+  return a;
+}
 
 }  // namespace lucent_app

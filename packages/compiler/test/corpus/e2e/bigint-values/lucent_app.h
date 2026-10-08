@@ -2,6 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("balance")
 #undef balance
 #pragma push_macro("deposit")
@@ -22,6 +24,11 @@
 #undef v
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("bigint-values");
+  return a;
+}
 
 struct S_Object1;
 struct S_Ledger;
@@ -101,3 +108,4 @@ inline bool C_Account::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("history")
 #pragma pop_macro("deposit")
 #pragma pop_macro("balance")
+#pragma pop_macro("a")

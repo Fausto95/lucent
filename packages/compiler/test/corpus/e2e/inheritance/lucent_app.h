@@ -2,6 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("area")
 #undef area
 #pragma push_macro("breed")
@@ -30,6 +32,11 @@
 #undef tricks
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("inheritance");
+  return a;
+}
 
 struct I_Pet;
 struct C_Animal;
@@ -262,3 +269,4 @@ inline bool C_Lion::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("count")
 #pragma pop_macro("breed")
 #pragma pop_macro("area")
+#pragma pop_macro("a")

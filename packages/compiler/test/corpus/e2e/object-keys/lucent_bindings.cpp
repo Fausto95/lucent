@@ -25,7 +25,7 @@ using namespace lucent::js;
 void install_m_object_u2d_keys(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "inRecord", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("inRecord", "packages/compiler/test/e2e/cases/object-keys.lucent.ts", 3), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("inRecord", "packages/compiler/test/e2e/cases/object-keys.lucent.ts", 3), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Dict<double>>::fromJs(rt, arg(args, count, 0), Path{"inRecord", "argument 'r'"});
       auto a1 = Convert<lucent::String>::fromJs(rt, arg(args, count, 1), Path{"inRecord", "argument 'k'"});
       return Convert<bool>::toJs(rt, host, lucent_app::m_object_u2d_keys::inRecord(std::move(a0), std::move(a1)));
@@ -33,19 +33,19 @@ void install_m_object_u2d_keys(jsi::Runtime& rt, Host& host, jsi::Object& export
   });
   defineFunction(rt, exports, "literalKeys", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("literalKeys", "packages/compiler/test/e2e/cases/object-keys.lucent.ts", 7), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("literalKeys", "packages/compiler/test/e2e/cases/object-keys.lucent.ts", 7), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_object_u2d_keys::literalKeys());
     });
   });
   defineFunction(rt, exports, "enumerated", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("enumerated", "packages/compiler/test/e2e/cases/object-keys.lucent.ts", 12), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("enumerated", "packages/compiler/test/e2e/cases/object-keys.lucent.ts", 12), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_object_u2d_keys::enumerated());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"object-keys", install_m_object_u2d_keys}};
+const ModuleDef kModules[] = {{"object-keys", install_m_object_u2d_keys, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -57,7 +57,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_object_u2d_keys::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_object_u2d_keys::init();
+  }
 }
 
 }  // namespace lucent::js

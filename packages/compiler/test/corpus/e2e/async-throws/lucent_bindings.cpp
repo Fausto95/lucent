@@ -25,31 +25,31 @@ using namespace lucent::js;
 void install_m_async_u2d_throws(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "functions", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("functions", "packages/compiler/test/e2e/cases/async-throws.lucent.ts", 53), []() {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("functions", "packages/compiler/test/e2e/cases/async-throws.lucent.ts", 53), []() {
         return lucent_app::m_async_u2d_throws::functions();
       });
     });
   });
   defineFunction(rt, exports, "arrows", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("arrows", "packages/compiler/test/e2e/cases/async-throws.lucent.ts", 64), []() {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("arrows", "packages/compiler/test/e2e/cases/async-throws.lucent.ts", 64), []() {
         return lucent_app::m_async_u2d_throws::arrows();
       });
     });
   });
   defineFunction(rt, exports, "exported", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("exported", "packages/compiler/test/e2e/cases/async-throws.lucent.ts", 76), []() {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("exported", "packages/compiler/test/e2e/cases/async-throws.lucent.ts", 76), []() {
         return lucent_app::m_async_u2d_throws::exported();
       });
     });
   });
 }
 
-const ModuleDef kModules[] = {{"async-throws", install_m_async_u2d_throws}};
+const ModuleDef kModules[] = {{"async-throws", install_m_async_u2d_throws, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -61,7 +61,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_async_u2d_throws::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_async_u2d_throws::init();
+  }
 }
 
 }  // namespace lucent::js

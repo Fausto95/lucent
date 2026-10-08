@@ -31,25 +31,25 @@ using namespace lucent::js;
 void install_m_module_u2d_initialization(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "staticReadsVariable", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("staticReadsVariable", "packages/compiler/test/e2e/cases/module-initialization.lucent.ts", 35), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("staticReadsVariable", "packages/compiler/test/e2e/cases/module-initialization.lucent.ts", 35), [&]() -> jsi::Value {
       return Convert<double>::toJs(rt, host, lucent_app::m_module_u2d_initialization::staticReadsVariable());
     });
   });
   defineFunction(rt, exports, "order", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("order", "packages/compiler/test/e2e/cases/module-initialization.lucent.ts", 39), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("order", "packages/compiler/test/e2e/cases/module-initialization.lucent.ts", 39), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_module_u2d_initialization::order());
     });
   });
   defineFunction(rt, exports, "afterValue", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("afterValue", "packages/compiler/test/e2e/cases/module-initialization.lucent.ts", 43), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("afterValue", "packages/compiler/test/e2e/cases/module-initialization.lucent.ts", 43), [&]() -> jsi::Value {
       return Convert<double>::toJs(rt, host, lucent_app::m_module_u2d_initialization::afterValue());
     });
   });
   defineFunction(rt, exports, "setCached", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("setCached", "packages/compiler/test/e2e/cases/module-initialization.lucent.ts", 47), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("setCached", "packages/compiler/test/e2e/cases/module-initialization.lucent.ts", 47), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"setCached", "argument 'n'"});
       lucent_app::m_module_u2d_initialization::setCached(std::move(a0));
       return jsi::Value::undefined();
@@ -57,19 +57,19 @@ void install_m_module_u2d_initialization(jsi::Runtime& rt, Host& host, jsi::Obje
   });
   defineFunction(rt, exports, "cached", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("cached", "packages/compiler/test/e2e/cases/module-initialization.lucent.ts", 51), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("cached", "packages/compiler/test/e2e/cases/module-initialization.lucent.ts", 51), [&]() -> jsi::Value {
       return Convert<lucent::Opt<double>>::toJs(rt, host, lucent_app::m_module_u2d_initialization::cached());
     });
   });
   defineFunction(rt, exports, "touch", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("touch", "packages/compiler/test/e2e/cases/module-initialization.lucent.ts", 55), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("touch", "packages/compiler/test/e2e/cases/module-initialization.lucent.ts", 55), [&]() -> jsi::Value {
       return Convert<double>::toJs(rt, host, lucent_app::m_module_u2d_initialization::touch());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"module-initialization", install_m_module_u2d_initialization}};
+const ModuleDef kModules[] = {{"module-initialization", install_m_module_u2d_initialization, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -81,7 +81,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_module_u2d_initialization::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_module_u2d_initialization::init();
+  }
 }
 
 }  // namespace lucent::js

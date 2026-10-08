@@ -2,10 +2,17 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("d")
 #undef d
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("dates");
+  return a;
+}
 
 struct S_Object1;
 
@@ -30,3 +37,4 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object1>& v) {
 }  // namespace lucent_app
 
 #pragma pop_macro("d")
+#pragma pop_macro("a")

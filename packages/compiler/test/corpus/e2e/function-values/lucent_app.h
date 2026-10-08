@@ -4,6 +4,8 @@
 
 #pragma push_macro("T")
 #undef T
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("first")
 #undef first
 #pragma push_macro("has")
@@ -12,6 +14,11 @@
 #undef items
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("function-values");
+  return a;
+}
 
 template <class T>
 struct C_Bag;
@@ -50,4 +57,5 @@ inline bool C_Bag<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("items")
 #pragma pop_macro("has")
 #pragma pop_macro("first")
+#pragma pop_macro("a")
 #pragma pop_macro("T")

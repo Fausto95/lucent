@@ -61,7 +61,7 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Store>>::toJs(jsi::Runtime& 
 void proto_C_Store(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineFunction(rt, proto, "set", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Store.set", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 86), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Store.set", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 86), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Store>>::fromJs(rt, thisVal, Path{"Store.set", "this"});
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Store.set", "argument 'key'"});
       auto a1 = Convert<std::variant<lucent::ArrayBuffer, bool, double, lucent::String>>::fromJs(rt, arg(args, count, 1), Path{"Store.set", "argument 'value'"});
@@ -71,7 +71,7 @@ void proto_C_Store(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineFunction(rt, proto, "getBuffer", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Store.getBuffer", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 90), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Store.getBuffer", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 90), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Store>>::fromJs(rt, thisVal, Path{"Store.getBuffer", "this"});
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"Store.getBuffer", "argument 'key'"});
       return Convert<lucent::Opt<lucent::ArrayBuffer>>::toJs(rt, host, self->getBuffer(std::move(a0)));
@@ -79,7 +79,7 @@ void proto_C_Store(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineFunction(rt, proto, "kinds", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Store.kinds", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 96), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Store.kinds", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 96), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Store>>::fromJs(rt, thisVal, Path{"Store.kinds", "this"});
       return Convert<lucent::String>::toJs(rt, host, self->kinds());
     });
@@ -121,26 +121,26 @@ using namespace lucent::js;
 void install_m_array_u2d_buffers(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "views", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("views", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 4), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("views", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 4), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_array_u2d_buffers::views());
     });
   });
   defineFunction(rt, exports, "checks", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("checks", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 32), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("checks", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 32), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_array_u2d_buffers::checks());
     });
   });
   defineFunction(rt, exports, "sum", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("sum", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 55), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("sum", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 55), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::ArrayBuffer>::fromJs(rt, arg(args, count, 0), Path{"sum", "argument 'buffer'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_array_u2d_buffers::sum(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "filled", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("filled", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 64), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("filled", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 64), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"filled", "argument 'n'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"filled", "argument 'value'"});
       return Convert<lucent::ArrayBuffer>::toJs(rt, host, lucent_app::m_array_u2d_buffers::filled(std::move(a0), std::move(a1)));
@@ -148,36 +148,36 @@ void install_m_array_u2d_buffers(jsi::Runtime& rt, Host& host, jsi::Object& expo
   });
   defineFunction(rt, exports, "reversed", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("reversed", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 68), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("reversed", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 68), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::ArrayBuffer>::fromJs(rt, arg(args, count, 0), Path{"reversed", "argument 'buffer'"});
       return Convert<lucent::ArrayBuffer>::toJs(rt, host, lucent_app::m_array_u2d_buffers::reversed(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "describe", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("describe", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 74), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("describe", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 74), [&]() -> jsi::Value {
       auto a0 = optionalFromJs<lucent::ArrayBuffer>(rt, arg(args, count, 0), Path{"describe", "argument 'buffer'"}, false, "a value or undefined");
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_array_u2d_buffers::describe(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "digest", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"digest", "argument 'n'"});
-      return callAsync<lucent::String>(rt, host, LUCENT_TRACE_SITE_AT("digest", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 108), [a0]() {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("digest", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 108), [a0]() {
         return lucent_app::m_array_u2d_buffers::digest(a0);
       });
     });
   });
   defineClass(rt, host, exports, "Store", "array-buffers.Store", proto_C_Store, 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("Store", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 83), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Store", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 83), [&]() -> jsi::Value {
       return Convert<lucent::Ref<lucent_app::C_Store>>::toJs(rt, host, lucent_app::C_Store::create());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"array-buffers", install_m_array_u2d_buffers}};
+const ModuleDef kModules[] = {{"array-buffers", install_m_array_u2d_buffers, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -189,7 +189,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_array_u2d_buffers::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_array_u2d_buffers::init();
+  }
 }
 
 }  // namespace lucent::js

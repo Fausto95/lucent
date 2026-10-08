@@ -31,42 +31,42 @@ using namespace lucent::js;
 void install_m_never_u2d_values(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "returned", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("returned", "packages/compiler/test/e2e/cases/never-values.lucent.ts", 41), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("returned", "packages/compiler/test/e2e/cases/never-values.lucent.ts", 41), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"returned", "argument 'text'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_values::returned(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "fromMethod", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("fromMethod", "packages/compiler/test/e2e/cases/never-values.lucent.ts", 45), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("fromMethod", "packages/compiler/test/e2e/cases/never-values.lucent.ts", 45), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"fromMethod", "argument 'key'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_values::fromMethod(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "fromArrow", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("fromArrow", "packages/compiler/test/e2e/cases/never-values.lucent.ts", 53), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("fromArrow", "packages/compiler/test/e2e/cases/never-values.lucent.ts", 53), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"fromArrow", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_values::fromArrow(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "declared", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("declared", "packages/compiler/test/e2e/cases/never-values.lucent.ts", 60), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("declared", "packages/compiler/test/e2e/cases/never-values.lucent.ts", 60), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"declared", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_values::declared(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "declaredLet", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("declaredLet", "packages/compiler/test/e2e/cases/never-values.lucent.ts", 70), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("declaredLet", "packages/compiler/test/e2e/cases/never-values.lucent.ts", 70), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"declaredLet", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_values::declaredLet(std::move(a0)));
     });
   });
 }
 
-const ModuleDef kModules[] = {{"never-values", install_m_never_u2d_values}};
+const ModuleDef kModules[] = {{"never-values", install_m_never_u2d_values, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -78,7 +78,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_never_u2d_values::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_never_u2d_values::init();
+  }
 }
 
 }  // namespace lucent::js

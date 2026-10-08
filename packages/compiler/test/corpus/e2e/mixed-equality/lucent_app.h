@@ -2,6 +2,8 @@
 #pragma once
 #include <lucent/lucent.h>
 
+#pragma push_macro("a")
+#undef a
 #pragma push_macro("barks")
 #undef barks
 #pragma push_macro("name")
@@ -10,6 +12,11 @@
 #undef wheels
 
 namespace lucent_app {
+
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("mixed-equality");
+  return a;
+}
 
 struct C_Animal;
 struct C_Dog;
@@ -69,3 +76,4 @@ inline bool C_Car::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("wheels")
 #pragma pop_macro("name")
 #pragma pop_macro("barks")
+#pragma pop_macro("a")

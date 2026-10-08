@@ -71,181 +71,181 @@ using namespace lucent::js;
 void install_m_never_u2d_positions(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "argument", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("argument", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 64), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("argument", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 64), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"argument", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::argument(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "arguments_", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("arguments_", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 68), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("arguments_", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 68), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"arguments_", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::u_arguments_(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "constructed", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("constructed", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 72), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("constructed", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 72), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"constructed", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::constructed(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "defaults", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("defaults", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 76), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("defaults", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 76), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"defaults", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::defaults(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "initialized", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("initialized", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 80), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("initialized", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 80), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"initialized", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::initialized(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "assigned", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("assigned", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 84), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("assigned", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 84), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"assigned", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::assigned(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "assignedField", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("assignedField", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 96), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("assignedField", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 96), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"assignedField", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::assignedField(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "compound", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("compound", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 106), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("compound", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 106), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"compound", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::compound(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "compoundShared", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("compoundShared", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 116), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("compoundShared", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 116), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"compoundShared", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::compoundShared(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "field", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("field", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 126), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("field", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 126), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"field", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::field(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "element", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("element", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 136), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("element", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 136), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"element", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::element(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "tuple", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("tuple", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 146), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("tuple", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 146), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"tuple", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::tuple(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "pushed", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("pushed", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 156), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("pushed", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 156), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"pushed", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::pushed(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "mapped", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("mapped", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 166), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("mapped", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 166), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"mapped", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::mapped(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "template", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("template", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 176), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("template", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 176), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"template", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::r_template_(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "operands", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("operands", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 180), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("operands", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 180), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"operands", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::operands(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "unary", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("unary", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 184), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("unary", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 184), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"unary", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::unary(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "compared", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("compared", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 188), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("compared", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 188), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"compared", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::compared(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "condition", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("condition", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 192), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("condition", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 192), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"condition", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::condition(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "negated", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("negated", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 202), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("negated", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 202), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"negated", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::negated(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "leftOperand", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("leftOperand", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 206), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("leftOperand", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 206), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"leftOperand", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::leftOperand(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "looped", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("looped", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 210), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("looped", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 210), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"looped", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::looped(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "switched", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("switched", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 221), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("switched", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 221), [&]() -> jsi::Value {
       auto a0 = Convert<bool>::fromJs(rt, arg(args, count, 0), Path{"switched", "argument 'ok'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::switched(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "exhaustive", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("exhaustive", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 238), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("exhaustive", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 238), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"exhaustive", "argument 'shape'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::exhaustive(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "nothing", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("nothing", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 251), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("nothing", "packages/compiler/test/e2e/cases/never-positions.lucent.ts", 251), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_never_u2d_positions::nothing());
     });
   });
 }
 
-const ModuleDef kModules[] = {{"never-positions", install_m_never_u2d_positions}};
+const ModuleDef kModules[] = {{"never-positions", install_m_never_u2d_positions, &lucent_app::actor_0}};
 
 }  // namespace
 
@@ -257,7 +257,10 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  lucent_app::m_never_u2d_positions::init();
+  {
+    lucent::LucentScope scope(lucent_app::actor_0());
+    lucent_app::m_never_u2d_positions::init();
+  }
 }
 
 }  // namespace lucent::js

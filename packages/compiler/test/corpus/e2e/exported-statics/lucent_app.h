@@ -23,6 +23,11 @@
 
 namespace lucent_app {
 
+inline lucent::Actor& actor_0() {
+  static lucent::Actor& a = lucent::Actor::create("exported-statics");
+  return a;
+}
+
 struct C_Registry;
 struct C_Scoped;
 
