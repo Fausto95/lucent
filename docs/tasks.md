@@ -581,6 +581,12 @@ original has one.
 
 **Notes:**
 
+- The four ports' sources are not in the repository (2026-10-08): only
+  the players spike (`apps/bare-example/.views-spike/players.lucent.tsx`)
+  is. Now that views build everywhere
+  ([0047](decisions/0047-views-without-a-switch.md)), publishing them
+  under `examples/`, as `lucent-camera` and the others are, needs the
+  maintainer's local sources.
 - Not needed: class instances as view props (Expo's `VideoView` passes
   its player's shared-object id, and so can a port), mixed unions in
   view props (Expo's JavaScript normalizes `source` before native), and
