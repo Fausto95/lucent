@@ -3433,7 +3433,8 @@ export function nativeFunctionCall(em: FnEmitter, node: ts.CallExpression): E | 
  * and given to `f` on the Lucent thread (ios_sequence.h).
  */
 export function collectSequence(em: FnEmitter, obj: E, name: string, node: ts.CallExpression): E {
-  if (name !== "collect") fail(node, Codes.UnsupportedCall, `${name} is not a method of AsyncSequence`);
+  if (name !== "collect")
+    fail(node, Codes.UnsupportedCall, `${name} is not a method of AsyncSequence`);
   const args = argsOf(node);
   const f = args[0];
   if (!f) fail(node, Codes.UnsupportedCall, "collect takes the function each element is given");
@@ -3660,7 +3661,12 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
     case "lucent:ios.withPixelBytes": {
       unit.include("lucent/platform/ios_pixels.h");
       em.ctx.frameworks.add("CoreVideo");
-      const nsObject: LType = { k: "native", platform: "ios", module: "lucent:ios", name: "NSObject" };
+      const nsObject: LType = {
+        k: "native",
+        platform: "ios",
+        module: "lucent:ios",
+        name: "NSObject",
+      };
       const t = em.lt(node);
       const read: LType = { k: "fn", params: [T.bytes, T.number, T.number, T.number], ret: t };
       const f = args[1]!;

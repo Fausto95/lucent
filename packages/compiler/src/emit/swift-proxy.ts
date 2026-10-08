@@ -826,7 +826,8 @@ function proxyDecls(p: SwiftProxy): swift.Decl[] {
 
     // The error the glue gives back, thrown; the result only without one.
     const result =
-      isSelf(r.ret) || (!isScalar(r.ret) && !swiftEnum(r.ret) && !objcEnum(r.ret) && !r.ret.nullable)
+      isSelf(r.ret) ||
+      (!isScalar(r.ret) && !swiftEnum(r.ret) && !objcEnum(r.ret) && !r.ret.nullable)
         ? swift.forceUnwrap(n("v"))
         : n("v");
     members.push({

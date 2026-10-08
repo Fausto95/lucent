@@ -54,7 +54,8 @@ export interface Coverage {
  * Swift's protocol plumbing, by a member's Swift name: what Hashable,
  * Equatable, Comparable and Codable require, which Swift calls itself.
  */
-const PLUMBING = /^(hash\(into:\)|hashValue|==\(_:_:\)|!=\(_:_:\)|<\(_:_:\)|encode\(to:\)|init\(from:\))$/;
+const PLUMBING =
+  /^(hash\(into:\)|hashValue|==\(_:_:\)|!=\(_:_:\)|<\(_:_:\)|encode\(to:\)|init\(from:\))$/;
 
 /**
  * Whether a member is plumbing: its Swift name, or the `Owner.name(…)` a

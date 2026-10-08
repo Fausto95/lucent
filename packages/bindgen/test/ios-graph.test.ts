@@ -54,7 +54,16 @@ const graph: SymbolGraph = {
   ],
 };
 
-const values = () => new Map([["KITMode", new Map([["KITModePlain", 0], ["KITModeVivid", 1]])]]);
+const values = () =>
+  new Map([
+    [
+      "KITMode",
+      new Map([
+        ["KITModePlain", 0],
+        ["KITModeVivid", 1],
+      ]),
+    ],
+  ]);
 
 describe("iOS schemas from symbol graphs", () => {
   const [kit] = buildIosSchemas(new Map([["Kit", graph]]), values);

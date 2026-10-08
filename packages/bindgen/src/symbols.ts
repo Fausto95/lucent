@@ -294,7 +294,11 @@ export function parseType(frags: Fragment[], r: Resolver): SchemaType {
         p++;
         while (toks[p] !== ">") {
           // An AsyncSequence's Failure (`Never`, `any Error`): what it throws, not a value.
-          const failure = proto && typeof proto !== "string" && proto.preciseIdentifier === ASYNC_SEQUENCE && args.length === 1;
+          const failure =
+            proto &&
+            typeof proto !== "string" &&
+            proto.preciseIdentifier === ASYNC_SEQUENCE &&
+            args.length === 1;
           if (failure) {
             let depth = 0;
             while (p < toks.length && (depth > 0 || (toks[p] !== ">" && toks[p] !== ","))) {

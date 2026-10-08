@@ -12,9 +12,7 @@ const javac = spawnSync("javac", ["-version"]).status === 0;
 describe("modified UTF-8 (JVMS §4.4.7)", () => {
   it("decodes NUL as two bytes and supplementary characters as surrogate pairs", () => {
     // "a\0😀é": NUL as C0 80, U+1F600 as the surrogates D83D DE00 in three bytes each.
-    const bytes = Buffer.from([
-      0x61, 0xc0, 0x80, 0xed, 0xa0, 0xbd, 0xed, 0xb8, 0x80, 0xc3, 0xa9,
-    ]);
+    const bytes = Buffer.from([0x61, 0xc0, 0x80, 0xed, 0xa0, 0xbd, 0xed, 0xb8, 0x80, 0xc3, 0xa9]);
 
     expect(modifiedUtf8(bytes, 0, bytes.length)).toBe("a\u0000😀é");
     expect(modifiedUtf8(Buffer.from("plain"), 0, 5)).toBe("plain");

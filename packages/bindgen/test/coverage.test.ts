@@ -203,7 +203,9 @@ describe("coverage's share", () => {
             swift: { name: "bounds()" },
           },
         ],
-        properties: [{ name: "hashValue", type: T("NSInteger"), readonly: true, swift: { name: "hashValue" } }],
+        properties: [
+          { name: "hashValue", type: T("NSInteger"), readonly: true, swift: { name: "hashValue" } },
+        ],
       },
     ],
     skipped: [
@@ -225,7 +227,11 @@ describe("coverage's share", () => {
 
   it("judges members with the types other modules declare", () => {
     const kit: TypeLookup = (module, name) =>
-      module === "Kit" ? (name === "KITRect" ? { kind: "struct" } : undefined) : ownTypes(shapes())(module, name);
+      module === "Kit"
+        ? name === "KITRect"
+          ? { kind: "struct" }
+          : undefined
+        : ownTypes(shapes())(module, name);
     const bounds = (c: Coverage) => c.members.find((m) => m.display === "Point.bounds");
 
     // Alone, another module's type is of unknown kind: taken as an object, which crosses.

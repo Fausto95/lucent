@@ -106,7 +106,7 @@ export function modifiedUtf8(buf: Buffer, start: number, end: number): string {
   if (ascii) return buf.toString("latin1", start, end);
 
   const codes: number[] = [];
-  for (let i = start; i < end; ) {
+  for (let i = start; i < end;) {
     const b = buf[i++]!;
 
     if (b < 0x80) codes.push(b);

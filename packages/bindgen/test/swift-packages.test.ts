@@ -19,10 +19,7 @@ function fakeTools(dir: string, log: string): string {
       mode: 0o755,
     });
   tool("git", 'if [ "$1" = clone ]; then mkdir -p "$4"; fi');
-  tool(
-    "swift",
-    `echo '{"products":[{"name":"Gauges","type":{"library":["automatic"]}}]}'`,
-  );
+  tool("swift", `echo '{"products":[{"name":"Gauges","type":{"library":["automatic"]}}]}'`);
   tool(
     "xcodebuild",
     `if [ "$1" = -version ]; then echo "Xcode 26.0"; exit 0; fi
