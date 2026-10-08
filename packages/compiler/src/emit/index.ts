@@ -855,9 +855,9 @@ function jsonWriters(ctx: Ctx): { decls: cpp.Decl[]; defs: cpp.Decl[] } {
     const fields = new Set<string>();
     // Base fields first, as super() creates them; parameter properties before declared fields.
     for (const { info } of chain.toReversed()) {
-      const ctor = info.decl.members.find(ts.isConstructorDeclaration);
+      const ctor = info.members.find(ts.isConstructorDeclaration);
       for (const p of parameterProperties(ctor)) fields.add(memberName(p));
-      for (const m of info.decl.members)
+      for (const m of info.members)
         if (ts.isPropertyDeclaration(m) && !ts.isPrivateIdentifier(m.name) && !declaredOnly(m))
           fields.add(memberName(m));
     }
@@ -880,7 +880,7 @@ function jsonWriters(ctx: Ctx): { decls: cpp.Decl[]; defs: cpp.Decl[] } {
     }
 
     for (const { info } of chain) {
-      const method = info.decl.members.find(
+      const method = info.members.find(
         (m): m is ts.MethodDeclaration =>
           ts.isMethodDeclaration(m) &&
           !isStatic(m) &&
@@ -902,8 +902,8 @@ function jsonWriters(ctx: Ctx): { decls: cpp.Decl[]; defs: cpp.Decl[] } {
 
 /** A class's own fields named toJSON, parameter properties included. */
 function toJsonFields(info: ClassInfo): (ts.PropertyDeclaration | ts.ParameterDeclaration)[] {
-  const ctor = info.decl.members.find(ts.isConstructorDeclaration);
-  const declared = info.decl.members.filter(
+  const ctor = info.members.find(ts.isConstructorDeclaration);
+  const declared = info.members.filter(
     (m): m is ts.PropertyDeclaration =>
       ts.isPropertyDeclaration(m) && !ts.isPrivateIdentifier(m.name) && !declaredOnly(m),
   );

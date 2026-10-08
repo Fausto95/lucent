@@ -480,10 +480,10 @@ function fieldsOf(
         `${info.decl.name!.text} objects cannot be copied to a compute task`,
       );
 
-    const ctor = info.decl.members.find(ts.isConstructorDeclaration);
+    const ctor = info.members.find(ts.isConstructorDeclaration);
     const fields = [
       ...parameterProperties(ctor),
-      ...info.decl.members.filter(
+      ...info.members.filter(
         (m): m is ts.PropertyDeclaration =>
           ts.isPropertyDeclaration(m) &&
           !ts.getModifiers(m)?.some((k) => k.kind === ts.SyntaxKind.StaticKeyword),

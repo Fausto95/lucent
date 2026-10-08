@@ -40,9 +40,19 @@ export async function model(): Promise<string> {
   that target only. A declaration using both platforms outside branches is an
   error; exports run on both platforms, so they branch inside (their
   platform code outside a branch is reported where it is used).
-- A platform's code (its imports and declarations) may only be used inside
-  its branch or its declarations, and `lucent:thread` in either platform's
-  code (LUCENT3004 otherwise).
+- A private member (`private` or `#`) of an exported class, or of a class
+  that uses both platforms, belongs to a platform the same way, and the class
+  stays shared: `private manager: CLLocationManager | null` is an iOS field,
+  and `private media(): MediaPlayer` an Android method. Each build compiles
+  its own platform's members only (the host build neither), so a class
+  JavaScript constructs on both platforms keeps SDK objects. A non-exported
+  class whose platform code is all one platform's still belongs to that
+  platform as a whole; a member of the other platform in a platform's class,
+  and a member using both, are errors. Public members, constructors and
+  parameter properties are shared code: their platform code branches.
+- A platform's code (its imports, declarations and members) may only be used
+  inside its branch or its declarations and members, and `lucent:thread` in
+  either platform's code (LUCENT3004 otherwise).
 - Every target type-checks both branches. Where the other platform's SDK is
   not installed, its modules are untyped there and TypeScript's errors in its
   code are ignored (that code is never emitted on that target); values that

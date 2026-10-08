@@ -70,7 +70,7 @@ export function javaSubclass(info: ClassInfo): { path: string; source: string } 
       `${base.name} has no public constructor without arguments to extend`,
     );
   const defined = new Set(
-    info.decl.members
+    info.members
       .filter(
         (m): m is ts.MethodDeclaration =>
           ts.isMethodDeclaration(m) && !!m.body && ts.isIdentifier(m.name),

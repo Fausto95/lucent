@@ -9,6 +9,7 @@ import {
   isLibFile,
   sdkModuleOf,
 } from "./program.ts";
+import { classMembersFor } from "./platforms.ts";
 import type { Platform } from "./sdk/schema.ts";
 import { elementsOf } from "./ui/roots.ts";
 import { TOOLKITS, toolkitOfModule } from "./ui/toolkits.ts";
@@ -418,6 +419,8 @@ export interface ClassInfo {
   boundary: boolean;
   isError: boolean;
   abstract: boolean;
+  /** The members this build compiles: a private member of another platform is left out. */
+  members: readonly ts.ClassElement[];
   /** The Lucent class this one extends, with type arguments in terms of this class's parameters. */
   base?: { id: string; args: LType[] };
   /**
@@ -548,6 +551,7 @@ export class TypeRegistry {
       boundary: false,
       isError,
       abstract: !!ts.getModifiers(decl)?.some((m) => m.kind === ts.SyntaxKind.AbstractKeyword),
+      members: classMembersFor(this.checker, decl, this.platform),
     };
     this.classes.set(id, info);
     return info;

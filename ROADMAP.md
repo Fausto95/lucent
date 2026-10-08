@@ -433,6 +433,23 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-08: Platform members, not platform classes.** A private member
+(`private` or `#`) of an exported class, or of a class that uses both
+platforms, belongs to the platform whose code it uses outside a branch,
+and each build compiles its own platform's members only; the class stays
+shared, so JavaScript constructs it and calls its methods on both
+platforms, and an SDK object lives in a field instead of a module-level
+`Map` from ids. Public members, constructors and parameter properties
+stay shared code, since JavaScript and other classes see them (an
+interface or override dropped on one platform would not conform). A
+non-exported class whose platform code is all one platform's still
+belongs to that platform whole, so code that compiled before keeps its
+meaning. Class instances as view props stay refused, as on 2026-10-07: a
+view's setup and handlers run on the main thread without the Lucent lock,
+while an instance's fields belong to Lucent code, so a view calling its
+methods would race module code; a component takes the instance's id, as
+Expo's `VideoView` does.
+
 **2026-10-08: A compiler fault is a diagnostic at its function.** An IR
 verifier or builder error, which used to stop the whole build with a
 stack trace, is now `LUCENT9002` at the function it was lowering: the
@@ -2295,6 +2312,40 @@ manual `pod install` or `lucent build` in between.
 
 **Notes:** From fix/package-pod-first-build, which named the steps a
 bare app takes and found that Expo's prebuild stops before them.
+
+<a id="ta36"></a>
+
+### TA36: Close the language gaps the review found
+
+**Goal:** Give ports what Nitro's HybridObjects and Expo's modules give
+them without ids and string codes: native objects in exported classes,
+events, platform files without twins, cycles without leaks, typed native
+errors, 64-bit parameters from numbers, and lifecycle hooks.
+
+- **Status:** in progress (2026-10-08).
+- **Area:** Compiler, runtime, docs.
+- **Needs:** none.
+- **Verify:** V1, V3.
+- **Where:** `platforms.ts` (`platformScopes`, `classMembersFor`),
+  `types.ts` (`ClassInfo.members`), the tests named below.
+
+- [x] Native objects in exported classes: a private member that uses one
+      platform's code belongs to that platform, and the class stays
+      shared (`platform-members.test.ts`, which runs the Android build of
+      such a class on the desktop JNI host, now also on Linux against
+      `fake-android.ts`'s stand-ins). Class instances as view props stay refused (see the decision).
+- [ ] `EventEmitter` in `lucent:core`.
+- [ ] Platform files without a twin, declared classes and constants in
+      declaration files, and a `const` holding a platform test.
+- [ ] Weak references for cycles.
+- [ ] Typed native errors, and async exports rejecting bad arguments.
+- [ ] 64-bit integer parameters from safe-integer numbers.
+- [ ] Lifecycle hooks: deep links, push tokens, module create/destroy.
+- [ ] `expose()` inside a platform branch.
+
+**Done when:** each item has its e2e case or test, docs and changeset.
+
+**Notes:** From the 2026-10-08 language review.
 
 <a id="t67"></a>
 

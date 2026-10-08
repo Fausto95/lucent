@@ -1246,7 +1246,7 @@ function lowerMembers(ctx: Ctx, info: ClassInfo, statics: boolean): PublicMember
     module: undefined as unknown as LucentModule,
     async: false,
   });
-  const ctor = statics ? undefined : info.decl.members.find(ts.isConstructorDeclaration);
+  const ctor = statics ? undefined : info.members.find(ts.isConstructorDeclaration);
   for (const p of parameterProperties(ctor)) {
     if (!isPublic(p)) continue;
     const readonly = !!ts.getModifiers(p)?.some((x) => x.kind === ts.SyntaxKind.ReadonlyKeyword);
@@ -1261,7 +1261,7 @@ function lowerMembers(ctx: Ctx, info: ClassInfo, statics: boolean): PublicMember
     );
   }
   const accessors = new Map<string, PublicMember>();
-  for (const m of info.decl.members) {
+  for (const m of info.members) {
     // Symbol-keyed methods ([Symbol.dispose]) are for Lucent code: JSI names properties by string.
     if (!isPublic(m) || (m.name && ts.isComputedPropertyName(m.name))) continue;
     ctx.guard(() => lowerMember(m));

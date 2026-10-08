@@ -171,7 +171,7 @@ export function subclassSuper(info: ClassInfo, name: string): { overridden: bool
 }
 
 function ownMethod(info: ClassInfo, name: string): ts.MethodDeclaration | undefined {
-  return info.decl.members.find(
+  return info.members.find(
     (m): m is ts.MethodDeclaration =>
       ts.isMethodDeclaration(m) &&
       !!m.body &&
@@ -210,9 +210,9 @@ export function iosSubclass(
   for (const ref of chain) noteFramework(em, ref.module);
 
   // Fields the base would not see where it has a property, or a method, of the name.
-  const ctor = info.decl.members.find(ts.isConstructorDeclaration);
+  const ctor = info.members.find(ts.isConstructorDeclaration);
   const fields = [
-    ...info.decl.members.filter(
+    ...info.members.filter(
       (m) =>
         (ts.isPropertyDeclaration(m) || ts.isGetAccessor(m) || ts.isSetAccessor(m)) &&
         !ts.getModifiers(m)?.some((x) => x.kind === ts.SyntaxKind.StaticKeyword),
@@ -235,7 +235,7 @@ export function iosSubclass(
   // Overrides: the base's methods the class defines, and the base's own implementation for super.
   const overrides: cpp.ObjcMethod[] = [];
   const supers: cpp.ObjcMethod[] = [];
-  for (const m of info.decl.members) {
+  for (const m of info.members) {
     if (!ts.isMethodDeclaration(m) || !m.body) continue;
     if (ts.getModifiers(m)?.some((x) => x.kind === ts.SyntaxKind.StaticKeyword)) continue;
 

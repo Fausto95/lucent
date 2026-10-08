@@ -82,12 +82,43 @@ The statements after a guard clause in the same block are the other platform's c
 A top-level declaration that uses one platform's code outside a branch belongs to that platform. It may use it directly, or through another declaration that belongs to it.
 
 - iOS code is what `lucent:ios` and `lucent:ios/<Module>` export, and `lucent:swiftui`. Android code is what `lucent:android` and `lucent:android/<package>` export, and `lucent:compose`.
-- Functions, classes, variables, type aliases, interfaces and enums can belong to a platform. A type annotation is a use: a variable typed `CLLocationManager` is iOS code. Type-only imports count too.
+- Functions, classes, variables, type aliases, interfaces and enums can belong to a platform, and so can [private class members](#platform-members). A type annotation is a use: a variable typed `CLLocationManager` is iOS code. Type-only imports count too.
 - A platform's declaration compiles in its own build only. It may be used in that platform's branches and declarations, and anywhere else fails with `LUCENT3004`.
 - A declaration that uses both platforms' code outside branches fails with `LUCENT3004`. Branch inside it, or split it in two.
-- An export never belongs to one platform, since JavaScript calls it on both. Platform code in an export must be inside a branch, or it fails with `LUCENT3004` where it is used.
+- An export never belongs to one platform, since JavaScript calls it on both. Platform code in an export must be inside a branch, or it fails with `LUCENT3004` where it is used. An exported class keeps SDK objects in [platform members](#platform-members).
 - `main` from `lucent:thread` is platform code of either platform: use it inside a branch or a platform's declaration (`LUCENT3004` otherwise).
 - `lucent:core`, `lucent:platform`, `lucent:ui` and `lucent:ext/<name>` run on both platforms.
+
+## Platform members
+
+A private member of a class belongs to a platform when it uses that platform's code outside a branch, as a declaration does. The class stays shared: JavaScript constructs it on both platforms, and each build compiles its own platform's members.
+
+```ts title="player.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { AVPlayer } from "lucent:ios/AVFoundation";
+import { MediaPlayer } from "lucent:android/android.media";
+
+export class Player {
+  private ios: AVPlayer | null = null; // iOS code
+  private android: MediaPlayer | null = null; // Android code
+
+  play(): void {
+    if (PLATFORM === "ios") this.ios?.play();
+    else this.media().start();
+  }
+
+  // Android code: it uses an Android field.
+  private media(): MediaPlayer {
+    if (!this.android) this.android = new MediaPlayer();
+    return this.android;
+  }
+}
+```
+
+- A platform member is a field, method or accessor declared `private` or with a `#` name. Public members, the constructor and parameter properties are shared code, since JavaScript sees them: their platform code goes inside a branch.
+- This applies to exported classes, and to classes that use both platforms. A class that isn't exported and uses one platform's code only, in any member, belongs to that platform as a whole, as before.
+- A platform member may be used in that platform's branches, declarations and members. Anywhere else fails with `LUCENT3004`, and so does a member that uses both platforms outside branches.
+- The other platform's build has no such member at all, and neither has the host build: `JSON.stringify` of an instance leaves it out there.
 
 ## What each build compiles
 

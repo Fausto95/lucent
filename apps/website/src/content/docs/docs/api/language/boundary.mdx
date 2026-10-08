@@ -182,4 +182,4 @@ So a `Uint8Array` that a JavaScript callback keeps doesn't follow the buffer. Un
 | A generic function or class | [LUCENT2007](/docs/api/diagnostics/#lucent2007) |
 | A union whose object members have no string-literal field to tell them apart | [LUCENT2005](/docs/api/diagnostics/#lucent2005) |
 
-An SDK object stays in native code: keep it in a Lucent class, and export the values JavaScript needs.
+An SDK object stays in native code. Keep it in a private field of an exported Lucent class, a [platform member](/docs/api/language/platform-code/#platform-members), and give the class methods that use it. JavaScript holds the instance as a reference.

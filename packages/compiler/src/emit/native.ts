@@ -1868,7 +1868,7 @@ function implementedEntries(
   const entries: cpp.Expr[] = [];
   const self = cpp.id("s_");
   for (const { module, owner, method } of methods) {
-    const impl = info.decl.members.find(
+    const impl = info.members.find(
       (x): x is ts.MethodDeclaration =>
         ts.isMethodDeclaration(x) &&
         ts.isIdentifier(x.name) &&

@@ -2292,7 +2292,7 @@ export class FnEmitter {
       // An Error subclass without a constructor takes Error's, whose options carry the cause.
       const ownCtor = this.reg
         .chain(t)
-        .some((c) => c.info.decl.members.some(ts.isConstructorDeclaration));
+        .some((c) => c.info.members.some(ts.isConstructorDeclaration));
       if (!ownCtor && this.reg.cls(t.id).isError) builtins.refuseCause(this, node.arguments?.[1]);
       const rest =
         params.length && params[params.length - 1]!.rest

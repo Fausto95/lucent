@@ -437,7 +437,7 @@ function staticMember(
   name: string,
 ): { decl: ts.ClassElement | undefined; owner: ClassInfo } {
   for (const c of [info, ...em.reg.ancestors(info)]) {
-    const decl = c.decl.members.find(
+    const decl = c.members.find(
       (m) => m.name && ts.isIdentifier(m.name) && m.name.text === name && isStatic(m),
     );
     if (decl) return { decl, owner: c };
