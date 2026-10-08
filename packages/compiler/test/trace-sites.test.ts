@@ -42,9 +42,13 @@ describe("trace sites", () => {
 
     // A synchronous call names its function; an async one names it for
     // the call, the job it posts and its completion; a method names its class.
-    expect(code).toContain(`callSync(rt, host, LUCENT_TRACE_SITE_AT("mean", "${file}", 1), `);
+    expect(code).toContain(
+      `callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("mean", "${file}", 1), `,
+    );
     expect(code).toContain(`LUCENT_TRACE_SITE_AT("later", "${file}", 5)`);
-    expect(code).toMatch(/callAsync<[^>]+>\(rt, host, LUCENT_TRACE_SITE_AT\("later", /);
+    expect(code).toMatch(
+      /callAsync<[^>]+>\(rt, host, lucent_app::actor_0\(\), LUCENT_TRACE_SITE_AT\("later", /,
+    );
     expect(code).toContain(`LUCENT_TRACE_SITE_AT("Meter.add", "${file}", 12)`);
   });
 });

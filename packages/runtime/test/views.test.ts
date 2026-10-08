@@ -82,7 +82,11 @@ function setup(native: object | null = {}, config: ComponentConfig = GAUGE) {
   const nativeHost =
     native &&
     Object.assign(native, {
-      __lucentViewRequests: (settle: (typeof connections)[number]) => connections.push(settle),
+      // The base of this runtime's request ids, if the native object says one.
+      __lucentViewRequests: (settle: (typeof connections)[number]) => {
+        connections.push(settle);
+        return (native as { requestBase?: number }).requestBase;
+      },
     });
 
   const ReactNative = {
@@ -291,6 +295,21 @@ describe("a component's commands", () => {
 
     await expect(measured).resolves.toBe(42);
     await expect(flushed).rejects.toThrow("Lucent: the view went away");
+  });
+
+  it("number requests from the base the host gives, so an id names its runtime", async () => {
+    const base = 2 ** 32 * 7;
+    const { mount, dispatched, connections } = setup({ requestBase: base });
+    const { ref, props } = refOf({});
+    const { view } = mount(props);
+
+    const measured = ref.current!.measure!(null);
+
+    expect(dispatched).toEqual([{ instance: view, command: "measure", args: [base + 1, [null]] }]);
+
+    connections[0]!(base + 1, null, 7);
+
+    await expect(measured).resolves.toBe(7);
   });
 
   it("reject a request when its view unmounts (an AbortError), and ignore its late answer", async () => {

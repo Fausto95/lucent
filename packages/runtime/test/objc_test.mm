@@ -57,12 +57,12 @@ static void blocksReleaseWhatTheyHold() {
     void (^later)(BOOL) = objc::block<void (^)(BOOL)>([f_ = f](BOOL a) { postCallback([f_, a]() { f_(a == YES); }); });
     now(YES);
     std::thread([later] { later(NO); }).join();
-    Scheduler::instance().waitIdle(2000);
+    Actor::shared().waitIdle(2000);
     f = Fn<void(bool)>();
     now = nil;
     later = nil;
   }
-  Scheduler::instance().waitIdle(2000);
+  Actor::shared().waitIdle(2000);
   CHECK(calls == 2);
   CHECK(watch.expired());
 }

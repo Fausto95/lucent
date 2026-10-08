@@ -92,12 +92,12 @@ bool runLoop(jsi::Runtime& rt, double timeoutMs) {
       }
     }
     if (ranTimer) continue;
-    bool lucentIdle = lucent::Scheduler::instance().pendingWork() == 0;
+    bool lucentIdle = lucent::Actor::pendingWorkOfAll() == 0;
     if (lucentIdle && timers.empty()) {
       // Give in-flight posts a moment to land.
       std::unique_lock<std::mutex> g(queueMutex);
       if (queue.empty() && !queueCv.wait_for(g, std::chrono::milliseconds(20), [] { return !queue.empty(); })) {
-        if (lucent::Scheduler::instance().pendingWork() == 0) return true;
+        if (lucent::Actor::pendingWorkOfAll() == 0) return true;
       }
       continue;
     }

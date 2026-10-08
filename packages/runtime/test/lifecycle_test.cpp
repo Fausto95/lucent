@@ -81,7 +81,7 @@ static bool mainCaughtUp() {
   return within(2000, [&] { return done->load(); });
 }
 
-static bool moduleCaughtUp() { return Scheduler::instance().waitIdle(2000); }
+static bool moduleCaughtUp() { return Actor::shared().waitIdle(2000); }
 
 static std::string describe(const Error& e) { return e ? e->name.toUtf8() + ": " + e->message.toUtf8() : ""; }
 
