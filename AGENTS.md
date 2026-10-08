@@ -33,7 +33,9 @@ runtime/js           loader, copied to .lucent/native/js/_lucent/runtime.js
   end-to-end case in `packages/compiler/test/e2e/cases/` (`<name>.lucent.ts` +
   `<name>.test.js`). The runner compares native output with the same source
   run as JavaScript; a deviation needs a documented reason in
-  `docs/semantics.md`.
+  `docs/semantics.md`, and a row in the website's differences or known
+  gaps: `apps/website/src/docs/language.ts`, which
+  `node scripts/website.ts` checks against the compiler.
 - Unsupported features fail with a `LUCENT` diagnostic (`fail(node, Codes.X, …)`),
   never with invalid C++.
 - Generated C++ must not depend on unspecified evaluation order (the IR's
