@@ -62,13 +62,25 @@ function proxyFor(filename, projectRoot) {
 /** The file's content hash, as the build records it (src/cli/problems.ts). */
 const hashOf = (text) => crypto.createHash("sha256").update(text).digest("hex").slice(0, 16);
 
+/** `file`'s realpath, or `file` if it does not exist. */
+function realpath(file) {
+  try {
+    return fs.realpathSync(file);
+  } catch {
+    return file;
+  }
+}
+
 /** The last build's problems for `file` (absolute), as `lucent build` printed them: { hash, text }. */
 function problemsOf(projectRoot, file) {
   try {
     const record = JSON.parse(
       fs.readFileSync(path.join(projectRoot, ".lucent", "problems.json"), "utf8"),
     );
-    return record.files && record.files[file];
+    if (!record.files) return undefined;
+    // The build records realpaths (the CLI resolves --root); Metro's projectRoot may be a
+    // symlink to the project, as macOS's temporary directory is.
+    return record.files[file] || record.files[realpath(file)];
   } catch {
     return undefined;
   }
