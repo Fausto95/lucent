@@ -51,6 +51,8 @@ import * as eventsModule from "../lucent/events.lucent";
 import eventsRun from "./events";
 import * as exportedErrorsModule from "../lucent/exported-errors.lucent";
 import exportedErrorsRun from "./exported-errors";
+import * as exportedObjectsModule from "../lucent/exported-objects.lucent";
+import exportedObjectsRun from "./exported-objects";
 import * as exportedStaticsModule from "../lucent/exported-statics.lucent";
 import exportedStaticsRun from "./exported-statics";
 import * as exportedVariablesModule from "../lucent/exported-variables.lucent";
@@ -188,6 +190,7 @@ export const cases: TestCase[] = [
   { name: "errors", module: errorsModule, run: errorsRun, expected: ["2","true DIVIDE_BY_ZERO Cannot divide by zero","ValidationError age must be positive","ok failed: DIVIDE_BY_ZERO Cannot divide by zero 0.25","wrapped age: age must be positive","lucent site: true TypeError: deep","js stack kept: true","[\"Error:false:Error: a\",\"TypeError:false:TypeError: b\",\"RangeError:false:RangeError: c\",\"SyntaxError:true:SyntaxError: d\"]","SyntaxError true bad","[\"Error:p:Error: p\",\"Error:c:Error: c\",\"Error:d:Error: d\",\"Error::Error\"]","true Error thrown Error: thrown","[\"Error::Error\",\"SyntaxError::SyntaxError\",\"Error:e:Error: e\",\"Error::Error\",\"Error:p:Error: p\",\"Error::Error\"]","[\"Error:m:Error: m\",\"SyntaxError:m:SyntaxError: m\",\"Error:e:Error: e\",\"Error:m:Error: m\",\"Error:p:Error: p\",\"Error:m:Error: m\"]"] },
   { name: "events", module: eventsModule, run: eventsRun, expected: ["true","1 2 0","{\"events\":{},\"name\":\"channel\"} {}","a 0, a 50, a 100, done a true, again a","returned","done b false, again b","0 1 0","done c true","0 0 0","a1 b1 c1 a2 c2 d2 count 3 listener failed count 0","1","3 undefined, 4 labelled","1"] },
   { name: "exported-errors", module: exportedErrorsModule, run: exportedErrorsRun, expected: ["bad ParseError 2 ParseError: bad string","true true false","ParseError: bad @2 parse 2","Renamed: changed @2 Renamed: changed","unexpected } TokenError 1 } TokenError: unexpected }","true true true","token }","bad line 5 ParseError 5 ParseError: bad line 5","true true","as error 6 ParseError true true","parse 6 error plain","failed at 7 ParseError 7 ParseError: failed at 7 string","true true parse 7","] 1 TokenError: unexpected ] true true","true changed","later later 8 8 true"] },
+  { name: "exported-objects", module: exportedObjectsModule, run: exportedObjectsRun, expected: ["true 2 3","1 1","true 2 3","1 1,20"] },
   { name: "exported-statics", module: exportedStaticsModule, run: exportedStaticsRun, expected: ["0 registry 3 0","1 2 2 a+b","registry: 2/3 a,b registry 2 2","renamed 10 renamed: 10/3 a,b renamed","inner inner of registry registry 10 function","11 11 registry: 11/3 a,b,c"] },
   { name: "exported-variables", module: exportedVariablesModule, run: exportedVariablesRun, expected: ["1","1","3","true true","11","1"] },
   { name: "function-values", module: functionValuesModule, run: functionValuesRun, expected: ["false true false","true false true","false true","true false","4 6 true true 1"] },
