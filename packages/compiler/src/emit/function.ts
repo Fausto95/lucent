@@ -1391,18 +1391,15 @@ export class FnEmitter {
     }
     const compound = ASSIGN_OPS.get(op);
     if (compound) return this.compoundAssign(node, compound);
-    if (
-      op === ts.SyntaxKind.QuestionQuestionEqualsToken ||
-      op === ts.SyntaxKind.BarBarEqualsToken ||
-      op === ts.SyntaxKind.AmpersandAmpersandEqualsToken
-    )
-      return this.logicalAssign(node, op);
+    // The IR lowers every `&&`, `||`, `??` and logical assignment (ir/lower.ts's logical and
+    // logicalAssign): their short-circuiting is its control flow, never the emitter's.
+    if (LOGICAL.has(op))
+      fail(
+        node,
+        Codes.UnsupportedSyntax,
+        `\`${ts.tokenToString(op)}\` is not supported here; compute the value in a function`,
+      );
     switch (op) {
-      case ts.SyntaxKind.AmpersandAmpersandToken:
-      case ts.SyntaxKind.BarBarToken:
-        return this.logical(node, op === ts.SyntaxKind.AmpersandAmpersandToken);
-      case ts.SyntaxKind.QuestionQuestionToken:
-        return this.nullish(node);
       case ts.SyntaxKind.CommaToken: {
         const a = this.expr(node.left);
         const b = this.expr(node.right);
@@ -1791,95 +1788,6 @@ export class FnEmitter {
       ),
       t: lt,
     };
-  }
-
-  /** `??=`, `||=`, `&&=`: the right side runs, and is stored, only when the test passes. */
-  private logicalAssign(node: ts.BinaryExpression, op: ts.SyntaxKind): E {
-    const lv = this.lvalue(node.left);
-    const cur: E = { c: lv.get, t: lv.type };
-    const test =
-      op === ts.SyntaxKind.QuestionQuestionEqualsToken
-        ? cpp.not(cpp.call(cpp.dot(lv.get, "has")))
-        : op === ts.SyntaxKind.BarBarEqualsToken
-          ? cpp.not(cpp.call("lucent::truthy", [lv.get]))
-          : cpp.call("lucent::truthy", [lv.get]);
-    const value = this.expr(node.right, lv.type);
-    const run = this.diverges(node.right)
-      ? this.diverging(value)
-      : [cpp.exprStmt(this.assignTo(node.left, value, node))];
-
-    return {
-      c: cpp.statementExpr([cpp.ifStmt(test, run)], this.coerce(cur, lv.type, node)),
-      t: lv.type,
-    };
-  }
-
-  private logical(node: ts.BinaryExpression, isAnd: boolean): E {
-    const a = this.expr(node.left);
-
-    // `never || b` throws before there is a value to test, or `b` runs.
-    if (a.t.k === "never") {
-      const t = this.lt(node);
-
-      return { c: this.coerce(a, t, node), t };
-    }
-
-    const b = this.expr(node.right);
-    if (a.t.k === "boolean" && b.t.k === "boolean")
-      return { c: cpp.binary(a.c, isAnd ? "&&" : "||", b.c), t: T.boolean };
-    // Evaluated once; the result is one operand or the other, as in JavaScript.
-    const t = this.lt(node);
-    const tmpName = this.ctx.fresh("l");
-    const tmp = cpp.id(tmpName);
-    const test = a.t.k === "boolean" ? tmp : cpp.call("lucent::truthy", [tmp]);
-    const left = this.coerceNarrowed({ c: tmp, t: a.t }, t, node);
-    const decl = cpp.varDecl(cpp.auto, tmpName, a.c);
-
-    // `a || never` throws when `a` is falsy, `a && never` when it is truthy: otherwise it is `a`.
-    if (this.diverges(node.right)) {
-      const runs = isAnd ? test : cpp.not(test);
-
-      return { c: cpp.statementExpr([decl, cpp.ifStmt(runs, this.diverging(b))], left), t };
-    }
-
-    const right = this.coerce(b, t, node);
-    const pick = isAnd ? cpp.conditional(test, right, left) : cpp.conditional(test, left, right);
-    return { c: cpp.statementExpr([decl], pick), t };
-  }
-
-  /** Coerces a value whose runtime value is known (by a branch) to fit `to`. */
-  private coerceNarrowed(e: E, to: LType, node: ts.Node): cpp.Expr {
-    try {
-      return this.coerce(e, to, node);
-    } catch {
-      return cpp.call("lucent::convert", [e.c], [this.reg.cppType(to)]);
-    }
-  }
-
-  private nullish(node: ts.BinaryExpression): E {
-    const a = this.expr(node.left);
-    const t = this.lt(node);
-    const b = this.expr(node.right, t);
-    // Always absent: the right side, after the left side runs.
-    if (a.t.k === "undefined" || a.t.k === "null")
-      return { c: afterEffects(a.c, this.coerce(b, t, node)), t };
-
-    if (a.t.k !== "opt") return { c: this.coerce(a, t, node), t };
-    const tmpName = this.ctx.fresh("n");
-    const tmp = cpp.id(tmpName);
-    const present = this.coerce({ c: cpp.call(cpp.dot(tmp, "get")), t: a.t.inner }, t, node);
-    const has = cpp.call(cpp.dot(tmp, "has"));
-    const decl = cpp.varDecl(cpp.auto, tmpName, a.c);
-
-    // `a ?? never` throws when `a` is absent: otherwise it is what `a` holds.
-    if (this.diverges(node.right))
-      return {
-        c: cpp.statementExpr([decl, cpp.ifStmt(cpp.not(has), this.diverging(b))], present),
-        t,
-      };
-
-    const pick = cpp.conditional(has, present, this.coerce(b, t, node));
-    return { c: cpp.statementExpr([decl], pick), t };
   }
 
   /** Whether an expression never gives a value: its type is `never` (a call that always throws). */
@@ -2852,3 +2760,13 @@ function unify(pattern: LType, actual: LType, map: Map<string, LType>): void {
 }
 
 export { containsAwait };
+
+/** The operators that short-circuit, which only the IR lowers. */
+const LOGICAL: ReadonlySet<ts.SyntaxKind> = new Set([
+  ts.SyntaxKind.AmpersandAmpersandToken,
+  ts.SyntaxKind.BarBarToken,
+  ts.SyntaxKind.QuestionQuestionToken,
+  ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+  ts.SyntaxKind.BarBarEqualsToken,
+  ts.SyntaxKind.QuestionQuestionEqualsToken,
+]);

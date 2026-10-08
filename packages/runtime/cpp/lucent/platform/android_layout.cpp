@@ -66,7 +66,7 @@ jint specOf(float size, MeasureMode mode, float density) {
   return px | (mode == MeasureMode::Exactly ? kExactly : kAtMost);
 }
 
-jfloatArray measured(JNIEnv* env, jclass, jlong id, jint wm, jint w, jint hm, jint h, jboolean rtl) {
+jfloatArray measure(JNIEnv* env, jlong id, jint wm, jint w, jint hm, jint h, jboolean rtl) {
   auto side = sideOf(id);
   if (!side) return nullptr;
 
@@ -90,7 +90,7 @@ jfloatArray measured(JNIEnv* env, jclass, jlong id, jint wm, jint w, jint hm, ji
   return out;
 }
 
-void laidOut(JNIEnv* env, jclass, jlong id, jint width, jint height, jboolean rtl) {
+void layOut(JNIEnv* env, jlong id, jint width, jint height, jboolean rtl) {
   auto side = sideOf(id);
   if (!side) return;
 
@@ -117,6 +117,16 @@ void laidOut(JNIEnv* env, jclass, jlong id, jint width, jint height, jboolean rt
     env->CallVoidMethod(v, layout, left, top, right, bottom);
     jni::check(env);
   }
+}
+
+// The natives: onMeasure and onLayout on the main thread, where nothing
+// may unwind into the JVM.
+jfloatArray measured(JNIEnv* env, jclass, jlong id, jint wm, jint w, jint hm, jint h, jboolean rtl) {
+  return jni::reported(env, "a Flex's measure", static_cast<jfloatArray>(nullptr), [&] { return measure(env, id, wm, w, hm, h, rtl); });
+}
+
+void laidOut(JNIEnv* env, jclass, jlong id, jint width, jint height, jboolean rtl) {
+  jni::reported(env, "a Flex's layout", [&] { layOut(env, id, width, height, rtl); });
 }
 
 jclass flexClass(JNIEnv* env) {

@@ -14,6 +14,7 @@ import {
 } from "./platforms.ts";
 import {
   builtinSdkModuleOf,
+  type CompileSession,
   createLucentProgram,
   findLucentFiles,
   type LucentProgram,
@@ -25,22 +26,16 @@ import {
   usesPlatforms,
 } from "./program.ts";
 import { sdkAvailable, type UsedSymbol } from "@lucent-lang/bindgen";
-import {
-  type Platform,
-  PLATFORMS,
-  platformSdkTyped,
-  type SdkOptions,
-  withSdkOptions,
-} from "./sdk/schema.ts";
+import { type Platform, PLATFORMS, platformSdkTyped, type SdkOptions } from "./sdk/schema.ts";
 import type { ExtensionBinding } from "./extensions/bind.ts";
 import { bindExtensions } from "./extensions/bind.ts";
 import { extensionDts } from "./extensions/dts.ts";
-import { withExtensions } from "./extensions/registry.ts";
+import { withSourceRoot } from "./lowering/source.ts";
 import { resolveNative } from "./package-config.ts";
 import { fileHashes } from "./package-files.ts";
 import { lucentPackages } from "./packages.ts";
-import { recordReads } from "./reads.ts";
-import { recordSdkUses } from "./sdk/usage.ts";
+import { compileContext, runInCompile } from "./compile-context.ts";
+import { sdkUsesOf } from "./sdk/usage.ts";
 import { analyzeViews, hasComponentModules } from "./ui/analyze.ts";
 import { ts as js } from "@lucent-lang/codegen";
 import type { ComponentDescription } from "./ui/contract.ts";
@@ -59,6 +54,7 @@ export { formatDiagnostic, type Diagnostic } from "./diagnostics.ts";
 export { type BuildIdentity, identityScript, RUNTIME_ABI } from "./emit/identity.ts";
 export { moduleNamespace } from "./types.ts";
 export {
+  CompileSession,
   findLucentFiles,
   moduleNameOf,
   platformOf,
@@ -185,6 +181,12 @@ export interface CompileOptions {
   /** The native extensions `lucent:ext/<name>` imports, bound (bindExtensions). */
   extensions?: readonly ExtensionBinding[];
   /**
+   * What the last compile with this session kept (editors and watchers
+   * check again and again): each target's program, which the next one
+   * reuses, so only what changed is parsed and checked again.
+   */
+  session?: CompileSession;
+  /**
    * Platforms whose SDK imports resolve only later (Android's, from the
    * app's dependencies, which its Gradle build resolves). They are not
    * targets (asking for one throws), and the other targets' programs leave
@@ -192,6 +194,11 @@ export interface CompileOptions {
    * own build checks it.
    */
   deferred?: Platform[];
+  /**
+   * The project's directory: `#line` directives, error sites and trace
+   * sites name sources relative to it (default: the working directory).
+   */
+  root?: string;
 }
 
 /** Compiles `*.lucent.ts` files to C++ sources and JS proxies. */
@@ -201,17 +208,22 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
   if (targeted.length)
     throw new Error(`deferred platforms cannot be targets: ${targeted.join(", ")}`);
 
-  const {
-    value: { value: result, uses },
-    read,
-    realpaths,
-  } = recordReads(() =>
-    recordSdkUses(() =>
-      withExtensions(options.extensions, () =>
-        withSdkOptions(options.sdk, () => compileWith(files, options), deferred),
-      ),
-    ),
+  // This compile's own options and records: another compile in the process (an editor's check
+  // while `lucent dev` builds) has its own.
+  const context = compileContext({
+    ...(options.sdk ? { sdk: options.sdk } : {}),
+    deferred,
+    ...(options.extensions ? { extensions: options.extensions } : {}),
+  });
+  const result = runInCompile(context, () =>
+    withSourceRoot(options.root, () => compileWith(files, options)),
   );
+  const [read, realpaths, uses] = [context.reads, context.realpaths, sdkUsesOf(context)];
+
+  if (options.session) {
+    options.session.reads = new Map(read);
+    options.session.realpaths = new Map(realpaths);
+  }
 
   // Every extension's declarations, for editors and tsc: what an import resolves to.
   const types = new Map(result.types ?? []);
@@ -228,6 +240,14 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
   };
 }
 
+/** The session part of a program's options: its target's program to reuse, under `key`. */
+function sessionFor(
+  options: CompileOptions,
+  key: string,
+): { session?: { session: CompileSession; key: string } } {
+  return options.session ? { session: { session: options.session, key } } : {};
+}
+
 /** A diagnostic with its code's usual fix, unless it names its own, and where the code is explained. */
 function explained(d: Diagnostic): Diagnostic {
   const e = Explanations[d.code as Code] as (typeof Explanations)[Code] | undefined;
@@ -239,7 +259,9 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
   // Shared modules that branch on the platform are compiled per target too.
   const branching = plan.shared.some((f) => usesPlatforms(f, options.readSource));
   if (!plan.platformModules.length && !plan.diagnostics.length && !branching)
-    return compileOnce(createLucentProgram(files, options.readSource));
+    return compileOnce(
+      createLucentProgram(files, options.readSource, undefined, sessionFor(options, "program")),
+    );
 
   const out: Compiled = {
     files: new Map(),
@@ -258,6 +280,7 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
       result = compileOnce(
         createLucentProgram([...plan.shared, ...declarations], options.readSource, undefined, {
           stubs: declarations,
+          ...sessionFor(options, target),
         }),
         declarations,
         target,
@@ -271,6 +294,7 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
       const impls = plan.platformModules.map((pm) => pm.implementations[target]!);
       const lp = createLucentProgram([...plan.shared, ...impls], options.readSource, target, {
         references: declarations,
+        ...sessionFor(options, target),
       });
       result = compileOnce(lp, declarations);
       collectTypes(lp, (out.types ??= new Map()));
@@ -446,7 +470,7 @@ function dedupe(ds: Diagnostic[]): Diagnostic[] {
 export function checkSources(
   files: string[],
   readSource?: ReadSource,
-  options: { extensions?: readonly ExtensionBinding[] } = {},
+  options: { extensions?: readonly ExtensionBinding[]; session?: CompileSession } = {},
 ): Diagnostic[] {
   const r = compile(files, { readSource, ...options });
   return [...r.diagnostics, ...(r.warnings ?? [])];

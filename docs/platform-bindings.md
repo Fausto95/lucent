@@ -497,7 +497,7 @@ _exercised_ (listed in an `--exercised` file of symbol keys that tests or
 probes write). A stage without evidence is unknown (`-`, `null` in JSON),
 not 0. `--members` lists every member with its stage, symbol key, native
 symbol, artifact and reason. CI fails when a module's unrepresentable
-share grows past `sdk-coverage.json`. `--all` takes every module of each
+share grows past `config/sdk-coverage.json`. `--all` takes every module of each
 SDK there is, listing the ones its extractor cannot read rather than
 failing (IOKit, and the cross-import overlays, for the simulator), and
 `--summary <file>` appends a markdown summary: the members in total and
@@ -783,7 +783,8 @@ the check is Lucent's. `appContext()` returns the Android `Application`
   the reference returned is for use now, on the main thread.
 - `startActivityForResult(intent, signal?)` and
   `requestPermissions(permissions, signal?)`: each request is an Operation
-  under the calling context's root scope (`platform/android_requests.h`),
+  under the scope the calling context's work belongs to (`ownedScope`:
+  module code's ends with its JavaScript runtime; `platform/android_requests.h`),
   settled exactly once on that context by the id the Java side echoes back.
   The request runs in `LucentRequestActivity`, a translucent Activity the
   library manifest declares (no AndroidX, any host Activity), so the app's
@@ -867,10 +868,9 @@ window and top view controller for the current turn of the main thread,
 and `presentOperation<T>(scope, signal, build)` presents under a scope of
 its own, whose disposal cancels the presentation.
 
-Not yet: presentations and subscriptions made from Lucent code belong to
-the calling context's root scope, so a JavaScript reload does not end
-them (their JavaScript callbacks are dropped); stop them, or pass a
-signal. URLs and user activities the app opens have no event yet (React
+Presentations and subscriptions made from module code belong to its
+JavaScript runtime's scope (`ownedScope`): a reload ends them, as it
+ends module code's operations, callbacks and timers. Not yet: URLs and user activities the app opens have no event yet (React
 Native's `Linking` has them), and apps that support several scenes are
 covered by unit tests only.
 

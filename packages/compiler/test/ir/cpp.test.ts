@@ -26,10 +26,15 @@ const UNKNOWN: EffectRef = { throws: "unknown" };
 
 const fn = (id: string) => ({ kind: "function", id }) as const;
 
+/** The function's C++, without the `#line N` the printer repeats on each line (codegen's tests check those). */
 function printed(f: IrFunction): string {
   const out = toCpp(f, backend);
 
-  return cpp.printDecls([cpp.fn(f.id, out.ret, out.params, out.body)]);
+  return cpp
+    .printDecls([cpp.fn(f.id, out.ret, out.params, out.body)])
+    .split("\n")
+    .filter((l) => !/^#line \d+$/.test(l))
+    .join("\n");
 }
 
 /** `return combine(next("l"), next("r"))`, over three lines. */

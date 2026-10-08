@@ -269,5 +269,10 @@ export interface ObjcMethod {
 export interface Unit {
   /** The first line, a comment saying where the file comes from. */
   banner?: string;
+  /**
+   * The file's own name, as `#line` gives it: after a declaration whose
+   * code names source lines, a `#line` makes the next lines this file's again.
+   */
+  file?: string;
   decls: Decl[];
 }

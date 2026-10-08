@@ -97,6 +97,8 @@ function dumpOp(op: IrOp, type: (v: ValueId) => string): string {
       return def(op.result, `load p${op.place}`);
     case "store":
       return `store p${op.place} = v${op.value}`;
+    case "renew":
+      return `renew p${op.place}`;
     case "call": {
       const text = `call ${callee(op.callee)}(${list(op.args)}) throws=${op.effects.throws}`;
 

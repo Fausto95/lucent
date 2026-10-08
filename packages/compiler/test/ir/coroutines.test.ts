@@ -54,10 +54,32 @@ describe("coroutines in the IR", () => {
     expect(inOrder(forwarded, "later(3.0)", "co_await", "co_return")).toBe(true);
   });
 
-  it("stays a coroutine when it only throws, so the throw rejects its promise", () => {
+  it("rejects its promise with what a body that never awaits throws", () => {
     const fails = body(cppOf(module(SAMPLE)), "fails");
 
-    expect(inOrder(fails, "lucent::throwError(", "co_return []() -> double {")).toBe(true);
+    expect(
+      inOrder(
+        fails,
+        "try {",
+        "lucent::throwError(",
+        "} catch (...) {",
+        "Promise<double>::rejected(",
+      ),
+    ).toBe(true);
+
+    expect(fails).not.toContain("co_");
+  });
+
+  it("settles the promise of a body that never awaits, with no coroutine frame", () => {
+    const out = cppOf(module(SAMPLE));
+
+    // later() and forwarded() never suspend: the promise is settled when they return.
+    expect(body(out, "later")).toContain("return lucent::Promise<double>::resolved(p0_);");
+
+    expect(body(out, "later")).not.toContain("co_return");
+
+    // both() awaits: a coroutine.
+    expect(body(out, "both")).toContain("co_await");
   });
 
   it("passes an async closure's captures to its coroutine as parameters", () => {

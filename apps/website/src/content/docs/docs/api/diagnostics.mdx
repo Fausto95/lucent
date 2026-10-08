@@ -66,6 +66,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT3030`](#lucent3030) | A span that withRead or withWrite lends escapes its callback: returned, stored, kept by a closure or callee, or held across await. |
 | [`LUCENT3031`](#lucent3031) | A NativeBuffer is used after transfer() or after it was handed to compute(), which move its bytes to another buffer. |
 | [`LUCENT9001`](#lucent9001) | A TypeScript error. Lucent stops at type errors, because it compiles from the checker's types. |
+| [`LUCENT9002`](#lucent9002) | Lucent failed to compile a function it accepted: a bug in the compiler, reported at the function instead of stopping the build. |
 
 ## Syntax and built-ins (1xxx)
 
@@ -1840,6 +1841,26 @@ export function double(n: number): number {
 ```
 
 </TabItem>
+<TabItem label="✓ example.lucent.ts">
+
+```ts title="example.lucent.ts (right)"
+export function double(n: number): number {
+  return n * 2;
+}
+```
+
+</TabItem>
+</Tabs>
+
+### LUCENT9002
+
+**Internal compiler error**
+
+The compiler checks each function's generated code and stops at one that would be wrong, instead of writing invalid C++. The rest of the program still compiles, so other diagnostics stay accurate. The message names what went wrong; the function itself may be valid TypeScript in the subset.
+
+**Fix:** report the code at the diagnostic as a Lucent bug; rewriting that expression usually avoids it.
+
+<Tabs>
 <TabItem label="✓ example.lucent.ts">
 
 ```ts title="example.lucent.ts (right)"

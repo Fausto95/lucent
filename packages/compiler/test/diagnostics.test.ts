@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { compile } from "../src/index.ts";
+import { IrBuildError, IrBuilder } from "../src/ir/build.ts";
 
 function compileSource(source: string, name = "sample") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-diag-"));
@@ -842,5 +843,39 @@ export function f(round: boolean): number {
         ),
       ).toContain("LUCENT1003");
     });
+  });
+});
+
+describe("internal compiler errors", () => {
+  it("are a LUCENT9002 at the function, and the rest of the program still compiles", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-ice-"));
+    const file = path.join(dir, "ice.lucent.ts");
+
+    fs.writeFileSync(
+      file,
+      "export function bad(a: number): number {\n  return a * 3;\n}\nexport function good(): string {\n  return 'ok';\n}\nexport function alsoBad(): number {\n  return 2;\n}\nexport const n: number = 1 * 2;\n",
+    );
+
+    const binary = IrBuilder.prototype.binary;
+    const spy = vi.spyOn(IrBuilder.prototype, "binary").mockImplementation(function (
+      this: IrBuilder,
+      ...args: Parameters<IrBuilder["binary"]>
+    ) {
+      if (args[0] === "*" && (this as unknown as { id: string }).id.endsWith("::bad"))
+        throw new IrBuildError("IR: * refused");
+
+      return binary.apply(this, args);
+    });
+
+    try {
+      const r = compile([file]);
+      const ice = r.diagnostics.filter((d) => d.code === "LUCENT9002");
+
+      expect(ice).toHaveLength(1);
+      expect(ice[0]).toMatchObject({ line: 1, message: "internal compiler error: IR: * refused" });
+      expect(r.diagnostics.map((d) => d.code)).toEqual(["LUCENT9002"]);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

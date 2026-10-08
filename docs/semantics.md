@@ -374,7 +374,8 @@ static methods; its static fields stay inside Lucent.
 
 - **Arguments are validated**, because JavaScript callers can pass anything:
   `hash: argument 'input' must be a string, got a number`, or for nested values
-  `midpoint: argument 'a'.y must be a number, got undefined`.
+  `midpoint: argument 'a'.y must be a number, got undefined`. The path is
+  rendered only when a check fails: checking a value allocates nothing for it.
 - **`null` and `undefined` are told apart** where TypeScript does: an
   argument, a setter's value or an object's field typed `T | undefined` (or
   `x?: T`) rejects `null`, and one typed `T | null` rejects `undefined`
@@ -468,6 +469,24 @@ Consequence: while a long async computation runs, synchronous calls from
 JavaScript wait for it to reach an `await`. Keep synchronous functions short, or
 make heavy ones `async`.
 
+## Recursion limits
+
+A Lucent function call is a native call: recursion uses the thread's
+native stack, with no check per call. The stack is 8 MB on every thread
+Lucent starts (the Lucent thread, isolated and compute contexts), where a
+platform's default for a secondary thread is 512 KB (iOS) to 1 MB
+(Android). The JS thread and the main thread have the platform's: about
+8 MB on iOS's main thread, 8 MB on Android's, and React Native's JS thread
+its own (1 MB on Android, 512 KB or more on iOS, depending on the version).
+A synchronous exported function runs on the JS thread, so its recursion
+has the JS thread's stack; an `async` one starts on the Lucent thread.
+
+A frame is a few hundred bytes for a small function, so thousands of
+levels fit on the JS thread and tens of thousands on Lucent's; recursion
+as deep as its input (a tree from JSON, a linked list) should be a loop,
+or bounded. Regular expressions are checked: a pattern nested past what
+the stack holds throws `SyntaxError` when it is compiled.
+
 ## Memory
 
 Objects, arrays, closures and class instances are reference counted. A cycle of
@@ -481,9 +500,10 @@ explicitly, for example by clearing a field.
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `arr[i] = v` with `i > length`, or `arr.length = n` above the length, creates holes             | throws `RangeError`, whatever the element type; append with `push` or assign at `length`                                                                                                                                                                                                                                 |
 | `arr[i]` / `record[k]` out of range → `undefined`                                               | same, and the type says `T \| undefined`; `!` throws `TypeError` if absent                                                                                                                                                                                                                                               |
+| `x as T` changes nothing at run time: a wrong assertion goes unnoticed                          | taking a member out of a union (`x as number` on a `string \| number`) checks the value: another member throws `TypeError` where the assertion is made, since the native value holds one member's layout                                                                                                                 |
 | arrays and objects passed to native code are shared                                             | copied at the boundary (inside Lucent they are shared)                                                                                                                                                                                                                                                                   |
 | garbage collection frees cycles                                                                 | reference counting leaks cycles                                                                                                                                                                                                                                                                                          |
-| deep recursion throws `RangeError`                                                              | may overflow the native stack                                                                                                                                                                                                                                                                                            |
+| deep recursion throws `RangeError`                                                              | recursion runs on the native stack and may overflow it, ending the app: see [Recursion limits](#recursion-limits). A regular expression nested past the stack's room throws `SyntaxError` ("stack overflow") instead                                                                                                     |
 | `==` converts first between a number, string, boolean, bigint or object (`1 == "1"`)            | refused (`LUCENT1002`); compare with `===` after converting                                                                                                                                                                                                                                                              |
 | functions compare by reference                                                                  | comparing two functions is rejected (`LUCENT1002`): a function value has no stable identity                                                                                                                                                                                                                              |
 | tuples are arrays and compare by reference                                                      | tuples are values: `===` compares their elements                                                                                                                                                                                                                                                                         |

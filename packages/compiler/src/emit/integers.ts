@@ -16,7 +16,8 @@ import type { IntKind } from "./context.ts";
  * `i64`, and the emitter computes those writes in int64 (ir/cpp.ts, `stored`).
  *
  * A `for` counter (`let i = <int>; …; i++ / i-- / i += <int>`) that nothing
- * else writes becomes an `i64`: exact for every value JavaScript can count to.
+ * else writes becomes an `i64`: exact for every value JavaScript can count to
+ * by ones, and, for a larger step, when its test stops it short of 2^53.
  */
 
 const I32_MIN = -2147483648;
@@ -503,8 +504,57 @@ export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
 }
 
 /**
+ * Whether `cond`, a `for`'s test, ends a counter stepping by `step` before
+ * it passes ±2^53: `i < b` or `i <= b` (`b > i`, `b >= i`) going up, the
+ * reverse going down, `b` a literal or a `length` (`size`) within bounds.
+ * Each value the counter takes is then an exact integer, as the double's.
+ */
+function boundedBy(
+  cond: ts.Expression | undefined,
+  isCounter: (e: ts.Expression) => boolean,
+  step: number,
+  checker: ts.TypeChecker,
+): boolean {
+  if (!cond) return false;
+  if (ts.isParenthesizedExpression(cond))
+    return boundedBy(cond.expression, isCounter, step, checker);
+  if (!ts.isBinaryExpression(cond)) return false;
+  const op = cond.operatorToken.kind;
+  const below = op === ts.SyntaxKind.LessThanToken || op === ts.SyntaxKind.LessThanEqualsToken;
+  const above =
+    op === ts.SyntaxKind.GreaterThanToken || op === ts.SyntaxKind.GreaterThanEqualsToken;
+  if (!below && !above) return false;
+  const [counter, bound, upward] = isCounter(cond.left)
+    ? [cond.left, cond.right, below]
+    : [cond.right, cond.left, above];
+  if (!isCounter(counter) || isCounter(bound) || upward !== step > 0) return false;
+  const r = boundRange(bound, checker);
+  return r !== undefined && r.lo - Math.abs(step) >= -EXACT && r.hi + Math.abs(step) <= EXACT;
+}
+
+/** The range of a `for` bound: a literal's, or a string's, an array's, a map's or a set's size. */
+function boundRange(e: ts.Expression, checker: ts.TypeChecker): Range | undefined {
+  if (ts.isParenthesizedExpression(e)) return boundRange(e.expression, checker);
+  if (ts.isPropertyAccessExpression(e) && ["length", "size"].includes(e.name.text)) {
+    const t = checker.getTypeAtLocation(e.expression);
+    const sized =
+      t.flags & ts.TypeFlags.StringLike ||
+      checker.isArrayType(t) ||
+      ["Map", "Set", "ReadonlyMap", "ReadonlySet", "Uint8Array"].includes(t.symbol?.name ?? "");
+    return sized ? { lo: 0, hi: U32_MAX } : undefined;
+  }
+  const r = rangeOf(e, {
+    ranges: new Map(),
+    kinds: new Map(),
+    opts: { checker, isMath: () => false },
+  });
+  return typeof r === "object" ? r : undefined;
+}
+
+/**
  * The counter of `for (let i = <int>; …; i++)` when it can be an i64: an
- * integer start, a step of ±1 or an integer literal, and no other writes.
+ * integer start, a step of ±1 or an integer literal (toward a bound within
+ * 2^53, see `boundedBy`), and no other writes.
  */
 export function loopCounter(
   s: ts.ForStatement,
@@ -540,10 +590,13 @@ export function loopCounter(
     (inc.operatorToken.kind === ts.SyntaxKind.PlusEqualsToken ||
       inc.operatorToken.kind === ts.SyntaxKind.MinusEqualsToken)
   ) {
+    const step = ts.isNumericLiteral(inc.right) ? Number(inc.right.text.replace(/_/g, "")) : NaN;
+    const up = inc.operatorToken.kind === ts.SyntaxKind.PlusEqualsToken;
+    // A step past 1 skips over 2^53, where doubles round its sums: only toward a bound short of that.
     stepOk =
       isCounter(inc.left) &&
-      ts.isNumericLiteral(inc.right) &&
-      literalWrite(Number(inc.right.text.replace(/_/g, ""))) === "small";
+      literalWrite(step) === "small" &&
+      (step <= 1 || boundedBy(s.condition, isCounter, up ? step : -step, checker));
   }
   if (!stepOk) return undefined;
   let written = false;

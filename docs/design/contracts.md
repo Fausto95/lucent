@@ -946,7 +946,11 @@ export interface EffectRef {
   place is `boxed`. Nested function declarations are boxed locals from
   the start of their block, defined there (or where written, when they
   capture a variable the block declares); a `for` loop's boxed `let`
-  variables get a copy per iteration, as in JavaScript.
+  variables get a copy per iteration, as in JavaScript: a `renew` op
+  gives the place a box of its own, holding its value, before the
+  first iteration (when the initializer makes closures) and before
+  each incrementor, which steps the new copy, even when the body
+  assigns the variable (CreatePerIterationEnvironment).
 - A function's ambients (`LowerInput.ambient`) are values its backend
   declares around it (a component setup's mount): code reads one where a
   leaf asks for it (`LeafOperands.ambient`), as a capture of the
@@ -980,14 +984,25 @@ integers`: its int locals, and `for` counters as int64s), or a plan's
   registers and converts to a double where one is needed; a leaf sees an
   operand's integer form too. Reads of a local nothing can write before
   their last use are spelled as the variable (no copy), `s = s + x` on a
-  string appends in place, and a pure operation used once by the next
-  is written inline there. Each call stays a statement of its own.
+  string appends in place (a field's or a module variable's `+=` too,
+  through `lucent::appendTo`: the place lets go of its handle, so the
+  string read from it grows in place), a chain of string `+`s (a template
+  literal) is one `lucent::concat`, sized before it allocates, a comparison
+  of two exact integers (a counter and a `length`) compares their
+  registers, a `for … of` whose body cannot change its collection (no
+  call, plans that only read) reads each element where the collection
+  holds it (a `const&`, a map entry a tuple of references), and a pure
+  operation used once by the next is written inline there. Each call stays a statement of its own.
 - An async function (`IrFunction.async`) returns what its promise
   fulfils with; each `await` is a suspension point of its own, so what
   runs before and after it is explicit, and returning a promise returns
   what it fulfils with. A generator (`IrFunction.generator`, its element
   type) gives each element with `produce`; `yield* xs` iterates `xs`,
-  producing each element. Their C++ is a coroutine: `co_await`,
+  producing each element. An async function with no `await` is not a
+  coroutine: its body runs to its end when called (as a coroutine's would,
+  its initial suspend never suspending), so it returns its promise
+  settled, `Promise::resolved(v)`, or `rejected` with what it threw. Their
+  C++ is otherwise a coroutine: `co_await`,
   `co_yield`, `co_return`, a body that only throws still being one, an
   async closure's captures passed to its coroutine as parameters (a
   coroutine frame must not reference a lambda's captures), and no
@@ -1452,8 +1467,10 @@ setTimingSink(fn), admit(task, signal) }`, with `TaskTiming` and
 - `fromCallback<T>(register, Opt<AbortSignal>) -> Promise<T>` and
   `subscribe(register, onValue, Opt<AbortSignal>) -> Promise<void>`.
   `register` returns `void`, `Fn<X()>` or `Opt<Fn<X()>>`: the cleanup.
-- One `Operation<T>` per composition, under the calling context's root
-  scope.
+- One `Operation<T>` per composition, under the scope the calling
+  context's work belongs to (`ownedScope`, `execution.h`): module code's is
+  the module scope, its JavaScript runtime's, so a reload cancels it;
+  another context's is its root.
 - Arbitration happens on the owner: calls from other threads are posted
   in call order, the first to take effect wins, and stale reports are
   dropped.

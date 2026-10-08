@@ -22,3 +22,12 @@ export const cFlags = ["-std=c11", "-O2", "-w"];
 
 /** Libraries the runtime needs on this host. */
 export const hostLibs = process.platform === "darwin" ? ["-framework", "CoreFoundation"] : [];
+
+/**
+ * Flags that map the repository's directory to "." in debug information and
+ * `__FILE__`, as the native package's builds map the project's: no machine's
+ * path reaches the binary.
+ */
+export function prefixMapFlags(dir: string): string[] {
+  return [`-ffile-prefix-map=${dir}=.`];
+}

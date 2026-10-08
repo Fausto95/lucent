@@ -380,7 +380,7 @@ A program without platform code writes one set of files, `cpp/generated/*`. With
 - A stage without evidence is `null`, never 0. An unreadable usage report counts as none, with a warning.
 - Coverage also counts members reached through an idiom: an `async` form, or a getter read as a property.
 
-CI runs `lucent sdk coverage --check sdk-coverage.json` over UIKit, Foundation, AVFoundation, StoreKit, CryptoKit and every `android.*` package. In the bare example, once Gradle has resolved its dependencies, it also runs over every `androidx.core.*` and `com.google.android.gms.*` package.
+CI runs `lucent sdk coverage --check config/sdk-coverage.json` over UIKit, Foundation, AVFoundation, StoreKit, CryptoKit and every `android.*` package. In the bare example, once Gradle has resolved its dependencies, it also runs over every `androidx.core.*` and `com.google.android.gms.*` package.
 
 It fails when a module's unrepresentable share grows past the baseline by more than 0.05 points. It compares shares, not counts, because another SDK version has other members. Each job uploads `sdk-coverage.updated.json`, the baseline rewritten by `--update` with each module's SDK, to commit when shares move for a reason.
 

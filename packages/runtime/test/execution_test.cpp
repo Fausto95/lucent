@@ -2,6 +2,7 @@
 // context, the main context and isolated contexts, their microtasks, and
 // what crosses between them. Built and run by `packages/runtime/test/run.sh`,
 // also under ASan/UBSan and TSan.
+#include <pthread.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -896,7 +897,62 @@ static void childOfDisposedParentIsDisposedAtOnce() {
   a->shutdown();
 }
 
+/// The calling thread's stack size, as its pthread attributes say (0 where
+/// the platform does not).
+static size_t stackSize() {
+#if defined(__APPLE__)
+  return pthread_get_stacksize_np(pthread_self());
+#elif defined(__linux__)
+  pthread_attr_t attr;
+  if (pthread_getattr_np(pthread_self(), &attr) != 0) return 0;
+  void* low = nullptr;
+  size_t size = 0;
+  pthread_attr_getstack(&attr, &low, &size);
+  pthread_attr_destroy(&attr);
+  return size;
+#else
+  return 0;
+#endif
+}
+
+/// Lucent's own threads (the Lucent thread, isolated contexts, which
+/// compute workers are, and the main context's clock) get
+/// kThreadStackSize, not the platform's small default for a secondary
+/// thread (512 KB on iOS).
+static void threadsHaveTheirStack() {
+  std::atomic<size_t> lucent{0}, isolated{0}, clock{0};
+
+  Scheduler::instance().post([&] { lucent = stackSize(); });
+
+  auto context = IsolatedContext::create();
+  context->post([&] { isolated = stackSize(); });
+
+  // A timer of the main context fires on its clock thread, which posts it on.
+  WorkerThread::start([&](Job& job) {
+    clock = stackSize();
+    job();
+  })->post([] {});
+
+  CHECK(within(2000, [&] { return lucent && isolated && clock; }));
+  CHECK(lucent >= size_t{8} * 1024 * 1024);
+  CHECK(isolated >= size_t{8} * 1024 * 1024);
+  CHECK(clock >= size_t{8} * 1024 * 1024);
+
+  context->shutdown();
+}
+
 int main() {
+#if defined(__linux__)
+  // glibc gives a thread that sets no stack size the stack rlimit, 8 MB on
+  // most Linux machines, which would hide one Lucent forgot to set: a
+  // phone's default for secondary threads instead, before any starts.
+  pthread_attr_t phone;
+  pthread_attr_init(&phone);
+  pthread_attr_setstacksize(&phone, 1024 * 1024);
+  pthread_setattr_default_np(&phone);
+  pthread_attr_destroy(&phone);
+#endif
+
   contextsAreDistinct();
   microtasksStayInTheirContext();
   turnsRunTheirMicrotasksFirst();
@@ -924,6 +980,7 @@ int main() {
   disposalRunsOnTheOwner();
   lastReferenceDisposesOnTheOwner();
   childOfDisposedParentIsDisposedAtOnce();
+  threadsHaveTheirStack();
 
   std::printf("execution: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;
