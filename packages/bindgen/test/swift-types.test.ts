@@ -107,6 +107,30 @@ describe("declaration fragments", () => {
   });
 });
 
+describe("declaration fragments after @escaping", () => {
+  it("keep a closure type's parentheses, which are not the attribute's arguments", () => {
+    // UNUserNotificationCenter.add(_:withCompletionHandler:): `@escaping ((any Error)?) -> Void`.
+    const param = frags(
+      "completionHandler: ",
+      "@escaping",
+      " ((",
+      "any",
+      " ",
+      ["Error", "s:s5ErrorP"],
+      ")?) -> ",
+      ["Void", "s:s4Voida"],
+    );
+    param[1]!.kind = "attribute";
+    param[3]!.kind = "keyword";
+
+    expect(
+      afterColon(param)
+        .map((f) => f.spelling)
+        .join(""),
+    ).toBe("((any Error)?) -> Void");
+  });
+});
+
 describe("Swift async sequences", () => {
   const INT: [string, string] = ["Int", "s:Si"];
   const parse = (...parts: (string | [string, string])[]) => {
