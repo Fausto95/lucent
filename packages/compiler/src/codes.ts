@@ -438,7 +438,7 @@ export const Explanations: Record<Code, Explanation> = {
     title: "Platform files that do not match their declaration",
     summary: "Platform implementations that do not match their shared declaration file.",
     details:
-      "A module split into `name.ios.lucent.ts` and `name.android.lucent.ts` declares its exports in `name.lucent.ts`. Every platform file must export exactly the declared functions, with compatible types, so JavaScript sees one module.",
+      "A module split into `name.ios.lucent.ts` and `name.android.lucent.ts` declares its exports in `name.lucent.ts`. Every platform file must export exactly the declared functions, with compatible types, so JavaScript sees one module. The declaration file holds only those declarations, types, imports, and the constants and enums the platform files share.",
     fix: "export the same functions, with the declared types, from every platform file",
     wrong: {
       "haptics.lucent.ts": "export declare function tap(): Promise<void>;\n",

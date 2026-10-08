@@ -163,6 +163,10 @@ class Finder {
 
     this.inits.set(m.name, init);
 
+    // A platform module's constants, from its declaration file: they start first.
+    for (const s of m.declaration?.statements ?? [])
+      if (ts.isVariableStatement(s)) this.variables(s, m.name, init, code);
+
     for (const s of here) {
       // A helper view is its toolkit's code: none of it runs as the program's.
       if (ts.isFunctionDeclaration(s) && s.body && s.name && !isViewHelper(this.checker, s))

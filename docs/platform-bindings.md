@@ -24,7 +24,10 @@ export async function model(): Promise<string> {
 ```
 
 - The tests are `PLATFORM === "ios"` and `!==` (either side, either
-  platform), in `if`/`else` and in `? :`, alone or leading `&&`s
+  platform), and a `const` holding one without a type annotation
+  (`const isIos = PLATFORM === "ios"`; the host build reads `PLATFORM`
+  where a top-level one is used, not at the module's initialization), in
+  `if`/`else` and in `? :`, alone or leading `&&`s
   (`PLATFORM === "ios" && ready`: the then-branch is iOS code, the
   else-branch runs on both platforms). `switch (PLATFORM)` runs each
   platform's case and what it falls through to; a clause both platforms reach
@@ -92,9 +95,16 @@ haptics.ios.lucent.ts      the iOS implementation (imports lucent:ios/…)
 haptics.android.lucent.ts  the Android implementation (imports lucent:android/…)
 ```
 
-- The shared file may contain only `export declare function`s, types and
-  imports (LUCENT3005 otherwise). Put shared code and enums in another
-  module that all three import.
+- The shared file may contain only `export declare function`s, types,
+  imports, and the `const`s and enums the implementations share
+  (LUCENT3005 otherwise): those compile into each platform's module (its
+  initialization runs them first), and the implementations import them
+  from the shared file without exporting them again. Put other shared code
+  in another module that all three import.
+- A module may have one platform's implementation only: the other
+  platform's build compiles the shared file's declarations as stubs, as
+  the host build does, which throw or reject "`<module>.<name>` is not
+  available on Android" (or iOS).
 - Each implementation must export exactly the declared values, with types
   assignable to the declarations (LUCENT3005). JavaScript imports the shared
   file, so it sees one API; the proxy and the JSI bindings are the same on

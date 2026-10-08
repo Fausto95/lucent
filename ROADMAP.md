@@ -433,6 +433,18 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-08: Platform files may stand alone.** A split module may have
+one platform's file: the other platform's build compiles its
+declarations as the host does, as stubs that throw or reject "not
+available on Android". Its declaration file may hold the `const`s and
+enums its platforms share, compiled into each platform's module. A
+`const` holding a platform test is a platform test, as TypeScript
+narrows through it; at the top level the host reads `PLATFORM` where it
+is used, so a module with one still starts on the host. Declared classes
+in declaration files were left out: a shared class with platform
+members (above) holds platform objects without a declaration to keep in
+step with two implementations.
+
 **2026-10-08: EventEmitter, typed like Expo's.** `lucent:core` has
 `EventEmitter<Events>`, where `Events` maps each name to its listener's
 signature (`{ change: (value: number) => void }`), as Expo's
@@ -2354,8 +2366,13 @@ errors, 64-bit parameters from numbers, and lifecycle hooks.
       subscription; JavaScript's listeners end with their runtime (e2e
       `events`, `host_test.cpp`'s `listenersEndWithTheirRuntime`,
       `events.test.ts`). `subscribe` resolves when its signal aborts.
-- [ ] Platform files without a twin, declared classes and constants in
-      declaration files, and a `const` holding a platform test.
+- [x] Platform files without a twin (the other platform's build gets
+      stubs), shared constants and enums in a declaration file, and a
+      `const` holding a platform test (`platform-files.test.ts`, its
+      Android builds run on the JNI host). `export declare class` in a
+      declaration file is not done: a shared class with platform members
+      covers what it was for, and a declared class's type would need
+      routing to each platform's class.
 - [ ] Weak references for cycles.
 - [ ] Typed native errors, and async exports rejecting bad arguments.
 - [ ] 64-bit integer parameters from safe-integer numbers.

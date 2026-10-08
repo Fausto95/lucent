@@ -63,18 +63,7 @@ export function planModules(files: string[]): ModulePlan {
   return { shared, platformModules: platformModules.filter((pm) => pm.declaration), diagnostics };
 }
 
-/** Platform modules without an implementation for `platform`. */
-export function missingImplementations(plan: ModulePlan, platform: Platform): Diagnostic[] {
-  return plan.platformModules
-    .filter((pm) => !pm.implementations[platform])
-    .map((pm) => ({
-      code: Codes.PlatformConformance,
-      message: `${path.basename(pm.declaration!)} declares a platform module: add ${pm.name}.${platform}.lucent.ts`,
-      file: pm.declaration!,
-    }));
-}
-
-/** A platform module's shared file holds only declarations: `export declare function`, types and imports. */
+/** A platform module's shared file holds only declarations: `export declare function`, constants, enums, types and imports. */
 export function declarationErrors(lp: LucentProgram, declaration: string): Diagnostic[] {
   const sf = lp.program.getSourceFile(path.resolve(declaration));
   if (!sf) return [];
@@ -83,17 +72,24 @@ export function declarationErrors(lp: LucentProgram, declaration: string): Diagn
     const declared =
       ts.canHaveModifiers(s) &&
       !!ts.getModifiers(s)?.some((m) => m.kind === ts.SyntaxKind.DeclareKeyword);
+    const constant =
+      ts.isVariableStatement(s) &&
+      !declared &&
+      !!(s.declarationList.flags & ts.NodeFlags.Const) &&
+      s.declarationList.declarations.every((d) => !!d.initializer);
     if (
       ts.isImportDeclaration(s) ||
       ts.isTypeAliasDeclaration(s) ||
       ts.isInterfaceDeclaration(s) ||
+      (ts.isEnumDeclaration(s) && !declared) ||
+      constant ||
       (ts.isFunctionDeclaration(s) && declared && !s.body)
     )
       continue;
     out.push(
       at(
         s,
-        `${path.basename(declaration)} declares a platform module (it has ${PLATFORMS.map((p) => `.${p}`).join("/")} implementations), so it may only contain \`export declare function\`s, types and imports; move shared code to another module`,
+        `${path.basename(declaration)} declares a platform module (it has ${PLATFORMS.map((p) => `.${p}`).join("/")} implementations), so it may only contain \`export declare function\`s, constants, enums, types and imports; move other shared code to another module`,
       ),
     );
   }
@@ -150,7 +146,22 @@ export function conformanceErrors(lp: LucentProgram): Diagnostic[] {
     const declName = path.basename(m.declaration.fileName);
     const implName = path.basename(m.file);
     const impl = new Map(values(m.sourceFile).map((s) => [s.name, s]));
+    // Its constants and enums are the declaration file's own, not declared for the platforms.
+    const own = (d: ts.Symbol) => {
+      const decl = d.valueDeclaration ?? d.declarations?.[0];
+      return !!decl && (ts.isEnumDeclaration(decl) || ts.isVariableDeclaration(decl));
+    };
     for (const d of values(m.declaration)) {
+      if (own(d)) {
+        const again = impl.get(d.name);
+        impl.delete(d.name);
+        const decl = again && (again.valueDeclaration ?? again.declarations?.[0]);
+        if (decl)
+          out.push(
+            at(decl, `${d.name} is ${declName}'s: import it from there instead of exporting it`),
+          );
+        continue;
+      }
       const i = impl.get(d.name);
       impl.delete(d.name);
       if (!i) {
@@ -226,8 +237,52 @@ export function isPlatformValue(checker: ts.TypeChecker, e: ts.Expression): bool
   return !!decl && builtinSdkModuleOf(decl.getSourceFile()) === "lucent:platform";
 }
 
+/**
+ * The declaration of a `const` that holds a platform test, which
+ * `isIos` in `const isIos = PLATFORM === "ios"` reads: a const without a
+ * type annotation, as TypeScript narrows through it.
+ */
+export function platformTestConst(
+  checker: ts.TypeChecker,
+  e: ts.Expression,
+): (ts.VariableDeclaration & { initializer: ts.Expression }) | undefined {
+  if (!ts.isIdentifier(e)) return undefined;
+  let sym = checker.getSymbolAtLocation(e);
+  if (sym && sym.flags & ts.SymbolFlags.Alias) sym = checker.getAliasedSymbol(sym);
+  const d = sym?.valueDeclaration;
+  if (!d || !ts.isVariableDeclaration(d) || d.name === e) return undefined;
+  return holdsPlatformTest(checker, d) ? d : undefined;
+}
+
+/** Whether `d` is `const x = PLATFORM === "ios"` (a comparison, not another such const), without a type annotation. */
+export function holdsPlatformTest(
+  checker: ts.TypeChecker,
+  d: ts.VariableDeclaration,
+): d is ts.VariableDeclaration & { initializer: ts.Expression } {
+  if (
+    !ts.isIdentifier(d.name) ||
+    d.type ||
+    !d.initializer ||
+    !ts.isVariableDeclarationList(d.parent) ||
+    !(d.parent.flags & ts.NodeFlags.Const)
+  )
+    return false;
+  return !!directTest(checker, d.initializer);
+}
+
 /** `PLATFORM === "ios"`, `"android" !== PLATFORM`…: the platform named, and whether the test is equality. */
 export function platformTest(
+  checker: ts.TypeChecker,
+  e: ts.Expression,
+): { platform: Platform; equal: boolean } | undefined {
+  while (ts.isParenthesizedExpression(e)) e = e.expression;
+  // A const that holds a test tests as it does.
+  const held = platformTestConst(checker, e);
+  if (held) return directTest(checker, held.initializer);
+  return directTest(checker, e);
+}
+
+function directTest(
   checker: ts.TypeChecker,
   e: ts.Expression,
 ): { platform: Platform; equal: boolean } | undefined {
@@ -408,7 +463,7 @@ export function branchPlatform(checker: ts.TypeChecker, node: ts.Node): Platform
   return undefined;
 }
 
-const PLATFORM_NAMES: Record<Platform, string> = { ios: "iOS", android: "Android" };
+export const PLATFORM_NAMES: Record<Platform, string> = { ios: "iOS", android: "Android" };
 
 /** What a shared module's platform code is: which platform each top-level declaration belongs to, and misuses. */
 export interface PlatformScopes {

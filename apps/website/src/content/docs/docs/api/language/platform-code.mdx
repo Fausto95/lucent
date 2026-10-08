@@ -45,7 +45,23 @@ A platform test compares `PLATFORM` with the string `"ios"` or `"android"`:
 - with `===`, `!==`, `==` or `!=`;
 - with `PLATFORM` on either side, and the whole comparison in parentheses or not: `(PLATFORM) === "ios"` is not a test.
 
-Nothing else is a platform test: not `!(PLATFORM === "ios")`, `PLATFORM === "ios" || ready`, a variable that holds a comparison or a function that returns one. Their branches are shared code, where platform code fails with [LUCENT3004](/docs/api/diagnostics/#lucent3004).
+A `const` that holds a platform test, declared without a type annotation, is one too, as TypeScript narrows through it:
+
+```ts title="model.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { UIDevice } from "lucent:ios/UIKit";
+import { Build } from "lucent:android/android.os";
+
+const isIos = PLATFORM === "ios";
+
+export function model(): string {
+  return isIos ? UIDevice.current.model : (Build.MODEL ?? "");
+}
+```
+
+At the top level of a module, the host build reads such a `const` where it is used, not when the module starts. So only the code that uses it throws there.
+
+Nothing else is a platform test: not `!(PLATFORM === "ios")`, `PLATFORM === "ios" || ready`, a `let` that holds a comparison, a `const` of another such `const`, or a function that returns one. Their branches are shared code, where platform code fails with [LUCENT3004](/docs/api/diagnostics/#lucent3004).
 
 ## Branches
 
@@ -187,8 +203,9 @@ export async function tap(strength: Strength): Promise<void> {
 </TabItem>
 </Tabs>
 
-- The files pair up by name and directory: `haptics.ios.lucent.ts` and `haptics.android.lucent.ts` sit next to `haptics.lucent.ts`. A platform file without its declaration file fails with [LUCENT3005](/docs/api/diagnostics/#lucent3005), and so does a platform's build when its file is missing.
-- The declaration file holds only `export declare function`s, types, interfaces and imports (`LUCENT3005` otherwise). So a split module exports functions only. Put shared code, constants and enums in another module that all three import.
+- The files pair up by name and directory: `haptics.ios.lucent.ts` and `haptics.android.lucent.ts` sit next to `haptics.lucent.ts`. A platform file without its declaration file fails with [LUCENT3005](/docs/api/diagnostics/#lucent3005).
+- A module may have one platform's file only. The other platform's build then gets stubs: each export throws, or rejects, `<module>.<name> is not available on Android` (or iOS).
+- The declaration file holds `export declare function`s, types, interfaces and imports, and `const`s and enums that the platform files share (`LUCENT3005` otherwise). A platform file imports those from the declaration file, and doesn't export them again. Put other shared code in another module that all three import.
 - Each platform file exports exactly the declared functions, with types assignable to the declared ones. A missing, extra or mismatched export fails with `LUCENT3005`.
 - An `.ios.lucent.ts` file may import `lucent:ios` and `lucent:ios/<Module>`, and an `.android.lucent.ts` file `lucent:android` and `lucent:android/<package>`. Both may also import what any module may, such as `lucent:core`, `lucent:thread`, `lucent:ext/<name>` and other modules. The other platform's modules fail with `LUCENT3004`.
 - Other modules and JavaScript import the declaration file, `./haptics.lucent`, and each call goes to the platform's implementation.
