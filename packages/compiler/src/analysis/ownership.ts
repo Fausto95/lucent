@@ -178,6 +178,8 @@ const CORE: Record<string, string | null> = {
   NativeBuffer: null,
   ByteSpan: BORROWED,
   MutableByteSpan: BORROWED,
+  EventEmitter: "an event emitter, whose listeners run on the context that added them",
+  EventSubscription: "an event subscription, which belongs to the context that made it",
 };
 
 /** Library types that belong to the context that made them. */

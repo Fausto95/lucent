@@ -433,6 +433,19 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-08: EventEmitter, typed like Expo's.** `lucent:core` has
+`EventEmitter<Events>`, where `Events` maps each name to its listener's
+signature (`{ change: (value: number) => void }`), as Expo's
+`EventEmitter` does, rather than Node's tuples. JavaScript gets the same
+object each time, with `addListener` (returning `{ remove() }`), `emit`,
+`listenerCount` and `removeAllListeners`; its listeners are JS callbacks
+that belong to their runtime, so a reload removes them and
+`listenerCount` falls with them, which lets a module stop an SDK
+listener nobody hears. In Lucent an event's name must be a literal, so
+the native emitter indexes events statically; JavaScript's names are
+checked against the type. `subscribe` now resolves when its signal
+aborts: aborting is how a caller ends a stream, not a failure.
+
 **2026-10-08: Platform members, not platform classes.** A private member
 (`private` or `#`) of an exported class, or of a class that uses both
 platforms, belongs to the platform whose code it uses outside a branch,
@@ -2336,7 +2349,11 @@ errors, 64-bit parameters from numbers, and lifecycle hooks.
       `fake-android.ts`'s stand-ins). The expo-location port's watch is
       a `LocationSubscription` holding its manager or listener, as
       expo-location's. Class instances as view props stay refused (see the decision).
-- [ ] `EventEmitter` in `lucent:core`.
+- [x] `EventEmitter` in `lucent:core`: typed events by name, crossing
+      to JavaScript as one object whose `addListener` returns a
+      subscription; JavaScript's listeners end with their runtime (e2e
+      `events`, `host_test.cpp`'s `listenersEndWithTheirRuntime`,
+      `events.test.ts`). `subscribe` resolves when its signal aborts.
 - [ ] Platform files without a twin, declared classes and constants in
       declaration files, and a `const` holding a platform test.
 - [ ] Weak references for cycles.

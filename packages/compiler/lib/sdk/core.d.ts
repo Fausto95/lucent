@@ -123,6 +123,63 @@ export declare function subscribe<T>(
   signal?: AbortSignal,
 ): Promise<void>;
 
+/** What `addListener` returns: `remove()` takes the listener off. */
+export interface EventSubscription {
+  /** Removes the listener. Removing it again does nothing. */
+  remove(): void;
+}
+
+/**
+ * Events a module sends to its listeners, in Lucent and in JavaScript.
+ * `Events` names each event and its listener's signature, as Expo's
+ * `EventEmitter` does: `EventEmitter<{ progress: (percent: number) => void }>`.
+ *
+ * `emit(name, ...args)` calls the event's listeners, in the order they
+ * were added; those added or removed while it runs take effect at the
+ * next emit. A listener's throw ends the emit and reaches its caller. In
+ * Lucent, an event's name is a string literal.
+ *
+ * An EventEmitter crosses to JavaScript as the same object each time,
+ * with the same methods.
+ *
+ * A JavaScript listener is a callback Lucent holds. During a synchronous
+ * call from JavaScript it runs at once. From anywhere else it is posted to
+ * the JS thread, with copies of its arguments.
+ *
+ * Each JavaScript listener belongs to its runtime: a reload removes it,
+ * and `listenerCount` stops counting it. In JavaScript, naming an event
+ * that the type doesn't declare throws a TypeError.
+ *
+ * ```ts
+ * import { EventEmitter } from "lucent:core";
+ *
+ * export const downloads = new EventEmitter<{
+ *   progress: (url: string, percent: number) => void;
+ *   done: (url: string) => void;
+ * }>();
+ *
+ * export async function download(url: string): Promise<void> {
+ *   for (let percent = 0; percent <= 100; percent += 10) downloads.emit("progress", url, percent);
+ *   downloads.emit("done", url);
+ * }
+ * ```
+ */
+export declare class EventEmitter<Events extends { [name: string]: (...args: never[]) => void }> {
+  constructor();
+
+  /** Adds `listener` to the event's listeners, last; the subscription removes it. */
+  addListener<K extends keyof Events & string>(name: K, listener: Events[K]): EventSubscription;
+
+  /** Calls each of the event's listeners with `args`. */
+  emit<K extends keyof Events & string>(name: K, ...args: Parameters<Events[K]>): void;
+
+  /** How many listeners the event has. */
+  listenerCount(name: keyof Events & string): number;
+
+  /** Removes the event's listeners, or every event's without a name. */
+  removeAllListeners(name?: keyof Events & string): void;
+}
+
 /** How a compute task runs. */
 export interface ComputeOptions {
   /** Aborting it cancels the task: the promise rejects with its reason at once. */

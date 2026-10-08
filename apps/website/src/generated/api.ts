@@ -183,6 +183,66 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         ]
       },
       {
+        "name": "EventSubscription",
+        "kind": "interface",
+        "signature": "interface EventSubscription {\n  remove(): void;\n}",
+        "doc": [
+          "What `addListener` returns: `remove()` takes the listener off."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "remove",
+            "signature": "remove(): void;",
+            "doc": "Removes the listener. Removing it again does nothing."
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "EventEmitter",
+        "kind": "class",
+        "signature": "class EventEmitter<Events extends { [name: string]: (...args: never[]) => void }> {\n  constructor();\n  addListener<K extends keyof Events & string>(name: K, listener: Events[K]): EventSubscription;\n  emit<K extends keyof Events & string>(name: K, ...args: Parameters<Events[K]>): void;\n  listenerCount(name: keyof Events & string): number;\n  removeAllListeners(name?: keyof Events & string): void;\n}",
+        "doc": [
+          "Events a module sends to its listeners, in Lucent and in JavaScript. `Events` names each event and its listener's signature, as Expo's `EventEmitter` does: `EventEmitter<{ progress: (percent: number) => void }>`.",
+          "`emit(name, ...args)` calls the event's listeners, in the order they were added; those added or removed while it runs take effect at the next emit. A listener's throw ends the emit and reaches its caller. In Lucent, an event's name is a string literal.",
+          "An EventEmitter crosses to JavaScript as the same object each time, with the same methods.",
+          "A JavaScript listener is a callback Lucent holds. During a synchronous call from JavaScript it runs at once. From anywhere else it is posted to the JS thread, with copies of its arguments.",
+          "Each JavaScript listener belongs to its runtime: a reload removes it, and `listenerCount` stops counting it. In JavaScript, naming an event that the type doesn't declare throws a TypeError."
+        ],
+        "examples": [
+          "import { EventEmitter } from \"lucent:core\";\n\nexport const downloads = new EventEmitter<{\n  progress: (url: string, percent: number) => void;\n  done: (url: string) => void;\n}>();\n\nexport async function download(url: string): Promise<void> {\n  for (let percent = 0; percent <= 100; percent += 10) downloads.emit(\"progress\", url, percent);\n  downloads.emit(\"done\", url);\n}"
+        ],
+        "members": [
+          {
+            "name": "constructor",
+            "signature": "constructor();",
+            "doc": ""
+          },
+          {
+            "name": "addListener",
+            "signature": "addListener<K extends keyof Events & string>(name: K, listener: Events[K]): EventSubscription;",
+            "doc": "Adds `listener` to the event's listeners, last; the subscription removes it."
+          },
+          {
+            "name": "emit",
+            "signature": "emit<K extends keyof Events & string>(name: K, ...args: Parameters<Events[K]>): void;",
+            "doc": "Calls each of the event's listeners with `args`."
+          },
+          {
+            "name": "listenerCount",
+            "signature": "listenerCount(name: keyof Events & string): number;",
+            "doc": "How many listeners the event has."
+          },
+          {
+            "name": "removeAllListeners",
+            "signature": "removeAllListeners(name?: keyof Events & string): void;",
+            "doc": "Removes the event's listeners, or every event's without a name."
+          }
+        ],
+        "params": []
+      },
+      {
         "name": "ComputeOptions",
         "kind": "interface",
         "signature": "interface ComputeOptions {\n  signal?: AbortSignal;\n}",

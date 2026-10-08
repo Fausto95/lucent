@@ -81,6 +81,7 @@ midpoint(saved, home); // TypeError: midpoint: argument 'a'.y must be a number, 
 | `AbortSignal` | Into Lucent only | An `AbortSignal` |
 | `Iterable<T>`, as a parameter | A snapshot, taken with `Array.from` | An iterable, or a string |
 | `NativeBuffer` | A reference, with its identity | A `NativeBuffer` that came from Lucent |
+| `EventEmitter`, `EventSubscription` | A reference, with its identity: [Stream events to JavaScript](/docs/guides/send-events-to-javascript/) | One that came from Lucent |
 | `Error` | Its name, message, code and stack | Any value |
 | `void` | `undefined` | |
 

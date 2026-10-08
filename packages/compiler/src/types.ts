@@ -71,7 +71,11 @@ export type LType =
   /** A component's props parameter in its setup: each prop a signal, each event a route. */
   | { k: "props"; component: string }
   /** The mount a setup runs in (lucent::ui::Content), which the functions it makes enter. */
-  | { k: "mount" };
+  | { k: "mount" }
+  /** lucent:core's EventEmitter: its events' names and listener types, in declaration order. */
+  | { k: "emitter"; events: { name: string; fn: LType & { k: "fn" } }[] }
+  /** What an EventEmitter's addListener returns (lucent::EventSubscription). */
+  | { k: "subscription" };
 
 /** The error constructors Lucent makes; an error is named after its constructor. */
 const ERROR_NAMES = ["Error", "TypeError", "RangeError", "SyntaxError"] as const;
@@ -100,6 +104,7 @@ export const T = {
   buffer: { k: "buffer" } as LType,
   span: { k: "span", writable: false } as LType,
   mutableSpan: { k: "span", writable: true } as LType,
+  subscription: { k: "subscription" } as LType,
 };
 
 /** lucent:core's types that have a native representation of their own, by name. */
@@ -107,6 +112,7 @@ const CORE_TYPES: Record<string, LType> = {
   NativeBuffer: T.buffer,
   ByteSpan: T.span,
   MutableByteSpan: T.mutableSpan,
+  EventSubscription: T.subscription,
 };
 
 export function typeKey(t: LType): string {
@@ -158,6 +164,8 @@ function keyWith(t: LType, struct: (id: string) => string): string {
       return `Signal<${key(t.inner)}>`;
     case "props":
       return `Props:${t.component}`;
+    case "emitter":
+      return `EventEmitter<{${t.events.map((e) => `${JSON.stringify(e.name)}:${key(e.fn)}`).join(",")}}>`;
     default:
       return t.k;
   }
@@ -938,6 +946,33 @@ export class TypeRegistry {
     return sym.name;
   }
 
+  /** `EventEmitter<Events>`: each event a listener that returns nothing, by its name. */
+  private lowerEmitter(type: ts.ObjectType, node: ts.Node): LType {
+    const c = this.checker;
+    const [events] = (type as ts.TypeReference).target
+      ? c.getTypeArguments(type as ts.TypeReference)
+      : [];
+    if (!events || c.getIndexInfosOfType(events).length)
+      fail(
+        node,
+        Codes.UnsupportedType,
+        "an EventEmitter's events are named: give it an object type with one listener signature per event, as in EventEmitter<{ change: (value: number) => void }>",
+      );
+    const list = c.getPropertiesOfType(events).map((p) => {
+      const where = p.valueDeclaration ?? p.declarations?.[0];
+      const t = c.getTypeOfSymbolAtLocation(p, where ?? node);
+      const fn = p.flags & ts.SymbolFlags.Optional ? undefined : this.lower(t, where ?? node);
+      if (!fn || fn.k !== "fn" || !isVoidish(fn.ret))
+        fail(
+          where ?? node,
+          Codes.UnsupportedType,
+          `the event ${p.name} needs a listener signature that returns void, as in \`${p.name}: (value: number) => void\``,
+        );
+      return { name: p.name, fn };
+    });
+    return { k: "emitter", events: list };
+  }
+
   private lowerObject(type: ts.ObjectType, node: ts.Node): LType {
     const c = this.checker;
     const sdkSym = type.getSymbol();
@@ -950,6 +985,8 @@ export class TypeRegistry {
         ? CORE_TYPES[sdkSym.name]
         : undefined;
     if (core) return core;
+    if (sdkSym?.name === "EventEmitter" && decl && isCoreFile(decl.getSourceFile()))
+      return this.lowerEmitter(type, node);
     // lucent:ios's NSObject and Out are platform objects too, and so are a
     // toolkit's values (SwiftUI's types are interfaces).
     const declaredIn = decl && builtinSdkModuleOf(decl.getSourceFile());
@@ -1467,6 +1504,10 @@ export class TypeRegistry {
         return cpp.type(this.componentProps(t.component));
       case "mount":
         return cpp.type("std::weak_ptr", cpp.type("lucent::ui::Content"));
+      case "emitter":
+        return lucent("Ref", this.cppEmitterType(t));
+      case "subscription":
+        return lucent("EventSubscription");
     }
   }
 
@@ -1474,6 +1515,11 @@ export class TypeRegistry {
   cppRetType(t: LType): cpp.Type {
     if (t.k === "void" || t.k === "undefined" || t.k === "never") return cpp.voidType;
     return this.cppType(t);
+  }
+
+  /** An EventEmitter's object type, without Ref<>: lucent::EventEmitterObject<listener types…>. */
+  cppEmitterType(t: LType & { k: "emitter" }): cpp.Type {
+    return cpp.type("lucent::EventEmitterObject", ...t.events.map((e) => this.cppType(e.fn)));
   }
 
   /** The interface type without Ref<>. */

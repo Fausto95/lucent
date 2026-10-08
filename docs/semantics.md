@@ -305,7 +305,20 @@ end?)`, which copies. `new Uint8Array(buffer, byteOffset?, length?)` views
 - **Date**: `new Date(…)`, `Date.now()`, `Date.parse`, `Date.UTC`, `get…`/`set…` in local time and UTC, `getTimezoneOffset`, `toISOString`, `toString`, `toDateString`, `toTimeString`, `toUTCString`; not the `toLocale…` methods.
 - **lucent:core**: `delay`, `error(code, message)`, `errorCode(e)`,
   `utf8Encode`, `utf8Decode`, `now()`, `fromCallback(register, signal?)`,
-  `subscribe(register, onValue, signal?)`, `NativeBuffer`.
+  `subscribe(register, onValue, signal?)`, `EventEmitter`, `NativeBuffer`.
+- **Events** (`EventEmitter<Events>` from `lucent:core`): `Events` names
+  each event and its listener's signature, which returns `void`.
+  `addListener(name, listener)` adds the event's last listener and returns
+  an `EventSubscription`, whose `remove()` removes it (once).
+  `emit(name, ...args)` calls the listeners the event has when the emit
+  starts, in the order they were added; one that throws ends the emit, and
+  the error reaches its caller. `listenerCount(name)` and
+  `removeAllListeners(name?)` read and clear them. In Lucent, an event's
+  name is a string literal type (`LUCENT1007` otherwise). The emitter
+  crosses to JavaScript as the same object each time, with the same
+  methods; a listener JavaScript adds is a JS callback (run at once on the
+  JS thread, posted from elsewhere) and belongs to its runtime, which a
+  reload ends: it is then removed, and not counted.
 - **Callback APIs** (a native listener, say) become promises with
   `fromCallback`, which settles on what the API reports once, and
   subscriptions with `subscribe`, which passes each value to `onValue` until
@@ -514,6 +527,7 @@ explicitly, for example by clearing a field.
 | `resolve(promise)` in a promise executor adopts the promise                                     | `fromCallback` reports values, not promises: a promise type is refused (`LUCENT1007`); await it and report its value                                                                                                                                                                                                     |
 | `await` on an object without a `then` method gives the object                                   | `await` on a platform SDK object is refused (`LUCENT1010`): adapt its completion listener with `fromCallback`                                                                                                                                                                                                            |
 | an error nobody catches (a `fromCallback` cleanup that throws) reaches the host's error handler | it is written to the platform log (logcat, the unified log) and stderr                                                                                                                                                                                                                                                   |
+| an `EventEmitter` from `lucent:core`'s JavaScript takes any event name                          | from JavaScript, the native emitter takes only the events its type declares: another name throws `TypeError`                                                                                                                                                                                                             |
 
 ## Diagnostics
 

@@ -172,21 +172,76 @@ function fromCallback(register, signal) {
 }
 
 function subscribe(register, onValue, signal) {
-  return compose(signal, (c) => {
-    const next = (value) => {
-      if (!c.open()) return;
-      try {
-        onValue(value);
-      } catch (e) {
-        c.reject(e);
-      }
+  return compose(
+    signal,
+    (c) => {
+      const next = (value) => {
+        if (!c.open()) return;
+        try {
+          onValue(value);
+        } catch (e) {
+          c.reject(e);
+        }
+      };
+      return register(
+        next,
+        () => void c.resolve(undefined),
+        (error) => void c.reject(error),
+      );
+    },
+    true,
+  );
+}
+
+// --- events -------------------------------------------------------------------
+
+// Each emitter's listeners by event name, out of reach of the code using it.
+const emitters = new WeakMap();
+
+function listenersOf(emitter, name) {
+  const all = emitters.get(emitter);
+  if (!all) throw new TypeError("not an EventEmitter");
+  let list = all.get(name);
+  if (!list) all.set(name, (list = []));
+  return list;
+}
+
+/** Events a module sends to its listeners: lucent:core's EventEmitter. */
+class EventEmitter {
+  constructor() {
+    emitters.set(this, new Map());
+  }
+
+  addListener(name, listener) {
+    if (typeof listener !== "function")
+      throw new TypeError("EventEmitter.addListener: argument 'listener' must be a function");
+    const entry = { listener };
+    listenersOf(this, name).push(entry);
+    let removed = false;
+    return {
+      remove: () => {
+        if (removed) return;
+        removed = true;
+        const list = listenersOf(this, name);
+        const i = list.indexOf(entry);
+        if (i >= 0) list.splice(i, 1);
+      },
     };
-    return register(
-      next,
-      () => void c.resolve(undefined),
-      (error) => void c.reject(error),
-    );
-  }, true);
+  }
+
+  emit(name, ...args) {
+    // The listeners the event has now: those added or removed meanwhile wait for the next emit.
+    for (const { listener } of listenersOf(this, name).slice()) listener(...args);
+  }
+
+  listenerCount(name) {
+    return listenersOf(this, name).length;
+  }
+
+  removeAllListeners(name) {
+    if (name === undefined) emitters.get(this).clear();
+    else listenersOf(this, name).length = 0;
+  }
 }
 
 // --- native buffers ---------------------------------------------------------
@@ -478,5 +533,6 @@ module.exports = {
   fromCallback,
   subscribe,
   compute,
+  EventEmitter,
   NativeBuffer,
 };

@@ -335,6 +335,12 @@ const LIBRARY: Record<string, LibraryEffect> = {
   // Not the receiver back, unlike Uint8Array's: a span never leaves its borrow.
   "lucent:core.MutableByteSpan.fill": MUTATES,
   "lucent:core.MutableByteSpan.set": { mutates: true, throws: true },
+  "lucent:core.EventEmitter.new": ALLOCATES,
+  "lucent:core.EventEmitter.addListener": { mutates: true, allocates: true, keeps: "receiver" },
+  // emit runs the listeners: code of any effect (it is not listed).
+  "lucent:core.EventEmitter.listenerCount": NONE,
+  "lucent:core.EventEmitter.removeAllListeners": MUTATES,
+  "lucent:core.EventSubscription.remove": MUTATES,
   "lucent:core.delay": { allocates: true, schedules: true },
   "lucent:core.error": ALLOCATES,
   "lucent:core.errorCode": NONE,
@@ -420,7 +426,7 @@ function libraryName(decl: ts.Declaration): string {
 
 /** A member's name; `new` and `call` for construct and call signatures. */
 function ownName(decl: ts.Declaration): string {
-  if (ts.isConstructSignatureDeclaration(decl)) return "new";
+  if (ts.isConstructSignatureDeclaration(decl) || ts.isConstructorDeclaration(decl)) return "new";
 
   if (ts.isCallSignatureDeclaration(decl)) return "call";
 

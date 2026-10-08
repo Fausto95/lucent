@@ -25,6 +25,7 @@ import {
   spanMethod,
   spanProperty,
 } from "./buffers.ts";
+import { emitterMethod, emitterNew, subscriptionMethod } from "./events.ts";
 import { assignedRead } from "../lowering/unassigned.ts";
 import { DISPOSE, findMember } from "./classes.ts";
 import { type E, type Lvalue } from "./context.ts";
@@ -1180,6 +1181,10 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       break;
     case "buffer":
       return bufferMethod(em, obj, name, node);
+    case "emitter":
+      return emitterMethod(em, obj, name, node);
+    case "subscription":
+      return subscriptionMethod(obj, name, node);
     case "span":
       return spanMethod(em, obj, name, node);
     case "error":
@@ -2021,6 +2026,8 @@ export function newBuiltin(
         c: cpp.call("std::make_shared", [], [cpp.type("lucent::AbortControllerObject")]),
         t,
       };
+    case "emitter":
+      return emitterNew(em, node, t);
     case "regexp": {
       const flags = a[1]
         ? cpp.construct(cpp.type("lucent::Opt", cpp.type("lucent::String")), [

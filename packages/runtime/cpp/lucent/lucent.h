@@ -13,6 +13,7 @@
 #include "core.h"
 #include "date.h"
 #include "equality.h"
+#include "events.h"
 #include "extension.h"
 #include "jserror.h"
 #include "function.h"

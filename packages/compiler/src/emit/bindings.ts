@@ -101,6 +101,9 @@ export class BindingsEmitter {
       case "fn":
         t.params.forEach((p) => this.use(p, node));
         return this.use(t.ret, node);
+      case "emitter":
+        // JavaScript adds listeners, and emits.
+        return t.events.forEach((e) => this.use(e.fn, node));
       case "tparam":
         fail(node, Codes.GenericBoundary, "generic values cannot cross the JavaScript boundary");
       case "iter":
@@ -192,6 +195,14 @@ export class BindingsEmitter {
       case "fn":
         t.params.forEach((p) => this.flow(p, !out, node));
         return this.flow(t.ret, out, node);
+      case "emitter":
+        // A listener JavaScript adds gets the arguments; an emit from JavaScript gives them.
+        return t.events.forEach((e) =>
+          e.fn.params.forEach((p) => {
+            this.flow(p, true, node);
+            this.flow(p, false, node);
+          }),
+        );
     }
   }
 
@@ -1107,6 +1118,8 @@ const DESCRIPTIONS: Partial<Record<LType["k"], string>> = {
   regexp: "a RegExp",
   abortSignal: "an AbortSignal",
   buffer: "a NativeBuffer",
+  emitter: "an EventEmitter",
+  subscription: "an EventSubscription",
 };
 const JS_VALUE = cpp.type("jsi::Value");
 const RUNTIME = cpp.param(cpp.reference(cpp.type("jsi::Runtime")), "rt");
