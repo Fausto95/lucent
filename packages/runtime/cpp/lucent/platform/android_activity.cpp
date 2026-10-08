@@ -61,14 +61,11 @@ std::map<uint64_t, Subscription>& subscriptions() {
   return *m;
 }
 
-/// Runs a native method's body; a Lucent error is reported, never thrown into Java.
+/// Runs a native method's body: what it throws is reported (a Java
+/// exception it left pending cleared with it), never thrown into Java.
 template <class F>
 void guarded(const char* what, F f) {
-  try {
-    f();
-  } catch (...) {
-    reportUncaught(std::current_exception(), what);
-  }
+  reported(env(), what, f);
 }
 
 void JNICALL onResult(JNIEnv* e, jclass, jlong id, jint resultCode, jobject data) {

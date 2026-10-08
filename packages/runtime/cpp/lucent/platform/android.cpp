@@ -263,7 +263,9 @@ jobject unit(JNIEnv* e) {
 void rethrowPending(JNIEnv* e) {
   jthrowable t = e->ExceptionOccurred();
   e->ExceptionClear();
-  throw Exception(errorOf(e, t));
+  Error error = errorOf(e, t);
+  e->DeleteLocalRef(t);
+  throw Exception(std::move(error));
 }
 
 namespace {
@@ -278,16 +280,23 @@ Error errorOf(JNIEnv* e, jobject t, bool take) {
     err->code = String::fromLatin1("java.util.concurrent.CancellationException");
     return err;
   }
-  // These throw only when out of memory, which leaves the defaults below:
-  // cleared after each call, before the next JNI call (as CheckJNI requires).
-  auto read = [e](jobject o, const char* cls, const char* name, const char* sig) {
-    jobject r = e->CallObjectMethod(o, e->GetMethodID(e->FindClass(cls), name, sig));
+  // Every reference made here is freed here: the caller may be a thread
+  // Lucent attached, which never returns to Java to free them.
+  LocalFrame frame(e);
+  // The methods, found once (global class references). These calls throw
+  // only when out of memory, which leaves the defaults below: cleared after
+  // each call, before the next JNI call (as CheckJNI requires).
+  static jmethodID getClass = method(findClass("java/lang/Object"), "getClass", "()Ljava/lang/Class;");
+  static jmethodID getName = method(findClass("java/lang/Class"), "getName", "()Ljava/lang/String;");
+  static jmethodID getMessage = method(findClass("java/lang/Throwable"), "getMessage", "()Ljava/lang/String;");
+  auto read = [e](jobject o, jmethodID m) {
+    jobject r = e->CallObjectMethod(o, m);
     e->ExceptionClear();
     return r;
   };
-  jobject cls = read(t, "java/lang/Object", "getClass", "()Ljava/lang/Class;");
-  auto name = static_cast<jstring>(cls ? read(cls, "java/lang/Class", "getName", "()Ljava/lang/String;") : nullptr);
-  auto message = static_cast<jstring>(read(t, "java/lang/Throwable", "getMessage", "()Ljava/lang/String;"));
+  jobject cls = read(t, getClass);
+  auto name = static_cast<jstring>(cls ? read(cls, getName) : nullptr);
+  auto message = static_cast<jstring>(read(t, getMessage));
   String className = name ? fromJString(e, name, "") : String::fromLatin1("java.lang.Throwable");
   Error err = makeError(String::fromLatin1("Error"), message ? fromJString(e, message, "") : className);
   err->code = className;
@@ -539,33 +548,44 @@ std::unordered_map<std::pair<const void*, std::string>, ProxyEntry, KeyHash>& pr
   return *m;
 }
 
+void releaseProxy(JNIEnv* e, jlong handle);
+
+/// A proxy method's call. What Lucent code throws is reported, as for any
+/// platform callback (callNow), and the call returns null: NativeProxy
+/// answers a method that returns a primitive with its zero value (0,
+/// false), not a NullPointerException hiding the error.
 jobject JNICALL proxyCall(JNIEnv* e, jclass, jlong handle, jstring method, jobjectArray args) {
-  auto* t = reinterpret_cast<ProxyTarget*>(handle);
-  const char* chars = e->GetStringUTFChars(method, nullptr);
-  std::string name(chars);
-  e->ReleaseStringUTFChars(method, chars);
-  auto it = t->methods.find(name);
-  if (it == t->methods.end()) {
-    e->ThrowNew(e->FindClass("java/lang/AbstractMethodError"), ("Lucent does not implement " + name).c_str());
-    return nullptr;
-  }
-  try {
+  return reported(e, "Java callback", static_cast<jobject>(nullptr), [&]() -> jobject {
+    auto* t = reinterpret_cast<ProxyTarget*>(handle);
+    const char* chars = e->GetStringUTFChars(method, nullptr);
+    if (!chars) return nullptr;  // OutOfMemoryError pending
+    std::string name(chars);
+    e->ReleaseStringUTFChars(method, chars);
+    auto it = t->methods.find(name);
+    if (it == t->methods.end()) {
+      e->ThrowNew(e->FindClass("java/lang/AbstractMethodError"), ("Lucent does not implement " + name).c_str());
+      return nullptr;
+    }
     return it->second(e, args);
-  } catch (...) {
-    reportUncaught(std::current_exception(), "Java callback");
-    return nullptr;
-  }
+  });
 }
 
 jboolean JNICALL proxyHas(JNIEnv* e, jclass, jlong handle, jstring key) {
-  auto* t = reinterpret_cast<ProxyTarget*>(handle);
-  const char* chars = e->GetStringUTFChars(key, nullptr);
-  bool found = t->methods.count(chars) > 0;
-  e->ReleaseStringUTFChars(key, chars);
-  return found ? JNI_TRUE : JNI_FALSE;
+  return reported(e, "Java callback", static_cast<jboolean>(JNI_FALSE), [&] {
+    auto* t = reinterpret_cast<ProxyTarget*>(handle);
+    const char* chars = e->GetStringUTFChars(key, nullptr);
+    if (!chars) return static_cast<jboolean>(JNI_FALSE);
+    bool found = t->methods.count(chars) > 0;
+    e->ReleaseStringUTFChars(key, chars);
+    return found ? static_cast<jboolean>(JNI_TRUE) : static_cast<jboolean>(JNI_FALSE);
+  });
 }
 
 void JNICALL proxyRelease(JNIEnv* e, jclass, jlong handle) {
+  reported(e, "a proxy's release", [&] { releaseProxy(e, handle); });
+}
+
+void releaseProxy(JNIEnv* e, jlong handle) {
   auto* t = reinterpret_cast<ProxyTarget*>(handle);
   {
     std::lock_guard<std::mutex> g(proxiesMutex);

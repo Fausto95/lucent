@@ -43,7 +43,17 @@ public final class NativeProxy implements InvocationHandler {
     String key = key(method);
     Object[] a = args == null ? new Object[0] : args;
     if (!has(handle, key) && method.isDefault()) return invokeDefault(proxy, method, a);
-    return call(handle, key, a);
+    return orZero(call(handle, key, a), method.getReturnType());
+  }
+
+  /**
+   * What a call gave, or the zero value of a primitive return type when it
+   * gave nothing: a Lucent method that threw (its error is reported) or a
+   * dropped call. A proxy returning null for an int would throw a
+   * NullPointerException in the caller that hides the error.
+   */
+  static Object orZero(Object result, Class<?> type) {
+    return result == null && type.isPrimitive() ? zero(type) : result;
   }
 
   /** Name and parameter descriptor, as JNI writes them. */
@@ -117,6 +127,14 @@ public final class NativeProxy implements InvocationHandler {
   /** For generated subclasses of SDK classes: a call of their Lucent side. */
   public static Object dispatch(long handle, String key, Object[] args) {
     return call(handle, key, args);
+  }
+
+  /**
+   * As dispatch, for a method returning the primitive `type` (int.class):
+   * its zero value when the call gave nothing, as for a proxy.
+   */
+  public static Object dispatch(long handle, String key, Object[] args, Class<?> type) {
+    return orZero(call(handle, key, args), type);
   }
 
   /** For generated subclasses: their Lucent side is released with them. */
