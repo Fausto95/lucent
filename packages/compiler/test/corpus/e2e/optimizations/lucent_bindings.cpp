@@ -6,6 +6,8 @@
 
 #pragma push_macro("appends")
 #undef appends
+#pragma push_macro("boundedElements")
+#undef boundedElements
 #pragma push_macro("boundedSum")
 #undef boundedSum
 #pragma push_macro("building")
@@ -16,6 +18,12 @@
 #undef crc
 #pragma push_macro("directCallbacks")
 #undef directCallbacks
+#pragma push_macro("doubleElements")
+#undef doubleElements
+#pragma push_macro("h")
+#undef h
+#pragma push_macro("intElements")
+#undef intElements
 #pragma push_macro("keptCallbacks")
 #undef keptCallbacks
 #pragma push_macro("mutatingCallbacks")
@@ -110,9 +118,30 @@ void install_m_optimizations(jsi::Runtime& rt, Host& host, jsi::Object& exports)
       return Convert<double>::toJs(rt, host, lucent_app::m_optimizations::crc(std::move(a0)));
     });
   });
+  defineFunction(rt, exports, "intElements", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("intElements", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 127), [&]() -> jsi::Value {
+      auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"intElements", "argument 'n'"});
+      return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optimizations::intElements(std::move(a0)));
+    });
+  });
+  defineFunction(rt, exports, "boundedElements", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("boundedElements", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 146), [&]() -> jsi::Value {
+      auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"boundedElements", "argument 'n'"});
+      return Convert<double>::toJs(rt, host, lucent_app::m_optimizations::boundedElements(std::move(a0)));
+    });
+  });
+  defineFunction(rt, exports, "doubleElements", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("doubleElements", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 158), [&]() -> jsi::Value {
+      auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"doubleElements", "argument 'n'"});
+      return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optimizations::doubleElements(std::move(a0)));
+    });
+  });
   defineFunction(rt, exports, "directCallbacks", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("directCallbacks", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 123), [&]() -> jsi::Value {
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("directCallbacks", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 184), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<double>>::fromJs(rt, arg(args, count, 0), Path{"directCallbacks", "argument 'xs'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"directCallbacks", "argument 'bias'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optimizations::directCallbacks(std::move(a0), std::move(a1)));
@@ -120,40 +149,40 @@ void install_m_optimizations(jsi::Runtime& rt, Host& host, jsi::Object& exports)
   });
   defineFunction(rt, exports, "keptCallbacks", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("keptCallbacks", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 141), [&]() -> jsi::Value {
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("keptCallbacks", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 202), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::Array<double>>::fromJs(rt, arg(args, count, 0), Path{"keptCallbacks", "argument 'xs'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optimizations::keptCallbacks(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "mutatingCallbacks", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("mutatingCallbacks", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 154), [&]() -> jsi::Value {
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("mutatingCallbacks", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 215), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optimizations::mutatingCallbacks());
     });
   });
   defineFunction(rt, exports, "stringKeys", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("stringKeys", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 176), [&]() -> jsi::Value {
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("stringKeys", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 237), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optimizations::stringKeys());
     });
   });
   defineFunction(rt, exports, "building", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("building", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 212), [&]() -> jsi::Value {
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("building", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 273), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"building", "argument 'n'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optimizations::building(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "appends", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("appends", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 253), [&]() -> jsi::Value {
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("appends", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 314), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"appends", "argument 'n'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optimizations::appends(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "numberStrings", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, LUCENT_TRACE_SITE_AT("numberStrings", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 269), [&]() -> jsi::Value {
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("numberStrings", "packages/compiler/test/e2e/cases/optimizations.lucent.ts", 330), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optimizations::numberStrings());
     });
   });
@@ -186,9 +215,13 @@ void resetModuleState() {
 #pragma pop_macro("negativeRemainder")
 #pragma pop_macro("mutatingCallbacks")
 #pragma pop_macro("keptCallbacks")
+#pragma pop_macro("intElements")
+#pragma pop_macro("h")
+#pragma pop_macro("doubleElements")
 #pragma pop_macro("directCallbacks")
 #pragma pop_macro("crc")
 #pragma pop_macro("compound")
 #pragma pop_macro("building")
 #pragma pop_macro("boundedSum")
+#pragma pop_macro("boundedElements")
 #pragma pop_macro("appends")

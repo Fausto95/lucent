@@ -4,6 +4,8 @@
 
 #pragma push_macro("add")
 #undef add
+#pragma push_macro("first")
+#undef first
 #pragma push_macro("replacing")
 #undef replacing
 #pragma push_macro("reset")
@@ -40,4 +42,5 @@ inline bool C_Log::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("text")
 #pragma pop_macro("reset")
 #pragma pop_macro("replacing")
+#pragma pop_macro("first")
 #pragma pop_macro("add")

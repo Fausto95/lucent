@@ -24,10 +24,14 @@
 #undef b
 #pragma push_macro("before")
 #undef before
+#pragma push_macro("best")
+#undef best
 #pragma push_macro("bias")
 #undef bias
 #pragma push_macro("big")
 #undef big
+#pragma push_macro("boundedElements")
+#undef boundedElements
 #pragma push_macro("boundedSum")
 #undef boundedSum
 #pragma push_macro("building")
@@ -52,26 +56,42 @@
 #undef digits14
 #pragma push_macro("directCallbacks")
 #undef directCallbacks
+#pragma push_macro("doubleElements")
+#undef doubleElements
 #pragma push_macro("e")
 #undef e
 #pragma push_macro("fifteen")
 #undef fifteen
+#pragma push_macro("first")
+#undef first
 #pragma push_macro("five")
 #undef five
 #pragma push_macro("found")
 #undef found
+#pragma push_macro("fraction")
+#undef fraction
+#pragma push_macro("grown")
+#undef grown
 #pragma push_macro("grows")
 #undef grows
+#pragma push_macro("h")
+#undef h
+#pragma push_macro("halves")
+#undef halves
 #pragma push_macro("held")
 #undef held
 #pragma push_macro("i")
 #undef i
+#pragma push_macro("intElements")
+#undef intElements
 #pragma push_macro("joined")
 #undef joined
 #pragma push_macro("journal")
 #undef journal
 #pragma push_macro("k")
 #undef k
+#pragma push_macro("keep")
+#undef keep
 #pragma push_macro("kept")
 #undef kept
 #pragma push_macro("keptCallbacks")
@@ -88,12 +108,16 @@
 #undef mapped
 #pragma push_macro("message")
 #undef message
+#pragma push_macro("missing")
+#undef missing
 #pragma push_macro("mutatingCallbacks")
 #undef mutatingCallbacks
 #pragma push_macro("n")
 #undef n
 #pragma push_macro("near")
 #undef near
+#pragma push_macro("negative")
+#undef negative
 #pragma push_macro("negativeRemainder")
 #undef negativeRemainder
 #pragma push_macro("numberStrings")
@@ -114,6 +138,8 @@
 #undef pastExact
 #pragma push_macro("pi")
 #undef pi
+#pragma push_macro("products")
+#undef products
 #pragma push_macro("r")
 #undef r
 #pragma push_macro("r_short_")
@@ -128,10 +154,14 @@
 #undef rewrite
 #pragma push_macro("s")
 #undef s
+#pragma push_macro("second")
+#undef second
 #pragma push_macro("seen")
 #undef seen
 #pragma push_macro("shared")
 #undef shared
+#pragma push_macro("sign")
+#undef sign
 #pragma push_macro("signedProducts")
 #undef signedProducts
 #pragma push_macro("sixteen")
@@ -172,6 +202,8 @@
 #undef x
 #pragma push_macro("xs")
 #undef xs
+#pragma push_macro("zeros")
+#undef zeros
 
 namespace lucent_app {
 
@@ -447,6 +479,171 @@ double m_optimizations::crc(double p0_) {
     }
   }
   return static_cast<double>(static_cast<uint32_t>(static_cast<int32_t>(crc) ^ static_cast<int32_t>(4294967295u)) >> (static_cast<uint32_t>(0) & 31u));
+}
+
+lucent::String m_optimizations::intElements(double p0_) {
+  double v3_ = -2.0;
+  lucent::Array<double> t = lucent::Array<double>{1.0, v3_, 3.0};
+  {
+    int64_t i = static_cast<int64_t>(0);
+    while (true) {
+      {
+        bool v9_ = !(static_cast<double>(i) < p0_);
+        if (v9_) {
+          break;
+        }
+        int32_t v15_ = lucent::toInt32(static_cast<double>(i) * 7.0) & 255;
+        int32_t v18_ = static_cast<int32_t>(i) & 3;
+        (void)t.push(static_cast<double>(v15_), static_cast<double>(v18_));
+      }
+      i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
+    }
+  }
+  uint32_t v26_ = 4294967295u >> (static_cast<uint32_t>(0) & 31u);
+  int32_t v30_ = lucent::toInt32(-2147483648.0) | 0;
+  (void)t.push(static_cast<double>(v26_), static_cast<double>(v30_));
+  double v35_ = -5.0;
+  lucent::setElement(t, 0.0, v35_);
+  int64_t v38_ = static_cast<int64_t>(t.size());
+  bool v40_ = static_cast<int64_t>(v38_) > static_cast<int64_t>(3);
+  if (v40_) {
+    lucent::Opt<double> v45_ = t.getIndex(static_cast<int64_t>(2));
+    int32_t v48_ = lucent::toInt32(v45_.value()) ^ 1;
+    lucent::setElement(t, 3.0, static_cast<double>(v48_));
+  }
+  double s = 0.0;
+  {
+    int64_t i = static_cast<int64_t>(0);
+    while (true) {
+      {
+        int64_t v54_ = static_cast<int64_t>(t.size());
+        bool v56_ = !(i < v54_);
+        if (v56_) {
+          break;
+        }
+        lucent::Opt<double> v60_ = t.getIndex(static_cast<int64_t>(i));
+        s = s + v60_.value();
+      }
+      i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
+    }
+  }
+  lucent::Opt<double> v68_ = t.getIndex(static_cast<int64_t>(1));
+  double v69_ = v68_.value();
+  int64_t v72_ = static_cast<int64_t>(t.size());
+  double v74_ = static_cast<double>(v72_) - 2.0;
+  lucent::Opt<double> v75_ = t.get(v74_);
+  int32_t h = lucent::toInt32(v69_) ^ lucent::toInt32(v75_.value());
+  int64_t v80_ = static_cast<int64_t>(t.size());
+  lucent::Opt<double> missing = t.getIndex(static_cast<int64_t>(v80_));
+  double v84_ = -1.0;
+  lucent::Opt<double> negative = t.get(v84_);
+  lucent::Opt<double> fraction = t.get(1.5);
+  double first = t.getIndex(static_cast<int64_t>(0)).value();
+  lucent::Opt<double> second = t.getIndex(static_cast<int64_t>(1));
+  lucent::Opt<double> v98_ = t.getIndex(static_cast<int64_t>(1));
+  double sign = 1.0 / v98_.value();
+  lucent::String v102_ = lucent::toJsString(s);
+  lucent::String v105_ = lucent::toJsString(static_cast<double>(h));
+  lucent::String v108_ = lucent::toJsString(missing);
+  lucent::String v111_ = lucent::toJsString(negative);
+  lucent::String v114_ = lucent::toJsString(fraction);
+  lucent::String v117_ = lucent::toJsString(first);
+  lucent::String v120_ = lucent::toJsString(second);
+  int64_t v123_ = static_cast<int64_t>(t.size());
+  lucent::String v124_ = lucent::toJsString(static_cast<double>(v123_));
+  lucent::String v127_ = lucent::toJsString(sign);
+  int64_t v131_ = static_cast<int64_t>(t.size());
+  double v133_ = static_cast<double>(v131_) - 1.0;
+  lucent::Opt<double> v134_ = t.get(v133_);
+  lucent::String v138_ = lucent::toJsString(v134_.value() - 1.0);
+  return lucent::concat(v102_, LUCENT_STR(" "), v105_, LUCENT_STR(" "), v108_, LUCENT_STR(" "), v111_, LUCENT_STR(" "), v114_, LUCENT_STR(" "), v117_, LUCENT_STR(" "), v120_, LUCENT_STR(" "), v124_, LUCENT_STR(" "), v127_, LUCENT_STR(" "), v138_);
+}
+
+double m_optimizations::boundedElements(double p0_) {
+  lucent::Array<double> xs = lucent::Array<double>{};
+  {
+    int64_t i = static_cast<int64_t>(0);
+    while (true) {
+      {
+        bool v5_ = !(static_cast<double>(i) < p0_);
+        if (v5_) {
+          break;
+        }
+        int32_t v9_ = static_cast<int32_t>(i) & 1023;
+        double v15_ = lucent::jsMod(static_cast<double>(v9_) * static_cast<double>(static_cast<int32_t>(i) & 1023), 1000.0);
+        (void)xs.push(v15_);
+      }
+      i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
+    }
+  }
+  double best = 0.0;
+  {
+    int64_t i = static_cast<int64_t>(0);
+    while (true) {
+      {
+        int64_t v24_ = static_cast<int64_t>(xs.size());
+        bool v26_ = !(i < v24_);
+        if (v26_) {
+          break;
+        }
+        lucent::Opt<double> v29_ = xs.getIndex(static_cast<int64_t>(i));
+        double x = v29_.value();
+        bool v33_ = x > best;
+        if (v33_) {
+          best = x;
+        }
+      }
+      i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
+    }
+  }
+  int64_t v40_ = static_cast<int64_t>(xs.size());
+  return best + static_cast<double>(v40_);
+}
+
+lucent::String m_optimizations::doubleElements(double p0_) {
+  lucent::Array<double> zeros = lucent::Array<double>{0.0};
+  double v5_ = -0.0;
+  (void)zeros.push(v5_);
+  lucent::Array<double> halves = lucent::Array<double>{1.0};
+  double v11_ = p0_ / 2.0;
+  (void)halves.push(v11_);
+  lucent::Array<double> big = lucent::Array<double>{};
+  (void)big.push(9007199254740992.0, 9007199254740992.0);
+  double grown = 1.0;
+  lucent::Array<double> products = lucent::Array<double>{};
+  {
+    int64_t i = static_cast<int64_t>(0);
+    while (true) {
+      {
+        bool v23_ = !(static_cast<double>(i) < p0_);
+        if (v23_) {
+          break;
+        }
+        grown = grown * 3.0;
+        (void)products.push(grown);
+      }
+      i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
+    }
+  }
+  lucent::Array<double> shared = lucent::Array<double>{1.0, 2.0};
+  lucent::String joined = shared.join(LUCENT_STR("-"));
+  double kept = lucent_app::m_optimizations::keep(shared);
+  lucent::Opt<double> v44_ = zeros.getIndex(static_cast<int64_t>(1));
+  lucent::String v47_ = lucent::toJsString(1.0 / v44_.value());
+  lucent::Opt<double> v51_ = halves.getIndex(static_cast<int64_t>(1));
+  lucent::String v52_ = lucent::toJsString(v51_);
+  lucent::Opt<double> v56_ = big.getIndex(static_cast<int64_t>(1));
+  lucent::String v57_ = lucent::toJsString(v56_);
+  int64_t v61_ = static_cast<int64_t>(products.size());
+  double v63_ = static_cast<double>(v61_) - 1.0;
+  lucent::Opt<double> v64_ = products.get(v63_);
+  lucent::String v65_ = lucent::toJsString(v64_);
+  lucent::String v70_ = lucent::toJsString(kept);
+  return lucent::concat(v47_, LUCENT_STR(" "), v52_, LUCENT_STR(" "), v57_, LUCENT_STR(" "), v65_, LUCENT_STR(" "), joined, LUCENT_STR(" "), v70_);
+}
+
+double m_optimizations::keep(lucent::Array<double> p0_) {
+  return static_cast<double>(static_cast<int64_t>(p0_.size()));
 }
 
 lucent::String m_optimizations::directCallbacks(lucent::Array<double> p0_, double p1_) {
@@ -784,6 +981,7 @@ void m_optimizations::init() {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("zeros")
 #pragma pop_macro("xs")
 #pragma pop_macro("x")
 #pragma pop_macro("wide")
@@ -804,8 +1002,10 @@ void m_optimizations::init() {
 #pragma pop_macro("sometimesFractional")
 #pragma pop_macro("sixteen")
 #pragma pop_macro("signedProducts")
+#pragma pop_macro("sign")
 #pragma pop_macro("shared")
 #pragma pop_macro("seen")
+#pragma pop_macro("second")
 #pragma pop_macro("s")
 #pragma pop_macro("rewrite")
 #pragma pop_macro("rest")
@@ -813,6 +1013,7 @@ void m_optimizations::init() {
 #pragma pop_macro("replacing")
 #pragma pop_macro("r_short_")
 #pragma pop_macro("r")
+#pragma pop_macro("products")
 #pragma pop_macro("pi")
 #pragma pop_macro("pastExact")
 #pragma pop_macro("parts")
@@ -823,9 +1024,11 @@ void m_optimizations::init() {
 #pragma pop_macro("numbers")
 #pragma pop_macro("numberStrings")
 #pragma pop_macro("negativeRemainder")
+#pragma pop_macro("negative")
 #pragma pop_macro("near")
 #pragma pop_macro("n")
 #pragma pop_macro("mutatingCallbacks")
+#pragma pop_macro("missing")
 #pragma pop_macro("message")
 #pragma pop_macro("mapped")
 #pragma pop_macro("m")
@@ -834,16 +1037,24 @@ void m_optimizations::init() {
 #pragma pop_macro("keys")
 #pragma pop_macro("keptCallbacks")
 #pragma pop_macro("kept")
+#pragma pop_macro("keep")
 #pragma pop_macro("k")
 #pragma pop_macro("journal")
 #pragma pop_macro("joined")
+#pragma pop_macro("intElements")
 #pragma pop_macro("i")
 #pragma pop_macro("held")
+#pragma pop_macro("halves")
+#pragma pop_macro("h")
 #pragma pop_macro("grows")
+#pragma pop_macro("grown")
+#pragma pop_macro("fraction")
 #pragma pop_macro("found")
 #pragma pop_macro("five")
+#pragma pop_macro("first")
 #pragma pop_macro("fifteen")
 #pragma pop_macro("e")
+#pragma pop_macro("doubleElements")
 #pragma pop_macro("directCallbacks")
 #pragma pop_macro("digits14")
 #pragma pop_macro("desc")
@@ -856,8 +1067,10 @@ void m_optimizations::init() {
 #pragma pop_macro("byValue")
 #pragma pop_macro("building")
 #pragma pop_macro("boundedSum")
+#pragma pop_macro("boundedElements")
 #pragma pop_macro("big")
 #pragma pop_macro("bias")
+#pragma pop_macro("best")
 #pragma pop_macro("before")
 #pragma pop_macro("b")
 #pragma pop_macro("at")

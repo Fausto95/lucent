@@ -31,6 +31,9 @@ export default function run(mod, print, lucentClass, mods) {
     ]),
   );
   print(mod.crc(0), mod.crc(1000));
+  print(mod.intElements(0), mod.intElements(1), mod.intElements(50));
+  print(mod.boundedElements(0), mod.boundedElements(10), mod.boundedElements(2000));
+  print(mod.doubleElements(0), mod.doubleElements(40));
   print(mod.directCallbacks([5, 3, 8, 1, 3], 3));
   print(mod.directCallbacks([], 0));
   print(mod.keptCallbacks([2, 1, 3]));

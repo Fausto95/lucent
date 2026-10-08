@@ -84,6 +84,35 @@ describe("proven integer arithmetic", () => {
   });
 });
 
+describe("integer elements", () => {
+  const cpp = cppOf(CASE);
+
+  it("holds a table of uint32 values as uint32s, read without ToInt32", () => {
+    const fn = body(cpp, "crc");
+
+    expect(fn).toContain("lucent::Array<uint32_t> table = ");
+
+    expect(fn).not.toContain("lucent::toInt32");
+  });
+
+  it("holds int32 and uint32 values alike, and bounded sums, as int64s", () => {
+    expect(body(cpp, "intElements")).toContain("lucent::Array<int64_t> t = ");
+
+    const bounded = body(cpp, "boundedElements");
+
+    expect(bounded).toContain("lucent::Array<int64_t> xs = ");
+
+    expect(bounded).toContain("int64_t x = ");
+  });
+
+  it("keeps doubles for what could be -0, a fraction or past 2^53, and for an array that escapes", () => {
+    const fn = body(cpp, "doubleElements");
+
+    for (const name of ["zeros", "halves", "big", "products", "shared"])
+      expect(fn).toContain(`lucent::Array<double> ${name} = `);
+  });
+});
+
 describe("devirtualized callbacks", () => {
   const cpp = cppOf(CASE);
 

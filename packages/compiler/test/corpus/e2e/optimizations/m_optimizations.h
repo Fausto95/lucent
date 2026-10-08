@@ -4,6 +4,8 @@
 
 #pragma push_macro("appends")
 #undef appends
+#pragma push_macro("boundedElements")
+#undef boundedElements
 #pragma push_macro("boundedSum")
 #undef boundedSum
 #pragma push_macro("building")
@@ -14,8 +16,14 @@
 #undef crc
 #pragma push_macro("directCallbacks")
 #undef directCallbacks
+#pragma push_macro("doubleElements")
+#undef doubleElements
+#pragma push_macro("intElements")
+#undef intElements
 #pragma push_macro("journal")
 #undef journal
+#pragma push_macro("keep")
+#undef keep
 #pragma push_macro("keptCallbacks")
 #undef keptCallbacks
 #pragma push_macro("mutatingCallbacks")
@@ -54,6 +62,10 @@ lucent::String pastExact();
 double sometimesFractional(double p0_);
 lucent::String toInt32(lucent::Array<double> p0_);
 double crc(double p0_);
+lucent::String intElements(double p0_);
+double boundedElements(double p0_);
+lucent::String doubleElements(double p0_);
+double keep(lucent::Array<double> p0_);
 lucent::String directCallbacks(lucent::Array<double> p0_, double p1_);
 lucent::String keptCallbacks(lucent::Array<double> p0_);
 lucent::String mutatingCallbacks();
@@ -79,10 +91,14 @@ void init();
 #pragma pop_macro("negativeRemainder")
 #pragma pop_macro("mutatingCallbacks")
 #pragma pop_macro("keptCallbacks")
+#pragma pop_macro("keep")
 #pragma pop_macro("journal")
+#pragma pop_macro("intElements")
+#pragma pop_macro("doubleElements")
 #pragma pop_macro("directCallbacks")
 #pragma pop_macro("crc")
 #pragma pop_macro("compound")
 #pragma pop_macro("building")
 #pragma pop_macro("boundedSum")
+#pragma pop_macro("boundedElements")
 #pragma pop_macro("appends")

@@ -117,6 +117,67 @@ export function crc(n: number): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
+// --- Arrays that only ever hold integers: integer elements --------------------
+
+/**
+ * Applies: a local table only ever holding exact integers (literals, int32
+ * and uint32 results, bounded sums), read with `!`, plainly and by `length`,
+ * and written in place.
+ */
+export function intElements(n: number): string {
+  const t: number[] = [1, -2, 3];
+  for (let i = 0; i < n; i++) t.push((i * 7) & 0xff, i & 3);
+  t.push(0xffffffff >>> 0, -2147483648 | 0);
+  t[0] = -5;
+  if (t.length > 3) t[3] = t[2]! ^ 1;
+  let s = 0;
+  for (let i = 0; i < t.length; i++) s += t[i]!;
+  const h = t[1]! ^ t[t.length - 2]!;
+  const missing = t[t.length];
+  const negative = t[-1];
+  const fraction = t[1.5];
+  const first = t[0] ?? 99;
+  const second = t[1];
+  const sign = 1 / t[1]!;
+  return `${s} ${h} ${missing} ${negative} ${fraction} ${first} ${second} ${t.length} ${sign} ${t[t.length - 1]! - 1}`;
+}
+
+/** Applies: elements a range proves, read back into an int64. */
+export function boundedElements(n: number): number {
+  const xs: number[] = [];
+  for (let i = 0; i < n; i++) xs.push(((i & 1023) * (i & 1023)) % 1000);
+  let best = 0;
+  for (let i = 0; i < xs.length; i++) {
+    const x = xs[i]!;
+    if (x > best) best = x;
+  }
+  return best + xs.length;
+}
+
+/** Leaves alone: tables that could hold -0, a fraction, a value past 2^53, or that escape. */
+export function doubleElements(n: number): string {
+  const zeros: number[] = [0];
+  zeros.push(-0);
+  const halves: number[] = [1];
+  halves.push(n / 2);
+  const big: number[] = [];
+  big.push(9007199254740992, 9007199254740993);
+  let grown = 1;
+  const products: number[] = [];
+  for (let i = 0; i < n; i++) {
+    grown = grown * 3;
+    products.push(grown);
+  }
+  const shared: number[] = [1, 2];
+  const joined = shared.join("-");
+  const kept = keep(shared);
+  return `${1 / zeros[1]!} ${halves[1]} ${big[1]} ${products[products.length - 1]} ${joined} ${kept}`;
+}
+
+function keep(xs: number[]): number {
+  return xs.length;
+}
+
 // --- Callbacks a runtime method calls directly -------------------------------
 
 /** Applies: arrow functions passed straight to Array's methods. */
