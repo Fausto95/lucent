@@ -104,7 +104,7 @@ export async function parse(text: string): Promise<number | null> {
 | --- | --- |
 | A reference without `@NonNull` | `T \| null`. A `null` where the SDK promises a value throws a `TypeError`. |
 | `boolean` | `boolean` |
-| `long`, and Kotlin's `Long` | `bigint`, as every native 64-bit integer is: see [Types](/docs/api/language/types/). |
+| `long`, and Kotlin's `Long` | `bigint`, as every native 64-bit integer is. A parameter takes a safe-integer `number` too: see [Types](/docs/api/language/types/#native-64-bit-integers-are-bigints). |
 | `int`, `short`, `byte`, `char`, `float`, `double` | `number` |
 | `String`, `CharSequence` | `string`. A `CharSequence` result is read with its `toString()`. |
 | `byte[]` | `Uint8Array`, copied both ways. |

@@ -3,6 +3,7 @@
 
 #include <charconv>
 #include <cmath>
+#include <concepts>
 #include <cstdint>
 #include <limits>
 #include <string>
@@ -116,6 +117,18 @@ I toExactInteger(double v) {
   if (!(t >= low && t <= 9007199254740991.0)) throwInexactInteger(numberToString(v).toUtf8());
 
   return static_cast<I>(t);
+}
+
+/// A number passed where native code takes a 64-bit integer (a Java long,
+/// a Swift Int): a safe integer (Number.isSafeInteger), exactly, or
+/// RangeError naming `what`, the parameter it is for. A bigint takes
+/// toNativeInteger(const BigInt&) instead.
+template <std::integral I>
+  requires(!std::same_as<I, bool>)
+I toNativeInteger(double v, const char* what) {
+  double low = std::is_signed_v<I> ? -9007199254740991.0 : 0.0;
+  if (std::trunc(v) == v && v >= low && v <= 9007199254740991.0) return static_cast<I>(v);
+  throwRangeError((std::string(what) + ": " + numberToString(v).toUtf8() + " is not a safe integer").c_str());
 }
 
 /// A number as a narrower native number, as WebIDL's default conversion

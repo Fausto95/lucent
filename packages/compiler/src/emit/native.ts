@@ -404,6 +404,17 @@ export function primLt(t: SdkType): LType {
   return isBigIntType(t) ? T.bigint : T.number;
 }
 
+/**
+ * The Lucent type an argument for a native number of schema type `t` is
+ * lowered as, `given` being the argument's own: a 64-bit integer parameter
+ * takes a bigint, or a number (numberToNative checks that it is a safe
+ * integer). Results stay bigints.
+ */
+export function primArgLt(t: SdkType, given: LType): LType {
+  const lt = primLt(t);
+  return lt.k === "bigint" && stripOpt(given).k === "number" ? T.number : lt;
+}
+
 /** A 64-bit integer that is not a bigint: a constant group's (its plan's `exact`). */
 const isGroupWide = (t: SdkType) => t.k === "prim" && isWideInteger(t.name) && !isBigIntType(t);
 
@@ -766,7 +777,7 @@ export function toObjc(
   const scalar = ((): LType | undefined => {
     switch (t.k) {
       case "prim":
-        return primLt(t);
+        return primArgLt(t, em.lt(arg));
       case "string":
         return T.string;
       case "bytes":
@@ -1147,8 +1158,8 @@ function toJni(em: FnEmitter, ref: SdkClassRef, arg: ts.Expression, t: SdkType):
 function jniArgument(em: FnEmitter, ref: SdkClassRef, arg: ts.Expression, t: SdkType): E {
   switch (t.k) {
     case "prim": {
-      // A long is a bigint; other numbers and booleans as they are.
-      const lt = primLt(t);
+      // A long is a bigint, or a safe-integer number; other numbers and booleans as they are.
+      const lt = primArgLt(t, em.lt(arg));
       return { c: em.exprAs(arg, lt), t: lt };
     }
     case "string": {
@@ -4069,7 +4080,7 @@ function jniValue(em: FnEmitter, ref: SdkClassRef, site: ts.Expression, t: SdkTy
 
   switch (t.k) {
     case "prim":
-      return as(primLt(t));
+      return as(primArgLt(t, value.t));
     case "string":
       return as(t.nullable ? unionOf([T.string, T.null]) : T.string);
     case "array": {

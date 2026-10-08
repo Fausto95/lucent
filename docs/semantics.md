@@ -78,7 +78,12 @@ bigints: `list.count` is `3n`, and `Number(list.count)` makes it a number.
 Every value read from native code is exact, including sentinels at the
 type's limits such as `NSNotFound` and `Long.MAX_VALUE`. A bigint passed in
 must fit the native type (`0n` to `2n ** 64n - 1n` for unsigned ones), or
-the call throws `RangeError` naming the parameter or field. Enums, option
+the call throws `RangeError` naming the parameter or field. A method's or
+function's own 64-bit parameter (not an array's elements, a field or a
+callback's result) also takes a number that is a safe integer
+(`Number.isSafeInteger`, and not negative for an unsigned one); another
+number throws `RangeError` (`ms of Thread.sleep: 1.5 is not a safe
+integer`) instead of rounding. Results stay bigints. Enums, option
 sets and Android constant groups (`@IntDef`, `@LongDef`) stay numbers; a
 `@LongDef` value a number cannot hold exactly (beyond ±(2^53 − 1)) throws
 `RangeError` instead of rounding. A number passed where native code takes a

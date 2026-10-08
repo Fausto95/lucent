@@ -111,7 +111,7 @@ export async function memory(): Promise<string> {
 | --- | --- |
 | `T?`, `T!` | `T \| null`. A `nil` where the SDK promises a value throws a `TypeError`. |
 | `Bool`, `BOOL` | `boolean` |
-| `Int`, `UInt`, `Int64`, `UInt64`, `NSInteger`, `NSUInteger`, `int64_t`, `uint64_t`, `CFIndex` | `bigint`, as every native 64-bit integer is: see [Types](/docs/api/language/types/). |
+| `Int`, `UInt`, `Int64`, `UInt64`, `NSInteger`, `NSUInteger`, `int64_t`, `uint64_t`, `CFIndex` | `bigint`, as every native 64-bit integer is. A parameter takes a safe-integer `number` too: see [Types](/docs/api/language/types/#native-64-bit-integers-are-bigints). |
 | `Double`, `Float`, `CGFloat`, `Int32`, `int` and the other numbers | `number` |
 | `String`, `NSString`, `CFString` | `string` |
 | `Data`, `NSData`, `CFData` | `Uint8Array`, copied. |

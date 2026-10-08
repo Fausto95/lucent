@@ -433,6 +433,15 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-08: 64-bit parameters take safe-integer numbers.** A
+method's or function's own 64-bit integer parameter (a Java `long`, a
+Swift `Int`) is declared `bigint | number`: a number must be a safe
+integer, checked where it converts (`RangeError` otherwise, never a
+rounded value), and a bigint keeps its full range. Results, fields,
+array elements and callback results stay `bigint`, so values read from
+native code are exact as before; widening those would make reading a
+`long` lossy or every result a union.
+
 **2026-10-08: Native errors stay Errors, with their source kept.** A
 Java exception or an NSError still becomes a Lucent `Error` (its `code`
 the class name, or `"<domain>:<code>"`), so `catch` and JavaScript see
@@ -2406,7 +2415,11 @@ errors, 64-bit parameters from numbers, and lifecycle hooks.
       `lucent:ios` gives back the `Throwable` or `NSError` an error came
       from (`native-errors.test.ts` on the JNI host; the iOS side is
       written but unverified here, without Xcode).
-- [ ] 64-bit integer parameters from safe-integer numbers.
+- [x] 64-bit integer parameters from safe-integer numbers: the SDK
+      declarations type a member's own 64-bit parameter `bigint | number`,
+      and a number is checked to be a safe integer (`wide-arguments.test.ts`
+      on the JNI host; the Objective-C and Swift glue share the
+      conversion, unverified here).
 - [ ] Lifecycle hooks: deep links, push tokens, module create/destroy.
 - [ ] `expose()` inside a platform branch.
 

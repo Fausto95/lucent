@@ -101,11 +101,14 @@ function emitDts(
     return aliases.get(`${module} ${name}`) ?? name;
   };
   /** `out`: results and properties; parameters take any Lucent value where Objective-C takes Any. */
-  const tsType = (t: SdkType, out = true): ts.Type => {
+  /** `param`: a member's own parameter, where a 64-bit integer takes a number too (checked). */
+  const tsType = (t: SdkType, out = true, param = false): ts.Type => {
     const base = ((): ts.Type => {
       switch (t.k) {
         case "prim":
-          return ts.keyword(primKeyword(t));
+          return param && primKeyword(t) === "bigint"
+            ? ts.union([ts.keyword("bigint"), ts.keyword("number")])
+            : ts.keyword(primKeyword(t));
         case "string":
           return ts.keyword("string");
         case "bytes":
@@ -225,7 +228,7 @@ function emitDts(
       name: f.name,
       ...(doc ? { doc } : {}),
       ...(tps.length ? { typeParams: tps.map((name) => ({ name })) } : {}),
-      params: declaredParams(f, (t) => tsType(parseSdkType(t, schema.module, tps), false)),
+      params: declaredParams(f, (t) => tsType(parseSdkType(t, schema.module, tps), false, true)),
       ret: settled(f, tsType(parseSdkType(f.returns, schema.module, tps))),
     });
   }
@@ -446,7 +449,7 @@ export function safeName(n: string): string {
 function classDts(
   schema: SdkModuleSchema,
   cls: SdkClassSchema,
-  tsType: (t: SdkType, out?: boolean) => ts.Type,
+  tsType: (t: SdkType, out?: boolean, param?: boolean) => ts.Type,
   use: (module: string, name: string) => string,
   options: DtsOptions,
 ): ts.Decl[] {
@@ -489,7 +492,7 @@ function classDts(
     cls.swift?.kind === "protocol" ? substitute(t, new Map([["Self", own]])) : t;
   // Parameters keep their Java type: a constant outside the group is a warning (LUCENT3008).
   const params = (m: Declared, tps: readonly string[] = []) =>
-    declaredParams(m, (t) => tsType(parse(t, tps), false), cls);
+    declaredParams(m, (t) => tsType(parse(t, tps), false, true), cls);
   // An enum with payloads: a union of its cases, discriminated by kind.
   const cases = cls.swift?.kind === "enum" ? cls.swift.cases : undefined;
   if (cases)
@@ -698,7 +701,7 @@ function classDts(
     members.push({
       k: "method",
       name: m.name,
-      params: declaredParams(m, (t) => tsType(typed(t), false), {
+      params: declaredParams(m, (t) => tsType(typed(t), false, true), {
         typeParams: [...inh.classTypeParams],
       }),
       ret: settled(m, oneOf(m.returnsOneOf, typed(m.returns), true)),

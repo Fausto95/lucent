@@ -114,6 +114,7 @@ export function bootTime(): bigint {
 - Each value read from native code is exact, sentinels at a type's limits included, such as `NSNotFound` and `Long.MAX_VALUE`.
 - A bigint passed to native code must fit its type: from `-(2n ** 63n)` to `2n ** 63n - 1n`, or from `0n` to `2n ** 64n - 1n` for an unsigned one.
 - A bigint that doesn't fit throws a `RangeError` that names the parameter or field: `<parameter> of <Class>.<method>: <value> is out of range for a 64-bit signed integer`.
+- A method's or a function's 64-bit parameter takes a number too, such as `vibrate(40)`, if it's a safe integer: whole, and within ±(2^53 − 1). Another number throws a `RangeError`, `<parameter> of <Class>.<method>: 1.5 is not a safe integer`, rather than rounding. Results, fields and arrays stay bigints.
 - Enums, option sets and Android constant groups (`@IntDef`, `@LongDef`) stay numbers. A 64-bit one that a number can't hold exactly, beyond ±(2^53 − 1), throws a `RangeError` instead of rounding.
 - A native extension's 64-bit integers are bigints too ([Native extensions](/docs/packages/native-extensions/)).
 
