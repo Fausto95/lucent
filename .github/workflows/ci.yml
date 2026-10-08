@@ -194,8 +194,8 @@ jobs:
           restore-keys: |
             lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
             lucent-sdk-${{ runner.os }}-
-      - name: SDK coverage (fails when a module's unrepresentable share grows past sdk-coverage.json)
-        run: node packages/lucent/bin/lucent.cjs sdk coverage --ios UIKit,Foundation,AVFoundation,StoreKit,CryptoKit --android 'android.*' --json --check sdk-coverage.json > sdk-coverage.current.json
+      - name: SDK coverage (fails when a module's unrepresentable share grows past config/sdk-coverage.json)
+        run: node packages/lucent/bin/lucent.cjs sdk coverage --ios UIKit,Foundation,AVFoundation,StoreKit,CryptoKit --android 'android.*' --json --check config/sdk-coverage.json > sdk-coverage.current.json
       - name: SDK coverage of every module (the top reasons in the job summary; fails nothing)
         timeout-minutes: 45
         run: node packages/lucent/bin/lucent.cjs sdk coverage --all --json --summary "$GITHUB_STEP_SUMMARY" > sdk-coverage.all.json

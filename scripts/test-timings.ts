@@ -1,6 +1,6 @@
 /**
- * Writes test-timings.json, how long each test file took, for the shards
- * vitest.sequencer.ts makes: from a vitest JSON report of a full run.
+ * Writes config/test-timings.json, how long each test file took, for the shards
+ * config/vitest.sequencer.ts makes: from a vitest JSON report of a full run.
  *
  *   LUCENT_ALL_TESTS=1 pnpm exec vp test run --reporter=json --outputFile=report.json
  *   node scripts/test-timings.ts report.json
@@ -24,5 +24,8 @@ const timings = Object.fromEntries(
     .sort(([a], [b]) => String(a).localeCompare(String(b))),
 );
 
-fs.writeFileSync(path.join(root, "test-timings.json"), `${JSON.stringify(timings, null, 2)}\n`);
-console.log(`test-timings.json: ${Object.keys(timings).length} files`);
+fs.writeFileSync(
+  path.join(root, "config/test-timings.json"),
+  `${JSON.stringify(timings, null, 2)}\n`,
+);
+console.log(`config/test-timings.json: ${Object.keys(timings).length} files`);
