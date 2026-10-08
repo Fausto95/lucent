@@ -59,7 +59,7 @@ export function pickSimulator(list: {
       return bm - am || bn - an;
     });
   for (const r of runtimes) {
-    const phone = list.devices[r]!.find((d) => d.isAvailable && /^iPhone/.test(d.name));
+    const phone = list.devices[r]!.find((d) => d.isAvailable && d.name.startsWith("iPhone"));
     if (phone) return phone;
   }
   return undefined;
