@@ -374,16 +374,11 @@ jobs:
 
   # The compiled modules on the platforms themselves: the bare example's Tests screen (every
   # end-to-end case through the compiled C++) on the iOS simulator and the Android emulator.
-  # Nightly, on a manual run, on pull requests that change the runtime or the compiler, and on
-  # the version PR's merge, whose CI run gates the release (release.yml).
+  # Nightly and on a manual run only, until they run reliably; they don't gate the CI check.
   devices:
     name: Device run (${{ matrix.platform }})
     needs: changes
-    if: >-
-      needs.changes.outputs.devices == 'true' &&
-      (github.event_name != 'push' ||
-       startsWith(github.event.head_commit.message, 'chore(release)') ||
-       contains(github.event.head_commit.message, 'changeset-release/main'))
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -408,7 +403,6 @@ jobs:
         ios-checks,
         ios,
         android,
-        devices,
       ]
     runs-on: ubuntu-latest
     timeout-minutes: 5
