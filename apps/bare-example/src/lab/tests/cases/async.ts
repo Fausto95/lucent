@@ -32,6 +32,7 @@ export default function run(mod, print, lucentClass, mods) {
     print(await mod.allRejectsEarly());
     print(await mod.tupleRejectsEarly());
     print(await mod.allTicks());
+    print(await mod.eagerOrder());
     print(await mod.promised(21));
     try {
       await mod.promiseRejects();
