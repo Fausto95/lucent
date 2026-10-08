@@ -2,27 +2,6 @@
 import SwiftUI
 import UIKit
 
-fileprivate func lucentDecodeNumber(_ x: Any, _ what: String) -> NSNumber {
-  if let value = x as? NSNumber {
-    return value
-  }
-  fatalError("Lucent: " + what + " should be a number, got " + String(describing: type(of: x)))
-}
-
-fileprivate func lucentDecodeString(_ x: Any, _ what: String) -> String {
-  if let value = x as? String {
-    return value
-  }
-  fatalError("Lucent: " + what + " should be a string, got " + String(describing: type(of: x)))
-}
-
-fileprivate func lucentDecodeList(_ x: Any, _ what: String) -> [Any] {
-  if let value = x as? [Any] {
-    return value
-  }
-  fatalError("Lucent: " + what + " should be a list, got " + String(describing: type(of: x)))
-}
-
 fileprivate final class TodosActions {
   let context: UnsafeMutableRawPointer
   let invoke: @convention(c) (UnsafeMutableRawPointer, Int32, UnsafeMutableRawPointer) -> Void
@@ -47,6 +26,27 @@ fileprivate final class TodosActions {
   deinit {
     release(context)
   }
+}
+
+fileprivate func lucentDecodeNumber(_ x: Any, _ what: String) -> NSNumber {
+  if let value = x as? NSNumber {
+    return value
+  }
+  fatalError("Lucent: " + what + " should be a number, got " + String(describing: type(of: x)))
+}
+
+fileprivate func lucentDecodeString(_ x: Any, _ what: String) -> String {
+  if let value = x as? String {
+    return value
+  }
+  fatalError("Lucent: " + what + " should be a string, got " + String(describing: type(of: x)))
+}
+
+fileprivate func lucentDecodeList(_ x: Any, _ what: String) -> [Any] {
+  if let value = x as? [Any] {
+    return value
+  }
+  fatalError("Lucent: " + what + " should be a list, got " + String(describing: type(of: x)))
 }
 
 fileprivate final class TodosItem0: ObservableObject, Identifiable {
@@ -95,7 +95,7 @@ fileprivate final class TodosModel: ObservableObject {
   var list_0Items: [Double: TodosItem0] = [:]
 
   func setList_0(_ records: Any) {
-    let next = lucentDecodeList(records, "list_0").map { record in list_0Item(lucentDecodeList(record, "list_0's record")) }
+    let next = lucentDecodeList(records, "list_0").map { record in list_0Item(lucentDecodeList(record, "list_0\'s record")) }
     let alive = Set(next.map({ $0.id }))
     list_0Items = list_0Items.filter { alive.contains($0.key) }
     if next.map({ $0.id }) != list_0.map({ $0.id }) {
@@ -104,7 +104,7 @@ fileprivate final class TodosModel: ObservableObject {
   }
 
   func list_0Item(_ record: [Any]) -> TodosItem0 {
-    let key = lucentDecodeNumber(record[0], "list_0's key").doubleValue
+    let key = lucentDecodeNumber(record[0], "list_0\'s key").doubleValue
     let item = list_0Items[key] ?? TodosItem0(id: key)
     list_0Items[key] = item
     item.update(record)
