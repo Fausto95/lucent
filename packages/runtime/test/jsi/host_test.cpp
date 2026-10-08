@@ -383,9 +383,22 @@ Promise<double> measuredLater(double x) {
 String label;
 std::atomic<int> initialized{0};
 
+/// What the destroy hooks init() registers saw: the label of the state they ended.
+std::atomic<int> destroyed{0};
+String destroyedLabel;
+std::atomic<int> unregistered{0};
+
 void init() {
   label = String::fromUtf8("a label init() computes, too long to fit inline");
   initialized++;
+  int generation = initialized;
+  onDestroy(Fn<void()>([generation] {
+    destroyed++;
+    destroyedLabel = String::fromUtf8(label.toUtf8() + " " + std::to_string(generation));
+  }));
+  // A hook removed before its state ends never runs.
+  Fn<void()> stop = onDestroy(Fn<void()>([] { unregistered++; }));
+  stop();
 }
 
 /// Compute tasks, as the compiler lowers one that reads a literal module
@@ -822,6 +835,26 @@ static void callbacksDroppedWithTheRuntimeReject() {
   m_t::kept = undefined;
 }
 
+// --- module hooks -------------------------------------------------------------
+
+/// Module code's destroy hooks run when its state ends: before a reload
+/// initializes it again (seeing the state they belong to), and when the
+/// runtime goes.
+static void destroyHooksRunWhenModuleStateEnds() {
+  JsThread js;
+  install(js);
+  int before = m_t::destroyed;
+  int generation = m_t::initialized;
+
+  install(js);
+  CHECK(m_t::destroyed == before + 1);
+  CHECK(m_t::destroyedLabel.toUtf8() == "a label init() computes, too long to fit inline " + std::to_string(generation));
+
+  js.destroyRuntime();
+  CHECK(within(2000, [&] { return m_t::destroyed == before + 2; }));
+  CHECK(m_t::unregistered == 0);
+}
+
 // --- events -------------------------------------------------------------------
 
 /// A listener JavaScript added belongs to its runtime: after a reload,
@@ -1242,6 +1275,7 @@ int main() {
   workDoesNotStartAfterTeardown();
   awaitedJsPromisesRejectAtTeardown();
   callbacksDroppedWithTheRuntimeReject();
+  destroyHooksRunWhenModuleStateEnds();
   listenersEndWithTheirRuntime();
   eachRuntimeHasItsOwnObjectForAnInstance();
   objectsOfATornDownHostAreRefused();
