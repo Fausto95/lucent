@@ -36,7 +36,7 @@ export function LocationDemo() {
   const [watching, setWatching] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const watch = useRef<number | null>(null);
+  const watch = useRef<Location.LocationSubscription | null>(null);
 
   async function readStatus(): Promise<Status> {
     const next = {
@@ -78,7 +78,7 @@ export function LocationDemo() {
 
   async function toggleWatch() {
     if (watch.current !== null) {
-      await Location.stopWatching(watch.current);
+      watch.current.remove();
       watch.current = null;
       setWatching(false);
       return;
@@ -98,7 +98,7 @@ export function LocationDemo() {
     );
 
     return () => {
-      if (watch.current !== null) void Location.stopWatching(watch.current);
+      watch.current?.remove();
     };
   }, []);
 

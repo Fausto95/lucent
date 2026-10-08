@@ -194,7 +194,7 @@ export const sdkCases: SdkCase[] = [
       let stop = () => {};
       const first = new Promise<string>((resolve) => {
         void Location.watchPositionAsync((l) => resolve(place(l))).then(
-          (id) => (stop = () => void Location.stopWatching(id)),
+          (subscription) => (stop = () => subscription.remove()),
         );
       });
       const result = await within(15000, first);

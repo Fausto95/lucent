@@ -2333,7 +2333,9 @@ errors, 64-bit parameters from numbers, and lifecycle hooks.
       platform's code belongs to that platform, and the class stays
       shared (`platform-members.test.ts`, which runs the Android build of
       such a class on the desktop JNI host, now also on Linux against
-      `fake-android.ts`'s stand-ins). Class instances as view props stay refused (see the decision).
+      `fake-android.ts`'s stand-ins). The expo-location port's watch is
+      a `LocationSubscription` holding its manager or listener, as
+      expo-location's. Class instances as view props stay refused (see the decision).
 - [ ] `EventEmitter` in `lucent:core`.
 - [ ] Platform files without a twin, declared classes and constants in
       declaration files, and a `const` holding a platform test.
