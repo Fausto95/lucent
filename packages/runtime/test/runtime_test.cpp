@@ -640,6 +640,18 @@ static void optionalsAndUnions() {
     Opt<Undefined> narrowed = convert<Opt<Undefined>>(absent);
     CHECK(narrowed.isNull() == absent.isNull() && narrowed.isUndefined() == absent.isUndefined());
   }
+
+  // A read of a collection of optionals: one level of absence, null kept.
+  Array<Opt<double>> xs{Opt<double>(1.0), Opt<double>(undefined), Opt<double>(null)};
+  Opt<double> first = flat(xs.get(0));
+  CHECK(first.has() && first.get() == 1.0);
+  CHECK(flat(xs.get(1)).isUndefined());
+  CHECK(flat(xs.get(2)).isNull());
+  CHECK(flat(xs.get(9)).isUndefined());
+  Map<String, Opt<String>> m;
+  m.set(S("n"), Opt<String>(null));
+  CHECK(flat(m.get(S("n"))).isNull());
+  CHECK(flat(m.get(S("x"))).isUndefined());
 }
 
 /// Two objects that reach each other, one of them weakly (a delegate's owner).

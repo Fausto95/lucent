@@ -100,6 +100,18 @@ class Opt {
                                  std::is_constructible_v<T, U&&>,
                              int> = 0>
   Opt(U&& v) : value_(T(std::forward<U>(v))), state_(State::Value) {}
+  /// A read of a collection of optionals (`xs[i]` of a `(T | undefined)[]`,
+  /// `map.get(k)`, `record[k]`): absent when the element is, else the
+  /// element as it is, null included. The types flatten `T | undefined |
+  /// undefined` the same way (types.ts's unionOf).
+  explicit Opt(const Opt<Opt<T>>& read) {
+    if (!read.has()) state_ = read.isNull() ? State::Null : State::Undefined;
+    else *this = read.get();
+  }
+  explicit Opt(Opt<Opt<T>>&& read) {
+    if (!read.has()) state_ = read.isNull() ? State::Null : State::Undefined;
+    else *this = std::move(read.get());
+  }
 
   bool has() const { return state_ == State::Value; }
   bool isUndefined() const { return state_ == State::Undefined; }
@@ -128,6 +140,13 @@ class Opt {
   std::optional<T> value_;
   State state_ = State::Undefined;
 };
+
+/// One optional from an optional of one: a read of a collection of optionals
+/// (emit/context.ts's elementOrUndefined).
+template <class T>
+Opt<T> flat(Opt<Opt<T>> read) {
+  return Opt<T>(std::move(read));
+}
 
 /// An array of integer elements' `a[i]`: the number the element reads as, or undefined.
 template <class T>
