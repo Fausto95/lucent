@@ -332,6 +332,16 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "AbortController.new": ALLOCATES,
   "WeakRefConstructor.new": ALLOCATES,
   "WeakRef.deref": NONE,
+  // A key's entry, and its value, go with the key; the collection holds the value.
+  "WeakMapConstructor.new": ALLOCATES,
+  "WeakMap.get": ELEMENT,
+  "WeakMap.set": ADDS,
+  "WeakMap.has": NONE,
+  "WeakMap.delete": MUTATES,
+  "WeakSetConstructor.new": ALLOCATES,
+  "WeakSet.add": ADDS,
+  "WeakSet.has": NONE,
+  "WeakSet.delete": MUTATES,
   "AbortSignal.addEventListener": { calls: "later", keeps: "receiver" },
   "AbortSignal.throwIfAborted": { throws: true },
 

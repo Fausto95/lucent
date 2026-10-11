@@ -415,6 +415,13 @@ export const differences: { title: string; rows: Difference[] }[] = [
         cases: ["weak-refs"],
       },
       {
+        js: "A `WeakMap` or `WeakSet` entry lives until the garbage collector runs, and a value that holds only its own key frees with it.",
+        lucent:
+          "An entry goes, its value with it, with its key's last strong reference, at once. A value that holds its own key keeps it, and the entry.",
+        why: "Lucent counts references: the key's last reference drops its entries, and nothing traces through a value to its key.",
+        cases: ["weak-collections"],
+      },
+      {
         js: "Deep recursion throws a `RangeError`.",
         lucent: "Deep recursion may overflow the native stack, which crashes the app.",
         why: "Lucent code runs on the native stack, with no depth check.",

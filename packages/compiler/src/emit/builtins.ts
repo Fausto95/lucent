@@ -1316,6 +1316,9 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       if (name === "deref" && !a.length)
         return { c: cpp.call(cpp.arrow(o, "deref"), []), t: unionOf([t.inner, T.undefined]) };
       break;
+    case "weakMap":
+    case "weakSet":
+      return weakMethod(em, obj as E & { t: LType & { k: "weakMap" | "weakSet" } }, name, node);
     case "emitter":
       return emitterMethod(em, obj, name, node);
     case "subscription":
@@ -1956,6 +1959,37 @@ function mapMethod(
   fail(node, Codes.UnsupportedBuiltin, `Map.prototype.${name} is not supported`);
 }
 
+/** WeakMap's and WeakSet's methods: by key, as Map's and Set's are (weak.h). */
+function weakMethod(
+  em: FnEmitter,
+  obj: E & { t: LType & { k: "weakMap" | "weakSet" } },
+  name: string,
+  node: ts.CallExpression,
+): E {
+  const t = obj.t;
+  const o = obj.c;
+  const a = node.arguments;
+  const key = () => em.exprAs(a[0]!, t.key);
+  switch (name) {
+    case "get":
+      if (t.k === "weakMap") return elementOrUndefined(cpp.call(cpp.dot(o, "get"), [key()]), t.val);
+      break;
+    case "set":
+      if (t.k === "weakMap")
+        return { c: cpp.call(cpp.dot(o, "set"), [key(), em.exprAs(a[1]!, t.val)]), t };
+      break;
+    case "add":
+      if (t.k === "weakSet") return { c: cpp.call(cpp.dot(o, "add"), [key()]), t };
+      break;
+    case "has":
+      return bool(cpp.call(cpp.dot(o, "has"), [key()]));
+    case "delete":
+      return bool(cpp.call(cpp.dot(o, "remove"), [key()]));
+  }
+  const owner = t.k === "weakMap" ? "WeakMap" : "WeakSet";
+  fail(node, Codes.UnsupportedBuiltin, `${owner}.prototype.${name} is not supported`);
+}
+
 function setMethod(
   em: FnEmitter,
   obj: E & { t: { k: "set"; e: LType } },
@@ -2148,6 +2182,8 @@ const BIGINT_FROM: Partial<Record<LType["k"], (v: cpp.Expr) => cpp.Expr>> = {
 const LIB_CONSTRUCTORS: Record<string, LType["k"]> = {
   AbortController: "abortController",
   WeakRef: "weak",
+  WeakMap: "weakMap",
+  WeakSet: "weakSet",
   RegExp: "regexp",
   Date: "date",
   Map: "map",
@@ -2230,6 +2266,15 @@ export function newBuiltin(
         t,
       };
     }
+    case "weakMap":
+    case "weakSet":
+      if (a.length)
+        fail(
+          node,
+          Codes.UnsupportedBuiltin,
+          `new ${name}() takes no entries here: make it empty, then ${t.k === "weakMap" ? "set" : "add"} them`,
+        );
+      return { c: cpp.construct(em.reg.cppType(t), []), t };
     case "map": {
       if (!a[0]) return { c: cpp.construct(em.reg.cppType(t), []), t };
       const entries = em.exprAs(a[0], { k: "array", e: { k: "tuple", es: [t.key, t.val] } });

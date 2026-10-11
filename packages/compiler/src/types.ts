@@ -78,7 +78,11 @@ export type LType =
   /** What an EventEmitter's addListener returns (lucent::EventSubscription). */
   | { k: "subscription" }
   /** `WeakRef<T>` of an object `inner` (lucent::WeakRefObject): it does not keep its target alive. */
-  | { k: "weak"; inner: LType };
+  | { k: "weak"; inner: LType }
+  /** `WeakMap<K, V>` (lucent::WeakMap): object keys, held weakly, by identity. */
+  | { k: "weakMap"; key: LType; val: LType }
+  /** `WeakSet<K>` (lucent::WeakSet). */
+  | { k: "weakSet"; key: LType };
 
 /** The error constructors Lucent makes; an error is named after its constructor. */
 const ERROR_NAMES = ["Error", "TypeError", "RangeError", "SyntaxError"] as const;
@@ -169,6 +173,10 @@ function keyWith(t: LType, struct: (id: string) => string): string {
       return `Props:${t.component}`;
     case "weak":
       return `WeakRef<${key(t.inner)}>`;
+    case "weakMap":
+      return `WeakMap<${key(t.key)},${key(t.val)}>`;
+    case "weakSet":
+      return `WeakSet<${key(t.key)}>`;
     case "emitter":
       return `EventEmitter<{${t.events.map((e) => `${JSON.stringify(e.name)}:${key(e.fn)}`).join(",")}}>`;
     default:
@@ -241,6 +249,12 @@ export function substitute(t: LType, map: Map<string, LType>): LType {
       return { k: "dict", val: substitute(t.val, map) };
     case "map":
       return { k: "map", key: substitute(t.key, map), val: substitute(t.val, map) };
+    case "weakMap":
+      return { k: "weakMap", key: substitute(t.key, map), val: substitute(t.val, map) };
+    case "weakSet":
+      return { k: "weakSet", key: substitute(t.key, map) };
+    case "weak":
+      return { k: "weak", inner: substitute(t.inner, map) };
     case "opt": {
       const inner = substitute(t.inner, map);
 
@@ -339,7 +353,12 @@ function typeParts(t: LType): readonly LType[] {
     case "iterResult":
       return [t.e];
     case "map":
+    case "weakMap":
       return [t.key, t.val];
+    case "weakSet":
+      return [t.key];
+    case "weak":
+      return [t.inner];
     case "dict":
       return [t.val];
     case "opt":
@@ -1114,6 +1133,20 @@ export class TypeRegistry {
             );
           return { k: "weak", inner };
         }
+        case "WeakMap":
+        case "WeakSet": {
+          // Keys a WeakRef could hold: objects, whose last reference drops their entries.
+          const key = this.lower(args[0]!, node);
+          if (key.k !== "class" && key.k !== "iface" && key.k !== "struct")
+            fail(
+              node,
+              Codes.UnsupportedType,
+              `a ${lib}'s keys are class instances or objects, not ${typeKey(key)} values`,
+            );
+          return lib === "WeakMap"
+            ? { k: "weakMap", key, val: this.lower(args[1]!, node) }
+            : { k: "weakSet", key };
+        }
         case "PromiseWithResolvers": {
           // The functions settle the promise as a Promise executor's do (emit/builtins.ts):
           // resolve takes a value, not a promise to adopt, and reject an Error.
@@ -1565,6 +1598,10 @@ export class TypeRegistry {
         return lucent("EventSubscription");
       case "weak":
         return lucent("Ref", lucent("WeakRefObject", this.cppType(t.inner)));
+      case "weakMap":
+        return lucent("WeakMap", this.cppType(t.key), this.cppType(t.val));
+      case "weakSet":
+        return lucent("WeakSet", this.cppType(t.key));
     }
   }
 

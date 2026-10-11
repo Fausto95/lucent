@@ -30,4 +30,5 @@
 #include "resource.h"
 #include "ops.h"
 #include "scheduler.h"
+#include "weak.h"
 #include "jsstring.h"

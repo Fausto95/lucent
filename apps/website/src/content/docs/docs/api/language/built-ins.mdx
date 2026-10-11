@@ -124,6 +124,16 @@ The operators on bigints are on [Statements](/docs/api/language/statements/#bigi
 
 `for…of` reads a map's entries, and a set's values, in insertion order.
 
+## WeakMap and WeakSet
+
+| Member | Notes |
+| --- | --- |
+| `new WeakMap()`, `new WeakSet()` | Empty: set or add the entries after. |
+| `get`, `set`, `has`, `delete` | A `WeakMap`'s. Keys are class instances, interface values or objects, compared by identity. |
+| `add`, `has`, `delete` | A `WeakSet`'s. |
+
+An entry goes, its value with it, when nothing else holds its key: at once, where JavaScript waits for its garbage collector ([Memory](/docs/api/language/memory/#cycles-leak)). There's no iteration and no `size`, as in JavaScript, and neither crosses to JavaScript.
+
 ## Object
 
 | Function | Notes |
@@ -238,7 +248,6 @@ What JavaScript's built-ins lack has a native implementation in `lucent:core`. [
 | `Object.assign(a, b)` | LUCENT1003 | `{ ...a, ...b }` |
 | `Object.hasOwn(r, k)` | LUCENT1003 | `k in r` |
 | `Intl`, `toLocaleString()` | LUCENT2002, LUCENT1003 | `toFixed`, `padStart`, `toISOString` and the `Date` getters |
-| `WeakMap`, `WeakSet` | LUCENT2002 | A `Map` whose entries you delete, or a `WeakRef` ([Memory](/docs/api/language/memory/#cycles-leak)) |
 | `structuredClone(x)` | LUCENT9001: not declared | A spread or `slice()`, which copies one level |
 | `queueMicrotask(f)` | LUCENT9001: not declared | `await Promise.resolve()`, then the code |
 | `fetch` | LUCENT9001: not declared | Call it from JavaScript, or the platform's HTTP API through `lucent:ios` or `lucent:android` |
