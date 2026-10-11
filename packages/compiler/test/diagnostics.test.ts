@@ -719,12 +719,12 @@ export function f(round: boolean): number {
       expect(codes(src)).toEqual(["LUCENT1003"]);
     });
 
-    it("rejects Object.groupBy with literal keys, and says to type them string", () => {
-      const r = compileSource(
-        'export function f(xs: number[]): number {\n  return Object.keys(Object.groupBy(xs, (x) => (x > 1 ? "big" : "small"))).length;\n}',
-      );
-      expect(r.diagnostics.map((d) => d.code)).toEqual(["LUCENT1003"]);
-      expect(r.diagnostics[0]!.fix).toContain("`(item): string => …`");
+    it("accepts Object.groupBy with literal keys, as an object of optional fields", () => {
+      expect(
+        codes(
+          'export function f(xs: number[]): number {\n  const g = Object.groupBy(xs, (x) => (x > 1 ? "big" : "small"));\n  return (g.big?.length ?? 0) + (g.small?.length ?? 0);\n}',
+        ),
+      ).toEqual([]);
     });
 
     it("rejects a reason that is not an Error for withResolvers' reject", () => {

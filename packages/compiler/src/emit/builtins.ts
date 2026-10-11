@@ -974,42 +974,68 @@ export function staticCall(
  * `Object.groupBy(items, key)` and `Map.groupBy(items, key)`: each item of
  * an iterable under the key `key(item, index)` gives, in a record (string
  * keys, listed as an object lists them) or a map (any key, by
- * SameValueZero).
+ * SameValueZero). Keys of literal types make TypeScript type a record's
+ * result as an object type of optional fields (`Partial<Record<"a" | "b",
+ * T[]>>`): the groups are made by name, then set as those fields.
  */
 function groupBy(em: FnEmitter, node: ts.CallExpression, into: "record" | "map"): E {
-  // Keys of literal types make TypeScript type the result as an object type of optional
-  // fields (Partial<Record<"a" | "b", T[]>>), which has no record's layout.
-  const made = em.checker.getTypeAtLocation(node);
-  if (
-    into === "record" &&
-    !em.checker.getIndexInfosOfType(made).some((i) => i.keyType.flags & ts.TypeFlags.String)
-  )
-    fail(
-      node,
-      Codes.UnsupportedBuiltin,
-      "Object.groupBy makes a record here only with string keys, and this key function returns literals",
-      "give the key function a `string` result: `(item): string => …`",
-    );
   const rt = em.lt(node);
   const a = node.arguments;
-  if (into === "record" && rt.k !== "dict")
-    fail(node, Codes.UnsupportedBuiltin, "Object.groupBy must make a record");
+  if (into === "record" && rt.k !== "dict" && rt.k !== "struct")
+    fail(node, Codes.UnsupportedBuiltin, "Object.groupBy must make a record or an object");
   if (into === "map" && rt.k !== "map")
     fail(node, Codes.UnsupportedBuiltin, "Map.groupBy must make a map");
-  const group = stripOpt(rt.k === "dict" ? rt.val : (rt as LType & { k: "map" }).val);
-  if (group.k !== "array") fail(node, Codes.UnsupportedBuiltin, `${node.expression.getText()}`);
+  const fields = rt.k === "struct" ? em.reg.struct(rt.id).fields : [];
+  const groupType =
+    rt.k === "dict"
+      ? rt.val
+      : rt.k === "map"
+        ? rt.val
+        : (fields[0]?.type ?? fail(node, Codes.UnsupportedBuiltin, "Object.groupBy with no keys"));
+  const group = stripOpt(groupType);
+  if (
+    group.k !== "array" ||
+    (rt.k === "struct" && groupType.k !== "opt") ||
+    fields.some((f) => typeKey(f.type) !== typeKey(groupType))
+  )
+    fail(node, Codes.UnsupportedBuiltin, `${node.expression.getText()} of mixed groups`);
   const src = a[0]!;
   const s = em.expr(src);
   const items = em.iterableItems(s, src);
   const list = em.coerce({ c: items.c, t: { k: "array", e: items.e } }, group, src);
-  const key = rt.k === "dict" ? T.string : (rt as LType & { k: "map" }).key;
+  const key = rt.k === "map" ? rt.key : T.string;
   const cb = callback(em, a[1], [group.e, T.number], key);
-  return rt.k === "dict"
-    ? { c: cpp.call("lucent::dictGroupBy", [list, cb.c], [em.reg.cppType(rt.val)]), t: rt }
-    : {
-        c: cpp.call("lucent::mapGroupBy", [list, cb.c], [em.reg.cppType(key)]),
-        t: rt,
-      };
+  if (rt.k === "map")
+    return { c: cpp.call("lucent::mapGroupBy", [list, cb.c], [em.reg.cppType(key)]), t: rt };
+  const grouped = cpp.call("lucent::dictGroupBy", [list, cb.c], [em.reg.cppType(groupType)]);
+  if (rt.k === "dict") return { c: grouped, t: rt };
+  // An object type's fields, each the group of its name, when there is one.
+  const info = em.reg.struct((rt as LType & { k: "struct" }).id);
+  const g = cpp.id("g_");
+  const r = cpp.id("r_");
+  const read = (name: string) => cpp.call(cpp.dot(g, "get"), [stringExpr(name)]);
+  return {
+    c: cpp.statementExpr(
+      [
+        cpp.varDecl(cpp.auto, "g_", grouped),
+        cpp.varDecl(
+          cpp.auto,
+          "r_",
+          cpp.call("std::make_shared", [], [cpp.type(`lucent_app::${info.cppName}`)]),
+        ),
+        ...info.fields.map((f) =>
+          cpp.exprStmt(
+            cpp.assign(
+              cpp.arrow(r, cppIdent(f.name)),
+              f.type.k === "opt" ? cpp.call("lucent::flat", [read(f.name)]) : read(f.name),
+            ),
+          ),
+        ),
+      ],
+      r,
+    ),
+    t: rt,
+  };
 }
 
 /**

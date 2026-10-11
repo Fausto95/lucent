@@ -42,6 +42,7 @@ An array is a reference: assigning it shares it. A tuple is a value, and `===` c
 | `Map<K, V>`, `Set<T>` | Shared, in insertion order, with keys compared by SameValueZero. | `collections` |
 | `ArrayBuffer` | Bytes that `Uint8Array` views share, as in JavaScript. | `array-buffers` |
 | Object types: `type` aliases, object literals, interfaces without methods | A shared object with a fixed set of fields: see [Object types](#object-types). | `objects` |
+| `Partial`, `Required`, `Readonly`, `Pick`, `Omit`, a `Record` of literal keys | The object type each resolves to: `Partial<Point>` is `Point` with every field optional. | `mapped-types` |
 | Classes | A shared object with methods, accessors and static members. Each instance has one identity. | `classes`, `inheritance` |
 | Interfaces with methods, or named in a class's `implements` | An instance of a class that declares `implements`: see [Interfaces](#interfaces). | `interfaces` |
 | `T \| undefined`, `T \| null`, `x?: T` | An optional value that remembers whether it is `undefined` or `null`. | `narrowed-absent`, `absent-results` |

@@ -29,7 +29,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [TA37](#ta37) | Close the language gaps the review found                          | done (#149, 2026-10-08)                                                                                                           |
 | [T71](#t71)   | Native object references as view props                            | blocked: a decision superseding 0046 and 0065; needs nothing open                                                                 |
 | [T78](#t78)   | UIKit components with a view-controller root                      | ready; needs nothing open                                                                                                         |
-| [TA38](#ta38) | Accept object literals for data-only interfaces                   | ready; needs nothing open                                                                                                         |
+| [TA38](#ta38) | Accept object literals for data-only interfaces                   | in progress (#162 merged)                                                                                                         |
 | [TA43](#ta43) | Tell a module when JavaScript starts and stops listening          | ready; needs nothing open                                                                                                         |
 | [TA45](#ta45) | Record each example's evidence and state it from the record       | waiting (needs the maintainer: TA36's port sources); needs nothing open                                                           |
 | **G4**        | **Production candidate**                                          |                                                                                                                                   |
@@ -829,45 +829,51 @@ picture-in-picture on the iOS simulator through a contained
 
 ### TA38: Accept object literals for data-only interfaces
 
-**Goal:** Let an interface with only properties be satisfied by an object
-literal and by any object type of its shape, as TypeScript does, while
-interfaces with methods stay nominal.
+**Goal:** Let an object literal stand for a data-only interface that
+classes implement, as TypeScript allows, and lower TypeScript's mapped
+utility types over object types.
 
-- **Status:** ready; needs nothing open.
+- **Status:** in progress: mapped types merged as #162; object literals
+  for implemented interfaces are next.
 - **Area:** Compiler (types, interfaces).
 - **Needs:** none.
 - **Verify:** V1, V2.
-- **Where:** `types.ts` (interface classification), `emit/interfaces.ts`,
+- **Where:** `types.ts` (mapped types, interface classification), `emit/interfaces.ts`,
   `codes.ts` (LUCENT2008), `docs/semantics.md` (Types), the website's
   differences, e2e `interfaces-structural`.
 
-Why: `const p: Point = { x, y }` with `interface Point { x: number; y:
-number }` is refused today (nominal interfaces, LUCENT2008); it is the
-most common TypeScript idiom there is, and every port's option objects hit
-it.
+Why: an object literal cannot stand for an interface that a class
+implements (LUCENT2008), so `const p: Point = { x, y }` stops compiling the
+day some class declares `implements Point`, and `hello({ name: "x" })`
+fails for a `Named` a class also implements. An interface no class
+implements is already an object type, literals included; the review that
+opened this task missed that, and wrongly said every interface literal is
+refused. Mapped utility types over object types were refused as well.
 
-- [ ] An interface declaring only properties (optional ones included, no
-      methods, no accessors, no index signatures mixed with properties) is
-      an object type: shared struct by shape, copied at the boundary, and
-      `implements` by a class still allowed (the class converts to the
-      struct where the interface is expected, as a value).
-- [ ] An interface with a method, or named in a class's `implements` and
-      used through a method, stays nominal (unchanged); a data-only
-      interface a class implements and that is also used as a literal is
-      an object type, and the class's instances copy into it.
+- [ ] An object literal used as an interface that classes implement is
+      an instance of a class Lucent generates for that interface (one per
+      instantiation): it implements the interface's properties as fields,
+      so the value keeps JavaScript's identity and mutation (a copy into a
+      struct would change both), JSON.stringify writes its fields, and it
+      crosses to JavaScript as a plain object, by copy, as a struct does.
+      Data-only interfaces first; a literal method or function-valued
+      property implementing a method, generic interfaces and accepting a
+      plain JavaScript object from the boundary are follow-ups, refused
+      meanwhile with LUCENT2008.
 - [ ] Diagnostic text for LUCENT2008 names the method that makes the
       interface nominal.
-- [ ] Mapped utility types of object types lower as the object types they
-      resolve to: `Partial<Point>`, `Pick<Point, "x">`, `Required`,
-      `Readonly` and `Record<"a" | "b", T>` fail today with
+- [x] Mapped utility types of object types lower as the object types they
+      resolve to: `Partial<Point>`, `Pick<Point, "x">`, `Omit`, `Required`,
+      `Readonly` and `Record<"a" | "b", T>` failed with
       `LUCENT2002: __type is not supported` (their symbol is the library's
-      mapped type). `Object.groupBy` with literal keys then makes that
-      object type ([TA39](#ta39)'s notes).
-- [ ] e2e `interfaces-structural`: literals, spreads, an implementing
-      class, the boundary; the semantics table row.
+      mapped type); `Object.groupBy` with literal keys makes that object
+      type, one optional field per key (e2e `mapped-types`).
+- [ ] e2e `interfaces-structural`: literals for an interface a class also
+      implements, identity and mutation through the interface, JSON, the
+      boundary; the semantics table row.
 
-**Done when:** data-only interfaces take literals and cross as object
-types, with the e2e case green under both lowerings.
+**Done when:** a data-only interface that classes implement takes object
+literals, with the e2e case green.
 
 <a id="ta43"></a>
 
@@ -2361,10 +2367,9 @@ language pages list them as supported.
 
 **Notes:**
 
-- `Object.groupBy`'s key function must return `string`: literal keys make
-  TypeScript type the result `Partial<Record<"a" | "b", T[]>>`, an object
-  type, which a mapped utility type cannot be today ([TA38](#ta38)); the
-  refusal says to write `(item): string => …`.
+- `Object.groupBy` with literal keys makes the object type TypeScript gives
+  it, `Partial<Record<"a" | "b", T[]>>`, since [TA38](#ta38) lowers mapped
+  utility types; before that it was refused.
 - `Promise.withResolvers`' `resolve` takes a value and `reject` an `Error`,
   as a `new Promise` executor's do: `types.ts` lowers
   `PromiseWithResolvers<T>` with those types rather than the library's

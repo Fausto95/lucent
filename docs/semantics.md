@@ -99,28 +99,29 @@ infinities become 0, the rest is truncated and wraps modulo 2^bits, as
 
 ## Types
 
-| TypeScript                                                                 | Native representation                                                                                                                                         |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `number`                                                                   | `double`, with ECMAScript arithmetic (`%`, `**`, bitwise ops through ToInt32, …); every operation rounds separately, as in JavaScript (no fused multiply-add) |
-| `bigint`                                                                   | integer of any precision (`lucent::BigInt`), with ECMAScript's operators; a value that fits in 64 bits does not allocate                                      |
-| `boolean`                                                                  | `bool`                                                                                                                                                        |
-| `string` (and string literal types)                                        | immutable UTF-16 string, stored one byte per unit when possible                                                                                               |
-| `T[]`, `readonly T[]`                                                      | shared array (assignment aliases, like JS)                                                                                                                    |
-| `[A, B]`                                                                   | tuple (a value)                                                                                                                                               |
-| `Record<string, V>`, `{ [k: string]: V }`                                  | string-keyed dictionary, JS key order                                                                                                                         |
-| `Map<K, V>`, `Set<T>`                                                      | insertion-ordered, SameValueZero keys                                                                                                                         |
-| object types (`type`, `interface`, literals)                               | shared struct; types with the same shape share one struct                                                                                                     |
-| classes                                                                    | shared object with methods, accessors, statics; `extends` another Lucent class (virtual dispatch, `super`, abstract classes)                                  |
-| interfaces with methods, or named in a class's `implements`                | abstract base with virtual methods and property accessors; implemented only by classes that declare `implements`                                              |
-| `T \| undefined`, `T \| null`, `x?: T`, `null \| undefined`                | optional that remembers `undefined` vs `null`                                                                                                                 |
-| other unions                                                               | tagged union (`string \| number`, discriminated object unions, …)                                                                                             |
-| `(a: A) => R`                                                              | function value (closures capture by reference)                                                                                                                |
-| `Promise<T>`                                                               | promise (C++20 coroutine)                                                                                                                                     |
-| `Uint8Array`                                                               | byte view over a shared buffer                                                                                                                                |
-| `ArrayBuffer`                                                              | bytes `Uint8Array`s view; its copies share them                                                                                                               |
-| `Date`                                                                     | shared mutable time value; local time from the device's time zone database                                                                                    |
-| `Error`, `TypeError`, `RangeError`, `SyntaxError`, `class X extends Error` | error object with `name` (its constructor's), `message`, `code`; no `cause` (`LUCENT1003`)                                                                    |
-| unconstrained generics `<T>`                                               | C++ templates (functions and classes)                                                                                                                         |
+| TypeScript                                                                                   | Native representation                                                                                                                                         |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `number`                                                                                     | `double`, with ECMAScript arithmetic (`%`, `**`, bitwise ops through ToInt32, …); every operation rounds separately, as in JavaScript (no fused multiply-add) |
+| `bigint`                                                                                     | integer of any precision (`lucent::BigInt`), with ECMAScript's operators; a value that fits in 64 bits does not allocate                                      |
+| `boolean`                                                                                    | `bool`                                                                                                                                                        |
+| `string` (and string literal types)                                                          | immutable UTF-16 string, stored one byte per unit when possible                                                                                               |
+| `T[]`, `readonly T[]`                                                                        | shared array (assignment aliases, like JS)                                                                                                                    |
+| `[A, B]`                                                                                     | tuple (a value)                                                                                                                                               |
+| `Record<string, V>`, `{ [k: string]: V }`                                                    | string-keyed dictionary, JS key order                                                                                                                         |
+| `Map<K, V>`, `Set<T>`                                                                        | insertion-ordered, SameValueZero keys                                                                                                                         |
+| object types (`type`, `interface`, literals)                                                 | shared struct; types with the same shape share one struct                                                                                                     |
+| `Partial`, `Required`, `Readonly`, `Pick`, `Omit` of an object type, `Record<"a" \| "b", V>` | the object type they resolve to: a struct like any other                                                                                                      |
+| classes                                                                                      | shared object with methods, accessors, statics; `extends` another Lucent class (virtual dispatch, `super`, abstract classes)                                  |
+| interfaces with methods, or named in a class's `implements`                                  | abstract base with virtual methods and property accessors; implemented only by classes that declare `implements`                                              |
+| `T \| undefined`, `T \| null`, `x?: T`, `null \| undefined`                                  | optional that remembers `undefined` vs `null`                                                                                                                 |
+| other unions                                                                                 | tagged union (`string \| number`, discriminated object unions, …)                                                                                             |
+| `(a: A) => R`                                                                                | function value (closures capture by reference)                                                                                                                |
+| `Promise<T>`                                                                                 | promise (C++20 coroutine)                                                                                                                                     |
+| `Uint8Array`                                                                                 | byte view over a shared buffer                                                                                                                                |
+| `ArrayBuffer`                                                                                | bytes `Uint8Array`s view; its copies share them                                                                                                               |
+| `Date`                                                                                       | shared mutable time value; local time from the device's time zone database                                                                                    |
+| `Error`, `TypeError`, `RangeError`, `SyntaxError`, `class X extends Error`                   | error object with `name` (its constructor's), `message`, `code`; no `cause` (`LUCENT1003`)                                                                    |
+| unconstrained generics `<T>`                                                                 | C++ templates (functions and classes)                                                                                                                         |
 
 Not supported: `any`, `unknown` (except in `catch`), intersections, `symbol`,
 `object`, getters in object literals, index signatures mixed with
@@ -291,9 +292,10 @@ end?)`, which copies. `new Uint8Array(buffer, byteOffset?, length?)` views
   `buffer` (typed `ArrayBufferLike`) is an `ArrayBuffer`.
 - **Object**: `keys`, `values`, `entries` (records), `fromEntries`, and
   `Object.groupBy(items, key)` over any iterable, which makes a record of
-  arrays listed as an object lists its keys. Its key function must return
-  `string`: literal keys type the result as an object type of optional
-  fields, which is refused (`LUCENT1003`). Object
+  arrays listed as an object lists its keys; with a key function returning
+  literals, it makes the object type TypeScript gives it, one optional
+  field per key, whose keys follow the type's order (see the deviations).
+  Object
   types refuse `Object.keys`, `values`, `entries`, `for…in` and `in` (even
   on a required field): their native layout records neither which optional
   fields are set nor the order JavaScript made them in, both of which
