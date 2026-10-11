@@ -30,6 +30,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -37,8 +38,12 @@
 #include "async.h"
 #include "buffer.h"
 #include "core.h"
+#include "execution.h"
+#include "json.h"
+#include "jsstring.h"
 #include "report.h"
 #include "scope.h"
+#include "transport.h"
 
 namespace lucent {
 
@@ -118,38 +123,17 @@ class ChannelObject final : public Object {
   /// lossless and full. A waiting receive gets the value at once, on its
   /// context.
   bool send(T value) {
-    std::optional<T> dropped;
-    std::optional<Promise<Opt<T>>> waiter;
-    {
-      std::lock_guard<std::mutex> g(m_);
-      if (closed_) {
-        stats_.refused++;
-        return false;
-      }
+    return sendWith([&]() -> T { return std::move(value); });
+  }
 
-      if (!waiters_.empty()) {
-        waiter.emplace(std::move(waiters_.front()));
-        waiters_.pop_front();
-        stats_.received++;
-      } else if (queue_.size() < capacity_) {
-        queue_.push_back(std::move(value));
-      } else if (policy_ == ChannelPolicy::Lossless) {
-        stats_.refused++;
-        return false;
-      } else {
-        dropped.emplace(std::move(queue_.front()));
-        queue_.pop_front();
-        queue_.push_back(std::move(value));
-        stats_.dropped++;
-      }
-
-      stats_.sent++;
-      if (queue_.size() > stats_.highWater) stats_.highWater = queue_.size();
-    }
-
-    if (dropped) detail::releaseUnreceived(*dropped);
-    if (waiter) waiter->resolve(Opt<T>(std::move(value)));
-    return true;
+  /// What Lucent code's send does: as send(), with a copy of `value` made
+  /// as a compute task's input is (transport.h), a native buffer moved;
+  /// refused, it copies and moves nothing. A copy that throws (a
+  /// DataCloneError) sends nothing.
+  bool sendCopy(const T& value)
+    requires Transportable<T>
+  {
+    return sendWith([&]() -> T { return transportCopy(value); });
   }
 
   /// The next value, settled on the calling context: at once if one is
@@ -202,6 +186,50 @@ class ChannelObject final : public Object {
  private:
   ChannelObject(ChannelPolicy policy, size_t capacity) : policy_(policy), capacity_(capacity) {}
 
+  /// Takes `make()`'s value if the channel accepts one: `make` runs only
+  /// then, under the channel's lock, so a refused send leaves its value.
+  template <class Make>
+  bool sendWith(Make&& make) {
+    std::optional<T> dropped;
+    std::optional<Promise<Opt<T>>> waiter;
+    std::optional<T> handed;
+    {
+      std::lock_guard<std::mutex> g(m_);
+      if (closed_) {
+        stats_.refused++;
+        return false;
+      }
+
+      const bool full = waiters_.empty() && queue_.size() >= capacity_;
+      if (full && policy_ == ChannelPolicy::Lossless) {
+        stats_.refused++;
+        return false;
+      }
+
+      T value = make();
+      if (!waiters_.empty()) {
+        waiter.emplace(std::move(waiters_.front()));
+        waiters_.pop_front();
+        handed.emplace(std::move(value));
+        stats_.received++;
+      } else {
+        if (full) {
+          dropped.emplace(std::move(queue_.front()));
+          queue_.pop_front();
+          stats_.dropped++;
+        }
+        queue_.push_back(std::move(value));
+      }
+
+      stats_.sent++;
+      if (queue_.size() > stats_.highWater) stats_.highWater = queue_.size();
+    }
+
+    if (dropped) detail::releaseUnreceived(*dropped);
+    if (waiter) waiter->resolve(Opt<T>(std::move(*handed)));
+    return true;
+  }
+
   /// The scope's disposal: closes it and releases what was never received.
   void releaseAll() {
     std::deque<T> left;
@@ -234,5 +262,37 @@ class ChannelObject final : public Object {
 /// lucent:core's Channel<T>.
 template <class T>
 using Channel = Ref<ChannelObject<T>>;
+
+/// A policy by the name Lucent code gives it: a TypeError for another.
+inline ChannelPolicy channelPolicy(const String& name) {
+  const std::string n = name.toUtf8();
+  if (n == "lossless") return ChannelPolicy::Lossless;
+  if (n == "latest") return ChannelPolicy::Latest;
+  if (n == "drop") return ChannelPolicy::Drop;
+  throwTypeError("A channel's policy is lossless, latest or drop");
+}
+
+/// `new Channel<T>(policy, capacity?)`: 16 values by default, a latest
+/// channel's one, under the scope the calling context's work belongs to
+/// (module code's ends with its JavaScript runtime).
+template <class T>
+Channel<T> makeChannel(const String& policy, const Opt<double>& capacity) {
+  const ChannelPolicy p = channelPolicy(policy);
+  const double n = capacity.has() ? capacity.get() : p == ChannelPolicy::Latest ? 1 : 16;
+  return ChannelObject<T>::create(p, n, ownedScope(ExecutionContext::currentRef()));
+}
+
+/// A channel has no enumerable own properties: JSON writes it as `{}`.
+template <class T>
+void jsonWrite(JsonWriter& w, const Channel<T>&) {
+  w.raw("{}");
+}
+
+/// A channel crosses to a compute task as itself: both ends share it, and
+/// what crosses through it is copied by its sends.
+template <class T>
+struct Transport<Channel<T>> {
+  static Channel<T> copy(const Channel<T>& channel, CopyGraph&) { return channel; }
+};
 
 }  // namespace lucent

@@ -176,6 +176,8 @@ const BORROWED = "a byte span, which lives only for the borrow that lent it";
 /** lucent:core's types that are not data: a buffer moves (null: it can), a span cannot leave its borrow. */
 const CORE: Record<string, string | null> = {
   NativeBuffer: null,
+  // Shared by both ends: its sends copy what crosses through it.
+  Channel: null,
   ByteSpan: BORROWED,
   MutableByteSpan: BORROWED,
   EventEmitter: "an event emitter, whose listeners run on the context that added them",

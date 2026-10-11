@@ -477,6 +477,9 @@ function transportCopy(value, copies = new Map(), moved = []) {
   const known = copies.get(value);
   if (known) return known;
 
+  // A channel is shared: what crosses is the way to it.
+  if (value instanceof Channel) return value;
+
   if (value instanceof NativeBuffer) {
     const successor = beginTransfer(value);
     moved.push(value);
@@ -587,6 +590,100 @@ function compute(task, input, options) {
   });
 }
 
+const CHANNEL_POLICIES = ["lossless", "latest", "drop"];
+
+/** Releases a value no consumer will receive: closes a native buffer. */
+function releaseUnreceived(value) {
+  if (value instanceof NativeBuffer) value.close();
+}
+
+/**
+ * lucent:core's Channel, as the native runtime's (lucent/channel.h): a send
+ * copies its value (a NativeBuffer moves) unless the policy refuses it, and
+ * never waits; receives settle in the order they asked.
+ */
+class Channel {
+  #policy;
+  #capacity;
+  #queue = [];
+  #waiters = [];
+  #closed = false;
+  #stats = { sent: 0, received: 0, dropped: 0, refused: 0, highWater: 0 };
+
+  constructor(policy, capacity) {
+    if (!CHANNEL_POLICIES.includes(policy))
+      throw new TypeError(`A channel's policy is lossless, latest or drop, not ${policy}`);
+    const n = capacity === undefined ? (policy === "latest" ? 1 : 16) : capacity;
+    if (!(n >= 1) || Math.floor(n) !== n || n > 1e9)
+      throw new RangeError("A channel's capacity must be a whole number from 1");
+    if (policy === "latest" && n !== 1)
+      throw new RangeError("A latest channel holds one value: its capacity is 1");
+    this.#policy = policy;
+    this.#capacity = n;
+  }
+
+  send(value) {
+    const s = this.#stats;
+    if (this.#closed) {
+      s.refused++;
+      return false;
+    }
+    const full = !this.#waiters.length && this.#queue.length >= this.#capacity;
+    if (full && this.#policy === "lossless") {
+      s.refused++;
+      return false;
+    }
+
+    const moved = [];
+    let copy;
+    try {
+      copy = transportCopy(value, new Map(), moved);
+    } catch (e) {
+      moved.forEach(abortTransfer);
+      throw e;
+    }
+    moved.forEach(commitTransfer);
+
+    s.sent++;
+    if (this.#waiters.length) {
+      s.received++;
+      this.#waiters.shift()(copy);
+      return true;
+    }
+    if (full) {
+      releaseUnreceived(this.#queue.shift());
+      s.dropped++;
+    }
+    this.#queue.push(copy);
+    s.highWater = Math.max(s.highWater, this.#queue.length);
+    return true;
+  }
+
+  receive() {
+    if (this.#queue.length) {
+      this.#stats.received++;
+      return Promise.resolve(this.#queue.shift());
+    }
+    if (this.#closed) return Promise.resolve(undefined);
+    return new Promise((resolve) => this.#waiters.push(resolve));
+  }
+
+  close() {
+    if (this.#closed) return false;
+    this.#closed = true;
+    for (const resolve of this.#waiters.splice(0)) resolve(undefined);
+    return true;
+  }
+
+  get closed() {
+    return this.#closed;
+  }
+
+  stats() {
+    return { ...this.#stats, depth: this.#queue.length };
+  }
+}
+
 module.exports = {
   delay,
   error,
@@ -600,4 +697,5 @@ module.exports = {
   compute,
   EventEmitter,
   NativeBuffer,
+  Channel,
 };

@@ -24,7 +24,7 @@ const modulePages: ModulePage[] = [
     frontmatter: {
       title: "lucent:core",
       description:
-        "Helpers every module can import: delays, errors with codes, UTF-8, a clock, promises over callback APIs, work on other threads, and native buffers.",
+        "Helpers every module can import: delays, errors with codes, UTF-8, a clock, promises over callback APIs, work on other threads, native buffers, and channels between threads.",
       kind: "reference",
     },
     intro: [

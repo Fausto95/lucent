@@ -16,6 +16,7 @@
 #include "lucent/buffer.h"
 #include "lucent/channel.h"
 #include "lucent/lucent.h"
+#include "lucent/transport.h"
 
 using namespace lucent;
 
@@ -342,6 +343,55 @@ static void producersRaceOneConsumer() {
   consumer->shutdown();
 }
 
+// --- what Lucent code calls -------------------------------------------------------
+
+/// A send from Lucent code copies its value, as a compute task's input is
+/// copied, and moves a native buffer; refused, it copies and moves nothing.
+static void sendsCopyOrMove() {
+  auto context = IsolatedContext::create();
+  auto arrays = ChannelObject<Array<double>>::create(ChannelPolicy::Lossless, 1);
+  Array<double> xs{1, 2};
+  CHECK(arrays->sendCopy(xs));
+  xs.push(3);
+  inTurn(*context, [&] {
+    auto got = arrays->receive().value().get();
+    CHECK(got.size() == 2 && !lucent::strictEquals(got, xs));
+  });
+
+  auto buffers = ChannelObject<NativeBuffer>::create(ChannelPolicy::Lossless, 1);
+  auto a = NativeBufferObject::allocate(4);
+  auto b = NativeBufferObject::allocate(4);
+  CHECK(buffers->sendCopy(a));
+  CHECK(a->state() == NativeBufferObject::State::Transferred);
+  CHECK(!buffers->sendCopy(b));
+  CHECK(b->isOpen() && b->size() == 4);
+
+  buffers->close();
+  b->close();
+  context->shutdown();
+}
+
+/// Lucent code names a policy by its string, and may leave out the capacity.
+static void policiesByName() {
+  auto context = IsolatedContext::create();
+  inTurn(*context, [&] {
+    auto lossless = makeChannel<double>(String::fromUtf8("lossless"), Opt<double>(undefined));
+    auto latest = makeChannel<double>(String::fromUtf8("latest"), Opt<double>(undefined));
+    auto drop = makeChannel<double>(String::fromUtf8("drop"), Opt<double>(3));
+    CHECK(lossless->policy() == ChannelPolicy::Lossless && lossless->capacity() == 16);
+    CHECK(latest->policy() == ChannelPolicy::Latest && latest->capacity() == 1);
+    CHECK(drop->policy() == ChannelPolicy::Drop && drop->capacity() == 3);
+    CHECK(thrown([] { makeChannel<double>(String::fromUtf8("fifo"), Opt<double>(undefined)); }) == "TypeError");
+  });
+  context->shutdown();
+}
+
+/// A channel crosses to a compute task as itself: both ends share it.
+static void channelsCrossAsThemselves() {
+  auto channel = ChannelObject<double>::create(ChannelPolicy::Lossless, 1);
+  CHECK(transportCopy(channel) == channel);
+}
+
 int main() {
   losslessRefusesWhenFull();
   latestKeepsTheNewest();
@@ -353,6 +403,9 @@ int main() {
   disposalReleasesTheRest();
   droppedBuffersAreClosedOnce();
   producersRaceOneConsumer();
+  sendsCopyOrMove();
+  policiesByName();
+  channelsCrossAsThemselves();
 
   std::printf("channel: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

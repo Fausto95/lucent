@@ -443,3 +443,88 @@ export interface NativeBufferStats {
   readonly copies: number;
   readonly bytesCopied: number;
 }
+
+/**
+ * What a channel does when its consumer has no room for a value:
+ * `"lossless"` refuses the send, `"latest"` keeps only the newest value,
+ * `"drop"` drops the oldest.
+ */
+export type ChannelPolicy = "lossless" | "latest" | "drop";
+
+/**
+ * Values from a producer to a consumer, which may run on different
+ * threads: a compute task sending results as it goes, to module code
+ * that receives them. A send never waits for the consumer; when the
+ * consumer falls behind, the channel's policy decides what waits.
+ *
+ * A value is copied when it is sent, as a compute task's input is, so
+ * the consumer has its own; a `NativeBuffer` moves instead. A value the
+ * channel drops, or that is never received, is released: a
+ * `NativeBuffer` is closed.
+ *
+ * ```ts
+ * import { Channel, compute } from "lucent:core";
+ *
+ * function scan(input: { rows: number[][]; progress: Channel<number> }): number {
+ *   for (let i = 0; i < input.rows.length; i++) input.progress.send(i + 1);
+ *   input.progress.close();
+ *   return input.rows.length;
+ * }
+ *
+ * export async function scanAll(rows: number[][]): Promise<number> {
+ *   const progress = new Channel<number>("latest");
+ *   const done = compute(scan, { rows, progress });
+ *   for (let n = await progress.receive(); n !== undefined; n = await progress.receive())
+ *     console.log(`row ${n}`);
+ *   return await done;
+ * }
+ * ```
+ */
+export declare class Channel<T> {
+  /**
+   * @param policy What a send does when the channel is full.
+   * @param capacity How many values wait at most: a whole number from 1,
+   * 16 by default; a latest channel holds 1.
+   */
+  constructor(policy: ChannelPolicy, capacity?: number);
+
+  /**
+   * Sends a copy of `value` (a `NativeBuffer` moves), without waiting.
+   * False if refused: the channel is closed, or lossless and full; the
+   * value is then left as it was.
+   */
+  send(value: T): boolean;
+
+  /**
+   * The next value: at once if one waits, else when one is sent;
+   * `undefined` once the channel is closed and every value was received.
+   */
+  receive(): Promise<T | undefined>;
+
+  /**
+   * Refuses sends from now on; what waits can still be received. False if
+   * it was closed already.
+   */
+  close(): boolean;
+
+  /** Whether it is closed. */
+  readonly closed: boolean;
+
+  /** What it has done so far, and how many values wait now. */
+  stats(): ChannelStats;
+}
+
+/** Counts of what a channel has done, for checking what its policy dropped. */
+export interface ChannelStats {
+  /** Values it took. */
+  readonly sent: number;
+  /** Values the consumer received. */
+  readonly received: number;
+  /** Values released unreceived: dropped by its policy, or left when it ended. */
+  readonly dropped: number;
+  /** Sends refused: into a full lossless channel, or a closed one. */
+  readonly refused: number;
+  /** Values waiting now, and the most that ever waited. */
+  readonly depth: number;
+  readonly highWater: number;
+}

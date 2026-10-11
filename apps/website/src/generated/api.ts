@@ -497,6 +497,104 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           }
         ],
         "params": []
+      },
+      {
+        "name": "ChannelPolicy",
+        "kind": "type",
+        "signature": "type ChannelPolicy = \"lossless\" | \"latest\" | \"drop\";",
+        "doc": [
+          "What a channel does when its consumer has no room for a value: `\"lossless\"` refuses the send, `\"latest\"` keeps only the newest value, `\"drop\"` drops the oldest."
+        ],
+        "examples": [],
+        "members": [],
+        "params": []
+      },
+      {
+        "name": "Channel",
+        "kind": "class",
+        "signature": "class Channel<T> {\n  constructor(policy: ChannelPolicy, capacity?: number);\n  send(value: T): boolean;\n  receive(): Promise<T | undefined>;\n  close(): boolean;\n  readonly closed: boolean;\n  stats(): ChannelStats;\n}",
+        "doc": [
+          "Values from a producer to a consumer, which may run on different threads: a compute task sending results as it goes, to module code that receives them. A send never waits for the consumer; when the consumer falls behind, the channel's policy decides what waits.",
+          "A value is copied when it is sent, as a compute task's input is, so the consumer has its own; a `NativeBuffer` moves instead. A value the channel drops, or that is never received, is released: a `NativeBuffer` is closed."
+        ],
+        "examples": [
+          "import { Channel, compute } from \"lucent:core\";\n\nfunction scan(input: { rows: number[][]; progress: Channel<number> }): number {\n  for (let i = 0; i < input.rows.length; i++) input.progress.send(i + 1);\n  input.progress.close();\n  return input.rows.length;\n}\n\nexport async function scanAll(rows: number[][]): Promise<number> {\n  const progress = new Channel<number>(\"latest\");\n  const done = compute(scan, { rows, progress });\n  for (let n = await progress.receive(); n !== undefined; n = await progress.receive())\n    console.log(`row ${n}`);\n  return await done;\n}"
+        ],
+        "members": [
+          {
+            "name": "constructor",
+            "signature": "constructor(policy: ChannelPolicy, capacity?: number);",
+            "doc": ""
+          },
+          {
+            "name": "send",
+            "signature": "send(value: T): boolean;",
+            "doc": "Sends a copy of `value` (a `NativeBuffer` moves), without waiting. False if refused: the channel is closed, or lossless and full; the value is then left as it was."
+          },
+          {
+            "name": "receive",
+            "signature": "receive(): Promise<T | undefined>;",
+            "doc": "The next value: at once if one waits, else when one is sent; `undefined` once the channel is closed and every value was received."
+          },
+          {
+            "name": "close",
+            "signature": "close(): boolean;",
+            "doc": "Refuses sends from now on; what waits can still be received. False if it was closed already."
+          },
+          {
+            "name": "closed",
+            "signature": "readonly closed: boolean;",
+            "doc": "Whether it is closed."
+          },
+          {
+            "name": "stats",
+            "signature": "stats(): ChannelStats;",
+            "doc": "What it has done so far, and how many values wait now."
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "ChannelStats",
+        "kind": "interface",
+        "signature": "interface ChannelStats {\n  readonly sent: number;\n  readonly received: number;\n  readonly dropped: number;\n  readonly refused: number;\n  readonly depth: number;\n  readonly highWater: number;\n}",
+        "doc": [
+          "Counts of what a channel has done, for checking what its policy dropped."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "sent",
+            "signature": "readonly sent: number;",
+            "doc": "Values it took."
+          },
+          {
+            "name": "received",
+            "signature": "readonly received: number;",
+            "doc": "Values the consumer received."
+          },
+          {
+            "name": "dropped",
+            "signature": "readonly dropped: number;",
+            "doc": "Values released unreceived: dropped by its policy, or left when it ended."
+          },
+          {
+            "name": "refused",
+            "signature": "readonly refused: number;",
+            "doc": "Sends refused: into a full lossless channel, or a closed one."
+          },
+          {
+            "name": "depth",
+            "signature": "readonly depth: number;",
+            "doc": "Values waiting now, and the most that ever waited."
+          },
+          {
+            "name": "highWater",
+            "signature": "readonly highWater: number;",
+            "doc": ""
+          }
+        ],
+        "params": []
       }
     ]
   },

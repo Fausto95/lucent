@@ -394,19 +394,36 @@ const TASKS = "lucent_tasks";
  * other can refer to each other's copies.
  */
 function transports(em: FnEmitter, node: ts.Node, g: FunctionGlobal, input: LType): void {
+  const name = g.decl.name!.text;
+
+  requireTransports(em, input, g.decl.parameters[0]!.name.getText(), (path, t) =>
+    fail(
+      node,
+      Codes.NotTransferable,
+      `the input of \`${name}\` cannot be copied to a compute task: \`${path}\` is a ${typeKey(t)}, which the compiler cannot copy yet.`,
+    ),
+  );
+}
+
+/**
+ * Declares, in the calling module's unit, how each struct and class a value
+ * of type `t` (at `path`) holds is copied (transport.h); `refuse` reports a
+ * part the runtime cannot copy. A compute task's input, and what a channel's
+ * sends copy.
+ */
+export function requireTransports(
+  em: FnEmitter,
+  t: LType,
+  path: string,
+  refuse: (path: string, t: LType) => never,
+): void {
   const objects = new Map<string, LType & { k: "struct" | "class" }>();
   const unit = em.ctx.nativeUnit(em.opts.module);
-  const name = g.decl.name!.text;
 
   const visit = (t: LType, path: string): void => {
     const parts = PARTS[t.k];
 
-    if (!parts)
-      fail(
-        node,
-        Codes.NotTransferable,
-        `the input of \`${name}\` cannot be copied to a compute task: \`${path}\` is a ${typeKey(t)}, which the compiler cannot copy yet.`,
-      );
+    if (!parts) refuse(path, t);
 
     if ((t.k === "struct" || t.k === "class") && !objects.has(typeKey(t))) {
       objects.set(typeKey(t), t);
@@ -415,10 +432,10 @@ function transports(em: FnEmitter, node: ts.Node, g: FunctionGlobal, input: LTyp
       return;
     }
 
-    for (const part of parts(t as never)) visit(part, path);
+    for (const part of parts!(t as never)) visit(part, path);
   };
 
-  visit(input, g.decl.parameters[0]!.name.getText());
+  visit(t, path);
 
   const types = [...objects.values()];
 
@@ -439,6 +456,8 @@ const PARTS: Partial<Record<LType["k"], (t: never) => LType[]>> = {
   arrayBuffer: () => [],
   date: () => [],
   buffer: () => [],
+  // Shared, not copied: its sends copy what crosses through it.
+  channel: () => [],
   opt: (t: LType & { k: "opt" }) => [t.inner],
   union: (t: LType & { k: "union" }) => t.ms,
   array: (t: LType & { k: "array" }) => [t.e],

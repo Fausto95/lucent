@@ -343,7 +343,7 @@ end?)`, which copies. `new Uint8Array(buffer, byteOffset?, length?)` views
 - **lucent:core**: `delay`, `error(code, message)`, `errorCode(e)`,
   `utf8Encode`, `utf8Decode`, `now()`, `fromCallback(register, signal?)`,
   `subscribe(register, onValue, signal?)`, `onDestroy(hook)`, `EventEmitter`,
-  `NativeBuffer`.
+  `NativeBuffer`, `Channel`.
 - **Module hooks**: a module's top-level code runs for each JavaScript
   runtime (its create hook). `onDestroy(hook)` from `lucent:core` runs
   `hook` when that state ends: before a reload initializes the module
@@ -428,6 +428,32 @@ transferred`) on use, and closing it does nothing. Passing a buffer to
   - `toUint8Array()` and `from` are the only copies. `NativeBuffer.stats()`
     counts allocations, transfers and copies (and the bytes copied) since
     the app started, to check that a path does not copy.
+
+- **Channels** (`Channel<T>` from `lucent:core`) carry values from a
+  producer to a consumer that may run on another thread, such as a compute
+  task sending results as it goes.
+  - `new Channel<T>(policy, capacity?)`: what a send into a full channel
+    does is its policy. `"lossless"` refuses it (`send` returns `false`),
+    `"latest"` keeps one value and replaces it, `"drop"` drops the oldest.
+    The capacity is a whole number from 1, 16 by default; a latest
+    channel's is 1 (a `RangeError` otherwise).
+  - `send(value)` never waits. It sends a copy, made as a compute task's
+    input is (a `NativeBuffer` moves), so the element type is data
+    (`LUCENT3012` otherwise); refused, it copies and moves nothing. A
+    value the policy drops, or that is never received, is released: a
+    `NativeBuffer` is closed.
+  - `receive()` is a promise of the next value, settled on the context
+    that asked: at once if one waits, else when one is sent. Once the
+    channel is closed and drained, it is `undefined`. A compute task
+    cannot receive (`LUCENT3011`).
+  - `close()` refuses sends from then on, and says whether it closed it;
+    `closed` reads it. A channel module code makes ends with its
+    JavaScript runtime (a reload), releasing what was never received.
+  - `stats()` counts what it took, received, dropped and refused, the
+    values waiting (`depth`) and the most that ever waited.
+  - A channel crosses to a compute task as itself, so both ends share it,
+    but not to JavaScript (`LUCENT2006`). Lucent has no `for await`:
+    receive in a loop until `undefined`.
 
 Modules are checked against the ES2024 library. Its typed-array copies
 (`Uint8Array`'s `toSorted`, `toReversed`, `with`, `findLast`,

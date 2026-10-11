@@ -321,9 +321,10 @@ export const features: Feature[] = [
   },
   {
     feature: "Threads, the Lucent lock and `compute`",
-    status: "Module code runs one turn at a time, and `compute` tasks run in parallel.",
+    status:
+      "Module code runs one turn at a time, and `compute` tasks run in parallel. A `Channel` carries values between them.",
     page: CONCURRENCY,
-    cases: ["compute"],
+    cases: ["compute", "channels"],
   },
   {
     feature: "Reference counting, `using` and native buffers",

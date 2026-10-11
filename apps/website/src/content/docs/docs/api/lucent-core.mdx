@@ -1,6 +1,6 @@
 ---
 title: lucent:core
-description: "Helpers every module can import: delays, errors with codes, UTF-8, a clock, promises over callback APIs, work on other threads, and native buffers."
+description: "Helpers every module can import: delays, errors with codes, UTF-8, a clock, promises over callback APIs, work on other threads, native buffers, and channels between threads."
 kind: reference
 custom_edit_url: https://github.com/Fausto95/lucent/edit/main/apps/website/src/docs/templates/api/modules.ts
 ---
@@ -377,6 +377,50 @@ export async function sample(): Promise<number> {
 | `close(): void;` | Releases the bytes. Closing a closed or transferred buffer does nothing. |
 | `[Symbol.dispose](): void;` |  |
 
+### Channel
+
+```ts title="core.d.ts"
+class Channel<T> {
+  constructor(policy: ChannelPolicy, capacity?: number);
+  send(value: T): boolean;
+  receive(): Promise<T | undefined>;
+  close(): boolean;
+  readonly closed: boolean;
+  stats(): ChannelStats;
+}
+```
+
+Values from a producer to a consumer, which may run on different threads: a compute task sending results as it goes, to module code that receives them. A send never waits for the consumer; when the consumer falls behind, the channel's policy decides what waits.
+
+A value is copied when it is sent, as a compute task's input is, so the consumer has its own; a `NativeBuffer` moves instead. A value the channel drops, or that is never received, is released: a `NativeBuffer` is closed.
+
+```ts title="channel.lucent.ts"
+import { Channel, compute } from "lucent:core";
+
+function scan(input: { rows: number[][]; progress: Channel<number> }): number {
+  for (let i = 0; i < input.rows.length; i++) input.progress.send(i + 1);
+  input.progress.close();
+  return input.rows.length;
+}
+
+export async function scanAll(rows: number[][]): Promise<number> {
+  const progress = new Channel<number>("latest");
+  const done = compute(scan, { rows, progress });
+  for (let n = await progress.receive(); n !== undefined; n = await progress.receive())
+    console.log(`row ${n}`);
+  return await done;
+}
+```
+
+| Member | What it does |
+| --- | --- |
+| `constructor(policy: ChannelPolicy, capacity?: number);` |  |
+| `send(value: T): boolean;` | Sends a copy of `value` (a `NativeBuffer` moves), without waiting. False if refused: the channel is closed, or lossless and full; the value is then left as it was. |
+| `receive(): Promise<T \| undefined>;` | The next value: at once if one waits, else when one is sent; `undefined` once the channel is closed and every value was received. |
+| `close(): boolean;` | Refuses sends from now on; what waits can still be received. False if it was closed already. |
+| `readonly closed: boolean;` | Whether it is closed. |
+| `stats(): ChannelStats;` | What it has done so far, and how many values wait now. |
+
 ## Types
 
 ### EventSubscription
@@ -457,3 +501,35 @@ Counts of what native buffers have done, for checking that a path does not copy.
 | `readonly transfers: number;` | Moves of a buffer's bytes to a new buffer: `transfer()` and handoffs to tasks. |
 | `readonly copies: number;` | Copies in and out (`from`, `toUint8Array`, and JavaScript's borrows), and their bytes. |
 | `readonly bytesCopied: number;` |  |
+
+### ChannelPolicy
+
+```ts title="core.d.ts"
+type ChannelPolicy = "lossless" | "latest" | "drop";
+```
+
+What a channel does when its consumer has no room for a value: `"lossless"` refuses the send, `"latest"` keeps only the newest value, `"drop"` drops the oldest.
+
+### ChannelStats
+
+```ts title="core.d.ts"
+interface ChannelStats {
+  readonly sent: number;
+  readonly received: number;
+  readonly dropped: number;
+  readonly refused: number;
+  readonly depth: number;
+  readonly highWater: number;
+}
+```
+
+Counts of what a channel has done, for checking what its policy dropped.
+
+| Member | What it does |
+| --- | --- |
+| `readonly sent: number;` | Values it took. |
+| `readonly received: number;` | Values the consumer received. |
+| `readonly dropped: number;` | Values released unreceived: dropped by its policy, or left when it ended. |
+| `readonly refused: number;` | Sends refused: into a full lossless channel, or a closed one. |
+| `readonly depth: number;` | Values waiting now, and the most that ever waited. |
+| `readonly highWater: number;` |  |

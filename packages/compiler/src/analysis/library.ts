@@ -381,6 +381,12 @@ const LIBRARY: Record<string, LibraryEffect> = {
     calls: "later",
   },
   "lucent:core.EventSubscription.remove": MUTATES,
+  // A send keeps a copy of its value, never the value; a receive is a promise.
+  "lucent:core.Channel.new": ALLOCATES_THROWS,
+  "lucent:core.Channel.send": { mutates: true, throws: true },
+  "lucent:core.Channel.receive": { allocates: true, schedules: true },
+  "lucent:core.Channel.close": MUTATES,
+  "lucent:core.Channel.stats": ALLOCATES,
   "lucent:core.delay": { allocates: true, schedules: true },
   "lucent:core.error": ALLOCATES,
   "lucent:core.errorCode": NONE,

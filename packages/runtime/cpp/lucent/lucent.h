@@ -17,6 +17,7 @@
 #include "buffer.h"
 #include "bytes.h"
 #include "callback.h"
+#include "channel.h"
 #include "console.h"
 #include "conversions.h"
 #include "core.h"
