@@ -171,6 +171,8 @@ class Host : public std::enable_shared_from_this<Host>, public RuntimeWork {
     /// What its scope holds: JS promises Lucent awaits, operations, …
     size_t registrations = 0;
     size_t inFlight = 0;
+    /// JavaScript values Lucent holds (JSValue).
+    size_t values = 0;
   };
 
   /// On the JS thread.
@@ -218,6 +220,12 @@ class Host : public std::enable_shared_from_this<Host>, public RuntimeWork {
   jsi::Function* retained(uint64_t id);
   /// Safe from any thread: releases on the JS thread.
   void release(uint64_t id);
+
+  // --- opaque values (JSValue) ----------------------------------------------
+  uint64_t retainValue(jsi::Runtime& rt, jsi::Value value);
+  const jsi::Value* retainedValue(uint64_t id) const;
+  /// Safe from any thread: releases on the JS thread.
+  void releaseValue(uint64_t id);
 
   // --- classes --------------------------------------------------------------
   using PrototypeInit = void (*)(jsi::Runtime& rt, Host& host, jsi::Object& proto);
@@ -277,6 +285,7 @@ class Host : public std::enable_shared_from_this<Host>, public RuntimeWork {
   /// The runtime's `Promise`, looked up on the first async call instead of each one.
   std::optional<jsi::Function> promiseConstructor_;
   std::unordered_map<uint64_t, jsi::Function> functions_;
+  std::unordered_map<uint64_t, jsi::Value> values_;
   std::unordered_map<std::string, jsi::Object> prototypes_;
   std::unordered_map<std::string, jsi::Value> modules_;
   // Keyed by the variable's address: module variables live as long as the program.

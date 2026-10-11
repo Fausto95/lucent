@@ -32,7 +32,7 @@ so; the code is what runs.
 | -------- | ------------------------------------------------------------------------------- | --------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
 | C-BIND   | Binding schemas: format, native identity, provenance, facts, binding plans      | v1.5            | v1.2 frozen; v1.3 to v1.5 proposed | `packages/bindgen/src/schema.ts`, `binding-plan.ts`, `usage.ts`, `source-plan.ts`                   |
 | C-IR     | Semantic IR, its verifier, effect summaries, program facts                      | v1.3            | v1.2 frozen; v1.2.1, v1.3 proposed | `packages/compiler/src/ir/`, `packages/compiler/src/analysis/`                                      |
-| C-EXEC   | Runtime identities, scopes, operations, contexts, transport, compute, callbacks | v1.6            | v1.5 frozen; v1.6 proposed         | `packages/runtime/cpp/lucent/` (`scope.h`, `execution.h`, `transport.h`, `compute.h`, `callback.h`) |
+| C-EXEC   | Runtime identities, scopes, operations, contexts, transport, compute, callbacks | v1.7            | v1.5 frozen; v1.6, v1.7 proposed   | `packages/runtime/cpp/lucent/` (`scope.h`, `execution.h`, `transport.h`, `compute.h`, `callback.h`) |
 | C-BIGINT | The runtime's `BigInt` and its native integer conversions                       | v1.1            | v1 frozen; v1.1 proposed           | `packages/runtime/cpp/lucent/bigint.h`                                                              |
 | C-BUFFER | Native buffers, borrows and transfers                                           | v1.4            | Proposed                           | `packages/runtime/cpp/lucent/buffer.h`, `lucent:core`                                               |
 | C-VIEW   | Component descriptions, mounts, platform hosts, toolkit bodies                  | v2.2            | Proposed                           | `packages/compiler/src/ui/contract.ts`, `packages/runtime/cpp/rn/`                                  |
@@ -1226,7 +1226,7 @@ reference JavaScript's (the e2e cases).
 
 ## C-EXEC: execution identities, scopes and operations
 
-**Current version: v1.6 (proposed).** v1.5 is frozen.
+**Current version: v1.7 (proposed).** v1.5 is frozen.
 
 C-EXEC is the runtime's model of who owns work and where it runs. It lives
 in namespace `lucent` and uses no JSI types (except the `Host` of v1.3,
@@ -1570,6 +1570,15 @@ Registration, Opt<Error> abortedBy)`, where the registration returns
   (2026-09-26). Both tasks filed these under "v1.5", which had already
   been frozen with `callback.h`; this reference numbers them v1.6.
   Migration: none (additive).
+- **v1.7** (2026-10-11, T73, proposed): `JSValue` (`core.h`'s
+  `JSValueObject`, a `Ref`), which the JSI layer makes as `HeldJsValue`, a
+  host's `retainValue` id released on the JS thread (`releaseValue`) with
+  the last Lucent reference; `Convert<JSValue>` keeps any value and gives
+  the same one back, refusing one of a replaced host (`TypeError`); an
+  optional's absent states take both of JavaScript's. `Host::Ownership`
+  gains `values`. `toJsString`, `truthy`, `strictEquals` and `jsonWrite`
+  of a `JSValue` throw `TypeError` (`throwOpaque`) where the compiler
+  cannot refuse them. Migration: none (additive).
 
 ## C-BIGINT: the runtime's BigInt
 

@@ -248,6 +248,16 @@ struct WeakRefObject : Object {
   std::weak_ptr<typename R::element_type> target_;
 };
 
+/// lucent:core's JSValue: a value JavaScript gave, which Lucent code holds
+/// without looking inside, and gives back as the same value. The JSI layer
+/// makes one (a host's reference, released on the JS thread with the last
+/// Lucent one); nothing else reads it, so comparing or converting one is a
+/// TypeError where the compiler cannot refuse it.
+struct JSValueObject : Object {};
+using JSValue = Ref<JSValueObject>;
+
+[[noreturn]] void throwOpaque(const char* what);
+
 /// Boxes a local that a closure captures and later mutates, so the closure and
 /// the enclosing function share one variable, as in JavaScript.
 template <class T>

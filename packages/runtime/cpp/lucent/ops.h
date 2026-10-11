@@ -37,6 +37,7 @@ template <class... Ts>
 bool truthy(const std::variant<Ts...>& v) {
   return std::visit([](const auto& x) { return truthy(x); }, v);
 }
+inline bool truthy(const JSValue&) { throwOpaque("test"); }
 template <class T>
 bool truthy(const T&) {
   return true;  // arrays, maps, functions, promises, bytes: objects are truthy
@@ -48,6 +49,7 @@ String toJsString(const Ref<T>&) {
   return String::fromLatin1("[object Object]");
 }
 inline String toJsString(const Error& e) { return errorToString(e); }
+inline String toJsString(const JSValue&) { throwOpaque("convert"); }
 template <class Sig>
 String toJsString(const Fn<Sig>&) {
   return String::fromLatin1("function () { [native code] }");

@@ -514,6 +514,21 @@ null }` and `{ v: string | undefined }` share one native layout). A body
     return `void` or a `Promise` (which Lucent can `await`).
 - **Iterables** can be passed from JavaScript (a snapshot, taken with
   `Array.from`); iterators and generators cannot be returned to JavaScript.
+- **JSValues** (`JSValue` from `lucent:core`) are JavaScript's values that
+  Lucent holds without looking inside: anything JavaScript passes where one
+  is declared, `undefined` and `null` included, kept in fields, records,
+  arrays, module variables and closures and handed back as the same value
+  (an object keeps its identity, a function stays callable). The runtime's
+  host holds the value until the last Lucent reference goes, releasing it
+  on the JS thread; one held across a reload is a `TypeError` when it goes
+  back. Lucent code cannot read one: comparing (`===`, `indexOf`),
+  converting (`String`, templates, `+`), testing or `typeof` one, writing
+  it as JSON and keying a `Map` or `Set` with it are refused
+  (`LUCENT1002`, `LUCENT1003`, `LUCENT2002`), as is handing it to a
+  compute task (`LUCENT3012`); where the compiler cannot see one (a class
+  written as JSON), the runtime throws `TypeError`. An optional one
+  (`JSValue | undefined`) is absent for JavaScript's `undefined` and `null`
+  alike, as `??` sees them; a plain `JSValue` holding `null` is present.
 - **AbortSignals** can be passed from JavaScript (for example to an exported
   `async` function) and abort the native side as soon as JavaScript calls
   `controller.abort()`. They cannot be returned to JavaScript, and an

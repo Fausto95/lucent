@@ -65,6 +65,8 @@ inline bool strictEquals(const String& a, const String& b) { return a == b; }
 inline bool strictEquals(Undefined, Undefined) { return true; }
 inline bool strictEquals(Null, Null) { return true; }
 
+inline bool strictEquals(const JSValue&, const JSValue&) { throwOpaque("compare"); }
+
 template <class A, class B>
 bool strictEquals(const Ref<A>& a, const Ref<B>& b) {
   return static_cast<const void*>(a.get()) == static_cast<const void*>(b.get());

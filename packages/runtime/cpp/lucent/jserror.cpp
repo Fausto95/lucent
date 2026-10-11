@@ -25,6 +25,10 @@ void throwTypeError(const char* message) {
   throwError(String::fromLatin1("TypeError"), String::fromUtf8(message));
 }
 
+void throwOpaque(const char* what) {
+  throwTypeError((std::string("Lucent cannot ") + what + " a JSValue: JavaScript's values are JavaScript's to read").c_str());
+}
+
 void throwUnassigned(const char* what) {
   throwTypeError((std::string(what) + " was read before it was initialized").c_str());
 }

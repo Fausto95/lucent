@@ -570,6 +570,13 @@ export const differences: { title: string; rows: Difference[] }[] = [
         cases: ["array-buffers", "borrowed-bytes"],
       },
       {
+        js: "Code can read any value it is given.",
+        lucent:
+          "A `JSValue` is a JavaScript value Lucent holds without reading: it is stored and handed back as the same value, and comparing, converting or testing one is refused.",
+        why: "JavaScript's values live on the JS thread; Lucent holds a reference to one, which only JavaScript can read.",
+        cases: ["opaque-values"],
+      },
+      {
         js: "`Date` objects passed to other code are shared.",
         lucent: "Copied at the boundary; inside Lucent they're shared.",
         why: "The same as for arrays and objects.",

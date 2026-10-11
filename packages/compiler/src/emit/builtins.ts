@@ -8,6 +8,8 @@ import {
   cppIdent,
   functionsNotCompared,
   holdsFunction,
+  holdsJsValue,
+  jsValueOpaque,
   isErrorName,
   isVoidish,
   type LType,
@@ -875,7 +877,7 @@ export function staticCall(
     // The arguments as strings, joined by spaces; a bigint with its `n`, as JavaScript consoles print it.
     const parts = a.map((x) => {
       const v = em.expr(x);
-      const text = em.toStringCode(v);
+      const text = em.toStringCode(v, x);
       return cpp.construct(cpp.type("lucent::String"), [
         v.t.k === "bigint" ? cpp.binary(text, "+", stringExpr("n")) : text,
       ]);
@@ -898,6 +900,8 @@ export function staticCall(
           Codes.UnsupportedBuiltin,
           "JSON.stringify replacer/indent arguments are not supported",
         );
+      if (reachesJsValue(em, v.t))
+        fail(node, Codes.UnsupportedBuiltin, jsValueOpaque("write as JSON"));
       return str(cpp.call("lucent::json::stringify", [v.c]));
     }
     fail(
@@ -1197,7 +1201,8 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
     );
   const o = obj.c;
   const a = node.arguments;
-  if (name === "toString" && a.length === 0 && t.k !== "number") return str(em.toStringCode(obj));
+  if (name === "toString" && a.length === 0 && t.k !== "number")
+    return str(em.toStringCode(obj, node));
   switch (t.k) {
     case "class": {
       const info = em.reg.cls(t.id);
@@ -1668,7 +1673,7 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
     case "concat":
       return str(
         node.arguments.reduce(
-          (all, x) => cpp.binary(all, "+", em.toStringCode(em.expr(x))),
+          (all, x) => cpp.binary(all, "+", em.toStringCode(em.expr(x), x)),
           cpp.construct(cpp.type("lucent::String"), [o]),
         ),
       );
@@ -1794,6 +1799,8 @@ function arrayMethod(
           Codes.UnsupportedOperator,
           functionsNotCompared(`, so \`${name}\` cannot search for one`),
         );
+      if (holdsJsValue(e))
+        fail(node, Codes.UnsupportedOperator, jsValueOpaque(`search an array for (\`${name}\`)`));
       const found = cpp.call(cpp.dot(o, name), [...argList(em.exprAs(a[0]!, e), n(1, NAN))]);
       return name === "includes" ? bool(found) : num(found);
     }
@@ -1959,6 +1966,35 @@ function mapMethod(
   fail(node, Codes.UnsupportedBuiltin, `Map.prototype.${name} is not supported`);
 }
 
+/**
+ * Whether JSON.stringify of a `t` would write a JSValue: through what it
+ * writes the elements and fields of (arrays, tuples, records, objects, the
+ * values of optionals and unions). A class instance's fields are checked
+ * when it is written (the runtime's TypeError).
+ */
+function reachesJsValue(em: FnEmitter, t: LType, seen = new Set<string>()): boolean {
+  switch (t.k) {
+    case "jsvalue":
+      return true;
+    case "array":
+      return reachesJsValue(em, t.e, seen);
+    case "tuple":
+      return t.es.some((e) => reachesJsValue(em, e, seen));
+    case "union":
+      return t.ms.some((m) => reachesJsValue(em, m, seen));
+    case "opt":
+      return reachesJsValue(em, t.inner, seen);
+    case "dict":
+      return reachesJsValue(em, t.val, seen);
+    case "struct":
+      if (seen.has(t.id)) return false;
+      seen.add(t.id);
+      return em.reg.struct(t.id).fields.some((f) => reachesJsValue(em, f.type, seen));
+    default:
+      return false;
+  }
+}
+
 /** WeakMap's and WeakSet's methods: by key, as Map's and Set's are (weak.h). */
 function weakMethod(
   em: FnEmitter,
@@ -2112,7 +2148,7 @@ export function globalCall(
     case "isFinite":
       return bool(cpp.call("std::isfinite", [argAs(em, node, 0, T.number)]));
     case "String":
-      return str(a[0] ? em.toStringCode(em.expr(a[0])) : stringExpr(""));
+      return str(a[0] ? em.toStringCode(em.expr(a[0]), a[0]) : stringExpr(""));
     case "Number": {
       if (!a[0]) return num(cpp.num("0.0"));
       const v = em.expr(a[0]);
