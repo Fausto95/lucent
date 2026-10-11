@@ -56,6 +56,7 @@ import {
 import { looseConversion, looseConversionMessage } from "../lowering/loose-equality.ts";
 import { assignedRead } from "../lowering/unassigned.ts";
 import { bigintExpr, bigintLiteralValue, numberExpr, stringExpr } from "../lowering/literals.ts";
+import { ifaceLiteral, literalRefusal } from "./interfaces.ts";
 
 export interface Local {
   cpp: string;
@@ -519,7 +520,37 @@ export class FnEmitter {
         `${this.reg.iface(e.t.id).decl.name.text} does not extend ${name}`,
       );
     }
+    // An object of the interface's shape (a literal of it, typed as such): its literal class.
+    if (e.t.k === "struct" && !literalRefusal(this.ctx, to)) {
+      const lit = ifaceLiteral(this.ctx, to);
+      if (e.t.id === lit.shape.id) return this.wrapLiteral(e.c, to);
+    }
     this.notAnImplementation(e.t.k === "struct" ? "an object" : typeKey(e.t), to, node);
+  }
+
+  /**
+   * An object literal standing for a data-only interface classes implement:
+   * an instance of the interface's literal class, holding the literal as
+   * the struct of its properties (emit/interfaces.ts).
+   */
+  private ifaceLiteral(node: ts.ObjectLiteralExpression, t: LType & { k: "iface" }): E {
+    const refused = literalRefusal(this.ctx, t);
+    if (refused)
+      fail(
+        node,
+        Codes.InterfaceNotImplemented,
+        `an object literal cannot be used as ${this.reg.iface(t.id).decl.name.text}: ${refused}`,
+      );
+    const lit = ifaceLiteral(this.ctx, t);
+    const shape = this.objectLiteral(node, lit.shape);
+    return { c: this.wrapLiteral(shape.c, t), t };
+  }
+
+  /** `std::static_pointer_cast<I_X>(std::make_shared<L_X>(shape))`. */
+  private wrapLiteral(shape: cpp.Expr, t: LType & { k: "iface" }): cpp.Expr {
+    const lit = ifaceLiteral(this.ctx, t);
+    const made = cpp.call("std::make_shared", [shape], [cpp.type(`lucent_app::${lit.cppName}`)]);
+    return cpp.call("std::static_pointer_cast", [made], [this.reg.cppIfaceType(t)]);
   }
 
   private notAnImplementation(what: string, to: LType & { k: "iface" }, node?: ts.Node): never {
@@ -2517,7 +2548,7 @@ export class FnEmitter {
       }
       return { c: cpp.statementExpr(parts, tmp), t };
     }
-    if (t.k === "iface") this.notAnImplementation("an object literal", t, node);
+    if (t.k === "iface") return this.ifaceLiteral(node, t);
     if (t.k !== "struct") fail(node, Codes.UnsupportedType, `object literal of type ${typeKey(t)}`);
     const info = this.reg.struct(t.id);
     const tmpName = this.ctx.fresh("obj");

@@ -16,7 +16,7 @@ struct C_Echo : lucent::Object, virtual lucent_app::I_Source {
   void construct();
   static lucent::Ref<C_Echo> create();
   lucent::Promise<lucent::String> load(lucent::String p0_) override;
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
 };
 
 inline bool C_Echo::lucentJson_(lucent::JsonWriter& w, bool toJson) {

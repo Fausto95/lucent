@@ -24,7 +24,7 @@ struct C_Rect : lucent::Object, virtual lucent_app::I_Shape {
   lucent::String get_kind() override;
   double area() override;
   lucent::String describe(lucent::String p0_) override;
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
 };
 
 inline bool C_Rect::lucentJson_(lucent::JsonWriter& w, bool toJson) {

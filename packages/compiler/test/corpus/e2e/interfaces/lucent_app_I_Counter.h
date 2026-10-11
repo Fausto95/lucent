@@ -4,6 +4,8 @@
 
 #pragma push_macro("next")
 #undef next
+#pragma push_macro("w")
+#undef w
 
 namespace lucent_app {
 
@@ -11,9 +13,11 @@ struct I_Counter;
 
 struct I_Counter {
   virtual ~I_Counter() = default;
+  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson) = 0;
   virtual double next() = 0;
 };
 
 }  // namespace lucent_app
 
+#pragma pop_macro("w")
 #pragma pop_macro("next")

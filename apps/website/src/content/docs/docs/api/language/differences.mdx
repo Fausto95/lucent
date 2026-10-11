@@ -89,7 +89,7 @@ Each e2e case is a module in `packages/compiler/test/e2e/cases/`, run natively a
 | JavaScript | Lucent | Why | e2e case |
 | --- | --- | --- | --- |
 | A field read before it's assigned, such as a subclass field read from a base constructor, is `undefined`. | A number, string, boolean, tuple, array, map, set, record or `Uint8Array` reads its default: `0`, `""`, `false` or empty. An object or class reads as unset: using it throws a `TypeError`, through `?.` too. | A field holds a native value from the start. | `unassigned-fields` |
-| Any object with the right members fits an interface. | Only classes that declare `implements` fit one. A plain JavaScript object is refused at the boundary with a `TypeError`. | An interface with methods is a native base class, which only declared classes derive from. | `interfaces` |
+| Any object with the right members fits an interface. | Only classes that declare `implements` fit one, and object literals of an interface of properties alone. A plain JavaScript object is refused at the boundary with a `TypeError`. | An interface with methods is a native base class, which only declared classes derive from. | `interfaces`, `interfaces-structural` |
 | Assigning a static field a class inherits gives the subclass its own. | From JavaScript, it writes the base class's field, which the subclass shares. | A static field is one native variable, on the class that declares it. | `exported-statics` |
 
 ## Known gaps

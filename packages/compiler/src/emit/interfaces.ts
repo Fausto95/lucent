@@ -11,7 +11,7 @@ import {
   substitute,
   typeKey,
 } from "../types.ts";
-import { argMap, findMember } from "./classes.ts";
+import { argMap, findMember, jsonMemberParams } from "./classes.ts";
 import type { Ctx, ParamInfo } from "./context.ts";
 import { FnEmitter } from "./function.ts";
 
@@ -132,6 +132,11 @@ export function emitIface(ctx: Ctx, info: IfaceInfo): cpp.Decl {
     cpp.method(`~${info.cppName}`, undefined, [], undefined, { virtual: true, default: true }),
   ];
   const pure = { virtual: true, pure: true };
+  const bases = ctx.reg.ifaceBases(self);
+  // JSON.stringify of an interface value writes it as its class, or its
+  // literal, does; the root interfaces declare the writer.
+  if (!bases.length)
+    members.push(cpp.method("lucentJson_", cpp.type("bool"), jsonMemberParams, undefined, pure));
   for (const m of ownMembers(ctx, info)) {
     if (m.kind === "method") {
       const ps = m.params.map((p, i) => cpp.param(ctx.reg.cppType(p.cppType), `a${i}`));
@@ -147,9 +152,94 @@ export function emitIface(ctx: Ctx, info: IfaceInfo): cpp.Decl {
   }
   return cpp.struct(info.cppName, members, {
     ...(info.typeParams.length ? { template: info.typeParams.map(cppIdent) } : {}),
-    bases: ctx.reg
-      .ifaceBases(self)
-      .map((b) => ({ type: ctx.reg.cppIfaceType(b), public: true, virtual: true })),
+    bases: bases.map((b) => ({ type: ctx.reg.cppIfaceType(b), public: true, virtual: true })),
+  });
+}
+
+/**
+ * Why an object literal cannot stand for interface `t`, or undefined when
+ * one can: a method needs a class that declares `implements`; a generic
+ * interface is not taken yet.
+ */
+export function literalRefusal(ctx: Ctx, t: IfaceT): string | undefined {
+  const name = ctx.reg.iface(t.id).decl.name.text;
+  const generic = ctx.reg.ifaceChain(t).find((x) => ctx.reg.iface(x.id).typeParams.length);
+  if (generic)
+    return `${name} is generic, which an object literal cannot stand for yet; use a class that declares \`implements ${name}\``;
+  const method = membersOf(ctx, t).find((m) => m.kind === "method");
+  if (method)
+    return `${name}'s method \`${method.name}()\` needs a class: an object literal stands only for an interface of properties`;
+  return undefined;
+}
+
+/**
+ * The literal class of a data-only interface `t`, made on first use: an
+ * object literal standing for it is an instance, which holds the
+ * interface's properties in a struct of them (the shape).
+ */
+export function ifaceLiteral(
+  ctx: Ctx,
+  t: IfaceT,
+): { cppName: string; shape: LType & { k: "struct" } } {
+  const known = ctx.reg.ifaceLiterals.get(t.id);
+  if (known) return known;
+  const info = ctx.reg.iface(t.id);
+  const made = { cppName: `L_${info.cppName.replace(/^I_/, "")}`, shape: ctx.reg.ifaceShape(info) };
+  ctx.reg.ifaceLiterals.set(t.id, made);
+  return made;
+}
+
+/**
+ * `struct L_X final : lucent::Object, virtual I_X`: an object literal's
+ * class, holding the shape struct `s`; each property's accessors read and
+ * write it, and JSON writes it, as JavaScript writes the literal.
+ */
+export function emitIfaceLiteral(ctx: Ctx, id: string): cpp.Decl {
+  const lit = ctx.reg.ifaceLiterals.get(id)!;
+  const self: IfaceT = { k: "iface", id, args: [] };
+  const shape = cpp.type(
+    "lucent::Ref",
+    cpp.type(`lucent_app::${ctx.reg.struct(lit.shape.id).cppName}`),
+  );
+  const s = cpp.id("s");
+  const members: cpp.Member[] = [
+    cpp.field(shape, "s"),
+    {
+      ...cpp.method(lit.cppName, undefined, [cpp.param(shape, "shape")], []),
+      initializers: [{ name: "s", args: [cpp.call("std::move", [cpp.id("shape")])] }],
+    },
+    cpp.method(
+      "lucentJson_",
+      cpp.type("bool"),
+      jsonMemberParams,
+      [cpp.exprStmt(cpp.call("jsonWrite", [cpp.id("w"), s])), cpp.ret(cpp.bool(true))],
+      { override: true },
+    ),
+  ];
+  for (const m of membersOf(ctx, self)) {
+    if (m.kind !== "prop") continue;
+    const t = ctx.reg.cppType(m.type);
+    const field = cpp.arrow(s, cppIdent(m.name));
+    members.push(
+      cpp.method(`get_${cppIdent(m.name)}`, t, [], [cpp.ret(field)], { override: true }),
+    );
+    if (!m.readonly)
+      members.push(
+        cpp.method(
+          `set_${cppIdent(m.name)}`,
+          cpp.voidType,
+          [cpp.param(t, "v")],
+          [cpp.exprStmt(cpp.assign(field, cpp.call("std::move", [cpp.id("v")])))],
+          { override: true },
+        ),
+      );
+  }
+  return cpp.struct(lit.cppName, members, {
+    final: true,
+    bases: [
+      { type: cpp.type("lucent::Object"), public: true },
+      { type: ctx.reg.cppIfaceType(self), public: true, virtual: true },
+    ],
   });
 }
 

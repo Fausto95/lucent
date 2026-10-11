@@ -29,7 +29,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [TA37](#ta37) | Close the language gaps the review found                          | done (#149, 2026-10-08)                                                                                                           |
 | [T71](#t71)   | Native object references as view props                            | blocked: a decision superseding 0046 and 0065; needs nothing open                                                                 |
 | [T78](#t78)   | UIKit components with a view-controller root                      | ready; needs nothing open                                                                                                         |
-| [TA38](#ta38) | Accept object literals for data-only interfaces                   | in progress (#162 merged)                                                                                                         |
+| [TA38](#ta38) | Accept object literals for data-only interfaces                   | done (#162, #177, 2026-10-11)                                                                                                    |
 | [TA43](#ta43) | Tell a module when JavaScript starts and stops listening          | done (#171, 2026-10-11)                                                                                                           |
 | [TA45](#ta45) | Record each example's evidence and state it from the record       | waiting (needs the maintainer: TA36's port sources); needs nothing open                                                           |
 | **G4**        | **Production candidate**                                          |                                                                                                                                   |
@@ -833,8 +833,8 @@ picture-in-picture on the iOS simulator through a contained
 classes implement, as TypeScript allows, and lower TypeScript's mapped
 utility types over object types.
 
-- **Status:** in progress: mapped types merged as #162; object literals
-  for implemented interfaces are next.
+- **Status:** done: mapped types (#162), object literals for implemented
+  interfaces (#177).
 - **Area:** Compiler (types, interfaces).
 - **Needs:** none.
 - **Verify:** V1, V2.
@@ -850,30 +850,36 @@ implements is already an object type, literals included; the review that
 opened this task missed that, and wrongly said every interface literal is
 refused. Mapped utility types over object types were refused as well.
 
-- [ ] An object literal used as an interface that classes implement is
-      an instance of a class Lucent generates for that interface (one per
-      instantiation): it implements the interface's properties as fields,
-      so the value keeps JavaScript's identity and mutation (a copy into a
-      struct would change both), JSON.stringify writes its fields, and it
-      crosses to JavaScript as a plain object, by copy, as a struct does.
-      Data-only interfaces first; a literal method or function-valued
-      property implementing a method, generic interfaces and accepting a
-      plain JavaScript object from the boundary are follow-ups, refused
+- [x] An object literal used as an interface that classes implement is
+      an instance of a class Lucent generates for that interface (`L_X`,
+      deriving from `I_X` and holding a struct of the interface's
+      properties, base interfaces' first): the value keeps JavaScript's
+      identity and mutation (a copy into a struct would change both),
+      JSON.stringify writes its fields (every interface now declares the
+      JSON writer its implementations override), and it crosses to
+      JavaScript as a plain object, by copy, as a struct does (#177).
+      Data-only, non-generic interfaces; the follow-ups below are refused
       meanwhile with LUCENT2008.
-- [ ] Diagnostic text for LUCENT2008 names the method that makes the
-      interface nominal.
+- [x] Diagnostic text for LUCENT2008 names the method that makes the
+      interface nominal, or that it is generic (#177).
 - [x] Mapped utility types of object types lower as the object types they
       resolve to: `Partial<Point>`, `Pick<Point, "x">`, `Omit`, `Required`,
       `Readonly` and `Record<"a" | "b", T>` failed with
       `LUCENT2002: __type is not supported` (their symbol is the library's
       mapped type); `Object.groupBy` with literal keys makes that object
       type, one optional field per key (e2e `mapped-types`).
-- [ ] e2e `interfaces-structural`: literals for an interface a class also
+- [x] e2e `interfaces-structural`: literals for an interface a class also
       implements, identity and mutation through the interface, JSON, the
-      boundary; the semantics table row.
+      boundary; the semantics table row (#177).
 
 **Done when:** a data-only interface that classes implement takes object
 literals, with the e2e case green.
+
+Follow-ups, outside this task: a literal method (or a function-valued
+property) implementing an interface method; literals for generic
+interfaces (one literal class per instantiation); and accepting a plain
+JavaScript object of the interface's properties from the boundary, which
+still throws `TypeError`.
 
 <a id="ta43"></a>
 

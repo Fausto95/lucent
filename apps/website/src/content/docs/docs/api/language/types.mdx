@@ -44,7 +44,7 @@ An array is a reference: assigning it shares it. A tuple is a value, and `===` c
 | Object types: `type` aliases, object literals, interfaces without methods | A shared object with a fixed set of fields: see [Object types](#object-types). | `objects` |
 | `Partial`, `Required`, `Readonly`, `Pick`, `Omit`, a `Record` of literal keys | The object type each resolves to: `Partial<Point>` is `Point` with every field optional. | `mapped-types` |
 | Classes | A shared object with methods, accessors and static members. Each instance has one identity. | `classes`, `inheritance` |
-| Interfaces with methods, or named in a class's `implements` | An instance of a class that declares `implements`: see [Interfaces](#interfaces). | `interfaces` |
+| Interfaces with methods, or named in a class's `implements` | An instance of a class that declares `implements`, or an object literal of one of properties alone: see [Interfaces](#interfaces). | `interfaces`, `interfaces-structural` |
 | `T \| undefined`, `T \| null`, `x?: T` | An optional value that remembers whether it is `undefined` or `null`. | `narrowed-absent`, `absent-results` |
 | Other unions | A value that knows which member it holds: see [Unions](#unions). | `control-flow`, `conditional-objects` |
 | Function types, `(a: A) => R` | A function. A closure shares the variables it captures. | `closures`, `function-values` |
@@ -130,7 +130,7 @@ export function bootTime(): bigint {
 
 An interface without methods that no class implements is an object type. An interface with methods, or one that a class names in `implements`, is nominal:
 
-- Only instances of classes that declare `implements` are values of it ([LUCENT2008](/docs/api/diagnostics/#lucent2008)). An object literal is not one, even with the right members.
+- Only instances of classes that declare `implements` are values of it ([LUCENT2008](/docs/api/diagnostics/#lucent2008)), and object literals of an interface of properties alone, without type parameters: `const p: Point = { x: 1, y: 2 }` beside `new Pixel(3, 4)`. Such a literal is one object, as in JavaScript, keeps the interface's property order (a base interface's first) for `JSON.stringify`, and reaches JavaScript as a plain object. A literal for an interface with a method, or a generic one, is refused.
 - Each member a class implements has the interface member's exact parameter and result types ([LUCENT2009](/docs/api/diagnostics/#lucent2009)). TypeScript accepts an extra optional parameter or a narrower result, and Lucent doesn't.
 - Such an interface declares methods and properties only (`LUCENT2002` otherwise). Optional methods and generic methods fail with `LUCENT2009`.
 - Interfaces may be generic, as in `Source<T>`, and may extend other interfaces.

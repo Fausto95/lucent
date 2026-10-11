@@ -697,6 +697,24 @@ export function f(round: boolean): number {
     });
   });
 
+  describe("object literals as interfaces classes implement", () => {
+    it("names the method that makes an interface need a class", () => {
+      const d = compileSource(
+        "interface Shape { area(): number; name: string }\nclass Sq implements Shape { name = 'sq'; area(): number { return 1; } }\nexport function f(): number { const s: Shape = { name: 'x', area: () => 2 }; return s.area() + new Sq().area(); }",
+      ).diagnostics;
+      expect(d.map((x) => x.code)).toEqual(["LUCENT2008"]);
+      expect(d[0]!.message).toContain("`area()`");
+    });
+
+    it("refuses one for a generic interface", () => {
+      const d = compileSource(
+        "interface Box<T> { value: T }\nclass B implements Box<number> { value = 1; }\nexport function f(): number { const b: Box<number> = { value: 2 }; return b.value + new B().value; }",
+      ).diagnostics;
+      expect(d.map((x) => x.code)).toEqual(["LUCENT2008"]);
+      expect(d[0]!.message).toContain("generic");
+    });
+  });
+
   describe("JSValue", () => {
     const IMPORT = 'import type { JSValue } from "lucent:core";\n';
 

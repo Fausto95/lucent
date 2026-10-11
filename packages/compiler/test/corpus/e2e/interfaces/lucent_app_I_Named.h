@@ -4,6 +4,8 @@
 
 #pragma push_macro("v")
 #undef v
+#pragma push_macro("w")
+#undef w
 
 namespace lucent_app {
 
@@ -11,10 +13,12 @@ struct I_Named;
 
 struct I_Named {
   virtual ~I_Named() = default;
+  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson) = 0;
   virtual lucent::String get_name() = 0;
   virtual void set_name(lucent::String v) = 0;
 };
 
 }  // namespace lucent_app
 
+#pragma pop_macro("w")
 #pragma pop_macro("v")

@@ -574,6 +574,12 @@ export class TypeRegistry {
   readonly structs = new Map<string, StructInfo>();
   readonly classes = new Map<string, ClassInfo>();
   readonly ifaces = new Map<string, IfaceInfo>();
+  /**
+   * The data-only interfaces object literals stand for, by id: each one's
+   * literal class (`L_…`, emit/interfaces.ts) and the struct of its
+   * properties it holds.
+   */
+  readonly ifaceLiterals = new Map<string, { cppName: string; shape: LType & { k: "struct" } }>();
   /** Components' props structs (emit/views.ts), by component id: their C++ names. */
   readonly componentStructs = new Map<string, string>();
   private readonly structNames = new Set<string>();
@@ -1515,6 +1521,32 @@ export class TypeRegistry {
     }
     this.deferredOrder = this.deferredOrder.filter((t) => this.deferred.has(t));
     return ids;
+  }
+
+  /** The struct of an interface's properties, its own and inherited: what a literal of it holds. */
+  ifaceShape(info: IfaceInfo): LType & { k: "struct" } {
+    const symbol = this.checker.getSymbolAtLocation(info.decl.name)!;
+    const type = this.checker.getDeclaredTypeOfSymbol(symbol);
+    // Named after the interface, but the interface's type stays the interface.
+    const before = this.byTsType.get(type);
+    // Fields in the order a class extending them would have: a base's first.
+    const self: IfaceT = { k: "iface", id: info.id, args: [] };
+    const order = this.ifaceChain(self)
+      .toReversed()
+      .map((x) => this.iface(x.id).decl);
+    const rank = (p: ts.Symbol) => {
+      const at = order.indexOf(p.declarations?.[0]?.parent as ts.InterfaceDeclaration);
+      return at < 0 ? order.length : at;
+    };
+    const props = this.checker
+      .getPropertiesOfType(type)
+      .map((p, i) => ({ p, i }))
+      .sort((a, b) => rank(a.p) - rank(b.p) || a.i - b.i)
+      .map((x) => x.p);
+    const shape = this.registerStruct(type, props, info.decl);
+    if (before) this.byTsType.set(type, before);
+    else this.byTsType.delete(type);
+    return shape as LType & { k: "struct" };
   }
 
   struct(id: string): StructInfo {

@@ -551,7 +551,8 @@ export function emitClass(
       cpp.type("bool"),
       jsonMemberParams,
       undefined,
-      info.base ? { override: true } : { virtual: true },
+      // A base, or an interface, already declares it.
+      info.base || ctx.reg.declaredIfaces(info).length ? { override: true } : { virtual: true },
     ),
   );
   const overrides = ctx.guard(() => ifaceOverrides(ctx, info)) ?? [];

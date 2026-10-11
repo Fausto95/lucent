@@ -112,7 +112,7 @@ infinities become 0, the rest is truncated and wraps modulo 2^bits, as
 | object types (`type`, `interface`, literals)                                                 | shared struct; types with the same shape share one struct                                                                                                     |
 | `Partial`, `Required`, `Readonly`, `Pick`, `Omit` of an object type, `Record<"a" \| "b", V>` | the object type they resolve to: a struct like any other                                                                                                      |
 | classes                                                                                      | shared object with methods, accessors, statics; `extends` another Lucent class (virtual dispatch, `super`, abstract classes)                                  |
-| interfaces with methods, or named in a class's `implements`                                  | abstract base with virtual methods and property accessors; implemented only by classes that declare `implements`                                              |
+| interfaces with methods, or named in a class's `implements`                                  | abstract base with virtual methods and property accessors; implemented by classes that declare `implements`, and literals of a data-only one                  |
 | `T \| undefined`, `T \| null`, `x?: T`, `null \| undefined`                                  | optional that remembers `undefined` vs `null`                                                                                                                 |
 | other unions                                                                                 | tagged union (`string \| number`, discriminated object unions, …)                                                                                             |
 | `(a: A) => R`                                                                                | function value (closures capture by reference)                                                                                                                |
@@ -130,12 +130,22 @@ must keep the overridden member's native signature (`LUCENT1005` otherwise).
 Decorators report `LUCENT1005`: one runs when its class is defined and may
 replace the class or member it decorates.
 
-Interfaces implemented by classes are _nominal_: a class must say
-`implements Shape` to be used as a `Shape` (`LUCENT2008` otherwise), and object
-literals cannot stand in for them. Each implementing member must have the same
-native signature as the interface member (`LUCENT2009`). Interfaces may be
-generic (`Source<T>`) and may extend other interfaces; optional and generic
-methods cannot be dispatched virtually yet.
+Interfaces implemented by classes are _nominal_ for classes: a class must say
+`implements Shape` to be used as a `Shape` (`LUCENT2008` otherwise). Each
+implementing member must have the same native signature as the interface
+member (`LUCENT2009`). Interfaces may be generic (`Source<T>`) and may extend
+other interfaces; optional and generic methods cannot be dispatched virtually
+yet.
+
+An object literal stands for such an interface when the interface (and every
+one it extends) has only properties and no type parameters:
+`const p: Point = { x: 1, y: 2 }` beside `const q: Point = new Pixel(3, 4)`.
+The literal is one object, as in JavaScript: an alias sees its writes and
+`===` compares identity. It holds the interface's properties in their declared
+order (a base interface's first), which is the order `JSON.stringify` writes
+and JavaScript receives them in; JavaScript gets it as a plain object, a copy.
+A literal for an interface with a method, or a generic one, reports
+`LUCENT2008` naming why: use a class that declares `implements`.
 
 ## Statements and expressions
 
@@ -498,8 +508,10 @@ null }` and `{ v: string | undefined }` share one native layout). A body
   its Lucent base classes declare, are on its constructor; a static field is
   a property that reads and writes the native one, so the module sees
   JavaScript's writes.
-- **Interface values** cross as their concrete class instance. From JavaScript,
-  only instances of Lucent classes that implement the interface are accepted.
+- **Interface values** cross as their concrete class instance, and an object
+  literal standing for one as a plain object of its properties. From
+  JavaScript, only instances of Lucent classes that implement the interface
+  are accepted.
 - **Unions of object types** need a string-literal discriminant (for example
   `kind: "circle"`) so incoming values can be told apart. A value whose
   discriminant names no member fails with the values accepted:
@@ -676,7 +688,7 @@ explicitly, for example by clearing a field.
 | a field or variable read before it is assigned (from a base constructor, say) is `undefined`                                    | a number, string, boolean, tuple, array, map, set, record, `Uint8Array` or `ArrayBuffer` (or their union) reads a default; an object throws `TypeError`                                                                                                                                                                  |
 | `this.p?.x` on an object field not yet assigned is `undefined`                                                                  | throws `TypeError`, as any read of that field does                                                                                                                                                                                                                                                                       |
 | a `let` or `const` read before its declaration runs throws `ReferenceError`                                                     | it reads as a variable not yet assigned, above                                                                                                                                                                                                                                                                           |
-| any object with the right members satisfies an interface                                                                        | only classes that declare `implements`; plain JS objects are rejected at the boundary with a `TypeError`                                                                                                                                                                                                                 |
+| any object with the right members satisfies an interface                                                                        | only classes that declare `implements`, and object literals of an interface of properties alone; plain JS objects are rejected at the boundary with a `TypeError`                                                                                                                                                        |
 | assigning a static field a class inherits gives the subclass its own                                                            | from JavaScript, it writes the base class's field, which the subclass's constructor shares                                                                                                                                                                                                                               |
 | a `readonly` field can be assigned from JavaScript: TypeScript checks it only at compile time                                   | JavaScript sees a getter without a setter, so assigning one throws `TypeError` in strict mode code and is ignored otherwise                                                                                                                                                                                              |
 | `Object.prototype.toString` of an `Error` subclass's instance gives `[object Error]`                                            | a Lucent class instance is a plain object whose prototype chain reaches `Error.prototype`: it gives `[object Object]`                                                                                                                                                                                                    |

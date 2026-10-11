@@ -55,7 +55,7 @@ struct C_ListSource : lucent::Object, virtual lucent_app::I_Feed<T> {
     }
     return v;
   }
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
   double get_count() override {
     return this->count;
   }

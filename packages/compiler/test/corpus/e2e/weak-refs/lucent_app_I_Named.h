@@ -11,6 +11,7 @@ struct I_Named;
 
 struct I_Named {
   virtual ~I_Named() = default;
+  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson) = 0;
   virtual lucent::String label() = 0;
 };
 

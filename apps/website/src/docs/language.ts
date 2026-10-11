@@ -202,9 +202,10 @@ export const features: Feature[] = [
   },
   {
     feature: "Classes, interfaces, enums, unions and generics",
-    status: "Yes. Interfaces with methods, or that a class implements, are nominal.",
+    status:
+      "Yes. Interfaces with methods, or that a class implements, are nominal; an object literal stands for one of properties alone.",
     page: TYPES,
-    cases: ["classes", "interfaces", "generics", "union-discriminants"],
+    cases: ["classes", "interfaces", "interfaces-structural", "generics", "union-discriminants"],
   },
   {
     feature: "Native 64-bit integers from the SDKs",
@@ -690,9 +691,9 @@ export const differences: { title: string; rows: Difference[] }[] = [
       {
         js: "Any object with the right members fits an interface.",
         lucent:
-          "Only classes that declare `implements` fit one. A plain JavaScript object is refused at the boundary with a `TypeError`.",
+          "Only classes that declare `implements` fit one, and object literals of an interface of properties alone. A plain JavaScript object is refused at the boundary with a `TypeError`.",
         why: "An interface with methods is a native base class, which only declared classes derive from.",
-        cases: ["interfaces"],
+        cases: ["interfaces", "interfaces-structural"],
       },
       {
         js: "Assigning a static field a class inherits gives the subclass its own.",

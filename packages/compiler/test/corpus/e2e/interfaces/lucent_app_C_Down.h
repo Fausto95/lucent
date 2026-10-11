@@ -19,7 +19,7 @@ struct C_Down : lucent::Object, virtual lucent_app::I_Counter {
   void construct(double p0_);
   static lucent::Ref<C_Down> create(double p0_);
   double next() override;
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
 };
 
 inline bool C_Down::lucentJson_(lucent::JsonWriter& w, bool toJson) {
