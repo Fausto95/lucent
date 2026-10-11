@@ -88,7 +88,8 @@ export class TreeNode {
 - `new WeakRef(target)` takes a class instance, an interface value or an object. Its `deref()` gives the target while something else holds it.
 - The target is freed with its last strong reference, and `deref()` gives `undefined` from then on. JavaScript frees it later, when its garbage collector runs.
 - A delegate keeps its owner as a `WeakRef`, so the owner can hold the SDK object, the SDK object the delegate, and nothing leaks.
-- A `WeakRef` doesn't cross to JavaScript ([LUCENT2006](/docs/api/diagnostics/#lucent2006)). `WeakMap` and `WeakSet` fail with [LUCENT2002](/docs/api/diagnostics/#lucent2002).
+- A `WeakMap` or `WeakSet` holds its keys the same way: an entry goes, its value with it, with its key's last strong reference. A value that holds its own key keeps it, though, where JavaScript would free both.
+- A `WeakRef`, `WeakMap` or `WeakSet` doesn't cross to JavaScript ([LUCENT2006](/docs/api/diagnostics/#lucent2006)).
 
 ## Native references
 

@@ -25,6 +25,7 @@ Each e2e case is a module in `packages/compiler/test/e2e/cases/`, run natively a
 | `map.keys()`, `values()` and `entries()`, and the same methods of arrays and sets, return iterators. | They return arrays, holding the contents at the time of the call. | An array serves everywhere these iterators are read: `for…of`, spread and `Array.from`. | `collections` |
 | Garbage collection frees cycles. | Reference counting never frees a cycle. Break it by clearing a field, or hold one side in a `WeakRef` ([Memory](/docs/api/language/memory/#cycles-leak)). | Lucent counts references, and no collector runs. | None |
 | A `WeakRef`'s target lives until the garbage collector runs, so `deref()` may still return it after the last other reference goes. | The target is freed with its last strong reference, and `deref()` returns `undefined` at once. | Lucent counts references, so a target goes when its count reaches zero. | `weak-refs` |
+| A `WeakMap` or `WeakSet` entry lives until the garbage collector runs, and a value that holds only its own key frees with it. | An entry goes, its value with it, with its key's last strong reference, at once. A value that holds its own key keeps it, and the entry. | Lucent counts references: the key's last reference drops its entries, and nothing traces through a value to its key. | `weak-collections` |
 | Deep recursion throws a `RangeError`. | Deep recursion may overflow the native stack, which crashes the app. | Lucent code runs on the native stack, with no depth check. | None |
 
 ## Objects

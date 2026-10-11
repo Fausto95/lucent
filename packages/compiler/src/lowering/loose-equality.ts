@@ -51,6 +51,8 @@ const LOOSE: Record<Exclude<LType["k"], "opt" | "union">, Loose> = {
   emitter: "object",
   subscription: "object",
   weak: "object",
+  weakMap: "object",
+  weakSet: "object",
 };
 
 /** The kinds `==` converts between, in the order the diagnostic names them. */

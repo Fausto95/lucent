@@ -418,8 +418,17 @@ Modules are checked against the ES2024 library. Its typed-array copies
   with its last strong reference, so `deref()` gives `undefined` from then
   on, and a cycle through a WeakRef frees. A WeakRef does not cross the
   boundary.
+- **WeakMap and WeakSet**: keyed by the objects a WeakRef holds (class
+  instances, interface values, objects), by identity: `new WeakMap()` and
+  `new WeakSet()` (empty), `get`, `set`, `has`, `delete` and `add`, with
+  `set` and `add` returning the collection. An entry goes, its value with
+  it, with its key's last strong reference, at once (the key's destructor
+  drops it). No iteration and no `size`, as in JavaScript; neither
+  crosses the boundary, and both belong to the context that made them,
+  as their keys do. A value that holds its own key keeps it: reference
+  counting cannot see that only the entry reaches the key.
 
-Not supported: `Intl`, `Symbol`, `WeakMap`, `WeakSet`, `Proxy`, `eval`, and
+Not supported: `Intl`, `Symbol`, `Proxy`, `eval`, and
 `String.prototype.normalize` (the runtime has no Unicode normalization
 tables: normalize the string in JavaScript before passing it). Each gives
 a diagnostic.
@@ -640,6 +649,7 @@ explicitly, for example by clearing a field.
 | `resolve(promise)` in a promise executor adopts the promise                                                                     | `fromCallback` reports values, not promises: a promise type is refused (`LUCENT1007`); await it and report its value                                                                                                                                                                                                     |
 | `await` on an object without a `then` method gives the object                                                                   | `await` on a platform SDK object is refused (`LUCENT1010`): adapt its completion listener with `fromCallback`                                                                                                                                                                                                            |
 | an error nobody catches (a `fromCallback` cleanup that throws) reaches the host's error handler                                 | it is written to the platform log (logcat, the unified log) and stderr                                                                                                                                                                                                                                                   |
+| a `WeakMap` or `WeakSet` entry lives until the garbage collector runs; a value that holds only its own key frees with it        | an entry goes, its value with it, with its key's last strong reference, at once; a value that holds its own key keeps it and the entry                                                                                                                                                                                   |
 | a `WeakRef`'s target lives until the garbage collector runs, so `deref()` may still give it after the last other reference goes | the target is freed with its last strong reference, and `deref()` gives `undefined` at once                                                                                                                                                                                                                              |
 | an `EventEmitter` from `lucent:core`'s JavaScript takes any event name                                                          | from JavaScript, the native emitter takes only the events its type declares: another name throws `TypeError`                                                                                                                                                                                                             |
 

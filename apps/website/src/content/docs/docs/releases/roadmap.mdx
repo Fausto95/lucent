@@ -118,7 +118,7 @@ Ready for apps in production.
 
 ### Language, runtime and bindings
 
-- Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)): break them with `WeakRef`. `WeakMap` and `WeakSet` are refused ([TA44](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#ta44)), and so is a `WeakRef` to an SDK object.
+- Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)): break them with `WeakRef`, or key what one side holds in a `WeakMap`. A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused. A `WeakMap` value that holds its own key keeps it, and the entry, for as long as the map lives, where JavaScript's ephemerons free both.
 - On iOS, module code has no event for the URLs the app opens and no hook for a push token. Both reach only the app delegate, which Lucent does not replace ([T76](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t76)). On Android, `onActivityEvent("newIntent", …)` carries the URLs.
 - A declaration file of platform files can't declare a class (`export declare class`): a shared class with platform members holds platform objects instead ([TA37](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#ta37)).
 - A few language features differ from JavaScript without a diagnostic; the website lists them under [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps), generated from `apps/website/src/docs/language.ts`.

@@ -61,7 +61,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [TA40](#ta40) | Deterministic finalization and dispose from JavaScript            | ready; needs nothing open                                                                                                         |
 | [TA41](#ta41) | Name reference cycles in debug builds                             | ready; needs nothing open                                                                                                         |
 | [TA42](#ta42) | Throw `RangeError` on stack exhaustion                            | ready; needs nothing open                                                                                                         |
-| [TA44](#ta44) | `WeakMap` and `WeakSet` keyed by instances                        | ready; needs nothing open                                                                                                         |
+| [TA44](#ta44) | `WeakMap` and `WeakSet` keyed by instances                        | done (#170, 2026-10-11)                                                                                                           |
 | [TA46](#ta46) | A web target for shared modules                                   | blocked: a scope decision; needs nothing open                                                                                     |
 | [T67](#t67)   | Pass the integrated production-candidate gate                     | waiting (needs the maintainer); needs T62, T63, T64, T65, T66                                                                     |
 | **G5**        | **Production recommendation**                                     |                                                                                                                                   |
@@ -2510,19 +2510,22 @@ the app, with the budget decision recorded.
 **Goal:** Support `WeakMap` and `WeakSet` whose keys are class instances,
 interface values or objects, with entries dropped when the key is freed.
 
-- **Status:** ready; needs nothing open.
+- **Status:** done (#170, 2026-10-11).
 - **Area:** Runtime (map), compiler (builtins, types).
 - **Needs:** [TA37](#ta37) (done: `WeakRef`).
 - **Verify:** V1, V2, V3.
 - **Where:** `runtime/cpp/lucent/map.h`, `emit/builtins.ts`, `types.ts`,
   `codes.ts`, `docs/semantics.md` (Built-ins, Deviations).
 
-- [ ] Keys are the types `WeakRef` takes; entries hold the key weakly and
+- [x] Keys are the types `WeakRef` takes; entries hold the key weakly and
       the value strongly; an entry whose key is freed is gone at once
       (deterministic, as `WeakRef`); `get`, `set`, `has`, `delete`; no
       iteration, as in JavaScript. A `WeakMap` does not cross the
-      boundary.
-- [ ] e2e `weak-collections`; the deviations row (timing, as `WeakRef`'s).
+      boundary. The key knows its tables (`Object::keyIn`), and its
+      destructor drops its entries (`weak.h`, `runtime_test.cpp`'s
+      `weakCollections`); a collection takes no entries at construction.
+- [x] e2e `weak-collections`; the deviations row (timing, as `WeakRef`'s,
+      and a value holding its own key, which keeps it).
 
 **Done when:** the e2e case is green and the limitations entry is lifted.
 

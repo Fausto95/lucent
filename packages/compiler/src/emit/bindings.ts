@@ -163,6 +163,13 @@ export class BindingsEmitter {
           Codes.BoundaryType,
           "a WeakRef cannot cross the JavaScript boundary: pass its target, from deref()",
         );
+      case "weakMap":
+      case "weakSet":
+        fail(
+          node,
+          Codes.BoundaryType,
+          `a ${t.k === "weakMap" ? "WeakMap" : "WeakSet"} cannot cross the JavaScript boundary: export functions that look keys up in it`,
+        );
       case "span":
         fail(
           node,

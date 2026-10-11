@@ -188,6 +188,8 @@ const OWNED: Record<string, string> = {
   AbortSignal: "an abort signal, which belongs to the context that made it",
   AbortController: "an abort controller, which belongs to the context that made it",
   WeakRef: "a weak reference, which belongs to the context that made it",
+  WeakMap: "a weak collection, which belongs to the context that made it, as its keys do",
+  WeakSet: "a weak collection, which belongs to the context that made it, as its keys do",
   Generator: "a generator, which runs code on the context that made it",
   Iterator: "an iterator, which runs code on the context that made it",
   IterableIterator: "an iterator, which runs code on the context that made it",

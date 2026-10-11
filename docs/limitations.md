@@ -77,8 +77,10 @@ generated from this file.
 ## Language, runtime and bindings
 
 - Reference cycles are not collected (see [Not planned](../ROADMAP.md#not-planned)):
-  break them with `WeakRef`. `WeakMap` and `WeakSet` are refused
-  ([TA44](tasks.md#ta44)), and so is a `WeakRef` to an SDK object.
+  break them with `WeakRef`, or key what one side holds in a `WeakMap`.
+  A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused.
+  A `WeakMap` value that holds its own key keeps it, and the entry, for
+  as long as the map lives, where JavaScript's ephemerons free both.
 - On iOS, module code has no event for the URLs the app opens and no
   hook for a push token. Both reach only the app delegate, which Lucent
   does not replace ([T76](tasks.md#t76)). On Android,

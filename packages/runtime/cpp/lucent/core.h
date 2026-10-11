@@ -21,6 +21,7 @@
 #include <type_traits>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace lucent {
 
@@ -49,9 +50,35 @@ inline size_t indexBelow(double v, size_t limit) {
   return integer && i < limit ? i : kNoIndex;
 }
 
+struct Object;
+
+namespace detail {
+/// A weak collection's entries (weak.h), which drops a key's when the key goes.
+struct WeakTable {
+  virtual ~WeakTable() = default;
+  virtual void drop(const Object* key) noexcept = 0;
+};
+}  // namespace detail
+
 /// Base of every struct and class instance.
 struct Object : std::enable_shared_from_this<Object> {
-  virtual ~Object() = default;
+  Object() = default;
+  /// A copy is another object: no weak collection's key.
+  Object(const Object&) noexcept : std::enable_shared_from_this<Object>() {}
+  Object& operator=(const Object&) noexcept { return *this; }
+  virtual ~Object() {
+    if (weakTables_) dropWeakEntries();
+  }
+
+  /// Records that `table` keeps an entry keyed by this object, for the
+  /// object's destructor to drop.
+  void keyIn(const std::shared_ptr<detail::WeakTable>& table);
+
+ private:
+  void dropWeakEntries() noexcept;
+
+  /// The weak collections this object is a key of; null for nearly all objects.
+  std::vector<std::weak_ptr<detail::WeakTable>>* weakTables_ = nullptr;
 };
 
 struct Undefined {

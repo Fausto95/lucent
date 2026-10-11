@@ -682,6 +682,103 @@ static void weakReferences() {
   CHECK(weak->deref().isUndefined());
 }
 
+/// A weak collection's key, an interface one implements, and a value that holds a key.
+struct Key : Object {};
+struct Shape {
+  virtual ~Shape() = default;
+  virtual double area() const = 0;
+};
+struct Square : Object, virtual Shape {
+  double area() const override { return 4; }
+};
+
+static void weakCollections() {
+  WeakMap<Ref<Key>, Ref<Owner>> owners;
+  WeakSet<Ref<Key>> seen;
+  auto a = std::make_shared<Key>();
+  auto b = std::make_shared<Key>();
+  auto value = std::make_shared<Owner>();
+  std::weak_ptr<Owner> watched = value;
+
+  owners.set(a, value);
+  value.reset();
+  seen.add(a).add(b);
+  CHECK(owners.has(a) && !owners.has(b) && owners.get(a).has() && owners.get(b).isUndefined());
+  CHECK(seen.has(a) && seen.has(b));
+
+  // The key's last reference drops its entries at once, the value with them.
+  std::weak_ptr<Key> watchedKey = a;
+  a.reset();
+  CHECK(watchedKey.expired() && watched.expired());
+  CHECK(seen.has(b));
+
+  // Removed, a key is no longer there; added again, it is, once.
+  CHECK(seen.remove(b) && !seen.remove(b) && !seen.has(b));
+  seen.add(b).add(b);
+  CHECK(seen.has(b));
+
+  // A value that holds another key of the same map: freeing the first key
+  // frees the value, which frees the second key, which drops its entry.
+  auto first = std::make_shared<Key>();
+  auto second = std::make_shared<Key>();
+  auto holder = std::make_shared<Owner>();
+  holder->delegate = second;
+  owners.set(first, holder);
+  owners.set(second, std::make_shared<Owner>());
+  holder.reset();
+  std::weak_ptr<Key> watchedSecond = second;
+  second.reset();
+  CHECK(!watchedSecond.expired());
+  first.reset();
+  CHECK(watchedSecond.expired());
+
+  // Replacing a value frees the old one.
+  auto c = std::make_shared<Key>();
+  auto old = std::make_shared<Owner>();
+  std::weak_ptr<Owner> watchedOld = old;
+  owners.set(c, old);
+  old.reset();
+  owners.set(c, std::make_shared<Owner>());
+  CHECK(watchedOld.expired() && owners.has(c));
+
+  // A collection freed first: its keys live on, and are freed without it.
+  {
+    WeakMap<Ref<Key>, double> gone;
+    gone.set(b, 1);
+    gone.set(c, 2);
+  }
+  b.reset();
+  c.reset();
+
+  // An interface value and the object behind it are one key.
+  auto square = std::make_shared<Square>();
+  Ref<Shape> shape = square;
+  WeakMap<Ref<Shape>, double> areas;
+  WeakSet<Ref<Square>> squares;
+  areas.set(shape, 4);
+  squares.add(square);
+  CHECK(areas.get(shape).has() && areas.get(shape).value() == 4);
+  std::weak_ptr<Square> watchedSquare = square;
+  square.reset();
+  CHECK(!watchedSquare.expired() && areas.has(shape));
+  shape.reset();
+  CHECK(watchedSquare.expired());
+
+  // A copy of a key is another object, no collection's key.
+  auto original = std::make_shared<Key>();
+  seen.add(original);
+  {
+    auto copy = std::make_shared<Key>(*original);
+    CHECK(!seen.has(copy));
+  }
+  CHECK(seen.has(original));
+
+  // Copies of a collection share its entries, and are the same collection.
+  WeakSet<Ref<Key>> alias = seen;
+  CHECK(alias.has(original) && strictEquals(alias, seen) && !strictEquals(seen, WeakSet<Ref<Key>>()));
+  CHECK(toJsString(owners).toUtf8() == "[object WeakMap]" && toJsString(seen).toUtf8() == "[object WeakSet]");
+}
+
 // Generated code calls lucent::strictEquals qualified, which finds no
 // hidden friend: every overload has to be declared at namespace scope.
 static void qualifiedStrictEquals() {
@@ -1226,6 +1323,7 @@ int main() {
   maps();
   optionalsAndUnions();
   weakReferences();
+  weakCollections();
   qualifiedStrictEquals();
   qualifiedToJsString();
   mixedStrictEquals();

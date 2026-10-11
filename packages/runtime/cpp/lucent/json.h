@@ -23,6 +23,7 @@
 #include "native.h"
 #include "number.h"
 #include "jsstring.h"
+#include "weak.h"
 
 namespace lucent {
 
@@ -92,6 +93,15 @@ inline void jsonWrite(JsonWriter& w, const Ref<NativeBufferObject>&) { w.raw("{}
 /// A WeakRef has no enumerable own properties.
 template <class R>
 void jsonWrite(JsonWriter& w, const Ref<WeakRefObject<R>>&) {
+  w.raw("{}");
+}
+/// WeakMaps and WeakSets have no enumerable own properties.
+template <class K, class V>
+void jsonWrite(JsonWriter& w, const WeakMap<K, V>&) {
+  w.raw("{}");
+}
+template <class K>
+void jsonWrite(JsonWriter& w, const WeakSet<K>&) {
   w.raw("{}");
 }
 /// A promise: no enumerable own properties.
