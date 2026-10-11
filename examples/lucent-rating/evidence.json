@@ -1,0 +1,17 @@
+[
+  {
+    "subject": "Like",
+    "level": "sim",
+    "how": "in the views spike (`apps/bare-example/.views-spike`), before it moved here"
+  },
+  {
+    "subject": "Rating",
+    "level": "code",
+    "how": "on Linux, where neither SDK is installed"
+  },
+  {
+    "subject": "src/stars.lucent.ts",
+    "level": "host",
+    "how": "in CI's unit tests (`packages/lucent/test/examples.test.ts`)"
+  }
+]

@@ -2,7 +2,8 @@
  * Every example package under examples/ compiles: its modules type-check
  * and their C++ is written, as `lucent build --platforms host` builds them
  * on a machine without either SDK (CI's unit tests, Linux). Each has a
- * README saying what it shows. A package whose components need a
+ * README saying what it shows, and an evidence.json recording what it has
+ * run on, which the README states. A package whose components need a
  * platform's SDK (examples/lucent-rating) is checked where that SDK is,
  * and its shared modules here.
  */
@@ -11,6 +12,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
+import { evidenceBlock, readEvidence } from "../../../scripts/example-evidence.ts";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 const examples = path.join(root, "examples");
@@ -70,6 +72,14 @@ describe("the example packages", () => {
   for (const name of packages) {
     it(`${name} has a README`, () => {
       expect(fs.existsSync(path.join(examples, name, "README.md"))).toBe(true);
+    });
+
+    // What an example has been run on is recorded once, in evidence.json, and
+    // its README says it in the words scripts/example-evidence.ts writes.
+    it(`${name}'s README states its recorded evidence`, () => {
+      const dir = path.join(examples, name);
+      const readme = fs.readFileSync(path.join(dir, "README.md"), "utf8");
+      expect(readme).toContain(evidenceBlock(readEvidence(dir)));
     });
 
     it(`${name} compiles for the host`, () => {

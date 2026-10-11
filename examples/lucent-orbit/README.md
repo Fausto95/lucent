@@ -35,3 +35,9 @@ node build-jar.ts            # after changing kotlin/
 `--platforms host` compiles it without the Android SDK; the Kotlin
 library binds once an app with an `android/` project resolves its Gradle
 dependencies.
+
+<!-- evidence: from evidence.json, written by scripts/example-evidence.ts -->
+
+**Evidence:** Run on the Android emulator in the example apps' SDK Lab, whose Kotlin cases call its exports. Not yet run on a physical device.
+
+<!-- /evidence -->
