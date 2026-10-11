@@ -45,7 +45,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T65](#t65)   | Enforce physical-device performance budgets                       | waiting (needs the maintainer); needs T55, T56, T59, T64                                                                          |
 | [T66](#t66)   | Complete user documentation and migration examples                | waiting; needs T51, T52, T60                                                                                                      |
 | [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165, #167, #168 merged)                                                                                       |
-| [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | in progress (#175 merged)                                                                                                         |
+| [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | in progress (#175, #PR_A merged)                                                                                                  |
 | [T74](#t74)   | Callback executors and stream backpressure                        | waiting; needs T72                                                                                                                |
 | [T75](#t75)   | Support a window of stable React Native and Expo releases         | blocked: a decision on the window; needs nothing open                                                                             |
 | [T76](#t76)   | App-delegate and Activity integration hooks                       | blocked: a decision superseding 0071; needs nothing open                                                                          |
@@ -1652,8 +1652,8 @@ JavaScript a retained native pointer other libraries consume (Skia's
 return JavaScript values Lucent does not look inside (another library's
 object, a worklet runtime's value, a Nitro HybridObject).
 
-- **Status:** in progress: `JSValue` merged as #175; `NativeHandle`
-  waits for [T72](#t72)'s platform adoptions.
+- **Status:** in progress: `JSValue` merged as #175, cross-package types
+  as #PR_A; `NativeHandle` waits for [T72](#t72)'s platform adoptions.
 - **Area:** Compiler (types, bindings), runtime (JSI host), lucent:core.
 - **Needs:** [T72](#t72).
 - **Verify:** V1, V2, V3, V5.
@@ -1697,11 +1697,14 @@ Reanimated, Worklets or a Nitro library can be handed to it.
 - [ ] `NativeBuffer.pointer` for an adopted or owned buffer while
       JavaScript holds a `NativeHandle` of it (a borrow for the handle's
       life; `transfer`, `close` and `detach` refuse while it is held).
-- [ ] Cross-package types: a package's exported class in another
+- [x] Cross-package types: a package's exported class in another
       package's export signature resolves to the one C++ class (one
       program); `packages.test.ts` gains a two-package case (`vision-core`
       exports `Frame`; `vision-plugin` takes it), with the JS proxies
-      agreeing on the prototype.
+      agreeing on the prototype. It already held: the case (with an object
+      type, an enum and an interface the plugin implements) and the
+      `modules` e2e case's `grown` (an instance of another module's class
+      from JavaScript, `instanceof` its class) pin it (#PR_A).
 - [ ] e2e: `opaque-values` (round trips, identity through a record, a
       reload), `native-handles` (host JSI harness: retain, release from
       each side, finalizer).

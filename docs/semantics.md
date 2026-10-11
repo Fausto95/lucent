@@ -618,6 +618,13 @@ enter its actor, as that JavaScript could: so JavaScript that waits for the
 main thread (a native module method run on the main queue) inside a callback
 cannot deadlock it.
 
+**Types across packages.** A package's exported class, object type, enum
+or interface is one type in every package that imports it, as in the
+module that declares it: one program compiles them all. A `Frame` one
+package makes is a `Frame` in another package's exports, which JavaScript
+sees with the declaring package's prototype, whichever package's function
+returned it. Packages that import one another share an actor.
+
 **Calls across packages.** A module of one package reaches another only
 through JavaScript (a callback that calls the other package's export) or the
 platform (a delegate of another package called during a native call). The
