@@ -697,6 +697,70 @@ export function f(round: boolean): number {
     });
   });
 
+  describe("JSValue", () => {
+    const IMPORT = 'import type { JSValue } from "lucent:core";\n';
+
+    it.each([
+      [
+        "compared",
+        "export function f(a: JSValue, b: JSValue): boolean { return a === b; }",
+        "LUCENT1002",
+      ],
+      [
+        "compared loosely",
+        "export function f(a: JSValue, b: JSValue): boolean { return a != b; }",
+        "LUCENT1002",
+      ],
+      ["in a template", "export function f(a: JSValue): string { return `${a}`; }", "LUCENT1002"],
+      [
+        "made a string",
+        "export function f(a: JSValue): string { return String(a); }",
+        "LUCENT1002",
+      ],
+      ["tested for truth", "export function f(a: JSValue): boolean { return !a; }", "LUCENT1002"],
+      [
+        "asked its type",
+        "export function f(a: JSValue): string { return typeof a; }",
+        "LUCENT1002",
+      ],
+      [
+        "written as JSON",
+        "export function f(a: JSValue): string { return JSON.stringify({ a }); }",
+        "LUCENT1003",
+      ],
+      [
+        "a map's key",
+        "export function f(a: JSValue): number { return new Map<JSValue, number>([[a, 1]]).size; }",
+        "LUCENT2002",
+      ],
+      [
+        "a set's element",
+        "export function f(a: JSValue): number { return new Set<JSValue>([a]).size; }",
+        "LUCENT2002",
+      ],
+    ])("refuses one %s", (_, src, code) => {
+      const d = compileSource(`${IMPORT}${src}`).diagnostics;
+      expect(d.map((x) => x.code)).toContain(code);
+      expect(d.find((x) => x.code === code)!.message).toContain("JSValue");
+    });
+
+    it("refuses one in a compute task's input", () => {
+      expect(
+        codes(
+          `import { compute, type JSValue } from "lucent:core";\nfunction size(v: JSValue): number { return 1; }\nexport async function f(v: JSValue): Promise<number> { return await compute(size, v); }`,
+        ),
+      ).toContain("LUCENT3012");
+    });
+
+    it("accepts one held, passed on and returned", () => {
+      expect(
+        codes(
+          `${IMPORT}type Box = { v: JSValue };\nexport function f(v: JSValue, w: JSValue | undefined): JSValue[] { const b: Box = { v }; return [b.v, w ?? v]; }`,
+        ),
+      ).toEqual([]);
+    });
+  });
+
   describe("weak collections", () => {
     it.each([
       ["a WeakMap keyed by arrays", "const m = new WeakMap<number[], number>();", "WeakMap"],
