@@ -12,6 +12,7 @@ export function copies(): string {
   const descending = xs.toSorted((a, b) => b - a);
   const reversed = xs.toReversed();
   const spliced = xs.toSpliced(1, 1, 9, 8);
+  // oxlint-disable-next-line unicorn/no-confusing-array-with -- an index from the end is the case
   const changed = xs.with(-1, 7);
   return [xs, sorted, descending, reversed, spliced, changed].map((a) => joined(a)).join(" ");
 }

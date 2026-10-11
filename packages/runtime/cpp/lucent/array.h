@@ -180,6 +180,36 @@ class Array {
     return Array(std::move(removed));
   }
 
+  /// `toSpliced(start, skipCount, ...items)`: splice's result on a copy. A
+  /// start alone skips the rest; the new length is ArrayCreate's (a
+  /// RangeError past 2^32 - 1).
+  Array toSpliced(double start) const { return toSpliced(start, length()); }
+  template <class... Items>
+  Array toSpliced(double start, double skipCount, Items&&... items) const {
+    size_t n = d_->size();
+    size_t a = detail::relativeIndex(start, n);
+    double sc = std::isnan(skipCount) ? 0 : std::trunc(skipCount);
+    size_t skip = sc <= 0 ? 0 : std::min(static_cast<size_t>(std::min(sc, 4294967295.0)), n - a);
+    std::vector<Elem> out;
+    arrayLength(static_cast<double>(n - skip + sizeof...(Items)));
+    out.reserve(n - skip + sizeof...(Items));
+    out.insert(out.end(), d_->begin(), d_->begin() + static_cast<std::ptrdiff_t>(a));
+    (out.push_back(static_cast<Elem>(T(std::forward<Items>(items)))), ...);
+    out.insert(out.end(), d_->begin() + static_cast<std::ptrdiff_t>(a + skip), d_->end());
+    return Array(std::move(out));
+  }
+  /// `with(index, value)`: a copy with one element replaced. The index
+  /// counts from the end when negative; outside the array it is a RangeError.
+  Array with(double index, T value) const {
+    double i = std::isnan(index) ? 0 : std::trunc(index);
+    double n = length();
+    if (i < 0) i += n;
+    if (!(i >= 0 && i < n)) throwRangeError("Invalid index");
+    Array out = slice();
+    (*out.d_)[static_cast<size_t>(i)] = static_cast<Elem>(std::move(value));
+    return out;
+  }
+
   Array concat() const { return slice(); }
   template <class... Rest>
   Array concat(const Array& other, const Rest&... rest) const {

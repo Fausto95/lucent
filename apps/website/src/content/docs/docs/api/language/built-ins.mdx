@@ -1,11 +1,11 @@
 ---
 title: Which JavaScript built-ins can a module use?
 sidebar_label: Built-ins
-description: "Most ES2022 built-ins, member by member as listed here; anything else fails to compile, and the last table names a replacement."
+description: "Most ES2023 built-ins, member by member as listed here; anything else fails to compile, and the last table names a replacement."
 kind: reference
 ---
 
-A module is type-checked against TypeScript's ES2022 library, plus `esnext.disposable` for `using` ([Compatibility](/docs/api/compatibility/)). Of what that library declares, Lucent implements the members this page lists, as native code. Another member fails to compile with [LUCENT1003](/docs/api/diagnostics/#lucent1003), and a newer one, such as `toSorted`, is a TypeScript error ([LUCENT9001](/docs/api/diagnostics/#lucent9001)).
+A module is type-checked against TypeScript's ES2023 library, plus `esnext.disposable` for `using` ([Compatibility](/docs/api/compatibility/)). Of what that library declares, Lucent implements the members this page lists, as native code. Another member fails to compile with [LUCENT1003](/docs/api/diagnostics/#lucent1003), and a newer one, such as `Object.groupBy`, is a TypeScript error ([LUCENT9001](/docs/api/diagnostics/#lucent9001)).
 
 A row's notes say where a member behaves differently from JavaScript. [Differences from JavaScript](/docs/api/language/differences/) lists every difference, with its reason.
 
@@ -15,7 +15,7 @@ A row's notes say where a member behaves differently from JavaScript. [Differenc
 import { delay, utf8Encode } from "lucent:core";
 
 export function ranked(scores: number[]): number[] {
-  return [...scores].sort((a, b) => b - a); // toSorted() is ES2023
+  return scores.toSorted((a, b) => b - a); // a sorted copy
 }
 
 export function summary(scores: number[]): Uint8Array {
@@ -33,7 +33,7 @@ export async function poll(ready: () => Promise<boolean>, signal: AbortSignal): 
 }
 ```
 
-`[...scores].sort()` stands in for `toSorted()`, `utf8Encode` for `TextEncoder`, and `delay` for `setTimeout`. [Not available](/docs/api/language/built-ins/#not-available) lists the other replacements.
+`toSorted()` leaves `scores` as it was, `utf8Encode` stands in for `TextEncoder`, and `delay` for `setTimeout`. [Not available](/docs/api/language/built-ins/#not-available) lists the other replacements.
 
 ## Math
 
@@ -97,8 +97,9 @@ The operators on bigints are on [Statements](/docs/api/language/statements/#bigi
 | `length` | Read and write. Setting a larger length needs an element type that includes `undefined`, or it throws a `RangeError`. |
 | `push`, `pop`, `shift`, `unshift` | `unshift` takes one item. `push` takes items, or one spread: `push(...more)`. |
 | `slice`, `splice`, `concat`, `join`, `fill`, `reverse` | |
+| `toSorted(compare?)`, `toReversed`, `toSpliced`, `with(index, value)` | Copies: the array stays as it was. `with` throws a `RangeError` for an index outside the array, from the end too. |
 | `indexOf`, `lastIndexOf`, `includes` | With `fromIndex` too, as in JavaScript. Elements can't be functions ([LUCENT1002](/docs/api/diagnostics/#lucent1002)). |
-| `at`, `find`, `findIndex`, `filter`, `some`, `every` | |
+| `at`, `find`, `findIndex`, `findLast`, `findLastIndex`, `filter`, `some`, `every` | |
 | `forEach`, `map`, `flatMap`, `reduce`, `reduceRight` | |
 | `sort(compare?)` | Stable. Without a comparator it compares elements as strings, as JavaScript does. |
 | `keys`, `values`, `entries` | Each returns an array, which `for…of` and spread read like JavaScript's iterator. |
@@ -195,7 +196,7 @@ The string methods that take a `RegExp` are on [String](/docs/api/language/built
 | `fill(value, start?, end?)`, `indexOf(value, fromIndex?)`, `includes(value, fromIndex?)` | As in JavaScript. |
 | `forEach`, `map`, `reduce`, `join` | `reduce` needs an initial value. |
 
-`for…of` reads the bytes; other members, such as `at` and `filter`, aren't available.
+`for…of` reads the bytes; other members, such as `at` and `filter`, aren't available, nor ES2023's copies and searches (`toSorted`, `toReversed`, `with`, `findLast`, `findLastIndex`).
 
 ## ArrayBuffer
 
@@ -227,8 +228,7 @@ What JavaScript's built-ins lack has a native implementation in `lucent:core`. [
 | --- | --- | --- |
 | `setTimeout`, `setInterval` | LUCENT9001: not declared | `await delay(ms, signal)` from `lucent:core`, in a loop for an interval |
 | `TextEncoder`, `TextDecoder` | LUCENT9001: not declared | `utf8Encode` and `utf8Decode` from `lucent:core` |
-| `xs.toSorted()`, `xs.toReversed()` | LUCENT9001: ES2023 | `[...xs].sort()` and `[...xs].reverse()` |
-| `xs.findLast(f)`, `xs.findLastIndex(f)` | LUCENT9001: ES2023 | A loop from the end |
+| `Object.groupBy`, `Map.groupBy`, `Promise.withResolvers` | LUCENT9001: ES2024 | A loop into a record or a `Map`, and `new Promise` |
 | `xs.flat()` | LUCENT1003 | `xs.flatMap((x) => x)` |
 | `Promise.race`, `Promise.any` | LUCENT1003 | None |
 | `promise.then`, `promise.catch`, `promise.finally` | LUCENT1003 | `await`, inside `try`, `catch` and `finally` |

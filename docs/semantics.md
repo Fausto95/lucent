@@ -256,9 +256,11 @@ runs, so a right side that changes the target does not change what is read.
   `String.fromCodePoint`.
 - **Array**: `length` (read/write), `push`, `pop`, `shift`, `unshift`, `slice`,
   `splice`, `concat`, `join`, `indexOf`, `lastIndexOf`, `includes`, `find`,
-  `findIndex`, `filter`, `map`, `flatMap`, `forEach`, `some`, `every`,
-  `reduce`, `reduceRight`, `sort` (stable; default sort compares strings
-  like JS), `reverse`, `fill`, `at`, `keys`, `values`,
+  `findIndex`, `findLast`, `findLastIndex`, `filter`, `map`, `flatMap`,
+  `forEach`, `some`, `every`, `reduce`, `reduceRight`, `sort` (stable;
+  default sort compares strings like JS), `reverse`, the copies
+  `toSorted`, `toReversed`, `toSpliced` and `with` (a `RangeError` for an
+  index outside the array), `fill`, `at`, `keys`, `values`,
   `entries`; `Array.from` (iterables and `{ length }`), `Array.of`,
   `Array.isArray` (by the value held; refused on an `Iterable`, which no
   longer knows what made it), `new Array(n).fill(v)`. Lucent arrays have no
@@ -389,8 +391,9 @@ transferred`) on use, and closing it does nothing. Passing a buffer to
     counts allocations, transfers and copies (and the bytes copied) since
     the app started, to check that a path does not copy.
 
-The ES2023 methods (`toSorted`, `toReversed`, `findLast`, `findLastIndex`)
-are not available: modules are checked against the ES2022 library.
+Modules are checked against the ES2023 library. Its typed-array copies
+(`Uint8Array`'s `toSorted`, `toReversed`, `with`, `findLast`,
+`findLastIndex`) are refused, and ES2024's members are TypeScript errors.
 
 - **WeakRef**: `new WeakRef(target)` of a class instance, an interface
   value or an object, and `deref()`. Reference counting frees the target

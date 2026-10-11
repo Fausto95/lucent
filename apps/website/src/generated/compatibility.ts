@@ -12,7 +12,7 @@ export const requirements = {
   "minIos": "15.1",
   "typescript": "~5.9.3",
   "lib": [
-    "lib.es2022.d.ts",
+    "lib.es2023.d.ts",
     "lib.esnext.disposable.d.ts"
   ]
 } as const;

@@ -86,8 +86,8 @@ const intro: Block[] = [
         "`noUncheckedIndexedAccess`",
         "On: reading an array element or a record entry gives `T | undefined`.",
       ],
-      ["`target`", "`ES2022`."],
-      ["`lib`", "`es2022` and `esnext.disposable`: no ES2023 methods and no DOM."],
+      ["`target`", "`ES2023`."],
+      ["`lib`", "`es2023` and `esnext.disposable`: no ES2024 methods and no DOM."],
       [
         "TypeScript",
         "The version `@lucent-lang/lucent` brings, in [Compatibility](/docs/api/compatibility/).",

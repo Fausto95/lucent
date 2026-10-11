@@ -678,6 +678,25 @@ export function f(round: boolean): number {
     });
   });
 
+  describe("ES2023's typed-array members", () => {
+    it.each(["toSorted()", "toReversed()", "with(0, 1)", "findLast((x) => x > 1)"])(
+      "rejects Uint8Array.%s",
+      (call) => {
+        expect(codes(`export function f(b: Uint8Array): void { b.${call}; }`)).toContain(
+          "LUCENT1003",
+        );
+      },
+    );
+
+    it("accepts the array copies", () => {
+      expect(
+        codes(
+          "export function f(xs: number[]): number { return xs.toSorted().length + xs.toReversed().length + xs.toSpliced(0, 1).length + xs.with(0, 1).length + (xs.findLast((x) => x > 1) ?? 0) + xs.findLastIndex((x) => x > 1); }",
+        ),
+      ).toEqual([]);
+    });
+  });
+
   describe("string methods that need Unicode or locale data", () => {
     it.each([
       ["normalize()", "export function f(s: string): string { return s.normalize(); }"],
