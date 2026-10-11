@@ -1154,6 +1154,70 @@ static void resultsThatCannotCrossReject() {
   m_t::told = {};
 }
 
+// --- bytes ----------------------------------------------------------------------
+
+/// An ArrayBuffer or Uint8Array a function returns that nothing else holds
+/// moves to JavaScript, adopted bytes included: the copy would be the only
+/// one. One Lucent code still holds (a variable, a view) is copied, so
+/// neither side sees the other's writes.
+static void returnedBytesMoveWhenNothingElseHoldsThem() {
+  JsThread js;
+  install(js);
+  std::atomic<int> released{0};
+
+  js.run([&](jsi::Runtime& rt) {
+    Host& h = Host::get(rt);
+    auto dataOf = [&](const jsi::Value& v) { return v.getObject(rt).getArrayBuffer(rt).data(rt); };
+    auto bufferOf = [&](const jsi::Value& u8) { return u8.getObject(rt).getPropertyAsObject(rt, "buffer").getArrayBuffer(rt); };
+
+    ArrayBuffer fresh(4.0);
+    const uint8_t* freshBytes = fresh.data();
+    CHECK(dataOf(Convert<ArrayBuffer>::toJs(rt, h, std::move(fresh))) == freshBytes);
+
+    ArrayBuffer kept(4.0);
+    ArrayBuffer alias = kept;
+    jsi::Value copied = Convert<ArrayBuffer>::toJs(rt, h, std::move(alias));
+    CHECK(dataOf(copied) != kept.data());
+    CHECK(dataOf(Convert<ArrayBuffer>::toJs(rt, h, kept)) != kept.data());
+
+    ArrayBuffer viewed(4.0);
+    Bytes view = Bytes::over(viewed);
+    const uint8_t* viewedBytes = viewed.data();
+    CHECK(dataOf(Convert<ArrayBuffer>::toJs(rt, h, std::move(viewed))) != viewedBytes);
+    CHECK(view.size() == 4);
+
+    Opt<ArrayBuffer> maybe = ArrayBuffer(2.0);
+    const uint8_t* maybeBytes = maybe.get().data();
+    CHECK(dataOf(Convert<Opt<ArrayBuffer>>::toJs(rt, h, std::move(maybe))) == maybeBytes);
+
+    // A whole Uint8Array moves; part of one is copied, its buffer as long as the view.
+    Bytes whole(8.0);
+    const uint8_t* wholeBytes = whole.data();
+    jsi::Value u8 = Convert<Bytes>::toJs(rt, h, std::move(whole));
+    CHECK(bufferOf(u8).data(rt) == wholeBytes);
+    CHECK(bufferOf(u8).size(rt) == 8);
+    Bytes part = Bytes::over(ArrayBuffer(8.0), 2.0, 4.0);
+    jsi::Value partial = Convert<Bytes>::toJs(rt, h, std::move(part));
+    CHECK(bufferOf(partial).size(rt) == 4);
+
+    // Adopted bytes: released once, when JavaScript's ArrayBuffer is collected.
+    auto* raw = new uint8_t[16]();
+    raw[0] = 7;
+    ArrayBuffer adopted(ByteStorage::adopt(raw, 16, [raw, &released] {
+      delete[] raw;
+      released++;
+    }));
+    rt.global().setProperty(rt, "adopted", Convert<ArrayBuffer>::toJs(rt, h, std::move(adopted)));
+  });
+
+  CHECK(released == 0);
+  CHECK(js.number("new Uint8Array(adopted)[0]") == 7);
+  CHECK(js.number("adopted.byteLength") == 16);
+  js.eval("adopted = undefined;");
+  js.run([](jsi::Runtime& rt) { rt.instrumentation().collectGarbage("test"); });
+  CHECK(within(2000, [&] { return released == 1; }));
+}
+
 // --- instances ----------------------------------------------------------------
 
 /// One native instance reached from two runtimes: each has its own JS
@@ -1542,6 +1606,7 @@ int main() {
   listenersEndWithTheirRuntime();
   reloadsStopModuleWork();
   resultsThatCannotCrossReject();
+  returnedBytesMoveWhenNothingElseHoldsThem();
   eachRuntimeHasItsOwnObjectForAnInstance();
   objectsOfATornDownHostAreRefused();
   collectedInstancesReleaseOnTheirThread();
