@@ -28,7 +28,7 @@ import {
 import { emitterMethod, emitterNew, subscriptionMethod } from "./events.ts";
 import { assignedRead } from "../lowering/unassigned.ts";
 import { DISPOSE, findMember } from "./classes.ts";
-import { type E, type Lvalue } from "./context.ts";
+import { type E, elementOrUndefined, type Lvalue } from "./context.ts";
 import { coreCall, isCoreSymbol } from "./core.ts";
 import { type FnEmitter, substitute } from "./function.ts";
 import { signalMethod } from "./setups.ts";
@@ -180,10 +180,7 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
       break;
     case "dict":
       // `record.key` is `record["key"]` on an index signature.
-      return {
-        c: cpp.call(cpp.dot(o, "get"), [stringExpr(name)]),
-        t: unionOf([t.val, T.undefined]),
-      };
+      return elementOrUndefined(cpp.call(cpp.dot(o, "get"), [stringExpr(name)]), t.val);
     case "regexp":
       if (name === "source") return str(cpp.call(cpp.arrow(o, "source"), []));
       if (name === "flags") return str(cpp.call(cpp.arrow(o, "canonicalFlags"), []));
@@ -1607,7 +1604,7 @@ function arrayMethod(
     }
     case "pop":
     case "shift":
-      return { c: cpp.call(cpp.dot(o, name), []), t: unionOf([e, T.undefined]) };
+      return elementOrUndefined(cpp.call(cpp.dot(o, name), []), e);
     case "unshift":
       if (a.length !== 1) fail(node, Codes.UnsupportedBuiltin, "unshift takes one item");
       return num(cpp.call(cpp.dot(o, "unshift"), [em.exprAs(a[0]!, e)]));
@@ -1651,16 +1648,16 @@ function arrayMethod(
       return name === "includes" ? bool(found) : num(found);
     }
     case "at":
-      return {
-        c: cpp.call(cpp.dot(o, "atIndex"), [n(0, cpp.num("0.0")) ?? cpp.num("0.0")]),
-        t: unionOf([e, T.undefined]),
-      };
+      return elementOrUndefined(
+        cpp.call(cpp.dot(o, "atIndex"), [n(0, cpp.num("0.0")) ?? cpp.num("0.0")]),
+        e,
+      );
     case "find":
     case "findLast":
-      return {
-        c: cpp.call(cpp.dot(o, name), [cb([e, T.number, self], T.boolean).c]),
-        t: unionOf([e, T.undefined]),
-      };
+      return elementOrUndefined(
+        cpp.call(cpp.dot(o, name), [cb([e, T.number, self], T.boolean).c]),
+        e,
+      );
     case "findIndex":
     case "findLastIndex":
       return num(cpp.call(cpp.dot(o, name), [cb([e, T.number, self], T.boolean).c]));
@@ -1782,10 +1779,7 @@ function mapMethod(
   const a = node.arguments;
   switch (name) {
     case "get":
-      return {
-        c: cpp.call(cpp.dot(o, "get"), [em.exprAs(a[0]!, key)]),
-        t: unionOf([val, T.undefined]),
-      };
+      return elementOrUndefined(cpp.call(cpp.dot(o, "get"), [em.exprAs(a[0]!, key)]), val);
     case "set":
       return {
         c: cpp.call(cpp.dot(o, "set"), [em.exprAs(a[0]!, key), em.exprAs(a[1]!, val)]),

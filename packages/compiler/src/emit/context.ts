@@ -3,7 +3,7 @@ import ts from "typescript";
 import type { Platform } from "../sdk/schema.ts";
 import { CompileError, type Diagnostic, toDiagnostic } from "../diagnostics.ts";
 import type { LucentModule } from "../program.ts";
-import { type ClassInfo, type LType, TypeRegistry } from "../types.ts";
+import { type ClassInfo, type LType, T, TypeRegistry, unionOf } from "../types.ts";
 import { CaptureAnalysis } from "../analysis/scopes.ts";
 import type { KotlinShim } from "./kotlin.ts";
 import type { SwiftShim } from "./swift.ts";
@@ -26,6 +26,20 @@ export interface E {
 }
 
 /** The C++ type of an integer register of `kind`. */
+/**
+ * A read of one of a collection's elements, or undefined when there is none
+ * (`xs[i]`, `map.get(k)`, `record[k]`, `pop()`). The type flattens an
+ * element that may itself be absent (`T | undefined`, read as
+ * `T | undefined | undefined`); `lucent::flat` makes its C++ one optional,
+ * not an optional of one.
+ */
+export function elementOrUndefined(read: cpp.Expr, element: LType): E {
+  return {
+    c: element.k === "opt" ? cpp.call("lucent::flat", [read]) : read,
+    t: unionOf([element, T.undefined]),
+  };
+}
+
 export const intCppType = (kind: IntKind) =>
   cpp.type(kind === "i32" ? "int32_t" : kind === "u32" ? "uint32_t" : "int64_t");
 

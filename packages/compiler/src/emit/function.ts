@@ -34,6 +34,7 @@ import {
   AlreadyReported,
   type Ctx,
   type E,
+  elementOrUndefined,
   type IntKind,
   intCppType,
   type ParamInfo,
@@ -1338,10 +1339,7 @@ export class FnEmitter {
           vt.k === "tuple"
             ? { c: cpp.call("std::get", [tmp], [cpp.num(i)]), t: vt.es[i]! }
             : vt.k === "array"
-              ? {
-                  c: cpp.call(cpp.dot(tmp, "get"), [numberExpr(i)]),
-                  t: unionOf([vt.e, T.undefined]),
-                }
+              ? elementOrUndefined(cpp.call(cpp.dot(tmp, "get"), [numberExpr(i)]), vt.e)
               : fail(el, Codes.UnsupportedDestructuring, "cannot destructure this value");
         parts.push(discard(this.assignElement(el, v)));
       });
@@ -2023,7 +2021,7 @@ export class FnEmitter {
           }
           return { c: cpp.call("lucent::numberOf", [read]), t: unionOf([t.e, T.undefined]) };
         }
-        return { c: read, t: unionOf([t.e, T.undefined]) };
+        return elementOrUndefined(read, t.e);
       }
       case "regexMatch":
         return {
@@ -2037,10 +2035,10 @@ export class FnEmitter {
         return { c: cpp.call("std::get", [obj.c], [cpp.num(i)]), t: t.es[i]! };
       }
       case "dict":
-        return {
-          c: cpp.call(cpp.dot(obj.c, "get"), [this.exprAs(arg, T.string)]),
-          t: unionOf([t.val, T.undefined]),
-        };
+        return elementOrUndefined(
+          cpp.call(cpp.dot(obj.c, "get"), [this.exprAs(arg, T.string)]),
+          t.val,
+        );
       case "string":
         return {
           c: cpp.call("lucent::stringIndex", [obj.c, this.exprAs(arg, T.number)]),

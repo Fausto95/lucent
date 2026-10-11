@@ -20,10 +20,10 @@ import {
   type Thunk,
 } from "../ir/lower.ts";
 import { numberExpr } from "../lowering/literals.ts";
-import { type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
+import { type LType, stripOpt, T, typeKey } from "../types.ts";
 import { disposeCall, methodCall } from "./builtins.ts";
 import { safepoint } from "./compute.ts";
-import { type Ctx, type E, intCppType } from "./context.ts";
+import { type Ctx, type E, elementOrUndefined, intCppType } from "./context.ts";
 import { type FnOptions, FnEmitter, type Local } from "./function.ts";
 import { isEventCall } from "./setups.ts";
 
@@ -243,10 +243,7 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
           return { c: cpp.call("std::get", [v.c], [cpp.num(which.index)]), t: t.es[which.index]! };
 
         if (t.k === "array")
-          return {
-            c: cpp.call(cpp.dot(v.c, "get"), [numberExpr(which.index)]),
-            t: unionOf([t.e, T.undefined]),
-          };
+          return elementOrUndefined(cpp.call(cpp.dot(v.c, "get"), [numberExpr(which.index)]), t.e);
 
         throw new IrUnsupported(node, `destructuring a ${typeKey(from)}`);
       }),
