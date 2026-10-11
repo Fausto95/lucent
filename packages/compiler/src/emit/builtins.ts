@@ -23,6 +23,8 @@ import {
   bufferDispose,
   bufferMethod,
   bufferProperty,
+  nativeHandleMethod,
+  nativeHandleProperty,
   bufferStatic,
   spanMethod,
   spanProperty,
@@ -235,6 +237,8 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
       break;
     case "buffer":
       return bufferProperty(obj, name, node);
+    case "nativeHandle":
+      return nativeHandleProperty(obj, name, node);
     case "channel":
       return channelProperty(obj, name, node);
     case "span":
@@ -1320,6 +1324,8 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       break;
     case "buffer":
       return bufferMethod(em, obj, name, node);
+    case "nativeHandle":
+      return nativeHandleMethod(obj, name, node);
     case "weak":
       if (name === "deref" && !a.length)
         return { c: cpp.call(cpp.arrow(o, "deref"), []), t: unionOf([t.inner, T.undefined]) };

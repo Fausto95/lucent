@@ -218,6 +218,17 @@ void NativeBufferObject::refuse(uint32_t word) const {
 
 // --- Borrow ---------------------------------------------------------------------
 
+NativeHandle NativeBufferObject::handle() {
+  auto borrow = std::make_shared<Borrow>(*this, false);
+  const size_t size = size_.load(std::memory_order_relaxed);
+  if (size == 0) throwRangeError("An empty NativeBuffer has no address to hand out");
+
+  String kind = origin_.empty() ? String::fromLatin1("NativeBuffer bytes")
+                                : String::fromLatin1("NativeBuffer (") + origin_ + String::fromLatin1(") bytes");
+  // The borrow ends with the handle's release: the bytes stay put until then.
+  return NativeHandleObject::make(data_, [borrow]() mutable { borrow.reset(); }, std::move(kind));
+}
+
 NativeBufferObject::Borrow::Borrow(NativeBufferObject& buffer, bool write)
     : keep_(buffer.shared_from_this()), buffer_(buffer), write_(write) {
   std::atomic<uint32_t>& word = buffer.word_;

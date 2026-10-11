@@ -427,6 +427,23 @@ class NativeBuffer {
     s.bytes = new Uint8Array(0);
   }
 
+  handle() {
+    const s = stateOf(this);
+
+    borrowable(s, false);
+    if (s.bytes.length === 0)
+      throw new RangeError("An empty NativeBuffer has no address to hand out");
+    s.readers++;
+    // One buffer's bytes have one address.
+    if (s.address === undefined) {
+      s.address = nextAddress;
+      nextAddress += 0x1000n;
+    }
+    return new NativeHandle(creating, s.address, () => {
+      s.readers--;
+    });
+  }
+
   [Symbol.dispose]() {
     this.close();
   }
@@ -590,6 +607,41 @@ function compute(task, input, options) {
   });
 }
 
+/** Addresses the JavaScript implementation gives its handles: distinct, never 0. */
+let nextAddress = 0x1000n;
+const releases = new WeakMap();
+
+/**
+ * lucent:core's NativeHandle: `pointer` stands for an address (JavaScript
+ * has none to give), held until `release()`.
+ */
+class NativeHandle {
+  #pointer;
+
+  constructor(token, pointer, release) {
+    if (token !== creating) throw new TypeError("Illegal constructor");
+    this.#pointer = pointer;
+    releases.set(this, release);
+  }
+
+  get pointer() {
+    return this.#pointer;
+  }
+
+  get released() {
+    return this.#pointer === 0n;
+  }
+
+  release() {
+    const release = releases.get(this);
+    if (!release) return false;
+    releases.delete(this);
+    this.#pointer = 0n;
+    release();
+    return true;
+  }
+}
+
 const CHANNEL_POLICIES = ["lossless", "latest", "drop"];
 
 /** Releases a value no consumer will receive: closes a native buffer. */
@@ -697,5 +749,6 @@ module.exports = {
   compute,
   EventEmitter,
   NativeBuffer,
+  NativeHandle,
   Channel,
 };

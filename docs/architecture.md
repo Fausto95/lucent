@@ -682,6 +682,12 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
   of the scope it belongs to (which refers to it weakly), or its last
   reference going; the release runs once, on the context the resource
   requires. Using it after that throws `InvalidStateError`.
+- `handle.h`: `NativeHandle` (T73), an address other native code takes,
+  held valid until `release()`, which runs once from any thread; one whose
+  last reference goes unreleased is released then (`live::noteBackstop()`).
+  `NativeBufferObject::handle()` makes one that holds a read borrow of the
+  bytes; `jsi/convert.h` gives JavaScript one object per handle, with a
+  bigint `pointer`.
 - `channel.h`: `Channel<T>` (T74), values from a producer on any thread
   to a consumer on its own context. A send never waits; what a full
   channel does is its policy: `lossless` refuses the send, `latest` keeps

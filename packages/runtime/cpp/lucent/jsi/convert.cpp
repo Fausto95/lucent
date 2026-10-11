@@ -339,8 +339,51 @@ void bufferPrototype(jsi::Runtime& rt, Host&, jsi::Object& proto) {
   }
 
   proto.setProperty(rt, "close", std::move(close));
+
+  proto.setProperty(rt, "handle",
+                    bufferMethod(rt, "handle", 0, [](jsi::Runtime& rt, Host& host, const NativeBuffer& b, const jsi::Value*, size_t) {
+                      return Convert<NativeHandle>::toJs(rt, host, b->handle());
+                    }));
+}
+
+const char* const kHandlePrototype = "lucent:NativeHandle";
+
+NativeHandle handleThis(jsi::Runtime& rt, const jsi::Value& self, const char* member) {
+  return Convert<NativeHandle>::fromJs(rt, self, Path{member, "this"});
+}
+
+void handlePrototype(jsi::Runtime& rt, Host&, jsi::Object& proto) {
+  defineAccessor(
+      rt, proto, "pointer",
+      [](jsi::Runtime& rt, const jsi::Value& self, const jsi::Value*, size_t) {
+        return jsi::Value(jsi::BigInt::fromUint64(rt, handleThis(rt, self, "NativeHandle.pointer")->pointer()));
+      },
+      nullptr);
+  defineAccessor(
+      rt, proto, "released",
+      [](jsi::Runtime& rt, const jsi::Value& self, const jsi::Value*, size_t) {
+        return jsi::Value(handleThis(rt, self, "NativeHandle.released")->released());
+      },
+      nullptr);
+  proto.setProperty(rt, "release",
+                    jsi::Function::createFromHostFunction(
+                        rt, jsi::PropNameID::forAscii(rt, "release"), 0,
+                        [](jsi::Runtime& rt, const jsi::Value& self, const jsi::Value*, size_t) -> jsi::Value {
+                          Host& host = Host::get(rt);
+                          return callSync(rt, host, [&] { return jsi::Value(handleThis(rt, self, "release")->release()); });
+                        }));
 }
 }  // namespace
+
+NativeHandle Convert<NativeHandle>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  if (auto h = std::dynamic_pointer_cast<NativeHandleObject>(instanceOf(rt, v))) return h;
+
+  throwBoundaryError(rt, p, "a NativeHandle", v);
+}
+
+jsi::Value Convert<NativeHandle>::toJs(jsi::Runtime& rt, Host& h, const NativeHandle& handle) {
+  return h.wrap(rt, handle, kHandlePrototype, handlePrototype);
+}
 
 NativeBuffer Convert<NativeBuffer>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
   if (auto b = std::dynamic_pointer_cast<NativeBufferObject>(instanceOf(rt, v))) return b;

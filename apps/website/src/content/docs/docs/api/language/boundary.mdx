@@ -81,6 +81,7 @@ midpoint(saved, home); // TypeError: midpoint: argument 'a'.y must be a number, 
 | `AbortSignal` | Into Lucent only | An `AbortSignal` |
 | `Iterable<T>`, as a parameter | A snapshot, taken with `Array.from` | An iterable, or a string |
 | `NativeBuffer` | A reference, with its identity | A `NativeBuffer` that came from Lucent |
+| `NativeHandle` | A reference, with its identity | A `NativeHandle` that came from Lucent |
 | `EventEmitter`, `EventSubscription` | A reference, with its identity: [Stream events to JavaScript](/docs/guides/send-events-to-javascript/) | One that came from Lucent |
 | `Error` | Its name, message, code and stack | Any value |
 | `void` | `undefined` | |
@@ -167,6 +168,12 @@ A `NativeBuffer` crosses as an opaque object, the same one each time for the sam
 JavaScript never holds the buffer's memory. `withRead` lends its callback a copy of the bytes, and `withWrite` copies them back when its callback returns. `NativeBuffer.stats()` counts both copies.
 
 So a `Uint8Array` that a JavaScript callback keeps doesn't follow the buffer. Under the JavaScript `lucent:core` that tests run, it is the buffer's own bytes. The ownership rules are on [lucent:core](/docs/api/lucent-core/#nativebuffer).
+
+## NativeHandle
+
+A `NativeHandle` is an address for a library that takes one. JavaScript gets it from `buffer.handle()` or a Lucent function, and passes `handle.pointer`, a bigint, to the library. The bytes stay put until `handle.release()`: writes, `transfer()` and `close()` throw meanwhile.
+
+Release a handle once the library is done with it. One that JavaScript drops unreleased is released when its garbage collector frees it, and a debug build counts it as `host.releasedOpen` in `__lucentDebug.snapshot()`.
 
 ## What can't cross
 

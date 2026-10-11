@@ -343,7 +343,7 @@ end?)`, which copies. `new Uint8Array(buffer, byteOffset?, length?)` views
 - **lucent:core**: `delay`, `error(code, message)`, `errorCode(e)`,
   `utf8Encode`, `utf8Decode`, `now()`, `fromCallback(register, signal?)`,
   `subscribe(register, onValue, signal?)`, `onDestroy(hook)`, `EventEmitter`,
-  `NativeBuffer`, `Channel`.
+  `NativeBuffer`, `NativeHandle`, `Channel`.
 - **Module hooks**: a module's top-level code runs for each JavaScript
   runtime (its create hook). `onDestroy(hook)` from `lucent:core` runs
   `hook` when that state ends: before a reload initializes the module
@@ -428,6 +428,21 @@ transferred`) on use, and closing it does nothing. Passing a buffer to
   - `toUint8Array()` and `from` are the only copies. `NativeBuffer.stats()`
     counts allocations, transfers and copies (and the bytes copied) since
     the app started, to check that a path does not copy.
+  - `handle()` gives a `NativeHandle` of the bytes' address, for native
+    code that takes one (a library JavaScript hands the `pointer` to). It
+    borrows the bytes for read until it is released: reads go on, while
+    writes, `transfer()` and `close()` throw `InvalidStateError`. An empty
+    buffer has no address (`RangeError`), and a closed or transferred one
+    refuses as a read does.
+
+- **Native handles** (`NativeHandle` from `lucent:core`) are an address
+  held valid until released, as VisionCamera's `NativeBuffer` gives Skia
+  one. `pointer` is the address as a bigint (`0n` once released),
+  `released` says whether it was, and `release()` releases it once, from
+  Lucent or JavaScript, on any thread (true the first time). One whose
+  last reference goes unreleased is released then; a debug build counts
+  those JavaScript collected (`host.releasedOpen`). A handle does not
+  cross to a compute task or a channel (`LUCENT3012`).
 
 - **Channels** (`Channel<T>` from `lucent:core`) carry values from a
   producer to a consumer that may run on another thread, such as a compute
@@ -586,7 +601,10 @@ null }` and `{ v: string | undefined }` share one native layout). A body
   `AbortController` cannot cross at all.
 - **NativeBuffers** cross as opaque handles that keep their identity, like
   class instances, with the same `byteLength`, `withRead`, `withWrite`,
-  `toUint8Array`, `transfer`, `transferToArrayBuffer` and `close`. A
+  `toUint8Array`, `transfer`, `transferToArrayBuffer`, `handle` and
+  `close`. A **NativeHandle** crosses the same way, with `pointer` (a
+  bigint), `released` and `release()`; from JavaScript, only one that came
+  from Lucent is accepted. A
   moved `ArrayBuffer` is the buffer's bytes, which no worker can reach
   any more. JavaScript is never given memory
   a worker may be writing: its borrows lend it a copy of the bytes (counted

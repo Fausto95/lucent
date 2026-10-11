@@ -16,6 +16,7 @@
 
 #include "lucent/buffer.h"
 #include "lucent/compute.h"
+#include "lucent/live.h"
 #include "lucent/lucent.h"
 #include "lucent/transport.h"
 
@@ -779,6 +780,49 @@ static void copiesAreCountedExactly() {
   owner->shutdown();
 }
 
+// --- handles -------------------------------------------------------------------
+
+/// A handle gives the bytes' address and borrows them for read until it is
+/// released: reads go on, writes, transfers and closing refuse; released
+/// once, from any thread.
+static void handlesBorrowTheBytesUntilReleased() {
+  auto buffer = NativeBufferObject::allocate(16);
+  const uint8_t* address = buffer->withRead([](std::span<const uint8_t> b) { return b.data(); });
+  auto handle = buffer->handle();
+
+  CHECK(handle->pointer() == reinterpret_cast<uintptr_t>(address));
+  CHECK(!handle->released());
+  CHECK(buffer->withRead([](std::span<const uint8_t> b) { return b.size(); }) == 16);
+  CHECK(thrown([&] { buffer->withWrite([](std::span<uint8_t>) {}); }) == "InvalidStateError: NativeBuffer is borrowed");
+  CHECK(thrown([&] { buffer->transfer(); }) == "InvalidStateError: NativeBuffer is borrowed");
+  CHECK(thrown([&] { buffer->close(); }) == "InvalidStateError: NativeBuffer is borrowed");
+
+  // Two handles share the borrow, as reads do.
+  auto second = buffer->handle();
+  CHECK(handle->release() && !handle->release());
+  CHECK(handle->released() && handle->pointer() == 0);
+  CHECK(thrown([&] { buffer->close(); }) == "InvalidStateError: NativeBuffer is borrowed");
+
+  std::thread other([&] { CHECK(second->release()); });
+  other.join();
+  CHECK(buffer->close());
+}
+
+/// A handle needs an open buffer with bytes; a handle never released is
+/// released when its last reference goes, the backstop a debug build counts.
+static void handlesNeedBytesAndReleaseAtTheirEnd() {
+  auto closed = NativeBufferObject::allocate(4);
+  closed->close();
+  CHECK(thrown([&] { closed->handle(); }) == "InvalidStateError: NativeBuffer is closed");
+  CHECK(thrownName([] { NativeBufferObject::allocate(0)->handle(); }) == "RangeError");
+
+  auto buffer = NativeBufferObject::allocate(4);
+  const long backstops = live::backstops;
+  { auto dropped = buffer->handle(); }
+  CHECK(live::backstops == backstops + 1);
+  CHECK(buffer->close());
+}
+
 int main() {
   allocatedBuffersAreZeroedAndOpen();
   readsShareAndWritesExclude();
@@ -804,6 +848,9 @@ int main() {
   cancellingAQueuedTaskReleasesTheBuffer();
   aBorrowedBufferIsNotSubmitted();
   copiesAreCountedExactly();
+
+  handlesBorrowTheBytesUntilReleased();
+  handlesNeedBytesAndReleaseAtTheirEnd();
 
   std::printf("buffer: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

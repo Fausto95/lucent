@@ -411,7 +411,40 @@ export declare class NativeBuffer {
   /** Releases the bytes. Closing a closed or transferred buffer does nothing. */
   close(): void;
 
+  /**
+   * A handle of the bytes' address, for native code that takes one (a
+   * library JavaScript passes the pointer to). It borrows the bytes for
+   * read until it is released: reads go on, while writes, `transfer()` and
+   * `close()` throw an InvalidStateError. An empty buffer has no address
+   * (a RangeError).
+   */
+  handle(): NativeHandle;
+
   [Symbol.dispose](): void;
+}
+
+/**
+ * An address native code takes, held valid until released, as
+ * VisionCamera's `NativeBuffer` gives one to Skia. JavaScript gets the same
+ * object, and passes `pointer` to the library that reads it.
+ *
+ * Release it once done, from Lucent or JavaScript: until then, what it
+ * points to stays as it is (a buffer's bytes stay borrowed). One whose
+ * last reference goes unreleased is released then; a debug build counts
+ * those JavaScript collected (`host.releasedOpen` in
+ * `__lucentDebug.snapshot()`).
+ */
+export declare class NativeHandle {
+  private constructor();
+
+  /** The address while held: `0n` once released. */
+  readonly pointer: bigint;
+
+  /** Whether it was released. */
+  readonly released: boolean;
+
+  /** Releases it: true the first time, false after. */
+  release(): boolean;
 }
 
 /** The bytes `withRead` lends, read like a `Uint8Array`'s: `bytes[i]` is undefined out of range. */

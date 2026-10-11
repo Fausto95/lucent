@@ -60,6 +60,8 @@ export type LType =
   | { k: "abortController" }
   /** lucent:core's NativeBuffer: a handle to bytes native code owns. */
   | { k: "buffer" }
+  /** lucent:core's NativeHandle (lucent::NativeHandle): an address for other native code, held until released. */
+  | { k: "nativeHandle" }
   /** The bytes a NativeBuffer borrow lends (ByteSpan, or MutableByteSpan when writable). */
   | { k: "span"; writable: boolean }
   | { k: "tparam"; name: string }
@@ -115,6 +117,7 @@ export const T = {
   abortSignal: { k: "abortSignal" } as LType,
   abortController: { k: "abortController" } as LType,
   buffer: { k: "buffer" } as LType,
+  nativeHandle: { k: "nativeHandle" } as LType,
   span: { k: "span", writable: false } as LType,
   mutableSpan: { k: "span", writable: true } as LType,
   subscription: { k: "subscription" } as LType,
@@ -124,6 +127,7 @@ export const T = {
 /** lucent:core's types that have a native representation of their own, by name. */
 const CORE_TYPES: Record<string, LType> = {
   NativeBuffer: T.buffer,
+  NativeHandle: T.nativeHandle,
   ByteSpan: T.span,
   MutableByteSpan: T.mutableSpan,
   EventSubscription: T.subscription,
@@ -1656,6 +1660,8 @@ export class TypeRegistry {
         return lucent("AbortController");
       case "buffer":
         return lucent("NativeBuffer");
+      case "nativeHandle":
+        return lucent("NativeHandle");
       case "jsvalue":
         return lucent("JSValue");
       case "span":

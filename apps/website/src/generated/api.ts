@@ -339,7 +339,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "NativeBuffer",
         "kind": "class",
-        "signature": "class NativeBuffer {\n  private constructor();\n  static allocate(size: number): NativeBuffer;\n  static from(bytes: Uint8Array): NativeBuffer;\n  static stats(): NativeBufferStats;\n  readonly byteLength: number;\n  withRead<R>(read: (bytes: ByteSpan) => R): R;\n  withWrite<R>(write: (bytes: MutableByteSpan) => R): R;\n  toUint8Array(): Uint8Array;\n  transfer(): NativeBuffer;\n  transferToArrayBuffer(): ArrayBuffer;\n  close(): void;\n  [Symbol.dispose](): void;\n}",
+        "signature": "class NativeBuffer {\n  private constructor();\n  static allocate(size: number): NativeBuffer;\n  static from(bytes: Uint8Array): NativeBuffer;\n  static stats(): NativeBufferStats;\n  readonly byteLength: number;\n  withRead<R>(read: (bytes: ByteSpan) => R): R;\n  withWrite<R>(write: (bytes: MutableByteSpan) => R): R;\n  toUint8Array(): Uint8Array;\n  transfer(): NativeBuffer;\n  transferToArrayBuffer(): ArrayBuffer;\n  close(): void;\n  handle(): NativeHandle;\n  [Symbol.dispose](): void;\n}",
         "doc": [
           "Bytes native code owns, handed to compute tasks and JavaScript without copying them. A `Uint8Array` is copied whenever it crosses, while a NativeBuffer moves.",
           "The bytes are reached through a borrow, for the length of one call. `withRead` lends them to its callback as a `ByteSpan`, and `withWrite` as a `MutableByteSpan`. Reads share the buffer, while a write needs it to itself.",
@@ -405,9 +405,42 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "doc": "Releases the bytes. Closing a closed or transferred buffer does nothing."
           },
           {
+            "name": "handle",
+            "signature": "handle(): NativeHandle;",
+            "doc": "A handle of the bytes' address, for native code that takes one (a library JavaScript passes the pointer to). It borrows the bytes for read until it is released: reads go on, while writes, `transfer()` and `close()` throw an InvalidStateError. An empty buffer has no address (a RangeError)."
+          },
+          {
             "name": "[Symbol.dispose]",
             "signature": "[Symbol.dispose](): void;",
             "doc": ""
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "NativeHandle",
+        "kind": "class",
+        "signature": "class NativeHandle {\n  private constructor();\n  readonly pointer: bigint;\n  readonly released: boolean;\n  release(): boolean;\n}",
+        "doc": [
+          "An address native code takes, held valid until released, as VisionCamera's `NativeBuffer` gives one to Skia. JavaScript gets the same object, and passes `pointer` to the library that reads it.",
+          "Release it once done, from Lucent or JavaScript: until then, what it points to stays as it is (a buffer's bytes stay borrowed). One whose last reference goes unreleased is released then; a debug build counts those JavaScript collected (`host.releasedOpen` in `__lucentDebug.snapshot()`)."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "pointer",
+            "signature": "readonly pointer: bigint;",
+            "doc": "The address while held: `0n` once released."
+          },
+          {
+            "name": "released",
+            "signature": "readonly released: boolean;",
+            "doc": "Whether it was released."
+          },
+          {
+            "name": "release",
+            "signature": "release(): boolean;",
+            "doc": "Releases it: true the first time, false after."
           }
         ],
         "params": []

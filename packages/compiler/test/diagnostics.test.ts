@@ -799,6 +799,16 @@ export function f(round: boolean): number {
     });
   });
 
+  describe("NativeHandle", () => {
+    it("rejects one in a compute task's input", () => {
+      const d = compileSource(
+        'import { compute, NativeHandle } from "lucent:core";\nfunction read(h: NativeHandle): boolean { return h.released; }\nexport async function f(h: NativeHandle): Promise<boolean> { return await compute(read, h); }',
+      ).diagnostics;
+      expect(d.map((x) => x.code)).toEqual(["LUCENT3012"]);
+      expect(d[0]!.message).toContain("a native handle, which keeps what it points to");
+    });
+  });
+
   describe("Channel", () => {
     it("rejects values that cannot be copied to its consumer", () => {
       const d = compileSource(

@@ -125,7 +125,7 @@ A `using` declaration disposes its value when the block ends, however it ends: a
 
 ## Native buffers
 
-A `NativeBuffer`'s bytes are released at `close()`, at the end of its `using` block, or when its last reference goes. Its borrow, move and close rules are on [lucent:core](/docs/api/lucent-core/#nativebuffer).
+A `NativeBuffer`'s bytes are released at `close()`, at the end of its `using` block, or when its last reference goes. A `NativeHandle` of them keeps them borrowed until its `release()`. Its borrow, move and close rules are on [lucent:core](/docs/api/lucent-core/#nativebuffer).
 
 ## At teardown
 

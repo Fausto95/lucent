@@ -34,6 +34,7 @@
 #include "bytes.h"
 #include "core.h"
 #include "execution.h"
+#include "handle.h"
 #include "jserror.h"
 #include "jsstring.h"
 #include "transport.h"
@@ -129,6 +130,13 @@ class NativeBufferObject final : public Object {
   /// this one, and every alias of it, refuses access from now on. Throws
   /// InvalidStateError if it is not open or is borrowed.
   NativeBuffer transfer();
+
+  /// A handle of the bytes' address for other native code, which borrows
+  /// them for read until it is released: reads go on, while writes,
+  /// transfers and closing refuse (InvalidStateError). Throws, as a read
+  /// borrow does, unless the buffer is open and unwritten. An empty buffer's
+  /// handle has no address to give: a RangeError.
+  NativeHandle handle();
 
   /// Moves the storage into an ArrayBuffer, uncopied: this handle and its
   /// aliases refuse access from now on, as after transfer(), and the
