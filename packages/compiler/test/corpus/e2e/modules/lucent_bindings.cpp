@@ -10,6 +10,8 @@
 #undef created
 #pragma push_macro("far")
 #undef far
+#pragma push_macro("grown")
+#undef grown
 #pragma push_macro("largest")
 #undef largest
 #pragma push_macro("o")
@@ -172,6 +174,13 @@ void install_m_main_(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_main_::throughNamespace());
     });
   });
+  defineFunction(rt, exports, "grown", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("grown", "packages/compiler/test/e2e/cases/modules/main.lucent.ts", 33), [&]() -> jsi::Value {
+      auto a0 = Convert<lucent::Ref<lucent_app::C_Vec>>::fromJs(rt, arg(args, count, 0), Path{"grown", "argument 'v'"});
+      return Convert<lucent::Ref<lucent_app::C_Vec>>::toJs(rt, host, lucent_app::m_main_::grown(std::move(a0)));
+    });
+  });
 }
 
 void install_m_shapes(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
@@ -238,5 +247,6 @@ void resetModuleState() {
 #pragma pop_macro("p")
 #pragma pop_macro("o")
 #pragma pop_macro("largest")
+#pragma pop_macro("grown")
 #pragma pop_macro("far")
 #pragma pop_macro("created")

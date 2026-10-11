@@ -133,6 +133,109 @@ describe("Lucent packages", () => {
     expect(uses).toMatch(/lucent_app::m_lucent_\w*storage::where\(\)/);
   });
 
+  it("makes a package's exported types one type in another package's exports", () => {
+    const root = app();
+    write(
+      root,
+      "package.json",
+      JSON.stringify({
+        name: "app",
+        dependencies: { "vision-core": "1.0.0", "vision-plugin": "1.0.0" },
+      }),
+    );
+    write(
+      root,
+      "node_modules/vision-core/package.json",
+      JSON.stringify({ name: "vision-core", version: "1.0.0", lucent: { sources: "src" } }),
+    );
+    write(
+      root,
+      "node_modules/vision-core/src/frame.lucent.ts",
+      [
+        "export type Size = { width: number; height: number };",
+        "export enum Orientation { Up, Down }",
+        "export class Frame {",
+        "  orientation = Orientation.Up;",
+        "  constructor(readonly size: Size) {}",
+        "  get pixels(): number { return this.size.width * this.size.height; }",
+        "}",
+        "export interface Processor { process(frame: Frame): number }",
+        "export function frame(width: number, height: number): Frame { return new Frame({ width, height }); }",
+        "export function run(p: Processor, f: Frame): number { return p.process(f); }",
+        "",
+      ].join("\n"),
+    );
+    write(
+      root,
+      "node_modules/vision-plugin/package.json",
+      JSON.stringify({
+        name: "vision-plugin",
+        version: "1.0.0",
+        lucent: { sources: "src" },
+        dependencies: { "vision-core": "1.0.0" },
+      }),
+    );
+    write(
+      root,
+      "node_modules/vision-plugin/src/plugin.lucent.ts",
+      [
+        'import { Frame, Orientation, type Processor, type Size } from "vision-core/src/frame.lucent";',
+        "export class Brightness implements Processor {",
+        "  process(frame: Frame): number { return frame.pixels / 2; }",
+        "}",
+        "export function area(f: Frame): number { return f.pixels; }",
+        "export function scaled(f: Frame, by: number): Frame {",
+        "  const size: Size = { width: f.size.width * by, height: f.size.height * by };",
+        "  const out = new Frame(size);",
+        "  out.orientation = f.orientation === Orientation.Up ? Orientation.Down : Orientation.Up;",
+        "  return out;",
+        "}",
+        "export function processor(): Processor { return new Brightness(); }",
+        "export function sizeOf(f: Frame): Size { return f.size; }",
+        "",
+      ].join("\n"),
+    );
+
+    const r = compile(projectFiles(root));
+    expect(r.diagnostics).toEqual([]);
+
+    // One program: each type is one C++ type, whichever package's exports name it.
+    const headers = [...r.files.keys()].filter((f) => /^lucent_app_[A-Z]_/.test(f)).sort();
+    expect(headers).toEqual([
+      "lucent_app_C_Brightness.h",
+      "lucent_app_C_Frame.h",
+      "lucent_app_I_Processor.h",
+      "lucent_app_S_Size.h",
+    ]);
+
+    // JavaScript sees one Frame: its prototype is the package's that declares it,
+    // whichever package's function returns one.
+    const bindings = r.files.get("lucent_bindings.cpp") ?? "";
+    expect(
+      [...bindings.matchAll(/h\.wrap\(rt, v, "([^"]+)", proto_C_Frame\)/g)].map((m) => m[1]),
+    ).toEqual(["vision-core/frame.Frame"]);
+    expect(
+      bindings.match(/defineClass\(rt, host, exports, "Frame", "vision-core\/frame\.Frame"/g),
+    ).toHaveLength(1);
+    expect(bindings).toMatch(
+      /Convert<lucent::Ref<lucent_app::C_Frame>>::toJs\(rt, host, lucent_app::m_vision_\w*plugin::scaled\(/,
+    );
+    // Its class is the declaring package's export; the other package's proxy takes it, and has its own.
+    expect(r.proxies.get("vision-core/frame")).toContain("exports.Frame = lucentClass(m.Frame);");
+    expect(r.proxies.get("vision-plugin/plugin")).not.toContain("exports.Frame");
+    expect(r.proxies.get("vision-plugin/plugin")).toContain(
+      "exports.Brightness = lucentClass(m.Brightness);",
+    );
+    // Packages that import one another share an actor.
+    const actorOf = new Map(
+      [...bindings.matchAll(/lucent_app::(actor_\d+)\(\), LUCENT_TRACE_SITE_AT\("(\w+)"/g)].map(
+        (m) => [m[2], m[1]] as const,
+      ),
+    );
+    expect(actorOf.get("scaled")).toBeDefined();
+    expect(actorOf.get("scaled")).toBe(actorOf.get("frame"));
+  });
+
   it("leaves lucent.json to the build: an invalid one does not stop finding packages", () => {
     const root = app();
     fs.writeFileSync(path.join(root, "node_modules/lucent-b/lucent.json"), "{ not json");

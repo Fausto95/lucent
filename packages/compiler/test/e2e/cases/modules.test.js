@@ -17,3 +17,6 @@ print(
 );
 print(main.vectorsMade() > 0);
 print(main.throughNamespace());
+const Vec = lucentClass(mods.shapes.Vec);
+const g = main.grown(new Vec(1, 2));
+print(g instanceof Vec, g.x, g.y, main.grown(g).plus(new Vec(0, 1)).y);
