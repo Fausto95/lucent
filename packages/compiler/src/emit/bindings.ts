@@ -172,6 +172,12 @@ export class BindingsEmitter {
           Codes.BoundaryType,
           "a FinalizationRegistry cannot cross the JavaScript boundary: register targets with one in Lucent code",
         );
+      case "channel":
+        fail(
+          node,
+          Codes.BoundaryType,
+          "a Channel cannot cross the JavaScript boundary yet: receive from it in Lucent code, and pass JavaScript the values or an EventEmitter's events",
+        );
       case "weakMap":
       case "weakSet":
         fail(

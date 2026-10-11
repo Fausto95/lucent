@@ -27,6 +27,7 @@ import {
   spanMethod,
   spanProperty,
 } from "./buffers.ts";
+import { channelMethod, channelNew, channelProperty } from "./channels.ts";
 import { emitterMethod, emitterNew, subscriptionMethod } from "./events.ts";
 import { assignedRead } from "../lowering/unassigned.ts";
 import { DISPOSE, findMember } from "./classes.ts";
@@ -234,6 +235,8 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
       break;
     case "buffer":
       return bufferProperty(obj, name, node);
+    case "channel":
+      return channelProperty(obj, name, node);
     case "span":
       return spanProperty(obj, name, node);
     case "error":
@@ -1328,6 +1331,8 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       return registryMethod(em, obj as E & { t: LType & { k: "registry" } }, name, node);
     case "emitter":
       return emitterMethod(em, obj, name, node);
+    case "channel":
+      return channelMethod(em, obj, name, node);
     case "subscription":
       return subscriptionMethod(obj, name, node);
     case "span":
@@ -2300,6 +2305,8 @@ export function newBuiltin(
       };
     case "emitter":
       return emitterNew(em, node, t);
+    case "channel":
+      return channelNew(em, node, t);
     case "weak": {
       if (a.length !== 1) fail(node, Codes.UnsupportedBuiltin, "new WeakRef() takes its target");
       return {

@@ -87,9 +87,9 @@ await __lucentDebug.snapshot();
 
 - `resources`: live counts of native references, scopes, operations and resources, and of views' effects, signals and computed values.
 - `mounts`: each mounted component, its setup's source line and its native view tree: each view's class, frame, children and whether it's hidden.
-- `host`: the promises, callbacks, modules and calls in flight it holds for JavaScript, and `releasedOpen`: how many instances JavaScript collected while they still held something open, such as a `NativeBuffer` nobody closed, which their release closed instead.
+- `host`: the promises, callbacks, modules and calls in flight it holds for JavaScript, and `releasedOpen`, instances collected unclosed.
 
-A count that grows each time you reopen a screen is a leak. A misplaced view shows its frame, in points on iOS and dp on Android. Release builds have no `__lucentDebug`.
+A count that grows as you reopen a screen is a leak. A misplaced view shows its frame: points on iOS, dp on Android. Release builds have no `__lucentDebug`.
 
 ## Read the error in JavaScript
 

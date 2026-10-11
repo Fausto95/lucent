@@ -86,7 +86,9 @@ export type LType =
   /** lucent:core's JSValue (lucent::JSValue): a value JavaScript gave, held without looking inside. */
   | { k: "jsvalue" }
   /** `FinalizationRegistry<H>` (lucent::FinalizationRegistry): cleanups of `held` values. */
-  | { k: "registry"; held: LType };
+  | { k: "registry"; held: LType }
+  /** lucent:core's `Channel<T>` (lucent::Channel): copies of `e` values, to a consumer. */
+  | { k: "channel"; e: LType };
 
 /** The error constructors Lucent makes; an error is named after its constructor. */
 const ERROR_NAMES = ["Error", "TypeError", "RangeError", "SyntaxError"] as const;
@@ -185,6 +187,8 @@ function keyWith(t: LType, struct: (id: string) => string): string {
       return `WeakSet<${key(t.key)}>`;
     case "registry":
       return `FinalizationRegistry<${key(t.held)}>`;
+    case "channel":
+      return `Channel<${key(t.e)}>`;
     case "emitter":
       return `EventEmitter<{${t.events.map((e) => `${JSON.stringify(e.name)}:${key(e.fn)}`).join(",")}}>`;
     default:
@@ -263,6 +267,8 @@ export function substitute(t: LType, map: Map<string, LType>): LType {
       return { k: "weakSet", key: substitute(t.key, map) };
     case "registry":
       return { k: "registry", held: substitute(t.held, map) };
+    case "channel":
+      return { k: "channel", e: substitute(t.e, map) };
     case "weak":
       return { k: "weak", inner: substitute(t.inner, map) };
     case "opt": {
@@ -369,6 +375,8 @@ function typeParts(t: LType): readonly LType[] {
       return [t.key];
     case "registry":
       return [t.held];
+    case "channel":
+      return [t.e];
     case "weak":
       return [t.inner];
     case "dict":
@@ -1058,6 +1066,14 @@ export class TypeRegistry {
     if (core) return core;
     if (sdkSym?.name === "EventEmitter" && decl && isCoreFile(decl.getSourceFile()))
       return this.lowerEmitter(type, node);
+    if (sdkSym?.name === "Channel" && decl && isCoreFile(decl.getSourceFile())) {
+      const [e] = (type as ts.TypeReference).target
+        ? c.getTypeArguments(type as ts.TypeReference)
+        : [];
+      if (!e)
+        fail(node, Codes.UnsupportedType, "a Channel names the type of its values: Channel<T>");
+      return { k: "channel", e: this.lower(e, node) };
+    }
     // lucent:ios's NSObject and Out are platform objects too, and so are a
     // toolkit's values (SwiftUI's types are interfaces).
     const declaredIn = decl && builtinSdkModuleOf(decl.getSourceFile());
@@ -1668,6 +1684,8 @@ export class TypeRegistry {
         return lucent("WeakSet", this.cppType(t.key));
       case "registry":
         return lucent("FinalizationRegistry", this.cppType(t.held));
+      case "channel":
+        return lucent("Channel", this.cppType(t.e));
     }
   }
 
