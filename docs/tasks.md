@@ -29,7 +29,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [TA37](#ta37) | Close the language gaps the review found                          | done (#149, 2026-10-08)                                                                                                           |
 | [T71](#t71)   | Native object references as view props                            | blocked: a decision superseding 0046 and 0065; needs nothing open                                                                 |
 | [T78](#t78)   | UIKit components with a view-controller root                      | ready; needs nothing open                                                                                                         |
-| [TA38](#ta38) | Accept object literals for data-only interfaces                   | done (#162, #PR_A, 2026-10-11)                                                                                                    |
+| [TA38](#ta38) | Accept object literals for data-only interfaces                   | done (#162, #177, 2026-10-11)                                                                                                    |
 | [TA43](#ta43) | Tell a module when JavaScript starts and stops listening          | done (#171, 2026-10-11)                                                                                                           |
 | [TA45](#ta45) | Record each example's evidence and state it from the record       | waiting (needs the maintainer: TA36's port sources); needs nothing open                                                           |
 | **G4**        | **Production candidate**                                          |                                                                                                                                   |
@@ -834,7 +834,7 @@ classes implement, as TypeScript allows, and lower TypeScript's mapped
 utility types over object types.
 
 - **Status:** done: mapped types (#162), object literals for implemented
-  interfaces (#PR_A).
+  interfaces (#177).
 - **Area:** Compiler (types, interfaces).
 - **Needs:** none.
 - **Verify:** V1, V2.
@@ -857,11 +857,11 @@ refused. Mapped utility types over object types were refused as well.
       identity and mutation (a copy into a struct would change both),
       JSON.stringify writes its fields (every interface now declares the
       JSON writer its implementations override), and it crosses to
-      JavaScript as a plain object, by copy, as a struct does (#PR_A).
+      JavaScript as a plain object, by copy, as a struct does (#177).
       Data-only, non-generic interfaces; the follow-ups below are refused
       meanwhile with LUCENT2008.
 - [x] Diagnostic text for LUCENT2008 names the method that makes the
-      interface nominal, or that it is generic (#PR_A).
+      interface nominal, or that it is generic (#177).
 - [x] Mapped utility types of object types lower as the object types they
       resolve to: `Partial<Point>`, `Pick<Point, "x">`, `Omit`, `Required`,
       `Readonly` and `Record<"a" | "b", T>` failed with
@@ -870,7 +870,7 @@ refused. Mapped utility types over object types were refused as well.
       type, one optional field per key (e2e `mapped-types`).
 - [x] e2e `interfaces-structural`: literals for an interface a class also
       implements, identity and mutation through the interface, JSON, the
-      boundary; the semantics table row (#PR_A).
+      boundary; the semantics table row (#177).
 
 **Done when:** a data-only interface that classes implement takes object
 literals, with the e2e case green.
