@@ -973,13 +973,31 @@ struct Convert<Ref<EventEmitterObject<Fns...>>> {
       jsi::Value out = jsi::Value::undefined();
       detail::withIndex<Emitter::kEvents>(i, [&](auto I) {
         using F = typename Emitter::template Listener<decltype(I)::value>;
+        constexpr size_t event = decltype(I)::value;
         F fn = Convert<F>::fromJs(rt, arg(args, count, 1), Path{"EventEmitter.addListener", "argument 'listener'"});
         std::weak_ptr<Host> weak = host.weak_from_this();
         auto alive = [weak] {
           auto h = weak.lock();
           return h && h->alive();
         };
-        out = Convert<EventSubscription>::toJs(rt, host, e->template addListener<decltype(I)::value>(std::move(fn), alive));
+        uint64_t id = 0;
+        EventSubscription added = e->template addListener<event>(std::move(fn), alive, &id);
+        // The runtime's teardown takes the listener, in the emitter's actor,
+        // where onObserved hears it go; removed first, it forgets that.
+        std::shared_ptr<Scope> scope = host.scopeFor(e->actor());
+        std::weak_ptr<Emitter> emitter = e;
+        Scope::CleanupId cleanup = scope->onDispose([emitter, id] {
+          if (auto self = emitter.lock()) {
+            LucentScope lock(self->actor());
+            self->template removeListener<event>(id);
+          }
+        });
+        std::weak_ptr<Scope> owner = scope;
+        auto subscription = std::make_shared<EventSubscriptionObject>([added, owner, cleanup] {
+          added->remove();
+          if (auto s = owner.lock()) s->remove(cleanup);
+        });
+        out = Convert<EventSubscription>::toJs(rt, host, subscription);
       });
       return out;
     });

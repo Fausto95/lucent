@@ -4,7 +4,7 @@
 // SensorManager. Both report in the same units: g for acceleration (iOS's
 // unit; Android's m/s² divided by standard gravity) and rad/s for
 // rotation. Samples are throttled to the interval JavaScript asks for.
-import { error, subscribe } from "lucent:core";
+import { error, EventEmitter, subscribe } from "lucent:core";
 import { PLATFORM } from "lucent:platform";
 import { CMMotionManager } from "lucent:ios/CoreMotion";
 import { OperationQueue } from "lucent:ios/Foundation";
@@ -178,6 +178,56 @@ export async function watch(
   if (PLATFORM === "ios") return iosWatch(kind, ms, onSample, signal);
   return androidWatch(kind, ms, onSample, signal);
 }
+
+// --- Events: the sensors run while JavaScript listens ---------------------------
+
+/** How often the events' readings come. */
+const EVENT_INTERVAL_MS = 50;
+
+/**
+ * Each sensor's readings as events, every 50 ms. The first listener
+ * starts the sensor and the last one stops it (onObserved), so nothing
+ * runs while nobody listens; a reload stops it too.
+ */
+export const sensorEvents = new EventEmitter<{
+  accelerometer: (sample: Sample) => void;
+  gyroscope: (sample: Sample) => void;
+}>();
+
+/** What stops each sensor the events are running. */
+const running = new Map<SensorKind, AbortController>();
+
+/** Sends `sample` as `kind`'s event: code names an event by a literal. */
+function send(kind: SensorKind, sample: Sample): void {
+  if (kind === "accelerometer") sensorEvents.emit("accelerometer", sample);
+  else sensorEvents.emit("gyroscope", sample);
+}
+
+/** Streams `kind` into its event until `signal` aborts; a device without it sends nothing. */
+async function stream(kind: SensorKind, signal: AbortSignal): Promise<void> {
+  try {
+    await watch(kind, EVENT_INTERVAL_MS, (sample) => send(kind, sample), signal);
+  } catch {
+    // Stopped (an AbortError), or the device has no such sensor: availability() says which.
+  }
+}
+
+/** Starts `kind` when its event is observed, and stops it when it no longer is. */
+function run(kind: SensorKind, observed: boolean): void {
+  running.get(kind)?.abort();
+  running.delete(kind);
+  if (!observed) return;
+  const controller = new AbortController();
+  running.set(kind, controller);
+  void stream(kind, controller.signal);
+}
+
+// For the module's life: the observers are never removed. A declaration,
+// as the top level of a Lucent module holds only declarations.
+const _following = [
+  sensorEvents.onObserved("accelerometer", (observed) => run("accelerometer", observed)),
+  sensorEvents.onObserved("gyroscope", (observed) => run("gyroscope", observed)),
+];
 
 /** The magnitude of a sample: about 1 g at rest for the accelerometer. */
 export function magnitude(sample: Sample): number {

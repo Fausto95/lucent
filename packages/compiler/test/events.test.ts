@@ -30,6 +30,20 @@ export function send(name: "a" | "b"): void {
     ]);
   });
 
+  it("observes an event a string literal names, with one observer", () => {
+    expect(
+      refusals(`${IMPORTS}
+const events = new EventEmitter<{ a: (n: number) => void; b: () => void }>();
+export function watch(name: "a" | "b"): void {
+  events.onObserved("a", (observed) => void observed);
+  events.onObserved(name, () => {});
+}
+`),
+    ).toEqual([
+      "LUCENT1007 6: an event's name is a string literal here: JavaScript may name it with any string",
+    ]);
+  });
+
   it("needs named events whose listeners return nothing", () => {
     expect(
       refusals(`${IMPORTS}

@@ -30,7 +30,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T71](#t71)   | Native object references as view props                            | blocked: a decision superseding 0046 and 0065; needs nothing open                                                                 |
 | [T78](#t78)   | UIKit components with a view-controller root                      | ready; needs nothing open                                                                                                         |
 | [TA38](#ta38) | Accept object literals for data-only interfaces                   | in progress (#162 merged)                                                                                                         |
-| [TA43](#ta43) | Tell a module when JavaScript starts and stops listening          | ready; needs nothing open                                                                                                         |
+| [TA43](#ta43) | Tell a module when JavaScript starts and stops listening          | done (#171, 2026-10-11)                                                                                                           |
 | [TA45](#ta45) | Record each example's evidence and state it from the record       | waiting (needs the maintainer: TA36's port sources); needs nothing open                                                           |
 | **G4**        | **Production candidate**                                          |                                                                                                                                   |
 | [T54](#t54)   | Implement measured compiler and runtime optimizations             | done (#90, #92, #93, #100, 2026-10-06)                                                                                            |
@@ -883,7 +883,8 @@ literals, with the e2e case green.
 stop it on the last, as Expo's `OnStartObserving` and `OnStopObserving`
 do.
 
-- **Status:** ready; needs nothing open.
+- **Status:** done (#171, 2026-10-11) on the host; the sensors example's
+  run on a device is the maintainer's.
 - **Area:** Runtime (events), compiler (events), lucent:core.
 - **Needs:** [TA37](#ta37) (done).
 - **Verify:** V1, V2, V3.
@@ -891,13 +892,17 @@ do.
   `jsi/convert.h` (listeners JavaScript adds), `lib/sdk/core.d.ts`,
   `examples/lucent-sensors`.
 
-- [ ] `EventEmitter.onObserved(name, (observed: boolean) => void)`: runs
+- [x] `EventEmitter.onObserved(name, (observed: boolean) => void)`: runs
       with `true` when the event's listener count goes from 0 to 1 and
       `false` when it returns to 0, on the module's thread under the lock,
       for listeners added from Lucent or JavaScript; a runtime teardown
-      that removes JavaScript's listeners counts as removal.
-- [ ] `lucent-sensors` starts the accelerometer on the first listener and
-      stops it on the last; e2e `events-observed`.
+      that removes JavaScript's listeners counts as removal (a scope
+      cleanup per JavaScript listener; `host_test.cpp`'s
+      `observersHearJavaScriptsListeners`). It returns a subscription,
+      and runs at once with `true` for an event that has listeners.
+- [x] `lucent-sensors` starts the accelerometer on the first listener and
+      stops it on the last (`sensorEvents`, compiled for the host; a
+      device run is the maintainer's); e2e `events-observed`.
 
 **Done when:** the sensors example starts and stops its hardware with its
 listeners, and the e2e case is green.

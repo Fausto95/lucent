@@ -349,6 +349,13 @@ end?)`, which copies. `new Uint8Array(buffer, byteOffset?, length?)` views
   methods; a listener JavaScript adds is a JS callback (run at once on the
   JS thread, posted from elsewhere) and belongs to its runtime, which a
   reload ends: it is then removed, and not counted.
+  `onObserved(name, observer)` calls `observer(true)` when the event gets
+  its first listener, from Lucent or JavaScript, and `observer(false)`
+  when its last one goes (removed, cleared, or ended by a reload), in the
+  emitter's actor; at once with `true` when the event has listeners
+  already. Its subscription stops it. `removeAllListeners()` clears the
+  events in their declaration order, where the JavaScript implementation
+  of `lucent:core` (tests) goes in the order each was first used.
 - **Callback APIs** (a native listener, say) become promises with
   `fromCallback`, which settles on what the API reports once, and
   subscriptions with `subscribe`, which passes each value to `onValue` until

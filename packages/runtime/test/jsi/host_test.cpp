@@ -1101,6 +1101,54 @@ static void listenersEndWithTheirRuntime() {
   CHECK(js.string("got.join()") == "1,3");
 }
 
+/// onObserved hears JavaScript's listeners come and go, in the emitter's
+/// actor, and a reload that removes them as their going.
+static void observersHearJavaScriptsListeners() {
+  for (bool destroy : {false, true}) {
+    JsThread js;
+    install(js);
+    std::mutex m;
+    std::vector<std::string> heard;
+    std::atomic<bool> inActor{true};
+    auto saw = [&] {
+      std::lock_guard<std::mutex> g(m);
+      return heard;
+    };
+    EventSubscription observer;
+    {
+      LucentScope scope;
+      observer = m_t::tickEvents->onObserved(0, Fn<void(bool)>([&](bool observed) {
+                                               if (Actor::current() != &m_t::tickEvents->actor()) inActor = false;
+                                               std::lock_guard<std::mutex> g(m);
+                                               heard.push_back(observed ? "on" : "off");
+                                             }));
+    }
+
+    js.eval("var a = mods.t.tickEvents().addListener('tick', () => {}); var b = mods.t.tickEvents().addListener('tick', () => {});");
+    CHECK(saw() == std::vector<std::string>{"on"});
+    js.eval("a.remove(); a.remove();");
+    CHECK(saw() == std::vector<std::string>{"on"});
+    js.eval("b.remove();");
+    CHECK((saw() == std::vector<std::string>{"on", "off"}));
+
+    // A reload, or the runtime's end, takes JavaScript's listeners with it.
+    js.eval("mods.t.tickEvents().addListener('tick', () => {});");
+    if (destroy) {
+      js.destroyRuntime();
+    } else {
+      js.run([&](jsi::Runtime& rt) { Host::create(rt, js.poster()); });
+    }
+    CHECK(within(2000, [&] { return saw().size() == 4; }));
+    CHECK((saw() == std::vector<std::string>{"on", "off", "on", "off"}));
+    CHECK(inActor);
+    {
+      LucentScope scope;
+      CHECK(m_t::tickEvents->listenerCount(0) == 0);
+      observer->remove();
+    }
+  }
+}
+
 /// A reload (a new host for the runtime, or the runtime's end) stops what
 /// module code started for it: compositions, subscriptions and native
 /// operations cancel and run their cleanups, and timers stop.
@@ -1711,6 +1759,7 @@ int main() {
   callbacksDroppedWithTheRuntimeReject();
   destroyHooksRunWhenModuleStateEnds();
   listenersEndWithTheirRuntime();
+  observersHearJavaScriptsListeners();
   reloadsStopModuleWork();
   resultsThatCannotCrossReject();
   returnedBytesMoveWhenNothingElseHoldsThem();

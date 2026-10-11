@@ -212,27 +212,63 @@ function listenersOf(emitter, name) {
   return list;
 }
 
+// Each emitter's observers (onObserved), by event.
+const observersOfEmitter = new WeakMap();
+
+function observersOf(emitter, name) {
+  const all = observersOfEmitter.get(emitter);
+  if (!all) throw new TypeError("not an EventEmitter");
+  let list = all.get(name);
+  if (!list) all.set(name, (list = []));
+  return list;
+}
+
 /** Events a module sends to its listeners: lucent:core's EventEmitter. */
 class EventEmitter {
   constructor() {
     emitters.set(this, new Map());
+    observersOfEmitter.set(this, new Map());
   }
 
   addListener(name, listener) {
     if (typeof listener !== "function")
       throw new TypeError("EventEmitter.addListener: argument 'listener' must be a function");
     const entry = { listener };
-    listenersOf(this, name).push(entry);
+    const list = listenersOf(this, name);
+    list.push(entry);
     let removed = false;
-    return {
+    const subscription = {
       remove: () => {
         if (removed) return;
         removed = true;
-        const list = listenersOf(this, name);
+        const now = listenersOf(this, name);
+        const i = now.indexOf(entry);
+        if (i < 0) return;
+        now.splice(i, 1);
+        if (now.length === 0) observed(this, name, false);
+      },
+    };
+    if (list.length === 1) observed(this, name, true);
+    return subscription;
+  }
+
+  onObserved(name, observer) {
+    if (typeof observer !== "function")
+      throw new TypeError("EventEmitter.onObserved: argument 'observer' must be a function");
+    const entry = { observer };
+    observersOf(this, name).push(entry);
+    let removed = false;
+    const subscription = {
+      remove: () => {
+        if (removed) return;
+        removed = true;
+        const list = observersOf(this, name);
         const i = list.indexOf(entry);
         if (i >= 0) list.splice(i, 1);
       },
     };
+    if (listenersOf(this, name).length) observer(true);
+    return subscription;
   }
 
   emit(name, ...args) {
@@ -245,9 +281,19 @@ class EventEmitter {
   }
 
   removeAllListeners(name) {
-    if (name === undefined) emitters.get(this).clear();
-    else listenersOf(this, name).length = 0;
+    const names = name === undefined ? [...emitters.get(this).keys()] : [name];
+    for (const n of names) {
+      const list = listenersOf(this, n);
+      if (!list.length) continue;
+      list.length = 0;
+      observed(this, n, false);
+    }
   }
+}
+
+/** Tells an event's observers, those it has now, whether it has listeners. */
+function observed(emitter, name, on) {
+  for (const { observer } of observersOf(emitter, name).slice()) observer(on);
 }
 
 // --- native buffers ---------------------------------------------------------

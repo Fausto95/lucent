@@ -25,10 +25,23 @@ export function Shake() {
 }
 ```
 
+Or listen to `sensorEvents`, an `EventEmitter`: the first listener of an event
+starts its sensor, at 50 ms, and the last one stops it.
+
+```tsx
+import { sensorEvents } from "lucent-sensors";
+
+useEffect(() => {
+  const subscription = sensorEvents.addListener("accelerometer", setSample);
+  return () => subscription.remove();
+}, []);
+```
+
 ## Files
 
 - `src/sensors.lucent.ts`: the module. `availability()`, `watch(kind,
-intervalMs, onSample, signal)` and `magnitude(sample)`.
+intervalMs, onSample, signal)`, `magnitude(sample)` and the
+  `sensorEvents` emitter.
 - `lucent.json`: links CoreMotion on iOS. Android needs no permission for
   these two sensors.
 
@@ -46,6 +59,9 @@ withHandler:)` takes a block; Android takes a listener object. Both are
   milliseconds, so JavaScript sees one shape on both platforms.
 - **Errors with codes.** A device without the sensor rejects with
   `E_SENSOR_UNAVAILABLE`, which JavaScript reads as `error.code`.
+- **Hardware only while someone listens.** `sensorEvents.onObserved` starts a
+  sensor when its event gets its first listener and stops it when the
+  last one goes, from JavaScript or a reload.
 
 ## Build and check it
 
