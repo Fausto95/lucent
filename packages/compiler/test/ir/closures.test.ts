@@ -98,7 +98,8 @@ describe("closures in the IR", () => {
       fn.indexOf("fib"),
     );
 
-    expect(fn).toContain("[fib = fib]");
+    // It captures its own variable's box, which may hold a closure: a lucent::Closure.
+    expect(fn).toContain('"fib", [](std::decay_t<decltype(fib)>& fib, double p0_)');
   });
 
   it("passes a callback to a builtin as the lambda itself, which the method calls directly", () => {

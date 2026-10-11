@@ -14,6 +14,7 @@
 
 #include "lucent/buffer.h"
 #include "lucent/debug.h"
+#include "lucent/events.h"
 #include "lucent/lucent.h"
 #include "lucent/reactive.h"
 #include "lucent/refs.h"
@@ -202,6 +203,70 @@ static void findsCyclesOnce() {
   CHECK(found.size() == 2 && found[1].rfind("a reference cycle keeps 3 objects alive: Node.next, then Node.next, then Node.next", 0) == 0);
 }
 
+namespace {
+
+/// A class holding a closure, as the compiler makes one when it captures objects.
+struct Session : Object {
+  Fn<void()> onFrame;
+  void lucentRefs_(debug::RefSink& s) const override { debug::refs(s, onFrame, "Session.onFrame", "camera.lucent.ts:2"); }
+};
+
+}  // namespace
+
+// A cycle through a closure: a field holds it, and it captures the object;
+// one through an emitter's listener; a closure that captures itself
+// through a box is read once.
+static void findsCyclesThroughClosures() {
+  debug::trackObjects();
+  newCycles();
+
+  {
+    auto session = std::make_shared<Session>();
+    session->onFrame = lucent::closure("camera.lucent.ts:41", "this,count", [](Ref<Session>& self, double& count) { count++; },
+                                       Ref<Session>(session), 0.0);
+  }
+  auto found = newCycles();
+  CHECK(found.size() == 1);
+  CHECK(!found.empty() && found[0] ==
+                              "a reference cycle keeps 1 object alive: Session.onFrame (camera.lucent.ts:2), then the closure at "
+                              "camera.lucent.ts:41, which captures this, to itself. Capture a WeakRef of this in the closure at "
+                              "camera.lucent.ts:41 to break it.");
+
+  // The captures stay the closure's: a mutable one keeps its changes.
+  auto counter = std::make_shared<Session>();
+  Box<double> calls(0);
+  counter->onFrame = lucent::closure("camera.lucent.ts:50", "calls", [](Box<double>& calls) { (*calls)++; }, calls);
+  counter->onFrame();
+  counter->onFrame();
+  CHECK(*calls == 2);
+  CHECK(newCycles().empty());
+
+  // A listener of an emitter the object holds, which captures the object.
+  struct Camera : Object {
+    Ref<EventEmitterObject<Fn<void(double)>>> frames = EventEmitterObject<Fn<void(double)>>::create({"frame"});
+    void lucentRefs_(debug::RefSink& s) const override { debug::refs(s, frames, "Camera.frames", "camera.lucent.ts:60"); }
+  };
+  {
+    auto camera = std::make_shared<Camera>();
+    camera->frames->addListener<0>(
+        lucent::closure("camera.lucent.ts:64", "this", [](Ref<Camera>&, double) {}, Ref<Camera>(camera)));
+  }
+  found = newCycles();
+  CHECK(found.size() == 1);
+  CHECK(!found.empty() && found[0] ==
+                              "a reference cycle keeps 2 objects alive: Camera.frames (camera.lucent.ts:60), then the frame "
+                              "listener, then the closure at camera.lucent.ts:64, which captures this, back to the first. "
+                              "Capture a WeakRef of this in the closure at camera.lucent.ts:64 to break it.");
+
+  // A closure that captures itself, through a box: read once, and no cycle of objects.
+  auto self = std::make_shared<Session>();
+  Box<Fn<void()>> slot;
+  *slot = lucent::closure("loop.lucent.ts:3", "loop", [](Box<Fn<void()>>&) {}, slot);
+  self->onFrame = *slot;
+  CHECK(newCycles().empty());
+  *slot = Fn<void()>();
+}
+
 // Native references are the runtime's own count (liveNativeRefs).
 static void countsNativeReferences() {
   CHECK(debug::resources().nativeRefs == liveNativeRefs());
@@ -212,6 +277,7 @@ int main() {
   countsAViewsGraph();
   countsBackstops();
   findsCyclesOnce();
+  findsCyclesThroughClosures();
   countsNativeReferences();
 
   std::printf("debug: %d checks, %d failures\n", checks, failures);
