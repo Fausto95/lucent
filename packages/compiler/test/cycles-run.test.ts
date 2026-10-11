@@ -90,9 +90,10 @@ describe("a debug build's cycle report", () => {
       fs.writeFileSync(path.join(dir, "main.cpp"), MAIN);
 
       const cpp = path.join(runtimeDir(), "cpp");
-      const runtime = [
-        ...fs.readdirSync(path.join(cpp, "lucent")).filter((f) => f.endsWith(".cpp")),
-      ].map((f) => path.join(cpp, "lucent", f));
+      const runtime = fs
+        .readdirSync(path.join(cpp, "lucent"))
+        .filter((f) => f.endsWith(".cpp"))
+        .map((f) => path.join(cpp, "lucent", f));
       const regexp = fs
         .readdirSync(path.join(cpp, "third_party/quickjs"))
         .filter((f) => f.endsWith(".c"))
