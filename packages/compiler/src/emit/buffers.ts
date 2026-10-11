@@ -132,6 +132,12 @@ const METHODS: Record<string, Lowers> = {
     refuseLaterUse(em, receiver, node, "transfer() moved its bytes to another buffer");
     return { c: cpp.call(cpp.arrow(buffer.c, "transfer")), t: T.buffer };
   },
+  transferToArrayBuffer: (em, node, buffer) => {
+    const receiver = (node.expression as ts.PropertyAccessExpression).expression;
+
+    refuseLaterUse(em, receiver, node, "transferToArrayBuffer() moved its bytes to an ArrayBuffer");
+    return { c: cpp.call(cpp.arrow(buffer.c, "transferToArrayBuffer")), t: T.arrayBuffer };
+  },
   close,
 };
 

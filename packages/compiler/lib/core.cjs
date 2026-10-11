@@ -359,6 +359,18 @@ class NativeBuffer {
     return moved;
   }
 
+  transferToArrayBuffer() {
+    const s = stateOf(this);
+
+    borrowable(s, true);
+    const bytes = s.bytes;
+    commitTransfer(this);
+    // The bytes' own buffer when they fill it, as allocate() makes them.
+    return bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
+      ? bytes.buffer
+      : bytes.slice().buffer;
+  }
+
   close() {
     const s = stateOf(this);
 

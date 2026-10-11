@@ -229,6 +229,15 @@ ${body}
     expect(d!.message).toContain("transfer()");
   });
 
+  it("refuses a buffer used after transferToArrayBuffer()", () => {
+    const [d] = moves(
+      "  const bytes = buffer.transferToArrayBuffer();\n  return buffer.byteLength + bytes.byteLength;",
+    );
+
+    expect(d).toMatchObject({ code: "LUCENT3031", line: 13 });
+    expect(d!.message).toContain("transferToArrayBuffer()");
+  });
+
   it("refuses a buffer used after it moved to a compute task", () => {
     expect(
       moves("  const sum = await compute(scan, buffer);\n  return sum + scan(buffer);"),

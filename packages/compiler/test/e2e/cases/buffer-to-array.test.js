@@ -1,0 +1,22 @@
+(async () => {
+  print(mod.moved());
+  const ab = mod.filled(3, 5);
+  print(ab instanceof ArrayBuffer, ab.byteLength, new Uint8Array(ab).join(","));
+  print(await mod.fromTask(100));
+  print(mod.refusals());
+
+  // From JavaScript, a buffer's handle moves its bytes into an ArrayBuffer too.
+  const handle = mod.make(4);
+  const moved = handle.transferToArrayBuffer();
+  print(
+    moved instanceof ArrayBuffer,
+    moved.byteLength,
+    new Uint8Array(moved).join(","),
+    handle.byteLength,
+  );
+  try {
+    handle.withRead(() => 0);
+  } catch (e) {
+    print(e.name, e.message);
+  }
+})();

@@ -399,6 +399,11 @@ transferred`) on use, and closing it does nothing. Passing a buffer to
     refused (`LUCENT3031`); other aliases are refused at run time.
   - `close()`, or `using`, releases the bytes; after that the buffer throws
     `NativeBuffer is closed` on use. Closing twice does nothing.
+  - `transferToArrayBuffer()` moves the bytes into an `ArrayBuffer`, uncopied,
+    which releases them as the buffer would (on the buffer's executor, when
+    it has one) once nothing holds it; the buffer is then transferred, as
+    after `transfer()`. Returned to JavaScript, the `ArrayBuffer` is still
+    the same bytes.
   - `toUint8Array()` and `from` are the only copies. `NativeBuffer.stats()`
     counts allocations, transfers and copies (and the bytes copied) since
     the app started, to check that a path does not copy.
@@ -490,7 +495,9 @@ null }` and `{ v: string | undefined }` share one native layout). A body
   `AbortController` cannot cross at all.
 - **NativeBuffers** cross as opaque handles that keep their identity, like
   class instances, with the same `byteLength`, `withRead`, `withWrite`,
-  `toUint8Array`, `transfer` and `close`. JavaScript is never given memory
+  `toUint8Array`, `transfer`, `transferToArrayBuffer` and `close`. A
+  moved `ArrayBuffer` is the buffer's bytes, which no worker can reach
+  any more. JavaScript is never given memory
   a worker may be writing: its borrows lend it a copy of the bytes (counted
   by `stats()`), copied back when `withWrite`'s callback returns. So a
   `Uint8Array` a JavaScript callback keeps does not follow the buffer, where

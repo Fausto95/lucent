@@ -344,6 +344,11 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "lucent:core.NativeBuffer.withWrite": { calls: "during", mutates: true, throws: true },
   "lucent:core.NativeBuffer.toUint8Array": ALLOCATES_THROWS,
   "lucent:core.NativeBuffer.transfer": { mutates: true, allocates: true, throws: true },
+  "lucent:core.NativeBuffer.transferToArrayBuffer": {
+    mutates: true,
+    allocates: true,
+    throws: true,
+  },
   "lucent:core.NativeBuffer.close": { mutates: true, throws: true },
   "lucent:core.NativeBuffer.[Symbol.dispose]": { mutates: true, throws: true },
   // Not the receiver back, unlike Uint8Array's: a span never leaves its borrow.

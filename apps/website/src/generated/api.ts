@@ -320,7 +320,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "NativeBuffer",
         "kind": "class",
-        "signature": "class NativeBuffer {\n  private constructor();\n  static allocate(size: number): NativeBuffer;\n  static from(bytes: Uint8Array): NativeBuffer;\n  static stats(): NativeBufferStats;\n  readonly byteLength: number;\n  withRead<R>(read: (bytes: ByteSpan) => R): R;\n  withWrite<R>(write: (bytes: MutableByteSpan) => R): R;\n  toUint8Array(): Uint8Array;\n  transfer(): NativeBuffer;\n  close(): void;\n  [Symbol.dispose](): void;\n}",
+        "signature": "class NativeBuffer {\n  private constructor();\n  static allocate(size: number): NativeBuffer;\n  static from(bytes: Uint8Array): NativeBuffer;\n  static stats(): NativeBufferStats;\n  readonly byteLength: number;\n  withRead<R>(read: (bytes: ByteSpan) => R): R;\n  withWrite<R>(write: (bytes: MutableByteSpan) => R): R;\n  toUint8Array(): Uint8Array;\n  transfer(): NativeBuffer;\n  transferToArrayBuffer(): ArrayBuffer;\n  close(): void;\n  [Symbol.dispose](): void;\n}",
         "doc": [
           "Bytes native code owns, handed to compute tasks and JavaScript without copying them. A `Uint8Array` is copied whenever it crosses, while a NativeBuffer moves.",
           "The bytes are reached through a borrow, for the length of one call. `withRead` lends them to its callback as a `ByteSpan`, and `withWrite` as a `MutableByteSpan`. Reads share the buffer, while a write needs it to itself.",
@@ -374,6 +374,11 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "name": "transfer",
             "signature": "transfer(): NativeBuffer;",
             "doc": "Moves the bytes, uncopied, to a new buffer: every reference to this one refuses them from now on."
+          },
+          {
+            "name": "transferToArrayBuffer",
+            "signature": "transferToArrayBuffer(): ArrayBuffer;",
+            "doc": "Moves the bytes, uncopied, into an `ArrayBuffer`: every reference to this buffer refuses them from now on, and the ArrayBuffer releases them as the buffer would have. Returned to JavaScript, it is the same bytes. A borrowed buffer does not move (an InvalidStateError)."
           },
           {
             "name": "close",
