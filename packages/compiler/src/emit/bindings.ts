@@ -77,6 +77,9 @@ export class BindingsEmitter {
         this.ifaces.set(typeKey(t), t);
         for (const c of this.reg.implementations(t))
           this.use({ k: "class", id: c.id, args: [] }, node);
+        // Its object literals cross as plain objects, of its shape.
+        const literal = this.reg.ifaceLiterals.get(t.id);
+        if (literal) this.use(literal.shape, node);
         return;
       }
       case "union":
@@ -548,6 +551,22 @@ export class BindingsEmitter {
     );
   }
 
+  /** An object literal standing for interface `t`: its shape, a plain object, by copy. */
+  private asLiteral(t: LType & { k: "iface" }): cpp.Stmt[] {
+    const literal = this.reg.ifaceLiterals.get(t.id);
+    if (!literal) return [];
+    return [
+      {
+        k: "if",
+        bind: { type: cpp.auto, name: "l" },
+        test: dynamicCast(cpp.type(`lucent_app::${literal.cppName}`), v),
+        body: [
+          cpp.ret(toJs(this.reg.cppType(literal.shape), cpp.id("h"), cpp.arrow(cpp.id("l"), "s"))),
+        ],
+      },
+    ];
+  }
+
   /** `if (auto d = std::dynamic_pointer_cast<C>(v)) return Convert<C>::toJs(rt, h, d);` */
   private asSubclass(c: ClassInfo, name: string): cpp.Stmt {
     return {
@@ -594,6 +613,7 @@ export class BindingsEmitter {
         toJsParams(s),
         [
           cpp.ifStmt(cpp.not(v), [cpp.ret(cpp.call("jsi::Value::null"))]),
+          ...this.asLiteral(t),
           ...impls.map((c) => this.asSubclass(c, "c")),
           {
             k: "throw",

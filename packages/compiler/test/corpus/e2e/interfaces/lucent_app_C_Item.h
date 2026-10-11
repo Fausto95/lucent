@@ -19,7 +19,7 @@ struct C_Item : lucent::Object, virtual lucent_app::I_Tagged {
   void construct(lucent::String p0_);
   static lucent::Ref<C_Item> create(lucent::String p0_);
   lucent::String tag() override;
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
   lucent::String get_label() override {
     return this->label;
   }

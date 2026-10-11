@@ -31,7 +31,7 @@ struct C_Circle : lucent::Object, virtual lucent_app::I_Shape, virtual lucent_ap
   static lucent::Ref<C_Circle> create(double p0_);
   double area() override;
   lucent::String describe(lucent::String p0_) override;
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
   lucent::String get_kind() override {
     return this->kind;
   }

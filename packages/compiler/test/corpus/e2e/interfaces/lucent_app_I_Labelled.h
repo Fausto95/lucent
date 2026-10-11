@@ -2,13 +2,19 @@
 #pragma once
 #include "lucent_app.h"
 
+#pragma push_macro("w")
+#undef w
+
 namespace lucent_app {
 
 struct I_Labelled;
 
 struct I_Labelled {
   virtual ~I_Labelled() = default;
+  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson) = 0;
   virtual lucent::String get_label() = 0;
 };
 
 }  // namespace lucent_app
+
+#pragma pop_macro("w")

@@ -36,7 +36,7 @@ import { Ctx, type Global } from "./context.ts";
 import { initThroughIr, type IrMode, type IrUnit, throughIr } from "./through-ir.ts";
 import type { Initializer } from "../ir/lower.ts";
 import { FnEmitter } from "./function.ts";
-import { emitIface } from "./interfaces.ts";
+import { emitIface, emitIfaceLiteral } from "./interfaces.ts";
 import { declaredNames, withoutMacros } from "./macros.ts";
 import { INDEX_HEADER, type TypeItem, typeHeaders } from "./type-headers.ts";
 import { stringExpr } from "../lowering/literals.ts";
@@ -392,12 +392,17 @@ export function emitProgram(
       const d = ctx.guard(() => emitIface(ctx, i));
       return d ? [{ name: i.cppName, defs: [d], decls: [], inline: [] }] : [];
     });
+  // Object literals standing for data-only interfaces: each interface's literal class.
+  const literalDefs = [...ctx.reg.ifaceLiterals.entries()].flatMap(([id, lit]): TypeItem[] => {
+    const d = ctx.guard(() => emitIfaceLiteral(ctx, id));
+    return d ? [{ name: lit.cppName, defs: [d], decls: [], inline: [] }] : [];
+  });
   const json = jsonWriters(ctx);
   const readers = ctx.guard(() => jsonReaders(ctx)) ?? { decls: [], defs: [] };
 
   const app = (body: cpp.Decl[]) => cpp.namespace("lucent_app", body);
   // Each type's definition and inline code in its header (type-headers.ts), in this order.
-  const items = [...structDefs, ...ifaceDefs, ...classDefs, ...genericClassDefs];
+  const items = [...structDefs, ...ifaceDefs, ...literalDefs, ...classDefs, ...genericClassDefs];
   const byName = new Map(items.map((t) => [t.name, t]));
   for (const [owner, decls] of json.decls) byName.get(owner)?.decls.push(...decls);
   for (const [owner, decls] of json.defs) byName.get(owner)?.inline.push(...decls);
@@ -407,6 +412,9 @@ export function emitProgram(
       (s) => [s.cppName, cpp.struct(s.cppName, [], { forward: true })] as const,
     ),
     ...ifaceFwd.map((d) => [(d as { name: string }).name, d] as const),
+    ...[...ctx.reg.ifaceLiterals.values()].map(
+      (l) => [l.cppName, cpp.struct(l.cppName, [], { forward: true })] as const,
+    ),
     ...classFwd.map((d) => [(d as { name: string }).name, d] as const),
   ]);
   const typeFiles = typeHeaders(items, forward, readers, app);

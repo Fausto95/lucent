@@ -19,7 +19,7 @@ struct C_Up : lucent::Object, virtual lucent_app::I_Counter {
   void construct();
   static lucent::Ref<C_Up> create();
   double next() override;
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
 };
 
 inline bool C_Up::lucentJson_(lucent::JsonWriter& w, bool toJson) {

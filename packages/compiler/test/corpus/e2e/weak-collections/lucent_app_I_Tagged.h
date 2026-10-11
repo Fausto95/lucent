@@ -11,6 +11,7 @@ struct I_Tagged;
 
 struct I_Tagged {
   virtual ~I_Tagged() = default;
+  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson) = 0;
   virtual lucent::String tag() = 0;
 };
 

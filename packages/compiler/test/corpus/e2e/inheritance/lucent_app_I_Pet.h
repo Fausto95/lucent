@@ -11,6 +11,7 @@ struct I_Pet;
 
 struct I_Pet {
   virtual ~I_Pet() = default;
+  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson) = 0;
   virtual lucent::String get_name() = 0;
   virtual void set_name(lucent::String v) = 0;
   virtual lucent::String speak() = 0;

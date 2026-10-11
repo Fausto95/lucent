@@ -17,7 +17,7 @@ struct C_Tag : lucent::Object, virtual lucent_app::I_Named {
   void construct(lucent::String p0_);
   static lucent::Ref<C_Tag> create(lucent::String p0_);
   lucent::String label() override;
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
 };
 
 inline bool C_Tag::lucentJson_(lucent::JsonWriter& w, bool toJson) {

@@ -4,6 +4,8 @@
 
 #pragma push_macro("load")
 #undef load
+#pragma push_macro("w")
+#undef w
 
 namespace lucent_app {
 
@@ -11,9 +13,11 @@ struct I_Source;
 
 struct I_Source {
   virtual ~I_Source() = default;
+  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson) = 0;
   virtual lucent::Promise<lucent::String> load(lucent::String a0) = 0;
 };
 
 }  // namespace lucent_app
 
+#pragma pop_macro("w")
 #pragma pop_macro("load")

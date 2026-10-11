@@ -6,6 +6,8 @@
 #undef T
 #pragma push_macro("next")
 #undef next
+#pragma push_macro("w")
+#undef w
 
 namespace lucent_app {
 
@@ -15,11 +17,13 @@ struct I_Feed;
 template <class T>
 struct I_Feed {
   virtual ~I_Feed() = default;
+  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson) = 0;
   virtual double get_count() = 0;
   virtual lucent::Opt<T> next() = 0;
 };
 
 }  // namespace lucent_app
 
+#pragma pop_macro("w")
 #pragma pop_macro("next")
 #pragma pop_macro("T")

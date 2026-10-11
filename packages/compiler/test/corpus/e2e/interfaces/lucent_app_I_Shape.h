@@ -6,6 +6,8 @@
 #undef area
 #pragma push_macro("describe")
 #undef describe
+#pragma push_macro("w")
+#undef w
 
 namespace lucent_app {
 
@@ -13,6 +15,7 @@ struct I_Shape;
 
 struct I_Shape {
   virtual ~I_Shape() = default;
+  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson) = 0;
   virtual lucent::String get_kind() = 0;
   virtual double area() = 0;
   virtual lucent::String describe(lucent::String a0) = 0;
@@ -20,5 +23,6 @@ struct I_Shape {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("w")
 #pragma pop_macro("describe")
 #pragma pop_macro("area")

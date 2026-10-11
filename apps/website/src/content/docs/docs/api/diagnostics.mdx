@@ -649,9 +649,9 @@ export function lastName(names: string[]): string | undefined {
 
 **Interface not declared with implements**
 
-An interface with methods compiles to an abstract C++ base class, and only classes that declare `implements` derive from it. A class that matches the interface only by shape, or an object literal, is not one of them.
+An interface with methods compiles to an abstract C++ base class, and only classes that declare `implements` derive from it. A class that matches the interface only by shape is not one of them, nor is an object literal for an interface with a method or type parameters; a literal does stand for a non-generic interface of properties alone.
 
-**Fix:** add `implements` to the class.
+**Fix:** add `implements` to the class, or use a class that declares it in place of the object literal.
 
 <Tabs>
 <TabItem label="✗ example.lucent.ts">

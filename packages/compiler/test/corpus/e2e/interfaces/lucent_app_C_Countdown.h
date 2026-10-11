@@ -22,7 +22,7 @@ struct C_Countdown : lucent::Object, virtual lucent_app::I_Feed<double> {
   void construct(double p0_);
   static lucent::Ref<C_Countdown> create(double p0_);
   lucent::Opt<double> next() override;
-  virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
   double get_count() override {
     return this->count;
   }
