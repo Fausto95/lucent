@@ -369,6 +369,13 @@ const LIBRARY: Record<string, LibraryEffect> = {
   // emit runs the listeners: code of any effect (it is not listed).
   "lucent:core.EventEmitter.listenerCount": NONE,
   "lucent:core.EventEmitter.removeAllListeners": MUTATES,
+  // The observer runs when the event's listeners come and go, on this context.
+  "lucent:core.EventEmitter.onObserved": {
+    mutates: true,
+    allocates: true,
+    keeps: "receiver",
+    calls: "later",
+  },
   "lucent:core.EventSubscription.remove": MUTATES,
   "lucent:core.delay": { allocates: true, schedules: true },
   "lucent:core.error": ALLOCATES,

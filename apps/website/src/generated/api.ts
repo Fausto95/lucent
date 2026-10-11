@@ -223,7 +223,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "EventEmitter",
         "kind": "class",
-        "signature": "class EventEmitter<Events extends { [name: string]: (...args: never[]) => void }> {\n  constructor();\n  addListener<K extends keyof Events & string>(name: K, listener: Events[K]): EventSubscription;\n  emit<K extends keyof Events & string>(name: K, ...args: Parameters<Events[K]>): void;\n  listenerCount(name: keyof Events & string): number;\n  removeAllListeners(name?: keyof Events & string): void;\n}",
+        "signature": "class EventEmitter<Events extends { [name: string]: (...args: never[]) => void }> {\n  constructor();\n  addListener<K extends keyof Events & string>(name: K, listener: Events[K]): EventSubscription;\n  emit<K extends keyof Events & string>(name: K, ...args: Parameters<Events[K]>): void;\n  listenerCount(name: keyof Events & string): number;\n  removeAllListeners(name?: keyof Events & string): void;\n  onObserved(name: keyof Events & string, observer: (observed: boolean) => void): EventSubscription;\n}",
         "doc": [
           "Events a module sends to its listeners, in Lucent and in JavaScript. `Events` names each event and its listener's signature, as Expo's `EventEmitter` does: `EventEmitter<{ progress: (percent: number) => void }>`.",
           "`emit(name, ...args)` calls the event's listeners, in the order they were added; those added or removed while it runs take effect at the next emit. A listener's throw ends the emit and reaches its caller. In Lucent, an event's name is a string literal.",
@@ -259,6 +259,11 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "name": "removeAllListeners",
             "signature": "removeAllListeners(name?: keyof Events & string): void;",
             "doc": "Removes the event's listeners, or every event's without a name."
+          },
+          {
+            "name": "onObserved",
+            "signature": "onObserved(name: keyof Events & string, observer: (observed: boolean) => void): EventSubscription;",
+            "doc": "Calls `observer(true)` when the event gets its first listener, from Lucent or JavaScript, and `observer(false)` when its last one goes: removed, or taken by a reload. It is called at once with `true` if the event has listeners already. The subscription stops it. Use it to start the native source behind an event only while someone listens."
           }
         ],
         "params": []

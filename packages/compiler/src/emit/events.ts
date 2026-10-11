@@ -97,6 +97,18 @@ export function emitterMethod(em: FnEmitter, obj: E, name: string, node: ts.Call
 
       return { c: cpp.call(cpp.arrow(o, "listenerCount"), [cpp.num(index)]), t: T.number };
     }
+    case "onObserved": {
+      const { index } = eventAt(em, t, node, 0);
+      const observer = node.arguments[1];
+      if (!observer || node.arguments.length > 2)
+        fail(node, Codes.UnsupportedCall, "onObserved takes an event's name and its observer");
+      const fn: LType = { k: "fn", params: [T.boolean], ret: T.void };
+
+      return {
+        c: cpp.call(cpp.arrow(o, "onObserved"), [cpp.num(index), em.exprAs(observer, fn)]),
+        t: T.subscription,
+      };
+    }
     case "removeAllListeners": {
       if (!node.arguments.length) return done(cpp.call(cpp.arrow(o, "removeAllListeners")));
       const { index } = eventAt(em, t, node, 0);

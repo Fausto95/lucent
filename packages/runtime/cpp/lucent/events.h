@@ -9,8 +9,12 @@
 // host is torn down (a reload), the listener is gone, and listenerCount no
 // longer counts it. Everything here runs in the actor of the module that
 // made the emitter (or its subscription): JavaScript's calls enter it too.
+//
+// onObserved tells module code when an event gets its first listener and
+// when its last goes, from either side, to start and stop what feeds it.
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <initializer_list>
@@ -95,29 +99,41 @@ class EventEmitterObject : public Object {
   }
 
   /// Adds `fn` as the last listener of event I. `alive`, when given, says
-  /// whether the listener's owner still is (a JavaScript runtime).
+  /// whether the listener's owner still is (a JavaScript runtime). `id`,
+  /// when given, receives the listener's, for removeListener.
   template <size_t I>
-  EventSubscription addListener(Listener<I> fn, std::function<bool()> alive = nullptr) {
-    uint64_t id = nextId_++;
-    std::get<I>(listeners_).push_back(Entry<Listener<I>>{id, std::move(fn), std::move(alive)});
+  EventSubscription addListener(Listener<I> fn, std::function<bool()> alive = nullptr, uint64_t* id = nullptr) {
+    uint64_t at = nextId_++;
+    if (id) *id = at;
+    prune<I>();
+    auto& list = std::get<I>(listeners_);
+    bool first = list.empty();
+    list.push_back(Entry<Listener<I>>{at, std::move(fn), std::move(alive)});
     auto weak = std::weak_ptr<Object>(this->shared_from_this());
-    return std::make_shared<EventSubscriptionObject>([weak, id] {
-      auto self = weak.lock();
-      if (!self) return;
-      auto& list = std::get<I>(static_cast<EventEmitterObject&>(*self).listeners_);
-      for (auto it = list.begin(); it != list.end(); ++it)
-        if (it->id == id) {
-          list.erase(it);
-          return;
-        }
+    auto subscription = std::make_shared<EventSubscriptionObject>([weak, at] {
+      if (auto self = weak.lock()) static_cast<EventEmitterObject&>(*self).template removeListener<I>(at);
     });
+    if (first) observed(I, true);
+    return subscription;
+  }
+
+  /// Removes event I's listener `id`, if it still has it.
+  template <size_t I>
+  void removeListener(uint64_t id) {
+    auto& list = std::get<I>(listeners_);
+    for (auto it = list.begin(); it != list.end(); ++it)
+      if (it->id == id) {
+        list.erase(it);
+        if (list.empty()) observed(I, false);
+        return;
+      }
   }
 
   /// Calls event I's listeners, those it has now, in the order they were
   /// added. A listener's throw ends the emit and reaches its caller.
   template <size_t I, class... A>
   void emit(A... args) {
-    prune(std::get<I>(listeners_));
+    prune<I>();
     auto now = std::get<I>(listeners_);
     for (auto& l : now) {
       if (l.alive && !l.alive()) continue;
@@ -129,21 +145,38 @@ class EventEmitterObject : public Object {
   double listenerCount(size_t i) {
     double n = 0;
     detail::withIndex<kEvents>(i, [&](auto I) {
-      auto& list = std::get<I>(listeners_);
-      prune(list);
-      n = static_cast<double>(list.size());
+      prune<decltype(I)::value>();
+      n = static_cast<double>(std::get<I>(listeners_).size());
     });
     return n;
   }
 
   /// Removes event `i`'s listeners.
   void removeAllListeners(size_t i) {
-    detail::withIndex<kEvents>(i, [&](auto I) { std::get<I>(listeners_).clear(); });
+    detail::withIndex<kEvents>(i, [&](auto I) { clear<decltype(I)::value>(); });
   }
 
-  /// Removes every event's listeners.
+  /// Removes every event's listeners, event by event in declaration order.
   void removeAllListeners() {
-    std::apply([](auto&... list) { (list.clear(), ...); }, listeners_);
+    clearAll(std::make_index_sequence<kEvents>{});
+  }
+
+  /// Calls `observer(true)` when event `i` gets its first listener, from
+  /// Lucent or JavaScript, and `observer(false)` when its last goes
+  /// (removed, or its runtime torn down); at once with true when it has
+  /// listeners now. The subscription stops it.
+  EventSubscription onObserved(size_t i, Fn<void(bool)> observer) {
+    uint64_t at = nextId_++;
+    observers_.at(i).push_back(Observer{at, observer});
+    auto weak = std::weak_ptr<Object>(this->shared_from_this());
+    auto subscription = std::make_shared<EventSubscriptionObject>([weak, i, at] {
+      auto self = weak.lock();
+      if (!self) return;
+      auto& list = static_cast<EventEmitterObject&>(*self).observers_.at(i);
+      std::erase_if(list, [at](const Observer& o) { return o.id == at; });
+    });
+    if (listenerCount(i) > 0) observer(true);
+    return subscription;
   }
 
  private:
@@ -154,15 +187,44 @@ class EventEmitterObject : public Object {
     std::function<bool()> alive;
   };
 
-  /// Drops the listeners whose owner is gone.
-  template <class List>
-  static void prune(List& list) {
+  struct Observer {
+    uint64_t id;
+    Fn<void(bool)> fn;
+  };
+
+  /// Drops event I's listeners whose owner is gone.
+  template <size_t I>
+  void prune() {
+    auto& list = std::get<I>(listeners_);
+    bool had = !list.empty();
     std::erase_if(list, [](const auto& l) { return l.alive && !l.alive(); });
+    if (had && list.empty()) observed(I, false);
+  }
+
+  template <size_t... I>
+  void clearAll(std::index_sequence<I...>) {
+    (clear<I>(), ...);
+  }
+
+  template <size_t I>
+  void clear() {
+    auto& list = std::get<I>(listeners_);
+    bool had = !list.empty();
+    list.clear();
+    if (had) observed(I, false);
+  }
+
+  /// Tells event `i`'s observers, those it has now, in the order they were added.
+  void observed(size_t i, bool on) {
+    if (observers_[i].empty()) return;
+    auto now = observers_[i];
+    for (auto& o : now) o.fn(on);
   }
 
   Actor* actor_ = Actor::current();
   std::vector<std::string> names_;
   std::tuple<std::vector<Entry<Fns>>...> listeners_;
+  std::array<std::vector<Observer>, kEvents> observers_;
   uint64_t nextId_ = 1;
 };
 

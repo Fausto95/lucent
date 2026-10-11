@@ -202,6 +202,33 @@ export declare class EventEmitter<Events extends { [name: string]: (...args: nev
 
   /** Removes the event's listeners, or every event's without a name. */
   removeAllListeners(name?: keyof Events & string): void;
+
+  /**
+   * Calls `observer(true)` when the event gets its first listener, from
+   * Lucent or JavaScript, and `observer(false)` when its last one goes:
+   * removed, or taken by a reload. It is called at once with `true` if the
+   * event has listeners already. The subscription stops it. Use it to
+   * start the native source behind an event only while someone listens.
+   *
+   * ```ts
+   * import { EventEmitter } from "lucent:core";
+   *
+   * export const motion = new EventEmitter<{ reading: (x: number, y: number, z: number) => void }>();
+   *
+   * // For the module's life: the top level holds declarations.
+   * const watching = motion.onObserved("reading", (observed) => {
+   *   if (observed) startAccelerometer();
+   *   else stopAccelerometer();
+   * });
+   *
+   * function startAccelerometer(): void {}
+   * function stopAccelerometer(): void {}
+   * ```
+   *
+   * @param name The event.
+   * @param observer Called with whether the event has listeners now.
+   */
+  onObserved(name: keyof Events & string, observer: (observed: boolean) => void): EventSubscription;
 }
 
 /** How a compute task runs. */
