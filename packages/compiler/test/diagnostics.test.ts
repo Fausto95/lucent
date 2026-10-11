@@ -799,6 +799,25 @@ export function f(round: boolean): number {
     });
   });
 
+  describe("Channel", () => {
+    it("rejects values that cannot be copied to its consumer", () => {
+      const d = compileSource(
+        'import { Channel } from "lucent:core";\nexport function f(): boolean { const c = new Channel<() => void>("lossless"); return c.closed; }',
+      ).diagnostics;
+      expect(d.map((x) => x.code)).toEqual(["LUCENT3012"]);
+      expect(d[0]!.message).toContain("a channel's values are copied to its consumer");
+      expect(d[0]!.message).toContain("a function");
+    });
+
+    it("rejects one crossing the boundary", () => {
+      expect(
+        codes(
+          'import { Channel } from "lucent:core";\nexport function f(): Channel<number> { return new Channel<number>("lossless"); }',
+        ),
+      ).toEqual(["LUCENT2006"]);
+    });
+  });
+
   describe("weak collections", () => {
     it.each([
       ["a WeakMap keyed by arrays", "const m = new WeakMap<number[], number>();", "WeakMap"],
