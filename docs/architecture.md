@@ -682,6 +682,15 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
   of the scope it belongs to (which refers to it weakly), or its last
   reference going; the release runs once, on the context the resource
   requires. Using it after that throws `InvalidStateError`.
+- `channel.h`: `Channel<T>` (T74), values from a producer on any thread
+  to a consumer on its own context. A send never waits; what a full
+  channel does is its policy: `lossless` refuses the send, `latest` keeps
+  one value and replaces it, `drop` drops the oldest. A value it drops,
+  or never delivers (its scope disposed, its last reference gone), is
+  released: a `NativeBuffer` is closed, once. A receive settles on the
+  context that asked; closing refuses sends and lets the consumer drain
+  what was queued, then `undefined`. `stats()` counts what it took,
+  delivered, dropped and refused, and its depth.
 - `operation.h`: native work as a promise. `nativeOperation(registration,
 signal)` starts native work that completes later, on any thread (a
   Kotlin coroutine, a platform callback), as an `Operation` under the

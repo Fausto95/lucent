@@ -46,7 +46,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T66](#t66)   | Complete user documentation and migration examples                | waiting; needs T51, T52, T60                                                                                                      |
 | [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165, #167, #168 merged)                                                                                       |
 | [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | in progress (#175, #180 merged)                                                                                                   |
-| [T74](#t74)   | Callback executors and stream backpressure                        | waiting; needs T72                                                                                                                |
+| [T74](#t74)   | Callback executors and stream backpressure                        | in progress (#181 merged)                                                                                                         |
 | [T75](#t75)   | Support a window of stable React Native and Expo releases         | blocked: a decision on the window; needs nothing open                                                                             |
 | [T76](#t76)   | App-delegate and Activity integration hooks                       | blocked: a decision superseding 0071; needs nothing open                                                                          |
 | [T77](#t77)   | Classes the OS instantiates, and typed package Kotlin             | waiting; needs T60, T76                                                                                                           |
@@ -1734,7 +1734,8 @@ package's actor lock, and move their results to module code or
 JavaScript through channels with a stated drop policy. T59 then proves it
 on devices.
 
-- **Status:** waiting; needs [T72](#t72).
+- **Status:** in progress: the runtime's channels merged as #181;
+  frames as channel values need [T72](#t72)'s platform adoptions.
 - **Area:** Runtime (scheduler, execution, transport), compiler (analysis,
   delegates, native), lucent:thread, lucent:core.
 - **Needs:** [T72](#t72), [TA37](#ta37) (done), T30 (done), T32 (done).
@@ -1780,7 +1781,14 @@ executors" and "bounded queues with explicit backpressure".
       closing the channel or disposing its scope drains and closes the
       rest. Module code consumes with `for await (const v of channel)` or
       `subscribe`; the consumer runs on its own context (the actor's,
-      main's, a compute task's).
+      main's, a compute task's). The runtime's half is merged (#181):
+      `channel.h`'s `ChannelObject<T>` with the three policies, `send`
+      from any thread that never waits, `receive()` settling on the
+      consumer's context, `close()` (the consumer drains what was queued,
+      then `undefined`), a scope's disposal or the last reference
+      releasing the rest, and `stats()`; `channel_test.cpp` (also under
+      TSan). Next: the lucent:core type and its JavaScript reference, with
+      `receive()` and `subscribe` (Lucent has no `for await` yet).
 - [ ] Events to JavaScript from an executor go through `EventEmitter` as
       posted callbacks (unchanged), or through a channel JavaScript reads
       as a `Coalesced`-like subscription; document which to use for what.
