@@ -1610,12 +1610,15 @@ as MMKV's API does, and only the adoption is platform code.
       `lent-bytes.test.ts`). The check is syntactic: passing the bytes to
       the program's own functions copies, which the escape facts could
       later lift.
-- [ ] P3 gains a 4 MB frame returned to JavaScript with 0 payload copies;
-      the `array-buffers` e2e case covers the moves' semantics (the
-      JavaScript reference: the same bytes).
-- [ ] Semantics: the boundary's copy rule names its exceptions (the moves
-      are in, from #163 and #165); C-BUFFER records adoption (v1.3:
-      `ByteBuffer`).
+- [x] P3 gains a 4 MB frame returned to JavaScript with 0 payload copies,
+      and back as an argument a reading call is lent, also uncopied
+      (#169, `host_test.cpp`'s `aFrameCrossesWithoutAPayloadCopy`); the
+      `buffer-to-array` and `borrowed-bytes` e2e cases cover the moves'
+      semantics against the JavaScript reference.
+- [ ] Semantics: the boundary's copy rule names its exceptions (moves from
+      #163 and #165, lent arguments from #168: done); C-BUFFER records
+      adoption (v1.3: `ByteBuffer`; the iOS adoptions and `HardwareBuffer`
+      to come).
 
 **Done when:** MMKV-style `getBuffer` and a `CVPixelBuffer` frame reach
 JavaScript with zero copies on the iOS simulator and the Android emulator.
@@ -2705,7 +2708,7 @@ quietly weakened.
 | --- | ------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | P1  | Primitive calls     | Boundary `add` and `concat`, 1,000 calls          | Within 1.25x a bare host function (host); within 20% of the fastest framework path (device) | Host checked; device open ([T65](#t65))                                                |
 | P2  | Computation         | The benchmark kernels                             | No regression of the kernel budgets; within 20% of handwritten native for selected kernels  | Host checked; host native references measured ([T54](#t54)); device open ([T65](#t65)) |
-| P3  | Binary transport    | `NativeBuffer` handoff of 1 KB, 1 MB and a stream | No payload copy on owned handoff; copies and allocations counted                            | Implemented (T31, T32); device open                                                    |
+| P3  | Binary transport    | `NativeBuffer` handoff of 1 KB, 1 MB and a stream | No payload copy on owned handoff; copies and allocations counted                            | Host checked, a 4 MB frame to and from JavaScript too (T31, T32, T72); device open     |
 | P4  | View frames         | A steady-state wrapper workload                   | p95 frame work within 16.7 ms (60 Hz) or 8.3 ms (120 Hz), under 1% missed                   | Open (T65, devices)                                                                    |
 | P5  | UI isolation        | Busy JavaScript plus a 500 ms compute task        | No equivalent UI stall; lock and queue waits reported                                       | Simulator and emulator evidence (T44); device open                                     |
 | P6  | Teardown and memory | 1,000 mount/dispose and subscribe/cancel cycles   | Owned counts return to baseline, no retained growth                                         | Open ([T64](#t64))                                                                     |
