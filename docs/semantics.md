@@ -161,7 +161,11 @@ Supported:
   block is left, in reverse order of declaration; `null` and `undefined` are
   skipped. A disposal that throws while an error is pending throws a
   `SuppressedError`. Classes define `[Symbol.dispose]()`, the one
-  symbol-keyed member they can have. Not supported: `await using`, and
+  symbol-keyed member they can have; JavaScript does not see it, so a class
+  JavaScript should close has a `close()` too. A debug build counts the
+  instances JavaScript collected with something still open, a native
+  buffer or a native extension's handle, which their release closed
+  (`host.releasedOpen` in `__lucentDebug.snapshot()`). Not supported: `await using`, and
   `using` directly in a `case` clause (wrap the clause in a block). The
   editor needs `esnext.disposable` (or `esnext`) in tsconfig's `lib`: Expo's
   base config has it, React Native's does not.

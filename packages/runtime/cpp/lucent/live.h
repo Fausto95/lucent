@@ -36,4 +36,16 @@ struct Counted {
   }
 };
 
+#ifndef NDEBUG
+/// Debug builds: on this thread, how many things still open their last
+/// reference closed (a Resource, a native buffer's storage), the backstop
+/// rather than the close their owner should have made. A host reads it
+/// around releasing an instance JavaScript let go of (jsi/host.cpp).
+inline thread_local long backstops = 0;
+
+inline void noteBackstop() noexcept { ++backstops; }
+#else
+inline void noteBackstop() noexcept {}
+#endif
+
 }  // namespace lucent::live

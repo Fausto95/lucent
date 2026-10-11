@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "../execution.h"
+#include "../live.h"
 #include "../view.h"
 #include "convert.h"
 
@@ -119,6 +120,7 @@ class Host::Anchor : public jsi::HostObject {
     o.setProperty(rt, "registrations", static_cast<double>(held.registrations));
     o.setProperty(rt, "inFlight", static_cast<double>(held.inFlight));
     o.setProperty(rt, "values", static_cast<double>(held.values));
+    o.setProperty(rt, "releasedOpen", static_cast<double>(held.releasedOpen));
     return o;
   }
 
@@ -320,7 +322,8 @@ Host::Ownership Host::ownership() const {
           modules_.size(),
           registrations,
           inFlight_->load(),
-          values_.size()};
+          values_.size(),
+          releasedOpen_.load(std::memory_order_relaxed)};
 }
 
 Error Host::goneError() { return makeError(String::fromLatin1("AbortError"), String::fromLatin1("The JavaScript runtime is gone")); }
@@ -531,6 +534,15 @@ jsi::Object& Host::prototype(jsi::Runtime& rt, const char* key, PrototypeInit in
   init(rt, *this, proto);
   if (!kept.isObject()) store.setProperty(rt, key, proto);
   return prototypes_.emplace(key, std::move(proto)).first->second;
+}
+
+InstanceState::~InstanceState() {
+#ifndef NDEBUG
+  // Releasing it runs what it held's destructors here, on this thread.
+  const long before = live::backstops;
+  object = nullptr;
+  if (live::backstops != before && host) host->countReleasedOpen();
+#endif
 }
 
 Ref<Object> instanceOf(jsi::Runtime& rt, const jsi::Value& v) {

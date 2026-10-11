@@ -58,7 +58,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [TA34](#ta34) | Turn a Java Throwable into a Lucent Error                         | done (#80, 2026-10-04)                                                                                                            |
 | [TA35](#ta35) | Bind a package's own pods in an Expo app                          | ready; needs nothing open                                                                                                         |
 | [TA39](#ta39) | ES2023 and ES2024 library methods                                 | done (#159, #160, 2026-10-11)                                                                                                     |
-| [TA40](#ta40) | Deterministic finalization and dispose from JavaScript            | in progress (#176 merged)                                                                                                         |
+| [TA40](#ta40) | Deterministic finalization and dispose from JavaScript            | done (#176, #PR_A, 2026-10-11)                                                                                                    |
 | [TA41](#ta41) | Name reference cycles in debug builds                             | ready; needs nothing open                                                                                                         |
 | [TA42](#ta42) | Throw `RangeError` on stack exhaustion                            | done (#173, 2026-10-11)                                                                                                           |
 | [TA44](#ta44) | `WeakMap` and `WeakSet` keyed by instances                        | done (#170, 2026-10-11)                                                                                                           |
@@ -2415,8 +2415,8 @@ language pages list them as supported.
 **Goal:** Give classes a way to release what they hold when their last
 reference goes, from either side, with JavaScript's own APIs.
 
-- **Status:** in progress: `FinalizationRegistry` merged as #176; the
-  debug counts and a release from JavaScript follow.
+- **Status:** done: `FinalizationRegistry` (#176), the debug count of
+  instances released open (#PR_A).
 - **Area:** Runtime (scope, resource, JSI host), compiler (classes), lucent:core.
 - **Needs:** none; builds on
   [0068](decisions/0068-weakref-not-a-weak-modifier.md).
@@ -2446,12 +2446,18 @@ spike leaked its label for that reason.
       calling it twice does nothing, as `using` expects. Hermes (main,
       2026-09) has no `Symbol.dispose`: the docs say to add `close()`
       (#176).
-- [ ] The JS object's finalizer (`InstanceState`) drops the host's
+- [x] The JS object's finalizer (`InstanceState`) drops the host's
       reference, as today; debug builds count instances the host released
-      that still held an open `Resource`, in `debugSnapshot()`.
-- [ ] e2e `finalization` (registry order, unregister, a cycle through a
-      `WeakRef` with a registry); `host_test.cpp`: dispose from
-      JavaScript, finalizer on collection.
+      that still held an open `Resource` (or a native buffer's storage), in
+      `debugSnapshot()`: `host.releasedOpen`, from `live::noteBackstop()`
+      in `~Resource` and `~NativeBufferObject`, which `~InstanceState`
+      reads around the release (#PR_A).
+- [x] e2e `finalization` (unregister, tokens; #176); registry order and a
+      cycle through a `WeakRef` with a registry in `runtime_test.cpp`'s
+      `finalizationRegistries`, since JavaScript's collector decides when
+      its cleanups run; `host_test.cpp`'s
+      `releasesOfOpenInstancesAreCounted`: a close from JavaScript, and the
+      release on collection (#PR_A).
 
 **Done when:** a Lucent class releases its native object when JavaScript
 drops it, through a registry or `using`, with the e2e case green.

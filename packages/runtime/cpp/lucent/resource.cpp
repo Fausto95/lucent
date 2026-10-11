@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 
+#include "live.h"
 #include "report.h"
 
 namespace lucent {
@@ -34,6 +35,7 @@ Resource::~Resource() {
   // Nothing else refers to it now, so nothing can close it concurrently.
   if (state_.load(std::memory_order_acquire) != State::Open) return;
 
+  live::noteBackstop();
   state_.store(State::Closing, std::memory_order_release);
   unlink();
 

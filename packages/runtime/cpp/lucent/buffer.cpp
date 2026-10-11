@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstring>
 
+#include "live.h"
 #include "report.h"
 #include "trace.h"
 
@@ -74,6 +75,7 @@ NativeBufferObject::~NativeBufferObject() {
   // Nothing refers to it any more: nothing borrows it or changes its state.
   if (state() != State::Open) return;
 
+  live::noteBackstop();
   try {
     release(data_, size_.load(std::memory_order_relaxed), std::move(destroy_), destroyOn_);
   } catch (...) {
