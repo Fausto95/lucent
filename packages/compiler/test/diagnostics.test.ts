@@ -697,6 +697,36 @@ export function f(round: boolean): number {
     });
   });
 
+  describe("weak collections", () => {
+    it.each([
+      ["a WeakMap keyed by arrays", "const m = new WeakMap<number[], number>();", "WeakMap"],
+      ["a WeakSet of dates", "const s = new WeakSet<Date>();", "WeakSet"],
+    ])("rejects %s", (_, decl, name) => {
+      const d = compileSource(`${decl}\nexport function f(): number { return 1; }`).diagnostics;
+      expect(d.map((x) => x.code)).toEqual(["LUCENT2002"]);
+      expect(d[0]!.message).toContain(`a ${name}'s keys are class instances or objects`);
+    });
+
+    it("rejects one crossing the boundary", () => {
+      expect(
+        codes(
+          "export class K {}\nexport function f(): WeakMap<K, number> { return new WeakMap<K, number>(); }",
+        ),
+      ).toEqual(["LUCENT2006"]);
+      expect(codes("export class K {}\nexport function f(s: WeakSet<K>): void {}")).toEqual([
+        "LUCENT2006",
+      ]);
+    });
+
+    it("rejects one made from entries", () => {
+      expect(
+        codes(
+          "class K {}\nexport function f(): boolean { const k = new K(); return new WeakMap<K, number>([[k, 1]]).has(k); }",
+        ),
+      ).toEqual(["LUCENT1003"]);
+    });
+  });
+
   describe("ES2024's library", () => {
     it.each([
       [
