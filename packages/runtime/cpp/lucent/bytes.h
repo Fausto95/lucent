@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -24,19 +25,64 @@ inline size_t toIndex(double v, const char* message) {
 
 }  // namespace detail
 
+/// The bytes an ArrayBuffer holds and its Uint8Arrays view: owned, or
+/// adopted from native code (an NSData, a pixel buffer's plane, a
+/// NativeBuffer's storage) with the release it needs, which runs once,
+/// when the last ArrayBuffer, view or JavaScript ArrayBuffer over them
+/// goes. Adopted bytes are never copied to be held.
+class ByteStorage {
+ public:
+  using Release = std::function<void()>;
+
+  ByteStorage() = default;
+  explicit ByteStorage(size_t size) : owned_(size) {}
+  explicit ByteStorage(std::vector<uint8_t> bytes) : owned_(std::move(bytes)) {}
+  ByteStorage(const uint8_t* data, size_t size) : owned_(data, data + size) {}
+
+  /// `size` bytes at `data`, which `release` frees once nothing holds them.
+  static std::shared_ptr<ByteStorage> adopt(uint8_t* data, size_t size, Release release) {
+    auto s = std::make_shared<ByteStorage>();
+    s->external_ = data;
+    s->externalSize_ = size;
+    s->release_ = std::move(release);
+    return s;
+  }
+
+  ByteStorage(const ByteStorage&) = delete;
+  ByteStorage& operator=(const ByteStorage&) = delete;
+  ~ByteStorage() {
+    if (release_) release_();
+  }
+
+  uint8_t* data() { return external_ ? external_ : owned_.data(); }
+  const uint8_t* data() const { return external_ ? external_ : owned_.data(); }
+  size_t size() const { return external_ ? externalSize_ : owned_.size(); }
+  /// Whether the bytes were adopted rather than allocated here.
+  bool adopted() const { return external_ != nullptr; }
+
+ private:
+  std::vector<uint8_t> owned_;
+  uint8_t* external_ = nullptr;
+  size_t externalSize_ = 0;
+  Release release_;
+};
+
+using Storage = std::shared_ptr<ByteStorage>;
+
 /// An ArrayBuffer: the bytes Uint8Arrays view. Copies of it share them, so
 /// it is named by its storage: `u8.buffer === u8.buffer`.
 class ArrayBuffer {
  public:
-  ArrayBuffer() : buf_(std::make_shared<std::vector<uint8_t>>()) {}
+  ArrayBuffer() : buf_(std::make_shared<ByteStorage>()) {}
   explicit ArrayBuffer(double length)
-      : buf_(std::make_shared<std::vector<uint8_t>>(detail::toIndex(length, "Invalid array buffer length"))) {}
-  explicit ArrayBuffer(std::shared_ptr<std::vector<uint8_t>> storage) : buf_(std::move(storage)) {}
-  static ArrayBuffer copy(const uint8_t* data, size_t n) {
-    return ArrayBuffer(std::make_shared<std::vector<uint8_t>>(data, data + n));
-  }
+      : buf_(std::make_shared<ByteStorage>(detail::toIndex(length, "Invalid array buffer length"))) {}
+  explicit ArrayBuffer(Storage storage) : buf_(std::move(storage)) {}
+  static ArrayBuffer copy(const uint8_t* data, size_t n) { return ArrayBuffer(std::make_shared<ByteStorage>(data, n)); }
 
-  const std::shared_ptr<std::vector<uint8_t>>& storage() const { return buf_; }
+  const Storage& storage() const { return buf_; }
+  /// Whether this handle is the only one holding its bytes: no other
+  /// ArrayBuffer, view or JavaScript buffer can see them.
+  bool unshared() const { return buf_.use_count() == 1; }
   size_t size() const { return buf_->size(); }
   double byteLength() const { return static_cast<double>(buf_->size()); }
   uint8_t* data() { return buf_->data(); }
@@ -50,7 +96,7 @@ class ArrayBuffer {
   const void* identity() const { return buf_.get(); }
 
  private:
-  std::shared_ptr<std::vector<uint8_t>> buf_;
+  Storage buf_;
 };
 
 inline bool strictEquals(const ArrayBuffer& a, const ArrayBuffer& b) { return a.storage() == b.storage(); }
@@ -61,13 +107,13 @@ inline String toJsString(const ArrayBuffer&) { return String::fromLatin1("[objec
 /// `subarray` shares the buffer; `slice` copies, as in JavaScript.
 class Bytes {
  public:
-  Bytes() : buf_(std::make_shared<std::vector<uint8_t>>()) {}
+  Bytes() : buf_(std::make_shared<ByteStorage>()) {}
   explicit Bytes(double length) {
     if (!(length >= 0) || std::trunc(length) != length || length > 2147483647.0) throwRangeError("Invalid typed array length");
-    buf_ = std::make_shared<std::vector<uint8_t>>(static_cast<size_t>(length));
+    buf_ = std::make_shared<ByteStorage>(static_cast<size_t>(length));
     len_ = static_cast<size_t>(length);
   }
-  explicit Bytes(std::vector<uint8_t> data) : buf_(std::make_shared<std::vector<uint8_t>>(std::move(data))) { len_ = buf_->size(); }
+  explicit Bytes(std::vector<uint8_t> data) : buf_(std::make_shared<ByteStorage>(std::move(data))) { len_ = buf_->size(); }
   static Bytes fromArray(const Array<double>& values) {
     std::vector<uint8_t> out;
     out.reserve(values.size());
@@ -95,13 +141,13 @@ class Bytes {
   double byteOffset() const { return static_cast<double>(off_); }
 
   /// A view of `length` bytes at `offset` in `buffer`, which must hold them.
-  static Bytes view(std::shared_ptr<std::vector<uint8_t>> buffer, size_t offset, size_t length) {
+  static Bytes view(Storage buffer, size_t offset, size_t length) {
     return Bytes(std::move(buffer), offset, length);
   }
 
   /// The buffer this view is over, and where in it the view starts: what a
   /// copy needs to keep views of one buffer sharing theirs (transport.h).
-  const std::shared_ptr<std::vector<uint8_t>>& buffer() const { return buf_; }
+  const Storage& buffer() const { return buf_; }
   size_t offset() const { return off_; }
 
   static uint8_t toUint8(double v) { return static_cast<uint8_t>(toUint32(v) & 0xFF); }
@@ -190,8 +236,7 @@ class Bytes {
   const void* identity() const { return this->buf_.get(); }
 
  private:
-  Bytes(std::shared_ptr<std::vector<uint8_t>> buffer, size_t offset, size_t length)
-      : buf_(std::move(buffer)), off_(offset), len_(length) {}
+  Bytes(Storage buffer, size_t offset, size_t length) : buf_(std::move(buffer)), off_(offset), len_(length) {}
 
   /// set()'s offset as an index, checked in double before any cast: NaN is
   /// 0 (ToIntegerOrInfinity), and a source that would run past the end is a
@@ -202,7 +247,7 @@ class Bytes {
     return static_cast<size_t>(o);
   }
 
-  std::shared_ptr<std::vector<uint8_t>> buf_;
+  Storage buf_;
   size_t off_ = 0;
   size_t len_ = 0;
 };

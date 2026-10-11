@@ -156,6 +156,26 @@ class FreshBytes : public jsi::MutableBuffer {
   Bytes bytes_;
 };
 
+/// Storage only JavaScript holds from now on: a buffer Lucent code let go of.
+class HeldStorage : public jsi::MutableBuffer {
+ public:
+  explicit HeldStorage(Storage storage) : storage_(std::move(storage)) {}
+  size_t size() const override { return storage_->size(); }
+  uint8_t* data() override { return storage_->data(); }
+
+ private:
+  Storage storage_;
+};
+
+/// A JavaScript ArrayBuffer over `storage`, which no Lucent code holds, its
+/// size reported to the collector so a large one goes when it is dropped.
+jsi::ArrayBuffer movedBuffer(jsi::Runtime& rt, Storage storage) {
+  size_t size = storage->size();
+  jsi::ArrayBuffer ab(rt, std::make_shared<HeldStorage>(std::move(storage)));
+  if (size > 0) ab.setExternalMemoryPressure(rt, size);
+  return ab;
+}
+
 jsi::Value uint8ArrayOver(jsi::Runtime& rt, const std::shared_ptr<FreshBytes>& bytes) {
   jsi::ArrayBuffer ab(rt, bytes);
   return rt.global().getPropertyAsFunction(rt, "Uint8Array").callAsConstructor(rt, ab);
@@ -182,6 +202,14 @@ jsi::Value Convert<Bytes>::toJs(jsi::Runtime& rt, Host&, const Bytes& b) {
   return rt.global().getPropertyAsFunction(rt, "Uint8Array").callAsConstructor(rt, ab);
 }
 
+jsi::Value Convert<Bytes>::toJs(jsi::Runtime& rt, Host& h, Bytes&& b) {
+  // A view of part of its buffer would show JavaScript the rest (`u8.buffer`), which a copy does not.
+  bool whole = b.offset() == 0 && b.size() == b.buffer()->size();
+  if (!whole || b.buffer().use_count() != 1) return toJs(rt, h, static_cast<const Bytes&>(b));
+  jsi::ArrayBuffer ab = movedBuffer(rt, b.buffer());
+  return rt.global().getPropertyAsFunction(rt, "Uint8Array").callAsConstructor(rt, ab);
+}
+
 ArrayBuffer Convert<ArrayBuffer>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
   if (!v.isObject() || !v.getObject(rt).isArrayBuffer(rt)) throwBoundaryError(rt, p, "an ArrayBuffer", v);
   jsi::ArrayBuffer ab = v.getObject(rt).getArrayBuffer(rt);
@@ -191,6 +219,11 @@ ArrayBuffer Convert<ArrayBuffer>::fromJs(jsi::Runtime& rt, const jsi::Value& v, 
 jsi::Value Convert<ArrayBuffer>::toJs(jsi::Runtime& rt, Host&, const ArrayBuffer& b) {
   auto buffer = std::make_shared<OwnedBuffer>(std::vector<uint8_t>(b.data(), b.data() + b.size()));
   return jsi::ArrayBuffer(rt, buffer);
+}
+
+jsi::Value Convert<ArrayBuffer>::toJs(jsi::Runtime& rt, Host& h, ArrayBuffer&& b) {
+  if (!b.unshared()) return toJs(rt, h, static_cast<const ArrayBuffer&>(b));
+  return movedBuffer(rt, b.storage());
 }
 
 namespace {

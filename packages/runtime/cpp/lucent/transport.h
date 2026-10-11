@@ -307,15 +307,12 @@ struct Transport<Dict<V>> {
 namespace detail {
 
 /// The copy of `buffer` this graph made, made the first time it is asked for.
-inline const std::shared_ptr<std::vector<uint8_t>>& copiedStorage(const std::shared_ptr<std::vector<uint8_t>>& buffer,
-                                                                 CopyGraph& graph) {
-  using Buffer = std::shared_ptr<std::vector<uint8_t>>;
-
-  const Buffer* copied = graph.find<Buffer>(buffer.get());
+inline const Storage& copiedStorage(const Storage& buffer, CopyGraph& graph) {
+  const Storage* copied = graph.find<Storage>(buffer.get());
   if (!copied) {
-    graph.remember(buffer.get(), std::make_shared<std::vector<uint8_t>>(*buffer));
+    graph.remember(buffer.get(), std::make_shared<ByteStorage>(buffer->data(), buffer->size()));
     graph.countBytes(buffer->size());
-    copied = graph.find<Buffer>(buffer.get());
+    copied = graph.find<Storage>(buffer.get());
   }
 
   return *copied;

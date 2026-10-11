@@ -623,6 +623,14 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
   double exactly. A seeded corpus of node's answers (`bigint/corpus.ts`)
   checks every operation.
 - `array.h`, `map.h`, `bytes.h`: shared containers with JS semantics.
+  An `ArrayBuffer` and its `Uint8Array`s share a `ByteStorage`: bytes the
+  runtime allocated, or bytes adopted from native code with the release
+  they need (`ByteStorage::adopt`), which runs once, when the last
+  ArrayBuffer, view or JavaScript ArrayBuffer over them goes. At the
+  boundary, `Convert<ArrayBuffer>` and `Convert<Bytes>` take a function's
+  result as an rvalue: when nothing else holds the storage (and a view
+  covers all of it), JavaScript's ArrayBuffer is made over it, with its
+  size reported as external memory, instead of over a copy.
 - `async.h`: `Promise<T>` as a coroutine type. Bodies start eagerly, and
   `await` always resumes from the microtask queue of the execution context
   that awaited, so a coroutine stays on the context it started on. A

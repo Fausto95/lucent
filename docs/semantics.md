@@ -444,7 +444,11 @@ null }` and `{ v: string | undefined }` share one native layout). A body
   value.
 - **Values are copied:** arrays, records, maps, sets, tuples, plain objects,
   `Uint8Array`s and `ArrayBuffer`s cross the boundary as copies. If native code mutates an array it received,
-  the caller's array is unchanged. A plain object reaches JavaScript with
+  the caller's array is unchanged. An `ArrayBuffer`, or a `Uint8Array`
+  viewing the whole of its buffer, that a function returns and nothing
+  else holds (no variable, field or other view) moves instead: its copy
+  would be the only one, so JavaScript gets the same bytes, including bytes
+  adopted from native code, and no one can tell. A plain object reaches JavaScript with
   its fields in its type's order (see the deviations), without the
   optional ones left unset.
 - **Class instances keep their identity.** The same native object always maps to

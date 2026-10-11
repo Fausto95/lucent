@@ -70,7 +70,7 @@ midpoint(saved, home); // TypeError: midpoint: argument 'a'.y must be a number, 
 | object types, interfaces without methods | A copy; an optional field that isn't set is left out | An object with each declared field; other fields are ignored |
 | `Record<string, V>` | A copy | An object; each value is checked |
 | `Map<K, V>`, `Set<T>` | A copy | A `Map` or a `Set`; each key and value is checked |
-| `Uint8Array` | A copy of the bytes | A `Uint8Array` or an `ArrayBuffer` |
+| `Uint8Array`, `ArrayBuffer` | A copy of the bytes; one a function returns that nothing else holds moves, uncopied | A `Uint8Array` or an `ArrayBuffer` |
 | `Date` | A copy of its time | An object whose `getTime()` returns a number |
 | `RegExp` | Its source and flags | An object with string `source` and `flags`; `lastIndex` isn't kept |
 | other unions | The member the value is | A value of one member; object members need a string-literal field that tells them apart |
