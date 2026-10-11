@@ -92,8 +92,7 @@ generated from this file.
   generated from `apps/website/src/docs/language.ts`.
 - Refused built-ins give `LUCENT1003` unless noted. They are
   `normalize()`, `locales`/`options` arguments, an error's `cause`,
-  resizable `ArrayBuffer`s, `Object.groupBy` with literal keys and
-  `new Proxy`; decorators give `LUCENT1005` and default exports
+  resizable `ArrayBuffer`s and `new Proxy`; decorators give `LUCENT1005` and default exports
   `LUCENT3003`. On
   object types, `Object.keys`, `values` and `entries` are refused, and so
   are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`). So is `new

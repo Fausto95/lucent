@@ -1192,7 +1192,10 @@ export class TypeRegistry {
         fail(node, Codes.UnsupportedType, "only string-keyed records are supported");
       return { k: "dict", val: this.lower(info.type, node) };
     }
-    if (lib && !["Object"].includes(lib))
+    // A mapped type the library declares (Partial, Pick, Omit, Required, Readonly, a Record
+    // of literal keys) is the object type it resolves to: its properties are the fields.
+    const mapped = !!((type as ts.ObjectType).objectFlags & ts.ObjectFlags.Mapped);
+    if (lib && lib !== "Object" && !mapped)
       fail(node, Codes.UnsupportedType, `${lib} is not supported`);
     return this.registerStruct(type, props, node);
   }

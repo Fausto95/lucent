@@ -130,7 +130,7 @@ The operators on bigints are on [Statements](/docs/api/language/statements/#bigi
 | --- | --- |
 | `Object.keys(r)`, `Object.values(r)`, `Object.entries(r)` | Records only. On an object type they fail with [LUCENT1003](/docs/api/diagnostics/#lucent1003). |
 | `Object.fromEntries(pairs)` | Makes a record from `[key, value]` pairs. |
-| `Object.groupBy(items, key)` | From any iterable, a record of arrays, its keys listed as an object's are. The key function returns `string`: literal keys make TypeScript type the result as an object type, which fails with [LUCENT1003](/docs/api/diagnostics/#lucent1003). Write `(item): string => …`. |
+| `Object.groupBy(items, key)` | From any iterable, a record of arrays, its keys listed as an object's are. With literal keys (`(t) => (t.done ? "done" : "todo")`), an object with one optional field per key, its keys in the type's order. |
 
 Other `Object` functions, such as `assign`, `freeze` and `is`, aren't available. Spread makes a copy: `{ ...a, ...b }`.
 
