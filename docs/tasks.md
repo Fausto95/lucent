@@ -57,7 +57,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [TA33](#ta33) | Bind the remaining Swift shapes                                   | done (#83, 2026-10-05)                                                                                                            |
 | [TA34](#ta34) | Turn a Java Throwable into a Lucent Error                         | done (#80, 2026-10-04)                                                                                                            |
 | [TA35](#ta35) | Bind a package's own pods in an Expo app                          | ready; needs nothing open                                                                                                         |
-| [TA39](#ta39) | ES2023 and ES2024 library methods                                 | ready; needs nothing open                                                                                                         |
+| [TA39](#ta39) | ES2023 and ES2024 library methods                                 | done (#159, #160, 2026-10-11)                                                                                                     |
 | [TA40](#ta40) | Deterministic finalization and dispose from JavaScript            | ready; needs nothing open                                                                                                         |
 | [TA41](#ta41) | Name reference cycles in debug builds                             | ready; needs nothing open                                                                                                         |
 | [TA42](#ta42) | Throw `RangeError` on stack exhaustion                            | ready; needs nothing open                                                                                                         |
@@ -857,6 +857,12 @@ it.
       an object type, and the class's instances copy into it.
 - [ ] Diagnostic text for LUCENT2008 names the method that makes the
       interface nominal.
+- [ ] Mapped utility types of object types lower as the object types they
+      resolve to: `Partial<Point>`, `Pick<Point, "x">`, `Required`,
+      `Readonly` and `Record<"a" | "b", T>` fail today with
+      `LUCENT2002: __type is not supported` (their symbol is the library's
+      mapped type). `Object.groupBy` with literal keys then makes that
+      object type ([TA39](#ta39)'s notes).
 - [ ] e2e `interfaces-structural`: literals, spreads, an implementing
       class, the boundary; the semantics table row.
 
@@ -2320,30 +2326,51 @@ bare app takes and found that Expo's prebuild stops before them.
 **Goal:** Check modules against `es2024` and support its array, object and
 promise additions.
 
-- **Status:** ready; needs nothing open.
+- **Status:** done (2026-10-11): merged as #159, #160, unreleased.
 - **Area:** Compiler (builtins), runtime (array, map).
 - **Needs:** none.
 - **Verify:** V1, V2.
-- **Where:** `lib-files.ts` and `program.ts` (the library), `emit/builtins.ts`,
-  `runtime/cpp/lucent/array.h`, `map.h`, `async.h`, the website's
-  compatibility template (`lib`), `apps/website/src/docs/language.ts`,
-  e2e cases per method.
+- **Where:** `program.ts` (the library), `emit/builtins.ts`, `types.ts`
+  (`PromiseWithResolvers`), `analysis/library.ts`,
+  `runtime/cpp/lucent/array.h`, `helpers.h` (grouping), `jsstring.h`, the
+  website's compatibility template (`lib`), `apps/website/src/docs/language.ts`,
+  e2e `es2023-arrays` and `es2024-builtins`.
 
-- [ ] Arrays: `toSorted`, `toReversed`, `toSpliced`, `with`, `findLast`,
+- [x] Arrays: `toSorted`, `toReversed`, `toSpliced`, `with`, `findLast`,
       `findLastIndex`; `Object.groupBy` and `Map.groupBy` (records and
-      maps); `Promise.withResolvers`; `String.prototype.isWellFormed` and
-      `toWellFormed`; `Array.fromAsync` refused with a reason (no async
-      iterables).
-- [ ] The library becomes `es2024` plus `esnext.disposable`; `tsconfig`
-      templates and `lucent init` follow; a module using a method the
-      runtime lacks still fails with LUCENT1003, never with invalid C++
-      (the built-in table is exact or refused, per
-      [0045](decisions/0045-a-built-in-is-exact-or-refused.md)).
-- [ ] e2e: one case per method, holes and `-0` included where JavaScript
-      shows them.
+      maps, from any iterable); `Promise.withResolvers`;
+      `String.prototype.isWellFormed` and `toWellFormed`. `Array.fromAsync`
+      is ES2025, so a TypeScript error under `es2024`, with no diagnostic
+      of Lucent's needed.
+- [x] The library is `es2024` plus `esnext.disposable`; the `tsconfig`
+      templates and `lucent init` target ES2024; what the runtime lacks
+      fails with LUCENT1003, never with invalid C++ (the built-in table is
+      exact or refused, per
+      [0045](decisions/0045-a-built-in-is-exact-or-refused.md)): resizable
+      `ArrayBuffer`s (`new ArrayBuffer(length, options)`, `resize`,
+      `transfer`, `detached`) and `Uint8Array`'s ES2023 copies, pinned in
+      `diagnostics.test.ts`.
+- [x] e2e: `es2023-arrays` (copies leave the array as it was, toSpliced's
+      arguments, with()'s range, the searches from the end, stable and
+      string sorts, absent elements) and `es2024-builtins` (key order,
+      SameValueZero with `-0` and `NaN`, iterables, a throwing key
+      function, settling once, lone surrogates).
 
 **Done when:** every listed method passes its e2e case and the website's
 language pages list them as supported.
+
+**Notes:**
+
+- `Object.groupBy`'s key function must return `string`: literal keys make
+  TypeScript type the result `Partial<Record<"a" | "b", T[]>>`, an object
+  type, which a mapped utility type cannot be today ([TA38](#ta38)); the
+  refusal says to write `(item): string => …`.
+- `Promise.withResolvers`' `resolve` takes a value and `reject` an `Error`,
+  as a `new Promise` executor's do: `types.ts` lowers
+  `PromiseWithResolvers<T>` with those types rather than the library's
+  `PromiseLike` and `any`.
+- Reading `Partial<Record<…>>` and other collections of optional elements
+  wrote invalid C++ before #157, which this task needed first.
 
 <a id="ta40"></a>
 

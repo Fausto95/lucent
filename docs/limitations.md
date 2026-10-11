@@ -91,7 +91,8 @@ generated from this file.
   [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps),
   generated from `apps/website/src/docs/language.ts`.
 - Refused built-ins give `LUCENT1003` unless noted. They are
-  `normalize()`, `locales`/`options` arguments, an error's `cause` and
+  `normalize()`, `locales`/`options` arguments, an error's `cause`,
+  resizable `ArrayBuffer`s, `Object.groupBy` with literal keys and
   `new Proxy`; decorators give `LUCENT1005` and default exports
   `LUCENT3003`. On
   object types, `Object.keys`, `values` and `entries` are refused, and so

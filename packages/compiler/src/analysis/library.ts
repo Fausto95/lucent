@@ -142,6 +142,8 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "Map.keys": COPY,
   "Map.set": ADDS,
   "Map.values": COPY,
+  // The key function runs for each item, while the call runs.
+  "MapConstructor.groupBy": { calls: "during", allocates: true, keeps: "result", iterates: true },
   "MapConstructor.new": COLLECTS,
 
   "Set.add": ADDS,
@@ -177,6 +179,7 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "String.endsWith": NONE,
   "String.includes": NONE,
   "String.indexOf": NONE,
+  "String.isWellFormed": NONE,
   "String.lastIndexOf": NONE,
   "String.localeCompare": NONE,
   "String.match": ALLOCATES,
@@ -198,6 +201,7 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "String.toLowerCase": ALLOCATES,
   "String.toString": NONE,
   "String.toUpperCase": ALLOCATES,
+  "String.toWellFormed": ALLOCATES,
   "String.trim": ALLOCATES,
   "String.trimEnd": ALLOCATES,
   "String.trimLeft": ALLOCATES,
@@ -277,6 +281,12 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "JSON.stringify": ALLOCATES_THROWS,
   "ObjectConstructor.entries": MAKES,
   "ObjectConstructor.fromEntries": COLLECTS,
+  "ObjectConstructor.groupBy": {
+    calls: "during",
+    allocates: true,
+    keeps: "result",
+    iterates: true,
+  },
   "ObjectConstructor.keys": ALLOCATES,
   "ObjectConstructor.values": MAKES,
   // The value's text, as String(x) gives it: no code of the program runs.
@@ -316,6 +326,8 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "PromiseConstructor.new": { allocates: true, schedules: true, calls: "during", settles: true },
   "PromiseConstructor.reject": PROMISE,
   "PromiseConstructor.resolve": PROMISE,
+  // A promise and the functions that settle it: nothing runs until code calls them.
+  "PromiseConstructor.withResolvers": { allocates: true, schedules: true },
 
   "AbortController.new": ALLOCATES,
   "WeakRefConstructor.new": ALLOCATES,

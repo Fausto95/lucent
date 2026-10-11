@@ -203,7 +203,9 @@ Supported:
 - Arrow functions and function expressions, nested function declarations
   (hoisted), recursion. Closures share variables with their enclosing scope,
   and `let` loop variables get a fresh binding per iteration.
-- `async`/`await`, `Promise.all`, `Promise.resolve`/`reject`, `delay(ms, signal?)`.
+- `async`/`await`, `Promise.all`, `Promise.resolve`/`reject`,
+  `Promise.withResolvers()` (whose `resolve` takes a value and `reject` an
+  `Error`, as a `new Promise` executor's do), `delay(ms, signal?)`.
 - Regular expressions: literals and `new RegExp(pattern, flags)` with every
   ECMAScript feature and flag (`dgimsuvy`: lookbehind, named groups, Unicode
   property escapes, sets); `exec`, `test`, `lastIndex`; and `match`,
@@ -252,8 +254,9 @@ runs, so a right side that changes the target does not change what is read.
   `lastIndexOf`, `includes`, `startsWith`, `endsWith`, `slice`, `substring`,
   `substr`, `toUpperCase`/`toLowerCase`, `trim*`, `padStart`/`padEnd`, `repeat`,
   `replace`/`replaceAll` (string patterns, with `$` patterns), `split`
-  (string separators), `concat`, `localeCompare`; `String.fromCharCode`,
-  `String.fromCodePoint`.
+  (string separators), `concat`, `localeCompare`, `isWellFormed` and
+  `toWellFormed` (each lone surrogate becomes U+FFFD);
+  `String.fromCharCode`, `String.fromCodePoint`.
 - **Array**: `length` (read/write), `push`, `pop`, `shift`, `unshift`, `slice`,
   `splice`, `concat`, `join`, `indexOf`, `lastIndexOf`, `includes`, `find`,
   `findIndex`, `findLast`, `findLastIndex`, `filter`, `map`, `flatMap`,
@@ -275,15 +278,22 @@ runs, so a right side that changes the target does not change what is read.
   values, not holes). Writing past the end (`a[i] = v` with `i > length`)
   and growing `a.length` depend on runtime values, so they throw
   `RangeError` whatever the element type (see the deviations below).
-- **Map / Set**: the full instance API; `new Map(entries)`, `new Set(iterable)`.
+- **Map / Set**: the full instance API; `new Map(entries)`, `new Set(iterable)`,
+  and `Map.groupBy(items, key)` over any iterable, keyed by SameValueZero
+  (a `-0` key is stored as `0`).
 - **ArrayBuffer**: `new ArrayBuffer(length)`, `byteLength` and `slice(start?,
 end?)`, which copies. `new Uint8Array(buffer, byteOffset?, length?)` views
   a buffer's bytes, sharing them as JavaScript's views do, and a view's
   `buffer` and `byteOffset` name what it views. Lengths and ranges are
-  checked as in JavaScript (`RangeError`). Not supported: resizable buffers,
+  checked as in JavaScript (`RangeError`). Not supported: resizable buffers
+  (`new ArrayBuffer(length, options)`, `resize`, `transfer`, `detached`),
   `ArrayBuffer.isView`, `DataView` and `SharedArrayBuffer`; a `Uint8Array`'s
   `buffer` (typed `ArrayBufferLike`) is an `ArrayBuffer`.
-- **Object**: `keys`, `values`, `entries` (records), `fromEntries`. Object
+- **Object**: `keys`, `values`, `entries` (records), `fromEntries`, and
+  `Object.groupBy(items, key)` over any iterable, which makes a record of
+  arrays listed as an object lists its keys. Its key function must return
+  `string`: literal keys type the result as an object type of optional
+  fields, which is refused (`LUCENT1003`). Object
   types refuse `Object.keys`, `values`, `entries`, `for…in` and `in` (even
   on a required field): their native layout records neither which optional
   fields are set nor the order JavaScript made them in, both of which
@@ -391,9 +401,10 @@ transferred`) on use, and closing it does nothing. Passing a buffer to
     counts allocations, transfers and copies (and the bytes copied) since
     the app started, to check that a path does not copy.
 
-Modules are checked against the ES2023 library. Its typed-array copies
+Modules are checked against the ES2024 library. Its typed-array copies
 (`Uint8Array`'s `toSorted`, `toReversed`, `with`, `findLast`,
-`findLastIndex`) are refused, and ES2024's members are TypeScript errors.
+`findLastIndex`) and resizable buffers are refused, and later members
+(`Array.fromAsync`, `Set`'s set methods) are TypeScript errors.
 
 - **WeakRef**: `new WeakRef(target)` of a class instance, an interface
   value or an object, and `deref()`. Reference counting frees the target

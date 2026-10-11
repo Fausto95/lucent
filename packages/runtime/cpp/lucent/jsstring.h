@@ -122,6 +122,10 @@ class String {
   String padEnd(double targetLength, const String& fill) const;
   String concat(const String& other) const { return *this + other; }
   double localeCompare(const String& other) const;
+  /// No lone surrogate: every high surrogate is followed by a low one.
+  bool isWellFormed() const;
+  /// Each lone surrogate replaced with U+FFFD.
+  String toWellFormed() const;
 
   /// Substring by code unit range, clamped.
   String sub(size_t begin, size_t end) const;

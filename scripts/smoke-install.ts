@@ -243,7 +243,7 @@ fs.writeFileSync(
       strict: true,
       module: "esnext",
       moduleResolution: "bundler",
-      target: "es2023",
+      target: "es2024",
       noEmit: true,
       plugins: [{ name: "@lucent-lang/lucent/ts-plugin" }],
     },

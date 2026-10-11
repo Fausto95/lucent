@@ -299,7 +299,7 @@ export const features: Feature[] = [
     status:
       "Most members, as JavaScript defines them. `Proxy`, `Reflect`, `Intl`, `WeakMap`, `normalize` and locale arguments are refused.",
     page: BUILT_INS,
-    cases: ["strings", "collections", "numbers", "dates", "es2023-arrays"],
+    cases: ["strings", "collections", "numbers", "dates", "es2023-arrays", "es2024-builtins"],
     refused: [
       {
         code: "LUCENT1003",
