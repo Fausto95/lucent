@@ -1622,6 +1622,24 @@ function arrayMethod(
         t: at,
       };
     }
+    case "toSpliced": {
+      const start = n(0, NAN) ?? cpp.num("0.0");
+      // A skip count passed as undefined skips nothing (ToIntegerOrInfinity); none skips the rest.
+      const count = n(1, NAN);
+      const items = a.slice(2).map((x) => em.exprAs(x, e));
+      return {
+        c: cpp.call(cpp.dot(o, "toSpliced"), [start, ...(count ? [count] : []), ...items]),
+        t: at,
+      };
+    }
+    case "with":
+      return {
+        c: cpp.call(cpp.dot(o, "with"), [
+          n(0, cpp.num("0.0")) ?? cpp.num("0.0"),
+          em.exprAs(a[1]!, e),
+        ]),
+        t: at,
+      };
     case "concat": {
       const parts = a.map((x) => {
         const v = em.expr(x);
