@@ -14,7 +14,12 @@ struct C_Service : lucent::Object {
   static lucent::Ref<C_Service> create();
   lucent::Promise<double> load(lucent::String p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Service::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Service::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

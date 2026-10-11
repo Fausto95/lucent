@@ -4,6 +4,8 @@
 
 #pragma push_macro("label")
 #undef label
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("x")
 #undef x
 
@@ -14,9 +16,14 @@ struct S_Pick;
 struct S_Pick : lucent::Object {
   double x{};
   lucent::String label{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Pick>& v);
+
+inline void S_Pick::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Pick>& v) {
   if (!v) {
@@ -34,4 +41,5 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Pick>& v) {
 }  // namespace lucent_app
 
 #pragma pop_macro("x")
+#pragma pop_macro("s")
 #pragma pop_macro("label")

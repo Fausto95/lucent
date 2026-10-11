@@ -27,7 +27,13 @@ struct C_TreeNode : lucent::Object {
   lucent::Opt<lucent::Ref<lucent_app::C_TreeNode>> get_parent();
   lucent::String path();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_TreeNode::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->parentRef, "TreeNode.parentRef", "weak-refs.lucent.ts:38");
+  lucent::debug::refs(s, this->children, "TreeNode.children", "weak-refs.lucent.ts:39");
+}
 
 inline bool C_TreeNode::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

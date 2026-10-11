@@ -4,6 +4,8 @@
 
 #pragma push_macro("describe")
 #undef describe
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("seen")
 #undef seen
 
@@ -17,7 +19,12 @@ struct C_Base : lucent::Object {
   static lucent::Ref<C_Base> create();
   virtual lucent::String describe();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Base::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Base::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -31,4 +38,5 @@ inline bool C_Base::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("seen")
+#pragma pop_macro("s")
 #pragma pop_macro("describe")

@@ -8,6 +8,8 @@
 #undef log
 #pragma push_macro("pending")
 #undef pending
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("w")
 #undef w
 #pragma push_macro("write")
@@ -24,7 +26,13 @@ struct C_Writer : lucent::Object {
   static lucent::Ref<C_Writer> create();
   lucent::Promise<void> write(lucent::String p0_, double p1_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Writer::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->pending, "Writer.pending", "promise-fields.lucent.ts:5");
+  lucent::debug::refs(s, this->log, "Writer.log", "promise-fields.lucent.ts:6");
+}
 
 inline bool C_Writer::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -40,6 +48,7 @@ inline bool C_Writer::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("write")
 #pragma pop_macro("w")
+#pragma pop_macro("s")
 #pragma pop_macro("pending")
 #pragma pop_macro("log")
 #pragma pop_macro("first")

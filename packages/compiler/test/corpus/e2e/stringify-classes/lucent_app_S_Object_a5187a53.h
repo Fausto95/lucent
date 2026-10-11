@@ -16,9 +16,14 @@ struct S_Object_a5187a53;
 
 struct S_Object_a5187a53 : lucent::Object {
   lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> s{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_a5187a53>& v);
+
+inline void S_Object_a5187a53::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->s, "object.s", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_a5187a53>& v) {
   if (!v) {

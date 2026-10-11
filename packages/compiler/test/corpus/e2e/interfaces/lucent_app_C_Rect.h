@@ -9,6 +9,8 @@
 #undef describe
 #pragma push_macro("h")
 #undef h
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("w")
 #undef w
 
@@ -25,7 +27,12 @@ struct C_Rect : lucent::Object, virtual lucent_app::I_Shape {
   double area() override;
   lucent::String describe(lucent::String p0_) override;
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Rect::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Rect::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -40,6 +47,7 @@ inline bool C_Rect::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("w")
+#pragma pop_macro("s")
 #pragma pop_macro("h")
 #pragma pop_macro("describe")
 #pragma pop_macro("area")

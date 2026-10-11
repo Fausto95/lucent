@@ -5,6 +5,8 @@
 
 #pragma push_macro("o")
 #undef o
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -15,7 +17,12 @@ struct C_Statics : lucent::Object {
   void construct();
   static lucent::Ref<C_Statics> create();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Statics::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Statics::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -27,4 +34,5 @@ inline bool C_Statics::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("o")

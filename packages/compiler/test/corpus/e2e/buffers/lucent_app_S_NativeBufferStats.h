@@ -15,9 +15,14 @@ struct S_NativeBufferStats : lucent::Object {
   double transfers{};
   double copies{};
   double bytesCopied{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_NativeBufferStats>& v);
+
+inline void S_NativeBufferStats::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_NativeBufferStats>& v) {
   if (!v) {

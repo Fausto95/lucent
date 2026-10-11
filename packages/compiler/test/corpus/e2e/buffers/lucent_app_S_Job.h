@@ -14,9 +14,14 @@ struct S_Job;
 struct S_Job : lucent::Object {
   lucent::NativeBuffer buffer{};
   double scale{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Job>& v);
+
+inline void S_Job::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->buffer, "Job.buffer", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Job>& v) {
   if (!v) {

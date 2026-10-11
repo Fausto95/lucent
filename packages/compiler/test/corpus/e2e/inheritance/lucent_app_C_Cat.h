@@ -6,6 +6,8 @@
 
 #pragma push_macro("name")
 #undef name
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("sound")
 #undef sound
 #pragma push_macro("speak")
@@ -20,6 +22,7 @@ struct C_Cat : lucent_app::C_Animal, virtual lucent_app::I_Pet {
   static lucent::Ref<C_Cat> create(lucent::String p0_);
   lucent::String speak() override;
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
   lucent::String get_name() override {
     return this->name;
   }
@@ -27,6 +30,10 @@ struct C_Cat : lucent_app::C_Animal, virtual lucent_app::I_Pet {
     this->name = std::move(v);
   }
 };
+
+inline void C_Cat::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Animal::lucentRefs_(s);
+}
 
 inline bool C_Cat::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -42,4 +49,5 @@ inline bool C_Cat::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("speak")
 #pragma pop_macro("sound")
+#pragma pop_macro("s")
 #pragma pop_macro("name")

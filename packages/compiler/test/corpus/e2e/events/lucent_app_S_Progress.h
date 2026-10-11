@@ -14,9 +14,14 @@ struct S_Progress;
 struct S_Progress : lucent::Object {
   lucent::String url{};
   double percent{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Progress>& v);
+
+inline void S_Progress::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Progress>& v) {
   if (!v) {

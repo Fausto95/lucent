@@ -4,6 +4,8 @@
 
 #pragma push_macro("first")
 #undef first
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("tag")
 #undef tag
 #pragma push_macro("toJSON")
@@ -19,7 +21,12 @@ struct C_ArrowBase : lucent::Object {
   void construct();
   static lucent::Ref<C_ArrowBase> create();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_ArrowBase::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->toJSON, "ArrowBase.toJSON", "stringify-classes.lucent.ts:201");
+}
 
 inline bool C_ArrowBase::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   if (toJson) {
@@ -38,4 +45,5 @@ inline bool C_ArrowBase::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("toJSON")
 #pragma pop_macro("tag")
+#pragma pop_macro("s")
 #pragma pop_macro("first")

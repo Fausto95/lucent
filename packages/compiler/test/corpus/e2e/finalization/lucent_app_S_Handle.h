@@ -11,9 +11,14 @@ struct S_Handle;
 
 struct S_Handle : lucent::Object {
   double r_id_{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Handle>& v);
+
+inline void S_Handle::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Handle>& v) {
   if (!v) {

@@ -9,6 +9,8 @@
 #undef full
 #pragma push_macro("item")
 #undef item
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -19,7 +21,12 @@ struct C_NumberBox : lucent_app::C_Box<double> {
   void construct();
   static lucent::Ref<C_NumberBox> create();
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_NumberBox::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Box<double>::lucentRefs_(s);
+}
 
 inline bool C_NumberBox::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -33,6 +40,7 @@ inline bool C_NumberBox::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("item")
 #pragma pop_macro("full")
 #pragma pop_macro("first")

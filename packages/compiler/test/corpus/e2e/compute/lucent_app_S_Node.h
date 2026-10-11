@@ -14,9 +14,14 @@ struct S_Node;
 struct S_Node : lucent::Object {
   lucent::String label{};
   lucent::Opt<lucent::Ref<lucent_app::S_Node>> next{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Node>& v);
+
+inline void S_Node::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->next, "Node.next", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Node>& v) {
   if (!v) {

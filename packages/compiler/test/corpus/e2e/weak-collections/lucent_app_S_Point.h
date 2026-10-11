@@ -14,9 +14,14 @@ struct S_Point;
 struct S_Point : lucent::Object {
   double x{};
   double y{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Point>& v);
+
+inline void S_Point::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Point>& v) {
   if (!v) {

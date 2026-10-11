@@ -53,6 +53,7 @@ const slow = [
   "packages/compiler/test/kotlin-shims.test.ts",
   "packages/compiler/test/unknown-library.test.ts",
   "packages/compiler/test/ui/*-run.test.ts",
+  "packages/compiler/test/cycles-run.test.ts",
   "packages/lucent/test/android-project.test.ts",
   "packages/lucent/test/bare-example-bundle.test.ts",
   "packages/lucent/test/component-types.test.ts",

@@ -4,6 +4,8 @@
 
 #pragma push_macro("b")
 #undef b
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -11,9 +13,14 @@ struct S_Object_f5cde7f3;
 
 struct S_Object_f5cde7f3 : lucent::Object {
   lucent::String b{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_f5cde7f3>& v);
+
+inline void S_Object_f5cde7f3::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_f5cde7f3>& v) {
   if (!v) {
@@ -29,4 +36,5 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_f5cde7f3
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("b")

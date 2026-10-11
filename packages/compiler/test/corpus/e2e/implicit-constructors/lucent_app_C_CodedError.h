@@ -4,6 +4,8 @@
 
 #pragma push_macro("code")
 #undef code
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -14,7 +16,12 @@ struct C_CodedError : lucent::ErrorObject {
   void construct(lucent::String p0_, double p1_);
   static lucent::Ref<C_CodedError> create(lucent::String p0_, double p1_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_CodedError::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_CodedError::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -27,4 +34,5 @@ inline bool C_CodedError::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("code")

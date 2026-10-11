@@ -8,6 +8,8 @@
 #undef promise
 #pragma push_macro("resolve")
 #undef resolve
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 #pragma push_macro("w")
@@ -21,9 +23,16 @@ struct S_PromiseWithResolvers : lucent::Object {
   lucent::Promise<double> promise{};
   lucent::Fn<void(double)> resolve{};
   lucent::Fn<void(lucent::Error)> reject{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_PromiseWithResolvers>& v);
+
+inline void S_PromiseWithResolvers::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->promise, "PromiseWithResolvers.promise", "");
+  lucent::debug::refs(s, this->resolve, "PromiseWithResolvers.resolve", "");
+  lucent::debug::refs(s, this->reject, "PromiseWithResolvers.reject", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_PromiseWithResolvers>& v) {
   if (!v) {
@@ -43,6 +52,7 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_PromiseWithReso
 
 #pragma pop_macro("w")
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("resolve")
 #pragma pop_macro("promise")
 #pragma pop_macro("first")

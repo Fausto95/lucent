@@ -4,6 +4,8 @@
 
 #pragma push_macro("done")
 #undef done
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("title")
 #undef title
 
@@ -14,9 +16,14 @@ struct S_Task;
 struct S_Task : lucent::Object {
   lucent::String title{};
   bool done{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Task>& v);
+
+inline void S_Task::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Task>& v) {
   if (!v) {
@@ -34,4 +41,5 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Task>& v) {
 }  // namespace lucent_app
 
 #pragma pop_macro("title")
+#pragma pop_macro("s")
 #pragma pop_macro("done")

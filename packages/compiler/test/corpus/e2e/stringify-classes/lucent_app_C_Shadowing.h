@@ -5,6 +5,8 @@
 
 #pragma push_macro("first")
 #undef first
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("toJSON")
 #undef toJSON
 
@@ -17,7 +19,13 @@ struct C_Shadowing : lucent_app::C_Method {
   void construct();
   static lucent::Ref<C_Shadowing> create();
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Shadowing::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Method::lucentRefs_(s);
+  lucent::debug::refs(s, this->toJSON, "Shadowing.toJSON", "stringify-classes.lucent.ts:222");
+}
 
 inline bool C_Shadowing::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   if (toJson) {
@@ -34,4 +42,5 @@ inline bool C_Shadowing::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("toJSON")
+#pragma pop_macro("s")
 #pragma pop_macro("first")

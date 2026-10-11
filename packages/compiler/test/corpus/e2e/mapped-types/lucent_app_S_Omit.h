@@ -2,6 +2,8 @@
 #pragma once
 #include "lucent_app.h"
 
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("x")
 #undef x
 #pragma push_macro("y")
@@ -14,9 +16,14 @@ struct S_Omit;
 struct S_Omit : lucent::Object {
   double x{};
   double y{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Omit>& v);
+
+inline void S_Omit::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Omit>& v) {
   if (!v) {
@@ -35,3 +42,4 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Omit>& v) {
 
 #pragma pop_macro("y")
 #pragma pop_macro("x")
+#pragma pop_macro("s")

@@ -14,9 +14,14 @@ struct S_Square;
 struct S_Square : lucent::Object {
   lucent::String kind{};
   double s{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Square>& v);
+
+inline void S_Square::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Square>& v) {
   if (!v) {

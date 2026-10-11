@@ -17,6 +17,8 @@
 #undef owner
 #pragma push_macro("rate")
 #undef rate
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("tags")
 #undef tags
 #pragma push_macro("years")
@@ -33,7 +35,13 @@ struct C_Savings : lucent_app::C_Account {
   void construct(lucent::String p0_, double p1_);
   static lucent::Ref<C_Savings> create(lucent::String p0_, double p1_);
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Savings::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Account::lucentRefs_(s);
+  lucent::debug::refs(s, this->tags, "Savings.tags", "stringify-classes.lucent.ts:38");
+}
 
 inline bool C_Savings::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -55,6 +63,7 @@ inline bool C_Savings::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("years")
 #pragma pop_macro("tags")
+#pragma pop_macro("s")
 #pragma pop_macro("rate")
 #pragma pop_macro("owner")
 #pragma pop_macro("note")

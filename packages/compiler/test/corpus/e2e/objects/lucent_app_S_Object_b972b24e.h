@@ -6,6 +6,8 @@
 #undef h
 #pragma push_macro("kind")
 #undef kind
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 #pragma push_macro("w")
@@ -19,9 +21,14 @@ struct S_Object_b972b24e : lucent::Object {
   lucent::String kind{};
   double w{};
   double h{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_b972b24e>& v);
+
+inline void S_Object_b972b24e::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_b972b24e>& v) {
   if (!v) {
@@ -41,5 +48,6 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_b972b24e
 
 #pragma pop_macro("w")
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("kind")
 #pragma pop_macro("h")

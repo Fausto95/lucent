@@ -4,6 +4,8 @@
 
 #pragma push_macro("kind")
 #undef kind
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("side")
 #undef side
 #pragma push_macro("v")
@@ -16,9 +18,14 @@ struct S_Object_4b1186b8;
 struct S_Object_4b1186b8 : lucent::Object {
   lucent::String kind{};
   double side{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_4b1186b8>& v);
+
+inline void S_Object_4b1186b8::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_4b1186b8>& v) {
   if (!v) {
@@ -37,4 +44,5 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_4b1186b8
 
 #pragma pop_macro("v")
 #pragma pop_macro("side")
+#pragma pop_macro("s")
 #pragma pop_macro("kind")

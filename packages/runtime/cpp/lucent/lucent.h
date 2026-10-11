@@ -35,6 +35,7 @@
 #include "map.h"
 #include "native.h"
 #include "number.h"
+#include "refs.h"
 #include "regexp.h"
 #include "report.h"
 #include "resource.h"

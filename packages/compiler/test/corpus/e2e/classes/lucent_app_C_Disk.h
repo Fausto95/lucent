@@ -8,6 +8,8 @@
 #undef mark
 #pragma push_macro("path")
 #undef path
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -21,7 +23,12 @@ struct C_Disk : lucent::Object {
   lucent::String describe(lucent::String p0_);
   void mark(lucent::Array<lucent::String> p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Disk::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Disk::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -34,6 +41,7 @@ inline bool C_Disk::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("path")
 #pragma pop_macro("mark")
 #pragma pop_macro("describe")

@@ -13,6 +13,8 @@
 #undef origin
 #pragma push_macro("r")
 #undef r
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -25,7 +27,12 @@ struct C_Circle : lucent_app::C_Shape {
   static lucent::Ref<C_Circle> create(double p0_);
   virtual double area();
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Circle::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Shape::lucentRefs_(s);
+}
 
 inline bool C_Circle::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -40,6 +47,7 @@ inline bool C_Circle::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("r")
 #pragma pop_macro("origin")
 #pragma pop_macro("label")

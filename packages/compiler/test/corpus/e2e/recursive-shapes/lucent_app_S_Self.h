@@ -6,6 +6,8 @@
 #undef n
 #pragma push_macro("other")
 #undef other
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 
@@ -16,9 +18,14 @@ struct S_Self;
 struct S_Self : lucent::Object {
   double n{};
   lucent::Opt<lucent::Ref<lucent_app::S_Self>> other{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Self>& v);
+
+inline void S_Self::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->other, "Self.other", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Self>& v) {
   if (!v) {
@@ -36,5 +43,6 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Self>& v) {
 }  // namespace lucent_app
 
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("other")
 #pragma pop_macro("n")

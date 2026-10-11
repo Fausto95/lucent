@@ -8,6 +8,8 @@
 #undef children
 #pragma push_macro("label")
 #undef label
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("walk")
 #undef walk
 
@@ -23,7 +25,12 @@ struct C_Tree : lucent::Object {
   lucent::Ref<lucent_app::C_Tree> add(lucent::Ref<lucent_app::C_Tree> p0_);
   lucent::Iter<lucent::String> walk(lucent::Opt<double> p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Tree::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->children, "Tree.children", "generators.lucent.ts:94");
+}
 
 inline bool C_Tree::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -38,6 +45,7 @@ inline bool C_Tree::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("walk")
+#pragma pop_macro("s")
 #pragma pop_macro("label")
 #pragma pop_macro("children")
 #pragma pop_macro("add")

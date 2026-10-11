@@ -7,6 +7,8 @@
 #undef first
 #pragma push_macro("inner")
 #undef inner
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("w")
 #undef w
 #pragma push_macro("x")
@@ -22,9 +24,14 @@ struct S_Object_42336d24 : lucent::Object {
   double x{};
   double y{};
   lucent::Ref<lucent_app::S_Object_1e208747> inner{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_42336d24>& v);
+
+inline void S_Object_42336d24::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->inner, "object.inner", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_42336d24>& v) {
   if (!v) {
@@ -45,5 +52,6 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_42336d24
 #pragma pop_macro("y")
 #pragma pop_macro("x")
 #pragma pop_macro("w")
+#pragma pop_macro("s")
 #pragma pop_macro("inner")
 #pragma pop_macro("first")

@@ -8,6 +8,8 @@
 #undef last
 #pragma push_macro("onValue")
 #undef onValue
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("send")
 #undef send
 
@@ -23,7 +25,13 @@ struct C_Relay : lucent::Object {
   static lucent::Ref<C_Relay> create(lucent::Fn<void(lucent::String)> p0_);
   void send(lucent::String p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Relay::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->onValue, "Relay.onValue", "classes.lucent.ts:135");
+  lucent::debug::refs(s, this->format, "Relay.format", "classes.lucent.ts:134");
+}
 
 inline bool C_Relay::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -39,6 +47,7 @@ inline bool C_Relay::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("send")
+#pragma pop_macro("s")
 #pragma pop_macro("onValue")
 #pragma pop_macro("last")
 #pragma pop_macro("format")

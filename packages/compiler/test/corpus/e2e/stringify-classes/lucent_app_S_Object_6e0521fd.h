@@ -7,6 +7,8 @@
 #undef first
 #pragma push_macro("r")
 #undef r
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 
@@ -16,9 +18,14 @@ struct S_Object_6e0521fd;
 
 struct S_Object_6e0521fd : lucent::Object {
   lucent::Dict<lucent::Ref<lucent_app::C_Maybe>> r{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_6e0521fd>& v);
+
+inline void S_Object_6e0521fd::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->r, "object.r", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_6e0521fd>& v) {
   if (!v) {
@@ -35,5 +42,6 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_6e0521fd
 }  // namespace lucent_app
 
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("r")
 #pragma pop_macro("first")

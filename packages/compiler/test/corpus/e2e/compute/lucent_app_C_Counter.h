@@ -20,7 +20,12 @@ struct C_Counter : lucent::Object {
   static lucent::Ref<C_Counter> create(double p0_);
   double bump();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Counter::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Counter::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

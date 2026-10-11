@@ -7,6 +7,8 @@
 #undef inner
 #pragma push_macro("label")
 #undef label
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 #pragma push_macro("w")
@@ -25,9 +27,15 @@ struct S_Object_153935d8 : lucent::Object {
   double y{};
   lucent::Opt<lucent::String> label{};
   lucent::Ref<lucent_app::S_Object_1e208747> inner{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_153935d8>& v);
+
+inline void S_Object_153935d8::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->label, "object.label", "");
+  lucent::debug::refs(s, this->inner, "object.inner", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_153935d8>& v) {
   if (!v) {
@@ -50,5 +58,6 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_153935d8
 #pragma pop_macro("x")
 #pragma pop_macro("w")
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("label")
 #pragma pop_macro("inner")

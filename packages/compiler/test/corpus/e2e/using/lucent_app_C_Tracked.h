@@ -17,7 +17,12 @@ struct C_Tracked : lucent_app::C_Resource {
   static lucent::Ref<C_Tracked> create(lucent::String p0_, lucent::Opt<bool> p1_);
   void symbol_dispose_() override;
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Tracked::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Resource::lucentRefs_(s);
+}
 
 inline bool C_Tracked::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

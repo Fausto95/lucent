@@ -14,6 +14,8 @@
 #undef label
 #pragma push_macro("reset")
 #undef reset
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("total")
 #undef total
 
@@ -34,7 +36,12 @@ struct C_Counter : lucent::Object {
   static double total();
   lucent::String describe();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Counter::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Counter::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -49,6 +56,7 @@ inline bool C_Counter::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("total")
+#pragma pop_macro("s")
 #pragma pop_macro("reset")
 #pragma pop_macro("label")
 #pragma pop_macro("increment")

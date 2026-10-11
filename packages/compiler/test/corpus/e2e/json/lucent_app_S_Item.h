@@ -10,6 +10,8 @@
 #undef note
 #pragma push_macro("price")
 #undef price
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("tags")
 #undef tags
 #pragma push_macro("v")
@@ -25,9 +27,16 @@ struct S_Item : lucent::Object {
   lucent::Array<lucent::String> tags{};
   lucent::Opt<lucent::String> note{};
   lucent::Opt<double> discount{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Item>& v);
+
+inline void S_Item::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->tags, "Item.tags", "");
+  lucent::debug::refs(s, this->note, "Item.note", "");
+  lucent::debug::refs(s, this->discount, "Item.discount", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Item>& v) {
   if (!v) {
@@ -49,6 +58,7 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Item>& v) {
 
 #pragma pop_macro("v")
 #pragma pop_macro("tags")
+#pragma pop_macro("s")
 #pragma pop_macro("price")
 #pragma pop_macro("note")
 #pragma pop_macro("name")

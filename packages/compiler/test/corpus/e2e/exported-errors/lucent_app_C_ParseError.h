@@ -14,7 +14,12 @@ struct C_ParseError : lucent::ErrorObject {
   void construct(lucent::String p0_, double p1_);
   static lucent::Ref<C_ParseError> create(lucent::String p0_, double p1_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_ParseError::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_ParseError::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

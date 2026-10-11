@@ -8,6 +8,8 @@
 #undef count
 #pragma push_macro("first")
 #undef first
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("value")
 #undef value
 
@@ -31,7 +33,13 @@ struct C_Cell : lucent::Object {
     return self;
   }
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+template <class T>
+inline void C_Cell<T>::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->value, "Cell.value", "stringify-classes.lucent.ts:257");
+}
 
 template <class T>
 inline bool C_Cell<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
@@ -47,6 +55,7 @@ inline bool C_Cell<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("value")
+#pragma pop_macro("s")
 #pragma pop_macro("first")
 #pragma pop_macro("count")
 #pragma pop_macro("T")

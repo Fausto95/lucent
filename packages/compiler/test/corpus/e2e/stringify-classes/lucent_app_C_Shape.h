@@ -9,6 +9,8 @@
 #undef label
 #pragma push_macro("origin")
 #undef origin
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -20,7 +22,12 @@ struct C_Shape : lucent::Object {
   void construct(lucent::String p0_);
   static lucent::Ref<C_Shape> create(lucent::String p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Shape::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->origin, "Shape.origin", "stringify-classes.lucent.ts:60");
+}
 
 inline bool C_Shape::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -34,6 +41,7 @@ inline bool C_Shape::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("origin")
 #pragma pop_macro("label")
 #pragma pop_macro("first")

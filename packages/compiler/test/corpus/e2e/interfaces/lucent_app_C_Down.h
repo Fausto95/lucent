@@ -7,6 +7,8 @@
 #undef i
 #pragma push_macro("next")
 #undef next
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("w")
 #undef w
 
@@ -20,7 +22,12 @@ struct C_Down : lucent::Object, virtual lucent_app::I_Counter {
   static lucent::Ref<C_Down> create(double p0_);
   double next() override;
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Down::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Down::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -34,5 +41,6 @@ inline bool C_Down::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("w")
+#pragma pop_macro("s")
 #pragma pop_macro("next")
 #pragma pop_macro("i")

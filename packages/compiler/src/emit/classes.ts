@@ -21,10 +21,13 @@ import { type FnOptions, FnEmitter } from "./function.ts";
 import { initializationThroughIr, type IrMode, throughIr } from "./through-ir.ts";
 import { ifaceOverrides, ifacesOf, virtualMembers } from "./interfaces.ts";
 import { subclassImplicitSuper } from "./objc-subclass.ts";
+import { mayRefer, type RefField, refsDefinition, refsMethod, siteOf } from "./refs.ts";
 
 export interface ClassOutput {
   /** Class definition for the header. */
   definition: cpp.Decl;
+  /** Its `lucentRefs_`, inline after the header's types (emit/refs.ts). */
+  refs: cpp.Decl;
   /** Out-of-line member definitions (none for generic classes). */
   members: cpp.Decl[];
   /** Each static field, with its initializer and where it goes, which the module's init() runs. */
@@ -186,12 +189,19 @@ export function emitClass(
   const virtuals = ctx.guard(() => virtualMembers(ctx, info)) ?? new Set<string>();
 
   const fieldType = (n: ts.Node) => reg.lower(ctx.checker.getTypeAtLocation(n), n);
+  /** The fields this class declares itself, for its lucentRefs_. */
+  const ownFields: RefField[] = [];
+  const className = decl.name?.text ?? "class";
   /** A field redeclared from a base class shares the base's storage, Error's own fields too. */
   const declareField = (m: ts.PropertyDeclaration | ts.ParameterDeclaration, t: LType) => {
     const name = memberName(m);
     if (info.isError && ERROR_FIELDS.includes(name)) return;
     const base = inherited(name, isField);
-    if (!base) return body.push(cpp.field(reg.cppType(t), cppIdent(name)));
+    if (!base) {
+      if (mayRefer(t))
+        ownFields.push({ member: cppIdent(name), label: `${className}.${name}`, where: siteOf(m) });
+      return body.push(cpp.field(reg.cppType(t), cppIdent(name)));
+    }
     const baseType = substitute(fieldType(base.decl), argMap(ctx, base.owner.t));
     if (reg.cpp(baseType) !== reg.cpp(t))
       fail(
@@ -555,12 +565,17 @@ export function emitClass(
       info.base || ctx.reg.declaredIfaces(info).length ? { override: true } : { virtual: true },
     ),
   );
+  body.push(refsMethod());
   const overrides = ctx.guard(() => ifaceOverrides(ctx, info)) ?? [];
   const definition = cpp.struct(info.cppName, [...body, ...overrides], {
     ...(template ? { template } : {}),
     bases,
   });
-  return { definition, members, statics };
+  const refs = refsDefinition(selfType, ownFields, {
+    ...(baseT ? { base: reg.cppClassType(baseT) } : {}),
+    ...(template ? { template } : {}),
+  });
+  return { definition, refs, members, statics };
 }
 
 /** A plan writing `value` into `place`. */

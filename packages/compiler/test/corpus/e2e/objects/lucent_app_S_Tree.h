@@ -4,6 +4,8 @@
 
 #pragma push_macro("children")
 #undef children
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 #pragma push_macro("value")
@@ -18,9 +20,14 @@ struct S_Tree;
 struct S_Tree : lucent::Object {
   double value{};
   lucent::Array<lucent::Ref<lucent_app::S_Tree>> children{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Tree>& v);
+
+inline void S_Tree::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->children, "Tree.children", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Tree>& v) {
   if (!v) {
@@ -40,4 +47,5 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Tree>& v) {
 #pragma pop_macro("w")
 #pragma pop_macro("value")
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("children")

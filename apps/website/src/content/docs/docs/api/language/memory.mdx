@@ -137,4 +137,12 @@ When JavaScript reloads, or the app ends, a debug build writes this to the platf
 
 It counts the SDK objects that module state holds, with listeners never removed and the cycles through them. Objects that view code made aren't counted.
 
+It also names each cycle of strong references between Lucent objects, once, with the fields that close it:
+
+```sh title="Platform log" nocopy
+[lucent] a reference cycle keeps 2 objects alive: Session.onFrame (camera.lucent.ts:2), then Handler.owner (camera.lucent.ts:9), back to the first. Hold Handler.owner through a WeakRef to break it.
+```
+
+The cycle starts at its oldest object, so the last field is usually the reference back to an owner. Captures of closures aren't named yet.
+
 While the app runs, [`__lucentDebug.snapshot()`](/docs/guides/read-errors-and-logs/#inspect-what-a-running-app-holds) gives live counts. [Modules](/docs/api/language/modules/) says what a reload keeps.

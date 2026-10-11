@@ -820,6 +820,15 @@ signal)` starts native work that completes later, on any thread (a
   what code has. `platform/ios_layout.mm` (LucentFlexView) and
   `platform/android_layout.cpp` (with dev.lucent.LucentFlexView) define
   it.
+- `refs.h` (TA41): reference cycles, as a debug build reports them. A
+  debug host turns on `trackObjects()`, after which every `Object` lists
+  itself as it is made (one relaxed load otherwise); each generated class
+  and struct reports its fields' strong references through
+  `lucentRefs_` (emitted in every build, so layouts never depend on
+  NDEBUG; `emit/refs.ts`), and `cycles()` walks the objects alive, finds
+  the strongly connected groups (Tarjan's algorithm) and gives each as the
+  path of fields from its oldest object back to it, once.
+  `rn/LucentModule.cpp` logs each new one at teardown.
 - `live.h` and `debug.h` (T61): what a debug build reports of the
   runtime. A class counts its instances by holding a `live::Counted`
   member (scopes, operations, resources, a view's effects, signals and

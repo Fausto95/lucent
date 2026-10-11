@@ -5,6 +5,8 @@
 
 #pragma push_macro("opts")
 #undef opts
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -15,7 +17,12 @@ struct C_Late : lucent::Object {
   void construct();
   static lucent::Ref<C_Late> create();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Late::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->opts, "Late.opts", "unassigned-fields.lucent.ts:40");
+}
 
 inline bool C_Late::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -28,4 +35,5 @@ inline bool C_Late::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("opts")

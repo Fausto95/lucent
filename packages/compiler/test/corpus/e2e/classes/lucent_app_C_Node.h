@@ -4,6 +4,8 @@
 
 #pragma push_macro("next")
 #undef next
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("value")
 #undef value
 
@@ -17,7 +19,12 @@ struct C_Node : lucent::Object {
   void construct(double p0_, lucent::Opt<lucent::Ref<lucent_app::C_Node>> p1_);
   static lucent::Ref<C_Node> create(double p0_, lucent::Opt<lucent::Ref<lucent_app::C_Node>> p1_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Node::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->next, "Node.next", "classes.lucent.ts:42");
+}
 
 inline bool C_Node::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -32,4 +39,5 @@ inline bool C_Node::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("value")
+#pragma pop_macro("s")
 #pragma pop_macro("next")

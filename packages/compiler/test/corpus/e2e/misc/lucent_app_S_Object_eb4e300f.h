@@ -6,6 +6,8 @@
 #undef max
 #pragma push_macro("min")
 #undef min
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -14,9 +16,14 @@ struct S_Object_eb4e300f;
 struct S_Object_eb4e300f : lucent::Object {
   double min{};
   double max{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_eb4e300f>& v);
+
+inline void S_Object_eb4e300f::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_eb4e300f>& v) {
   if (!v) {
@@ -33,5 +40,6 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_eb4e300f
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("min")
 #pragma pop_macro("max")

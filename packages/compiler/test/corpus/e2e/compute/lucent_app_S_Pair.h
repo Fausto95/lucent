@@ -21,9 +21,17 @@ struct S_Pair : lucent::Object {
   lucent::Ref<lucent_app::S_Node> b{};
   lucent::Array<double> list{};
   lucent::Array<double> same{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Pair>& v);
+
+inline void S_Pair::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->a, "Pair.a", "");
+  lucent::debug::refs(s, this->b, "Pair.b", "");
+  lucent::debug::refs(s, this->list, "Pair.list", "");
+  lucent::debug::refs(s, this->same, "Pair.same", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Pair>& v) {
   if (!v) {

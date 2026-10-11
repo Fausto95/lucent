@@ -8,6 +8,8 @@
 #undef list
 #pragma push_macro("name")
 #undef name
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -17,9 +19,14 @@ struct S_Object_8992ee21 : lucent::Object {
   lucent::Array<double> list{};
   lucent::String name{};
   bool flag{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_8992ee21>& v);
+
+inline void S_Object_8992ee21::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->list, "object.list", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_8992ee21>& v) {
   if (!v) {
@@ -37,6 +44,7 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_8992ee21
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("name")
 #pragma pop_macro("list")
 #pragma pop_macro("flag")

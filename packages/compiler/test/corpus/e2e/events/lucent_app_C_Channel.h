@@ -17,7 +17,12 @@ struct C_Channel : lucent::Object {
   void construct();
   static lucent::Ref<C_Channel> create();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Channel::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->events, "Channel.events", "events.lucent.ts:92");
+}
 
 inline bool C_Channel::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

@@ -8,6 +8,8 @@
 #undef name
 #pragma push_macro("nickname")
 #undef nickname
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("tags")
 #undef tags
 #pragma push_macro("v")
@@ -24,9 +26,15 @@ struct S_Person : lucent::Object {
   double age{};
   lucent::Opt<lucent::String> nickname{};
   lucent::Array<lucent::String> tags{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Person>& v);
+
+inline void S_Person::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->nickname, "Person.nickname", "");
+  lucent::debug::refs(s, this->tags, "Person.tags", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Person>& v) {
   if (!v) {
@@ -48,6 +56,7 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Person>& v) {
 #pragma pop_macro("w")
 #pragma pop_macro("v")
 #pragma pop_macro("tags")
+#pragma pop_macro("s")
 #pragma pop_macro("nickname")
 #pragma pop_macro("name")
 #pragma pop_macro("age")

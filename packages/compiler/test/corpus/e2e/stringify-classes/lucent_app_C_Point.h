@@ -4,6 +4,8 @@
 
 #pragma push_macro("first")
 #undef first
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("toJSON")
 #undef toJSON
 #pragma push_macro("x")
@@ -22,7 +24,12 @@ struct C_Point : lucent::Object {
   static lucent::Ref<C_Point> create(double p0_, double p1_);
   lucent::String toJSON();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Point::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Point::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   if (toJson) {
@@ -42,4 +49,5 @@ inline bool C_Point::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("y")
 #pragma pop_macro("x")
 #pragma pop_macro("toJSON")
+#pragma pop_macro("s")
 #pragma pop_macro("first")

@@ -8,6 +8,8 @@
 #undef n
 #pragma push_macro("results")
 #undef results
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 
@@ -18,9 +20,14 @@ struct S_Object_a5f04675;
 struct S_Object_a5f04675 : lucent::Object {
   lucent::Channel<double> results{};
   double n{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_a5f04675>& v);
+
+inline void S_Object_a5f04675::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->results, "object.results", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_a5f04675>& v) {
   if (!v) {
@@ -38,6 +45,7 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_a5f04675
 }  // namespace lucent_app
 
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("results")
 #pragma pop_macro("n")
 #pragma pop_macro("first")

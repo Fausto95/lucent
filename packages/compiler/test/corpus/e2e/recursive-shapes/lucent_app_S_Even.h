@@ -6,6 +6,8 @@
 #undef n
 #pragma push_macro("other")
 #undef other
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 
@@ -17,15 +19,21 @@ struct S_Odd;
 struct S_Even : lucent::Object {
   double n{};
   lucent::Opt<lucent::Ref<lucent_app::S_Odd>> other{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 struct S_Odd : lucent::Object {
   lucent::String n{};
   lucent::Opt<lucent::Ref<lucent_app::S_Even>> other{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Even>& v);
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Odd>& v);
+
+inline void S_Even::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->other, "Even.other", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Even>& v) {
   if (!v) {
@@ -38,6 +46,10 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Even>& v) {
   lucent::jsonField(w, first, "other", v->other);
   (void)first;
   w.raw("}");
+}
+
+inline void S_Odd::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->other, "Odd.other", "");
 }
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Odd>& v) {
@@ -56,5 +68,6 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Odd>& v) {
 }  // namespace lucent_app
 
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("other")
 #pragma pop_macro("n")

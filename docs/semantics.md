@@ -714,7 +714,14 @@ throws `SyntaxError` when it is compiled.
 Objects, arrays, closures and class instances are reference counted. A cycle of
 strong references (for example a parent and child that point at each other, or
 a closure stored on the object it captures) is never freed. Break such cycles
-explicitly, for example by clearing a field.
+explicitly, for example by clearing a field, or hold the back reference through
+a `WeakRef`.
+
+A debug build names each cycle between class instances and objects that it
+finds at teardown (a reload, the app's end), once, in the platform log: the
+fields that close it, with their source lines, from the cycle's oldest object
+back to it, and the last of them as the one to hold through a `WeakRef`.
+Captures of closures are not named yet.
 
 ## Deviations from JavaScript
 

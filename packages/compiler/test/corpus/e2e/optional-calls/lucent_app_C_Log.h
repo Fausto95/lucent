@@ -29,7 +29,14 @@ struct C_Log : lucent::Object {
   lucent::Ref<lucent_app::C_Log> r_self_();
   lucent::Opt<lucent::Ref<lucent_app::C_Log>> parent();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Log::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->lines, "Log.lines", "optional-calls.lucent.ts:5");
+  lucent::debug::refs(s, this->child, "Log.child", "optional-calls.lucent.ts:6");
+  lucent::debug::refs(s, this->onAdd, "Log.onAdd", "optional-calls.lucent.ts:7");
+}
 
 inline bool C_Log::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

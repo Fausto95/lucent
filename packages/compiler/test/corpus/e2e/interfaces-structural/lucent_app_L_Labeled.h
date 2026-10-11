@@ -21,6 +21,7 @@ struct L_Labeled final : public lucent::Object, public virtual lucent_app::I_Lab
     jsonWrite(w, s);
     return true;
   }
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
   lucent::String get_label() override {
     return s->label;
   }
@@ -31,6 +32,10 @@ struct L_Labeled final : public lucent::Object, public virtual lucent_app::I_Lab
     return s->size;
   }
 };
+
+inline void L_Labeled::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->s, "Labeled literal", "");
+}
 
 }  // namespace lucent_app
 

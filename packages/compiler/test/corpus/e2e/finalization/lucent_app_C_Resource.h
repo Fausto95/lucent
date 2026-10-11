@@ -14,7 +14,12 @@ struct C_Resource : lucent::Object {
   void construct(lucent::String p0_);
   static lucent::Ref<C_Resource> create(lucent::String p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Resource::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Resource::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

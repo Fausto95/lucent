@@ -14,9 +14,14 @@ struct S_Tagged;
 struct S_Tagged : lucent::Object {
   lucent::String tag{};
   lucent::JSValue value{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Tagged>& v);
+
+inline void S_Tagged::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->value, "Tagged.value", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Tagged>& v) {
   if (!v) {

@@ -32,7 +32,13 @@ struct C_Shown : lucent::Object {
     return lucent::toJsString(v0_);
   }
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+template <class T>
+inline void C_Shown<T>::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->v, "Shown.v", "generic-instantiations.lucent.ts:2");
+}
 
 template <class T>
 inline bool C_Shown<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {

@@ -24,6 +24,7 @@ struct C_Updates : lucent::Object {
   static lucent::Ref<C_Updates> create(lucent::Ref<lucent_app::C_Tracker> p0_);
   lucent::String report(double p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 struct C_Tracker : lucent::Object {
@@ -33,7 +34,12 @@ struct C_Tracker : lucent::Object {
   void construct(lucent::String p0_);
   static lucent::Ref<C_Tracker> create(lucent::String p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Updates::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->owner, "Updates.owner", "weak-refs.lucent.ts:3");
+}
 
 inline bool C_Updates::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -42,6 +48,11 @@ inline bool C_Updates::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   (void)first;
   w.raw("}");
   return true;
+}
+
+inline void C_Tracker::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->seen, "Tracker.seen", "weak-refs.lucent.ts:18");
+  lucent::debug::refs(s, this->updates, "Tracker.updates", "weak-refs.lucent.ts:19");
 }
 
 inline bool C_Tracker::lucentJson_(lucent::JsonWriter& w, bool toJson) {

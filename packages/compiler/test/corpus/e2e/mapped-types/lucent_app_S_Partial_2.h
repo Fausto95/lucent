@@ -5,6 +5,8 @@
 
 #pragma push_macro("done")
 #undef done
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -13,9 +15,15 @@ struct S_Partial_2;
 struct S_Partial_2 : lucent::Object {
   lucent::Opt<lucent::Array<lucent::Ref<lucent_app::S_Task>>> done{};
   lucent::Opt<lucent::Array<lucent::Ref<lucent_app::S_Task>>> todo{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Partial_2>& v);
+
+inline void S_Partial_2::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->done, "Partial_2.done", "");
+  lucent::debug::refs(s, this->todo, "Partial_2.todo", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Partial_2>& v) {
   if (!v) {
@@ -32,4 +40,5 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Partial_2>& v) 
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("done")

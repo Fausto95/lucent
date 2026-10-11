@@ -6,6 +6,8 @@
 #undef a
 #pragma push_macro("first")
 #undef first
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -16,7 +18,12 @@ struct C_Plain : lucent::Object {
   void construct();
   static lucent::Ref<C_Plain> create();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Plain::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Plain::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -29,5 +36,6 @@ inline bool C_Plain::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("first")
 #pragma pop_macro("a")

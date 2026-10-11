@@ -32,7 +32,12 @@ struct C_Registry : lucent::Object {
   static double add(lucent::String p0_);
   static lucent::String summary();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Registry::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Registry::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

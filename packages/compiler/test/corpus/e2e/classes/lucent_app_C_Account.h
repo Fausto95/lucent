@@ -10,6 +10,8 @@
 #undef onEach
 #pragma push_macro("owner")
 #undef owner
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("secret")
 #undef secret
 
@@ -28,7 +30,12 @@ struct C_Account : lucent::Object {
   double secret();
   void onEach(lucent::Fn<void(double)> p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Account::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->history, "Account.history", "classes.lucent.ts:99");
+}
 
 inline bool C_Account::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -43,6 +50,7 @@ inline bool C_Account::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("secret")
+#pragma pop_macro("s")
 #pragma pop_macro("owner")
 #pragma pop_macro("onEach")
 #pragma pop_macro("history")

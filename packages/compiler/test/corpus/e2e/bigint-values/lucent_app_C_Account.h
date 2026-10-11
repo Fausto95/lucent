@@ -10,6 +10,8 @@
 #undef history
 #pragma push_macro("r_id_")
 #undef r_id_
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -24,7 +26,12 @@ struct C_Account : lucent::Object {
   lucent::BigInt deposit(lucent::BigInt p0_);
   lucent::BigInt get_doubled();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Account::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->history, "Account.history", "bigint-values.lucent.ts:88");
+}
 
 inline bool C_Account::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -39,6 +46,7 @@ inline bool C_Account::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("r_id_")
 #pragma pop_macro("history")
 #pragma pop_macro("deposit")

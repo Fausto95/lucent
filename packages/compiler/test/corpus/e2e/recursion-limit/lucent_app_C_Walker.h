@@ -17,7 +17,12 @@ struct C_Walker : lucent::Object {
   static lucent::Ref<C_Walker> create();
   double walk(double p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Walker::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Walker::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

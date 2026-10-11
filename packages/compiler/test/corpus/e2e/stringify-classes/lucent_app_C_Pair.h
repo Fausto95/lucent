@@ -8,6 +8,8 @@
 #undef B
 #pragma push_macro("first")
 #undef first
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("second")
 #undef second
 
@@ -31,7 +33,14 @@ struct C_Pair : lucent::Object {
     return self;
   }
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+template <class A, class B>
+inline void C_Pair<A, B>::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->first, "Pair.first", "stringify-classes.lucent.ts:251");
+  lucent::debug::refs(s, this->second, "Pair.second", "stringify-classes.lucent.ts:252");
+}
 
 template <class A, class B>
 inline bool C_Pair<A, B>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
@@ -47,6 +56,7 @@ inline bool C_Pair<A, B>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("second")
+#pragma pop_macro("s")
 #pragma pop_macro("first")
 #pragma pop_macro("B")
 #pragma pop_macro("A")

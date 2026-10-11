@@ -16,9 +16,14 @@ struct S_Word;
 struct S_Word : lucent::Object {
   double key{};
   lucent::String text{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Word>& v);
+
+inline void S_Word::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Word>& v) {
   if (!v) {

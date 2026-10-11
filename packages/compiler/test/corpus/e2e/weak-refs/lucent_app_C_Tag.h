@@ -18,7 +18,12 @@ struct C_Tag : lucent::Object, virtual lucent_app::I_Named {
   static lucent::Ref<C_Tag> create(lucent::String p0_);
   lucent::String label() override;
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Tag::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Tag::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

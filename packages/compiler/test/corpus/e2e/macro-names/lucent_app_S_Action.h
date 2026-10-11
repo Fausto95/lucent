@@ -14,9 +14,14 @@ struct S_Action;
 struct S_Action : lucent::Object {
   lucent::String sa_handler{};
   double howmany{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Action>& v);
+
+inline void S_Action::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Action>& v) {
   if (!v) {

@@ -18,6 +18,7 @@ struct C_Pixel : lucent::Object, virtual lucent_app::I_Point {
   void construct(double p0_, double p1_);
   static lucent::Ref<C_Pixel> create(double p0_, double p1_);
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
   double get_x() override {
     return this->x;
   }
@@ -31,6 +32,10 @@ struct C_Pixel : lucent::Object, virtual lucent_app::I_Point {
     this->y = std::move(v);
   }
 };
+
+inline void C_Pixel::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Pixel::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

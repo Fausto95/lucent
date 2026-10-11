@@ -5,6 +5,8 @@
 
 #pragma push_macro("area")
 #undef area
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("side")
 #undef side
 
@@ -18,7 +20,12 @@ struct C_Square : lucent_app::C_Shape {
   static lucent::Ref<C_Square> create(double p0_);
   double area() override;
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Square::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Shape::lucentRefs_(s);
+}
 
 inline bool C_Square::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -32,4 +39,5 @@ inline bool C_Square::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("side")
+#pragma pop_macro("s")
 #pragma pop_macro("area")

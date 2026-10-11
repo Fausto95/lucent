@@ -21,7 +21,12 @@ struct C_Filter : lucent::Object {
   lucent::BigInt processed();
   void close();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Filter::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->_u23_native, "Filter.#native", "extension.lucent.ts:10");
+}
 
 inline bool C_Filter::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

@@ -5,6 +5,8 @@
 
 #pragma push_macro("first")
 #undef first
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("toJSON")
 #undef toJSON
 
@@ -17,7 +19,12 @@ struct C_Wrapper : lucent::Object {
   static lucent::Ref<C_Wrapper> create();
   lucent::Ref<lucent_app::C_Self> toJSON();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Wrapper::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Wrapper::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   if (toJson) {
@@ -33,4 +40,5 @@ inline bool C_Wrapper::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("toJSON")
+#pragma pop_macro("s")
 #pragma pop_macro("first")
