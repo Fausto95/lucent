@@ -2,12 +2,13 @@
 // lucent/debug.h): the live count of each kind of thing it owns (scopes,
 // pending operations, resources, a view's effects, signals and computed
 // values, native references), each back to where it was once its owner
-// goes. Built and run by `packages/runtime/test/run.sh`, also under
+// goes; and what a last reference closed while still open. Built and run by `packages/runtime/test/run.sh`, also under
 // ASan/UBSan and TSan.
 #include <cstdio>
 #include <future>
 #include <memory>
 
+#include "lucent/buffer.h"
 #include "lucent/debug.h"
 #include "lucent/lucent.h"
 #include "lucent/reactive.h"
@@ -87,6 +88,32 @@ static void countsAViewsGraph() {
   });
 }
 
+// What its last reference closed while still open: a resource or a native
+// buffer's storage, never one closed first.
+static void countsBackstops() {
+  const long before = live::backstops;
+
+  { auto file = Resource::open(String::fromUtf8("file"), [] {}); }
+  CHECK(live::backstops == before + 1);
+
+  {
+    auto closed = Resource::open(String::fromUtf8("closed"), [] {});
+    closed->close();
+  }
+  CHECK(live::backstops == before + 1);
+
+  { auto pixels = NativeBufferObject::allocate(4); }
+  CHECK(live::backstops == before + 2);
+
+  {
+    auto pixels = NativeBufferObject::allocate(4);
+    pixels->close();
+    auto moved = NativeBufferObject::allocate(4)->transfer();
+    moved->close();
+  }
+  CHECK(live::backstops == before + 2);
+}
+
 // Native references are the runtime's own count (liveNativeRefs).
 static void countsNativeReferences() {
   CHECK(debug::resources().nativeRefs == liveNativeRefs());
@@ -95,6 +122,7 @@ static void countsNativeReferences() {
 int main() {
   countsWhatLives();
   countsAViewsGraph();
+  countsBackstops();
   countsNativeReferences();
 
   std::printf("debug: %d checks, %d failures\n", checks, failures);

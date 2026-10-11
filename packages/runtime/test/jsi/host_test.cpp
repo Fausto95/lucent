@@ -23,6 +23,7 @@
 
 #include "lucent/compute.h"
 #include "lucent/operation.h"
+#include "lucent/resource.h"
 #include "lucent/jsi/convert.h"
 #include "lucent/jsi/host.h"
 #include "lucent/trace.h"
@@ -344,6 +345,19 @@ struct Handle : Object {
 
 Ref<Handle> handle() { return std::make_shared<Handle>(); }
 
+/// Sessions whose resource was released.
+std::atomic<int> sessionsReleased{0};
+
+/// A class instance holding a resource, which JavaScript closes with
+/// close() (it doesn't see [Symbol.dispose]) or leaves to its release.
+struct Session : Object {
+  std::shared_ptr<Resource> resource = Resource::open(String::fromLatin1("Session"), [] { sessionsReleased++; });
+
+  bool close() { return resource->close(); }
+};
+
+Ref<Session> session() { return std::make_shared<Session>(); }
+
 /// Module state every runtime reaches (guarded by the Lucent lock).
 Ref<Handle> shared;
 
@@ -531,6 +545,30 @@ struct Convert<Ref<m_t::Handle>> {
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Ref<m_t::Handle>& v) { return h.wrap(rt, v, "t.Handle", handleProto); }
 };
 
+void sessionProto(jsi::Runtime& rt, Host& host, jsi::Object& proto);
+
+template <>
+struct Convert<Ref<m_t::Session>> {
+  static Ref<m_t::Session> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+    auto s = std::dynamic_pointer_cast<m_t::Session>(instanceOf(rt, v));
+    if (!s) throwBoundaryError(rt, p, "a Session", v);
+    return s;
+  }
+
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Ref<m_t::Session>& v) { return h.wrap(rt, v, "t.Session", sessionProto); }
+};
+
+void sessionProto(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
+  defineFunction(rt, proto, "close", 0,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& self, const jsi::Value*, size_t) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] {
+                     auto s = Convert<Ref<m_t::Session>>::fromJs(rt, self, Path{"Session.close", "this"});
+                     return Convert<bool>::toJs(rt, host, s->close());
+                   });
+                 });
+}
+
 void handleProto(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineFunction(rt, proto, "ping", 0,
                  [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& self, const jsi::Value*, size_t) {
@@ -601,6 +639,12 @@ void installT(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
                  [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
                    Host& host = Host::from(rt, installed);
                    return callSync(rt, host, [&] { return Convert<Ref<m_t::Handle>>::toJs(rt, host, m_t::handle()); });
+                 });
+
+  defineFunction(rt, exports, "session", 0,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] { return Convert<Ref<m_t::Session>>::toJs(rt, host, m_t::session()); });
                  });
 
   defineFunction(rt, exports, "sharedHandle", 0,
@@ -1472,6 +1516,31 @@ static void collectedInstancesReleaseOnTheirThread() {
   CHECK(m_t::handlesReleasedOnMain == before + 2);
 }
 
+/// An instance JavaScript lets go of that still holds something open is
+/// closed by its release, the backstop, which a debug build counts; one
+/// JavaScript closed first, with close(), is not counted.
+static void releasesOfOpenInstancesAreCounted() {
+  JsThread js;
+  auto host = install(js);
+  auto collect = [&] { js.run([](jsi::Runtime& rt) { rt.instrumentation().collectGarbage("test"); }); };
+  auto releasedOpen = [&] { return js.run([&](jsi::Runtime&) { return host->ownership().releasedOpen; }); };
+  int before = m_t::sessionsReleased;
+
+  js.eval("var closed; (function () { var s = mods.t.session(); closed = [s.close(), s.close()]; })();");
+  collect();
+
+  CHECK(js.string("JSON.stringify(closed)") == "[true,false]");
+  CHECK(within(2000, [&] { return m_t::sessionsReleased == before + 1; }));
+  CHECK(releasedOpen() == 0);
+
+  js.eval("(function () { mods.t.session(); })();");
+  collect();
+
+  CHECK(within(2000, [&] { return m_t::sessionsReleased == before + 2; }));
+  CHECK(releasedOpen() == 1);
+  CHECK(js.number("__lucentHost.ownership.releasedOpen") == 1);
+}
+
 // --- ownership evidence -----------------------------------------------------------
 
 /// A host reports what it holds, in C++ and, in debug builds, to
@@ -1505,7 +1574,7 @@ static void hostsReportWhatTheyHold() {
 
   CHECK(js.string("JSON.stringify(__lucentHost.ownership)") ==
         "{\"runtime\":" + std::to_string(host->id()) +
-            ",\"promises\":2,\"callbacks\":1,\"identities\":1,\"prototypes\":1,\"modules\":1,\"registrations\":1,\"inFlight\":0,\"values\":0}");
+            ",\"promises\":2,\"callbacks\":1,\"identities\":1,\"prototypes\":1,\"modules\":1,\"registrations\":1,\"inFlight\":0,\"values\":0,\"releasedOpen\":0}");
 
   js.run([&](jsi::Runtime&) { host->invalidate(); });
   CHECK(Actor::shared().waitIdle(2000));
@@ -1810,6 +1879,7 @@ int main() {
   eachRuntimeHasItsOwnObjectForAnInstance();
   objectsOfATornDownHostAreRefused();
   collectedInstancesReleaseOnTheirThread();
+  releasesOfOpenInstancesAreCounted();
   hostsReportWhatTheyHold();
   debugSnapshotsSettleOnTheJsThread();
   tasksInFlightAreCounted();

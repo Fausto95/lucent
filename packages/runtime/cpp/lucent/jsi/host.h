@@ -173,6 +173,11 @@ class Host : public std::enable_shared_from_this<Host>, public RuntimeWork {
     size_t inFlight = 0;
     /// JavaScript values Lucent holds (JSValue).
     size_t values = 0;
+    /// Debug builds: instances JavaScript let go of (collected, or its
+    /// runtime gone) whose release closed something still open, a resource
+    /// or a native buffer, that a close() should have closed. A count since
+    /// the host started, not something it holds.
+    size_t releasedOpen = 0;
   };
 
   /// On the JS thread.
@@ -181,6 +186,10 @@ class Host : public std::enable_shared_from_this<Host>, public RuntimeWork {
   /// Tasks for the JS thread and jobs for the module context posted for
   /// this runtime that have not yet run or been released. Any thread.
   size_t inFlight() const { return inFlight_->load(); }
+
+  /// An instance JavaScript let go of closed something still open as it
+  /// went (InstanceState). Any thread.
+  void countReleasedOpen() { releasedOpen_.fetch_add(1, std::memory_order_relaxed); }
 
   /// The exports object of a module, created on first use; for
   /// kIdentityName, identity().
@@ -280,6 +289,7 @@ class Host : public std::enable_shared_from_this<Host>, public RuntimeWork {
   mutable std::mutex scopesMutex_;
   std::unordered_map<const ExecutionContext*, std::shared_ptr<Scope>> scopes_;
   const std::shared_ptr<std::atomic<size_t>> inFlight_ = std::make_shared<std::atomic<size_t>>(0);
+  std::atomic<size_t> releasedOpen_{0};
   uint64_t nextId_ = 1;
   std::unordered_map<uint64_t, Resolvers> promises_;
   /// The runtime's `Promise`, looked up on the first async call instead of each one.
@@ -302,6 +312,9 @@ class Host : public std::enable_shared_from_this<Host>, public RuntimeWork {
 /// the host that made it.
 struct InstanceState : jsi::NativeState {
   InstanceState(Ref<Object> o, std::shared_ptr<Host> h) : object(std::move(o)), host(std::move(h)) {}
+  /// Drops the host's reference. In debug builds, the host counts a release
+  /// that closed something still open (Ownership::releasedOpen).
+  ~InstanceState() override;
   Ref<Object> object;
   std::shared_ptr<Host> host;
 };

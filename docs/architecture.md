@@ -885,7 +885,11 @@ signal)` starts native work that completes later, on any thread (a
   the host that made it: once that host is torn down, the object is
   refused with a `TypeError`. `Host::ownership()` reports what a host
   holds (promises it owes, JS functions, cached objects, prototypes,
-  modules, its scope's registrations, tasks in flight); debug builds show
+  modules, its scope's registrations, tasks in flight, JS values) and, in
+  debug builds, `releasedOpen`: instances JavaScript let go of whose
+  release closed something still open, a `Resource` or a native buffer's
+  storage (`live::noteBackstop()` in their destructors, which
+  `InstanceState`'s destructor reads around the release); debug builds show
   it to JavaScript as `__lucentHost.ownership`. `Host::identity()` gives
   JavaScript the build identity (see [Build identity](#build-identity)),
   as the `__lucentIdentity` property next to the modules.

@@ -67,6 +67,8 @@ A `using` declaration disposes its value when the block ends: after its last sta
 
 Without `close()`, the pixels would live as long as the JavaScript object, which its garbage collector frees when it chooses. Until it's closed, a native object lives while anything refers to it, module state included ([Memory](/docs/api/language/memory/#reference-counting)).
 
+To find the objects JavaScript drops without closing, read `host.releasedOpen` in a debug build's [`__lucentDebug.snapshot()`](/docs/guides/read-errors-and-logs/#inspect-what-a-running-app-holds). It counts the instances whose release, once JavaScript collected them, had to close something still open: a `NativeBuffer`, or a native extension's handle. A count that grows as the app runs is a `close()` missing in JavaScript.
+
 ## Close SDK objects
 
 On Android, an SDK object that implements `AutoCloseable`, such as a `Cursor`, a database or a stream, is a `using` value: its `close()` runs.

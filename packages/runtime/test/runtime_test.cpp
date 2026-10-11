@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <future>
+#include <set>
 #include <string>
 #include <thread>
 
@@ -867,6 +868,26 @@ static void finalizationRegistries() {
   FinalizationRegistry<Ref<Key>> owners(Fn<void(Ref<Key>)>([](Ref<Key>) {}));
   CHECK_THROWS(owners.registerTarget(self, self), "TypeError");
 
+  // A cycle through a WeakRef keeps neither: a parent holding its child,
+  // which refers back weakly, goes with its last outside reference, and so
+  // does the child; both cleanups run.
+  struct Child : Object {
+    Ref<WeakRefObject<Ref<Object>>> parent;
+  };
+  struct Parent : Object {
+    Ref<Child> child = std::make_shared<Child>();
+  };
+  auto parent = std::make_shared<Parent>();
+  parent->child->parent = std::make_shared<WeakRefObject<Ref<Object>>>(parent);
+  inTurn(*context, [&] {
+    registry.get().registerTarget(parent, S("parent"));
+    registry.get().registerTarget(parent->child, S("child"));
+    parent.reset();
+  });
+  inTurn(*context, [] {});
+  CHECK(cleaned.size() == 4);
+  CHECK((std::set<std::string>(cleaned.begin() + 2, cleaned.end()) == std::set<std::string>{"parent", "child"}));
+
   // A registry freed before its target: no cleanup.
   auto late = std::make_shared<Key>();
   inTurn(*context, [&] {
@@ -875,7 +896,7 @@ static void finalizationRegistries() {
     late.reset();
   });
   inTurn(*context, [] {});
-  CHECK(cleaned.size() == 2);
+  CHECK(cleaned.size() == 4);
 
   context->shutdown();
 }
