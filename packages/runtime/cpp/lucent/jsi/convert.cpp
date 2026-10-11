@@ -182,18 +182,32 @@ jsi::Value uint8ArrayOver(jsi::Runtime& rt, const std::shared_ptr<FreshBytes>& b
 }
 }  // namespace
 
-Bytes Convert<Bytes>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+namespace {
+/// The bytes a Uint8Array argument views (an ArrayBuffer's, whole): where
+/// they start and how many there are.
+std::pair<uint8_t*, size_t> viewedBytes(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
   if (!v.isObject()) throwBoundaryError(rt, p, "a Uint8Array", v);
   jsi::Object o = v.getObject(rt);
   if (o.isArrayBuffer(rt)) {
     jsi::ArrayBuffer ab = o.getArrayBuffer(rt);
-    return Bytes::copy(ab.data(rt), ab.size(rt));
+    return {ab.data(rt), ab.size(rt)};
   }
   if (!isInstanceOf(rt, o, "Uint8Array")) throwBoundaryError(rt, p, "a Uint8Array", v);
   jsi::ArrayBuffer ab = o.getPropertyAsObject(rt, "buffer").getArrayBuffer(rt);
   size_t offset = static_cast<size_t>(o.getProperty(rt, "byteOffset").getNumber());
   size_t length = static_cast<size_t>(o.getProperty(rt, "byteLength").getNumber());
-  return Bytes::copy(ab.data(rt) + offset, length);
+  return {ab.data(rt) + offset, length};
+}
+}  // namespace
+
+Bytes Convert<Bytes>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  auto [data, size] = viewedBytes(rt, v, p);
+  return Bytes::copy(data, size);
+}
+
+Borrowed<Bytes> Convert<Bytes>::borrow(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  auto [data, size] = viewedBytes(rt, v, p);
+  return Borrowed<Bytes>(Bytes::over(ArrayBuffer(ByteStorage::lend(data, size))));
 }
 
 jsi::Value Convert<Bytes>::toJs(jsi::Runtime& rt, Host&, const Bytes& b) {
@@ -205,7 +219,7 @@ jsi::Value Convert<Bytes>::toJs(jsi::Runtime& rt, Host&, const Bytes& b) {
 jsi::Value Convert<Bytes>::toJs(jsi::Runtime& rt, Host& h, Bytes&& b) {
   // A view of part of its buffer would show JavaScript the rest (`u8.buffer`), which a copy does not.
   bool whole = b.offset() == 0 && b.size() == b.buffer()->size();
-  if (!whole || b.buffer().use_count() != 1) return toJs(rt, h, static_cast<const Bytes&>(b));
+  if (!whole || b.buffer().use_count() != 1 || b.buffer()->lent()) return toJs(rt, h, static_cast<const Bytes&>(b));
   jsi::ArrayBuffer ab = movedBuffer(rt, b.buffer());
   return rt.global().getPropertyAsFunction(rt, "Uint8Array").callAsConstructor(rt, ab);
 }
@@ -216,13 +230,19 @@ ArrayBuffer Convert<ArrayBuffer>::fromJs(jsi::Runtime& rt, const jsi::Value& v, 
   return ArrayBuffer::copy(ab.data(rt), ab.size(rt));
 }
 
+Borrowed<ArrayBuffer> Convert<ArrayBuffer>::borrow(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  if (!v.isObject() || !v.getObject(rt).isArrayBuffer(rt)) throwBoundaryError(rt, p, "an ArrayBuffer", v);
+  jsi::ArrayBuffer ab = v.getObject(rt).getArrayBuffer(rt);
+  return Borrowed<ArrayBuffer>(ArrayBuffer(ByteStorage::lend(ab.data(rt), ab.size(rt))));
+}
+
 jsi::Value Convert<ArrayBuffer>::toJs(jsi::Runtime& rt, Host&, const ArrayBuffer& b) {
   auto buffer = std::make_shared<OwnedBuffer>(std::vector<uint8_t>(b.data(), b.data() + b.size()));
   return jsi::ArrayBuffer(rt, buffer);
 }
 
 jsi::Value Convert<ArrayBuffer>::toJs(jsi::Runtime& rt, Host& h, ArrayBuffer&& b) {
-  if (!b.unshared()) return toJs(rt, h, static_cast<const ArrayBuffer&>(b));
+  if (!b.unshared() || b.storage()->lent()) return toJs(rt, h, static_cast<const ArrayBuffer&>(b));
   return movedBuffer(rt, b.storage());
 }
 

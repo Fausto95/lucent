@@ -453,7 +453,16 @@ null }` and `{ v: string | undefined }` share one native layout). A body
   viewing the whole of its buffer, that a function returns and nothing
   else holds (no variable, field or other view) moves instead: its copy
   would be the only one, so JavaScript gets the same bytes, including bytes
-  adopted from native code, and no one can tell. A plain object reaches JavaScript with
+  adopted from native code, and no one can tell. A synchronous export
+  that only reads a `Uint8Array` or `ArrayBuffer` argument reads
+  JavaScript's own bytes instead, while it runs (a view's bytes, for part
+  of a buffer): its length, elements, read-only methods (`indexOf`,
+  `join`, `slice`…), iteration, spreads, views and copies of it, and
+  passing it to an SDK call, whose binding copies it. So, as in
+  JavaScript, a write JavaScript makes during the call (in a callback)
+  shows. Bytes a function writes, keeps, returns, captures or passes to
+  its own code are copied, as are an async function's and an optional
+  argument's. A plain object reaches JavaScript with
   its fields in its type's order (see the deviations), without the
   optional ones left unset.
 - **Class instances keep their identity.** The same native object always maps to

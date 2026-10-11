@@ -197,8 +197,8 @@ void install_m_misc(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "checksum", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
     return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("checksum", "packages/compiler/test/e2e/cases/misc.lucent.ts", 24), [&]() -> jsi::Value {
-      auto a0 = Convert<lucent::Bytes>::fromJs(rt, arg(args, count, 0), Path{"checksum", "argument 'bytes'"});
-      return Convert<double>::toJs(rt, host, lucent_app::m_misc::checksum(std::move(a0)));
+      auto a0 = Convert<lucent::Bytes>::borrow(rt, arg(args, count, 0), Path{"checksum", "argument 'bytes'"});
+      return Convert<double>::toJs(rt, host, lucent_app::m_misc::checksum(a0.get()));
     });
   });
   defineFunction(rt, exports, "bytesOps", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {

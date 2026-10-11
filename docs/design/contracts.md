@@ -34,7 +34,7 @@ so; the code is what runs.
 | C-IR     | Semantic IR, its verifier, effect summaries, program facts                      | v1.3            | v1.2 frozen; v1.2.1, v1.3 proposed | `packages/compiler/src/ir/`, `packages/compiler/src/analysis/`                                      |
 | C-EXEC   | Runtime identities, scopes, operations, contexts, transport, compute, callbacks | v1.6            | v1.5 frozen; v1.6 proposed         | `packages/runtime/cpp/lucent/` (`scope.h`, `execution.h`, `transport.h`, `compute.h`, `callback.h`) |
 | C-BIGINT | The runtime's `BigInt` and its native integer conversions                       | v1.1            | v1 frozen; v1.1 proposed           | `packages/runtime/cpp/lucent/bigint.h`                                                              |
-| C-BUFFER | Native buffers, borrows and transfers                                           | v1.3            | Proposed                           | `packages/runtime/cpp/lucent/buffer.h`, `lucent:core`                                               |
+| C-BUFFER | Native buffers, borrows and transfers                                           | v1.4            | Proposed                           | `packages/runtime/cpp/lucent/buffer.h`, `lucent:core`                                               |
 | C-VIEW   | Component descriptions, mounts, platform hosts, toolkit bodies                  | v2.2            | Proposed                           | `packages/compiler/src/ui/contract.ts`, `packages/runtime/cpp/rn/`                                  |
 | C-BUILD  | Build records, required actions, SDK locks, build identities                    | v1.6            | v1 frozen; v1.1 to v1.6 proposed   | `packages/lucent/src/cli/build-graph.ts`, `pipeline.ts`; `packages/compiler/src/emit/identity.ts`   |
 | C-TRACE  | Correlated runtime and build tracing                                            | v1              | Proposed                           | `packages/runtime/cpp/lucent/trace.h`, `packages/lucent/src/cli/trace.ts`                           |
@@ -1641,7 +1641,7 @@ namespace detail {
 
 ## C-BUFFER: native buffers
 
-**Current version: v1.3 (proposed).**
+**Current version: v1.4 (proposed).**
 
 ### Invariants
 
@@ -1753,6 +1753,19 @@ Policies:
   buffer (no direct address) or a read-only one throws `TypeError`.
   Adoption is counted in `adopted`; the Java side must not touch the
   buffer afterwards, which the runtime cannot check.
+- **Lent arguments** (v1.4): `Convert<ArrayBuffer>::borrow` and
+  `Convert<Bytes>::borrow` give a `Borrowed<T>` over JavaScript's bytes
+  (`ByteStorage::lend`; a view's range only), for a synchronous export
+  the compiler finds only reads that argument (`emit/lent-bytes.ts`).
+  The bindings keep the `Borrowed` until the call returns and pass
+  `get()` on; when it goes, storage anything else still holds is
+  `keep()`-ed: copied, so nothing outlives JavaScript's memory. Lent
+  storage never moves to JavaScript (`toJs` copies it). These are not
+  payload copies of a `NativeBuffer` and are not counted. JavaScript
+  cannot detach a buffer while the call runs (a callback it passes may
+  run): Hermes has no `ArrayBuffer.prototype.transfer`, and JSI no
+  detach. An engine with one would need the lending to end before
+  Lucent calls JavaScript.
 - **Copies**: only `toBytes` and `fromBytes` copy payload, and each is
   counted.
 
@@ -1824,6 +1837,10 @@ export interface MutableByteSpan extends ByteSpan {
 - **v1.3** (2026-10-11, T72, proposed): adoption of a direct `ByteBuffer`,
   `adoptByteBuffer` from `lucent:android` (`jni::adoptByteBuffer` in
   `platform/android.h`). Migration: none (additive).
+- **v1.4** (2026-10-11, T72, proposed): lent byte arguments,
+  `ByteStorage::lend` and `keep`, `Borrowed<T>`, and the `borrow`
+  conversions the bindings use for what a synchronous export only reads.
+  Migration: none (additive).
 
 ## C-VIEW: components and views
 
