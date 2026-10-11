@@ -57,6 +57,8 @@ import * as es2024BuiltinsModule from "../lucent/es2024-builtins.lucent";
 import es2024BuiltinsRun from "./es2024-builtins";
 import * as eventsModule from "../lucent/events.lucent";
 import eventsRun from "./events";
+import * as eventsObservedModule from "../lucent/events-observed.lucent";
+import eventsObservedRun from "./events-observed";
 import * as exportedErrorsModule from "../lucent/exported-errors.lucent";
 import exportedErrorsRun from "./exported-errors";
 import * as exportedObjectsModule from "../lucent/exported-objects.lucent";
@@ -207,6 +209,7 @@ export const cases: TestCase[] = [
   { name: "es2023-arrays", module: es2023ArraysModule, run: es2023ArraysRun, expected: ["3,1,2 1,2,3 3,2,1 2,1,3 3,9,8,2 3,1,7","a,b b,a,c z,y false false","a,b | a,b,c |  | a,x,b,c,d | a,b,c,d | a | c,d | a,b,c,d,z | a,p,q,r,d | a,c,d | a,b,c,d","0,2,3 1,2,0 1,2,0 0,2,3 RangeError RangeError 1,0,3 0,2,3 0,2,3 RangeError","44 3 -1  4","adbc 1,10,100,9 true","1,2,_ 2,5,1 _,_,1 _,1"] },
   { name: "es2024-builtins", module: es2024BuiltinsModule, run: es2024BuiltinsRun, expected: ["{\"a\":[\"apple\",\"avocado\"],\"b\":[\"banana\",\"blueberry\"],\"c\":[\"cherry\"]} 2,10,b,a {\"even\":[\"apple\",\"banana\",\"cherry\"],\"odd\":[\"avocado\",\"blueberry\"]} 2 true","1:1,4 2:2,5 0:3,6 3 0,NaN,1 false 2 true","{\"odd\":[1,3],\"even\":[2]} ll/heo😀 {\"x\":[\"x\",\"x\"],\"y\":[\"y\"]}","RangeError: no 2","42 RangeError first","true:61-62-63 true:e9 true:1f600 false:fffd false:61-fffd-62 false:fffd-fffd true:78-1f600-79 true:"] },
   { name: "events", module: eventsModule, run: eventsRun, expected: ["true","1 2 0","{\"events\":{},\"name\":\"channel\"} {}","a 0, a 50, a 100, done a true, again a","returned","done b false, again b","0 1 0","done c true","0 0 0","a1 b1 c1 a2 c2 d2 count 3 listener failed count 0","1","3 undefined, 4 labelled","1"] },
+  { name: "events-observed", module: eventsObservedModule, run: eventsObservedRun, expected: ["- (running false)","reading on (running true) | - (running true) | reading off (running false)","reading on (running true)","- (running true)","reading off (running false)","reading on (running true) | - (running true) | reading off (running false)","status true, status false, reading true, reading false","reading true, status true, status false, reading false","- (running false)"] },
   { name: "exported-errors", module: exportedErrorsModule, run: exportedErrorsRun, expected: ["bad ParseError 2 ParseError: bad string","true true false","ParseError: bad @2 parse 2","Renamed: changed @2 Renamed: changed","unexpected } TokenError 1 } TokenError: unexpected }","true true true","token }","bad line 5 ParseError 5 ParseError: bad line 5","true true","as error 6 ParseError true true","parse 6 error plain","failed at 7 ParseError 7 ParseError: failed at 7 string","true true parse 7","] 1 TokenError: unexpected ] true true","true changed","later later 8 8 true"] },
   { name: "exported-objects", module: exportedObjectsModule, run: exportedObjectsRun, expected: ["true 2 3","1 1","true 2 3","1 1,20"] },
   { name: "exported-statics", module: exportedStaticsModule, run: exportedStaticsRun, expected: ["0 registry 3 0","1 2 2 a+b","registry: 2/3 a,b registry 2 2","renamed 10 renamed: 10/3 a,b renamed","inner inner of registry registry 10 function","11 11 registry: 11/3 a,b,c"] },
