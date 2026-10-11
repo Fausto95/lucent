@@ -1277,6 +1277,54 @@ static void lentBytesAreJavaScriptsUntilTheCallEnds() {
   });
 }
 
+/// P3: a 4 MB frame a native producer fills reaches JavaScript with no
+/// payload copy (adopted as a NativeBuffer, moved into an ArrayBuffer,
+/// returned), and is released once, when JavaScript lets it go; a 4 MB
+/// argument a call only reads reaches it in place.
+static void aFrameCrossesWithoutAPayloadCopy() {
+  JsThread js;
+  install(js);
+  constexpr size_t kFrame = 4 * 1024 * 1024;
+  std::atomic<int> released{0};
+  auto* pixels = new uint8_t[kFrame]();
+  pixels[0] = 1;
+  pixels[kFrame - 1] = 2;
+
+  js.run([&](jsi::Runtime& rt) {
+    Host& h = Host::get(rt);
+    NativeBufferStats before = NativeBufferObject::stats();
+
+    NativeBuffer frame = NativeBufferObject::adopt(pixels, kFrame, [&released](uint8_t* data, size_t) {
+      delete[] data;
+      released++;
+    });
+    jsi::Value out = Convert<ArrayBuffer>::toJs(rt, h, frame->transferToArrayBuffer());
+    jsi::ArrayBuffer returned = out.getObject(rt).getArrayBuffer(rt);
+    CHECK(returned.data(rt) == pixels);
+    CHECK(returned.size(rt) == kFrame);
+
+    // And back as an argument a reading call is lent: the same bytes again.
+    {
+      Borrowed<ArrayBuffer> lent = Convert<ArrayBuffer>::borrow(rt, out, Path{"f", "argument 'frame'"});
+      CHECK(lent.get().data() == pixels);
+    }
+
+    NativeBufferStats after = NativeBufferObject::stats();
+    CHECK(after.copies == before.copies);
+    CHECK(after.bytesCopied == before.bytesCopied);
+    std::printf("host: P3: a %zu-byte frame to JavaScript and back as a read argument: %llu copies / %llu bytes\n", kFrame,
+                static_cast<unsigned long long>(after.copies - before.copies),
+                static_cast<unsigned long long>(after.bytesCopied - before.bytesCopied));
+    rt.global().setProperty(rt, "frame", out);
+  });
+
+  CHECK(js.number("new Uint8Array(frame)[0] + new Uint8Array(frame)[frame.byteLength - 1]") == 3);
+  CHECK(released == 0);
+  js.eval("frame = undefined;");
+  js.run([](jsi::Runtime& rt) { rt.instrumentation().collectGarbage("test"); });
+  CHECK(within(2000, [&] { return released == 1; }));
+}
+
 // --- instances ----------------------------------------------------------------
 
 /// One native instance reached from two runtimes: each has its own JS
@@ -1667,6 +1715,7 @@ int main() {
   resultsThatCannotCrossReject();
   returnedBytesMoveWhenNothingElseHoldsThem();
   lentBytesAreJavaScriptsUntilTheCallEnds();
+  aFrameCrossesWithoutAPayloadCopy();
   eachRuntimeHasItsOwnObjectForAnInstance();
   objectsOfATornDownHostAreRefused();
   collectedInstancesReleaseOnTheirThread();
