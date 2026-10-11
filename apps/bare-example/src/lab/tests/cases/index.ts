@@ -67,6 +67,8 @@ import * as exportedStaticsModule from "../lucent/exported-statics.lucent";
 import exportedStaticsRun from "./exported-statics";
 import * as exportedVariablesModule from "../lucent/exported-variables.lucent";
 import exportedVariablesRun from "./exported-variables";
+import * as finalizationModule from "../lucent/finalization.lucent";
+import finalizationRun from "./finalization";
 import * as functionValuesModule from "../lucent/function-values.lucent";
 import functionValuesRun from "./function-values";
 import * as generatorBodiesModule from "../lucent/generator-bodies.lucent";
@@ -218,6 +220,7 @@ export const cases: TestCase[] = [
   { name: "exported-objects", module: exportedObjectsModule, run: exportedObjectsRun, expected: ["true 2 3","1 1","true 2 3","1 1,20"] },
   { name: "exported-statics", module: exportedStaticsModule, run: exportedStaticsRun, expected: ["0 registry 3 0","1 2 2 a+b","registry: 2/3 a,b registry 2 2","renamed 10 renamed: 10/3 a,b renamed","inner inner of registry registry 10 function","11 11 registry: 11/3 a,b,c"] },
   { name: "exported-variables", module: exportedVariablesModule, run: exportedVariablesRun, expected: ["1","1","3","true true","11","1"] },
+  { name: "finalization", module: finalizationModule, run: finalizationRun, expected: ["undefined | true false | false | false | a","TypeError","true false 2"] },
   { name: "function-values", module: functionValuesModule, run: functionValuesRun, expected: ["false true false","true false true","false true","true false","4 6 true true 1"] },
   { name: "generator-bodies", module: generatorBodiesModule, run: generatorBodiesRun, expected: ["failed generator [called,started] | done 0 [called] | done 0 [called,worked]"] },
   { name: "generators", module: generatorsModule, run: generatorsRun, expected: ["0,1,2,3,4 | 1,4,7 | 0,1,1,2,3,5,8,13,21,34 | 1,2,3,4 | hel","created, start, got 1 false, after 1, got 2 false, end, done true, still done true","1, 2, cleanup, after loop","1,boom","root -a --a1 -b","60 40","6 9 6 3","6 9 0"] },

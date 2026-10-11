@@ -761,6 +761,26 @@ export function f(round: boolean): number {
     });
   });
 
+  describe("FinalizationRegistry", () => {
+    it("rejects a target or token that is not an object", () => {
+      const d = compileSource(
+        "const r = new FinalizationRegistry<number>(() => {});\nexport function f(xs: number[]): void { r.register(xs, 1); }",
+      ).diagnostics;
+      expect(d.map((x) => x.code)).toEqual(["LUCENT2002"]);
+      expect(d[0]!.message).toContain(
+        "a FinalizationRegistry's targets are class instances or objects",
+      );
+    });
+
+    it("rejects one crossing the boundary", () => {
+      expect(
+        codes(
+          "export function f(): FinalizationRegistry<number> { return new FinalizationRegistry<number>(() => {}); }",
+        ),
+      ).toEqual(["LUCENT2006"]);
+    });
+  });
+
   describe("weak collections", () => {
     it.each([
       ["a WeakMap keyed by arrays", "const m = new WeakMap<number[], number>();", "WeakMap"],
