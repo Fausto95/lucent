@@ -41,3 +41,9 @@ node ../../packages/lucent/bin/lucent.cjs build --platforms host
 
 `--platforms host` compiles it without either SDK; with Xcode or the
 Android SDK, `lucent build` types each branch.
+
+<!-- evidence: from evidence.json, written by scripts/example-evidence.ts -->
+
+**Evidence:** Run on the iOS simulator and the Android emulator in the example apps' SDK Lab, where the Expo app's parity cases call expo-secure-store through the same API. Not yet run on a physical device.
+
+<!-- /evidence -->

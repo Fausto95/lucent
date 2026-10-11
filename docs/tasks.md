@@ -31,7 +31,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T78](#t78)   | UIKit components with a view-controller root                      | ready; needs nothing open                                                                                                         |
 | [TA38](#ta38) | Accept object literals for data-only interfaces                   | ready; needs nothing open                                                                                                         |
 | [TA43](#ta43) | Tell a module when JavaScript starts and stops listening          | ready; needs nothing open                                                                                                         |
-| [TA45](#ta45) | Reconcile the roadmap's evidence with the examples                | ready; needs nothing open                                                                                                         |
+| [TA45](#ta45) | Record each example's evidence and state it from the record       | waiting (needs the maintainer: TA36's port sources); needs nothing open                                                           |
 | **G4**        | **Production candidate**                                          |                                                                                                                                   |
 | [T54](#t54)   | Implement measured compiler and runtime optimizations             | done (#90, #92, #93, #100, 2026-10-06)                                                                                            |
 | [T55](#t55)   | Implement native recycled and virtualized lists                   | waiting (needs the maintainer); needs T52                                                                                         |
@@ -892,37 +892,47 @@ listeners, and the e2e case is green.
 
 <a id="ta45"></a>
 
-### TA45: Reconcile the roadmap's evidence with the examples
+### TA45: Record each example's evidence and state it from the record
 
-**Goal:** Make the roadmap's status lines say what the examples prove, and
-generate each example's evidence line from its last recorded run.
+**Goal:** Record what each example package has run on, once, at the
+evidence levels below, and have its README state it from the record, so
+no README claims more than was run or forgets a run that happened.
 
-- **Status:** ready; needs nothing open.
+- **Status:** waiting (needs the maintainer): the record and its check are
+  in review; TA36's four ports need the maintainer's sources.
 - **Area:** Docs, tooling (scripts).
 - **Needs:** none.
-- **Verify:** V0, V9.
-- **Where:** `ROADMAP.md`, `scripts/website.ts`, `scripts/sync-examples.ts`,
-  `examples/*/README.md`, `apps/website/src/docs/`.
+- **Verify:** V0, V1.
+- **Where:** `examples/*/evidence.json`, `examples/*/README.md`,
+  `scripts/example-evidence.ts`, `packages/lucent/test/examples.test.ts`.
+- **Needs the maintainer:** the four ports' sources.
 
-Why: ROADMAP.md marks "Ports of Expo and community modules, checked against
-the originals" ✅, while every example README under `examples/` says
-"Compiled with `--platforms host` on Linux. Not yet typed against the SDKs
-or run on a device", and TA36's four ports are not in the repository.
-The honest-evidence requirement says a lower level never implies a
-higher one.
+Why: the examples' READMEs stated their evidence by hand, each in its own
+words ("Compiled with `--platforms host` on Linux", or nothing), and the
+ones the example apps run beside the originals (haptics, secure-store,
+orbit) said nothing of it. The review that opened this task read those
+READMEs as evidence that ROADMAP.md's "Ports of Expo and community
+modules, checked against the originals" ✅ overstated: it does not. The
+example apps' SDK Lab runs the haptics, secure-store and app-local ports
+beside expo-haptics, expo-secure-store and the other originals
+(`scripts/example-app/src/lab/sdk/parity.ts`), on the simulator and the
+emulator, so the line stands.
 
-- [ ] Each example records its evidence level (code, host, sim, device)
-      and date in a small `evidence.json`; `sync-examples.ts` writes the
-      README line from it, and `website.ts --check` fails when a README
-      line and the record differ.
-- [ ] The roadmap line becomes 🚧 until at least one port in `examples/`
-      is typed against both SDKs and runs on the simulator and emulator;
-      the website's roadmap page follows.
-- [ ] TA36's four ports land under `examples/` (needs the maintainer's
-      local sources), each with its evidence record.
+- [x] Each example records its runs in `evidence.json`: a level (code,
+      host, sim, device, external), the platforms of a simulator or device
+      run, a date for a run CI doesn't repeat (required for device and
+      external), and where it ran. `scripts/example-evidence.ts` checks
+      the record and writes the README's evidence block from it;
+      `examples.test.ts` fails when a README's block and its record
+      differ.
+- [x] The roadmap's line checked against the records: the parity cases
+      back it; it is unchanged.
+- [ ] TA36's four ports (mmkv, expo-file-system, expo-image, expo-video)
+      land under `examples/`, each with its record. Needs the maintainer's
+      local sources.
 
-**Done when:** the roadmap's status lines and the examples' evidence agree
-and the check enforces it.
+**Done when:** every example's README states its record, the examples test
+enforces it, and TA36's ports are under `examples/` with theirs.
 
 <a id="g4-production-candidate"></a>
 

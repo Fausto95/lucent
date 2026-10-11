@@ -380,3 +380,10 @@ Lucent code imports another package's modules by path, for example
 expo-haptics and expo-secure-store ports, installed in both example apps as
 `workspace:*` dependencies. `scripts/smoke-install.ts` installs
 lucent-haptics from its tarball into a fresh app.
+
+Each example records what it has run on in `evidence.json`, at the
+evidence levels of [tasks.md](tasks.md#validation) (code, host, sim,
+device, external), and its README states it in the block
+`node scripts/example-evidence.ts` writes. A run that raises a level
+changes the record and the block in the same commit;
+`packages/lucent/test/examples.test.ts` fails when they differ.

@@ -1,0 +1,6 @@
+[
+  {
+    "level": "sim",
+    "how": "in the example apps' SDK Lab, where the Expo app's parity cases call expo-secure-store through the same API"
+  }
+]

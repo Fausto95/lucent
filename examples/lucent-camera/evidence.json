@@ -1,0 +1,6 @@
+[
+  {
+    "level": "host",
+    "how": "in CI's unit tests (`packages/lucent/test/examples.test.ts`)"
+  }
+]

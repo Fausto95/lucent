@@ -1,0 +1,7 @@
+[
+  {
+    "level": "sim",
+    "platforms": ["android"],
+    "how": "in the example apps' SDK Lab, whose Kotlin cases call its exports"
+  }
+]

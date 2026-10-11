@@ -66,5 +66,8 @@ Android SDK, `lucent build` types each branch against the SDK. Plain-HTTP
 URLs need App Transport Security exceptions on iOS and
 `usesCleartextTraffic` on Android, as any app does.
 
-Compiled with `--platforms host` on Linux. Not yet typed against the SDKs
-or run on a device.
+<!-- evidence: from evidence.json, written by scripts/example-evidence.ts -->
+
+**Evidence:** Compiled for the host, without either SDK, in CI's unit tests (`packages/lucent/test/examples.test.ts`). Not yet typed against the SDKs, or run on a simulator, an emulator or a device.
+
+<!-- /evidence -->

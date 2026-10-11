@@ -56,5 +56,8 @@ Android SDK, `lucent build` types each platform's branch against the SDK.
 To run it, add the package to an app's `dependencies`, as the example
 apps do with `lucent-haptics`.
 
-Compiled with `--platforms host` on Linux. Not yet run on a simulator, an
-emulator or a device.
+<!-- evidence: from evidence.json, written by scripts/example-evidence.ts -->
+
+**Evidence:** Compiled for the host, without either SDK, in CI's unit tests (`packages/lucent/test/examples.test.ts`). Not yet typed against the SDKs, or run on a simulator, an emulator or a device.
+
+<!-- /evidence -->

@@ -83,6 +83,12 @@ compiler refuses them (LUCENT3004, LUCENT2001), as it does the website's
 view samples on a machine without an SDK. `src/stars.lucent.ts` compiles
 on its own with `--platforms host`.
 
-`Like` ran on the iOS simulator and the Android emulator as part of the
-spike. `Rating` is new here and not yet compiled against either SDK: it
-was written on Linux, where neither is installed.
+<!-- evidence: from evidence.json, written by scripts/example-evidence.ts -->
+
+**Evidence:**
+
+- `Like`: run on the iOS simulator and the Android emulator in the views spike (`apps/bare-example/.views-spike`), before it moved here. Not yet run on a physical device.
+- `Rating`: written on Linux, where neither SDK is installed. Not yet compiled against either SDK, or run.
+- `src/stars.lucent.ts`: compiled for the host, without either SDK, in CI's unit tests (`packages/lucent/test/examples.test.ts`). Not yet typed against the SDKs, or run on a simulator, an emulator or a device.
+
+<!-- /evidence -->
