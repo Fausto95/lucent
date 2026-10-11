@@ -71,7 +71,7 @@ export interface LucentProgram {
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-/** Globals Lucent code may use besides the ES2023 library (console, …). */
+/** Globals Lucent code may use besides the ES2024 library (console, …). */
 export function globalsPath(): string {
   return path.resolve(here, "../lib/globals.d.ts");
 }
@@ -287,11 +287,11 @@ export function builtinSdkModuleOf(sf: ts.SourceFile): string | undefined {
 export function compilerOptions(): ts.CompilerOptions {
   return {
     strict: true,
-    target: ts.ScriptTarget.ES2023,
+    target: ts.ScriptTarget.ES2024,
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
     // esnext.disposable: Symbol.dispose, for `using` declarations.
-    lib: ["lib.es2023.d.ts", "lib.esnext.disposable.d.ts"],
+    lib: ["lib.es2024.d.ts", "lib.esnext.disposable.d.ts"],
     // TypeScript's own: no @typescript/lib-* replacement looked for from the working directory.
     libReplacement: false,
     types: [],
@@ -339,7 +339,7 @@ export function findLucentFiles(root: string): string[] {
 export type ReadSource = (file: string) => string | undefined;
 
 // Library and dependency declarations parse once per process: editors check
-// on every edit, and re-parsing lib.es2023 dominates otherwise. Bounded: an
+// on every edit, and re-parsing lib.es2024 dominates otherwise. Bounded: an
 // entry whose file was not asked for in the last DECLARATIONS_KEPT lookups
 // goes (each check asks for every file it uses, so what it uses stays).
 const declarationCache = new Map<string, { text: string; sf: ts.SourceFile }>();

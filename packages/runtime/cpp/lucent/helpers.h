@@ -251,6 +251,52 @@ Dict<V> dictFromEntries(const Array<std::tuple<String, V>>& entries) {
   for (const auto& e : entries.items()) out.set(std::get<0>(e), std::get<1>(e));
   return out;
 }
+/// `Object.groupBy(items, key)`: the items under the keys `key(item, index)`
+/// gives, each group in the items' order. `V` is the record's value type,
+/// `Array<T>` or an optional of it (TypeScript's `Partial`); the record
+/// lists its keys as an object does (integer-like first).
+template <class V, class T, class F>
+Dict<V> dictGroupBy(const Array<T>& items, F&& key) {
+  Dict<Array<T>> groups;
+  Array<String> order;
+  size_t n = items.size();
+  for (size_t i = 0; i < n && i < items.size(); i++) {
+    T item = items.at(i);
+    String k = key(item, static_cast<double>(i));
+    Opt<Array<T>> group = groups.get(k);
+    if (group.has()) group.get().push(std::move(item));
+    else {
+      groups.set(k, Array<T>{std::move(item)});
+      order.push(k);
+    }
+  }
+  if constexpr (std::is_same_v<V, Array<T>>) return groups;
+  else {
+    Dict<V> out;
+    for (const auto& k : order.items()) out.set(k, V(groups.get(k).get()));
+    return out;
+  }
+}
+
+/// `Map.groupBy(items, key)`: the items under the keys `key(item, index)`
+/// gives, by SameValueZero (-0 is 0), each group in the items' order.
+template <class K, class T, class F>
+Map<K, Array<T>> mapGroupBy(const Array<T>& items, F&& key) {
+  Map<K, Array<T>> groups;
+  size_t n = items.size();
+  for (size_t i = 0; i < n && i < items.size(); i++) {
+    T item = items.at(i);
+    K k = key(item, static_cast<double>(i));
+    // Stored as +0, as Map.groupBy's spec writes -0.
+    if constexpr (std::is_same_v<K, double>)
+      if (k == 0) k = 0.0;
+    Opt<Array<T>> group = groups.get(k);
+    if (group.has()) group.get().push(std::move(item));
+    else groups.set(k, Array<T>{std::move(item)});
+  }
+  return groups;
+}
+
 template <class K, class V>
 Array<std::tuple<K, V>> mapEntries(const Map<K, V>& m) {
   Array<std::tuple<K, V>> out;

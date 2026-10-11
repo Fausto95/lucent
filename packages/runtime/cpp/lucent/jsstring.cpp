@@ -801,6 +801,36 @@ String String::repeat(double count) const {
   return make(std::move(out));
 }
 
+/// The index of the first lone surrogate in `units` from `from`, or `n` when there is none.
+static size_t loneSurrogate(const char16_t* units, size_t n, size_t from = 0) {
+  for (size_t i = from; i < n; i++) {
+    char16_t u = units[i];
+    if (u < 0xD800 || u > 0xDFFF) continue;
+    if (u <= 0xDBFF && i + 1 < n && units[i + 1] >= 0xDC00 && units[i + 1] <= 0xDFFF) {
+      i++;
+      continue;
+    }
+    return i;
+  }
+  return n;
+}
+
+bool String::isWellFormed() const {
+  // A one-byte string holds no surrogates.
+  if (isOneByte()) return true;
+  std::u16string_view u = utf16();
+  return loneSurrogate(u.data(), u.size()) == u.size();
+}
+
+String String::toWellFormed() const {
+  if (isWellFormed()) return *this;
+  std::u16string out(utf16());
+  for (size_t i = loneSurrogate(out.data(), out.size()); i < out.size();
+       i = loneSurrogate(out.data(), out.size(), i + 1))
+    out[i] = 0xFFFD;
+  return make(std::move(out));
+}
+
 static String pad(const String& s, double target, const String& fill, bool atStart) {
   if (std::isnan(target)) return s;
   target = std::trunc(target);

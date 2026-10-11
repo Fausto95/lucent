@@ -747,6 +747,11 @@ export function staticCall(
     }
     fail(node, Codes.UnsupportedBuiltin, `Number.${name} is not supported`);
   }
+  if (isLibGlobal(em, obj, "Object") && name === "groupBy") return groupBy(em, node, "record");
+  if (isLibGlobal(em, obj, "Map")) {
+    if (name === "groupBy") return groupBy(em, node, "map");
+    fail(node, Codes.UnsupportedBuiltin, `Map.${name} is not supported`);
+  }
   if (isLibGlobal(em, obj, "Object")) {
     const v = em.expr(a[0]!);
     const t = stripOpt(v.t);
@@ -902,6 +907,7 @@ export function staticCall(
     );
   }
   if (isLibGlobal(em, obj, "Promise")) {
+    if (name === "withResolvers") return withResolvers(em, node);
     const rt = em.lt(node);
     if (rt.k !== "promise") fail(node, Codes.UnsupportedBuiltin, `Promise.${name}`);
     if (name === "resolve") {
@@ -962,6 +968,99 @@ export function staticCall(
     );
   }
   return undefined;
+}
+
+/**
+ * `Object.groupBy(items, key)` and `Map.groupBy(items, key)`: each item of
+ * an iterable under the key `key(item, index)` gives, in a record (string
+ * keys, listed as an object lists them) or a map (any key, by
+ * SameValueZero).
+ */
+function groupBy(em: FnEmitter, node: ts.CallExpression, into: "record" | "map"): E {
+  // Keys of literal types make TypeScript type the result as an object type of optional
+  // fields (Partial<Record<"a" | "b", T[]>>), which has no record's layout.
+  const made = em.checker.getTypeAtLocation(node);
+  if (
+    into === "record" &&
+    !em.checker.getIndexInfosOfType(made).some((i) => i.keyType.flags & ts.TypeFlags.String)
+  )
+    fail(
+      node,
+      Codes.UnsupportedBuiltin,
+      "Object.groupBy makes a record here only with string keys, and this key function returns literals",
+      "give the key function a `string` result: `(item): string => …`",
+    );
+  const rt = em.lt(node);
+  const a = node.arguments;
+  if (into === "record" && rt.k !== "dict")
+    fail(node, Codes.UnsupportedBuiltin, "Object.groupBy must make a record");
+  if (into === "map" && rt.k !== "map")
+    fail(node, Codes.UnsupportedBuiltin, "Map.groupBy must make a map");
+  const group = stripOpt(rt.k === "dict" ? rt.val : (rt as LType & { k: "map" }).val);
+  if (group.k !== "array") fail(node, Codes.UnsupportedBuiltin, `${node.expression.getText()}`);
+  const src = a[0]!;
+  const s = em.expr(src);
+  const items = em.iterableItems(s, src);
+  const list = em.coerce({ c: items.c, t: { k: "array", e: items.e } }, group, src);
+  const key = rt.k === "dict" ? T.string : (rt as LType & { k: "map" }).key;
+  const cb = callback(em, a[1], [group.e, T.number], key);
+  return rt.k === "dict"
+    ? { c: cpp.call("lucent::dictGroupBy", [list, cb.c], [em.reg.cppType(rt.val)]), t: rt }
+    : {
+        c: cpp.call("lucent::mapGroupBy", [list, cb.c], [em.reg.cppType(key)]),
+        t: rt,
+      };
+}
+
+/**
+ * `Promise.withResolvers<T>()`: a new promise and the functions that settle
+ * it, once, as a Promise executor's do (types.ts lowers their types).
+ */
+function withResolvers(em: FnEmitter, node: ts.CallExpression): E {
+  const rt = em.lt(node);
+  if (rt.k !== "struct") fail(node, Codes.UnsupportedBuiltin, "Promise.withResolvers");
+  const info = em.reg.struct(rt.id);
+  const typeOf = (name: string) => info.fields.find((f) => f.name === name)!.type;
+  const promiseT = typeOf("promise") as LType & { k: "promise" };
+  const resolveT = typeOf("resolve") as LType & { k: "fn" };
+  const p = cpp.id("p_");
+  const r = cpp.id("r_");
+  const settle = (how: string, value: cpp.Expr) => cpp.exprStmt(cpp.call(cpp.dot(p, how), [value]));
+  const resolve = cpp.construct(em.reg.cppType(resolveT), [
+    resolveT.params.length === 0
+      ? cpp.lambda(["p_"], [], [settle("resolve", cpp.id("lucent::undefined"))])
+      : cpp.lambda(
+          ["p_"],
+          [cpp.param(em.reg.cppType(promiseT.inner), "v_")],
+          [settle("resolve", cpp.call("std::move", [cpp.id("v_")]))],
+        ),
+  ]);
+  const reject = cpp.construct(em.reg.cppType(typeOf("reject")), [
+    cpp.lambda(
+      ["p_"],
+      [cpp.param(cpp.type("lucent::Error"), "e_")],
+      [settle("reject", cpp.call("std::move", [cpp.id("e_")]))],
+    ),
+  ]);
+  const set = (field: string, value: cpp.Expr) =>
+    cpp.exprStmt(cpp.assign(cpp.arrow(r, cppIdent(field)), value));
+  return {
+    c: cpp.statementExpr(
+      [
+        cpp.varDecl(em.reg.cppType(promiseT), "p_"),
+        cpp.varDecl(
+          cpp.auto,
+          "r_",
+          cpp.call("std::make_shared", [], [cpp.type(`lucent_app::${info.cppName}`)]),
+        ),
+        set("promise", p),
+        set("resolve", resolve),
+        set("reject", reject),
+      ],
+      r,
+    ),
+    t: rt,
+  };
 }
 
 /** The call that disposes a `using` value of type `t` (never null). */
@@ -1438,6 +1537,10 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
   const n = (i: number, ifUndefined: cpp.Expr) => optArg(em, node, i, T.number, ifUndefined);
   const s = (i: number, ifUndefined: cpp.Expr) => optArg(em, node, i, T.string, ifUndefined);
   switch (name) {
+    case "isWellFormed":
+      return bool(cpp.call(cpp.dot(o, "isWellFormed"), []));
+    case "toWellFormed":
+      return str(cpp.call(cpp.dot(o, "toWellFormed"), []));
     case "charCodeAt":
       return num(cpp.call(cpp.dot(o, "charCodeAt"), [n(0, cpp.num("0.0")) ?? cpp.num("0.0")]));
     case "charAt":
@@ -2161,6 +2264,14 @@ export function newBuiltin(
       };
     }
     case "arrayBuffer":
+      // ES2024's options make a resizable buffer, which Lucent's are not.
+      if (a[1])
+        fail(
+          a[1],
+          Codes.UnsupportedBuiltin,
+          "new ArrayBuffer(length, options) makes a resizable buffer, which Lucent does not support",
+          "make a buffer of the size you need, and copy into a larger one with `new Uint8Array(larger).set(...)`",
+        );
       return {
         c: a[0]
           ? cpp.call("lucent::ArrayBuffer", [em.exprAs(a[0], T.number)])

@@ -1,11 +1,11 @@
 ---
 title: Which JavaScript built-ins can a module use?
 sidebar_label: Built-ins
-description: "Most ES2023 built-ins, member by member as listed here; anything else fails to compile, and the last table names a replacement."
+description: "Most ES2024 built-ins, member by member as listed here; anything else fails to compile, and the last table names a replacement."
 kind: reference
 ---
 
-A module is type-checked against TypeScript's ES2023 library, plus `esnext.disposable` for `using` ([Compatibility](/docs/api/compatibility/)). Of what that library declares, Lucent implements the members this page lists, as native code. Another member fails to compile with [LUCENT1003](/docs/api/diagnostics/#lucent1003), and a newer one, such as `Object.groupBy`, is a TypeScript error ([LUCENT9001](/docs/api/diagnostics/#lucent9001)).
+A module is type-checked against TypeScript's ES2024 library, plus `esnext.disposable` for `using` ([Compatibility](/docs/api/compatibility/)). Of what that library declares, Lucent implements the members this page lists, as native code. Another member fails to compile with [LUCENT1003](/docs/api/diagnostics/#lucent1003), and a newer one, such as `Array.fromAsync`, is a TypeScript error ([LUCENT9001](/docs/api/diagnostics/#lucent9001)).
 
 A row's notes say where a member behaves differently from JavaScript. [Differences from JavaScript](/docs/api/language/differences/) lists every difference, with its reason.
 
@@ -85,6 +85,7 @@ The operators on bigints are on [Statements](/docs/api/language/statements/#bigi
 | `split(separator?, limit?)` | The separator is a string or a `RegExp`. |
 | `replace`, `replaceAll` | The pattern is a string or a `RegExp`; a replacement function needs a `RegExp`. `$` patterns in the replacement expand, with either pattern. |
 | `match`, `matchAll`, `search` | With a `RegExp` only. |
+| `isWellFormed`, `toWellFormed` | `toWellFormed` replaces each lone surrogate with U+FFFD. |
 | `toString`, `valueOf` | |
 | `String.fromCharCode`, `String.fromCodePoint` | |
 
@@ -119,6 +120,7 @@ The operators on bigints are on [Statements](/docs/api/language/statements/#bigi
 | `new Set()`, `new Set(items)` | `items` is an array, a set or a string. |
 | `size`, `add`, `has`, `delete`, `clear`, `forEach` | |
 | `keys`, `values` | Each returns an array. A set has no `entries`. |
+| `Map.groupBy(items, key)` | From any iterable: each item under the key `key(item, index)` gives, by SameValueZero. |
 
 `for…of` reads a map's entries, and a set's values, in insertion order.
 
@@ -128,6 +130,7 @@ The operators on bigints are on [Statements](/docs/api/language/statements/#bigi
 | --- | --- |
 | `Object.keys(r)`, `Object.values(r)`, `Object.entries(r)` | Records only. On an object type they fail with [LUCENT1003](/docs/api/diagnostics/#lucent1003). |
 | `Object.fromEntries(pairs)` | Makes a record from `[key, value]` pairs. |
+| `Object.groupBy(items, key)` | From any iterable, a record of arrays, its keys listed as an object's are. The key function returns `string`: literal keys make TypeScript type the result as an object type, which fails with [LUCENT1003](/docs/api/diagnostics/#lucent1003). Write `(item): string => …`. |
 
 Other `Object` functions, such as `assign`, `freeze` and `is`, aren't available. Spread makes a copy: `{ ...a, ...b }`.
 
@@ -142,7 +145,7 @@ Other `Object` functions, such as `assign`, `freeze` and `is`, aren't available.
 
 | Member | Notes |
 | --- | --- |
-| `/pattern/flags`, `new RegExp(pattern, flags?)` | Every ECMAScript pattern feature and flag. The `v` flag in a literal is a TypeScript error under ES2022: write `new RegExp(pattern, "v")`. |
+| `/pattern/flags`, `new RegExp(pattern, flags?)` | Every ECMAScript pattern feature and flag, `v` included. |
 | `exec`, `test`, `lastIndex` | |
 | `source`, `flags`, `global`, `ignoreCase`, `multiline`, `dotAll` | |
 | `unicode`, `sticky`, `hasIndices` | `unicodeSets` isn't available: it's ES2024, so TypeScript reports TS2550. Test `flags.includes("v")` instead. |
@@ -180,6 +183,7 @@ The string methods that take a `RegExp` are on [String](/docs/api/language/built
 | `new Promise((resolve, reject) => …)` | The executor is a function literal. It runs at once, and a throw from it rejects the promise. |
 | `Promise.resolve(value?)`, `Promise.reject(error)` | |
 | `Promise.all(promises)` | An array of promises of one type, or a tuple of promises. |
+| `Promise.withResolvers()` | A promise with the functions that settle it, once. `resolve` takes a value, not a promise, and `reject` an `Error`, as an executor's do. |
 | `await` | In place of `then`, `catch` and `finally`, which aren't available. |
 
 `Promise.race` and `Promise.any` aren't available, and `Promise.allSettled` fails with [LUCENT2002](/docs/api/diagnostics/#lucent2002).
@@ -200,7 +204,7 @@ The string methods that take a `RegExp` are on [String](/docs/api/language/built
 
 ## ArrayBuffer
 
-`new ArrayBuffer(length)`, `byteLength` and `slice(start?, end?)`, which copies. Resizable buffers and `ArrayBuffer.isView` aren't available.
+`new ArrayBuffer(length)`, `byteLength` and `slice(start?, end?)`, which copies. Resizable buffers (`new ArrayBuffer(length, options)`, `resize`, `transfer`, `detached`) and `ArrayBuffer.isView` aren't available.
 
 Other typed arrays, `DataView` and `SharedArrayBuffer` fail with [LUCENT2002](/docs/api/diagnostics/#lucent2002). For bytes that shouldn't be copied, use a [NativeBuffer](/docs/api/lucent-core/#nativebuffer).
 
@@ -228,7 +232,6 @@ What JavaScript's built-ins lack has a native implementation in `lucent:core`. [
 | --- | --- | --- |
 | `setTimeout`, `setInterval` | LUCENT9001: not declared | `await delay(ms, signal)` from `lucent:core`, in a loop for an interval |
 | `TextEncoder`, `TextDecoder` | LUCENT9001: not declared | `utf8Encode` and `utf8Decode` from `lucent:core` |
-| `Object.groupBy`, `Map.groupBy`, `Promise.withResolvers` | LUCENT9001: ES2024 | A loop into a record or a `Map`, and `new Promise` |
 | `xs.flat()` | LUCENT1003 | `xs.flatMap((x) => x)` |
 | `Promise.race`, `Promise.any` | LUCENT1003 | None |
 | `promise.then`, `promise.catch`, `promise.finally` | LUCENT1003 | `await`, inside `try`, `catch` and `finally` |

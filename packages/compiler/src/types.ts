@@ -1114,6 +1114,23 @@ export class TypeRegistry {
             );
           return { k: "weak", inner };
         }
+        case "PromiseWithResolvers": {
+          // The functions settle the promise as a Promise executor's do (emit/builtins.ts):
+          // resolve takes a value, not a promise to adopt, and reject an Error.
+          const inner = this.lower(args[0]!, node);
+          const none = inner.k === "void" || inner.k === "undefined";
+          const field = (name: string, t: LType): StructField => ({
+            name,
+            type: t,
+            optional: false,
+            readonly: false,
+          });
+          return this.registerStruct(type, c.getPropertiesOfType(type), node, [
+            field("promise", { k: "promise", inner }),
+            field("resolve", { k: "fn", params: none ? [] : [inner], ret: T.void }),
+            field("reject", { k: "fn", params: [T.error], ret: T.void }),
+          ]);
+        }
         case "AbortSignal":
           return T.abortSignal;
         case "AbortController":
@@ -1234,7 +1251,13 @@ export class TypeRegistry {
     return { name: p.name, type: lt, optional, literal, readonly };
   }
 
-  private registerStruct(type: ts.Type, props: ts.Symbol[], node: ts.Node): LType {
+  private registerStruct(
+    type: ts.Type,
+    props: ts.Symbol[],
+    node: ts.Node,
+    /** Fields the library's declaration doesn't give as Lucent types them (PromiseWithResolvers). */
+    given?: StructField[],
+  ): LType {
     const pending = this.inProgress.get(type) ?? this.deferred.get(type)?.id;
     if (pending) return { k: "struct", id: pending };
     // Provisional id so recursive references resolve.
@@ -1243,7 +1266,7 @@ export class TypeRegistry {
     this.inProgress.set(type, provisional);
     let fields: StructField[];
     try {
-      fields = props.map((p) => this.structField(p, node));
+      fields = given ?? props.map((p) => this.structField(p, node));
     } catch (e) {
       // Leave no provisional id behind: a later lowering of this type would resolve to it.
       this.inProgress.delete(type);

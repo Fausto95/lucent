@@ -697,6 +697,53 @@ export function f(round: boolean): number {
     });
   });
 
+  describe("ES2024's library", () => {
+    it.each([
+      [
+        "a resizable ArrayBuffer",
+        "export function f(): number { return new ArrayBuffer(8, { maxByteLength: 16 }).byteLength; }",
+      ],
+      [
+        "ArrayBuffer.resizable",
+        "export function f(ab: ArrayBuffer): boolean { return ab.resizable; }",
+      ],
+      [
+        "ArrayBuffer.detached",
+        "export function f(ab: ArrayBuffer): boolean { return ab.detached; }",
+      ],
+      [
+        "ArrayBuffer.transfer()",
+        "export function f(ab: ArrayBuffer): ArrayBuffer { return ab.transfer(); }",
+      ],
+    ])("rejects %s", (_, src) => {
+      expect(codes(src)).toEqual(["LUCENT1003"]);
+    });
+
+    it("rejects Object.groupBy with literal keys, and says to type them string", () => {
+      const r = compileSource(
+        'export function f(xs: number[]): number {\n  return Object.keys(Object.groupBy(xs, (x) => (x > 1 ? "big" : "small"))).length;\n}',
+      );
+      expect(r.diagnostics.map((d) => d.code)).toEqual(["LUCENT1003"]);
+      expect(r.diagnostics[0]!.fix).toContain("`(item): string => …`");
+    });
+
+    it("rejects a reason that is not an Error for withResolvers' reject", () => {
+      expect(
+        codes(
+          'export function f(): Promise<number> {\n  const r = Promise.withResolvers<number>();\n  r.reject("no");\n  return r.promise;\n}',
+        ),
+      ).toEqual(["LUCENT2002"]);
+    });
+
+    it("accepts the grouping, resolver and string members", () => {
+      expect(
+        codes(
+          'export function f(xs: string[]): string {\n  const r = Object.groupBy(xs, (x): string => x);\n  const m = Map.groupBy(xs, (x) => x.length);\n  const p = Promise.withResolvers<number>();\n  p.resolve(m.size);\n  return `${Object.keys(r).length} ${"a".isWellFormed()} ${"b".toWellFormed()}`;\n}',
+        ),
+      ).toEqual([]);
+    });
+  });
+
   describe("string methods that need Unicode or locale data", () => {
     it.each([
       ["normalize()", "export function f(s: string): string { return s.normalize(); }"],
