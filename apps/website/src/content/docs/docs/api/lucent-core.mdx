@@ -324,6 +324,7 @@ class NativeBuffer {
   transfer(): NativeBuffer;
   transferToArrayBuffer(): ArrayBuffer;
   close(): void;
+  handle(): NativeHandle;
   [Symbol.dispose](): void;
 }
 ```
@@ -375,7 +376,29 @@ export async function sample(): Promise<number> {
 | `transfer(): NativeBuffer;` | Moves the bytes, uncopied, to a new buffer: every reference to this one refuses them from now on. |
 | `transferToArrayBuffer(): ArrayBuffer;` | Moves the bytes, uncopied, into an `ArrayBuffer`: every reference to this buffer refuses them from now on, and the ArrayBuffer releases them as the buffer would have. Returned to JavaScript, it is the same bytes. A borrowed buffer does not move (an InvalidStateError). |
 | `close(): void;` | Releases the bytes. Closing a closed or transferred buffer does nothing. |
+| `handle(): NativeHandle;` | A handle of the bytes' address, for native code that takes one (a library JavaScript passes the pointer to). It borrows the bytes for read until it is released: reads go on, while writes, `transfer()` and `close()` throw an InvalidStateError. An empty buffer has no address (a RangeError). |
 | `[Symbol.dispose](): void;` |  |
+
+### NativeHandle
+
+```ts title="core.d.ts"
+class NativeHandle {
+  private constructor();
+  readonly pointer: bigint;
+  readonly released: boolean;
+  release(): boolean;
+}
+```
+
+An address native code takes, held valid until released, as VisionCamera's `NativeBuffer` gives one to Skia. JavaScript gets the same object, and passes `pointer` to the library that reads it.
+
+Release it once done, from Lucent or JavaScript: until then, what it points to stays as it is (a buffer's bytes stay borrowed). One whose last reference goes unreleased is released then; a debug build counts those JavaScript collected (`host.releasedOpen` in `__lucentDebug.snapshot()`).
+
+| Member | What it does |
+| --- | --- |
+| `readonly pointer: bigint;` | The address while held: `0n` once released. |
+| `readonly released: boolean;` | Whether it was released. |
+| `release(): boolean;` | Releases it: true the first time, false after. |
 
 ### Channel
 

@@ -364,6 +364,9 @@ const LIBRARY: Record<string, LibraryEffect> = {
     throws: true,
   },
   "lucent:core.NativeBuffer.close": { mutates: true, throws: true },
+  // A borrow of the bytes for the handle's life, which release() ends.
+  "lucent:core.NativeBuffer.handle": { mutates: true, allocates: true, throws: true },
+  "lucent:core.NativeHandle.release": { mutates: true, throws: true },
   "lucent:core.NativeBuffer.[Symbol.dispose]": { mutates: true, throws: true },
   // Not the receiver back, unlike Uint8Array's: a span never leaves its borrow.
   "lucent:core.MutableByteSpan.fill": MUTATES,

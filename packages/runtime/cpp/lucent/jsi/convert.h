@@ -442,6 +442,16 @@ struct Convert<NativeBuffer> {
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const NativeBuffer& b);
 };
 
+/// A NativeHandle crosses as an opaque handle too, the same JS object for
+/// the same handle: `pointer` (a bigint, 0n once released), `released` and
+/// `release()`. One JavaScript drops unreleased is released when it is
+/// collected, which a debug build counts (Host::Ownership::releasedOpen).
+template <>
+struct Convert<NativeHandle> {
+  static NativeHandle fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const NativeHandle& handle);
+};
+
 // --- errors ------------------------------------------------------------------------------
 
 template <>

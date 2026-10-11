@@ -139,6 +139,10 @@ const METHODS: Record<string, Lowers> = {
     return { c: cpp.call(cpp.arrow(buffer.c, "transferToArrayBuffer")), t: T.arrayBuffer };
   },
   close,
+  handle: (_em, _node, buffer) => ({
+    c: cpp.call(cpp.arrow(buffer.c, "handle")),
+    t: T.nativeHandle,
+  }),
 };
 
 export function bufferMethod(em: FnEmitter, buffer: E, name: string, node: ts.CallExpression): E {
@@ -450,4 +454,24 @@ function isClose(id: ts.Node): boolean {
     ts.isCallExpression(access.parent) &&
     access.parent.expression === access
   );
+}
+
+// --- a native handle's members ---------------------------------------------------
+
+export function nativeHandleMethod(handle: E, name: string, node: ts.CallExpression): E {
+  if (name !== "release" || node.arguments.length)
+    fail(node, Codes.UnsupportedBuiltin, `NativeHandle.prototype.${name} is not supported`);
+
+  return { c: cpp.call(cpp.arrow(handle.c, "release")), t: T.boolean };
+}
+
+export function nativeHandleProperty(handle: E, name: string, node: ts.Node): E {
+  if (name === "pointer")
+    return {
+      c: cpp.call("lucent::BigInt::fromUint64", [cpp.call(cpp.arrow(handle.c, "pointer"))]),
+      t: T.bigint,
+    };
+  if (name === "released") return { c: cpp.call(cpp.arrow(handle.c, "released")), t: T.boolean };
+
+  return fail(node, Codes.UnsupportedBuiltin, `NativeHandle.prototype.${name} is not supported`);
 }

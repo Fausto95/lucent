@@ -45,7 +45,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T65](#t65)   | Enforce physical-device performance budgets                       | waiting (needs the maintainer); needs T55, T56, T59, T64                                                                          |
 | [T66](#t66)   | Complete user documentation and migration examples                | waiting; needs T51, T52, T60                                                                                                      |
 | [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165, #167, #168 merged)                                                                                       |
-| [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | in progress (#175, #180 merged)                                                                                                   |
+| [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | in progress (#175, #180, #PR_A merged)                                                                                            |
 | [T74](#t74)   | Callback executors and stream backpressure                        | in progress (#181, #182 merged)                                                                                                   |
 | [T75](#t75)   | Support a window of stable React Native and Expo releases         | blocked: a decision on the window; needs nothing open                                                                             |
 | [T76](#t76)   | App-delegate and Activity integration hooks                       | blocked: a decision superseding 0071; needs nothing open                                                                          |
@@ -1653,7 +1653,8 @@ return JavaScript values Lucent does not look inside (another library's
 object, a worklet runtime's value, a Nitro HybridObject).
 
 - **Status:** in progress: `JSValue` merged as #175, cross-package types
-  as #180; `NativeHandle` waits for [T72](#t72)'s platform adoptions.
+  as #180, `NativeHandle` and a buffer's handle as #PR_A; the platform
+  makers wait for [T72](#t72)'s platform adoptions.
 - **Area:** Compiler (types, bindings), runtime (JSI host), lucent:core.
 - **Needs:** [T72](#t72).
 - **Verify:** V1, V2, V3, V5.
@@ -1693,10 +1694,21 @@ Reanimated, Worklets or a Nitro library can be handed to it.
       and in lucent:android from a `HardwareBuffer` or a direct
       `ByteBuffer`; `release()` once, from either side; a handle JavaScript
       drops without releasing is released by the host's finalizer
-      (`jsi::NativeState`) and counted as a leak in debug builds.
-- [ ] `NativeBuffer.pointer` for an adopted or owned buffer while
+      (`jsi::NativeState`) and counted as a leak in debug builds. The
+      type is merged (#PR_A): `handle.h`'s `NativeHandleObject`
+      (`pointer`, `released`, `release()` once from any thread, the
+      backstop counted by `live::noteBackstop`, so a handle JavaScript
+      drops counts in `host.releasedOpen`), its JSI conversion (one object
+      per handle, a bigint `pointer`), lucent:core's declaration and
+      JavaScript reference, refused in compute inputs and channels
+      (LUCENT3012). The platform makers are next.
+- [x] `NativeBuffer.pointer` for an adopted or owned buffer while
       JavaScript holds a `NativeHandle` of it (a borrow for the handle's
-      life; `transfer`, `close` and `detach` refuse while it is held).
+      life; `transfer`, `close` and `detach` refuse while it is held):
+      `buffer.handle()`, a read borrow until `release()`, so reads go on;
+      an empty buffer has no address (`RangeError`); the `native-handles`
+      e2e case, `buffer_test`'s handle cases and `host_test`'s
+      `nativeHandlesCrossWithTheirPointer` (#PR_A).
 - [x] Cross-package types: a package's exported class in another
       package's export signature resolves to the one C++ class (one
       program); `packages.test.ts` gains a two-package case (`vision-core`

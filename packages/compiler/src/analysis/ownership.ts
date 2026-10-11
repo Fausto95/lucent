@@ -178,6 +178,7 @@ const CORE: Record<string, string | null> = {
   NativeBuffer: null,
   // Shared by both ends: its sends copy what crosses through it.
   Channel: null,
+  NativeHandle: "a native handle, which keeps what it points to until its holder releases it",
   ByteSpan: BORROWED,
   MutableByteSpan: BORROWED,
   EventEmitter: "an event emitter, whose listeners run on the context that added them",
