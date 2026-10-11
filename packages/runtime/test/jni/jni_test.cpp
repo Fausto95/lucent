@@ -107,6 +107,62 @@ static void errorsLeaveNoLocalReferences() {
   if (made > 16) std::fprintf(stderr, "jni: 16 errors read left %ld local references\n", made);
 }
 
+/// The Java buffer whose bytes a NativeBuffer adopted (adoptByteBuffer)
+/// stays reachable until the bytes are released, once: at close(), or
+/// when the ArrayBuffer they moved to goes.
+static void adoptedByteBuffersAreHeldUntilReleased() {
+  JNIEnv* env = jni::env();
+  jni::LocalFrame frame(env);
+  jclass byteBuffer = env->FindClass("java/nio/ByteBuffer");
+  jmethodID allocateDirect = env->GetStaticMethodID(byteBuffer, "allocateDirect", "(I)Ljava/nio/ByteBuffer;");
+  jmethodID get = env->GetMethodID(byteBuffer, "get", "(I)B");
+  jclass system = env->FindClass("java/lang/System");
+  jmethodID gc = env->GetStaticMethodID(system, "gc", "()V");
+
+  // Whether the object `weak` names is collected, after a few collections.
+  auto collected = [&](jweak weak) {
+    for (int i = 0; i < 50 && !env->IsSameObject(weak, nullptr); i++) {
+      env->CallStaticVoidMethod(system, gc);
+      CHECK(takePending(env).empty());
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    return env->IsSameObject(weak, nullptr) == JNI_TRUE;
+  };
+  // A direct buffer of `size` bytes, adopted, with `weak` naming the Java buffer.
+  auto adopted = [&](jint size, jweak& weak) {
+    jni::LocalFrame inner(env);
+    jobject direct = env->CallStaticObjectMethod(byteBuffer, allocateDirect, size);
+    CHECK(takePending(env).empty());
+    weak = env->NewWeakGlobalRef(direct);
+    return jni::adoptByteBuffer(jni::wrap(env, direct, "ByteBuffer"));
+  };
+
+  jweak closedWeak = nullptr;
+  {
+    NativeBuffer closed = adopted(8, closedWeak);
+    CHECK(closed->size() == 8);
+    closed->withWrite([](std::span<uint8_t> bytes) { bytes[1] = 7; });
+    jobject java = env->NewLocalRef(closedWeak);
+    jbyte second = env->CallByteMethod(java, get, 1);
+    CHECK(takePending(env).empty());
+    CHECK(second == 7);
+    env->DeleteLocalRef(java);
+    CHECK(!collected(closedWeak));
+    CHECK(closed->close());
+    CHECK(collected(closedWeak));
+  }
+  env->DeleteWeakGlobalRef(closedWeak);
+
+  jweak movedWeak = nullptr;
+  {
+    ArrayBuffer moved = adopted(4, movedWeak)->transferToArrayBuffer();
+    CHECK(moved.size() == 4);
+    CHECK(!collected(movedWeak));
+  }
+  CHECK(collected(movedWeak));
+  env->DeleteWeakGlobalRef(movedWeak);
+}
+
 int main(int, char** argv) {
   lucentStartJvm(argv[1]);
 
@@ -114,6 +170,7 @@ int main(int, char** argv) {
   postCallback([&] {
     primitiveResultsOfAThrowingProxy();
     errorsLeaveNoLocalReferences();
+    adoptedByteBuffersAreHeldUntilReleased();
     done = true;
   });
 
