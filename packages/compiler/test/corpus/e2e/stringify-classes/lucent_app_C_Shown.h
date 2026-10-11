@@ -6,6 +6,8 @@
 #undef T
 #pragma push_macro("first")
 #undef first
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("toJSON")
 #undef toJSON
 #pragma push_macro("v")
@@ -33,7 +35,13 @@ struct C_Shown : lucent::Object {
     return this->v;
   }
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+template <class T>
+inline void C_Shown<T>::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->v, "Shown.v", "stringify-classes.lucent.ts:280");
+}
 
 template <class T>
 inline bool C_Shown<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
@@ -52,5 +60,6 @@ inline bool C_Shown<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("v")
 #pragma pop_macro("toJSON")
+#pragma pop_macro("s")
 #pragma pop_macro("first")
 #pragma pop_macro("T")

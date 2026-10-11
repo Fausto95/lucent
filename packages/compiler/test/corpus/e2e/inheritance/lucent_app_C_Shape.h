@@ -6,6 +6,8 @@
 #undef area
 #pragma push_macro("describe")
 #undef describe
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -16,7 +18,12 @@ struct C_Shape : lucent::Object {
   virtual double area() = 0;
   virtual lucent::String describe();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Shape::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Shape::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -28,5 +35,6 @@ inline bool C_Shape::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("describe")
 #pragma pop_macro("area")

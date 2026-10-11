@@ -18,9 +18,14 @@ struct S_Box;
 struct S_Box : lucent::Object {
   double n{};
   lucent::String s{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Box>& v);
+
+inline void S_Box::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Box>& v) {
   if (!v) {

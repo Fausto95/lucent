@@ -19,9 +19,15 @@ struct S_Listener : lucent::Object {
   double r_id_{};
   lucent::Fn<void(double)> onLevel{};
   lucent::Fn<void(lucent::Error)> onError{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Listener>& v);
+
+inline void S_Listener::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->onLevel, "Listener.onLevel", "");
+  lucent::debug::refs(s, this->onError, "Listener.onError", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Listener>& v) {
   if (!v) {

@@ -10,6 +10,8 @@
 #undef items
 #pragma push_macro("push")
 #undef push
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("shift")
 #undef shift
 #pragma push_macro("size")
@@ -51,7 +53,13 @@ struct C_Queue : lucent::Object {
     return static_cast<double>(static_cast<int64_t>(v0_.size()));
   }
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+template <class T>
+inline void C_Queue<T>::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->items, "Queue.items", "generics.lucent.ts:10");
+}
 
 template <class T>
 inline bool C_Queue<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
@@ -68,6 +76,7 @@ inline bool C_Queue<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("w")
 #pragma pop_macro("size")
 #pragma pop_macro("shift")
+#pragma pop_macro("s")
 #pragma pop_macro("push")
 #pragma pop_macro("items")
 #pragma pop_macro("first")

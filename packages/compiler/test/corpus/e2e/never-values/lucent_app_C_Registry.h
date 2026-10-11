@@ -17,7 +17,12 @@ struct C_Registry : lucent::Object {
   static lucent::Ref<C_Registry> create();
   lucent::String lookup(lucent::String p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Registry::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->names, "Registry.names", "never-values.lucent.ts:22");
+}
 
 inline bool C_Registry::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

@@ -4,6 +4,8 @@
 
 #pragma push_macro("next")
 #undef next
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 
@@ -14,9 +16,14 @@ struct S_ListA;
 struct S_ListA : lucent::Object {
   double v{};
   lucent::Opt<lucent::Ref<lucent_app::S_ListA>> next{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_ListA>& v);
+
+inline void S_ListA::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->next, "ListA.next", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_ListA>& v) {
   if (!v) {
@@ -34,4 +41,5 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_ListA>& v) {
 }  // namespace lucent_app
 
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("next")

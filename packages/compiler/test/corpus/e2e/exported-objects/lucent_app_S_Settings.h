@@ -11,9 +11,14 @@ struct S_Settings;
 
 struct S_Settings : lucent::Object {
   double size{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Settings>& v);
+
+inline void S_Settings::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Settings>& v) {
   if (!v) {

@@ -37,6 +37,7 @@ import { initThroughIr, type IrMode, type IrUnit, throughIr } from "./through-ir
 import type { Initializer } from "../ir/lower.ts";
 import { FnEmitter } from "./function.ts";
 import { emitIface, emitIfaceLiteral } from "./interfaces.ts";
+import { mayRefer, refsDefinition, refsMethod, structLabel } from "./refs.ts";
 import { declaredNames, withoutMacros } from "./macros.ts";
 import { INDEX_HEADER, type TypeItem, typeHeaders } from "./type-headers.ts";
 import { stringExpr } from "../lowering/literals.ts";
@@ -224,7 +225,7 @@ export function emitProgram(
     byDepth.some((c) => c.typeParams.length && ctx.reg.derives(info.id, c.id))
       ? genericClassDefs
       : classDefs
-    ).push({ name: info.cppName, defs: [out.definition], decls: [], inline: [] });
+    ).push({ name: info.cppName, defs: [out.definition], decls: [], inline: [out.refs] });
     moduleDefs.get(m)!.push(...out.members);
     statics.get(m)!.push(...out.statics);
     // Methods named like a requirement of its SDK protocols that match none (a typo).
@@ -364,11 +365,25 @@ export function emitProgram(
     defs: [
       cpp.struct(
         s.cppName,
-        s.fields.map((f) => cpp.field(ctx.reg.cppType(f.type), cppIdent(f.name))),
+        [
+          ...s.fields.map((f) => cpp.field(ctx.reg.cppType(f.type), cppIdent(f.name))),
+          refsMethod(),
+        ],
         { bases: [{ type: cpp.type("lucent::Object") }] },
       ),
     ],
-    inline: [],
+    inline: [
+      refsDefinition(
+        cpp.type(s.cppName),
+        s.fields
+          .filter((f) => mayRefer(f.type))
+          .map((f) => ({
+            member: cppIdent(f.name),
+            label: `${structLabel(s.cppName)}.${f.name}`,
+            where: "",
+          })),
+      ),
+    ],
   }));
   const classFwd = [...ctx.reg.classes.values()].map((c) =>
     cpp.struct(c.cppName, [], { ...templateOf(c.typeParams), forward: true }),
@@ -395,7 +410,11 @@ export function emitProgram(
   // Object literals standing for data-only interfaces: each interface's literal class.
   const literalDefs = [...ctx.reg.ifaceLiterals.entries()].flatMap(([id, lit]): TypeItem[] => {
     const d = ctx.guard(() => emitIfaceLiteral(ctx, id));
-    return d ? [{ name: lit.cppName, defs: [d], decls: [], inline: [] }] : [];
+    const name = ctx.reg.iface(id).decl.name.text;
+    const refs = refsDefinition(cpp.type(lit.cppName), [
+      { member: "s", label: `${name} literal`, where: "" },
+    ]);
+    return d ? [{ name: lit.cppName, defs: [d], decls: [], inline: [refs] }] : [];
   });
   const json = jsonWriters(ctx);
   const readers = ctx.guard(() => jsonReaders(ctx)) ?? { decls: [], defs: [] };

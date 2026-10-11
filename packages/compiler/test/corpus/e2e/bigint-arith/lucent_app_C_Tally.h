@@ -17,7 +17,12 @@ struct C_Tally : lucent::Object {
   void construct();
   static lucent::Ref<C_Tally> create();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Tally::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->items, "Tally.items", "bigint-arith.lucent.ts:110");
+}
 
 inline bool C_Tally::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

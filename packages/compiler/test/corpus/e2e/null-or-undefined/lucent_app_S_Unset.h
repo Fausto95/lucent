@@ -11,9 +11,14 @@ struct S_Unset;
 
 struct S_Unset : lucent::Object {
   lucent::Opt<lucent::String> v{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Unset>& v);
+
+inline void S_Unset::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->v, "Unset.v", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Unset>& v) {
   if (!v) {

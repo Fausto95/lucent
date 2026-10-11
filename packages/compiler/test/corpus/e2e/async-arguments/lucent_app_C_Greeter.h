@@ -17,7 +17,12 @@ struct C_Greeter : lucent::Object {
   static lucent::Ref<C_Greeter> create(lucent::String p0_);
   lucent::Promise<lucent::String> greet(lucent::String p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Greeter::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Greeter::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

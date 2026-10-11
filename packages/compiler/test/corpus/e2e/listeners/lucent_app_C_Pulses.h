@@ -38,7 +38,13 @@ struct C_Pulses : lucent::Object {
   void fail(lucent::String p0_);
   lucent::Array<lucent::Ref<lucent_app::S_Listener>> snapshot();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Pulses::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->listeners, "Pulses.listeners", "listeners.lucent.ts:7");
+  lucent::debug::refs(s, this->log, "Pulses.log", "listeners.lucent.ts:9");
+}
 
 inline bool C_Pulses::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

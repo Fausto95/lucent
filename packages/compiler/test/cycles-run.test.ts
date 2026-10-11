@@ -105,7 +105,10 @@ describe("a debug build's cycle report", () => {
         (source) =>
           source.endsWith(".c")
             ? { cmd: cc!, args: ["-std=c11", "-O1", "-w", "-c", source] }
-            : { cmd: cxx!, args: [...flags, ...(own.includes(source) ? [`-I${dir}`] : []), "-c", source] },
+            : {
+                cmd: cxx!,
+                args: [...flags, ...(own.includes(source) ? [`-I${dir}`] : []), "-c", source],
+              },
         (source) => !own.includes(source),
       );
       expect(printed).toBe("");

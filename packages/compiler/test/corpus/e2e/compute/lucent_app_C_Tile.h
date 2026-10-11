@@ -20,7 +20,12 @@ struct C_Tile : lucent::Object {
   static lucent::Ref<C_Tile> create(double p0_);
   double area();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Tile::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Tile::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

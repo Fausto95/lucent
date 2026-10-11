@@ -6,6 +6,8 @@
 #undef first
 #pragma push_macro("label")
 #undef label
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("toJSON")
 #undef toJSON
 
@@ -19,7 +21,12 @@ struct C_Given : lucent::Object {
   void construct(lucent::String p0_, lucent::Fn<lucent::String()> p1_);
   static lucent::Ref<C_Given> create(lucent::String p0_, lucent::Fn<lucent::String()> p1_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Given::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->toJSON, "Given.toJSON", "stringify-classes.lucent.ts:211");
+}
 
 inline bool C_Given::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   if (toJson) {
@@ -37,5 +44,6 @@ inline bool C_Given::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("toJSON")
+#pragma pop_macro("s")
 #pragma pop_macro("label")
 #pragma pop_macro("first")

@@ -32,7 +32,13 @@ struct C_Sub : lucent_app::C_Shown<T> {
     return lucent::String(LUCENT_STR("sub ")) + v1_;
   }
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+template <class T>
+inline void C_Sub<T>::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Shown<T>::lucentRefs_(s);
+}
 
 template <class T>
 inline bool C_Sub<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {

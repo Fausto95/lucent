@@ -16,9 +16,14 @@ struct S_Object_14e011e7;
 struct S_Object_14e011e7 : lucent::Object {
   lucent::ArrayBuffer buffer{};
   double size{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_14e011e7>& v);
+
+inline void S_Object_14e011e7::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_14e011e7>& v) {
   if (!v) {

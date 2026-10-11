@@ -9,6 +9,8 @@
 #undef kind
 #pragma push_macro("name")
 #undef name
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("sound")
 #undef sound
 #pragma push_macro("speak")
@@ -26,7 +28,12 @@ struct C_Puppy : lucent_app::C_Dog {
   lucent::String speak() override;
   lucent::String kind() override;
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Puppy::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Dog::lucentRefs_(s);
+}
 
 inline bool C_Puppy::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -45,6 +52,7 @@ inline bool C_Puppy::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 #pragma pop_macro("tricks")
 #pragma pop_macro("speak")
 #pragma pop_macro("sound")
+#pragma pop_macro("s")
 #pragma pop_macro("name")
 #pragma pop_macro("kind")
 #pragma pop_macro("breed")

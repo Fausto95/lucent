@@ -16,9 +16,14 @@ struct S_Object_6bd9ed01;
 struct S_Object_6bd9ed01 : lucent::Object {
   lucent::String name{};
   double age{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_6bd9ed01>& v);
+
+inline void S_Object_6bd9ed01::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_6bd9ed01>& v) {
   if (!v) {

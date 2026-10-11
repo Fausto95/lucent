@@ -2,6 +2,9 @@
 #pragma once
 #include "lucent_app.h"
 
+#pragma push_macro("s")
+#undef s
+
 namespace lucent_app {
 
 struct C_Outer;
@@ -10,7 +13,12 @@ struct C_Outer : lucent::ErrorObject {
   void construct(lucent::Opt<lucent::String> p0_);
   static lucent::Ref<C_Outer> create(lucent::Opt<lucent::String> p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Outer::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Outer::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -21,3 +29,5 @@ inline bool C_Outer::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }
 
 }  // namespace lucent_app
+
+#pragma pop_macro("s")

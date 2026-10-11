@@ -59,7 +59,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [TA35](#ta35) | Bind a package's own pods in an Expo app                          | ready; needs nothing open                                                                                                         |
 | [TA39](#ta39) | ES2023 and ES2024 library methods                                 | done (#159, #160, 2026-10-11)                                                                                                     |
 | [TA40](#ta40) | Deterministic finalization and dispose from JavaScript            | done (#176, #179, 2026-10-11)                                                                                                     |
-| [TA41](#ta41) | Name reference cycles in debug builds                             | ready; needs nothing open                                                                                                         |
+| [TA41](#ta41) | Name reference cycles in debug builds                             | in progress (#PR_A merged)                                                                                                        |
 | [TA42](#ta42) | Throw `RangeError` on stack exhaustion                            | done (#173, 2026-10-11)                                                                                                           |
 | [TA44](#ta44) | `WeakMap` and `WeakSet` keyed by instances                        | done (#170, 2026-10-11)                                                                                                           |
 | [TA46](#ta46) | A web target for shared modules                                   | blocked: a scope decision; needs nothing open                                                                                     |
@@ -2501,7 +2501,8 @@ drops it, through a registry or `using`, with the e2e case green.
 cycle that keeps them: the fields and closure captures on the path, with
 their `.lucent.ts` lines.
 
-- **Status:** ready; needs nothing open.
+- **Status:** in progress: classes and structs merged as #PR_A;
+  closures, the snapshot and LogBox are next.
 - **Area:** Runtime (live, debug), compiler (classes), tooling (dev).
 - **Needs:** none.
 - **Verify:** V1, V3.
@@ -2520,11 +2521,22 @@ teardown report says what is left, not why.
       left from the roots the host still holds and prints each cycle once
       as a path: `Session.onFrame`, then the closure at
       `camera.lucent.ts:41`, which captures `this`, the `Session`.
+      Classes, structs and interface literals are merged (#PR_A):
+      `Object::lucentRefs_` (emitted in every build, `emit/refs.ts`),
+      `refs.h`'s object list (`trackObjects()`, on in debug hosts) and
+      `cycles()` (Tarjan's components, each as the path of fields from its
+      oldest object), logged once per cycle at teardown by
+      `rn/LucentModule.cpp`. Closures' captures are next.
 - [ ] `lucent dev` shows the report in LogBox after a reload, once per
       cycle; `debugSnapshot()` carries it; Release builds compile none of
       it.
-- [ ] A fix hint per cycle names the `WeakRef` to add.
+- [x] A fix hint per cycle names the `WeakRef` to add: the last field,
+      the reference back to the cycle's oldest object (#PR_A).
 - [ ] Tests: `debug_test.cpp` with a two-object cycle and a closure cycle.
+      The two-object cycle, a self-reference, a ring through a map and a
+      tree broken by a `WeakRef` are in (`findsCyclesOnce`), with
+      `cycles-run.test.ts` running a compiled module (#PR_A); the closure
+      cycle waits for closures.
 
 **Done when:** a leaked cycle in the example app is reported in LogBox
 with its path after a reload.

@@ -17,9 +17,14 @@ struct S_Placed : lucent::Object {
   double x{};
   double y{};
   lucent::String name{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Placed>& v);
+
+inline void S_Placed::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Placed>& v) {
   if (!v) {

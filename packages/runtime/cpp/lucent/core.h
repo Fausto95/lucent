@@ -12,6 +12,7 @@
 // strong references is kept alive until the process ends.
 #pragma once
 
+#include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -60,15 +61,40 @@ struct WeakTable {
 };
 }  // namespace detail
 
+namespace debug {
+/// What an object's strong references are reported to (refs.h).
+class RefSink;
+
+namespace detail {
+/// Whether objects are listed as they are made, for a debug build's cycle
+/// report: a debug host turns it on (trackObjects, refs.h). Off, an object
+/// pays one relaxed load when made and when it goes.
+extern std::atomic<bool> tracking;
+void track(const Object* o) noexcept;
+void untrack(const Object* o) noexcept;
+}  // namespace detail
+}  // namespace debug
+
 /// Base of every struct and class instance.
 struct Object : std::enable_shared_from_this<Object> {
-  Object() = default;
+  Object() noexcept {
+    if (debug::detail::tracking.load(std::memory_order_relaxed)) debug::detail::track(this);
+  }
   /// A copy is another object: no weak collection's key.
-  Object(const Object&) noexcept : std::enable_shared_from_this<Object>() {}
+  Object(const Object&) noexcept : std::enable_shared_from_this<Object>() {
+    if (debug::detail::tracking.load(std::memory_order_relaxed)) debug::detail::track(this);
+  }
   Object& operator=(const Object&) noexcept { return *this; }
   virtual ~Object() {
     if (weakTables_) dropWeakEntries();
+    if (debug::detail::tracking.load(std::memory_order_relaxed)) debug::detail::untrack(this);
   }
+
+  /// Reports the strong references it holds to other objects, each named by
+  /// its field and source line, for a debug build's cycle report (refs.h).
+  /// Generated classes and structs report their fields; the runtime's
+  /// objects hold none worth naming.
+  virtual void lucentRefs_(debug::RefSink&) const {}
 
   /// Records that `table` keeps an entry keyed by this object, for the
   /// object's destructor to drop.

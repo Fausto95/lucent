@@ -20,9 +20,15 @@ struct S_Options : lucent::Object {
   lucent::String color{};
   lucent::Opt<lucent::String> label{};
   lucent::Opt<double> width{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Options>& v);
+
+inline void S_Options::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->label, "Options.label", "");
+  lucent::debug::refs(s, this->width, "Options.width", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Options>& v) {
   if (!v) {

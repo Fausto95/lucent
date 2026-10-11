@@ -10,7 +10,12 @@ struct C_Plain : lucent::ErrorObject {
   void construct(lucent::Opt<lucent::String> p0_);
   static lucent::Ref<C_Plain> create(lucent::Opt<lucent::String> p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Plain::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Plain::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

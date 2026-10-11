@@ -9,6 +9,8 @@
 #undef pop
 #pragma push_macro("push")
 #undef push
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("size")
 #undef size
 #pragma push_macro("toArray")
@@ -28,7 +30,12 @@ struct C_Stack : lucent::Object {
   double get_length();
   lucent::Array<double> toArray();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Stack::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->head, "Stack.head", "classes.lucent.ts:47");
+}
 
 inline bool C_Stack::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -44,6 +51,7 @@ inline bool C_Stack::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("toArray")
 #pragma pop_macro("size")
+#pragma pop_macro("s")
 #pragma pop_macro("push")
 #pragma pop_macro("pop")
 #pragma pop_macro("head")

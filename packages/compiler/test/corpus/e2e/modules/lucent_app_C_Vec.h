@@ -20,7 +20,12 @@ struct C_Vec : lucent::Object {
   static lucent::Ref<C_Vec> create(double p0_, double p1_);
   lucent::Ref<lucent_app::C_Vec> plus(lucent::Ref<lucent_app::C_Vec> p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Vec::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Vec::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

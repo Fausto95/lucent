@@ -14,7 +14,12 @@ struct C_Coded : lucent::ErrorObject {
   void construct(lucent::Opt<lucent::String> p0_);
   static lucent::Ref<C_Coded> create(lucent::Opt<lucent::String> p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Coded::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Coded::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

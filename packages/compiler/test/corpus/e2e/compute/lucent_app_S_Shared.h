@@ -14,9 +14,15 @@ struct S_Shared;
 struct S_Shared : lucent::Object {
   lucent::Array<double> left{};
   lucent::Array<double> right{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Shared>& v);
+
+inline void S_Shared::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->left, "Shared.left", "");
+  lucent::debug::refs(s, this->right, "Shared.right", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Shared>& v) {
   if (!v) {

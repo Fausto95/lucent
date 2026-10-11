@@ -6,6 +6,8 @@
 #undef first
 #pragma push_macro("keep")
 #undef keep
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("toJSON")
 #undef toJSON
 
@@ -19,7 +21,12 @@ struct C_Dropped : lucent::Object {
   void construct();
   static lucent::Ref<C_Dropped> create();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Dropped::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->toJSON, "Dropped.toJSON", "stringify-classes.lucent.ts:227");
+}
 
 inline bool C_Dropped::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   if (toJson) {
@@ -37,5 +44,6 @@ inline bool C_Dropped::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("toJSON")
+#pragma pop_macro("s")
 #pragma pop_macro("keep")
 #pragma pop_macro("first")

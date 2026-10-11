@@ -35,7 +35,13 @@ struct C_Bag : lucent::Object {
     return v1_.includes(p0_);
   }
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+template <class T>
+inline void C_Bag<T>::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->items, "Bag.items", "function-values.lucent.ts:20");
+}
 
 template <class T>
 inline bool C_Bag<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {

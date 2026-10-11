@@ -19,7 +19,12 @@ struct C_Account : lucent::Object {
   static lucent::Ref<C_Account> create(lucent::String p0_);
   void missing(lucent::String p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Account::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Account::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

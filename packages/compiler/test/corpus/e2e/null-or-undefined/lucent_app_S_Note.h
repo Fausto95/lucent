@@ -13,9 +13,14 @@ struct S_Note;
 
 struct S_Note : lucent::Object {
   lucent::Opt<lucent::String> note{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Note>& v);
+
+inline void S_Note::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->note, "Note.note", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Note>& v) {
   if (!v) {

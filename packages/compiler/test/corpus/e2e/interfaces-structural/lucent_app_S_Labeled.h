@@ -14,9 +14,14 @@ struct S_Labeled;
 struct S_Labeled : lucent::Object {
   lucent::String label{};
   lucent::Opt<double> size{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Labeled>& v);
+
+inline void S_Labeled::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->size, "Labeled.size", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Labeled>& v) {
   if (!v) {

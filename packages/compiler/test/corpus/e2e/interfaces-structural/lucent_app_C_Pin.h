@@ -21,6 +21,7 @@ struct C_Pin : lucent::Object, virtual lucent_app::I_Placed {
   void construct(double p0_, double p1_, lucent::String p2_);
   static lucent::Ref<C_Pin> create(double p0_, double p1_, lucent::String p2_);
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
   lucent::String get_name() override {
     return this->name;
   }
@@ -40,6 +41,10 @@ struct C_Pin : lucent::Object, virtual lucent_app::I_Placed {
     this->y = std::move(v);
   }
 };
+
+inline void C_Pin::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Pin::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

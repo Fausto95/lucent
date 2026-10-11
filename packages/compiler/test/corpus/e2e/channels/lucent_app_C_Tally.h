@@ -8,6 +8,8 @@
 #undef n
 #pragma push_macro("plus")
 #undef plus
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -19,7 +21,12 @@ struct C_Tally : lucent::Object {
   static lucent::Ref<C_Tally> create(double p0_);
   double plus();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Tally::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Tally::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -32,6 +39,7 @@ inline bool C_Tally::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("plus")
 #pragma pop_macro("n")
 #pragma pop_macro("first")

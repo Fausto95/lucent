@@ -14,7 +14,12 @@ struct C_Holder : lucent::Object {
   void construct(lucent::JSValue p0_);
   static lucent::Ref<C_Holder> create(lucent::JSValue p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Holder::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->value, "Holder.value", "opaque-values.lucent.ts:7");
+}
 
 inline bool C_Holder::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

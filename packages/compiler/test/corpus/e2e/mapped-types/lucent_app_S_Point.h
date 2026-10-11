@@ -4,6 +4,8 @@
 
 #pragma push_macro("label")
 #undef label
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("x")
 #undef x
 #pragma push_macro("y")
@@ -17,9 +19,14 @@ struct S_Point : lucent::Object {
   double x{};
   double y{};
   lucent::String label{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Point>& v);
+
+inline void S_Point::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Point>& v) {
   if (!v) {
@@ -39,4 +46,5 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Point>& v) {
 
 #pragma pop_macro("y")
 #pragma pop_macro("x")
+#pragma pop_macro("s")
 #pragma pop_macro("label")

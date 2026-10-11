@@ -8,6 +8,8 @@
 #undef label
 #pragma push_macro("ready")
 #undef ready
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("w")
 #undef w
 
@@ -18,9 +20,14 @@ struct S_Object_4fce5112;
 struct S_Object_4fce5112 : lucent::Object {
   lucent::String label{};
   lucent::Promise<double> ready{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_4fce5112>& v);
+
+inline void S_Object_4fce5112::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->ready, "object.ready", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_4fce5112>& v) {
   if (!v) {
@@ -38,6 +45,7 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_4fce5112
 }  // namespace lucent_app
 
 #pragma pop_macro("w")
+#pragma pop_macro("s")
 #pragma pop_macro("ready")
 #pragma pop_macro("label")
 #pragma pop_macro("first")

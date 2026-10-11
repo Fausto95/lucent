@@ -11,9 +11,14 @@ struct S_Named;
 
 struct S_Named : lucent::Object {
   lucent::Opt<lucent::String> name{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Named>& v);
+
+inline void S_Named::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->name, "Named.name", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Named>& v) {
   if (!v) {

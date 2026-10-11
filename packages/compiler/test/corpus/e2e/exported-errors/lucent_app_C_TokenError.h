@@ -17,7 +17,12 @@ struct C_TokenError : lucent_app::C_ParseError {
   void construct(lucent::String p0_);
   static lucent::Ref<C_TokenError> create(lucent::String p0_);
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_TokenError::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_ParseError::lucentRefs_(s);
+}
 
 inline bool C_TokenError::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

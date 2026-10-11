@@ -4,6 +4,8 @@
 
 #pragma push_macro("first")
 #undef first
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("toJSON")
 #undef toJSON
 #pragma push_macro("v")
@@ -15,10 +17,15 @@ struct S_Object_c65abf80;
 
 struct S_Object_c65abf80 : lucent::Object {
   lucent::Fn<double()> toJSON{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_c65abf80>& v);
 inline bool jsonValue(lucent::JsonWriter& w, const lucent::Ref<S_Object_c65abf80>& v);
+
+inline void S_Object_c65abf80::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->toJSON, "object.toJSON", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_c65abf80>& v) {
   if (!v) {
@@ -44,4 +51,5 @@ inline bool jsonValue(lucent::JsonWriter& w, const lucent::Ref<S_Object_c65abf80
 
 #pragma pop_macro("v")
 #pragma pop_macro("toJSON")
+#pragma pop_macro("s")
 #pragma pop_macro("first")

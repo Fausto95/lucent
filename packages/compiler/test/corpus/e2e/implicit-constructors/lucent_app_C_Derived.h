@@ -7,6 +7,8 @@
 #undef a
 #pragma push_macro("b")
 #undef b
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -16,7 +18,12 @@ struct C_Derived : lucent_app::C_Base {
   void construct(double p0_, lucent::Opt<lucent::String> p1_);
   static lucent::Ref<C_Derived> create(double p0_, lucent::Opt<lucent::String> p1_);
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Derived::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Base::lucentRefs_(s);
+}
 
 inline bool C_Derived::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -30,5 +37,6 @@ inline bool C_Derived::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("b")
 #pragma pop_macro("a")

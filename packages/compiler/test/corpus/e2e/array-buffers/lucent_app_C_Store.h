@@ -23,7 +23,12 @@ struct C_Store : lucent::Object {
   lucent::Opt<lucent::ArrayBuffer> getBuffer(lucent::String p0_);
   lucent::String kinds();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Store::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->values, "Store.values", "array-buffers.lucent.ts:84");
+}
 
 inline bool C_Store::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

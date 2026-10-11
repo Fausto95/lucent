@@ -11,6 +11,8 @@
 #undef learn
 #pragma push_macro("name")
 #undef name
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("sound")
 #undef sound
 #pragma push_macro("tricks")
@@ -28,7 +30,13 @@ struct C_Dog : lucent_app::C_Animal {
   lucent::String kind() override;
   virtual lucent::Ref<lucent_app::C_Dog> learn(lucent::String p0_);
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Dog::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Animal::lucentRefs_(s);
+  lucent::debug::refs(s, this->tricks, "Dog.tricks", "inheritance.lucent.ts:25");
+}
 
 inline bool C_Dog::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -46,6 +54,7 @@ inline bool C_Dog::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("tricks")
 #pragma pop_macro("sound")
+#pragma pop_macro("s")
 #pragma pop_macro("name")
 #pragma pop_macro("learn")
 #pragma pop_macro("kind")

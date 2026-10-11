@@ -20,6 +20,8 @@
 #undef owner
 #pragma push_macro("pin")
 #undef pin
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -39,7 +41,12 @@ struct C_Account : lucent::Object {
   virtual double pin();
   virtual void annotate(lucent::String p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Account::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->note, "Account.note", "stringify-classes.lucent.ts:11");
+}
 
 inline bool C_Account::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -56,6 +63,7 @@ inline bool C_Account::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("pin")
 #pragma pop_macro("owner")
 #pragma pop_macro("opened")

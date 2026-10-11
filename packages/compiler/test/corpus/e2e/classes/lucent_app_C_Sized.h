@@ -3,6 +3,8 @@
 #include "lucent_app.h"
 #include "lucent_app_S_Object_1eaaff42.h"
 
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("text")
 #undef text
 
@@ -15,7 +17,12 @@ struct C_Sized : lucent::Object {
   void construct(std::variant<double, lucent::String> p0_, lucent::Opt<lucent::Ref<lucent_app::S_Object_1eaaff42>> p1_);
   static lucent::Ref<C_Sized> create(std::variant<double, lucent::String> p0_, lucent::Opt<lucent::Ref<lucent_app::S_Object_1eaaff42>> p1_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Sized::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Sized::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -29,3 +36,4 @@ inline bool C_Sized::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("text")
+#pragma pop_macro("s")

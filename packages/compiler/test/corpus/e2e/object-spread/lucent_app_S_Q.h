@@ -20,9 +20,14 @@ struct S_Q : lucent::Object {
   lucent::Opt<double> b{};
   double c{};
   lucent::String d{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Q>& v);
+
+inline void S_Q::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->b, "Q.b", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Q>& v) {
   if (!v) {

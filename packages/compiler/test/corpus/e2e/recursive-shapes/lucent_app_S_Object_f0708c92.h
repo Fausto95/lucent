@@ -4,6 +4,8 @@
 
 #pragma push_macro("n")
 #undef n
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("tag")
 #undef tag
 #pragma push_macro("v")
@@ -16,9 +18,14 @@ struct S_Object_f0708c92;
 struct S_Object_f0708c92 : lucent::Object {
   lucent::String tag{};
   double n{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_f0708c92>& v);
+
+inline void S_Object_f0708c92::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_f0708c92>& v) {
   if (!v) {
@@ -37,4 +44,5 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_f0708c92
 
 #pragma pop_macro("v")
 #pragma pop_macro("tag")
+#pragma pop_macro("s")
 #pragma pop_macro("n")

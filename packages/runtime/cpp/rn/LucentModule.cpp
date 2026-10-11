@@ -2,6 +2,7 @@
 
 #include <lucent/jsi/host.h>
 #include <lucent/native.h>
+#include <lucent/refs.h>
 
 #include "LucentViewRequests.h"
 
@@ -9,7 +10,12 @@
 
 namespace facebook::react {
 
-LucentModule::LucentModule(std::shared_ptr<CallInvoker> jsInvoker) : TurboModule(kModuleName, std::move(jsInvoker)) {}
+LucentModule::LucentModule(std::shared_ptr<CallInvoker> jsInvoker) : TurboModule(kModuleName, std::move(jsInvoker)) {
+#ifndef NDEBUG
+  // Lists the objects module code makes, for the cycle report at teardown.
+  lucent::debug::trackObjects();
+#endif
+}
 
 LucentModule::~LucentModule() {
 #ifndef NDEBUG
@@ -22,6 +28,12 @@ LucentModule::~LucentModule() {
   lucent::postCallback([] {
     if (long n = lucent::moduleNativeRefs()) {
       std::string message = "[lucent] " + std::to_string(n) + " native reference(s) module code still holds at teardown";
+      lucent::logError(message.c_str());
+    }
+    // Objects a cycle of strong references keeps for good, each cycle once
+    // however many reloads keep finding it.
+    for (const auto& cycle : lucent::debug::cycles(true)) {
+      std::string message = "[lucent] " + lucent::debug::describe(cycle);
       lucent::logError(message.c_str());
     }
   });

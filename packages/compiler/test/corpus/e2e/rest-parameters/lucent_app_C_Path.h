@@ -20,7 +20,12 @@ struct C_Path : lucent::Object {
   lucent::String join(lucent::Array<lucent::String> p0_);
   static lucent::Ref<lucent_app::C_Path> of(lucent::Array<lucent::String> p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Path::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->parts, "Path.parts", "rest-parameters.lucent.ts:14");
+}
 
 inline bool C_Path::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

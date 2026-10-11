@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"object-spread", "15149
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "3fa1e7a21f8f6087", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "4f9fa8e0f9ce8674", kModuleIdentities, 1};
   return identity;
 }
 

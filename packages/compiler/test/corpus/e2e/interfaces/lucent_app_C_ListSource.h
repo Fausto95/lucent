@@ -13,6 +13,8 @@
 #undef items
 #pragma push_macro("next")
 #undef next
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 #pragma push_macro("w")
@@ -56,10 +58,16 @@ struct C_ListSource : lucent::Object, virtual lucent_app::I_Feed<T> {
     return v;
   }
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
   double get_count() override {
     return this->count;
   }
 };
+
+template <class T>
+inline void C_ListSource<T>::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->items, "ListSource.items", "interfaces.lucent.ts:132");
+}
 
 template <class T>
 inline bool C_ListSource<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
@@ -77,6 +85,7 @@ inline bool C_ListSource<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("w")
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("next")
 #pragma pop_macro("items")
 #pragma pop_macro("i")

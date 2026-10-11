@@ -11,7 +11,12 @@ struct C_Deeper : lucent_app::C_Plain {
   void construct(lucent::Opt<lucent::String> p0_);
   static lucent::Ref<C_Deeper> create(lucent::Opt<lucent::String> p0_);
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Deeper::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Plain::lucentRefs_(s);
+}
 
 inline bool C_Deeper::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

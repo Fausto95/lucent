@@ -14,9 +14,14 @@ struct S_Object_ca633bfa;
 
 struct S_Object_ca633bfa : lucent::Object {
   lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> m{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_ca633bfa>& v);
+
+inline void S_Object_ca633bfa::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->m, "object.m", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_ca633bfa>& v) {
   if (!v) {

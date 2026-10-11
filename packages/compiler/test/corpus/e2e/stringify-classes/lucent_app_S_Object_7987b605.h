@@ -12,6 +12,8 @@
 #undef gone
 #pragma push_macro("kept")
 #undef kept
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 
@@ -23,9 +25,16 @@ struct S_Object_7987b605 : lucent::Object {
   lucent::Ref<lucent_app::C_Maybe> gone{};
   lucent::Ref<lucent_app::C_Maybe> kept{};
   lucent::Ref<lucent_app::C_Callable> fn{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_7987b605>& v);
+
+inline void S_Object_7987b605::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->gone, "object.gone", "");
+  lucent::debug::refs(s, this->kept, "object.kept", "");
+  lucent::debug::refs(s, this->fn, "object.fn", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_7987b605>& v) {
   if (!v) {
@@ -44,6 +53,7 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_7987b605
 }  // namespace lucent_app
 
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("kept")
 #pragma pop_macro("gone")
 #pragma pop_macro("fn")

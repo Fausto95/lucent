@@ -15,7 +15,12 @@ struct C_LoudLogger : lucent_app::C_Logger {
   static lucent::Ref<C_LoudLogger> create();
   lucent::String log(lucent::String p0_, lucent::Array<double> p1_) override;
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_LoudLogger::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Logger::lucentRefs_(s);
+}
 
 inline bool C_LoudLogger::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

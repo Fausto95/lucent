@@ -5,6 +5,8 @@
 
 #pragma push_macro("name")
 #undef name
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("song")
 #undef song
 #pragma push_macro("sound")
@@ -20,7 +22,12 @@ struct C_Bird : lucent_app::C_Animal {
   static lucent::Ref<C_Bird> create(lucent::String p0_);
   double get_legs() override;
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Bird::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Animal::lucentRefs_(s);
+}
 
 inline bool C_Bird::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -37,4 +44,5 @@ inline bool C_Bird::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("sound")
 #pragma pop_macro("song")
+#pragma pop_macro("s")
 #pragma pop_macro("name")

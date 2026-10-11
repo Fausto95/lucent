@@ -7,6 +7,8 @@
 #undef label
 #pragma push_macro("prev")
 #undef prev
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 
@@ -17,9 +19,14 @@ struct S_Object_e278de7c;
 struct S_Object_e278de7c : lucent::Object {
   lucent::Ref<lucent_app::C_Link> prev{};
   lucent::String label{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_e278de7c>& v);
+
+inline void S_Object_e278de7c::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->prev, "object.prev", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_e278de7c>& v) {
   if (!v) {
@@ -37,5 +44,6 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_e278de7c
 }  // namespace lucent_app
 
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("prev")
 #pragma pop_macro("label")

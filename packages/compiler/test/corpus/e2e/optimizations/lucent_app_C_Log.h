@@ -10,6 +10,8 @@
 #undef replacing
 #pragma push_macro("reset")
 #undef reset
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("text")
 #undef text
 #pragma push_macro("w")
@@ -27,7 +29,12 @@ struct C_Log : lucent::Object {
   lucent::String replacing();
   lucent::String reset(lucent::String p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Log::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Log::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -42,6 +49,7 @@ inline bool C_Log::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("w")
 #pragma pop_macro("text")
+#pragma pop_macro("s")
 #pragma pop_macro("reset")
 #pragma pop_macro("replacing")
 #pragma pop_macro("first")

@@ -18,6 +18,7 @@ struct C_Tag : lucent::Object, virtual lucent_app::I_Labeled {
   void construct(lucent::String p0_);
   static lucent::Ref<C_Tag> create(lucent::String p0_);
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
   lucent::String get_label() override {
     return this->label;
   }
@@ -28,6 +29,10 @@ struct C_Tag : lucent::Object, virtual lucent_app::I_Labeled {
     return this->size;
   }
 };
+
+inline void C_Tag::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->size, "Tag.size", "interfaces-structural.lucent.ts:29");
+}
 
 inline bool C_Tag::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

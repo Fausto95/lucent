@@ -4,6 +4,8 @@
 
 #pragma push_macro("label")
 #undef label
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("x")
 #undef x
 #pragma push_macro("y")
@@ -17,9 +19,16 @@ struct S_Partial : lucent::Object {
   lucent::Opt<double> x{};
   lucent::Opt<double> y{};
   lucent::Opt<lucent::String> label{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Partial>& v);
+
+inline void S_Partial::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->x, "Partial.x", "");
+  lucent::debug::refs(s, this->y, "Partial.y", "");
+  lucent::debug::refs(s, this->label, "Partial.label", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Partial>& v) {
   if (!v) {
@@ -39,4 +48,5 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Partial>& v) {
 
 #pragma pop_macro("y")
 #pragma pop_macro("x")
+#pragma pop_macro("s")
 #pragma pop_macro("label")

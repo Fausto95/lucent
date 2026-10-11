@@ -5,6 +5,8 @@
 
 #pragma push_macro("load")
 #undef load
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("w")
 #undef w
 
@@ -17,7 +19,12 @@ struct C_Echo : lucent::Object, virtual lucent_app::I_Source {
   static lucent::Ref<C_Echo> create();
   lucent::Promise<lucent::String> load(lucent::String p0_) override;
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Echo::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Echo::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -30,4 +37,5 @@ inline bool C_Echo::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("w")
+#pragma pop_macro("s")
 #pragma pop_macro("load")

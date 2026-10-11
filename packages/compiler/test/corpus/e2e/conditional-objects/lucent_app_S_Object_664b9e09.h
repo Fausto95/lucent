@@ -6,6 +6,8 @@
 #undef first
 #pragma push_macro("name")
 #undef name
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("size")
 #undef size
 #pragma push_macro("v")
@@ -18,9 +20,14 @@ struct S_Object_664b9e09;
 struct S_Object_664b9e09 : lucent::Object {
   lucent::String name{};
   double size{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_664b9e09>& v);
+
+inline void S_Object_664b9e09::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_664b9e09>& v) {
   if (!v) {
@@ -39,5 +46,6 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_664b9e09
 
 #pragma pop_macro("v")
 #pragma pop_macro("size")
+#pragma pop_macro("s")
 #pragma pop_macro("name")
 #pragma pop_macro("first")

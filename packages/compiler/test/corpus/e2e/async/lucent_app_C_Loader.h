@@ -8,6 +8,8 @@
 #undef load
 #pragma push_macro("loads")
 #undef loads
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -20,7 +22,12 @@ struct C_Loader : lucent::Object {
   static lucent::Ref<C_Loader> create();
   lucent::Promise<lucent::String> load(lucent::String p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Loader::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->cache, "Loader.cache", "async.lucent.ts:49");
+}
 
 inline bool C_Loader::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -34,6 +41,7 @@ inline bool C_Loader::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("loads")
 #pragma pop_macro("load")
 #pragma pop_macro("cache")

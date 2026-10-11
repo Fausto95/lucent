@@ -13,6 +13,8 @@
 #undef point
 #pragma push_macro("read")
 #undef read
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("total")
 #undef total
 #pragma push_macro("w")
@@ -31,7 +33,13 @@ struct C_Cache : lucent::Object {
   lucent::Promise<lucent::Ref<lucent_app::S_Point>> load(double p0_);
   lucent::Promise<double> read();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Cache::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->point, "Cache.point", "promise-fields.lucent.ts:35");
+  lucent::debug::refs(s, this->total, "Cache.total", "promise-fields.lucent.ts:36");
+}
 
 inline bool C_Cache::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -48,6 +56,7 @@ inline bool C_Cache::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("w")
 #pragma pop_macro("total")
+#pragma pop_macro("s")
 #pragma pop_macro("read")
 #pragma pop_macro("point")
 #pragma pop_macro("loads")

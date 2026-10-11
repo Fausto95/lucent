@@ -20,9 +20,17 @@ struct S_Overrides : lucent::Object {
   lucent::Opt<lucent::String> color{};
   lucent::Opt<lucent::String> label{};
   lucent::Opt<double> width{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Overrides>& v);
+
+inline void S_Overrides::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->size, "Overrides.size", "");
+  lucent::debug::refs(s, this->color, "Overrides.color", "");
+  lucent::debug::refs(s, this->label, "Overrides.label", "");
+  lucent::debug::refs(s, this->width, "Overrides.width", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Overrides>& v) {
   if (!v) {

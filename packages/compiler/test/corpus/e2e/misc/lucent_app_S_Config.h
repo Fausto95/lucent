@@ -9,6 +9,8 @@
 #undef nested
 #pragma push_macro("retries")
 #undef retries
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -18,9 +20,15 @@ struct S_Config : lucent::Object {
   lucent::String name{};
   lucent::Opt<double> retries{};
   lucent::Opt<lucent::Ref<lucent_app::S_Object_7bd5f761>> nested{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Config>& v);
+
+inline void S_Config::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->retries, "Config.retries", "");
+  lucent::debug::refs(s, this->nested, "Config.nested", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Config>& v) {
   if (!v) {
@@ -38,6 +46,7 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Config>& v) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("retries")
 #pragma pop_macro("nested")
 #pragma pop_macro("name")

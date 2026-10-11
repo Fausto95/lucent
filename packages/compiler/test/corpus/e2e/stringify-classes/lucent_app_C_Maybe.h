@@ -4,6 +4,8 @@
 
 #pragma push_macro("first")
 #undef first
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("toJSON")
 #undef toJSON
 #pragma push_macro("v")
@@ -19,7 +21,12 @@ struct C_Maybe : lucent::Object {
   static lucent::Ref<C_Maybe> create(lucent::Opt<double> p0_);
   lucent::Opt<double> toJSON();
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Maybe::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->v, "Maybe.v", "stringify-classes.lucent.ts:138");
+}
 
 inline bool C_Maybe::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   if (toJson) {
@@ -37,4 +44,5 @@ inline bool C_Maybe::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("v")
 #pragma pop_macro("toJSON")
+#pragma pop_macro("s")
 #pragma pop_macro("first")

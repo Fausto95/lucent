@@ -9,6 +9,8 @@
 #undef a
 #pragma push_macro("first")
 #undef first
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("tag")
 #undef tag
 
@@ -31,7 +33,14 @@ struct C_Tagged : lucent_app::C_Plain {
     return self;
   }
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+template <class T>
+inline void C_Tagged<T>::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Plain::lucentRefs_(s);
+  lucent::debug::refs(s, this->tag, "Tagged.tag", "stringify-classes.lucent.ts:266");
+}
 
 template <class T>
 inline bool C_Tagged<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
@@ -47,6 +56,7 @@ inline bool C_Tagged<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }  // namespace lucent_app
 
 #pragma pop_macro("tag")
+#pragma pop_macro("s")
 #pragma pop_macro("first")
 #pragma pop_macro("a")
 #pragma pop_macro("T")

@@ -13,9 +13,14 @@ struct S_Pair;
 
 struct S_Pair : lucent::Object {
   lucent::Opt<lucent::String> a{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Pair>& v);
+
+inline void S_Pair::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->a, "Pair.a", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Pair>& v) {
   if (!v) {

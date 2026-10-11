@@ -8,6 +8,8 @@
 #undef first
 #pragma push_macro("item")
 #undef item
+#pragma push_macro("s")
+#undef s
 
 namespace lucent_app {
 
@@ -27,7 +29,13 @@ struct C_Box : lucent::Object {
     return self;
   }
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+template <class T>
+inline void C_Box<T>::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->item, "Box.item", "stringify-classes.lucent.ts:115");
+}
 
 template <class T>
 inline bool C_Box<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
@@ -41,6 +49,7 @@ inline bool C_Box<T>::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("s")
 #pragma pop_macro("item")
 #pragma pop_macro("first")
 #pragma pop_macro("T")

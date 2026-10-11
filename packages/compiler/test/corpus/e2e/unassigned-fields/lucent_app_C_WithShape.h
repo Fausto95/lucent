@@ -7,6 +7,8 @@
 
 #pragma push_macro("describe")
 #undef describe
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("seen")
 #undef seen
 #pragma push_macro("shape")
@@ -22,7 +24,13 @@ struct C_WithShape : lucent_app::C_Base {
   static lucent::Ref<C_WithShape> create();
   lucent::String describe() override;
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_WithShape::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Base::lucentRefs_(s);
+  lucent::debug::refs(s, this->shape, "WithShape.shape", "unassigned-fields.lucent.ts:33");
+}
 
 inline bool C_WithShape::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -38,4 +46,5 @@ inline bool C_WithShape::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("shape")
 #pragma pop_macro("seen")
+#pragma pop_macro("s")
 #pragma pop_macro("describe")

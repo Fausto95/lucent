@@ -23,6 +23,7 @@ struct L_Placed final : public lucent::Object, public virtual lucent_app::I_Plac
     jsonWrite(w, s);
     return true;
   }
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
   lucent::String get_name() override {
     return s->name;
   }
@@ -42,6 +43,10 @@ struct L_Placed final : public lucent::Object, public virtual lucent_app::I_Plac
     s->y = std::move(v);
   }
 };
+
+inline void L_Placed::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->s, "Placed literal", "");
+}
 
 }  // namespace lucent_app
 

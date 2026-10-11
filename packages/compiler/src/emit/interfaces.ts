@@ -12,6 +12,7 @@ import {
   typeKey,
 } from "../types.ts";
 import { argMap, findMember, jsonMemberParams } from "./classes.ts";
+import { refsMethod } from "./refs.ts";
 import type { Ctx, ParamInfo } from "./context.ts";
 import { FnEmitter } from "./function.ts";
 
@@ -216,6 +217,7 @@ export function emitIfaceLiteral(ctx: Ctx, id: string): cpp.Decl {
       { override: true },
     ),
   ];
+  members.push(refsMethod());
   for (const m of membersOf(ctx, self)) {
     if (m.kind !== "prop") continue;
     const t = ctx.reg.cppType(m.type);

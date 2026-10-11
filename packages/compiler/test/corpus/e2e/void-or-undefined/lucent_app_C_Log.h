@@ -17,7 +17,12 @@ struct C_Log : lucent::Object {
   static lucent::Ref<C_Log> create();
   void add(lucent::String p0_);
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Log::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->lines, "Log.lines", "void-or-undefined.lucent.ts:5");
+}
 
 inline bool C_Log::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

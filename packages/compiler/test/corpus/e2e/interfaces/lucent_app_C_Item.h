@@ -5,6 +5,8 @@
 
 #pragma push_macro("label")
 #undef label
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("tag")
 #undef tag
 #pragma push_macro("w")
@@ -20,10 +22,15 @@ struct C_Item : lucent::Object, virtual lucent_app::I_Tagged {
   static lucent::Ref<C_Item> create(lucent::String p0_);
   lucent::String tag() override;
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
   lucent::String get_label() override {
     return this->label;
   }
 };
+
+inline void C_Item::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Item::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -38,4 +45,5 @@ inline bool C_Item::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("w")
 #pragma pop_macro("tag")
+#pragma pop_macro("s")
 #pragma pop_macro("label")

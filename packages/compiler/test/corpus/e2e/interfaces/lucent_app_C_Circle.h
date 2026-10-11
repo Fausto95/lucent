@@ -14,6 +14,8 @@
 #undef name
 #pragma push_macro("r")
 #undef r
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 #pragma push_macro("w")
@@ -32,6 +34,7 @@ struct C_Circle : lucent::Object, virtual lucent_app::I_Shape, virtual lucent_ap
   double area() override;
   lucent::String describe(lucent::String p0_) override;
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
   lucent::String get_kind() override {
     return this->kind;
   }
@@ -42,6 +45,10 @@ struct C_Circle : lucent::Object, virtual lucent_app::I_Shape, virtual lucent_ap
     this->name = std::move(v);
   }
 };
+
+inline void C_Circle::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline bool C_Circle::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -58,6 +65,7 @@ inline bool C_Circle::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("w")
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("r")
 #pragma pop_macro("name")
 #pragma pop_macro("kind")

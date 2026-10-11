@@ -11,9 +11,14 @@ struct S_Object_e88aee9e;
 
 struct S_Object_e88aee9e : lucent::Object {
   lucent::BigInt v{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_e88aee9e>& v);
+
+inline void S_Object_e88aee9e::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_e88aee9e>& v) {
   if (!v) {

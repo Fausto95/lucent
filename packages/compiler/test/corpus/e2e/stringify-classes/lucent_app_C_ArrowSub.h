@@ -7,6 +7,8 @@
 #undef extra
 #pragma push_macro("first")
 #undef first
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("tag")
 #undef tag
 #pragma push_macro("toJSON")
@@ -21,7 +23,12 @@ struct C_ArrowSub : lucent_app::C_ArrowBase {
   void construct();
   static lucent::Ref<C_ArrowSub> create();
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_ArrowSub::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_ArrowBase::lucentRefs_(s);
+}
 
 inline bool C_ArrowSub::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   if (toJson) {
@@ -41,5 +48,6 @@ inline bool C_ArrowSub::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 
 #pragma pop_macro("toJSON")
 #pragma pop_macro("tag")
+#pragma pop_macro("s")
 #pragma pop_macro("first")
 #pragma pop_macro("extra")

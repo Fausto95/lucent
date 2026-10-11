@@ -3,6 +3,9 @@
 #include "lucent_app.h"
 #include "lucent_app_C_Outer.h"
 
+#pragma push_macro("s")
+#undef s
+
 namespace lucent_app {
 
 struct C_Inner;
@@ -11,7 +14,12 @@ struct C_Inner : lucent_app::C_Outer {
   void construct(lucent::Opt<lucent::String> p0_);
   static lucent::Ref<C_Inner> create(lucent::Opt<lucent::String> p0_);
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Inner::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Outer::lucentRefs_(s);
+}
 
 inline bool C_Inner::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");
@@ -22,3 +30,5 @@ inline bool C_Inner::lucentJson_(lucent::JsonWriter& w, bool toJson) {
 }
 
 }  // namespace lucent_app
+
+#pragma pop_macro("s")

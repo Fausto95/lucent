@@ -6,6 +6,8 @@
 #undef kind
 #pragma push_macro("radius")
 #undef radius
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 #pragma push_macro("w")
@@ -18,9 +20,14 @@ struct S_Object_b796e072;
 struct S_Object_b796e072 : lucent::Object {
   lucent::String kind{};
   double radius{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_b796e072>& v);
+
+inline void S_Object_b796e072::lucentRefs_(lucent::debug::RefSink& s) const {
+  (void)s;
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_b796e072>& v) {
   if (!v) {
@@ -39,5 +46,6 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Object_b796e072
 
 #pragma pop_macro("w")
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("radius")
 #pragma pop_macro("kind")

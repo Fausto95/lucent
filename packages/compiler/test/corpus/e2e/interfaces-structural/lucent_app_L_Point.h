@@ -21,6 +21,7 @@ struct L_Point final : public lucent::Object, public virtual lucent_app::I_Point
     jsonWrite(w, s);
     return true;
   }
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
   double get_x() override {
     return s->x;
   }
@@ -34,6 +35,10 @@ struct L_Point final : public lucent::Object, public virtual lucent_app::I_Point
     s->y = std::move(v);
   }
 };
+
+inline void L_Point::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->s, "Point literal", "");
+}
 
 }  // namespace lucent_app
 

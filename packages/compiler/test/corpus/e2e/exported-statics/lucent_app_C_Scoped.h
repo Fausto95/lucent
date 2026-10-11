@@ -20,7 +20,12 @@ struct C_Scoped : lucent_app::C_Registry {
   static lucent::Ref<C_Scoped> create();
   static lucent::String where();
   bool lucentJson_(lucent::JsonWriter& w, bool toJson) override;
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
+
+inline void C_Scoped::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent_app::C_Registry::lucentRefs_(s);
+}
 
 inline bool C_Scoped::lucentJson_(lucent::JsonWriter& w, bool toJson) {
   w.raw("{");

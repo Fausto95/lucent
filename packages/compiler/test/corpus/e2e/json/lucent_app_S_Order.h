@@ -13,6 +13,8 @@
 #undef point
 #pragma push_macro("r_id_")
 #undef r_id_
+#pragma push_macro("s")
+#undef s
 #pragma push_macro("v")
 #undef v
 
@@ -26,9 +28,16 @@ struct S_Order : lucent::Object {
   bool paid{};
   lucent::Dict<double> meta{};
   std::tuple<double, double> point{};
+  void lucentRefs_(lucent::debug::RefSink& s) const override;
 };
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Order>& v);
+
+inline void S_Order::lucentRefs_(lucent::debug::RefSink& s) const {
+  lucent::debug::refs(s, this->items, "Order.items", "");
+  lucent::debug::refs(s, this->meta, "Order.meta", "");
+  lucent::debug::refs(s, this->point, "Order.point", "");
+}
 
 inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Order>& v) {
   if (!v) {
@@ -49,6 +58,7 @@ inline void jsonWrite(lucent::JsonWriter& w, const lucent::Ref<S_Order>& v) {
 }  // namespace lucent_app
 
 #pragma pop_macro("v")
+#pragma pop_macro("s")
 #pragma pop_macro("r_id_")
 #pragma pop_macro("point")
 #pragma pop_macro("paid")
