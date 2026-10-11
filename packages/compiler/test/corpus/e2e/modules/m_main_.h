@@ -3,9 +3,12 @@
 #include "lucent_app.h"
 #include "m_shapes.h"
 #include "lucent_app_S_Point.h"
+#include "lucent_app_C_Vec.h"
 
 #pragma push_macro("far")
 #undef far
+#pragma push_macro("grown")
+#undef grown
 #pragma push_macro("sum")
 #undef sum
 #pragma push_macro("throughNamespace")
@@ -21,6 +24,7 @@ lucent::Ref<lucent_app::S_Point> sum(lucent::Array<lucent::Ref<lucent_app::S_Poi
 lucent::String far(lucent::Array<lucent::Ref<lucent_app::S_Point>> p0_);
 double vectorsMade();
 lucent::String throughNamespace();
+lucent::Ref<lucent_app::C_Vec> grown(lucent::Ref<lucent_app::C_Vec> p0_);
 void init();
 
 }  // namespace m_main_
@@ -30,4 +34,5 @@ void init();
 #pragma pop_macro("vectorsMade")
 #pragma pop_macro("throughNamespace")
 #pragma pop_macro("sum")
+#pragma pop_macro("grown")
 #pragma pop_macro("far")

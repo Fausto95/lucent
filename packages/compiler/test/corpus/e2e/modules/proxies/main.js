@@ -7,3 +7,4 @@ exports.sum = m.sum;
 exports.far = m.far;
 exports.vectorsMade = m.vectorsMade;
 exports.throughNamespace = m.throughNamespace;
+exports.grown = m.grown;

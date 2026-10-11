@@ -25,3 +25,11 @@ export function throughNamespace(): string {
 
   return `${p.x},${p.y} ${big?.x} ${fromNamespace > 0}`;
 }
+
+/**
+ * A class instance another module made, from JavaScript, and one this
+ * module makes of that class: one class, so one prototype in JavaScript.
+ */
+export function grown(v: Vec): Vec {
+  return v.plus(new Vec(1, 1));
+}
