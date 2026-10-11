@@ -964,6 +964,27 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         ]
       },
       {
+        "name": "adoptByteBuffer",
+        "kind": "function",
+        "signature": "function adoptByteBuffer(buffer: ByteBuffer): NativeBuffer;",
+        "doc": [
+          "A NativeBuffer of a direct ByteBuffer's bytes, all of its capacity, uncopied: what an SDK hands over as a direct buffer (a decoder's output, a library's storage) becomes bytes Lucent owns, which can move to a worker or, with `transferToArrayBuffer()`, to JavaScript without a copy. The Java buffer is kept reachable until the bytes are released.",
+          "Adopting hands the bytes over: Java code must not read or write the buffer from then on, and the bytes are only as valid as whatever made them keeps them (an `Image`'s planes end at `close()`)."
+        ],
+        "examples": [
+          "import { adoptByteBuffer } from \"lucent:android\";\nimport type { ByteBuffer } from \"lucent:android/java.nio\";\n\n// A decoder's direct output, for JavaScript: no copy on the way.\nfunction forJavaScript(decoded: ByteBuffer): ArrayBuffer {\n  return adoptByteBuffer(decoded).transferToArrayBuffer();\n}"
+        ],
+        "members": [],
+        "params": [
+          {
+            "name": "buffer",
+            "type": "ByteBuffer",
+            "optional": false,
+            "doc": "A direct ByteBuffer (`ByteBuffer.allocateDirect`), not read-only: a heap or read-only buffer is a TypeError."
+          }
+        ]
+      },
+      {
         "name": "available",
         "kind": "function",
         "signature": "function available(platform: \"android\", api: number): boolean;",

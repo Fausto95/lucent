@@ -44,7 +44,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T64](#t64)   | Run lifetime, concurrency and Fabric stress validation            | waiting (needs the maintainer); needs T55, T59, T60                                                                               |
 | [T65](#t65)   | Enforce physical-device performance budgets                       | waiting (needs the maintainer); needs T55, T56, T59, T64                                                                          |
 | [T66](#t66)   | Complete user documentation and migration examples                | waiting; needs T51, T52, T60                                                                                                      |
-| [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165 merged)                                                                                                   |
+| [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165, #167 merged)                                                                                             |
 | [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | waiting; needs T72                                                                                                                |
 | [T74](#t74)   | Callback executors and stream backpressure                        | waiting; needs T72                                                                                                                |
 | [T75](#t75)   | Support a window of stable React Native and Expo releases         | blocked: a decision on the window; needs nothing open                                                                             |
@@ -1547,8 +1547,8 @@ platform buffers (`CVPixelBuffer`, `AHardwareBuffer`, a direct
 `ByteBuffer`, `NSData`) as `NativeBuffer`s, with the copies counted.
 
 - **Status:** in progress: adopted storage and moving returned bytes merged
-  as #163, `NativeBuffer.transferToArrayBuffer()` as #165; the rest
-  follows.
+  as #163, `NativeBuffer.transferToArrayBuffer()` as #165, a direct
+  `ByteBuffer`'s adoption as #167; the rest follows.
 - **Area:** Runtime (buffers, JSI), compiler (buffers, bindings), lucent:core,
   lucent:ios, lucent:android.
 - **Needs:** T31 (done), T32 (done), [TA36](#ta36) (done).
@@ -1591,10 +1591,16 @@ as MMKV's API does, and only the adoption is platform code.
       (retained until released), a `CVPixelBuffer` plane (base address
       locked for the buffer's life, read-only unless asked, unlocked and
       released once); `withPixelBytes` stays as the copying form.
-- [ ] Adoption from lucent:android: a direct `ByteBuffer` (a global
-      reference; a heap buffer is refused) and a `HardwareBuffer` (API 26
-      and later, behind `available`). These are platform fundamentals
+- [x] Adoption from lucent:android of a direct `ByteBuffer`:
+      `adoptByteBuffer(buffer)`, a `NativeBuffer` of its whole capacity
+      holding a global reference; a heap or read-only buffer is a
+      `TypeError` (#167, C-BUFFER v1.3, `adopt-byte-buffer.test.ts` on
+      the desktop JVM, `jni_test.cpp`'s release checks).
+- [ ] Adoption from lucent:android of a `HardwareBuffer` (API 26 and
+      later, behind `available`). These are platform fundamentals
       (CoreVideo, the NDK), not a catalog entry: the no-catalog rule holds.
+      The NDK's `AHardwareBuffer` calls need an NDK to build and an
+      emulator to run.
 - [ ] A synchronous export's `ArrayBuffer` or `Uint8Array` parameter that
       does not escape the call (the analyses' escape facts) is read in
       place instead of copied: MMKV's `set(key, buffer)`. An async export,
@@ -1603,7 +1609,8 @@ as MMKV's API does, and only the adoption is platform code.
       the `array-buffers` e2e case covers the moves' semantics (the
       JavaScript reference: the same bytes).
 - [ ] Semantics: the boundary's copy rule names its exceptions (the moves
-      are in, from #163 and #165); C-BUFFER v1.3 records adoption.
+      are in, from #163 and #165); C-BUFFER records adoption (v1.3:
+      `ByteBuffer`).
 
 **Done when:** MMKV-style `getBuffer` and a `CVPixelBuffer` frame reach
 JavaScript with zero copies on the iOS simulator and the Android emulator.

@@ -318,6 +318,26 @@ Opt<NativeRef> nativeError(const Error& error) {
   return *std::static_pointer_cast<const NativeRef>(error->native);
 }
 
+NativeBuffer adoptByteBuffer(const NativeRef& buffer) {
+  JNIEnv* e = env();
+  jobject b = unwrap(buffer);
+  auto* data = static_cast<uint8_t*>(e->GetDirectBufferAddress(b));
+  jlong capacity = e->GetDirectBufferCapacity(b);
+  if (!data || capacity < 0)
+    failWith("TypeError",
+             "adoptByteBuffer needs a direct ByteBuffer (ByteBuffer.allocateDirect), not one over a Java array");
+
+  static jmethodID isReadOnly = method(findClass("java/nio/Buffer"), "isReadOnly", "()Z");
+  jboolean readOnly = e->CallBooleanMethod(b, isReadOnly);
+  check(e);
+  if (readOnly) failWith("TypeError", "adoptByteBuffer needs a writable ByteBuffer, not a read-only one");
+
+  // Released on whichever thread lets the bytes go: env() attaches it.
+  jobject held = e->NewGlobalRef(b);
+  return NativeBufferObject::adopt(data, static_cast<size_t>(capacity),
+                                   [held](uint8_t*, size_t) { env()->DeleteGlobalRef(held); });
+}
+
 void close(const NativeRef& closeable) {
   JNIEnv* e = env();
   static jmethodID m = method(findClass("java/lang/AutoCloseable"), "close", "()V");

@@ -368,6 +368,7 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "lucent:core.utf8Decode": ALLOCATES,
   "lucent:core.utf8Encode": ALLOCATES,
   "lucent:thread.main": { allocates: true, schedules: true, main: true },
+  "lucent:android.adoptByteBuffer": ALLOCATES_THROWS,
   "lucent:android.appContext": NONE,
   "lucent:android.available": NONE,
   "lucent:android.errorOf": ALLOCATES,

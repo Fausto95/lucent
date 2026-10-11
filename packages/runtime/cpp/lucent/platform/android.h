@@ -11,6 +11,7 @@
 #include "../array.h"
 #include "../async.h"
 #include "../bigint.h"
+#include "../buffer.h"
 #include "../bytes.h"
 #include "../function.h"
 #include "../jsstring.h"
@@ -46,6 +47,12 @@ Error errorOf(const NativeRef& throwable);
 /// `nativeError(error)` from lucent:android: the Java exception `error`
 /// came from, or null for an error Lucent or JavaScript made.
 Opt<NativeRef> nativeError(const Error& error);
+
+/// `adoptByteBuffer(buffer)` from lucent:android: a NativeBuffer of a
+/// direct ByteBuffer's bytes, its whole capacity, uncopied. A global
+/// reference keeps the Java buffer reachable until the bytes are released.
+/// TypeError for a heap buffer (over a Java array) or a read-only one.
+NativeBuffer adoptByteBuffer(const NativeRef& buffer);
 
 /// Closes an AutoCloseable (a Closeable, a Cursor…): how a `using`
 /// declaration disposes one. Throws what close() throws.

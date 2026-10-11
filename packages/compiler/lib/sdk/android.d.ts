@@ -2,6 +2,8 @@
 import type { Activity, Instrumentation_ActivityResult } from "lucent:android/android.app";
 import type { Context, Intent } from "lucent:android/android.content";
 import type { Throwable } from "lucent:android/java.lang";
+import type { ByteBuffer } from "lucent:android/java.nio";
+import type { NativeBuffer } from "lucent:core";
 
 /** The application Context. */
 export declare function appContext(): Context;
@@ -41,6 +43,32 @@ export declare function errorOf(throwable: Throwable): Error;
  * @param error A caught error.
  */
 export declare function nativeError(error: Error): Throwable | null;
+
+/**
+ * A NativeBuffer of a direct ByteBuffer's bytes, all of its capacity,
+ * uncopied: what an SDK hands over as a direct buffer (a decoder's output,
+ * a library's storage) becomes bytes Lucent owns, which can move to a
+ * worker or, with `transferToArrayBuffer()`, to JavaScript without a copy.
+ * The Java buffer is kept reachable until the bytes are released.
+ *
+ * Adopting hands the bytes over: Java code must not read or write the
+ * buffer from then on, and the bytes are only as valid as whatever made
+ * them keeps them (an `Image`'s planes end at `close()`).
+ *
+ * ```ts
+ * import { adoptByteBuffer } from "lucent:android";
+ * import type { ByteBuffer } from "lucent:android/java.nio";
+ *
+ * // A decoder's direct output, for JavaScript: no copy on the way.
+ * function forJavaScript(decoded: ByteBuffer): ArrayBuffer {
+ *   return adoptByteBuffer(decoded).transferToArrayBuffer();
+ * }
+ * ```
+ *
+ * @param buffer A direct ByteBuffer (`ByteBuffer.allocateDirect`), not
+ * read-only: a heap or read-only buffer is a TypeError.
+ */
+export declare function adoptByteBuffer(buffer: ByteBuffer): NativeBuffer;
 
 /**
  * Whether the device runs at least API level `api` (`Build.VERSION.SDK_INT >= api`).

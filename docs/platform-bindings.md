@@ -754,6 +754,14 @@ UIViewController`): a generated Objective-C subclass stands for each
 - Java's `AutoCloseable` (so `Closeable`, `Cursor` and the rest) declares
   `[Symbol.dispose]()`: `using cursor = …` calls `close()` however the block
   is left.
+- A `ByteBuffer` is a Java object like any other, whose bytes its methods
+  copy. `adoptByteBuffer(buffer)` from `lucent:android` makes a direct one
+  (`allocateDirect`, or one an SDK returns over native memory) a
+  `NativeBuffer` of its own bytes instead, uncopied, which can move to a
+  worker or, with `transferToArrayBuffer()`, to JavaScript. Java code must
+  leave the buffer alone from then on; a global reference keeps it
+  reachable until the bytes are released. A heap or read-only buffer is
+  a `TypeError`.
 
 ## Threads
 

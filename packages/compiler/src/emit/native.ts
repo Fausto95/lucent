@@ -3773,6 +3773,14 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
         c: cpp.call("lucent::jni::errorOf", [em.exprAs(args[0]!, declaredArg(em, args[0]!))]),
         t: T.error,
       };
+    case "lucent:android.adoptByteBuffer":
+      unit.include("lucent/platform/android.h");
+      return {
+        c: cpp.call("lucent::jni::adoptByteBuffer", [
+          em.exprAs(args[0]!, declaredArg(em, args[0]!)),
+        ]),
+        t: T.buffer,
+      };
     case "lucent:android.nativeError":
       unit.include("lucent/platform/android.h");
       return {
