@@ -32,7 +32,7 @@ source "$here/parallel.sh"
 tests=(runtime_test scope_test callback_test resource_test lifecycle_test extension_test
   execution_test actor_test compute_test buffer_test bigint_test number_test reactive_test view_test
   view_registry_test sizing_test slots_test items_test ui_children_test android_requests_test operation_test
-  trace_test layout_test debug_test)
+  trace_test layout_test debug_test channel_test)
 binary() { [[ "$1" == runtime_test ]] && echo "$out" || echo "${out}_${1%_test}"; }
 objs="${out}_objs"
 rm -rf "$objs"
@@ -177,6 +177,10 @@ run_binary "$log" "${out}_layout"
 
 # What a debug build reports of the runtime: the live count of what it owns.
 run_binary "$log" "${out}_debug"
+
+# Channels: a producer that never waits, a consumer on its own context, and
+# what each policy does when the consumer falls behind.
+run_binary "$log" "${out}_channel"
 
 # Requests Android answers later (activity results, permissions): settled
 # once on the context that asked, forgotten on the platform when cancelled.
