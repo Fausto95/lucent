@@ -21,6 +21,7 @@ template <class T>
 struct C_Tagged : lucent_app::C_Plain {
   T tag{};
   void construct(T p0_) {
+    lucent::checkStack();
     this->lucent_app::C_Plain::construct();
     this->tag = p0_;
   }

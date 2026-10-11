@@ -33,6 +33,7 @@
 namespace lucent_app {
 
 lucent::String m_regexps::basics() {
+  lucent::checkStack();
   lucent::RegExp re = lucent::makeRegExp(LUCENT_STR("(\\d{4})-(\\d{2})-(\\d{2})"), lucent::Opt<lucent::String>(lucent::String()));
   lucent::Opt<lucent::RegExpMatch> m = re->exec(LUCENT_STR("on 2024-02-29 at noon"));
   bool v5_ = lucent::truthy(m);
@@ -68,6 +69,7 @@ lucent::String m_regexps::basics() {
 }
 
 lucent::String m_regexps::named() {
+  lucent::checkStack();
   lucent::RegExp v0_ = lucent::makeRegExp(LUCENT_STR("(\077<year>\\d{4})-(\077<month>\\d{2})"), lucent::Opt<lucent::String>(LUCENT_STR("u")));
   lucent::Opt<lucent::RegExpMatch> m = v0_->exec(LUCENT_STR("x 1999-12 y"));
   bool v5_ = !m.has();
@@ -128,6 +130,7 @@ lucent::String m_regexps::named() {
 }
 
 lucent::String m_regexps::globalExec() {
+  lucent::checkStack();
   lucent::RegExp re = lucent::makeRegExp(LUCENT_STR("o(\\w)"), lucent::Opt<lucent::String>(LUCENT_STR("g")));
   lucent::Array<lucent::String> out = lucent::Array<lucent::String>{};
   {
@@ -156,6 +159,7 @@ lucent::String m_regexps::globalExec() {
 }
 
 lucent::String m_regexps::stringMethods(lucent::String p0_) {
+  lucent::checkStack();
   lucent::RegExp v1_ = lucent::makeRegExp(LUCENT_STR("\\b\\w"), lucent::Opt<lucent::String>(LUCENT_STR("g")));
   lucent::Opt<lucent::RegExpMatch> v2_ = lucent::stringMatch(p0_, v1_);
   lucent::String v3_ = lucent::json::stringify(v2_);
@@ -183,6 +187,7 @@ lucent::String m_regexps::stringMethods(lucent::String p0_) {
   lucent::String v30_ = lucent::stringReplaceAll(p0_, v28_, LUCENT_STR("<$<v>>"));
   lucent::RegExp v31_ = lucent::makeRegExp(LUCENT_STR("\\w+"), lucent::Opt<lucent::String>(LUCENT_STR("g")));
   lucent::Fn<lucent::String(lucent::String)> v32_ = lucent::Fn<lucent::String(lucent::String)>([](lucent::String p0_) mutable -> lucent::String {
+    lucent::checkStack();
     return p0_.toUpperCase();
   });
   lucent::String v33_ = lucent::stringReplace(p0_, v31_, lucent::Replacer([repl_1_ = v32_](const lucent::ReplaceCall& c) -> lucent::String {
@@ -205,6 +210,7 @@ lucent::String m_regexps::stringMethods(lucent::String p0_) {
 }
 
 lucent::String m_regexps::matchAllGroups() {
+  lucent::checkStack();
   lucent::Array<lucent::String> out = lucent::Array<lucent::String>{};
   lucent::RegExp v2_ = lucent::makeRegExp(LUCENT_STR("(\\w+)=(\\w*)"), lucent::Opt<lucent::String>(LUCENT_STR("g")));
   lucent::Iter<lucent::RegExpMatch> v3_ = lucent::stringMatchAll(LUCENT_STR("k1=v1;k2=v2;k3="), v2_);
@@ -241,6 +247,7 @@ lucent::String m_regexps::matchAllGroups() {
 }
 
 lucent::String m_regexps::flags() {
+  lucent::checkStack();
   lucent::RegExp v0_ = lucent::makeRegExp(LUCENT_STR("^b"), lucent::Opt<lucent::String>(LUCENT_STR("m")));
   bool v2_ = v0_->test(LUCENT_STR("a\012b"));
   lucent::RegExp v3_ = lucent::makeRegExp(LUCENT_STR("^b"), lucent::Opt<lucent::String>(lucent::String()));
@@ -304,6 +311,7 @@ lucent::String m_regexps::flags() {
 }
 
 lucent::String m_regexps::sticky() {
+  lucent::checkStack();
   lucent::RegExp re = lucent::makeRegExp(LUCENT_STR("\\d"), lucent::Opt<lucent::String>(LUCENT_STR("y")));
   lucent::Array<lucent::String> out = lucent::Array<lucent::String>{};
   bool v5_ = re->test(LUCENT_STR("12a3"));
@@ -335,6 +343,7 @@ lucent::String m_regexps::sticky() {
 }
 
 lucent::String m_regexps::dynamic(lucent::String p0_, lucent::String p1_, lucent::String p2_) {
+  lucent::checkStack();
   {
     std::exception_ptr ex7_;
     try {
@@ -356,8 +365,10 @@ lucent::String m_regexps::dynamic(lucent::String p0_, lucent::String p1_, lucent
 }
 
 lucent::String m_regexps::callbackReplace(lucent::String p0_) {
+  lucent::checkStack();
   lucent::RegExp v1_ = lucent::makeRegExp(LUCENT_STR("(\\d+)(px)\077"), lucent::Opt<lucent::String>(LUCENT_STR("g")));
   lucent::Fn<lucent::String(lucent::String, lucent::String, lucent::Opt<lucent::String>, double)> v2_ = lucent::Fn<lucent::String(lucent::String, lucent::String, lucent::Opt<lucent::String>, double)>([](lucent::String p0_, lucent::String p1_, lucent::Opt<lucent::String> p2_, double p3_) mutable -> lucent::String {
+    lucent::checkStack();
     double v4_ = lucent::stringToNumber(p1_);
     lucent::String v7_ = lucent::toJsString(v4_ * 2.0);
     bool v9_ = !p2_.has();

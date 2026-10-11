@@ -34,14 +34,17 @@
 namespace lucent_app {
 
 lucent::BigInt m_bigint_u2d_conversions::fromNumber(double p0_) {
+  lucent::checkStack();
   return lucent::BigInt::fromDouble(p0_);
 }
 
 lucent::BigInt m_bigint_u2d_conversions::fromString(lucent::String p0_) {
+  lucent::checkStack();
   return lucent::BigInt::parse(p0_);
 }
 
 lucent::Array<lucent::BigInt> m_bigint_u2d_conversions::fromBoolean(bool p0_) {
+  lucent::checkStack();
   lucent::BigInt v1_ = lucent::BigInt::fromInt64(p0_ ? 1 : 0);
   bool v2_ = !p0_;
   lucent::BigInt v3_ = lucent::BigInt::fromInt64(v2_ ? 1 : 0);
@@ -49,14 +52,17 @@ lucent::Array<lucent::BigInt> m_bigint_u2d_conversions::fromBoolean(bool p0_) {
 }
 
 lucent::BigInt m_bigint_u2d_conversions::same(lucent::BigInt p0_) {
+  lucent::checkStack();
   return p0_;
 }
 
 double m_bigint_u2d_conversions::toNumber(lucent::BigInt p0_) {
+  lucent::checkStack();
   return p0_.toDouble();
 }
 
 lucent::Array<lucent::String> m_bigint_u2d_conversions::strings(lucent::BigInt p0_) {
+  lucent::checkStack();
   lucent::String v1_ = lucent::toJsString(p0_);
   lucent::String v2_ = lucent::toJsString(p0_);
   lucent::String v4_ = lucent::toJsString(p0_);
@@ -74,16 +80,19 @@ lucent::Array<lucent::String> m_bigint_u2d_conversions::strings(lucent::BigInt p
 }
 
 lucent::String m_bigint_u2d_conversions::radix(lucent::BigInt p0_, double p1_) {
+  lucent::checkStack();
   return p0_.toString(p1_);
 }
 
 lucent::Array<lucent::BigInt> m_bigint_u2d_conversions::wrap(double p0_, lucent::BigInt p1_) {
+  lucent::checkStack();
   lucent::BigInt v2_ = lucent::BigInt::asIntN(p0_, p1_);
   lucent::BigInt v3_ = lucent::BigInt::asUintN(p0_, p1_);
   return lucent::Array<lucent::BigInt>{v2_, v3_};
 }
 
 lucent::String m_bigint_u2d_conversions::attempt(lucent::String p0_, lucent::String p1_) {
+  lucent::checkStack();
   {
     std::exception_ptr ex49_;
     try {
@@ -177,11 +186,13 @@ lucent::String m_bigint_u2d_conversions::attempt(lucent::String p0_, lucent::Str
 }
 
 lucent::String m_bigint_u2d_conversions::json(lucent::BigInt p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::BigInt> v1_ = lucent::Array<lucent::BigInt>{p0_};
   return lucent::json::stringify(v1_);
 }
 
 bool m_bigint_u2d_conversions::roundTrip(lucent::BigInt p0_) {
+  lucent::checkStack();
   lucent::String v1_ = lucent::toJsString(p0_);
   lucent::BigInt v2_ = lucent::BigInt::parse(v1_);
   bool v3_ = v2_ == p0_;

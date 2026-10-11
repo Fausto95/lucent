@@ -20,6 +20,7 @@ template <class T>
 struct C_Bag : lucent::Object {
   lucent::Array<T> items{};
   void construct() {
+    lucent::checkStack();
     lucent::Array<T> v0_ = lucent::Array<T>{};
     this->items = v0_;
   }
@@ -29,6 +30,7 @@ struct C_Bag : lucent::Object {
     return self;
   }
   bool has(T p0_) {
+    lucent::checkStack();
     lucent::Array<T> v1_ = this->items;
     return v1_.includes(p0_);
   }

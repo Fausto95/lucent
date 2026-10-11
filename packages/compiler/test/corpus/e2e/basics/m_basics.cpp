@@ -19,6 +19,7 @@
 namespace lucent_app {
 
 double m_basics::hash(lucent::String p0_, lucent::Opt<double> p1_) {
+  lucent::checkStack();
   double seed{};
   bool v3_ = lucent::strictEquals(p1_, lucent::undefined);
   if (v3_) {
@@ -49,7 +50,9 @@ double m_basics::hash(lucent::String p0_, lucent::Opt<double> p1_) {
 
 lucent::Promise<lucent::Array<double>> m_basics::hashMany(lucent::Array<lucent::String> p0_) {
   try {
+    lucent::checkStack();
     return lucent::Promise<lucent::Array<double>>::resolved(p0_.template map<double>([](lucent::String p0_, double p1_, lucent::Array<lucent::String> p2_) mutable -> double {
+      lucent::checkStack();
       return lucent_app::m_basics::hash(p0_, lucent::Opt<double>(lucent::undefined));
     }));
   } catch (...) {
@@ -58,6 +61,7 @@ lucent::Promise<lucent::Array<double>> m_basics::hashMany(lucent::Array<lucent::
 }
 
 double m_basics::clamp(double p0_, double p1_, double p2_) {
+  lucent::checkStack();
   double v3_ = lucent::math::max(p0_, p1_);
   return lucent::math::min(v3_, p2_);
 }

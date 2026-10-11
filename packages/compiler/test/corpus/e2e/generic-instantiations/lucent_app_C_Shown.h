@@ -18,6 +18,7 @@ template <class T>
 struct C_Shown : lucent::Object {
   T v{};
   void construct(T p0_) {
+    lucent::checkStack();
     this->v = p0_;
   }
   static lucent::Ref<C_Shown<T>> create(T p0_) {
@@ -26,6 +27,7 @@ struct C_Shown : lucent::Object {
     return self;
   }
   virtual lucent::String show() {
+    lucent::checkStack();
     T v0_ = this->v;
     return lucent::toJsString(v0_);
   }

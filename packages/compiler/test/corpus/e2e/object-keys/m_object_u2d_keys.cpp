@@ -17,10 +17,12 @@
 namespace lucent_app {
 
 bool m_object_u2d_keys::inRecord(lucent::Dict<double> p0_, lucent::String p1_) {
+  lucent::checkStack();
   return ({ lucent::String key_1_ = p1_; lucent::keyIn(key_1_, p0_); });
 }
 
 lucent::String m_object_u2d_keys::literalKeys() {
+  lucent::checkStack();
   lucent::Dict<double> r = ({ lucent::Dict<double> rec_2_; rec_2_.set(LUCENT_STR("x"), 1.0); rec_2_.set(LUCENT_STR("y"), 2.0); rec_2_; });
   bool v5_ = ({ lucent::String key_3_ = LUCENT_STR("x"); lucent::keyIn(key_3_, r); });
   lucent::String v6_ = lucent::toJsString(v5_);
@@ -32,6 +34,7 @@ lucent::String m_object_u2d_keys::literalKeys() {
 }
 
 lucent::String m_object_u2d_keys::enumerated() {
+  lucent::checkStack();
   lucent::Dict<double> r = ({ lucent::Dict<double> rec_6_; rec_6_.set(LUCENT_STR("x"), 1.0); rec_6_.set(LUCENT_STR("y"), 2.0); rec_6_; });
   lucent::Array<lucent::String> keys = lucent::Array<lucent::String>{};
   lucent::Array<lucent::String> v5_ = r.keys();

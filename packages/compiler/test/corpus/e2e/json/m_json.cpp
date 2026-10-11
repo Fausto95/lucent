@@ -69,9 +69,11 @@
 namespace lucent_app {
 
 lucent::String m_json::summarize(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Order> o = lucent::jsonParse<lucent::Ref<lucent_app::S_Order>>(p0_);
   lucent::Array<lucent::Ref<lucent_app::S_Item>> v3_ = o->items;
   double total = v3_.reduce([](double p0_, lucent::Ref<lucent_app::S_Item> p1_, double p2_, lucent::Array<lucent::Ref<lucent_app::S_Item>> p3_) mutable -> double {
+    lucent::checkStack();
     double v4_ = p1_->price;
     lucent::Opt<double> v6_ = p1_->discount;
     bool v8_ = !v6_.has();
@@ -85,6 +87,7 @@ lucent::String m_json::summarize(lucent::String p0_) {
   }, double(0.0));
   lucent::Array<lucent::Ref<lucent_app::S_Item>> v8_ = o->items;
   lucent::Array<lucent::String> v10_ = v8_.template map<lucent::String>([](lucent::Ref<lucent_app::S_Item> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::S_Item>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Opt<lucent::String> v3_ = p0_->note;
     bool v5_ = !v3_.has();
     lucent::String v8_{};
@@ -117,11 +120,13 @@ lucent::String m_json::summarize(lucent::String p0_) {
 }
 
 lucent::String m_json::roundTrip(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Order> o = lucent::jsonParse<lucent::Ref<lucent_app::S_Order>>(p0_);
   return lucent::json::stringify(o);
 }
 
 lucent::String m_json::numbers() {
+  lucent::checkStack();
   lucent::Array<double> ns = lucent::jsonParse<lucent::Array<double>>(LUCENT_STR(" [1, -0, 1e21, 0.1, 1E-7, -12.5e3, 123456789012345678901234567890] "));
   lucent::Array<lucent::String> v4_ = ns.template map<lucent::String>([](double p0_, double p1_, lucent::Array<double> p2_) mutable -> lucent::String {
     lucent::String v3_ = lucent::toJsString(p0_);
@@ -144,6 +149,7 @@ lucent::String m_json::numbers() {
 }
 
 lucent::String m_json::strings() {
+  lucent::checkStack();
   lucent::String s = lucent::jsonParse<lucent::String>(LUCENT_STR("\"a\\u00e9\\ud83d\\ude00\\n\\t\\\"q\\\"\\\\/\""));
   int64_t v3_ = static_cast<int64_t>(s.length());
   lucent::String v4_ = lucent::toJsString(static_cast<double>(v3_));
@@ -152,8 +158,10 @@ lucent::String m_json::strings() {
 }
 
 lucent::String m_json::shapes(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_80e62f5f>, lucent::Ref<lucent_app::S_Object_4b1186b8>>> xs = lucent::jsonParse<lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_80e62f5f>, lucent::Ref<lucent_app::S_Object_4b1186b8>>>>(p0_);
   lucent::Array<lucent::String> v4_ = xs.template map<lucent::String>([](std::variant<lucent::Ref<lucent_app::S_Object_80e62f5f>, lucent::Ref<lucent_app::S_Object_4b1186b8>> p0_, double p1_, lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_80e62f5f>, lucent::Ref<lucent_app::S_Object_4b1186b8>>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v3_ = ({ const auto& u_1_ = p0_; u_1_.index() == 0 ? std::get<0>(u_1_)->kind : std::get<1>(u_1_)->kind; });
     bool v5_ = v3_ == LUCENT_STR("circle");
     lucent::String v16_{};
@@ -172,6 +180,7 @@ lucent::String m_json::shapes(lucent::String p0_) {
 }
 
 lucent::String m_json::mixed() {
+  lucent::checkStack();
   lucent::Array<lucent::Opt<std::variant<bool, double, lucent::String>>> v = lucent::jsonParse<lucent::Array<lucent::Opt<std::variant<bool, double, lucent::String>>>>(LUCENT_STR("[1, \"two\", true, null, 2.5]"));
   lucent::Array<lucent::String> v4_ = v.template map<lucent::String>([](lucent::Opt<std::variant<bool, double, lucent::String>> p0_, double p1_, lucent::Array<lucent::Opt<std::variant<bool, double, lucent::String>>> p2_) mutable -> lucent::String {
     lucent::String v3_ = lucent::typeOf(p0_);
@@ -182,12 +191,15 @@ lucent::String m_json::mixed() {
 }
 
 double m_json::lastKeyWins() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Object_3de914a4> o = lucent::jsonParse<lucent::Ref<lucent_app::S_Object_3de914a4>>(LUCENT_STR("{\"a\": 1, \"a\": 2}"));
   return o->a;
 }
 
 lucent::String m_json::invalid(lucent::Array<lucent::String> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v2_ = p0_.template map<lucent::String>([](lucent::String p0_, double p1_, lucent::Array<lucent::String> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     {
       std::exception_ptr ex9_;
       try {

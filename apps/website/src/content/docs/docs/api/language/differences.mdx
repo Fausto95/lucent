@@ -26,7 +26,7 @@ Each e2e case is a module in `packages/compiler/test/e2e/cases/`, run natively a
 | Garbage collection frees cycles. | Reference counting never frees a cycle. Break it by clearing a field, or hold one side in a `WeakRef` ([Memory](/docs/api/language/memory/#cycles-leak)). | Lucent counts references, and no collector runs. | None |
 | A `WeakRef`'s target lives until the garbage collector runs, so `deref()` may still return it after the last other reference goes. | The target is freed with its last strong reference, and `deref()` returns `undefined` at once. | Lucent counts references, so a target goes when its count reaches zero. | `weak-refs` |
 | A `WeakMap` or `WeakSet` entry lives until the garbage collector runs, and a value that holds only its own key frees with it. | An entry goes, its value with it, with its key's last strong reference, at once. A value that holds its own key keeps it, and the entry. | Lucent counts references: the key's last reference drops its entries, and nothing traces through a value to its key. | `weak-collections` |
-| Deep recursion throws a `RangeError`. | Deep recursion may overflow the native stack, which crashes the app. | Lucent code runs on the native stack, with no depth check. | None |
+| Deep recursion throws a `RangeError` at the engine's limit. | It throws a `RangeError` too, when the native stack is nearly full: how deep that is depends on the thread's stack and the frames' sizes. | Lucent code runs on the native stack, which each call checks. | `recursion-limit` |
 
 ## Objects
 

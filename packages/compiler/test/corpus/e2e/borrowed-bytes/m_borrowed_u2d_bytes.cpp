@@ -31,6 +31,7 @@
 namespace lucent_app {
 
 lucent::String m_borrowed_u2d_bytes::sumAround(lucent::Bytes p0_, lucent::Fn<void()> p1_) {
+  lucent::checkStack();
   lucent::Opt<double> v3_ = p0_.get(0.0);
   bool v5_ = !v3_.has();
   double v9_{};
@@ -64,6 +65,7 @@ lucent::String m_borrowed_u2d_bytes::sumAround(lucent::Bytes p0_, lucent::Fn<voi
 }
 
 lucent::String m_borrowed_u2d_bytes::viewsAround(lucent::ArrayBuffer p0_, lucent::Fn<void()> p1_) {
+  lucent::checkStack();
   lucent::Bytes view = lucent::Bytes::over(p0_, lucent::undefined, lucent::undefined);
   lucent::String before = view.join(LUCENT_STR(","));
   p1_();
@@ -79,6 +81,7 @@ lucent::String m_borrowed_u2d_bytes::viewsAround(lucent::ArrayBuffer p0_, lucent
 }
 
 lucent::String m_borrowed_u2d_bytes::partAround(lucent::Bytes p0_, lucent::Fn<void()> p1_) {
+  lucent::checkStack();
   lucent::Array<double> v2_ = ({ lucent::Array<double> arr_1_; arr_1_.append(p0_.toArray()); arr_1_; });
   lucent::String before = v2_.join(LUCENT_STR(","));
   p1_();
@@ -90,6 +93,7 @@ lucent::String m_borrowed_u2d_bytes::partAround(lucent::Bytes p0_, lucent::Fn<vo
 }
 
 lucent::String m_borrowed_u2d_bytes::copiesAround(lucent::Bytes p0_, lucent::Fn<void()> p1_) {
+  lucent::checkStack();
   lucent::Bytes kept = p0_.slice();
   lucent::Bytes also = p0_.slice();
   p1_();
@@ -102,6 +106,7 @@ lucent::String m_borrowed_u2d_bytes::copiesAround(lucent::Bytes p0_, lucent::Fn<
 }
 
 double m_borrowed_u2d_bytes::lengthOf(lucent::Bytes p0_) {
+  lucent::checkStack();
   return p0_.length();
 }
 

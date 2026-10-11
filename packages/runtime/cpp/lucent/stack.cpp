@@ -4,6 +4,8 @@
 
 #include <cstdint>
 
+#include "core.h"
+
 namespace lucent {
 
 namespace {
@@ -45,22 +47,42 @@ thread_local Bounds bounds;
 /// can move locals to a "fake stack" on the heap, which would read as an exhausted stack.
 inline uintptr_t frameAddress() { return reinterpret_cast<uintptr_t>(__builtin_frame_address(0)); }
 
-}  // namespace
-
-bool stackExhausted(size_t need) {
+/// The calling thread's bounds, found on its first check.
+Bounds& known(uintptr_t at) {
   Bounds& b = bounds;
   if (!b.known) {
     b.limit = findLimit();
     b.known = true;
 
     // The frame asking first is near the stack's top.
-    uintptr_t at = frameAddress();
     if (b.limit && at > b.limit && (at - b.limit) / 4 < b.margin) b.margin = (at - b.limit) / 4;
   }
+  return b;
+}
+
+}  // namespace
+
+bool stackExhausted(size_t need) {
+  uintptr_t at = frameAddress();
+  Bounds& b = known(at);
 
   if (!b.limit) return false;
 
-  return frameAddress() < b.limit + b.margin + need;
+  return at < b.limit + b.margin + need;
 }
+
+namespace detail {
+
+thread_local uintptr_t stackFloor = 0;
+
+uintptr_t findStackFloor() noexcept {
+  Bounds& b = known(frameAddress());
+  stackFloor = b.limit ? b.limit + b.margin : 1;
+  return stackFloor;
+}
+
+void throwStackOverflow() { throwRangeError("Maximum call stack size exceeded"); }
+
+}  // namespace detail
 
 }  // namespace lucent

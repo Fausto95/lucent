@@ -36,6 +36,7 @@ double m_function_u2d_values::r_double_(double p0_) {
 }
 
 lucent::String m_function_u2d_values::absent(bool p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::Fn<double(double)>> v5_{};
   if (p0_) {
     lucent::Fn<double(double)> v1_ = lucent::Fn<double(double)>([](double a0) -> double {
@@ -54,6 +55,7 @@ lucent::String m_function_u2d_values::absent(bool p0_) {
 }
 
 lucent::String m_function_u2d_values::unions(bool p0_) {
+  lucent::checkStack();
   std::variant<lucent::Fn<double(double)>, lucent::String> v5_{};
   if (p0_) {
     lucent::Fn<double(double)> v1_ = lucent::Fn<double(double)>([](double a0) -> double {
@@ -71,6 +73,7 @@ lucent::String m_function_u2d_values::unions(bool p0_) {
 }
 
 lucent::String m_function_u2d_values::containers() {
+  lucent::checkStack();
   lucent::Fn<double(double)> v1_ = lucent::Fn<double(double)>([](double a0) -> double {
     return lucent_app::m_function_u2d_values::r_double_(a0);
   });

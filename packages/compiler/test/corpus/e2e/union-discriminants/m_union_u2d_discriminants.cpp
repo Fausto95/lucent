@@ -13,6 +13,7 @@
 namespace lucent_app {
 
 lucent::String m_union_u2d_discriminants::shape(std::variant<lucent::Ref<lucent_app::S_Circle>, lucent::Ref<lucent_app::S_Square>> p0_) {
+  lucent::checkStack();
   lucent::String v1_ = ({ const auto& u_1_ = p0_; u_1_.index() == 0 ? std::get<0>(u_1_)->kind : std::get<1>(u_1_)->kind; });
   bool v3_ = v1_ == LUCENT_STR("circle");
   lucent::String v14_{};

@@ -25,6 +25,7 @@
 namespace lucent_app {
 
 double m_boundary_u2d_paths::total(lucent::Array<double> p0_) {
+  lucent::checkStack();
   double t = 0.0;
   {
     auto coll0_ = p0_;
@@ -40,6 +41,7 @@ double m_boundary_u2d_paths::total(lucent::Array<double> p0_) {
 }
 
 double m_boundary_u2d_paths::sizes(lucent::Dict<lucent::Array<double>> p0_) {
+  lucent::checkStack();
   double n = 0.0;
   lucent::Array<lucent::String> v2_ = p0_.keys();
   {
@@ -59,6 +61,7 @@ double m_boundary_u2d_paths::sizes(lucent::Dict<lucent::Array<double>> p0_) {
 }
 
 double m_boundary_u2d_paths::mapped(lucent::Array<double> p0_, lucent::Fn<double(double)> p1_) {
+  lucent::checkStack();
   double t = 0.0;
   {
     auto coll0_ = p0_;
@@ -75,6 +78,7 @@ double m_boundary_u2d_paths::mapped(lucent::Array<double> p0_, lucent::Fn<double
 }
 
 double m_boundary_u2d_paths::nested(lucent::Dict<lucent::Fn<double(double)>> p0_) {
+  lucent::checkStack();
   double t = 0.0;
   lucent::Array<lucent::String> v2_ = p0_.keys();
   {
@@ -98,6 +102,7 @@ lucent::Promise<double> m_boundary_u2d_paths::awaited(lucent::Promise<double> p0
 }
 
 lucent::Promise<lucent::String> m_boundary_u2d_paths::asked(lucent::Fn<lucent::Promise<lucent::String>(lucent::String)> p0_) {
+  lucent::checkStack();
   lucent::Promise<lucent::String> v2_ = p0_(LUCENT_STR("q"));
   lucent::String v3_ = co_await v2_;
   co_return lucent::String(v3_) + LUCENT_STR("!");

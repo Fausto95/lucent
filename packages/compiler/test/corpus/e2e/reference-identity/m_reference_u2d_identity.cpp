@@ -81,14 +81,17 @@
 namespace lucent_app {
 
 bool m_reference_u2d_identity::sameArray(lucent::Array<double> p0_, lucent::Array<double> p1_) {
+  lucent::checkStack();
   return lucent::strictEquals(p0_, p1_);
 }
 
 bool m_reference_u2d_identity::differentArray(lucent::Array<double> p0_, lucent::Array<double> p1_) {
+  lucent::checkStack();
   return !lucent::strictEquals(p0_, p1_);
 }
 
 lucent::String m_reference_u2d_identity::arrays() {
+  lucent::checkStack();
   lucent::Array<double> a = lucent::Array<double>{1.0, 2.0, 3.0};
   lucent::Array<double> b = a;
   lucent::Array<double> c = lucent::Array<double>{1.0, 2.0, 3.0};
@@ -113,6 +116,7 @@ lucent::String m_reference_u2d_identity::arrays() {
 }
 
 lucent::String m_reference_u2d_identity::maps() {
+  lucent::checkStack();
   std::tuple<lucent::String, double> v2_ = std::tuple<lucent::String, double>(LUCENT_STR("k"), 1.0);
   lucent::Array<std::tuple<lucent::String, double>> v3_ = lucent::Array<std::tuple<lucent::String, double>>{v2_};
   lucent::Map<lucent::String, double> m = lucent::mapFromEntries<lucent::String, double>(v3_);
@@ -132,6 +136,7 @@ lucent::String m_reference_u2d_identity::maps() {
 }
 
 lucent::String m_reference_u2d_identity::sets() {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = lucent::Array<lucent::String>{LUCENT_STR("x")};
   lucent::Set<lucent::String> s = lucent::Set<lucent::String>(v1_);
   lucent::Set<lucent::String> alias = s;
@@ -149,6 +154,7 @@ lucent::String m_reference_u2d_identity::sets() {
 }
 
 lucent::String m_reference_u2d_identity::records() {
+  lucent::checkStack();
   lucent::Dict<double> r = ({ lucent::Dict<double> rec_1_; rec_1_.set(LUCENT_STR("a"), 1.0); rec_1_; });
   lucent::Dict<double> alias = r;
   lucent::Dict<double> other = ({ lucent::Dict<double> rec_2_; rec_2_.set(LUCENT_STR("a"), 1.0); rec_2_; });
@@ -164,6 +170,7 @@ lucent::String m_reference_u2d_identity::records() {
 }
 
 lucent::String m_reference_u2d_identity::bytes() {
+  lucent::checkStack();
   lucent::Array<double> v3_ = lucent::Array<double>{1.0, 2.0, 3.0};
   lucent::Bytes u = lucent::Bytes::fromArray(v3_);
   lucent::Bytes alias = u;
@@ -182,6 +189,7 @@ lucent::String m_reference_u2d_identity::bytes() {
 }
 
 lucent::String m_reference_u2d_identity::promises() {
+  lucent::checkStack();
   lucent::Promise<double> p = lucent::resolvedPromise<double>(1.0);
   lucent::Promise<double> alias = p;
   lucent::Promise<double> other = lucent::resolvedPromise<double>(1.0);
@@ -195,6 +203,7 @@ lucent::String m_reference_u2d_identity::promises() {
 }
 
 lucent::String m_reference_u2d_identity::values() {
+  lucent::checkStack();
   lucent::BigInt big = lucent::BigInt::pow(lucent::BigInt::fromInt64(10), lucent::BigInt::fromInt64(30));
   lucent::BigInt v6_ = lucent::BigInt::pow(lucent::BigInt::fromInt64(10), lucent::BigInt::fromInt64(30));
   lucent::String v7_ = lucent_app::m_reference_u2d_identity::same<lucent::BigInt>(big, v6_);
@@ -217,6 +226,7 @@ lucent::Opt<lucent::Array<double>> m_reference_u2d_identity::pick(bool p0_, luce
 }
 
 lucent::Opt<lucent::Map<lucent::String, double>> m_reference_u2d_identity::firstOrNull(lucent::Array<lucent::Map<lucent::String, double>> p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::Map<lucent::String, double>> v2_ = p0_.getIndex(static_cast<int64_t>(0));
   bool v4_ = !v2_.has();
   lucent::Opt<lucent::Map<lucent::String, double>> v7_{};
@@ -229,6 +239,7 @@ lucent::Opt<lucent::Map<lucent::String, double>> m_reference_u2d_identity::first
 }
 
 lucent::String m_reference_u2d_identity::optionals() {
+  lucent::checkStack();
   lucent::Array<double> a = lucent::Array<double>{1.0};
   lucent::Array<double> c = lucent::Array<double>{1.0};
   lucent::Opt<lucent::Array<double>> hit = lucent_app::m_reference_u2d_identity::pick(true, a);
@@ -267,6 +278,7 @@ lucent::String m_reference_u2d_identity::optionals() {
 }
 
 lucent::String m_reference_u2d_identity::unions() {
+  lucent::checkStack();
   lucent::Array<double> a = lucent::Array<double>{1.0, 2.0};
   lucent::Array<double> v4_ = lucent::Array<double>{1.0};
   lucent::Set<double> s = lucent::Set<double>(v4_);

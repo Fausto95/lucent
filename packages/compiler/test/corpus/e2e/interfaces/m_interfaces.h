@@ -70,6 +70,7 @@ namespace m_interfaces {
 
 template <class T>
 lucent::String drain(lucent::Ref<lucent_app::I_Feed<T>> p0_, lucent::Fn<lucent::String(T)> p1_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> out = lucent::Array<lucent::String>{};
   {
     lucent::Opt<T> v = p0_->next();

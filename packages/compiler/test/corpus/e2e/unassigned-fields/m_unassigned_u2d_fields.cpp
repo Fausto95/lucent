@@ -46,6 +46,7 @@
 namespace lucent_app {
 
 void C_Base::construct() {
+  lucent::checkStack();
   lucent::String v0_ = this->describe();
   this->seen = v0_;
 }
@@ -79,6 +80,7 @@ lucent::Ref<C_Statics> C_Statics::create() {
 }
 
 void C_WithOpts::construct() {
+  lucent::checkStack();
   this->lucent_app::C_Base::construct();
   lucent::Ref<lucent_app::S_Opts> v2_ = ({ auto obj_1_ = std::make_shared<lucent_app::S_Opts>(); obj_1_->size = 3.0; obj_1_; });
   this->opts = v2_;
@@ -91,12 +93,14 @@ lucent::Ref<C_WithOpts> C_WithOpts::create() {
 }
 
 lucent::String C_WithOpts::describe() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Opts> v0_ = lucent::assigned(this->opts, "WithOpts.opts");
   double v1_ = v0_->size;
   return lucent::toJsString(v1_);
 }
 
 void C_WithShape::construct() {
+  lucent::checkStack();
   this->lucent_app::C_Base::construct();
   lucent::Ref<lucent_app::S_Circle> v3_ = ({ auto obj_2_ = std::make_shared<lucent_app::S_Circle>(); obj_2_->kind = LUCENT_STR("circle"); obj_2_->r = 1.0; obj_2_; });
   std::variant<lucent::Ref<lucent_app::S_Circle>, lucent::Ref<lucent_app::S_Square>> v4_ = std::variant<lucent::Ref<lucent_app::S_Circle>, lucent::Ref<lucent_app::S_Square>>(v3_);
@@ -110,11 +114,13 @@ lucent::Ref<C_WithShape> C_WithShape::create() {
 }
 
 lucent::String C_WithShape::describe() {
+  lucent::checkStack();
   std::variant<lucent::Ref<lucent_app::S_Circle>, lucent::Ref<lucent_app::S_Square>> v0_ = lucent::assigned(this->shape, "WithShape.shape");
   return ({ const auto& u_3_ = v0_; u_3_.index() == 0 ? std::get<0>(u_3_)->kind : std::get<1>(u_3_)->kind; });
 }
 
 lucent::String m_unassigned_u2d_fields::failure(lucent::Fn<lucent::String()> p0_) {
+  lucent::checkStack();
   {
     std::exception_ptr ex2_;
     try {
@@ -134,11 +140,14 @@ lucent::String m_unassigned_u2d_fields::failure(lucent::Fn<lucent::String()> p0_
 }
 
 void m_unassigned_u2d_fields::setConfig(double p0_) {
+  lucent::checkStack();
   lucent_app::m_unassigned_u2d_fields::config = ({ auto obj_4_ = std::make_shared<lucent_app::S_Opts>(); obj_4_->size = p0_; obj_4_; });
 }
 
 lucent::String m_unassigned_u2d_fields::baseReadsField() {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v0_ = lucent::Fn<lucent::String()>([]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Ref<lucent_app::C_WithOpts> v0_ = lucent_app::C_WithOpts::create();
     return v0_->seen;
   });
@@ -146,7 +155,9 @@ lucent::String m_unassigned_u2d_fields::baseReadsField() {
 }
 
 lucent::String m_unassigned_u2d_fields::baseReadsUnion() {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v0_ = lucent::Fn<lucent::String()>([]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Ref<lucent_app::C_WithShape> v0_ = lucent_app::C_WithShape::create();
     return v0_->seen;
   });
@@ -154,7 +165,9 @@ lucent::String m_unassigned_u2d_fields::baseReadsUnion() {
 }
 
 lucent::String m_unassigned_u2d_fields::definiteField() {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v0_ = lucent::Fn<lucent::String()>([]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Ref<lucent_app::C_Late> v0_ = lucent_app::C_Late::create();
     lucent::Ref<lucent_app::S_Opts> v1_ = lucent::assigned(v0_->opts, "Late.opts");
     double v2_ = v1_->size;
@@ -164,7 +177,9 @@ lucent::String m_unassigned_u2d_fields::definiteField() {
 }
 
 lucent::String m_unassigned_u2d_fields::staticField() {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v0_ = lucent::Fn<lucent::String()>([]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Ref<lucent_app::S_Opts> v0_ = lucent::assigned(lucent_app::C_Statics::o, "Statics.o");
     double v1_ = v0_->size;
     return lucent::toJsString(v1_);
@@ -173,7 +188,9 @@ lucent::String m_unassigned_u2d_fields::staticField() {
 }
 
 lucent::String m_unassigned_u2d_fields::moduleVariable() {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v0_ = lucent::Fn<lucent::String()>([]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Ref<lucent_app::S_Opts> v0_ = lucent::assigned(lucent_app::m_unassigned_u2d_fields::config, "config");
     double v1_ = v0_->size;
     return lucent::toJsString(v1_);
@@ -182,6 +199,7 @@ lucent::String m_unassigned_u2d_fields::moduleVariable() {
 }
 
 void m_unassigned_u2d_fields::init() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Opts> v0_ = lucent::Ref<lucent_app::S_Opts>{};
   C_Statics::o = v0_;
   lucent_app::m_unassigned_u2d_fields::config = lucent::Ref<lucent_app::S_Opts>{};

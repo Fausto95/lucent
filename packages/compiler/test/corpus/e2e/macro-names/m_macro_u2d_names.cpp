@@ -24,6 +24,7 @@
 namespace lucent_app {
 
 void C_Signal::construct() {
+  lucent::checkStack();
   this->sa_handler = LUCENT_STR("default");
 }
 
@@ -34,15 +35,18 @@ lucent::Ref<C_Signal> C_Signal::create() {
 }
 
 lucent::String C_Signal::HUGE() {
+  lucent::checkStack();
   lucent::String v0_ = this->sa_handler;
   return v0_.toUpperCase();
 }
 
 lucent::Ref<lucent_app::S_Action> m_macro_u2d_names::action(double p0_) {
+  lucent::checkStack();
   return ({ auto obj_1_ = std::make_shared<lucent_app::S_Action>(); obj_1_->sa_handler = LUCENT_STR("ignore"); obj_1_->howmany = p0_; obj_1_; });
 }
 
 lucent::String m_macro_u2d_names::describe(lucent::Ref<lucent_app::S_Action> p0_) {
+  lucent::checkStack();
   lucent::String v1_ = p0_->sa_handler;
   double v3_ = p0_->howmany;
   lucent::String v4_ = lucent::toJsString(v3_);
@@ -61,6 +65,7 @@ double m_macro_u2d_names::huge(double p0_) {
 }
 
 lucent::String m_macro_u2d_names::signal() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Signal> v0_ = lucent_app::C_Signal::create();
   return v0_->HUGE();
 }

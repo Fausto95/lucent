@@ -40,6 +40,7 @@
 namespace lucent_app {
 
 void C_Filter::construct(double p0_) {
+  lucent::checkStack();
   lucent::Handle v1_ = ({
     auto x_1_ = p0_;
     ::OrbitError error_2_{};
@@ -71,6 +72,7 @@ lucent::Ref<C_Filter> C_Filter::create(double p0_) {
 }
 
 lucent::Bytes C_Filter::apply(lucent::Bytes p0_) {
+  lucent::checkStack();
   double v1_ = p0_.length();
   lucent::Bytes output = lucent::Bytes(v1_);
   lucent::Handle v3_ = this->_u23_native;
@@ -103,6 +105,7 @@ lucent::Bytes C_Filter::apply(lucent::Bytes p0_) {
 }
 
 lucent::BigInt C_Filter::processed() {
+  lucent::checkStack();
   lucent::Handle v0_ = this->_u23_native;
   return ({
     auto x_21_ = v0_;
@@ -115,11 +118,13 @@ lucent::BigInt C_Filter::processed() {
 }
 
 void C_Filter::close() {
+  lucent::checkStack();
   lucent::Handle v0_ = this->_u23_native;
   v0_.close();
 }
 
 double m_extension::live() {
+  lucent::checkStack();
   return ({
     auto result_26_ = lucent::ext::call([&]() {
       return ::orbit_filter_live();
@@ -129,6 +134,7 @@ double m_extension::live() {
 }
 
 double m_extension::labelBytes(lucent::String p0_) {
+  lucent::checkStack();
   return ({
     auto x_27_ = p0_;
     auto c_29_ = lucent::ext::utf8(x_27_, "name");
@@ -141,6 +147,7 @@ double m_extension::labelBytes(lucent::String p0_) {
 
 lucent::String m_extension::shortOutput() {
   lucent::String ret_{};
+  lucent::checkStack();
   lucent::Handle f = ({
     auto x_31_ = 1.0;
     ::OrbitError error_32_{};
@@ -266,6 +273,7 @@ lucent::String m_extension::shortOutput() {
 }
 
 lucent::String m_extension::scoped() {
+  lucent::checkStack();
   double before = ({
     auto result_65_ = lucent::ext::call([&]() {
       return ::orbit_filter_live();
@@ -388,6 +396,7 @@ lucent::String m_extension::scoped() {
 }
 
 double m_extension::closeTwice() {
+  lucent::checkStack();
   double before = ({
     auto result_93_ = lucent::ext::call([&]() {
       return ::orbit_filter_live();

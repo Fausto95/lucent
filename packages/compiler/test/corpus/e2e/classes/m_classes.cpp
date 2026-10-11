@@ -130,6 +130,7 @@
 namespace lucent_app {
 
 void C_Counter::construct(double p0_, lucent::Opt<lucent::String> p1_) {
+  lucent::checkStack();
   lucent::String label{};
   bool v3_ = lucent::strictEquals(p1_, lucent::undefined);
   if (v3_) {
@@ -151,6 +152,7 @@ lucent::Ref<C_Counter> C_Counter::create(double p0_, lucent::Opt<lucent::String>
 }
 
 double C_Counter::increment(lucent::Opt<double> p0_) {
+  lucent::checkStack();
   double by{};
   bool v2_ = lucent::strictEquals(p0_, lucent::undefined);
   if (v2_) {
@@ -165,24 +167,29 @@ double C_Counter::increment(lucent::Opt<double> p0_) {
 }
 
 double C_Counter::get_value() {
+  lucent::checkStack();
   return this->count;
 }
 
 void C_Counter::set_value(double p0_) {
+  lucent::checkStack();
   double v2_ = lucent::math::max(0.0, p0_);
   this->count = v2_;
 }
 
 lucent::Ref<lucent_app::C_Counter> C_Counter::reset() {
+  lucent::checkStack();
   this->count = 0.0;
   return lucent::selfRef(this);
 }
 
 double C_Counter::total() {
+  lucent::checkStack();
   return lucent_app::C_Counter::created;
 }
 
 lucent::String C_Counter::describe() {
+  lucent::checkStack();
   lucent::String v0_ = this->label;
   double v2_ = this->count;
   lucent::String v3_ = lucent::toJsString(v2_);
@@ -190,6 +197,7 @@ lucent::String C_Counter::describe() {
 }
 
 void C_Node::construct(double p0_, lucent::Opt<lucent::Ref<lucent_app::C_Node>> p1_) {
+  lucent::checkStack();
   lucent::Opt<lucent::Ref<lucent_app::C_Node>> next{};
   bool v3_ = lucent::strictEquals(p1_, lucent::undefined);
   if (v3_) {
@@ -208,6 +216,7 @@ lucent::Ref<C_Node> C_Node::create(double p0_, lucent::Opt<lucent::Ref<lucent_ap
 }
 
 void C_Stack::construct() {
+  lucent::checkStack();
   this->size = 0.0;
 }
 
@@ -218,6 +227,7 @@ lucent::Ref<C_Stack> C_Stack::create() {
 }
 
 void C_Stack::push(double p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::Ref<lucent_app::C_Node>> v1_ = this->head;
   lucent::Ref<lucent_app::C_Node> v2_ = lucent_app::C_Node::create(p0_, v1_);
   lucent::Opt<lucent::Ref<lucent_app::C_Node>> v3_ = lucent::Opt<lucent::Ref<lucent_app::C_Node>>(v2_);
@@ -228,6 +238,7 @@ void C_Stack::push(double p0_) {
 }
 
 lucent::Opt<double> C_Stack::pop() {
+  lucent::checkStack();
   lucent::Opt<lucent::Ref<lucent_app::C_Node>> h = this->head;
   bool v3_ = !lucent::truthy(h);
   if (v3_) {
@@ -245,10 +256,12 @@ lucent::Opt<double> C_Stack::pop() {
 }
 
 double C_Stack::get_length() {
+  lucent::checkStack();
   return this->size;
 }
 
 lucent::Array<double> C_Stack::toArray() {
+  lucent::checkStack();
   lucent::Array<double> out = lucent::Array<double>{};
   lucent::Opt<lucent::Ref<lucent_app::C_Node>> n = this->head;
   while (true) {
@@ -266,6 +279,7 @@ lucent::Array<double> C_Stack::toArray() {
 }
 
 void C_Account::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->owner = p0_;
   lucent::Array<double> v2_ = lucent::Array<double>{};
   this->history = v2_;
@@ -279,6 +293,7 @@ lucent::Ref<C_Account> C_Account::create(lucent::String p0_) {
 }
 
 void C_Account::deposit(double p0_) {
+  lucent::checkStack();
   bool v2_ = p0_ <= 0.0;
   if (v2_) {
     lucent::Error v4_ = lucent::withSite(lucent::makeError(LUCENT_STR("RangeError"), LUCENT_STR("Deposit must be positive")), __FILE__, __LINE__, "Account.deposit");
@@ -289,6 +304,7 @@ void C_Account::deposit(double p0_) {
 }
 
 double C_Account::get_balance() {
+  lucent::checkStack();
   lucent::Array<double> v0_ = this->history;
   return v0_.reduce([](double p0_, double p1_, double p2_, lucent::Array<double> p3_) mutable -> double {
     return p0_ + p1_;
@@ -296,18 +312,22 @@ double C_Account::get_balance() {
 }
 
 double C_Account::secret() {
+  lucent::checkStack();
   return this->_u23_secret;
 }
 
 void C_Account::onEach(lucent::Fn<void(double)> p0_) {
+  lucent::checkStack();
   lucent::Array<double> v1_ = this->history;
   v1_.forEach([f = p0_](double p0_, double p1_, lucent::Array<double> p2_) mutable -> void {
+    lucent::checkStack();
     f(p0_);
     return;
   });
 }
 
 void C_Relay::construct(lucent::Fn<void(lucent::String)> p0_) {
+  lucent::checkStack();
   this->onValue = p0_;
   this->last = lucent::String();
   lucent::Fn<lucent::String(lucent::String)> v4_ = lucent::Fn<lucent::String(lucent::String)>([](lucent::String p0_) mutable -> lucent::String {
@@ -323,6 +343,7 @@ lucent::Ref<C_Relay> C_Relay::create(lucent::Fn<void(lucent::String)> p0_) {
 }
 
 void C_Relay::send(lucent::String p0_) {
+  lucent::checkStack();
   lucent::String v1_ = this->format(p0_);
   this->last = v1_;
   lucent::String v3_ = this->last;
@@ -330,6 +351,7 @@ void C_Relay::send(lucent::String p0_) {
 }
 
 void C_Labelled::construct(lucent::String p0_, lucent::Opt<double> p1_) {
+  lucent::checkStack();
   double count{};
   bool v3_ = lucent::strictEquals(p1_, lucent::undefined);
   if (v3_) {
@@ -353,10 +375,12 @@ lucent::Ref<C_Labelled> C_Labelled::create(lucent::String p0_, lucent::Opt<doubl
 }
 
 double C_Labelled::get_total() {
+  lucent::checkStack();
   return this->count;
 }
 
 void C_Sized::construct(std::variant<double, lucent::String> p0_, lucent::Opt<lucent::Ref<lucent_app::S_Object_1eaaff42>> p1_) {
+  lucent::checkStack();
   lucent::String v2_ = lucent::toJsString(p0_);
   bool v4_ = !p1_.has();
   lucent::Opt<lucent::String> v10_{};
@@ -385,6 +409,7 @@ lucent::Ref<C_Sized> C_Sized::create(std::variant<double, lucent::String> p0_, l
 }
 
 void C_Disk::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->path = p0_;
 }
 
@@ -395,20 +420,24 @@ lucent::Ref<C_Disk> C_Disk::create(lucent::String p0_) {
 }
 
 lucent::String C_Disk::get_uri() {
+  lucent::checkStack();
   lucent::String v1_ = this->path;
   return lucent::String(LUCENT_STR("file://")) + v1_;
 }
 
 lucent::String C_Disk::describe(lucent::String p0_) {
+  lucent::checkStack();
   lucent::String v2_ = this->path;
   return lucent::concat(p0_, LUCENT_STR("disk "), v2_);
 }
 
 void C_Disk::mark(lucent::Array<lucent::String> p0_) {
+  lucent::checkStack();
   (void)p0_.push(LUCENT_STR("d"));
 }
 
 void C_Remote::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->host = p0_;
 }
 
@@ -419,11 +448,13 @@ lucent::Ref<C_Remote> C_Remote::create(lucent::String p0_) {
 }
 
 lucent::String C_Remote::get_uri() {
+  lucent::checkStack();
   lucent::String v1_ = this->host;
   return lucent::String(LUCENT_STR("https://")) + v1_;
 }
 
 std::variant<double, lucent::String> C_Remote::describe(lucent::String p0_) {
+  lucent::checkStack();
   lucent::String v1_ = this->host;
   int64_t v2_ = static_cast<int64_t>(v1_.length());
   bool v4_ = static_cast<int64_t>(v2_) > static_cast<int64_t>(3);
@@ -440,10 +471,12 @@ std::variant<double, lucent::String> C_Remote::describe(lucent::String p0_) {
 }
 
 void C_Remote::mark(lucent::Array<lucent::String> p0_) {
+  lucent::checkStack();
   (void)p0_.push(LUCENT_STR("r"));
 }
 
 lucent::String m_classes::useStack(lucent::Array<double> p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Stack> s = lucent_app::C_Stack::create();
   {
     auto coll0_ = p0_;
@@ -465,6 +498,7 @@ lucent::String m_classes::useStack(lucent::Array<double> p0_) {
 }
 
 double m_classes::advance(lucent::Ref<lucent_app::C_Counter> p0_, double p1_) {
+  lucent::checkStack();
   {
     int64_t i = static_cast<int64_t>(0);
     while (true) {
@@ -482,10 +516,12 @@ double m_classes::advance(lucent::Ref<lucent_app::C_Counter> p0_, double p1_) {
 }
 
 lucent::Ref<lucent_app::C_Counter> m_classes::makeCounter(double p0_) {
+  lucent::checkStack();
   return lucent_app::C_Counter::create(p0_, lucent::Opt<lucent::String>(LUCENT_STR("made")));
 }
 
 bool m_classes::same(lucent::Ref<lucent_app::C_Counter> p0_, lucent::Ref<lucent_app::C_Counter> p1_) {
+  lucent::checkStack();
   return lucent::strictEquals(p0_, p1_);
 }
 
@@ -496,6 +532,7 @@ lucent::Ref<lucent_app::C_Counter> m_classes::checked(lucent::Ref<lucent_app::C_
 }
 
 lucent::String m_classes::presence(lucent::Ref<lucent_app::C_Counter> p0_, lucent::String p1_, double p2_) {
+  lucent::checkStack();
   double v3_ = lucent_app::m_classes::checks;
   double before = v3_;
   bool v5_ = !((void)p0_, false);
@@ -524,8 +561,10 @@ lucent::String m_classes::presence(lucent::Ref<lucent_app::C_Counter> p0_, lucen
 }
 
 lucent::String m_classes::relayed() {
+  lucent::checkStack();
   lucent::Array<lucent::String> seen = lucent::Array<lucent::String>{};
   lucent::Fn<double(lucent::String)> v2_ = lucent::Fn<double(lucent::String)>([seen = seen](lucent::String p0_) mutable -> double {
+    lucent::checkStack();
     return seen.push(p0_);
   });
   lucent::Ref<lucent_app::C_Relay> r = lucent_app::C_Relay::create(lucent::Fn<void(lucent::String)>([fn_1_ = v2_](lucent::String a0) {
@@ -539,6 +578,7 @@ lucent::String m_classes::relayed() {
 }
 
 lucent::String m_classes::labelled() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Labelled> l = lucent_app::C_Labelled::create(LUCENT_STR("x"), lucent::Opt<double>(lucent::undefined));
   lucent::String v3_ = l->label;
   double v6_ = l->next;
@@ -549,10 +589,12 @@ lucent::String m_classes::labelled() {
 }
 
 lucent::String m_classes::locations() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Disk> v1_ = lucent_app::C_Disk::create(LUCENT_STR("/a"));
   lucent::Ref<lucent_app::C_Remote> v3_ = lucent_app::C_Remote::create(LUCENT_STR("b.c"));
   lucent::Array<std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>, lucent::String>> all = lucent::Array<std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>, lucent::String>>{std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>, lucent::String>(v1_), std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>, lucent::String>(v3_), std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>, lucent::String>(LUCENT_STR("plain"))};
   lucent::Array<lucent::String> v8_ = all.template map<lucent::String>([](std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>, lucent::String> p0_, double p1_, lucent::Array<std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>, lucent::String>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     bool v5_ = lucent::typeOf(p0_) == LUCENT_STR("string");
     lucent::String v9_{};
     if (v5_) {
@@ -567,12 +609,14 @@ lucent::String m_classes::locations() {
 }
 
 lucent::String m_classes::described() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Disk> v1_ = lucent_app::C_Disk::create(LUCENT_STR("/a"));
   lucent::Ref<lucent_app::C_Remote> v3_ = lucent_app::C_Remote::create(LUCENT_STR("b.c"));
   lucent::Ref<lucent_app::C_Remote> v5_ = lucent_app::C_Remote::create(LUCENT_STR("d"));
   lucent::Array<std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>>> all = lucent::Array<std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>>>{std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>>(v1_), std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>>(v3_), std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>>(v5_)};
   lucent::Array<double> seen = lucent::Array<double>{};
   lucent::Fn<lucent::String(double)> v9_ = lucent::Fn<lucent::String(double)>([seen = seen](double p0_) mutable -> lucent::String {
+    lucent::checkStack();
     (void)seen.push(p0_);
     return lucent::String(lucent::toJsString(p0_)) + LUCENT_STR(":");
   });
@@ -589,6 +633,7 @@ lucent::String m_classes::described() {
     }
   }
   lucent::Array<lucent::String> v19_ = all.template map<lucent::String>([prefix = prefix](std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>> p0_, double p1_, lucent::Array<std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v4_ = prefix(p1_);
     std::variant<double, lucent::String> v5_ = ({ const auto& u_4_ = p0_; u_4_.index() == 0 ? std::variant<double, lucent::String>(std::get<0>(u_4_)->describe(v4_)) : std::get<1>(u_4_)->describe(v4_); });
     return lucent::toJsString(v5_);
@@ -600,6 +645,7 @@ lucent::String m_classes::described() {
 }
 
 void m_classes::init() {
+  lucent::checkStack();
   C_Counter::created = 0.0;
   lucent_app::m_classes::checks = 0.0;
 }

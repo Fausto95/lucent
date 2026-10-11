@@ -66,6 +66,7 @@
 namespace lucent_app {
 
 lucent::String m_es2023_u2d_arrays::copies() {
+  lucent::checkStack();
   lucent::Array<double> xs = lucent::Array<double>{3.0, 1.0, 2.0};
   lucent::Array<double> sorted = xs.toSorted();
   lucent::Array<double> descending = xs.toSorted([](double p0_, double p1_) mutable -> double {
@@ -77,12 +78,14 @@ lucent::String m_es2023_u2d_arrays::copies() {
   lucent::Array<double> changed = xs.with(v19_, 7.0);
   lucent::Array<lucent::Array<double>> v28_ = lucent::Array<lucent::Array<double>>{xs, sorted, descending, reversed, spliced, changed};
   lucent::Array<lucent::String> v30_ = v28_.template map<lucent::String>([](lucent::Array<double> p0_, double p1_, lucent::Array<lucent::Array<double>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     return lucent_app::m_es2023_u2d_arrays::joined<double>(p0_);
   });
   return v30_.join(LUCENT_STR(" "));
 }
 
 lucent::String m_es2023_u2d_arrays::independent() {
+  lucent::checkStack();
   lucent::Array<lucent::String> xs = lucent::Array<lucent::String>{LUCENT_STR("a"), LUCENT_STR("b")};
   lucent::Array<lucent::String> a = xs.toReversed();
   lucent::Array<lucent::String> b = xs.with(0.0, LUCENT_STR("z"));
@@ -98,6 +101,7 @@ lucent::String m_es2023_u2d_arrays::independent() {
 }
 
 lucent::String m_es2023_u2d_arrays::splicing() {
+  lucent::checkStack();
   lucent::Array<lucent::String> xs = lucent::Array<lucent::String>{LUCENT_STR("a"), LUCENT_STR("b"), LUCENT_STR("c"), LUCENT_STR("d")};
   lucent::Array<lucent::String> v7_ = xs.toSpliced(2.0);
   double v10_ = -1.0;
@@ -116,12 +120,14 @@ lucent::String m_es2023_u2d_arrays::splicing() {
   lucent::Array<lucent::String> v53_ = xs.toSpliced(0.0, lucent::Opt<double>(lucent::undefined).valueOr(lucent::kNaN));
   lucent::Array<lucent::Array<lucent::String>> v54_ = lucent::Array<lucent::Array<lucent::String>>{v7_, v11_, v15_, v20_, v25_, v29_, v33_, v38_, v45_, v49_, v53_};
   lucent::Array<lucent::String> v56_ = v54_.template map<lucent::String>([](lucent::Array<lucent::String> p0_, double p1_, lucent::Array<lucent::Array<lucent::String>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     return lucent_app::m_es2023_u2d_arrays::joined<lucent::String>(p0_);
   });
   return v56_.join(LUCENT_STR(" | "));
 }
 
 lucent::String m_es2023_u2d_arrays::replacing() {
+  lucent::checkStack();
   lucent::Array<double> xs = lucent::Array<double>{1.0, 2.0, 3.0};
   lucent::Array<lucent::String> out = lucent::Array<lucent::String>{};
   double v8_ = -1.0;
@@ -161,9 +167,11 @@ lucent::String m_es2023_u2d_arrays::replacing() {
 }
 
 lucent::String m_es2023_u2d_arrays::searches() {
+  lucent::checkStack();
   lucent::Array<double> xs = lucent::Array<double>{5.0, 12.0, 8.0, 130.0, 44.0};
   lucent::Array<double> seen = lucent::Array<double>{};
   lucent::Opt<double> big = xs.findLast([seen = seen](double p0_, double p1_, lucent::Array<double> p2_) mutable -> bool {
+    lucent::checkStack();
     (void)seen.push(p1_);
     bool v6_ = p0_ > 10.0;
     bool v10_{};
@@ -190,17 +198,20 @@ lucent::String m_es2023_u2d_arrays::searches() {
 }
 
 lucent::String m_es2023_u2d_arrays::sorting() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Word> v2_ = ({ auto obj_1_ = std::make_shared<lucent_app::S_Word>(); obj_1_->key = 1.0; obj_1_->text = LUCENT_STR("b"); obj_1_; });
   lucent::Ref<lucent_app::S_Word> v5_ = ({ auto obj_2_ = std::make_shared<lucent_app::S_Word>(); obj_2_->key = 0.0; obj_2_->text = LUCENT_STR("a"); obj_2_; });
   lucent::Ref<lucent_app::S_Word> v8_ = ({ auto obj_3_ = std::make_shared<lucent_app::S_Word>(); obj_3_->key = 1.0; obj_3_->text = LUCENT_STR("c"); obj_3_; });
   lucent::Ref<lucent_app::S_Word> v11_ = ({ auto obj_4_ = std::make_shared<lucent_app::S_Word>(); obj_4_->key = 0.0; obj_4_->text = LUCENT_STR("d"); obj_4_; });
   lucent::Array<lucent::Ref<lucent_app::S_Word>> words = lucent::Array<lucent::Ref<lucent_app::S_Word>>{v2_, v5_, v8_, v11_};
   lucent::Array<lucent::Ref<lucent_app::S_Word>> v15_ = words.toSorted([](lucent::Ref<lucent_app::S_Word> p0_, lucent::Ref<lucent_app::S_Word> p1_) mutable -> double {
+    lucent::checkStack();
     double v2_ = p0_->key;
     double v3_ = p1_->key;
     return v2_ - v3_;
   });
   lucent::Array<lucent::String> v17_ = v15_.template map<lucent::String>([](lucent::Ref<lucent_app::S_Word> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::S_Word>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     return p0_->text;
   });
   lucent::String byKey = v17_.join(lucent::String());
@@ -216,11 +227,13 @@ lucent::String m_es2023_u2d_arrays::sorting() {
 }
 
 lucent::String m_es2023_u2d_arrays::absent() {
+  lucent::checkStack();
   lucent::Array<lucent::Opt<double>> xs = lucent::Array<lucent::Opt<double>>{lucent::Opt<double>(2.0), lucent::Opt<double>(lucent::undefined), lucent::Opt<double>(1.0)};
   lucent::Array<lucent::Opt<double>> sorted = xs.toSorted();
   lucent::Array<lucent::Opt<double>> filled = xs.with(1.0, lucent::Opt<double>(5.0));
   lucent::Array<lucent::Opt<double>> emptied = xs.with(0.0, lucent::Opt<double>(lucent::undefined));
   lucent::Fn<lucent::String(lucent::Array<lucent::Opt<double>>)> v14_ = lucent::Fn<lucent::String(lucent::Array<lucent::Opt<double>>)>([](lucent::Array<lucent::Opt<double>> p0_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Array<std::variant<double, lucent::String>> v2_ = p0_.template map<std::variant<double, lucent::String>>([](lucent::Opt<double> p0_, double p1_, lucent::Array<lucent::Opt<double>> p2_) mutable -> std::variant<double, lucent::String> {
       bool v4_ = lucent::strictEquals(p0_, lucent::undefined);
       std::variant<double, lucent::String> v9_{};

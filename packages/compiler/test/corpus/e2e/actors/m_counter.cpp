@@ -26,6 +26,7 @@ double m_counter::bump() {
 }
 
 double m_counter::around(lucent::Fn<double()> p0_) {
+  lucent::checkStack();
   double v1_ = lucent_app::m_counter::count;
   double before = v1_;
   double v2_ = p0_();
@@ -35,6 +36,7 @@ double m_counter::around(lucent::Fn<double()> p0_) {
 }
 
 lucent::Promise<double> m_counter::steps(double p0_) {
+  lucent::checkStack();
   double total = 0.0;
   {
     int64_t i = static_cast<int64_t>(0);

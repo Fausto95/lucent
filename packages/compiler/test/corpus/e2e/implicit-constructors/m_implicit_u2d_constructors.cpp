@@ -59,6 +59,7 @@
 namespace lucent_app {
 
 void C_ParseError::construct(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   this->message = p0_.valueOr(lucent::String());
   this->name = LUCENT_STR("Error");
 }
@@ -70,6 +71,7 @@ lucent::Ref<C_ParseError> C_ParseError::create(lucent::Opt<lucent::String> p0_) 
 }
 
 void C_Named::construct(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   this->message = p0_.valueOr(lucent::String());
   this->name = LUCENT_STR("Error");
   this->name = LUCENT_STR("Named");
@@ -82,6 +84,7 @@ lucent::Ref<C_Named> C_Named::create(lucent::Opt<lucent::String> p0_) {
 }
 
 void C_Outer::construct(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   this->message = p0_.valueOr(lucent::String());
   this->name = LUCENT_STR("Error");
 }
@@ -93,6 +96,7 @@ lucent::Ref<C_Outer> C_Outer::create(lucent::Opt<lucent::String> p0_) {
 }
 
 void C_Base::construct(double p0_, lucent::Opt<lucent::String> p1_) {
+  lucent::checkStack();
   lucent::String b{};
   bool v3_ = lucent::strictEquals(p1_, lucent::undefined);
   if (v3_) {
@@ -111,6 +115,7 @@ lucent::Ref<C_Base> C_Base::create(double p0_, lucent::Opt<lucent::String> p1_) 
 }
 
 void C_CodedError::construct(lucent::String p0_, double p1_) {
+  lucent::checkStack();
   this->name = LUCENT_STR("Error");
   this->code = p1_;
   (void)(this->message = p0_, lucent::undefined);
@@ -123,6 +128,7 @@ lucent::Ref<C_CodedError> C_CodedError::create(lucent::String p0_, double p1_) {
 }
 
 void C_NamedChild::construct(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   this->lucent_app::C_Named::construct(p0_);
 }
 
@@ -133,6 +139,7 @@ lucent::Ref<C_NamedChild> C_NamedChild::create(lucent::Opt<lucent::String> p0_) 
 }
 
 void C_NamedExplicit::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->lucent_app::C_Named::construct(lucent::Opt<lucent::String>(p0_));
 }
 
@@ -143,6 +150,7 @@ lucent::Ref<C_NamedExplicit> C_NamedExplicit::create(lucent::String p0_) {
 }
 
 void C_Inner::construct(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   this->lucent_app::C_Outer::construct(p0_);
 }
 
@@ -153,6 +161,7 @@ lucent::Ref<C_Inner> C_Inner::create(lucent::Opt<lucent::String> p0_) {
 }
 
 void C_Derived::construct(double p0_, lucent::Opt<lucent::String> p1_) {
+  lucent::checkStack();
   this->lucent_app::C_Base::construct(p0_, p1_);
 }
 
@@ -163,6 +172,7 @@ lucent::Ref<C_Derived> C_Derived::create(double p0_, lucent::Opt<lucent::String>
 }
 
 void C_SubCoded::construct(lucent::String p0_, double p1_) {
+  lucent::checkStack();
   this->lucent_app::C_CodedError::construct(p0_, p1_);
 }
 
@@ -173,6 +183,7 @@ lucent::Ref<C_SubCoded> C_SubCoded::create(lucent::String p0_, double p1_) {
 }
 
 void C_Deeper::construct(double p0_, lucent::Opt<lucent::String> p1_) {
+  lucent::checkStack();
   this->lucent_app::C_Derived::construct(p0_, p1_);
   this->extra = 7.0;
 }
@@ -184,6 +195,7 @@ lucent::Ref<C_Deeper> C_Deeper::create(double p0_, lucent::Opt<lucent::String> p
 }
 
 lucent::String m_implicit_u2d_constructors::parseError() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_ParseError> e = lucent_app::C_ParseError::create(lucent::Opt<lucent::String>(LUCENT_STR("bad")));
   lucent::String v3_ = e->message;
   lucent::String v6_ = e->name;
@@ -195,6 +207,7 @@ lucent::String m_implicit_u2d_constructors::parseError() {
 }
 
 lucent::String m_implicit_u2d_constructors::caught() {
+  lucent::checkStack();
   {
     std::exception_ptr ex2_;
     try {
@@ -215,12 +228,14 @@ lucent::String m_implicit_u2d_constructors::caught() {
 }
 
 lucent::String m_implicit_u2d_constructors::withoutMessage() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_ParseError> v1_ = lucent_app::C_ParseError::create(lucent::Opt<lucent::String>(lucent::undefined));
   lucent::String v2_ = v1_->message;
   return lucent::concat(LUCENT_STR("["), v2_, LUCENT_STR("]"));
 }
 
 lucent::String m_implicit_u2d_constructors::named() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Named> n = lucent_app::C_Named::create(lucent::Opt<lucent::String>(LUCENT_STR("nm")));
   lucent::String v3_ = n->message;
   lucent::String v6_ = n->name;
@@ -228,6 +243,7 @@ lucent::String m_implicit_u2d_constructors::named() {
 }
 
 lucent::String m_implicit_u2d_constructors::inheritedName() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Named> a = lucent_app::C_Named::create(lucent::Opt<lucent::String>(LUCENT_STR("a")));
   lucent::Ref<lucent_app::C_NamedChild> b = lucent_app::C_NamedChild::create(lucent::Opt<lucent::String>(LUCENT_STR("b")));
   lucent::Ref<lucent_app::C_NamedExplicit> c = lucent_app::C_NamedExplicit::create(LUCENT_STR("c"));
@@ -242,11 +258,13 @@ lucent::String m_implicit_u2d_constructors::inheritedName() {
 }
 
 void m_implicit_u2d_constructors::thrownNamed() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_NamedChild> v1_ = lucent_app::C_NamedChild::create(lucent::Opt<lucent::String>(LUCENT_STR("named to js")));
   lucent::throwError(v1_);
 }
 
 lucent::String m_implicit_u2d_constructors::twoLevels() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Inner> e = lucent_app::C_Inner::create(lucent::Opt<lucent::String>(LUCENT_STR("deep")));
   lucent::String v3_ = e->message;
   bool v6_ = lucent::isInstance<lucent_app::C_Outer>(e);
@@ -257,6 +275,7 @@ lucent::String m_implicit_u2d_constructors::twoLevels() {
 }
 
 lucent::String m_implicit_u2d_constructors::derived() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Derived> d = lucent_app::C_Derived::create(1.0, lucent::Opt<lucent::String>(LUCENT_STR("x")));
   lucent::Ref<lucent_app::C_Deeper> e = lucent_app::C_Deeper::create(2.0, lucent::Opt<lucent::String>(lucent::undefined));
   double v6_ = d->a;
@@ -271,6 +290,7 @@ lucent::String m_implicit_u2d_constructors::derived() {
 }
 
 lucent::String m_implicit_u2d_constructors::subCoded() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_SubCoded> s = lucent_app::C_SubCoded::create(LUCENT_STR("m"), 3.0);
   lucent::String v4_ = s->message;
   double v7_ = s->code;
@@ -279,11 +299,13 @@ lucent::String m_implicit_u2d_constructors::subCoded() {
 }
 
 void m_implicit_u2d_constructors::thrown() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_ParseError> v1_ = lucent_app::C_ParseError::create(lucent::Opt<lucent::String>(LUCENT_STR("to js")));
   lucent::throwError(v1_);
 }
 
 lucent::String m_implicit_u2d_constructors::messageOf(lucent::Ref<lucent_app::C_ParseError> p0_) {
+  lucent::checkStack();
   return p0_->message;
 }
 

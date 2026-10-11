@@ -28,6 +28,7 @@
 namespace lucent_app {
 
 void C_ParseError::construct(lucent::String p0_, double p1_) {
+  lucent::checkStack();
   this->name = LUCENT_STR("Error");
   this->line = p1_;
   (void)(this->message = p0_, lucent::undefined);
@@ -41,6 +42,7 @@ lucent::Ref<C_ParseError> C_ParseError::create(lucent::String p0_, double p1_) {
 }
 
 void C_TokenError::construct(lucent::String p0_) {
+  lucent::checkStack();
   lucent::String v2_ = lucent::String(LUCENT_STR("unexpected ")) + p0_;
   this->lucent_app::C_ParseError::construct(v2_, 1.0);
   this->token = p0_;
@@ -54,29 +56,34 @@ lucent::Ref<C_TokenError> C_TokenError::create(lucent::String p0_) {
 }
 
 lucent::Ref<lucent_app::C_ParseError> m_exported_u2d_errors::parse(double p0_) {
+  lucent::checkStack();
   lucent::String v3_ = lucent::String(LUCENT_STR("bad line ")) + lucent::toJsString(p0_);
   return lucent_app::C_ParseError::create(v3_, p0_);
 }
 
 lucent::Error m_exported_u2d_errors::asError(double p0_) {
+  lucent::checkStack();
   lucent::String v3_ = lucent::String(LUCENT_STR("as error ")) + lucent::toJsString(p0_);
   lucent::Ref<lucent_app::C_ParseError> v4_ = lucent_app::C_ParseError::create(v3_, p0_);
   return lucent::Error(v4_);
 }
 
 double m_exported_u2d_errors::fail(double p0_) {
+  lucent::checkStack();
   lucent::String v3_ = lucent::String(LUCENT_STR("failed at ")) + lucent::toJsString(p0_);
   lucent::Ref<lucent_app::C_ParseError> v4_ = lucent_app::C_ParseError::create(v3_, p0_);
   lucent::throwError(v4_);
 }
 
 double m_exported_u2d_errors::failToken(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_TokenError> v1_ = lucent_app::C_TokenError::create(p0_);
   lucent::throwError(v1_);
 }
 
 lucent::Promise<double> m_exported_u2d_errors::later(double p0_) {
   try {
+    lucent::checkStack();
     lucent::String v3_ = lucent::String(LUCENT_STR("later ")) + lucent::toJsString(p0_);
     lucent::Ref<lucent_app::C_ParseError> v4_ = lucent_app::C_ParseError::create(v3_, p0_);
     lucent::throwError(v4_);
@@ -90,6 +97,7 @@ void m_exported_u2d_errors::raise(lucent::Ref<lucent_app::C_ParseError> p0_) {
 }
 
 lucent::String m_exported_u2d_errors::describe(lucent::Ref<lucent_app::C_ParseError> p0_) {
+  lucent::checkStack();
   lucent::String v1_ = p0_->name;
   lucent::String v3_ = p0_->message;
   double v5_ = p0_->line;
@@ -98,6 +106,7 @@ lucent::String m_exported_u2d_errors::describe(lucent::Ref<lucent_app::C_ParseEr
 }
 
 lucent::String m_exported_u2d_errors::kind(lucent::Error p0_) {
+  lucent::checkStack();
   bool v1_ = lucent::isInstance<lucent_app::C_TokenError>(p0_);
   if (v1_) {
     lucent::Ref<lucent_app::C_TokenError> v3_ = lucent::downcast<lucent_app::C_TokenError>(p0_);

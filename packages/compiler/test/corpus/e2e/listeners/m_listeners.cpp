@@ -109,6 +109,7 @@
 namespace lucent_app {
 
 void C_Pulses::construct(lucent::Array<lucent::String> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::Ref<lucent_app::S_Listener>> v1_ = lucent::Array<lucent::Ref<lucent_app::S_Listener>>{};
   this->listeners = v1_;
   this->nextId = 1.0;
@@ -122,6 +123,7 @@ lucent::Ref<C_Pulses> C_Pulses::create(lucent::Array<lucent::String> p0_) {
 }
 
 double C_Pulses::listen(lucent::Fn<void(double)> p0_, lucent::Fn<void(lucent::Error)> p1_) {
+  lucent::checkStack();
   double v2_ = this->nextId;
   double v4_ = v2_ + 1.0;
   this->nextId = v4_;
@@ -136,8 +138,10 @@ double C_Pulses::listen(lucent::Fn<void(double)> p0_, lucent::Fn<void(lucent::Er
 }
 
 void C_Pulses::remove(double p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::Ref<lucent_app::S_Listener>> v1_ = this->listeners;
   lucent::Array<lucent::Ref<lucent_app::S_Listener>> v3_ = v1_.filter([r_id_ = p0_](lucent::Ref<lucent_app::S_Listener> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::S_Listener>> p2_) mutable -> bool {
+    lucent::checkStack();
     double v3_ = p0_->r_id_;
     return !(v3_ == r_id_);
   });
@@ -148,6 +152,7 @@ void C_Pulses::remove(double p0_) {
 }
 
 void C_Pulses::emit(double p0_, lucent::Opt<lucent::Array<lucent::Ref<lucent_app::S_Listener>>> p1_) {
+  lucent::checkStack();
   lucent::Array<lucent::Ref<lucent_app::S_Listener>> stale{};
   bool v3_ = lucent::strictEquals(p1_, lucent::undefined);
   if (v3_) {
@@ -170,6 +175,7 @@ void C_Pulses::emit(double p0_, lucent::Opt<lucent::Array<lucent::Ref<lucent_app
 }
 
 void C_Pulses::fail(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::Ref<lucent_app::S_Listener>> v1_ = this->listeners;
   {
     auto coll0_ = v1_;
@@ -185,14 +191,18 @@ void C_Pulses::fail(lucent::String p0_) {
 }
 
 lucent::Array<lucent::Ref<lucent_app::S_Listener>> C_Pulses::snapshot() {
+  lucent::checkStack();
   lucent::Array<lucent::Ref<lucent_app::S_Listener>> v0_ = this->listeners;
   return ({ lucent::Array<lucent::Ref<lucent_app::S_Listener>> arr_3_; arr_3_.append(v0_); arr_3_; });
 }
 
 lucent::Promise<double> m_listeners::nextLevel(lucent::Ref<lucent_app::C_Pulses> p0_, lucent::Opt<lucent::AbortSignal> p1_) {
+  lucent::checkStack();
   lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)> v2_ = lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)>([pulses = p0_](lucent::Fn<void(double)> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> lucent::Fn<void()> {
+    lucent::checkStack();
     double r_id_ = pulses->listen(p0_, p1_);
     lucent::Fn<void()> v6_ = lucent::Fn<void()>([pulses = pulses, r_id_ = r_id_]() mutable -> void {
+      lucent::checkStack();
       pulses->remove(r_id_);
       return;
     });
@@ -202,6 +212,7 @@ lucent::Promise<double> m_listeners::nextLevel(lucent::Ref<lucent_app::C_Pulses>
 }
 
 lucent::String m_listeners::rejected(lucent::Error p0_) {
+  lucent::checkStack();
   lucent::String v1_ = p0_->name;
   bool v3_ = v1_ == LUCENT_STR("AbortError");
   lucent::String v14_{};
@@ -217,6 +228,7 @@ lucent::String m_listeners::rejected(lucent::Error p0_) {
 }
 
 lucent::Promise<lucent::String> m_listeners::outcome(lucent::Promise<double> p0_) {
+  lucent::checkStack();
   {
     std::exception_ptr ex5_;
     try {
@@ -237,6 +249,7 @@ lucent::Promise<lucent::String> m_listeners::outcome(lucent::Promise<double> p0_
 }
 
 lucent::Promise<lucent::String> m_listeners::ending(lucent::Promise<void> p0_) {
+  lucent::checkStack();
   {
     std::exception_ptr ex3_;
     try {
@@ -257,6 +270,7 @@ lucent::Promise<lucent::String> m_listeners::ending(lucent::Promise<void> p0_) {
 }
 
 lucent::Promise<lucent::String> m_listeners::settlesOnce() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Ref<lucent_app::C_Pulses> pulses = lucent_app::C_Pulses::create(log);
   lucent::Promise<double> p = lucent_app::m_listeners::nextLevel(pulses, lucent::Opt<lucent::AbortSignal>(lucent::undefined));
@@ -274,12 +288,15 @@ lucent::Promise<lucent::String> m_listeners::settlesOnce() {
 }
 
 lucent::Promise<lucent::String> m_listeners::completesDuringRegistration() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Fn<lucent::Fn<double()>(lucent::Fn<void(lucent::String)>, lucent::Fn<void(lucent::Error)>)> v2_ = lucent::Fn<lucent::Fn<double()>(lucent::Fn<void(lucent::String)>, lucent::Fn<void(lucent::Error)>)>([log = log](lucent::Fn<void(lucent::String)> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> lucent::Fn<double()> {
+    lucent::checkStack();
     p0_(LUCENT_STR("now"));
     (void)log.push(LUCENT_STR("resolved"));
     p0_(LUCENT_STR("again"));
     lucent::Fn<double()> v10_ = lucent::Fn<double()>([log = log]() mutable -> double {
+      lucent::checkStack();
       return log.push(LUCENT_STR("cleanup"));
     });
     return v10_;
@@ -294,8 +311,10 @@ lucent::Promise<lucent::String> m_listeners::completesDuringRegistration() {
 
 lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)> m_listeners::listenTo(lucent::Ref<lucent_app::C_Pulses> p0_) {
   lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)> v1_ = lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)>([pulses = p0_](lucent::Fn<void(double)> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> lucent::Fn<void()> {
+    lucent::checkStack();
     double r_id_ = pulses->listen(p0_, p1_);
     lucent::Fn<void()> v6_ = lucent::Fn<void()>([pulses = pulses, r_id_ = r_id_]() mutable -> void {
+      lucent::checkStack();
       pulses->remove(r_id_);
       return;
     });
@@ -305,6 +324,7 @@ lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void(lucent::
 }
 
 lucent::Promise<lucent::String> m_listeners::namedRegistration() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Ref<lucent_app::C_Pulses> pulses = lucent_app::C_Pulses::create(log);
   lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)> v4_ = lucent_app::m_listeners::listenTo(pulses);
@@ -317,14 +337,17 @@ lucent::Promise<lucent::String> m_listeners::namedRegistration() {
 }
 
 lucent::Promise<lucent::String> m_listeners::registrationThrows() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Fn<void(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)> v2_ = lucent::Fn<void(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)>([log = log](lucent::Fn<void(double)> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> void {
+    lucent::checkStack();
     (void)log.push(LUCENT_STR("registering"));
     lucent::Error v6_ = lucent::withSite(lucent::makeError(LUCENT_STR("RangeError"), LUCENT_STR("no listener")), __FILE__, __LINE__, "<anonymous>");
     lucent::throwError(v6_);
   });
   lucent::Promise<double> thrown = lucent::fromCallback<double>(v2_);
   lucent::Fn<void(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)> v4_ = lucent::Fn<void(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)>([](lucent::Fn<void(double)> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> void {
+    lucent::checkStack();
     p0_(1.0);
     lucent::Error v5_ = lucent::withSite(lucent::makeError(LUCENT_STR("RangeError"), LUCENT_STR("ignored")), __FILE__, __LINE__, "<anonymous>");
     lucent::throwError(v5_);
@@ -340,6 +363,7 @@ lucent::Promise<lucent::String> m_listeners::registrationThrows() {
 }
 
 lucent::Promise<lucent::String> m_listeners::rejects() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Ref<lucent_app::C_Pulses> pulses = lucent_app::C_Pulses::create(log);
   lucent::Promise<double> p = lucent_app::m_listeners::nextLevel(pulses, lucent::Opt<lucent::AbortSignal>(lucent::undefined));
@@ -352,6 +376,7 @@ lucent::Promise<lucent::String> m_listeners::rejects() {
 }
 
 lucent::Promise<lucent::String> m_listeners::aborts() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Ref<lucent_app::C_Pulses> pulses = lucent_app::C_Pulses::create(log);
   lucent::AbortController done = std::make_shared<lucent::AbortControllerObject>();
@@ -381,10 +406,12 @@ lucent::Promise<lucent::String> m_listeners::aborts() {
   (void)log.push(v47_);
   lucent::AbortController during = std::make_shared<lucent::AbortControllerObject>();
   lucent::Fn<lucent::Fn<double()>(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)> v52_ = lucent::Fn<lucent::Fn<double()>(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)>([during = during, log = log](lucent::Fn<void(double)> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> lucent::Fn<double()> {
+    lucent::checkStack();
     lucent::Error v4_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), LUCENT_STR("during registration")), __FILE__, __LINE__, "<anonymous>");
     during->abort(v4_);
     (void)log.push(LUCENT_STR("registered"));
     lucent::Fn<double()> v10_ = lucent::Fn<double()>([log = log]() mutable -> double {
+      lucent::checkStack();
       return log.push(LUCENT_STR("cleanup after registration"));
     });
     return v10_;
@@ -398,6 +425,7 @@ lucent::Promise<lucent::String> m_listeners::aborts() {
 }
 
 lucent::Promise<void> m_listeners::setTimeoutLike(lucent::AbortController p0_) {
+  lucent::checkStack();
   lucent::Promise<void> v2_ = lucent::delay(1.0);
   co_await v2_;
   p0_->abort(lucent::undefined);
@@ -405,6 +433,7 @@ lucent::Promise<void> m_listeners::setTimeoutLike(lucent::AbortController p0_) {
 }
 
 lucent::Promise<lucent::String> m_listeners::waitsForJavaScript(lucent::AbortSignal p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Ref<lucent_app::C_Pulses> pulses = lucent_app::C_Pulses::create(log);
   lucent::Promise<double> v6_ = lucent_app::m_listeners::nextLevel(pulses, lucent::Opt<lucent::AbortSignal>(p0_));
@@ -415,8 +444,10 @@ lucent::Promise<lucent::String> m_listeners::waitsForJavaScript(lucent::AbortSig
 }
 
 lucent::Promise<lucent::String> m_listeners::voidResults() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Fn<void(lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)> v2_ = lucent::Fn<void(lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)>([log = log](lucent::Fn<void()> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> void {
+    lucent::checkStack();
     (void)log.push(LUCENT_STR("registered"));
     p0_();
   });
@@ -427,10 +458,12 @@ lucent::Promise<lucent::String> m_listeners::voidResults() {
 }
 
 lucent::Promise<lucent::String> m_listeners::cleanupOrder() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Ref<lucent_app::C_Pulses> pulses = lucent_app::C_Pulses::create(log);
   lucent::Fn<lucent::Promise<void>()> v5_ = lucent::Fn<lucent::Promise<void>()>([log = log, pulses = pulses]() -> lucent::Promise<void> {
     return [](auto log, auto pulses) -> lucent::Promise<void> {
+      lucent::checkStack();
       lucent::Promise<double> v3_ = lucent_app::m_listeners::nextLevel(pulses, lucent::Opt<lucent::AbortSignal>(lucent::undefined));
       double v4_ = co_await v3_;
       lucent::String v6_ = lucent::String(LUCENT_STR("awaited ")) + lucent::toJsString(v4_);
@@ -446,19 +479,23 @@ lucent::Promise<lucent::String> m_listeners::cleanupOrder() {
 }
 
 lucent::Promise<lucent::String> m_listeners::subscriptions() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Ref<lucent_app::C_Pulses> pulses = lucent_app::C_Pulses::create(log);
   lucent::Array<double> levels = lucent::Array<double>{};
   lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)> v5_ = lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)>([pulses = pulses](lucent::Fn<void(double)> p0_, lucent::Fn<void()> p1_, lucent::Fn<void(lucent::Error)> p2_) mutable -> lucent::Fn<void()> {
+    lucent::checkStack();
     p0_(0.0);
     double r_id_ = pulses->listen(p0_, p2_);
     lucent::Fn<void()> v9_ = lucent::Fn<void()>([pulses = pulses, r_id_ = r_id_, end = p1_]() mutable -> void {
+      lucent::checkStack();
       pulses->remove(r_id_);
       end();
     });
     return v9_;
   });
   lucent::Fn<void(double)> v7_ = lucent::Fn<void(double)>([levels = levels](double p0_) mutable -> void {
+    lucent::checkStack();
     (void)levels.push(p0_);
     bool v4_ = p0_ > 2.0;
     if (v4_) {
@@ -483,22 +520,26 @@ lucent::Promise<lucent::String> m_listeners::subscriptions() {
 }
 
 lucent::Promise<lucent::String> m_listeners::subscriptionEnds() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Ref<lucent_app::C_Pulses> pulses = lucent_app::C_Pulses::create(log);
   lucent::Box<lucent::Fn<void()>> finish{};
   lucent::Fn<void()> v3_ = lucent::Fn<void()>([]() mutable -> void {});
   *finish = std::move(v3_);
   lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)> v5_ = lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)>([finish = finish, pulses = pulses](lucent::Fn<void(double)> p0_, lucent::Fn<void()> p1_, lucent::Fn<void(lucent::Error)> p2_) mutable -> lucent::Fn<void()> {
+    lucent::checkStack();
     *finish = p1_;
     lucent::Fn<void(lucent::Error)> v4_ = lucent::Fn<void(lucent::Error)>([](lucent::Error p0_) mutable -> void {});
     double r_id_ = pulses->listen(p0_, v4_);
     lucent::Fn<void()> v8_ = lucent::Fn<void()>([pulses = pulses, r_id_ = r_id_]() mutable -> void {
+      lucent::checkStack();
       pulses->remove(r_id_);
       return;
     });
     return v8_;
   });
   lucent::Fn<double(double)> v7_ = lucent::Fn<double(double)>([log = log](double p0_) mutable -> double {
+    lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("level ")) + lucent::toJsString(p0_);
     return log.push(v4_);
   });
@@ -513,9 +554,11 @@ lucent::Promise<lucent::String> m_listeners::subscriptionEnds() {
   lucent::String v20_ = co_await v19_;
   (void)log.push(v20_);
   lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)> v23_ = lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)>([pulses = pulses](lucent::Fn<void(double)> p0_, lucent::Fn<void()> p1_, lucent::Fn<void(lucent::Error)> p2_) mutable -> lucent::Fn<void()> {
+    lucent::checkStack();
     lucent::Fn<void(double)> v4_ = lucent::Fn<void(double)>([](double p0_) mutable -> void {});
     double r_id_ = pulses->listen(v4_, p2_);
     lucent::Fn<void()> v8_ = lucent::Fn<void()>([pulses = pulses, r_id_ = r_id_]() mutable -> void {
+      lucent::checkStack();
       pulses->remove(r_id_);
       return;
     });
@@ -529,15 +572,18 @@ lucent::Promise<lucent::String> m_listeners::subscriptionEnds() {
   (void)log.push(v32_);
   lucent::AbortController c = std::make_shared<lucent::AbortControllerObject>();
   lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)> v36_ = lucent::Fn<lucent::Fn<void()>(lucent::Fn<void(double)>, lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)>([pulses = pulses](lucent::Fn<void(double)> p0_, lucent::Fn<void()> p1_, lucent::Fn<void(lucent::Error)> p2_) mutable -> lucent::Fn<void()> {
+    lucent::checkStack();
     lucent::Fn<void(lucent::Error)> v4_ = lucent::Fn<void(lucent::Error)>([](lucent::Error p0_) mutable -> void {});
     double r_id_ = pulses->listen(p0_, v4_);
     lucent::Fn<void()> v8_ = lucent::Fn<void()>([pulses = pulses, r_id_ = r_id_]() mutable -> void {
+      lucent::checkStack();
       pulses->remove(r_id_);
       return;
     });
     return v8_;
   });
   lucent::Fn<void(double)> v39_ = lucent::Fn<void(double)>([log = log, c = c](double p0_) mutable -> void {
+    lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("seen ")) + lucent::toJsString(p0_);
     (void)log.push(v4_);
     bool v7_ = p0_ == 7.0;

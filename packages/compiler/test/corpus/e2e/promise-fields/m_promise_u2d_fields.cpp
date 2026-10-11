@@ -64,6 +64,7 @@
 namespace lucent_app {
 
 void C_Writer::construct() {
+  lucent::checkStack();
   lucent::Promise<void> v0_ = lucent::Promise<void>::resolved();
   this->pending = v0_;
   lucent::Array<lucent::String> v2_ = lucent::Array<lucent::String>{};
@@ -78,10 +79,12 @@ lucent::Ref<C_Writer> C_Writer::create() {
 
 lucent::Promise<void> C_Writer::write(lucent::String p0_, double p1_) {
   auto self = lucent::selfRef(this);
+  lucent::checkStack();
   lucent::Promise<void> previous = this->pending;
   lucent::Ref<lucent_app::C_Writer> v4_ = lucent::selfRef(this);
   lucent::Fn<lucent::Promise<void>()> v5_ = lucent::Fn<lucent::Promise<void>()>([self = v4_, previous = previous, ms = p1_, s = p0_]() -> lucent::Promise<void> {
     return [](auto self, auto previous, auto ms, auto s) -> lucent::Promise<void> {
+      lucent::checkStack();
       co_await previous;
       lucent::Promise<void> v3_ = lucent::delay(ms);
       co_await v3_;
@@ -98,6 +101,7 @@ lucent::Promise<void> C_Writer::write(lucent::String p0_, double p1_) {
 }
 
 void C_Cache::construct(double p0_) {
+  lucent::checkStack();
   this->loads = 0.0;
   lucent::Promise<lucent::Ref<lucent_app::S_Point>> v3_ = this->load(p0_);
   this->point = v3_;
@@ -111,6 +115,7 @@ lucent::Ref<C_Cache> C_Cache::create(double p0_) {
 
 lucent::Promise<lucent::Ref<lucent_app::S_Point>> C_Cache::load(double p0_) {
   auto self = lucent::selfRef(this);
+  lucent::checkStack();
   lucent::Promise<void> v2_ = lucent::delay(2.0);
   co_await v2_;
   double v4_ = this->loads;
@@ -122,11 +127,13 @@ lucent::Promise<lucent::Ref<lucent_app::S_Point>> C_Cache::load(double p0_) {
 
 lucent::Promise<double> C_Cache::read() {
   auto self = lucent::selfRef(this);
+  lucent::checkStack();
   lucent::Promise<lucent::Ref<lucent_app::S_Point>> v0_ = this->point;
   lucent::Ref<lucent_app::S_Point> v1_ = co_await v0_;
   lucent::Ref<lucent_app::S_Point> p = std::move(v1_);
   lucent::Fn<lucent::Promise<double>()> v3_ = lucent::Fn<lucent::Promise<double>()>([p = p]() mutable -> lucent::Promise<double> {
     try {
+      lucent::checkStack();
       double v1_ = p->x;
       double v3_ = p->y;
       return lucent::Promise<double>::resolved(v1_ + v3_);
@@ -152,6 +159,7 @@ lucent::Promise<double> C_Cache::read() {
 }
 
 lucent::Promise<lucent::String> m_promise_u2d_fields::serialized() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Writer> w = lucent_app::C_Writer::create();
   lucent::Promise<void> v4_ = w->write(LUCENT_STR("a"), 6.0);
   lucent::Promise<void> v8_ = w->write(LUCENT_STR("b"), 1.0);
@@ -166,6 +174,7 @@ lucent::Promise<lucent::String> m_promise_u2d_fields::serialized() {
 }
 
 lucent::Promise<lucent::String> m_promise_u2d_fields::cached() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Cache> c = lucent_app::C_Cache::create(3.0);
   lucent::Opt<lucent::Promise<double>> v3_ = c->total;
   bool before = lucent::strictEquals(v3_, lucent::undefined);
@@ -181,6 +190,7 @@ lucent::Promise<lucent::String> m_promise_u2d_fields::cached() {
 }
 
 lucent::String m_promise_u2d_fields::stringified() {
+  lucent::checkStack();
   lucent::Promise<double> v2_ = lucent::resolvedPromise<double>(1.0);
   lucent::Ref<lucent_app::S_Object_4fce5112> box = ({ auto obj_2_ = std::make_shared<lucent_app::S_Object_4fce5112>(); obj_2_->label = LUCENT_STR("box"); obj_2_->ready = v2_; obj_2_; });
   lucent::Promise<lucent::String> v5_ = lucent::resolvedPromise<lucent::String>(LUCENT_STR("a"));
@@ -192,6 +202,7 @@ lucent::String m_promise_u2d_fields::stringified() {
 }
 
 lucent::Ref<lucent_app::C_Writer> m_promise_u2d_fields::makeWriter() {
+  lucent::checkStack();
   return lucent_app::C_Writer::create();
 }
 

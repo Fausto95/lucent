@@ -57,6 +57,7 @@
 namespace lucent_app {
 
 lucent::String m_integers::wraparound() {
+  lucent::checkStack();
   int32_t a = 2147483647;
   a = lucent::toInt32(static_cast<double>(a) + 1.0) | 0;
   int32_t b = lucent::toInt32(-2147483648.0);
@@ -71,6 +72,7 @@ lucent::String m_integers::wraparound() {
 }
 
 lucent::String m_integers::shifts(double p0_, double p1_) {
+  lucent::checkStack();
   int32_t l = lucent::toInt32(p0_) | 0;
   l = static_cast<int32_t>(static_cast<uint32_t>(l) << (lucent::toUint32(p1_) & 31u));
   int32_t r = lucent::toInt32(p0_) | 0;
@@ -85,6 +87,7 @@ lucent::String m_integers::shifts(double p0_, double p1_) {
 }
 
 lucent::String m_integers::mixed(double p0_) {
+  lucent::checkStack();
   int32_t h = lucent::toInt32(p0_) | 0;
   double half = static_cast<double>(h) / 2.0;
   h = h ^ 3;
@@ -121,6 +124,7 @@ lucent::String m_integers::signedZero() {
 }
 
 lucent::String m_integers::counters() {
+  lucent::checkStack();
   lucent::Array<double> out = lucent::Array<double>{};
   {
     int64_t i = static_cast<int64_t>(10);
@@ -231,6 +235,7 @@ lucent::String m_integers::counters() {
 }
 
 double m_integers::unsignedAccumulate(double p0_) {
+  lucent::checkStack();
   int64_t h = static_cast<int64_t>(2166136261u);
   {
     int64_t i = static_cast<int64_t>(0);
@@ -251,6 +256,7 @@ double m_integers::unsignedAccumulate(double p0_) {
 }
 
 lucent::String m_integers::destructured(lucent::Ref<lucent_app::S_Object_1e208747> p0_, lucent::Array<double> p1_) {
+  lucent::checkStack();
   double z = 0.0;
   z = p0_->z;
   double b = 0.0;

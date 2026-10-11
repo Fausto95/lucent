@@ -73,6 +73,7 @@ namespace m_union_u2d_generics {
 
 template <class A, class B>
 lucent::String show(std::variant<A, B> p0_) {
+  lucent::checkStack();
   lucent::String v1_ = lucent::typeOf(p0_);
   lucent::String v3_ = lucent::toJsString(p0_);
   return lucent::concat(v1_, LUCENT_STR(":"), v3_);
@@ -84,6 +85,7 @@ namespace m_union_u2d_generics {
 
 template <class A, class B>
 bool same(A p0_, std::variant<A, B> p1_) {
+  lucent::checkStack();
   return lucent::strictEquals(p0_, p1_);
 }
 
@@ -93,6 +95,7 @@ namespace m_union_u2d_generics {
 
 template <class T>
 lucent::String orNull(lucent::Opt<T> p0_) {
+  lucent::checkStack();
   bool v2_ = lucent::strictEquals(p0_, lucent::null);
   lucent::String v5_{};
   if (v2_) {
@@ -109,6 +112,7 @@ namespace m_union_u2d_generics {
 
 template <class T>
 lucent::Opt<T> firstOf(lucent::Array<T> p0_) {
+  lucent::checkStack();
   return p0_.getIndex(static_cast<int64_t>(0));
 }
 

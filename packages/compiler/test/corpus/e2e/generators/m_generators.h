@@ -62,6 +62,7 @@ namespace m_generators {
 
 template <class T>
 lucent::Iter<T> take(lucent::Iter<T> p0_, double p1_) {
+  lucent::checkStack();
   bool v3_ = p1_ <= 0.0;
   if (v3_) {
     co_return;
@@ -98,6 +99,7 @@ namespace m_generators {
 
 template <class T>
 lucent::Iter<T> concat(lucent::Iter<T> p0_, lucent::Iter<T> p1_) {
+  lucent::checkStack();
   {
     auto coll0_ = p0_;
     lucent::IterCloser<T> coll0_close_(coll0_);

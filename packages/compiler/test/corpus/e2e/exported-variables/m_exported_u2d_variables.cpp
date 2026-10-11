@@ -26,6 +26,7 @@ double m_exported_u2d_variables::bump() {
 }
 
 void m_exported_u2d_variables::grow() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Config> v0_ = lucent::assigned(lucent_app::m_exported_u2d_variables::config, "config");
   double v1_ = v0_->size;
   double v3_ = v1_ + 1.0;
@@ -33,6 +34,7 @@ void m_exported_u2d_variables::grow() {
 }
 
 void m_exported_u2d_variables::init() {
+  lucent::checkStack();
   lucent_app::m_exported_u2d_variables::count = 0.0;
   lucent_app::m_exported_u2d_variables::config = ({ auto obj_2_ = std::make_shared<lucent_app::S_Config>(); obj_2_->size = 1.0; obj_2_; });
   lucent_app::m_exported_u2d_variables::list = lucent::Array<double>{1.0, 2.0};

@@ -401,6 +401,7 @@ describe("structured control flow in C++", () => {
     expect(printed(nested())).toBe(
       [
         "void nested(bool p0_) {",
+        "  lucent::checkStack();",
         "  while (true) {",
         "    {",
         "      while (true) {",

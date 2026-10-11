@@ -13,6 +13,7 @@
 namespace lucent_app {
 
 double m_clock::tick(lucent::Fn<double()> p0_) {
+  lucent::checkStack();
   double v1_ = lucent_app::m_clock::ticks;
   lucent_app::m_clock::ticks = v1_ + 1.0;
   double v4_ = p0_();
@@ -20,6 +21,7 @@ double m_clock::tick(lucent::Fn<double()> p0_) {
 }
 
 lucent::Promise<double> m_clock::later(double p0_) {
+  lucent::checkStack();
   double v1_ = lucent_app::m_clock::ticks;
   double before = v1_;
   lucent::Promise<void> v3_ = lucent::delay(2.0);

@@ -108,6 +108,7 @@
 namespace lucent_app {
 
 void C_Counter::construct() {
+  lucent::checkStack();
   this->total = 0.0;
 }
 
@@ -118,12 +119,14 @@ lucent::Ref<C_Counter> C_Counter::create() {
 }
 
 double C_Counter::step() {
+  lucent::checkStack();
   this->total = 100.0;
   lucent_app::m_assignment_u2d_order::note(LUCENT_STR("step"));
   return 1.0;
 }
 
 double C_Counter::add() {
+  lucent::checkStack();
   double v0_ = this->total;
   double v1_ = this->step();
   double v2_ = v0_ + v1_;
@@ -132,6 +135,7 @@ double C_Counter::add() {
 }
 
 void m_assignment_u2d_order::reset() {
+  lucent::checkStack();
   lucent_app::m_assignment_u2d_order::trace = lucent::String();
   lucent_app::m_assignment_u2d_order::log = lucent::String();
   lucent_app::m_assignment_u2d_order::count = 100.0;
@@ -152,12 +156,14 @@ void m_assignment_u2d_order::note(lucent::String p0_) {
 }
 
 lucent::String m_assignment_u2d_order::relog(lucent::String p0_) {
+  lucent::checkStack();
   lucent_app::m_assignment_u2d_order::log = lucent::concat(LUCENT_STR("<"), p0_, LUCENT_STR(">"));
   lucent_app::m_assignment_u2d_order::note(p0_);
   return p0_;
 }
 
 double m_assignment_u2d_order::bump(double p0_) {
+  lucent::checkStack();
   double v1_ = lucent_app::m_assignment_u2d_order::count;
   lucent_app::m_assignment_u2d_order::count = v1_ + 1000.0;
   lucent_app::m_assignment_u2d_order::note(lucent::String(LUCENT_STR("bump")) + lucent::toJsString(p0_));
@@ -165,17 +171,20 @@ double m_assignment_u2d_order::bump(double p0_) {
 }
 
 double m_assignment_u2d_order::boom(lucent::String p0_) {
+  lucent::checkStack();
   lucent_app::m_assignment_u2d_order::note(p0_);
   lucent::Error v4_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), lucent::String(p0_) + LUCENT_STR(" failed")), __FILE__, __LINE__, "boom");
   lucent::throwError(v4_);
 }
 
 double m_assignment_u2d_order::index(double p0_) {
+  lucent::checkStack();
   lucent_app::m_assignment_u2d_order::note(lucent::String(LUCENT_STR("i")) + lucent::toJsString(p0_));
   return p0_;
 }
 
 lucent::String m_assignment_u2d_order::moduleString() {
+  lucent::checkStack();
   lucent_app::m_assignment_u2d_order::log = LUCENT_STR("a");
   lucent::String v1_ = lucent_app::m_assignment_u2d_order::log;
   lucent::String v3_ = lucent_app::m_assignment_u2d_order::relog(LUCENT_STR("x"));
@@ -185,6 +194,7 @@ lucent::String m_assignment_u2d_order::moduleString() {
 }
 
 lucent::String m_assignment_u2d_order::moduleNumbers() {
+  lucent::checkStack();
   lucent::Array<double> out = lucent::Array<double>{};
   double v1_ = lucent_app::m_assignment_u2d_order::count;
   double v3_ = lucent_app::m_assignment_u2d_order::bump(1.0);
@@ -231,6 +241,7 @@ lucent::String m_assignment_u2d_order::moduleNumbers() {
 }
 
 lucent::String m_assignment_u2d_order::moduleLogical() {
+  lucent::checkStack();
   lucent::Opt<double> v0_ = lucent_app::m_assignment_u2d_order::maybe;
   bool v2_ = !v0_.has();
   double v7_{};
@@ -285,18 +296,21 @@ lucent::String m_assignment_u2d_order::moduleLogical() {
 }
 
 double m_assignment_u2d_order::setMaybe(double p0_) {
+  lucent::checkStack();
   lucent_app::m_assignment_u2d_order::maybe = lucent::Opt<double>(p0_ * 10.0);
   lucent_app::m_assignment_u2d_order::note(lucent::String(LUCENT_STR("maybe")) + lucent::toJsString(p0_));
   return p0_;
 }
 
 bool m_assignment_u2d_order::setFlag(bool p0_) {
+  lucent::checkStack();
   lucent_app::m_assignment_u2d_order::flag = !p0_;
   lucent_app::m_assignment_u2d_order::note(lucent::String(LUCENT_STR("flag")) + lucent::toJsString(p0_));
   return p0_;
 }
 
 lucent::String m_assignment_u2d_order::moduleThrows() {
+  lucent::checkStack();
   {
     std::exception_ptr ex4_;
     try {
@@ -339,6 +353,7 @@ lucent::String m_assignment_u2d_order::locals() {
 }
 
 lucent::String m_assignment_u2d_order::captured() {
+  lucent::checkStack();
   lucent::Box<lucent::String> s{};
   *s = LUCENT_STR("a");
   lucent::Box<double> n{};
@@ -365,6 +380,7 @@ lucent::String m_assignment_u2d_order::captured() {
 }
 
 double m_assignment_u2d_order::replace() {
+  lucent::checkStack();
   double v1_ = -1.0;
   lucent_app::m_assignment_u2d_order::shared = ({ auto obj_2_ = std::make_shared<lucent_app::S_Box>(); obj_2_->n = v1_; obj_2_->s = LUCENT_STR("replaced"); obj_2_; });
   lucent_app::m_assignment_u2d_order::items = lucent::Array<double>{7.0, 8.0, 9.0};
@@ -373,6 +389,7 @@ double m_assignment_u2d_order::replace() {
 }
 
 lucent::String m_assignment_u2d_order::replaced() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Box> v0_ = lucent::assigned(lucent_app::m_assignment_u2d_order::shared, "shared");
   lucent::Ref<lucent_app::S_Box> first = std::move(v0_);
   lucent::Ref<lucent_app::S_Box> v1_ = lucent::assigned(lucent_app::m_assignment_u2d_order::shared, "shared");
@@ -404,11 +421,13 @@ lucent::String m_assignment_u2d_order::replaced() {
 }
 
 lucent::Ref<lucent_app::S_Box> m_assignment_u2d_order::pick(lucent::Ref<lucent_app::S_Box> p0_, lucent::String p1_) {
+  lucent::checkStack();
   lucent_app::m_assignment_u2d_order::note(p1_);
   return p0_;
 }
 
 double m_assignment_u2d_order::mutate(lucent::Ref<lucent_app::S_Box> p0_) {
+  lucent::checkStack();
   p0_->n = 50.0;
   p0_->s = LUCENT_STR("changed");
   lucent_app::m_assignment_u2d_order::note(LUCENT_STR("mutate"));
@@ -416,6 +435,7 @@ double m_assignment_u2d_order::mutate(lucent::Ref<lucent_app::S_Box> p0_) {
 }
 
 lucent::String m_assignment_u2d_order::fields() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Box> box = ({ auto obj_3_ = std::make_shared<lucent_app::S_Box>(); obj_3_->n = 1.0; obj_3_->s = LUCENT_STR("a"); obj_3_; });
   lucent::Array<double> seen = lucent::Array<double>{};
   double v5_ = box->n;
@@ -448,8 +468,10 @@ lucent::String m_assignment_u2d_order::fields() {
 }
 
 lucent::String m_assignment_u2d_order::elements() {
+  lucent::checkStack();
   lucent::Array<double> xs = lucent::Array<double>{1.0, 2.0, 3.0};
   lucent::Fn<double()> v5_ = lucent::Fn<double()>([xs = xs]() mutable -> double {
+    lucent::checkStack();
     lucent::setElement(xs, 0.0, 100.0);
     lucent_app::m_assignment_u2d_order::note(LUCENT_STR("grow"));
     return 1.0;
@@ -482,13 +504,16 @@ lucent::String m_assignment_u2d_order::elements() {
 }
 
 lucent::String m_assignment_u2d_order::entries() {
+  lucent::checkStack();
   lucent::Dict<double> counts = ({ lucent::Dict<double> rec_4_; rec_4_.set(LUCENT_STR("a"), 1.0); rec_4_.set(LUCENT_STR("b"), 2.0); rec_4_; });
   lucent::Fn<lucent::String(lucent::String)> v3_ = lucent::Fn<lucent::String(lucent::String)>([](lucent::String p0_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent_app::m_assignment_u2d_order::note(p0_);
     return p0_;
   });
   lucent::Fn<lucent::String(lucent::String)> key = std::move(v3_);
   lucent::Fn<double()> v5_ = lucent::Fn<double()>([counts = counts]() mutable -> double {
+    lucent::checkStack();
     lucent::setEntry(counts, LUCENT_STR("a"), 40.0);
     lucent_app::m_assignment_u2d_order::note(LUCENT_STR("clobber"));
     return 2.0;
@@ -511,6 +536,7 @@ lucent::String m_assignment_u2d_order::entries() {
 }
 
 lucent::String m_assignment_u2d_order::elementThrows() {
+  lucent::checkStack();
   lucent::Array<double> xs = lucent::Array<double>{1.0, 2.0, 3.0};
   {
     std::exception_ptr ex12_;
@@ -556,11 +582,13 @@ lucent::String m_assignment_u2d_order::elementThrows() {
 }
 
 double m_assignment_u2d_order::members() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Counter> v0_ = lucent_app::C_Counter::create();
   return v0_->add();
 }
 
 void m_assignment_u2d_order::init() {
+  lucent::checkStack();
   lucent_app::m_assignment_u2d_order::trace = lucent::String();
   lucent_app::m_assignment_u2d_order::log = lucent::String();
   lucent_app::m_assignment_u2d_order::count = 100.0;

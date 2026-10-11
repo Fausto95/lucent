@@ -79,6 +79,7 @@
 namespace lucent_app {
 
 void C_Tally::construct() {
+  lucent::checkStack();
   this->n = lucent::BigInt::fromInt64(0);
   lucent::Array<lucent::BigInt> v4_ = lucent::Array<lucent::BigInt>{lucent::BigInt::fromInt64(1), lucent::BigInt::fromInt64(2)};
   this->items = v4_;
@@ -91,6 +92,7 @@ lucent::Ref<C_Tally> C_Tally::create() {
 }
 
 lucent::Array<lucent::BigInt> m_bigint_u2d_arith::literals() {
+  lucent::checkStack();
   lucent::BigInt v3_ = -lucent::BigInt::fromInt64(1);
   lucent::BigInt v9_ = -LUCENT_BIGINT("9223372036854775808");
   lucent::BigInt v11_ = -LUCENT_BIGINT("9223372036854775809");
@@ -98,6 +100,7 @@ lucent::Array<lucent::BigInt> m_bigint_u2d_arith::literals() {
 }
 
 lucent::Array<lucent::BigInt> m_bigint_u2d_arith::arith(lucent::BigInt p0_, lucent::BigInt p1_) {
+  lucent::checkStack();
   lucent::BigInt v2_ = p0_ + p1_;
   lucent::BigInt v3_ = p0_ - p1_;
   lucent::BigInt v4_ = p0_ * p1_;
@@ -120,12 +123,14 @@ lucent::BigInt m_bigint_u2d_arith::power(lucent::BigInt p0_, lucent::BigInt p1_)
 }
 
 lucent::Array<lucent::BigInt> m_bigint_u2d_arith::shifts(lucent::BigInt p0_, lucent::BigInt p1_) {
+  lucent::checkStack();
   lucent::BigInt v2_ = p0_ << p1_;
   lucent::BigInt v3_ = p0_ >> p1_;
   return lucent::Array<lucent::BigInt>{v2_, v3_};
 }
 
 lucent::Array<bool> m_bigint_u2d_arith::compare(lucent::BigInt p0_, lucent::BigInt p1_) {
+  lucent::checkStack();
   bool v2_ = p0_ < p1_;
   bool v3_ = p0_ <= p1_;
   bool v4_ = p0_ > p1_;
@@ -138,6 +143,7 @@ lucent::Array<bool> m_bigint_u2d_arith::compare(lucent::BigInt p0_, lucent::BigI
 }
 
 lucent::Array<bool> m_bigint_u2d_arith::compareNumber(lucent::BigInt p0_, double p1_) {
+  lucent::checkStack();
   bool v2_ = p0_ < p1_;
   bool v3_ = p0_ <= p1_;
   bool v4_ = p0_ > p1_;
@@ -150,6 +156,7 @@ lucent::Array<bool> m_bigint_u2d_arith::compareNumber(lucent::BigInt p0_, double
 }
 
 lucent::String m_bigint_u2d_arith::truthiness(lucent::BigInt p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> out = lucent::Array<lucent::String>{};
   bool v2_ = lucent::truthy(p0_);
   if (v2_) {
@@ -205,6 +212,7 @@ lucent::String m_bigint_u2d_arith::kind(lucent::BigInt p0_) {
 }
 
 lucent::Array<lucent::BigInt> m_bigint_u2d_arith::counters(lucent::BigInt p0_) {
+  lucent::checkStack();
   lucent::BigInt x = p0_;
   lucent::Array<lucent::BigInt> out = lucent::Array<lucent::BigInt>{};
   lucent::BigInt v3_ = x;
@@ -245,6 +253,7 @@ lucent::Array<lucent::BigInt> m_bigint_u2d_arith::counters(lucent::BigInt p0_) {
 }
 
 lucent::Array<lucent::BigInt> m_bigint_u2d_arith::places() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Tally> t = lucent_app::C_Tally::create();
   lucent_app::S_Object_e88aee9e box = ({ lucent_app::S_Object_e88aee9e obj_1_{}; obj_1_.v = lucent::BigInt::fromInt64(10); std::move(obj_1_); });
   lucent::BigInt v4_ = t->n;
@@ -300,6 +309,7 @@ lucent::BigInt m_bigint_u2d_arith::next(lucent::BigInt p0_) {
 }
 
 lucent::String m_bigint_u2d_arith::order() {
+  lucent::checkStack();
   lucent_app::m_bigint_u2d_arith::log = lucent::String();
   lucent::BigInt v2_ = lucent_app::m_bigint_u2d_arith::next(lucent::BigInt::fromInt64(1));
   lucent::BigInt v4_ = lucent_app::m_bigint_u2d_arith::next(lucent::BigInt::fromInt64(2));
@@ -321,6 +331,7 @@ lucent::String m_bigint_u2d_arith::order() {
 }
 
 lucent::Array<lucent::BigInt> m_bigint_u2d_arith::around(lucent::BigInt p0_) {
+  lucent::checkStack();
   lucent::BigInt p = lucent::BigInt::fromInt64(1) << p0_;
   lucent::BigInt v5_ = p - lucent::BigInt::fromInt64(1);
   lucent::BigInt v9_ = p + lucent::BigInt::fromInt64(1);
@@ -331,6 +342,7 @@ lucent::Array<lucent::BigInt> m_bigint_u2d_arith::around(lucent::BigInt p0_) {
 }
 
 lucent::Array<lucent::BigInt> m_bigint_u2d_arith::large() {
+  lucent::checkStack();
   lucent::BigInt f = lucent::BigInt::fromInt64(1);
   {
     lucent::BigInt i = lucent::BigInt::fromInt64(1);

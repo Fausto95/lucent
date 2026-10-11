@@ -35,7 +35,9 @@
 namespace lucent_app {
 
 lucent::Array<lucent::String> m_numbers::format(lucent::Array<double> p0_) {
+  lucent::checkStack();
   return p0_.template map<lucent::String>([](double p0_, double p1_, lucent::Array<double> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v3_ = lucent::toJsString(p0_);
     lucent::String v6_ = lucent::numberToFixed(p0_, 2.0);
     lucent::String v9_ = lucent::numberToString(p0_, 16.0);
@@ -51,6 +53,7 @@ lucent::Array<lucent::String> m_numbers::format(lucent::Array<double> p0_) {
 }
 
 lucent::Array<double> m_numbers::bits(double p0_, double p1_) {
+  lucent::checkStack();
   int32_t v2_ = lucent::toInt32(p0_) & lucent::toInt32(p1_);
   int32_t v3_ = lucent::toInt32(p0_) | lucent::toInt32(p1_);
   int32_t v4_ = lucent::toInt32(p0_) ^ lucent::toInt32(p1_);
@@ -64,18 +67,23 @@ lucent::Array<double> m_numbers::bits(double p0_, double p1_) {
 }
 
 lucent::Array<double> m_numbers::parse(lucent::Array<lucent::String> p0_) {
+  lucent::checkStack();
   return p0_.template map<double>([](lucent::String p0_, double p1_, lucent::Array<lucent::String> p2_) mutable -> double {
+    lucent::checkStack();
     return lucent::stringToNumber(p0_);
   });
 }
 
 lucent::Array<double> m_numbers::parseInts(lucent::Array<lucent::String> p0_) {
+  lucent::checkStack();
   return p0_.template map<double>([](lucent::String p0_, double p1_, lucent::Array<lucent::String> p2_) mutable -> double {
+    lucent::checkStack();
     return lucent::parseInt(p0_, 10.0);
   });
 }
 
 lucent::String m_numbers::special() {
+  lucent::checkStack();
   double v2_ = 0.1 + 0.2;
   double v5_ = 1.0 / 3.0;
   double v9_ = -0.0;
@@ -87,12 +95,14 @@ lucent::String m_numbers::special() {
   double v25_ = 2.220446049250313e-16;
   lucent::Array<double> results = lucent::Array<double>{v2_, v5_, 1e+21, 1e-7, v9_, v12_, v16_, v19_, v22_, 123456789.12345679, v24_, v25_};
   lucent::Array<lucent::String> v29_ = results.template map<lucent::String>([](double p0_, double p1_, lucent::Array<double> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     return lucent::toJsString(p0_);
   });
   return v29_.join(LUCENT_STR(","));
 }
 
 lucent::Array<double> m_numbers::mathFns(double p0_) {
+  lucent::checkStack();
   double v1_ = -p0_;
   double v2_ = lucent::math::abs(v1_);
   double v3_ = lucent::math::sqrt(p0_);
@@ -110,6 +120,7 @@ lucent::Array<double> m_numbers::mathFns(double p0_) {
 }
 
 lucent::String m_numbers::precision(double p0_) {
+  lucent::checkStack();
   lucent::String v2_ = lucent::numberToPrecision(p0_, 3.0);
   lucent::String v4_ = lucent::numberToExponential(p0_, 2.0);
   lucent::String v6_ = lucent::numberToFixed(p0_, 0.0);
@@ -120,6 +131,7 @@ lucent::String m_numbers::precision(double p0_) {
 }
 
 lucent::Array<bool> m_numbers::checks(double p0_) {
+  lucent::checkStack();
   bool v1_ = lucent::isInteger(p0_);
   bool v2_ = lucent::isFinite(p0_);
   bool v3_ = lucent::isNaN(p0_);
@@ -129,6 +141,7 @@ lucent::Array<bool> m_numbers::checks(double p0_) {
 }
 
 lucent::String m_numbers::heldChecks(lucent::Opt<double> p0_, std::variant<double, lucent::String> p1_, lucent::Opt<double> p2_, std::variant<lucent::BigInt, double> p3_) {
+  lucent::checkStack();
   bool v4_ = lucent::numberIs(p0_, lucent::isInteger);
   bool v5_ = lucent::numberIs(p0_, lucent::isSafeInteger);
   bool v6_ = lucent::numberIs(p0_, lucent::isFinite);
@@ -145,6 +158,7 @@ lucent::String m_numbers::heldChecks(lucent::Opt<double> p0_, std::variant<doubl
 }
 
 double m_numbers::sum(lucent::Array<double> p0_) {
+  lucent::checkStack();
   double total = 0.0;
   {
     auto coll0_ = p0_;
@@ -160,6 +174,7 @@ double m_numbers::sum(lucent::Array<double> p0_) {
 }
 
 double m_numbers::fib(double p0_) {
+  lucent::checkStack();
   bool v2_ = p0_ < 2.0;
   double v10_{};
   if (v2_) {

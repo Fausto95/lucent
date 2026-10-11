@@ -31,6 +31,7 @@
 namespace lucent_app {
 
 lucent::Promise<lucent::String> m_abort::waitOrStop(double p0_, lucent::AbortSignal p1_) {
+  lucent::checkStack();
   {
     std::exception_ptr ex5_;
     try {
@@ -53,6 +54,7 @@ lucent::Promise<lucent::String> m_abort::waitOrStop(double p0_, lucent::AbortSig
 }
 
 lucent::Promise<lucent::String> m_abort::tickUntilAborted(lucent::AbortSignal p0_) {
+  lucent::checkStack();
   double ticks = 0.0;
   while (true) {
     bool v2_ = p0_->aborted.load();
@@ -75,6 +77,7 @@ lucent::Promise<lucent::String> m_abort::tickUntilAborted(lucent::AbortSignal p0
 }
 
 lucent::String m_abort::check(lucent::AbortSignal p0_) {
+  lucent::checkStack();
   {
     std::exception_ptr ex3_;
     try {
@@ -96,6 +99,7 @@ lucent::String m_abort::check(lucent::AbortSignal p0_) {
 }
 
 lucent::String m_abort::checkOptional(lucent::Opt<lucent::AbortSignal> p0_) {
+  lucent::checkStack();
   bool v2_ = lucent::strictEquals(p0_, lucent::undefined);
   lucent::String v6_{};
   if (v2_) {
@@ -107,10 +111,12 @@ lucent::String m_abort::checkOptional(lucent::Opt<lucent::AbortSignal> p0_) {
 }
 
 lucent::Promise<lucent::String> m_abort::controllerInLucent() {
+  lucent::checkStack();
   lucent::AbortController c = std::make_shared<lucent::AbortControllerObject>();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::AbortSignal v3_ = c->signal;
   lucent::Fn<double()> v5_ = lucent::Fn<double()>([log = log]() mutable -> double {
+    lucent::checkStack();
     return log.push(LUCENT_STR("listener"));
   });
   v3_->addEventListener(lucent::Fn<void()>([fn_1_ = v5_]() {
@@ -118,6 +124,7 @@ lucent::Promise<lucent::String> m_abort::controllerInLucent() {
   }));
   lucent::Fn<lucent::Promise<void>()> v9_ = lucent::Fn<lucent::Promise<void>()>([c = c, log = log]() -> lucent::Promise<void> {
     return [](auto c, auto log) -> lucent::Promise<void> {
+      lucent::checkStack();
       {
         std::exception_ptr ex8_;
         try {
@@ -160,6 +167,7 @@ lucent::Promise<lucent::String> m_abort::controllerInLucent() {
 }
 
 lucent::Promise<lucent::String> m_abort::customReason() {
+  lucent::checkStack();
   lucent::AbortController c = std::make_shared<lucent::AbortControllerObject>();
   lucent::Error v3_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), LUCENT_STR("stop please")), __FILE__, __LINE__, "customReason");
   c->abort(v3_);
@@ -187,8 +195,10 @@ lucent::Promise<lucent::String> m_abort::customReason() {
 }
 
 lucent::Promise<lucent::String> m_abort::abortedMidway(lucent::AbortSignal p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Fn<double()> v3_ = lucent::Fn<double()>([log = log]() mutable -> double {
+    lucent::checkStack();
     return log.push(LUCENT_STR("js aborted"));
   });
   p0_->addEventListener(lucent::Fn<void()>([fn_2_ = v3_]() {

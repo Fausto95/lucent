@@ -82,6 +82,7 @@
 namespace lucent_app {
 
 void C_Tree::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->label = p0_;
   lucent::Array<lucent::Ref<lucent_app::C_Tree>> v2_ = lucent::Array<lucent::Ref<lucent_app::C_Tree>>{};
   this->children = v2_;
@@ -94,6 +95,7 @@ lucent::Ref<C_Tree> C_Tree::create(lucent::String p0_) {
 }
 
 lucent::Ref<lucent_app::C_Tree> C_Tree::add(lucent::Ref<lucent_app::C_Tree> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::Ref<lucent_app::C_Tree>> v1_ = this->children;
   (void)v1_.push(p0_);
   return lucent::selfRef(this);
@@ -101,6 +103,7 @@ lucent::Ref<lucent_app::C_Tree> C_Tree::add(lucent::Ref<lucent_app::C_Tree> p0_)
 
 lucent::Iter<lucent::String> C_Tree::walk(lucent::Opt<double> p0_) {
   auto self = lucent::selfRef(this);
+  lucent::checkStack();
   double depth{};
   bool v2_ = lucent::strictEquals(p0_, lucent::undefined);
   if (v2_) {
@@ -167,6 +170,7 @@ lucent::Iter<double> m_generators::range(double p0_, double p1_, lucent::Opt<dou
 }
 
 lucent::Iter<double> m_generators::fib() {
+  lucent::checkStack();
   double a = 0.0;
   double b = 1.0;
   while (true) {
@@ -179,6 +183,7 @@ lucent::Iter<double> m_generators::fib() {
 }
 
 lucent::String m_generators::basics() {
+  lucent::checkStack();
   lucent::Iter<double> v2_ = lucent_app::m_generators::range(0.0, 5.0, lucent::Opt<double>(lucent::undefined));
   lucent::Array<double> v3_ = ({ lucent::Array<double> arr_1_; arr_1_.append(lucent::iterToArray(v2_)); arr_1_; });
   lucent::String v5_ = v3_.join(LUCENT_STR(","));
@@ -203,10 +208,12 @@ lucent::String m_generators::basics() {
 }
 
 lucent::String m_generators::lazy() {
+  lucent::checkStack();
   lucent::Box<lucent::Fn<lucent::Iter<double>()>> noisy{};
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Fn<lucent::Iter<double>()> v2_ = lucent::Fn<lucent::Iter<double>()>([log = log]() -> lucent::Iter<double> {
     return [](auto log) -> lucent::Iter<double> {
+      lucent::checkStack();
       (void)log.push(LUCENT_STR("start"));
       co_yield 1.0;
       (void)log.push(LUCENT_STR("after 1"));
@@ -241,10 +248,12 @@ lucent::String m_generators::lazy() {
 }
 
 lucent::String m_generators::earlyExit() {
+  lucent::checkStack();
   lucent::Box<lucent::Fn<lucent::Iter<double>()>> guarded{};
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Fn<lucent::Iter<double>()> v2_ = lucent::Fn<lucent::Iter<double>()>([log = log]() -> lucent::Iter<double> {
     return [](auto log) -> lucent::Iter<double> {
+      lucent::checkStack();
       {
         int fc0_ = 0;
         std::exception_ptr fc0ex_;
@@ -297,6 +306,7 @@ lucent::String m_generators::earlyExit() {
 }
 
 lucent::String m_generators::throwsInside() {
+  lucent::checkStack();
   lucent::Box<lucent::Fn<lucent::Iter<double>()>> bad{};
   lucent::Fn<lucent::Iter<double>()> v0_ = lucent::Fn<lucent::Iter<double>()>([]() -> lucent::Iter<double> {
     return []() -> lucent::Iter<double> {
@@ -345,6 +355,7 @@ lucent::String m_generators::throwsInside() {
 }
 
 lucent::String m_generators::tree() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Tree> v1_ = lucent_app::C_Tree::create(LUCENT_STR("root"));
   lucent::Ref<lucent_app::C_Tree> v3_ = lucent_app::C_Tree::create(LUCENT_STR("a"));
   lucent::Ref<lucent_app::C_Tree> v5_ = lucent_app::C_Tree::create(LUCENT_STR("a1"));
@@ -358,9 +369,11 @@ lucent::String m_generators::tree() {
 }
 
 lucent::String m_generators::closures() {
+  lucent::checkStack();
   int32_t scale = 10;
   lucent::Fn<lucent::Iter<double>(lucent::Array<double>)> v2_ = lucent::Fn<lucent::Iter<double>(lucent::Array<double>)>([scale = static_cast<double>(scale)](lucent::Array<double> p0_) -> lucent::Iter<double> {
     return [](auto scale, lucent::Array<double> p0_) -> lucent::Iter<double> {
+      lucent::checkStack();
       {
         auto coll0_ = p0_;
         for (size_t i0_ = 0; i0_ < coll0_.size(); i0_++) {
@@ -404,6 +417,7 @@ lucent::String m_generators::closures() {
 }
 
 double m_generators::sumIterable(lucent::Iter<double> p0_) {
+  lucent::checkStack();
   double s = 0.0;
   {
     auto coll0_ = p0_;
@@ -425,6 +439,7 @@ double m_generators::sumIterable(lucent::Iter<double> p0_) {
 }
 
 lucent::String m_generators::iterables() {
+  lucent::checkStack();
   std::tuple<lucent::String, double> v2_ = std::tuple<lucent::String, double>(LUCENT_STR("a"), 1.0);
   std::tuple<lucent::String, double> v5_ = std::tuple<lucent::String, double>(LUCENT_STR("b"), 2.0);
   lucent::Array<std::tuple<lucent::String, double>> v6_ = lucent::Array<std::tuple<lucent::String, double>>{v2_, v5_};

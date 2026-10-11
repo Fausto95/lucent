@@ -41,6 +41,7 @@
 namespace lucent_app {
 
 lucent::String m_object_u2d_spread::maybeFirst(lucent::Opt<lucent::Ref<lucent_app::S_Q>> p0_) {
+  lucent::checkStack();
   lucent_app::S_Loose r = ({
     lucent_app::S_Loose obj_1_{};
     auto src_2_ = p0_;
@@ -87,6 +88,7 @@ lucent::String m_object_u2d_spread::maybeFirst(lucent::Opt<lucent::Ref<lucent_ap
 }
 
 lucent::String m_object_u2d_spread::maybeLast(lucent::Opt<lucent::Ref<lucent_app::S_Q>> p0_) {
+  lucent::checkStack();
   lucent_app::S_Loose r = ({
     lucent_app::S_Loose obj_3_{};
     obj_3_.d = LUCENT_STR("x");
@@ -134,6 +136,7 @@ lucent::String m_object_u2d_spread::maybeLast(lucent::Opt<lucent::Ref<lucent_app
 }
 
 lucent::Ref<lucent_app::S_Loose> m_object_u2d_spread::maybeReturned(lucent::Opt<lucent::Ref<lucent_app::S_Q>> p0_) {
+  lucent::checkStack();
   return ({
     auto obj_5_ = std::make_shared<lucent_app::S_Loose>();
     auto src_6_ = p0_;
@@ -157,6 +160,7 @@ lucent::Opt<lucent::Ref<lucent_app::S_Q>> m_object_u2d_spread::counted(lucent::O
 }
 
 lucent::String m_object_u2d_spread::maybeOnce(lucent::Opt<lucent::Ref<lucent_app::S_Q>> p0_) {
+  lucent::checkStack();
   lucent_app::m_object_u2d_spread::spreads = 0.0;
   lucent::Opt<lucent::Ref<lucent_app::S_Q>> v2_ = lucent_app::m_object_u2d_spread::counted(p0_);
   lucent_app::S_Loose r = ({
@@ -188,6 +192,7 @@ lucent::String m_object_u2d_spread::maybeOnce(lucent::Opt<lucent::Ref<lucent_app
 }
 
 lucent::String m_object_u2d_spread::merged(lucent::Ref<lucent_app::S_Overrides> p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Options> v1_ = lucent::assigned(lucent_app::m_object_u2d_spread::defaults, "defaults");
   lucent_app::S_Options o = ({
     lucent_app::S_Options obj_9_{};
@@ -239,6 +244,7 @@ lucent::String m_object_u2d_spread::merged(lucent::Ref<lucent_app::S_Overrides> 
 }
 
 void m_object_u2d_spread::init() {
+  lucent::checkStack();
   lucent_app::m_object_u2d_spread::spreads = 0.0;
   lucent_app::m_object_u2d_spread::defaults = ({ auto obj_12_ = std::make_shared<lucent_app::S_Options>(); obj_12_->size = 1.0; obj_12_->color = LUCENT_STR("red"); obj_12_->label = lucent::Opt<lucent::String>(LUCENT_STR("none")); obj_12_->width = lucent::Opt<double>(10.0); obj_12_; });
 }

@@ -82,6 +82,7 @@ lucent::Opt<lucent::String> m_narrowed_u2d_absent::lookup(lucent::String p0_) {
 }
 
 lucent::String m_narrowed_u2d_absent::assigned() {
+  lucent::checkStack();
   lucent::Opt<lucent::String> s = lucent::Opt<lucent::String>(lucent::undefined);
   lucent::String v5_ = lucent_app::m_narrowed_u2d_absent::show(lucent::Opt<lucent::String>(lucent::undefined));
   lucent::String v9_ = lucent::toJsString(lucent::undefined);
@@ -91,6 +92,7 @@ lucent::String m_narrowed_u2d_absent::assigned() {
 }
 
 lucent::String m_narrowed_u2d_absent::assignedLet(bool p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::String> s = lucent::Opt<lucent::String>(lucent::undefined);
   lucent::String before = lucent_app::m_narrowed_u2d_absent::show(lucent::Opt<lucent::String>(lucent::undefined));
   if (p0_) {
@@ -101,6 +103,7 @@ lucent::String m_narrowed_u2d_absent::assignedLet(bool p0_) {
 }
 
 lucent::String m_narrowed_u2d_absent::compared(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::String> found = lucent_app::m_narrowed_u2d_absent::lookup(p0_);
   bool v4_ = lucent::strictEquals(found, lucent::undefined);
   if (v4_) {
@@ -112,6 +115,7 @@ lucent::String m_narrowed_u2d_absent::compared(lucent::String p0_) {
 }
 
 lucent::String m_narrowed_u2d_absent::typeofTest(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::String> found = lucent_app::m_narrowed_u2d_absent::lookup(p0_);
   bool v5_ = lucent::typeOf(found) == LUCENT_STR("undefined");
   if (v5_) {
@@ -122,6 +126,7 @@ lucent::String m_narrowed_u2d_absent::typeofTest(lucent::String p0_) {
 }
 
 lucent::String m_narrowed_u2d_absent::nulled(bool p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::String> s = lucent::Opt<lucent::String>(lucent::null);
   lucent::String before = lucent_app::m_narrowed_u2d_absent::showNull(lucent::Opt<lucent::String>(lucent::null));
   if (p0_) {
@@ -134,6 +139,7 @@ lucent::String m_narrowed_u2d_absent::nulled(bool p0_) {
 }
 
 lucent::String m_narrowed_u2d_absent::parameter(lucent::Opt<double> p0_) {
+  lucent::checkStack();
   bool v2_ = lucent::strictEquals(p0_, lucent::undefined);
   if (v2_) {
     lucent::String v5_ = lucent::toJsString(lucent::undefined);
@@ -146,6 +152,7 @@ lucent::String m_narrowed_u2d_absent::parameter(lucent::Opt<double> p0_) {
 }
 
 lucent::String m_narrowed_u2d_absent::field(bool p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Box> box = lucent_app::C_Box::create();
   if (p0_) {
     lucent::Opt<lucent::String> v4_ = lucent::Opt<lucent::String>(LUCENT_STR("labelled"));
@@ -162,6 +169,7 @@ lucent::String m_narrowed_u2d_absent::field(bool p0_) {
 }
 
 lucent::String m_narrowed_u2d_absent::loose(double p0_) {
+  lucent::checkStack();
   bool v2_ = p0_ == 0.0;
   lucent::Opt<lucent::String> v12_{};
   if (v2_) {

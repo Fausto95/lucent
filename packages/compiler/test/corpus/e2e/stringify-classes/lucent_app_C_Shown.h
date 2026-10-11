@@ -20,6 +20,7 @@ template <class T>
 struct C_Shown : lucent::Object {
   T v{};
   void construct(T p0_) {
+    lucent::checkStack();
     this->v = p0_;
   }
   static lucent::Ref<C_Shown<T>> create(T p0_) {
@@ -28,6 +29,7 @@ struct C_Shown : lucent::Object {
     return self;
   }
   T toJSON() {
+    lucent::checkStack();
     return this->v;
   }
   virtual bool lucentJson_(lucent::JsonWriter& w, bool toJson);

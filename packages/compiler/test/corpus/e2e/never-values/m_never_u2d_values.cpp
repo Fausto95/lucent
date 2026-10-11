@@ -48,6 +48,7 @@
 namespace lucent_app {
 
 void C_Registry::construct() {
+  lucent::checkStack();
   lucent::Map<lucent::String, lucent::String> v0_ = lucent::Map<lucent::String, lucent::String>();
   this->names = v0_;
 }
@@ -59,6 +60,7 @@ lucent::Ref<C_Registry> C_Registry::create() {
 }
 
 lucent::String C_Registry::lookup(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Map<lucent::String, lucent::String> v1_ = this->names;
   lucent::Opt<lucent::String> name = v1_.get(p0_);
   bool v5_ = !lucent::strictEquals(name, lucent::undefined);
@@ -72,6 +74,7 @@ lucent::String C_Registry::lookup(lucent::String p0_) {
 }
 
 void m_never_u2d_values::fail(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = lucent_app::m_never_u2d_values::calls;
   (void)v1_.push(p0_);
   lucent::Error v5_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), lucent::String(LUCENT_STR("no ")) + p0_), __FILE__, __LINE__, "fail");
@@ -79,6 +82,7 @@ void m_never_u2d_values::fail(lucent::String p0_) {
 }
 
 lucent::String m_never_u2d_values::attempt(lucent::Fn<lucent::String()> p0_) {
+  lucent::checkStack();
   lucent_app::m_never_u2d_values::calls = lucent::Array<lucent::String>{};
   {
     std::exception_ptr ex11_;
@@ -105,6 +109,7 @@ lucent::String m_never_u2d_values::attempt(lucent::Fn<lucent::String()> p0_) {
 }
 
 double m_never_u2d_values::parse(lucent::String p0_) {
+  lucent::checkStack();
   double n = lucent::stringToNumber(p0_);
   bool v3_ = lucent::isNaN(n);
   if (v3_) {
@@ -117,7 +122,9 @@ double m_never_u2d_values::parse(lucent::String p0_) {
 }
 
 lucent::String m_never_u2d_values::returned(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([text = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     double v1_ = lucent_app::m_never_u2d_values::parse(text);
     return lucent::toJsString(v1_);
   });
@@ -125,17 +132,21 @@ lucent::String m_never_u2d_values::returned(lucent::String p0_) {
 }
 
 lucent::String m_never_u2d_values::fromMethod(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Registry> registry = lucent_app::C_Registry::create();
   lucent::Map<lucent::String, lucent::String> v3_ = registry->names;
   (void)v3_.set(LUCENT_STR("a"), LUCENT_STR("ada"));
   lucent::Fn<lucent::String()> v8_ = lucent::Fn<lucent::String()>([registry = registry, key = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     return registry->lookup(key);
   });
   return lucent_app::m_never_u2d_values::attempt(v8_);
 }
 
 lucent::String m_never_u2d_values::fromArrow(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v5_{};
     if (ok) {
       v5_ = LUCENT_STR("picked");
@@ -149,6 +160,7 @@ lucent::String m_never_u2d_values::fromArrow(bool p0_) {
   });
   lucent::Fn<lucent::String()> pick = std::move(v1_);
   lucent::Fn<lucent::String()> v2_ = lucent::Fn<lucent::String()>([]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent_app::m_never_u2d_values::fail(LUCENT_STR("reject"));
     return []() -> lucent::String {
       lucent::unreachable();
@@ -156,6 +168,7 @@ lucent::String m_never_u2d_values::fromArrow(bool p0_) {
   });
   lucent::Fn<lucent::String()> reject = std::move(v2_);
   lucent::Fn<lucent::String()> v5_ = lucent::Fn<lucent::String()>([ok = p0_, pick = pick, reject = reject]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v5_{};
     if (ok) {
       v5_ = pick();
@@ -168,7 +181,9 @@ lucent::String m_never_u2d_values::fromArrow(bool p0_) {
 }
 
 lucent::String m_never_u2d_values::declared(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     if (ok) {
       return LUCENT_STR("skipped");
     }
@@ -182,7 +197,9 @@ lucent::String m_never_u2d_values::declared(bool p0_) {
 }
 
 lucent::String m_never_u2d_values::declaredLet(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     if (ok) {
       return LUCENT_STR("skipped");
     }
@@ -197,6 +214,7 @@ lucent::String m_never_u2d_values::declaredLet(bool p0_) {
 }
 
 void m_never_u2d_values::init() {
+  lucent::checkStack();
   lucent_app::m_never_u2d_values::calls = lucent::Array<lucent::String>{};
 }
 

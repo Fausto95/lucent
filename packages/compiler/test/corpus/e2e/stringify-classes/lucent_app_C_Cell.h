@@ -21,6 +21,7 @@ struct C_Cell : lucent::Object {
   T value{};
   double count{};
   void construct(T p0_) {
+    lucent::checkStack();
     this->count = 0.0;
     this->value = p0_;
   }

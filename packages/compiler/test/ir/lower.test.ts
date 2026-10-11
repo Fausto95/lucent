@@ -353,6 +353,7 @@ describe("compiling through the IR", () => {
     expect(out).toContain(
       [
         "lucent::String m_order::pair() {",
+        "  lucent::checkStack();",
         '  lucent::String v1_ = lucent_app::m_order::next(LUCENT_STR("l"));',
         '  lucent::String v3_ = lucent_app::m_order::next(LUCENT_STR("r"));',
         "  return lucent_app::m_order::combine(v1_, v3_);",

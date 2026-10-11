@@ -63,6 +63,7 @@ double C_Shape::area() {
 }
 
 void C_Square::construct() {
+  lucent::checkStack();
   this->lucent_app::C_Shape::construct();
   this->side = 2.0;
 }
@@ -74,12 +75,14 @@ lucent::Ref<C_Square> C_Square::create() {
 }
 
 double C_Square::area() {
+  lucent::checkStack();
   double v0_ = this->side;
   double v1_ = this->side;
   return v0_ * v1_;
 }
 
 void C_Circle::construct() {
+  lucent::checkStack();
   this->lucent_app::C_Shape::construct();
   this->radius = 1.0;
 }
@@ -91,6 +94,7 @@ lucent::Ref<C_Circle> C_Circle::create() {
 }
 
 double C_Circle::area() {
+  lucent::checkStack();
   double v1_ = this->radius;
   double v2_ = 3.0 * v1_;
   double v3_ = this->radius;
@@ -98,6 +102,7 @@ double C_Circle::area() {
 }
 
 lucent::Ref<lucent_app::S_Options> m_conditional_u2d_objects::declared(bool p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Options> v6_{};
   if (p0_) {
     v6_ = ({ auto obj_1_ = std::make_shared<lucent_app::S_Options>(); obj_1_->name = LUCENT_STR("big"); obj_1_->size = lucent::Opt<double>(10.0); obj_1_; });
@@ -109,6 +114,7 @@ lucent::Ref<lucent_app::S_Options> m_conditional_u2d_objects::declared(bool p0_)
 }
 
 lucent::Ref<lucent_app::S_Options> m_conditional_u2d_objects::returned(bool p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Options> v6_{};
   if (p0_) {
     v6_ = ({ auto obj_3_ = std::make_shared<lucent_app::S_Options>(); obj_3_->name = LUCENT_STR("big"); obj_3_->size = lucent::Opt<double>(10.0); obj_3_; });
@@ -119,6 +125,7 @@ lucent::Ref<lucent_app::S_Options> m_conditional_u2d_objects::returned(bool p0_)
 }
 
 lucent::Ref<lucent_app::S_Options> m_conditional_u2d_objects::nested(double p0_) {
+  lucent::checkStack();
   bool v2_ = p0_ > 1.0;
   lucent::Ref<lucent_app::S_Options> v13_{};
   if (v2_) {
@@ -137,6 +144,7 @@ lucent::Ref<lucent_app::S_Options> m_conditional_u2d_objects::nested(double p0_)
 }
 
 lucent::Ref<lucent_app::S_Options> m_conditional_u2d_objects::assigned(bool p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Options> o = ({ auto obj_8_ = std::make_shared<lucent_app::S_Options>(); obj_8_->name = LUCENT_STR("start"); obj_8_; });
   lucent::Ref<lucent_app::S_Options> v8_{};
   if (p0_) {
@@ -149,6 +157,7 @@ lucent::Ref<lucent_app::S_Options> m_conditional_u2d_objects::assigned(bool p0_)
 }
 
 lucent::String m_conditional_u2d_objects::passed(bool p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Options> v6_{};
   if (p0_) {
     v6_ = ({ auto obj_11_ = std::make_shared<lucent_app::S_Options>(); obj_11_->name = LUCENT_STR("big"); obj_11_->size = lucent::Opt<double>(10.0); obj_11_; });
@@ -159,6 +168,7 @@ lucent::String m_conditional_u2d_objects::passed(bool p0_) {
 }
 
 lucent::Array<lucent::Ref<lucent_app::S_Options>> m_conditional_u2d_objects::listed(bool p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Options> v6_{};
   if (p0_) {
     v6_ = ({ auto obj_13_ = std::make_shared<lucent_app::S_Options>(); obj_13_->name = LUCENT_STR("big"); obj_13_->size = lucent::Opt<double>(10.0); obj_13_; });
@@ -169,6 +179,7 @@ lucent::Array<lucent::Ref<lucent_app::S_Options>> m_conditional_u2d_objects::lis
 }
 
 lucent::String m_conditional_u2d_objects::describe(lucent::Ref<lucent_app::S_Options> p0_) {
+  lucent::checkStack();
   lucent::String v1_ = p0_->name;
   lucent::Opt<double> v3_ = p0_->size;
   bool v5_ = !v3_.has();
@@ -183,6 +194,7 @@ lucent::String m_conditional_u2d_objects::describe(lucent::Ref<lucent_app::S_Opt
 }
 
 double m_conditional_u2d_objects::area(bool p0_) {
+  lucent::checkStack();
   std::variant<lucent::Ref<lucent_app::C_Circle>, lucent::Ref<lucent_app::C_Square>> v5_{};
   if (p0_) {
     lucent::Ref<lucent_app::C_Circle> v1_ = lucent_app::C_Circle::create();
@@ -199,6 +211,7 @@ double m_conditional_u2d_objects::area(bool p0_) {
 }
 
 double m_conditional_u2d_objects::areaOf(bool p0_, double p1_) {
+  lucent::checkStack();
   std::variant<lucent::Ref<lucent_app::C_Circle>, double> v5_{};
   if (p0_) {
     lucent::Ref<lucent_app::C_Circle> v2_ = lucent_app::C_Circle::create();
@@ -214,6 +227,7 @@ double m_conditional_u2d_objects::areaOf(bool p0_, double p1_) {
 }
 
 double m_conditional_u2d_objects::radiusOf(bool p0_) {
+  lucent::checkStack();
   std::variant<lucent::Ref<lucent_app::C_Shape>, lucent::String> v5_{};
   if (p0_) {
     lucent::Ref<lucent_app::C_Circle> v1_ = lucent_app::C_Circle::create();
@@ -241,6 +255,7 @@ lucent::Promise<double> m_conditional_u2d_objects::later(double p0_) {
 }
 
 lucent::Promise<double> m_conditional_u2d_objects::pick(bool p0_) {
+  lucent::checkStack();
   lucent::Promise<double> v5_{};
   if (p0_) {
     v5_ = lucent_app::m_conditional_u2d_objects::later(1.0);

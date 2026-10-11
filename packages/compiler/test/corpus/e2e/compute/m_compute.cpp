@@ -305,6 +305,7 @@ static constexpr lucent::TaskEntry<std::tuple<double>, lucent::String> entry_hex
 namespace lucent_app {
 
 void C_Counter::construct(double p0_) {
+  lucent::checkStack();
   this->step = p0_;
   this->count = 0.0;
 }
@@ -316,6 +317,7 @@ lucent::Ref<C_Counter> C_Counter::create(double p0_) {
 }
 
 double C_Counter::bump() {
+  lucent::checkStack();
   double v0_ = this->count;
   double v1_ = this->step;
   double v2_ = v0_ + v1_;
@@ -324,6 +326,7 @@ double C_Counter::bump() {
 }
 
 void C_Tile::construct(double p0_) {
+  lucent::checkStack();
   this->index = p0_;
 }
 
@@ -334,6 +337,7 @@ lucent::Ref<C_Tile> C_Tile::create(double p0_) {
 }
 
 double C_Tile::area() {
+  lucent::checkStack();
   double v0_ = 4.0;
   double v1_ = 4.0;
   double v2_ = v0_ * v1_;
@@ -342,6 +346,7 @@ double C_Tile::area() {
 }
 
 lucent::Array<double> m_compute::edgePositions(lucent::Bytes p0_) {
+  lucent::checkStack();
   lucent::Array<double> positions = lucent::Array<double>{};
   {
     int64_t i = static_cast<int64_t>(1);
@@ -370,12 +375,14 @@ lucent::Array<double> m_compute::edgePositions(lucent::Bytes p0_) {
 }
 
 lucent::Promise<lucent::Array<double>> m_compute::edges(lucent::Bytes p0_, lucent::Opt<lucent::AbortSignal> p1_) {
+  lucent::checkStack();
   lucent::Promise<lucent::Array<double>> v2_ = lucent::compute(lucent_tasks::m_compute::entry_edgePositions, std::tuple<lucent::Bytes>{p0_}, lucent::ComputeOptions{p1_, lucent::moduleScope()});
   lucent::Array<double> v3_ = co_await v2_;
   co_return v3_;
 }
 
 double m_compute::checkedRoot(double p0_) {
+  lucent::checkStack();
   bool v2_ = p0_ < 0.0;
   if (v2_) {
     lucent::Error v6_ = lucent::withSite(lucent::makeError(LUCENT_STR("RangeError"), lucent::String(LUCENT_STR("negative: ")) + lucent::toJsString(p0_)), __FILE__, __LINE__, "checkedRoot");
@@ -385,6 +392,7 @@ double m_compute::checkedRoot(double p0_) {
 }
 
 lucent::Promise<lucent::String> m_compute::root(double p0_) {
+  lucent::checkStack();
   {
     std::exception_ptr ex6_;
     try {
@@ -427,6 +435,7 @@ double m_compute::spin(double p0_) {
 }
 
 lucent::Promise<lucent::String> m_compute::cancelled(lucent::String p0_) {
+  lucent::checkStack();
   lucent::AbortController controller = std::make_shared<lucent::AbortControllerObject>();
   bool v3_ = p0_ == LUCENT_STR("before");
   if (v3_) {
@@ -468,6 +477,7 @@ lucent::Promise<lucent::String> m_compute::cancelled(lucent::String p0_) {
 }
 
 double m_compute::sum(lucent::Array<double> p0_) {
+  lucent::checkStack();
   double total = 0.0;
   {
     auto coll0_ = p0_;
@@ -483,6 +493,7 @@ double m_compute::sum(lucent::Array<double> p0_) {
 }
 
 lucent::Promise<lucent::String> m_compute::snapshot() {
+  lucent::checkStack();
   lucent::Array<double> xs = lucent::Array<double>{1.0, 2.0, 3.0};
   lucent::Promise<double> pending = lucent::compute(lucent_tasks::m_compute::entry_sum, std::tuple<lucent::Array<double>>{xs}, lucent::ComputeOptions{lucent::Opt<lucent::AbortSignal>(), lucent::moduleScope()});
   (void)xs.push(100.0);
@@ -494,6 +505,7 @@ lucent::Promise<lucent::String> m_compute::snapshot() {
 }
 
 lucent::String m_compute::describeGraph(lucent::Ref<lucent_app::S_Pair> p0_) {
+  lucent::checkStack();
   lucent::Array<double> v1_ = p0_->list;
   (void)v1_.push(4.0);
   lucent::Ref<lucent_app::S_Node> v4_ = p0_->a;
@@ -522,6 +534,7 @@ lucent::String m_compute::describeGraph(lucent::Ref<lucent_app::S_Pair> p0_) {
 }
 
 lucent::Promise<lucent::String> m_compute::graph() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Node> a = ({ auto obj_1_ = std::make_shared<lucent_app::S_Node>(); obj_1_->label = LUCENT_STR("a"); obj_1_; });
   lucent::Ref<lucent_app::S_Node> b = ({ auto obj_2_ = std::make_shared<lucent_app::S_Node>(); obj_2_->label = LUCENT_STR("b"); obj_2_->next = lucent::Opt<lucent::Ref<lucent_app::S_Node>>(a); obj_2_; });
   lucent::Array<double> list = lucent::Array<double>{1.0, 2.0, 3.0};
@@ -537,12 +550,14 @@ lucent::Promise<lucent::String> m_compute::graph() {
 }
 
 lucent::Ref<lucent_app::S_Shared> m_compute::share(double p0_) {
+  lucent::checkStack();
   double v2_ = p0_ + 1.0;
   lucent::Array<double> items = lucent::Array<double>{p0_, v2_};
   return ({ auto obj_4_ = std::make_shared<lucent_app::S_Shared>(); obj_4_->left = items; obj_4_->right = items; obj_4_; });
 }
 
 lucent::Promise<lucent::String> m_compute::results() {
+  lucent::checkStack();
   lucent::Promise<lucent::Ref<lucent_app::S_Shared>> v1_ = lucent::compute(lucent_tasks::m_compute::entry_share, std::tuple<double>{7.0}, lucent::ComputeOptions{lucent::Opt<lucent::AbortSignal>(), lucent::moduleScope()});
   lucent::Ref<lucent_app::S_Shared> v2_ = co_await v1_;
   lucent::Ref<lucent_app::S_Shared> r = std::move(v2_);
@@ -553,11 +568,13 @@ lucent::Promise<lucent::String> m_compute::results() {
 }
 
 double m_compute::bumpTwice(lucent::Ref<lucent_app::C_Counter> p0_) {
+  lucent::checkStack();
   (void)p0_->bump();
   return p0_->bump();
 }
 
 lucent::Promise<lucent::String> m_compute::objects() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Counter> counter = lucent_app::C_Counter::create(2.0);
   lucent::Promise<double> v3_ = lucent::compute(lucent_tasks::m_compute::entry_bumpTwice, std::tuple<lucent::Ref<lucent_app::C_Counter>>{counter}, lucent::ComputeOptions{lucent::Opt<lucent::AbortSignal>(), lucent::moduleScope()});
   double v4_ = co_await v3_;
@@ -569,6 +586,7 @@ lucent::Promise<lucent::String> m_compute::objects() {
 }
 
 lucent::String m_compute::views(lucent::Array<lucent::Bytes> p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::Bytes> v2_ = p0_.getIndex(static_cast<int64_t>(0));
   lucent::Bytes v3_ = v2_.value();
   lucent::setElement(v3_, 0.0, 9.0);
@@ -584,6 +602,7 @@ lucent::String m_compute::views(lucent::Array<lucent::Bytes> p0_) {
 }
 
 lucent::Promise<lucent::String> m_compute::bytes() {
+  lucent::checkStack();
   lucent::Array<double> v4_ = lucent::Array<double>{1.0, 2.0, 3.0, 4.0};
   lucent::Bytes buffer = lucent::Bytes::fromArray(v4_);
   lucent::Bytes v9_ = buffer.subarray(0.0, 2.0);
@@ -597,6 +616,7 @@ lucent::Promise<lucent::String> m_compute::bytes() {
 }
 
 lucent::String m_compute::tally(lucent::Map<lucent::String, double> p0_) {
+  lucent::checkStack();
   double total = 0.0;
   {
     auto coll0_ = p0_;
@@ -619,6 +639,7 @@ lucent::String m_compute::tally(lucent::Map<lucent::String, double> p0_) {
 }
 
 lucent::Promise<lucent::String> m_compute::many() {
+  lucent::checkStack();
   lucent::Array<lucent::Promise<double>> pending = lucent::Array<lucent::Promise<double>>{};
   {
     int64_t i = static_cast<int64_t>(1);
@@ -649,10 +670,12 @@ lucent::Promise<lucent::String> m_compute::many() {
 }
 
 lucent::Promise<double> m_compute::start(double p0_) {
+  lucent::checkStack();
   return lucent::compute(lucent_tasks::m_compute::entry_spin, std::tuple<double>{p0_}, lucent::ComputeOptions{lucent::Opt<lucent::AbortSignal>(), lucent::moduleScope()});
 }
 
 lucent::String m_compute::tiles(double p0_) {
+  lucent::checkStack();
   double total = 0.0;
   lucent::BigInt big = lucent::BigInt::fromInt64(0);
   {
@@ -678,6 +701,7 @@ lucent::String m_compute::tiles(double p0_) {
 }
 
 lucent::Promise<lucent::String> m_compute::constants() {
+  lucent::checkStack();
   lucent::Promise<lucent::String> v1_ = lucent::compute(lucent_tasks::m_compute::entry_tiles, std::tuple<double>{3.0}, lucent::ComputeOptions{lucent::Opt<lucent::AbortSignal>(), lucent::moduleScope()});
   lucent::String v2_ = co_await v1_;
   lucent::String v5_ = lucent_app::m_compute::tiles(1.0);
@@ -685,6 +709,7 @@ lucent::Promise<lucent::String> m_compute::constants() {
 }
 
 lucent::String m_compute::hexes(double p0_) {
+  lucent::checkStack();
   lucent::BigInt v2_ = lucent::BigInt::fromDouble(p0_);
   lucent::BigInt v5_ = v2_ * -lucent::BigInt::fromInt64(3);
   lucent::BigInt wide = lucent::BigInt::asUintN(64.0, v5_);
@@ -701,6 +726,7 @@ lucent::String m_compute::hexes(double p0_) {
 }
 
 lucent::Promise<lucent::String> m_compute::conversions() {
+  lucent::checkStack();
   lucent::Promise<lucent::String> v1_ = lucent::compute(lucent_tasks::m_compute::entry_hexes, std::tuple<double>{255.0}, lucent::ComputeOptions{lucent::Opt<lucent::AbortSignal>(), lucent::moduleScope()});
   lucent::String v2_ = co_await v1_;
   lucent::Promise<lucent::String> v5_ = lucent::compute(lucent_tasks::m_compute::entry_hexes, std::tuple<double>{4096.0}, lucent::ComputeOptions{lucent::Opt<lucent::AbortSignal>(), lucent::moduleScope()});
@@ -709,6 +735,7 @@ lucent::Promise<lucent::String> m_compute::conversions() {
 }
 
 void m_compute::init() {
+  lucent::checkStack();
   lucent_app::m_compute::LABEL = LUCENT_STR("tiles");
   lucent_app::m_compute::WIDTH = 16.0;
   lucent_app::m_compute::OFFSET = -3.0;
@@ -718,6 +745,7 @@ void m_compute::init() {
 }
 
 lucent::Array<double> m_compute::edgePositions_task_(lucent::Bytes p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   lucent::Array<double> positions = lucent::Array<double>{};
   {
     int64_t i = static_cast<int64_t>(1);
@@ -747,6 +775,7 @@ lucent::Array<double> m_compute::edgePositions_task_(lucent::Bytes p0_, lucent::
 }
 
 double m_compute::checkedRoot_task_(double p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   bool v2_ = p0_ < 0.0;
   if (v2_) {
     lucent::Error v6_ = lucent::withSite(lucent::makeError(LUCENT_STR("RangeError"), lucent::String(LUCENT_STR("negative: ")) + lucent::toJsString(p0_)), __FILE__, __LINE__, "checkedRoot");
@@ -756,6 +785,7 @@ double m_compute::checkedRoot_task_(double p0_, lucent::TaskContext& task_) {
 }
 
 double m_compute::spin_task_(double p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   double x = 0.0;
   {
     int64_t i = static_cast<int64_t>(0);
@@ -776,6 +806,7 @@ double m_compute::spin_task_(double p0_, lucent::TaskContext& task_) {
 }
 
 double m_compute::sum_task_(lucent::Array<double> p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   double total = 0.0;
   {
     auto coll0_ = p0_;
@@ -792,6 +823,7 @@ double m_compute::sum_task_(lucent::Array<double> p0_, lucent::TaskContext& task
 }
 
 lucent::String m_compute::describeGraph_task_(lucent::Ref<lucent_app::S_Pair> p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   lucent::Array<double> v1_ = p0_->list;
   (void)v1_.push(4.0);
   lucent::Ref<lucent_app::S_Node> v4_ = p0_->a;
@@ -820,17 +852,20 @@ lucent::String m_compute::describeGraph_task_(lucent::Ref<lucent_app::S_Pair> p0
 }
 
 lucent::Ref<lucent_app::S_Shared> m_compute::share_task_(double p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   double v2_ = p0_ + 1.0;
   lucent::Array<double> items = lucent::Array<double>{p0_, v2_};
   return ({ auto obj_5_ = std::make_shared<lucent_app::S_Shared>(); obj_5_->left = items; obj_5_->right = items; obj_5_; });
 }
 
 double m_compute::bumpTwice_task_(lucent::Ref<lucent_app::C_Counter> p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   (void)p0_->bump();
   return p0_->bump();
 }
 
 lucent::String m_compute::views_task_(lucent::Array<lucent::Bytes> p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   lucent::Opt<lucent::Bytes> v2_ = p0_.getIndex(static_cast<int64_t>(0));
   lucent::Bytes v3_ = v2_.value();
   lucent::setElement(v3_, 0.0, 9.0);
@@ -846,6 +881,7 @@ lucent::String m_compute::views_task_(lucent::Array<lucent::Bytes> p0_, lucent::
 }
 
 lucent::String m_compute::tally_task_(lucent::Map<lucent::String, double> p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   double total = 0.0;
   {
     auto coll0_ = p0_;
@@ -869,6 +905,7 @@ lucent::String m_compute::tally_task_(lucent::Map<lucent::String, double> p0_, l
 }
 
 lucent::String m_compute::tiles_task_(double p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   double total = 0.0;
   lucent::BigInt big = lucent::BigInt::fromInt64(0);
   {
@@ -895,6 +932,7 @@ lucent::String m_compute::tiles_task_(double p0_, lucent::TaskContext& task_) {
 }
 
 lucent::String m_compute::hexes_task_(double p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   lucent::BigInt v2_ = lucent::BigInt::fromDouble(p0_);
   lucent::BigInt v5_ = v2_ * -lucent::BigInt::fromInt64(3);
   lucent::BigInt wide = lucent::BigInt::asUintN(64.0, v5_);

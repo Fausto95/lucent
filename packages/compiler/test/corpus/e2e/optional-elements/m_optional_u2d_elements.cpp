@@ -33,6 +33,7 @@
 namespace lucent_app {
 
 lucent::String m_optional_u2d_elements::arrays(lucent::Array<lucent::Opt<double>> p0_, double p1_) {
+  lucent::checkStack();
   lucent::Opt<double> v = lucent::flat(p0_.get(p1_));
   bool v5_ = lucent::strictEquals(v, lucent::undefined);
   std::variant<double, lucent::String> v11_{};
@@ -55,6 +56,7 @@ lucent::String m_optional_u2d_elements::arrays(lucent::Array<lucent::Opt<double>
 }
 
 lucent::String m_optional_u2d_elements::maps() {
+  lucent::checkStack();
   lucent::Map<lucent::String, lucent::Opt<double>> m = lucent::Map<lucent::String, lucent::Opt<double>>();
   (void)m.set(LUCENT_STR("a"), lucent::Opt<double>(1.0));
   (void)m.set(LUCENT_STR("b"), lucent::Opt<double>(lucent::undefined));
@@ -93,6 +95,7 @@ lucent::String m_optional_u2d_elements::maps() {
 }
 
 lucent::String m_optional_u2d_elements::records(lucent::Dict<lucent::Opt<double>> p0_, lucent::String p1_) {
+  lucent::checkStack();
   lucent::Opt<double> v = lucent::flat(p0_.get(p1_));
   bool v5_ = lucent::strictEquals(v, lucent::undefined);
   std::variant<double, lucent::String> v11_{};
@@ -117,6 +120,7 @@ lucent::String m_optional_u2d_elements::records(lucent::Dict<lucent::Opt<double>
 }
 
 lucent::String m_optional_u2d_elements::madeRecords() {
+  lucent::checkStack();
   lucent::Dict<lucent::Opt<double>> r = ({ lucent::Dict<lucent::Opt<double>> rec_1_; rec_1_; });
   lucent::Opt<double> v4_ = lucent::Opt<double>(1.0);
   lucent::setEntry(r, LUCENT_STR("a"), v4_);
@@ -148,6 +152,7 @@ lucent::String m_optional_u2d_elements::madeRecords() {
 }
 
 lucent::String m_optional_u2d_elements::nulls() {
+  lucent::checkStack();
   lucent::Map<lucent::String, lucent::Opt<double>> m = lucent::Map<lucent::String, lucent::Opt<double>>();
   (void)m.set(LUCENT_STR("n"), lucent::Opt<double>(lucent::null));
   lucent::Opt<double> n = lucent::flat(m.get(LUCENT_STR("n")));

@@ -21,6 +21,7 @@ struct C_Pair : lucent::Object {
   A first{};
   B second{};
   void construct(A p0_, B p1_) {
+    lucent::checkStack();
     this->first = p0_;
     this->second = p1_;
   }

@@ -44,6 +44,7 @@
 namespace lucent_app {
 
 lucent::String m_dates::utc() {
+  lucent::checkStack();
   double v7_ = lucent::dateUTC(2024.0, 1.0, 29.0, 13.0, 45.0, 30.0, 123.0);
   lucent::Date d = lucent::makeDate(v7_);
   double v10_ = d->getTime();
@@ -67,14 +68,17 @@ lucent::String m_dates::utc() {
 }
 
 lucent::String m_dates::parse() {
+  lucent::checkStack();
   lucent::Array<lucent::String> inputs = lucent::Array<lucent::String>{LUCENT_STR("2024-02-29"), LUCENT_STR("2024-02-29T13:45:30.123Z"), LUCENT_STR("2024-02-29T13:45:30+02:00"), LUCENT_STR("2024-02-29T13:45:30.5-03:30"), LUCENT_STR("+010000-01-01T00:00:00Z"), LUCENT_STR("-000001-12-31T23:59:59.999Z"), LUCENT_STR("2024"), LUCENT_STR("2024-06"), LUCENT_STR("2024-02-29T24:00:00Z"), LUCENT_STR("Mon, 22 Jul 2019 22:51:50 GMT"), LUCENT_STR("Mon Jul 22 2019 15:51:50 GMT-0700"), LUCENT_STR("not a date"), LUCENT_STR("2024-13-01"), lucent::String()};
   lucent::Array<double> v17_ = inputs.template map<double>([](lucent::String p0_, double p1_, lucent::Array<lucent::String> p2_) mutable -> double {
+    lucent::checkStack();
     return lucent::dateParse(p0_);
   });
   return v17_.join(LUCENT_STR(","));
 }
 
 lucent::String m_dates::local() {
+  lucent::checkStack();
   lucent::Date d = lucent::dateFromLocal(2024.0, 5.0, 15.0, 10.0, 30.0, 5.0, 250.0);
   double asUtc = lucent::dateUTC(2024.0, 5.0, 15.0, 10.0, 30.0, 5.0, 250.0);
   lucent::Date e = lucent::dateFromLocal(2023.0, 11.0, 31.0, 23.0, 59.0);
@@ -110,6 +114,7 @@ lucent::String m_dates::local() {
 }
 
 lucent::String m_dates::setters() {
+  lucent::checkStack();
   double v3_ = lucent::dateUTC(2024.0, 0.0, 31.0);
   lucent::Date d = lucent::makeDate(v3_);
   lucent::Array<lucent::String> out = lucent::Array<lucent::String>{};
@@ -164,6 +169,7 @@ lucent::String m_dates::setters() {
 }
 
 lucent::String m_dates::invalid() {
+  lucent::checkStack();
   double v0_ = lucent::kNaN;
   lucent::Date d = lucent::makeDate(v0_);
   double v3_ = d->getTime();
@@ -206,6 +212,7 @@ lucent::String m_dates::invalid() {
 }
 
 lucent::String m_dates::compare() {
+  lucent::checkStack();
   lucent::Date a = lucent::makeDate(1000.0);
   lucent::Date b = lucent::makeDate(2000.0);
   lucent::Date c = lucent::makeDate(a->getTime());
@@ -231,6 +238,7 @@ lucent::String m_dates::compare() {
 }
 
 bool m_dates::now() {
+  lucent::checkStack();
   double t = lucent::dateNow();
   bool v3_ = t > 1600000000000.0;
   bool v8_{};
@@ -245,12 +253,14 @@ bool m_dates::now() {
 }
 
 lucent::Date m_dates::shift(lucent::Date p0_, double p1_) {
+  lucent::checkStack();
   double v2_ = p0_->getTime();
   double v5_ = v2_ + p1_ * 86400000.0;
   return lucent::makeDate(v5_);
 }
 
 lucent::String m_dates::describe(lucent::Date p0_) {
+  lucent::checkStack();
   lucent::String v1_ = p0_->toISOString();
   double v3_ = p0_->getUTCDay();
   lucent::String v4_ = lucent::toJsString(v3_);

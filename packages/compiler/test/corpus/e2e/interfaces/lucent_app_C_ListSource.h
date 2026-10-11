@@ -29,6 +29,7 @@ struct C_ListSource : lucent::Object, virtual lucent_app::I_Feed<T> {
   double count{};
   double i{};
   void construct(lucent::Array<T> p0_) {
+    lucent::checkStack();
     this->items = p0_;
     this->count = 0.0;
     this->i = 0.0;
@@ -39,6 +40,7 @@ struct C_ListSource : lucent::Object, virtual lucent_app::I_Feed<T> {
     return self;
   }
   lucent::Opt<T> next() override {
+    lucent::checkStack();
     lucent::Array<T> v0_ = this->items;
     double v1_ = this->i;
     lucent::Opt<T> v = v0_.get(v1_);

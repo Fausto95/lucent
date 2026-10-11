@@ -51,8 +51,10 @@
 namespace lucent_app {
 
 lucent::EventSubscription m_events_u2d_observed::watch() {
+  lucent::checkStack();
   lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void(lucent::String)>>> v0_ = lucent_app::m_events_u2d_observed::sensor;
   lucent::Fn<void(bool)> v1_ = lucent::Fn<void(bool)>([](bool p0_) mutable -> void {
+    lucent::checkStack();
     lucent_app::m_events_u2d_observed::running = p0_;
     lucent::Array<lucent::String> v1_ = lucent_app::m_events_u2d_observed::seen;
     lucent::String v5_{};
@@ -68,6 +70,7 @@ lucent::EventSubscription m_events_u2d_observed::watch() {
 }
 
 lucent::String m_events_u2d_observed::observed() {
+  lucent::checkStack();
   lucent::Array<lucent::String> v0_ = lucent_app::m_events_u2d_observed::seen;
   int64_t v1_ = static_cast<int64_t>(v0_.size());
   bool v2_ = lucent::truthy(static_cast<double>(v1_));
@@ -87,6 +90,7 @@ lucent::String m_events_u2d_observed::observed() {
 }
 
 lucent::String m_events_u2d_observed::fromLucent() {
+  lucent::checkStack();
   lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void(lucent::String)>>> v0_ = lucent_app::m_events_u2d_observed::sensor;
   lucent::Fn<void(double)> v1_ = lucent::Fn<void(double)>([](double p0_) mutable -> void {});
   lucent::EventSubscription a = v0_->addListener<0>(v1_);
@@ -103,6 +107,7 @@ lucent::String m_events_u2d_observed::fromLucent() {
 }
 
 lucent::String m_events_u2d_observed::removed() {
+  lucent::checkStack();
   lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void(lucent::String)>>> v0_ = lucent_app::m_events_u2d_observed::sensor;
   lucent::Fn<void(double)> v1_ = lucent::Fn<void(double)>([](double p0_) mutable -> void {});
   (void)v0_->addListener<0>(v1_);
@@ -120,11 +125,13 @@ lucent::String m_events_u2d_observed::removed() {
 }
 
 lucent::String m_events_u2d_observed::late() {
+  lucent::checkStack();
   lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void(lucent::String)>>> local = lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void(lucent::String)>>::create({"reading", "status"});
   lucent::Array<lucent::String> heard = lucent::Array<lucent::String>{};
   lucent::Fn<void(lucent::String)> v3_ = lucent::Fn<void(lucent::String)>([](lucent::String p0_) mutable -> void {});
   lucent::EventSubscription listening = local->addListener<1>(v3_);
   lucent::Fn<double(bool)> v7_ = lucent::Fn<double(bool)>([heard = heard](bool p0_) mutable -> double {
+    lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("status ")) + lucent::toJsString(p0_);
     return heard.push(v4_);
   });
@@ -132,6 +139,7 @@ lucent::String m_events_u2d_observed::late() {
     fn_1_(a0);
   }));
   lucent::Fn<double(bool)> v11_ = lucent::Fn<double(bool)>([heard = heard](bool p0_) mutable -> double {
+    lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("reading ")) + lucent::toJsString(p0_);
     return heard.push(v4_);
   });
@@ -149,9 +157,11 @@ lucent::String m_events_u2d_observed::late() {
 }
 
 lucent::String m_events_u2d_observed::reentrant() {
+  lucent::checkStack();
   lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void(lucent::String)>>> local = lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void(lucent::String)>>::create({"reading", "status"});
   lucent::Array<lucent::String> heard = lucent::Array<lucent::String>{};
   lucent::Fn<void(bool)> v5_ = lucent::Fn<void(bool)>([heard = heard, local = local](bool p0_) mutable -> void {
+    lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("reading ")) + lucent::toJsString(p0_);
     (void)heard.push(v4_);
     if (p0_) {
@@ -162,6 +172,7 @@ lucent::String m_events_u2d_observed::reentrant() {
   });
   (void)local->onObserved(0, v5_);
   lucent::Fn<double(bool)> v9_ = lucent::Fn<double(bool)>([heard = heard](bool p0_) mutable -> double {
+    lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("status ")) + lucent::toJsString(p0_);
     return heard.push(v4_);
   });
@@ -175,6 +186,7 @@ lucent::String m_events_u2d_observed::reentrant() {
 }
 
 lucent::String m_events_u2d_observed::stopWatching() {
+  lucent::checkStack();
   lucent::EventSubscription v0_ = lucent_app::m_events_u2d_observed::watching;
   v0_->remove();
   lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void(lucent::String)>>> v2_ = lucent_app::m_events_u2d_observed::sensor;
@@ -187,6 +199,7 @@ lucent::String m_events_u2d_observed::stopWatching() {
 }
 
 void m_events_u2d_observed::init() {
+  lucent::checkStack();
   lucent_app::m_events_u2d_observed::sensor = lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void(lucent::String)>>::create({"reading", "status"});
   lucent_app::m_events_u2d_observed::seen = lucent::Array<lucent::String>{};
   lucent_app::m_events_u2d_observed::running = false;

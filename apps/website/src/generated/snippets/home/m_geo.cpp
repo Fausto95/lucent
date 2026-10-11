@@ -1,4 +1,5 @@
 double m_geo::squaredDistance(lucent::Ref<lucent_app::S_Point> p0_, lucent::Ref<lucent_app::S_Point> p1_) {
+  lucent::checkStack();
   double v2_ = p0_->x;
   double v3_ = p1_->x;
   double dx = v2_ - v3_;

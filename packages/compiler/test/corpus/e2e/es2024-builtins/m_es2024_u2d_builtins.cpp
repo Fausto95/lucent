@@ -79,8 +79,10 @@
 namespace lucent_app {
 
 lucent::String m_es2024_u2d_builtins::groupedRecord() {
+  lucent::checkStack();
   lucent::Array<lucent::String> words = lucent::Array<lucent::String>{LUCENT_STR("apple"), LUCENT_STR("avocado"), LUCENT_STR("banana"), LUCENT_STR("blueberry"), LUCENT_STR("cherry")};
   lucent::Fn<lucent::String(lucent::String, double)> v7_ = lucent::Fn<lucent::String(lucent::String, double)>([](lucent::String p0_, double p1_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Opt<lucent::String> v3_ = lucent::stringIndex(p0_, 0.0);
     bool v5_ = !v3_.has();
     lucent::String v8_{};
@@ -129,6 +131,7 @@ lucent::String m_es2024_u2d_builtins::groupedRecord() {
 }
 
 lucent::String m_es2024_u2d_builtins::groupedMap() {
+  lucent::checkStack();
   lucent::Array<double> v6_ = lucent::Array<double>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
   lucent::Fn<double(double, double)> v7_ = lucent::Fn<double(double, double)>([](double p0_, double p1_) mutable -> double {
     return lucent::jsMod(p0_, 3.0);
@@ -204,6 +207,7 @@ lucent::Iter<lucent::String> m_es2024_u2d_builtins::letters() {
 }
 
 lucent::String m_es2024_u2d_builtins::groupedIterables() {
+  lucent::checkStack();
   lucent::Array<double> v4_ = lucent::Array<double>{1.0, 2.0, 3.0, 3.0};
   lucent::Set<double> v5_ = lucent::Set<double>(v4_);
   lucent::Fn<lucent::String(double, double)> v6_ = lucent::Fn<lucent::String(double, double)>([](double p0_, double p1_) mutable -> lucent::String {
@@ -256,6 +260,7 @@ lucent::String m_es2024_u2d_builtins::groupedIterables() {
 }
 
 lucent::String m_es2024_u2d_builtins::groupingThrows() {
+  lucent::checkStack();
   {
     std::exception_ptr ex7_;
     try {
@@ -287,6 +292,7 @@ lucent::String m_es2024_u2d_builtins::groupingThrows() {
 }
 
 lucent::Promise<lucent::String> m_es2024_u2d_builtins::resolvers() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_PromiseWithResolvers> v0_ = ({
     lucent::Promise<double> p_;
     auto r_ = std::make_shared<lucent_app::S_PromiseWithResolvers>();
@@ -307,6 +313,7 @@ lucent::Promise<lucent::String> m_es2024_u2d_builtins::resolvers() {
   });
   lucent::Fn<lucent::Promise<void>()> v5_ = lucent::Fn<lucent::Promise<void>()>([resolve = resolve]() -> lucent::Promise<void> {
     return [](auto resolve) -> lucent::Promise<void> {
+      lucent::checkStack();
       lucent::Promise<void> v1_ = lucent::delay(1.0);
       co_await v1_;
       resolve(std::variant<lucent::Promise<double>, double>(21.0));
@@ -385,11 +392,14 @@ lucent::Promise<lucent::String> m_es2024_u2d_builtins::resolvers() {
 }
 
 lucent::String m_es2024_u2d_builtins::wellFormed() {
+  lucent::checkStack();
   lucent::Array<lucent::String> samples = lucent::Array<lucent::String>{LUCENT_STR("abc"), LUCENT_STR("\303\251"), LUCENT_STR("\360\237\230\200"), LUCENT_STR16(u"\xd83d"), LUCENT_STR16(u"\x61\xde00\x62"), LUCENT_STR16(u"\xde00\xd83d"), LUCENT_STR("x\360\237\230\200y"), lucent::String()};
   lucent::Array<lucent::String> v11_ = samples.template map<lucent::String>([](lucent::String p0_, double p1_, lucent::Array<lucent::String> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v3_ = p0_.toWellFormed();
     lucent::Array<lucent::String> v4_ = ({ lucent::Array<lucent::String> arr_7_; arr_7_.append(lucent::splitCodePoints(v3_)); arr_7_; });
     lucent::Array<lucent::Opt<lucent::String>> v6_ = v4_.template map<lucent::Opt<lucent::String>>([](lucent::String p0_, double p1_, lucent::Array<lucent::String> p2_) mutable -> lucent::Opt<lucent::String> {
+      lucent::checkStack();
       lucent::Opt<double> v4_ = p0_.codePointAt(0.0);
       bool v6_ = !v4_.has();
       lucent::Opt<lucent::String> v13_{};

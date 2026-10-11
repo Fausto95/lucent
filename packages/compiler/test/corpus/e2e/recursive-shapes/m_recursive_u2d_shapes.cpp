@@ -45,8 +45,10 @@
 namespace lucent_app {
 
 double m_recursive_u2d_shapes::size(lucent::Ref<lucent_app::S_TreeNode> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::Ref<lucent_app::S_TreeNode>> v2_ = p0_->children;
   double v5_ = v2_.reduce([](double p0_, lucent::Ref<lucent_app::S_TreeNode> p1_, double p2_, lucent::Array<lucent::Ref<lucent_app::S_TreeNode>> p3_) mutable -> double {
+    lucent::checkStack();
     double v4_ = lucent_app::m_recursive_u2d_shapes::size(p1_);
     return p0_ + v4_;
   }, double(0.0));
@@ -54,10 +56,12 @@ double m_recursive_u2d_shapes::size(lucent::Ref<lucent_app::S_TreeNode> p0_) {
 }
 
 double m_recursive_u2d_shapes::treeSize(lucent::Ref<lucent_app::S_TreeNode> p0_) {
+  lucent::checkStack();
   return lucent_app::m_recursive_u2d_shapes::size(p0_);
 }
 
 lucent::Ref<lucent_app::S_TreeNode> m_recursive_u2d_shapes::grow(lucent::Ref<lucent_app::S_TreeNode> p0_) {
+  lucent::checkStack();
   double v1_ = p0_->value;
   double v3_ = v1_ + 1.0;
   lucent::Array<lucent::Ref<lucent_app::S_TreeNode>> v4_ = p0_->children;
@@ -71,6 +75,7 @@ lucent::Ref<lucent_app::S_TreeNode> m_recursive_u2d_shapes::grow(lucent::Ref<luc
 }
 
 double m_recursive_u2d_shapes::lenA(lucent::Ref<lucent_app::S_ListA> p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::Ref<lucent_app::S_ListA>> v1_ = p0_->next;
   bool v2_ = lucent::truthy(v1_);
   double v8_{};
@@ -85,10 +90,12 @@ double m_recursive_u2d_shapes::lenA(lucent::Ref<lucent_app::S_ListA> p0_) {
 }
 
 double m_recursive_u2d_shapes::lenB(lucent::Ref<lucent_app::S_ListA> p0_) {
+  lucent::checkStack();
   return lucent_app::m_recursive_u2d_shapes::lenA(p0_);
 }
 
 lucent::String m_recursive_u2d_shapes::evens(lucent::Ref<lucent_app::S_Even> p0_) {
+  lucent::checkStack();
   double v1_ = p0_->n;
   lucent::String v2_ = lucent::toJsString(v1_);
   lucent::Opt<lucent::Ref<lucent_app::S_Odd>> v4_ = p0_->other;
@@ -139,6 +146,7 @@ lucent::String m_recursive_u2d_shapes::evens(lucent::Ref<lucent_app::S_Even> p0_
 }
 
 lucent::String m_recursive_u2d_shapes::selfs(lucent::Ref<lucent_app::S_Self> p0_) {
+  lucent::checkStack();
   double v1_ = p0_->n;
   lucent::String v2_ = lucent::toJsString(v1_);
   lucent::Opt<lucent::Ref<lucent_app::S_Self>> v4_ = p0_->other;
@@ -190,6 +198,7 @@ lucent::String m_recursive_u2d_shapes::selfs(lucent::Ref<lucent_app::S_Self> p0_
 }
 
 double m_recursive_u2d_shapes::sum(std::variant<lucent::Ref<lucent_app::S_Object_c5938d10>, lucent::Ref<lucent_app::S_Object_f0708c92>> p0_) {
+  lucent::checkStack();
   lucent::String v1_ = ({ const auto& u_3_ = p0_; u_3_.index() == 0 ? std::get<0>(u_3_)->tag : std::get<1>(u_3_)->tag; });
   bool v3_ = v1_ == LUCENT_STR("num");
   double v11_{};
@@ -200,6 +209,7 @@ double m_recursive_u2d_shapes::sum(std::variant<lucent::Ref<lucent_app::S_Object
     lucent::Ref<lucent_app::S_Object_c5938d10> v6_ = lucent::narrow<lucent::Ref<lucent_app::S_Object_c5938d10>>(p0_);
     lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_f0708c92>, lucent::Ref<lucent_app::S_Object_c5938d10>>> v7_ = v6_->items;
     v11_ = v7_.reduce([](double p0_, std::variant<lucent::Ref<lucent_app::S_Object_f0708c92>, lucent::Ref<lucent_app::S_Object_c5938d10>> p1_, double p2_, lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_f0708c92>, lucent::Ref<lucent_app::S_Object_c5938d10>>> p3_) mutable -> double {
+      lucent::checkStack();
       double v5_ = lucent_app::m_recursive_u2d_shapes::sum(lucent::convert<std::variant<lucent::Ref<lucent_app::S_Object_c5938d10>, lucent::Ref<lucent_app::S_Object_f0708c92>>>(p1_));
       return p0_ + v5_;
     }, double(0.0));
@@ -208,6 +218,7 @@ double m_recursive_u2d_shapes::sum(std::variant<lucent::Ref<lucent_app::S_Object
 }
 
 lucent::String m_recursive_u2d_shapes::names(lucent::Ref<lucent_app::S_Doc> p0_) {
+  lucent::checkStack();
   lucent::String v1_ = p0_->name;
   lucent::Array<lucent::String> out = lucent::Array<lucent::String>{v1_};
   lucent::Opt<lucent::Map<lucent::String, lucent::Ref<lucent_app::S_Doc>>> v3_ = p0_->kids;

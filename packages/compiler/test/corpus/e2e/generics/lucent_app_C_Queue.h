@@ -26,6 +26,7 @@ template <class T>
 struct C_Queue : lucent::Object {
   lucent::Array<T> items{};
   void construct() {
+    lucent::checkStack();
     lucent::Array<T> v0_ = lucent::Array<T>{};
     this->items = v0_;
   }
@@ -35,14 +36,17 @@ struct C_Queue : lucent::Object {
     return self;
   }
   void push(T p0_) {
+    lucent::checkStack();
     lucent::Array<T> v1_ = this->items;
     (void)v1_.push(p0_);
   }
   lucent::Opt<T> shift() {
+    lucent::checkStack();
     lucent::Array<T> v0_ = this->items;
     return v0_.shift();
   }
   double get_size() {
+    lucent::checkStack();
     lucent::Array<T> v0_ = this->items;
     return static_cast<double>(static_cast<int64_t>(v0_.size()));
   }

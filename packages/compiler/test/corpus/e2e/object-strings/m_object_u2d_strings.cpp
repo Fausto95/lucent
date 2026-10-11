@@ -55,6 +55,7 @@
 namespace lucent_app {
 
 lucent::String m_object_u2d_strings::arrays() {
+  lucent::checkStack();
   double v3_ = -0.0;
   lucent::Array<double> xs = lucent::Array<double>{1.0, 2.5, v3_};
   lucent::Array<double> v7_ = lucent::Array<double>{1.0, 2.0};
@@ -74,6 +75,7 @@ lucent::String m_object_u2d_strings::arrays() {
 }
 
 lucent::String m_object_u2d_strings::collections() {
+  lucent::checkStack();
   std::tuple<lucent::String, double> v2_ = std::tuple<lucent::String, double>(LUCENT_STR("k"), 1.0);
   lucent::Array<std::tuple<lucent::String, double>> v3_ = lucent::Array<std::tuple<lucent::String, double>>{v2_};
   lucent::Map<lucent::String, double> m = lucent::mapFromEntries<lucent::String, double>(v3_);
@@ -92,6 +94,7 @@ lucent::String m_object_u2d_strings::collections() {
 }
 
 lucent::String m_object_u2d_strings::bytes() {
+  lucent::checkStack();
   lucent::Array<double> v3_ = lucent::Array<double>{1.0, 2.0, 255.0};
   lucent::Bytes u = lucent::Bytes::fromArray(v3_);
   lucent::Bytes empty = lucent::Bytes(0.0);
@@ -107,6 +110,7 @@ lucent::String m_object_u2d_strings::bytes() {
 }
 
 lucent::String m_object_u2d_strings::promises() {
+  lucent::checkStack();
   lucent::Promise<double> p = lucent::resolvedPromise<double>(1.0);
   lucent::String v3_ = lucent::toJsString(p);
   lucent::String v5_ = lucent::concat(lucent::toJsString(p));
@@ -117,6 +121,7 @@ lucent::String m_object_u2d_strings::promises() {
 }
 
 lucent::String m_object_u2d_strings::aborts() {
+  lucent::checkStack();
   lucent::AbortController c = std::make_shared<lucent::AbortControllerObject>();
   lucent::String v2_ = lucent::toJsString(c);
   lucent::AbortSignal v4_ = c->signal;
@@ -128,6 +133,7 @@ lucent::String m_object_u2d_strings::aborts() {
 }
 
 lucent::String m_object_u2d_strings::optionals() {
+  lucent::checkStack();
   lucent::Array<double> v2_ = lucent::Array<double>{1.0, 2.0};
   lucent::Opt<lucent::Array<double>> maybe = lucent::Opt<lucent::Array<double>>(v2_);
   lucent::Opt<lucent::Map<lucent::String, double>> none = lucent::Opt<lucent::Map<lucent::String, double>>(lucent::undefined);
@@ -143,6 +149,7 @@ lucent::String m_object_u2d_strings::optionals() {
 }
 
 lucent::String m_object_u2d_strings::kinds() {
+  lucent::checkStack();
   lucent::Array<double> v1_ = lucent::Array<double>{1.0};
   lucent::String v2_ = lucent::typeOf(v1_);
   lucent::Map<lucent::String, double> v3_ = lucent::Map<lucent::String, double>();
@@ -160,6 +167,7 @@ lucent::String m_object_u2d_strings::kinds() {
 }
 
 void m_object_u2d_strings::log() {
+  lucent::checkStack();
   lucent::Array<double> v2_ = lucent::Array<double>{1.0, 2.0};
   lucent::Map<lucent::String, double> v3_ = lucent::Map<lucent::String, double>();
   lucent::Set<double> v4_ = lucent::Set<double>();

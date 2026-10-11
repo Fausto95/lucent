@@ -107,6 +107,7 @@
 namespace lucent_app {
 
 void C_Counter::construct(double p0_) {
+  lucent::checkStack();
   this->label = lucent::String();
   this->count = p0_;
 }
@@ -118,6 +119,7 @@ lucent::Ref<C_Counter> C_Counter::create(double p0_) {
 }
 
 void C_Eager::construct() {
+  lucent::checkStack();
   lucent_app::m_never_u2d_positions::fail(LUCENT_STR("field initializer"));
   lucent::String v2_ = []() -> lucent::String {
     lucent::unreachable();
@@ -132,6 +134,7 @@ lucent::Ref<C_Eager> C_Eager::create() {
 }
 
 void m_never_u2d_positions::fail(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = lucent_app::m_never_u2d_positions::calls;
   (void)v1_.push(p0_);
   lucent::Error v5_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), lucent::String(LUCENT_STR("no ")) + p0_), __FILE__, __LINE__, "fail");
@@ -139,17 +142,20 @@ void m_never_u2d_positions::fail(lucent::String p0_) {
 }
 
 lucent::String m_never_u2d_positions::note(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = lucent_app::m_never_u2d_positions::calls;
   (void)v1_.push(p0_);
   return p0_;
 }
 
 void m_never_u2d_positions::log(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = lucent_app::m_never_u2d_positions::calls;
   (void)v1_.push(p0_);
 }
 
 lucent::String m_never_u2d_positions::attempt(lucent::Fn<lucent::String()> p0_) {
+  lucent::checkStack();
   lucent_app::m_never_u2d_positions::calls = lucent::Array<lucent::String>{};
   {
     std::exception_ptr ex11_;
@@ -185,6 +191,7 @@ lucent::String m_never_u2d_positions::pair(lucent::String p0_, double p1_) {
 }
 
 lucent::String m_never_u2d_positions::defaulted(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   lucent::String value{};
   bool v2_ = lucent::strictEquals(p0_, lucent::undefined);
   if (v2_) {
@@ -199,7 +206,9 @@ lucent::String m_never_u2d_positions::defaulted(lucent::Opt<lucent::String> p0_)
 }
 
 lucent::String m_never_u2d_positions::argument(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v7_{};
     if (ok) {
       v7_ = lucent_app::m_never_u2d_positions::take(LUCENT_STR("value"));
@@ -215,7 +224,9 @@ lucent::String m_never_u2d_positions::argument(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::u_arguments_(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v10_{};
     if (ok) {
       v10_ = lucent_app::m_never_u2d_positions::pair(LUCENT_STR("a"), 1.0);
@@ -232,7 +243,9 @@ lucent::String m_never_u2d_positions::u_arguments_(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::constructed(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v7_{};
     if (ok) {
       v7_ = LUCENT_STR("skipped");
@@ -250,7 +263,9 @@ lucent::String m_never_u2d_positions::constructed(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::defaults(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v4_{};
     if (ok) {
       v4_ = lucent_app::m_never_u2d_positions::defaulted(lucent::Opt<lucent::String>(LUCENT_STR("given")));
@@ -263,7 +278,9 @@ lucent::String m_never_u2d_positions::defaults(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::initialized(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v4_{};
     if (ok) {
       v4_ = LUCENT_STR("skipped");
@@ -277,7 +294,9 @@ lucent::String m_never_u2d_positions::initialized(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::assigned(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String s = LUCENT_STR("start");
     if (ok) {
       return s;
@@ -292,7 +311,9 @@ lucent::String m_never_u2d_positions::assigned(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::assignedField(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Ref<lucent_app::C_Counter> counter = lucent_app::C_Counter::create(0.0);
     bool v3_ = !ok;
     if (v3_) {
@@ -309,7 +330,9 @@ lucent::String m_never_u2d_positions::assignedField(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::compound(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     double n = 1.0;
     bool v2_ = !ok;
     if (v2_) {
@@ -324,7 +347,9 @@ lucent::String m_never_u2d_positions::compound(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::compoundShared(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent_app::m_never_u2d_positions::shared = lucent_app::C_Counter::create(0.0);
     bool v3_ = !ok;
     if (v3_) {
@@ -344,7 +369,9 @@ lucent::String m_never_u2d_positions::compoundShared(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::field(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     if (ok) {
       return LUCENT_STR("skipped");
     }
@@ -366,7 +393,9 @@ lucent::String m_never_u2d_positions::field(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::element(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     if (ok) {
       return LUCENT_STR("skipped");
     }
@@ -381,7 +410,9 @@ lucent::String m_never_u2d_positions::element(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::tuple(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     if (ok) {
       return LUCENT_STR("skipped");
     }
@@ -395,7 +426,9 @@ lucent::String m_never_u2d_positions::tuple(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::pushed(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Array<double> items = lucent::Array<double>{};
     bool v2_ = !ok;
     if (v2_) {
@@ -410,7 +443,9 @@ lucent::String m_never_u2d_positions::pushed(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::mapped(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Map<lucent::String, double> map = lucent::Map<lucent::String, double>();
     bool v2_ = !ok;
     if (v2_) {
@@ -426,7 +461,9 @@ lucent::String m_never_u2d_positions::mapped(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::r_template_(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v7_{};
     if (ok) {
       v7_ = LUCENT_STR("plain");
@@ -441,7 +478,9 @@ lucent::String m_never_u2d_positions::r_template_(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::operands(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v7_{};
     if (ok) {
       v7_ = LUCENT_STR("0");
@@ -458,7 +497,9 @@ lucent::String m_never_u2d_positions::operands(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::unary(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v6_{};
     if (ok) {
       v6_ = LUCENT_STR("0");
@@ -475,7 +516,9 @@ lucent::String m_never_u2d_positions::unary(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::compared(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v7_{};
     if (ok) {
       v7_ = LUCENT_STR("0");
@@ -492,7 +535,9 @@ lucent::String m_never_u2d_positions::compared(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::condition(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     if (ok) {
       return LUCENT_STR("skipped");
     }
@@ -507,7 +552,9 @@ lucent::String m_never_u2d_positions::condition(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::negated(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v7_{};
     if (ok) {
       v7_ = LUCENT_STR("skipped");
@@ -522,7 +569,9 @@ lucent::String m_never_u2d_positions::negated(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::leftOperand(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v9_{};
     if (ok) {
       v9_ = LUCENT_STR("skipped");
@@ -547,7 +596,9 @@ lucent::String m_never_u2d_positions::leftOperand(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::looped(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     double turns = 0.0;
     if (ok) {
       while (true) {
@@ -573,7 +624,9 @@ lucent::String m_never_u2d_positions::looped(bool p0_) {
 }
 
 lucent::String m_never_u2d_positions::switched(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([ok = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     if (ok) {
       return LUCENT_STR("skipped");
     }
@@ -586,12 +639,14 @@ lucent::String m_never_u2d_positions::switched(bool p0_) {
 }
 
 void m_never_u2d_positions::assertNever(lucent::Undefined p0_) {
+  lucent::checkStack();
   lucent::String v2_ = lucent::toJsString(p0_);
   lucent::Error v4_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), lucent::String(LUCENT_STR("unexpected ")) + v2_), __FILE__, __LINE__, "assertNever");
   lucent::throwError(v4_);
 }
 
 lucent::String m_never_u2d_positions::exhaustive(lucent::String p0_) {
+  lucent::checkStack();
   {
     bool v2_ = p0_ == LUCENT_STR("circle");
     double v9_{};
@@ -625,7 +680,9 @@ lucent::String m_never_u2d_positions::exhaustive(lucent::String p0_) {
 }
 
 lucent::String m_never_u2d_positions::nothing() {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v0_ = lucent::Fn<lucent::String()>([]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v1_ = lucent_app::m_never_u2d_positions::note(LUCENT_STR("head"));
     lucent_app::m_never_u2d_positions::log(LUCENT_STR("first"));
     lucent_app::m_never_u2d_positions::log(LUCENT_STR("second"));
@@ -635,6 +692,7 @@ lucent::String m_never_u2d_positions::nothing() {
 }
 
 void m_never_u2d_positions::init() {
+  lucent::checkStack();
   lucent_app::m_never_u2d_positions::calls = lucent::Array<lucent::String>{};
   lucent_app::m_never_u2d_positions::shared = lucent_app::C_Counter::create(0.0);
 }

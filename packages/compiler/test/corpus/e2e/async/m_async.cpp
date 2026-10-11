@@ -106,6 +106,7 @@
 namespace lucent_app {
 
 void C_Loader::construct() {
+  lucent::checkStack();
   lucent::Map<lucent::String, lucent::String> v0_ = lucent::Map<lucent::String, lucent::String>();
   this->cache = v0_;
   this->loads = 0.0;
@@ -119,6 +120,7 @@ lucent::Ref<C_Loader> C_Loader::create() {
 
 lucent::Promise<lucent::String> C_Loader::load(lucent::String p0_) {
   auto self = lucent::selfRef(this);
+  lucent::checkStack();
   lucent::Map<lucent::String, lucent::String> v1_ = this->cache;
   lucent::Opt<lucent::String> hit = v1_.get(p0_);
   bool v5_ = !lucent::strictEquals(hit, lucent::undefined);
@@ -137,12 +139,14 @@ lucent::Promise<lucent::String> C_Loader::load(lucent::String p0_) {
 }
 
 lucent::Promise<double> m_async::r_double_(double p0_) {
+  lucent::checkStack();
   lucent::Promise<void> v2_ = lucent::delay(5.0);
   co_await v2_;
   co_return p0_ * 2.0;
 }
 
 lucent::Promise<lucent::Array<double>> m_async::sequence(lucent::Array<double> p0_) {
+  lucent::checkStack();
   lucent::Array<double> out = lucent::Array<double>{};
   {
     auto coll0_ = p0_;
@@ -160,7 +164,9 @@ lucent::Promise<lucent::Array<double>> m_async::sequence(lucent::Array<double> p
 }
 
 lucent::Promise<lucent::Array<double>> m_async::parallel(lucent::Array<double> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::Promise<double>> v2_ = p0_.template map<lucent::Promise<double>>([](double p0_, double p1_, lucent::Array<double> p2_) mutable -> lucent::Promise<double> {
+    lucent::checkStack();
     return lucent_app::m_async::r_double_(p0_);
   });
   lucent::Promise<lucent::Array<double>> v3_ = lucent::promiseAll(v2_);
@@ -169,6 +175,7 @@ lucent::Promise<lucent::Array<double>> m_async::parallel(lucent::Array<double> p
 }
 
 lucent::Promise<lucent::String> m_async::failing(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Promise<void> v2_ = lucent::delay(1.0);
   co_await v2_;
   lucent::Error v4_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), p0_), __FILE__, __LINE__, "failing");
@@ -177,6 +184,7 @@ lucent::Promise<lucent::String> m_async::failing(lucent::String p0_) {
 
 lucent::Promise<lucent::String> m_async::recovers() {
   lucent::String ret_{};
+  lucent::checkStack();
   {
     int fc0_ = 0;
     std::exception_ptr fc0ex_;
@@ -228,6 +236,7 @@ lucent::Promise<lucent::String> m_async::recovers() {
 }
 
 lucent::Promise<lucent::String> m_async::withProgress(double p0_, lucent::Fn<void(double)> p1_) {
+  lucent::checkStack();
   {
     int64_t i = static_cast<int64_t>(1);
     while (true) {
@@ -247,6 +256,7 @@ lucent::Promise<lucent::String> m_async::withProgress(double p0_, lucent::Fn<voi
 }
 
 lucent::Promise<double> m_async::askJs(lucent::Fn<lucent::Promise<double>(lucent::String)> p0_) {
+  lucent::checkStack();
   lucent::Promise<double> v2_ = p0_(LUCENT_STR("first"));
   double v3_ = co_await v2_;
   double a = v3_;
@@ -257,9 +267,11 @@ lucent::Promise<double> m_async::askJs(lucent::Fn<lucent::Promise<double>(lucent
 }
 
 lucent::Promise<lucent::String> m_async::orderCheck() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Fn<lucent::Promise<lucent::String>(lucent::String, double)> v2_ = lucent::Fn<lucent::Promise<lucent::String>(lucent::String, double)>([log = log](lucent::String p0_, double p1_) -> lucent::Promise<lucent::String> {
     return [](auto log, lucent::String p0_, double p1_) -> lucent::Promise<lucent::String> {
+      lucent::checkStack();
       lucent::String v4_ = lucent::String(LUCENT_STR("start ")) + p0_;
       (void)log.push(v4_);
       lucent::Promise<void> v6_ = lucent::delay(p1_);
@@ -280,6 +292,7 @@ lucent::Promise<lucent::String> m_async::orderCheck() {
 }
 
 lucent::Promise<void> m_async::voidAsync(lucent::Fn<void(lucent::String)> p0_) {
+  lucent::checkStack();
   lucent::Promise<void> v2_ = lucent::delay(1.0);
   co_await v2_;
   p0_(LUCENT_STR("void async ran"));
@@ -295,9 +308,11 @@ lucent::Promise<double> m_async::noAwait(double p0_) {
 }
 
 lucent::Promise<lucent::String> m_async::allRejectsEarly() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Fn<lucent::Promise<double>()> v2_ = lucent::Fn<lucent::Promise<double>()>([log = log]() -> lucent::Promise<double> {
     return [](auto log) -> lucent::Promise<double> {
+      lucent::checkStack();
       lucent::Promise<void> v1_ = lucent::delay(40.0);
       co_await v1_;
       (void)log.push(LUCENT_STR("slow settled"));
@@ -307,6 +322,7 @@ lucent::Promise<lucent::String> m_async::allRejectsEarly() {
   lucent::Fn<lucent::Promise<double>()> slow = std::move(v2_);
   lucent::Fn<lucent::Promise<double>()> v3_ = lucent::Fn<lucent::Promise<double>()>([]() -> lucent::Promise<double> {
     return []() -> lucent::Promise<double> {
+      lucent::checkStack();
       lucent::Promise<void> v1_ = lucent::delay(1.0);
       co_await v1_;
       lucent::Error v4_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), LUCENT_STR("fast failed")), __FILE__, __LINE__, "fast");
@@ -341,9 +357,11 @@ lucent::Promise<lucent::String> m_async::allRejectsEarly() {
 }
 
 lucent::Promise<lucent::String> m_async::tupleRejectsEarly() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Fn<lucent::Promise<lucent::String>()> v2_ = lucent::Fn<lucent::Promise<lucent::String>()>([log = log]() -> lucent::Promise<lucent::String> {
     return [](auto log) -> lucent::Promise<lucent::String> {
+      lucent::checkStack();
       lucent::Promise<void> v1_ = lucent::delay(40.0);
       co_await v1_;
       (void)log.push(LUCENT_STR("slow settled"));
@@ -353,6 +371,7 @@ lucent::Promise<lucent::String> m_async::tupleRejectsEarly() {
   lucent::Fn<lucent::Promise<lucent::String>()> slow = std::move(v2_);
   lucent::Fn<lucent::Promise<double>()> v3_ = lucent::Fn<lucent::Promise<double>()>([]() -> lucent::Promise<double> {
     return []() -> lucent::Promise<double> {
+      lucent::checkStack();
       lucent::Promise<void> v1_ = lucent::delay(1.0);
       co_await v1_;
       lucent::Error v4_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), LUCENT_STR("fast failed")), __FILE__, __LINE__, "fast");
@@ -391,9 +410,11 @@ lucent::Promise<lucent::String> m_async::tupleRejectsEarly() {
 }
 
 lucent::Promise<lucent::String> m_async::allTicks() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Fn<lucent::Promise<void>()> v2_ = lucent::Fn<lucent::Promise<void>()>([log = log]() -> lucent::Promise<void> {
     return [](auto log) -> lucent::Promise<void> {
+      lucent::checkStack();
       {
         int64_t i = static_cast<int64_t>(0);
         while (true) {
@@ -432,9 +453,11 @@ lucent::Promise<lucent::String> m_async::allTicks() {
 }
 
 lucent::Promise<lucent::String> m_async::eagerOrder() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Fn<lucent::Promise<lucent::String>(lucent::String)> v2_ = lucent::Fn<lucent::Promise<lucent::String>(lucent::String)>([log = log](lucent::String p0_) mutable -> lucent::Promise<lucent::String> {
     try {
+      lucent::checkStack();
       lucent::String v3_ = lucent::String(LUCENT_STR("run ")) + p0_;
       (void)log.push(v3_);
       return lucent::Promise<lucent::String>::resolved(p0_);
@@ -445,6 +468,7 @@ lucent::Promise<lucent::String> m_async::eagerOrder() {
   lucent::Fn<lucent::Promise<lucent::String>(lucent::String)> now = std::move(v2_);
   lucent::Fn<lucent::Promise<double>()> v4_ = lucent::Fn<lucent::Promise<double>()>([log = log]() mutable -> lucent::Promise<double> {
     try {
+      lucent::checkStack();
       (void)log.push(LUCENT_STR("refuse"));
       lucent::Error v4_ = lucent::withSite(lucent::makeError(LUCENT_STR("RangeError"), LUCENT_STR("refused")), __FILE__, __LINE__, "refuse");
       lucent::throwError(v4_);
@@ -455,6 +479,7 @@ lucent::Promise<lucent::String> m_async::eagerOrder() {
   lucent::Fn<lucent::Promise<double>()> refuse = std::move(v4_);
   lucent::Fn<lucent::Promise<void>()> v7_ = lucent::Fn<lucent::Promise<void>()>([log = log, now = now]() -> lucent::Promise<void> {
     return [](auto log, auto now) -> lucent::Promise<void> {
+      lucent::checkStack();
       lucent::Promise<lucent::String> v4_ = now(LUCENT_STR("a"));
       lucent::String v5_ = co_await v4_;
       lucent::String v6_ = lucent::String(LUCENT_STR("got ")) + v5_;
@@ -488,9 +513,12 @@ lucent::Promise<lucent::String> m_async::eagerOrder() {
 }
 
 lucent::Promise<double> m_async::promised(double p0_) {
+  lucent::checkStack();
   lucent::Fn<void(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)> v1_ = lucent::Fn<void(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)>([v = p0_](lucent::Fn<void(double)> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> void {
+    lucent::checkStack();
     lucent::Fn<lucent::Promise<void>()> v3_ = lucent::Fn<lucent::Promise<void>()>([resolve = p0_, v = v]() -> lucent::Promise<void> {
       return [](auto resolve, auto v) -> lucent::Promise<void> {
+        lucent::checkStack();
         lucent::Promise<void> v1_ = lucent::delay(1.0);
         co_await v1_;
         double v6_ = v * 2.0;
@@ -517,7 +545,9 @@ lucent::Promise<double> m_async::promised(double p0_) {
 }
 
 lucent::Promise<double> m_async::promiseRejects() {
+  lucent::checkStack();
   lucent::Fn<void(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)> v0_ = lucent::Fn<void(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)>([](lucent::Fn<void(double)> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> void {
+    lucent::checkStack();
     lucent::Error v3_ = lucent::withSite(lucent::makeError(LUCENT_STR("RangeError"), LUCENT_STR("nope")), __FILE__, __LINE__, "<anonymous>");
     p1_(v3_);
     return;
@@ -538,6 +568,7 @@ lucent::Promise<double> m_async::promiseRejects() {
 }
 
 lucent::Promise<double> m_async::promiseThrows() {
+  lucent::checkStack();
   lucent::Fn<void(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)> v0_ = lucent::Fn<void(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)>([](lucent::Fn<void(double)> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> void {
     lucent::Error v3_ = lucent::withSite(lucent::makeError(LUCENT_STR("TypeError"), LUCENT_STR("thrown")), __FILE__, __LINE__, "<anonymous>");
     lucent::throwError(v3_);
@@ -558,7 +589,9 @@ lucent::Promise<double> m_async::promiseThrows() {
 }
 
 lucent::Promise<lucent::String> m_async::promiseSettlesOnce() {
+  lucent::checkStack();
   lucent::Fn<void(lucent::Fn<void(lucent::String)>, lucent::Fn<void(lucent::Error)>)> v0_ = lucent::Fn<void(lucent::Fn<void(lucent::String)>, lucent::Fn<void(lucent::Error)>)>([](lucent::Fn<void(lucent::String)> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> void {
+    lucent::checkStack();
     p0_(LUCENT_STR("first"));
     p0_(LUCENT_STR("second"));
     lucent::Error v7_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), LUCENT_STR("late")), __FILE__, __LINE__, "<anonymous>");
@@ -580,8 +613,10 @@ lucent::Promise<lucent::String> m_async::promiseSettlesOnce() {
 }
 
 lucent::Promise<lucent::String> m_async::promiseOfNothing() {
+  lucent::checkStack();
   lucent::Array<lucent::String> order = lucent::Array<lucent::String>{};
   lucent::Fn<void(lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)> v2_ = lucent::Fn<void(lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)>([order = order](lucent::Fn<void()> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> void {
+    lucent::checkStack();
     (void)order.push(LUCENT_STR("executor"));
     p0_();
   });
