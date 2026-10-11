@@ -358,6 +358,11 @@ struct Session : Object {
 
 Ref<Session> session() { return std::make_shared<Session>(); }
 
+/// Bytes JavaScript takes a handle of, for another library.
+NativeBuffer pixels() { return NativeBufferObject::allocate(64); }
+NativeHandle handleOf(const NativeBuffer& b) { return b->handle(); }
+NativeHandle sameHandle(const NativeHandle& h) { return h; }
+
 /// Module state every runtime reaches (guarded by the Lucent lock).
 Ref<Handle> shared;
 
@@ -645,6 +650,30 @@ void installT(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
                  [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
                    Host& host = Host::from(rt, installed);
                    return callSync(rt, host, [&] { return Convert<Ref<m_t::Session>>::toJs(rt, host, m_t::session()); });
+                 });
+
+  defineFunction(rt, exports, "pixels", 0,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] { return Convert<NativeBuffer>::toJs(rt, host, m_t::pixels()); });
+                 });
+
+  defineFunction(rt, exports, "handleOf", 1,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t n) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] {
+                     auto b = Convert<NativeBuffer>::fromJs(rt, arg(args, n, 0), Path{"handleOf", "argument 'b'"});
+                     return Convert<NativeHandle>::toJs(rt, host, m_t::handleOf(b));
+                   });
+                 });
+
+  defineFunction(rt, exports, "sameHandle", 1,
+                 [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t n) {
+                   Host& host = Host::from(rt, installed);
+                   return callSync(rt, host, [&] {
+                     auto h = Convert<NativeHandle>::fromJs(rt, arg(args, n, 0), Path{"sameHandle", "argument 'h'"});
+                     return Convert<NativeHandle>::toJs(rt, host, m_t::sameHandle(h));
+                   });
                  });
 
   defineFunction(rt, exports, "sharedHandle", 0,
@@ -1541,6 +1570,31 @@ static void releasesOfOpenInstancesAreCounted() {
   CHECK(js.number("__lucentHost.ownership.releasedOpen") == 1);
 }
 
+/// A NativeHandle crosses as one JS object per handle: its pointer a
+/// bigint, released once from JavaScript, refusing what is not a handle;
+/// one JavaScript drops unreleased is released at collection, and counted.
+static void nativeHandlesCrossWithTheirPointer() {
+  JsThread js;
+  auto host = install(js);
+  auto collect = [&] { js.run([](jsi::Runtime& rt) { rt.instrumentation().collectGarbage("test"); }); };
+  auto releasedOpen = [&] { return js.run([&](jsi::Runtime&) { return host->ownership().releasedOpen; }); };
+
+  js.eval("var b = mods.t.pixels(); var h = b.handle();");
+  CHECK(js.string("typeof h.pointer") == "bigint");
+  CHECK(js.string("String(h.pointer !== 0n && !h.released)") == "true");
+  CHECK(js.string("String(mods.t.sameHandle(h) === h)") == "true");
+  CHECK(js.string("(function () { try { b.withWrite(function () {}); return 'wrote'; } catch (e) { return e.name; } })()") ==
+        "InvalidStateError");
+  CHECK(js.string("JSON.stringify([h.release(), h.release(), String(h.pointer), h.released])") == "[true,false,\"0\",true]");
+  CHECK(js.string("(function () { try { mods.t.sameHandle({}); return 'took'; } catch (e) { return e.name; } })()") == "TypeError");
+
+  // A handle Lucent made, dropped by JavaScript unreleased: its borrow ends at collection.
+  js.eval("(function () { mods.t.handleOf(b); })();");
+  collect();
+  CHECK(within(2000, [&] { return releasedOpen() == 1; }));
+  CHECK(js.string("(function () { b.close(); return String(b.byteLength); })()") == "0");
+}
+
 // --- ownership evidence -----------------------------------------------------------
 
 /// A host reports what it holds, in C++ and, in debug builds, to
@@ -1880,6 +1934,7 @@ int main() {
   objectsOfATornDownHostAreRefused();
   collectedInstancesReleaseOnTheirThread();
   releasesOfOpenInstancesAreCounted();
+  nativeHandlesCrossWithTheirPointer();
   hostsReportWhatTheyHold();
   debugSnapshotsSettleOnTheJsThread();
   tasksInFlightAreCounted();
