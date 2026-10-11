@@ -38,6 +38,7 @@ namespace m_nullish_u2d_generics {
 
 template <class T>
 T orDefault(T p0_, T p1_) {
+  lucent::checkStack();
   bool v2_ = lucent::looseEqualsNull(p0_);
   T v3_{};
   if (v2_) {
@@ -54,6 +55,7 @@ namespace m_nullish_u2d_generics {
 
 template <class T>
 T fill(T p0_, T p1_) {
+  lucent::checkStack();
   T v = p0_;
   T v2_ = v;
   bool v3_ = lucent::looseEqualsNull(v2_);

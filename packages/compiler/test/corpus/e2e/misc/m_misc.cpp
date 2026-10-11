@@ -70,6 +70,7 @@
 namespace lucent_app {
 
 lucent::String m_misc::colorName(lucent::String p0_) {
+  lucent::checkStack();
   lucent::String v1_ = LUCENT_STR("red");
   bool v2_ = p0_ == v1_;
   lucent::String v5_{};
@@ -86,6 +87,7 @@ double m_misc::level(double p0_) {
 }
 
 double m_misc::checksum(lucent::Bytes p0_) {
+  lucent::checkStack();
   double sum = 0.0;
   {
     auto coll0_ = p0_;
@@ -101,6 +103,7 @@ double m_misc::checksum(lucent::Bytes p0_) {
 }
 
 lucent::Bytes m_misc::bytesOps(double p0_) {
+  lucent::checkStack();
   lucent::Bytes b = lucent::Bytes(p0_);
   {
     int64_t i = static_cast<int64_t>(0);
@@ -120,6 +123,7 @@ lucent::Bytes m_misc::bytesOps(double p0_) {
 }
 
 lucent::String m_misc::roundTrip(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Bytes bytes = lucent::utf8Encode(p0_);
   double v3_ = bytes.length();
   lucent::String v4_ = lucent::toJsString(v3_);
@@ -128,6 +132,7 @@ lucent::String m_misc::roundTrip(lucent::String p0_) {
 }
 
 lucent::String m_misc::optional(lucent::Ref<lucent_app::S_Config> p0_) {
+  lucent::checkStack();
   lucent::Opt<double> v1_ = p0_->retries;
   bool v3_ = !v1_.has();
   double v6_{};
@@ -171,6 +176,7 @@ lucent::String m_misc::optional(lucent::Ref<lucent_app::S_Config> p0_) {
 }
 
 lucent::String m_misc::jsonOut() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Object_f5cde7f3> v3_ = ({ auto obj_2_ = std::make_shared<lucent_app::S_Object_f5cde7f3>(); obj_2_->b = LUCENT_STR("c"); obj_2_; });
   lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_f5cde7f3>, double>> v4_ = lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_f5cde7f3>, double>>{std::variant<lucent::Ref<lucent_app::S_Object_f5cde7f3>, double>(1.0), std::variant<lucent::Ref<lucent_app::S_Object_f5cde7f3>, double>(2.0), std::variant<lucent::Ref<lucent_app::S_Object_f5cde7f3>, double>(v3_)};
   lucent::Ref<lucent_app::S_Object_04843e96> data = ({ auto obj_1_ = std::make_shared<lucent_app::S_Object_04843e96>(); obj_1_->a = v4_; obj_1_->d = lucent::undefined; obj_1_->e = lucent::null; obj_1_->f = true; obj_1_; });
@@ -181,6 +187,7 @@ lucent::String m_misc::jsonOut() {
 }
 
 lucent::String m_misc::counterKeys(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Dict<double> counts = ({ lucent::Dict<double> rec_4_; rec_4_; });
   {
     auto coll0_ = p0_;
@@ -206,6 +213,7 @@ lucent::String m_misc::counterKeys(lucent::String p0_) {
 }
 
 lucent::String m_misc::bytesFrom(lucent::Opt<double> p0_) {
+  lucent::checkStack();
   lucent::Array<double> v7_ = lucent::Array<double>{1.0, 2.0, 3.0, 1.0, 2.0, 3.0};
   lucent::Bytes b = lucent::Bytes::fromArray(v7_);
   lucent::Bytes target = lucent::Bytes(3.0);
@@ -234,6 +242,7 @@ lucent::String m_misc::bytesFrom(lucent::Opt<double> p0_) {
 }
 
 void m_misc::init() {
+  lucent::checkStack();
   lucent_app::m_misc::VERSION = LUCENT_STR("1.2.3");
   lucent_app::m_misc::LIMITS = ({ auto obj_5_ = std::make_shared<lucent_app::S_Object_eb4e300f>(); obj_5_->min = 1.0; obj_5_->max = 9.0; obj_5_; });
 }

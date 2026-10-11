@@ -253,6 +253,7 @@
 namespace lucent_app {
 
 void C_Log::construct() {
+  lucent::checkStack();
   this->text = lucent::String();
 }
 
@@ -263,11 +264,13 @@ lucent::Ref<C_Log> C_Log::create() {
 }
 
 void C_Log::add(lucent::String p0_) {
+  lucent::checkStack();
   lucent::String v1_ = this->text;
   lucent::appendTo(this->text, std::move(v1_), p0_);
 }
 
 lucent::String C_Log::replacing() {
+  lucent::checkStack();
   lucent::String v0_ = this->text;
   lucent::String v2_ = this->reset(LUCENT_STR("new"));
   lucent::appendTo(this->text, std::move(v0_), v2_);
@@ -275,6 +278,7 @@ lucent::String C_Log::replacing() {
 }
 
 lucent::String C_Log::reset(lucent::String p0_) {
+  lucent::checkStack();
   this->text = p0_;
   return LUCENT_STR("+");
 }
@@ -331,6 +335,7 @@ lucent::String m_optimizations::compound(double p0_) {
 }
 
 lucent::String m_optimizations::negativeRemainder() {
+  lucent::checkStack();
   double r = 0.0;
   lucent::Array<double> out = lucent::Array<double>{};
   {
@@ -460,6 +465,7 @@ double m_optimizations::sometimesFractional(double p0_) {
 }
 
 lucent::String m_optimizations::toInt32(lucent::Array<double> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v2_ = p0_.template map<lucent::String>([](double p0_, double p1_, lucent::Array<double> p2_) mutable -> lucent::String {
     lucent::String v5_ = lucent::toJsString(static_cast<double>(lucent::toInt32(p0_) | 0));
     lucent::String v9_ = lucent::toJsString(static_cast<double>(lucent::toUint32(p0_) >> (static_cast<uint32_t>(0) & 31u)));
@@ -470,6 +476,7 @@ lucent::String m_optimizations::toInt32(lucent::Array<double> p0_) {
 }
 
 double m_optimizations::crc(double p0_) {
+  lucent::checkStack();
   lucent::Array<uint32_t> table = lucent::Array<uint32_t>{};
   {
     int64_t i = static_cast<int64_t>(0);
@@ -526,6 +533,7 @@ double m_optimizations::crc(double p0_) {
 }
 
 lucent::String m_optimizations::intElements(double p0_) {
+  lucent::checkStack();
   double v3_ = -2.0;
   lucent::Array<int64_t> t = lucent::Array<int64_t>{static_cast<int64_t>(1), static_cast<int64_t>(v3_), static_cast<int64_t>(3)};
   {
@@ -603,6 +611,7 @@ lucent::String m_optimizations::intElements(double p0_) {
 }
 
 double m_optimizations::boundedElements(double p0_) {
+  lucent::checkStack();
   lucent::Array<int64_t> xs = lucent::Array<int64_t>{};
   {
     int64_t i = static_cast<int64_t>(0);
@@ -643,6 +652,7 @@ double m_optimizations::boundedElements(double p0_) {
 }
 
 lucent::String m_optimizations::doubleElements(double p0_) {
+  lucent::checkStack();
   lucent::Array<double> zeros = lucent::Array<double>{0.0};
   double v5_ = -0.0;
   (void)zeros.push(v5_);
@@ -685,10 +695,12 @@ lucent::String m_optimizations::doubleElements(double p0_) {
 }
 
 double m_optimizations::keep(lucent::Array<double> p0_) {
+  lucent::checkStack();
   return static_cast<double>(static_cast<int64_t>(p0_.size()));
 }
 
 lucent::String m_optimizations::stackObjects(double p0_) {
+  lucent::checkStack();
   double sx = 0.0;
   double sy = 0.0;
   lucent::String names = lucent::String();
@@ -763,11 +775,13 @@ lucent::String m_optimizations::stackObjects(double p0_) {
 }
 
 lucent::String m_optimizations::heapObjects(double p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Point> passed = ({ auto obj_7_ = std::make_shared<lucent_app::S_Point>(); obj_7_->x = p0_; obj_7_->y = 1.0; obj_7_; });
   lucent::Ref<lucent_app::S_Point> kept = ({ auto obj_8_ = std::make_shared<lucent_app::S_Point>(); obj_8_->x = 2.0; obj_8_->y = p0_; obj_8_; });
   lucent::Array<lucent::Ref<lucent_app::S_Point>> all = lucent::Array<lucent::Ref<lucent_app::S_Point>>{kept};
   lucent::Ref<lucent_app::S_Point> captured = ({ auto obj_9_ = std::make_shared<lucent_app::S_Point>(); obj_9_->x = 3.0; obj_9_->y = 3.0; obj_9_; });
   lucent::Fn<double()> v11_ = lucent::Fn<double()>([captured = captured]() mutable -> double {
+    lucent::checkStack();
     return captured->x;
   });
   lucent::Fn<double()> read = std::move(v11_);
@@ -804,6 +818,7 @@ lucent::String m_optimizations::heapObjects(double p0_) {
 }
 
 double m_optimizations::norm(lucent::Ref<lucent_app::S_Point> p0_) {
+  lucent::checkStack();
   double v1_ = p0_->x;
   double v2_ = p0_->x;
   double v3_ = v1_ * v2_;
@@ -813,11 +828,13 @@ double m_optimizations::norm(lucent::Ref<lucent_app::S_Point> p0_) {
 }
 
 lucent::Ref<lucent_app::S_Point> m_optimizations::made(double p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Point> p = ({ auto obj_14_ = std::make_shared<lucent_app::S_Point>(); obj_14_->x = p0_; obj_14_->y = p0_; obj_14_; });
   return p;
 }
 
 lucent::String m_optimizations::directCallbacks(lucent::Array<double> p0_, double p1_) {
+  lucent::checkStack();
   lucent::Array<double> v2_ = p0_.slice();
   lucent::Array<double> sorted = v2_.sort([](double p0_, double p1_) mutable -> double {
     return p0_ - p1_;
@@ -867,6 +884,7 @@ lucent::String m_optimizations::directCallbacks(lucent::Array<double> p0_, doubl
 }
 
 lucent::String m_optimizations::keptCallbacks(lucent::Array<double> p0_) {
+  lucent::checkStack();
   lucent::Fn<double(double, double)> v1_ = lucent::Fn<double(double, double)>([](double p0_, double p1_) mutable -> double {
     return p0_ - p1_;
   });
@@ -877,6 +895,7 @@ lucent::String m_optimizations::keptCallbacks(lucent::Array<double> p0_) {
   lucent::Array<double> twice = v5_.sort(byValue);
   lucent::Array<double> calls = lucent::Array<double>{};
   lucent::Array<double> counted = p0_.template map<double>([calls = calls](double p0_, double p1_, lucent::Array<double> p2_) mutable -> double {
+    lucent::checkStack();
     (void)calls.push(p0_);
     int64_t v6_ = static_cast<int64_t>(calls.size());
     return p0_ + static_cast<double>(v6_);
@@ -885,9 +904,11 @@ lucent::String m_optimizations::keptCallbacks(lucent::Array<double> p0_) {
 }
 
 lucent::String m_optimizations::mutatingCallbacks() {
+  lucent::checkStack();
   lucent::Array<double> xs = lucent::Array<double>{1.0, 2.0, 3.0};
   lucent::Array<double> visited = lucent::Array<double>{};
   xs.forEach([visited = visited, xs = xs](double p0_, double p1_, lucent::Array<double> p2_) mutable -> void {
+    lucent::checkStack();
     (void)visited.push(p0_);
     bool v6_ = p0_ == 1.0;
     if (v6_) {
@@ -922,6 +943,7 @@ lucent::String m_optimizations::mutatingCallbacks() {
 }
 
 lucent::String m_optimizations::stringKeys() {
+  lucent::checkStack();
   std::tuple<lucent::String, lucent::String, lucent::String, lucent::String, lucent::String, lucent::String, lucent::String> v7_ = std::tuple<lucent::String, lucent::String, lucent::String, lucent::String, lucent::String, lucent::String, lucent::String>(LUCENT_STR("ab"), LUCENT_STR("c"), LUCENT_STR("12345678901234"), LUCENT_STR("5"), LUCENT_STR("\317\200"), LUCENT_STR("\342\211\210"), LUCENT_STR("3.14"));
   lucent::String ab = std::get<0>(v7_);
   lucent::String c = std::get<1>(v7_);
@@ -932,6 +954,7 @@ lucent::String m_optimizations::stringKeys() {
   lucent::String rest = std::get<6>(v7_);
   lucent::Map<lucent::String, double> counts = lucent::Map<lucent::String, double>();
   lucent::Fn<lucent::Map<lucent::String, double>(lucent::String)> v17_ = lucent::Fn<lucent::Map<lucent::String, double>(lucent::String)>([counts = counts](lucent::String p0_) mutable -> lucent::Map<lucent::String, double> {
+    lucent::checkStack();
     lucent::Opt<double> v3_ = counts.get(p0_);
     bool v5_ = !v3_.has();
     double v8_{};
@@ -991,6 +1014,7 @@ lucent::String m_optimizations::stringKeys() {
 }
 
 lucent::String m_optimizations::building(double p0_) {
+  lucent::checkStack();
   lucent::String s = lucent::String();
   {
     int64_t i = static_cast<int64_t>(0);
@@ -1084,6 +1108,7 @@ lucent::String m_optimizations::rewrite() {
 }
 
 lucent::String m_optimizations::appends(double p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Log> log = lucent_app::C_Log::create();
   lucent_app::m_optimizations::journal = lucent::String();
   {
@@ -1135,6 +1160,7 @@ lucent::String m_optimizations::appends(double p0_) {
 }
 
 lucent::String m_optimizations::numberStrings() {
+  lucent::checkStack();
   double v2_ = -0.0;
   double v5_ = -1.0;
   double v9_ = -9007199254740991.0;

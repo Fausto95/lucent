@@ -57,6 +57,7 @@
 namespace lucent_app {
 
 lucent::String m_control::classify(double p0_) {
+  lucent::checkStack();
   lucent::String out = lucent::String();
   {
     bool v3_ = p0_ == 0.0;
@@ -111,6 +112,7 @@ lucent::String m_control::classify(double p0_) {
 }
 
 lucent::String m_control::labeled() {
+  lucent::checkStack();
   lucent::Array<lucent::String> found = lucent::Array<lucent::String>{};
   {
     int64_t i = static_cast<int64_t>(0);
@@ -158,9 +160,11 @@ lucent::String m_control::labeled() {
 }
 
 lucent::String m_control::finallyOrder() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Fn<double(double)> v2_ = lucent::Fn<double(double)>([log = log](double p0_) mutable -> double {
     double ret_{};
+    lucent::checkStack();
     {
       int fc0_ = 0;
       std::exception_ptr fc0ex_;
@@ -205,6 +209,7 @@ lucent::String m_control::finallyOrder() {
 }
 
 lucent::String m_control::nestedFinally() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   {
     int64_t i = static_cast<int64_t>(0);
@@ -294,6 +299,7 @@ lucent::String m_control::nestedFinally() {
 
 lucent::String m_control::catches(lucent::String p0_) {
   lucent::String ret_{};
+  lucent::checkStack();
   {
     int fc0_ = 0;
     std::exception_ptr fc0ex_;
@@ -378,6 +384,7 @@ lucent::String m_control::catches(lucent::String p0_) {
 }
 
 lucent::Array<double> m_control::whileLoops(double p0_) {
+  lucent::checkStack();
   lucent::Array<double> out = lucent::Array<double>{};
   double i = 0.0;
   while (true) {
@@ -407,6 +414,7 @@ lucent::Array<double> m_control::whileLoops(double p0_) {
 }
 
 lucent::Array<lucent::String> m_control::ternaries(lucent::Array<lucent::Opt<double>> p0_) {
+  lucent::checkStack();
   return p0_.template map<lucent::String>([](lucent::Opt<double> p0_, double p1_, lucent::Array<lucent::Opt<double>> p2_) mutable -> lucent::String {
     bool v4_ = lucent::strictEquals(p0_, lucent::undefined);
     lucent::String v17_{};
@@ -465,6 +473,7 @@ lucent::String m_control::logic(lucent::String p0_, double p1_) {
 }
 
 lucent::String m_control::forIn(lucent::Dict<double> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> keys = lucent::Array<lucent::String>{};
   lucent::Array<lucent::String> v2_ = p0_.keys();
   {
@@ -481,6 +490,7 @@ lucent::String m_control::forIn(lucent::Dict<double> p0_) {
 }
 
 double m_control::earlyReturnInLoop(lucent::Array<double> p0_, double p1_) {
+  lucent::checkStack();
   {
     int64_t i = static_cast<int64_t>(0);
     while (true) {

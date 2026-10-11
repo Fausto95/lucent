@@ -12,6 +12,7 @@
 namespace lucent_app {
 
 void C_Greeter::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->greeting = p0_;
 }
 
@@ -24,6 +25,7 @@ lucent::Ref<C_Greeter> C_Greeter::create(lucent::String p0_) {
 lucent::Promise<lucent::String> C_Greeter::greet(lucent::String p0_) {
   auto self = lucent::selfRef(this);
   try {
+    lucent::checkStack();
     lucent::String v1_ = this->greeting;
     return lucent::Promise<lucent::String>::resolved(lucent::concat(v1_, LUCENT_STR(" "), p0_));
   } catch (...) {
@@ -33,6 +35,7 @@ lucent::Promise<lucent::String> C_Greeter::greet(lucent::String p0_) {
 
 lucent::Promise<lucent::String> m_async_u2d_arguments::greet(lucent::String p0_, double p1_) {
   try {
+    lucent::checkStack();
     lucent::String v3_ = lucent::String(p0_) + LUCENT_STR(" ");
     lucent::String v4_ = v3_.repeat(p1_);
     return lucent::Promise<lucent::String>::resolved(v4_.trim());

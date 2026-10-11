@@ -92,6 +92,7 @@
 namespace lucent_app {
 
 void C_Circle::construct(double p0_) {
+  lucent::checkStack();
   this->r = p0_;
   this->kind = LUCENT_STR("circle");
   this->name = LUCENT_STR("c");
@@ -104,6 +105,7 @@ lucent::Ref<C_Circle> C_Circle::create(double p0_) {
 }
 
 double C_Circle::area() {
+  lucent::checkStack();
   double v0_ = 3.141592653589793;
   double v1_ = this->r;
   double v2_ = v0_ * v1_;
@@ -112,12 +114,14 @@ double C_Circle::area() {
 }
 
 lucent::String C_Circle::describe(lucent::String p0_) {
+  lucent::checkStack();
   double v2_ = this->r;
   lucent::String v3_ = lucent::toJsString(v2_);
   return lucent::concat(p0_, LUCENT_STR(" circle r="), v3_);
 }
 
 void C_Rect::construct(double p0_, double p1_) {
+  lucent::checkStack();
   this->w = p0_;
   this->h = p1_;
 }
@@ -133,12 +137,14 @@ lucent::String C_Rect::get_kind() {
 }
 
 double C_Rect::area() {
+  lucent::checkStack();
   double v0_ = this->w;
   double v1_ = this->h;
   return v0_ * v1_;
 }
 
 lucent::String C_Rect::describe(lucent::String p0_) {
+  lucent::checkStack();
   double v2_ = this->w;
   lucent::String v3_ = lucent::toJsString(v2_);
   double v5_ = this->h;
@@ -147,6 +153,7 @@ lucent::String C_Rect::describe(lucent::String p0_) {
 }
 
 void C_Up::construct() {
+  lucent::checkStack();
   this->i = 0.0;
 }
 
@@ -157,6 +164,7 @@ lucent::Ref<C_Up> C_Up::create() {
 }
 
 double C_Up::next() {
+  lucent::checkStack();
   double v0_ = this->i;
   double v2_ = v0_ + 1.0;
   this->i = v2_;
@@ -164,6 +172,7 @@ double C_Up::next() {
 }
 
 void C_Down::construct(double p0_) {
+  lucent::checkStack();
   this->i = p0_;
 }
 
@@ -174,6 +183,7 @@ lucent::Ref<C_Down> C_Down::create(double p0_) {
 }
 
 double C_Down::next() {
+  lucent::checkStack();
   double v0_ = this->i;
   double v2_ = v0_ - 1.0;
   this->i = v2_;
@@ -191,12 +201,14 @@ lucent::Ref<C_Echo> C_Echo::create() {
 
 lucent::Promise<lucent::String> C_Echo::load(lucent::String p0_) {
   auto self = lucent::selfRef(this);
+  lucent::checkStack();
   lucent::Promise<void> v2_ = lucent::delay(1.0);
   co_await v2_;
   co_return lucent::String(p0_) + LUCENT_STR("!");
 }
 
 void C_Countdown::construct(double p0_) {
+  lucent::checkStack();
   this->n = p0_;
   this->count = 0.0;
 }
@@ -208,6 +220,7 @@ lucent::Ref<C_Countdown> C_Countdown::create(double p0_) {
 }
 
 lucent::Opt<double> C_Countdown::next() {
+  lucent::checkStack();
   double v0_ = this->n;
   bool v2_ = v0_ <= 0.0;
   if (v2_) {
@@ -223,6 +236,7 @@ lucent::Opt<double> C_Countdown::next() {
 }
 
 void C_Item::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->label = p0_;
 }
 
@@ -233,11 +247,13 @@ lucent::Ref<C_Item> C_Item::create(lucent::String p0_) {
 }
 
 lucent::String C_Item::tag() {
+  lucent::checkStack();
   lucent::String v1_ = this->label;
   return lucent::String(LUCENT_STR("#")) + v1_;
 }
 
 void C_Special::construct() {
+  lucent::checkStack();
   this->label = LUCENT_STR("special");
 }
 
@@ -252,6 +268,7 @@ lucent::String C_Special::tag() {
 }
 
 double m_interfaces::totalArea(lucent::Array<lucent::Ref<lucent_app::I_Shape>> p0_) {
+  lucent::checkStack();
   double sum = 0.0;
   {
     auto coll0_ = p0_;
@@ -270,10 +287,12 @@ double m_interfaces::totalArea(lucent::Array<lucent::Ref<lucent_app::I_Shape>> p
 }
 
 lucent::String m_interfaces::describeAll() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Circle> v1_ = lucent_app::C_Circle::create(1.0);
   lucent::Ref<lucent_app::C_Rect> v4_ = lucent_app::C_Rect::create(2.0, 3.0);
   lucent::Array<lucent::Ref<lucent_app::I_Shape>> shapes = lucent::Array<lucent::Ref<lucent_app::I_Shape>>{std::static_pointer_cast<lucent_app::I_Shape>(v1_), std::static_pointer_cast<lucent_app::I_Shape>(v4_)};
   lucent::Array<lucent::String> v8_ = shapes.template map<lucent::String>([](lucent::Ref<lucent_app::I_Shape> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::I_Shape>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v3_ = p0_->get_kind();
     lucent::String v6_ = p0_->describe(LUCENT_STR(">"));
     return lucent::concat(v3_, LUCENT_STR(": "), v6_);
@@ -282,6 +301,7 @@ lucent::String m_interfaces::describeAll() {
 }
 
 lucent::Opt<lucent::Ref<lucent_app::I_Shape>> m_interfaces::largest(lucent::Array<lucent::Ref<lucent_app::I_Shape>> p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::Ref<lucent_app::I_Shape>> best{};
   {
     auto coll0_ = p0_;
@@ -309,15 +329,18 @@ lucent::Opt<lucent::Ref<lucent_app::I_Shape>> m_interfaces::largest(lucent::Arra
 }
 
 bool m_interfaces::same(lucent::Ref<lucent_app::I_Shape> p0_, lucent::Ref<lucent_app::I_Shape> p1_) {
+  lucent::checkStack();
   return lucent::strictEquals(p0_, p1_);
 }
 
 lucent::String m_interfaces::rename(lucent::Ref<lucent_app::I_Named> p0_, lucent::String p1_) {
+  lucent::checkStack();
   (void)(p0_->set_name(p1_), p1_);
   return p0_->get_name();
 }
 
 lucent::String m_interfaces::circleNames(lucent::Array<lucent::Ref<lucent_app::I_Shape>> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> names = lucent::Array<lucent::String>{};
   {
     auto coll0_ = p0_;
@@ -338,6 +361,7 @@ lucent::String m_interfaces::circleNames(lucent::Array<lucent::Ref<lucent_app::I
 }
 
 lucent::String m_interfaces::counters() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Up> v0_ = lucent_app::C_Up::create();
   lucent::Ref<lucent_app::C_Down> v2_ = lucent_app::C_Down::create(3.0);
   lucent::Array<lucent::Ref<lucent_app::I_Counter>> cs = lucent::Array<lucent::Ref<lucent_app::I_Counter>>{std::static_pointer_cast<lucent_app::I_Counter>(v0_), std::static_pointer_cast<lucent_app::I_Counter>(v2_)};
@@ -369,6 +393,7 @@ lucent::String m_interfaces::counters() {
 }
 
 lucent::Promise<lucent::String> m_interfaces::loadVia(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Echo> v1_ = lucent_app::C_Echo::create();
   lucent::Ref<lucent_app::I_Source> s = std::static_pointer_cast<lucent_app::I_Source>(v1_);
   lucent::Promise<lucent::String> v4_ = s->load(p0_);
@@ -380,6 +405,7 @@ lucent::Promise<lucent::String> m_interfaces::loadVia(lucent::String p0_) {
 }
 
 lucent::String m_interfaces::feeds() {
+  lucent::checkStack();
   lucent::Array<lucent::String> v2_ = lucent::Array<lucent::String>{LUCENT_STR("a"), LUCENT_STR("b")};
   lucent::Ref<lucent_app::C_ListSource<lucent::String>> v3_ = lucent_app::C_ListSource<lucent::String>::create(v2_);
   lucent::Ref<lucent_app::I_Feed<lucent::String>> words = std::static_pointer_cast<lucent_app::I_Feed<lucent::String>>(v3_);
@@ -389,6 +415,7 @@ lucent::String m_interfaces::feeds() {
   });
   lucent::String v8_ = lucent_app::m_interfaces::drain<double>(std::static_pointer_cast<lucent_app::I_Feed<double>>(v6_), v7_);
   lucent::Fn<lucent::String(lucent::String)> v10_ = lucent::Fn<lucent::String(lucent::String)>([](lucent::String p0_) mutable -> lucent::String {
+    lucent::checkStack();
     return p0_.toUpperCase();
   });
   lucent::String v11_ = lucent_app::m_interfaces::drain<lucent::String>(words, v10_);
@@ -403,14 +430,17 @@ lucent::String m_interfaces::feeds() {
 }
 
 lucent::String m_interfaces::labelOf(lucent::Ref<lucent_app::I_Labelled> p0_) {
+  lucent::checkStack();
   return p0_->get_label();
 }
 
 lucent::String m_interfaces::tagged() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Item> v1_ = lucent_app::C_Item::create(LUCENT_STR("x"));
   lucent::Ref<lucent_app::C_Special> v2_ = lucent_app::C_Special::create();
   lucent::Array<lucent::Ref<lucent_app::I_Tagged>> xs = lucent::Array<lucent::Ref<lucent_app::I_Tagged>>{std::static_pointer_cast<lucent_app::I_Tagged>(v1_), std::static_pointer_cast<lucent_app::I_Tagged>(v2_)};
   lucent::Array<lucent::String> v6_ = xs.template map<lucent::String>([](lucent::Ref<lucent_app::I_Tagged> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::I_Tagged>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Ref<lucent_app::I_Labelled> v3_ = std::static_pointer_cast<lucent_app::I_Labelled>(p0_);
     lucent::String v4_ = lucent_app::m_interfaces::labelOf(v3_);
     lucent::String v5_ = p0_->tag();
@@ -420,6 +450,7 @@ lucent::String m_interfaces::tagged() {
 }
 
 lucent::Ref<lucent_app::I_Tagged> m_interfaces::exportTagged() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Item> v1_ = lucent_app::C_Item::create(LUCENT_STR("out"));
   return std::static_pointer_cast<lucent_app::I_Tagged>(v1_);
 }

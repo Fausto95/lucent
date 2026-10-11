@@ -422,10 +422,11 @@ export const differences: { title: string; rows: Difference[] }[] = [
         cases: ["weak-collections"],
       },
       {
-        js: "Deep recursion throws a `RangeError`.",
-        lucent: "Deep recursion may overflow the native stack, which crashes the app.",
-        why: "Lucent code runs on the native stack, with no depth check.",
-        cases: [],
+        js: "Deep recursion throws a `RangeError` at the engine's limit.",
+        lucent:
+          "It throws a `RangeError` too, when the native stack is nearly full: how deep that is depends on the thread's stack and the frames' sizes.",
+        why: "Lucent code runs on the native stack, which each call checks.",
+        cases: ["recursion-limit"],
       },
     ],
   },

@@ -33,6 +33,7 @@
 namespace lucent_app {
 
 lucent::String m_union_u2d_generics::members() {
+  lucent::checkStack();
   std::variant<double, lucent::String> n = lucent_app::m_union_u2d_generics::pick<double, lucent::String>(true, 1.0, LUCENT_STR("a"));
   std::variant<double, lucent::String> s = lucent::convert<std::variant<double, lucent::String>>(lucent_app::m_union_u2d_generics::pick<lucent::String, double>(false, LUCENT_STR("a"), 2.0));
   std::variant<bool, lucent::String> b = lucent_app::m_union_u2d_generics::pick<bool, lucent::String>(false, true, LUCENT_STR("b"));
@@ -44,6 +45,7 @@ lucent::String m_union_u2d_generics::members() {
 }
 
 lucent::String m_union_u2d_generics::comparisons() {
+  lucent::checkStack();
   bool v2_ = lucent_app::m_union_u2d_generics::same<double, lucent::String>(1.0, std::variant<double, lucent::String>(1.0));
   bool v5_ = lucent_app::m_union_u2d_generics::same<lucent::String, double>(LUCENT_STR("a"), std::variant<lucent::String, double>(1.0));
   bool v8_ = lucent_app::m_union_u2d_generics::same<lucent::String, double>(LUCENT_STR("a"), std::variant<lucent::String, double>(LUCENT_STR("a")));
@@ -52,6 +54,7 @@ lucent::String m_union_u2d_generics::comparisons() {
 }
 
 lucent::String m_union_u2d_generics::optionals() {
+  lucent::checkStack();
   lucent::Array<double> empty = lucent::Array<double>{};
   lucent::String v2_ = lucent_app::m_union_u2d_generics::orNull<double>(lucent::Opt<double>(1.0));
   lucent::String v4_ = lucent_app::m_union_u2d_generics::orNull<lucent::String>(lucent::Opt<lucent::String>(lucent::null));
@@ -65,6 +68,7 @@ lucent::String m_union_u2d_generics::optionals() {
 }
 
 lucent::String m_union_u2d_generics::absent(bool p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::Undefined> v5_{};
   if (p0_) {
     v5_ = lucent::Opt<lucent::Undefined>(lucent::null);

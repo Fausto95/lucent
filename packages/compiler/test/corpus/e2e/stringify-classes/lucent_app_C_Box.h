@@ -18,6 +18,7 @@ template <class T>
 struct C_Box : lucent::Object {
   T item{};
   void construct(T p0_) {
+    lucent::checkStack();
     this->item = p0_;
   }
   static lucent::Ref<C_Box<T>> create(T p0_) {

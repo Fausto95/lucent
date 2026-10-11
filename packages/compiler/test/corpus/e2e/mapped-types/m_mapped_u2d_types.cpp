@@ -54,6 +54,7 @@
 namespace lucent_app {
 
 lucent::Ref<lucent_app::S_Point> m_mapped_u2d_types::withDefaults(lucent::Ref<lucent_app::S_Partial> p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Point> defaults = ({ auto obj_1_ = std::make_shared<lucent_app::S_Point>(); obj_1_->x = 0.0; obj_1_->y = 0.0; obj_1_->label = LUCENT_STR("origin"); obj_1_; });
   return ({
     auto obj_2_ = std::make_shared<lucent_app::S_Point>();
@@ -76,6 +77,7 @@ lucent::Ref<lucent_app::S_Point> m_mapped_u2d_types::withDefaults(lucent::Ref<lu
 }
 
 lucent::String m_mapped_u2d_types::picked(lucent::Ref<lucent_app::S_Pick> p0_) {
+  lucent::checkStack();
   lucent::String v1_ = p0_->label;
   double v3_ = p0_->x;
   lucent::String v4_ = lucent::toJsString(v3_);
@@ -83,12 +85,14 @@ lucent::String m_mapped_u2d_types::picked(lucent::Ref<lucent_app::S_Pick> p0_) {
 }
 
 double m_mapped_u2d_types::omitted(lucent::Ref<lucent_app::S_Omit> p0_) {
+  lucent::checkStack();
   double v1_ = p0_->x;
   double v2_ = p0_->y;
   return v1_ * v2_;
 }
 
 lucent::String m_mapped_u2d_types::required(lucent::Ref<lucent_app::S_Point> p0_) {
+  lucent::checkStack();
   lucent::String v1_ = p0_->label;
   double v3_ = p0_->x;
   lucent::String v4_ = lucent::toJsString(v3_);
@@ -98,21 +102,25 @@ lucent::String m_mapped_u2d_types::required(lucent::Ref<lucent_app::S_Point> p0_
 }
 
 lucent::String m_mapped_u2d_types::frozen(lucent::Ref<lucent_app::S_Point> p0_) {
+  lucent::checkStack();
   return lucent::json::stringify(p0_);
 }
 
 double m_mapped_u2d_types::total(lucent::Ref<lucent_app::S_Scores> p0_) {
+  lucent::checkStack();
   double v1_ = p0_->home;
   double v2_ = p0_->away;
   return v1_ + v2_;
 }
 
 lucent::Ref<lucent_app::S_Scores> m_mapped_u2d_types::scores(double p0_) {
+  lucent::checkStack();
   double v2_ = p0_ + 1.0;
   return ({ auto obj_5_ = std::make_shared<lucent_app::S_Scores>(); obj_5_->home = p0_; obj_5_->away = v2_; obj_5_; });
 }
 
 lucent::String m_mapped_u2d_types::inLucent() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Partial> v1_ = ({ auto obj_6_ = std::make_shared<lucent_app::S_Partial>(); obj_6_->y = lucent::Opt<double>(5.0); obj_6_; });
   lucent::Ref<lucent_app::S_Point> p = lucent_app::m_mapped_u2d_types::withDefaults(v1_);
   lucent::Ref<lucent_app::S_Pick> q = ({ auto obj_7_ = std::make_shared<lucent_app::S_Pick>(); obj_7_->x = 3.0; obj_7_->label = LUCENT_STR("q"); obj_7_; });
@@ -136,7 +144,9 @@ lucent::String m_mapped_u2d_types::inLucent() {
 }
 
 lucent::String m_mapped_u2d_types::byState(lucent::Array<lucent::Ref<lucent_app::S_Task>> p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String(lucent::Ref<lucent_app::S_Task>, double)> v1_ = lucent::Fn<lucent::String(lucent::Ref<lucent_app::S_Task>, double)>([](lucent::Ref<lucent_app::S_Task> p0_, double p1_) mutable -> lucent::String {
+    lucent::checkStack();
     bool v2_ = p0_->done;
     lucent::String v5_{};
     if (v2_) {
@@ -148,11 +158,13 @@ lucent::String m_mapped_u2d_types::byState(lucent::Array<lucent::Ref<lucent_app:
   });
   lucent::Ref<lucent_app::S_Partial_2> groups = ({ auto g_ = lucent::dictGroupBy<lucent::Opt<lucent::Array<lucent::Ref<lucent_app::S_Task>>>>(p0_, v1_); auto r_ = std::make_shared<lucent_app::S_Partial_2>(); r_->done = lucent::flat(g_.get(LUCENT_STR("done"))); r_->todo = lucent::flat(g_.get(LUCENT_STR("todo"))); r_; });
   lucent::Fn<lucent::String(lucent::Opt<lucent::Array<lucent::Ref<lucent_app::S_Task>>>)> v3_ = lucent::Fn<lucent::String(lucent::Opt<lucent::Array<lucent::Ref<lucent_app::S_Task>>>)>([](lucent::Opt<lucent::Array<lucent::Ref<lucent_app::S_Task>>> p0_) mutable -> lucent::String {
+    lucent::checkStack();
     bool v1_ = lucent::truthy(p0_);
     lucent::String v8_{};
     if (v1_) {
       lucent::Array<lucent::Ref<lucent_app::S_Task>> v2_ = p0_.value();
       lucent::Array<lucent::String> v4_ = v2_.template map<lucent::String>([](lucent::Ref<lucent_app::S_Task> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::S_Task>> p2_) mutable -> lucent::String {
+        lucent::checkStack();
         return p0_->title;
       });
       v8_ = v4_.join(LUCENT_STR(","));

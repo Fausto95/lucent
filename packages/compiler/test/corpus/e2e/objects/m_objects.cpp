@@ -95,6 +95,7 @@
 namespace lucent_app {
 
 lucent::Ref<lucent_app::S_Point> m_objects::midpoint(lucent::Ref<lucent_app::S_Point> p0_, lucent::Ref<lucent_app::S_Point> p1_) {
+  lucent::checkStack();
   double v2_ = p0_->x;
   double v3_ = p1_->x;
   double v6_ = (v2_ + v3_) / 2.0;
@@ -105,12 +106,14 @@ lucent::Ref<lucent_app::S_Point> m_objects::midpoint(lucent::Ref<lucent_app::S_P
 }
 
 lucent::Ref<lucent_app::S_Point> m_objects::translate(lucent::Ref<lucent_app::S_Point> p0_, double p1_) {
+  lucent::checkStack();
   double v2_ = p0_->x;
   double v3_ = v2_ + p1_;
   return ({ auto obj_2_ = std::make_shared<lucent_app::S_Point>(); auto src_3_ = p0_; obj_2_->x = src_3_->x; obj_2_->y = src_3_->y; obj_2_->x = v3_; obj_2_; });
 }
 
 lucent::String m_objects::describe(lucent::Ref<lucent_app::S_Person> p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::String> v1_ = p0_->nickname;
   bool v2_ = lucent::truthy(v1_);
   lucent::String v7_{};
@@ -130,6 +133,7 @@ lucent::String m_objects::describe(lucent::Ref<lucent_app::S_Person> p0_) {
 }
 
 lucent::Ref<lucent_app::S_Person> m_objects::birthday(lucent::Ref<lucent_app::S_Person> p0_) {
+  lucent::checkStack();
   double v1_ = p0_->age;
   double v3_ = v1_ + 1.0;
   p0_->age = v3_;
@@ -139,11 +143,13 @@ lucent::Ref<lucent_app::S_Person> m_objects::birthday(lucent::Ref<lucent_app::S_
 }
 
 lucent::Ref<lucent_app::S_Person> m_objects::makePerson(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v2_ = lucent::Array<lucent::String>{};
   return ({ auto obj_4_ = std::make_shared<lucent_app::S_Person>(); obj_4_->name = p0_; obj_4_->age = 0.0; obj_4_->tags = v2_; obj_4_; });
 }
 
 lucent::String m_objects::nickname(lucent::Ref<lucent_app::S_Person> p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::String> v1_ = p0_->nickname;
   bool v3_ = !v1_.has();
   lucent::Opt<lucent::String> v9_{};
@@ -165,6 +171,7 @@ lucent::String m_objects::nickname(lucent::Ref<lucent_app::S_Person> p0_) {
 }
 
 double m_objects::area(std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>> p0_) {
+  lucent::checkStack();
   {
     lucent::String v1_ = ({ const auto& u_5_ = p0_; u_5_.index() == 0 ? std::get<0>(u_5_)->kind : std::get<1>(u_5_)->kind; });
     bool v3_ = v1_ == LUCENT_STR("circle");
@@ -206,6 +213,7 @@ double m_objects::area(std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, 
 }
 
 lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>> m_objects::shapes(double p0_) {
+  lucent::checkStack();
   lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>> out = lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>>>{};
   {
     int64_t i = static_cast<int64_t>(1);
@@ -233,6 +241,7 @@ lucent::Array<std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::R
 }
 
 std::variant<bool, double, lucent::String> m_objects::parseValue(lucent::String p0_) {
+  lucent::checkStack();
   bool v2_ = p0_ == LUCENT_STR("true");
   bool v5_{};
   if (v2_) {
@@ -255,6 +264,7 @@ std::variant<bool, double, lucent::String> m_objects::parseValue(lucent::String 
 }
 
 lucent::String m_objects::kindOf(std::variant<bool, double, lucent::String> p0_) {
+  lucent::checkStack();
   bool v3_ = lucent::typeOf(p0_) == LUCENT_STR("number");
   if (v3_) {
     return lucent::String(LUCENT_STR("number:")) + lucent::toJsString(lucent::narrow<double>(p0_) + 1.0);
@@ -281,6 +291,7 @@ lucent::String m_objects::maybe(lucent::Opt<double> p0_) {
 }
 
 double m_objects::treeSum(lucent::Ref<lucent_app::S_Tree> p0_) {
+  lucent::checkStack();
   double s = p0_->value;
   lucent::Array<lucent::Ref<lucent_app::S_Tree>> v2_ = p0_->children;
   {
@@ -298,6 +309,7 @@ double m_objects::treeSum(lucent::Ref<lucent_app::S_Tree> p0_) {
 }
 
 lucent::Ref<lucent_app::S_Tree> m_objects::tree(double p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::Ref<lucent_app::S_Tree>> v1_ = lucent::Array<lucent::Ref<lucent_app::S_Tree>>{};
   lucent::Ref<lucent_app::S_Tree> node = ({ auto obj_8_ = std::make_shared<lucent_app::S_Tree>(); obj_8_->value = p0_; obj_8_->children = v1_; obj_8_; });
   bool v4_ = p0_ > 0.0;
@@ -313,19 +325,23 @@ lucent::Ref<lucent_app::S_Tree> m_objects::tree(double p0_) {
 }
 
 lucent::Array<std::tuple<double, lucent::String>> m_objects::pairs(lucent::Array<double> p0_) {
+  lucent::checkStack();
   return p0_.template map<std::tuple<double, lucent::String>>([](double p0_, double p1_, lucent::Array<double> p2_) mutable -> std::tuple<double, lucent::String> {
+    lucent::checkStack();
     lucent::String v5_ = lucent::String(LUCENT_STR("#")) + lucent::toJsString(p0_);
     return std::tuple<double, lucent::String>(p0_, v5_);
   });
 }
 
 std::tuple<double, lucent::String> m_objects::swap(std::tuple<lucent::String, double> p0_) {
+  lucent::checkStack();
   lucent::String a = std::get<0>(p0_);
   double b = std::get<1>(p0_);
   return std::tuple<double, lucent::String>(b, a);
 }
 
 lucent::String m_objects::destructure(lucent::Ref<lucent_app::S_Person> p0_) {
+  lucent::checkStack();
   lucent::String name = p0_->name;
   double years = p0_->age;
   lucent::Opt<lucent::String> v3_ = p0_->nickname;
@@ -355,6 +371,7 @@ lucent::String m_objects::destructure(lucent::Ref<lucent_app::S_Person> p0_) {
 }
 
 lucent::String m_objects::toJson(lucent::Ref<lucent_app::S_Person> p0_, std::variant<lucent::Ref<lucent_app::S_Object_b972b24e>, lucent::Ref<lucent_app::S_Object_b796e072>> p1_) {
+  lucent::checkStack();
   lucent::String v2_ = lucent::json::stringify(p0_);
   lucent::String v4_ = lucent::String(v2_) + LUCENT_STR(" ");
   lucent::String v5_ = lucent::json::stringify(p1_);
@@ -367,6 +384,7 @@ lucent::String m_objects::toJson(lucent::Ref<lucent_app::S_Person> p0_, std::var
 }
 
 lucent::String m_objects::reassign(lucent::Ref<lucent_app::S_Object_153935d8> p0_, lucent::Array<double> p1_) {
+  lucent::checkStack();
   double x = 0.0;
   double y = 0.0;
   lucent::String label = LUCENT_STR("none");

@@ -152,6 +152,13 @@ function eagerAsync(fn: IrFunction): boolean {
   return fn.async && !fn.regions.some((r) => r.ops.some((op) => op.kind === "await"));
 }
 
+/**
+ * Every function's entry check (lucent/stack.h): recursion that fills the
+ * stack throws RangeError, as in JavaScript. In a coroutine, it runs when
+ * the body starts, so what it throws rejects the promise.
+ */
+const STACK_CHECK: cpp.Stmt = cpp.exprStmt(cpp.call("lucent::checkStack"));
+
 /** What a function's C++ returns: its result, a promise of it, or a generator's iterator. */
 function returnType(fn: IrFunction, b: CppBackend): cpp.Type {
   if (fn.async) return cpp.type("lucent::Promise", b.cppRetType(fn.result));
@@ -386,7 +393,11 @@ class Emitter {
       return [
         ...first,
         ...this.prologue,
-        { k: "try", body: [...body, ...end], catches: [{ body: [cpp.ret(rejected)] }] },
+        {
+          k: "try",
+          body: [...this.stackCheck(), ...body, ...end],
+          catches: [{ body: [cpp.ret(rejected)] }],
+        },
       ];
     }
 
@@ -399,7 +410,27 @@ class Emitter {
 
     const first = this.top ? (this.backend.prologue ?? []) : [];
 
-    return [...first, ...this.prologue, ...body, ...end, ...still];
+    return [...first, ...this.prologue, ...this.stackCheck(), ...body, ...end, ...still];
+  }
+
+  /**
+   * The entry check, unless the function runs no code of the program's
+   * while it runs (no call, plan, iteration or disposal: arithmetic on its
+   * arguments, a comparator): it cannot be on the stack twice, and its
+   * frame fits in the margin its caller's check kept.
+   */
+  private stackCheck(): cpp.Stmt[] {
+    const runs = this.fn.regions.some((r) =>
+      r.ops.some(
+        (op) =>
+          op.kind === "plan" ||
+          op.kind === "iterate" ||
+          op.kind === "dispose" ||
+          (op.kind === "call" && op.callee.kind === "function"),
+      ),
+    );
+
+    return runs ? [STACK_CHECK] : [];
   }
 
   /** The body suspends or returns as a coroutine here. */

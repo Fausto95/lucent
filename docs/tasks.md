@@ -60,7 +60,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [TA39](#ta39) | ES2023 and ES2024 library methods                                 | done (#159, #160, 2026-10-11)                                                                                                     |
 | [TA40](#ta40) | Deterministic finalization and dispose from JavaScript            | ready; needs nothing open                                                                                                         |
 | [TA41](#ta41) | Name reference cycles in debug builds                             | ready; needs nothing open                                                                                                         |
-| [TA42](#ta42) | Throw `RangeError` on stack exhaustion                            | ready; needs nothing open                                                                                                         |
+| [TA42](#ta42) | Throw `RangeError` on stack exhaustion                            | done (#173, 2026-10-11)                                                                                                           |
 | [TA44](#ta44) | `WeakMap` and `WeakSet` keyed by instances                        | done (#170, 2026-10-11)                                                                                                           |
 | [TA46](#ta46) | A web target for shared modules                                   | blocked: a scope decision; needs nothing open                                                                                     |
 | [T67](#t67)   | Pass the integrated production-candidate gate                     | waiting (needs the maintainer); needs T62, T63, T64, T65, T66                                                                     |
@@ -2483,7 +2483,8 @@ with its path after a reload.
 **Goal:** Turn a stack overflow from a crash into JavaScript's
 `RangeError: Maximum call stack size exceeded`, at least in debug builds.
 
-- **Status:** ready; needs nothing open.
+- **Status:** done (#173, 2026-10-11) on the host; the device cost is
+  T65's to measure ([0073](decisions/0073-every-call-checks-the-stack-in-release-too.md)).
 - **Area:** Compiler (function prologue), runtime (stack).
 - **Needs:** none.
 - **Verify:** V1, V2, V3, V7.
@@ -2493,17 +2494,21 @@ with its path after a reload.
   `docs/semantics.md` (Recursion limits, Deviations), e2e
   `recursion-limit`, `scripts/bench.ts` (P2 cost).
 
-- [ ] Each thread Lucent runs on records its stack bounds once (its own
+- [x] Each thread Lucent runs on records its stack bounds once (its own
       threads at creation; the JS and main threads at first entry through
       `pthread_get_stackaddr_np` / `pthread_getattr_np`); a function
       prologue compares the stack pointer with the bound minus a margin
-      and throws `RangeError` past it. Coroutine frames are heap-allocated
-      and need no check.
-- [ ] Measured on the kernels (P2): kept in Release if under 1%, else
-      debug-only, recorded as a decision either way.
-- [ ] e2e `recursion-limit`: unbounded recursion throws a catchable
+      and throws `RangeError` past it. Coroutine frames are heap-allocated,
+      but a coroutine's body runs on the stack while it starts, so it
+      checks too, rejecting its promise. A function that runs no code of
+      the program skips the check (`ir/cpp.ts`'s `stackCheck`).
+- [x] Measured on the kernels (P2): kept in Release if under 1%, else
+      debug-only, recorded as a decision either way: kept, below the
+      kernels' noise on the host; recursive `fib` +25% (0.4 ns a call);
+      [0073](decisions/0073-every-call-checks-the-stack-in-release-too.md).
+- [x] e2e `recursion-limit`: unbounded recursion throws a catchable
       `RangeError` in both runs; the deviations table row is removed or
-      narrowed.
+      narrowed (narrowed: where the limit falls).
 
 **Done when:** unbounded recursion throws `RangeError` instead of ending
 the app, with the budget decision recorded.

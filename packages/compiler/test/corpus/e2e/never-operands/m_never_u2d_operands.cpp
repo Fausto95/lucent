@@ -70,6 +70,7 @@
 namespace lucent_app {
 
 void C_Account::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->name = p0_;
 }
 
@@ -80,12 +81,14 @@ lucent::Ref<C_Account> C_Account::create(lucent::String p0_) {
 }
 
 void C_Account::missing(lucent::String p0_) {
+  lucent::checkStack();
   lucent::String v1_ = this->name;
   lucent_app::m_never_u2d_operands::fail(lucent::concat(v1_, LUCENT_STR(" "), p0_));
   return;
 }
 
 void m_never_u2d_operands::fail(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = lucent_app::m_never_u2d_operands::calls;
   (void)v1_.push(p0_);
   lucent::Error v5_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), lucent::String(LUCENT_STR("no ")) + p0_), __FILE__, __LINE__, "fail");
@@ -93,6 +96,7 @@ void m_never_u2d_operands::fail(lucent::String p0_) {
 }
 
 lucent::String m_never_u2d_operands::attempt(lucent::Fn<lucent::String()> p0_) {
+  lucent::checkStack();
   lucent_app::m_never_u2d_operands::calls = lucent::Array<lucent::String>{};
   {
     std::exception_ptr ex11_;
@@ -119,7 +123,9 @@ lucent::String m_never_u2d_operands::attempt(lucent::Fn<lucent::String()> p0_) {
 }
 
 lucent::String m_never_u2d_operands::nullish(lucent::Opt<lucent::String> p0_, lucent::Opt<double> p1_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v2_ = lucent::Fn<lucent::String()>([name = p0_, count = p1_]() mutable -> lucent::String {
+    lucent::checkStack();
     bool v2_ = !name.has();
     lucent::String v7_{};
     if (v2_) {
@@ -149,7 +155,9 @@ lucent::String m_never_u2d_operands::nullish(lucent::Opt<lucent::String> p0_, lu
 }
 
 lucent::String m_never_u2d_operands::nullishObject(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([present = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Opt<lucent::Ref<lucent_app::C_Account>> v6_{};
     if (present) {
       lucent::Ref<lucent_app::C_Account> v2_ = lucent_app::C_Account::create(LUCENT_STR("ada"));
@@ -175,7 +183,9 @@ lucent::String m_never_u2d_operands::nullishObject(bool p0_) {
 }
 
 lucent::String m_never_u2d_operands::nullishMethod(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([present = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Ref<lucent_app::C_Account> account = lucent_app::C_Account::create(LUCENT_STR("bob"));
     lucent::Opt<lucent::String> v7_{};
     if (present) {
@@ -200,8 +210,11 @@ lucent::String m_never_u2d_operands::nullishMethod(bool p0_) {
 }
 
 lucent::String m_never_u2d_operands::nullishArrow(bool p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([present = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Fn<void(lucent::String)> v0_ = lucent::Fn<void(lucent::String)>([](lucent::String p0_) mutable -> void {
+      lucent::checkStack();
       lucent_app::m_never_u2d_operands::fail(p0_);
       return;
     });
@@ -229,7 +242,9 @@ lucent::String m_never_u2d_operands::nullishArrow(bool p0_) {
 }
 
 lucent::String m_never_u2d_operands::logical(lucent::String p0_, bool p1_, double p2_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v3_ = lucent::Fn<lucent::String()>([text = p0_, ok = p1_, n = p2_]() mutable -> lucent::String {
+    lucent::checkStack();
     bool v1_ = lucent::truthy(text);
     lucent::String v5_{};
     if (v1_) {
@@ -270,7 +285,9 @@ lucent::String m_never_u2d_operands::logical(lucent::String p0_, bool p1_, doubl
 }
 
 lucent::String m_never_u2d_operands::conditional(double p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([which = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     bool v2_ = which == 1.0;
     lucent::String v7_{};
     if (v2_) {
@@ -299,7 +316,9 @@ lucent::String m_never_u2d_operands::conditional(double p0_) {
 }
 
 lucent::String m_never_u2d_operands::assigns(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([start = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Opt<lucent::String> value = start;
     lucent::Opt<lucent::String> v1_ = value;
     bool v3_ = !v1_.has();
@@ -315,6 +334,7 @@ lucent::String m_never_u2d_operands::assigns(lucent::Opt<lucent::String> p0_) {
 }
 
 void m_never_u2d_operands::init() {
+  lucent::checkStack();
   lucent_app::m_never_u2d_operands::calls = lucent::Array<lucent::String>{};
 }
 

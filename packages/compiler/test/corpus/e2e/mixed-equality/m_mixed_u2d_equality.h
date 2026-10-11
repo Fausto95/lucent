@@ -104,6 +104,7 @@ namespace m_mixed_u2d_equality {
 
 template <class T>
 lucent::String strict(T p0_, T p1_) {
+  lucent::checkStack();
   bool v2_ = lucent::strictEquals(p0_, p1_);
   lucent::String v3_ = lucent::toJsString(v2_);
   bool v5_ = !lucent::strictEquals(p0_, p1_);
@@ -117,6 +118,7 @@ namespace m_mixed_u2d_equality {
 
 template <class T>
 lucent::String loose(T p0_, T p1_) {
+  lucent::checkStack();
   bool v2_ = lucent::looseEquals(p0_, p1_);
   lucent::String v3_ = lucent::toJsString(v2_);
   bool v5_ = !lucent::looseEquals(p0_, p1_);
@@ -130,6 +132,7 @@ namespace m_mixed_u2d_equality {
 
 template <class T>
 lucent::String against(T p0_) {
+  lucent::checkStack();
   bool v2_ = lucent::strictEquals(p0_, 0.0);
   bool v4_ = lucent::strictEquals(p0_, lucent::String());
   bool v6_ = lucent::strictEquals(p0_, lucent::BigInt::fromInt64(0));
@@ -145,6 +148,7 @@ namespace m_mixed_u2d_equality {
 
 template <class T>
 lucent::String absent(T p0_) {
+  lucent::checkStack();
   bool v2_ = lucent::strictEquals(p0_, lucent::undefined);
   bool v4_ = lucent::strictEquals(p0_, lucent::null);
   bool v6_ = lucent::looseEqualsNull(p0_);
@@ -159,6 +163,7 @@ namespace m_mixed_u2d_equality {
 
 template <class T>
 lucent::String kind(T p0_) {
+  lucent::checkStack();
   {
     bool v2_ = lucent::strictEquals(p0_, lucent::undefined);
     double v17_{};
@@ -214,6 +219,7 @@ namespace m_mixed_u2d_equality {
 
 template <class T>
 lucent::String find(lucent::Array<T> p0_, T p1_) {
+  lucent::checkStack();
   double v2_ = p0_.indexOf(p1_);
   lucent::String v3_ = lucent::toJsString(v2_);
   double v5_ = p0_.lastIndexOf(p1_);
@@ -229,6 +235,7 @@ namespace m_mixed_u2d_equality {
 
 template <class T>
 lucent::String distinct(lucent::Array<T> p0_) {
+  lucent::checkStack();
   lucent::Map<T, double> counts = lucent::Map<T, double>();
   {
     auto coll0_ = p0_;

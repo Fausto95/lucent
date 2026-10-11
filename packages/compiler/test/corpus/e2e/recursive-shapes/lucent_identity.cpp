@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"recursive-shapes", "46
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "0f01231093386405", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "4ca8387fe69fe252", kModuleIdentities, 1};
   return identity;
 }
 

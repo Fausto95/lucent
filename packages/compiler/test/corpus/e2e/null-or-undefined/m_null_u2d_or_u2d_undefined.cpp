@@ -29,6 +29,7 @@
 namespace lucent_app {
 
 lucent::String m_null_u2d_or_u2d_undefined::label(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   bool v2_ = lucent::strictEquals(p0_, lucent::undefined);
   lucent::String v9_{};
   if (v2_) {
@@ -42,6 +43,7 @@ lucent::String m_null_u2d_or_u2d_undefined::label(lucent::Opt<lucent::String> p0
 }
 
 lucent::String m_null_u2d_or_u2d_undefined::opt(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   bool v2_ = lucent::strictEquals(p0_, lucent::undefined);
   lucent::String v6_{};
   if (v2_) {
@@ -76,6 +78,7 @@ lucent::String m_null_u2d_or_u2d_undefined::both(lucent::Opt<lucent::String> p0_
 }
 
 lucent::String m_null_u2d_or_u2d_undefined::field(lucent::Ref<lucent_app::S_Note> p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::String> v1_ = p0_->note;
   bool v3_ = lucent::strictEquals(v1_, lucent::undefined);
   lucent::String v7_{};
@@ -89,6 +92,7 @@ lucent::String m_null_u2d_or_u2d_undefined::field(lucent::Ref<lucent_app::S_Note
 }
 
 lucent::String m_null_u2d_or_u2d_undefined::unset(lucent::Ref<lucent_app::S_Unset> p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::String> v1_ = p0_->v;
   bool v3_ = lucent::strictEquals(v1_, lucent::undefined);
   lucent::String v6_{};
@@ -101,6 +105,7 @@ lucent::String m_null_u2d_or_u2d_undefined::unset(lucent::Ref<lucent_app::S_Unse
 }
 
 lucent::String m_null_u2d_or_u2d_undefined::nulled(lucent::Ref<lucent_app::S_Unset> p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::String> v1_ = p0_->v;
   bool v3_ = lucent::strictEquals(v1_, lucent::null);
   lucent::String v6_{};
@@ -113,6 +118,7 @@ lucent::String m_null_u2d_or_u2d_undefined::nulled(lucent::Ref<lucent_app::S_Uns
 }
 
 lucent::String m_null_u2d_or_u2d_undefined::pairNull(lucent::Ref<lucent_app::S_Pair> p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::String> v1_ = p0_->a;
   bool v3_ = lucent::strictEquals(v1_, lucent::null);
   lucent::String v6_{};
@@ -125,6 +131,7 @@ lucent::String m_null_u2d_or_u2d_undefined::pairNull(lucent::Ref<lucent_app::S_P
 }
 
 lucent::String m_null_u2d_or_u2d_undefined::pairUndefined(lucent::Ref<lucent_app::S_Pair> p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::String> v1_ = p0_->a;
   bool v3_ = lucent::strictEquals(v1_, lucent::undefined);
   lucent::String v6_{};

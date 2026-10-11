@@ -13,7 +13,9 @@
 namespace lucent_app {
 
 lucent::Array<lucent::String> m_number_u2d_strings::strings(lucent::Array<double> p0_) {
+  lucent::checkStack();
   return p0_.template map<lucent::String>([](double p0_, double p1_, lucent::Array<double> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v3_ = lucent::toJsString(p0_);
     lucent::String v5_ = lucent::toJsString(p0_);
     lucent::String v9_ = lucent::concat(v3_, LUCENT_STR(" | "), v5_, LUCENT_STR(" | "));
@@ -22,7 +24,9 @@ lucent::Array<lucent::String> m_number_u2d_strings::strings(lucent::Array<double
 }
 
 lucent::Array<lucent::String> m_number_u2d_strings::forms(lucent::Array<double> p0_) {
+  lucent::checkStack();
   return p0_.template map<lucent::String>([](double p0_, double p1_, lucent::Array<double> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v3_ = lucent::numberToExponential(p0_);
     lucent::String v6_ = lucent::numberToFixed(p0_, 3.0);
     lucent::String v9_ = lucent::numberToPrecision(p0_, 17.0);
@@ -32,6 +36,7 @@ lucent::Array<lucent::String> m_number_u2d_strings::forms(lucent::Array<double> 
 }
 
 void m_number_u2d_strings::log(lucent::Array<double> p0_) {
+  lucent::checkStack();
   {
     auto coll0_ = p0_;
     for (size_t i0_ = 0; i0_ < coll0_.size(); i0_++) {

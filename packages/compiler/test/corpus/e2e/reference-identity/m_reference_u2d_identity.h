@@ -61,6 +61,7 @@ namespace m_reference_u2d_identity {
 
 template <class T>
 lucent::String same(T p0_, T p1_) {
+  lucent::checkStack();
   bool v2_ = lucent::strictEquals(p0_, p1_);
   lucent::String v3_ = lucent::toJsString(v2_);
   bool v5_ = !lucent::strictEquals(p0_, p1_);

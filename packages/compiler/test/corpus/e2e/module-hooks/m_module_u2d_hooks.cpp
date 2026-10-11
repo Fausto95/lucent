@@ -13,7 +13,9 @@
 namespace lucent_app {
 
 lucent::String m_module_u2d_hooks::hooks() {
+  lucent::checkStack();
   lucent::Fn<void()> v0_ = lucent::Fn<void()>([]() mutable -> void {
+    lucent::checkStack();
     lucent::Array<lucent::String> v0_ = lucent_app::m_module_u2d_hooks::log;
     (void)v0_.push(LUCENT_STR("never"));
   });
@@ -30,8 +32,10 @@ lucent::String m_module_u2d_hooks::hooks() {
 }
 
 void m_module_u2d_hooks::init() {
+  lucent::checkStack();
   lucent_app::m_module_u2d_hooks::log = lucent::Array<lucent::String>{};
   lucent::Fn<void()> v1_ = lucent::Fn<void()>([]() mutable -> void {
+    lucent::checkStack();
     lucent::Array<lucent::String> v0_ = lucent_app::m_module_u2d_hooks::log;
     (void)v0_.push(LUCENT_STR("destroyed"));
   });

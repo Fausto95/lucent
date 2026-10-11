@@ -83,6 +83,7 @@
 namespace lucent_app {
 
 void C_Node::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->name = p0_;
 }
 
@@ -93,6 +94,7 @@ lucent::Ref<C_Node> C_Node::create(lucent::String p0_) {
 }
 
 void C_Item::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->text = p0_;
 }
 
@@ -103,10 +105,12 @@ lucent::Ref<C_Item> C_Item::create(lucent::String p0_) {
 }
 
 lucent::String C_Item::tag() {
+  lucent::checkStack();
   return this->text;
 }
 
 lucent::String m_weak_u2d_collections::maps() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Node> a = lucent_app::C_Node::create(LUCENT_STR("a"));
   lucent::Ref<lucent_app::C_Node> b = lucent_app::C_Node::create(LUCENT_STR("b"));
   lucent::WeakMap<lucent::Ref<lucent_app::C_Node>, lucent::String> names = lucent::WeakMap<lucent::Ref<lucent_app::C_Node>, lucent::String>();
@@ -156,6 +160,7 @@ lucent::String m_weak_u2d_collections::maps() {
 }
 
 lucent::String m_weak_u2d_collections::sets() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Node> a = lucent_app::C_Node::create(LUCENT_STR("a"));
   lucent::Ref<lucent_app::C_Node> b = lucent_app::C_Node::create(LUCENT_STR("b"));
   lucent::WeakSet<lucent::Ref<lucent_app::C_Node>> seen = lucent::WeakSet<lucent::Ref<lucent_app::C_Node>>();
@@ -187,6 +192,7 @@ lucent::String m_weak_u2d_collections::sets() {
 }
 
 lucent::String m_weak_u2d_collections::values() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Node> a = lucent_app::C_Node::create(LUCENT_STR("a"));
   lucent::WeakMap<lucent::Ref<lucent_app::C_Node>, lucent::Array<double>> lists = lucent::WeakMap<lucent::Ref<lucent_app::C_Node>, lucent::Array<double>>();
   lucent::Array<double> v6_ = lucent::Array<double>{1.0};
@@ -235,6 +241,7 @@ lucent::String m_weak_u2d_collections::values() {
 }
 
 lucent::String m_weak_u2d_collections::interfaceKeys() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Item> item = lucent_app::C_Item::create(LUCENT_STR("x"));
   lucent::Ref<lucent_app::I_Tagged> tagged = std::static_pointer_cast<lucent_app::I_Tagged>(item);
   lucent::WeakMap<lucent::Ref<lucent_app::I_Tagged>, double> tags = lucent::WeakMap<lucent::Ref<lucent_app::I_Tagged>, double>();
@@ -254,6 +261,7 @@ lucent::String m_weak_u2d_collections::interfaceKeys() {
 }
 
 lucent::String m_weak_u2d_collections::objectKeys() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Point> p = ({ auto obj_2_ = std::make_shared<lucent_app::S_Point>(); obj_2_->x = 1.0; obj_2_->y = 2.0; obj_2_; });
   lucent::Ref<lucent_app::S_Point> q = ({ auto obj_3_ = std::make_shared<lucent_app::S_Point>(); obj_3_->x = 1.0; obj_3_->y = 2.0; obj_3_; });
   lucent::WeakMap<lucent::Ref<lucent_app::S_Point>, lucent::String> labels = lucent::WeakMap<lucent::Ref<lucent_app::S_Point>, lucent::String>();
@@ -268,10 +276,12 @@ lucent::String m_weak_u2d_collections::objectKeys() {
 }
 
 lucent::String m_weak_u2d_collections::cached() {
+  lucent::checkStack();
   lucent::WeakMap<lucent::Ref<lucent_app::C_Node>, double> sizes = lucent::WeakMap<lucent::Ref<lucent_app::C_Node>, double>();
   lucent::Box<double> computed{};
   *computed = 0.0;
   lucent::Fn<double(lucent::Ref<lucent_app::C_Node>)> v3_ = lucent::Fn<double(lucent::Ref<lucent_app::C_Node>)>([sizes = sizes, computed = computed](lucent::Ref<lucent_app::C_Node> p0_) mutable -> double {
+    lucent::checkStack();
     lucent::Opt<double> known = sizes.get(p0_);
     bool v5_ = !lucent::strictEquals(known, lucent::undefined);
     if (v5_) {
@@ -302,11 +312,13 @@ lucent::String m_weak_u2d_collections::cached() {
 }
 
 void m_weak_u2d_collections::r_register_(lucent::Ref<lucent_app::C_Node> p0_, lucent::String p1_) {
+  lucent::checkStack();
   lucent::WeakMap<lucent::Ref<lucent_app::C_Node>, lucent::String> v2_ = lucent_app::m_weak_u2d_collections::registry;
   (void)v2_.set(p0_, p1_);
 }
 
 lucent::String m_weak_u2d_collections::labelOf(lucent::Ref<lucent_app::C_Node> p0_) {
+  lucent::checkStack();
   lucent::WeakMap<lucent::Ref<lucent_app::C_Node>, lucent::String> v1_ = lucent_app::m_weak_u2d_collections::registry;
   lucent::Opt<lucent::String> v2_ = v1_.get(p0_);
   bool v4_ = !v2_.has();
@@ -320,6 +332,7 @@ lucent::String m_weak_u2d_collections::labelOf(lucent::Ref<lucent_app::C_Node> p
 }
 
 void m_weak_u2d_collections::init() {
+  lucent::checkStack();
   lucent_app::m_weak_u2d_collections::registry = lucent::WeakMap<lucent::Ref<lucent_app::C_Node>, lucent::String>();
 }
 

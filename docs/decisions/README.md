@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                    | Date       | Decision                                                                    |
 | ------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| [0073](0073-every-call-checks-the-stack-in-release-too.md)                | 2026-10-11 | Every call checks the stack, in Release builds too                          |
 | [0072](0072-weakmap-and-weakset-drop-entries-with-their-keys.md)          | 2026-10-11 | WeakMap and WeakSet drop entries with their keys                            |
 | [0071](0071-module-hooks-not-app-delegate-hooks.md)                       | 2026-10-08 | Module hooks, not app-delegate hooks                                        |
 | [0070](0070-64-bit-parameters-take-safe-integer-numbers.md)               | 2026-10-08 | 64-bit parameters take safe-integer numbers                                 |

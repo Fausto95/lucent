@@ -51,9 +51,11 @@
 namespace lucent_app {
 
 lucent::String m_strings::stats(lucent::String p0_) {
+  lucent::checkStack();
   lucent::String upper = p0_.toUpperCase();
   lucent::Array<lucent::String> v3_ = lucent::split(p0_, LUCENT_STR(" "));
   lucent::Array<lucent::String> words = v3_.filter([](lucent::String p0_, double p1_, lucent::Array<lucent::String> p2_) mutable -> bool {
+    lucent::checkStack();
     int64_t v3_ = static_cast<int64_t>(p0_.length());
     return static_cast<int64_t>(v3_) > static_cast<int64_t>(0);
   });
@@ -80,17 +82,20 @@ lucent::String m_strings::stats(lucent::String p0_) {
 }
 
 lucent::String m_strings::pad(double p0_, double p1_) {
+  lucent::checkStack();
   lucent::String v2_ = lucent::toJsString(p0_);
   return v2_.padStart(p1_, LUCENT_STR("0"));
 }
 
 lucent::String m_strings::reverseWords(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v2_ = lucent::split(p0_, LUCENT_STR(" "));
   lucent::Array<lucent::String> v3_ = v2_.reverse();
   return v3_.join(LUCENT_STR(" "));
 }
 
 double m_strings::countChars(lucent::String p0_) {
+  lucent::checkStack();
   double n = 0.0;
   {
     auto coll0_ = p0_;
@@ -110,6 +115,7 @@ double m_strings::countChars(lucent::String p0_) {
 }
 
 lucent::String m_strings::builder(double p0_) {
+  lucent::checkStack();
   lucent::String out = lucent::String();
   {
     int64_t i = static_cast<int64_t>(0);
@@ -139,6 +145,7 @@ lucent::String m_strings::builder(double p0_) {
 }
 
 lucent::Array<lucent::String> m_strings::manip(lucent::String p0_) {
+  lucent::checkStack();
   lucent::String v3_ = lucent::stringReplace(p0_, LUCENT_STR("l"), LUCENT_STR("L"));
   lucent::String v6_ = lucent::stringReplaceAll(p0_, LUCENT_STR("l"), LUCENT_STR("L"));
   lucent::String v9_ = p0_.substring(1.0, 4.0);
@@ -197,6 +204,7 @@ double m_strings::compare(lucent::String p0_, lucent::String p1_) {
 }
 
 lucent::String m_strings::unicode() {
+  lucent::checkStack();
   lucent::String s = LUCENT_STR("h\303\251llo w\303\266rld \360\237\214\215 \303\200\303\211\303\216");
   int64_t v2_ = static_cast<int64_t>(s.length());
   lucent::String v3_ = lucent::toJsString(static_cast<double>(v2_));
@@ -211,7 +219,9 @@ lucent::String m_strings::unicode() {
 }
 
 lucent::String m_strings::unicodeCase(lucent::Array<lucent::String> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v2_ = p0_.template map<lucent::String>([](lucent::String p0_, double p1_, lucent::Array<lucent::String> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v3_ = p0_.toUpperCase();
     lucent::String v5_ = p0_.toLowerCase();
     return lucent::concat(v3_, LUCENT_STR("/"), v5_);
@@ -220,14 +230,17 @@ lucent::String m_strings::unicodeCase(lucent::Array<lucent::String> p0_) {
 }
 
 lucent::String m_strings::collate(lucent::Array<lucent::String> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = ({ lucent::Array<lucent::String> arr_2_; arr_2_.append(p0_); arr_2_; });
   lucent::Array<lucent::String> v3_ = v1_.sort([](lucent::String p0_, lucent::String p1_) mutable -> double {
+    lucent::checkStack();
     return p0_.localeCompare(p1_);
   });
   return v3_.join(LUCENT_STR("|"));
 }
 
 lucent::Array<lucent::String> m_strings::templates(lucent::Array<double> p0_, double p1_, bool p2_, lucent::String p3_, lucent::Opt<lucent::String> p4_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> out = lucent::Array<lucent::String>{};
   {
     auto coll0_ = p0_;
@@ -280,6 +293,7 @@ lucent::Array<lucent::String> m_strings::templates(lucent::Array<double> p0_, do
 }
 
 lucent::Array<lucent::String> m_strings::dollarPatterns() {
+  lucent::checkStack();
   lucent::String v3_ = lucent::stringReplace(LUCENT_STR("abc"), LUCENT_STR("b"), LUCENT_STR("[$&]"));
   lucent::String v7_ = lucent::stringReplace(LUCENT_STR("abc"), LUCENT_STR("b"), LUCENT_STR("$$"));
   lucent::String v11_ = lucent::stringReplace(LUCENT_STR("abc"), LUCENT_STR("b"), LUCENT_STR("$`"));
@@ -296,7 +310,9 @@ lucent::Array<lucent::String> m_strings::dollarPatterns() {
 }
 
 lucent::String m_strings::localeCase(lucent::Array<lucent::String> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v2_ = p0_.template map<lucent::String>([](lucent::String p0_, double p1_, lucent::Array<lucent::String> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v3_ = p0_.toLocaleUpperCase();
     lucent::String v5_ = p0_.toLocaleLowerCase();
     return lucent::concat(v3_, LUCENT_STR("/"), v5_);
@@ -305,6 +321,7 @@ lucent::String m_strings::localeCase(lucent::Array<lucent::String> p0_) {
 }
 
 lucent::String m_strings::splitLimits(double p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v3_ = lucent::split(LUCENT_STR("a,b,c"), LUCENT_STR(","), p0_);
   lucent::String v5_ = v3_.join(LUCENT_STR("|"));
   lucent::RegExp v7_ = lucent::makeRegExp(LUCENT_STR(","), lucent::Opt<lucent::String>(lucent::String()));

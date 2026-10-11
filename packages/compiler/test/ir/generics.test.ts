@@ -24,7 +24,12 @@ export function last(xs: number[]): number {
     const header = r.files.get("m_sample.h")!.replace(/^#line .*\n/gm, "");
 
     expect(header).toContain(
-      ["template <class T>", "T pick(lucent::Array<T> p0_, T p1_) {", "  T best = p1_;"].join("\n"),
+      [
+        "template <class T>",
+        "T pick(lucent::Array<T> p0_, T p1_) {",
+        "  lucent::checkStack();",
+        "  T best = p1_;",
+      ].join("\n"),
     );
 
     expect(r.files.get("m_sample.cpp")).toContain("lucent_app::m_sample::pick<double>(p0_, ");

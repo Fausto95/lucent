@@ -18,6 +18,7 @@ struct C_Sub;
 template <class T>
 struct C_Sub : lucent_app::C_Shown<T> {
   void construct(T p0_) {
+    lucent::checkStack();
     this->lucent_app::C_Shown<T>::construct(p0_);
   }
   static lucent::Ref<C_Sub<T>> create(T p0_) {
@@ -26,6 +27,7 @@ struct C_Sub : lucent_app::C_Shown<T> {
     return self;
   }
   lucent::String show() override {
+    lucent::checkStack();
     lucent::String v1_ = this->lucent_app::C_Shown<T>::show();
     return lucent::String(LUCENT_STR("sub ")) + v1_;
   }

@@ -81,6 +81,8 @@ describe("IR to C++", () => {
     expect(out).toBe(
       [
         "lucent::String pair() {",
+        // The entry check: it calls code of the program (lucent/stack.h).
+        "  lucent::checkStack();",
         '#line 2 "/app/order.lucent.ts"',
         '  lucent::String v1_ = next(LUCENT_STR("l"));',
         '#line 3 "/app/order.lucent.ts"',
@@ -120,6 +122,7 @@ describe("IR to C++", () => {
 
     expect(printed(b.finish())).toBe(
       [
+        // Arithmetic only, which cannot recurse: no entry check (pair's has one).
         "bool nums(double p0_) {",
         '#line 1 "/app/order.lucent.ts"',
         "  double v9_ = -(lucent::jsPow(lucent::jsMod(p0_, -0.0), lucent::kInfinity) * 0.1 + lucent::kNaN);",
@@ -166,6 +169,7 @@ describe("IR to C++", () => {
     expect(printed(b.finish())).toBe(
       [
         "void log() {",
+        "  lucent::checkStack();",
         '#line 1 "/app/order.lucent.ts"',
         "  lucent::String v0_ = lucent_app::m_order::log;",
         "  lucent::String x = std::move(v0_);",
@@ -229,6 +233,7 @@ describe("IR to C++", () => {
     expect(printed(b.finish()).replace(/^#line .*\n/gm, "")).toBe(
       [
         "void ops(double p0_, lucent::Opt<double> p1_) {",
+        "  lucent::checkStack();",
         // The int32 operators work on integer registers, read back as a double where one is needed.
         "  int32_t v6_ = ~static_cast<int32_t>(static_cast<uint32_t>(lucent::toInt32(p0_) & 3) >> (static_cast<uint32_t>(1) & 31u));",
         "  bool v7_ = lucent::truthy(p1_);",

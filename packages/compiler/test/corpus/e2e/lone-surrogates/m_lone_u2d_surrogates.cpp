@@ -31,6 +31,7 @@
 namespace lucent_app {
 
 lucent::String m_lone_u2d_surrogates::codes(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<double> out = lucent::Array<double>{};
   {
     int64_t i = static_cast<int64_t>(0);
@@ -51,6 +52,7 @@ lucent::String m_lone_u2d_surrogates::codes(lucent::String p0_) {
 }
 
 lucent::String m_lone_u2d_surrogates::lengths() {
+  lucent::checkStack();
   int64_t v1_ = static_cast<int64_t>(LUCENT_STR16(u"\xd800").length());
   int64_t v3_ = static_cast<int64_t>(LUCENT_STR16(u"\x61\xdc00\x62").length());
   int64_t v5_ = static_cast<int64_t>(LUCENT_STR16(u"\xdbff\xdbff").length());
@@ -60,6 +62,7 @@ lucent::String m_lone_u2d_surrogates::lengths() {
 }
 
 lucent::String m_lone_u2d_surrogates::units() {
+  lucent::checkStack();
   lucent::String v1_ = lucent_app::m_lone_u2d_surrogates::codes(LUCENT_STR16(u"\xd800"));
   lucent::String v3_ = lucent_app::m_lone_u2d_surrogates::codes(LUCENT_STR16(u"\x61\xdc00\x62"));
   lucent::String v9_ = lucent_app::m_lone_u2d_surrogates::codes(lucent::concat(LUCENT_STR("<"), LUCENT_STR16(u"\xd800"), LUCENT_STR16(u"\x7c\xdfff\x3e")));
@@ -70,6 +73,7 @@ lucent::String m_lone_u2d_surrogates::units() {
 }
 
 lucent::String m_lone_u2d_surrogates::comparisons() {
+  lucent::checkStack();
   lucent::String pair = lucent::String(LUCENT_STR16(u"\xd800")) + LUCENT_STR16(u"\xdc00");
   bool v5_ = LUCENT_STR16(u"\xd800") == LUCENT_STR16(u"\xd800");
   bool v8_ = LUCENT_STR16(u"\xd800") == LUCENT_STR16(u"\xd801");
@@ -90,6 +94,7 @@ lucent::String m_lone_u2d_surrogates::templated(double p0_) {
 }
 
 lucent::String m_lone_u2d_surrogates::stringified() {
+  lucent::checkStack();
   lucent::Array<lucent::String> v2_ = lucent::Array<lucent::String>{LUCENT_STR16(u"\xd800"), LUCENT_STR16(u"\x61\xdc00\x62")};
   return lucent::json::stringify(v2_);
 }

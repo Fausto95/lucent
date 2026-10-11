@@ -40,6 +40,7 @@ namespace m_function_u2d_values {
 
 template <class T>
 lucent::Opt<T> first(lucent::Array<T> p0_) {
+  lucent::checkStack();
   return p0_.getIndex(static_cast<int64_t>(0));
 }
 
@@ -49,6 +50,7 @@ namespace m_function_u2d_values {
 
 template <class T>
 bool same(T p0_, T p1_) {
+  lucent::checkStack();
   return lucent::strictEquals(p0_, p1_);
 }
 

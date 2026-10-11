@@ -74,6 +74,7 @@
 namespace lucent_app {
 
 void C_Animal::construct() {
+  lucent::checkStack();
   this->name = LUCENT_STR("animal");
 }
 
@@ -84,6 +85,7 @@ lucent::Ref<C_Animal> C_Animal::create() {
 }
 
 void C_Car::construct() {
+  lucent::checkStack();
   this->wheels = 4.0;
 }
 
@@ -94,6 +96,7 @@ lucent::Ref<C_Car> C_Car::create() {
 }
 
 void C_Dog::construct() {
+  lucent::checkStack();
   this->lucent_app::C_Animal::construct();
   this->barks = true;
 }
@@ -129,6 +132,7 @@ lucent::Opt<std::variant<double, lucent::String>> m_mixed_u2d_equality::numOrStr
 }
 
 lucent::String m_mixed_u2d_equality::literals() {
+  lucent::checkStack();
   lucent::String v1_ = lucent_app::m_mixed_u2d_equality::against<double>(0.0);
   double v3_ = -0.0;
   lucent::String v4_ = lucent_app::m_mixed_u2d_equality::against<double>(v3_);
@@ -157,6 +161,7 @@ lucent::String m_mixed_u2d_equality::literals() {
 }
 
 lucent::String m_mixed_u2d_equality::primitives() {
+  lucent::checkStack();
   lucent::String v2_ = lucent_app::m_mixed_u2d_equality::strict<std::variant<lucent::BigInt, double>>(std::variant<lucent::BigInt, double>(1.0), std::variant<lucent::BigInt, double>(lucent::BigInt::fromInt64(1)));
   lucent::String v5_ = lucent_app::m_mixed_u2d_equality::strict<std::variant<lucent::BigInt, double>>(std::variant<lucent::BigInt, double>(0.0), std::variant<lucent::BigInt, double>(lucent::BigInt::fromInt64(0)));
   lucent::String v8_ = lucent_app::m_mixed_u2d_equality::strict<std::variant<double, lucent::String>>(std::variant<double, lucent::String>(1.0), std::variant<double, lucent::String>(LUCENT_STR("1")));
@@ -172,6 +177,7 @@ lucent::String m_mixed_u2d_equality::primitives() {
 }
 
 lucent::String m_mixed_u2d_equality::optionals() {
+  lucent::checkStack();
   lucent::Opt<double> v0_ = lucent_app::m_mixed_u2d_equality::num(lucent::Opt<double>(lucent::undefined));
   lucent::String v2_ = lucent_app::m_mixed_u2d_equality::strict<lucent::Opt<double>>(v0_, lucent::Opt<double>(lucent::undefined));
   lucent::Opt<double> v3_ = lucent_app::m_mixed_u2d_equality::num(lucent::Opt<double>(lucent::undefined));
@@ -205,6 +211,7 @@ lucent::String m_mixed_u2d_equality::optionals() {
 }
 
 lucent::String m_mixed_u2d_equality::unions() {
+  lucent::checkStack();
   std::variant<double, lucent::String> v2_ = lucent_app::m_mixed_u2d_equality::numOrStr(std::variant<double, lucent::String>(1.0));
   std::variant<bool, lucent::String> v5_ = lucent_app::m_mixed_u2d_equality::strOrBool(std::variant<bool, lucent::String>(LUCENT_STR("a")));
   lucent::String v6_ = lucent_app::m_mixed_u2d_equality::strict<std::variant<bool, double, lucent::String>>(lucent::convert<std::variant<bool, double, lucent::String>>(v2_), lucent::convert<std::variant<bool, double, lucent::String>>(v5_));
@@ -232,6 +239,7 @@ lucent::String m_mixed_u2d_equality::unions() {
 }
 
 lucent::String m_mixed_u2d_equality::objects() {
+  lucent::checkStack();
   lucent::Array<double> arr = lucent::Array<double>{1.0};
   lucent::Ref<lucent_app::C_Dog> d = lucent_app::C_Dog::create();
   lucent::Ref<lucent_app::C_Animal> a = std::static_pointer_cast<lucent_app::C_Animal>(d);
@@ -259,6 +267,7 @@ lucent::String m_mixed_u2d_equality::objects() {
 }
 
 lucent::String m_mixed_u2d_equality::declared() {
+  lucent::checkStack();
   lucent::Opt<double> u = lucent_app::m_mixed_u2d_equality::num(lucent::Opt<double>(lucent::undefined));
   lucent::Opt<lucent::String> s = lucent_app::m_mixed_u2d_equality::str(lucent::Opt<lucent::String>(lucent::undefined));
   std::variant<double, lucent::String> x = lucent_app::m_mixed_u2d_equality::numOrStr(std::variant<double, lucent::String>(LUCENT_STR("a")));
@@ -281,6 +290,7 @@ lucent::String m_mixed_u2d_equality::declared() {
 }
 
 lucent::String m_mixed_u2d_equality::absents() {
+  lucent::checkStack();
   lucent::Opt<double> v0_ = lucent_app::m_mixed_u2d_equality::num(lucent::Opt<double>(lucent::undefined));
   lucent::String v1_ = lucent_app::m_mixed_u2d_equality::absent<lucent::Opt<double>>(v0_);
   lucent::Opt<double> v4_ = lucent_app::m_mixed_u2d_equality::numOrNull(lucent::Opt<double>(lucent::null));
@@ -299,6 +309,7 @@ lucent::String m_mixed_u2d_equality::absents() {
 }
 
 lucent::String m_mixed_u2d_equality::cases() {
+  lucent::checkStack();
   lucent::String v1_ = lucent_app::m_mixed_u2d_equality::kind<lucent::Undefined>(lucent::undefined);
   lucent::String v3_ = lucent_app::m_mixed_u2d_equality::kind<lucent::Null>(lucent::null);
   lucent::Opt<double> v4_ = lucent_app::m_mixed_u2d_equality::num(lucent::Opt<double>(lucent::undefined));
@@ -317,6 +328,7 @@ lucent::String m_mixed_u2d_equality::cases() {
 }
 
 lucent::String m_mixed_u2d_equality::searches() {
+  lucent::checkStack();
   lucent::Array<double> arr = lucent::Array<double>{1.0};
   lucent::Ref<lucent_app::C_Dog> d = lucent_app::C_Dog::create();
   lucent::Array<double> v5_ = lucent::Array<double>{1.0, lucent::kNaN};
@@ -344,6 +356,7 @@ lucent::String m_mixed_u2d_equality::searches() {
 }
 
 lucent::String m_mixed_u2d_equality::keys() {
+  lucent::checkStack();
   lucent::Array<double> arr = lucent::Array<double>{1.0};
   double v7_ = -0.0;
   lucent::Array<double> v8_ = lucent::Array<double>{1.0, lucent::kNaN, lucent::kNaN, 0.0, v7_};

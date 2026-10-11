@@ -42,6 +42,7 @@
 namespace lucent_app {
 
 void C_Channel::construct() {
+  lucent::checkStack();
   lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void()>>> v0_ = lucent::EventEmitterObject<lucent::Fn<void()>>::create({"ping"});
   this->events = v0_;
   this->name = LUCENT_STR("channel");
@@ -54,6 +55,7 @@ lucent::Ref<C_Channel> C_Channel::create() {
 }
 
 lucent::Promise<void> m_events::download(lucent::String p0_) {
+  lucent::checkStack();
   {
     int64_t percent = static_cast<int64_t>(0);
     while (true) {
@@ -77,14 +79,17 @@ lucent::Promise<void> m_events::download(lucent::String p0_) {
 }
 
 lucent::String m_events::finishNow(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(lucent::Ref<lucent_app::S_Progress>)>, lucent::Fn<void(lucent::String, bool)>, lucent::Fn<void()>>> v1_ = lucent_app::m_events::downloads;
   v1_->emit<1>(p0_, false);
   return LUCENT_STR("returned");
 }
 
 lucent::String m_events::counts() {
+  lucent::checkStack();
   lucent::Array<lucent::String> v3_ = lucent::Array<lucent::String>{LUCENT_STR("progress"), LUCENT_STR("done"), LUCENT_STR("reset")};
   lucent::Array<double> v5_ = v3_.template map<double>([](lucent::String p0_, double p1_, lucent::Array<lucent::String> p2_) mutable -> double {
+    lucent::checkStack();
     bool v4_ = p0_ == LUCENT_STR("progress");
     double v14_{};
     if (v4_) {
@@ -108,10 +113,12 @@ lucent::String m_events::counts() {
 }
 
 lucent::String m_events::inLucent() {
+  lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void()>>> ticks = lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void()>>::create({"tick", "fail"});
   lucent::Box<lucent::Opt<lucent::EventSubscription>> second{};
   lucent::Fn<void(double)> v4_ = lucent::Fn<void(double)>([log = log, second = second](double p0_) mutable -> void {
+    lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("a")) + lucent::toJsString(p0_);
     (void)log.push(v4_);
     lucent::Opt<lucent::EventSubscription> v6_ = *second;
@@ -124,17 +131,20 @@ lucent::String m_events::inLucent() {
   });
   (void)ticks->addListener<0>(v4_);
   lucent::Fn<void(double)> v8_ = lucent::Fn<void(double)>([log = log](double p0_) mutable -> void {
+    lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("b")) + lucent::toJsString(p0_);
     (void)log.push(v4_);
   });
   lucent::EventSubscription v9_ = ticks->addListener<0>(v8_);
   *second = lucent::Opt<lucent::EventSubscription>(v9_);
   lucent::Fn<void(double)> v14_ = lucent::Fn<void(double)>([log = log, ticks = ticks](double p0_) mutable -> void {
+    lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("c")) + lucent::toJsString(p0_);
     (void)log.push(v4_);
     bool v7_ = p0_ == 1.0;
     if (v7_) {
       lucent::Fn<void(double)> v10_ = lucent::Fn<void(double)>([log = log](double p0_) mutable -> void {
+        lucent::checkStack();
         lucent::String v4_ = lucent::String(LUCENT_STR("d")) + lucent::toJsString(p0_);
         double v5_ = log.push(v4_);
         (void)((void)v5_, lucent::undefined);
@@ -160,6 +170,7 @@ lucent::String m_events::inLucent() {
   });
   (void)ticks->addListener<1>(v38_);
   lucent::Fn<void()> v42_ = lucent::Fn<void()>([log = log]() mutable -> void {
+    lucent::checkStack();
     double v2_ = log.push(LUCENT_STR("not reached"));
     (void)((void)v2_, lucent::undefined);
     return;
@@ -189,10 +200,12 @@ lucent::String m_events::inLucent() {
 }
 
 lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(double, lucent::Opt<lucent::String>)>>> m_events::make() {
+  lucent::checkStack();
   return lucent::EventEmitterObject<lucent::Fn<void(double, lucent::Opt<lucent::String>)>>::create({"ping"});
 }
 
 double m_events::ping(lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(double, lucent::Opt<lucent::String>)>>> p0_, double p1_) {
+  lucent::checkStack();
   p0_->emit<0>(p1_, lucent::Opt<lucent::String>(lucent::undefined));
   double v4_ = p1_ + 1.0;
   p0_->emit<0>(v4_, lucent::Opt<lucent::String>(LUCENT_STR("labelled")));
@@ -200,6 +213,7 @@ double m_events::ping(lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(dou
 }
 
 lucent::String m_events::channelJson() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Channel> channel = lucent_app::C_Channel::create();
   lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void()>>> v2_ = channel->events;
   lucent::Fn<void()> v3_ = lucent::Fn<void()>([]() mutable -> void {});
@@ -210,6 +224,7 @@ lucent::String m_events::channelJson() {
 }
 
 void m_events::init() {
+  lucent::checkStack();
   lucent_app::m_events::downloads = lucent::EventEmitterObject<lucent::Fn<void(lucent::Ref<lucent_app::S_Progress>)>, lucent::Fn<void(lucent::String, bool)>, lucent::Fn<void()>>::create({"progress", "done", "reset"});
 }
 

@@ -597,20 +597,26 @@ anew.
 ## Recursion limits
 
 A Lucent function call is a native call: recursion uses the thread's
-native stack, with no check per call. The stack is 8 MB on every thread
-Lucent starts (actors' threads, isolated and compute contexts), where a
-platform's default for a secondary thread is 512 KB (iOS) to 1 MB
-(Android). The JS thread and the main thread have the platform's: about
-8 MB on iOS's main thread, 8 MB on Android's, and React Native's JS thread
-its own (1 MB on Android, 512 KB or more on iOS, depending on the version).
-A synchronous exported function runs on the JS thread, so its recursion
-has the JS thread's stack; an `async` one starts on its actor's thread.
+native stack. The stack is 8 MB on every thread Lucent starts (actors'
+threads, isolated and compute contexts), where a platform's default for a
+secondary thread is 512 KB (iOS) to 1 MB (Android). The JS thread and the
+main thread have the platform's: about 8 MB on iOS's main thread, 8 MB on
+Android's, and React Native's JS thread its own (1 MB on Android, 512 KB
+or more on iOS, depending on the version). A synchronous exported function
+runs on the JS thread, so its recursion has the JS thread's stack; an
+`async` one starts on its actor's thread.
 
-A frame is a few hundred bytes for a small function, so thousands of
-levels fit on the JS thread and tens of thousands on Lucent's; recursion
-as deep as its input (a tree from JSON, a linked list) should be a loop,
-or bounded. Regular expressions are checked: a pattern nested past what
-the stack holds throws `SyntaxError` when it is compiled.
+Each function checks the stack when it is called, as JavaScript engines
+do: one that finds less than a margin (64 KB, or a quarter of a small
+thread's stack) left throws `RangeError: Maximum call stack size
+exceeded`, which code catches as in JavaScript; an `async` one's rejects
+its promise. A function that calls no code of the program (arithmetic on
+its arguments, a comparator) skips the check: it cannot recurse. Where
+JavaScript's limit is a number of frames, Lucent's is the stack's size:
+a frame is a few hundred bytes for a small function, so thousands of
+levels fit on the JS thread and tens of thousands on Lucent's. Regular
+expressions are checked too: a pattern nested past what the stack holds
+throws `SyntaxError` when it is compiled.
 
 ## Memory
 
@@ -628,7 +634,7 @@ explicitly, for example by clearing a field.
 | `x as T` changes nothing at run time: a wrong assertion goes unnoticed                                                          | taking a member out of a union (`x as number` on a `string \| number`) checks the value: another member throws `TypeError` where the assertion is made, since the native value holds one member's layout                                                                                                                 |
 | arrays and objects passed to native code are shared                                                                             | copied at the boundary (inside Lucent they are shared)                                                                                                                                                                                                                                                                   |
 | garbage collection frees cycles                                                                                                 | reference counting leaks cycles                                                                                                                                                                                                                                                                                          |
-| deep recursion throws `RangeError`                                                                                              | recursion runs on the native stack and may overflow it, ending the app: see [Recursion limits](#recursion-limits). A regular expression nested past the stack's room throws `SyntaxError` ("stack overflow") instead                                                                                                     |
+| deep recursion throws `RangeError` at the engine's limit                                                                        | it throws `RangeError` when the native stack is nearly full, which depends on the thread's stack and the frames' sizes: see [Recursion limits](#recursion-limits). A regular expression nested past the stack's room throws `SyntaxError` ("stack overflow") instead                                                     |
 | `==` converts first between a number, string, boolean, bigint or object (`1 == "1"`)                                            | refused (`LUCENT1002`); compare with `===` after converting                                                                                                                                                                                                                                                              |
 | functions compare by reference                                                                                                  | comparing two functions is rejected (`LUCENT1002`): a function value has no stable identity                                                                                                                                                                                                                              |
 | tuples are arrays and compare by reference                                                                                      | tuples are values: `===` compares their elements                                                                                                                                                                                                                                                                         |

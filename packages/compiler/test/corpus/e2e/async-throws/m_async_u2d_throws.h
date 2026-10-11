@@ -52,6 +52,7 @@ namespace m_async_u2d_throws {
 
 template <class T>
 lucent::Promise<lucent::String> settle(lucent::Fn<lucent::Promise<T>()> p0_) {
+  lucent::checkStack();
   lucent_app::m_async_u2d_throws::log = lucent::Array<lucent::String>{};
   lucent::Promise<T> pending{};
   {

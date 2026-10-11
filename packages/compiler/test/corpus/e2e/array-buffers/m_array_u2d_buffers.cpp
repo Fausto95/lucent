@@ -78,6 +78,7 @@ static constexpr lucent::TaskEntry<std::tuple<lucent::ArrayBuffer>, double> entr
 namespace lucent_app {
 
 void C_Store::construct() {
+  lucent::checkStack();
   lucent::Map<lucent::String, std::variant<lucent::ArrayBuffer, bool, double, lucent::String>> v0_ = lucent::Map<lucent::String, std::variant<lucent::ArrayBuffer, bool, double, lucent::String>>();
   this->values = v0_;
 }
@@ -89,11 +90,13 @@ lucent::Ref<C_Store> C_Store::create() {
 }
 
 void C_Store::set(lucent::String p0_, std::variant<lucent::ArrayBuffer, bool, double, lucent::String> p1_) {
+  lucent::checkStack();
   lucent::Map<lucent::String, std::variant<lucent::ArrayBuffer, bool, double, lucent::String>> v2_ = this->values;
   (void)v2_.set(p0_, p1_);
 }
 
 lucent::Opt<lucent::ArrayBuffer> C_Store::getBuffer(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Map<lucent::String, std::variant<lucent::ArrayBuffer, bool, double, lucent::String>> v1_ = this->values;
   lucent::Opt<std::variant<lucent::ArrayBuffer, bool, double, lucent::String>> v = v1_.get(p0_);
   bool v4_ = lucent::holds<lucent::IsArrayBuffer>(v);
@@ -107,10 +110,12 @@ lucent::Opt<lucent::ArrayBuffer> C_Store::getBuffer(lucent::String p0_) {
 }
 
 lucent::String C_Store::kinds() {
+  lucent::checkStack();
   lucent::Map<lucent::String, std::variant<lucent::ArrayBuffer, bool, double, lucent::String>> v0_ = this->values;
   lucent::Array<std::tuple<lucent::String, std::variant<lucent::ArrayBuffer, bool, double, lucent::String>>> v1_ = lucent::mapEntries(v0_);
   lucent::Array<std::tuple<lucent::String, std::variant<lucent::ArrayBuffer, bool, double, lucent::String>>> v2_ = ({ lucent::Array<std::tuple<lucent::String, std::variant<lucent::ArrayBuffer, bool, double, lucent::String>>> arr_1_; arr_1_.append(v1_); arr_1_; });
   lucent::Array<lucent::String> v4_ = v2_.template map<lucent::String>([](std::tuple<lucent::String, std::variant<lucent::ArrayBuffer, bool, double, lucent::String>> p0_, double p1_, lucent::Array<std::tuple<lucent::String, std::variant<lucent::ArrayBuffer, bool, double, lucent::String>>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String k = std::get<0>(p0_);
     std::variant<lucent::ArrayBuffer, bool, double, lucent::String> v = std::get<1>(p0_);
     bool v8_ = lucent::holds<lucent::IsArrayBuffer>(v);
@@ -128,6 +133,7 @@ lucent::String C_Store::kinds() {
 }
 
 lucent::String m_array_u2d_buffers::views() {
+  lucent::checkStack();
   lucent::ArrayBuffer ab = lucent::ArrayBuffer(8.0);
   lucent::Bytes all = lucent::Bytes::over(ab, lucent::undefined, lucent::undefined);
   lucent::Bytes mid = lucent::Bytes::over(ab, lucent::Opt<double>(2.0), lucent::Opt<double>(3.0));
@@ -168,39 +174,48 @@ lucent::String m_array_u2d_buffers::views() {
 }
 
 lucent::String m_array_u2d_buffers::checks() {
+  lucent::checkStack();
   lucent::ArrayBuffer ab = lucent::ArrayBuffer(4.0);
   lucent::Fn<double()> v2_ = lucent::Fn<double()>([]() mutable -> double {
+    lucent::checkStack();
     double v1_ = -1.0;
     lucent::ArrayBuffer v2_ = lucent::ArrayBuffer(v1_);
     return v2_.byteLength();
   });
   lucent::Fn<double()> v3_ = lucent::Fn<double()>([]() mutable -> double {
+    lucent::checkStack();
     lucent::ArrayBuffer v1_ = lucent::ArrayBuffer(2.7);
     return v1_.byteLength();
   });
   lucent::Fn<double()> v4_ = lucent::Fn<double()>([]() mutable -> double {
+    lucent::checkStack();
     double v0_ = lucent::kNaN;
     lucent::ArrayBuffer v1_ = lucent::ArrayBuffer(v0_);
     return v1_.byteLength();
   });
   lucent::Fn<double()> v6_ = lucent::Fn<double()>([ab = ab]() mutable -> double {
+    lucent::checkStack();
     lucent::Bytes v2_ = lucent::Bytes::over(ab, lucent::Opt<double>(5.0), lucent::undefined);
     return v2_.length();
   });
   lucent::Fn<double()> v8_ = lucent::Fn<double()>([ab = ab]() mutable -> double {
+    lucent::checkStack();
     lucent::Bytes v2_ = lucent::Bytes::over(ab, lucent::Opt<double>(4.0), lucent::undefined);
     return v2_.length();
   });
   lucent::Fn<double()> v10_ = lucent::Fn<double()>([ab = ab]() mutable -> double {
+    lucent::checkStack();
     lucent::Bytes v3_ = lucent::Bytes::over(ab, lucent::Opt<double>(2.0), lucent::Opt<double>(3.0));
     return v3_.length();
   });
   lucent::Fn<double()> v12_ = lucent::Fn<double()>([ab = ab]() mutable -> double {
+    lucent::checkStack();
     lucent::Bytes v3_ = lucent::Bytes::over(ab, lucent::Opt<double>(1.0), lucent::Opt<double>(3.0));
     return v3_.length();
   });
   lucent::Array<lucent::Fn<double()>> attempts = lucent::Array<lucent::Fn<double()>>{v2_, v3_, v4_, v6_, v8_, v10_, v12_};
   lucent::Array<lucent::String> v16_ = attempts.template map<lucent::String>([](lucent::Fn<double()> p0_, double p1_, lucent::Array<lucent::Fn<double()>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     {
       std::exception_ptr ex5_;
       try {
@@ -223,6 +238,7 @@ lucent::String m_array_u2d_buffers::checks() {
 }
 
 double m_array_u2d_buffers::sum(lucent::ArrayBuffer p0_) {
+  lucent::checkStack();
   double total = 0.0;
   lucent::Bytes v2_ = lucent::Bytes::over(p0_, lucent::undefined, lucent::undefined);
   {
@@ -239,14 +255,17 @@ double m_array_u2d_buffers::sum(lucent::ArrayBuffer p0_) {
 }
 
 lucent::ArrayBuffer m_array_u2d_buffers::filled(double p0_, double p1_) {
+  lucent::checkStack();
   lucent::Bytes v2_ = lucent::Bytes(p0_);
   lucent::Bytes v3_ = v2_.fill(p1_);
   return v3_.arrayBuffer();
 }
 
 lucent::ArrayBuffer m_array_u2d_buffers::reversed(lucent::ArrayBuffer p0_) {
+  lucent::checkStack();
   lucent::Bytes from = lucent::Bytes::over(p0_, lucent::undefined, lucent::undefined);
   lucent::Bytes v5_ = from.map([from = from](double p0_, double p1_, lucent::Bytes p2_) mutable -> double {
+    lucent::checkStack();
     double v5_ = from.length();
     double v8_ = v5_ - 1.0 - p1_;
     lucent::Opt<double> v9_ = from.get(v8_);
@@ -256,6 +275,7 @@ lucent::ArrayBuffer m_array_u2d_buffers::reversed(lucent::ArrayBuffer p0_) {
 }
 
 lucent::String m_array_u2d_buffers::describe(lucent::Opt<lucent::ArrayBuffer> p0_) {
+  lucent::checkStack();
   bool v2_ = lucent::strictEquals(p0_, lucent::undefined);
   if (v2_) {
     return LUCENT_STR("none");
@@ -272,6 +292,7 @@ lucent::String m_array_u2d_buffers::describe(lucent::Opt<lucent::ArrayBuffer> p0
 }
 
 double m_array_u2d_buffers::checksum(lucent::ArrayBuffer p0_) {
+  lucent::checkStack();
   lucent::Bytes v1_ = lucent::Bytes::over(p0_, lucent::undefined, lucent::undefined);
   return v1_.reduce([](double p0_, double p1_, double p2_, lucent::Bytes p3_) mutable -> double {
     return lucent::jsMod(p0_ * 31.0 + p1_, 65521.0);
@@ -279,6 +300,7 @@ double m_array_u2d_buffers::checksum(lucent::ArrayBuffer p0_) {
 }
 
 lucent::Promise<lucent::String> m_array_u2d_buffers::digest(double p0_) {
+  lucent::checkStack();
   lucent::ArrayBuffer ab = lucent::ArrayBuffer(p0_);
   lucent::Bytes bytes = lucent::Bytes::over(ab, lucent::undefined, lucent::undefined);
   {
@@ -310,6 +332,7 @@ void m_array_u2d_buffers::init() {
 }
 
 double m_array_u2d_buffers::checksum_task_(lucent::ArrayBuffer p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   lucent::Bytes v1_ = lucent::Bytes::over(p0_, lucent::undefined, lucent::undefined);
   return v1_.reduce([](double p0_, double p1_, double p2_, lucent::Bytes p3_) mutable -> double {
     return lucent::jsMod(p0_ * 31.0 + p1_, 65521.0);

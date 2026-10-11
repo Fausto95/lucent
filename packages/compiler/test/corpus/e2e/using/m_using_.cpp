@@ -51,6 +51,7 @@
 namespace lucent_app {
 
 void C_Resource::construct(lucent::String p0_, lucent::Opt<bool> p1_) {
+  lucent::checkStack();
   bool failOnDispose{};
   bool v3_ = lucent::strictEquals(p1_, lucent::undefined);
   if (v3_) {
@@ -72,6 +73,7 @@ lucent::Ref<C_Resource> C_Resource::create(lucent::String p0_, lucent::Opt<bool>
 }
 
 void C_Resource::symbol_dispose_() {
+  lucent::checkStack();
   lucent::Array<lucent::String> v0_ = lucent_app::m_using_::log;
   lucent::String v2_ = this->name;
   lucent::String v3_ = lucent::String(LUCENT_STR("close ")) + v2_;
@@ -85,6 +87,7 @@ void C_Resource::symbol_dispose_() {
 }
 
 void C_Tracked::construct(lucent::String p0_, lucent::Opt<bool> p1_) {
+  lucent::checkStack();
   this->lucent_app::C_Resource::construct(p0_, p1_);
 }
 
@@ -95,6 +98,7 @@ lucent::Ref<C_Tracked> C_Tracked::create(lucent::String p0_, lucent::Opt<bool> p
 }
 
 void C_Tracked::symbol_dispose_() {
+  lucent::checkStack();
   lucent::Array<lucent::String> v0_ = lucent_app::m_using_::log;
   lucent::String v2_ = this->name;
   lucent::String v3_ = lucent::String(LUCENT_STR("flush ")) + v2_;
@@ -103,6 +107,7 @@ void C_Tracked::symbol_dispose_() {
 }
 
 lucent::Array<lucent::String> m_using_::take() {
+  lucent::checkStack();
   lucent::Array<lucent::String> v0_ = lucent_app::m_using_::log;
   lucent::Array<lucent::String> out = std::move(v0_);
   lucent_app::m_using_::log = lucent::Array<lucent::String>{};
@@ -110,6 +115,7 @@ lucent::Array<lucent::String> m_using_::take() {
 }
 
 lucent::Array<lucent::String> m_using_::scoped() {
+  lucent::checkStack();
   {
     lucent::Ref<lucent_app::C_Resource> a = lucent_app::C_Resource::create(LUCENT_STR("a"), lucent::Opt<bool>(lucent::undefined));
     {
@@ -176,6 +182,7 @@ lucent::Array<lucent::String> m_using_::scoped() {
 
 lucent::String m_using_::inner(bool p0_) {
   lucent::String ret_{};
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Resource> _r = lucent_app::C_Resource::create(LUCENT_STR("r"), lucent::Opt<bool>(lucent::undefined));
   {
     int fc0_ = 0;
@@ -227,6 +234,7 @@ lucent::String m_using_::inner(bool p0_) {
 }
 
 lucent::Array<lucent::String> m_using_::early(bool p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = lucent_app::m_using_::log;
   lucent::String v2_ = lucent_app::m_using_::inner(p0_);
   (void)v1_.push(v2_);
@@ -234,6 +242,7 @@ lucent::Array<lucent::String> m_using_::early(bool p0_) {
 }
 
 lucent::Array<lucent::String> m_using_::throwing() {
+  lucent::checkStack();
   {
     std::exception_ptr ex11_;
     try {
@@ -288,6 +297,7 @@ lucent::Array<lucent::String> m_using_::throwing() {
 }
 
 lucent::Array<lucent::String> m_using_::loop() {
+  lucent::checkStack();
   lucent::Array<lucent::String> v3_ = lucent::Array<lucent::String>{LUCENT_STR("x"), LUCENT_STR("y"), LUCENT_STR("z")};
   {
     auto coll0_ = v3_;
@@ -352,6 +362,7 @@ lucent::Array<lucent::String> m_using_::loop() {
 }
 
 lucent::Array<lucent::String> m_using_::nullable(bool p0_) {
+  lucent::checkStack();
   {
     lucent::Opt<lucent::Ref<lucent_app::C_Resource>> v6_{};
     if (p0_) {
@@ -405,6 +416,7 @@ lucent::Array<lucent::String> m_using_::nullable(bool p0_) {
 }
 
 lucent::Array<lucent::String> m_using_::disposeThrows() {
+  lucent::checkStack();
   {
     std::exception_ptr ex10_;
     try {
@@ -456,6 +468,7 @@ lucent::Array<lucent::String> m_using_::disposeThrows() {
 }
 
 lucent::Array<lucent::String> m_using_::suppressed() {
+  lucent::checkStack();
   {
     std::exception_ptr ex12_;
     try {
@@ -512,6 +525,7 @@ lucent::Array<lucent::String> m_using_::suppressed() {
 }
 
 lucent::Promise<lucent::Array<lucent::String>> m_using_::inAsync() {
+  lucent::checkStack();
   {
     lucent::Ref<lucent_app::C_Resource> r = lucent_app::C_Resource::create(LUCENT_STR("async"), lucent::Opt<bool>(lucent::undefined));
     {
@@ -550,12 +564,14 @@ lucent::Promise<lucent::Array<lucent::String>> m_using_::inAsync() {
 }
 
 lucent::Array<lucent::String> m_using_::r_explicit_() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Resource> r = lucent_app::C_Resource::create(LUCENT_STR("explicit"), lucent::Opt<bool>(lucent::undefined));
   r->symbol_dispose_();
   return lucent_app::m_using_::take();
 }
 
 void m_using_::init() {
+  lucent::checkStack();
   lucent_app::m_using_::log = lucent::Array<lucent::String>{};
 }
 

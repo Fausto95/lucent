@@ -176,6 +176,7 @@ namespace lucent_app {
 
 double m_buffers::scan(lucent::NativeBuffer p0_) {
   double ret_{};
+  lucent::checkStack();
   lucent::NativeBuffer owned = p0_;
   {
     int fc0_ = 0;
@@ -183,6 +184,7 @@ double m_buffers::scan(lucent::NativeBuffer p0_) {
     try {
       {
         lucent::Fn<double(lucent::ByteSpan)> v2_ = lucent::Fn<double(lucent::ByteSpan)>([](lucent::ByteSpan p0_) mutable -> double {
+          lucent::checkStack();
           double total = 0.0;
           {
             int64_t i = static_cast<int64_t>(0);
@@ -235,8 +237,10 @@ double m_buffers::scan(lucent::NativeBuffer p0_) {
 }
 
 lucent::Promise<double> m_buffers::sample() {
+  lucent::checkStack();
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::allocate(4096.0);
   lucent::Fn<void(lucent::MutableByteSpan)> v3_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     p0_.fill(7.0);
     return;
   });
@@ -248,6 +252,7 @@ lucent::Promise<double> m_buffers::sample() {
 }
 
 lucent::NativeBuffer m_buffers::make(lucent::Bytes p0_) {
+  lucent::checkStack();
   return lucent::NativeBufferObject::fromBytes(p0_);
 }
 
@@ -256,7 +261,9 @@ lucent::NativeBuffer m_buffers::echo(lucent::NativeBuffer p0_) {
 }
 
 double m_buffers::total(lucent::NativeBuffer p0_) {
+  lucent::checkStack();
   lucent::Fn<double(lucent::ByteSpan)> v1_ = lucent::Fn<double(lucent::ByteSpan)>([](lucent::ByteSpan p0_) mutable -> double {
+    lucent::checkStack();
     double sum = 0.0;
     {
       int64_t i = static_cast<int64_t>(0);
@@ -279,7 +286,9 @@ double m_buffers::total(lucent::NativeBuffer p0_) {
 }
 
 void m_buffers::r_double_(lucent::NativeBuffer p0_) {
+  lucent::checkStack();
   lucent::Fn<void(lucent::MutableByteSpan)> v1_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     {
       int64_t i = static_cast<int64_t>(0);
       while (true) {
@@ -301,14 +310,17 @@ void m_buffers::r_double_(lucent::NativeBuffer p0_) {
 }
 
 lucent::String m_buffers::failure(lucent::Error p0_) {
+  lucent::checkStack();
   lucent::String v1_ = p0_->name;
   lucent::String v3_ = p0_->message;
   return lucent::concat(v1_, LUCENT_STR(": "), v3_);
 }
 
 lucent::String m_buffers::spans() {
+  lucent::checkStack();
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::allocate(6.0);
   lucent::Fn<void(lucent::MutableByteSpan)> v3_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     lucent::setElement(p0_, 0.0, 258.0);
     double v6_ = -1.0;
     lucent::setElement(p0_, 1.0, v6_);
@@ -323,6 +335,7 @@ lucent::String m_buffers::spans() {
   });
   lucent::withWrite(buffer, v3_);
   lucent::Fn<lucent::String(lucent::ByteSpan)> v6_ = lucent::Fn<lucent::String(lucent::ByteSpan)>([](lucent::ByteSpan p0_) mutable -> lucent::String {
+    lucent::checkStack();
     double v1_ = p0_.length();
     lucent::String v2_ = lucent::toJsString(v1_);
     lucent::Opt<double> v5_ = p0_.get(0.0);
@@ -333,6 +346,7 @@ lucent::String m_buffers::spans() {
   });
   lucent::String read = lucent::withRead(buffer, v6_);
   lucent::Fn<void(lucent::MutableByteSpan)> v9_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     lucent::Array<double> v3_ = lucent::Array<double>{9.0, 9.0};
     lucent::Bytes v4_ = lucent::Bytes::fromArray(v3_);
     p0_.setFrom(v4_, 4.0);
@@ -344,6 +358,7 @@ lucent::String m_buffers::spans() {
     std::exception_ptr ex15_;
     try {
       lucent::Fn<void(lucent::MutableByteSpan)> v13_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+        lucent::checkStack();
         lucent::Array<double> v3_ = lucent::Array<double>{1.0, 2.0};
         lucent::Bytes v4_ = lucent::Bytes::fromArray(v3_);
         p0_.setFrom(v4_, 5.0);
@@ -367,12 +382,14 @@ lucent::String m_buffers::spans() {
 }
 
 lucent::String m_buffers::snapshots() {
+  lucent::checkStack();
   lucent::Array<double> v3_ = lucent::Array<double>{1.0, 2.0, 3.0};
   lucent::Bytes source = lucent::Bytes::fromArray(v3_);
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::fromBytes(source);
   lucent::setElement(source, 0.0, 50.0);
   lucent::Bytes snapshot = buffer->toBytes();
   lucent::Fn<void(lucent::MutableByteSpan)> v14_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     p0_.fill(0.0);
     return;
   });
@@ -386,6 +403,7 @@ lucent::String m_buffers::snapshots() {
 }
 
 lucent::String m_buffers::sizes() {
+  lucent::checkStack();
   lucent::NativeBuffer v1_ = lucent::NativeBufferObject::allocate(0.0);
   double v2_ = static_cast<double>(v1_->size());
   lucent::String v3_ = lucent::toJsString(v2_);
@@ -422,13 +440,16 @@ lucent::String m_buffers::sizes() {
 }
 
 lucent::String m_buffers::conflicts() {
+  lucent::checkStack();
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::allocate(4.0);
   lucent::Array<lucent::String> out = lucent::Array<lucent::String>{};
   lucent::Fn<void(lucent::ByteSpan)> v6_ = lucent::Fn<void(lucent::ByteSpan)>([buffer = buffer, out = out](lucent::ByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     {
       std::exception_ptr ex4_;
       try {
         lucent::Fn<void(lucent::MutableByteSpan)> v2_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+          lucent::checkStack();
           p0_.fill(1.0);
           return;
         });
@@ -478,6 +499,7 @@ lucent::String m_buffers::conflicts() {
       }
     }
     lucent::Fn<double(lucent::ByteSpan)> v26_ = lucent::Fn<double(lucent::ByteSpan)>([](lucent::ByteSpan p0_) mutable -> double {
+      lucent::checkStack();
       return p0_.length();
     });
     double v27_ = lucent::withRead(buffer, v26_);
@@ -486,6 +508,7 @@ lucent::String m_buffers::conflicts() {
   });
   lucent::withRead(buffer, v6_);
   lucent::Fn<void(lucent::MutableByteSpan)> v11_ = lucent::Fn<void(lucent::MutableByteSpan)>([buffer = buffer, out = out](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     {
       std::exception_ptr ex3_;
       try {
@@ -508,6 +531,7 @@ lucent::String m_buffers::conflicts() {
 }
 
 lucent::String m_buffers::aliases() {
+  lucent::checkStack();
   lucent::Array<double> v3_ = lucent::Array<double>{1.0, 2.0, 3.0};
   lucent::Bytes v4_ = lucent::Bytes::fromArray(v3_);
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::fromBytes(v4_);
@@ -523,6 +547,7 @@ lucent::String m_buffers::aliases() {
     std::exception_ptr ex22_;
     try {
       lucent::Fn<double(lucent::ByteSpan)> v20_ = lucent::Fn<double(lucent::ByteSpan)>([](lucent::ByteSpan p0_) mutable -> double {
+        lucent::checkStack();
         return p0_.length();
       });
       (void)lucent::withRead(alias, v20_);
@@ -580,9 +605,11 @@ lucent::String m_buffers::aliases() {
 }
 
 lucent::Promise<lucent::String> m_buffers::handoff() {
+  lucent::checkStack();
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::allocate(8.0);
   lucent::NativeBuffer alias = buffer;
   lucent::Fn<void(lucent::MutableByteSpan)> v4_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     p0_.fill(3.0);
     return;
   });
@@ -595,6 +622,7 @@ lucent::Promise<lucent::String> m_buffers::handoff() {
     std::exception_ptr ex13_;
     try {
       lucent::Fn<double(lucent::ByteSpan)> v11_ = lucent::Fn<double(lucent::ByteSpan)>([](lucent::ByteSpan p0_) mutable -> double {
+        lucent::checkStack();
         return p0_.length();
       });
       (void)lucent::withRead(alias, v11_);
@@ -616,9 +644,11 @@ lucent::Promise<lucent::String> m_buffers::handoff() {
 }
 
 lucent::Promise<lucent::String> m_buffers::borrowedHandoff() {
+  lucent::checkStack();
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::allocate(4.0);
   lucent::Box<lucent::Opt<lucent::Promise<double>>> pending{};
   lucent::Fn<void(lucent::ByteSpan)> v4_ = lucent::Fn<void(lucent::ByteSpan)>([pending = pending, buffer = buffer](lucent::ByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     lucent::Promise<double> v2_ = lucent::compute(lucent_tasks::m_buffers::entry_scan, std::tuple<lucent::NativeBuffer>{buffer}, lucent::ComputeOptions{lucent::Opt<lucent::AbortSignal>(), lucent::moduleScope()});
     *pending = lucent::Opt<lucent::Promise<double>>(v2_);
   });
@@ -648,6 +678,7 @@ lucent::Promise<lucent::String> m_buffers::borrowedHandoff() {
 }
 
 double m_buffers::scaled(lucent::Ref<lucent_app::S_Job> p0_) {
+  lucent::checkStack();
   lucent::NativeBuffer v1_ = p0_->buffer;
   double v2_ = lucent_app::m_buffers::scan(v1_);
   double v3_ = p0_->scale;
@@ -655,8 +686,10 @@ double m_buffers::scaled(lucent::Ref<lucent_app::S_Job> p0_) {
 }
 
 lucent::NativeBuffer m_buffers::filled(double p0_) {
+  lucent::checkStack();
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::allocate(p0_);
   lucent::Fn<void(lucent::MutableByteSpan)> v3_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     p0_.fill(3.0);
     return;
   });
@@ -665,9 +698,11 @@ lucent::NativeBuffer m_buffers::filled(double p0_) {
 }
 
 lucent::Promise<lucent::String> m_buffers::inputs() {
+  lucent::checkStack();
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::allocate(3.0);
   lucent::NativeBuffer alias = buffer;
   lucent::Fn<void(lucent::MutableByteSpan)> v4_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     p0_.fill(2.0);
     return;
   });
@@ -690,6 +725,7 @@ lucent::Promise<lucent::String> m_buffers::inputs() {
 }
 
 double m_buffers::sumBytes(lucent::Bytes p0_) {
+  lucent::checkStack();
   double sum = 0.0;
   {
     int64_t i = static_cast<int64_t>(0);
@@ -710,6 +746,7 @@ double m_buffers::sumBytes(lucent::Bytes p0_) {
 }
 
 lucent::String m_buffers::since(lucent::Ref<lucent_app::S_NativeBufferStats> p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_NativeBufferStats> now = ({ auto counts_2_ = lucent::NativeBufferObject::stats(); auto stats_3_ = std::make_shared<lucent_app::S_NativeBufferStats>(); stats_3_->allocated = static_cast<double>(counts_2_.allocated); stats_3_->adopted = static_cast<double>(counts_2_.adopted); stats_3_->transfers = static_cast<double>(counts_2_.transfers); stats_3_->copies = static_cast<double>(counts_2_.copies); stats_3_->bytesCopied = static_cast<double>(counts_2_.bytesCopied); stats_3_; });
   double v3_ = now->copies;
   double v4_ = p0_->copies;
@@ -724,8 +761,10 @@ lucent::String m_buffers::since(lucent::Ref<lucent_app::S_NativeBufferStats> p0_
 }
 
 lucent::Promise<lucent::String> m_buffers::copies(double p0_) {
+  lucent::checkStack();
   lucent::NativeBuffer handed = lucent::NativeBufferObject::allocate(p0_);
   lucent::Fn<void(lucent::MutableByteSpan)> v3_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     p0_.fill(1.0);
     return;
   });
@@ -737,6 +776,7 @@ lucent::Promise<lucent::String> m_buffers::copies(double p0_) {
   lucent::String handoffCost = lucent_app::m_buffers::since(beforeHandoff);
   lucent::NativeBuffer kept = lucent::NativeBufferObject::allocate(p0_);
   lucent::Fn<void(lucent::MutableByteSpan)> v13_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     p0_.fill(1.0);
     return;
   });
@@ -757,6 +797,7 @@ lucent::Promise<lucent::String> m_buffers::copies(double p0_) {
 }
 
 lucent::Promise<lucent::String> m_buffers::stream(double p0_, double p1_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_NativeBufferStats> before = ({ auto counts_8_ = lucent::NativeBufferObject::stats(); auto stats_9_ = std::make_shared<lucent_app::S_NativeBufferStats>(); stats_9_->allocated = static_cast<double>(counts_8_.allocated); stats_9_->adopted = static_cast<double>(counts_8_.adopted); stats_9_->transfers = static_cast<double>(counts_8_.transfers); stats_9_->copies = static_cast<double>(counts_8_.copies); stats_9_->bytesCopied = static_cast<double>(counts_8_.bytesCopied); stats_9_; });
   double sum = 0.0;
   {
@@ -771,6 +812,7 @@ lucent::Promise<lucent::String> m_buffers::stream(double p0_, double p1_) {
         }
         lucent::NativeBuffer chunk = lucent::NativeBufferObject::allocate(p1_);
         lucent::Fn<void(lucent::MutableByteSpan)> v10_ = lucent::Fn<void(lucent::MutableByteSpan)>([i = i](lucent::MutableByteSpan p0_) mutable -> void {
+          lucent::checkStack();
           double v1_ = *i;
           p0_.fill(v1_);
           return;
@@ -791,16 +833,20 @@ lucent::Promise<lucent::String> m_buffers::stream(double p0_, double p1_) {
 }
 
 lucent::String m_buffers::texts() {
+  lucent::checkStack();
   lucent::Array<double> v2_ = lucent::Array<double>{1.0, 2.0};
   lucent::Bytes v3_ = lucent::Bytes::fromArray(v2_);
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::fromBytes(v3_);
   lucent::Fn<lucent::String(lucent::ByteSpan)> v6_ = lucent::Fn<lucent::String(lucent::ByteSpan)>([](lucent::ByteSpan p0_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v1_ = lucent::json::stringify(p0_);
     return lucent::concat(lucent::toJsString(p0_), LUCENT_STR(" "), v1_);
   });
   lucent::String spans = lucent::withRead(buffer, v6_);
   lucent::Fn<bool(lucent::ByteSpan)> v10_ = lucent::Fn<bool(lucent::ByteSpan)>([buffer = buffer](lucent::ByteSpan p0_) mutable -> bool {
+    lucent::checkStack();
     lucent::Fn<bool(lucent::ByteSpan)> v2_ = lucent::Fn<bool(lucent::ByteSpan)>([a = p0_](lucent::ByteSpan p0_) mutable -> bool {
+      lucent::checkStack();
       return lucent::strictEquals(a, p0_);
     });
     return lucent::withRead(buffer, v2_);
@@ -820,6 +866,7 @@ void m_buffers::init() {
 
 double m_buffers::scan_task_(lucent::NativeBuffer p0_, lucent::TaskContext& task_) {
   double ret_{};
+  lucent::checkStack();
   lucent::NativeBuffer owned = p0_;
   {
     int fc0_ = 0;
@@ -827,6 +874,7 @@ double m_buffers::scan_task_(lucent::NativeBuffer p0_, lucent::TaskContext& task
     try {
       {
         lucent::Fn<double(lucent::ByteSpan)> v2_ = lucent::Fn<double(lucent::ByteSpan)>([](lucent::ByteSpan p0_) mutable -> double {
+          lucent::checkStack();
           double total = 0.0;
           {
             int64_t i = static_cast<int64_t>(0);
@@ -879,6 +927,7 @@ double m_buffers::scan_task_(lucent::NativeBuffer p0_, lucent::TaskContext& task
 }
 
 double m_buffers::scaled_task_(lucent::Ref<lucent_app::S_Job> p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   lucent::NativeBuffer v1_ = p0_->buffer;
   double v2_ = lucent_app::m_buffers::scan_task_(v1_, task_);
   double v3_ = p0_->scale;
@@ -886,8 +935,10 @@ double m_buffers::scaled_task_(lucent::Ref<lucent_app::S_Job> p0_, lucent::TaskC
 }
 
 lucent::NativeBuffer m_buffers::filled_task_(double p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::allocate(p0_);
   lucent::Fn<void(lucent::MutableByteSpan)> v3_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     p0_.fill(3.0);
     return;
   });
@@ -896,6 +947,7 @@ lucent::NativeBuffer m_buffers::filled_task_(double p0_, lucent::TaskContext& ta
 }
 
 double m_buffers::sumBytes_task_(lucent::Bytes p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   double sum = 0.0;
   {
     int64_t i = static_cast<int64_t>(0);

@@ -27,6 +27,7 @@
 namespace lucent_app {
 
 void C_Registry::construct() {
+  lucent::checkStack();
   double v0_ = lucent_app::C_Registry::count;
   this->seen = v0_;
 }
@@ -38,6 +39,7 @@ lucent::Ref<C_Registry> C_Registry::create() {
 }
 
 double C_Registry::add(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = lucent_app::C_Registry::names;
   (void)v1_.push(p0_);
   double v3_ = lucent_app::C_Registry::count;
@@ -47,6 +49,7 @@ double C_Registry::add(lucent::String p0_) {
 }
 
 lucent::String C_Registry::summary() {
+  lucent::checkStack();
   lucent::String v0_ = lucent_app::C_Registry::label;
   double v2_ = lucent_app::C_Registry::count;
   lucent::String v3_ = lucent::toJsString(v2_);
@@ -58,6 +61,7 @@ lucent::String C_Registry::summary() {
 }
 
 void C_Scoped::construct() {
+  lucent::checkStack();
   this->lucent_app::C_Registry::construct();
 }
 
@@ -68,12 +72,14 @@ lucent::Ref<C_Scoped> C_Scoped::create() {
 }
 
 lucent::String C_Scoped::where() {
+  lucent::checkStack();
   lucent::String v0_ = lucent_app::C_Scoped::scope;
   lucent::String v2_ = lucent_app::C_Registry::label;
   return lucent::concat(v0_, LUCENT_STR(" of "), v2_);
 }
 
 lucent::String m_exported_u2d_statics::read() {
+  lucent::checkStack();
   lucent::String v0_ = lucent_app::C_Registry::label;
   double v2_ = lucent_app::C_Registry::count;
   lucent::String v3_ = lucent::toJsString(v2_);
@@ -81,6 +87,7 @@ lucent::String m_exported_u2d_statics::read() {
 }
 
 void m_exported_u2d_statics::init() {
+  lucent::checkStack();
   C_Registry::count = 0.0;
   C_Registry::label = LUCENT_STR("registry");
   C_Registry::limit = 3.0;

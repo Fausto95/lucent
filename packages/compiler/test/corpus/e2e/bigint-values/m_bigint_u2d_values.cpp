@@ -103,6 +103,7 @@
 namespace lucent_app {
 
 void C_Account::construct(lucent::BigInt p0_) {
+  lucent::checkStack();
   this->r_id_ = p0_;
   this->balance = lucent::BigInt::fromInt64(0);
   lucent::Array<lucent::BigInt> v4_ = lucent::Array<lucent::BigInt>{};
@@ -116,6 +117,7 @@ lucent::Ref<C_Account> C_Account::create(lucent::BigInt p0_) {
 }
 
 lucent::BigInt C_Account::deposit(lucent::BigInt p0_) {
+  lucent::checkStack();
   lucent::BigInt v1_ = this->balance;
   lucent::BigInt v2_ = v1_ + p0_;
   this->balance = v2_;
@@ -125,11 +127,13 @@ lucent::BigInt C_Account::deposit(lucent::BigInt p0_) {
 }
 
 lucent::BigInt C_Account::get_doubled() {
+  lucent::checkStack();
   lucent::BigInt v0_ = this->balance;
   return v0_ * lucent::BigInt::fromInt64(2);
 }
 
 lucent::String m_bigint_u2d_values::keys(lucent::Array<lucent::BigInt> p0_) {
+  lucent::checkStack();
   lucent::Map<lucent::BigInt, double> counts = lucent::Map<lucent::BigInt, double>();
   {
     auto coll0_ = p0_;
@@ -156,6 +160,7 @@ lucent::String m_bigint_u2d_values::keys(lucent::Array<lucent::BigInt> p0_) {
   lucent::BigInt v25_ = -lucent::BigInt::fromInt64(0);
   lucent::Array<lucent::BigInt> probes = lucent::Array<lucent::BigInt>{v19_, v22_, LUCENT_BIGINT("18446744073709551616"), v25_, lucent::BigInt::fromInt64(0), lucent::BigInt::fromInt64(3)};
   lucent::Array<lucent::String> v31_ = lucent::mapEntries(counts).map<lucent::String>([](std::tuple<lucent::BigInt, double> p0_, double p1_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::BigInt k = std::get<0>(p0_);
     double n = std::get<1>(p0_);
     lucent::String v5_ = lucent::toJsString(k);
@@ -165,6 +170,7 @@ lucent::String m_bigint_u2d_values::keys(lucent::Array<lucent::BigInt> p0_) {
   lucent::String v33_ = v31_.join(LUCENT_STR(" "));
   double v35_ = seen.size();
   lucent::Array<lucent::String> v40_ = probes.template map<lucent::String>([seen = seen, counts = counts](lucent::BigInt p0_, double p1_, lucent::Array<lucent::BigInt> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     bool v4_ = seen.has(p0_);
     lucent::String v5_ = lucent::toJsString(v4_);
     lucent::Opt<double> v8_ = counts.get(p0_);
@@ -184,6 +190,7 @@ lucent::String m_bigint_u2d_values::keys(lucent::Array<lucent::BigInt> p0_) {
 }
 
 lucent::Array<lucent::BigInt> m_bigint_u2d_values::sorted(lucent::Array<lucent::BigInt> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::BigInt> v1_ = ({ lucent::Array<lucent::BigInt> arr_1_; arr_1_.append(p0_); arr_1_; });
   return v1_.sort([](lucent::BigInt p0_, lucent::BigInt p1_) mutable -> double {
     bool v2_ = p0_ < p1_;
@@ -205,11 +212,13 @@ lucent::Array<lucent::BigInt> m_bigint_u2d_values::sorted(lucent::Array<lucent::
 }
 
 lucent::Array<lucent::BigInt> m_bigint_u2d_values::defaultSorted(lucent::Array<lucent::BigInt> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::BigInt> v1_ = ({ lucent::Array<lucent::BigInt> arr_2_; arr_2_.append(p0_); arr_2_; });
   return v1_.sort();
 }
 
 lucent::String m_bigint_u2d_values::search(lucent::Array<lucent::BigInt> p0_, lucent::BigInt p1_) {
+  lucent::checkStack();
   bool v2_ = p0_.includes(p1_);
   lucent::String v3_ = lucent::toJsString(v2_);
   double v5_ = p0_.indexOf(p1_);
@@ -225,12 +234,14 @@ lucent::String m_bigint_u2d_values::search(lucent::Array<lucent::BigInt> p0_, lu
 }
 
 lucent::BigInt m_bigint_u2d_values::sum(lucent::Array<lucent::BigInt> p0_) {
+  lucent::checkStack();
   return p0_.reduce([](lucent::BigInt p0_, lucent::BigInt p1_, double p2_, lucent::Array<lucent::BigInt> p3_) mutable -> lucent::BigInt {
     return p0_ + p1_;
   }, lucent::BigInt(lucent::BigInt::fromInt64(0)));
 }
 
 lucent::Map<lucent::BigInt, lucent::BigInt> m_bigint_u2d_values::totals(lucent::Map<lucent::BigInt, lucent::Array<lucent::BigInt>> p0_) {
+  lucent::checkStack();
   lucent::Map<lucent::BigInt, lucent::BigInt> out = lucent::Map<lucent::BigInt, lucent::BigInt>();
   {
     auto coll0_ = p0_;
@@ -253,6 +264,7 @@ lucent::Map<lucent::BigInt, lucent::BigInt> m_bigint_u2d_values::totals(lucent::
 }
 
 lucent::Array<lucent::BigInt> m_bigint_u2d_values::unique(lucent::Set<lucent::BigInt> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::BigInt> v1_ = ({ lucent::Array<lucent::BigInt> arr_3_; arr_3_.append(p0_.values()); arr_3_; });
   return v1_.template map<lucent::BigInt>([](lucent::BigInt p0_, double p1_, lucent::Array<lucent::BigInt> p2_) mutable -> lucent::BigInt {
     return p0_ * p0_;
@@ -260,6 +272,7 @@ lucent::Array<lucent::BigInt> m_bigint_u2d_values::unique(lucent::Set<lucent::Bi
 }
 
 lucent::String m_bigint_u2d_values::describe(lucent::Ref<lucent_app::S_Ledger> p0_) {
+  lucent::checkStack();
   lucent::String v1_ = p0_->label;
   lucent::BigInt v3_ = p0_->r_id_;
   lucent::String v4_ = lucent::toJsString(v3_);
@@ -278,6 +291,7 @@ lucent::String m_bigint_u2d_values::describe(lucent::Ref<lucent_app::S_Ledger> p
 }
 
 lucent::Ref<lucent_app::S_Ledger> m_bigint_u2d_values::ledger(lucent::BigInt p0_, bool p1_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::S_Ledger> l = ({ auto obj_4_ = std::make_shared<lucent_app::S_Ledger>(); obj_4_->r_id_ = p0_; obj_4_->label = LUCENT_STR("L"); obj_4_; });
   if (p1_) {
     lucent::Opt<lucent::BigInt> v7_ = lucent::Opt<lucent::BigInt>(p0_ * lucent::BigInt::fromInt64(1000));
@@ -327,6 +341,7 @@ std::variant<lucent::BigInt, lucent::String> m_bigint_u2d_values::pick(bool p0_)
 }
 
 lucent::String m_bigint_u2d_values::mixed(lucent::Array<std::variant<lucent::BigInt, double>> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v2_ = p0_.template map<lucent::String>([](std::variant<lucent::BigInt, double> p0_, double p1_, lucent::Array<std::variant<lucent::BigInt, double>> p2_) mutable -> lucent::String {
     bool v5_ = lucent::typeOf(p0_) == LUCENT_STR("bigint");
     lucent::String v12_{};
@@ -341,23 +356,27 @@ lucent::String m_bigint_u2d_values::mixed(lucent::Array<std::variant<lucent::Big
 }
 
 lucent::Ref<lucent_app::C_Account> m_bigint_u2d_values::openAccount(lucent::BigInt p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Account> a = lucent_app::C_Account::create(p0_);
   (void)a->deposit(p0_);
   return a;
 }
 
 lucent::BigInt m_bigint_u2d_values::applyTwice(lucent::Fn<lucent::BigInt(lucent::BigInt)> p0_, lucent::BigInt p1_) {
+  lucent::checkStack();
   lucent::BigInt v2_ = p0_(p1_);
   return p0_(v2_);
 }
 
 void m_bigint_u2d_values::each(lucent::Array<lucent::BigInt> p0_, lucent::Fn<void(lucent::BigInt, double)> p1_) {
+  lucent::checkStack();
   p0_.forEach(lucent::Fn<void(lucent::BigInt, double, lucent::Array<lucent::BigInt>)>([fn_5_ = p1_](lucent::BigInt a0, double a1, lucent::Array<lucent::BigInt> a2) {
     fn_5_(a0, a1);
   }));
 }
 
 lucent::Fn<lucent::BigInt()> m_bigint_u2d_values::counter(lucent::BigInt p0_) {
+  lucent::checkStack();
   lucent::Box<lucent::BigInt> n(p0_);
   lucent::Fn<lucent::BigInt()> v1_ = lucent::Fn<lucent::BigInt()>([n = n]() mutable -> lucent::BigInt {
     lucent::BigInt v0_ = *n;
@@ -371,6 +390,7 @@ lucent::Fn<lucent::BigInt()> m_bigint_u2d_values::counter(lucent::BigInt p0_) {
 }
 
 lucent::Promise<lucent::BigInt> m_bigint_u2d_values::factorialLater(lucent::BigInt p0_) {
+  lucent::checkStack();
   lucent::BigInt r = lucent::BigInt::fromInt64(1);
   {
     lucent::BigInt i = lucent::BigInt::fromInt64(2);
@@ -394,6 +414,7 @@ lucent::Promise<lucent::BigInt> m_bigint_u2d_values::factorialLater(lucent::BigI
 }
 
 lucent::Promise<lucent::String> m_bigint_u2d_values::sumLater(lucent::Array<lucent::BigInt> p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::Promise<lucent::BigInt>(lucent::BigInt, double, lucent::Array<lucent::BigInt>)> v1_ = lucent::Fn<lucent::Promise<lucent::BigInt>(lucent::BigInt, double, lucent::Array<lucent::BigInt>)>([](lucent::BigInt p0_, double p1_, lucent::Array<lucent::BigInt> p2_) mutable -> lucent::Promise<lucent::BigInt> {
     try {
       return lucent::Promise<lucent::BigInt>::resolved(lucent::BigInt::pow(p0_, lucent::BigInt::fromInt64(3)));
@@ -414,18 +435,21 @@ lucent::Promise<lucent::String> m_bigint_u2d_values::sumLater(lucent::Array<luce
 }
 
 lucent::Promise<lucent::BigInt> m_bigint_u2d_values::failLater(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Promise<void> v2_ = lucent::delay(0.0);
   co_await v2_;
   co_return lucent::BigInt::parse(p0_);
 }
 
 std::tuple<lucent::BigInt, lucent::String> m_bigint_u2d_values::tupled(lucent::BigInt p0_) {
+  lucent::checkStack();
   lucent::BigInt v2_ = p0_ << lucent::BigInt::fromInt64(1);
   lucent::String v3_ = lucent::toJsString(p0_);
   return std::tuple<lucent::BigInt, lucent::String>(v2_, v3_);
 }
 
 lucent::Dict<lucent::BigInt> m_bigint_u2d_values::records(lucent::Dict<lucent::BigInt> p0_) {
+  lucent::checkStack();
   lucent::Dict<lucent::BigInt> out = ({ lucent::Dict<lucent::BigInt> rec_6_; rec_6_; });
   lucent::Array<std::tuple<lucent::String, lucent::BigInt>> v2_ = lucent::dictEntries(p0_);
   {
@@ -445,6 +469,7 @@ lucent::Dict<lucent::BigInt> m_bigint_u2d_values::records(lucent::Dict<lucent::B
 }
 
 void m_bigint_u2d_values::init() {
+  lucent::checkStack();
   lucent_app::m_bigint_u2d_values::BIG = lucent::BigInt::pow(lucent::BigInt::fromInt64(2), lucent::BigInt::fromInt64(100));
   lucent::BigInt v6_ = -lucent::BigInt::pow(lucent::BigInt::fromInt64(2), lucent::BigInt::fromInt64(63));
   lucent::BigInt v11_ = lucent::BigInt::pow(lucent::BigInt::fromInt64(2), lucent::BigInt::fromInt64(63)) - lucent::BigInt::fromInt64(1);

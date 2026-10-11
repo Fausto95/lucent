@@ -23,6 +23,7 @@
 namespace lucent_app {
 
 lucent::Array<double> m_loop_u2d_closures::skipping() {
+  lucent::checkStack();
   lucent::Array<lucent::Fn<double()>> fns = lucent::Array<lucent::Fn<double()>>{};
   {
     lucent::Box<double> i{};
@@ -48,11 +49,13 @@ lucent::Array<double> m_loop_u2d_closures::skipping() {
     }
   }
   return fns.template map<double>([](lucent::Fn<double()> p0_, double p1_, lucent::Array<lucent::Fn<double()>> p2_) mutable -> double {
+    lucent::checkStack();
     return p0_();
   });
 }
 
 lucent::Array<double> m_loop_u2d_closures::bumped() {
+  lucent::checkStack();
   lucent::Array<lucent::Fn<double()>> gets = lucent::Array<lucent::Fn<double()>>{};
   lucent::Array<lucent::Fn<void()>> bumps = lucent::Array<lucent::Fn<void()>>{};
   {
@@ -84,11 +87,13 @@ lucent::Array<double> m_loop_u2d_closures::bumped() {
   lucent::Opt<lucent::Fn<void()>> v18_ = bumps.getIndex(static_cast<int64_t>(1));
   v18_.value()();
   return gets.template map<double>([](lucent::Fn<double()> p0_, double p1_, lucent::Array<lucent::Fn<double()>> p2_) mutable -> double {
+    lucent::checkStack();
     return p0_();
   });
 }
 
 lucent::Array<double> m_loop_u2d_closures::continued() {
+  lucent::checkStack();
   lucent::Array<lucent::Fn<double()>> fns = lucent::Array<lucent::Fn<double()>>{};
   {
     lucent::Box<double> i{};
@@ -120,11 +125,13 @@ lucent::Array<double> m_loop_u2d_closures::continued() {
     }
   }
   return fns.template map<double>([](lucent::Fn<double()> p0_, double p1_, lucent::Array<lucent::Fn<double()>> p2_) mutable -> double {
+    lucent::checkStack();
     return p0_();
   });
 }
 
 lucent::Array<lucent::String> m_loop_u2d_closures::pairs() {
+  lucent::checkStack();
   lucent::Array<lucent::Fn<lucent::String()>> fns = lucent::Array<lucent::Fn<lucent::String()>>{};
   {
     lucent::Box<double> i{};
@@ -162,6 +169,7 @@ lucent::Array<lucent::String> m_loop_u2d_closures::pairs() {
     }
   }
   return fns.template map<lucent::String>([](lucent::Fn<lucent::String()> p0_, double p1_, lucent::Array<lucent::Fn<lucent::String()>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     return p0_();
   });
 }

@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"es2024-builtins", "d99
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "9e99f30f29ee7937", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "0ca11be2c668e4ec", kModuleIdentities, 1};
   return identity;
 }
 

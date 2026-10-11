@@ -33,6 +33,7 @@
 namespace lucent_app {
 
 lucent::String m_nullish_u2d_generics::defaults() {
+  lucent::checkStack();
   lucent::Opt<double> a = lucent_app::m_nullish_u2d_generics::orDefault<lucent::Opt<double>>(lucent::Opt<double>(lucent::undefined), lucent::Opt<double>(7.0));
   lucent::Opt<double> b = lucent_app::m_nullish_u2d_generics::orDefault<lucent::Opt<double>>(lucent::Opt<double>(3.0), lucent::Opt<double>(7.0));
   lucent::Opt<lucent::String> c = lucent_app::m_nullish_u2d_generics::orDefault<lucent::Opt<lucent::String>>(lucent::Opt<lucent::String>(lucent::null), lucent::Opt<lucent::String>(LUCENT_STR("d")));

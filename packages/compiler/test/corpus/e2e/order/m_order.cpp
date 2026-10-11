@@ -85,24 +85,28 @@ lucent::String m_order::combine(lucent::String p0_, lucent::String p1_) {
 }
 
 lucent::String m_order::pair() {
+  lucent::checkStack();
   lucent::String v1_ = lucent_app::m_order::next(LUCENT_STR("l"));
   lucent::String v3_ = lucent_app::m_order::next(LUCENT_STR("r"));
   return lucent_app::m_order::combine(v1_, v3_);
 }
 
 lucent::String m_order::firstThrows() {
+  lucent::checkStack();
   lucent::String v1_ = lucent_app::m_order::fail(LUCENT_STR("l"));
   lucent::String v3_ = lucent_app::m_order::next(LUCENT_STR("r"));
   return lucent_app::m_order::combine(v1_, v3_);
 }
 
 lucent::String m_order::secondThrows() {
+  lucent::checkStack();
   lucent::String v1_ = lucent_app::m_order::next(LUCENT_STR("l"));
   lucent::String v3_ = lucent_app::m_order::fail(LUCENT_STR("r"));
   return lucent_app::m_order::combine(v1_, v3_);
 }
 
 lucent::String m_order::operands() {
+  lucent::checkStack();
   lucent::String v1_ = lucent_app::m_order::next(LUCENT_STR("a"));
   lucent::String v3_ = lucent_app::m_order::next(LUCENT_STR("b"));
   lucent::String v4_ = lucent::String(v1_) + v3_;
@@ -111,6 +115,7 @@ lucent::String m_order::operands() {
 }
 
 lucent::String m_order::locals() {
+  lucent::checkStack();
   lucent::String first = lucent_app::m_order::next(LUCENT_STR("x"));
   lucent::String second = lucent_app::m_order::next(LUCENT_STR("y"));
   lucent::String v6_ = lucent_app::m_order::next(LUCENT_STR("z"));
@@ -119,6 +124,7 @@ lucent::String m_order::locals() {
 }
 
 double m_order::counted() {
+  lucent::checkStack();
   double v0_ = lucent_app::m_order::calls;
   double before = v0_;
   (void)lucent_app::m_order::next(LUCENT_STR("n"));
@@ -133,6 +139,7 @@ double m_order::scale(double p0_, double p1_) {
 }
 
 double m_order::arithmetic(double p0_, double p1_) {
+  lucent::checkStack();
   double sum = p0_ + p1_;
   double v5_ = lucent_app::m_order::scale(sum, 3.0);
   double product = v5_ - p1_ / 4.0;

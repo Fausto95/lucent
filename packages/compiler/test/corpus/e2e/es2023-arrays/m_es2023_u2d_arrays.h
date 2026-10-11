@@ -43,6 +43,7 @@ namespace m_es2023_u2d_arrays {
 
 template <class T>
 lucent::String joined(lucent::Array<T> p0_) {
+  lucent::checkStack();
   return p0_.join(LUCENT_STR(","));
 }
 

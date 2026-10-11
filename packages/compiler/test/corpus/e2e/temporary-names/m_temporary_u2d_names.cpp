@@ -107,6 +107,7 @@
 namespace lucent_app {
 
 void C_Link::construct() {
+  lucent::checkStack();
   this->label = LUCENT_STR("link");
 }
 
@@ -117,6 +118,7 @@ lucent::Ref<C_Link> C_Link::create() {
 }
 
 lucent::String m_temporary_u2d_names::objects() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Link> obj_1 = lucent_app::C_Link::create();
   lucent::Ref<lucent_app::C_Link> obj_2 = lucent_app::C_Link::create();
   lucent::Ref<lucent_app::C_Link> u_obj_2_ = lucent_app::C_Link::create();
@@ -138,6 +140,7 @@ lucent::String m_temporary_u2d_names::objects() {
 }
 
 lucent::String m_temporary_u2d_names::loops() {
+  lucent::checkStack();
   lucent::Array<int32_t> u_coll0_ = lucent::Array<int32_t>{9};
   lucent::String coll0_v = LUCENT_STR("v");
   lucent::String coll0_close = LUCENT_STR("close");
@@ -204,6 +207,7 @@ lucent::Iter<double> m_temporary_u2d_names::gen() {
 }
 
 lucent::String m_temporary_u2d_names::iterators() {
+  lucent::checkStack();
   int32_t coll0_v = 10;
   int32_t coll0_close = 20;
   int32_t coll1_v = 30;
@@ -233,6 +237,7 @@ lucent::String m_temporary_u2d_names::iterators() {
 }
 
 lucent::String m_temporary_u2d_names::finals() {
+  lucent::checkStack();
   lucent::String fc0_ex = LUCENT_STR("pending");
   int32_t u_fc0_ = 7;
   lucent::String u_fc0ex_ = LUCENT_STR("ex_");
@@ -261,6 +266,7 @@ lucent::String m_temporary_u2d_names::finals() {
 }
 
 double m_temporary_u2d_names::pushes() {
+  lucent::checkStack();
   lucent::Array<double> pa = lucent::Array<double>{1.0, 2.0};
   lucent::Array<double> xs = lucent::Array<double>{0.0};
   (void)({ auto& pa_ = xs; pa_.append(pa); pa_.length(); });
@@ -271,6 +277,7 @@ double m_temporary_u2d_names::pushes() {
 }
 
 lucent::String m_temporary_u2d_names::keysOf() {
+  lucent::checkStack();
   lucent::Array<lucent::String> k = lucent::Array<lucent::String>{LUCENT_STR("a"), LUCENT_STR("b"), LUCENT_STR("c")};
   lucent::Array<lucent::String> keys = lucent::Array<lucent::String>{};
   lucent::Array<lucent::String> out = lucent::Array<lucent::String>{};
@@ -298,6 +305,7 @@ lucent::String m_temporary_u2d_names::keysOf() {
 }
 
 lucent::Array<double> m_temporary_u2d_names::copies() {
+  lucent::checkStack();
   lucent::Array<lucent::Fn<double()>> fns = lucent::Array<lucent::Fn<double()>>{};
   int32_t i_it = 1000;
   {
@@ -322,11 +330,13 @@ lucent::Array<double> m_temporary_u2d_names::copies() {
     }
   }
   return fns.template map<double>([](lucent::Fn<double()> p0_, double p1_, lucent::Array<lucent::Fn<double()>> p2_) mutable -> double {
+    lucent::checkStack();
     return p0_();
   });
 }
 
 lucent::String m_temporary_u2d_names::keyed(lucent::Dict<double> p0_) {
+  lucent::checkStack();
   lucent::String key_1 = LUCENT_STR("zz");
   lucent::String key_2 = LUCENT_STR("a");
   int32_t x_1 = 1;

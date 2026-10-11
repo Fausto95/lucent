@@ -134,11 +134,13 @@ bool m_control_u2d_flow::note(lucent::String p0_) {
 }
 
 bool m_control_u2d_flow::check(lucent::String p0_, bool p1_) {
+  lucent::checkStack();
   (void)lucent_app::m_control_u2d_flow::note(p0_);
   return p1_;
 }
 
 double m_control_u2d_flow::fail(lucent::String p0_) {
+  lucent::checkStack();
   (void)lucent_app::m_control_u2d_flow::note(p0_);
   lucent::Error v4_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), lucent::String(p0_) + LUCENT_STR(" failed")), __FILE__, __LINE__, "fail");
   lucent::throwError(v4_);
@@ -322,6 +324,7 @@ lucent::String m_control_u2d_flow::doContinue(double p0_) {
 }
 
 lucent::String m_control_u2d_flow::conditions() {
+  lucent::checkStack();
   lucent::String out = lucent::String();
   while (true) {
     bool v3_ = lucent_app::m_control_u2d_flow::check(LUCENT_STR("a"), true);
@@ -360,6 +363,7 @@ double m_control_u2d_flow::totals() {
 }
 
 void m_control_u2d_flow::throwsOut(double p0_) {
+  lucent::checkStack();
   {
     int64_t i = static_cast<int64_t>(0);
     while (true) {
@@ -612,6 +616,7 @@ double m_control_u2d_flow::nanLoop() {
 }
 
 lucent::String m_control_u2d_flow::grade(double p0_) {
+  lucent::checkStack();
   lucent::String out = lucent::String();
   {
     double v2_ = lucent_app::m_control_u2d_flow::tens(p0_);

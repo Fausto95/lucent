@@ -53,6 +53,7 @@ namespace m_generics {
 
 template <class T>
 lucent::Opt<T> first(lucent::Array<T> p0_) {
+  lucent::checkStack();
   return p0_.getIndex(static_cast<int64_t>(0));
 }
 
@@ -62,7 +63,9 @@ namespace m_generics {
 
 template <class A, class B>
 lucent::Array<std::tuple<A, B>> mapPairs(lucent::Array<A> p0_, lucent::Fn<B(A)> p1_) {
+  lucent::checkStack();
   return p0_.template map<std::tuple<A, B>>([f = p1_](A p0_, double p1_, lucent::Array<A> p2_) mutable -> std::tuple<A, B> {
+    lucent::checkStack();
     B v4_ = f(p0_);
     return std::tuple<A, B>(p0_, v4_);
   });
@@ -74,6 +77,7 @@ namespace m_generics {
 
 template <class T>
 lucent::Map<lucent::String, lucent::Array<T>> groupBy(lucent::Array<T> p0_, lucent::Fn<lucent::String(T)> p1_) {
+  lucent::checkStack();
   lucent::Map<lucent::String, lucent::Array<T>> out = lucent::Map<lucent::String, lucent::Array<T>>();
   {
     auto coll0_ = p0_;

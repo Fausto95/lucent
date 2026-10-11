@@ -55,6 +55,7 @@
 namespace lucent_app {
 
 void C_Animal::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->name = p0_;
   this->sound = LUCENT_STR("...");
   double v4_ = lucent_app::C_Animal::count;
@@ -69,12 +70,14 @@ lucent::Ref<C_Animal> C_Animal::create(lucent::String p0_) {
 }
 
 lucent::String C_Animal::speak() {
+  lucent::checkStack();
   lucent::String v0_ = this->name;
   lucent::String v2_ = this->sound;
   return lucent::concat(v0_, LUCENT_STR(" says "), v2_);
 }
 
 lucent::String C_Animal::describe() {
+  lucent::checkStack();
   lucent::String v0_ = this->kind();
   lucent::String v2_ = this->speak();
   return lucent::concat(v0_, LUCENT_STR(": "), v2_);
@@ -89,6 +92,7 @@ double C_Animal::get_legs() {
 }
 
 lucent::Ref<lucent_app::C_Animal> C_Animal::named(lucent::String p0_) {
+  lucent::checkStack();
   return lucent_app::C_Animal::create(p0_);
 }
 
@@ -96,12 +100,14 @@ void C_Shape::construct() {
 }
 
 lucent::String C_Shape::describe() {
+  lucent::checkStack();
   double v1_ = this->area();
   lucent::String v3_ = lucent::numberToFixed(v1_, 1.0);
   return lucent::String(LUCENT_STR("area ")) + v3_;
 }
 
 void C_Dog::construct(lucent::String p0_, lucent::String p1_) {
+  lucent::checkStack();
   this->lucent_app::C_Animal::construct(p0_);
   this->breed = p1_;
   lucent::Array<lucent::String> v4_ = lucent::Array<lucent::String>{};
@@ -116,17 +122,20 @@ lucent::Ref<C_Dog> C_Dog::create(lucent::String p0_, lucent::String p1_) {
 }
 
 lucent::String C_Dog::kind() {
+  lucent::checkStack();
   lucent::String v1_ = this->breed;
   return lucent::concat(LUCENT_STR("dog("), v1_, LUCENT_STR(")"));
 }
 
 lucent::Ref<lucent_app::C_Dog> C_Dog::learn(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = this->tricks;
   (void)v1_.push(p0_);
   return lucent::selfRef(this);
 }
 
 void C_Bird::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->lucent_app::C_Animal::construct(p0_);
   this->song = LUCENT_STR("tweet");
   lucent::String v4_ = this->song;
@@ -144,6 +153,7 @@ double C_Bird::get_legs() {
 }
 
 void C_Square::construct(double p0_) {
+  lucent::checkStack();
   this->lucent_app::C_Shape::construct();
   this->side = p0_;
 }
@@ -155,12 +165,14 @@ lucent::Ref<C_Square> C_Square::create(double p0_) {
 }
 
 double C_Square::area() {
+  lucent::checkStack();
   double v0_ = this->side;
   double v1_ = this->side;
   return v0_ * v1_;
 }
 
 void C_Circle::construct() {
+  lucent::checkStack();
   this->lucent_app::C_Shape::construct();
 }
 
@@ -175,6 +187,7 @@ double C_Circle::area() {
 }
 
 void C_Cat::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->lucent_app::C_Animal::construct(p0_);
 }
 
@@ -185,11 +198,13 @@ lucent::Ref<C_Cat> C_Cat::create(lucent::String p0_) {
 }
 
 lucent::String C_Cat::speak() {
+  lucent::checkStack();
   lucent::String v0_ = this->name;
   return lucent::String(v0_) + LUCENT_STR(" purrs");
 }
 
 void C_Lion::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->lucent_app::C_Animal::construct(p0_);
 }
 
@@ -200,6 +215,7 @@ lucent::Ref<C_Lion> C_Lion::create(lucent::String p0_) {
 }
 
 void C_Puppy::construct(lucent::String p0_, lucent::String p1_) {
+  lucent::checkStack();
   this->lucent_app::C_Dog::construct(p0_, p1_);
 }
 
@@ -210,16 +226,19 @@ lucent::Ref<C_Puppy> C_Puppy::create(lucent::String p0_, lucent::String p1_) {
 }
 
 lucent::String C_Puppy::speak() {
+  lucent::checkStack();
   lucent::String v0_ = this->lucent_app::C_Animal::speak();
   return lucent::String(v0_) + LUCENT_STR("!");
 }
 
 lucent::String C_Puppy::kind() {
+  lucent::checkStack();
   lucent::String v1_ = this->lucent_app::C_Dog::kind();
   return lucent::String(LUCENT_STR("puppy of ")) + v1_;
 }
 
 void C_Kitten::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->lucent_app::C_Cat::construct(p0_);
 }
 
@@ -230,21 +249,25 @@ lucent::Ref<C_Kitten> C_Kitten::create(lucent::String p0_) {
 }
 
 lucent::String C_Kitten::speak() {
+  lucent::checkStack();
   lucent::String v0_ = this->lucent_app::C_Cat::speak();
   return lucent::String(v0_) + LUCENT_STR(" softly");
 }
 
 lucent::String m_inheritance::shapes() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Square> v1_ = lucent_app::C_Square::create(2.0);
   lucent::Ref<lucent_app::C_Circle> v2_ = lucent_app::C_Circle::create();
   lucent::Array<lucent::Ref<lucent_app::C_Shape>> all = lucent::Array<lucent::Ref<lucent_app::C_Shape>>{std::static_pointer_cast<lucent_app::C_Shape>(v1_), std::static_pointer_cast<lucent_app::C_Shape>(v2_)};
   lucent::Array<lucent::String> v6_ = all.template map<lucent::String>([](lucent::Ref<lucent_app::C_Shape> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::C_Shape>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     return p0_->describe();
   });
   return v6_.join(LUCENT_STR(", "));
 }
 
 lucent::String m_inheritance::zoo() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Animal> v1_ = lucent_app::C_Animal::create(LUCENT_STR("generic"));
   lucent::Ref<lucent_app::C_Dog> v4_ = lucent_app::C_Dog::create(LUCENT_STR("rex"), LUCENT_STR("lab"));
   lucent::Ref<lucent_app::C_Puppy> v7_ = lucent_app::C_Puppy::create(LUCENT_STR("bit"), LUCENT_STR("pug"));
@@ -252,6 +275,7 @@ lucent::String m_inheritance::zoo() {
   lucent::Ref<lucent_app::C_Animal> v11_ = lucent_app::C_Animal::named(LUCENT_STR("x"));
   lucent::Array<lucent::Ref<lucent_app::C_Animal>> all = lucent::Array<lucent::Ref<lucent_app::C_Animal>>{v1_, std::static_pointer_cast<lucent_app::C_Animal>(v4_), std::static_pointer_cast<lucent_app::C_Animal>(v7_), std::static_pointer_cast<lucent_app::C_Animal>(v9_), v11_};
   lucent::Array<lucent::String> v15_ = all.template map<lucent::String>([](lucent::Ref<lucent_app::C_Animal> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::C_Animal>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v3_ = p0_->describe();
     double v5_ = p0_->get_legs();
     lucent::String v6_ = lucent::toJsString(v5_);
@@ -263,6 +287,7 @@ lucent::String m_inheritance::zoo() {
 }
 
 lucent::String m_inheritance::tricks(lucent::Ref<lucent_app::C_Dog> p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Dog> v2_ = p0_->learn(LUCENT_STR("sit"));
   lucent::Ref<lucent_app::C_Dog> v4_ = v2_->learn(LUCENT_STR("roll"));
   lucent::Array<lucent::String> v5_ = v4_->tricks;
@@ -270,6 +295,7 @@ lucent::String m_inheritance::tricks(lucent::Ref<lucent_app::C_Dog> p0_) {
 }
 
 lucent::String m_inheritance::narrow(lucent::Ref<lucent_app::C_Animal> p0_) {
+  lucent::checkStack();
   bool v1_ = lucent::isInstance<lucent_app::C_Dog>(p0_);
   if (v1_) {
     lucent::Ref<lucent_app::C_Dog> v2_ = lucent::downcast<lucent_app::C_Dog>(p0_);
@@ -282,15 +308,18 @@ lucent::String m_inheritance::narrow(lucent::Ref<lucent_app::C_Animal> p0_) {
 }
 
 double m_inheritance::counted() {
+  lucent::checkStack();
   return lucent_app::C_Animal::count;
 }
 
 lucent::Ref<lucent_app::C_Animal> m_inheritance::makePuppy() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Puppy> v2_ = lucent_app::C_Puppy::create(LUCENT_STR("pip"), LUCENT_STR("beagle"));
   return std::static_pointer_cast<lucent_app::C_Animal>(v2_);
 }
 
 lucent::Array<lucent::Ref<lucent_app::I_Pet>> m_inheritance::pets() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Cat> v1_ = lucent_app::C_Cat::create(LUCENT_STR("tom"));
   lucent::Ref<lucent_app::C_Kitten> v3_ = lucent_app::C_Kitten::create(LUCENT_STR("kit"));
   lucent::Ref<lucent_app::C_Lion> v5_ = lucent_app::C_Lion::create(LUCENT_STR("leo"));
@@ -298,6 +327,7 @@ lucent::Array<lucent::Ref<lucent_app::I_Pet>> m_inheritance::pets() {
 }
 
 lucent::String m_inheritance::greet(lucent::Ref<lucent_app::I_Pet> p0_) {
+  lucent::checkStack();
   lucent::String v1_ = p0_->get_name();
   lucent::String v2_ = v1_.toUpperCase();
   (void)(p0_->set_name(v2_), v2_);
@@ -305,6 +335,7 @@ lucent::String m_inheritance::greet(lucent::Ref<lucent_app::I_Pet> p0_) {
 }
 
 void m_inheritance::init() {
+  lucent::checkStack();
   C_Animal::count = 0.0;
 }
 

@@ -53,6 +53,7 @@
 namespace lucent_app {
 
 void C_Updates::construct(lucent::Ref<lucent_app::C_Tracker> p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent::WeakRefObject<lucent::Ref<lucent_app::C_Tracker>>> v1_ = std::make_shared<lucent::WeakRefObject<lucent::Ref<lucent_app::C_Tracker>>>(p0_);
   this->owner = v1_;
 }
@@ -64,6 +65,7 @@ lucent::Ref<C_Updates> C_Updates::create(lucent::Ref<lucent_app::C_Tracker> p0_)
 }
 
 lucent::String C_Updates::report(double p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent::WeakRefObject<lucent::Ref<lucent_app::C_Tracker>>> v1_ = this->owner;
   lucent::Opt<lucent::Ref<lucent_app::C_Tracker>> owner = v1_->deref();
   bool v5_ = !lucent::truthy(owner);
@@ -82,6 +84,7 @@ lucent::String C_Updates::report(double p0_) {
 }
 
 void C_Tracker::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->name = p0_;
   lucent::Array<double> v2_ = lucent::Array<double>{};
   this->seen = v2_;
@@ -97,6 +100,7 @@ lucent::Ref<C_Tracker> C_Tracker::create(lucent::String p0_) {
 }
 
 void C_Tag::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->text = p0_;
 }
 
@@ -107,10 +111,12 @@ lucent::Ref<C_Tag> C_Tag::create(lucent::String p0_) {
 }
 
 lucent::String C_Tag::label() {
+  lucent::checkStack();
   return this->text;
 }
 
 void C_TreeNode::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->name = p0_;
   lucent::Array<lucent::Ref<lucent_app::C_TreeNode>> v2_ = lucent::Array<lucent::Ref<lucent_app::C_TreeNode>>{};
   this->children = v2_;
@@ -123,6 +129,7 @@ lucent::Ref<C_TreeNode> C_TreeNode::create(lucent::String p0_) {
 }
 
 lucent::Ref<lucent_app::C_TreeNode> C_TreeNode::add(lucent::Ref<lucent_app::C_TreeNode> p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_TreeNode> v1_ = lucent::selfRef(this);
   lucent::Ref<lucent::WeakRefObject<lucent::Ref<lucent_app::C_TreeNode>>> v2_ = std::make_shared<lucent::WeakRefObject<lucent::Ref<lucent_app::C_TreeNode>>>(v1_);
   lucent::Opt<lucent::Ref<lucent::WeakRefObject<lucent::Ref<lucent_app::C_TreeNode>>>> v3_ = lucent::Opt<lucent::Ref<lucent::WeakRefObject<lucent::Ref<lucent_app::C_TreeNode>>>>(v2_);
@@ -133,6 +140,7 @@ lucent::Ref<lucent_app::C_TreeNode> C_TreeNode::add(lucent::Ref<lucent_app::C_Tr
 }
 
 lucent::Opt<lucent::Ref<lucent_app::C_TreeNode>> C_TreeNode::get_parent() {
+  lucent::checkStack();
   lucent::Opt<lucent::Ref<lucent::WeakRefObject<lucent::Ref<lucent_app::C_TreeNode>>>> v0_ = this->parentRef;
   bool v2_ = !v0_.has();
   lucent::Opt<lucent::Ref<lucent_app::C_TreeNode>> v7_{};
@@ -146,6 +154,7 @@ lucent::Opt<lucent::Ref<lucent_app::C_TreeNode>> C_TreeNode::get_parent() {
 }
 
 lucent::String C_TreeNode::path() {
+  lucent::checkStack();
   lucent::Opt<lucent::Ref<lucent_app::C_TreeNode>> up = this->get_parent();
   bool v2_ = lucent::truthy(up);
   lucent::String v11_{};
@@ -161,6 +170,7 @@ lucent::String C_TreeNode::path() {
 }
 
 lucent::String m_weak_u2d_refs::delegates() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Tracker> tracker = lucent_app::C_Tracker::create(LUCENT_STR("t"));
   lucent::Ref<lucent_app::C_Updates> v3_ = lucent::assigned(tracker->updates, "Tracker.updates");
   (void)v3_->report(1.0);
@@ -169,6 +179,7 @@ lucent::String m_weak_u2d_refs::delegates() {
 }
 
 lucent::String m_weak_u2d_refs::trees() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_TreeNode> root = lucent_app::C_TreeNode::create(LUCENT_STR("root"));
   lucent::Ref<lucent_app::C_TreeNode> v4_ = lucent_app::C_TreeNode::create(LUCENT_STR("a"));
   lucent::Ref<lucent_app::C_TreeNode> v5_ = root->add(v4_);
@@ -192,6 +203,7 @@ lucent::String m_weak_u2d_refs::trees() {
 }
 
 lucent::String m_weak_u2d_refs::identities() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Tag> v1_ = lucent_app::C_Tag::create(LUCENT_STR("x"));
   lucent::Ref<lucent_app::I_Named> tag = std::static_pointer_cast<lucent_app::I_Named>(v1_);
   lucent::Ref<lucent::WeakRefObject<lucent::Ref<lucent_app::I_Named>>> a = std::make_shared<lucent::WeakRefObject<lucent::Ref<lucent_app::I_Named>>>(tag);

@@ -21,6 +21,7 @@
 namespace lucent_app {
 
 void C_Vec::construct(double p0_, double p1_) {
+  lucent::checkStack();
   this->x = p0_;
   this->y = p1_;
   double v4_ = lucent_app::m_shapes::created;
@@ -34,6 +35,7 @@ lucent::Ref<C_Vec> C_Vec::create(double p0_, double p1_) {
 }
 
 lucent::Ref<lucent_app::C_Vec> C_Vec::plus(lucent::Ref<lucent_app::C_Vec> p0_) {
+  lucent::checkStack();
   double v1_ = this->x;
   double v2_ = p0_->x;
   double v3_ = v1_ + v2_;
@@ -44,12 +46,14 @@ lucent::Ref<lucent_app::C_Vec> C_Vec::plus(lucent::Ref<lucent_app::C_Vec> p0_) {
 }
 
 lucent::Ref<lucent_app::S_Point> m_shapes::toPoint(lucent::Ref<lucent_app::C_Vec> p0_) {
+  lucent::checkStack();
   double v1_ = p0_->x;
   double v2_ = p0_->y;
   return ({ auto obj_2_ = std::make_shared<lucent_app::S_Point>(); obj_2_->x = v1_; obj_2_->y = v2_; obj_2_; });
 }
 
 lucent::Opt<lucent::Ref<lucent_app::S_Point>> m_shapes::largest(lucent::Array<lucent::Ref<lucent_app::S_Point>> p0_, lucent::Fn<double(lucent::Ref<lucent_app::S_Point>)> p1_) {
+  lucent::checkStack();
   lucent::Opt<lucent::Ref<lucent_app::S_Point>> best{};
   {
     auto coll0_ = p0_;

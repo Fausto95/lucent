@@ -152,6 +152,7 @@
 namespace lucent_app {
 
 void C_Account::construct(lucent::String p0_, double p1_, lucent::String p2_) {
+  lucent::checkStack();
   this->currency = p2_;
   this->limit = 100.0;
   this->_u23_pin = 1234.0;
@@ -171,20 +172,24 @@ lucent::Ref<C_Account> C_Account::create(lucent::String p0_, double p1_, lucent:
 }
 
 bool C_Account::get_rich() {
+  lucent::checkStack();
   double v0_ = this->balance;
   return v0_ > 1000.0;
 }
 
 double C_Account::pin() {
+  lucent::checkStack();
   return this->_u23_pin;
 }
 
 void C_Account::annotate(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Opt<lucent::String> v1_ = lucent::Opt<lucent::String>(p0_);
   this->note = v1_;
 }
 
 void C_Point::construct(double p0_, double p1_) {
+  lucent::checkStack();
   this->x = p0_;
   this->y = p1_;
 }
@@ -196,6 +201,7 @@ lucent::Ref<C_Point> C_Point::create(double p0_, double p1_) {
 }
 
 lucent::String C_Point::toJSON() {
+  lucent::checkStack();
   double v0_ = this->x;
   lucent::String v1_ = lucent::toJsString(v0_);
   double v3_ = this->y;
@@ -204,6 +210,7 @@ lucent::String C_Point::toJSON() {
 }
 
 void C_Shape::construct(lucent::String p0_) {
+  lucent::checkStack();
   this->label = p0_;
   lucent::Ref<lucent_app::C_Point> v4_ = lucent_app::C_Point::create(1.0, 2.0);
   this->origin = v4_;
@@ -216,6 +223,7 @@ lucent::Ref<C_Shape> C_Shape::create(lucent::String p0_) {
 }
 
 void C_Plain::construct() {
+  lucent::checkStack();
   this->a = 1.0;
 }
 
@@ -226,10 +234,12 @@ lucent::Ref<C_Plain> C_Plain::create() {
 }
 
 void C_Kind::construct() {
+  lucent::checkStack();
   this->count = 0.0;
 }
 
 void C_CodedError::construct(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   this->message = p0_.valueOr(lucent::String());
   this->name = LUCENT_STR("Error");
   this->code = 7.0;
@@ -242,6 +252,7 @@ lucent::Ref<C_CodedError> C_CodedError::create(lucent::Opt<lucent::String> p0_) 
 }
 
 void C_Maybe::construct(lucent::Opt<double> p0_) {
+  lucent::checkStack();
   this->v = p0_;
 }
 
@@ -252,6 +263,7 @@ lucent::Ref<C_Maybe> C_Maybe::create(lucent::Opt<double> p0_) {
 }
 
 lucent::Opt<double> C_Maybe::toJSON() {
+  lucent::checkStack();
   return this->v;
 }
 
@@ -272,6 +284,7 @@ lucent::Fn<double()> C_Callable::toJSON() {
 }
 
 void C_Self::construct() {
+  lucent::checkStack();
   this->x = 1.0;
 }
 
@@ -282,6 +295,7 @@ lucent::Ref<C_Self> C_Self::create() {
 }
 
 lucent::Ref<lucent_app::C_Self> C_Self::toJSON() {
+  lucent::checkStack();
   return lucent::selfRef(this);
 }
 
@@ -295,6 +309,7 @@ lucent::Ref<C_Wrapper> C_Wrapper::create() {
 }
 
 lucent::Ref<lucent_app::C_Self> C_Wrapper::toJSON() {
+  lucent::checkStack();
   return lucent_app::C_Self::create();
 }
 
@@ -308,6 +323,7 @@ lucent::Ref<C_Literal> C_Literal::create() {
 }
 
 lucent::Ref<lucent_app::S_Object_c65abf80> C_Literal::toJSON() {
+  lucent::checkStack();
   lucent::Fn<double()> v0_ = lucent::Fn<double()>([]() mutable -> double {
     return 2.0;
   });
@@ -315,9 +331,11 @@ lucent::Ref<lucent_app::S_Object_c65abf80> C_Literal::toJSON() {
 }
 
 void C_Arrow::construct() {
+  lucent::checkStack();
   this->n = 2.0;
   lucent::Ref<lucent_app::C_Arrow> v2_ = lucent::selfRef(this);
   lucent::Fn<double()> v3_ = lucent::Fn<double()>([self = v2_]() mutable -> double {
+    lucent::checkStack();
     double v0_ = self->n;
     return v0_ * 10.0;
   });
@@ -331,9 +349,11 @@ lucent::Ref<C_Arrow> C_Arrow::create() {
 }
 
 void C_ArrowBase::construct() {
+  lucent::checkStack();
   this->tag = LUCENT_STR("t");
   lucent::Ref<lucent_app::C_ArrowBase> v2_ = lucent::selfRef(this);
   lucent::Fn<lucent::String()> v3_ = lucent::Fn<lucent::String()>([self = v2_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v1_ = self->tag;
     return lucent::String(LUCENT_STR("base ")) + v1_;
   });
@@ -347,6 +367,7 @@ lucent::Ref<C_ArrowBase> C_ArrowBase::create() {
 }
 
 void C_Given::construct(lucent::String p0_, lucent::Fn<lucent::String()> p1_) {
+  lucent::checkStack();
   this->label = p0_;
   this->toJSON = p1_;
 }
@@ -371,6 +392,7 @@ lucent::String C_Method::toJSON() {
 }
 
 void C_Dropped::construct() {
+  lucent::checkStack();
   this->keep = 1.0;
   lucent::Fn<lucent::Opt<double>()> v2_ = lucent::Fn<lucent::Opt<double>()>([]() mutable -> lucent::Opt<double> {
     return lucent::Opt<double>(lucent::undefined);
@@ -385,6 +407,7 @@ lucent::Ref<C_Dropped> C_Dropped::create() {
 }
 
 void C_NotCalled::construct() {
+  lucent::checkStack();
   this->toJSON = 5.0;
   this->other = LUCENT_STR("o");
 }
@@ -396,6 +419,7 @@ lucent::Ref<C_NotCalled> C_NotCalled::create() {
 }
 
 void C_Savings::construct(lucent::String p0_, double p1_) {
+  lucent::checkStack();
   this->lucent_app::C_Account::construct(p0_, 50.0, LUCENT_STR("EUR"));
   this->years = p1_;
   this->rate = 0.02;
@@ -410,6 +434,7 @@ lucent::Ref<C_Savings> C_Savings::create(lucent::String p0_, double p1_) {
 }
 
 void C_Circle::construct(double p0_) {
+  lucent::checkStack();
   this->lucent_app::C_Shape::construct(LUCENT_STR("circle"));
   this->r = p0_;
   this->_u23_area = 0.0;
@@ -424,10 +449,12 @@ lucent::Ref<C_Circle> C_Circle::create(double p0_) {
 }
 
 double C_Circle::area() {
+  lucent::checkStack();
   return this->_u23_area;
 }
 
 void C_Plainer::construct() {
+  lucent::checkStack();
   this->lucent_app::C_Plain::construct();
   this->b = 2.0;
 }
@@ -439,6 +466,7 @@ lucent::Ref<C_Plainer> C_Plainer::create() {
 }
 
 void C_Keyed::construct() {
+  lucent::checkStack();
   this->lucent_app::C_Kind::construct();
   this->key = LUCENT_STR("k");
 }
@@ -450,6 +478,7 @@ lucent::Ref<C_Keyed> C_Keyed::create() {
 }
 
 void C_NumberBox::construct() {
+  lucent::checkStack();
   this->lucent_app::C_Box<double>::construct(5.0);
   this->full = true;
 }
@@ -461,6 +490,7 @@ lucent::Ref<C_NumberBox> C_NumberBox::create() {
 }
 
 void C_ArrowSub::construct() {
+  lucent::checkStack();
   this->lucent_app::C_ArrowBase::construct();
   this->extra = 1.0;
 }
@@ -472,6 +502,7 @@ lucent::Ref<C_ArrowSub> C_ArrowSub::create() {
 }
 
 void C_Shadowing::construct() {
+  lucent::checkStack();
   this->lucent_app::C_Method::construct();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([]() mutable -> lucent::String {
     return LUCENT_STR("field");
@@ -486,6 +517,7 @@ lucent::Ref<C_Shadowing> C_Shadowing::create() {
 }
 
 void C_Labeled::construct() {
+  lucent::checkStack();
   this->lucent_app::C_Cell<lucent::String>::construct(LUCENT_STR("s"));
   this->label = LUCENT_STR("l");
 }
@@ -497,6 +529,7 @@ lucent::Ref<C_Labeled> C_Labeled::create() {
 }
 
 lucent::String m_stringify_u2d_classes::account() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Account> a = lucent_app::C_Account::create(LUCENT_STR("ana"), 10.0, LUCENT_STR("USD"));
   lucent::String before = lucent::json::stringify(a);
   a->annotate(LUCENT_STR("vip"));
@@ -509,11 +542,13 @@ lucent::String m_stringify_u2d_classes::account() {
 }
 
 lucent::String m_stringify_u2d_classes::inherited() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Savings> v2_ = lucent_app::C_Savings::create(LUCENT_STR("bo"), 3.0);
   return lucent::json::stringify(v2_);
 }
 
 lucent::String m_stringify_u2d_classes::throughBase() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Shape> v1_ = lucent_app::C_Shape::create(LUCENT_STR("dot"));
   lucent::Ref<lucent_app::C_Circle> v3_ = lucent_app::C_Circle::create(2.0);
   lucent::Array<lucent::Ref<lucent_app::C_Shape>> shapes = lucent::Array<lucent::Ref<lucent_app::C_Shape>>{v1_, std::static_pointer_cast<lucent_app::C_Shape>(v3_)};
@@ -525,6 +560,7 @@ lucent::String m_stringify_u2d_classes::throughBase() {
 }
 
 lucent::String m_stringify_u2d_classes::nested() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Point> v2_ = lucent_app::C_Point::create(3.0, 4.0);
   lucent::Ref<lucent_app::C_Point> v5_ = lucent_app::C_Point::create(5.0, 6.0);
   lucent::Array<lucent::Ref<lucent_app::C_Point>> v6_ = lucent::Array<lucent::Ref<lucent_app::C_Point>>{v5_};
@@ -533,6 +569,7 @@ lucent::String m_stringify_u2d_classes::nested() {
 }
 
 lucent::String m_stringify_u2d_classes::shapes() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Plain> v0_ = lucent_app::C_Plain::create();
   lucent::Ref<lucent_app::C_Plainer> v1_ = lucent_app::C_Plainer::create();
   lucent::Array<lucent::Ref<lucent_app::C_Plain>> plain = lucent::Array<lucent::Ref<lucent_app::C_Plain>>{v0_, std::static_pointer_cast<lucent_app::C_Plain>(v1_)};
@@ -542,12 +579,14 @@ lucent::String m_stringify_u2d_classes::shapes() {
   lucent::Ref<lucent_app::C_CodedError> v9_ = lucent_app::C_CodedError::create(lucent::Opt<lucent::String>(LUCENT_STR("m")));
   lucent::Array<std::variant<lucent::Ref<lucent_app::C_CodedError>, lucent::Ref<lucent_app::C_Kind>, lucent::Ref<lucent_app::C_NumberBox>, lucent::Array<lucent::Ref<lucent_app::C_Plain>>>> v10_ = lucent::Array<std::variant<lucent::Ref<lucent_app::C_CodedError>, lucent::Ref<lucent_app::C_Kind>, lucent::Ref<lucent_app::C_NumberBox>, lucent::Array<lucent::Ref<lucent_app::C_Plain>>>>{std::variant<lucent::Ref<lucent_app::C_CodedError>, lucent::Ref<lucent_app::C_Kind>, lucent::Ref<lucent_app::C_NumberBox>, lucent::Array<lucent::Ref<lucent_app::C_Plain>>>(plain), std::variant<lucent::Ref<lucent_app::C_CodedError>, lucent::Ref<lucent_app::C_Kind>, lucent::Ref<lucent_app::C_NumberBox>, lucent::Array<lucent::Ref<lucent_app::C_Plain>>>(kind), std::variant<lucent::Ref<lucent_app::C_CodedError>, lucent::Ref<lucent_app::C_Kind>, lucent::Ref<lucent_app::C_NumberBox>, lucent::Array<lucent::Ref<lucent_app::C_Plain>>>(v7_), std::variant<lucent::Ref<lucent_app::C_CodedError>, lucent::Ref<lucent_app::C_Kind>, lucent::Ref<lucent_app::C_NumberBox>, lucent::Array<lucent::Ref<lucent_app::C_Plain>>>(v9_)};
   lucent::Array<lucent::String> v12_ = v10_.template map<lucent::String>([](std::variant<lucent::Ref<lucent_app::C_CodedError>, lucent::Ref<lucent_app::C_Kind>, lucent::Ref<lucent_app::C_NumberBox>, lucent::Array<lucent::Ref<lucent_app::C_Plain>>> p0_, double p1_, lucent::Array<std::variant<lucent::Ref<lucent_app::C_CodedError>, lucent::Ref<lucent_app::C_Kind>, lucent::Ref<lucent_app::C_NumberBox>, lucent::Array<lucent::Ref<lucent_app::C_Plain>>>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     return lucent::json::stringify(p0_);
   });
   return v12_.join(LUCENT_STR(" "));
 }
 
 lucent::String m_stringify_u2d_classes::toJsonUndefined() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Maybe> gone = lucent_app::C_Maybe::create(lucent::Opt<double>(lucent::undefined));
   lucent::Ref<lucent_app::C_Maybe> kept = lucent_app::C_Maybe::create(lucent::Opt<double>(4.0));
   lucent::Ref<lucent_app::C_Callable> fn = lucent_app::C_Callable::create();
@@ -572,6 +611,7 @@ lucent::String m_stringify_u2d_classes::toJsonUndefined() {
 }
 
 lucent::String m_stringify_u2d_classes::toJsonOnce() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Self> v0_ = lucent_app::C_Self::create();
   lucent::String v1_ = lucent::json::stringify(v0_);
   lucent::Ref<lucent_app::C_Wrapper> v2_ = lucent_app::C_Wrapper::create();
@@ -589,6 +629,7 @@ lucent::String m_stringify_u2d_classes::toJsonOnce() {
 }
 
 lucent::String m_stringify_u2d_classes::toJsonField() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Arrow> arrow = lucent_app::C_Arrow::create();
   arrow->n = 3.0;
   lucent::String v5_ = lucent::json::stringify(arrow);
@@ -617,6 +658,7 @@ lucent::String m_stringify_u2d_classes::toJsonField() {
 }
 
 lucent::String m_stringify_u2d_classes::generics() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Cell<double>> v1_ = lucent_app::C_Cell<double>::create(1.0);
   lucent::Ref<lucent_app::C_Cell<double>> v3_ = lucent_app::C_Cell<double>::create(2.0);
   lucent::Array<lucent::Ref<lucent_app::C_Cell<double>>> cells = lucent::Array<lucent::Ref<lucent_app::C_Cell<double>>>{v1_, v3_};
@@ -660,6 +702,7 @@ lucent::String m_stringify_u2d_classes::generics() {
 }
 
 void m_stringify_u2d_classes::init() {
+  lucent::checkStack();
   C_Account::opened = 0.0;
 }
 

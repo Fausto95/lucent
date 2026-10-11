@@ -83,6 +83,7 @@
 namespace lucent_app {
 
 lucent::String m_kernels::text(double p0_) {
+  lucent::checkStack();
   lucent::String s = lucent::String();
   {
     int64_t i = static_cast<int64_t>(0);
@@ -103,6 +104,7 @@ lucent::String m_kernels::text(double p0_) {
 }
 
 double m_kernels::murmur(double p0_) {
+  lucent::checkStack();
   lucent::String input = lucent_app::m_kernels::text(p0_);
   int32_t h = 0;
   {
@@ -126,6 +128,7 @@ double m_kernels::murmur(double p0_) {
 }
 
 double m_kernels::fnv1a(double p0_) {
+  lucent::checkStack();
   int64_t h = static_cast<int64_t>(2166136261u);
   {
     int64_t i = static_cast<int64_t>(0);
@@ -146,6 +149,7 @@ double m_kernels::fnv1a(double p0_) {
 }
 
 double m_kernels::crc32(double p0_) {
+  lucent::checkStack();
   lucent::Array<uint32_t> table = lucent::Array<uint32_t>{};
   {
     int64_t i = static_cast<int64_t>(0);
@@ -224,6 +228,7 @@ double m_kernels::xorshift(double p0_) {
 }
 
 double m_kernels::sieve(double p0_) {
+  lucent::checkStack();
   lucent::Array<bool> composite = lucent::Array<bool>{};
   {
     int64_t i = static_cast<int64_t>(0);
@@ -275,6 +280,7 @@ double m_kernels::sieve(double p0_) {
 }
 
 double m_kernels::mandelbrot(double p0_) {
+  lucent::checkStack();
   double v2_ = lucent::math::sqrt(p0_);
   double v3_ = lucent::math::floor(v2_);
   double side = lucent::math::max(1.0, v3_);
@@ -335,6 +341,7 @@ double m_kernels::mandelbrot(double p0_) {
 }
 
 double m_kernels::sortNumbers(double p0_) {
+  lucent::checkStack();
   lucent::Array<double> xs = lucent::Array<double>{};
   int64_t seed = static_cast<int64_t>(1);
   {
@@ -368,6 +375,7 @@ double m_kernels::sortNumbers(double p0_) {
 }
 
 double m_kernels::wordCount(double p0_) {
+  lucent::checkStack();
   lucent::Map<lucent::String, double> counts = lucent::Map<lucent::String, double>();
   {
     int64_t i = static_cast<int64_t>(0);
@@ -416,6 +424,7 @@ double m_kernels::wordCount(double p0_) {
 }
 
 double m_kernels::strings(double p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> parts = lucent::Array<lucent::String>{};
   {
     int64_t i = static_cast<int64_t>(0);

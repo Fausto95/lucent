@@ -34,6 +34,7 @@
 namespace lucent_app {
 
 lucent::String m_generics::demo() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Queue<lucent::String>> q = lucent_app::C_Queue<lucent::String>::create();
   q->push(LUCENT_STR("a"));
   q->push(LUCENT_STR("b"));
@@ -68,11 +69,13 @@ lucent::String m_generics::demo() {
   lucent::Array<std::tuple<double, lucent::String>> pairs = lucent_app::m_generics::mapPairs<double, lucent::String>(v32_, v33_);
   lucent::Array<lucent::String> v38_ = lucent::Array<lucent::String>{LUCENT_STR("apple"), LUCENT_STR("avocado"), LUCENT_STR("banana")};
   lucent::Fn<lucent::String(lucent::String)> v39_ = lucent::Fn<lucent::String(lucent::String)>([](lucent::String p0_) mutable -> lucent::String {
+    lucent::checkStack();
     return p0_.charAt(0.0);
   });
   lucent::Map<lucent::String, lucent::Array<lucent::String>> groups = lucent_app::m_generics::groupBy<lucent::String>(v38_, v39_);
   lucent::Array<lucent::String> g = lucent::Array<lucent::String>{};
   lucent::Fn<double(lucent::Array<lucent::String>, lucent::String, lucent::Map<lucent::String, lucent::Array<lucent::String>>)> v44_ = lucent::Fn<double(lucent::Array<lucent::String>, lucent::String, lucent::Map<lucent::String, lucent::Array<lucent::String>>)>([g = g](lucent::Array<lucent::String> p0_, lucent::String p1_, lucent::Map<lucent::String, lucent::Array<lucent::String>> p2_) mutable -> double {
+    lucent::checkStack();
     lucent::String v6_ = p0_.join(LUCENT_STR("+"));
     lucent::String v8_ = lucent::concat(p1_, LUCENT_STR(":"), v6_);
     return g.push(v8_);

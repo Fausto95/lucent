@@ -45,6 +45,7 @@ lucent::Ref<C_Service> C_Service::create() {
 lucent::Promise<double> C_Service::load(lucent::String p0_) {
   auto self = lucent::selfRef(this);
   try {
+    lucent::checkStack();
     lucent_app::m_async_u2d_throws::fail(lucent::String(LUCENT_STR("load ")) + p0_);
     return lucent::Promise<double>::resolved([]() -> double {
       lucent::unreachable();
@@ -55,6 +56,7 @@ lucent::Promise<double> C_Service::load(lucent::String p0_) {
 }
 
 void m_async_u2d_throws::fail(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = lucent_app::m_async_u2d_throws::log;
   (void)v1_.push(p0_);
   lucent::Error v5_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), lucent::String(LUCENT_STR("no ")) + p0_), __FILE__, __LINE__, "fail");
@@ -63,6 +65,7 @@ void m_async_u2d_throws::fail(lucent::String p0_) {
 
 lucent::Promise<lucent::String> m_async_u2d_throws::thrown() {
   try {
+    lucent::checkStack();
     lucent::Array<lucent::String> v0_ = lucent_app::m_async_u2d_throws::log;
     (void)v0_.push(LUCENT_STR("thrown"));
     lucent::Error v4_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), LUCENT_STR("thrown")), __FILE__, __LINE__, "thrown");
@@ -74,6 +77,7 @@ lucent::Promise<lucent::String> m_async_u2d_throws::thrown() {
 
 lucent::Promise<lucent::String> m_async_u2d_throws::returned() {
   try {
+    lucent::checkStack();
     lucent_app::m_async_u2d_throws::fail(LUCENT_STR("returned"));
     return lucent::Promise<lucent::String>::resolved([]() -> lucent::String {
       lucent::unreachable();
@@ -93,6 +97,7 @@ lucent::Promise<void> m_async_u2d_throws::nothing() {
 }
 
 lucent::Promise<lucent::String> m_async_u2d_throws::functions() {
+  lucent::checkStack();
   lucent::Fn<lucent::Promise<lucent::String>()> v0_ = lucent::Fn<lucent::Promise<lucent::String>()>([]() -> lucent::Promise<lucent::String> {
     return lucent_app::m_async_u2d_throws::thrown();
   });
@@ -109,6 +114,7 @@ lucent::Promise<lucent::String> m_async_u2d_throws::functions() {
   lucent::Promise<lucent::String> v7_ = lucent_app::m_async_u2d_throws::settle<void>(v6_);
   lucent::String v8_ = co_await v7_;
   lucent::Fn<lucent::Promise<double>()> v9_ = lucent::Fn<lucent::Promise<double>()>([]() mutable -> lucent::Promise<double> {
+    lucent::checkStack();
     lucent::Ref<lucent_app::C_Service> v0_ = lucent_app::C_Service::create();
     return v0_->load(LUCENT_STR("key"));
   });
@@ -119,6 +125,7 @@ lucent::Promise<lucent::String> m_async_u2d_throws::functions() {
 }
 
 lucent::Promise<lucent::String> m_async_u2d_throws::arrows() {
+  lucent::checkStack();
   lucent::Fn<lucent::Promise<lucent::String>()> v0_ = lucent::Fn<lucent::Promise<lucent::String>()>([]() mutable -> lucent::Promise<lucent::String> {
     try {
       lucent::Error v1_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), LUCENT_STR("block")), __FILE__, __LINE__, "block");
@@ -130,6 +137,7 @@ lucent::Promise<lucent::String> m_async_u2d_throws::arrows() {
   lucent::Fn<lucent::Promise<lucent::String>()> block = std::move(v0_);
   lucent::Fn<lucent::Promise<double>()> v1_ = lucent::Fn<lucent::Promise<double>()>([]() mutable -> lucent::Promise<double> {
     try {
+      lucent::checkStack();
       lucent_app::m_async_u2d_throws::fail(LUCENT_STR("expression"));
       return lucent::Promise<double>::resolved([]() -> double {
         lucent::unreachable();
@@ -141,6 +149,7 @@ lucent::Promise<lucent::String> m_async_u2d_throws::arrows() {
   lucent::Fn<lucent::Promise<double>()> expression = std::move(v1_);
   lucent::Fn<lucent::Promise<void>()> v2_ = lucent::Fn<lucent::Promise<void>()>([]() mutable -> lucent::Promise<void> {
     try {
+      lucent::checkStack();
       lucent_app::m_async_u2d_throws::fail(LUCENT_STR("statement"));
       return lucent::Promise<void>::resolved();
     } catch (...) {
@@ -160,6 +169,7 @@ lucent::Promise<lucent::String> m_async_u2d_throws::arrows() {
 
 lucent::Promise<lucent::String> m_async_u2d_throws::exported() {
   try {
+    lucent::checkStack();
     lucent_app::m_async_u2d_throws::fail(LUCENT_STR("exported"));
     return lucent::Promise<lucent::String>::resolved([]() -> lucent::String {
       lucent::unreachable();
@@ -170,6 +180,7 @@ lucent::Promise<lucent::String> m_async_u2d_throws::exported() {
 }
 
 void m_async_u2d_throws::init() {
+  lucent::checkStack();
   lucent_app::m_async_u2d_throws::log = lucent::Array<lucent::String>{};
 }
 

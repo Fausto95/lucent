@@ -33,16 +33,19 @@
 namespace lucent_app {
 
 lucent::Array<std::tuple<lucent::String, double>> m_iterable_u2d_spread::entries(lucent::Map<lucent::String, double> p0_) {
+  lucent::checkStack();
   return ({ lucent::Array<std::tuple<lucent::String, double>> arr_1_; arr_1_.append(lucent::mapEntries(p0_)); arr_1_; });
 }
 
 lucent::Array<std::tuple<lucent::String, double>> m_iterable_u2d_spread::withEntry(lucent::Map<lucent::String, double> p0_) {
+  lucent::checkStack();
   std::tuple<lucent::String, double> v3_ = std::tuple<lucent::String, double>(LUCENT_STR("first"), 0.0);
   std::tuple<lucent::String, double> v6_ = std::tuple<lucent::String, double>(LUCENT_STR("last"), 99.0);
   return ({ lucent::Array<std::tuple<lucent::String, double>> arr_2_; arr_2_.push(v3_); arr_2_.append(lucent::mapEntries(p0_)); arr_2_.push(v6_); arr_2_; });
 }
 
 lucent::String m_iterable_u2d_spread::keysAndValues(lucent::Map<lucent::String, double> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = p0_.keys();
   lucent::Array<lucent::String> keys = ({ lucent::Array<lucent::String> arr_3_; arr_3_.append(v1_); arr_3_; });
   lucent::Array<double> v3_ = p0_.values();
@@ -57,17 +60,20 @@ lucent::String m_iterable_u2d_spread::keysAndValues(lucent::Map<lucent::String, 
 }
 
 lucent::Array<std::tuple<lucent::String, double>> m_iterable_u2d_spread::merged(lucent::Map<lucent::String, double> p0_, lucent::Map<lucent::String, double> p1_) {
+  lucent::checkStack();
   lucent::Array<std::tuple<lucent::String, double>> v2_ = ({ lucent::Array<std::tuple<lucent::String, double>> arr_7_; arr_7_.append(lucent::mapEntries(p0_)); arr_7_.append(lucent::mapEntries(p1_)); arr_7_; });
   lucent::Map<lucent::String, double> v3_ = lucent::mapFromEntries<lucent::String, double>(v2_);
   return ({ lucent::Array<std::tuple<lucent::String, double>> arr_6_; arr_6_.append(lucent::mapEntries(v3_)); arr_6_; });
 }
 
 lucent::Array<double> m_iterable_u2d_spread::unique(lucent::Array<double> p0_) {
+  lucent::checkStack();
   lucent::Set<double> v1_ = lucent::Set<double>(p0_);
   return ({ lucent::Array<double> arr_8_; arr_8_.append(v1_.values()); arr_8_; });
 }
 
 lucent::Array<double> m_iterable_u2d_spread::r_union_(lucent::Set<double> p0_, lucent::Set<double> p1_) {
+  lucent::checkStack();
   lucent::Array<double> v2_ = ({ lucent::Array<double> arr_10_; arr_10_.append(p0_.values()); arr_10_.append(p1_.values()); arr_10_; });
   lucent::Set<double> v3_ = lucent::Set<double>(v2_);
   lucent::Array<double> v4_ = ({ lucent::Array<double> arr_9_; arr_9_.append(v3_.values()); arr_9_; });
@@ -77,6 +83,7 @@ lucent::Array<double> m_iterable_u2d_spread::r_union_(lucent::Set<double> p0_, l
 }
 
 lucent::Array<std::variant<double, lucent::String>> m_iterable_u2d_spread::mixed(lucent::Set<double> p0_) {
+  lucent::checkStack();
   return ({
     lucent::Array<std::variant<double, lucent::String>> arr_11_;
     arr_11_.push(std::variant<double, lucent::String>(LUCENT_STR("start")));
@@ -90,6 +97,7 @@ lucent::Array<std::variant<double, lucent::String>> m_iterable_u2d_spread::mixed
 }
 
 lucent::Array<lucent::String> m_iterable_u2d_spread::chars(lucent::String p0_) {
+  lucent::checkStack();
   return ({ lucent::Array<lucent::String> arr_13_; arr_13_.append(lucent::splitCodePoints(p0_)); arr_13_; });
 }
 
@@ -111,6 +119,7 @@ lucent::Iter<double> m_iterable_u2d_spread::countTo(double p0_) {
 }
 
 lucent::Array<double> m_iterable_u2d_spread::counted(double p0_) {
+  lucent::checkStack();
   lucent::Iter<double> v2_ = lucent_app::m_iterable_u2d_spread::countTo(p0_);
   return ({ lucent::Array<double> arr_14_; arr_14_.push(0.0); arr_14_.append(lucent::iterToArray(v2_)); arr_14_; });
 }

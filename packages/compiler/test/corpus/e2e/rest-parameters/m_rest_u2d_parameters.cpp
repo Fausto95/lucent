@@ -34,6 +34,7 @@
 namespace lucent_app {
 
 void C_Path::construct(lucent::Array<std::variant<lucent::Ref<lucent_app::C_Path>, lucent::String>> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = lucent::Array<lucent::String>{};
   this->parts = v1_;
   {
@@ -65,12 +66,14 @@ lucent::Ref<C_Path> C_Path::create(lucent::Array<std::variant<lucent::Ref<lucent
 }
 
 lucent::String C_Path::join(lucent::Array<lucent::String> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = this->parts;
   lucent::Array<lucent::String> v2_ = ({ lucent::Array<lucent::String> arr_1_; arr_1_.append(v1_); arr_1_.append(p0_); arr_1_; });
   return v2_.join(LUCENT_STR("/"));
 }
 
 lucent::Ref<lucent_app::C_Path> C_Path::of(lucent::Array<lucent::String> p0_) {
+  lucent::checkStack();
   return lucent_app::C_Path::create(({
     lucent::Array<std::variant<lucent::Ref<lucent_app::C_Path>, lucent::String>> arr_2_;
     auto from_3_ = p0_;
@@ -91,11 +94,13 @@ lucent::Ref<C_Logger> C_Logger::create() {
 }
 
 lucent::String C_Logger::log(lucent::String p0_, lucent::Array<double> p1_) {
+  lucent::checkStack();
   lucent::String v3_ = p1_.join(LUCENT_STR("+"));
   return lucent::String(p0_) + v3_;
 }
 
 void C_LoudLogger::construct() {
+  lucent::checkStack();
   this->lucent_app::C_Logger::construct();
 }
 
@@ -106,18 +111,21 @@ lucent::Ref<C_LoudLogger> C_LoudLogger::create() {
 }
 
 lucent::String C_LoudLogger::log(lucent::String p0_, lucent::Array<double> p1_) {
+  lucent::checkStack();
   lucent::String v2_ = p0_.toUpperCase();
   int64_t v3_ = static_cast<int64_t>(p1_.size());
   return this->lucent_app::C_Logger::log(v2_, ({ lucent::Array<double> arr_4_; arr_4_.append(p1_); arr_4_.push(static_cast<double>(v3_)); arr_4_; }));
 }
 
 double m_rest_u2d_parameters::sum(lucent::Array<double> p0_) {
+  lucent::checkStack();
   return p0_.reduce([](double p0_, double p1_, double p2_, lucent::Array<double> p3_) mutable -> double {
     return p0_ + p1_;
   }, double(0.0));
 }
 
 lucent::String m_rest_u2d_parameters::tag(lucent::String p0_, lucent::Array<std::variant<double, lucent::String>> p1_) {
+  lucent::checkStack();
   int64_t v3_ = static_cast<int64_t>(p1_.size());
   lucent::String v4_ = lucent::toJsString(static_cast<double>(v3_));
   lucent::String v7_ = p1_.join(LUCENT_STR(","));
@@ -126,6 +134,7 @@ lucent::String m_rest_u2d_parameters::tag(lucent::String p0_, lucent::Array<std:
 
 lucent::Promise<lucent::String> m_rest_u2d_parameters::later(lucent::Array<lucent::String> p0_) {
   try {
+    lucent::checkStack();
     return lucent::Promise<lucent::String>::resolved(p0_.join(LUCENT_STR(" ")));
   } catch (...) {
     return lucent::Promise<lucent::String>::rejected(lucent::currentError(std::current_exception()));
@@ -133,6 +142,7 @@ lucent::Promise<lucent::String> m_rest_u2d_parameters::later(lucent::Array<lucen
 }
 
 lucent::String m_rest_u2d_parameters::internal() {
+  lucent::checkStack();
   lucent::Array<double> xs = lucent::Array<double>{4.0, 5.0};
   lucent::Array<std::variant<double, lucent::String>> mixed = lucent::Array<std::variant<double, lucent::String>>{std::variant<double, lucent::String>(LUCENT_STR("b")), std::variant<double, lucent::String>(2.0)};
   lucent::Ref<lucent_app::C_Logger> v6_ = lucent_app::C_Logger::create();
@@ -152,6 +162,7 @@ lucent::String m_rest_u2d_parameters::internal() {
   lucent::Ref<lucent_app::C_Path> v40_ = lucent_app::C_Path::of(({ lucent::Array<lucent::String> arr_14_; arr_14_.append(v39_.values()); arr_14_; }));
   lucent::String v41_ = v40_->join(({ lucent::Array<lucent::String> arr_15_; arr_15_; }));
   lucent::Array<lucent::String> v44_ = loggers.template map<lucent::String>([](lucent::Ref<lucent_app::C_Logger> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::C_Logger>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     return p0_->log(LUCENT_STR("n="), ({ lucent::Array<double> arr_16_; arr_16_.push(1.0); arr_16_.push(2.0); arr_16_; }));
   });
   lucent::String v46_ = v44_.join(LUCENT_STR(" "));

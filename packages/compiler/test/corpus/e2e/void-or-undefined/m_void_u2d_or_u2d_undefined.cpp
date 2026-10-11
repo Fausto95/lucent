@@ -29,6 +29,7 @@
 namespace lucent_app {
 
 void C_Log::construct() {
+  lucent::checkStack();
   lucent::Array<lucent::String> v0_ = lucent::Array<lucent::String>{};
   this->lines = v0_;
 }
@@ -40,6 +41,7 @@ lucent::Ref<C_Log> C_Log::create() {
 }
 
 void C_Log::add(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = this->lines;
   (void)v1_.push(p0_);
 }
@@ -55,6 +57,7 @@ lucent::Opt<lucent::Ref<lucent_app::C_Log>> m_void_u2d_or_u2d_undefined::maybeLo
 }
 
 void m_void_u2d_or_u2d_undefined::finish(lucent::Ref<lucent_app::C_Log> p0_, bool p1_) {
+  lucent::checkStack();
   if (p1_) {
     return;
   }
@@ -62,14 +65,17 @@ void m_void_u2d_or_u2d_undefined::finish(lucent::Ref<lucent_app::C_Log> p0_, boo
 }
 
 lucent::String m_void_u2d_or_u2d_undefined::run(lucent::Fn<void()> p0_) {
+  lucent::checkStack();
   p0_();
   return lucent::toJsString(lucent::undefined);
 }
 
 lucent::String m_void_u2d_or_u2d_undefined::arrows(bool p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Log> log = lucent_app::C_Log::create();
   lucent::Opt<lucent::Ref<lucent_app::C_Log>> maybe = lucent_app::m_void_u2d_or_u2d_undefined::maybeLog(p0_, log);
   lucent::Fn<void()> v5_ = lucent::Fn<void()>([maybe = maybe]() mutable -> void {
+    lucent::checkStack();
     bool v2_ = !maybe.has();
     if (v2_) {
     } else {
@@ -83,6 +89,7 @@ lucent::String m_void_u2d_or_u2d_undefined::arrows(bool p0_) {
   lucent::Undefined result = lucent::undefined;
   lucent::String v9_ = lucent::toJsString(result);
   lucent::Fn<void()> v12_ = lucent::Fn<void()>([maybe = maybe]() mutable -> void {
+    lucent::checkStack();
     bool v2_ = !maybe.has();
     if (v2_) {
     } else {
@@ -98,6 +105,7 @@ lucent::String m_void_u2d_or_u2d_undefined::arrows(bool p0_) {
 }
 
 lucent::String m_void_u2d_or_u2d_undefined::declared(bool p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Log> log = lucent_app::C_Log::create();
   lucent_app::m_void_u2d_or_u2d_undefined::finish(log, p0_);
   lucent::Undefined result = lucent::undefined;
@@ -109,6 +117,7 @@ lucent::String m_void_u2d_or_u2d_undefined::declared(bool p0_) {
 }
 
 lucent::String m_void_u2d_or_u2d_undefined::kept(bool p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Log> log = lucent_app::C_Log::create();
   lucent::Opt<lucent::Ref<lucent_app::C_Log>> v3_ = lucent_app::m_void_u2d_or_u2d_undefined::maybeLog(p0_, log);
   bool v5_ = !v3_.has();

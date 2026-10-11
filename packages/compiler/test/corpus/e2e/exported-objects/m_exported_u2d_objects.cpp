@@ -15,6 +15,7 @@
 namespace lucent_app {
 
 double m_exported_u2d_objects::ping(double p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(double)>>> v1_ = lucent_app::m_exported_u2d_objects::pings;
   v1_->emit<0>(p0_);
   lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(double)>>> v3_ = lucent_app::m_exported_u2d_objects::pings;
@@ -22,6 +23,7 @@ double m_exported_u2d_objects::ping(double p0_) {
 }
 
 void m_exported_u2d_objects::init() {
+  lucent::checkStack();
   lucent_app::m_exported_u2d_objects::pings = lucent::EventEmitterObject<lucent::Fn<void(double)>>::create({"ping"});
   lucent_app::m_exported_u2d_objects::settings = ({ auto obj_1_ = std::make_shared<lucent_app::S_Settings>(); obj_1_->size = 2.0; obj_1_; });
   lucent_app::m_exported_u2d_objects::limit = 3.0;

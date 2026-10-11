@@ -76,6 +76,7 @@ lucent::Ref<C_Cache> C_Cache::create() {
 }
 
 void C_D::construct() {
+  lucent::checkStack();
   this->lucent_app::C_B::construct();
 }
 
@@ -86,6 +87,7 @@ lucent::Ref<C_D> C_D::create() {
 }
 
 double m_module_u2d_initialization::record(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = lucent_app::m_module_u2d_initialization::log;
   (void)v1_.push(p0_);
   lucent::Array<lucent::String> v3_ = lucent_app::m_module_u2d_initialization::log;
@@ -93,10 +95,12 @@ double m_module_u2d_initialization::record(lucent::String p0_) {
 }
 
 double m_module_u2d_initialization::staticReadsVariable() {
+  lucent::checkStack();
   return lucent_app::C_C::b;
 }
 
 lucent::String m_module_u2d_initialization::order() {
+  lucent::checkStack();
   lucent::Array<lucent::String> v0_ = lucent_app::m_module_u2d_initialization::log;
   return v0_.join(LUCENT_STR(","));
 }
@@ -107,15 +111,18 @@ double m_module_u2d_initialization::afterValue() {
 }
 
 void m_module_u2d_initialization::setCached(double p0_) {
+  lucent::checkStack();
   lucent::Opt<double> v1_ = lucent::Opt<double>(p0_);
   lucent_app::C_Cache::cached = v1_;
 }
 
 lucent::Opt<double> m_module_u2d_initialization::cached() {
+  lucent::checkStack();
   return lucent_app::C_Cache::cached;
 }
 
 double m_module_u2d_initialization::touch() {
+  lucent::checkStack();
   double v0_ = lucent_app::C_B::x;
   double v1_ = lucent_app::C_D::y;
   double v2_ = v0_ + v1_;
@@ -124,6 +131,7 @@ double m_module_u2d_initialization::touch() {
 }
 
 void m_module_u2d_initialization::init() {
+  lucent::checkStack();
   lucent_app::m_module_u2d_initialization::base = 1.0;
   lucent_app::m_module_u2d_initialization::log = lucent::Array<lucent::String>{};
   double v2_ = lucent_app::m_module_u2d_initialization::base;

@@ -61,15 +61,18 @@ static constexpr lucent::TaskEntry<std::tuple<lucent::NativeBuffer>, lucent::Nat
 namespace lucent_app {
 
 lucent::String m_buffer_u2d_to_u2d_array::failure(lucent::Error p0_) {
+  lucent::checkStack();
   lucent::String v1_ = p0_->name;
   lucent::String v3_ = p0_->message;
   return lucent::concat(v1_, LUCENT_STR(": "), v3_);
 }
 
 lucent::String m_buffer_u2d_to_u2d_array::moved() {
+  lucent::checkStack();
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::allocate(4.0);
   lucent::NativeBuffer alias = buffer;
   lucent::Fn<void(lucent::MutableByteSpan)> v4_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     p0_.fill(3.0);
     return;
   });
@@ -82,6 +85,7 @@ lucent::String m_buffer_u2d_to_u2d_array::moved() {
     std::exception_ptr ex14_;
     try {
       lucent::Fn<double(lucent::ByteSpan)> v12_ = lucent::Fn<double(lucent::ByteSpan)>([](lucent::ByteSpan p0_) mutable -> double {
+        lucent::checkStack();
         return p0_.length();
       });
       (void)lucent::withRead(alias, v12_);
@@ -111,8 +115,10 @@ lucent::String m_buffer_u2d_to_u2d_array::moved() {
 }
 
 lucent::ArrayBuffer m_buffer_u2d_to_u2d_array::filled(double p0_, double p1_) {
+  lucent::checkStack();
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::allocate(p0_);
   lucent::Fn<void(lucent::MutableByteSpan)> v4_ = lucent::Fn<void(lucent::MutableByteSpan)>([value = p1_](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     p0_.fill(value);
     return;
   });
@@ -121,7 +127,9 @@ lucent::ArrayBuffer m_buffer_u2d_to_u2d_array::filled(double p0_, double p1_) {
 }
 
 lucent::NativeBuffer m_buffer_u2d_to_u2d_array::fill(lucent::NativeBuffer p0_) {
+  lucent::checkStack();
   lucent::Fn<void(lucent::MutableByteSpan)> v1_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     p0_.fill(9.0);
     return;
   });
@@ -130,6 +138,7 @@ lucent::NativeBuffer m_buffer_u2d_to_u2d_array::fill(lucent::NativeBuffer p0_) {
 }
 
 lucent::Promise<double> m_buffer_u2d_to_u2d_array::fromTask(double p0_) {
+  lucent::checkStack();
   lucent::NativeBuffer v1_ = lucent::NativeBufferObject::allocate(p0_);
   lucent::Promise<lucent::NativeBuffer> v2_ = lucent::compute(lucent_tasks::m_buffer_u2d_to_u2d_array::entry_fill, std::tuple<lucent::NativeBuffer>{v1_}, lucent::ComputeOptions{lucent::Opt<lucent::AbortSignal>(), lucent::moduleScope()});
   lucent::NativeBuffer v3_ = co_await v2_;
@@ -142,12 +151,14 @@ lucent::Promise<double> m_buffer_u2d_to_u2d_array::fromTask(double p0_) {
 }
 
 lucent::String m_buffer_u2d_to_u2d_array::refusals() {
+  lucent::checkStack();
   lucent::Array<lucent::String> out = lucent::Array<lucent::String>{};
   lucent::NativeBuffer borrowed = lucent::NativeBufferObject::allocate(2.0);
   {
     std::exception_ptr ex7_;
     try {
       lucent::Fn<double(lucent::ByteSpan)> v5_ = lucent::Fn<double(lucent::ByteSpan)>([borrowed = borrowed](lucent::ByteSpan p0_) mutable -> double {
+        lucent::checkStack();
         lucent::ArrayBuffer v2_ = borrowed->transferToArrayBuffer();
         return v2_.byteLength();
       });
@@ -209,8 +220,10 @@ lucent::String m_buffer_u2d_to_u2d_array::refusals() {
 }
 
 lucent::NativeBuffer m_buffer_u2d_to_u2d_array::make(double p0_) {
+  lucent::checkStack();
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::allocate(p0_);
   lucent::Fn<void(lucent::MutableByteSpan)> v3_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     p0_.fill(1.0);
     return;
   });
@@ -222,7 +235,9 @@ void m_buffer_u2d_to_u2d_array::init() {
 }
 
 lucent::NativeBuffer m_buffer_u2d_to_u2d_array::fill_task_(lucent::NativeBuffer p0_, lucent::TaskContext& task_) {
+  lucent::checkStack();
   lucent::Fn<void(lucent::MutableByteSpan)> v1_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
+    lucent::checkStack();
     p0_.fill(9.0);
     return;
   });

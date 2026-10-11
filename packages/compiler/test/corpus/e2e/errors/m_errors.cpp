@@ -46,6 +46,7 @@
 namespace lucent_app {
 
 void C_ValidationError::construct(lucent::String p0_, lucent::String p1_) {
+  lucent::checkStack();
   this->name = LUCENT_STR("Error");
   this->field = p1_;
   (void)(this->message = p0_, lucent::undefined);
@@ -59,6 +60,7 @@ lucent::Ref<C_ValidationError> C_ValidationError::create(lucent::String p0_, luc
 }
 
 void C_Plain::construct(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   this->message = p0_.valueOr(lucent::String());
   this->name = LUCENT_STR("Error");
 }
@@ -70,6 +72,7 @@ lucent::Ref<C_Plain> C_Plain::create(lucent::Opt<lucent::String> p0_) {
 }
 
 void C_Coded::construct(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   this->message = p0_.valueOr(lucent::String());
   this->name = LUCENT_STR("Error");
   this->code = 7.0;
@@ -82,6 +85,7 @@ lucent::Ref<C_Coded> C_Coded::create(lucent::Opt<lucent::String> p0_) {
 }
 
 void C_Optioned::construct(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   this->name = LUCENT_STR("Error");
   (void)(this->message = p0_.valueOr(lucent::String()), lucent::undefined);
 }
@@ -93,6 +97,7 @@ lucent::Ref<C_Optioned> C_Optioned::create(lucent::Opt<lucent::String> p0_) {
 }
 
 void C_Deeper::construct(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   this->lucent_app::C_Plain::construct(p0_);
 }
 
@@ -103,6 +108,7 @@ lucent::Ref<C_Deeper> C_Deeper::create(lucent::Opt<lucent::String> p0_) {
 }
 
 double m_errors::divide(double p0_, double p1_) {
+  lucent::checkStack();
   bool v3_ = p1_ == 0.0;
   if (v3_) {
     lucent::Error v6_ = lucent::withSite(lucent::errorWithCode(LUCENT_STR("DIVIDE_BY_ZERO"), LUCENT_STR("Cannot divide by zero")), __FILE__, __LINE__, "divide");
@@ -112,6 +118,7 @@ double m_errors::divide(double p0_, double p1_) {
 }
 
 lucent::String m_errors::validate(double p0_) {
+  lucent::checkStack();
   bool v2_ = p0_ < 0.0;
   if (v2_) {
     lucent::Ref<lucent_app::C_ValidationError> v5_ = lucent_app::C_ValidationError::create(LUCENT_STR("age must be positive"), LUCENT_STR("age"));
@@ -121,6 +128,7 @@ lucent::String m_errors::validate(double p0_) {
 }
 
 lucent::String m_errors::safeDivide(double p0_, double p1_) {
+  lucent::checkStack();
   {
     std::exception_ptr ex4_;
     try {
@@ -145,6 +153,7 @@ lucent::String m_errors::safeDivide(double p0_, double p1_) {
 }
 
 lucent::String m_errors::rethrow() {
+  lucent::checkStack();
   {
     std::exception_ptr ex19_;
     try {
@@ -187,6 +196,7 @@ lucent::String m_errors::rethrow() {
 }
 
 double m_errors::outOfBounds(lucent::Array<double> p0_) {
+  lucent::checkStack();
   lucent::Opt<double> v2_ = p0_.getIndex(static_cast<int64_t>(10));
   return v2_.value();
 }
@@ -197,16 +207,19 @@ double m_errors::failDeep() {
 }
 
 double m_errors::passThrough(lucent::Fn<double()> p0_) {
+  lucent::checkStack();
   return p0_();
 }
 
 lucent::Array<lucent::String> m_errors::kinds() {
+  lucent::checkStack();
   lucent::Error v1_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), LUCENT_STR("a")), __FILE__, __LINE__, "kinds");
   lucent::Error v3_ = lucent::withSite(lucent::makeError(LUCENT_STR("TypeError"), LUCENT_STR("b")), __FILE__, __LINE__, "kinds");
   lucent::Error v5_ = lucent::withSite(lucent::makeError(LUCENT_STR("RangeError"), LUCENT_STR("c")), __FILE__, __LINE__, "kinds");
   lucent::Error v7_ = lucent::withSite(lucent::makeError(LUCENT_STR("SyntaxError"), LUCENT_STR("d")), __FILE__, __LINE__, "kinds");
   lucent::Array<lucent::Error> v8_ = lucent::Array<lucent::Error>{v1_, v3_, v5_, v7_};
   return v8_.template map<lucent::String>([](lucent::Error p0_, double p1_, lucent::Array<lucent::Error> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v3_ = p0_->name;
     bool v5_ = lucent::isErrorOf(p0_, "SyntaxError");
     lucent::String v6_ = lucent::toJsString(v5_);
@@ -216,10 +229,12 @@ lucent::Array<lucent::String> m_errors::kinds() {
 }
 
 lucent::Error m_errors::syntax() {
+  lucent::checkStack();
   return lucent::withSite(lucent::makeError(LUCENT_STR("SyntaxError"), LUCENT_STR("bad")), __FILE__, __LINE__, "syntax");
 }
 
 lucent::Array<lucent::String> m_errors::implicitConstructors() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Plain> v1_ = lucent_app::C_Plain::create(lucent::Opt<lucent::String>(LUCENT_STR("p")));
   lucent::Ref<lucent_app::C_Coded> v3_ = lucent_app::C_Coded::create(lucent::Opt<lucent::String>(LUCENT_STR("c")));
   lucent::Ref<lucent_app::C_Deeper> v5_ = lucent_app::C_Deeper::create(lucent::Opt<lucent::String>(LUCENT_STR("d")));
@@ -234,11 +249,13 @@ lucent::Array<lucent::String> m_errors::implicitConstructors() {
 }
 
 lucent::Error m_errors::plain() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Plain> v1_ = lucent_app::C_Plain::create(lucent::Opt<lucent::String>(LUCENT_STR("thrown")));
   return lucent::Error(v1_);
 }
 
 lucent::Array<lucent::String> m_errors::undefinedArguments(lucent::Opt<lucent::String> p0_) {
+  lucent::checkStack();
   lucent::Error v1_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), p0_.valueOr(lucent::String())), __FILE__, __LINE__, "undefinedArguments");
   lucent::Error v2_ = lucent::withSite(lucent::makeError(LUCENT_STR("SyntaxError"), p0_.valueOr(lucent::String())), __FILE__, __LINE__, "undefinedArguments");
   lucent::Error v4_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), LUCENT_STR("e")), __FILE__, __LINE__, "undefinedArguments");
@@ -254,6 +271,7 @@ lucent::Array<lucent::String> m_errors::undefinedArguments(lucent::Opt<lucent::S
 
 void m_errors::init() {
   lucent::Fn<lucent::String(lucent::Error)> v0_ = lucent::Fn<lucent::String(lucent::Error)>([](lucent::Error p0_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String v1_ = p0_->name;
     lucent::String v3_ = p0_->message;
     lucent::String v5_ = lucent::toJsString(p0_);

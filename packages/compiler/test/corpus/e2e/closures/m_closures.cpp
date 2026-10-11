@@ -61,6 +61,7 @@
 namespace lucent_app {
 
 lucent::Array<double> m_closures::makeAdders() {
+  lucent::checkStack();
   lucent::Array<lucent::Fn<double(double)>> fns = lucent::Array<lucent::Fn<double(double)>>{};
   {
     lucent::Box<double> i{};
@@ -84,11 +85,13 @@ lucent::Array<double> m_closures::makeAdders() {
     }
   }
   return fns.template map<double>([](lucent::Fn<double(double)> p0_, double p1_, lucent::Array<lucent::Fn<double(double)>> p2_) mutable -> double {
+    lucent::checkStack();
     return p0_(10.0);
   });
 }
 
 double m_closures::counter() {
+  lucent::checkStack();
   lucent::Box<double> count{};
   *count = 0.0;
   lucent::Fn<void()> v1_ = lucent::Fn<void()>([count = count]() mutable -> void {
@@ -104,6 +107,7 @@ double m_closures::counter() {
 }
 
 double m_closures::compose(double p0_) {
+  lucent::checkStack();
   lucent::Fn<double(double)> v1_ = lucent::Fn<double(double)>([](double p0_) mutable -> double {
     return p0_ * 2.0;
   });
@@ -113,6 +117,7 @@ double m_closures::compose(double p0_) {
   });
   lucent::Fn<double(double)> addOne = std::move(v2_);
   lucent::Fn<double(double)> v5_ = lucent::Fn<double(double)>([addOne = addOne, r_double_ = r_double_](double p0_) mutable -> double {
+    lucent::checkStack();
     double v3_ = r_double_(p0_);
     return addOne(v3_);
   });
@@ -121,8 +126,10 @@ double m_closures::compose(double p0_) {
 }
 
 double m_closures::recurse(double p0_) {
+  lucent::checkStack();
   lucent::Box<lucent::Fn<double(double)>> fact{};
   lucent::Fn<double(double)> v1_ = lucent::Fn<double(double)>([fact = fact](double p0_) mutable -> double {
+    lucent::checkStack();
     bool v2_ = p0_ <= 1.0;
     double v9_{};
     if (v2_) {
@@ -141,9 +148,11 @@ double m_closures::recurse(double p0_) {
 }
 
 double m_closures::memo(double p0_) {
+  lucent::checkStack();
   lucent::Map<double, double> cache = lucent::Map<double, double>();
   lucent::Box<lucent::Fn<double(double)>> fib{};
   lucent::Fn<double(double)> v3_ = lucent::Fn<double(double)>([cache = cache, fib = fib](double p0_) mutable -> double {
+    lucent::checkStack();
     bool v2_ = p0_ < 2.0;
     if (v2_) {
       return p0_;
@@ -169,6 +178,7 @@ double m_closures::memo(double p0_) {
 }
 
 double m_closures::apply(lucent::String p0_, double p1_, double p2_) {
+  lucent::checkStack();
   lucent::Dict<lucent::Fn<double(double, double)>> v3_ = lucent_app::m_closures::ops;
   lucent::Opt<lucent::Fn<double(double, double)>> f = v3_.get(p0_);
   bool v6_ = lucent::truthy(f);
@@ -197,13 +207,16 @@ lucent::Fn<lucent::String(lucent::String)> m_closures::makeGreeter(lucent::Strin
 }
 
 double m_closures::callTwice(lucent::Fn<double(double)> p0_, double p1_) {
+  lucent::checkStack();
   double v2_ = p0_(p1_);
   return p0_(v2_);
 }
 
 lucent::Array<lucent::String> m_closures::sortBy(lucent::Array<lucent::Ref<lucent_app::S_Object_6bd9ed01>> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::Ref<lucent_app::S_Object_6bd9ed01>> v1_ = p0_.slice();
   lucent::Array<lucent::Ref<lucent_app::S_Object_6bd9ed01>> v3_ = v1_.sort([](lucent::Ref<lucent_app::S_Object_6bd9ed01> p0_, lucent::Ref<lucent_app::S_Object_6bd9ed01> p1_) mutable -> double {
+    lucent::checkStack();
     double v2_ = p0_->age;
     double v3_ = p1_->age;
     double v4_ = v2_ - v3_;
@@ -219,11 +232,13 @@ lucent::Array<lucent::String> m_closures::sortBy(lucent::Array<lucent::Ref<lucen
     return v9_;
   });
   return v3_.template map<lucent::String>([](lucent::Ref<lucent_app::S_Object_6bd9ed01> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::S_Object_6bd9ed01>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     return p0_->name;
   });
 }
 
 void m_closures::init() {
+  lucent::checkStack();
   lucent::Fn<double(double, double)> v0_ = lucent::Fn<double(double, double)>([](double p0_, double p1_) mutable -> double {
     return p0_ + p1_;
   });

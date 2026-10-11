@@ -55,21 +55,26 @@
 namespace lucent_app {
 
 lucent::String m_generic_u2d_instantiations::shows(lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v2_ = p0_.template map<lucent::String>([](lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     return p0_->show();
   });
   return v2_.join(LUCENT_STR(","));
 }
 
 lucent::String m_generic_u2d_instantiations::take(lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> p0_) {
+  lucent::checkStack();
   return p0_->show();
 }
 
 lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> m_generic_u2d_instantiations::give() {
+  lucent::checkStack();
   return lucent_app::C_Shown<lucent::Opt<double>>::create(lucent::Opt<double>(4.0));
 }
 
 lucent::String m_generic_u2d_instantiations::arrays() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> v1_ = lucent_app::C_Shown<lucent::Opt<double>>::create(lucent::Opt<double>(1.0));
   lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> v3_ = lucent_app::C_Shown<lucent::Opt<double>>::create(lucent::Opt<double>(lucent::undefined));
   lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> mixed = lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>>{v1_, v3_};
@@ -83,6 +88,7 @@ lucent::String m_generic_u2d_instantiations::arrays() {
   lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> v18_ = lucent_app::C_Shown<lucent::Opt<double>>::create(lucent::Opt<double>(6.0));
   lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> typed = lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>>{v16_, v18_};
   lucent::Fn<lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>>(bool)> v20_ = lucent::Fn<lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>>(bool)>([](bool p0_) mutable -> lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> {
+    lucent::checkStack();
     lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> v5_{};
     if (p0_) {
       v5_ = lucent_app::C_Shown<lucent::Opt<double>>::create(lucent::Opt<double>(7.0));
@@ -105,6 +111,7 @@ lucent::String m_generic_u2d_instantiations::arrays() {
 }
 
 lucent::String m_generic_u2d_instantiations::positions() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> declared = lucent_app::C_Shown<lucent::Opt<double>>::create(lucent::Opt<double>(1.0));
   lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> assigned = lucent_app::C_Shown<lucent::Opt<double>>::create(lucent::Opt<double>(lucent::undefined));
   assigned = lucent_app::C_Shown<lucent::Opt<double>>::create(lucent::Opt<double>(2.0));
@@ -147,11 +154,13 @@ lucent::String m_generic_u2d_instantiations::positions() {
   lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> v65_ = map.values();
   lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> v66_ = ({ lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> arr_3_; arr_3_.append(v65_); arr_3_; });
   lucent::Array<lucent::String> v68_ = v66_.template map<lucent::String>([](lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     return p0_->show();
   });
   lucent::String v70_ = v68_.join(LUCENT_STR(","));
   lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> v72_ = ({ lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> arr_4_; arr_4_.append(set.values()); arr_4_; });
   lucent::Array<lucent::String> v74_ = v72_.template map<lucent::String>([](lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> p0_, double p1_, lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     return p0_->show();
   });
   lucent::String v76_ = v74_.join(LUCENT_STR(","));
@@ -164,6 +173,7 @@ lucent::String m_generic_u2d_instantiations::positions() {
 }
 
 lucent::String m_generic_u2d_instantiations::identity() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> one = lucent_app::C_Shown<lucent::Opt<double>>::create(lucent::Opt<double>(1.0));
   lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>> v4_ = lucent_app::C_Shown<lucent::Opt<double>>::create(lucent::Opt<double>(2.0));
   lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>> xs = lucent::Array<lucent::Ref<lucent_app::C_Shown<lucent::Opt<double>>>>{one, v4_};

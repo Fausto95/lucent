@@ -37,34 +37,42 @@
 namespace lucent_app {
 
 double m_bigint_u2d_unions::toNumber(std::variant<lucent::BigInt, double> p0_) {
+  lucent::checkStack();
   return lucent::toNumber(p0_);
 }
 
 double m_bigint_u2d_unions::toNumberOptional(lucent::Opt<lucent::BigInt> p0_) {
+  lucent::checkStack();
   return lucent::toNumber(p0_);
 }
 
 double m_bigint_u2d_unions::toNumberNullable(lucent::Opt<lucent::BigInt> p0_) {
+  lucent::checkStack();
   return lucent::toNumber(p0_);
 }
 
 double m_bigint_u2d_unions::toNumberEither(lucent::Opt<std::variant<lucent::BigInt, double>> p0_) {
+  lucent::checkStack();
   return lucent::toNumber(p0_);
 }
 
 double m_bigint_u2d_unions::toNumberOfAnything(lucent::Opt<std::variant<lucent::BigInt, bool, double, lucent::String>> p0_) {
+  lucent::checkStack();
   return lucent::toNumber(p0_);
 }
 
 lucent::BigInt m_bigint_u2d_unions::toBigInt(std::variant<lucent::BigInt, double> p0_) {
+  lucent::checkStack();
   return lucent::toBigInt(p0_);
 }
 
 lucent::BigInt m_bigint_u2d_unions::toBigIntOfAnything(std::variant<lucent::BigInt, bool, double, lucent::String> p0_) {
+  lucent::checkStack();
   return lucent::toBigInt(p0_);
 }
 
 lucent::Array<lucent::String> m_bigint_u2d_unions::strings(lucent::Opt<std::variant<lucent::BigInt, double>> p0_) {
+  lucent::checkStack();
   lucent::String v1_ = lucent::toJsString(p0_);
   lucent::String v2_ = lucent::toJsString(p0_);
   lucent::String v5_ = lucent::String(LUCENT_STR("v=")) + lucent::toJsString(p0_);
@@ -73,6 +81,7 @@ lucent::Array<lucent::String> m_bigint_u2d_unions::strings(lucent::Opt<std::vari
 }
 
 lucent::Array<bool> m_bigint_u2d_unions::compare(std::variant<lucent::BigInt, double> p0_, std::variant<lucent::BigInt, double> p1_) {
+  lucent::checkStack();
   bool v2_ = lucent::compareNumeric(p0_, p1_) < 0;
   bool v3_ = lucent::compareNumeric(p0_, p1_) <= 0;
   bool v4_ = lucent::compareNumeric(p0_, p1_) > 0;
@@ -83,6 +92,7 @@ lucent::Array<bool> m_bigint_u2d_unions::compare(std::variant<lucent::BigInt, do
 }
 
 lucent::Array<bool> m_bigint_u2d_unions::compareOptional(lucent::Opt<lucent::BigInt> p0_, lucent::BigInt p1_) {
+  lucent::checkStack();
   bool v2_ = lucent::strictEquals(p0_, p1_);
   bool v3_ = !lucent::strictEquals(p0_, p1_);
   bool v5_ = lucent::strictEquals(p0_, lucent::undefined);
@@ -90,14 +100,17 @@ lucent::Array<bool> m_bigint_u2d_unions::compareOptional(lucent::Opt<lucent::Big
 }
 
 std::variant<lucent::BigInt, double> m_bigint_u2d_unions::negate(std::variant<lucent::BigInt, double> p0_) {
+  lucent::checkStack();
   return lucent::negateNumeric(p0_);
 }
 
 std::variant<lucent::BigInt, double> m_bigint_u2d_unions::flip(std::variant<lucent::BigInt, double> p0_) {
+  lucent::checkStack();
   return lucent::bitNotNumeric(p0_);
 }
 
 lucent::Array<lucent::String> m_bigint_u2d_unions::steps(std::variant<lucent::BigInt, double> p0_) {
+  lucent::checkStack();
   std::variant<lucent::BigInt, double> b = p0_;
   std::variant<lucent::BigInt, double> v1_ = b;
   b = lucent::stepNumeric(v1_, 1);

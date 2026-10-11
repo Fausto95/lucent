@@ -46,6 +46,7 @@ namespace m_object_u2d_strings {
 
 template <class T>
 lucent::String describe(lucent::String p0_, T p1_) {
+  lucent::checkStack();
   lucent::String v3_ = lucent::toJsString(p1_);
   return lucent::concat(p0_, LUCENT_STR("="), v3_);
 }

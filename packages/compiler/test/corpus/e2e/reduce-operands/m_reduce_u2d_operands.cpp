@@ -19,6 +19,7 @@
 namespace lucent_app {
 
 double m_reduce_u2d_operands::fromField(lucent::Array<double> p0_, lucent::Ref<lucent_app::S_Object_56857356> p1_) {
+  lucent::checkStack();
   double v2_ = p1_->n;
   return p0_.reduce([](double p0_, double p1_, double p2_, lucent::Array<double> p3_) mutable -> double {
     return p0_ + p1_;
@@ -32,13 +33,16 @@ double m_reduce_u2d_operands::log(lucent::String p0_, double p1_) {
 }
 
 lucent::String m_reduce_u2d_operands::order() {
+  lucent::checkStack();
   lucent_app::m_reduce_u2d_operands::calls = lucent::String();
   lucent::Array<double> v3_ = lucent::Array<double>{1.0, 2.0};
   lucent::Array<double> v5_ = v3_.template map<double>([](double p0_, double p1_, lucent::Array<double> p2_) mutable -> double {
+    lucent::checkStack();
     return lucent_app::m_reduce_u2d_operands::log(LUCENT_STR("m"), p0_);
   });
   double v8_ = lucent_app::m_reduce_u2d_operands::log(LUCENT_STR("i"), 10.0);
   double r = v5_.reduce([](double p0_, double p1_, double p2_, lucent::Array<double> p3_) mutable -> double {
+    lucent::checkStack();
     return lucent_app::m_reduce_u2d_operands::log(LUCENT_STR("r"), p0_ + p1_);
   }, double(v8_));
   lucent::String v11_ = lucent_app::m_reduce_u2d_operands::calls;
@@ -47,8 +51,10 @@ lucent::String m_reduce_u2d_operands::order() {
 }
 
 lucent::Array<lucent::String> m_reduce_u2d_operands::initialArray(lucent::Array<lucent::String> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v3_ = p0_.slice(0.0, 1.0);
   return p0_.reduceRight([](lucent::Array<lucent::String> p0_, lucent::String p1_, double p2_, lucent::Array<lucent::String> p3_) mutable -> lucent::Array<lucent::String> {
+    lucent::checkStack();
     lucent::String v4_ = p1_.toUpperCase();
     return ({ lucent::Array<lucent::String> arr_1_; arr_1_.append(p0_); arr_1_.push(v4_); arr_1_; });
   }, lucent::Array<lucent::String>(v3_));

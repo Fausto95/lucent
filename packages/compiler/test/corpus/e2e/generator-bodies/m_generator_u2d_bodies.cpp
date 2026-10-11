@@ -25,6 +25,7 @@
 namespace lucent_app {
 
 lucent::Iter<double> m_generator_u2d_bodies::throwing() {
+  lucent::checkStack();
   lucent::Array<lucent::String> v0_ = lucent_app::m_generator_u2d_bodies::log;
   (void)v0_.push(LUCENT_STR("started"));
   lucent::Error v4_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), LUCENT_STR("generator")), __FILE__, __LINE__, "throwing");
@@ -37,12 +38,14 @@ lucent::Iter<double> m_generator_u2d_bodies::empty() {
 }
 
 lucent::Iter<double> m_generator_u2d_bodies::working() {
+  lucent::checkStack();
   lucent::Array<lucent::String> v0_ = lucent_app::m_generator_u2d_bodies::log;
   (void)v0_.push(LUCENT_STR("worked"));
   co_return;
 }
 
 lucent::String m_generator_u2d_bodies::drain(lucent::Fn<lucent::Iter<double>()> p0_) {
+  lucent::checkStack();
   lucent_app::m_generator_u2d_bodies::log = lucent::Array<lucent::String>{};
   lucent::Iter<double> it{};
   {
@@ -108,6 +111,7 @@ lucent::String m_generator_u2d_bodies::drain(lucent::Fn<lucent::Iter<double>()> 
 }
 
 lucent::String m_generator_u2d_bodies::generators() {
+  lucent::checkStack();
   lucent::Fn<lucent::Iter<double>()> v0_ = lucent::Fn<lucent::Iter<double>()>([]() -> lucent::Iter<double> {
     return lucent_app::m_generator_u2d_bodies::throwing();
   });
@@ -125,6 +129,7 @@ lucent::String m_generator_u2d_bodies::generators() {
 }
 
 void m_generator_u2d_bodies::init() {
+  lucent::checkStack();
   lucent_app::m_generator_u2d_bodies::log = lucent::Array<lucent::String>{};
 }
 

@@ -52,18 +52,21 @@
 namespace lucent_app {
 
 void m_absent_u2d_results::bump(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = lucent_app::m_absent_u2d_results::calls;
   (void)v1_.push(p0_);
   return;
 }
 
 lucent::Null m_absent_u2d_results::nothing(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = lucent_app::m_absent_u2d_results::calls;
   (void)v1_.push(p0_);
   return lucent::null;
 }
 
 void m_absent_u2d_results::fail(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> v1_ = lucent_app::m_absent_u2d_results::calls;
   (void)v1_.push(p0_);
   lucent::Error v5_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), lucent::String(LUCENT_STR("no ")) + p0_), __FILE__, __LINE__, "fail");
@@ -97,6 +100,7 @@ lucent::String m_absent_u2d_results::kind(lucent::Opt<std::variant<double, lucen
 }
 
 lucent::String m_absent_u2d_results::attempt(lucent::Fn<lucent::String()> p0_) {
+  lucent::checkStack();
   lucent_app::m_absent_u2d_results::calls = lucent::Array<lucent::String>{};
   {
     std::exception_ptr ex11_;
@@ -123,7 +127,9 @@ lucent::String m_absent_u2d_results::attempt(lucent::Fn<lucent::String()> p0_) {
 }
 
 lucent::String m_absent_u2d_results::asArguments() {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v0_ = lucent::Fn<lucent::String()>([]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent_app::m_absent_u2d_results::bump(LUCENT_STR("optional"));
     lucent::String v2_ = lucent_app::m_absent_u2d_results::show(lucent::Opt<lucent::String>(lucent::undefined));
     lucent::Null v5_ = lucent_app::m_absent_u2d_results::nothing(LUCENT_STR("null"));
@@ -136,7 +142,9 @@ lucent::String m_absent_u2d_results::asArguments() {
 }
 
 lucent::String m_absent_u2d_results::asValues() {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v0_ = lucent::Fn<lucent::String()>([]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent_app::m_absent_u2d_results::bump(LUCENT_STR("declared"));
     lucent::Opt<lucent::String> _optional = lucent::Opt<lucent::String>(lucent::undefined);
     lucent::Null v4_ = lucent_app::m_absent_u2d_results::nothing(LUCENT_STR("declared null"));
@@ -161,7 +169,9 @@ lucent::String m_absent_u2d_results::asValues() {
 }
 
 lucent::String m_absent_u2d_results::asOperands() {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v0_ = lucent::Fn<lucent::String()>([]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent_app::m_absent_u2d_results::bump(LUCENT_STR("loose equality"));
     bool loose = true;
     lucent_app::m_absent_u2d_results::bump(LUCENT_STR("nullish"));
@@ -173,7 +183,9 @@ lucent::String m_absent_u2d_results::asOperands() {
 }
 
 lucent::String m_absent_u2d_results::throwsAsArgument() {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v0_ = lucent::Fn<lucent::String()>([]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent_app::m_absent_u2d_results::fail(LUCENT_STR("argument"));
     return lucent_app::m_absent_u2d_results::show([]() -> lucent::Opt<lucent::String> {
       lucent::unreachable();
@@ -183,7 +195,9 @@ lucent::String m_absent_u2d_results::throwsAsArgument() {
 }
 
 lucent::String m_absent_u2d_results::throwsAsValue() {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v0_ = lucent::Fn<lucent::String()>([]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent_app::m_absent_u2d_results::fail(LUCENT_STR("declared"));
     lucent::Opt<lucent::String> _value = []() -> lucent::Opt<lucent::String> {
       lucent::unreachable();
@@ -194,6 +208,7 @@ lucent::String m_absent_u2d_results::throwsAsValue() {
 }
 
 void m_absent_u2d_results::init() {
+  lucent::checkStack();
   lucent_app::m_absent_u2d_results::calls = lucent::Array<lucent::String>{};
 }
 

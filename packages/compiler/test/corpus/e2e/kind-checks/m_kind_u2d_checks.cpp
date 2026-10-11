@@ -29,6 +29,7 @@
 namespace lucent_app {
 
 lucent::String m_kind_u2d_checks::isArrays(std::variant<lucent::String, lucent::Array<lucent::String>> p0_) {
+  lucent::checkStack();
   bool v1_ = lucent::holds<lucent::IsJsArray>(p0_);
   if (v1_) {
     lucent::Array<lucent::String> v3_ = lucent::narrow<lucent::Array<lucent::String>>(p0_);
@@ -39,6 +40,7 @@ lucent::String m_kind_u2d_checks::isArrays(std::variant<lucent::String, lucent::
 }
 
 lucent::String m_kind_u2d_checks::tupleIsArray() {
+  lucent::checkStack();
   std::tuple<double, lucent::String> t = std::tuple<double, lucent::String>(1.0, LUCENT_STR("a"));
   bool v4_ = lucent::holds<lucent::IsJsArray>(t);
   lucent::String v5_ = lucent::toJsString(v4_);
@@ -48,12 +50,14 @@ lucent::String m_kind_u2d_checks::tupleIsArray() {
 }
 
 bool m_kind_u2d_checks::matchIsArray(lucent::String p0_) {
+  lucent::checkStack();
   lucent::RegExp v1_ = lucent::makeRegExp(LUCENT_STR("a"), lucent::Opt<lucent::String>(lucent::String()));
   lucent::Opt<lucent::RegExpMatch> v2_ = lucent::stringMatch(p0_, v1_);
   return lucent::holds<lucent::IsJsArray>(v2_);
 }
 
 lucent::String m_kind_u2d_checks::arrayKind(std::variant<lucent::Array<double>, lucent::Array<lucent::String>> p0_) {
+  lucent::checkStack();
   bool v1_ = lucent::holds<lucent::IsJsArray>(p0_);
   lucent::String v4_{};
   if (v1_) {
@@ -65,6 +69,7 @@ lucent::String m_kind_u2d_checks::arrayKind(std::variant<lucent::Array<double>, 
 }
 
 lucent::String m_kind_u2d_checks::unionOfArrays() {
+  lucent::checkStack();
   lucent::Array<double> numbers = lucent::Array<double>{1.0};
   lucent::Array<lucent::String> words = lucent::Array<lucent::String>{LUCENT_STR("a")};
   lucent::String v6_ = lucent_app::m_kind_u2d_checks::arrayKind(std::variant<lucent::Array<double>, lucent::Array<lucent::String>>(numbers));
@@ -73,6 +78,7 @@ lucent::String m_kind_u2d_checks::unionOfArrays() {
 }
 
 lucent::String m_kind_u2d_checks::joined(lucent::Opt<std::variant<lucent::String, lucent::Array<lucent::String>>> p0_) {
+  lucent::checkStack();
   bool v1_ = lucent::holds<lucent::IsJsArray>(p0_);
   lucent::String v6_{};
   if (v1_) {
@@ -85,6 +91,7 @@ lucent::String m_kind_u2d_checks::joined(lucent::Opt<std::variant<lucent::String
 }
 
 lucent::String m_kind_u2d_checks::instanceOfArray() {
+  lucent::checkStack();
   lucent::Array<lucent::String> v2_ = lucent::Array<lucent::String>{LUCENT_STR("a"), LUCENT_STR("b")};
   lucent::String v4_ = lucent_app::m_kind_u2d_checks::joined(lucent::Opt<std::variant<lucent::String, lucent::Array<lucent::String>>>(std::variant<lucent::String, lucent::Array<lucent::String>>(v2_)));
   lucent::String v7_ = lucent_app::m_kind_u2d_checks::joined(lucent::Opt<std::variant<lucent::String, lucent::Array<lucent::String>>>(std::variant<lucent::String, lucent::Array<lucent::String>>(LUCENT_STR("s"))));
@@ -94,6 +101,7 @@ lucent::String m_kind_u2d_checks::instanceOfArray() {
 }
 
 lucent::String m_kind_u2d_checks::kinds(lucent::Opt<std::variant<lucent::Map<lucent::String, double>, lucent::String>> p0_, lucent::Opt<std::variant<lucent::Date, double>> p1_) {
+  lucent::checkStack();
   bool v2_ = lucent::holds<lucent::IsMap>(p0_);
   lucent::String v3_ = lucent::toJsString(v2_);
   bool v5_ = lucent::holds<lucent::IsDate>(p1_);
@@ -102,6 +110,7 @@ lucent::String m_kind_u2d_checks::kinds(lucent::Opt<std::variant<lucent::Map<luc
 }
 
 lucent::String m_kind_u2d_checks::instanceOfKinds() {
+  lucent::checkStack();
   lucent::Map<lucent::String, double> v0_ = lucent::Map<lucent::String, double>();
   lucent::Opt<std::variant<lucent::Map<lucent::String, double>, lucent::String>> v1_ = lucent::Opt<std::variant<lucent::Map<lucent::String, double>, lucent::String>>(std::variant<lucent::Map<lucent::String, double>, lucent::String>(v0_));
   lucent::Date v3_ = lucent::makeDate(0.0);

@@ -36,6 +36,7 @@
 namespace lucent_app {
 
 lucent::Ref<lucent_app::S_Point> m_main_::sum(lucent::Array<lucent::Ref<lucent_app::S_Point>> p0_) {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Vec> v = lucent_app::C_Vec::create(0.0, 0.0);
   {
     auto coll0_ = p0_;
@@ -54,7 +55,9 @@ lucent::Ref<lucent_app::S_Point> m_main_::sum(lucent::Array<lucent::Ref<lucent_a
 }
 
 lucent::String m_main_::far(lucent::Array<lucent::Ref<lucent_app::S_Point>> p0_) {
+  lucent::checkStack();
   lucent::Fn<double(lucent::Ref<lucent_app::S_Point>)> v1_ = lucent::Fn<double(lucent::Ref<lucent_app::S_Point>)>([](lucent::Ref<lucent_app::S_Point> p0_) mutable -> double {
+    lucent::checkStack();
     double v1_ = p0_->x;
     double v2_ = p0_->x;
     double v3_ = v1_ * v2_;
@@ -85,6 +88,7 @@ double m_main_::vectorsMade() {
 }
 
 lucent::String m_main_::throughNamespace() {
+  lucent::checkStack();
   lucent::Ref<lucent_app::C_Vec> v2_ = lucent_app::C_Vec::create(1.0, 2.0);
   lucent::Ref<lucent_app::C_Vec> v5_ = lucent_app::C_Vec::create(3.0, 4.0);
   lucent::Ref<lucent_app::C_Vec> v = v2_->plus(v5_);
@@ -93,6 +97,7 @@ lucent::String m_main_::throughNamespace() {
   lucent::Ref<lucent_app::S_Point> v13_ = ({ auto obj_1_ = std::make_shared<lucent_app::S_Point>(); obj_1_->x = v11_; obj_1_->y = 0.0; obj_1_; });
   lucent::Array<lucent::Ref<lucent_app::S_Point>> v14_ = lucent::Array<lucent::Ref<lucent_app::S_Point>>{p, v13_};
   lucent::Fn<double(lucent::Ref<lucent_app::S_Point>)> v15_ = lucent::Fn<double(lucent::Ref<lucent_app::S_Point>)>([](lucent::Ref<lucent_app::S_Point> p0_) mutable -> double {
+    lucent::checkStack();
     double v1_ = p0_->x;
     double v2_ = p0_->x;
     return v1_ * v2_;

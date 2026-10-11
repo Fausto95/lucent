@@ -89,6 +89,7 @@
 namespace lucent_app {
 
 lucent::String m_collections::arrays(lucent::Array<double> p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::String> out = lucent::Array<lucent::String>{};
   lucent::Array<double> copy = p0_.slice();
   (void)copy.push(100.0, 200.0);
@@ -216,6 +217,7 @@ lucent::String m_collections::arrays(lucent::Array<double> p0_) {
 }
 
 lucent::Map<lucent::String, double> m_collections::words(lucent::String p0_) {
+  lucent::checkStack();
   lucent::Map<lucent::String, double> counts = lucent::Map<lucent::String, double>();
   lucent::Array<lucent::String> v3_ = lucent::split(p0_, LUCENT_STR(" "));
   {
@@ -245,6 +247,7 @@ lucent::Map<lucent::String, double> m_collections::words(lucent::String p0_) {
 }
 
 lucent::String m_collections::mapOps() {
+  lucent::checkStack();
   lucent::Map<lucent::String, double> m = lucent::Map<lucent::String, double>();
   lucent::Map<lucent::String, double> v4_ = m.set(LUCENT_STR("b"), 2.0);
   lucent::Map<lucent::String, double> v7_ = v4_.set(LUCENT_STR("a"), 1.0);
@@ -299,6 +302,7 @@ lucent::String m_collections::mapOps() {
 }
 
 lucent::Dict<double> m_collections::records(lucent::Dict<double> p0_) {
+  lucent::checkStack();
   lucent::Dict<double> out = ({ lucent::Dict<double> rec_5_; rec_5_; });
   lucent::Array<lucent::String> v2_ = p0_.keys();
   {
@@ -331,6 +335,7 @@ lucent::Dict<double> m_collections::records(lucent::Dict<double> p0_) {
 }
 
 lucent::String m_collections::mergedRecords(lucent::Dict<double> p0_, lucent::Opt<lucent::Dict<double>> p1_) {
+  lucent::checkStack();
   lucent::Dict<double> merged = ({
     lucent::Dict<double> rec_6_;
     rec_6_.set(LUCENT_STR("z"), 0.0);
@@ -346,8 +351,10 @@ lucent::String m_collections::mergedRecords(lucent::Dict<double> p0_, lucent::Op
 }
 
 lucent::String m_collections::entries(lucent::Dict<lucent::String> p0_) {
+  lucent::checkStack();
   lucent::Array<std::tuple<lucent::String, lucent::String>> v1_ = lucent::dictEntries(p0_);
   lucent::Array<lucent::String> v3_ = v1_.template map<lucent::String>([](std::tuple<lucent::String, lucent::String> p0_, double p1_, lucent::Array<std::tuple<lucent::String, lucent::String>> p2_) mutable -> lucent::String {
+    lucent::checkStack();
     lucent::String k = std::get<0>(p0_);
     lucent::String v = std::get<1>(p0_);
     return lucent::concat(k, LUCENT_STR(":"), v);
@@ -356,6 +363,7 @@ lucent::String m_collections::entries(lucent::Dict<lucent::String> p0_) {
 }
 
 lucent::Array<lucent::Array<double>> m_collections::matrix(double p0_) {
+  lucent::checkStack();
   lucent::Array<lucent::Array<double>> rows = lucent::Array<lucent::Array<double>>{};
   {
     int64_t i = static_cast<int64_t>(0);
@@ -390,11 +398,13 @@ lucent::Array<lucent::Array<double>> m_collections::matrix(double p0_) {
 }
 
 lucent::Array<lucent::String> m_collections::uniq(lucent::Array<lucent::String> p0_) {
+  lucent::checkStack();
   lucent::Set<lucent::String> v1_ = lucent::Set<lucent::String>(p0_);
   return ({ lucent::Array<lucent::String> arr_8_; arr_8_.append(v1_.values()); arr_8_; });
 }
 
 lucent::String m_collections::searchFrom(lucent::Opt<double> p0_) {
+  lucent::checkStack();
   lucent::Array<double> xs = lucent::Array<double>{1.0, 2.0, 3.0, 1.0, 2.0, 3.0};
   double v11_ = xs.indexOf(1.0, 1.0);
   double v15_ = -2.0;
@@ -416,6 +426,7 @@ lucent::String m_collections::searchFrom(lucent::Opt<double> p0_) {
 }
 
 lucent::String m_collections::lengthOf(lucent::Fn<lucent::String()> p0_) {
+  lucent::checkStack();
   {
     std::exception_ptr ex2_;
     try {
@@ -435,7 +446,9 @@ lucent::String m_collections::lengthOf(lucent::Fn<lucent::String()> p0_) {
 }
 
 lucent::String m_collections::newArrayLength(double p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([n = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Array<double> v1_ = lucent::Array<double>::filled(lucent::arrayLength(n), double{});
     lucent::Array<double> v3_ = v1_.fill(0.0);
     int64_t v4_ = static_cast<int64_t>(v3_.size());
@@ -445,7 +458,9 @@ lucent::String m_collections::newArrayLength(double p0_) {
 }
 
 lucent::String m_collections::fromLength(double p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([n = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Fn<double(lucent::Undefined, double)> v1_ = lucent::Fn<double(lucent::Undefined, double)>([](lucent::Undefined p0_, double p1_) mutable -> double {
       return p1_;
     });
@@ -461,7 +476,9 @@ lucent::String m_collections::fromLength(double p0_) {
 }
 
 lucent::String m_collections::fromUndefined(double p0_) {
+  lucent::checkStack();
   lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([n = p0_]() mutable -> lucent::String {
+    lucent::checkStack();
     lucent::Array<lucent::Opt<double>> xs = lucent::Array<lucent::Opt<double>>::filled(lucent::arrayLikeLength(n), lucent::Opt<double>(lucent::undefined));
     int64_t v3_ = static_cast<int64_t>(xs.size());
     lucent::String v4_ = lucent::toJsString(static_cast<double>(v3_));
@@ -472,8 +489,10 @@ lucent::String m_collections::fromUndefined(double p0_) {
 }
 
 lucent::String m_collections::flatMapped() {
+  lucent::checkStack();
   lucent::Array<lucent::Opt<lucent::String>> names = lucent::Array<lucent::Opt<lucent::String>>{lucent::Opt<lucent::String>(LUCENT_STR("a")), lucent::Opt<lucent::String>(lucent::null), lucent::Opt<lucent::String>(LUCENT_STR("b"))};
   lucent::Fn<std::variant<lucent::Array<lucent::Undefined>, lucent::String>(lucent::Opt<lucent::String>, double, lucent::Array<lucent::Opt<lucent::String>>)> v5_ = lucent::Fn<std::variant<lucent::Array<lucent::Undefined>, lucent::String>(lucent::Opt<lucent::String>, double, lucent::Array<lucent::Opt<lucent::String>>)>([](lucent::Opt<lucent::String> p0_, double p1_, lucent::Array<lucent::Opt<lucent::String>> p2_) mutable -> std::variant<lucent::Array<lucent::Undefined>, lucent::String> {
+    lucent::checkStack();
     bool v4_ = !p0_.has();
     std::variant<lucent::Array<lucent::Undefined>, lucent::String> v8_{};
     if (v4_) {
@@ -489,6 +508,7 @@ lucent::String m_collections::flatMapped() {
   }));
   lucent::Array<double> v10_ = lucent::Array<double>{1.0, 2.0, 3.0};
   lucent::Array<double> doubled = v10_.template flatMap<double>([](double p0_, double p1_, lucent::Array<double> p2_) mutable -> std::variant<double, lucent::Array<double>> {
+    lucent::checkStack();
     bool v6_ = lucent::jsMod(p0_, 2.0) == 0.0;
     std::variant<double, lucent::Array<double>> v10_{};
     if (v6_) {
