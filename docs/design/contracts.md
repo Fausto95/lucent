@@ -34,7 +34,7 @@ so; the code is what runs.
 | C-IR     | Semantic IR, its verifier, effect summaries, program facts                      | v1.3            | v1.2 frozen; v1.2.1, v1.3 proposed | `packages/compiler/src/ir/`, `packages/compiler/src/analysis/`                                      |
 | C-EXEC   | Runtime identities, scopes, operations, contexts, transport, compute, callbacks | v1.6            | v1.5 frozen; v1.6 proposed         | `packages/runtime/cpp/lucent/` (`scope.h`, `execution.h`, `transport.h`, `compute.h`, `callback.h`) |
 | C-BIGINT | The runtime's `BigInt` and its native integer conversions                       | v1.1            | v1 frozen; v1.1 proposed           | `packages/runtime/cpp/lucent/bigint.h`                                                              |
-| C-BUFFER | Native buffers, borrows and transfers                                           | v1.2            | Proposed                           | `packages/runtime/cpp/lucent/buffer.h`, `lucent:core`                                               |
+| C-BUFFER | Native buffers, borrows and transfers                                           | v1.3            | Proposed                           | `packages/runtime/cpp/lucent/buffer.h`, `lucent:core`                                               |
 | C-VIEW   | Component descriptions, mounts, platform hosts, toolkit bodies                  | v2.2            | Proposed                           | `packages/compiler/src/ui/contract.ts`, `packages/runtime/cpp/rn/`                                  |
 | C-BUILD  | Build records, required actions, SDK locks, build identities                    | v1.6            | v1 frozen; v1.1 to v1.6 proposed   | `packages/lucent/src/cli/build-graph.ts`, `pipeline.ts`; `packages/compiler/src/emit/identity.ts`   |
 | C-TRACE  | Correlated runtime and build tracing                                            | v1              | Proposed                           | `packages/runtime/cpp/lucent/trace.h`, `packages/lucent/src/cli/trace.ts`                           |
@@ -1641,7 +1641,7 @@ namespace detail {
 
 ## C-BUFFER: native buffers
 
-**Current version: v1.2 (proposed).**
+**Current version: v1.3 (proposed).**
 
 ### Invariants
 
@@ -1747,6 +1747,12 @@ Policies:
   become the `ArrayBuffer`'s adopted `ByteStorage`, released once when
   the last Lucent or JavaScript holder goes. Returned to JavaScript, it
   crosses uncopied when nothing else holds it, as any `ArrayBuffer` does.
+- **Platform adoption** (v1.3): `jni::adoptByteBuffer(buffer)` adopts a
+  direct `ByteBuffer`'s whole capacity, holding a global reference that
+  its `Destroy` deletes (on any thread: `env()` attaches it); a heap
+  buffer (no direct address) or a read-only one throws `TypeError`.
+  Adoption is counted in `adopted`; the Java side must not touch the
+  buffer afterwards, which the runtime cannot check.
 - **Copies**: only `toBytes` and `fromBytes` copy payload, and each is
   counted.
 
@@ -1815,6 +1821,9 @@ export interface MutableByteSpan extends ByteSpan {
   runtime, `lucent:core` and the JavaScript handle, over the adopted
   `ByteStorage` `ArrayBuffer` and `Uint8Array` share since #163.
   Migration: none (additive).
+- **v1.3** (2026-10-11, T72, proposed): adoption of a direct `ByteBuffer`,
+  `adoptByteBuffer` from `lucent:android` (`jni::adoptByteBuffer` in
+  `platform/android.h`). Migration: none (additive).
 
 ## C-VIEW: components and views
 
