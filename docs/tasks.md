@@ -45,7 +45,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T65](#t65)   | Enforce physical-device performance budgets                       | waiting (needs the maintainer); needs T55, T56, T59, T64                                                                          |
 | [T66](#t66)   | Complete user documentation and migration examples                | waiting; needs T51, T52, T60                                                                                                      |
 | [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165, #167, #168 merged)                                                                                       |
-| [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | waiting; needs T72                                                                                                                |
+| [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | in progress (#175 merged)                                                                                                         |
 | [T74](#t74)   | Callback executors and stream backpressure                        | waiting; needs T72                                                                                                                |
 | [T75](#t75)   | Support a window of stable React Native and Expo releases         | blocked: a decision on the window; needs nothing open                                                                             |
 | [T76](#t76)   | App-delegate and Activity integration hooks                       | blocked: a decision superseding 0071; needs nothing open                                                                          |
@@ -1646,7 +1646,8 @@ JavaScript a retained native pointer other libraries consume (Skia's
 return JavaScript values Lucent does not look inside (another library's
 object, a worklet runtime's value, a Nitro HybridObject).
 
-- **Status:** waiting; needs [T72](#t72).
+- **Status:** in progress: `JSValue` merged as #175; `NativeHandle`
+  waits for [T72](#t72)'s platform adoptions.
 - **Area:** Compiler (types, bindings), runtime (JSI host), lucent:core.
 - **Needs:** [T72](#t72).
 - **Verify:** V1, V2, V3, V5.
@@ -1666,15 +1667,18 @@ Lucent's boundary accepts only its own types (no `any`, `unknown` or
 opaque handle), so a Lucent module today is a leaf: nothing from Skia,
 Reanimated, Worklets or a Nitro library can be handed to it.
 
-- [ ] `JSValue` (lucent:core): an opaque value JavaScript gave. Lucent code
+- [x] `JSValue` (lucent:core): an opaque value JavaScript gave. Lucent code
       stores it, passes it back, puts it in fields, arrays and records;
       nothing else (no comparison, no conversion: a diagnostic). It is a
       `Host` id (thread ownership holds: no JSI value leaves the JS
       thread); the host releases its reference when the last Lucent
       reference goes, on the JS thread; after a reload, use throws
       `TypeError` as a stale instance does. Refused in compute inputs and
-      executor channels (`not-transferable`), allowed in main-thread state.
-- [ ] `JSValue` stays opaque even when it is a function: a callback Lucent
+      executor channels (`not-transferable`), allowed in main-thread state
+      (#175, C-EXEC v1.7, the `opaque-values` e2e case, `host_test.cpp`'s
+      `jsValuesAreHeldUntilLucentLetsGo`; an optional one is absent for
+      both of JavaScript's absent values).
+- [x] `JSValue` stays opaque even when it is a function: a callback Lucent
       calls is typed as a function parameter, as today, and `JSValue` has
       no call form (LUCENT1002 names the function type to use instead).
 - [ ] `NativeHandle` (lucent:core, platform-made), a pointer and a

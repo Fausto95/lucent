@@ -25,7 +25,17 @@ import {
 } from "../analysis/scopes.ts";
 import { Codes, fail, replacing } from "../diagnostics.ts";
 import { bigintLiteralValue } from "../lowering/literals.ts";
-import { isVoidish, type LType, sameType, T, temporary, typeKey, unionOf } from "../types.ts";
+import {
+  holdsJsValue,
+  isVoidish,
+  jsValueOpaque,
+  type LType,
+  sameType,
+  T,
+  temporary,
+  typeKey,
+  unionOf,
+} from "../types.ts";
 import { IrBuilder } from "./build.ts";
 import {
   binaryResult,
@@ -1740,7 +1750,16 @@ class Lowerer {
   }
 
   truthy(v: ValueId, node: ts.Node): ValueId {
-    return this.b.typeOf(v).k === "boolean" ? v : this.b.unary("!!", v, spanOf(node));
+    const t = this.b.typeOf(v);
+
+    if (holdsJsValue(t))
+      fail(
+        node,
+        Codes.UnsupportedOperator,
+        `${jsValueOpaque("test")} (compare with undefined instead)`,
+      );
+
+    return t.k === "boolean" ? v : this.b.unary("!!", v, spanOf(node));
   }
 
   /** `v` as a `to`: the same value, in the representation `to` has. */
@@ -1769,6 +1788,8 @@ class Lowerer {
     const t = this.b.typeOf(v);
 
     if (t.k === "string") return v;
+
+    if (holdsJsValue(t)) fail(node, Codes.UnsupportedOperator, jsValueOpaque("convert"));
 
     if (unaryResult("String", t)) return this.b.unary("String", v, spanOf(node));
 
@@ -2923,8 +2944,14 @@ const EXPRESSIONS: Partial<Record<ts.SyntaxKind, ExpressionLowering>> = {
   [ts.SyntaxKind.PostfixUnaryExpression]: (n: ts.PostfixUnaryExpression, lw: Lowerer) =>
     lw.increment(n.operand, n.operator === ts.SyntaxKind.PlusPlusToken ? "+" : "-", true, n),
 
-  [ts.SyntaxKind.TypeOfExpression]: (n: ts.TypeOfExpression, lw: Lowerer) =>
-    lw.b.unary("typeof", lw.expr(n.expression), spanOf(n)),
+  [ts.SyntaxKind.TypeOfExpression]: (n: ts.TypeOfExpression, lw: Lowerer) => {
+    const v = lw.expr(n.expression);
+
+    if (holdsJsValue(lw.b.typeOf(v)))
+      fail(n, Codes.UnsupportedOperator, jsValueOpaque("ask the type of"));
+
+    return lw.b.unary("typeof", v, spanOf(n));
+  },
 
   [ts.SyntaxKind.BinaryExpression]: (n: ts.BinaryExpression, lw) => lw.binary(n),
 

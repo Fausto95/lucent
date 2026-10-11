@@ -10,6 +10,8 @@ import {
   cppIdent,
   functionsNotCompared,
   holdsFunction,
+  holdsJsValue,
+  jsValueOpaque,
   isVoidish,
   type LType,
   sameType,
@@ -979,14 +981,18 @@ export class FnEmitter {
     if (node.head.text) parts.push(stringExpr(node.head.text));
     for (const span of node.templateSpans) {
       const e = this.expr(span.expression);
-      parts.push(e.int ? e.int.c : e.t.k === "number" ? e.c : this.toStringCode(e));
+      parts.push(
+        e.int ? e.int.c : e.t.k === "number" ? e.c : this.toStringCode(e, span.expression),
+      );
       if (span.literal.text) parts.push(stringExpr(span.literal.text));
     }
     if (parts.length === 0) return { c: stringExpr(""), t: T.string };
     return { c: cpp.call("lucent::concat", parts), t: T.string };
   }
 
-  toStringCode(e: E): cpp.Expr {
+  /** `e` as a string (ToString), at `at`: a JSValue is JavaScript's to convert. */
+  toStringCode(e: E, at: ts.Node): cpp.Expr {
+    if (holdsJsValue(e.t)) fail(at, Codes.UnsupportedOperator, jsValueOpaque("convert"));
     return e.t.k === "string" ? e.c : cpp.call("lucent::toJsString", [this.asValue(e).c]);
   }
 
@@ -1456,8 +1462,8 @@ export class FnEmitter {
           const left =
             at.k === "string" && a.t.k !== "opt"
               ? cpp.construct(cpp.type("lucent::String"), [a.c])
-              : this.toStringCode(a);
-          return { c: cpp.binary(left, "+", this.toStringCode(b)), t: T.string };
+              : this.toStringCode(a, node);
+          return { c: cpp.binary(left, "+", this.toStringCode(b, node)), t: T.string };
         }
         return this.arith(a, b, "+", node);
       }
@@ -1647,6 +1653,13 @@ export class FnEmitter {
       const other = absent(bt) ? a : b;
       if (!mayBeAbsent(other.t)) return never(other);
     }
+    // Only an absence test: JavaScript's value is its own to compare.
+    if ((holdsJsValue(at) && !absent(bt)) || (holdsJsValue(bt) && !absent(at)))
+      fail(
+        node,
+        Codes.UnsupportedOperator,
+        jsValueOpaque(`compare (\`${strict ? "===" : "=="}\`)`),
+      );
     const same = (k: LType["k"]) => at.k === k && bt.k === k;
     if (same("number") || same("boolean") || same("string") || same("bigint"))
       return cpp.binary(a.c, "==", b.c);
@@ -1729,7 +1742,7 @@ export class FnEmitter {
     if (op === "+" && cur.t.k === "string") {
       const left = cpp.construct(cpp.type("lucent::String"), [cur.c]);
 
-      return { c: cpp.binary(left, "+", this.toStringCode(value)), t: T.string };
+      return { c: cpp.binary(left, "+", this.toStringCode(value, node)), t: T.string };
     }
 
     if (cur.t.k === "bigint") return this.bigintOp(op, cur, value, node);
@@ -1775,7 +1788,7 @@ export class FnEmitter {
     const lt = stripOpt(lv.type);
     let combine: (cur: cpp.Expr) => cpp.Expr;
     if (op === "+" && lt.k === "string") {
-      const r = this.toStringCode(rhs);
+      const r = this.toStringCode(rhs, node);
       if (lv.direct && lv.type.k === "string")
         return { c: cpp.assign(lv.direct, r, "+="), t: T.string };
       combine = (cur) => cpp.binary(cpp.construct(cpp.type("lucent::String"), [cur]), "+", r);

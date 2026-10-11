@@ -95,6 +95,8 @@ template <class R>
 void jsonWrite(JsonWriter& w, const Ref<WeakRefObject<R>>&) {
   w.raw("{}");
 }
+/// A JSValue's JSON is JavaScript's to write.
+inline void jsonWrite(JsonWriter&, const JSValue&) { throwOpaque("write as JSON"); }
 /// WeakMaps and WeakSets have no enumerable own properties.
 template <class K, class V>
 void jsonWrite(JsonWriter& w, const WeakMap<K, V>&) {

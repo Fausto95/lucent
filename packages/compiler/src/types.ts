@@ -82,7 +82,9 @@ export type LType =
   /** `WeakMap<K, V>` (lucent::WeakMap): object keys, held weakly, by identity. */
   | { k: "weakMap"; key: LType; val: LType }
   /** `WeakSet<K>` (lucent::WeakSet). */
-  | { k: "weakSet"; key: LType };
+  | { k: "weakSet"; key: LType }
+  /** lucent:core's JSValue (lucent::JSValue): a value JavaScript gave, held without looking inside. */
+  | { k: "jsvalue" };
 
 /** The error constructors Lucent makes; an error is named after its constructor. */
 const ERROR_NAMES = ["Error", "TypeError", "RangeError", "SyntaxError"] as const;
@@ -112,6 +114,7 @@ export const T = {
   span: { k: "span", writable: false } as LType,
   mutableSpan: { k: "span", writable: true } as LType,
   subscription: { k: "subscription" } as LType,
+  jsValue: { k: "jsvalue" } as LType,
 };
 
 /** lucent:core's types that have a native representation of their own, by name. */
@@ -120,6 +123,7 @@ const CORE_TYPES: Record<string, LType> = {
   ByteSpan: T.span,
   MutableByteSpan: T.mutableSpan,
   EventSubscription: T.subscription,
+  JSValue: T.jsValue,
 };
 
 export function typeKey(t: LType): string {
@@ -391,6 +395,20 @@ export function isVoidish(t: LType): boolean {
  * or an optional, union or tuple (compared element by element) that can
  * hold one. Arrays, maps and other objects compare by reference instead.
  */
+/** Whether `t` is or may be a JSValue (an optional one, or a union or tuple holding one). */
+export function holdsJsValue(t: LType): boolean {
+  if (t.k === "jsvalue") return true;
+
+  const parts = t.k === "opt" ? [t.inner] : t.k === "union" ? t.ms : t.k === "tuple" ? t.es : [];
+
+  return parts.some(holdsJsValue);
+}
+
+/** The diagnostic for looking inside a JSValue: `what` it would do ("compare"). */
+export function jsValueOpaque(what: string): string {
+  return `Lucent cannot ${what} a JSValue: it holds JavaScript's value without reading it. Do it in JavaScript, or take a typed value`;
+}
+
 export function holdsFunction(t: LType): boolean {
   if (t.k === "fn") return true;
 
@@ -969,6 +987,8 @@ export class TypeRegistry {
         Codes.UnsupportedType,
         functionsNotCompared(", so they cannot be Map keys or Set elements"),
       );
+
+    if (holdsJsValue(t)) fail(node, Codes.UnsupportedType, jsValueOpaque("key a Map or Set with"));
 
     return t;
   }
@@ -1578,6 +1598,8 @@ export class TypeRegistry {
         return lucent("AbortController");
       case "buffer":
         return lucent("NativeBuffer");
+      case "jsvalue":
+        return lucent("JSValue");
       case "span":
         return lucent(t.writable ? "MutableByteSpan" : "ByteSpan");
       case "tparam":

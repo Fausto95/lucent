@@ -231,6 +231,37 @@ export declare class EventEmitter<Events extends { [name: string]: (...args: nev
   onObserved(name: keyof Events & string, observer: (observed: boolean) => void): EventSubscription;
 }
 
+/**
+ * A value JavaScript gave, which Lucent code holds without looking inside:
+ * another library's object, a callback it will hand back, a value of any
+ * type. Lucent code stores it, passes it on and returns it, and JavaScript
+ * gets the same value back: an object keeps its identity, a function stays
+ * callable, a primitive stays itself.
+ *
+ * Nothing else reads it: comparing, converting, testing or `typeof` one,
+ * writing it as JSON or keying a `Map` or `Set` with it is refused, as is
+ * handing it to a compute task. An optional one (`JSValue | undefined`) is
+ * absent for JavaScript's `undefined` and `null`, as `??` sees them. The
+ * runtime's host holds the value until the last Lucent reference goes; one
+ * held across a reload is refused when it goes back to JavaScript.
+ *
+ * ```ts
+ * import type { JSValue } from "lucent:core";
+ *
+ * export class Player {
+ *   constructor(readonly source: JSValue) {}
+ * }
+ *
+ * export function play(source: JSValue): Player {
+ *   return new Player(source);
+ * }
+ * ```
+ */
+export declare class JSValue {
+  private constructor();
+  private readonly opaque: never;
+}
+
 /** How a compute task runs. */
 export interface ComputeOptions {
   /** Aborting it cancels the task: the promise rejects with its reason at once. */

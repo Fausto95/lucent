@@ -1325,6 +1325,47 @@ static void lentBytesAreJavaScriptsUntilTheCallEnds() {
   });
 }
 
+/// A JSValue is JavaScript's own value, held by the host until the last
+/// Lucent reference goes (released on the JS thread, from any thread);
+/// one of a host a reload replaced is refused.
+static void jsValuesAreHeldUntilLucentLetsGo() {
+  JsThread js;
+  install(js);
+  JSValue held;
+  auto values = [&] {
+    size_t n = 0;
+    js.run([&](jsi::Runtime& rt) { n = Host::get(rt).ownership().values; });
+    return n;
+  };
+
+  js.run([&](jsi::Runtime& rt) {
+    jsi::Value object = rt.evaluateJavaScript(std::make_shared<jsi::StringBuffer>("({ n: 1 })"), "value");
+    held = Convert<JSValue>::fromJs(rt, object, Path{"f", "argument 'value'"});
+    Host& h = Host::get(rt);
+    CHECK(h.ownership().values == 1);
+    CHECK(jsi::Value::strictEquals(rt, Convert<JSValue>::toJs(rt, h, held), object));
+    // Its copies are the same value.
+    JSValue copy = held;
+    CHECK(jsi::Value::strictEquals(rt, Convert<JSValue>::toJs(rt, h, copy), object));
+  });
+
+  std::thread([&] { held.reset(); }).join();
+  CHECK(within(2000, [&] { return values() == 0; }));
+
+  JSValue stale;
+  js.run([&](jsi::Runtime& rt) { stale = Convert<JSValue>::fromJs(rt, jsi::Value(3), Path{"f", "argument 'value'"}); });
+  js.run([&](jsi::Runtime& rt) { Host::create(rt, js.poster()); });
+  bool refused = false;
+  js.run([&](jsi::Runtime& rt) {
+    try {
+      Convert<JSValue>::toJs(rt, Host::get(rt), stale);
+    } catch (const Exception& e) {
+      refused = e.error()->name.toUtf8() == "TypeError" && e.error()->message.toUtf8().find("reload") != std::string::npos;
+    }
+  });
+  CHECK(refused);
+}
+
 /// P3: a 4 MB frame a native producer fills reaches JavaScript with no
 /// payload copy (adopted as a NativeBuffer, moved into an ArrayBuffer,
 /// returned), and is released once, when JavaScript lets it go; a 4 MB
@@ -1464,7 +1505,7 @@ static void hostsReportWhatTheyHold() {
 
   CHECK(js.string("JSON.stringify(__lucentHost.ownership)") ==
         "{\"runtime\":" + std::to_string(host->id()) +
-            ",\"promises\":2,\"callbacks\":1,\"identities\":1,\"prototypes\":1,\"modules\":1,\"registrations\":1,\"inFlight\":0}");
+            ",\"promises\":2,\"callbacks\":1,\"identities\":1,\"prototypes\":1,\"modules\":1,\"registrations\":1,\"inFlight\":0,\"values\":0}");
 
   js.run([&](jsi::Runtime&) { host->invalidate(); });
   CHECK(Actor::shared().waitIdle(2000));
@@ -1765,6 +1806,7 @@ int main() {
   returnedBytesMoveWhenNothingElseHoldsThem();
   lentBytesAreJavaScriptsUntilTheCallEnds();
   aFrameCrossesWithoutAPayloadCopy();
+  jsValuesAreHeldUntilLucentLetsGo();
   eachRuntimeHasItsOwnObjectForAnInstance();
   objectsOfATornDownHostAreRefused();
   collectedInstancesReleaseOnTheirThread();

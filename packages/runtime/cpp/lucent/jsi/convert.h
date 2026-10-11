@@ -231,7 +231,9 @@ struct Convert<Opt<T>> {
 template <class T>
 Opt<T> optionalFromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p, bool admitsNull, const char* expected) {
   if (v.isUndefined() || v.isNull()) {
-    if (v.isNull() != admitsNull) throwBoundaryError(rt, p, expected, v);
+    // A JSValue admits JavaScript's every value: either absent one is absent, as `??` sees it.
+    if constexpr (!std::is_same_v<T, JSValue>)
+      if (v.isNull() != admitsNull) throwBoundaryError(rt, p, expected, v);
     return v.isNull() ? Opt<T>(null) : Opt<T>(undefined);
   }
   return Convert<T>::fromJs(rt, v, p);
@@ -573,6 +575,41 @@ class JsCallback {
  private:
   std::weak_ptr<Host> host_;
   uint64_t id_;
+};
+
+// --- opaque values ------------------------------------------------------------------------
+
+/// A JSValue: the host's reference to the value JavaScript gave, released on
+/// the JS thread when the last Lucent reference goes.
+class HeldJsValue final : public JSValueObject {
+ public:
+  HeldJsValue(Host& host, uint64_t id) : host_(host.weak_from_this()), id_(id) {}
+  ~HeldJsValue() override {
+    if (auto h = host_.lock()) h->releaseValue(id_);
+  }
+  std::shared_ptr<Host> host() const { return host_.lock(); }
+  uint64_t id() const { return id_; }
+
+ private:
+  std::weak_ptr<Host> host_;
+  uint64_t id_;
+};
+
+/// Any value JavaScript gives, undefined and null included, kept as it is;
+/// given back, the same value. One of a host a reload replaced is refused.
+template <>
+struct Convert<JSValue> {
+  static JSValue fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path&) {
+    Host& host = Host::get(rt);
+    return std::make_shared<HeldJsValue>(host, host.retainValue(rt, jsi::Value(rt, v)));
+  }
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const JSValue& v) {
+    auto held = std::dynamic_pointer_cast<HeldJsValue>(v);
+    auto host = held ? held->host() : nullptr;
+    const jsi::Value* value = host.get() == &h && h.alive() ? h.retainedValue(held->id()) : nullptr;
+    if (!value) throwTypeError("a JSValue of a JavaScript runtime a reload replaced cannot be given to this one");
+    return jsi::Value(rt, *value);
+  }
 };
 
 template <class T>

@@ -269,6 +269,20 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "params": []
       },
       {
+        "name": "JSValue",
+        "kind": "class",
+        "signature": "class JSValue {\n  private constructor();\n  private readonly opaque: never;\n}",
+        "doc": [
+          "A value JavaScript gave, which Lucent code holds without looking inside: another library's object, a callback it will hand back, a value of any type. Lucent code stores it, passes it on and returns it, and JavaScript gets the same value back: an object keeps its identity, a function stays callable, a primitive stays itself.",
+          "Nothing else reads it: comparing, converting, testing or `typeof` one, writing it as JSON or keying a `Map` or `Set` with it is refused, as is handing it to a compute task. An optional one (`JSValue | undefined`) is absent for JavaScript's `undefined` and `null`, as `??` sees them. The runtime's host holds the value until the last Lucent reference goes; one held across a reload is refused when it goes back to JavaScript."
+        ],
+        "examples": [
+          "import type { JSValue } from \"lucent:core\";\n\nexport class Player {\n  constructor(readonly source: JSValue) {}\n}\n\nexport function play(source: JSValue): Player {\n  return new Player(source);\n}"
+        ],
+        "members": [],
+        "params": []
+      },
+      {
         "name": "ComputeOptions",
         "kind": "interface",
         "signature": "interface ComputeOptions {\n  signal?: AbortSignal;\n}",

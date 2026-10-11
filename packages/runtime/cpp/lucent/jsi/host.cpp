@@ -118,6 +118,7 @@ class Host::Anchor : public jsi::HostObject {
     o.setProperty(rt, "modules", static_cast<double>(held.modules));
     o.setProperty(rt, "registrations", static_cast<double>(held.registrations));
     o.setProperty(rt, "inFlight", static_cast<double>(held.inFlight));
+    o.setProperty(rt, "values", static_cast<double>(held.values));
     return o;
   }
 
@@ -318,7 +319,8 @@ Host::Ownership Host::ownership() const {
           prototypes_.size(),
           modules_.size(),
           registrations,
-          inFlight_->load()};
+          inFlight_->load(),
+          values_.size()};
 }
 
 Error Host::goneError() { return makeError(String::fromLatin1("AbortError"), String::fromLatin1("The JavaScript runtime is gone")); }
@@ -367,6 +369,7 @@ void Host::tearDown(bool runtimeUsable) {
     if (auto e = scope->dispose()) reportUncaught(e, "host");
 
   functions_.clear();
+  values_.clear();
   promiseConstructor_.reset();
   prototypes_.clear();
   modules_.clear();
@@ -487,6 +490,28 @@ void Host::release(uint64_t id) {
   std::weak_ptr<Host> weak = weak_from_this();
   postToJs([weak, id](jsi::Runtime&) {
     if (auto self = weak.lock()) self->functions_.erase(id);
+  });
+}
+
+uint64_t Host::retainValue(jsi::Runtime&, jsi::Value value) {
+  uint64_t id = nextId_++;
+  values_.emplace(id, std::move(value));
+  return id;
+}
+
+const jsi::Value* Host::retainedValue(uint64_t id) const {
+  auto it = values_.find(id);
+  return it == values_.end() ? nullptr : &it->second;
+}
+
+void Host::releaseValue(uint64_t id) {
+  if (onJsThread()) {
+    values_.erase(id);
+    return;
+  }
+  std::weak_ptr<Host> weak = weak_from_this();
+  postToJs([weak, id](jsi::Runtime&) {
+    if (auto self = weak.lock()) self->values_.erase(id);
   });
 }
 

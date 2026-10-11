@@ -1,0 +1,26 @@
+const obj = { a: 1 };
+const fn = (x) => x * 2;
+print(
+  mod.echo(obj) === obj,
+  mod.echo(fn)(21),
+  mod.echo(5),
+  mod.echo("s"),
+  mod.echo(null),
+  mod.echo(undefined),
+);
+print(mod.keep(obj).value === obj, mod.tagged("t", fn).value === fn, mod.tagged("t", obj).tag);
+const [b, a] = mod.swapped(obj, fn);
+print(b === fn, a === obj);
+print(
+  mod.orElse(undefined, obj) === obj,
+  mod.orElse(null, obj) === obj,
+  mod.orElse(fn, obj) === fn,
+);
+print(mod.given(undefined), mod.given(null), mod.given(0));
+mod.store(obj);
+print(mod.restored() === obj);
+mod.clear();
+print(mod.restored());
+print(mod.handBack(obj, (v) => String(v === obj)));
+print(mod.remembered(fn)() === fn);
+mod.later(obj).then((v) => print(v === obj));
