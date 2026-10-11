@@ -147,6 +147,8 @@ import * as orderModule from "../lucent/order.lucent";
 import orderRun from "./order";
 import * as promiseFieldsModule from "../lucent/promise-fields.lucent";
 import promiseFieldsRun from "./promise-fields";
+import * as recursionLimitModule from "../lucent/recursion-limit.lucent";
+import recursionLimitRun from "./recursion-limit";
 import * as recursiveShapesModule from "../lucent/recursive-shapes.lucent";
 import recursiveShapesRun from "./recursive-shapes";
 import * as reduceOperandsModule from "../lucent/reduce-operands.lucent";
@@ -254,6 +256,7 @@ export const cases: TestCase[] = [
   { name: "optional-elements", module: optionalElementsModule, run: optionalElementsRun, expected: ["none -1 3 3 none -1","1 -1 -1 true 2","1 1 a,b | none -1 a,b | none -1 a,b | {\"a\":1} | 1 undefined","none -1 a,b","true true true true 2 true true"] },
   { name: "order", module: orderModule, run: orderRun, expected: ["pair l1+r2 | l1 r2 ","first threw: l failed | l! ","second threw: r failed | l1 r! ","operands a1b2c3 | a1 b2 c3 ","locals y2+z3+x1 | x1 y2 z3 ","counted 11","arithmetic 2 -1.3125 NaN","mulAdd 0 0","numbers 0 NaN Infinity -Infinity 0.30000000000000004 -1 1 1.4142135623730951 1e+21 123456789012345680000","negate true true","compare true false false true true false true / false false false true false true true"] },
   { name: "promise-fields", module: promiseFieldsModule, run: promiseFieldsRun, expected: ["a,b,c {\"pending\":{},\"log\":[\"a\",\"b\",\"c\"]}","true 27 2 {\"point\":{},\"total\":{},\"loads\":2}","{\"label\":\"box\",\"ready\":{}} [{},{}]","js true"] },
+  { name: "recursion-limit", module: recursionLimitModule, run: recursionLimitRun, expected: ["RangeError true true","RangeError true true true","RangeError true true","RangeError true true","500500","RangeError true true"] },
   { name: "recursive-shapes", module: recursiveShapesModule, run: recursiveShapesRun, expected: ["4","{\"value\":2,\"children\":[{\"value\":3,\"children\":[]},{\"value\":4,\"children\":[{\"value\":5,\"children\":[]}]}]}","3","1/a/2","1/2/3","7","root,a"] },
   { name: "reduce-operands", module: reduceOperandsModule, run: reduceOperandsRun, expected: ["16","mmirr=13","[\"a\",\"C\",\"B\",\"A\"]"] },
   { name: "reference-identity", module: referenceIdentityModule, run: referenceIdentityRun, expected: ["true true false false true true true true false false true/false false/true","true false false true true false/true","true false false true true true/false","true false false true true false/true","true false false true false true true/false","true false false true/false false/true","true/false false/true true/false","true false false true false true true false true true false true true false","true true true false false true true false false true true 1 true false"] },

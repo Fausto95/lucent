@@ -72,6 +72,38 @@ static void onSmallStack(size_t bytes, F f) {
   pthread_attr_destroy(&attr);
 }
 
+/// What generated code does on entry: recursion without end, and with one.
+static double unending(double n) {
+  checkStack();
+  return unending(n + 1) + 1;
+}
+static double counted(double n) {
+  checkStack();
+  return n <= 0 ? 0 : counted(n - 1) + 1;
+}
+
+/// Recursion past the stack's room throws a RangeError on every thread,
+/// a small one included, which code catches; the stack works afterwards.
+static void stackExhaustionThrows() {
+  for (size_t bytes : {size_t(256 * 1024), size_t(8 * 1024 * 1024)}) {
+    std::string name;
+    std::string message;
+    double after = 0;
+    onSmallStack(bytes, [&] {
+      try {
+        unending(0);
+      } catch (const Exception& e) {
+        name = e.error()->name.toUtf8();
+        message = e.error()->message.toUtf8();
+      }
+      after = counted(1000);
+    });
+    CHECK(name == "RangeError");
+    CHECK(message == "Maximum call stack size exceeded");
+    CHECK(after == 1000);
+  }
+}
+
 /// A regular expression nested deeper than the stack allows is refused
 /// with a SyntaxError, as engines refuse one, instead of overflowing the
 /// native stack. Nesting the stack has room for still compiles, and
@@ -1307,6 +1339,7 @@ static void nativeRefJson() {
 
 int main() {
   deepRegExps();
+  stackExhaustionThrows();
   numbers();
   exactIntegers();
   nativeRefJson();
