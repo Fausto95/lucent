@@ -9,7 +9,7 @@ Tasks live here, in the repository, rather than in GitHub issues, so an
 agent's commit updates the task it works on. A commit that finishes,
 changes or adds a task updates its entry here in the same commit: its
 status line, its checklist and the table below. A new task takes the next
-free id (`TA38` next) and never reuses one.
+free id (`T80` and `TA47` next) and never reuses one.
 
 ## Status
 
@@ -26,7 +26,12 @@ free id (`TA38` next) and never reuses one.
 | [TA25](#ta25) | Fix the bare app's FlatList crash from a second react-native copy | done (#76, 2026-10-04)                                                                                                            |
 | [TA26](#ta26) | Lay out the slot after a native-only move on iOS                  | done (#77, 2026-10-04)                                                                                                            |
 | [TA36](#ta36) | Close the gaps four reference ports need                          | done (#128, #129, 2026-10-07)                                                                                                     |
-| [TA37](#ta37) | Close the language gaps the review found                          | in review (2026-10-08)                                                                                                            |
+| [TA37](#ta37) | Close the language gaps the review found                          | done (#149, 2026-10-08)                                                                                                           |
+| [T71](#t71)   | Native object references as view props                            | blocked: a decision superseding 0046 and 0065; needs nothing open                                                                 |
+| [T78](#t78)   | UIKit components with a view-controller root                      | ready; needs nothing open                                                                                                         |
+| [TA38](#ta38) | Accept object literals for data-only interfaces                   | ready; needs nothing open                                                                                                         |
+| [TA43](#ta43) | Tell a module when JavaScript starts and stops listening          | ready; needs nothing open                                                                                                         |
+| [TA45](#ta45) | Reconcile the roadmap's evidence with the examples                | ready; needs nothing open                                                                                                         |
 | **G4**        | **Production candidate**                                          |                                                                                                                                   |
 | [T54](#t54)   | Implement measured compiler and runtime optimizations             | done (#90, #92, #93, #100, 2026-10-06)                                                                                            |
 | [T55](#t55)   | Implement native recycled and virtualized lists                   | waiting (needs the maintainer); needs T52                                                                                         |
@@ -39,12 +44,25 @@ free id (`TA38` next) and never reuses one.
 | [T64](#t64)   | Run lifetime, concurrency and Fabric stress validation            | waiting (needs the maintainer); needs T55, T59, T60                                                                               |
 | [T65](#t65)   | Enforce physical-device performance budgets                       | waiting (needs the maintainer); needs T55, T56, T59, T64                                                                          |
 | [T66](#t66)   | Complete user documentation and migration examples                | waiting; needs T51, T52, T60                                                                                                      |
+| [T72](#t72)   | Zero-copy bytes at the boundary                                   | ready; needs nothing open                                                                                                         |
+| [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | waiting; needs T72                                                                                                                |
+| [T74](#t74)   | Callback executors and stream backpressure                        | waiting; needs T72                                                                                                                |
+| [T75](#t75)   | Support a window of stable React Native and Expo releases         | blocked: a decision on the window; needs nothing open                                                                             |
+| [T76](#t76)   | App-delegate and Activity integration hooks                       | blocked: a decision superseding 0071; needs nothing open                                                                          |
+| [T77](#t77)   | Classes the OS instantiates, and typed package Kotlin             | waiting; needs T60, T76                                                                                                           |
+| [T79](#t79)   | Prebuilt C and C++ dependencies: C++ extensions and prefab        | waiting; needs T72                                                                                                                |
 | [TA30](#ta30) | Bind Kotlin function types and callback properties                | done (#78, 2026-10-04)                                                                                                            |
 | [TA31](#ta31) | Finish the Kotlin shim shapes                                     | done (#79, 2026-10-04)                                                                                                            |
 | [TA32](#ta32) | Read Swift packages and the iOS target from the project           | done (#82, 2026-10-04)                                                                                                            |
 | [TA33](#ta33) | Bind the remaining Swift shapes                                   | done (#83, 2026-10-05)                                                                                                            |
 | [TA34](#ta34) | Turn a Java Throwable into a Lucent Error                         | done (#80, 2026-10-04)                                                                                                            |
 | [TA35](#ta35) | Bind a package's own pods in an Expo app                          | ready; needs nothing open                                                                                                         |
+| [TA39](#ta39) | ES2023 and ES2024 library methods                                 | ready; needs nothing open                                                                                                         |
+| [TA40](#ta40) | Deterministic finalization and dispose from JavaScript            | ready; needs nothing open                                                                                                         |
+| [TA41](#ta41) | Name reference cycles in debug builds                             | ready; needs nothing open                                                                                                         |
+| [TA42](#ta42) | Throw `RangeError` on stack exhaustion                            | ready; needs nothing open                                                                                                         |
+| [TA44](#ta44) | `WeakMap` and `WeakSet` keyed by instances                        | ready; needs nothing open                                                                                                         |
+| [TA46](#ta46) | A web target for shared modules                                   | blocked: a scope decision; needs nothing open                                                                                     |
 | [T67](#t67)   | Pass the integrated production-candidate gate                     | waiting (needs the maintainer); needs T62, T63, T64, T65, T66                                                                     |
 | **G5**        | **Production recommendation**                                     |                                                                                                                                   |
 | [T68](#t68)   | Prepare independent author and app pilot packages                 | waiting (needs the maintainer: pilots); needs T67                                                                                 |
@@ -200,8 +218,14 @@ G2 (the Fabric and isolation spike, T44) passed on 2026-09-26, and the view
 wave that followed shipped SwiftUI and Compose hosts. The internal
 `LUCENT_VIEWS=fabric` switch was removed on 2026-10-07: every build
 generates views. This gate certifies them as a preview. T48, T49, T50,
-TA25, TA26 and TA36 are done; T52 is ready and needs devices, and T51
-needs a scope decision.
+TA25, TA26, TA36 and TA37 are done; T52 is ready and needs devices, and
+T51 needs a scope decision.
+
+The 2026-10-11 review (react-native-vision-camera 5, react-native-video 7,
+react-native-mmkv 4 and expo-modules-core 58 against `main`) added T71,
+T78, TA38, TA43 and TA45 here: what the video and camera-preview ports
+need to keep their reference APIs, and the language gaps authors meet
+first.
 
 <a id="t48"></a>
 
@@ -606,8 +630,9 @@ them without ids and string codes: native objects in exported classes,
 events, platform files without twins, cycles without leaks, typed native
 errors, 64-bit parameters from numbers, and lifecycle hooks.
 
-- **Status:** in review (2026-10-08): the items checked below pass on
-  their branch; the two left open are recorded as not done, with why.
+- **Status:** done (2026-10-08): merged as #149, unreleased. The two
+  items left open are recorded as not done, with why: deep links and push
+  tokens moved to [T76](#t76).
 - **Area:** Compiler, runtime, docs.
 - **Needs:** none.
 - **Verify:** V1, V3.
@@ -671,6 +696,234 @@ errors, 64-bit parameters from numbers, and lifecycle hooks.
 
 **Notes:** From the 2026-10-08 language review.
 
+<a id="t71"></a>
+
+### T71: Native object references as view props
+
+**Goal:** Let a component take an instance of an exported class as a prop
+(`<VideoView player={player} />`, `<Preview output={previewOutput} />`),
+resolved and retained by the host, so a port keeps the reference library's
+API without an id-keyed map in main-thread state.
+
+- **Status:** blocked: a decision superseding
+  [0046](decisions/0046-ports-keep-their-apis-views-share-state-the-main.md)
+  and [0065](decisions/0065-platform-members-not-platform-classes.md).
+- **Area:** Compiler (ui, analysis), runtime (hosts, JSI), views runtime.
+- **Needs:** [TA36](#ta36) (done), [TA37](#ta37) (done).
+- **Verify:** V1, V2, V3, V5.
+- **Where:** `ui/contract.ts` (a `ref` prop kind), `ui/transport.ts`,
+  `ui/proxy.ts`, `ui/fabric.ts`, `ui/describe.ts`, `emit/setups.ts`,
+  `emit/view-values.ts`, `rn/LucentViewValues.h`, `runtime/js/views.js`,
+  `jsi/host.h` (`InstanceState`), `analysis/main-state.ts` (instances, not
+  only variables), `codes.ts`, `docs/design/contracts.md` (C-VIEW v2.3),
+  `docs/semantics.md`, the views guide, `.views-spike/players.lucent.tsx`.
+
+Why: react-native-video 7 hands its `VideoPlayer` to the view
+(`manager.player = player`), VisionCamera 5 passes `previewOutput` and
+`gestureControllers[]` as view props, and expo-video's `VideoView` takes
+`player: VideoPlayer` (expo-modules-core resolves the shared object's id
+for the author). Decision 0046's "pass an id, as Expo does" is what Expo
+does underneath, not what its authors write. The players spike shows the
+cost: a module `Map` only main-thread code may touch, `void main(() => …)`
+around every write, and a lifetime the author manages by hand
+(`[Symbol.dispose]`, which JavaScript cannot call, so a dropped `Player`
+stays in the map).
+
+- [ ] Decision: a prop may be an instance (or an optional instance, or an
+      array of instances) of an exported class whose platform members and
+      instance methods the view uses are main-thread code. Classes stay
+      shared (0065 holds); what changes is that `main-state.ts`'s rule
+      extends from module variables to instance members: a member only
+      `main()` callbacks, setups and the view's calls touch is the main
+      thread's, read and written there without the lock. A member module
+      code also touches is refused in a view with a diagnostic naming the
+      member and both uses.
+- [ ] Transport (C-VIEW v2.3): the prop crosses Fabric as the instance's
+      id in its host (`InstanceState`) plus the runtime id, boxed as
+      nullable props are; the proxy reads the id from the JS object's
+      native state; a value that is not an instance of the declared class
+      is a `TypeError` at render, as a wrong plain prop is today.
+- [ ] Mount: `LucentViewValues` resolves the id to a `Ref<Class>` on the
+      main thread at commit; the signal notifies on identity change (not on
+      the instance's own mutations); an id of a freed instance or of another
+      runtime is reported through `reportViewError` and the prop reads as
+      missing. The mount retains the instance while it holds it; the
+      instance lives until the last of the JS object, the mount and Lucent
+      code lets go.
+- [ ] Methods the setup calls on the instance run in the main context
+      without the actor lock, checked by the main-thread rule; a method
+      that touches module-thread state is refused at compile time, with
+      the cause path.
+- [ ] Arrays of references (`gestureControllers`) and `T | null`.
+- [ ] e2e: `view-ref-props` (host JSI harness: a view mount with an
+      instance prop, replaced, nulled, freed); `players.lucent.tsx`
+      rewritten with `player: Player`, no module map and no dispose map;
+      1,000 mount/unmount cycles return the owned counts to baseline (P6).
+- [ ] Docs: the views guide, semantics "Crossing the JavaScript boundary",
+      the website's differences; limitations: a reference never crosses
+      to a toolkit body (SwiftUI, Compose) in this task.
+
+**Done when:** the players spike runs with an instance prop on the iOS
+simulator and the Android emulator, no main-thread map in its source, and
+counts return to baseline on unmount.
+
+**Notes:**
+
+- Keep 0046's second half: the main context still never waits behind
+  module code. This task moves the lock boundary to the type system (which
+  members are main-thread), not to the view.
+- A toolkit body reading a reference (`<Video player={…}>` in SwiftUI) is
+  later; UIKit and Android views first.
+
+<a id="t78"></a>
+
+### T78: UIKit components with a view-controller root
+
+**Goal:** Let a component return a `UIViewController` (an
+`AVPlayerViewController`, a `UIDocumentPickerViewController` embedded, a
+`UIPageViewController`) and have the host contain it as it contains a
+SwiftUI hosting controller.
+
+- **Status:** ready; needs nothing open.
+- **Area:** Compiler (ui), Apple host.
+- **Needs:** T46 (done), T47 (done).
+- **Verify:** V1, V5.
+- **Where:** `ui/roots.ts` (`UIViewController` as an iOS root beside
+  `UIView`), `ui/contract.ts` (`platforms.ios.root` kind), `ui/describe.ts`,
+  `emit/views.ts` (`controller()` for a UIKit mount),
+  `rn/LucentComponentView.mm` (the containment written for toolkit
+  hosts, generalized), `ui/analyze.ts`, the views guide,
+  `docs/design/views.md`.
+
+Why: react-native-video 7 hosts an `AVPlayerViewController` for playback
+controls, fullscreen and picture-in-picture; `ui/roots.ts` accepts only
+`UIView` roots, and `LucentComponentView.mm` contains only the controller
+a toolkit mount gives (`controller()`), so a port adds the controller's
+view as a subview without containment and loses appearance callbacks,
+traits and the fullscreen transition.
+
+- [ ] A component whose iOS branch returns a `UIViewController` is a
+      component; its root class is the controller's; the mount's
+      `controller()` is it, and the host contains it exactly as the SwiftUI
+      host is contained (`addChildViewController:`, the content view, the
+      parent's traits, no safe-area insets, release on dispose).
+- [ ] Sizing: a controller root is sized by its style or flex (never by
+      content), as a toolkit host is; `preferredContentSize` changes mark
+      the content for `invalidateSize`.
+- [ ] Commands may present from the contained controller (`present()` from
+      lucent:ios takes it as the presenter); a modal the controller shows
+      (fullscreen) outlives a commit and is dismissed on dispose.
+- [ ] A spike in `.views-spike/`: `AVPlayerViewController` with a Lucent
+      `AVPlayer`, enters and leaves fullscreen and picture-in-picture
+      (`canStartPictureInPictureAutomaticallyFromInline`), survives a
+      recycle, and reports its PiP delegate events through component
+      events; `views-spike.ts` checks run on the simulator.
+- [ ] Docs: the views guide's root table; limitations: Android has no
+      equivalent (its views are `View`s; a `Fragment` root is T77).
+
+**Done when:** the video spike enters and exits fullscreen and
+picture-in-picture on the iOS simulator through a contained
+`AVPlayerViewController`, and counts return to baseline on unmount.
+
+<a id="ta38"></a>
+
+### TA38: Accept object literals for data-only interfaces
+
+**Goal:** Let an interface with only properties be satisfied by an object
+literal and by any object type of its shape, as TypeScript does, while
+interfaces with methods stay nominal.
+
+- **Status:** ready; needs nothing open.
+- **Area:** Compiler (types, interfaces).
+- **Needs:** none.
+- **Verify:** V1, V2.
+- **Where:** `types.ts` (interface classification), `emit/interfaces.ts`,
+  `codes.ts` (LUCENT2008), `docs/semantics.md` (Types), the website's
+  differences, e2e `interfaces-structural`.
+
+Why: `const p: Point = { x, y }` with `interface Point { x: number; y:
+number }` is refused today (nominal interfaces, LUCENT2008); it is the
+most common TypeScript idiom there is, and every port's option objects hit
+it.
+
+- [ ] An interface declaring only properties (optional ones included, no
+      methods, no accessors, no index signatures mixed with properties) is
+      an object type: shared struct by shape, copied at the boundary, and
+      `implements` by a class still allowed (the class converts to the
+      struct where the interface is expected, as a value).
+- [ ] An interface with a method, or named in a class's `implements` and
+      used through a method, stays nominal (unchanged); a data-only
+      interface a class implements and that is also used as a literal is
+      an object type, and the class's instances copy into it.
+- [ ] Diagnostic text for LUCENT2008 names the method that makes the
+      interface nominal.
+- [ ] e2e `interfaces-structural`: literals, spreads, an implementing
+      class, the boundary; the semantics table row.
+
+**Done when:** data-only interfaces take literals and cross as object
+types, with the e2e case green under both lowerings.
+
+<a id="ta43"></a>
+
+### TA43: Tell a module when JavaScript starts and stops listening
+
+**Goal:** Let a module start a native source on the first listener and
+stop it on the last, as Expo's `OnStartObserving` and `OnStopObserving`
+do.
+
+- **Status:** ready; needs nothing open.
+- **Area:** Runtime (events), compiler (events), lucent:core.
+- **Needs:** [TA37](#ta37) (done).
+- **Verify:** V1, V2, V3.
+- **Where:** `runtime/cpp/lucent/events.h`, `emit/events.ts`,
+  `jsi/convert.h` (listeners JavaScript adds), `lib/sdk/core.d.ts`,
+  `examples/lucent-sensors`.
+
+- [ ] `EventEmitter.onObserved(name, (observed: boolean) => void)`: runs
+      with `true` when the event's listener count goes from 0 to 1 and
+      `false` when it returns to 0, on the module's thread under the lock,
+      for listeners added from Lucent or JavaScript; a runtime teardown
+      that removes JavaScript's listeners counts as removal.
+- [ ] `lucent-sensors` starts the accelerometer on the first listener and
+      stops it on the last; e2e `events-observed`.
+
+**Done when:** the sensors example starts and stops its hardware with its
+listeners, and the e2e case is green.
+
+<a id="ta45"></a>
+
+### TA45: Reconcile the roadmap's evidence with the examples
+
+**Goal:** Make the roadmap's status lines say what the examples prove, and
+generate each example's evidence line from its last recorded run.
+
+- **Status:** ready; needs nothing open.
+- **Area:** Docs, tooling (scripts).
+- **Needs:** none.
+- **Verify:** V0, V9.
+- **Where:** `ROADMAP.md`, `scripts/website.ts`, `scripts/sync-examples.ts`,
+  `examples/*/README.md`, `apps/website/src/docs/`.
+
+Why: ROADMAP.md marks "Ports of Expo and community modules, checked against
+the originals" ✅, while every example README under `examples/` says
+"Compiled with `--platforms host` on Linux. Not yet typed against the SDKs
+or run on a device", and TA36's four ports are not in the repository.
+The honest-evidence requirement says a lower level never implies a
+higher one.
+
+- [ ] Each example records its evidence level (code, host, sim, device)
+      and date in a small `evidence.json`; `sync-examples.ts` writes the
+      README line from it, and `website.ts --check` fails when a README
+      line and the record differ.
+- [ ] The roadmap line becomes 🚧 until at least one port in `examples/`
+      is typed against both SDKs and runs on the simulator and emulator;
+      the website's roadmap page follows.
+- [ ] TA36's four ports land under `examples/` (needs the maintainer's
+      local sources), each with its evidence record.
+
+**Done when:** the roadmap's status lines and the examples' evidence agree
+and the check enforces it.
+
 <a id="g4-production-candidate"></a>
 
 ## G4: Production candidate
@@ -683,6 +936,12 @@ green CI. The gate closes with T67.
 
 T54, T61 and T28's binding follow-ups (TA30 to TA34) are done. T60, T63
 and TA35 are ready; the rest follow G3's work.
+
+The 2026-10-11 review added T72 to T77, T79, TA39 to TA42, TA44 and TA46:
+the boundary capabilities the demanding reference libraries rely on
+(zero-copy bytes, interop handles, callback executors, OS-instantiated
+classes, C++ dependencies), a supported window of stable React Native
+releases, and language and runtime gaps.
 Several tasks need physical devices, which only the maintainer can run.
 
 <a id="t54"></a>
@@ -1256,6 +1515,507 @@ match shipped behavior.
 **Done when:** the docs support independent use and match shipped behavior.
 This final sweep does not excuse delaying docs for earlier completed tasks.
 
+<a id="t72"></a>
+
+### T72: Zero-copy bytes at the boundary
+
+**Goal:** Give JavaScript native bytes without a copy (an `ArrayBuffer`
+over storage Lucent or the platform owns), and let Lucent code adopt
+platform buffers (`CVPixelBuffer`, `AHardwareBuffer`, a direct
+`ByteBuffer`, `NSData`) as `NativeBuffer`s, with the copies counted.
+
+- **Status:** ready; needs nothing open.
+- **Area:** Runtime (buffers, JSI), compiler (buffers, bindings), lucent:core,
+  lucent:ios, lucent:android.
+- **Needs:** T31 (done), T32 (done), [TA36](#ta36) (done).
+- **Verify:** V1, V2, V3, V5, V7.
+- **Where:** `runtime/cpp/lucent/buffer.h` (`NativeBuffer::adopt` exists),
+  `jsi/convert.h` (`Convert<NativeBuffer>`, `Convert<ArrayBuffer>`),
+  `jsi/host.h`, `platform/ios_pixels.h`, `platform/ios.mm`,
+  `platform/android.cpp`, `lib/sdk/core.d.ts`, `lib/sdk/ios.d.ts`,
+  `lib/sdk/android.d.ts`, `emit/buffers.ts`, `emit/bindings.ts`,
+  `analysis/local.ts` (borrow escape rules), `scripts/bench.ts` (P3),
+  `docs/design/contracts.md` (C-BUFFER v1.2), `docs/semantics.md`.
+
+Why: react-native-mmkv's `getBuffer` returns MMKV's bytes zero-copy and
+`set(ArrayBuffer)` reads the JS buffer in place for the synchronous call;
+VisionCamera's `Frame.getPixelBuffer()` wraps the locked `CVPixelBuffer`
+plane and `Photo.getFileData()` the JPEG; expo-modules-core borrows
+native-backed `ArrayBuffer`s. Lucent copies on every path today
+(`jsi/convert.h:376`, `:385`; `withPixelBytes` copies the plane under its
+lock), so a camera frame to JavaScript is two copies.
+
+- [ ] `NativeBuffer.detach(): ArrayBuffer` in lucent:core (name open):
+      moves the storage to JavaScript as a `jsi::ArrayBuffer` over a
+      `MutableBuffer` whose destructor runs the buffer's release on its
+      executor; the Lucent handle is transferred (every alias refuses
+      access, as after `transfer()`). JavaScript's view is the only owner
+      from then on, so no worker can write it (copy-by-default holds: the
+      bytes move, nothing is shared). Owned and adopted buffers alike.
+- [ ] External memory pressure: the `ArrayBuffer` reports its size to the
+      runtime (`jsi::Object::setExternalMemoryPressure`), so Hermes
+      collects promptly; counted in `NativeBuffer.stats()`.
+- [ ] A synchronous export's `ArrayBuffer` or `Uint8Array` parameter can
+      be borrowed instead of copied: `withBytes(buffer, f)`-style access
+      lending a `ByteSpan` over the JS memory for the call (the span rules
+      of LUCENT3030 keep it inside `f`; an async export still copies).
+      This is MMKV's `set(key, buffer)` path.
+- [ ] Adoption from lucent:ios: `adoptPixelBuffer(pixelBuffer, plane?)`
+      (locks the base address for the buffer's life, read-only unless
+      asked, unlocks and releases on close, on the main context when the
+      buffer requires it), `adoptData(data)` (retains the `NSData`);
+      `withPixelBytes` stays as the copying form and says so.
+- [ ] Adoption from lucent:android: `adoptHardwareBuffer(buffer)`
+      (`AHardwareBuffer_fromHardwareBuffer` + `acquire` + `lock`, API 26
+      and later behind `available`), `adoptByteBuffer(direct)` (a global
+      reference; refuses a non-direct buffer). These are platform
+      fundamentals (CoreVideo, the NDK), not a catalog entry: the no-catalog
+      rule holds.
+- [ ] Transport to compute tasks and executors (T74) of adopted buffers:
+      moves, as owned ones do; a dropped or cancelled one releases once.
+- [ ] P3 gains a 4 MB frame handoff to JavaScript with 0 payload copies
+      and the 1 KB/1 MB cases through `detach`; the e2e `native-buffers`
+      and `array-buffers` cases cover `detach` and the borrowed parameter
+      (the JavaScript reference: the same bytes).
+- [ ] Semantics: `NativeBuffer`'s section, the boundary's copy rule gains
+      its two exceptions; limitations: a detached buffer never comes back
+      (JavaScript owns it; pass bytes in by value or by borrow).
+
+**Done when:** MMKV-style `getBuffer` and a `CVPixelBuffer` frame reach
+JavaScript with zero copies, counted by `stats()`, on the iOS simulator and
+the Android emulator.
+
+**Notes:**
+
+- `buffer.h` already adopts storage with a release and an executor; this
+  task exposes it to Lucent code and adds the one-way move to JavaScript.
+- Hermes's `ArrayBuffer` over a `MutableBuffer` keeps the buffer alive
+  until collection: `stats()` counts live detached buffers so a leak is
+  visible.
+
+<a id="t73"></a>
+
+### T73: Interop handles: native pointers and opaque JavaScript values
+
+**Goal:** Let Lucent modules take part in the ecosystem around them: hand
+JavaScript a retained native pointer other libraries consume (Skia's
+`MakeImageFromNativeBuffer`, Vulkan and Metal interop), and accept and
+return JavaScript values Lucent does not look inside (another library's
+object, a worklet runtime's value, a Nitro HybridObject).
+
+- **Status:** waiting; needs [T72](#t72).
+- **Area:** Compiler (types, bindings), runtime (JSI host), lucent:core.
+- **Needs:** [T72](#t72).
+- **Verify:** V1, V2, V3, V5.
+- **Where:** `types.ts` (an `opaque` LType), `emit/bindings.ts`,
+  `emit/native.ts`, `jsi/convert.h`, `jsi/host.h` (ids and finalizers),
+  `lib/sdk/core.d.ts` (`JSValue`, `NativeHandle`), `lib/sdk/ios.d.ts`,
+  `lib/sdk/android.d.ts`, `analysis/ownership.ts` (not transferable),
+  `codes.ts`, `docs/design/contracts.md` (C-EXEC v1.7), `docs/semantics.md`,
+  the website's differences.
+
+Why: VisionCamera 5's `Frame.getNativeBuffer()` is `{ pointer: bigint,
+release() }` and its Skia package passes that pointer to
+`Skia.Image.MakeImageFromNativeBuffer`; its frame-processor plugins are
+other packages taking a `Frame`; react-native-video's DRM plugin takes a
+JavaScript `getLicense` callback and a `source` object it does not model.
+Lucent's boundary accepts only its own types (no `any`, `unknown` or
+opaque handle), so a Lucent module today is a leaf: nothing from Skia,
+Reanimated, Worklets or a Nitro library can be handed to it.
+
+- [ ] `JSValue` (lucent:core): an opaque value JavaScript gave. Lucent code
+      stores it, passes it back, puts it in fields, arrays and records;
+      nothing else (no comparison, no conversion: a diagnostic). It is a
+      `Host` id (thread ownership holds: no JSI value leaves the JS
+      thread); the host releases its reference when the last Lucent
+      reference goes, on the JS thread; after a reload, use throws
+      `TypeError` as a stale instance does. Refused in compute inputs and
+      executor channels (`not-transferable`), allowed in main-thread state.
+- [ ] `JSValue` stays opaque even when it is a function: a callback Lucent
+      calls is typed as a function parameter, as today, and `JSValue` has
+      no call form (LUCENT1002 names the function type to use instead).
+- [ ] `NativeHandle` (lucent:core, platform-made), a pointer and a
+      `release()` as VisionCamera's `NativeBuffer` types them, made in
+      lucent:ios from an object (`retainedHandle(obj)`: +1 retain, `CFRetain` for CF types)
+      and in lucent:android from a `HardwareBuffer` or a direct
+      `ByteBuffer`; `release()` once, from either side; a handle JavaScript
+      drops without releasing is released by the host's finalizer
+      (`jsi::NativeState`) and counted as a leak in debug builds.
+- [ ] `NativeBuffer.pointer` for an adopted or owned buffer while
+      JavaScript holds a `NativeHandle` of it (a borrow for the handle's
+      life; `transfer`, `close` and `detach` refuse while it is held).
+- [ ] Cross-package types: a package's exported class in another
+      package's export signature resolves to the one C++ class (one
+      program); `packages.test.ts` gains a two-package case (`vision-core`
+      exports `Frame`; `vision-plugin` takes it), with the JS proxies
+      agreeing on the prototype.
+- [ ] e2e: `opaque-values` (round trips, identity through a record, a
+      reload), `native-handles` (host JSI harness: retain, release from
+      each side, finalizer).
+- [ ] Semantics: a new "Interop" subsection; the website's comparison row
+      for interop with Nitro and Expo objects.
+
+**Done when:** a Lucent `Frame` instance crosses to JavaScript, a second
+Lucent package takes it as an argument, and the example app hands its
+`pointer` to Skia's `MakeImageFromNativeBuffer` on the iOS simulator and
+the Android emulator.
+
+**Notes:**
+
+- Deliberately opaque: Lucent never reads a JavaScript object's fields
+  (that would be a second type system). The author converts in JavaScript,
+  as expo-modules-core's `JavaScriptValue` users do.
+- A Nitro `HybridObject` is a `jsi::Object` with native state; as a
+  `JSValue` it round-trips, which is all the plugin cases need.
+
+<a id="t74"></a>
+
+### T74: Callback executors and stream backpressure
+
+**Goal:** Run deadline-sensitive platform callbacks (camera frames, audio
+blocks, sensors at 200 Hz) on a context of their own, without the
+package's actor lock, and move their results to module code or
+JavaScript through channels with a stated drop policy. T59 then proves it
+on devices.
+
+- **Status:** waiting; needs [T72](#t72).
+- **Area:** Runtime (scheduler, execution, transport), compiler (analysis,
+  delegates, native), lucent:thread, lucent:core.
+- **Needs:** [T72](#t72), [TA37](#ta37) (done), T30 (done), T32 (done).
+- **Verify:** V1, V3, V5, V7; V8 through [T59](#t59).
+- **Where:** `runtime/cpp/lucent/scheduler.h`, `execution.h`, `native.h`
+  (`callNow`, `postCallback`), `transport.h`, `events.h`, a new
+  `channel.h`, `platform/ios.mm` (adopting a `dispatch_queue_t`),
+  `platform/android.cpp` (adopting an `Executor`/`Handler`),
+  `lib/sdk/thread.d.ts` (`executor`), `lib/sdk/core.d.ts` (`Channel`),
+  `analysis/ownership.ts` (an `executor` context), `analysis/facts.ts`,
+  `emit/delegates.ts`, `emit/native.ts`, `emit/objc-subclass.ts`,
+  `emit/java.ts`, `trace.h`, `docs/design/contracts.md` (C-EXEC v1.7),
+  `docs/semantics.md` (Concurrency model).
+
+Why: today every platform callback enters module code under the package's
+ticket lock (`scheduler.h`, `native.h`'s `callNow`), so a 60 fps
+`AVCaptureVideoDataOutput` delegate on Lucent's `serialQueue` queues behind
+any synchronous JavaScript call into the same package, and a slow consumer
+stalls the producer. VisionCamera runs its frame callback on the capture
+queue and its worklet runtime on that same thread; the accepted
+limitation "a discrete or continuous event is never dropped" means a
+burst can hold React back. The design's M6 names "dedicated callback
+executors" and "bounded queues with explicit backpressure".
+
+- [ ] `executor(label)` from lucent:thread: an execution context with a
+      serial thread of its own, or one adopted from the platform
+      (`serialQueue` on iOS, an `Executor` on Android), that never takes
+      an actor's lock. Lucent gives the platform a delegate, listener or
+      block `on(exec)`; the glue enters the executor's context directly.
+- [ ] The compiler checks code that runs on an executor as it checks a
+      compute task (`REFUSES.task`), with one difference: native code of
+      the executor's own thread, and of any thread, is allowed (a frame's
+      `CMSampleBufferGetImageBuffer`, `CVPixelBuffer` locks, CoreImage,
+      `ImageProxy`); main-thread and unknown-thread natives, module state,
+      JavaScript callbacks, promises and awaits are refused with the cause
+      path. Instances the executor's code keeps are its own (an
+      executor-owned class is checked like main-thread state in T71).
+- [ ] `Channel<T>` (lucent:core): the one way out of an executor. Plain
+      data copies, `NativeBuffer`s move (T72's adoption makes frames
+      movable); policies `lossless` (bounded, the producer gets `false`
+      when full, never blocks), `latest` (one slot, replaced) and `drop`
+      (bounded, drops the oldest); a dropped `NativeBuffer` is closed once;
+      closing the channel or disposing its scope drains and closes the
+      rest. Module code consumes with `for await (const v of channel)` or
+      `subscribe`; the consumer runs on its own context (the actor's,
+      main's, a compute task's).
+- [ ] Events to JavaScript from an executor go through `EventEmitter` as
+      posted callbacks (unchanged), or through a channel JavaScript reads
+      as a `Coalesced`-like subscription; document which to use for what.
+- [ ] Trace: per-channel waits, depth and drops; `lucent trace` shows an
+      executor's spans beside the actor's.
+- [ ] Bench (host): synthetic 1080p frames at 60 Hz through an executor
+      into a `latest` channel consumed by a compute task and by a JS
+      subscription, while a 500 ms synchronous JavaScript call holds the
+      package's actor: 0 actor waits on the executor thread, drops
+      counted, p99 handler latency reported.
+- [ ] Semantics: Concurrency model gains executors and channels, with
+      the rule that an executor's code runs in parallel with its module
+      and shares nothing with it but what channels carry; limitations:
+      executors never touch views.
+
+**Done when:** a sample-buffer delegate on an executor keeps processing
+frames while a synchronous JavaScript call holds the package's actor, the
+trace shows no actor wait on the executor's thread, and a bounded channel
+drops under a slow consumer exactly as its policy says, on the iOS
+simulator and the Android emulator. [T59](#t59) measures it on devices.
+
+**Notes:**
+
+- Executors are not worklets: JavaScript never runs on them. The parity
+  story with VisionCamera's frame processors is "write the processor in
+  Lucent", which this task makes possible; T73's `NativeHandle` covers
+  the Skia and GPU handoffs.
+
+<a id="t75"></a>
+
+### T75: Support a window of stable React Native and Expo releases
+
+**Goal:** Build and run on the current stable React Native and Expo SDK and
+on the previous one, not only on the 0.88 release candidate and the SDK 58
+preview, so a library author can publish for the versions their users run.
+
+- **Status:** blocked: a decision on the window; needs nothing open.
+- **Area:** Tooling, runtime (RN integration), verification.
+- **Needs:** none.
+- **Verify:** V1, V5, V6.
+- **Where:** `packages/lucent/src/cli/doctor.ts` (`REQUIREMENTS`),
+  `runtime/native/react-native.config.js` (`cxxModule*`),
+  `runtime/native/LucentNative.podspec`, `runtime/native/android/`,
+  `runtime/native/ios/LucentRegistration.mm`, `rn/LucentModule.cpp`,
+  `rn/LucentViewsAndroid.*` and the generated `ComponentDescriptors.h`,
+  `native-build-files.ts`, `native-package.ts`, `app.plugin.js`,
+  `scripts/smoke-install.ts`, `apps/*/package.json`, the website's
+  compatibility template, README, `docs/decisions/`.
+
+Why: no stable release meets Lucent's requirement today (the compatibility
+page says so). Nitro supports React Native 0.75 and later; react-native-video
+7 asks for 0.75; a library that needs an RC cannot be adopted. The
+reason for 0.88 is not recorded: `doctor` says "the New Architecture's C++
+TurboModules", which earlier releases also have; `docs/design/views.md`
+names 0.88's continuous event category mapping.
+
+- [ ] Record, as a decision, each React Native feature Lucent depends on
+      and the release that first shipped it: pure C++ TurboModule
+      autolinking (`cxxModuleCMakeListsModuleName` and siblings), Fabric
+      component descriptor autolinking (`componentDescriptors`), the
+      continuous and discrete event categories, view recycling and
+      `enableAccumulatedUpdatesInRawPropsAndroid`, `jsi::NativeState`,
+      `setExternalMemoryPressure`, Yoga headers the runtime includes, the
+      Expo config plugin and prebuild hooks Lucent uses.
+- [ ] Decide the window: current stable and the previous (0.86 and 0.87 on
+      2026-10-11; Expo SDK 56 and 57) plus a prerelease lane (0.88 RC, SDK
+      58 preview), with the policy for moving it (when a stable ships).
+- [ ] Where a window release lacks a feature, generate the fallback rather
+      than refuse: an Objective-C++ `RCTTurboModule` provider and a Java
+      `TurboReactPackage` where pure-C++ autolinking is missing; explicit
+      component view and descriptor registration where
+      `componentDescriptors` autolinking is; a version-guarded event
+      category. The generated code is the same on every release, chosen by
+      the installed `react-native` version the build reads.
+- [ ] `lucent doctor` checks the window and names the lane; the loader's
+      identity check gains the React Native version it was built against.
+- [ ] `scripts/smoke-install.ts` takes a React Native and Expo version and
+      CI runs the matrix (bare and Expo × each window release) nightly, as
+      [0062](decisions/0062-device-runs-are-nightly-only-until-they-are-reliable.md)
+      runs devices; the example apps stay on the prerelease lane.
+- [ ] The website's compatibility page, the README's "Works in" line and
+      `lucent init`'s messages say the window.
+
+**Done when:** the packed package installs and the example modules and a
+component run in fresh bare and Expo apps on each release of the window,
+and CI's matrix is green.
+
+**Notes:**
+
+- This task is independent of every other one here and is the single
+  largest adoption blocker: a library author cannot ship on an RC.
+
+<a id="t76"></a>
+
+### T76: App-delegate and Activity integration hooks
+
+**Goal:** Deliver to Lucent modules what only the app delegate and the
+Activity receive (opened URLs, push tokens, background fetch, user
+activities, Activity results Lucent does not already report), through one
+subscriber the app registers once, without Lucent replacing either.
+
+- **Status:** blocked: a decision superseding
+  [0071](decisions/0071-module-hooks-not-app-delegate-hooks.md); needs
+  nothing open.
+- **Area:** Apple host, Android host, tooling (init, config plugin),
+  lucent:ios, lucent:android.
+- **Needs:** none.
+- **Verify:** V1, V3, V5.
+- **Where:** `lib/sdk/ios.d.ts` (`onAppEvent`), `lib/sdk/android.d.ts`
+  (`onActivityEvent`), `runtime/cpp/lucent/lifecycle.h`,
+  `platform/ios_ui.mm`, `platform/android_activity.cpp`,
+  `runtime/native/ios/` (a `LucentAppDelegateSubscriber`),
+  `runtime/native/android/src/main` (`LucentActivities`), `app.plugin.js`,
+  `packages/lucent/src/cli/commands/init.ts` and `doctor.ts`,
+  `package-config.ts` (`lucent.json` fields), `docs/lucent-packages.md`.
+
+Why: expo-modules-core forwards `openURL`, `continueUserActivity`,
+`didRegisterForRemoteNotifications`, `didReceiveRemoteNotification`,
+`performFetch`, `handleEventsForBackgroundURLSession`, shortcut items and
+orientation queries to `ExpoAppDelegateSubscriber`s; Android packages get
+`ReactActivityLifecycleListener` (`onNewIntent`, `onBackPressed`,
+`onUserLeaveHint`, `onDestroy`). Lucent's limitations file records no iOS
+event for URLs and no push token. react-native-video 7's Expo plugin
+sets `android:supportsPictureInPicture` on `MainActivity`, which
+`lucent.json` cannot express.
+
+- [ ] Decision: Lucent ships one subscriber, not a delegate. In an Expo app
+      the native package declares an `ExpoAppDelegateSubscriber` (and
+      `ReactActivityLifecycleListener`) in an `expo-module.config.json`
+      the build writes next to the podspec, so Expo autolinking registers
+      it. In a bare app, `lucent init` adds one forwarding line per
+      delegate method to `AppDelegate` and `MainActivity`, and `doctor`
+      checks they are there; `lucent build` names the missing ones.
+- [ ] iOS events through `onAppEvent`, typed: `openURL` (url, options),
+      `userActivity` (type, url, payload), `pushToken` (`Uint8Array`),
+      `remoteNotification` (payload; the handler answers the fetch result
+      through a promise with a deadline, and the subscriber merges answers
+      as Expo does), `backgroundFetch`, `backgroundURLSession`
+      (identifier), `shortcutItem`. One module answering is enough; two
+      answering is reported.
+- [ ] Android events through `onActivityEvent`: `backPressed` (a handler
+      may consume it), `userLeaveHint`, `configurationChanged`, `keyUp`,
+      and `newIntent` kept.
+- [ ] `lucent.json`: `android.mainActivity` attributes the manifest
+      merger can carry (`supportsPictureInPicture`, `configChanges`,
+      `launchMode`), merged by the rules of the components table; the Expo
+      plugin writes them and a bare app is told what its manifest lacks.
+- [ ] The lifecycle contract (C-EXEC's lifecycle section) gains the
+      events; listeners run on the main thread in subscription order, as
+      app events do.
+- [ ] Tests: `lifecycle_test.cpp` for the merge of answers; the Expo
+      example app opens a deep link and reads a push token (simulator:
+      the token path is exercised with a fake registration); the bare app
+      the same through the forwarding lines.
+
+**Done when:** a deep link and a push token reach a Lucent module on both
+platforms in both example apps, and `supportsPictureInPicture` reaches
+`MainActivity` from `lucent.json`.
+
+**Notes:**
+
+- 0071's reasoning stands for _replacing_ the delegate; this task adds a
+  subscriber, which is what Expo itself does. Record it as superseding
+  0071 for the events it names.
+
+<a id="t77"></a>
+
+### T77: Classes the OS instantiates, and typed package Kotlin
+
+**Goal:** Let a Lucent class extend what the OS creates by name (`Service`,
+`MediaSessionService`, `BroadcastReceiver`, `Fragment`, `JobService`;
+later an app extension's principal class), declare it in `lucent.json`,
+and type a package's own Kotlin sources as its Swift sources are typed.
+
+- **Status:** waiting; needs [T60](#t60) for instances created with no
+  JavaScript runtime live, [T76](#t76).
+- **Area:** Compiler (java, objc-subclass), Android host, bindgen,
+  tooling.
+- **Needs:** [T60](#t60), [T76](#t76), TA30 (done), TA31 (done).
+- **Verify:** V1, V3, V4, V5.
+- **Where:** `emit/java.ts`, `emit/objc-subclass.ts`, `emit/classes.ts`,
+  `package-config.ts` and `package-schema.ts` (`android.components[].class`
+  naming a Lucent class), `native-build-files.ts`,
+  `runtime/cpp/lucent/scheduler.h` (entry from an OS-made instance),
+  `platform/android.cpp`, `bindgen/src/kotlin-api.ts` and `provider.ts`
+  (a package's Kotlin compiled to a jar and bound, as
+  `examples/lucent-orbit/build-jar.ts` does by hand),
+  `docs/lucent-packages.md`, `docs/limitations.md`.
+
+Why: react-native-video 7 runs a `VideoPlaybackService: MediaSessionService`
+for background playback and a `FullscreenVideoFragment` for fullscreen;
+VisionCamera's Android side has its own services. A Lucent class extends
+SDK classes today, but one the OS instantiates needs a no-argument
+constructor the OS can call, a manifest entry, and an entry into Lucent
+code that may happen with no runtime live (T60). The limitations file
+says Kotlin sources in a package are not typed yet; the workaround is a
+prebuilt jar.
+
+- [ ] A Lucent class extending an OS-instantiated base gets a generated
+      Java subclass with a public no-argument constructor that creates its
+      Lucent instance on first use, on the thread the OS calls it from,
+      entering the module's actor; while no JavaScript runtime is live
+      (T60), module state is the native root's.
+- [ ] `lucent.json` `android.components[].class` names the Lucent class;
+      the manifest entry's `android:name` is the generated Java class;
+      `foregroundServiceType`, intent filters and permissions as today.
+- [ ] A `Fragment` subclass: shown through a `FragmentActivity`'s manager
+      from Lucent code; recreation by the OS makes a new Lucent instance
+      and the module is told (an event with the fragment's tag).
+- [ ] Typed package Kotlin: `android.nativeSources` Kotlin is compiled by
+      the build into a jar the SDK cache keys on its sources' content
+      (`kotlinc` from the Android Gradle plugin's distribution or the
+      app's Kotlin version), bound as `lucent:android/<package>`, and the
+      same sources ship in the library so Gradle compiles them for the
+      app; a failure is a diagnostic with kotlinc's errors, as Swift's is
+      with swiftc's.
+- [ ] Tests on the desktop JVM host (`test/fake-android.ts`, per
+      [0026](decisions/0026-android-glue-runs-on-a-desktop-jvm-in-tests.md)):
+      an OS-style instantiation through the no-argument constructor; the
+      emulator: a foreground `MediaSessionService` subclass written in
+      Lucent that holds a `MediaSession` for a Lucent player and survives
+      the Activity's recreation.
+
+**Done when:** react-native-video 7's service shape (a `MediaSessionService`
+subclass in Lucent, declared in `lucent.json`) starts in the foreground on
+the Android emulator, and a Lucent `Fragment` shows fullscreen and comes
+back after recreation.
+
+**Notes:**
+
+- iOS app extensions (the principal class of a notification service or a
+  widget) stay with T60; this task is Android-first because that is where
+  the reference libraries need it.
+
+<a id="t79"></a>
+
+### T79: Prebuilt C and C++ dependencies: C++ extensions and prefab
+
+**Goal:** Bind a C++ library directly (classes as handles, methods,
+overloads), consume Android prefab packages and iOS xcframeworks with
+their headers, and pass bytes to extension calls without a copy.
+
+- **Status:** waiting; needs [T72](#t72).
+- **Area:** Bindgen (C headers), compiler (extensions), tooling (build
+  files), runtime (extension.h).
+- **Needs:** [T72](#t72), T33 (done).
+- **Verify:** V1, V3, V4, V6.
+- **Where:** `bindgen/src/` (`extractCHeader` grows to C++ declarations
+  through clang's JSON AST), `compiler/src/extensions/bind.ts`, `dts.ts`,
+  `facts.ts`, `emit/extensions.ts`, `runtime/cpp/lucent/extension.h`,
+  `package-config.ts` and `package-schema.ts` (`android.prefab`,
+  `ios.vendoredFrameworks` headers), `native-build-files.ts` (CMake
+  `find_package(… CONFIG)`, `prefab true`, `-DANDROID_STL=c++_shared`;
+  podspec `compiler_flags` and modular-header guidance),
+  `docs/lucent-packages.md`, `packages/compiler/test/fixtures/`.
+
+Why: react-native-mmkv 4 binds Tencent's MMKV core in C++ on both
+platforms (`MMKVCore` pod; the `io.github.zhongwuzw:mmkv` prefab AAR with
+`find_package(mmkv)`), with no JNI on Android; VisionCamera 5 publishes
+prefab headers for C++ plugins. Lucent's extensions are C-only, take
+bytes as copied `Uint8Array`s, and `android.libraries` is `api(files(…))`
+with no headers; TA36 notes that MMKV through its Java library may not
+keep Nitro's speed, which T54 is to measure.
+
+- [ ] C++ headers in `extensions`: a class is a handle (constructor
+      overloads by arity and type, methods, `const` and static members),
+      `std::string` and `std::string_view` are strings, `std::vector<T>` of
+      numbers and strings arrays, `std::optional`, enums; templates,
+      inheritance across the boundary and callbacks are listed with their
+      reasons as today. A generated `extern "C"`-free wrapper catches
+      exceptions into the error struct, so an exception never unwinds
+      through Lucent.
+- [ ] Bytes parameters borrow (`bytes: read|write`) a `NativeBuffer`'s or a
+      JS `ArrayBuffer`'s span for the call (T72) instead of copying a
+      `Uint8Array`; the copying form stays for `Uint8Array` arguments.
+- [ ] `android.prefab`: Gradle artifacts whose prefab modules the runtime's
+      CMake links (`find_package`, `prefab` on, STL `c++_shared`), their
+      headers on the extension's include path; `ios.vendoredFrameworks`
+      and pods expose their headers to the extension the same way; a
+      pod without a module map gets the modular-headers message, as today.
+- [ ] Fixture: `packages/compiler/test/fixtures/` gains a C++ library
+      with a class, overloads and exceptions, bound and run on the host and
+      on the JNI host.
+- [ ] Example: `lucent-mmkv` through MMKV's C++ core on both platforms, its
+      `getBuffer` through T72, benchmarked against react-native-mmkv 4 for
+      P1 (within 1.25x) and reported in `bench.ts`.
+
+**Done when:** `lucent-mmkv` binds Tencent's MMKV core directly on both
+platforms with zero-copy `getBuffer`, and its boundary numbers are within
+the P1 budget of react-native-mmkv's on the host.
+
 <a id="ta30"></a>
 
 ### TA30: Bind Kotlin function types and callback properties
@@ -1543,6 +2303,199 @@ manual `pod install` or `lucent build` in between.
 **Notes:** From fix/package-pod-first-build, which named the steps a
 bare app takes and found that Expo's prebuild stops before them.
 
+<a id="ta39"></a>
+
+### TA39: ES2023 and ES2024 library methods
+
+**Goal:** Check modules against `es2024` and support its array, object and
+promise additions.
+
+- **Status:** ready; needs nothing open.
+- **Area:** Compiler (builtins), runtime (array, map).
+- **Needs:** none.
+- **Verify:** V1, V2.
+- **Where:** `lib-files.ts` and `program.ts` (the library), `emit/builtins.ts`,
+  `runtime/cpp/lucent/array.h`, `map.h`, `async.h`, the website's
+  compatibility template (`lib`), `apps/website/src/docs/language.ts`,
+  e2e cases per method.
+
+- [ ] Arrays: `toSorted`, `toReversed`, `toSpliced`, `with`, `findLast`,
+      `findLastIndex`; `Object.groupBy` and `Map.groupBy` (records and
+      maps); `Promise.withResolvers`; `String.prototype.isWellFormed` and
+      `toWellFormed`; `Array.fromAsync` refused with a reason (no async
+      iterables).
+- [ ] The library becomes `es2024` plus `esnext.disposable`; `tsconfig`
+      templates and `lucent init` follow; a module using a method the
+      runtime lacks still fails with LUCENT1003, never with invalid C++
+      (the built-in table is exact or refused, per
+      [0045](decisions/0045-a-built-in-is-exact-or-refused.md)).
+- [ ] e2e: one case per method, holes and `-0` included where JavaScript
+      shows them.
+
+**Done when:** every listed method passes its e2e case and the website's
+language pages list them as supported.
+
+<a id="ta40"></a>
+
+### TA40: Deterministic finalization: `FinalizationRegistry` and dispose from JavaScript
+
+**Goal:** Give classes a way to release what they hold when their last
+reference goes, from either side, with JavaScript's own APIs.
+
+- **Status:** ready; needs nothing open.
+- **Area:** Runtime (scope, resource, JSI host), compiler (classes), lucent:core.
+- **Needs:** none; builds on
+  [0068](decisions/0068-weakref-not-a-weak-modifier.md).
+- **Verify:** V1, V2, V3.
+- **Where:** `emit/classes.ts`, `emit/bindings.ts`, `jsi/host.h`
+  (`InstanceState` finalizer), `runtime/cpp/lucent/resource.h`,
+  `scope.h`, `lib/globals.d.ts`, `docs/semantics.md` (Memory, Deviations).
+
+Why: expo-modules-core's `SharedObject` has `sharedObjectWillRelease`;
+Nitro runs the destructor when JavaScript collects the object. Lucent
+frees an instance when both sides drop it, but `[Symbol.dispose]` is
+invisible to JavaScript, so a resource JavaScript owns the last reference
+to can only be closed through a method the author adds, and the players
+spike leaked its label for that reason.
+
+- [ ] `FinalizationRegistry` in Lucent: `register(target, held, token?)`,
+      `unregister(token)`; the cleanup runs when the target's last strong
+      reference goes (deterministic, as `WeakRef` is per 0068), on the
+      context the target's resources require, after the target is gone;
+      listed as a deviation (timing) like `WeakRef`'s.
+- [ ] A class's `[Symbol.dispose]()` is visible to JavaScript when the
+      runtime defines `Symbol.dispose` (verify Hermes in the supported
+      window; else it is not, and the docs say to add a `close()` method);
+      calling it twice does nothing, as `using` expects.
+- [ ] The JS object's finalizer (`InstanceState`) drops the host's
+      reference, as today; debug builds count instances the host released
+      that still held an open `Resource`, in `debugSnapshot()`.
+- [ ] e2e `finalization` (registry order, unregister, a cycle through a
+      `WeakRef` with a registry); `host_test.cpp`: dispose from
+      JavaScript, finalizer on collection.
+
+**Done when:** a Lucent class releases its native object when JavaScript
+drops it, through a registry or `using`, with the e2e case green.
+
+<a id="ta41"></a>
+
+### TA41: Name reference cycles in debug builds
+
+**Goal:** When a debug build finds instances alive at teardown, report the
+cycle that keeps them: the fields and closure captures on the path, with
+their `.lucent.ts` lines.
+
+- **Status:** ready; needs nothing open.
+- **Area:** Runtime (live, debug), compiler (classes), tooling (dev).
+- **Needs:** none.
+- **Verify:** V1, V3.
+- **Where:** `runtime/cpp/lucent/live.h`, `debug.h`, `jsi/host.h`
+  (`ownership`), `emit/classes.ts` (a debug-only `visitRefs` per class and
+  closure), `runtime/js/index.js` (LogBox, as the stale-build warning),
+  `packages/lucent/src/cli/dev/`, `docs/limitations.md`.
+
+Why: cycles leak by design (not planned to collect); the common shape in
+SDK code is a class holding a closure that captures `this`. Today's
+teardown report says what is left, not why.
+
+- [ ] Debug builds give every class, struct and closure a `visitRefs`
+      that enumerates its strong references with the member's or
+      capture's name and source line; a teardown sweep walks what is
+      left from the roots the host still holds and prints each cycle once
+      as a path: `Session.onFrame`, then the closure at
+      `camera.lucent.ts:41`, which captures `this`, the `Session`.
+- [ ] `lucent dev` shows the report in LogBox after a reload, once per
+      cycle; `debugSnapshot()` carries it; Release builds compile none of
+      it.
+- [ ] A fix hint per cycle names the `WeakRef` to add.
+- [ ] Tests: `debug_test.cpp` with a two-object cycle and a closure cycle.
+
+**Done when:** a leaked cycle in the example app is reported in LogBox
+with its path after a reload.
+
+<a id="ta42"></a>
+
+### TA42: Throw `RangeError` on stack exhaustion
+
+**Goal:** Turn a stack overflow from a crash into JavaScript's
+`RangeError: Maximum call stack size exceeded`, at least in debug builds.
+
+- **Status:** ready; needs nothing open.
+- **Area:** Compiler (function prologue), runtime (stack).
+- **Needs:** none.
+- **Verify:** V1, V2, V3, V7.
+- **Where:** `ir/cpp.ts` and `emit/function.ts` (prologue),
+  `runtime/cpp/lucent/stack.h`, `scheduler.h` (per-thread stack bounds for
+  Lucent's threads; the platform's for the JS and main threads),
+  `docs/semantics.md` (Recursion limits, Deviations), e2e
+  `recursion-limit`, `scripts/bench.ts` (P2 cost).
+
+- [ ] Each thread Lucent runs on records its stack bounds once (its own
+      threads at creation; the JS and main threads at first entry through
+      `pthread_get_stackaddr_np` / `pthread_getattr_np`); a function
+      prologue compares the stack pointer with the bound minus a margin
+      and throws `RangeError` past it. Coroutine frames are heap-allocated
+      and need no check.
+- [ ] Measured on the kernels (P2): kept in Release if under 1%, else
+      debug-only, recorded as a decision either way.
+- [ ] e2e `recursion-limit`: unbounded recursion throws a catchable
+      `RangeError` in both runs; the deviations table row is removed or
+      narrowed.
+
+**Done when:** unbounded recursion throws `RangeError` instead of ending
+the app, with the budget decision recorded.
+
+<a id="ta44"></a>
+
+### TA44: `WeakMap` and `WeakSet` keyed by instances
+
+**Goal:** Support `WeakMap` and `WeakSet` whose keys are class instances,
+interface values or objects, with entries dropped when the key is freed.
+
+- **Status:** ready; needs nothing open.
+- **Area:** Runtime (map), compiler (builtins, types).
+- **Needs:** [TA37](#ta37) (done: `WeakRef`).
+- **Verify:** V1, V2, V3.
+- **Where:** `runtime/cpp/lucent/map.h`, `emit/builtins.ts`, `types.ts`,
+  `codes.ts`, `docs/semantics.md` (Built-ins, Deviations).
+
+- [ ] Keys are the types `WeakRef` takes; entries hold the key weakly and
+      the value strongly; an entry whose key is freed is gone at once
+      (deterministic, as `WeakRef`); `get`, `set`, `has`, `delete`; no
+      iteration, as in JavaScript. A `WeakMap` does not cross the
+      boundary.
+- [ ] e2e `weak-collections`; the deviations row (timing, as `WeakRef`'s).
+
+**Done when:** the e2e case is green and the limitations entry is lifted.
+
+<a id="ta46"></a>
+
+### TA46: A web target for shared modules
+
+**Goal:** Run a module's shared (platform-free) code on web and let a
+package supply a web implementation for its platform exports, as Expo's
+`registerWebModule` and react-native-mmkv's `localStorage` fallback do.
+
+- **Status:** blocked: a scope decision; needs nothing open.
+- **Area:** Tooling (Metro, build), lucent:core (JavaScript), docs.
+- **Needs:** [0060](decisions/0060-js-dev-mode-runs-modules-as-javascript.md)
+  (done).
+- **Verify:** V1, V6.
+- **Where:** `packages/lucent/metro/`, `native-package.ts` (a `web` target
+  writing JavaScript proxies that run the module as JavaScript), the JS
+  `lucent:core`, `platforms.ts` (`*.web.lucent.ts` as a platform file whose
+  code is ordinary TypeScript), the website.
+
+- [ ] Decide whether `web` is a target (platform branches refused unless
+      a `*.web.lucent.ts` twin supplies the exports) or out of scope, and
+      record it.
+- [ ] If in scope: Metro resolves a module's proxy to its JavaScript run
+      on web; `lucent:platform`'s `PLATFORM` is `"web"` there; views are
+      not available on web (a diagnostic).
+
+**Done when:** the decision is recorded; if in scope, `lucent-kv-storage`
+runs on web with a `localStorage` twin.
+
 <a id="t67"></a>
 
 ### T67: Pass the integrated production-candidate gate
@@ -1803,28 +2756,28 @@ maps each slice to the tasks that carry it, so none is dropped. Task
 details stay in this file; slice details stay in the
 [design](design/native-platform.md#18-implementation-slices-and-concrete-tests).
 
-| Slice | Work                       | Tasks                                                        |
-| ----- | -------------------------- | ------------------------------------------------------------ |
-| S01   | Baseline                   | T00, T01, T02, T10                                           |
-| S02   | Generated declarations     | T04, T12                                                     |
-| S03   | Schema and provenance      | T03, T11, T13, T24                                           |
-| S04   | Callback composition       | T06, T14                                                     |
-| S05   | Awaitable migration        | T25, [T28](#t28)                                             |
-| S06   | Swift acceptance           | T08, T17                                                     |
-| S07   | Kotlin reader spike        | T07                                                          |
-| S08   | Kotlin metadata and shims  | T15, T16, T26, T27                                           |
-| S09   | Semantic IR                | T05, T18, T19                                                |
-| S10   | Execution and lifetimes    | T06, T20, T21                                                |
-| S11   | Isolated compute           | T29, T30                                                     |
-| S12   | Buffers                    | T31, T32                                                     |
-| S13   | Native extensions          | T22, T33                                                     |
-| S14   | Lifecycle and context      | T34, T35, [T60](#t60)                                        |
-| S15   | Fabric                     | T36, T37, T38, T39, T44                                      |
-| S16   | UI reactive scopes         | T42, T43, T45                                                |
-| S17   | Native wrappers            | T46, [T52](#t52)                                             |
-| S18   | Sizing and slots           | T46, T47                                                     |
-| S19   | JSX, layout and primitives | [T48](#t48), [T49](#t49), [T50](#t50), [T51](#t51)           |
-| S20   | Demanding capabilities     | [T55](#t55), [T56](#t56), T57, T58, [T59](#t59), [T60](#t60) |
-| S21   | IR optimization            | T53, [T54](#t54)                                             |
-| S22   | Tooling                    | T09, T23, T24, T40, T41, [T61](#t61)                         |
-| S23   | Production and adoption    | [T62](#t62)–[T70](#t70)                                      |
+| Slice | Work                       | Tasks                                                                                  |
+| ----- | -------------------------- | -------------------------------------------------------------------------------------- |
+| S01   | Baseline                   | T00, T01, T02, T10                                                                     |
+| S02   | Generated declarations     | T04, T12                                                                               |
+| S03   | Schema and provenance      | T03, T11, T13, T24                                                                     |
+| S04   | Callback composition       | T06, T14                                                                               |
+| S05   | Awaitable migration        | T25, [T28](#t28)                                                                       |
+| S06   | Swift acceptance           | T08, T17                                                                               |
+| S07   | Kotlin reader spike        | T07                                                                                    |
+| S08   | Kotlin metadata and shims  | T15, T16, T26, T27                                                                     |
+| S09   | Semantic IR                | T05, T18, T19                                                                          |
+| S10   | Execution and lifetimes    | T06, T20, T21                                                                          |
+| S11   | Isolated compute           | T29, T30                                                                               |
+| S12   | Buffers                    | T31, T32, [T72](#t72), [T79](#t79)                                                     |
+| S13   | Native extensions          | T22, T33                                                                               |
+| S14   | Lifecycle and context      | T34, T35, [T60](#t60), [T76](#t76), [T77](#t77)                                        |
+| S15   | Fabric                     | T36, T37, T38, T39, T44, [T71](#t71), [T78](#t78)                                      |
+| S16   | UI reactive scopes         | T42, T43, T45                                                                          |
+| S17   | Native wrappers            | T46, [T52](#t52)                                                                       |
+| S18   | Sizing and slots           | T46, T47                                                                               |
+| S19   | JSX, layout and primitives | [T48](#t48), [T49](#t49), [T50](#t50), [T51](#t51)                                     |
+| S20   | Demanding capabilities     | [T55](#t55), [T56](#t56), T57, T58, [T59](#t59), [T60](#t60), [T73](#t73), [T74](#t74) |
+| S21   | IR optimization            | T53, [T54](#t54)                                                                       |
+| S22   | Tooling                    | T09, T23, T24, T40, T41, [T61](#t61)                                                   |
+| S23   | Production and adoption    | [T62](#t62)–[T70](#t70), [T75](#t75), [TA45](#ta45)                                    |
