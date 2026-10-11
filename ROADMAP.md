@@ -7,7 +7,7 @@ what's next and where the rest lives. The website's
 from its [status at a glance](#status-at-a-glance) and from
 [docs/limitations.md](docs/limitations.md).
 
-Updated 2026-10-08.
+Updated 2026-10-11.
 
 | Where                                                                                                                    | What it holds                                                                                                                                                                           | Updated when                                                     |
 | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
@@ -92,6 +92,13 @@ has every task's state):
 5. A scope decision on [T51](docs/tasks.md#t51), which as written
    conflicts with [decision 0012](docs/decisions/0012-jsx-for-swiftui-and-compose-with-no-wrappers.md)
    against a cross-platform view vocabulary.
+6. [T75](docs/tasks.md#t75): a supported window of stable React Native
+   and Expo releases, so libraries can ship on them.
+7. [T72](docs/tasks.md#t72), then [T73](docs/tasks.md#t73) and
+   [T74](docs/tasks.md#t74): zero-copy bytes, interop handles and callback
+   executors, which media ports need; and [T71](docs/tasks.md#t71) and
+   [T78](docs/tasks.md#t78), which the video and camera-preview ports
+   need to keep their APIs.
 
 The website shows the following areas. Each line is one short sentence:
 ✅ done · 🚧 in progress · ⏳ next · 🔭 later.

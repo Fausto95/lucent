@@ -77,11 +77,11 @@ generated from this file.
 ## Language, runtime and bindings
 
 - Reference cycles are not collected (see [Not planned](../ROADMAP.md#not-planned)):
-  break them with `WeakRef`. `WeakMap` and `WeakSet` are refused, and so
-  is a `WeakRef` to an SDK object ([TA37](tasks.md#ta37)).
+  break them with `WeakRef`. `WeakMap` and `WeakSet` are refused
+  ([TA44](tasks.md#ta44)), and so is a `WeakRef` to an SDK object.
 - On iOS, module code has no event for the URLs the app opens and no
   hook for a push token. Both reach only the app delegate, which Lucent
-  does not replace ([TA37](tasks.md#ta37)). On Android,
+  does not replace ([T76](tasks.md#t76)). On Android,
   `onActivityEvent("newIntent", …)` carries the URLs.
 - A declaration file of platform files can't declare a class
   (`export declare class`): a shared class with platform members holds
@@ -142,7 +142,7 @@ Array(n)` without a whole `.fill(v)`, even when each index is then
   debug variant by name. A library only another flavor depends on is not
   bindable.
 - Typed native extensions: Kotlin sources in a package are not typed
-  yet (Swift ones are `lucent:ios/LucentNative`), and extension calls
-  cannot be cancelled.
+  yet (Swift ones are `lucent:ios/LucentNative`; [T77](tasks.md#t77)),
+  and extension calls cannot be cancelled.
 - Tracing records allocations for native buffers only, and its buffer
   uses one mutex: fine for debugging, not for continuous production use.
