@@ -192,6 +192,7 @@ const OWNED: Record<string, string> = {
   WeakRef: "a weak reference, which belongs to the context that made it",
   WeakMap: "a weak collection, which belongs to the context that made it, as its keys do",
   WeakSet: "a weak collection, which belongs to the context that made it, as its keys do",
+  FinalizationRegistry: "a finalization registry, whose cleanups run on the context that made it",
   Generator: "a generator, which runs code on the context that made it",
   Iterator: "an iterator, which runs code on the context that made it",
   IterableIterator: "an iterator, which runs code on the context that made it",

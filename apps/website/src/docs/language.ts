@@ -422,6 +422,12 @@ export const differences: { title: string; rows: Difference[] }[] = [
         cases: ["weak-collections"],
       },
       {
+        js: "A `FinalizationRegistry`'s cleanup runs some time after the garbage collector frees the target, or never.",
+        lucent: "It runs soon after the target's last strong reference goes, as a job, every time.",
+        why: "Lucent counts references, so a target goes when its count reaches zero.",
+        cases: ["finalization"],
+      },
+      {
         js: "Deep recursion throws a `RangeError` at the engine's limit.",
         lucent:
           "It throws a `RangeError` too, when the native stack is nearly full: how deep that is depends on the thread's stack and the frames' sizes.",
@@ -598,8 +604,9 @@ export const differences: { title: string; rows: Difference[] }[] = [
       },
       {
         js: "A class's `[Symbol.dispose]()` can be called from JavaScript.",
-        lucent: "JavaScript doesn't see the symbol-keyed members of a Lucent class.",
-        why: "Lucent gives JavaScript a class's members by name, and a symbol has none.",
+        lucent:
+          "JavaScript doesn't see the symbol-keyed members of a Lucent class: give a class JavaScript should close a `close()` method too.",
+        why: "Lucent gives JavaScript a class's members by name, and a symbol has none. Hermes has no `Symbol.dispose` either.",
         cases: ["using"],
       },
     ],

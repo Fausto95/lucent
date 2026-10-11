@@ -54,6 +54,7 @@ const LOOSE: Record<Exclude<LType["k"], "opt" | "union">, Loose> = {
   weakMap: "object",
   weakSet: "object",
   jsvalue: "unknown",
+  registry: "object",
 };
 
 /** The kinds `==` converts between, in the order the diagnostic names them. */

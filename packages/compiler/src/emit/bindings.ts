@@ -163,6 +163,12 @@ export class BindingsEmitter {
           Codes.BoundaryType,
           "a WeakRef cannot cross the JavaScript boundary: pass its target, from deref()",
         );
+      case "registry":
+        fail(
+          node,
+          Codes.BoundaryType,
+          "a FinalizationRegistry cannot cross the JavaScript boundary: register targets with one in Lucent code",
+        );
       case "weakMap":
       case "weakSet":
         fail(
