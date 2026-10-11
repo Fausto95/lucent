@@ -338,6 +338,10 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "WeakMap.set": ADDS,
   "WeakMap.has": NONE,
   "WeakMap.delete": MUTATES,
+  // The cleanup runs later, on this context, once a target is gone.
+  "FinalizationRegistryConstructor.new": { allocates: true, keeps: "result", calls: "later" },
+  "FinalizationRegistry.register": { mutates: true, keeps: "receiver", throws: true },
+  "FinalizationRegistry.unregister": MUTATES,
   "WeakSetConstructor.new": ALLOCATES,
   "WeakSet.add": ADDS,
   "WeakSet.has": NONE,

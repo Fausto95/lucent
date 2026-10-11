@@ -434,6 +434,15 @@ Modules are checked against the ES2024 library. Its typed-array copies
   crosses the boundary, and both belong to the context that made them,
   as their keys do. A value that holds its own key keeps it: reference
   counting cannot see that only the entry reaches the key.
+- **FinalizationRegistry**: `new FinalizationRegistry(cleanup)`,
+  `register(target, held, token?)` of the objects a WeakRef holds, and
+  `unregister(token)`, which says whether it removed any. Once a target's
+  last strong reference goes, its registrations' cleanups run with their
+  held values, one each, as jobs of the context that made the registry,
+  after the turn that freed the target; a registration a token removed,
+  or one of a registry gone first, never runs. A target that is its own
+  held value is a `TypeError`. What a cleanup throws is reported. It does
+  not cross the boundary.
 
 Not supported: `Intl`, `Symbol`, `Proxy`, `eval`, and
 `String.prototype.normalize` (the runtime has no Unicode normalization
@@ -673,7 +682,8 @@ explicitly, for example by clearing a field.
 | `Object.prototype.toString` of an `Error` subclass's instance gives `[object Error]`                                            | a Lucent class instance is a plain object whose prototype chain reaches `Error.prototype`: it gives `[object Object]`                                                                                                                                                                                                    |
 | any value can be assigned to an error's `name` or `message`                                                                     | from JavaScript, a Lucent error's `name` and `message` take strings; another value throws `TypeError`                                                                                                                                                                                                                    |
 | a class instance in JavaScript has its fields as own properties, `private` ones included                                        | public fields are prototype accessors, other members hidden: `Object.keys` and `JSON.stringify` see no fields                                                                                                                                                                                                            |
-| a class's `[Symbol.dispose]()` is callable from JavaScript                                                                      | it is for Lucent code: JavaScript does not see symbol-keyed members of Lucent classes                                                                                                                                                                                                                                    |
+| a class's `[Symbol.dispose]()` is callable from JavaScript                                                                      | it is for Lucent code: JavaScript does not see symbol-keyed members of Lucent classes, and Hermes has no `Symbol.dispose`: give a class JavaScript should close a `close()` method too                                                                                                                                   |
+| a `FinalizationRegistry`'s cleanup runs at some point after the collector frees the target, or never                            | it runs soon after the target's last strong reference goes, as a job, every time                                                                                                                                                                                                                                         |
 | `resolve(promise)` in a promise executor adopts the promise                                                                     | `fromCallback` reports values, not promises: a promise type is refused (`LUCENT1007`); await it and report its value                                                                                                                                                                                                     |
 | `await` on an object without a `then` method gives the object                                                                   | `await` on a platform SDK object is refused (`LUCENT1010`): adapt its completion listener with `fromCallback`                                                                                                                                                                                                            |
 | an error nobody catches (a `fromCallback` cleanup that throws) reaches the host's error handler                                 | it is written to the platform log (logcat, the unified log) and stderr                                                                                                                                                                                                                                                   |

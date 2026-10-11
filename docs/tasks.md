@@ -58,7 +58,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [TA34](#ta34) | Turn a Java Throwable into a Lucent Error                         | done (#80, 2026-10-04)                                                                                                            |
 | [TA35](#ta35) | Bind a package's own pods in an Expo app                          | ready; needs nothing open                                                                                                         |
 | [TA39](#ta39) | ES2023 and ES2024 library methods                                 | done (#159, #160, 2026-10-11)                                                                                                     |
-| [TA40](#ta40) | Deterministic finalization and dispose from JavaScript            | ready; needs nothing open                                                                                                         |
+| [TA40](#ta40) | Deterministic finalization and dispose from JavaScript            | in progress (#176 merged)                                                                                                         |
 | [TA41](#ta41) | Name reference cycles in debug builds                             | ready; needs nothing open                                                                                                         |
 | [TA42](#ta42) | Throw `RangeError` on stack exhaustion                            | done (#173, 2026-10-11)                                                                                                           |
 | [TA44](#ta44) | `WeakMap` and `WeakSet` keyed by instances                        | done (#170, 2026-10-11)                                                                                                           |
@@ -2409,7 +2409,8 @@ language pages list them as supported.
 **Goal:** Give classes a way to release what they hold when their last
 reference goes, from either side, with JavaScript's own APIs.
 
-- **Status:** ready; needs nothing open.
+- **Status:** in progress: `FinalizationRegistry` merged as #176; the
+  debug counts and a release from JavaScript follow.
 - **Area:** Runtime (scope, resource, JSI host), compiler (classes), lucent:core.
 - **Needs:** none; builds on
   [0068](decisions/0068-weakref-not-a-weak-modifier.md).
@@ -2425,15 +2426,20 @@ invisible to JavaScript, so a resource JavaScript owns the last reference
 to can only be closed through a method the author adds, and the players
 spike leaked its label for that reason.
 
-- [ ] `FinalizationRegistry` in Lucent: `register(target, held, token?)`,
+- [x] `FinalizationRegistry` in Lucent: `register(target, held, token?)`,
       `unregister(token)`; the cleanup runs when the target's last strong
       reference goes (deterministic, as `WeakRef` is per 0068), on the
       context the target's resources require, after the target is gone;
-      listed as a deviation (timing) like `WeakRef`'s.
-- [ ] A class's `[Symbol.dispose]()` is visible to JavaScript when the
+      listed as a deviation (timing) like `WeakRef`'s (#176: the cleanup
+      runs as a job of the context that made the registry, after the turn
+      that freed the target; `weak.h`, `runtime_test.cpp`'s
+      `finalizationRegistries`, the `finalization` e2e case).
+- [x] A class's `[Symbol.dispose]()` is visible to JavaScript when the
       runtime defines `Symbol.dispose` (verify Hermes in the supported
       window; else it is not, and the docs say to add a `close()` method);
-      calling it twice does nothing, as `using` expects.
+      calling it twice does nothing, as `using` expects. Hermes (main,
+      2026-09) has no `Symbol.dispose`: the docs say to add `close()`
+      (#176).
 - [ ] The JS object's finalizer (`InstanceState`) drops the host's
       reference, as today; debug builds count instances the host released
       that still held an open `Resource`, in `debugSnapshot()`.

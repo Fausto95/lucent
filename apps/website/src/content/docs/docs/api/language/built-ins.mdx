@@ -134,6 +134,16 @@ The operators on bigints are on [Statements](/docs/api/language/statements/#bigi
 
 An entry goes, its value with it, when nothing else holds its key: at once, where JavaScript waits for its garbage collector ([Memory](/docs/api/language/memory/#cycles-leak)). There's no iteration and no `size`, as in JavaScript, and neither crosses to JavaScript.
 
+## FinalizationRegistry
+
+| Member | Notes |
+| --- | --- |
+| `new FinalizationRegistry(cleanup)` | `cleanup(held)` runs once for each registration whose target is gone. |
+| `register(target, held, token?)` | The target and token are class instances, interface values or objects. A target that is its own held value is a `TypeError`. |
+| `unregister(token)` | Removes the registrations made with `token`, and says whether there were any. |
+
+A cleanup runs soon after its target's last strong reference goes, as a job of the code that made the registry, where JavaScript runs it some time after its collector frees the target, or never.
+
 ## Object
 
 | Function | Notes |

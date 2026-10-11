@@ -84,7 +84,9 @@ export type LType =
   /** `WeakSet<K>` (lucent::WeakSet). */
   | { k: "weakSet"; key: LType }
   /** lucent:core's JSValue (lucent::JSValue): a value JavaScript gave, held without looking inside. */
-  | { k: "jsvalue" };
+  | { k: "jsvalue" }
+  /** `FinalizationRegistry<H>` (lucent::FinalizationRegistry): cleanups of `held` values. */
+  | { k: "registry"; held: LType };
 
 /** The error constructors Lucent makes; an error is named after its constructor. */
 const ERROR_NAMES = ["Error", "TypeError", "RangeError", "SyntaxError"] as const;
@@ -181,6 +183,8 @@ function keyWith(t: LType, struct: (id: string) => string): string {
       return `WeakMap<${key(t.key)},${key(t.val)}>`;
     case "weakSet":
       return `WeakSet<${key(t.key)}>`;
+    case "registry":
+      return `FinalizationRegistry<${key(t.held)}>`;
     case "emitter":
       return `EventEmitter<{${t.events.map((e) => `${JSON.stringify(e.name)}:${key(e.fn)}`).join(",")}}>`;
     default:
@@ -257,6 +261,8 @@ export function substitute(t: LType, map: Map<string, LType>): LType {
       return { k: "weakMap", key: substitute(t.key, map), val: substitute(t.val, map) };
     case "weakSet":
       return { k: "weakSet", key: substitute(t.key, map) };
+    case "registry":
+      return { k: "registry", held: substitute(t.held, map) };
     case "weak":
       return { k: "weak", inner: substitute(t.inner, map) };
     case "opt": {
@@ -361,6 +367,8 @@ function typeParts(t: LType): readonly LType[] {
       return [t.key, t.val];
     case "weakSet":
       return [t.key];
+    case "registry":
+      return [t.held];
     case "weak":
       return [t.inner];
     case "dict":
@@ -1167,6 +1175,8 @@ export class TypeRegistry {
             ? { k: "weakMap", key, val: this.lower(args[1]!, node) }
             : { k: "weakSet", key };
         }
+        case "FinalizationRegistry":
+          return { k: "registry", held: this.lower(args[0]!, node) };
         case "PromiseWithResolvers": {
           // The functions settle the promise as a Promise executor's do (emit/builtins.ts):
           // resolve takes a value, not a promise to adopt, and reject an Error.
@@ -1624,6 +1634,8 @@ export class TypeRegistry {
         return lucent("WeakMap", this.cppType(t.key), this.cppType(t.val));
       case "weakSet":
         return lucent("WeakSet", this.cppType(t.key));
+      case "registry":
+        return lucent("FinalizationRegistry", this.cppType(t.held));
     }
   }
 

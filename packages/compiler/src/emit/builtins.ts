@@ -1324,6 +1324,8 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
     case "weakMap":
     case "weakSet":
       return weakMethod(em, obj as E & { t: LType & { k: "weakMap" | "weakSet" } }, name, node);
+    case "registry":
+      return registryMethod(em, obj as E & { t: LType & { k: "registry" } }, name, node);
     case "emitter":
       return emitterMethod(em, obj, name, node);
     case "subscription":
@@ -1995,6 +1997,43 @@ function reachesJsValue(em: FnEmitter, t: LType, seen = new Set<string>()): bool
   }
 }
 
+/** An object a FinalizationRegistry takes as a target or token: what a WeakRef could hold. */
+function registryObject(em: FnEmitter, arg: ts.Expression, what: string): cpp.Expr {
+  const e = em.expr(arg);
+  const t = stripOpt(e.t);
+  if (t.k !== "class" && t.k !== "iface" && t.k !== "struct")
+    fail(
+      arg,
+      Codes.UnsupportedType,
+      `a FinalizationRegistry's ${what} are class instances or objects, not ${typeKey(t)} values`,
+    );
+  return e.c;
+}
+
+/** FinalizationRegistry's methods (weak.h): `register` is `registerTarget` in C++. */
+function registryMethod(
+  em: FnEmitter,
+  obj: E & { t: LType & { k: "registry" } },
+  name: string,
+  node: ts.CallExpression,
+): E {
+  const a = node.arguments;
+  switch (name) {
+    case "register": {
+      const target = registryObject(em, a[0]!, "targets");
+      const held = em.exprAs(a[1]!, obj.t.held);
+      const token = a[2] ? [registryObject(em, a[2], "tokens")] : [];
+      return {
+        c: cpp.call(cpp.dot(obj.c, "registerTarget"), [target, held, ...token]),
+        t: T.undefined,
+      };
+    }
+    case "unregister":
+      return bool(cpp.call(cpp.dot(obj.c, "unregister"), [registryObject(em, a[0]!, "tokens")]));
+  }
+  fail(node, Codes.UnsupportedBuiltin, `FinalizationRegistry.prototype.${name} is not supported`);
+}
+
 /** WeakMap's and WeakSet's methods: by key, as Map's and Set's are (weak.h). */
 function weakMethod(
   em: FnEmitter,
@@ -2220,6 +2259,7 @@ const LIB_CONSTRUCTORS: Record<string, LType["k"]> = {
   WeakRef: "weak",
   WeakMap: "weakMap",
   WeakSet: "weakSet",
+  FinalizationRegistry: "registry",
   RegExp: "regexp",
   Date: "date",
   Map: "map",
@@ -2301,6 +2341,12 @@ export function newBuiltin(
         ),
         t,
       };
+    }
+    case "registry": {
+      if (a.length !== 1)
+        fail(node, Codes.UnsupportedBuiltin, "new FinalizationRegistry() takes its cleanup");
+      const cleanup: LType = { k: "fn", params: [t.held], ret: T.void };
+      return { c: cpp.construct(em.reg.cppType(t), [em.exprAs(a[0]!, cleanup)]), t };
     }
     case "weakMap":
     case "weakSet":

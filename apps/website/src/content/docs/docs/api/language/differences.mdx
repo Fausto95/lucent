@@ -26,6 +26,7 @@ Each e2e case is a module in `packages/compiler/test/e2e/cases/`, run natively a
 | Garbage collection frees cycles. | Reference counting never frees a cycle. Break it by clearing a field, or hold one side in a `WeakRef` ([Memory](/docs/api/language/memory/#cycles-leak)). | Lucent counts references, and no collector runs. | None |
 | A `WeakRef`'s target lives until the garbage collector runs, so `deref()` may still return it after the last other reference goes. | The target is freed with its last strong reference, and `deref()` returns `undefined` at once. | Lucent counts references, so a target goes when its count reaches zero. | `weak-refs` |
 | A `WeakMap` or `WeakSet` entry lives until the garbage collector runs, and a value that holds only its own key frees with it. | An entry goes, its value with it, with its key's last strong reference, at once. A value that holds its own key keeps it, and the entry. | Lucent counts references: the key's last reference drops its entries, and nothing traces through a value to its key. | `weak-collections` |
+| A `FinalizationRegistry`'s cleanup runs some time after the garbage collector frees the target, or never. | It runs soon after the target's last strong reference goes, as a job, every time. | Lucent counts references, so a target goes when its count reaches zero. | `finalization` |
 | Deep recursion throws a `RangeError` at the engine's limit. | It throws a `RangeError` too, when the native stack is nearly full: how deep that is depends on the thread's stack and the frames' sizes. | Lucent code runs on the native stack, which each call checks. | `recursion-limit` |
 
 ## Objects
@@ -68,7 +69,7 @@ Each e2e case is a module in `packages/compiler/test/e2e/cases/`, run natively a
 | `Date` objects passed to other code are shared. | Copied at the boundary; inside Lucent they're shared. | The same as for arrays and objects. | `dates` |
 | A function JavaScript passes returns its value whenever it's called. | Called off the JS thread, it's posted there, so it must return `void` or a `Promise`. | Lucent code never waits for the JS thread. | `async` |
 | A class instance has its fields as own properties. | JavaScript sees public fields as accessors on the prototype, a `readonly` one without a setter, and no other members. `Object.keys` and `JSON.stringify` there see no fields. | The instance's fields live in native code, behind one JavaScript object. | `classes` |
-| A class's `[Symbol.dispose]()` can be called from JavaScript. | JavaScript doesn't see the symbol-keyed members of a Lucent class. | Lucent gives JavaScript a class's members by name, and a symbol has none. | `using` |
+| A class's `[Symbol.dispose]()` can be called from JavaScript. | JavaScript doesn't see the symbol-keyed members of a Lucent class: give a class JavaScript should close a `close()` method too. | Lucent gives JavaScript a class's members by name, and a symbol has none. Hermes has no `Symbol.dispose` either. | `using` |
 
 ## Errors and cancellation
 

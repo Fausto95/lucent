@@ -811,6 +811,75 @@ static void weakCollections() {
   CHECK(toJsString(owners).toUtf8() == "[object WeakMap]" && toJsString(seen).toUtf8() == "[object WeakSet]");
 }
 
+/// Runs `f` as a turn of `context` and waits for it.
+template <class F>
+static void inTurn(ExecutionContext& context, F f) {
+  std::promise<void> done;
+  auto future = done.get_future();
+  context.post([&] {
+    f();
+    done.set_value();
+  });
+  if (future.wait_for(std::chrono::seconds(5)) != std::future_status::ready) {
+    std::fprintf(stderr, "a turn did not run within 5 s\n");
+    std::abort();
+  }
+}
+
+/// A FinalizationRegistry's cleanup runs once a target is gone, as a job
+/// of the context that made the registry, after the turn that freed it;
+/// an unregistered target's never runs, nor a freed registry's.
+static void finalizationRegistries() {
+  auto context = IsolatedContext::create();
+  std::vector<std::string> cleaned;
+  Opt<FinalizationRegistry<String>> registry;
+  auto key = std::make_shared<Key>();
+  auto kept = std::make_shared<Key>();
+  auto token = std::make_shared<Key>();
+  std::string sawDuring;
+
+  inTurn(*context, [&] {
+    registry = FinalizationRegistry<String>(Fn<void(String)>([&](String held) { cleaned.push_back(held.toUtf8()); }));
+    registry.get().registerTarget(key, S("first"));
+    registry.get().registerTarget(key, S("again"));
+    registry.get().registerTarget(kept, S("kept"), token);
+    key.reset();
+    // Not during the turn that freed the target: a job after it.
+    sawDuring = std::to_string(cleaned.size());
+  });
+  inTurn(*context, [] {});
+  CHECK(sawDuring == "0");
+  CHECK((cleaned == std::vector<std::string>{"first", "again"}));
+
+  // Unregistered, a target goes without a cleanup; unregister says whether it removed any.
+  bool removed = false, again = true;
+  inTurn(*context, [&] {
+    removed = registry.get().unregister(token);
+    again = registry.get().unregister(token);
+    kept.reset();
+  });
+  inTurn(*context, [] {});
+  CHECK(removed && !again);
+  CHECK(cleaned.size() == 2);
+
+  // A target that is its own held value is a TypeError, as in JavaScript.
+  auto self = std::make_shared<Key>();
+  FinalizationRegistry<Ref<Key>> owners(Fn<void(Ref<Key>)>([](Ref<Key>) {}));
+  CHECK_THROWS(owners.registerTarget(self, self), "TypeError");
+
+  // A registry freed before its target: no cleanup.
+  auto late = std::make_shared<Key>();
+  inTurn(*context, [&] {
+    registry.get().registerTarget(late, S("late"));
+    registry = undefined;
+    late.reset();
+  });
+  inTurn(*context, [] {});
+  CHECK(cleaned.size() == 2);
+
+  context->shutdown();
+}
+
 // Generated code calls lucent::strictEquals qualified, which finds no
 // hidden friend: every overload has to be declared at namespace scope.
 static void qualifiedStrictEquals() {
@@ -1357,6 +1426,7 @@ int main() {
   optionalsAndUnions();
   weakReferences();
   weakCollections();
+  finalizationRegistries();
   qualifiedStrictEquals();
   qualifiedToJsString();
   mixedStrictEquals();
