@@ -7,6 +7,7 @@ import { type ClassInfo, cppIdent, isVoidish, type LType, stripOpt, typeKey } fr
 import { constructorOf, memberName, parameterProperties } from "./classes.ts";
 import type { Ctx, Global, ParamInfo } from "./context.ts";
 import { FnEmitter } from "./function.ts";
+import { onlyReads } from "./lent-bytes.ts";
 import { traceSite } from "./trace-site.ts";
 
 /** Everything JavaScript can see of one module. */
@@ -724,6 +725,18 @@ export class BindingsEmitter {
     return cpp.exprStmt(cpp.call("defineAccessor", [rt, target, cpp.str(m.name), getter, setter]));
   }
 
+  /** The byte parameters a synchronous function only reads, which it can read in place. */
+  private lentParams(decl: ts.FunctionLikeDeclaration, params: ParamInfo[]): Set<number> {
+    const lent = new Set<number>();
+    params.forEach((p, i) => {
+      const k = p.cppType.k;
+      const param = decl.parameters[i];
+      if ((k === "bytes" || k === "arrayBuffer") && !p.rest && param)
+        if (onlyReads(this.ctx.checker, decl, param)) lent.add(i);
+    });
+    return lent;
+  }
+
   /** The body of a host function that converts arguments, calls, and converts back. */
   private callBody(
     fname: string,
@@ -734,6 +747,7 @@ export class BindingsEmitter {
     target: cpp.Expr,
     prelude?: cpp.Stmt,
     captures: string[] = [],
+    lent: ReadonlySet<number> = new Set(),
   ): cpp.Stmt[] {
     const site = traceSite(fname, declaration);
     const conv: cpp.Stmt[] = [];
@@ -763,6 +777,19 @@ export class BindingsEmitter {
             ),
           ],
         });
+      } else if (lent.has(i)) {
+        // Read in place for the call (lent-bytes.ts): kept until it returns.
+        conv.push(
+          cpp.varDecl(
+            cpp.auto,
+            n,
+            cpp.call(cpp.scoped(cpp.type("Convert", t), "borrow"), [
+              rt,
+              argAt(i),
+              path(fname, `argument '${p.name}'`),
+            ]),
+          ),
+        );
       } else {
         conv.push(
           cpp.varDecl(
@@ -773,12 +800,13 @@ export class BindingsEmitter {
         );
       }
     });
-    // Each converted argument is used once: synchronous calls move them in;
-    // async ones copy them into the job's lambda.
+    // Each converted argument is used once: synchronous calls move them in
+    // (a lent one is passed on, held until the call returns); async ones
+    // copy them into the job's lambda.
     const ids = names.map((n) => cpp.id(n));
     const moved = cpp.call(
       target,
-      ids.map((n) => cpp.call("std::move", [n])),
+      ids.map((n, i) => (lent.has(i) ? cpp.call(cpp.dot(n, "get")) : cpp.call("std::move", [n]))),
     );
     const host = cpp.id("host");
     const result: cpp.Stmt[] = isAsync
@@ -829,6 +857,9 @@ export class BindingsEmitter {
         ret,
         f.async,
         cpp.id(`${ns}::${cppIdent(name)}`),
+        undefined,
+        [],
+        f.async || f.decl.asteriskToken ? new Set() : this.lentParams(f.decl, f.params),
       );
       body.push(
         cpp.exprStmt(

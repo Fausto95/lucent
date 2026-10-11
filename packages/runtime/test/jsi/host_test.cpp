@@ -1218,6 +1218,65 @@ static void returnedBytesMoveWhenNothingElseHoldsThem() {
   CHECK(within(2000, [&] { return released == 1; }));
 }
 
+/// An argument lent for a synchronous call is JavaScript's own bytes (only
+/// the view's, for part of a buffer); one something still holds when the
+/// call ends becomes a copy then, so nothing keeps JavaScript's memory.
+static void lentBytesAreJavaScriptsUntilTheCallEnds() {
+  JsThread js;
+  install(js);
+
+  js.run([&](jsi::Runtime& rt) {
+    jsi::Value buffer = rt.evaluateJavaScript(std::make_shared<jsi::StringBuffer>("new Uint8Array([1, 2, 3, 4]).buffer"), "lent");
+    uint8_t* memory = buffer.getObject(rt).getArrayBuffer(rt).data(rt);
+
+    Opt<ArrayBuffer> outlived;
+    {
+      Borrowed<ArrayBuffer> lent = Convert<ArrayBuffer>::borrow(rt, buffer, Path{"f", "argument 'buffer'"});
+      CHECK(lent.get().data() == memory);
+      CHECK(lent.get().size() == 4);
+      memory[0] = 10;
+      CHECK(lent.get().data()[0] == 10);
+      outlived = lent.get();
+    }
+    // Held past the call: a copy now, which JavaScript's writes no longer reach.
+    CHECK(outlived.get().data() != memory);
+    memory[1] = 20;
+    CHECK(outlived.get().data()[0] == 10);
+    CHECK(outlived.get().data()[1] == 2);
+
+    {
+      Borrowed<ArrayBuffer> lent = Convert<ArrayBuffer>::borrow(rt, buffer, Path{"f", "argument 'buffer'"});
+      ArrayBuffer during = lent.get();  // gone before the call ends: no copy
+      CHECK(during.data() == memory);
+    }
+
+    jsi::Value part = rt.evaluateJavaScript(std::make_shared<jsi::StringBuffer>("new Uint8Array([0, 0, 5, 6, 7, 0]).subarray(2, 5)"), "lent");
+    uint8_t* whole = part.getObject(rt).getPropertyAsObject(rt, "buffer").getArrayBuffer(rt).data(rt);
+    {
+      Borrowed<Bytes> lent = Convert<Bytes>::borrow(rt, part, Path{"f", "argument 'bytes'"});
+      CHECK(lent.get().data() == whole + 2);
+      CHECK(lent.get().size() == 3);
+      CHECK(lent.get().offset() == 0);
+      CHECK(lent.get().buffer()->size() == 3);
+    }
+
+    jsi::Value empty = rt.evaluateJavaScript(std::make_shared<jsi::StringBuffer>("new Uint8Array(0)"), "lent");
+    {
+      Borrowed<Bytes> lent = Convert<Bytes>::borrow(rt, empty, Path{"f", "argument 'bytes'"});
+      CHECK(lent.get().size() == 0);
+    }
+
+    // Not bytes: the same error as a copying conversion.
+    bool refused = false;
+    try {
+      Convert<Bytes>::borrow(rt, jsi::Value(3), Path{"f", "argument 'bytes'"});
+    } catch (const jsi::JSError& e) {
+      refused = std::string(e.getMessage()).find("argument 'bytes'") != std::string::npos;
+    }
+    CHECK(refused);
+  });
+}
+
 // --- instances ----------------------------------------------------------------
 
 /// One native instance reached from two runtimes: each has its own JS
@@ -1607,6 +1666,7 @@ int main() {
   reloadsStopModuleWork();
   resultsThatCannotCrossReject();
   returnedBytesMoveWhenNothingElseHoldsThem();
+  lentBytesAreJavaScriptsUntilTheCallEnds();
   eachRuntimeHasItsOwnObjectForAnInstance();
   objectsOfATornDownHostAreRefused();
   collectedInstancesReleaseOnTheirThread();

@@ -44,7 +44,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T64](#t64)   | Run lifetime, concurrency and Fabric stress validation            | waiting (needs the maintainer); needs T55, T59, T60                                                                               |
 | [T65](#t65)   | Enforce physical-device performance budgets                       | waiting (needs the maintainer); needs T55, T56, T59, T64                                                                          |
 | [T66](#t66)   | Complete user documentation and migration examples                | waiting; needs T51, T52, T60                                                                                                      |
-| [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165, #167 merged)                                                                                             |
+| [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165, #167, #168 merged)                                                                                       |
 | [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | waiting; needs T72                                                                                                                |
 | [T74](#t74)   | Callback executors and stream backpressure                        | waiting; needs T72                                                                                                                |
 | [T75](#t75)   | Support a window of stable React Native and Expo releases         | blocked: a decision on the window; needs nothing open                                                                             |
@@ -1548,7 +1548,8 @@ platform buffers (`CVPixelBuffer`, `AHardwareBuffer`, a direct
 
 - **Status:** in progress: adopted storage and moving returned bytes merged
   as #163, `NativeBuffer.transferToArrayBuffer()` as #165, a direct
-  `ByteBuffer`'s adoption as #167; the rest follows.
+  `ByteBuffer`'s adoption as #167, lent byte arguments as #168; the rest
+  follows.
 - **Area:** Runtime (buffers, JSI), compiler (buffers, bindings), lucent:core,
   lucent:ios, lucent:android.
 - **Needs:** T31 (done), T32 (done), [TA36](#ta36) (done).
@@ -1601,10 +1602,14 @@ as MMKV's API does, and only the adoption is platform code.
       (CoreVideo, the NDK), not a catalog entry: the no-catalog rule holds.
       The NDK's `AHardwareBuffer` calls need an NDK to build and an
       emulator to run.
-- [ ] A synchronous export's `ArrayBuffer` or `Uint8Array` parameter that
-      does not escape the call (the analyses' escape facts) is read in
-      place instead of copied: MMKV's `set(key, buffer)`. An async export,
-      or one that keeps the bytes, still copies.
+- [x] A synchronous export's `ArrayBuffer` or `Uint8Array` parameter that
+      its body only reads is read in place instead of copied: MMKV's
+      `set(key, buffer)`. An async export, or one that writes, keeps,
+      returns or passes on the bytes, still copies (#168, C-BUFFER v1.4,
+      `emit/lent-bytes.ts`, the `borrowed-bytes` e2e case,
+      `lent-bytes.test.ts`). The check is syntactic: passing the bytes to
+      the program's own functions copies, which the escape facts could
+      later lift.
 - [ ] P3 gains a 4 MB frame returned to JavaScript with 0 payload copies;
       the `array-buffers` e2e case covers the moves' semantics (the
       JavaScript reference: the same bytes).

@@ -374,9 +374,39 @@ struct Convert<Set<T>> {
 
 // --- Uint8Array ------------------------------------------------------------------------
 
+/// A synchronous call's byte argument read in place, which the compiler
+/// lends when the function only reads it while it runs: JavaScript's own
+/// bytes (only a view's, for part of a buffer), uncopied. Should anything
+/// still hold them when the call ends, they become a copy then, so nothing
+/// outlives the memory JavaScript lent. Pass `get()` on; keep the
+/// Borrowed itself until the call returns.
+template <class T>
+class Borrowed {
+ public:
+  explicit Borrowed(T value) : value_(std::move(value)) {}
+  Borrowed(Borrowed&&) = default;
+  Borrowed(const Borrowed&) = delete;
+  Borrowed& operator=(const Borrowed&) = delete;
+  Borrowed& operator=(Borrowed&&) = delete;
+  ~Borrowed() {
+    const Storage& s = storageOf(value_);
+    if (s && s.use_count() > 1) s->keep();
+  }
+
+  const T& get() const { return value_; }
+
+ private:
+  static const Storage& storageOf(const ArrayBuffer& b) { return b.storage(); }
+  static const Storage& storageOf(const Bytes& b) { return b.buffer(); }
+
+  T value_;
+};
+
 template <>
 struct Convert<Bytes> {
   static Bytes fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+  /// The view's bytes in place, for one synchronous call (see Borrowed).
+  static Borrowed<Bytes> borrow(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Bytes& b);
   /// A function's result: when nothing else holds its buffer and it views
   /// the whole of it, JavaScript's Uint8Array is over the same bytes.
@@ -390,6 +420,8 @@ struct Convert<Bytes> {
 template <>
 struct Convert<ArrayBuffer> {
   static ArrayBuffer fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+  /// The buffer's bytes in place, for one synchronous call (see Borrowed).
+  static Borrowed<ArrayBuffer> borrow(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const ArrayBuffer& b);
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, ArrayBuffer&& b);
 };

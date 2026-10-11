@@ -555,6 +555,13 @@ export const differences: { title: string; rows: Difference[] }[] = [
         cases: ["reference-identity"],
       },
       {
+        js: "A `Uint8Array` or `ArrayBuffer` passed to other code is shared.",
+        lucent:
+          "Copied at the boundary, but a synchronous function that only reads one reads JavaScript's bytes in place while it runs, so JavaScript's writes meanwhile show. Inside Lucent they're shared.",
+        why: "The same as for arrays and objects. Bytes a call only reads need no copy: nothing holds them once it returns.",
+        cases: ["array-buffers", "borrowed-bytes"],
+      },
+      {
         js: "`Date` objects passed to other code are shared.",
         lucent: "Copied at the boundary; inside Lucent they're shared.",
         why: "The same as for arrays and objects.",

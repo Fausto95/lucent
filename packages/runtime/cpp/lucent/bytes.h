@@ -29,7 +29,8 @@ inline size_t toIndex(double v, const char* message) {
 /// adopted from native code (an NSData, a pixel buffer's plane, a
 /// NativeBuffer's storage) with the release it needs, which runs once,
 /// when the last ArrayBuffer, view or JavaScript ArrayBuffer over them
-/// goes. Adopted bytes are never copied to be held.
+/// goes. Adopted bytes are never copied to be held. Or lent: JavaScript's
+/// own bytes, read in place for one synchronous call.
 class ByteStorage {
  public:
   using Release = std::function<void()>;
@@ -48,6 +49,17 @@ class ByteStorage {
     return s;
   }
 
+  /// `size` bytes at `data` that JavaScript owns, lent for one synchronous
+  /// call and read in place: `keep()` makes them a copy before it ends if
+  /// anything still holds them.
+  static std::shared_ptr<ByteStorage> lend(uint8_t* data, size_t size) {
+    auto s = std::make_shared<ByteStorage>();
+    s->external_ = size ? data : nullptr;
+    s->externalSize_ = s->external_ ? size : 0;
+    s->lent_ = true;
+    return s;
+  }
+
   ByteStorage(const ByteStorage&) = delete;
   ByteStorage& operator=(const ByteStorage&) = delete;
   ~ByteStorage() {
@@ -58,13 +70,25 @@ class ByteStorage {
   const uint8_t* data() const { return external_ ? external_ : owned_.data(); }
   size_t size() const { return external_ ? externalSize_ : owned_.size(); }
   /// Whether the bytes were adopted rather than allocated here.
-  bool adopted() const { return external_ != nullptr; }
+  bool adopted() const { return external_ != nullptr && !lent_; }
+  /// Whether the bytes are JavaScript's, lent for a call (`lend`).
+  bool lent() const { return lent_; }
+  /// Lent bytes become a copy, owned here, for what still holds them once
+  /// the call that lent them ends. Nothing else may use them meanwhile.
+  void keep() {
+    if (!lent_) return;
+    owned_.assign(external_, external_ + externalSize_);
+    external_ = nullptr;
+    externalSize_ = 0;
+    lent_ = false;
+  }
 
  private:
   std::vector<uint8_t> owned_;
   uint8_t* external_ = nullptr;
   size_t externalSize_ = 0;
   Release release_;
+  bool lent_ = false;
 };
 
 using Storage = std::shared_ptr<ByteStorage>;

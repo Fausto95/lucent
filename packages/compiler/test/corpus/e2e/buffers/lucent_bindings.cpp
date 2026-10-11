@@ -63,8 +63,8 @@ void install_m_buffers(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "make", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
     return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("make", "packages/compiler/test/e2e/cases/buffers.lucent.ts", 25), [&]() -> jsi::Value {
-      auto a0 = Convert<lucent::Bytes>::fromJs(rt, arg(args, count, 0), Path{"make", "argument 'bytes'"});
-      return Convert<lucent::NativeBuffer>::toJs(rt, host, lucent_app::m_buffers::make(std::move(a0)));
+      auto a0 = Convert<lucent::Bytes>::borrow(rt, arg(args, count, 0), Path{"make", "argument 'bytes'"});
+      return Convert<lucent::NativeBuffer>::toJs(rt, host, lucent_app::m_buffers::make(a0.get()));
     });
   });
   defineFunction(rt, exports, "echo", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {

@@ -136,8 +136,8 @@ void install_m_array_u2d_buffers(jsi::Runtime& rt, Host& host, jsi::Object& expo
   defineFunction(rt, exports, "sum", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
     return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("sum", "packages/compiler/test/e2e/cases/array-buffers.lucent.ts", 55), [&]() -> jsi::Value {
-      auto a0 = Convert<lucent::ArrayBuffer>::fromJs(rt, arg(args, count, 0), Path{"sum", "argument 'buffer'"});
-      return Convert<double>::toJs(rt, host, lucent_app::m_array_u2d_buffers::sum(std::move(a0)));
+      auto a0 = Convert<lucent::ArrayBuffer>::borrow(rt, arg(args, count, 0), Path{"sum", "argument 'buffer'"});
+      return Convert<double>::toJs(rt, host, lucent_app::m_array_u2d_buffers::sum(a0.get()));
     });
   });
   defineFunction(rt, exports, "filled", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
