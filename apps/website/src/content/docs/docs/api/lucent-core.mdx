@@ -295,6 +295,7 @@ class NativeBuffer {
   withWrite<R>(write: (bytes: MutableByteSpan) => R): R;
   toUint8Array(): Uint8Array;
   transfer(): NativeBuffer;
+  transferToArrayBuffer(): ArrayBuffer;
   close(): void;
   [Symbol.dispose](): void;
 }
@@ -345,6 +346,7 @@ export async function sample(): Promise<number> {
 | `withWrite<R>(write: (bytes: MutableByteSpan) => R): R;` | Calls `write` with the bytes, while nothing else borrows them, and returns what it returns. |
 | `toUint8Array(): Uint8Array;` | A copy of the bytes, independent of the buffer from then on. |
 | `transfer(): NativeBuffer;` | Moves the bytes, uncopied, to a new buffer: every reference to this one refuses them from now on. |
+| `transferToArrayBuffer(): ArrayBuffer;` | Moves the bytes, uncopied, into an `ArrayBuffer`: every reference to this buffer refuses them from now on, and the ArrayBuffer releases them as the buffer would have. Returned to JavaScript, it is the same bytes. A borrowed buffer does not move (an InvalidStateError). |
 | `close(): void;` | Releases the bytes. Closing a closed or transferred buffer does nothing. |
 | `[Symbol.dispose](): void;` |  |
 

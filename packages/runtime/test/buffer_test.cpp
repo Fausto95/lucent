@@ -397,6 +397,46 @@ static void theLastReferenceReleasesOnItsExecutor() {
   owner->shutdown();
 }
 
+/// Moved into an ArrayBuffer, the storage is the ArrayBuffer's, uncopied:
+/// the handle and its aliases refuse it, and the last holder of the
+/// ArrayBuffer or its views releases it once, on the buffer's executor.
+static void anArrayBufferTakesTheStorageAndItsRelease() {
+  auto owner = IsolatedContext::create();
+  Native native;
+  NativeBuffer buffer = native.adopt(8, owner.get());
+  NativeBuffer alias = buffer;
+  const uint8_t* bytes = buffer->withRead(where);
+  NativeBufferStats before = NativeBufferObject::stats();
+
+  ArrayBuffer ab = buffer->transferToArrayBuffer();
+  CHECK(ab.data() == bytes && ab.size() == 8 && ab.data()[7] == 7);
+  CHECK(ab.storage()->adopted());
+  CHECK(alias->state() == NativeBufferObject::State::Transferred && alias->size() == 0);
+  CHECK(thrown([&] { alias->withRead(sum); }) == "InvalidStateError: NativeBuffer (test) was transferred");
+  CHECK(thrownName([&] { alias->transferToArrayBuffer(); }) == "InvalidStateError");
+  CHECK(NativeBufferObject::stats().transfers == before.transfers + 1);
+  CHECK(NativeBufferObject::stats().copies == before.copies);
+
+  // A view keeps the storage after the ArrayBuffer goes; the last of them releases it.
+  Bytes view = Bytes::over(ab, 2.0);
+  ab = ArrayBuffer();
+  buffer = nullptr;
+  alias = nullptr;
+  CHECK(native.destroyed == 0 && view.at(0) == 2);
+  std::thread([moved = std::move(view)]() mutable { moved = Bytes(); }).join();
+  CHECK(within(2000, [&] { return native.destroyed.load() == 1; }));
+  CHECK(native.destroyedOn == owner.get());
+
+  // A borrowed buffer does not move.
+  NativeBuffer borrowed = native.adopt(4);
+  CHECK(borrowed->withRead([&](std::span<const uint8_t>) {
+    return thrownName([&] { borrowed->transferToArrayBuffer(); });
+  }) == "InvalidStateError");
+  CHECK(borrowed->isOpen());
+
+  owner->shutdown();
+}
+
 static void snapshotsCopyAndCount() {
   NativeBuffer buffer = NativeBufferObject::allocate(1024);
   buffer->withWrite([](std::span<uint8_t> bytes) { bytes[3] = 9; });
@@ -746,6 +786,7 @@ int main() {
   closingReleasesOnceButAliasesStayAlive();
   aBorrowedBufferDoesNotClose();
   theLastReferenceReleasesOnItsExecutor();
+  anArrayBufferTakesTheStorageAndItsRelease();
   snapshotsCopyAndCount();
 
   spansReadWhatTheBufferHolds();

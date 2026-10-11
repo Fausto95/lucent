@@ -34,7 +34,7 @@ so; the code is what runs.
 | C-IR     | Semantic IR, its verifier, effect summaries, program facts                      | v1.3            | v1.2 frozen; v1.2.1, v1.3 proposed | `packages/compiler/src/ir/`, `packages/compiler/src/analysis/`                                      |
 | C-EXEC   | Runtime identities, scopes, operations, contexts, transport, compute, callbacks | v1.6            | v1.5 frozen; v1.6 proposed         | `packages/runtime/cpp/lucent/` (`scope.h`, `execution.h`, `transport.h`, `compute.h`, `callback.h`) |
 | C-BIGINT | The runtime's `BigInt` and its native integer conversions                       | v1.1            | v1 frozen; v1.1 proposed           | `packages/runtime/cpp/lucent/bigint.h`                                                              |
-| C-BUFFER | Native buffers, borrows and transfers                                           | v1.1            | Proposed                           | `packages/runtime/cpp/lucent/buffer.h`, `lucent:core`                                               |
+| C-BUFFER | Native buffers, borrows and transfers                                           | v1.2            | Proposed                           | `packages/runtime/cpp/lucent/buffer.h`, `lucent:core`                                               |
 | C-VIEW   | Component descriptions, mounts, platform hosts, toolkit bodies                  | v2.2            | Proposed                           | `packages/compiler/src/ui/contract.ts`, `packages/runtime/cpp/rn/`                                  |
 | C-BUILD  | Build records, required actions, SDK locks, build identities                    | v1.6            | v1 frozen; v1.1 to v1.6 proposed   | `packages/lucent/src/cli/build-graph.ts`, `pipeline.ts`; `packages/compiler/src/emit/identity.ts`   |
 | C-TRACE  | Correlated runtime and build tracing                                            | v1              | Proposed                           | `packages/runtime/cpp/lucent/trace.h`, `packages/lucent/src/cli/trace.ts`                           |
@@ -1641,7 +1641,7 @@ namespace detail {
 
 ## C-BUFFER: native buffers
 
-**Current version: v1.1 (proposed).**
+**Current version: v1.2 (proposed).**
 
 ### Invariants
 
@@ -1694,6 +1694,7 @@ class NativeBufferObject final : public Object {
   Bytes toBytes();             // snapshot: one counted copy, under a read borrow
   bool close();                // true once; false if closed or transferred; throws while borrowed
   NativeBuffer transfer();     // storage to a new handle (generation + 1)
+  ArrayBuffer transferToArrayBuffer();  // v1.2: storage and release to an ArrayBuffer
   static NativeBufferStats stats();
 };
 
@@ -1740,6 +1741,12 @@ Policies:
   refused submission or a cancelled task destroys the task's handle,
   which releases the storage on its executor. Results containing buffers
   are moved back, not copied.
+- **To an `ArrayBuffer`** (v1.2): `transferToArrayBuffer()` needs what a
+  transfer needs and leaves the handle `Transferred` the same way
+  (counted as a transfer); the storage, its `Destroy` and its executor
+  become the `ArrayBuffer`'s adopted `ByteStorage`, released once when
+  the last Lucent or JavaScript holder goes. Returned to JavaScript, it
+  crosses uncopied when nothing else holds it, as any `ArrayBuffer` does.
 - **Copies**: only `toBytes` and `fromBytes` copy payload, and each is
   counted.
 
@@ -1756,6 +1763,7 @@ export declare class NativeBuffer {
   withWrite<R>(write: (bytes: MutableByteSpan) => R): R;
   toUint8Array(): Uint8Array; // one counted copy
   transfer(): NativeBuffer;
+  transferToArrayBuffer(): ArrayBuffer; // v1.2
   close(): void;
   [Symbol.dispose](): void;
 }
@@ -1778,10 +1786,11 @@ export interface MutableByteSpan extends ByteSpan {
   declaration (LUCENT1007 otherwise), not async or a generator
   (LUCENT3030), and `ProgramFacts.escapes` of its span parameter must be
   empty (LUCENT3030 BorrowEscape, with the path).
-- A move is `x.transfer()`, or `compute(task, x | {x} | [x])` with `x` a
-  local or parameter of the same function. The first later use of `x` in
-  the following statements of the same block, when the move certainly
-  ran (not under a condition, loop, short circuit, optional chain,
+- A move is `x.transfer()`, `x.transferToArrayBuffer()`, or
+  `compute(task, x | {x} | [x])` with `x` a local or parameter of the
+  same function. The first later use of `x` in the following statements
+  of the same block, when the move certainly ran (not under a
+  condition, loop, short circuit, optional chain,
   `try`, or closure), is LUCENT3031 UseAfterMove. The check stops at a
   reassignment; `x.close()` is not a use; nested functions are not
   examined. Everything else is left to the runtime.
@@ -1802,6 +1811,10 @@ export interface MutableByteSpan extends ByteSpan {
   and the free `withRead` and `withWrite`; `copyOut` and `copyIn` for
   JavaScript borrows; the `lucent:core` API; LUCENT3030 and LUCENT3031;
   `buffer.h` included by `lucent.h`. Migration: none (additive).
+- **v1.2** (2026-10-11, T72, proposed): `transferToArrayBuffer()`, in the
+  runtime, `lucent:core` and the JavaScript handle, over the adopted
+  `ByteStorage` `ArrayBuffer` and `Uint8Array` share since #163.
+  Migration: none (additive).
 
 ## C-VIEW: components and views
 

@@ -296,6 +296,13 @@ void bufferPrototype(jsi::Runtime& rt, Host&, jsi::Object& proto) {
                       return Convert<NativeBuffer>::toJs(rt, host, b->transfer());
                     }));
 
+  // JavaScript's ArrayBuffer over the bytes themselves: no Lucent code holds them any more.
+  proto.setProperty(rt, "transferToArrayBuffer",
+                    bufferMethod(rt, "transferToArrayBuffer", 0,
+                                 [](jsi::Runtime& rt, Host& host, const NativeBuffer& b, const jsi::Value*, size_t) {
+                                   return Convert<ArrayBuffer>::toJs(rt, host, b->transferToArrayBuffer());
+                                 }));
+
   jsi::Function close = bufferMethod(rt, "close", 0, [](jsi::Runtime&, Host&, const NativeBuffer& b, const jsi::Value*, size_t) {
     b->close();
     return jsi::Value::undefined();

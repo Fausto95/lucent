@@ -130,6 +130,12 @@ class NativeBufferObject final : public Object {
   /// InvalidStateError if it is not open or is borrowed.
   NativeBuffer transfer();
 
+  /// Moves the storage into an ArrayBuffer, uncopied: this handle and its
+  /// aliases refuse access from now on, as after transfer(), and the
+  /// ArrayBuffer's last holder (Lucent's or JavaScript's) runs the release
+  /// the storage needs, on its executor. Counted as a transfer.
+  ArrayBuffer transferToArrayBuffer();
+
   static NativeBufferStats stats();
 
   /// Counted copies between borrowed bytes and a Uint8Array, for callers

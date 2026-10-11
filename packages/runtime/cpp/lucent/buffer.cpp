@@ -134,6 +134,22 @@ NativeBuffer NativeBufferObject::transfer() {
   return moved;
 }
 
+ArrayBuffer NativeBufferObject::transferToArrayBuffer() {
+  seize(State::Transferring);
+
+  uint8_t* data = data_;
+  size_t size = size_.exchange(0, std::memory_order_acq_rel);
+  Destroy destroy = std::move(destroy_);
+  ExecutionContext* on = destroyOn_;
+  data_ = nullptr;
+  destroy_ = nullptr;
+  commitTransfer();
+
+  return ArrayBuffer(ByteStorage::adopt(data, size, [data, size, destroy = std::move(destroy), on]() mutable {
+    release(data, size, std::move(destroy), on);
+  }));
+}
+
 NativeBuffer NativeBufferObject::beginTransfer() {
   seize(State::Transferring);
 

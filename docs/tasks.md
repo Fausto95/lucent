@@ -44,7 +44,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T64](#t64)   | Run lifetime, concurrency and Fabric stress validation            | waiting (needs the maintainer); needs T55, T59, T60                                                                               |
 | [T65](#t65)   | Enforce physical-device performance budgets                       | waiting (needs the maintainer); needs T55, T56, T59, T64                                                                          |
 | [T66](#t66)   | Complete user documentation and migration examples                | waiting; needs T51, T52, T60                                                                                                      |
-| [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163 merged)                                                                                                         |
+| [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165 merged)                                                                                                   |
 | [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | waiting; needs T72                                                                                                                |
 | [T74](#t74)   | Callback executors and stream backpressure                        | waiting; needs T72                                                                                                                |
 | [T75](#t75)   | Support a window of stable React Native and Expo releases         | blocked: a decision on the window; needs nothing open                                                                             |
@@ -1547,7 +1547,8 @@ platform buffers (`CVPixelBuffer`, `AHardwareBuffer`, a direct
 `ByteBuffer`, `NSData`) as `NativeBuffer`s, with the copies counted.
 
 - **Status:** in progress: adopted storage and moving returned bytes merged
-  as #163; the rest follows.
+  as #163, `NativeBuffer.transferToArrayBuffer()` as #165; the rest
+  follows.
 - **Area:** Runtime (buffers, JSI), compiler (buffers, bindings), lucent:core,
   lucent:ios, lucent:android.
 - **Needs:** T31 (done), T32 (done), [TA36](#ta36) (done).
@@ -1558,7 +1559,7 @@ platform buffers (`CVPixelBuffer`, `AHardwareBuffer`, a direct
   `platform/android.cpp`, `lib/sdk/core.d.ts`, `lib/sdk/ios.d.ts`,
   `lib/sdk/android.d.ts`, `emit/buffers.ts`, `emit/bindings.ts`,
   `analysis/local.ts` (borrow escape rules), `scripts/bench.ts` (P3),
-  `docs/design/contracts.md` (C-BUFFER v1.2), `docs/semantics.md`.
+  `docs/design/contracts.md` (C-BUFFER v1.2 and v1.3), `docs/semantics.md`.
 
 Why: react-native-mmkv's `getBuffer` returns MMKV's bytes zero-copy and
 `set(ArrayBuffer)` reads the JS buffer in place for the synchronous call;
@@ -1581,10 +1582,11 @@ as MMKV's API does, and only the adoption is platform code.
       its size reported as external memory (`setExternalMemoryPressure`);
       one a variable, field or view still holds is copied (#163,
       `host_test.cpp`'s `returnedBytesMoveWhenNothingElseHoldsThem`).
-- [ ] `NativeBuffer` to `ArrayBuffer` by move (name open, such as
-      `transferToArrayBuffer()`): the storage, its release and its
+- [x] `NativeBuffer` to `ArrayBuffer` by move,
+      `transferToArrayBuffer()`: the storage, its release and its
       executor move to an `ArrayBuffer`; the handle and its aliases refuse
-      access, as after `transfer()`; counted in `NativeBuffer.stats()`.
+      access, as after `transfer()`; counted in `NativeBuffer.stats()`
+      (#165, C-BUFFER v1.2, the `buffer-to-array` e2e case).
 - [ ] Adoption from lucent:ios: an `NSData`'s bytes as an `ArrayBuffer`
       (retained until released), a `CVPixelBuffer` plane (base address
       locked for the buffer's life, read-only unless asked, unlocked and
@@ -1600,8 +1602,8 @@ as MMKV's API does, and only the adoption is platform code.
 - [ ] P3 gains a 4 MB frame returned to JavaScript with 0 payload copies;
       the `array-buffers` e2e case covers the moves' semantics (the
       JavaScript reference: the same bytes).
-- [ ] Semantics: the boundary's copy rule names its exceptions (the move is
-      in, from #163); C-BUFFER v1.2 records adoption.
+- [ ] Semantics: the boundary's copy rule names its exceptions (the moves
+      are in, from #163 and #165); C-BUFFER v1.3 records adoption.
 
 **Done when:** MMKV-style `getBuffer` and a `CVPixelBuffer` frame reach
 JavaScript with zero copies on the iOS simulator and the Android emulator.

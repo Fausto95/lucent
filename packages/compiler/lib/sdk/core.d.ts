@@ -342,6 +342,14 @@ export declare class NativeBuffer {
   /** Moves the bytes, uncopied, to a new buffer: every reference to this one refuses them from now on. */
   transfer(): NativeBuffer;
 
+  /**
+   * Moves the bytes, uncopied, into an `ArrayBuffer`: every reference to
+   * this buffer refuses them from now on, and the ArrayBuffer releases
+   * them as the buffer would have. Returned to JavaScript, it is the same
+   * bytes. A borrowed buffer does not move (an InvalidStateError).
+   */
+  transferToArrayBuffer(): ArrayBuffer;
+
   /** Releases the bytes. Closing a closed or transferred buffer does nothing. */
   close(): void;
 
