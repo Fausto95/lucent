@@ -216,6 +216,13 @@ struct Convert<Opt<T>> {
     if (v.isNull()) return jsi::Value::null();
     return Convert<T>::toJs(rt, h, v.get());
   }
+  /// A value no Lucent code holds any more (a function's result): its
+  /// value is handed on as such, so bytes can move instead of copying.
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, Opt<T>&& v) {
+    if (v.isUndefined()) return jsi::Value::undefined();
+    if (v.isNull()) return jsi::Value::null();
+    return Convert<T>::toJs(rt, h, std::move(v.get()));
+  }
 };
 
 /// An optional TypeScript admits one absent value of: `undefined` (`x?: T`,
@@ -371,13 +378,20 @@ template <>
 struct Convert<Bytes> {
   static Bytes fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Bytes& b);
+  /// A function's result: when nothing else holds its buffer and it views
+  /// the whole of it, JavaScript's Uint8Array is over the same bytes.
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, Bytes&& b);
 };
 
-/// An ArrayBuffer crosses as a copy, as a Uint8Array does.
+/// An ArrayBuffer crosses as a copy, as a Uint8Array does. One a function
+/// returns that nothing else holds (no variable, field or view) moves
+/// instead: the copy would be the only one, so JavaScript's ArrayBuffer is
+/// over the same bytes, adopted ones included.
 template <>
 struct Convert<ArrayBuffer> {
   static ArrayBuffer fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const ArrayBuffer& b);
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, ArrayBuffer&& b);
 };
 
 // --- native buffers ------------------------------------------------------------------------

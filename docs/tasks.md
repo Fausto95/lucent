@@ -44,7 +44,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T64](#t64)   | Run lifetime, concurrency and Fabric stress validation            | waiting (needs the maintainer); needs T55, T59, T60                                                                               |
 | [T65](#t65)   | Enforce physical-device performance budgets                       | waiting (needs the maintainer); needs T55, T56, T59, T64                                                                          |
 | [T66](#t66)   | Complete user documentation and migration examples                | waiting; needs T51, T52, T60                                                                                                      |
-| [T72](#t72)   | Zero-copy bytes at the boundary                                   | ready; needs nothing open                                                                                                         |
+| [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163 merged)                                                                                                         |
 | [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | waiting; needs T72                                                                                                                |
 | [T74](#t74)   | Callback executors and stream backpressure                        | waiting; needs T72                                                                                                                |
 | [T75](#t75)   | Support a window of stable React Native and Expo releases         | blocked: a decision on the window; needs nothing open                                                                             |
@@ -1546,7 +1546,8 @@ over storage Lucent or the platform owns), and let Lucent code adopt
 platform buffers (`CVPixelBuffer`, `AHardwareBuffer`, a direct
 `ByteBuffer`, `NSData`) as `NativeBuffer`s, with the copies counted.
 
-- **Status:** ready; needs nothing open.
+- **Status:** in progress: adopted storage and moving returned bytes merged
+  as #163; the rest follows.
 - **Area:** Runtime (buffers, JSI), compiler (buffers, bindings), lucent:core,
   lucent:ios, lucent:android.
 - **Needs:** T31 (done), T32 (done), [TA36](#ta36) (done).
@@ -1567,45 +1568,43 @@ native-backed `ArrayBuffer`s. Lucent copies on every path today
 (`jsi/convert.h:376`, `:385`; `withPixelBytes` copies the plane under its
 lock), so a camera frame to JavaScript is two copies.
 
-- [ ] `NativeBuffer.detach(): ArrayBuffer` in lucent:core (name open):
-      moves the storage to JavaScript as a `jsi::ArrayBuffer` over a
-      `MutableBuffer` whose destructor runs the buffer's release on its
-      executor; the Lucent handle is transferred (every alias refuses
-      access, as after `transfer()`). JavaScript's view is the only owner
-      from then on, so no worker can write it (copy-by-default holds: the
-      bytes move, nothing is shared). Owned and adopted buffers alike.
-- [ ] External memory pressure: the `ArrayBuffer` reports its size to the
-      runtime (`jsi::Object::setExternalMemoryPressure`), so Hermes
-      collects promptly; counted in `NativeBuffer.stats()`.
-- [ ] A synchronous export's `ArrayBuffer` or `Uint8Array` parameter can
-      be borrowed instead of copied: `withBytes(buffer, f)`-style access
-      lending a `ByteSpan` over the JS memory for the call (the span rules
-      of LUCENT3030 keep it inside `f`; an async export still copies).
-      This is MMKV's `set(key, buffer)` path.
-- [ ] Adoption from lucent:ios: `adoptPixelBuffer(pixelBuffer, plane?)`
-      (locks the base address for the buffer's life, read-only unless
-      asked, unlocks and releases on close, on the main context when the
-      buffer requires it), `adoptData(data)` (retains the `NSData`);
-      `withPixelBytes` stays as the copying form and says so.
-- [ ] Adoption from lucent:android: `adoptHardwareBuffer(buffer)`
-      (`AHardwareBuffer_fromHardwareBuffer` + `acquire` + `lock`, API 26
-      and later behind `available`), `adoptByteBuffer(direct)` (a global
-      reference; refuses a non-direct buffer). These are platform
-      fundamentals (CoreVideo, the NDK), not a catalog entry: the no-catalog
-      rule holds.
-- [ ] Transport to compute tasks and executors (T74) of adopted buffers:
-      moves, as owned ones do; a dropped or cancelled one releases once.
-- [ ] P3 gains a 4 MB frame handoff to JavaScript with 0 payload copies
-      and the 1 KB/1 MB cases through `detach`; the e2e `native-buffers`
-      and `array-buffers` cases cover `detach` and the borrowed parameter
-      (the JavaScript reference: the same bytes).
-- [ ] Semantics: `NativeBuffer`'s section, the boundary's copy rule gains
-      its two exceptions; limitations: a detached buffer never comes back
-      (JavaScript owns it; pass bytes in by value or by borrow).
+The design, settled on the first slice: rather than a new handle type,
+Lucent's own `ArrayBuffer` holds adopted bytes, and the boundary moves a
+returned buffer nothing else holds. Code then returns an `ArrayBuffer`
+as MMKV's API does, and only the adoption is platform code.
+
+- [x] `ArrayBuffer` and `Uint8Array` storage (`ByteStorage`) can adopt
+      native bytes with the release they need, which runs once when the
+      last Lucent or JavaScript holder goes (#163).
+- [x] A returned `ArrayBuffer`, or a `Uint8Array` over the whole of its
+      buffer, that nothing else holds crosses to JavaScript uncopied, with
+      its size reported as external memory (`setExternalMemoryPressure`);
+      one a variable, field or view still holds is copied (#163,
+      `host_test.cpp`'s `returnedBytesMoveWhenNothingElseHoldsThem`).
+- [ ] `NativeBuffer` to `ArrayBuffer` by move (name open, such as
+      `transferToArrayBuffer()`): the storage, its release and its
+      executor move to an `ArrayBuffer`; the handle and its aliases refuse
+      access, as after `transfer()`; counted in `NativeBuffer.stats()`.
+- [ ] Adoption from lucent:ios: an `NSData`'s bytes as an `ArrayBuffer`
+      (retained until released), a `CVPixelBuffer` plane (base address
+      locked for the buffer's life, read-only unless asked, unlocked and
+      released once); `withPixelBytes` stays as the copying form.
+- [ ] Adoption from lucent:android: a direct `ByteBuffer` (a global
+      reference; a heap buffer is refused) and a `HardwareBuffer` (API 26
+      and later, behind `available`). These are platform fundamentals
+      (CoreVideo, the NDK), not a catalog entry: the no-catalog rule holds.
+- [ ] A synchronous export's `ArrayBuffer` or `Uint8Array` parameter that
+      does not escape the call (the analyses' escape facts) is read in
+      place instead of copied: MMKV's `set(key, buffer)`. An async export,
+      or one that keeps the bytes, still copies.
+- [ ] P3 gains a 4 MB frame returned to JavaScript with 0 payload copies;
+      the `array-buffers` e2e case covers the moves' semantics (the
+      JavaScript reference: the same bytes).
+- [ ] Semantics: the boundary's copy rule names its exceptions (the move is
+      in, from #163); C-BUFFER v1.2 records adoption.
 
 **Done when:** MMKV-style `getBuffer` and a `CVPixelBuffer` frame reach
-JavaScript with zero copies, counted by `stats()`, on the iOS simulator and
-the Android emulator.
+JavaScript with zero copies on the iOS simulator and the Android emulator.
 
 **Notes:**
 
