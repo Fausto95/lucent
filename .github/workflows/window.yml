@@ -1,0 +1,75 @@
+name: Window apps
+
+# Fresh apps on each release Lucent supports (decisions 0074 and 0079): bare apps from React
+# Native's template for each release of the window, Expo apps from create-expo-app's for each SDK,
+# with the packed package, a module of each kind and a component, built for the iOS simulator and
+# Android (scripts/window-app.ts). They are built, not run. ci.yml calls it nightly; it can be run
+# by hand too.
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Every run step sources this: a failing step's output becomes an error annotation.
+  BASH_ENV: ${{ github.workspace }}/scripts/ci-trap.sh
+  # As in ci.yml: a called workflow has its own env.
+  XCODE_VERSION: "26.6"
+  LANG: en_US.UTF-8
+  LC_ALL: en_US.UTF-8
+
+jobs:
+  apps:
+    name: The window's apps
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      apps: ${{ steps.apps.outputs.apps }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - id: apps
+        run: echo "apps=$(node scripts/window-app.ts --matrix)" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.name }}
+    needs: apps
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.apps.outputs.apps) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        if: matrix.platform == 'android'
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        if: matrix.platform == 'android'
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/sdk-cache
+        with:
+          key: window-${{ matrix.platform }}
+      - name: Make and build the app
+        timeout-minutes: 50
+        run: |
+          set -o pipefail
+          node scripts/window-app.ts --app ${{ matrix.app }} --release ${{ matrix.release }} \
+            --platform ${{ matrix.platform }} --dir "$RUNNER_TEMP/app" 2>&1 | tee window-app.log
+      - name: Keep the log
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: window-${{ matrix.app }}-${{ matrix.release }}-${{ matrix.platform }}
+          path: window-app.log
+          if-no-files-found: ignore

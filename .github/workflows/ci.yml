@@ -166,11 +166,12 @@ jobs:
         with:
           key: ${{ matrix.key }}
       # The React Native releases' headers scripts/react-native-headers.ts assembles, one
-      # directory per version: a new release (a new candidate under next) adds one.
+      # directory per version: a new release (a new candidate on the lane) adds one. Beside the
+      # SDK cache's directory, which would save them again.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: matrix.key == 'rn-releases'
         with:
-          path: ~/.cache/lucent/react-native-headers
+          path: ~/.cache/lucent-react-native-headers
           key: rn-headers-${{ hashFiles('scripts/react-native-headers.ts') }}-${{ github.run_id }}
           restore-keys: rn-headers-${{ hashFiles('scripts/react-native-headers.ts') }}-
       - name: ${{ matrix.name }}
@@ -421,6 +422,15 @@ jobs:
     uses: ./.github/workflows/devices.yml
     with:
       platform: ${{ matrix.platform }}
+
+  # Fresh bare and Expo apps on each release of the window, with the packed package, built for
+  # the iOS simulator and Android. Nightly and on a manual run only, as the device runs are; they
+  # don't gate the CI check.
+  window:
+    name: Window apps
+    needs: changes
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/window.yml
 
   # One check to require: it passes when every job passed or was skipped as not needed.
   ci:

@@ -66,6 +66,6 @@ export const blocks: Block[] = [
   },
   {
     kind: "p",
-    text: "Tested on the iOS simulator (Xcode 27) and the Android emulator, in the example apps, bare and Expo, which are on the prerelease lane. CI compiles Lucent's React Native code against each release of the window. Not yet on physical devices ([roadmap](/docs/releases/roadmap/)).",
+    text: "Tested on the iOS simulator (Xcode 27) and the Android emulator, in the example apps, bare and Expo, which are on the prerelease lane. CI compiles Lucent's React Native code against each release of the window, and builds fresh bare and Expo apps on each nightly. Not yet on physical devices ([roadmap](/docs/releases/roadmap/)).",
   },
 ];
