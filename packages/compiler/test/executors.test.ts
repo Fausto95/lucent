@@ -86,15 +86,16 @@ import { OperationQueue, Thread } from "lucent:ios/Foundation";
 export async function run(): Promise<string> {
   const frames = executor("lucent.frames");
   const out = new Channel<string>("lossless");
-  const module = Thread.current.hash;
+  // The module's thread, named so the executor's can be told from it.
+  Thread.current.name = "lucent.module";
 
   // An operation queue on the executor's dispatch queue: its blocks run there, and enter at once.
   const queue = new OperationQueue();
   queue.underlyingQueue = frames;
   queue.addOperation(
     on(frames, () => {
-      const here = Thread.current.hash;
-      out.send(here === module ? "on the module's thread" : "on the executor");
+      const here = Thread.current.name;
+      out.send(here === "lucent.module" ? "on the module's thread" : "on the executor");
     }),
   );
   const first = await out.receive();
