@@ -157,11 +157,11 @@ lucent::String m_buffer_u2d_to_u2d_array::refusals() {
   {
     std::exception_ptr ex7_;
     try {
-      lucent::Fn<double(lucent::ByteSpan)> v5_ = lucent::Fn<double(lucent::ByteSpan)>([borrowed = borrowed](lucent::ByteSpan p0_) mutable -> double {
+      lucent::Fn<double(lucent::ByteSpan)> v5_ = lucent::Fn<double(lucent::ByteSpan)>(lucent::closure("buffer-to-array.lucent.ts:56", "borrowed", [](std::decay_t<decltype(borrowed)>& borrowed, lucent::ByteSpan p0_) -> double {
         lucent::checkStack();
         lucent::ArrayBuffer v2_ = borrowed->transferToArrayBuffer();
         return v2_.byteLength();
-      });
+      }, borrowed));
       (void)lucent::withRead(borrowed, v5_);
     } catch (const lucent::GeneratorReturn&) {
       throw;

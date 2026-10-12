@@ -136,10 +136,10 @@ lucent::String m_never_u2d_values::fromMethod(lucent::String p0_) {
   lucent::Ref<lucent_app::C_Registry> registry = lucent_app::C_Registry::create();
   lucent::Map<lucent::String, lucent::String> v3_ = registry->names;
   (void)v3_.set(LUCENT_STR("a"), LUCENT_STR("ada"));
-  lucent::Fn<lucent::String()> v8_ = lucent::Fn<lucent::String()>([registry = registry, key = p0_]() mutable -> lucent::String {
+  lucent::Fn<lucent::String()> v8_ = lucent::Fn<lucent::String()>(lucent::closure("never-values.lucent.ts:50", "registry,key", [](std::decay_t<decltype(registry)>& registry, std::decay_t<decltype(p0_)>& key) -> lucent::String {
     lucent::checkStack();
     return registry->lookup(key);
-  });
+  }, registry, p0_));
   return lucent_app::m_never_u2d_values::attempt(v8_);
 }
 
@@ -167,7 +167,7 @@ lucent::String m_never_u2d_values::fromArrow(bool p0_) {
     }();
   });
   lucent::Fn<lucent::String()> reject = std::move(v2_);
-  lucent::Fn<lucent::String()> v5_ = lucent::Fn<lucent::String()>([ok = p0_, pick = pick, reject = reject]() mutable -> lucent::String {
+  lucent::Fn<lucent::String()> v5_ = lucent::Fn<lucent::String()>(lucent::closure("never-values.lucent.ts:57", "ok,pick,reject", [](std::decay_t<decltype(p0_)>& ok, std::decay_t<decltype(pick)>& pick, std::decay_t<decltype(reject)>& reject) -> lucent::String {
     lucent::checkStack();
     lucent::String v5_{};
     if (ok) {
@@ -176,7 +176,7 @@ lucent::String m_never_u2d_values::fromArrow(bool p0_) {
       v5_ = reject();
     }
     return v5_;
-  });
+  }, p0_, pick, reject));
   return lucent_app::m_never_u2d_values::attempt(v5_);
 }
 

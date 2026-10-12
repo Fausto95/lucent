@@ -55,8 +55,7 @@ namespace {
 
 struct Edge {
   size_t to;
-  const char* field;
-  const char* where;
+  CycleStep step;
 };
 
 /// Collects one object's references among the objects of the walk.
@@ -64,9 +63,10 @@ class Collect final : public RefSink {
  public:
   Collect(const std::unordered_map<const Object*, size_t>& index, std::vector<Edge>& out) : index_(index), out_(out) {}
 
-  void edge(const Object* to, const char* name, const char* where) override {
+  void edge(const Object* to, const char* name, const char* where, const char* closure, const char* capture) override {
     auto it = index_.find(to);
-    if (it != index_.end()) out_.push_back({it->second, name ? name : "", where ? where : ""});
+    const auto text = [](const char* s) { return std::string(s ? s : ""); };
+    if (it != index_.end()) out_.push_back({it->second, {text(name), text(where), text(closure), text(capture)}});
   }
 
  private:
@@ -217,7 +217,7 @@ std::vector<Cycle> cycles(bool fresh) {
     const std::set<size_t> members(component.begin(), component.end());
     Cycle cycle;
     cycle.objects = component.size();
-    for (const Edge& e : loopFrom(component.front(), graph, members)) cycle.steps.push_back({e.field, e.where});
+    for (const Edge& e : loopFrom(component.front(), graph, members)) cycle.steps.push_back(e.step);
     out.push_back(std::move(cycle));
   }
 
@@ -235,10 +235,17 @@ std::string describe(const Cycle& cycle) {
     if (i > 0) out += ", then ";
     out += s.field.empty() ? "a reference" : s.field;
     if (!s.where.empty()) out += " (" + s.where + ")";
+    if (!s.closure.empty()) out += ", then the closure at " + s.closure + ", which captures " + s.capture;
   }
   out += cycle.steps.size() == 1 ? ", to itself." : ", back to the first.";
-  if (!cycle.steps.empty() && !cycle.steps.back().field.empty())
-    out += " Hold " + cycle.steps.back().field + " through a WeakRef to break it.";
+  if (cycle.steps.empty()) return out;
+
+  // The reference back to what came first: through the closure that captures it, or its field.
+  const CycleStep& back = cycle.steps.back();
+  if (!back.closure.empty())
+    out += " Capture a WeakRef of " + back.capture + " in the closure at " + back.closure + " to break it.";
+  else if (!back.field.empty())
+    out += " Hold " + back.field + " through a WeakRef to break it.";
   return out;
 }
 

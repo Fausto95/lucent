@@ -17,7 +17,9 @@ const cc = [process.env.CC, "clang", "gcc"].find(
   (c) => !!c && spawnSync(c, ["--version"]).status === 0,
 );
 
-const SOURCE = `export class Session {
+const SOURCE = `import { EventEmitter } from "lucent:core";
+
+export class Session {
   onFrame: Handler | undefined;
   frames = 0;
 
@@ -38,6 +40,22 @@ class Leaf {
 
 type Link = { name: string; next: Link | undefined };
 
+class Camera {
+  readonly frames = new EventEmitter<{ frame: (n: number) => void }>();
+  count = 0;
+
+  start(): void {
+    this.frames.addListener("frame", (n) => {
+      this.count += n;
+    });
+  }
+}
+
+class Player {
+  onEnd: (() => void) | undefined;
+  ended = false;
+}
+
 /** A session and its handler, which holds the session back. */
 export function leak(): number {
   const s = new Session("camera");
@@ -50,6 +68,28 @@ export function tree(): number {
   const t = new Tree();
   t.children.push(new Leaf(new WeakRef(t)));
   return t.children.length;
+}
+
+/** A listener that captures what holds its emitter. */
+export function listen(): number {
+  const camera = new Camera();
+  camera.start();
+  return camera.count;
+}
+
+/** A callback stored on what it captures, and one that captures only numbers. */
+export function callback(): number {
+  const player = new Player();
+  player.onEnd = () => {
+    player.ended = true;
+  };
+  let calls = 0;
+  const counted = new Player();
+  counted.onEnd = () => {
+    calls++;
+  };
+  counted.onEnd();
+  return calls;
 }
 
 /** Objects that are a ring. */
@@ -71,6 +111,8 @@ int main() {
   lucent_app::m_cycles::tree();
   lucent_app::m_cycles::leak();
   lucent_app::m_cycles::ring();
+  lucent_app::m_cycles::listen();
+  if (lucent_app::m_cycles::callback() != 1) return 1;
   for (const auto& c : lucent::debug::cycles()) std::printf("%s\\n", lucent::debug::describe(c).c_str());
   return 0;
 }
@@ -78,7 +120,7 @@ int main() {
 
 describe("a debug build's cycle report", () => {
   it.skipIf(!cxx || !cc)(
-    "names the fields and lines of each cycle a program leaves, and none a WeakRef breaks",
+    "names the fields, closures and lines of each cycle a program leaves, and none a WeakRef breaks",
     () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cycles-run-"));
       const file = path.join(dir, "cycles.lucent.ts");
@@ -120,9 +162,11 @@ describe("a debug build's cycle report", () => {
 
       const run = spawnSync(binary, { encoding: "utf8" });
       expect(run.status).toBe(0);
-      expect(run.stdout.trim().split("\n")).toEqual([
-        "a reference cycle keeps 2 objects alive: Session.onFrame (cycles.lucent.ts:2), then Handler.owner (cycles.lucent.ts:9), back to the first. Hold Handler.owner through a WeakRef to break it.",
+      expect(run.stdout.trim().split("\n").sort()).toEqual([
+        "a reference cycle keeps 1 object alive: Player.onEnd (cycles.lucent.ts:36), then the closure at cycles.lucent.ts:64, which captures player, to itself. Capture a WeakRef of player in the closure at cycles.lucent.ts:64 to break it.",
+        "a reference cycle keeps 2 objects alive: Camera.frames (cycles.lucent.ts:25), then the frame listener, then the closure at cycles.lucent.ts:29, which captures this, back to the first. Capture a WeakRef of this in the closure at cycles.lucent.ts:29 to break it.",
         "a reference cycle keeps 2 objects alive: Link.next, then Link.next, back to the first. Hold Link.next through a WeakRef to break it.",
+        "a reference cycle keeps 2 objects alive: Session.onFrame (cycles.lucent.ts:4), then Handler.owner (cycles.lucent.ts:11), back to the first. Hold Handler.owner through a WeakRef to break it.",
       ]);
     },
     300_000,

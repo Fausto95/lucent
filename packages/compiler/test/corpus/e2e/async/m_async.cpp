@@ -269,18 +269,16 @@ lucent::Promise<double> m_async::askJs(lucent::Fn<lucent::Promise<double>(lucent
 lucent::Promise<lucent::String> m_async::orderCheck() {
   lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
-  lucent::Fn<lucent::Promise<lucent::String>(lucent::String, double)> v2_ = lucent::Fn<lucent::Promise<lucent::String>(lucent::String, double)>([log = log](lucent::String p0_, double p1_) -> lucent::Promise<lucent::String> {
-    return [](auto log, lucent::String p0_, double p1_) -> lucent::Promise<lucent::String> {
-      lucent::checkStack();
-      lucent::String v4_ = lucent::String(LUCENT_STR("start ")) + p0_;
-      (void)log.push(v4_);
-      lucent::Promise<void> v6_ = lucent::delay(p1_);
-      co_await v6_;
-      lucent::String v10_ = lucent::String(LUCENT_STR("end ")) + p0_;
-      (void)log.push(v10_);
-      co_return p0_;
-    }(log, p0_, p1_);
-  });
+  lucent::Fn<lucent::Promise<lucent::String>(lucent::String, double)> v2_ = lucent::Fn<lucent::Promise<lucent::String>(lucent::String, double)>(lucent::closure("async.lucent.ts:65", "log", [](std::decay_t<decltype(log)> log, lucent::String p0_, double p1_) -> lucent::Promise<lucent::String> {
+    lucent::checkStack();
+    lucent::String v4_ = lucent::String(LUCENT_STR("start ")) + p0_;
+    (void)log.push(v4_);
+    lucent::Promise<void> v6_ = lucent::delay(p1_);
+    co_await v6_;
+    lucent::String v10_ = lucent::String(LUCENT_STR("end ")) + p0_;
+    (void)log.push(v10_);
+    co_return p0_;
+  }, log));
   lucent::Fn<lucent::Promise<lucent::String>(lucent::String, double)> task = std::move(v2_);
   lucent::Promise<lucent::String> a = task(LUCENT_STR("a"), 20.0);
   lucent::Promise<lucent::String> b = task(LUCENT_STR("b"), 5.0);
@@ -310,15 +308,13 @@ lucent::Promise<double> m_async::noAwait(double p0_) {
 lucent::Promise<lucent::String> m_async::allRejectsEarly() {
   lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
-  lucent::Fn<lucent::Promise<double>()> v2_ = lucent::Fn<lucent::Promise<double>()>([log = log]() -> lucent::Promise<double> {
-    return [](auto log) -> lucent::Promise<double> {
-      lucent::checkStack();
-      lucent::Promise<void> v1_ = lucent::delay(40.0);
-      co_await v1_;
-      (void)log.push(LUCENT_STR("slow settled"));
-      co_return 1.0;
-    }(log);
-  });
+  lucent::Fn<lucent::Promise<double>()> v2_ = lucent::Fn<lucent::Promise<double>()>(lucent::closure("async.lucent.ts:89", "log", [](std::decay_t<decltype(log)> log) -> lucent::Promise<double> {
+    lucent::checkStack();
+    lucent::Promise<void> v1_ = lucent::delay(40.0);
+    co_await v1_;
+    (void)log.push(LUCENT_STR("slow settled"));
+    co_return 1.0;
+  }, log));
   lucent::Fn<lucent::Promise<double>()> slow = std::move(v2_);
   lucent::Fn<lucent::Promise<double>()> v3_ = lucent::Fn<lucent::Promise<double>()>([]() -> lucent::Promise<double> {
     return []() -> lucent::Promise<double> {
@@ -359,15 +355,13 @@ lucent::Promise<lucent::String> m_async::allRejectsEarly() {
 lucent::Promise<lucent::String> m_async::tupleRejectsEarly() {
   lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
-  lucent::Fn<lucent::Promise<lucent::String>()> v2_ = lucent::Fn<lucent::Promise<lucent::String>()>([log = log]() -> lucent::Promise<lucent::String> {
-    return [](auto log) -> lucent::Promise<lucent::String> {
-      lucent::checkStack();
-      lucent::Promise<void> v1_ = lucent::delay(40.0);
-      co_await v1_;
-      (void)log.push(LUCENT_STR("slow settled"));
-      co_return LUCENT_STR("s");
-    }(log);
-  });
+  lucent::Fn<lucent::Promise<lucent::String>()> v2_ = lucent::Fn<lucent::Promise<lucent::String>()>(lucent::closure("async.lucent.ts:109", "log", [](std::decay_t<decltype(log)> log) -> lucent::Promise<lucent::String> {
+    lucent::checkStack();
+    lucent::Promise<void> v1_ = lucent::delay(40.0);
+    co_await v1_;
+    (void)log.push(LUCENT_STR("slow settled"));
+    co_return LUCENT_STR("s");
+  }, log));
   lucent::Fn<lucent::Promise<lucent::String>()> slow = std::move(v2_);
   lucent::Fn<lucent::Promise<double>()> v3_ = lucent::Fn<lucent::Promise<double>()>([]() -> lucent::Promise<double> {
     return []() -> lucent::Promise<double> {
@@ -412,28 +406,26 @@ lucent::Promise<lucent::String> m_async::tupleRejectsEarly() {
 lucent::Promise<lucent::String> m_async::allTicks() {
   lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
-  lucent::Fn<lucent::Promise<void>()> v2_ = lucent::Fn<lucent::Promise<void>()>([log = log]() -> lucent::Promise<void> {
-    return [](auto log) -> lucent::Promise<void> {
-      lucent::checkStack();
-      {
-        int64_t i = static_cast<int64_t>(0);
-        while (true) {
-          {
-            bool v4_ = !(static_cast<int64_t>(i) < static_cast<int64_t>(5));
-            if (v4_) {
-              break;
-            }
-            lucent::Promise<double> v6_ = lucent_app::m_async::noAwait(static_cast<double>(i));
-            (void)co_await v6_;
-            lucent::String v12_ = lucent::String(LUCENT_STR("t")) + lucent::toJsString(static_cast<double>(i));
-            (void)log.push(v12_);
+  lucent::Fn<lucent::Promise<void>()> v2_ = lucent::Fn<lucent::Promise<void>()>(lucent::closure("async.lucent.ts:130", "log", [](std::decay_t<decltype(log)> log) -> lucent::Promise<void> {
+    lucent::checkStack();
+    {
+      int64_t i = static_cast<int64_t>(0);
+      while (true) {
+        {
+          bool v4_ = !(static_cast<int64_t>(i) < static_cast<int64_t>(5));
+          if (v4_) {
+            break;
           }
-          i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
+          lucent::Promise<double> v6_ = lucent_app::m_async::noAwait(static_cast<double>(i));
+          (void)co_await v6_;
+          lucent::String v12_ = lucent::String(LUCENT_STR("t")) + lucent::toJsString(static_cast<double>(i));
+          (void)log.push(v12_);
         }
+        i = static_cast<int64_t>(i) + static_cast<int64_t>(1);
       }
-      co_return;
-    }(log);
-  });
+    }
+    co_return;
+  }, log));
   lucent::Fn<lucent::Promise<void>()> ticker = std::move(v2_);
   lucent::Promise<void> t = ticker();
   lucent::Promise<double> v6_ = lucent_app::m_async::noAwait(1.0);
@@ -455,7 +447,7 @@ lucent::Promise<lucent::String> m_async::allTicks() {
 lucent::Promise<lucent::String> m_async::eagerOrder() {
   lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
-  lucent::Fn<lucent::Promise<lucent::String>(lucent::String)> v2_ = lucent::Fn<lucent::Promise<lucent::String>(lucent::String)>([log = log](lucent::String p0_) mutable -> lucent::Promise<lucent::String> {
+  lucent::Fn<lucent::Promise<lucent::String>(lucent::String)> v2_ = lucent::Fn<lucent::Promise<lucent::String>(lucent::String)>(lucent::closure("async.lucent.ts:150", "log", [](std::decay_t<decltype(log)>& log, lucent::String p0_) -> lucent::Promise<lucent::String> {
     try {
       lucent::checkStack();
       lucent::String v3_ = lucent::String(LUCENT_STR("run ")) + p0_;
@@ -464,9 +456,9 @@ lucent::Promise<lucent::String> m_async::eagerOrder() {
     } catch (...) {
       return lucent::Promise<lucent::String>::rejected(lucent::currentError(std::current_exception()));
     }
-  });
+  }, log));
   lucent::Fn<lucent::Promise<lucent::String>(lucent::String)> now = std::move(v2_);
-  lucent::Fn<lucent::Promise<double>()> v4_ = lucent::Fn<lucent::Promise<double>()>([log = log]() mutable -> lucent::Promise<double> {
+  lucent::Fn<lucent::Promise<double>()> v4_ = lucent::Fn<lucent::Promise<double>()>(lucent::closure("async.lucent.ts:154", "log", [](std::decay_t<decltype(log)>& log) -> lucent::Promise<double> {
     try {
       lucent::checkStack();
       (void)log.push(LUCENT_STR("refuse"));
@@ -475,18 +467,16 @@ lucent::Promise<lucent::String> m_async::eagerOrder() {
     } catch (...) {
       return lucent::Promise<double>::rejected(lucent::currentError(std::current_exception()));
     }
-  });
+  }, log));
   lucent::Fn<lucent::Promise<double>()> refuse = std::move(v4_);
-  lucent::Fn<lucent::Promise<void>()> v7_ = lucent::Fn<lucent::Promise<void>()>([log = log, now = now]() -> lucent::Promise<void> {
-    return [](auto log, auto now) -> lucent::Promise<void> {
-      lucent::checkStack();
-      lucent::Promise<lucent::String> v4_ = now(LUCENT_STR("a"));
-      lucent::String v5_ = co_await v4_;
-      lucent::String v6_ = lucent::String(LUCENT_STR("got ")) + v5_;
-      (void)log.push(v6_);
-      co_return;
-    }(log, now);
-  });
+  lucent::Fn<lucent::Promise<void>()> v7_ = lucent::Fn<lucent::Promise<void>()>(lucent::closure("async.lucent.ts:158", "log,now", [](std::decay_t<decltype(log)> log, std::decay_t<decltype(now)> now) -> lucent::Promise<void> {
+    lucent::checkStack();
+    lucent::Promise<lucent::String> v4_ = now(LUCENT_STR("a"));
+    lucent::String v5_ = co_await v4_;
+    lucent::String v6_ = lucent::String(LUCENT_STR("got ")) + v5_;
+    (void)log.push(v6_);
+    co_return;
+  }, log, now));
   lucent::Promise<void> waiting = v7_();
   lucent::Promise<double> refused = refuse();
   (void)log.push(LUCENT_STR("sync after"));
@@ -516,16 +506,14 @@ lucent::Promise<double> m_async::promised(double p0_) {
   lucent::checkStack();
   lucent::Fn<void(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)> v1_ = lucent::Fn<void(lucent::Fn<void(double)>, lucent::Fn<void(lucent::Error)>)>([v = p0_](lucent::Fn<void(double)> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> void {
     lucent::checkStack();
-    lucent::Fn<lucent::Promise<void>()> v3_ = lucent::Fn<lucent::Promise<void>()>([resolve = p0_, v = v]() -> lucent::Promise<void> {
-      return [](auto resolve, auto v) -> lucent::Promise<void> {
-        lucent::checkStack();
-        lucent::Promise<void> v1_ = lucent::delay(1.0);
-        co_await v1_;
-        double v6_ = v * 2.0;
-        resolve(v6_);
-        co_return;
-      }(resolve, v);
-    });
+    lucent::Fn<lucent::Promise<void>()> v3_ = lucent::Fn<lucent::Promise<void>()>(lucent::closure("async.lucent.ts:175", "resolve,v", [](std::decay_t<decltype(p0_)> resolve, std::decay_t<decltype(v)> v) -> lucent::Promise<void> {
+      lucent::checkStack();
+      lucent::Promise<void> v1_ = lucent::delay(1.0);
+      co_await v1_;
+      double v6_ = v * 2.0;
+      resolve(v6_);
+      co_return;
+    }, p0_, v));
     lucent::Fn<lucent::Promise<void>()> later = std::move(v3_);
     (void)later();
   });
@@ -615,11 +603,11 @@ lucent::Promise<lucent::String> m_async::promiseSettlesOnce() {
 lucent::Promise<lucent::String> m_async::promiseOfNothing() {
   lucent::checkStack();
   lucent::Array<lucent::String> order = lucent::Array<lucent::String>{};
-  lucent::Fn<void(lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)> v2_ = lucent::Fn<void(lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)>([order = order](lucent::Fn<void()> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> void {
+  lucent::Fn<void(lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)> v2_ = lucent::Fn<void(lucent::Fn<void()>, lucent::Fn<void(lucent::Error)>)>(lucent::closure("async.lucent.ts:203", "order", [](std::decay_t<decltype(order)>& order, lucent::Fn<void()> p0_, lucent::Fn<void(lucent::Error)> p1_) -> void {
     lucent::checkStack();
     (void)order.push(LUCENT_STR("executor"));
     p0_();
-  });
+  }, order));
   lucent::Promise<void> p = ({
     lucent::Promise<void> p_;
     try {

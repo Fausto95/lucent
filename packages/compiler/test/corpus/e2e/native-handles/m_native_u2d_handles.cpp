@@ -70,16 +70,16 @@ lucent::String m_native_u2d_handles::borrows() {
   bool v11_ = handle->released();
   lucent::String v12_ = lucent::toJsString(v11_);
   lucent::String v14_ = lucent::concat(v8_, LUCENT_STR(" "), v12_);
-  lucent::Fn<void()> v16_ = lucent::Fn<void()>([buffer = buffer]() mutable -> void {
+  lucent::Fn<void()> v16_ = lucent::Fn<void()>(lucent::closure("native-handles.lucent.ts:21", "buffer", [](std::decay_t<decltype(buffer)>& buffer) -> void {
     lucent::checkStack();
     lucent::Fn<double(lucent::ByteSpan)> v1_ = lucent::Fn<double(lucent::ByteSpan)>([](lucent::ByteSpan p0_) mutable -> double {
       lucent::checkStack();
       return p0_.length();
     });
     (void)lucent::withRead(buffer, v1_);
-  });
+  }, buffer));
   lucent::String v17_ = lucent_app::m_native_u2d_handles::attempt(v16_);
-  lucent::Fn<void()> v19_ = lucent::Fn<void()>([buffer = buffer]() mutable -> void {
+  lucent::Fn<void()> v19_ = lucent::Fn<void()>(lucent::closure("native-handles.lucent.ts:24", "buffer", [](std::decay_t<decltype(buffer)>& buffer) -> void {
     lucent::checkStack();
     lucent::Fn<void(lucent::MutableByteSpan)> v1_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
       lucent::checkStack();
@@ -87,18 +87,18 @@ lucent::String m_native_u2d_handles::borrows() {
       return;
     });
     lucent::withWrite(buffer, v1_);
-  });
+  }, buffer));
   lucent::String v20_ = lucent_app::m_native_u2d_handles::attempt(v19_);
-  lucent::Fn<void()> v22_ = lucent::Fn<void()>([buffer = buffer]() mutable -> void {
+  lucent::Fn<void()> v22_ = lucent::Fn<void()>(lucent::closure("native-handles.lucent.ts:27", "buffer", [](std::decay_t<decltype(buffer)>& buffer) -> void {
     lucent::checkStack();
     (void)buffer->transfer();
-  });
+  }, buffer));
   lucent::String v23_ = lucent_app::m_native_u2d_handles::attempt(v22_);
-  lucent::Fn<void()> v25_ = lucent::Fn<void()>([buffer = buffer]() mutable -> void {
+  lucent::Fn<void()> v25_ = lucent::Fn<void()>(lucent::closure("native-handles.lucent.ts:30", "buffer", [](std::decay_t<decltype(buffer)>& buffer) -> void {
     lucent::checkStack();
     (void)(void)buffer->close();
     return;
-  });
+  }, buffer));
   lucent::String v26_ = lucent_app::m_native_u2d_handles::attempt(v25_);
   lucent::Array<lucent::String> held = lucent::Array<lucent::String>{v14_, v17_, v20_, v23_, v26_};
   bool v29_ = handle->release();
@@ -110,7 +110,7 @@ lucent::String m_native_u2d_handles::borrows() {
   bool v41_ = handle->released();
   lucent::String v42_ = lucent::toJsString(v41_);
   lucent::String released = lucent::concat(v30_, LUCENT_STR(" "), v34_, LUCENT_STR(" "), v38_, LUCENT_STR(" "), v42_);
-  lucent::Fn<void()> v50_ = lucent::Fn<void()>([buffer = buffer]() mutable -> void {
+  lucent::Fn<void()> v50_ = lucent::Fn<void()>(lucent::closure("native-handles.lucent.ts:33", "buffer", [](std::decay_t<decltype(buffer)>& buffer) -> void {
     lucent::checkStack();
     lucent::Fn<void(lucent::MutableByteSpan)> v1_ = lucent::Fn<void(lucent::MutableByteSpan)>([](lucent::MutableByteSpan p0_) mutable -> void {
       lucent::checkStack();
@@ -118,7 +118,7 @@ lucent::String m_native_u2d_handles::borrows() {
       return;
     });
     lucent::withWrite(buffer, v1_);
-  });
+  }, buffer));
   lucent::String after = lucent_app::m_native_u2d_handles::attempt(v50_);
   (void)(void)buffer->close();
   lucent::String v56_ = held.join(LUCENT_STR(" "));
@@ -139,11 +139,11 @@ lucent::String m_native_u2d_handles::refused() {
     fn_1_();
   });
   lucent::String v6_ = lucent_app::m_native_u2d_handles::attempt(v5_);
-  lucent::Fn<bool()> v9_ = lucent::Fn<bool()>([closed = closed]() mutable -> bool {
+  lucent::Fn<bool()> v9_ = lucent::Fn<bool()>(lucent::closure("native-handles.lucent.ts:44", "closed", [](std::decay_t<decltype(closed)>& closed) -> bool {
     lucent::checkStack();
     lucent::NativeHandle v1_ = closed->handle();
     return v1_->release();
-  });
+  }, closed));
   lucent::Fn<void()> v10_ = lucent::Fn<void()>([fn_2_ = v9_]() {
     fn_2_();
   });
@@ -160,18 +160,18 @@ lucent::String m_native_u2d_handles::shared() {
   lucent::BigInt v9_ = lucent::BigInt::fromUint64(b->pointer());
   lucent::String both = lucent::toJsString(v7_ == v9_);
   (void)a->release();
-  lucent::Fn<void()> v15_ = lucent::Fn<void()>([buffer = buffer]() mutable -> void {
+  lucent::Fn<void()> v15_ = lucent::Fn<void()>(lucent::closure("native-handles.lucent.ts:54", "buffer", [](std::decay_t<decltype(buffer)>& buffer) -> void {
     lucent::checkStack();
     (void)(void)buffer->close();
     return;
-  });
+  }, buffer));
   lucent::String one = lucent_app::m_native_u2d_handles::attempt(v15_);
   (void)b->release();
-  lucent::Fn<void()> v24_ = lucent::Fn<void()>([buffer = buffer]() mutable -> void {
+  lucent::Fn<void()> v24_ = lucent::Fn<void()>(lucent::closure("native-handles.lucent.ts:56", "buffer", [](std::decay_t<decltype(buffer)>& buffer) -> void {
     lucent::checkStack();
     (void)(void)buffer->close();
     return;
-  });
+  }, buffer));
   lucent::String v25_ = lucent_app::m_native_u2d_handles::attempt(v24_);
   return lucent::concat(both, LUCENT_STR(" "), one, LUCENT_STR(" "), v25_);
 }

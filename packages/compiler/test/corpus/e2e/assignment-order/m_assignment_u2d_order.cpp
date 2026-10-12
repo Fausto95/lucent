@@ -470,12 +470,12 @@ lucent::String m_assignment_u2d_order::fields() {
 lucent::String m_assignment_u2d_order::elements() {
   lucent::checkStack();
   lucent::Array<double> xs = lucent::Array<double>{1.0, 2.0, 3.0};
-  lucent::Fn<double()> v5_ = lucent::Fn<double()>([xs = xs]() mutable -> double {
+  lucent::Fn<double()> v5_ = lucent::Fn<double()>(lucent::closure("assignment-order.lucent.ts:192", "xs", [](std::decay_t<decltype(xs)>& xs) -> double {
     lucent::checkStack();
     lucent::setElement(xs, 0.0, 100.0);
     lucent_app::m_assignment_u2d_order::note(LUCENT_STR("grow"));
     return 1.0;
-  });
+  }, xs));
   lucent::Fn<double()> grow = std::move(v5_);
   double v8_ = lucent::elementAt(xs, 0.0);
   double v10_ = grow();
@@ -512,12 +512,12 @@ lucent::String m_assignment_u2d_order::entries() {
     return p0_;
   });
   lucent::Fn<lucent::String(lucent::String)> key = std::move(v3_);
-  lucent::Fn<double()> v5_ = lucent::Fn<double()>([counts = counts]() mutable -> double {
+  lucent::Fn<double()> v5_ = lucent::Fn<double()>(lucent::closure("assignment-order.lucent.ts:213", "counts", [](std::decay_t<decltype(counts)>& counts) -> double {
     lucent::checkStack();
     lucent::setEntry(counts, LUCENT_STR("a"), 40.0);
     lucent_app::m_assignment_u2d_order::note(LUCENT_STR("clobber"));
     return 2.0;
-  });
+  }, counts));
   lucent::Fn<double()> clobber = std::move(v5_);
   double v8_ = lucent::entryAt(counts, LUCENT_STR("a"));
   double v10_ = clobber();

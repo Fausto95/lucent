@@ -334,11 +334,11 @@ void C_Arrow::construct() {
   lucent::checkStack();
   this->n = 2.0;
   lucent::Ref<lucent_app::C_Arrow> v2_ = lucent::selfRef(this);
-  lucent::Fn<double()> v3_ = lucent::Fn<double()>([self = v2_]() mutable -> double {
+  lucent::Fn<double()> v3_ = lucent::Fn<double()>(lucent::closure("stringify-classes.lucent.ts:196", "this", [](std::decay_t<decltype(v2_)>& self) -> double {
     lucent::checkStack();
     double v0_ = self->n;
     return v0_ * 10.0;
-  });
+  }, v2_));
   this->toJSON = v3_;
 }
 
@@ -352,11 +352,11 @@ void C_ArrowBase::construct() {
   lucent::checkStack();
   this->tag = LUCENT_STR("t");
   lucent::Ref<lucent_app::C_ArrowBase> v2_ = lucent::selfRef(this);
-  lucent::Fn<lucent::String()> v3_ = lucent::Fn<lucent::String()>([self = v2_]() mutable -> lucent::String {
+  lucent::Fn<lucent::String()> v3_ = lucent::Fn<lucent::String()>(lucent::closure("stringify-classes.lucent.ts:201", "this", [](std::decay_t<decltype(v2_)>& self) -> lucent::String {
     lucent::checkStack();
     lucent::String v1_ = self->tag;
     return lucent::String(LUCENT_STR("base ")) + v1_;
-  });
+  }, v2_));
   this->toJSON = v3_;
 }
 

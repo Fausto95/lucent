@@ -211,17 +211,15 @@ lucent::String m_generators::lazy() {
   lucent::checkStack();
   lucent::Box<lucent::Fn<lucent::Iter<double>()>> noisy{};
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
-  lucent::Fn<lucent::Iter<double>()> v2_ = lucent::Fn<lucent::Iter<double>()>([log = log]() -> lucent::Iter<double> {
-    return [](auto log) -> lucent::Iter<double> {
-      lucent::checkStack();
-      (void)log.push(LUCENT_STR("start"));
-      co_yield 1.0;
-      (void)log.push(LUCENT_STR("after 1"));
-      co_yield 2.0;
-      (void)log.push(LUCENT_STR("end"));
-      co_return;
-    }(log);
-  });
+  lucent::Fn<lucent::Iter<double>()> v2_ = lucent::Fn<lucent::Iter<double>()>(lucent::closure("generators.lucent.ts:40", "log", [](std::decay_t<decltype(log)> log) -> lucent::Iter<double> {
+    lucent::checkStack();
+    (void)log.push(LUCENT_STR("start"));
+    co_yield 1.0;
+    (void)log.push(LUCENT_STR("after 1"));
+    co_yield 2.0;
+    (void)log.push(LUCENT_STR("end"));
+    co_return;
+  }, log));
   *noisy = std::move(v2_);
   lucent::Fn<lucent::Iter<double>()> v3_ = *noisy;
   lucent::Iter<double> g = v3_();
@@ -251,32 +249,30 @@ lucent::String m_generators::earlyExit() {
   lucent::checkStack();
   lucent::Box<lucent::Fn<lucent::Iter<double>()>> guarded{};
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
-  lucent::Fn<lucent::Iter<double>()> v2_ = lucent::Fn<lucent::Iter<double>()>([log = log]() -> lucent::Iter<double> {
-    return [](auto log) -> lucent::Iter<double> {
-      lucent::checkStack();
-      {
-        int fc0_ = 0;
-        std::exception_ptr fc0ex_;
-        try {
-          {
-            co_yield 1.0;
-            co_yield 2.0;
-            co_yield 3.0;
-          }
-        } catch (...) {
-          fc0ex_ = std::current_exception();
-        }
-        fin0_:;
+  lucent::Fn<lucent::Iter<double>()> v2_ = lucent::Fn<lucent::Iter<double>()>(lucent::closure("generators.lucent.ts:62", "log", [](std::decay_t<decltype(log)> log) -> lucent::Iter<double> {
+    lucent::checkStack();
+    {
+      int fc0_ = 0;
+      std::exception_ptr fc0ex_;
+      try {
         {
-          (void)log.push(LUCENT_STR("cleanup"));
+          co_yield 1.0;
+          co_yield 2.0;
+          co_yield 3.0;
         }
-        if (fc0ex_) {
-          std::rethrow_exception(fc0ex_);
-        }
+      } catch (...) {
+        fc0ex_ = std::current_exception();
       }
-      co_return;
-    }(log);
-  });
+      fin0_:;
+      {
+        (void)log.push(LUCENT_STR("cleanup"));
+      }
+      if (fc0ex_) {
+        std::rethrow_exception(fc0ex_);
+      }
+    }
+    co_return;
+  }, log));
   *guarded = std::move(v2_);
   lucent::Fn<lucent::Iter<double>()> v3_ = *guarded;
   lucent::Iter<double> v4_ = v3_();

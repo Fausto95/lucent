@@ -112,9 +112,9 @@ lucent::String m_opaque_u2d_values::handBack(lucent::JSValue p0_, lucent::Fn<luc
 }
 
 lucent::Fn<lucent::JSValue()> m_opaque_u2d_values::remembered(lucent::JSValue p0_) {
-  lucent::Fn<lucent::JSValue()> v1_ = lucent::Fn<lucent::JSValue()>([value = p0_]() mutable -> lucent::JSValue {
+  lucent::Fn<lucent::JSValue()> v1_ = lucent::Fn<lucent::JSValue()>(lucent::closure("opaque-values.lucent.ts:63", "value", [](std::decay_t<decltype(p0_)>& value) -> lucent::JSValue {
     return value;
-  });
+  }, p0_));
   return v1_;
 }
 

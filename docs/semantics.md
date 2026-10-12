@@ -720,8 +720,10 @@ a `WeakRef`.
 A debug build names each cycle between class instances and objects that it
 finds at teardown (a reload, the app's end), once, in the platform log: the
 fields that close it, with their source lines, from the cycle's oldest object
-back to it, and the last of them as the one to hold through a `WeakRef`.
-Captures of closures are not named yet.
+back to it, and the last of them as the one to hold through a `WeakRef`. A
+closure on the path is named by its line and what it captures (`this`, a
+variable), including an emitter's listeners: the hint is then to capture a
+`WeakRef` there instead.
 
 ## Deviations from JavaScript
 

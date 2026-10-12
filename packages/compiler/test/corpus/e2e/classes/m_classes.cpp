@@ -563,10 +563,10 @@ lucent::String m_classes::presence(lucent::Ref<lucent_app::C_Counter> p0_, lucen
 lucent::String m_classes::relayed() {
   lucent::checkStack();
   lucent::Array<lucent::String> seen = lucent::Array<lucent::String>{};
-  lucent::Fn<double(lucent::String)> v2_ = lucent::Fn<double(lucent::String)>([seen = seen](lucent::String p0_) mutable -> double {
+  lucent::Fn<double(lucent::String)> v2_ = lucent::Fn<double(lucent::String)>(lucent::closure("classes.lucent.ts:144", "seen", [](std::decay_t<decltype(seen)>& seen, lucent::String p0_) -> double {
     lucent::checkStack();
     return seen.push(p0_);
-  });
+  }, seen));
   lucent::Ref<lucent_app::C_Relay> r = lucent_app::C_Relay::create(lucent::Fn<void(lucent::String)>([fn_1_ = v2_](lucent::String a0) {
     fn_1_(a0);
   }));
@@ -615,11 +615,11 @@ lucent::String m_classes::described() {
   lucent::Ref<lucent_app::C_Remote> v5_ = lucent_app::C_Remote::create(LUCENT_STR("d"));
   lucent::Array<std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>>> all = lucent::Array<std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>>>{std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>>(v1_), std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>>(v3_), std::variant<lucent::Ref<lucent_app::C_Disk>, lucent::Ref<lucent_app::C_Remote>>(v5_)};
   lucent::Array<double> seen = lucent::Array<double>{};
-  lucent::Fn<lucent::String(double)> v9_ = lucent::Fn<lucent::String(double)>([seen = seen](double p0_) mutable -> lucent::String {
+  lucent::Fn<lucent::String(double)> v9_ = lucent::Fn<lucent::String(double)>(lucent::closure("classes.lucent.ts:217", "seen", [](std::decay_t<decltype(seen)>& seen, double p0_) -> lucent::String {
     lucent::checkStack();
     (void)seen.push(p0_);
     return lucent::String(lucent::toJsString(p0_)) + LUCENT_STR(":");
-  });
+  }, seen));
   lucent::Fn<lucent::String(double)> prefix = std::move(v9_);
   lucent::Array<lucent::String> marks = lucent::Array<lucent::String>{};
   {

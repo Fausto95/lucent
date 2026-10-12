@@ -124,7 +124,7 @@ lucent::String m_never_u2d_operands::attempt(lucent::Fn<lucent::String()> p0_) {
 
 lucent::String m_never_u2d_operands::nullish(lucent::Opt<lucent::String> p0_, lucent::Opt<double> p1_) {
   lucent::checkStack();
-  lucent::Fn<lucent::String()> v2_ = lucent::Fn<lucent::String()>([name = p0_, count = p1_]() mutable -> lucent::String {
+  lucent::Fn<lucent::String()> v2_ = lucent::Fn<lucent::String()>(lucent::closure("never-operands.lucent.ts:35", "name,count", [](std::decay_t<decltype(p0_)>& name, std::decay_t<decltype(p1_)>& count) -> lucent::String {
     lucent::checkStack();
     bool v2_ = !name.has();
     lucent::String v7_{};
@@ -150,7 +150,7 @@ lucent::String m_never_u2d_operands::nullish(lucent::Opt<lucent::String> p0_, lu
     double doubled = v16_ * 2.0;
     lucent::String v22_ = lucent::toJsString(doubled);
     return lucent::concat(upper, LUCENT_STR(" "), v22_);
-  });
+  }, p0_, p1_));
   return lucent_app::m_never_u2d_operands::attempt(v2_);
 }
 
@@ -317,7 +317,7 @@ lucent::String m_never_u2d_operands::conditional(double p0_) {
 
 lucent::String m_never_u2d_operands::assigns(lucent::Opt<lucent::String> p0_) {
   lucent::checkStack();
-  lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>([start = p0_]() mutable -> lucent::String {
+  lucent::Fn<lucent::String()> v1_ = lucent::Fn<lucent::String()>(lucent::closure("never-operands.lucent.ts:90", "start", [](std::decay_t<decltype(p0_)>& start) -> lucent::String {
     lucent::checkStack();
     lucent::Opt<lucent::String> value = start;
     lucent::Opt<lucent::String> v1_ = value;
@@ -329,7 +329,7 @@ lucent::String m_never_u2d_operands::assigns(lucent::Opt<lucent::String> p0_) {
       }();
     }
     return value.value();
-  });
+  }, p0_));
   return lucent_app::m_never_u2d_operands::attempt(v1_);
 }
 

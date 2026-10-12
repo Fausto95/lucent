@@ -21,6 +21,9 @@ template <class R, class... A>
 struct Callee {
   virtual ~Callee() = default;
   virtual R call(A... args) = 0;
+  /// The strong references its captures hold, reached through the field
+  /// `name` declared at `where`, for a debug build's cycle report (refs.h).
+  virtual void lucentRefs_(debug::RefSink&, const char*, const char*) const {}
 };
 
 template <class F, class R, class... A>
@@ -30,6 +33,10 @@ struct Callable final : Callee<R, A...> {
   R call(A... args) override {
     if constexpr (std::is_void_v<R>) f(std::forward<A>(args)...);
     else return f(std::forward<A>(args)...);
+  }
+  /// A closure the compiler made says what it captures (lucent::Closure).
+  void lucentRefs_(debug::RefSink& s, const char* name, const char* where) const override {
+    if constexpr (requires { f.lucentRefs_(s, name, where); }) f.lucentRefs_(s, name, where);
   }
   F f;
 };
@@ -52,6 +59,10 @@ class Fn<R(A...)> {
   }
   explicit operator bool() const { return f_ != nullptr; }
   const void* identity() const { return f_.get(); }
+  /// What its captures refer to (refs.h).
+  void lucentRefs_(debug::RefSink& s, const char* name, const char* where) const {
+    if (f_) f_->lucentRefs_(s, name, where);
+  }
   friend bool operator==(const Fn& a, const Fn& b) { return a.f_ == b.f_; }
   friend bool operator!=(const Fn& a, const Fn& b) { return a.f_ != b.f_; }
 

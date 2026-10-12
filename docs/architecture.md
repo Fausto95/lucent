@@ -828,7 +828,12 @@ signal)` starts native work that completes later, on any thread (a
   NDEBUG; `emit/refs.ts`), and `cycles()` walks the objects alive, finds
   the strongly connected groups (Tarjan's algorithm) and gives each as the
   path of fields from its oldest object back to it, once.
-  `rn/LucentModule.cpp` logs each new one at teardown.
+  `rn/LucentModule.cpp` logs each new one at teardown. A closure that
+  captures what may refer to objects is a `lucent::Closure` (the IR's
+  `closure` op): its captures in a tuple, which its code takes first, and
+  their names, so a function value reports what its captures refer to
+  (`Fn::lucentRefs_`, through `detail::Callee`); an emitter reports its
+  listeners and observers.
 - `live.h` and `debug.h` (T61): what a debug build reports of the
   runtime. A class counts its instances by holding a `live::Counted`
   member (scopes, operations, resources, a view's effects, signals and

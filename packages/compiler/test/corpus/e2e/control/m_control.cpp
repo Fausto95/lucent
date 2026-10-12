@@ -162,7 +162,7 @@ lucent::String m_control::labeled() {
 lucent::String m_control::finallyOrder() {
   lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
-  lucent::Fn<double(double)> v2_ = lucent::Fn<double(double)>([log = log](double p0_) mutable -> double {
+  lucent::Fn<double(double)> v2_ = lucent::Fn<double(double)>(lucent::closure("control.lucent.ts:36", "log", [](std::decay_t<decltype(log)>& log, double p0_) -> double {
     double ret_{};
     lucent::checkStack();
     {
@@ -198,7 +198,7 @@ lucent::String m_control::finallyOrder() {
       }
     }
     return -1.0;
-  });
+  }, log));
   lucent::Fn<double(double)> f = std::move(v2_);
   double a = f(1.0);
   double b = f(0.0);

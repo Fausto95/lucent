@@ -14,6 +14,7 @@
 // moment no code is changing them (a teardown, a test).
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -24,6 +25,7 @@
 
 #include "array.h"
 #include "core.h"
+#include "function.h"
 #include "map.h"
 
 namespace lucent::debug {
@@ -32,8 +34,11 @@ namespace lucent::debug {
 class RefSink {
  public:
   /// A strong reference to `to` held by the field `name` ("Session.onFrame"),
-  /// declared at `where` ("camera.lucent.ts:12", or empty).
-  virtual void edge(const Object* to, const char* name, const char* where) = 0;
+  /// declared at `where` ("camera.lucent.ts:12", or empty); through a
+  /// closure the field holds, made at `closure`, which captures `capture`
+  /// ("this"), when those are given.
+  virtual void edge(const Object* to, const char* name, const char* where, const char* closure = nullptr,
+                    const char* capture = nullptr) = 0;
 
  protected:
   ~RefSink() = default;
@@ -46,10 +51,13 @@ void trackObjects();
 /// Whether objects are being listed.
 bool tracksObjects();
 
-/// One step of a cycle: the field that refers to the next object.
+/// One step of a cycle: the field that refers to the next object, maybe
+/// through a closure it holds and what that closure captures.
 struct CycleStep {
   std::string field;
   std::string where;
+  std::string closure;
+  std::string capture;
 };
 
 /// A cycle of strong references: its objects, and the fields from the
@@ -89,6 +97,10 @@ template <class... Ts>
 void refs(RefSink& sink, const std::tuple<Ts...>& value, const char* name, const char* where);
 template <class... Ts>
 void refs(RefSink& sink, const std::variant<Ts...>& value, const char* name, const char* where);
+template <class Sig>
+void refs(RefSink& sink, const Fn<Sig>& value, const char* name, const char* where);
+template <class T>
+void refs(RefSink& sink, const Box<T>& value, const char* name, const char* where);
 
 namespace detail {
 /// The object a reference refers to: an interface value's is its class instance.
@@ -106,10 +118,39 @@ const Object* objectOf(const T* p) {
 /// Whether a value of `T` can hold a strong reference to an object.
 template <class T>
 inline constexpr bool mayRefer = !std::is_arithmetic_v<T> && !std::is_enum_v<T> && !std::is_same_v<T, String>;
+
+/// The closures this thread's walk is inside: one that captures itself
+/// (through a box) is read once.
+inline thread_local std::vector<const void*> closuresInWalk;
+
+/// What a closure's captures report, reached through a field: each edge
+/// names the field, the closure and the capture.
+class Through final : public RefSink {
+ public:
+  Through(RefSink& outer, const char* field, const char* where, const char* closure)
+      : outer_(outer), field_(field), where_(where), closure_(closure) {}
+
+  void edge(const Object* to, const char* name, const char* where, const char* closure,
+            const char* capture) override {
+    if (!closure) {
+      outer_.edge(to, field_, where_, closure_, name);
+      return;
+    }
+    // A closure this one captures, which captures `capture`.
+    std::string through = std::string(field_) + (*where_ ? std::string(" (") + where_ + ")" : std::string()) +
+                          ", then the closure at " + closure_ + ", which captures " + name;
+    outer_.edge(to, through.c_str(), "", closure, capture);
+  }
+
+ private:
+  RefSink& outer_;
+  const char* field_;
+  const char* where_;
+  const char* closure_;
+};
 }  // namespace detail
 
-/// Plain data, strings, functions (their captures are not reported yet):
-/// nothing.
+/// Plain data and strings: nothing.
 template <class T>
 void refs(RefSink&, const T&, const char*, const char*) {}
 
@@ -160,4 +201,75 @@ void refs(RefSink& sink, const std::variant<Ts...>& value, const char* name, con
   std::visit([&](const auto& v) { refs(sink, v, name, where); }, value);
 }
 
+/// A function value: what its closure captures, once per walk.
+template <class Sig>
+void refs(RefSink& sink, const Fn<Sig>& value, const char* name, const char* where) {
+  auto& inside = detail::closuresInWalk;
+  const void* id = value.identity();
+  if (!id || std::find(inside.begin(), inside.end(), id) != inside.end()) return;
+
+  inside.push_back(id);
+  value.lucentRefs_(sink, name, where);
+  inside.pop_back();
+}
+
+/// A variable closures share: what it holds now.
+template <class T>
+void refs(RefSink& sink, const Box<T>& value, const char* name, const char* where) {
+  refs(sink, *value, name, where);
+}
+
 }  // namespace lucent::debug
+
+namespace lucent {
+
+/// A closure as the compiler makes it, when it captures what may refer to
+/// objects: its captures, in a tuple, and `f`, the code, which takes them
+/// first (by reference, so a mutable capture keeps its changes; by value
+/// for a coroutine, whose frame then owns them). It says what its captures
+/// refer to, by the names `names` gives them ("this,listener"), for a debug
+/// build's cycle report; it is made at `site` ("camera.lucent.ts:41").
+template <class F, class... Caps>
+struct Closure {
+  F f;
+  std::tuple<Caps...> caps;
+  const char* site;
+  const char* names;
+
+  template <class... A>
+  auto operator()(A&&... args) -> decltype(std::declval<F&>()(std::declval<Caps&>()..., std::forward<A>(args)...)) {
+    return std::apply([&](Caps&... c) -> decltype(auto) { return f(c..., std::forward<A>(args)...); }, caps);
+  }
+
+  void lucentRefs_(debug::RefSink& sink, const char* field, const char* where) const {
+    debug::detail::Through through(sink, field, where, site);
+    size_t i = 0;
+    std::apply([&](const Caps&... c) { (report(through, c, i++), ...); }, caps);
+  }
+
+ private:
+  template <class C>
+  void report(debug::RefSink& through, const C& capture, size_t i) const {
+    if constexpr (debug::detail::mayRefer<C>) {
+      const std::string name = nameAt(i);
+      debug::refs(through, capture, name.c_str(), site);
+    }
+  }
+
+  std::string nameAt(size_t i) const {
+    const char* p = names;
+    for (; i > 0 && *p; p++)
+      if (*p == ',') i--;
+    const char* end = p;
+    while (*end && *end != ',') end++;
+    return std::string(p, end);
+  }
+};
+
+/// `Closure{f, captures…}`, made where the compiler makes a closure.
+template <class F, class... Caps>
+Closure<std::decay_t<F>, std::decay_t<Caps>...> closure(const char* site, const char* names, F&& f, Caps&&... caps) {
+  return {std::forward<F>(f), std::tuple<std::decay_t<Caps>...>(std::forward<Caps>(caps)...), site, names};
+}
+
+}  // namespace lucent

@@ -162,7 +162,7 @@ lucent::String m_optional_u2d_calls::expressions(bool p0_) {
     v16_->add(LUCENT_STR("comma"));
   }
   lucent::String b = LUCENT_STR("after comma");
-  lucent::Fn<void()> v23_ = lucent::Fn<void()>([maybe = maybe]() mutable -> void {
+  lucent::Fn<void()> v23_ = lucent::Fn<void()>(lucent::closure("optional-calls.lucent.ts:44", "maybe", [](std::decay_t<decltype(maybe)>& maybe) -> void {
     lucent::checkStack();
     bool v2_ = !maybe.has();
     if (v2_) {
@@ -171,11 +171,11 @@ lucent::String m_optional_u2d_calls::expressions(bool p0_) {
       v3_->add(LUCENT_STR("arrow"));
     }
     return;
-  });
+  }, maybe));
   lucent::Fn<void()> arrow = std::move(v23_);
   arrow();
   arrow();
-  lucent::Fn<void()> v29_ = lucent::Fn<void()>([maybe = maybe]() mutable -> void {
+  lucent::Fn<void()> v29_ = lucent::Fn<void()>(lucent::closure("optional-calls.lucent.ts:49", "maybe", [](std::decay_t<decltype(maybe)>& maybe) -> void {
     lucent::checkStack();
     bool v2_ = !maybe.has();
     if (v2_) {
@@ -184,7 +184,7 @@ lucent::String m_optional_u2d_calls::expressions(bool p0_) {
       v3_->add(LUCENT_STR("returned"));
     }
     return;
-  });
+  }, maybe));
   lucent::Fn<void()> block = std::move(v29_);
   block();
   lucent::String v33_ = lucent::toJsString(a);
@@ -248,11 +248,11 @@ lucent::String m_optional_u2d_calls::callbacks(bool p0_) {
   lucent::Array<lucent::String> seen = lucent::Array<lucent::String>{};
   lucent::Ref<lucent_app::C_Log> log = lucent_app::C_Log::create();
   if (p0_) {
-    lucent::Fn<double(lucent::String)> v5_ = lucent::Fn<double(lucent::String)>([seen = seen](lucent::String p0_) mutable -> double {
+    lucent::Fn<double(lucent::String)> v5_ = lucent::Fn<double(lucent::String)>(lucent::closure("optional-calls.lucent.ts:76", "seen", [](std::decay_t<decltype(seen)>& seen, lucent::String p0_) -> double {
       lucent::checkStack();
       lucent::String v3_ = lucent::String(LUCENT_STR("heard ")) + p0_;
       return seen.push(v3_);
-    });
+    }, seen));
     lucent::Opt<lucent::Fn<void(lucent::String)>> v6_ = lucent::Opt<lucent::Fn<void(lucent::String)>>(lucent::Fn<void(lucent::String)>([fn_1_ = v5_](lucent::String a0) {
       fn_1_(a0);
     }));
@@ -261,11 +261,11 @@ lucent::String m_optional_u2d_calls::callbacks(bool p0_) {
   log->add(LUCENT_STR("one"));
   lucent::Opt<lucent::Fn<void(lucent::String)>> v16_{};
   if (p0_) {
-    lucent::Fn<double(lucent::String)> v12_ = lucent::Fn<double(lucent::String)>([seen = seen](lucent::String p0_) mutable -> double {
+    lucent::Fn<double(lucent::String)> v12_ = lucent::Fn<double(lucent::String)>(lucent::closure("optional-calls.lucent.ts:81", "seen", [](std::decay_t<decltype(seen)>& seen, lucent::String p0_) -> double {
       lucent::checkStack();
       lucent::String v3_ = lucent::String(LUCENT_STR("notified ")) + p0_;
       return seen.push(v3_);
-    });
+    }, seen));
     v16_ = lucent::Opt<lucent::Fn<void(lucent::String)>>(lucent::Fn<void(lucent::String)>([fn_2_ = v12_](lucent::String a0) {
       fn_2_(a0);
     }));
@@ -302,10 +302,10 @@ lucent::String m_optional_u2d_calls::listens(lucent::Opt<lucent::AbortSignal> p0
   if (v3_) {
   } else {
     lucent::AbortSignal v4_ = p0_.value();
-    lucent::Fn<double()> v6_ = lucent::Fn<double()>([seen = seen]() mutable -> double {
+    lucent::Fn<double()> v6_ = lucent::Fn<double()>(lucent::closure("optional-calls.lucent.ts:94", "seen", [](std::decay_t<decltype(seen)>& seen) -> double {
       lucent::checkStack();
       return seen.push(LUCENT_STR("aborted"));
-    });
+    }, seen));
     v4_->addEventListener(lucent::Fn<void()>([fn_3_ = v6_]() {
       fn_3_();
     }));
@@ -324,10 +324,10 @@ lucent::String m_optional_u2d_calls::listens(lucent::Opt<lucent::AbortSignal> p0
   if (v21_) {
   } else {
     lucent::AbortSignal v22_ = own.value();
-    lucent::Fn<double()> v24_ = lucent::Fn<double()>([seen = seen]() mutable -> double {
+    lucent::Fn<double()> v24_ = lucent::Fn<double()>(lucent::closure("optional-calls.lucent.ts:99", "seen", [](std::decay_t<decltype(seen)>& seen) -> double {
       lucent::checkStack();
       return seen.push(LUCENT_STR("own aborted"));
-    });
+    }, seen));
     v22_->addEventListener(lucent::Fn<void()>([fn_4_ = v24_]() {
       fn_4_();
     }));
@@ -348,10 +348,10 @@ lucent::String m_optional_u2d_calls::asserted() {
   lucent::checkStack();
   lucent::Ref<lucent_app::C_Log> log = lucent_app::C_Log::create();
   lucent::Array<lucent::String> heard = lucent::Array<lucent::String>{};
-  lucent::Fn<double(lucent::String)> v4_ = lucent::Fn<double(lucent::String)>([heard = heard](lucent::String p0_) mutable -> double {
+  lucent::Fn<double(lucent::String)> v4_ = lucent::Fn<double(lucent::String)>(lucent::closure("optional-calls.lucent.ts:110", "heard", [](std::decay_t<decltype(heard)>& heard, lucent::String p0_) -> double {
     lucent::checkStack();
     return heard.push(p0_);
-  });
+  }, heard));
   lucent::Opt<lucent::Fn<void(lucent::String)>> v5_ = lucent::Opt<lucent::Fn<void(lucent::String)>>(lucent::Fn<void(lucent::String)>([fn_5_ = v4_](lucent::String a0) {
     fn_5_(a0);
   }));
