@@ -152,8 +152,8 @@ ways is refused. A view's events reach JavaScript in the order setup sent
 them. A coalesced event replaces the view's waiting event only when that
 is the view's latest waiting event and of the same type, and it takes
 that event's place in the queue: another view's event queued in between
-then comes after it. React Native 0.88 maps the continuous category to
-React's default priority unless its
+then comes after it. React Native (0.85 to 0.88) maps the continuous
+category to React's default priority unless its
 `fixMappingOfEventPrioritiesBetweenFabricAndReact` flag is on. A view's
 events and its requests' answers travel on different channels, so no
 order holds between the two.

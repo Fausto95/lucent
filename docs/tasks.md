@@ -47,7 +47,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165, #167, #168 merged)                                                                                       |
 | [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | in progress (#175, #180, #183 merged)                                                                                             |
 | [T74](#t74)   | Callback executors and stream backpressure                        | in progress (#181, #182, #187 merged)                                                                                             |
-| [T75](#t75)   | Support a window of stable React Native and Expo releases         | in progress (#190 merged)                                                                                                         |
+| [T75](#t75)   | Support a window of stable React Native and Expo releases         | in progress (#190, #191 merged)                                                                                                   |
 | [T76](#t76)   | App-delegate and Activity integration hooks                       | ready (decision 0076); needs nothing open                                                                                         |
 | [T77](#t77)   | Classes the OS instantiates, and typed package Kotlin             | waiting; needs T60, T76                                                                                                           |
 | [T79](#t79)   | Prebuilt C and C++ dependencies: C++ extensions and prefab        | waiting; needs T72                                                                                                                |
@@ -1859,7 +1859,9 @@ preview, so a library author can publish for the versions their users run.
 
 - **Status:** in progress: the window is
   [0074](decisions/0074-a-window-of-stable-react-native-and-expo-releases.md);
-  Lucent's React Native C++ compiles against each of its releases (#190).
+  Lucent's React Native C++ compiles against each of its releases (#190),
+  and no release needs a fallback
+  ([0079](decisions/0079-react-native-0-85-is-in-the-window-and-no-release-needs-a-fallback.md), #191).
 - **Area:** Tooling, runtime (RN integration), verification.
 - **Needs:** none.
 - **Verify:** V1, V5, V6.
@@ -1879,14 +1881,16 @@ reason for 0.88 is not recorded: `doctor` says "the New Architecture's C++
 TurboModules", which earlier releases also have; `docs/design/views.md`
 names 0.88's continuous event category mapping.
 
-- [ ] Record, as a decision, each React Native feature Lucent depends on
+- [x] Record, as a decision, each React Native feature Lucent depends on
       and the release that first shipped it: pure C++ TurboModule
       autolinking (`cxxModuleCMakeListsModuleName` and siblings), Fabric
       component descriptor autolinking (`componentDescriptors`), the
       continuous and discrete event categories, view recycling and
       `enableAccumulatedUpdatesInRawPropsAndroid`, `jsi::NativeState`,
       `setExternalMemoryPressure`, Yoga headers the runtime includes, the
-      Expo config plugin and prebuild hooks Lucent uses.
+      Expo config plugin and prebuild hooks Lucent uses:
+      [0079](decisions/0079-react-native-0-85-is-in-the-window-and-no-release-needs-a-fallback.md),
+      which puts 0.85 in the window, as Expo SDK 56's release (#191).
 - [x] Decide the window: current stable and the previous (0.86 and 0.87 on
       2026-10-11; Expo SDK 56 and 57) plus a prerelease lane (0.88 RC, SDK
       58 preview), with the policy for moving it (when a stable ships):
@@ -1898,13 +1902,10 @@ names 0.88's continuous event category mapping.
       `rn-releases` harness runs 0.85 (Expo SDK 56's), 0.86, 0.87 and
       `next`. The props read with `RawProps::at(name)`, new in 0.87; they
       take the lookup every release has (#190).
-- [ ] Where a window release lacks a feature, generate the fallback rather
-      than refuse: an Objective-C++ `RCTTurboModule` provider and a Java
-      `TurboReactPackage` where pure-C++ autolinking is missing; explicit
-      component view and descriptor registration where
-      `componentDescriptors` autolinking is; a version-guarded event
-      category. The generated code is the same on every release, chosen by
-      the installed `react-native` version the build reads.
+- [x] Where a window release lacks a feature, generate the fallback rather
+      than refuse: none lacks one
+      ([0079](decisions/0079-react-native-0-85-is-in-the-window-and-no-release-needs-a-fallback.md)),
+      so the build generates none (#191).
 - [ ] `lucent doctor` checks the window and names the lane; the loader's
       identity check gains the React Native version it was built against.
 - [ ] `scripts/smoke-install.ts` takes a React Native and Expo version and
