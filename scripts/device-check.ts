@@ -1,6 +1,8 @@
 /**
  * Runs the bare example's Tests screen on a booted-here iOS simulator or a
- * running Android emulator, and passes when every end-to-end case passed:
+ * running Android emulator, and passes when every end-to-end case passed.
+ * With --id, it runs another app the same way (the window's fresh apps,
+ * scripts/window-app.ts), opened as its launcher opens it:
  *   1. installs the Debug build (its bundle comes from Metro, which the
  *      caller started on port 8081);
  *   2. opens the Tests screen: on Android with the deep link
@@ -12,6 +14,10 @@
  *
  *   node scripts/device-check.ts ios --app <BareExample.app>
  *   node scripts/device-check.ts android --apk <app-debug.apk>
+ *   node scripts/device-check.ts ios --app <.app> --id <bundle id> --process <name> [--no-metro]
+ *   node scripts/device-check.ts android --apk <.apk> --id <package> [--no-metro]
+ *
+ * --no-metro is for a Release build, whose bundle is in the app.
  *
  * It gives up early when the app exits, when the screen never starts a run,
  * or when a run stops moving. On failure it keeps the device log, a
@@ -24,6 +30,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { parseArgs } from "node:util";
 
 export interface Verdict {
   passed: number;
@@ -72,15 +79,19 @@ export function describeProgress(p: Progress | undefined): string {
 
 /** Lines that say the app crashed: native aborts, uncaught exceptions, signals. */
 const CRASH =
-  /FATAL EXCEPTION|Fatal signal \d+|Abort message|Terminating app due to|libc\+\+abi: terminating|terminating due to uncaught|EXC_BAD_ACCESS|EXC_CRASH|SIGABRT|SIGSEGV|SIGBUS|SIGILL|Process com\.bareexample \(pid \d+\) has died/;
+  /FATAL EXCEPTION|Fatal signal \d+|Abort message|Terminating app due to|libc\+\+abi: terminating|terminating due to uncaught|EXC_BAD_ACCESS|EXC_CRASH|SIGABRT|SIGSEGV|SIGBUS|SIGILL|Process [\w.]+ \(pid \d+\) has died/;
 
 /** Lines that say JavaScript failed: a red box, a fatal JS error, a bundle that didn't load. */
 const JS_ERROR =
   /RedBox|RCTFatal|Unhandled JS Exception|Uncaught (Error|TypeError|ReferenceError)|E ReactNativeJS|Could not connect to (the )?development server|Unable to load script|No (script|bundle) URL|Invariant Violation|SyntaxError:|TypeError:|ReferenceError:|Requiring unknown module|Packager status check/;
 
+const escaped = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /** The app's own lines: Lucent, React Native, JavaScript, crashes, its errors. */
-const APP_LINE =
-  /Lucent|LUCENT_|ReactNative|ReactHost|com\.facebook\.react|\[javascript\]|hermes|Metro|AndroidRuntime|DEBUG\s*:|libc\s*:|com\.bareexample|^\S+ \S+ +(E|F|Er|Ft|Fa) +BareExample/;
+const appLine = (app: { id: string; process: string }) =>
+  new RegExp(
+    `Lucent|LUCENT_|ReactNative|ReactHost|com\\.facebook\\.react|\\[javascript\\]|hermes|Metro|AndroidRuntime|DEBUG\\s*:|libc\\s*:|${escaped(app.id)}|^\\S+ \\S+ +(E|F|Er|Ft|Fa) +${escaped(app.process)}`,
+  );
 
 /** Lines from the app's process that match the patterns above but say nothing about it. */
 const NOISE =
@@ -89,11 +100,21 @@ const NOISE =
 const keep = (l: string, re: RegExp) => re.test(l) && !NOISE.test(l);
 
 /** The app's own lines of a device log, the last `max`, each at most `width` long. */
-export function appLines(log: string, max = 40, width = 240): string[] {
+export function appLines(
+  log: string,
+  max = 40,
+  width = 240,
+  // iOS lines name the process; Android's, the package.
+  app: { id: string; process: string } = {
+    id: BARE_EXAMPLE.package,
+    process: BARE_EXAMPLE.process,
+  },
+): string[] {
+  const own = appLine(app);
   const kept = log
     .split("\n")
     .map((l) => l.trimEnd())
-    .filter((l) => keep(l, APP_LINE) || keep(l, CRASH) || keep(l, JS_ERROR));
+    .filter((l) => keep(l, own) || keep(l, CRASH) || keep(l, JS_ERROR));
   return kept.slice(-max).map((l) => (l.length > width ? `${l.slice(0, width - 1)}…` : l));
 }
 
@@ -172,6 +193,8 @@ export interface Facts {
   /** Other things seen, said as they are. */
   notes?: string[];
   metroUp: boolean;
+  /** Whether the build loads its bundle from Metro (a Debug build); default true. */
+  metro?: boolean;
   /** What the screen showed at the end, if it could be read. */
   screen?: string[];
 }
@@ -194,7 +217,7 @@ export function diagnose(f: Facts): string[] {
   else if (f.crash.length > 0) why = `The app crashed ${at}: ${f.crash[0]!.trim()}`;
   else if (f.stop === "exited" || f.running === false)
     why = `The app exited ${at}, with no crash in the log`;
-  else if (!f.progress && !f.metroUp)
+  else if (!f.progress && f.metro !== false && !f.metroUp)
     why = "Metro stopped answering on localhost:8081, and the Tests screen never started a run";
   else if (!f.progress && f.jsErrors.length > 0)
     why = `The Tests screen never started a run; JavaScript failed: ${f.jsErrors[0]!.trim()}`;
@@ -208,7 +231,7 @@ export function diagnose(f: Facts): string[] {
   const lines = [
     `Device run (${f.platform}) failed. ${why}`,
     `Progress: ${describeProgress(f.progress)}.`,
-    `App: ${f.running === undefined ? "unknown" : f.running ? "running" : "not running"}. Metro: ${f.metroUp ? "up" : "not answering"}.`,
+    `App: ${f.running === undefined ? "unknown" : f.running ? "running" : "not running"}.${f.metro === false ? "" : ` Metro: ${f.metroUp ? "up" : "not answering"}.`}`,
   ];
   if (f.crash.length > 1)
     lines.push(
@@ -256,8 +279,83 @@ export function pickSimulator(list: {
   return undefined;
 }
 
-const BUNDLE_ID = "org.reactjs.native.example.BareExample";
-const PACKAGE = "com.bareexample";
+/** The bare example: its iOS bundle identifier, its Android package, its process. */
+const BARE_EXAMPLE = {
+  id: "org.reactjs.native.example.BareExample",
+  package: "com.bareexample",
+  process: "BareExample",
+};
+
+/** The app a run checks, and how it is opened. */
+export interface Target {
+  platform: "ios" | "android";
+  /** The .app (iOS) or .apk (Android) to install. */
+  artifact: string;
+  /** Its bundle identifier (iOS) or package (Android). */
+  id: string;
+  /** Its process: the executable's name (iOS logs and crash reports). */
+  process: string;
+  /** iOS: the launch arguments. */
+  launchArgs: string[];
+  /** Android: the deep link that opens it; none opens its launcher activity. */
+  url?: string;
+  /** Whether the build loads its bundle from Metro (a Debug build). */
+  metro: boolean;
+}
+
+/**
+ * The run's target from the command line. Without --id, the bare example's
+ * Tests screen; with --id, that app opened as its launcher opens it.
+ */
+export function parseTarget(argv: string[]): Target {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: {
+      app: { type: "string" },
+      apk: { type: "string" },
+      id: { type: "string" },
+      process: { type: "string" },
+      "no-metro": { type: "boolean" },
+    },
+  });
+  const [platform] = positionals;
+  const artifact =
+    platform === "ios" ? values.app : platform === "android" ? values.apk : undefined;
+  if ((platform !== "ios" && platform !== "android") || !artifact)
+    throw new Error(
+      "usage: device-check.ts ios --app <.app> | android --apk <.apk> [--id <bundle id or package> --process <name>] [--no-metro]",
+    );
+  const metro = !values["no-metro"];
+  if (!values.id) {
+    return platform === "ios"
+      ? {
+          platform,
+          artifact,
+          id: BARE_EXAMPLE.id,
+          process: BARE_EXAMPLE.process,
+          launchArgs: ["-lucentTab", "lab/tests"],
+          metro,
+        }
+      : {
+          platform,
+          artifact,
+          id: BARE_EXAMPLE.package,
+          process: BARE_EXAMPLE.process,
+          launchArgs: [],
+          url: "lucentbare://lab/tests",
+          metro,
+        };
+  }
+  return {
+    platform,
+    artifact,
+    id: values.id,
+    process: values.process ?? path.basename(artifact).replace(/\.(app|apk)$/, ""),
+    launchArgs: [],
+    metro,
+  };
+}
 const seconds = (name: string, fallback: number) => Number(process.env[name] ?? fallback) * 1000;
 /** The whole wait for a verdict. */
 const TIMEOUT_MS = seconds("DEVICE_CHECK_TIMEOUT_S", 900);
@@ -321,7 +419,7 @@ interface Device {
   evidence(): { crash: string[]; notes: string[] };
 }
 
-function ios(app: string): Device {
+function ios(target: Target): Device {
   const list = JSON.parse(sh("xcrun", ["simctl", "list", "devices", "available", "--json"]));
   const sim = pickSimulator(list);
   if (!sim) throw new Failure(["Device run (ios) failed. No available iPhone simulator."]);
@@ -350,7 +448,7 @@ function ios(app: string): Device {
     );
   const reports = path.join(process.env.HOME ?? "", "Library/Logs/DiagnosticReports");
   return {
-    install: () => sh("xcrun", ["simctl", "install", sim.udid, app]),
+    install: () => sh("xcrun", ["simctl", "install", sim.udid, target.artifact]),
     open: () =>
       console.log(
         sh("xcrun", [
@@ -358,18 +456,17 @@ function ios(app: string): Device {
           "launch",
           "--terminate-running-process",
           sim.udid,
-          BUNDLE_ID,
-          "-lucentTab",
-          "lab/tests",
+          target.id,
+          ...target.launchArgs,
         ]).trim(),
       ),
     lucent: () => show('eventMessage CONTAINS "LUCENT_"'),
-    log: () => show('process == "BareExample"'),
+    log: () => show(`process == "${target.process}"`),
     running: () => {
       const r = spawnSync("xcrun", ["simctl", "spawn", sim.udid, "launchctl", "list"], {
         encoding: "utf8",
       });
-      return r.status === 0 ? iosAppPid(r.stdout, BUNDLE_ID) !== undefined : undefined;
+      return r.status === 0 ? iosAppPid(r.stdout, target.id) !== undefined : undefined;
     },
     screen: (file) => {
       sh("xcrun", ["simctl", "io", sim.udid, "screenshot", file], true);
@@ -384,7 +481,7 @@ function ios(app: string): Device {
       try {
         files = fs
           .readdirSync(reports)
-          .filter((f) => f.startsWith("BareExample"))
+          .filter((f) => f.startsWith(target.process))
           .map((f) => path.join(reports, f))
           .filter((f) => fs.statSync(f).mtimeMs >= since);
       } catch {
@@ -399,37 +496,49 @@ function ios(app: string): Device {
   };
 }
 
-function android(apk: string): Device {
+function android(target: Target): Device {
   sh("adb", ["wait-for-device"]);
-  // The Debug build asks Metro on the device's localhost.
-  sh("adb", ["reverse", "tcp:8081", "tcp:8081"]);
+  // A Debug build asks Metro on the device's localhost.
+  if (target.metro) sh("adb", ["reverse", "tcp:8081", "tcp:8081"]);
   return {
     install: () => {
-      sh("adb", ["install", "-r", apk]);
+      sh("adb", ["install", "-r", target.artifact]);
       sh("adb", ["logcat", "-b", "all", "-c"], true);
     },
     open: () => {
-      const out = sh("adb", [
-        "shell",
-        "am",
-        "start",
-        "-W",
-        "-a",
-        "android.intent.action.VIEW",
-        "-d",
-        "lucentbare://lab/tests",
-        PACKAGE,
-      ]).trim();
+      const { url } = target;
+      // A deep link opens a screen; without one, the launcher's intent opens the app.
+      const out = url
+        ? sh("adb", [
+            "shell",
+            "am",
+            "start",
+            "-W",
+            "-a",
+            "android.intent.action.VIEW",
+            "-d",
+            url,
+            target.id,
+          ]).trim()
+        : sh("adb", [
+            "shell",
+            "monkey",
+            "-p",
+            target.id,
+            "-c",
+            "android.intent.category.LAUNCHER",
+            "1",
+          ]).trim();
       console.log(out);
-      if (/^Error|Exception/m.test(out))
+      if (/^Error|Exception|No activities found|monkey aborted/m.test(out))
         throw new Failure([
-          `Device run (android) failed. The deep link lucentbare://lab/tests didn't open the app: ${out.split("\n").at(-1)}`,
+          `Device run (android) failed. ${url ? `The deep link ${url}` : "The launcher's intent"} didn't open ${target.id}: ${out.split("\n").at(-1)}`,
         ]);
     },
     lucent: () => sh("adb", ["logcat", "-d", "-s", "Lucent:*"], true),
     log: () => sh("adb", ["logcat", "-d", "-b", "main,system,crash", "-v", "threadtime"], true),
     running: () => {
-      const r = spawnSync("adb", ["shell", "pidof", PACKAGE], { encoding: "utf8" });
+      const r = spawnSync("adb", ["shell", "pidof", target.id], { encoding: "utf8" });
       return r.error ? undefined : /\d/.test(r.stdout ?? "");
     },
     screen: (file) => {
@@ -442,9 +551,10 @@ function android(apk: string): Device {
     },
     evidence: () => ({
       crash: [],
-      notes: sh("adb", ["reverse", "--list"], true).includes("8081")
-        ? []
-        : ["adb reverse of tcp:8081 is gone: the app can't reach Metro"],
+      notes:
+        !target.metro || sh("adb", ["reverse", "--list"], true).includes("8081")
+          ? []
+          : ["adb reverse of tcp:8081 is gone: the app can't reach Metro"],
     }),
   };
 }
@@ -496,22 +606,16 @@ function report(summary: string[], details: { app: string[]; metro: string[] }):
 }
 
 async function main(): Promise<boolean> {
-  const [platform, flag, artifact] = process.argv.slice(2);
-  if (
-    !artifact ||
-    !((platform === "ios" && flag === "--app") || (platform === "android" && flag === "--apk"))
-  )
-    throw new Error("usage: device-check.ts ios --app <.app> | android --apk <.apk>");
+  const target = parseTarget(process.argv.slice(2));
+  const { platform } = target;
   fs.mkdirSync(outDir(), { recursive: true });
 
-  await waitForMetro(platform);
-  const device = platform === "ios" ? ios(artifact) : android(artifact);
+  if (target.metro) await waitForMetro(platform);
+  const device = platform === "ios" ? ios(target) : android(target);
   device.install();
   device.open();
   const opened = Date.now();
-  console.log(
-    `Opened the Tests screen; waiting up to ${TIMEOUT_MS / 60000} minutes for its verdict.`,
-  );
+  console.log(`Opened ${target.id}; waiting up to ${TIMEOUT_MS / 60000} minutes for its verdict.`);
 
   let verdict: Verdict | undefined;
   let progress: Progress | undefined;
@@ -557,7 +661,7 @@ async function main(): Promise<boolean> {
   fs.writeFileSync(path.join(outDir(), `${platform}-device.log`), log);
   const evidence = device.evidence();
   const facts: Facts = {
-    platform: platform as "ios" | "android",
+    platform,
     stop,
     minutes: (Date.now() - (stop === "stalled" ? moved : opened)) / 60_000,
     verdict,
@@ -566,11 +670,12 @@ async function main(): Promise<boolean> {
     crash: [...evidence.crash, ...crashLines(log)],
     notes: evidence.notes,
     jsErrors: jsErrorLines(log),
-    metroUp: await metroUp(),
+    metroUp: target.metro && (await metroUp()),
+    metro: target.metro,
     screen: device.screen(path.join(outDir(), `${platform}-screen.png`)),
   };
-  const app = appLines(log);
-  const metro = metroTail();
+  const app = appLines(log, 40, 240, target);
+  const metro = target.metro ? metroTail() : [];
   console.log(`--- The app's own lines in the device log (the last ${app.length}):`);
   console.log(app.join("\n"));
   if (metro.length) console.log(`--- The end of Metro's log:\n${metro.join("\n")}`);
