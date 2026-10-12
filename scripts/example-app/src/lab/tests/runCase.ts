@@ -17,7 +17,12 @@ export async function runCase(c: TestCase): Promise<CaseResult> {
   const start = Date.now();
   // One line per line printed, as the expected lines are split.
   const print = (...args: unknown[]) =>
-    lines.push(...args.map((a) => String(a)).join(" ").split("\n"));
+    lines.push(
+      ...args
+        .map((a) => String(a))
+        .join(" ")
+        .split("\n"),
+    );
 
   let error: string | undefined;
   try {
