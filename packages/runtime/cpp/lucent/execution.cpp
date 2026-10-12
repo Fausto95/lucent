@@ -1,5 +1,9 @@
 #include "execution.h"
 
+#if defined(__APPLE__)
+#include <dispatch/dispatch.h>
+#endif
+
 #include <pthread.h>
 
 #if defined(__APPLE__)
@@ -584,5 +588,214 @@ bool IsolatedContext::dispatchDelayed(double ms, Job job) {
 
   return worker_->postDelayed(ms, std::move(job));
 }
+
+
+// --- executors ------------------------------------------------------------
+
+struct ExecutorContext::Lane {
+  virtual ~Lane() = default;
+
+  /// Runs `job` as it is, in order. False once stopping.
+  virtual bool post(Job job) = 0;
+  virtual bool postDelayed(double ms, Job job) = 0;
+  virtual bool isCurrent() const = 0;
+  /// Takes no more work, drops what is queued and runs `last` after the
+  /// job running now. Returns at once.
+  virtual void stop(Job last) = 0;
+  virtual bool waitIdle(double timeoutMs) = 0;
+  virtual bool waitStopped(double timeoutMs) = 0;
+  virtual void* queue() const { return nullptr; }
+};
+
+namespace {
+
+/// A thread of Lucent's own (hosts, Android).
+class WorkerLane final : public ExecutorContext::Lane {
+ public:
+  WorkerLane() : worker_(WorkerThread::start([](Job& job) { job(); })) {}
+
+  bool post(Job job) override { return worker_->post(std::move(job)); }
+  bool postDelayed(double ms, Job job) override { return worker_->postDelayed(ms, std::move(job)); }
+  bool isCurrent() const override { return worker_->isCurrent(); }
+  void stop(Job last) override { worker_->stop(std::move(last)); }
+  bool waitIdle(double timeoutMs) override { return worker_->waitIdle(timeoutMs); }
+  bool waitStopped(double timeoutMs) override { return worker_->waitStopped(timeoutMs); }
+
+ private:
+  std::shared_ptr<WorkerThread> worker_;
+};
+
+#if defined(__APPLE__)
+
+/// A serial dispatch queue (Apple platforms): what platform APIs take as
+/// the queue to call a delegate on. Each work item runs in an autorelease
+/// pool of its own.
+class DispatchLane final : public ExecutorContext::Lane {
+ public:
+  explicit DispatchLane(const std::string& label) : state_(std::make_shared<State>()) {
+    dispatch_queue_attr_t attr =
+        dispatch_queue_attr_make_with_autorelease_frequency(DISPATCH_QUEUE_SERIAL, DISPATCH_AUTORELEASE_FREQUENCY_WORK_ITEM);
+    queue_ = dispatch_queue_create(label.c_str(), attr);
+    dispatch_queue_set_specific(queue_, &kKey, state_.get(), nullptr);
+  }
+
+  // The queue lives on while work is queued on it.
+  ~DispatchLane() override { dispatch_release(queue_); }
+
+  bool post(Job job) override { return enqueue(std::move(job), -1, false); }
+  bool postDelayed(double ms, Job job) override { return enqueue(std::move(job), ms, false); }
+  bool isCurrent() const override { return dispatch_get_specific(&kKey) == state_.get(); }
+
+  void stop(Job last) override {
+    {
+      std::lock_guard<std::mutex> g(state_->m);
+      if (state_->stopping) return;
+      state_->stopping = true;
+    }
+    state_->dropping.store(true);
+    enqueue(std::move(last), -1, true);
+  }
+
+  bool waitIdle(double timeoutMs) override {
+    std::unique_lock<std::mutex> l(state_->m);
+    return state_->cv.wait_for(l, std::chrono::duration<double, std::milli>(timeoutMs),
+                               [&] { return state_->pending == 0; });
+  }
+
+  bool waitStopped(double timeoutMs) override {
+    std::unique_lock<std::mutex> l(state_->m);
+    return state_->cv.wait_for(l, std::chrono::duration<double, std::milli>(timeoutMs),
+                               [&] { return state_->stopped; });
+  }
+
+  void* queue() const override { return queue_; }
+
+ private:
+  struct State {
+    std::mutex m;
+    std::condition_variable cv;
+    size_t pending = 0;
+    bool stopping = false;
+    bool stopped = false;
+    std::atomic<bool> dropping{false};
+  };
+
+  struct Item {
+    std::shared_ptr<State> state;
+    Job job;
+    bool last;
+  };
+
+  static inline char kKey = 0;
+
+  bool enqueue(Job job, double ms, bool last) {
+    {
+      std::lock_guard<std::mutex> g(state_->m);
+      if (state_->stopping && !last) return false;
+      state_->pending++;
+    }
+
+    auto* item = new Item{state_, std::move(job), last};
+    if (ms < 0)
+      dispatch_async_f(queue_, item, &DispatchLane::run);
+    else
+      dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW, static_cast<int64_t>(ms * 1e6)), queue_, item, &DispatchLane::run);
+    return true;
+  }
+
+  static void run(void* context) {
+    std::unique_ptr<Item> item(static_cast<Item*>(context));
+    State& state = *item->state;
+
+    // What is queued after a stop is dropped: destroyed here, unrun.
+    if (item->job && (item->last || !state.dropping.load())) item->job();
+    item->job = nullptr;
+
+    std::lock_guard<std::mutex> g(state.m);
+    state.pending--;
+    if (item->last) state.stopped = true;
+    state.cv.notify_all();
+  }
+
+  std::shared_ptr<State> state_;
+  dispatch_queue_t queue_;
+};
+
+#endif
+
+std::unique_ptr<ExecutorContext::Lane> makeLane(const std::string& label) {
+#if defined(__APPLE__)
+  return std::make_unique<DispatchLane>(label);
+#else
+  (void)label;
+  return std::make_unique<WorkerLane>();
+#endif
+}
+
+}  // namespace
+
+ExecutorContext::ExecutorContext(std::string label) : label_(std::move(label)) {}
+
+std::shared_ptr<ExecutorContext> ExecutorContext::create(std::string label) {
+  std::shared_ptr<ExecutorContext> context(new ExecutorContext(std::move(label)));
+  context->makeRoot();
+  context->lane_ = makeLane(context->label_);
+  return context;
+}
+
+ExecutorContext::~ExecutorContext() { shutdown(); }
+
+void* ExecutorContext::platformQueue() const { return lane_->queue(); }
+
+bool ExecutorContext::execute(Job job) {
+  if (stopping_.load()) return false;
+
+  return lane_->post(std::move(job));
+}
+
+bool ExecutorContext::dispatch(Job job) {
+  if (stopping_.load()) return false;
+
+  // A turn whose context is gone is dropped, destroyed on the lane.
+  std::weak_ptr<ExecutorContext> weak = std::static_pointer_cast<ExecutorContext>(shared_from_this());
+  return lane_->post([weak, job = std::move(job)]() mutable {
+    if (auto self = weak.lock()) self->runTurn(job);
+  });
+}
+
+bool ExecutorContext::dispatchDelayed(double ms, Job job) {
+  if (stopping_.load()) return false;
+
+  std::weak_ptr<ExecutorContext> weak = std::static_pointer_cast<ExecutorContext>(shared_from_this());
+  return lane_->postDelayed(ms, [weak, job = std::move(job)]() mutable {
+    if (auto self = weak.lock()) self->runTurn(job);
+  });
+}
+
+bool ExecutorContext::onExecutor() const { return lane_->isCurrent(); }
+
+void ExecutorContext::shutdown() {
+  if (stopping_.exchange(true)) return;
+
+  // Expired when called from the destructor: the root is then disposed
+  // outside a turn.
+  std::weak_ptr<ExecutionContext> weak = weak_from_this();
+
+  lane_->stop([weak, root = root()] {
+    Job dispose = [root] {
+      if (auto e = root->dispose()) reportUncaught(e, "scope");
+    };
+
+    if (auto self = weak.lock()) {
+      static_cast<ExecutorContext&>(*self).runTurn(dispose);
+    } else {
+      dispose();
+    }
+  });
+}
+
+bool ExecutorContext::waitIdle(double timeoutMs) { return lane_->waitIdle(timeoutMs); }
+
+bool ExecutorContext::waitStopped(double timeoutMs) { return lane_->waitStopped(timeoutMs); }
 
 }  // namespace lucent

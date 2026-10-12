@@ -26,6 +26,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -254,6 +255,59 @@ class IsolatedContext final : public ExecutionContext {
   bool onExecutor() const override { return worker_->isCurrent(); }
 
   std::shared_ptr<WorkerThread> worker_;
+  std::atomic<bool> stopping_{false};
+};
+
+/// lucent:thread's `executor(label)` (T74, decision 0078): a serial context
+/// of its own that never takes an actor's lock, for platform callbacks that
+/// must not wait behind module code (a camera's frames, an audio block).
+/// On Apple platforms its turns run on a serial dispatch queue, the one
+/// platform APIs take (platformQueue()); elsewhere on a thread of its own,
+/// which Android's Executor posts to. Work the platform runs on it
+/// (execute()) runs outside a turn, as a delegate's call on its queue
+/// does: the glue that calls Lucent code enters the context (ContextEntry).
+/// On a dispatch queue the thread is the system's, with its stack (512 KB
+/// on iOS): deep recursion throws a RangeError sooner than on Lucent's own.
+class ExecutorContext final : public ExecutionContext {
+ public:
+  static std::shared_ptr<ExecutorContext> create(std::string label);
+
+  /// Shuts down.
+  ~ExecutorContext() override;
+
+  const std::string& label() const { return label_; }
+
+  /// Whether the calling thread runs the executor's work now.
+  bool onExecutor() const override;
+
+  /// The serial dispatch queue its turns run on (a dispatch_queue_t) on
+  /// Apple platforms, which the context owns; null elsewhere.
+  void* platformQueue() const;
+
+  /// Runs `job` on the executor as the platform runs its work: outside any
+  /// turn, the context not entered. Any thread; false once shut down.
+  bool execute(Job job);
+
+  /// Takes no more work, then, on its thread and after the turn running
+  /// now: disposes the root scope and drops whatever is still queued (a
+  /// timer not yet due is dropped when it comes due). Returns at once.
+  void shutdown();
+
+  /// For tests: whether nothing is queued or running; whether it stopped.
+  bool waitIdle(double timeoutMs);
+  bool waitStopped(double timeoutMs);
+
+  /// The executor's serial lane: a dispatch queue or a worker thread.
+  struct Lane;
+
+ private:
+  explicit ExecutorContext(std::string label);
+
+  bool dispatch(Job job) override;
+  bool dispatchDelayed(double ms, Job job) override;
+
+  const std::string label_;
+  std::unique_ptr<Lane> lane_;
   std::atomic<bool> stopping_{false};
 };
 
