@@ -143,7 +143,7 @@ It also names each cycle of strong references between Lucent objects, once, with
 [lucent] a reference cycle keeps 2 objects alive: Session.onFrame (camera.lucent.ts:2), then Handler.owner (camera.lucent.ts:9), back to the first. Hold Handler.owner through a WeakRef to break it.
 ```
 
-In `lucent dev`, LogBox shows each one too, once, after the reload. The cycle starts at its oldest object, so the last field is usually the reference back to an owner. A closure on the way, such as an emitter's listener that uses `this`, is named by its line and what it captures:
+In `lucent dev`, LogBox shows each one too, once, after the reload. The cycle starts at its oldest object, so the last field is usually the reference back to an owner. A closure on the way, such as an event listener that uses `this`, is named by its line and what it captures:
 
 ```sh title="Platform log" nocopy
 [lucent] a reference cycle keeps 2 objects alive: Camera.frames (camera.lucent.ts:4), then the frame listener, then the closure at camera.lucent.ts:9, which captures this, back to the first. Capture a WeakRef of this in the closure at camera.lucent.ts:9 to break it.

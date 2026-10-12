@@ -573,14 +573,14 @@ export const differences: { title: string; rows: Difference[] }[] = [
       {
         js: "A `Uint8Array` or `ArrayBuffer` passed to other code is shared.",
         lucent:
-          "Copied at the boundary, but a synchronous function that only reads one reads JavaScript's bytes in place while it runs, so JavaScript's writes meanwhile show. Inside Lucent they're shared.",
+          "Copied at the boundary. A synchronous function that only reads one reads JavaScript's bytes in place while it runs, so JavaScript's writes meanwhile show. Inside Lucent they're shared.",
         why: "The same as for arrays and objects. Bytes a call only reads need no copy: nothing holds them once it returns.",
         cases: ["array-buffers", "borrowed-bytes"],
       },
       {
         js: "Code can read any value it is given.",
         lucent:
-          "A `JSValue` is a JavaScript value Lucent holds without reading: it is stored and handed back as the same value, and comparing, converting or testing one is refused.",
+          "A `JSValue` is a JavaScript value Lucent holds without reading. It is stored and handed back as the same value; comparing, converting or testing one is refused.",
         why: "JavaScript's values live on the JS thread; Lucent holds a reference to one, which only JavaScript can read.",
         cases: ["opaque-values"],
       },

@@ -233,17 +233,18 @@ export declare class EventEmitter<Events extends { [name: string]: (...args: nev
 
 /**
  * A value JavaScript gave, which Lucent code holds without looking inside:
- * another library's object, a callback it will hand back, a value of any
- * type. Lucent code stores it, passes it on and returns it, and JavaScript
- * gets the same value back: an object keeps its identity, a function stays
+ * another library's object, a callback to hand back, any value. Lucent
+ * code stores it, passes it on and returns it, and JavaScript gets the
+ * same value back. An object keeps its identity, a function stays
  * callable, a primitive stays itself.
  *
- * Nothing else reads it: comparing, converting, testing or `typeof` one,
- * writing it as JSON or keying a `Map` or `Set` with it is refused, as is
+ * Nothing else reads it: comparing, converting, testing or `typeof` one is
+ * refused. So are writing it as JSON, keying a `Map` or `Set` with it, and
  * handing it to a compute task. An optional one (`JSValue | undefined`) is
- * absent for JavaScript's `undefined` and `null`, as `??` sees them. The
- * runtime's host holds the value until the last Lucent reference goes; one
- * held across a reload is refused when it goes back to JavaScript.
+ * absent for JavaScript's `undefined` and `null`, as `??` sees them.
+ *
+ * The runtime's host holds the value until the last Lucent reference goes.
+ * One held across a reload is refused when it goes back to JavaScript.
  *
  * ```ts
  * import type { JSValue } from "lucent:core";
@@ -401,7 +402,7 @@ export declare class NativeBuffer {
   transfer(): NativeBuffer;
 
   /**
-   * Moves the bytes, uncopied, into an `ArrayBuffer`: every reference to
+   * Moves the bytes, uncopied, into an `ArrayBuffer`. Every reference to
    * this buffer refuses them from now on, and the ArrayBuffer releases
    * them as the buffer would have. Returned to JavaScript, it is the same
    * bytes. A borrowed buffer does not move (an InvalidStateError).
@@ -486,8 +487,8 @@ export type ChannelPolicy = "lossless" | "latest" | "drop";
 
 /**
  * Values from a producer to a consumer, which may run on different
- * threads: a compute task sending results as it goes, to module code
- * that receives them. A send never waits for the consumer; when the
+ * threads. A compute task sends results as it goes, and module code
+ * receives them. A send never waits for the consumer; when the
  * consumer falls behind, the channel's policy decides what waits.
  *
  * A value is copied when it is sent, as a compute task's input is, so
@@ -536,10 +537,10 @@ export declare class Channel<T> {
 
   /**
    * Calls `onValue` with each value as it comes, one at a time, where this
-   * code runs: the next is received once `onValue` returns, so the policy
+   * code runs. The next is received once `onValue` returns, so the policy
    * still decides what waits meanwhile. It goes on until the channel is
-   * closed and every value was received, or the subscription is removed,
-   * after which values wait for the next receive. What `onValue` throws is
+   * closed and every value was received, or until the subscription is
+   * removed. After that, values wait for the next receive. What `onValue` throws is
    * reported, and the next value comes.
    */
   subscribe(onValue: (value: T) => void): EventSubscription;

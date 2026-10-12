@@ -273,8 +273,9 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "kind": "class",
         "signature": "class JSValue {\n  private constructor();\n  private readonly opaque: never;\n}",
         "doc": [
-          "A value JavaScript gave, which Lucent code holds without looking inside: another library's object, a callback it will hand back, a value of any type. Lucent code stores it, passes it on and returns it, and JavaScript gets the same value back: an object keeps its identity, a function stays callable, a primitive stays itself.",
-          "Nothing else reads it: comparing, converting, testing or `typeof` one, writing it as JSON or keying a `Map` or `Set` with it is refused, as is handing it to a compute task. An optional one (`JSValue | undefined`) is absent for JavaScript's `undefined` and `null`, as `??` sees them. The runtime's host holds the value until the last Lucent reference goes; one held across a reload is refused when it goes back to JavaScript."
+          "A value JavaScript gave, which Lucent code holds without looking inside: another library's object, a callback to hand back, any value. Lucent code stores it, passes it on and returns it, and JavaScript gets the same value back. An object keeps its identity, a function stays callable, a primitive stays itself.",
+          "Nothing else reads it: comparing, converting, testing or `typeof` one is refused. So are writing it as JSON, keying a `Map` or `Set` with it, and handing it to a compute task. An optional one (`JSValue | undefined`) is absent for JavaScript's `undefined` and `null`, as `??` sees them.",
+          "The runtime's host holds the value until the last Lucent reference goes. One held across a reload is refused when it goes back to JavaScript."
         ],
         "examples": [
           "import type { JSValue } from \"lucent:core\";\n\nexport class Player {\n  constructor(readonly source: JSValue) {}\n}\n\nexport function play(source: JSValue): Player {\n  return new Player(source);\n}"
@@ -397,7 +398,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           {
             "name": "transferToArrayBuffer",
             "signature": "transferToArrayBuffer(): ArrayBuffer;",
-            "doc": "Moves the bytes, uncopied, into an `ArrayBuffer`: every reference to this buffer refuses them from now on, and the ArrayBuffer releases them as the buffer would have. Returned to JavaScript, it is the same bytes. A borrowed buffer does not move (an InvalidStateError)."
+            "doc": "Moves the bytes, uncopied, into an `ArrayBuffer`. Every reference to this buffer refuses them from now on, and the ArrayBuffer releases them as the buffer would have. Returned to JavaScript, it is the same bytes. A borrowed buffer does not move (an InvalidStateError)."
           },
           {
             "name": "close",
@@ -547,7 +548,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "kind": "class",
         "signature": "class Channel<T> {\n  constructor(policy: ChannelPolicy, capacity?: number);\n  send(value: T): boolean;\n  receive(): Promise<T | undefined>;\n  subscribe(onValue: (value: T) => void): EventSubscription;\n  close(): boolean;\n  readonly closed: boolean;\n  stats(): ChannelStats;\n}",
         "doc": [
-          "Values from a producer to a consumer, which may run on different threads: a compute task sending results as it goes, to module code that receives them. A send never waits for the consumer; when the consumer falls behind, the channel's policy decides what waits.",
+          "Values from a producer to a consumer, which may run on different threads. A compute task sends results as it goes, and module code receives them. A send never waits for the consumer; when the consumer falls behind, the channel's policy decides what waits.",
           "A value is copied when it is sent, as a compute task's input is, so the consumer has its own; a `NativeBuffer` moves instead. A value the channel drops, or that is never received, is released: a `NativeBuffer` is closed."
         ],
         "examples": [
@@ -572,7 +573,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           {
             "name": "subscribe",
             "signature": "subscribe(onValue: (value: T) => void): EventSubscription;",
-            "doc": "Calls `onValue` with each value as it comes, one at a time, where this code runs: the next is received once `onValue` returns, so the policy still decides what waits meanwhile. It goes on until the channel is closed and every value was received, or the subscription is removed, after which values wait for the next receive. What `onValue` throws is reported, and the next value comes."
+            "doc": "Calls `onValue` with each value as it comes, one at a time, where this code runs. The next is received once `onValue` returns, so the policy still decides what waits meanwhile. It goes on until the channel is closed and every value was received, or until the subscription is removed. After that, values wait for the next receive. What `onValue` throws is reported, and the next value comes."
           },
           {
             "name": "close",
@@ -1123,8 +1124,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "kind": "function",
         "signature": "function adoptByteBuffer(buffer: ByteBuffer): NativeBuffer;",
         "doc": [
-          "A NativeBuffer of a direct ByteBuffer's bytes, all of its capacity, uncopied: what an SDK hands over as a direct buffer (a decoder's output, a library's storage) becomes bytes Lucent owns, which can move to a worker or, with `transferToArrayBuffer()`, to JavaScript without a copy. The Java buffer is kept reachable until the bytes are released.",
-          "Adopting hands the bytes over: Java code must not read or write the buffer from then on, and the bytes are only as valid as whatever made them keeps them (an `Image`'s planes end at `close()`)."
+          "A NativeBuffer of a direct ByteBuffer's bytes, all of its capacity, uncopied; the Java buffer is kept reachable until the bytes are released. What an SDK hands over as a direct buffer (a decoder's output, a library's storage) becomes bytes Lucent owns. They can move to a worker, or to JavaScript with `transferToArrayBuffer()`, without a copy.",
+          "Adopting hands the bytes over: Java code must not read or write the buffer from then on. The bytes are only as valid as whatever made them keeps them (an `Image`'s planes end at `close()`)."
         ],
         "examples": [
           "import { adoptByteBuffer } from \"lucent:android\";\nimport type { ByteBuffer } from \"lucent:android/java.nio\";\n\n// A decoder's direct output, for JavaScript: no copy on the way.\nfunction forJavaScript(decoded: ByteBuffer): ArrayBuffer {\n  return adoptByteBuffer(decoded).transferToArrayBuffer();\n}"

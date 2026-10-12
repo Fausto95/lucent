@@ -130,7 +130,7 @@ export function bootTime(): bigint {
 
 An interface without methods that no class implements is an object type. An interface with methods, or one that a class names in `implements`, is nominal:
 
-- Only instances of classes that declare `implements` are values of it ([LUCENT2008](/docs/api/diagnostics/#lucent2008)), and object literals of an interface of properties alone, without type parameters: `const p: Point = { x: 1, y: 2 }` beside `new Pixel(3, 4)`. Such a literal is one object, as in JavaScript, keeps the interface's property order (a base interface's first) for `JSON.stringify`, and reaches JavaScript as a plain object. A literal for an interface with a method, or a generic one, is refused.
+- Only instances of classes that declare `implements` are values of it ([LUCENT2008](/docs/api/diagnostics/#lucent2008)). So are object literals of an interface of properties alone, without type parameters: `const p: Point = { x: 1, y: 2 }` beside `new Pixel(3, 4)`. Such a literal is one object, as in JavaScript, and reaches JavaScript as a plain object. It keeps the interface's property order (a base interface's first) for `JSON.stringify`. A literal for an interface with a method, or a generic one, is refused.
 - Each member a class implements has the interface member's exact parameter and result types ([LUCENT2009](/docs/api/diagnostics/#lucent2009)). TypeScript accepts an extra optional parameter or a narrower result, and Lucent doesn't.
 - Such an interface declares methods and properties only (`LUCENT2002` otherwise). Optional methods and generic methods fail with `LUCENT2009`.
 - Interfaces may be generic, as in `Source<T>`, and may extend other interfaces.

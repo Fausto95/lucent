@@ -359,7 +359,7 @@ export const Explanations: Record<Code, Explanation> = {
     title: "Interface not declared with implements",
     summary: "A value used as an interface its class does not declare with `implements`.",
     details:
-      "An interface with methods compiles to an abstract C++ base class, and only classes that declare `implements` derive from it. A class that matches the interface only by shape is not one of them, nor is an object literal for an interface with a method or type parameters; a literal does stand for a non-generic interface of properties alone.",
+      "An interface with methods compiles to an abstract C++ base class that only classes declaring `implements` derive from. A class matching it only by shape is not one, nor is an object literal for an interface with a method or type parameters. A literal of a non-generic interface of properties alone is one.",
     fix: "add `implements` to the class, or use a class that declares it in place of the object literal",
     wrong: ex(
       "interface Shape { area(): number }\nclass Square {\n  constructor(readonly side: number) {}\n  area(): number {\n    return this.side ** 2;\n  }\n}\nexport function area(): number {\n  const s: Shape = new Square(2);\n  return s.area();\n}\n",
