@@ -238,6 +238,26 @@ describe("Metro transformer with LUCENT_OUT", () => {
   });
 });
 
+describe("Metro config", () => {
+  it("makes the proxies' directory before Metro starts watching", () => {
+    // Created later, by the first build while Metro runs, its watcher can miss
+    // the proxy renamed into it, and serve "has not been compiled" until a restart.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-metro-"));
+    const upstream = path.join(root, "upstream.cjs");
+    fs.writeFileSync(upstream, "module.exports = { transform: (a) => a.src };\n");
+    const { withLucent } = require("../metro/index.cjs") as {
+      withLucent(config: object, options: { watch: boolean }): object;
+    };
+
+    withLucent(
+      { projectRoot: root, transformer: { babelTransformerPath: upstream } },
+      { watch: false },
+    );
+
+    expect(fs.statSync(path.join(root, ".lucent/native/js")).isDirectory()).toBe(true);
+  });
+});
+
 describe("Metro resolver", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-metro-"));
   const upstream = path.join(root, "upstream.cjs");
