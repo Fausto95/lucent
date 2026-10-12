@@ -13,7 +13,7 @@ export const frontmatter: DocFrontmatter = {
 export const blocks: Block[] = [
   {
     kind: "p",
-    text: `Lucent supports the current and the previous stable releases of React Native and Expo. A prerelease lane beside them is where the example apps run. When a stable release ships, it joins, the oldest leaves, and the lane moves to the next release candidate.`,
+    text: `Lucent supports the current and the previous stable releases of React Native and Expo, and \`lucent create\` starts an app on the newest. A prerelease lane beside them is where the example apps run. When a stable release ships, it joins, the oldest leaves, and the lane moves to the next release candidate.`,
   },
   {
     kind: "table",
