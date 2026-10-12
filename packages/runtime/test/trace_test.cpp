@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "lucent/buffer.h"
+#include "lucent/channel.h"
 #include "lucent/compute.h"
 #include "lucent/lucent.h"
 #include "lucent/reactive.h"
@@ -426,6 +427,81 @@ static void effectRunsKeepTheirSite() {
   });
 }
 
+// --- channels and executors ------------------------------------------------------
+
+static void channelsShowTheirWaitsDepthAndDrops() {
+  trace::start();
+
+  // A latest channel keeps one value: two of three sends drop one.
+  auto latest = ChannelObject<double>::create(ChannelPolicy::Latest, 1);
+  latest->send(1);
+  latest->send(2);
+  latest->send(3);
+  busy(2);
+  latest->receive();
+
+  // A full lossless one refuses.
+  auto lossless = ChannelObject<double>::create(ChannelPolicy::Lossless, 1);
+  lossless->send(1);
+  CHECK(!lossless->send(2));
+
+  std::vector<Event> events = trace::events();
+  trace::stop();
+
+  std::vector<Event> drops = find(events, Category::Queue, "channel.dropped");
+  CHECK(drops.size() == 2 && drops.back().value == 2);
+  CHECK(drops.size() == 2 && drops.front().id == drops.back().id && drops.front().id != 0);
+
+  // The value that waited, from its send to its receipt.
+  std::vector<Event> waits = find(events, Category::Queue, "channel.wait");
+  CHECK(waits.size() == 1 && waits.front().durationNs >= 2 * kMs);
+  CHECK(waits.size() == 1 && !drops.empty() && waits.front().id == drops.front().id);
+
+  std::vector<Event> refusals = find(events, Category::Queue, "channel.refused");
+  CHECK(refusals.size() == 1 && refusals.front().value == 1);
+  CHECK(refusals.size() == 1 && !drops.empty() && refusals.front().id != drops.front().id);
+
+  // Each channel's depth is a series of its own, by id: 1, 1, 1 then 0 for the first.
+  std::vector<int64_t> depths;
+  for (const Event& e : events)
+    if (e.phase == Event::Phase::Counter && std::strcmp(e.name, "channel.depth") == 0 && !drops.empty() &&
+        e.id == drops.front().id)
+      depths.push_back(e.value);
+  CHECK((depths == std::vector<int64_t>{1, 1, 1, 0}));
+
+  std::string json = trace::chromeJson(events);
+  CHECK(json.find("\"name\":\"channel.depth\",\"cat\":\"counter\"") != std::string::npos);
+  CHECK(json.find(",\"id\":" + std::to_string(drops.empty() ? 0 : drops.front().id) + ",\"args\":{\"channel.depth\"") !=
+        std::string::npos);
+}
+
+static void anExecutorsSpansCarryItsLabel() {
+  auto frames = ExecutorContext::create("lucent.frames");
+  std::atomic<bool> posted{false};
+  std::atomic<bool> entered{false};
+
+  trace::start();
+
+  // A turn of its own, and work the platform runs on it that enters it at once.
+  frames->post([&] { posted = true; });
+  CHECK(within(2000, [&] { return posted.load(); }));
+  frames->execute([&] { callNowIn(*frames, [&] { entered = true; }); });
+  CHECK(within(2000, [&] { return entered.load(); }));
+  CHECK(within(2000, [&] { return frames->waitIdle(100); }));
+
+  std::vector<Event> events = trace::events();
+  trace::stop();
+
+  auto labelled = [](const std::vector<Event>& found) {
+    return found.size() == 1 && found.front().detail && std::strcmp(found.front().detail, "lucent.frames") == 0;
+  };
+  CHECK(labelled(find(events, Category::Queue, "wait")));
+  CHECK(labelled(find(events, Category::Run, "run")));
+  CHECK(labelled(find(events, Category::Run, "enter")));
+
+  frames->shutdown();
+}
+
 int main() {
   offByDefaultAndWhenStopped();
   theBufferIsBounded();
@@ -437,6 +513,8 @@ int main() {
   nativeWorkKeepsItsSource();
   nestedPostsNameTheirParent();
   effectRunsKeepTheirSite();
+  channelsShowTheirWaitsDepthAndDrops();
+  anExecutorsSpansCarryItsLabel();
 
   if (const char* bench = std::getenv("LUCENT_TRACE_BENCH"); bench && std::string(bench) == "1") measure();
 
