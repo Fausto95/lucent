@@ -66,15 +66,15 @@ A build resolves the native artifacts the app links (`nativeArtifacts` in
 build-system identity and a hash of its declaration inputs' contents.
 Paths never enter an identity.
 
-| Artifact id                                       | What it is                                                                       |
-| ------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `sdk:iphonesimulator<version>`                    | Xcode's simulator SDK; its version and build stand for its contents              |
-| `pod:<Name>@<version>`                            | Every module a pod defines, at the version `Podfile.lock` installed              |
-| `spm:<identity>@<version>`                        | A Swift package's modules, at its `Package.resolved` pin (`@local` for a local one) |
-| `framework:M`, `clang-module:M`, `swift-module:M` | A module on the search paths that no pod or package installed                    |
+| Artifact id                                       | What it is                                                                            |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `sdk:iphonesimulator<version>`                    | Xcode's simulator SDK; its version and build stand for its contents                   |
+| `pod:<Name>@<version>`                            | Every module a pod defines, at the version `Podfile.lock` installed                   |
+| `spm:<identity>@<version>`                        | A Swift package's modules, at its `Package.resolved` pin (`@local` for a local one)   |
+| `framework:M`, `clang-module:M`, `swift-module:M` | A module on the search paths that no pod or package installed                         |
 | `android-sdk:<N>`                                 | `platforms/android-N`: `android.jar`, `data/api-versions.xml`, `data/annotations.zip` |
-| `maven:<group>:<name>:<version>`                  | A jar or AAR from Gradle's cache                                                 |
-| `jar:<file>`, `aar:<file>`                        | Any other jar or AAR, by file name                                               |
+| `maven:<group>:<name>:<version>`                  | A jar or AAR from Gradle's cache                                                      |
+| `jar:<file>`, `aar:<file>`                        | Any other jar or AAR, by file name                                                    |
 
 `projectSdk` (`compiler/src/project-sdk.ts`) gathers a project's inputs:
 pods, the Xcode project, the Gradle classpath file, packages' prebuilt
@@ -255,15 +255,15 @@ or `implement` (a requirement a Lucent class implements). Plans are never
 cached. The compiler refuses a use, documents a declaration and emits glue
 from the same plan, and coverage counts what it refuses.
 
-| Backend         | Used for                                                                                       |
-| --------------- | ---------------------------------------------------------------------------------------------- |
-| `objc`          | Objective-C messages, from Objective-C++                                                       |
-| `c-abi`         | C functions and globals, and CoreFoundation-style handles' members                             |
-| `swift-shim`    | Swift-only members, through `LucentShims.swift`                                                |
-| `jni`           | Java and Kotlin members JNI can call as they are                                               |
+| Backend         | Used for                                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------------ |
+| `objc`          | Objective-C messages, from Objective-C++                                                         |
+| `c-abi`         | C functions and globals, and CoreFoundation-style handles' members                               |
+| `swift-shim`    | Swift-only members, through `LucentShims.swift`                                                  |
+| `jni`           | Java and Kotlin members JNI can call as they are                                                 |
 | `kotlin-shim`   | Suspend functions, unboxed value classes, suspend function arguments, calls leaving out defaults |
-| `kotlin-source` | Compose content, written as Kotlin source                                                      |
-| `swift-source`  | SwiftUI bodies, written as Swift source                                                        |
+| `kotlin-source` | Compose content, written as Kotlin source                                                        |
+| `swift-source`  | SwiftUI bodies, written as Swift source                                                          |
 
 A plan has one conversion per receiver, argument and result
 (`passthrough`, `number`, `bigint`, `copy-string`, `copy-array`,
@@ -292,21 +292,21 @@ or "Lucent cannot assign this yet: …").
 
 ### Values
 
-| Native                                                                    | TypeScript                                    | Crossing                                 |
-| ------------------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------- |
-| `BOOL`, `bool`, Java `boolean`                                            | `boolean`                                     | value                                    |
-| `int`, `float`, `double`, `CGFloat`, `short`, `char`, `int32_t`…          | `number`                                      | WebIDL conversion into narrower integers |
-| Java `long`, Kotlin `Long`, `NSInteger`, `NSUInteger`, `int64_t`, `uint64_t`, Swift `Int`, `Int64`, `UInt64` | `bigint` | exact, or `RangeError`             |
-| `NSString`, `String`, `CharSequence`, `CFString`                          | `string`                                      | copied                                   |
-| `NSData`, `Data`, `CFData`, Java `byte[]`                                 | `Uint8Array`                                  | copied                                   |
-| `NSDate`, `Date`                                                          | `Date`                                        | copied                                   |
-| `NSArray`, `[T]`, `CFArray`, Java arrays, Kotlin read-only `List<E>`      | `T[]`                                         | copied, element by element               |
-| `NSDictionary` with string keys, `[String: T]`, `CFDictionary`            | `Record<string, T>`                           | copied                                   |
-| `NSSet`, Swift `Set`                                                      | `Set<T>`                                      | copied                                   |
-| Swift tuples                                                              | tuples, labels as names                       | copied                                   |
-| `id`, `Any`, `AnyObject`, `AnyHashable`, `CFTypeRef`                      | `NSObject` (results), `ObjCValue` (arguments) | retained                                 |
-| A class, protocol or interface                                            | its declared class                            | `lucent::NativeRef`                      |
-| Java `Class<T>`                                                           | the class itself                              | retained                                 |
+| Native                                                                                                       | TypeScript                                    | Crossing                                 |
+| ------------------------------------------------------------------------------------------------------------ | --------------------------------------------- | ---------------------------------------- |
+| `BOOL`, `bool`, Java `boolean`                                                                               | `boolean`                                     | value                                    |
+| `int`, `float`, `double`, `CGFloat`, `short`, `char`, `int32_t`…                                             | `number`                                      | WebIDL conversion into narrower integers |
+| Java `long`, Kotlin `Long`, `NSInteger`, `NSUInteger`, `int64_t`, `uint64_t`, Swift `Int`, `Int64`, `UInt64` | `bigint`                                      | exact, or `RangeError`                   |
+| `NSString`, `String`, `CharSequence`, `CFString`                                                             | `string`                                      | copied                                   |
+| `NSData`, `Data`, `CFData`, Java `byte[]`                                                                    | `Uint8Array`                                  | copied                                   |
+| `NSDate`, `Date`                                                                                             | `Date`                                        | copied                                   |
+| `NSArray`, `[T]`, `CFArray`, Java arrays, Kotlin read-only `List<E>`                                         | `T[]`                                         | copied, element by element               |
+| `NSDictionary` with string keys, `[String: T]`, `CFDictionary`                                               | `Record<string, T>`                           | copied                                   |
+| `NSSet`, Swift `Set`                                                                                         | `Set<T>`                                      | copied                                   |
+| Swift tuples                                                                                                 | tuples, labels as names                       | copied                                   |
+| `id`, `Any`, `AnyObject`, `AnyHashable`, `CFTypeRef`                                                         | `NSObject` (results), `ObjCValue` (arguments) | retained                                 |
+| A class, protocol or interface                                                                               | its declared class                            | `lucent::NativeRef`                      |
+| Java `Class<T>`                                                                                              | the class itself                              | retained                                 |
 
 Platform objects are `lucent::NativeRef`s: a retained Objective-C object,
 released on the main thread, or a JNI global reference. `===` compares
@@ -454,15 +454,15 @@ interface's type takes a function and reads back as the interface.
 
 ### Async
 
-| Native                                                     | Lucent                                                                        |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Completion handler last, which Swift also imports as `async` | The handler method, plus one without the handler returning a promise        |
-| Swift `async` method                                       | `Promise<T>`, and an optional `signal: AbortSignal` last                      |
-| Swift `async` getter                                       | A property of type `Promise<T>`                                               |
-| Kotlin `suspend` function                                  | `Promise<T>`, and an optional `signal: AbortSignal` last                      |
-| Kotlin `Flow<T>`                                           | A Java object; `await flow.collect((v) => …, signal)` is a suspend call       |
-| Swift `AsyncSequence`, `AsyncStream`                       | `AsyncSequence<T>` from `lucent:ios`; `await seq.collect(f, signal)`          |
-| `Task`, `ListenableFuture`, `CompletionStage`…             | Java objects; `await` on one is LUCENT1010; adapt it with `fromCallback`      |
+| Native                                                       | Lucent                                                                   |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Completion handler last, which Swift also imports as `async` | The handler method, plus one without the handler returning a promise     |
+| Swift `async` method                                         | `Promise<T>`, and an optional `signal: AbortSignal` last                 |
+| Swift `async` getter                                         | A property of type `Promise<T>`                                          |
+| Kotlin `suspend` function                                    | `Promise<T>`, and an optional `signal: AbortSignal` last                 |
+| Kotlin `Flow<T>`                                             | A Java object; `await flow.collect((v) => …, signal)` is a suspend call  |
+| Swift `AsyncSequence`, `AsyncStream`                         | `AsyncSequence<T>` from `lucent:ios`; `await seq.collect(f, signal)`     |
+| `Task`, `ListenableFuture`, `CompletionStage`…               | Java objects; `await` on one is LUCENT1010; adapt it with `fromCallback` |
 
 A completion handler's promise is settled on its package's thread: the
 handler's `NSError` rejects it, its other argument resolves it. It takes
@@ -674,20 +674,62 @@ The library applies the Kotlin Android plugin and depends on
 `kotlinx-coroutines-core` 1.7.3, or the app's newer one; its consumer rules
 keep `dev.lucent.**` from the shrinker.
 
+## Activities, scenes and presentation
+
+`lucent:android` reaches the app's Activities through
+`dev.lucent.LucentActivities` and `platform/android_activity.cpp`.
+`LucentInitializer`, a content provider the library's manifest declares,
+registers the lifecycle callbacks when the process starts, before any
+Activity or JavaScript.
+
+- `currentActivity()` is the Activity last created, started or resumed
+  and not destroyed, or null. Activities are held weakly, so use the one
+  returned now, on the main thread.
+- `startActivityForResult(intent, signal?)` and
+  `requestPermissions(permissions, signal?)` each make an operation under
+  the scope of the calling context's work (`ownedScope`; module code's
+  ends with its JavaScript runtime). `platform/android_requests.h` settles
+  it once, on that context, by the id the Java side echoes back.
+- The request runs in `LucentRequestActivity`, a translucent Activity the
+  library's manifest declares. The app's Activity may be recreated while
+  it is out, and the request Activity, recreated, waits for its answer
+  instead of asking again. Permission requests run one at a time.
+- An abort or a disposed scope cancels the promise and tells Java to
+  forget the request, so a late answer is dropped. The errors are
+  `ERR_NO_ACTIVITY`, `ERR_ACTIVITY_NOT_FOUND` and `ERR_REQUEST_ENDED` (the
+  request Activity ended without an answer).
+- `onActivityEvent(event, handler)` reports `created`, `started`,
+  `resumed`, `paused`, `stopped` and `destroyed`, and `newIntent` from
+  AndroidX activities. Lucent's request Activity is never reported.
+
+On iOS, `onAppEvent` and `onSceneEvent` observe UIApplication's and
+UIScene's notifications from the moment the app loads, without replacing
+a delegate, so the app's own delegates and other modules keep working. A
+package's Objective-C++ reaches presentation through `platform/ios_ui.h`:
+`presentationContext()` gives the scene, key window and top view
+controller for the current main-thread turn, and
+`presentOperation<T>(scope, signal, build)` presents under a scope whose
+disposal cancels it.
+
+Presentations and subscriptions made from module code belong to its
+JavaScript runtime's scope, so a reload ends them.
+[T110](tasks.md#t110) adds the events only the app delegate and the
+Activity receive.
+
 ## Pods, Gradle and Swift packages
 
 Bindings install nothing: they read what the app's build installed. The
 native package links what the code uses (`linkModule` in
 `emit/native.ts`, `native-build-files.ts`).
 
-| The code imports                | The generated native package                                              |
-| ------------------------------- | ------------------------------------------------------------------------- |
-| An SDK framework                | Lists it in `s.frameworks`, and imports the module's umbrella header      |
-| A pod's module                  | `s.dependency "<Pod>"`                                                    |
-| A Swift package's module        | `spm_dependency(s, …)` at the version or revision the app resolved        |
-| A local Swift package           | `spm_dependency` with the package's path                                  |
-| A Gradle library                | Nothing: it is on the app's classpath                                     |
-| A package's `android.libraries` | An `api` dependency of the Lucent library                                 |
+| The code imports                | The generated native package                                         |
+| ------------------------------- | -------------------------------------------------------------------- |
+| An SDK framework                | Lists it in `s.frameworks`, and imports the module's umbrella header |
+| A pod's module                  | `s.dependency "<Pod>"`                                               |
+| A Swift package's module        | `spm_dependency(s, …)` at the version or revision the app resolved   |
+| A local Swift package           | `spm_dependency` with the package's path                             |
+| A Gradle library                | Nothing: it is on the app's classpath                                |
+| A package's `android.libraries` | An `api` dependency of the Lucent library                            |
 
 A package's `lucent.json` adds its `ios.pods` (marked `# lucent.json`),
 `ios.swiftPackages`, `ios.vendoredFrameworks` and `android.dependencies`.
@@ -720,7 +762,9 @@ A package declares a C header in `lucent.json`, imported as
   "extensions": {
     "orbit": {
       "header": "native/orbit.h",
-      "handles": { "OrbitFilter": { "create": "orbit_filter_new", "destroy": "orbit_filter_free" } },
+      "handles": {
+        "OrbitFilter": { "create": "orbit_filter_create", "destroy": "orbit_filter_destroy" }
+      },
       "functions": { "orbit_hash": { "params": { "data": { "bytes": "read", "length": "size" } } } }
     }
   }
@@ -750,11 +794,11 @@ Callbacks, variadic functions, C++ and cancellation are refused
 `lucent sdk coverage` reports how far each member of a module gets
 (`bindgen/src/coverage.ts`):
 
-| Stage           | Evidence                                                              |
-| --------------- | --------------------------------------------------------------------- |
-| `discovered`    | The schema declares it                                                |
-| `representable` | Its plan can work, judged with the types other modules declare        |
-| `generated`     | The project's last build used it (`.lucent/sdk-usage.json`)           |
+| Stage           | Evidence                                                                    |
+| --------------- | --------------------------------------------------------------------------- |
+| `discovered`    | The schema declares it                                                      |
+| `representable` | Its plan can work, judged with the types other modules declare              |
+| `generated`     | The project's last build used it (`.lucent/sdk-usage.json`)                 |
 | `exercised`     | An `--exercised` file of symbol keys, which tests or probes write, lists it |
 
 A stage without evidence is unknown (`-`, `null` in JSON), not 0.
@@ -779,22 +823,22 @@ reason. Swift's Hashable, Equatable and Codable plumbing is counted apart.
 Each is a diagnostic with its reason, and coverage counts it.
 [T112](tasks.md#t112) tracks the ones common libraries use.
 
-| Where            | Refused                                                                                                      |
-| ---------------- | ------------------------------------------------------------------------------------------------------------ |
-| Both platforms   | A `WeakRef` to an SDK object, or a `WeakMap` keyed by one                                                    |
-| Objective-C      | Nested collections read from Objective-C; blocks, errors, out-pointers and classes as collection elements    |
-| Objective-C      | Blocks except as arguments; blocks taking blocks, read from native code; three levels of blocks              |
-| Objective-C      | Selectors, class objects, metatypes, raw, read-only and buffer pointers, zones, compositions other than with `NSObject` |
-| Swift shims      | Optional closures and tuples; optionals, C structs and Objective-C enums in collections; optional enums; `Set`s |
-| Swift shims      | Closures taking or giving anything but numbers, booleans, strings and Objective-C objects                    |
-| Swift shims      | Subscripts, parameter packs, `inout` parameters, failable and generic initializers, operators                |
-| Swift shims      | Members of protocols with associated types; statics of generic types no extension fixes                      |
-| Swift shims      | Async initializers; async or throwing property requirements; initializer and static requirements             |
-| Swift shims      | Async sequences other than results                                                                           |
-| JNI              | Assigning Java fields; arrays of a type parameter's values; Kotlin functions taking or giving functions      |
-| JNI              | Wildcard types, `Class` other than `Class<T>`, nullable array elements                                       |
-| Implementations  | A `char` argument, or a result that is not a number, boolean, string or object, in a method Java calls       |
-| Kotlin shims     | Generic members bounded by a projected type (`T : List<out R>`)                                              |
-| Promise forms    | Completion handlers with several results; completion-handler promises on Android                             |
-| Subclasses       | See [Subclassing](#subclassing)                                                                              |
-| C extensions     | Callbacks, variadic functions, C++ ([T142](tasks.md#t142))                                                   |
+| Where           | Refused                                                                                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Both platforms  | A `WeakRef` to an SDK object, or a `WeakMap` keyed by one                                                               |
+| Objective-C     | Nested collections read from Objective-C; blocks, errors, out-pointers and classes as collection elements               |
+| Objective-C     | Blocks except as arguments; blocks taking blocks, read from native code; three levels of blocks                         |
+| Objective-C     | Selectors, class objects, metatypes, raw, read-only and buffer pointers, zones, compositions other than with `NSObject` |
+| Swift shims     | Optional closures and tuples; optionals, C structs and Objective-C enums in collections; optional enums; `Set`s         |
+| Swift shims     | Closures taking or giving anything but numbers, booleans, strings and Objective-C objects                               |
+| Swift shims     | Subscripts, parameter packs, `inout` parameters, failable and generic initializers, operators                           |
+| Swift shims     | Members of protocols with associated types; statics of generic types no extension fixes                                 |
+| Swift shims     | Async initializers; async or throwing property requirements; initializer and static requirements                        |
+| Swift shims     | Async sequences other than results                                                                                      |
+| JNI             | Assigning Java fields; arrays of a type parameter's values; Kotlin functions taking or giving functions                 |
+| JNI             | Wildcard types, `Class` other than `Class<T>`, nullable array elements                                                  |
+| Implementations | A `char` argument, or a result that is not a number, boolean, string or object, in a method Java calls                  |
+| Kotlin shims    | Generic members bounded by a projected type (`T : List<out R>`)                                                         |
+| Promise forms   | Completion handlers with several results; completion-handler promises on Android                                        |
+| Subclasses      | See [Subclassing](#subclassing)                                                                                         |
+| C extensions    | Callbacks, variadic functions, C++ ([T142](tasks.md#t142))                                                              |

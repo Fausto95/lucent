@@ -127,6 +127,18 @@ JavaScript:
 4. The two outputs must match line for line. A sanitizer report fails the
    case.
 
+The JavaScript `lucent:core` (`packages/compiler/lib/core.cjs`, published
+as `@lucent-lang/lucent/core`) differs from native in a few places a case
+must not print:
+
+- `onDestroy` hooks never run, since module state never ends.
+- A `NativeBuffer` borrow lends the buffer's own bytes, where native code
+  checks each borrow.
+- `removeAllListeners()` clears events in the order each was first used,
+  where native code goes in their declaration order.
+- `compute` runs its task on the calling thread. The known differences of
+  its copies are listed in [limitations.md](limitations.md).
+
 A case is one of three shapes in `packages/compiler/test/e2e/cases/`:
 
 | Shape        | Files                                                                                                                                  |

@@ -148,6 +148,9 @@ refused with LUCENT2002, and `DataView` too.
       has, as views over one `ArrayBuffer` at any byte offset, with
       JavaScript's conversion and clamping on write.
 - [ ] `DataView`, every getter and setter, both byte orders.
+- [ ] The `%TypedArray%` methods `Uint8Array` still refuses (`at`,
+      `filter`, `sort`, `lastIndexOf` and the rest), for every kind, and
+      `ArrayBuffer.isView` (LUCENT1001 today).
 - [ ] The boundary treats them as `Uint8Array`: copied by default, lent to
       a synchronous export that only reads, moved on return when nothing
       else holds the buffer.
@@ -237,14 +240,15 @@ Today `then`, `catch` and `finally` give LUCENT1003 ("use await"), and so
 do `Promise.race` and `Promise.any`. `Promise.allSettled` fails on
 `PromiseRejectedResult` (LUCENT2002). `await` of a value that isn't a
 promise doesn't suspend (`ir/lower.ts`), and `return p` in an async
-function settles one microtask after `p`, where JavaScript takes three.
+function is lowered as `return await p`, which settles one microtask
+sooner than JavaScript when `p` has already settled.
 
 - [ ] `then`, `catch` and `finally`, with JavaScript's microtask order.
 - [ ] `Promise.race`, `Promise.any` (with `AggregateError`) and
       `Promise.allSettled` (with `PromiseSettledResult`).
-- [ ] `await` of any value suspends for a microtask, and `return p` takes
-      JavaScript's ticks, or each is recorded as a deviation with its
-      reason.
+- [ ] `await` of any value suspends for a microtask, and `return p`
+      settles when JavaScript's does, or each is recorded as a deviation
+      with its reason.
 - [ ] e2e: `promise-chains`, `promise-combinators`, `await-order`, which
       compare the order of settled callbacks with JavaScript's.
 
@@ -330,6 +334,10 @@ code uses `utf8Encode` from `lucent:core` or the platform's own APIs.
       `isDisjointFrom`).
 - [ ] `for await…of` (LUCENT1009 today) over async generators and
       `Channel`, and async generators themselves.
+- [ ] `yield` as a value, a generator's `return v` (LUCENT1001) and an
+      iterator's `throw()` (LUCENT1003).
+- [ ] A `let` or `const` read before its declaration runs throws
+      `ReferenceError`, or is refused, instead of reading as unassigned.
 - [ ] A class declared in the declaration file of platform files
       (`export declare class`), with each platform file implementing it.
 - [ ] An e2e case for each.

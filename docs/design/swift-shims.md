@@ -23,14 +23,14 @@ same schema as Objective-C ones. A type has `swift: { kind }`, a member
 which the call is written, and whether it is `async`, `throws` or
 `mutating`.
 
-| Swift declaration                  | Schema                                                                    |
-| ---------------------------------- | ------------------------------------------------------------------------- |
-| A struct or class                  | A class whose `native` is the qualified name (`CryptoKit.AES.GCM.SealedBox`) |
-| An enum without payloads           | An enum of its cases' indexes; its members are skipped                    |
-| An enum with payloads              | A class with `swift.cases`, each case's labels and types; members skipped |
-| A protocol                         | An interface; its associated types are type parameters (`associatedTypes`, `primaryAssociatedTypes`) |
-| A Swift member of an Objective-C class | Joins the class; an Objective-C member of the same name wins          |
-| A top-level function or variable   | A module function or constant                                             |
+| Swift declaration                      | Schema                                                                                               |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| A struct or class                      | A class whose `native` is the qualified name (`CryptoKit.AES.GCM.SealedBox`)                         |
+| An enum without payloads               | An enum of its cases' indexes; its members are skipped                                               |
+| An enum with payloads                  | A class with `swift.cases`, each case's labels and types; members skipped                            |
+| A protocol                             | An interface; its associated types are type parameters (`associatedTypes`, `primaryAssociatedTypes`) |
+| A Swift member of an Objective-C class | Joins the class; an Objective-C member of the same name wins                                         |
+| A top-level function or variable       | A module function or constant                                                                        |
 
 - **Standard protocols.** `some P`, or a type parameter constrained to
   `P`, takes the one Lucent type that conforms (`STANDARD_PROTOCOLS` in
@@ -60,21 +60,21 @@ its symbol. All go into `.lucent/native/cpp/generated/ios/LucentShims.swift`,
 and the glue declares each `extern "C"`. Values cross as the Objective-C
 values the glue already converts: one set of conversions serves both.
 
-| Lucent value                         | Crosses as                                                      |
-| ------------------------------------ | --------------------------------------------------------------- |
-| A number or boolean                  | Its C scalar (`SWIFT_SCALARS`: `Double`, `Int`, `Int64`, `Bool`…) |
-| An optional number or boolean        | An `NSNumber`, nil for none                                     |
-| A Swift enum without payloads        | `Int`, the case's index                                         |
-| An Objective-C enum                  | `Int`, its raw value (`E(rawValue: .init(truncatingIfNeeded:))`) |
-| A string, bytes, a date              | `NSString`, `NSData`, `NSDate`, which Swift bridges             |
-| An array or record                   | `NSArray`, `NSDictionary`, element by element when needed       |
-| A Swift class instance, an `id`      | The object itself                                               |
-| A Swift struct                       | A `LucentBox` holding it                                        |
-| A Swift enum with payloads           | An `NSDictionary` of its case ([Enums](#enums))                 |
-| A protocol value                     | The existential `as AnyObject`, read back `as! any P`           |
-| A C struct (`CMTime`, `CGPoint`)     | Its bytes as `NSData`, read with `loadUnaligned`                |
-| A tuple                              | An `NSArray` of its elements' objects                           |
-| A Lucent function                    | An Objective-C block, cast with `unsafeBitCast`                 |
+| Lucent value                     | Crosses as                                                        |
+| -------------------------------- | ----------------------------------------------------------------- |
+| A number or boolean              | Its C scalar (`SWIFT_SCALARS`: `Double`, `Int`, `Int64`, `Bool`…) |
+| An optional number or boolean    | An `NSNumber`, nil for none                                       |
+| A Swift enum without payloads    | `Int`, the case's index                                           |
+| An Objective-C enum              | `Int`, its raw value (`E(rawValue: .init(truncatingIfNeeded:))`)  |
+| A string, bytes, a date          | `NSString`, `NSData`, `NSDate`, which Swift bridges               |
+| An array or record               | `NSArray`, `NSDictionary`, element by element when needed         |
+| A Swift class instance, an `id`  | The object itself                                                 |
+| A Swift struct                   | A `LucentBox` holding it                                          |
+| A Swift enum with payloads       | An `NSDictionary` of its case ([Enums](#enums))                   |
+| A protocol value                 | The existential `as AnyObject`, read back `as! any P`             |
+| A C struct (`CMTime`, `CGPoint`) | Its bytes as `NSData`, read with `loadUnaligned`                  |
+| A tuple                          | An `NSArray` of its elements' objects                             |
+| A Lucent function                | An Objective-C block, cast with `unsafeBitCast`                   |
 
 Objects cross as `UnsafeMutableRawPointer`. Arguments are borrowed: the
 glue holds them in locals for the call and passes them `__bridge`, and the
@@ -137,7 +137,7 @@ operation of the calling context (`lucent/operation.h`).
   `done_`, a C function of `(ctx, result, error)`.
 - It reads its object arguments into Swift values first, since they are
   borrowed for the call only. Then it starts `Task { … }` (`Task {
-  @MainActor in … }` for a main-actor member) and returns the task in a
+@MainActor in … }` for a main-actor member) and returns the task in a
   `LucentTask`, retained.
 - `done_` posts to the package's thread, which converts the result and
   settles the operation. If the operation is no longer pending, what the

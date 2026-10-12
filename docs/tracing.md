@@ -13,12 +13,12 @@ The runtime reads its setting once per process, when the module context
 starts (`Actor::shared()` in `scheduler.cpp`). Change it, then restart
 the app or the process.
 
-| Setting                                    | Records                                        |
-| ------------------------------------------ | ---------------------------------------------- |
-| `LUCENT_TRACE=1`                           | Into the in-memory buffer only                 |
-| `LUCENT_TRACE=platform`                    | The buffer, mirrored live into `os_signpost`   |
-| `LUCENT_TRACE=<file>.json`                 | The buffer, written as a Chrome trace at exit  |
-| `adb shell setprop debug.lucent.trace 1`   | Android: the buffer, mirrored into ATrace      |
+| Setting                                  | Records                                       |
+| ---------------------------------------- | --------------------------------------------- |
+| `LUCENT_TRACE=1`                         | Into the in-memory buffer only                |
+| `LUCENT_TRACE=platform`                  | The buffer, mirrored live into `os_signpost`  |
+| `LUCENT_TRACE=<file>.json`               | The buffer, written as a Chrome trace at exit |
+| `adb shell setprop debug.lucent.trace 1` | Android: the buffer, mirrored into ATrace     |
 
 `LUCENT_TRACE` is an environment variable: a test's or tool's, or an Xcode
 scheme's. Android reads only the `debug.lucent.trace` property, and always
@@ -34,21 +34,21 @@ Each event has a category, a name, a start and a duration on the steady
 clock, its thread and its execution context. Some carry an id, a parent,
 a value, a count, a detail or a source site.
 
-| Category     | Event                                            | Recorded when                                                     |
-| ------------ | ------------------------------------------------ | ----------------------------------------------------------------- |
-| `entry`      | The export's name, at its `.lucent.ts` line      | JavaScript calls an exported function, method or constructor      |
-| `lock`       | `lucent-lock`                                    | A thread waits for an actor's lock it doesn't hold yet            |
-| `queue`      | `wait`                                           | A job posted to any execution context waits to run                |
-| `run`        | `run`                                            | That job runs                                                     |
-| `queue`      | `js.wait`                                        | An async export's result waits for the JS thread                  |
-| `completion` | The export's name                                | That result converts and settles the JS promise                   |
-| `compute`    | `compute.wait`, `compute.run`, `compute.deliver` | A compute task waits for a worker, runs, and is delivered         |
-| `compute`    | `compute.saturated`, `compute.rejected`          | Every worker is busy (value: queue depth); the queue is full      |
-| `copy`       | `transport.copy`                                 | A compute input or a channel send is copied (bytes, objects)      |
-| `copy`       | `buffer.copy`                                    | A `NativeBuffer`'s bytes are copied (bytes)                       |
-| `alloc`      | `buffer.allocate`, `buffer.adopt`                | A `NativeBuffer` is allocated or adopts native bytes (bytes)      |
+| Category     | Event                                            | Recorded when                                                       |
+| ------------ | ------------------------------------------------ | ------------------------------------------------------------------- |
+| `entry`      | The export's name, at its `.lucent.ts` line      | JavaScript calls an exported function, method or constructor        |
+| `lock`       | `lucent-lock`                                    | A thread waits for an actor's lock it doesn't hold yet              |
+| `queue`      | `wait`                                           | A job posted to any execution context waits to run                  |
+| `run`        | `run`                                            | That job runs                                                       |
+| `queue`      | `js.wait`                                        | An async export's result waits for the JS thread                    |
+| `completion` | The export's name                                | That result converts and settles the JS promise                     |
+| `compute`    | `compute.wait`, `compute.run`, `compute.deliver` | A compute task waits for a worker, runs, and is delivered           |
+| `compute`    | `compute.saturated`, `compute.rejected`          | Every worker is busy (value: queue depth); the queue is full        |
+| `copy`       | `transport.copy`                                 | A compute input or a channel send is copied (bytes, objects)        |
+| `copy`       | `buffer.copy`                                    | A `NativeBuffer`'s bytes are copied (bytes)                         |
+| `alloc`      | `buffer.allocate`, `buffer.adopt`                | A `NativeBuffer` is allocated or adopts native bytes (bytes)        |
 | `effect`     | `effect`, at its `.lucent.ts` line               | A view's effect runs: a prop binding, a toolkit slot, an `effect()` |
-| `native`     | The name given to `LUCENT_TRACE_SCOPE`           | Native code marks a span                                          |
+| `native`     | The name given to `LUCENT_TRACE_SCOPE`           | Native code marks a span                                            |
 
 The `buffer.*` and `compute.saturated`/`rejected` events are instants,
 `compute.queued` is a counter of the queue's depth, and the rest are

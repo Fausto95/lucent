@@ -126,9 +126,9 @@ Methods in object types (`LUCENT2002`) and getters in literals
 An interface of properties alone that no class implements is an object
 type, structural like any other. One with methods, or that a class names
 in `implements`, is an abstract base class, and nominal: only a class
-that declares `implements Shape` is a `Shape` (`LUCENT2008`). So is an
-object literal, if the interface has properties alone and no type
-parameters, and JavaScript receives it as a plain object.
+that declares `implements Shape` is a `Shape` (`LUCENT2008`). An object
+literal also fits such an interface when the interface has properties
+alone and no type parameters; JavaScript receives it as a plain object.
 
 An implementing member has exactly the interface member's native
 signature (`LUCENT2009`), where TypeScript also accepts a narrower result
@@ -222,8 +222,8 @@ use. Loose `==` works between values of one kind and against `null` or
 
 Spread works into built-ins that take any number of arguments
 (`push(...xs)`, `Math.min(...xs)`) and into array literals from any
-iterable; into a function's own parameters it is `LUCENT1007`
-([T106](tasks.md#t106)). An object literal spreads objects, skipping
+iterable, and into a function's rest parameter. Into fixed parameters,
+or from a tuple, it is `LUCENT1007` ([T106](tasks.md#t106)). An object literal spreads objects, skipping
 optional fields left unset, so `{ ...defaults, ...overrides }` keeps the
 defaults; `undefined` and `null` spread as nothing. A record literal
 spreads records only (`LUCENT1001`).
@@ -277,7 +277,7 @@ the generator's `finally` blocks.
 
 The value of `yield` and returning a value are `LUCENT1001`, an
 iterator's `throw()` `LUCENT1003`, and async generators `LUCENT2002`
-([T106](tasks.md#t106)). A class can't define `[Symbol.iterator]`: write
+([T106](tasks.md#t106) lifts these). A class can't define `[Symbol.iterator]`: write
 a generator method. Generators don't cross to JavaScript (`LUCENT2006`).
 
 ## Async functions and microtasks
@@ -294,13 +294,13 @@ resumes later. A context's turn runs one job, then its microtasks
 (`execution.h`), and `Promise.all` observes every input at once.
 
 **Known gaps in the microtask order.** Two forms settle sooner than in
-JavaScript, which reorders interleaved async code. No task tracks them
-yet; `await delay(0)` yields meanwhile.
+JavaScript, which reorders interleaved async code
+([T103](tasks.md#t103)); `await delay(0)` yields meanwhile.
 
 - `await` of a value that isn't a promise (`await 0`) doesn't suspend
   (`awaited` in `ir/lower.ts`); JavaScript waits one microtask.
-- `return p` of a promise is lowered as `return await p`, which settles
-  one microtask after `p`; JavaScript takes three.
+- `return p` of a promise is lowered as `return await p`. When `p` has
+  already settled, JavaScript settles one microtask later than that.
 
 `new Promise(executor)` runs the executor at once; `resolve` takes a value
 and `reject` an `Error`, and `resolve(promise)` is `LUCENT2002`.
@@ -313,13 +313,27 @@ There are no timers ([T104](tasks.md#t104)): `delay(ms, signal?)` waits
 on the calling context. `await` of an SDK object is `LUCENT1010`, since
 Lucent never picks a completion API by a class's name.
 `fromCallback(register, signal?)` adapts a listener into a promise, and
-`subscribe(register, onValue, signal?)` into a stream. Their callbacks
-take effect in order on the calling thread, and the cleanup runs once.
+`subscribe(register, onValue, signal?)` into a stream. Neither knows the
+API: `register` starts listening at once and may return the cleanup that
+stops it.
+
+- The first of the callbacks (`resolve` or `reject`; `end`, `fail` or a
+  throwing `onValue` for a subscription) and the signal's abort settles
+  it. Later callbacks do nothing. An abort rejects `fromCallback`'s
+  promise with its reason, and resolves a subscription's.
+- The cleanup runs exactly once, inside the call that settles and before
+  any continuation, or right after `register` returns if it settled
+  during registration. A cleanup that throws is reported as uncaught.
+- A throw from `register` rejects the promise, unless it had settled. An
+  already-aborted signal settles it, and `register` isn't called.
+- The callbacks may come from any thread. They take effect on the thread
+  that called `fromCallback` or `subscribe`, in the order they came.
 
 **Cancellation.** `AbortSignal` has `aborted`, `throwIfAborted()` and
 `addEventListener("abort", f)`; `AbortController` has `signal` and
 `abort(reason?)`, whose reason is an `Error` in Lucent (`LUCENT1003`).
-`signal.reason` has no type and is `LUCENT1003`: catch the error.
+`signal.reason` has no type: reading it gives `LUCENT2001`, or
+`LUCENT1003` inside an expression. Catch the error instead.
 `abort()` without a reason gives `AbortError: signal is aborted without
 reason`, as React Native and browsers do. A non-object reason from
 JavaScript becomes an `Error` with `String(reason)` as its message.
@@ -359,8 +373,9 @@ it refuses an argument Lucent can't honor, such as a locale.
 (tag `Lucent`): an object prints as `String(obj)`, a bigint with its `n`.
 
 `toUpperCase` and `toLowerCase` use the root locale's full Unicode
-mappings (`scripts/gen-unicode.ts`). `localeCompare` and the `toLocale…`
-forms use the device's locale as Hermes does: CoreFoundation on iOS,
+mappings (`scripts/gen-unicode.ts`). `localeCompare`,
+`toLocaleUpperCase` and `toLocaleLowerCase` use the device's locale as
+Hermes does: CoreFoundation on iOS,
 `java.text.Collator` and `java.lang.String` on Android. Their `locales`
 and `options` arguments, and `normalize()`, are refused: Lucent has no
 `Intl` data or normalization tables.
@@ -369,9 +384,10 @@ and `options` arguments, and `normalize()`, are refused: Lucent has no
 `values()` and `entries()` of arrays, maps and sets return arrays of the
 contents at the call, where JavaScript returns live iterators. A
 `Uint8Array` also has `length`, `byteLength`, `byteOffset` and `buffer`,
-and its `reduce` needs an initial value. Its other methods,
-`ArrayBuffer.isView` and resizable buffers are refused
-([T100](tasks.md#t100)); `flat` and `copyWithin` are [T106](tasks.md#t106).
+and its `reduce` needs an initial value. Its other methods are refused
+(`LUCENT1003`), `ArrayBuffer.isView` gives `LUCENT1001`, and resizable
+buffers are refused; [T100](tasks.md#t100) adds the methods with the other
+typed arrays. `flat` and `copyWithin` are [T106](tasks.md#t106).
 
 **Regular expressions** take every ECMAScript feature and flag
 (`dgimsuvy`), compiled by QuickJS's libregexp, with `lastIndex`, `match`,
@@ -423,8 +439,10 @@ JavaScript: assign a new value, or export a function that returns it.
 
 The top level holds declarations only (`LUCENT3002`), which initialize in
 source order, a class's statics where it is declared. A module's top
-level runs for each JavaScript runtime that installs Lucent, its create
-hook, and again at each reload. `onDestroy(hook)` from `lucent:core` runs
+level is its create hook. It runs when a JavaScript runtime installs
+Lucent while no other runtime is live, and again at a reload whose old
+runtime is gone; a runtime that installs beside a live one shares the
+state. `onDestroy(hook)` from `lucent:core` runs
 before a reload or when the runtime goes, last registered first. Module
 code can't run without a JavaScript runtime yet ([T130](tasks.md#t130)).
 
@@ -554,7 +572,8 @@ and promise values either is taken, and code that narrows it to `T` throws
 A JavaScript function Lucent holds runs synchronously when called on the
 JS thread during a call from JavaScript, and may return a value. From any
 other thread it is posted, so it returns `void` (a throw goes to the log)
-or a `Promise`; a value-returning one throws `Error` there. Lucent code
+or a `Promise`. Calling one that returns another value from another
+thread throws an `Error`. Lucent code
 never waits for the JS thread. A Lucent function given to JavaScript
 enters the actor it was made on, and a Lucent promise reaches JavaScript
 as a JS promise, settled and converted on the JS thread.
@@ -580,7 +599,7 @@ export's types reach crosses as an `Error` with its name and message.
 Every other error crosses as a new JavaScript error each time: an
 `Error`, `TypeError`, `RangeError` or `SyntaxError` with its `name`,
 `message` and `code`. Its `stack` starts with the Lucent frame that made
-it (`at parse (/abs/path/config.lucent.ts:12)`). An error JavaScript
+it (`at parse (src/config.lucent.ts:12)`, relative to the project). An error JavaScript
 throws into Lucent keeps its `name`, `message`, a string `code` and its
 `stack`, but not its identity or other fields; a thrown non-Error becomes
 an `Error`. An uncatchable error goes to the platform log and stderr.
@@ -829,7 +848,7 @@ both, in the same commit.
 | JavaScript                                                  | Lucent today                                                   | Task                  |
 | ----------------------------------------------------------- | -------------------------------------------------------------- | --------------------- |
 | `null` and `undefined` differ wherever they appear          | in containers, callback results and promise values either fits | [T101](tasks.md#t101) |
-| a `let` read before its declaration throws `ReferenceError` | it reads as an unassigned field                                | —                     |
+| a `let` read before its declaration throws `ReferenceError` | it reads as an unassigned field                                | [T106](tasks.md#t106) |
 | `await` of a plain value waits one microtask                | doesn't suspend                                                | [T103](tasks.md#t103) |
 | `return p` in an async function takes three microtasks      | one, as `return await p`                                       | [T103](tasks.md#t103) |
 

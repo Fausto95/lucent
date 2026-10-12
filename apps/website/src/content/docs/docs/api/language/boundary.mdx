@@ -149,9 +149,9 @@ A function Lucent returns becomes a JavaScript function. Each call runs it at on
 
 From Lucent to JavaScript:
 
-- An error becomes a JavaScript `TypeError`, `RangeError` or `SyntaxError` when its name is one of those, and an `Error` otherwise.
-- It keeps its `name`, its `message` and its `code`, when it has one. Other fields of an error class don't cross, and JavaScript's `instanceof` that class is `false`.
-- An error made with `new Error()`, `new TypeError()`, `new RangeError()` or `error()` has a `stack` that starts with the Lucent frame that made it. That frame reads `at parse (/app/src/config.lucent.ts:12)`, and JavaScript's frames follow.
+- An instance of an error class an export's types reach crosses as itself, so JavaScript's `instanceof` that class is `true`.
+- Any other error becomes a new JavaScript `TypeError`, `RangeError` or `SyntaxError` when its name is one of those, and an `Error` otherwise. It keeps its `name`, its `message` and its `code`, when it has one, and its other fields don't cross.
+- An error made with `new Error()`, `new TypeError()`, `new RangeError()` or `error()` has a `stack` that starts with the Lucent frame that made it. That frame reads `at parse (src/config.lucent.ts:12)`, relative to the project, and JavaScript's frames follow.
 - An error that came from JavaScript keeps its original `stack`.
 
 From JavaScript to Lucent, as a callback's throw, a rejection, an abort reason or an `Error` argument:

@@ -32,13 +32,13 @@ suites. A change to a part updates its section here in the same commit.
 An app installs one package, `@lucent-lang/lucent`. The others are
 private workspace packages that its build bundles or copies.
 
-| Package                 | What it holds                                                                                                                           |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Package                 | What it holds                                                                                                                                             |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@lucent-lang/lucent`   | The CLI (`src/cli`), Metro integration (`metro/`), `autolink/`, the Expo plugin (`app.plugin.js`), `gradle/`, the editor plugin (`ts-plugin/`), templates |
-| `@lucent-lang/compiler` | Program setup, checks, analyses, IR, code generation, the native package writer; `lib/` holds the `lucent:*` declarations and `core.cjs` |
-| `@lucent-lang/bindgen`  | Reads SDKs, pods, Swift packages, Gradle libraries and C headers into cached binding schemas and plans                                   |
-| `@lucent-lang/codegen`  | A syntax tree, builders and a printer per language: `cpp` (with Objective-C++), `java`, `kotlin`, `swift`, `ts`, `xml`                   |
-| `@lucent-lang/runtime`  | The C++ runtime (`cpp/lucent`), the TurboModule and view hosts (`cpp/rn`), native templates (`native/`), the JS loader (`js/`)            |
+| `@lucent-lang/compiler` | Program setup, checks, analyses, IR, code generation, the native package writer; `lib/` holds the `lucent:*` declarations and `core.cjs`                  |
+| `@lucent-lang/bindgen`  | Reads SDKs, pods, Swift packages, Gradle libraries and C headers into cached binding schemas and plans                                                    |
+| `@lucent-lang/codegen`  | A syntax tree, builders and a printer per language: `cpp` (with Objective-C++), `java`, `kotlin`, `swift`, `ts`, `xml`                                    |
+| `@lucent-lang/runtime`  | The C++ runtime (`cpp/lucent`), the TurboModule and view hosts (`cpp/rn`), native templates (`native/`), the JS loader (`js/`)                            |
 
 The compiler depends on bindgen, codegen, the runtime and `typescript`;
 the CLI on the compiler and bindgen. Bindgen and codegen stand alone.
@@ -221,16 +221,16 @@ through it.
 
 `cpp/generated/`, or `cpp/generated/<target>/` with platform code:
 
-| File                                   | What it is                                                             |
-| -------------------------------------- | ---------------------------------------------------------------------- |
-| `lucent_app.h`                         | The runtime's headers, the actor accessors, native object declarations |
-| `lucent_app_<Type>.h`                  | One type's definition and inline code (`emit/type-headers.ts`)         |
-| `lucent_app_json.h`, `…_json_read.h`   | JSON readers                                                           |
-| `m_<module>.h`, `m_<module>.cpp`       | A module; `.mm` for iOS code using the SDK or SwiftUI                  |
-| `lucent_bindings.cpp`                  | Module installers, prototypes, conversions, `resetModuleState`         |
-| `lucent_identity.cpp`                  | The build identity, after a `static_assert` on the runtime ABI         |
-| `LucentShims.swift`                    | Swift-only members the glue calls (`@_cdecl` functions)                |
-| `views/…`                              | Components' Fabric sources, mounts and hosts                           |
+| File                                 | What it is                                                             |
+| ------------------------------------ | ---------------------------------------------------------------------- |
+| `lucent_app.h`                       | The runtime's headers, the actor accessors, native object declarations |
+| `lucent_app_<Type>.h`                | One type's definition and inline code (`emit/type-headers.ts`)         |
+| `lucent_app_json.h`, `…_json_read.h` | JSON readers                                                           |
+| `m_<module>.h`, `m_<module>.cpp`     | A module; `.mm` for iOS code using the SDK or SwiftUI                  |
+| `lucent_bindings.cpp`                | Module installers, prototypes, conversions, `resetModuleState`         |
+| `lucent_identity.cpp`                | The build identity, after a `static_assert` on the runtime ABI         |
+| `LucentShims.swift`                  | Swift-only members the glue calls (`@_cdecl` functions)                |
+| `views/…`                            | Components' Fabric sources, mounts and hosts                           |
 
 Headers per module and per type keep a rebuild to the units that use
 what changed.
@@ -303,16 +303,16 @@ what changed in the native package. A package's file is classified by
 the `lucent.json` field that lists it, never by its extension.
 `lucent build --json` reports them as `actions`.
 
-| Changed                                                                    | Action                          |
-| -------------------------------------------------------------------------- | ------------------------------- |
-| `js/` proxies                                                              | `reload-js`                     |
-| `cpp/`, `ios/`, `android/src/main/java/`; a package's `nativeSources`      | `compile-native`                |
-| A package's `resources`, `resourceBundles` or `assets`                     | `repackage`                     |
-| The podspec, other `android/` files; `libraries`; pods, Gradle artifacts or `minSdk` | `relink`              |
-| `AndroidManifest.xml`; Info.plist keys or entitlements in `resolved.json`  | `reinstall`                     |
-| A file iOS builds added or removed                                         | `relink` on iOS (`pod install`) |
-| `types/`, `manifest.json`, `js/_lucent/identity.js`                        | nothing                         |
-| Anything else                                                              | `relink`                        |
+| Changed                                                                              | Action                          |
+| ------------------------------------------------------------------------------------ | ------------------------------- |
+| `js/` proxies                                                                        | `reload-js`                     |
+| `cpp/`, `ios/`, `android/src/main/java/`; a package's `nativeSources`                | `compile-native`                |
+| A package's `resources`, `resourceBundles` or `assets`                               | `repackage`                     |
+| The podspec, other `android/` files; `libraries`; pods, Gradle artifacts or `minSdk` | `relink`                        |
+| `AndroidManifest.xml`; Info.plist keys or entitlements in `resolved.json`            | `reinstall`                     |
+| A file iOS builds added or removed                                                   | `relink` on iOS (`pod install`) |
+| `types/`, `manifest.json`, `js/_lucent/identity.js`                                  | nothing                         |
+| Anything else                                                                        | `relink`                        |
 
 ### Build identity
 
@@ -371,19 +371,19 @@ publishes, and one build follows. Builds never read what builds write.
 `.lucent/native` is a React Native library that autolinking finds
 through the app's `react-native.config.js`.
 
-| Path                                     | What it is                                                     |
-| ---------------------------------------- | -------------------------------------------------------------- |
-| `cpp/lucent/`, `cpp/third_party/`        | The runtime, Dragonbox and QuickJS's `libregexp`               |
-| `cpp/rn/`                                | The TurboModule and the view hosts                             |
-| `cpp/generated/`                         | The program (see [Generated files](#generated-files))          |
-| `LucentNative.podspec`, `ios/`           | The iOS pod and its registration                               |
-| `android/`                               | CMake files and the Android library                            |
-| `react-native.config.js`, `package.json` | What autolinking reads                                         |
-| `packages/<package>/`                    | Files Lucent packages list in `lucent.json`                    |
-| `prebuilt/`                              | The prebuilt runtime core, when it matches                     |
-| `js/`                                    | Proxies, the loader, the views runtime, the identity           |
-| `types/`                                 | `lucent:*` declarations for the app, components' React types   |
-| `resolved.json`, `manifest.json`         | Merged native needs; module list, check record and identity    |
+| Path                                     | What it is                                                   |
+| ---------------------------------------- | ------------------------------------------------------------ |
+| `cpp/lucent/`, `cpp/third_party/`        | The runtime, Dragonbox and QuickJS's `libregexp`             |
+| `cpp/rn/`                                | The TurboModule and the view hosts                           |
+| `cpp/generated/`                         | The program (see [Generated files](#generated-files))        |
+| `LucentNative.podspec`, `ios/`           | The iOS pod and its registration                             |
+| `android/`                               | CMake files and the Android library                          |
+| `react-native.config.js`, `package.json` | What autolinking reads                                       |
+| `packages/<package>/`                    | Files Lucent packages list in `lucent.json`                  |
+| `prebuilt/`                              | The prebuilt runtime core, when it matches                   |
+| `js/`                                    | Proxies, the loader, the views runtime, the identity         |
+| `types/`                                 | `lucent:*` declarations for the app, components' React types |
+| `resolved.json`, `manifest.json`         | Merged native needs; module list, check record and identity  |
 
 ### iOS
 
@@ -554,12 +554,12 @@ An execution context (`execution.h`) runs turns in order. Each turn runs
 its job, then the context's microtasks. Contexts never wait for each
 other: work crosses as posted jobs that own what they carry.
 
-| Context                    | Runs on                                         | Used for                                  |
-| -------------------------- | ----------------------------------------------- | ----------------------------------------- |
-| An `Actor` (`scheduler.h`) | Its thread, or any thread holding its lock      | Module code of one import component       |
-| The main context           | The platform's UI loop                          | Views, `main()` callbacks, UIKit objects  |
-| An `IsolatedContext`       | A thread of its own                             | Compute workers                           |
-| An `ExecutorContext`       | A serial dispatch queue (Apple) or a thread     | Platform callbacks; not exposed yet       |
+| Context                    | Runs on                                     | Used for                                 |
+| -------------------------- | ------------------------------------------- | ---------------------------------------- |
+| An `Actor` (`scheduler.h`) | Its thread, or any thread holding its lock  | Module code of one import component      |
+| The main context           | The platform's UI loop                      | Views, `main()` callbacks, UIKit objects |
+| An `IsolatedContext`       | A thread of its own                         | Compute workers                          |
+| An `ExecutorContext`       | A serial dispatch queue (Apple) or a thread | Platform callbacks; not exposed yet      |
 
 `emit/actors.ts` gives each import component (a package, or the app's
 own modules) an actor, `lucent_app::actor_N`. So a long job in one

@@ -555,7 +555,7 @@ export const differences: { title: string; rows: Difference[] }[] = [
         lucent:
           "It crosses as a new `RegExp` with the same source and flags, and `lastIndex` back at 0.",
         why: "A regular expression's state lives in native code.",
-        cases: ["regexps"],
+        cases: [],
       },
       {
         js: "An exported `let` holding an object is the module's object.",
@@ -674,23 +674,23 @@ export const differences: { title: string; rows: Difference[] }[] = [
       {
         js: "An error object that crosses to and from JavaScript is the same object, with all its fields.",
         lucent:
-          "An instance of an exported error class crosses as itself, so `instanceof` holds. Any other error crosses as a new `Error`, `TypeError`, `RangeError` or `SyntaxError` made from its `name`, `message`, `code` and stack ([The boundary](/docs/api/language/boundary/#errors)). The same error returned twice gives two objects, and a JavaScript error passed in and back loses its other fields.",
-        why: "Only an exported class has a JavaScript class that keeps an instance's identity.",
+          "An instance of an error class an export's types reach crosses as itself, so `instanceof` holds. Any other error crosses as a new `Error`, `TypeError`, `RangeError` or `SyntaxError` made from its `name`, `message`, `code` and stack ([The boundary](/docs/api/language/boundary/#errors)). The same error returned twice gives two objects, and a JavaScript error passed in and back loses its other fields.",
+        why: "Only a class JavaScript can see has a JavaScript class that keeps an instance's identity.",
         cases: ["errors", "exported-errors"],
       },
       {
         js: "JavaScript code can throw any value.",
         lucent:
-          "A value a JavaScript callback throws that isn't an `Error` reaches Lucent code as an `Error` whose message is `String(value)`.",
+          "A value a JavaScript callback throws that isn't an `Error` reaches Lucent code as an `Error`. An object's string `name` and `message` are kept, and any other value becomes the message, as `String(value)`.",
         why: "Lucent code catches errors only.",
-        cases: ["errors"],
+        cases: [],
       },
       {
         js: "An error's `name` and `message` hold any value, and `Object.prototype.toString` of one gives `[object Error]`.",
         lucent:
           "From JavaScript, `name` and `message` take strings only, or throw a `TypeError`. `Object.prototype.toString` of an instance of a Lucent error class gives `[object Object]`.",
         why: "They are native strings, and the instance only inherits `Error.prototype`.",
-        cases: ["errors", "exported-errors"],
+        cases: [],
       },
       {
         js: "An error no code can catch, such as a cleanup's, reaches the host's error handler.",
@@ -741,10 +741,10 @@ export const knownGaps: Difference[] = [
     cases: ["null-or-undefined"],
   },
   {
-    js: "`await` of a value that isn't a promise waits for a microtask, and an async function that returns a promise settles three microtasks after it.",
+    js: "`await` of a value that isn't a promise waits for a microtask, and `return p` of a settled promise takes one microtask more than `return await p`.",
     lucent:
-      "`await` of such a value doesn't wait, and `return p` settles one microtask after `p`. Callbacks that depend on that order run in a different order.",
-    why: "The lowering skips the wait for a plain value, and returns a promise's result directly.",
+      "`await` of such a value doesn't wait, and `return p` acts as `return await p`, one microtask sooner when `p` has already settled. Callbacks that depend on that order run in a different order.",
+    why: "The compiled code skips the wait for a plain value, and returns a promise's result directly.",
     cases: ["async"],
   },
   {
