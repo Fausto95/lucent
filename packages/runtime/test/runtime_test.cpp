@@ -685,6 +685,17 @@ static void optionalsAndUnions() {
   m.set(S("n"), Opt<String>(null));
   CHECK(flat(m.get(S("n"))).isNull());
   CHECK(flat(m.get(S("x"))).isUndefined());
+
+  // An optional object, or union holding one, in storage of its own (a
+  // promise's value): its traits are asked while the optional of it is
+  // being made.
+  std::optional<Opt<Ref<Object>>> stored;
+  std::optional<Opt<Union<Ref<Object>, double>>> storedUnion;
+  Promise<Opt<Ref<Object>>> pending;
+  stored.emplace(std::make_shared<Object>());
+  CHECK(stored->has() && !storedUnion.has_value() && !pending.settled());
+  Array<Opt<Ref<Object>>> objects{Opt<Ref<Object>>(null)};
+  CHECK(flat(objects.get(0)).isNull() && flat(objects.get(1)).isUndefined());
 }
 
 /// Two objects that reach each other, one of them weakly (a delegate's owner).
