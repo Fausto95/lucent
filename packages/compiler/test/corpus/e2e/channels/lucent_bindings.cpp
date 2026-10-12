@@ -31,6 +31,8 @@
 #undef record
 #pragma push_macro("recorded")
 #undef recorded
+#pragma push_macro("subscribed")
+#undef subscribed
 #pragma push_macro("v")
 #undef v
 #pragma push_macro("waits")
@@ -171,6 +173,14 @@ void install_m_channels(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
       });
     });
   });
+  defineFunction(rt, exports, "subscribed", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callAsyncEntry(rt, host, lucent_app::actor_0(), [&]() -> jsi::Value {
+      return callAsync<lucent::String>(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("subscribed", "packages/compiler/test/e2e/cases/channels.lucent.ts", 149), []() {
+        return lucent_app::m_channels::subscribed();
+      });
+    });
+  });
   defineClass(rt, host, exports, "Tally", "channels.Tally", proto_C_Tally, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
     return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Tally", "packages/compiler/test/e2e/cases/channels.lucent.ts", 117), [&]() -> jsi::Value {
@@ -202,6 +212,7 @@ void resetModuleState() {
 
 #pragma pop_macro("waits")
 #pragma pop_macro("v")
+#pragma pop_macro("subscribed")
 #pragma pop_macro("recorded")
 #pragma pop_macro("record")
 #pragma pop_macro("policies")

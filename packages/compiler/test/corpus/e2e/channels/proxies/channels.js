@@ -13,4 +13,5 @@ exports.fromTask = m.fromTask;
 exports.classes = m.classes;
 exports.record = m.record;
 exports.recorded = m.recorded;
+exports.subscribed = m.subscribed;
 exports.Tally = lucentClass(m.Tally);

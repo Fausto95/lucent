@@ -535,6 +535,16 @@ export declare class Channel<T> {
   receive(): Promise<T | undefined>;
 
   /**
+   * Calls `onValue` with each value as it comes, one at a time, where this
+   * code runs: the next is received once `onValue` returns, so the policy
+   * still decides what waits meanwhile. It goes on until the channel is
+   * closed and every value was received, or the subscription is removed,
+   * after which values wait for the next receive. What `onValue` throws is
+   * reported, and the next value comes.
+   */
+  subscribe(onValue: (value: T) => void): EventSubscription;
+
+  /**
    * Refuses sends from now on; what waits can still be received. False if
    * it was closed already.
    */

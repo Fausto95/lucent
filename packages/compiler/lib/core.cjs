@@ -720,6 +720,39 @@ class Channel {
     return new Promise((resolve) => this.#waiters.push(resolve));
   }
 
+  subscribe(onValue) {
+    const sub = { active: true, waiter: undefined };
+    const deliver = (value) => {
+      if (!sub.active) {
+        if (value !== undefined) releaseUnreceived(value);
+        return;
+      }
+      if (value === undefined) return;
+      try {
+        onValue(value);
+      } catch (e) {
+        console.error("Lucent: uncaught exception in channel subscriber:", e);
+      }
+      next();
+    };
+    const next = () => {
+      if (!sub.active) return;
+      const before = this.#waiters.length;
+      this.receive().then(deliver);
+      // The receive's waiter, if it waits: removing the subscription forgets it.
+      sub.waiter = this.#waiters.length > before ? this.#waiters[before] : undefined;
+    };
+    next();
+    return {
+      remove: () => {
+        if (!sub.active) return;
+        sub.active = false;
+        const at = this.#waiters.indexOf(sub.waiter);
+        if (at >= 0) this.#waiters.splice(at, 1);
+      },
+    };
+  }
+
   close() {
     if (this.#closed) return false;
     this.#closed = true;

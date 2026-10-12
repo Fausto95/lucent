@@ -46,8 +46,12 @@
 #undef item
 #pragma push_macro("kept")
 #undef kept
+#pragma push_macro("later")
+#undef later
 #pragma push_macro("latest")
 #undef latest
+#pragma push_macro("left")
+#undef left
 #pragma push_macro("lines")
 #undef lines
 #pragma push_macro("lossless")
@@ -80,6 +84,10 @@
 #undef second
 #pragma push_macro("sent")
 #undef sent
+#pragma push_macro("subscribed")
+#undef subscribed
+#pragma push_macro("subscription")
+#undef subscription
 #pragma push_macro("t")
 #undef t
 #pragma push_macro("tags")
@@ -542,6 +550,41 @@ lucent::Promise<lucent::String> m_channels::recorded() {
   co_return got.join(LUCENT_STR(","));
 }
 
+lucent::Promise<lucent::String> m_channels::subscribed() {
+  lucent::checkStack();
+  lucent::Channel<double> c = lucent::makeChannel<double>(LUCENT_STR("lossless"), lucent::Opt<double>(8.0));
+  lucent::Array<double> got = lucent::Array<double>{};
+  (void)c->sendCopy(1.0);
+  lucent::Fn<void(double)> v9_ = lucent::Fn<void(double)>(lucent::closure("channels.lucent.ts:153", "got", [](std::decay_t<decltype(got)>& got, double p0_) -> void {
+    lucent::checkStack();
+    (void)got.push(p0_);
+  }, got));
+  lucent::EventSubscription subscription = c->subscribe(v9_);
+  (void)c->sendCopy(2.0);
+  lucent::Promise<void> v14_ = lucent::Promise<void>::resolved();
+  co_await v14_;
+  lucent::Promise<void> v16_ = lucent::Promise<void>::resolved();
+  co_await v16_;
+  (void)c->sendCopy(3.0);
+  lucent::Promise<void> v21_ = lucent::Promise<void>::resolved();
+  co_await v21_;
+  lucent::Promise<void> v23_ = lucent::Promise<void>::resolved();
+  co_await v23_;
+  subscription->remove();
+  (void)c->sendCopy(4.0);
+  lucent::Promise<void> v30_ = lucent::Promise<void>::resolved();
+  co_await v30_;
+  lucent::Ref<lucent_app::S_ChannelStats> v33_ = ({ auto counts_13_ = c->stats(); auto stats_14_ = std::make_shared<lucent_app::S_ChannelStats>(); stats_14_->sent = static_cast<double>(counts_13_.sent); stats_14_->received = static_cast<double>(counts_13_.received); stats_14_->dropped = static_cast<double>(counts_13_.dropped); stats_14_->refused = static_cast<double>(counts_13_.refused); stats_14_->depth = static_cast<double>(counts_13_.depth); stats_14_->highWater = static_cast<double>(counts_13_.highWater); stats_14_; });
+  double left = v33_->depth;
+  lucent::Promise<lucent::Opt<double>> v36_ = c->receive();
+  lucent::Opt<double> v37_ = co_await v36_;
+  lucent::Opt<double> later = std::move(v37_);
+  lucent::String v40_ = got.join(LUCENT_STR(","));
+  lucent::String v43_ = lucent::toJsString(left);
+  lucent::String v46_ = lucent::toJsString(later);
+  co_return lucent::concat(v40_, LUCENT_STR(" | left "), v43_, LUCENT_STR(" | "), v46_);
+}
+
 void m_channels::init() {
   lucent::checkStack();
   lucent_app::m_channels::recent = lucent::makeChannel<double>(LUCENT_STR("drop"), lucent::Opt<double>(2.0));
@@ -577,6 +620,8 @@ double m_channels::produce_task_(lucent::Ref<lucent_app::S_Object_a5f04675> p0_,
 #pragma pop_macro("v")
 #pragma pop_macro("tags")
 #pragma pop_macro("t")
+#pragma pop_macro("subscription")
+#pragma pop_macro("subscribed")
 #pragma pop_macro("sent")
 #pragma pop_macro("second")
 #pragma pop_macro("results")
@@ -593,7 +638,9 @@ double m_channels::produce_task_(lucent::Ref<lucent_app::S_Object_a5f04675> p0_,
 #pragma pop_macro("made")
 #pragma pop_macro("lossless")
 #pragma pop_macro("lines")
+#pragma pop_macro("left")
 #pragma pop_macro("latest")
+#pragma pop_macro("later")
 #pragma pop_macro("kept")
 #pragma pop_macro("item")
 #pragma pop_macro("input")

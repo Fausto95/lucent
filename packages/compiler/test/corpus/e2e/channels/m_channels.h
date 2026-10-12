@@ -38,6 +38,8 @@ class TaskContext;
 #undef record
 #pragma push_macro("recorded")
 #undef recorded
+#pragma push_macro("subscribed")
+#undef subscribed
 #pragma push_macro("waits")
 #undef waits
 
@@ -61,6 +63,7 @@ lucent::Promise<lucent::String> fromTask();
 lucent::Promise<lucent::String> classes();
 bool record(double p0_);
 lucent::Promise<lucent::String> recorded();
+lucent::Promise<lucent::String> subscribed();
 void init();
 double produce_task_(lucent::Ref<lucent_app::S_Object_a5f04675> p0_, lucent::TaskContext& task_);
 
@@ -69,6 +72,7 @@ double produce_task_(lucent::Ref<lucent_app::S_Object_a5f04675> p0_, lucent::Tas
 }  // namespace lucent_app
 
 #pragma pop_macro("waits")
+#pragma pop_macro("subscribed")
 #pragma pop_macro("recorded")
 #pragma pop_macro("record")
 #pragma pop_macro("recent")
