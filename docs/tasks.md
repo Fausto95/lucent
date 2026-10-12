@@ -1931,7 +1931,11 @@ names 0.88's continuous event category mapping.
       with `lucent doctor` and builds for the iOS simulator or Android;
       window.yml builds the ten apps nightly, from ci.yml (#195).
 - [ ] The window's first nightly run is green, and the apps run, not only
-      build (a launch check, as the device runs have).
+      build (a launch check, as the device runs have). The first run (by
+      hand, 2026-10-12) built React Native 0.87 for Android and failed 0.85
+      and 0.86, and so Expo SDK 56 and 57: their autolinking adds and links
+      a library's codegen without checking that it exists. The native
+      package names its own, an empty `react_codegen_lucentnative` (#200).
 - [x] The website's compatibility page, the README's "Works in" line and
       `lucent init`'s messages say the window: init warns of a release
       outside it. Package ranges stay as they are: a semver range admits no

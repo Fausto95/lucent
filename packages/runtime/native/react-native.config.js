@@ -9,6 +9,8 @@ module.exports = {
         packageImportPath: "import dev.lucent.LucentPackage;",
         packageInstance: "new LucentPackage()",
         libraryName: "lucentnative",
+        // The codegen library autolinking links (codegen/CMakeLists.txt): Lucent has no codegen.
+        cmakeListsPath: "codegen/CMakeLists.txt",
         cxxModuleCMakeListsModuleName: "lucentnative",
         cxxModuleCMakeListsPath: "CMakeLists.txt",
         cxxModuleHeaderName: "LucentModule",

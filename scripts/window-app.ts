@@ -69,10 +69,10 @@ function sh(cmd: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = {
       maxBuffer: 256 << 20,
     });
   } catch (e) {
+    // The end of what the command printed, last: CI's annotation keeps the output's end.
     const out = (e as { stdout?: string }).stdout ?? "";
-    throw new Error(`${cmd} ${args.join(" ")} failed in ${cwd}:\n${out.slice(-20_000)}`, {
-      cause: e,
-    });
+    process.stderr.write(`${out.slice(-12_000)}\n✗ ${cmd} ${args.join(" ")} failed in ${cwd}\n`);
+    process.exit(1);
   }
 }
 
