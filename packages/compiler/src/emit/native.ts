@@ -60,6 +60,7 @@ import { inMainSubclass, subclassNative } from "./objc-subclass.ts";
 import { kotlinShim, type KotlinUse, suspending, type Suspending } from "./kotlin.ts";
 import { callbackEntry, setupOf } from "./setups.ts";
 import { factsOf } from "./compute.ts";
+import { refuseObjectFromExecutor } from "./executors.ts";
 import {
   isPayloadEnum,
   sdkTypeOf,
@@ -210,6 +211,7 @@ export function nativeOfClass(
       Codes.ComponentContract,
       `a view gives the platform \`${name}\`, whose methods would run in module code (holding the Lucent lock), not on the view's main thread: give the platform a function instead`,
     );
+  if (node) refuseObjectFromExecutor(em, node, name);
   const adopted = sdkInterfacesOf(em.checker, info.decl).some(
     (p) => p.module === to.module && p.cls.name === to.name,
   );

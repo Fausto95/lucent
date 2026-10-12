@@ -182,6 +182,56 @@ export async function run(): Promise<string> {
     expect(reported(p)).toMatch(/LUCENT3032 .*cannot be async/);
   });
 
+  it("hands the platform its own functions on an executor too", () => {
+    const p = compiled(
+      handing(`() => {
+    CompletableFuture.runAsync(on(frames, () => { out.send(2); }), frames);
+    out.send(1);
+  }`),
+    );
+    expect(messages(p)).toEqual([]);
+  });
+
+  it("shares nothing with a function it hands the platform without on()", () => {
+    const p = compiled(
+      handing(`() => {
+    let n = 0;
+    CompletableFuture.runAsync(() => { n++; });
+    out.send(n);
+  }`),
+    );
+    expect(reported(p)).toMatch(
+      /LUCENT3032 .*is made on an executor but runs in its module .*captures `n`/,
+    );
+  });
+
+  it("shares nothing with what the functions it calls hand over", () => {
+    const p = compiled(
+      handing(
+        "() => { relay(out); }",
+        `function relay(out: Channel<number>): void {
+  let n = 0;
+  CompletableFuture.runAsync(() => { n++; });
+  out.send(n);
+}`,
+      ),
+    );
+    expect(reported(p)).toMatch(/LUCENT3032 .*is made on an executor .*captures `n`/);
+  });
+
+  it("gives the platform no object of its own", () => {
+    const p = compiled(
+      handing(
+        "() => { new Thread(new Job()).start(); out.send(1); }",
+        `import { Runnable, Thread } from "lucent:android/java.lang";
+class Job implements Runnable {
+  run(): void {}
+}`,
+      ),
+    );
+    expect(reported(p)).toMatch(/LUCENT3032 code on an executor gives the platform `Job`/);
+  });
+
   it("is handed over where the platform takes it", () => {
     const p = compiled(`import { executor, on } from "lucent:thread";
 

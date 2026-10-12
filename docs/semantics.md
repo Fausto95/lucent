@@ -728,6 +728,13 @@ array, object or native object its maker could change, is refused. What
 it makes leaves through a `Channel`
 ([0081](decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md)).
 
+Code an executor may run (`f`, and the functions it calls) hands the
+platform its own callbacks with `on()` as well. A function it hands over
+without `on()` runs in its module when the platform calls it, beside the
+executor, so it is refused if it captures what `f`'s rule refuses; an
+object it hands over is refused, since objects can't go on an executor
+yet.
+
 ### Channels
 
 `new Channel<T>(policy, capacity?)` carries values from a producer on any

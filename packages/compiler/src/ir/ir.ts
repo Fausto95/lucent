@@ -38,12 +38,13 @@ export interface SourceSpan {
 
 /**
  * The execution context a value belongs to, or that runs a unit: module
- * code, the main thread, a compute worker, or a context the compiler cannot
- * name. A helper runs in each context of its callers, so it takes theirs.
+ * code, the main thread, a compute worker, an executor (lucent:thread's
+ * `on(executor, f)`), or a context the compiler cannot name. A helper runs
+ * in each context of its callers, so it takes theirs.
  */
-export type OwnerId = "legacy-module" | "main" | "task" | "unknown";
+export type OwnerId = "legacy-module" | "main" | "task" | "executor" | "unknown";
 
-export const OWNERS: readonly OwnerId[] = ["legacy-module", "main", "task", "unknown"];
+export const OWNERS: readonly OwnerId[] = ["legacy-module", "main", "task", "executor", "unknown"];
 
 /**
  * How an exact integer number is held: in an int32, a uint32 or an int64

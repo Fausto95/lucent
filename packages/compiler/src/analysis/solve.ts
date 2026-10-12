@@ -8,6 +8,7 @@
  */
 import ts from "typescript";
 import type { OwnerId } from "../ir/ir.ts";
+import { builtinSdkModuleOf } from "../program.ts";
 import { type Cause, code, type Levels, step, type Summary, SummaryBuilder } from "./facts.ts";
 import {
   type Callee,
@@ -249,6 +250,7 @@ class Solver implements Solved {
         use.callbacks.get(i)?.timing === "escaping" ? undefined : "during",
       );
       this.nativeEntries(site);
+      this.executorEntries(site, use.display);
     },
 
     // Unknown code may call the functions it is given at any time.
@@ -272,7 +274,8 @@ class Solver implements Solved {
   ): void {
     site.args.forEach((values, index) => {
       const how = mode(index);
-      if (!how || !site.functions[index]) return;
+      // Handed to an executor: it runs there, not as part of the call (executorEntries).
+      if (!how || !site.functions[index] || this.onExecutor(site, index)) return;
 
       const fns = this.functionsOf(values);
       const text = `${site.text}, which calls ${fns.units.map((f) => code(f.display)).join(", ") || "it"}`;
@@ -302,7 +305,7 @@ class Solver implements Solved {
     const use = site.callee.use;
 
     for (const [index, cb] of use.callbacks) {
-      if (cb.timing === "during-call") continue;
+      if (cb.timing === "during-call" || this.onExecutor(site, index)) continue;
 
       const owner: OwnerId = cb.main
         ? "main"
@@ -319,6 +322,45 @@ class Solver implements Solved {
           reentrant: cb.delivery !== "queued",
         });
     }
+  }
+
+  /**
+   * Functions handed to native code with lucent:thread's `on(executor, f)`:
+   * entries of their own, on the executor, which never run in module code.
+   */
+  private executorEntries(site: CallSite, display: string): void {
+    site.args.forEach((values, index) => {
+      if (!this.onExecutor(site, index)) return;
+
+      const text = `is handed to ${code(display)} with \`on()\`, which runs it on an executor`;
+
+      for (const unit of this.functionsOf(values).units)
+        this.entries.push({
+          unit,
+          owner: "executor",
+          cause: step(site.unit, site.node, text),
+          reentrant: false,
+        });
+    });
+  }
+
+  /** Whether a call's argument at `index` is lucent:thread's `on(executor, f)`. */
+  private onExecutor(site: CallSite, index: number): boolean {
+    const node = site.node;
+    const arg =
+      ts.isCallExpression(node) || ts.isNewExpression(node) ? node.arguments?.[index] : undefined;
+    if (!arg || !ts.isCallExpression(arg)) return false;
+
+    const checker = this.p.checker;
+    let symbol = checker.getSymbolAtLocation(arg.expression);
+    if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+    const decl = symbol?.declarations?.[0];
+
+    return (
+      symbol?.name === "on" &&
+      !!decl &&
+      builtinSdkModuleOf(decl.getSourceFile()) === "lucent:thread"
+    );
   }
 
   /** The function compute runs: an entry of its own, on a worker, not run by its caller. */

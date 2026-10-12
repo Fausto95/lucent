@@ -39,6 +39,7 @@ import type { CppFunction } from "../ir/cpp.ts";
 import type { IrUnit } from "./through-ir.ts";
 import { liftedStatements } from "./toolkit.ts";
 import { traceSite } from "./trace-site.ts";
+import { refuseSharedWithExecutor } from "./executors.ts";
 
 /** A prop, an event or a command of a compiled setup: its C++ member and its Lucent type(s). */
 export interface SetupProp {
@@ -526,6 +527,9 @@ export function callbackEntry(
       now: (f) => cpp.call("lucent::callNowIn", [cpp.deref(executor), f]),
       later: (f) => cpp.call("lucent::enterOrPost", [cpp.deref(executor), f]),
     };
+
+  // Made on an executor without on(): it runs beside the executor, so it shares nothing with it.
+  refuseSharedWithExecutor(em, node);
 
   if (!setupOf(em.ctx, node)) {
     // The actor of the module the function is in.
