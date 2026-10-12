@@ -2,6 +2,7 @@
 // Metro integration. `*.lucent.ts` files stay the source of truth for types;
 // when bundling, each becomes a require of the generated JS proxy that
 // forwards to the native module (written by `lucent build`).
+const fs = require("node:fs");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { nativePackage } = require("./native-package.cjs");
@@ -22,6 +23,14 @@ const { nativePackage } = require("./native-package.cjs");
  */
 function withLucent(config, options = {}) {
   const root = config.projectRoot || process.cwd();
+  // Metro watches the proxies' directory from its start: made later, by the
+  // first build while Metro runs, its watcher can miss the proxy renamed
+  // into it and serve "has not been compiled" until a restart.
+  try {
+    fs.mkdirSync(path.join(nativePackage(root), "js"), { recursive: true });
+  } catch {
+    // A read-only project: the build makes it.
+  }
   if (shouldWatch(options)) startWatcher(root);
   // JS dev mode (metro/js-dev.cjs): modules run as JavaScript. Transformer workers inherit it.
   const js = options.js ?? process.env.LUCENT_JS === "1";
