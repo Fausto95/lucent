@@ -23,6 +23,7 @@
 
 #include "lucent/compute.h"
 #include "lucent/operation.h"
+#include "lucent/refs.h"
 #include "lucent/resource.h"
 #include "lucent/jsi/convert.h"
 #include "lucent/jsi/host.h"
@@ -1655,11 +1656,36 @@ static void debugSnapshotsSettleOnTheJsThread() {
   js.eval("var snap; __lucentDebug.snapshot().then((s) => { snap = s; });");
 
   CHECK(within(2000, [&] { return js.string("typeof snap") == "object"; }));
-  CHECK(js.string("JSON.stringify(Object.keys(snap))") == "[\"resources\",\"mounts\",\"host\"]");
+  CHECK(js.string("JSON.stringify(Object.keys(snap))") == "[\"resources\",\"mounts\",\"host\",\"cycles\"]");
+  CHECK(js.string("Array.isArray(snap.cycles) ? 'list' : typeof snap.cycles") == "list");
   CHECK(js.string("typeof snap.resources.scopes") == "number");
   CHECK(js.string("JSON.stringify(snap.mounts)") == "[]");
   CHECK(js.number("snap.host.modules") == 1);
   CHECK(js.number("snap.host.runtime") == static_cast<double>(host->id()));
+}
+
+/// The reference cycles a teardown kept: __lucentDebug.cycles() gives the
+/// ones since its last call, once its module context has run what was
+/// posted before it (a teardown's walk), and every snapshot lists them all.
+static void cyclesReachTheNextRuntimeOnce() {
+  JsThread js;
+  install(js);
+
+  debug::keepReport("a reference cycle keeps 1 object alive: Node.next, to itself.");
+  // Kept by a walk posted to the module context before JavaScript asks.
+  postCallback([] { debug::keepReport("a reference cycle keeps 2 objects alive: A.b, then B.a, back to the first."); });
+
+  js.eval("var first, second; __lucentDebug.cycles().then((c) => { first = c; __lucentDebug.cycles().then((d) => { second = d; }); });");
+
+  CHECK(within(2000, [&] { return js.string("typeof second") == "object"; }));
+  CHECK(js.string("JSON.stringify(first)") ==
+        "[\"a reference cycle keeps 1 object alive: Node.next, to itself.\",\"a reference cycle keeps 2 objects alive: A.b, then B.a, "
+        "back to the first.\"]");
+  CHECK(js.string("JSON.stringify(second)") == "[]");
+
+  js.eval("var snap; __lucentDebug.snapshot().then((s) => { snap = s; });");
+  CHECK(within(2000, [&] { return js.string("typeof snap") == "object"; }));
+  CHECK(js.number("snap.cycles.length") >= 2);
 }
 
 /// Tasks for the JS thread count, from any thread, until they run or are
@@ -1937,6 +1963,7 @@ int main() {
   nativeHandlesCrossWithTheirPointer();
   hostsReportWhatTheyHold();
   debugSnapshotsSettleOnTheJsThread();
+  cyclesReachTheNextRuntimeOnce();
   tasksInFlightAreCounted();
   syncCallsTraceTheirEntry();
   asyncCallsCorrelateToTheirCompletion();
