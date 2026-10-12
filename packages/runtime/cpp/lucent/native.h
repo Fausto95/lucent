@@ -14,6 +14,7 @@
 #include "async.h"
 #include "jserror.h"
 #include "scheduler.h"
+#include "trace.h"
 
 namespace lucent {
 
@@ -215,10 +216,19 @@ void postTo(ExecutionContext& context, F f) {
 /// context's own thread (the main thread, for the main context): runs now,
 /// in the context, and the microtasks it queued run before it returns. A
 /// Lucent error, or a call from any other thread, is reported and the
-/// platform gets a default result.
+/// platform gets a default result. Traced as an `enter` span, named as the
+/// context is (an executor's label).
 template <class F>
 auto callNowIn(ExecutionContext& context, F f) -> std::invoke_result_t<F&> {
   using R = std::invoke_result_t<F&>;
+  struct Entered {
+    trace::Mark mark;
+    const char* name;
+    ~Entered() {
+      if (mark) [[unlikely]]
+        trace::end(mark, trace::Category::Run, "enter", {.parent = trace::currentId(), .detail = name});
+    }
+  } traced{trace::enabled() ? trace::begin(trace::Category::Run, "enter") : trace::Mark{}, context.traceName()};
   try {
     ContextEntry entry(context);
     return f();

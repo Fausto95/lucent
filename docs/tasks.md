@@ -422,8 +422,8 @@ hold its module's actor.
   `subscribe`, and the runtime's `ExecutorContext`, are merged (#181,
   #182, #187, #197, as T74). So are `executor(label)` and `on(exec, f)`
   for functions (#206), objects with `on(exec, new C(…))` (#207), and
-  events emitted from executor code (#208). Trace, the bench and a
-  reusable `on()` are left. Decided as
+  events emitted from executor code (#208). Trace is next; the bench and
+  a reusable `on()` are left. Decided as
   [0078](decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md),
   [0081](decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md),
   [0082](decisions/0082-objects-go-on-an-executor-where-they-are-made.md)
@@ -457,7 +457,7 @@ callbacks still take it, on `serialQueue(label)`'s queue or any other.
 - [x] Executors produce into channels, and post `EventEmitter` events to
       JavaScript (0083). The guide says which to use for what
       ([Handle frequent callbacks on an executor](../apps/website/src/content/docs/docs/guides/handle-callbacks-on-an-executor.mdx)).
-- [ ] Trace: each channel's waits, depth and drops, and an executor's
+- [x] Trace: each channel's waits, depth and drops, and an executor's
       spans beside its actor's.
 - [ ] Bench (host): synthetic 1080p frames at 60 Hz through an executor
       into a `latest` channel, while a 500 ms synchronous JavaScript call

@@ -417,30 +417,31 @@ ExecutionContext& ExecutionContext::main() {
 
 namespace {
 
-/// `job`, recording how long it waits for its owner and how long it runs,
-/// under one correlation id: the one a Correlate carried from the caller
-/// (a JS call), or a new one. The job running where it was posted is its
-/// parent.
-Job traced(Job job) {
+/// `job`, recording how long it waits for its owner (named `name`, if it
+/// has one) and how long it runs, under one correlation id: the one a
+/// Correlate carried from the caller (a JS call), or a new one. The job
+/// running where it was posted is its parent.
+Job traced(Job job, const char* name) {
   uint64_t id = trace::takeCorrelation();
   if (!id) id = trace::newId();
 
   uint64_t parent = trace::currentId();
   trace::Mark wait = trace::begin(trace::Category::Queue, "wait");
 
-  return [job = std::move(job), id, parent, wait]() mutable {
-    trace::end(wait, trace::Category::Queue, "wait", {.id = id, .parent = parent});
+  return [job = std::move(job), id, parent, wait, name]() mutable {
+    trace::end(wait, trace::Category::Queue, "wait", {.id = id, .parent = parent, .detail = name});
 
     struct Running {
       trace::Mark mark = trace::begin(trace::Category::Run, "run");
       trace::Current current;
       uint64_t id;
       uint64_t parent;
+      const char* name;
 
-      Running(uint64_t id, uint64_t parent) : current(id), id(id), parent(parent) {}
+      Running(uint64_t id, uint64_t parent, const char* name) : current(id), id(id), parent(parent), name(name) {}
 
-      ~Running() { trace::end(mark, trace::Category::Run, "run", {.id = id, .parent = parent}); }
-    } running(id, parent);
+      ~Running() { trace::end(mark, trace::Category::Run, "run", {.id = id, .parent = parent, .detail = name}); }
+    } running(id, parent, name);
 
     job();
   };
@@ -465,7 +466,7 @@ Job forRuntime(Job job) {
 
 bool ExecutionContext::post(Job job) {
   if (trace::enabled()) [[unlikely]]
-    job = traced(std::move(job));
+    job = traced(std::move(job), traceName());
 
   return dispatch(forRuntime(std::move(job)));
 }
@@ -734,7 +735,8 @@ std::unique_ptr<ExecutorContext::Lane> makeLane(const std::string& label) {
 
 }  // namespace
 
-ExecutorContext::ExecutorContext(std::string label) : label_(std::move(label)) {}
+ExecutorContext::ExecutorContext(std::string label)
+    : label_(std::move(label)), traceName_(trace::intern(label_)) {}
 
 std::shared_ptr<ExecutorContext> ExecutorContext::create(std::string label) {
   std::shared_ptr<ExecutorContext> context(new ExecutorContext(std::move(label)));
