@@ -26,6 +26,9 @@ const codes = (r: { diagnostics: { code: string }[] }) => r.diagnostics.map((d) 
 const ios = sdkAvailable("ios");
 const android = sdkAvailable("android");
 
+/** A test that may extract an SDK's modules into an empty cache first. */
+const COLD_SDK = 240_000;
+
 describe("SDK bindings: types", () => {
   it.skipIf(!ios)(
     "types iOS classes nominally, with Swift names, enums and class properties",
@@ -44,6 +47,8 @@ export function f(): string {
       // Protocols cannot be constructed; classes inherit NSObject's init as in Swift.
       expect(tsErrors("ios", src)).toEqual(["6: TS2739", "8: TS2511"]);
     },
+    // A cold SDK cache extracts UIKit first.
+    COLD_SDK,
   );
 
   it.skipIf(!android)(
@@ -62,6 +67,8 @@ export function f(): number {
 `;
       expect(tsErrors("android", src)).toEqual(["4: TS2322"]);
     },
+    // A cold SDK cache extracts android.os first: about a minute on CI's Macs.
+    COLD_SDK,
   );
 
   it("derives JNI descriptors that exist in android.jar", () => {
