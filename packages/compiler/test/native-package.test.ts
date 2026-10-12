@@ -169,6 +169,28 @@ describe("native package", () => {
     );
   });
 
+  it("names the React Native release the app installs in the build identity", () => {
+    const app = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    fs.mkdirSync(path.join(app, "node_modules/react-native"), { recursive: true });
+    fs.writeFileSync(
+      path.join(app, "node_modules/react-native/package.json"),
+      JSON.stringify({ name: "react-native", version: "0.86.3" }),
+    );
+    const src = path.join(app, "sample.lucent.ts");
+    fs.writeFileSync(src, "export function one(): number { return 1; }");
+    const out = path.join(app, ".lucent/native");
+    const result = compile([src]);
+    writeNativePackage(result, out);
+
+    const expected = { ...result.identity, reactNative: "0.86" };
+    expect(createRequire(import.meta.url)(path.join(out, "js/_lucent/identity.js"))).toEqual(
+      expected,
+    );
+    expect(JSON.parse(fs.readFileSync(path.join(out, "manifest.json"), "utf8")).identity).toEqual(
+      expected,
+    );
+  });
+
   it("points a Lucent package's proxies at the same loader", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
     const pkg = path.join(dir, "node_modules/lucent-a");

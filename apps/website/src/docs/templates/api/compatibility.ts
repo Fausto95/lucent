@@ -1,6 +1,8 @@
 import type { Block, DocFrontmatter } from "../../types";
 import { requirements } from "../../../generated/compatibility";
 
+const { reactNative, expoSdk } = requirements;
+
 export const frontmatter: DocFrontmatter = {
   title: "Compatibility",
   description:
@@ -10,15 +12,21 @@ export const frontmatter: DocFrontmatter = {
 
 export const blocks: Block[] = [
   {
-    kind: "note",
-    text: `No stable release meets these yet. In October 2026, \`react-native@latest\` is 0.87 and \`expo@latest\` is SDK 57. Use the React Native ${requirements.reactNative} release candidate (\`react-native@next\`) or the Expo SDK ${requirements.expoSdk} preview (\`expo@next\`), as the example apps do.`,
+    kind: "p",
+    text: `Lucent supports the current and the previous stable releases of React Native and Expo. A prerelease lane beside them is where the example apps run. When a stable release ships, it joins, the oldest leaves, and the lane moves to the next release candidate.`,
   },
   {
     kind: "table",
     head: ["", "Supported"],
     rows: [
-      ["React Native", `${requirements.reactNative} or later, New Architecture`],
-      ["Expo", `SDK ${requirements.expoSdk} or later, in a development build`],
+      [
+        "React Native",
+        `${reactNative.window[0]} to ${reactNative.window.at(-1)}, New Architecture (${reactNative.window[0]} is Expo SDK ${expoSdk.window[0]}'s); ${reactNative.prerelease}'s release candidates on the prerelease lane`,
+      ],
+      [
+        "Expo",
+        `SDK ${expoSdk.window.join(" and ")}, in a development build; the SDK ${expoSdk.prerelease} preview on the prerelease lane`,
+      ],
       ["Node", `${requirements.node} or later`],
       ["JDK, for Android builds", `${requirements.jdk.min} to ${requirements.jdk.max}`],
       [
@@ -54,10 +62,10 @@ export const blocks: Block[] = [
   },
   {
     kind: "p",
-    text: "`lucent doctor` checks these on your machine, and this table is generated from the same numbers.",
+    text: "`lucent doctor` checks these on your machine and names the lane of the app's React Native and Expo releases. This table is generated from the same numbers.",
   },
   {
     kind: "p",
-    text: "Tested on the iOS simulator (Xcode 27) and the Android emulator, in the example apps, bare and Expo. Not yet on physical devices ([roadmap](/docs/releases/roadmap/)).",
+    text: "Tested on the iOS simulator (Xcode 27) and the Android emulator, in the example apps, bare and Expo, which are on the prerelease lane. CI compiles Lucent's React Native code against each release of the window. Not yet on physical devices ([roadmap](/docs/releases/roadmap/)).",
   },
 ];

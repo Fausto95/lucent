@@ -206,6 +206,77 @@ describe("lucent doctor", () => {
     expect(c.detail).toMatch(/android\/app\/build\.gradle\.kts does not apply it/);
   });
 
+  it("checks React Native against the window and names the lane", () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-home-"));
+    const with_ = (version: string) =>
+      find(
+        diagnose(
+          app({
+            "node_modules/react-native/package.json": JSON.stringify({
+              name: "react-native",
+              version,
+            }),
+          }),
+          machine(home),
+        ),
+        "react-native",
+      );
+
+    // The window: 0.85 is Expo SDK 56's (decision 0079).
+    for (const v of ["0.85.3", "0.86.3", "0.87.1"])
+      expect(with_(v)).toMatchObject({
+        status: "ok",
+        detail: `${v}, a stable release Lucent supports`,
+      });
+    expect(with_("0.88.0-rc.4")).toMatchObject({
+      status: "ok",
+      detail: "0.88.0-rc.4, on Lucent's prerelease lane",
+    });
+    expect(with_("0.84.1")).toMatchObject({
+      status: "fail",
+      detail: "0.84.1; Lucent supports 0.85 to 0.87, and 0.88 on its prerelease lane",
+      fix: "upgrade react-native to 0.87",
+    });
+    expect(with_("0.89.0")).toMatchObject({
+      status: "warn",
+      fix: "use react-native 0.87, or a Lucent release that supports 0.89",
+    });
+  });
+
+  it("checks the Expo SDK against the window and names the lane", () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-home-"));
+    const with_ = (version: string) =>
+      find(
+        diagnose(
+          app({
+            "package.json": JSON.stringify({
+              name: "app",
+              dependencies: { expo: `~${version}`, "react-native": "0.86.3" },
+            }),
+            "node_modules/expo/package.json": JSON.stringify({ name: "expo", version }),
+          }),
+          machine(home),
+        ),
+        "expo",
+      );
+
+    expect(with_("56.0.23")).toMatchObject({
+      status: "ok",
+      detail: "56 (expo 56.0.23), a stable SDK Lucent supports",
+    });
+    expect(with_("57.0.27")).toMatchObject({ status: "ok" });
+    expect(with_("58.0.7")).toMatchObject({
+      status: "ok",
+      detail: "58 (expo 58.0.7), on Lucent's prerelease lane",
+    });
+    expect(with_("55.0.4")).toMatchObject({
+      status: "fail",
+      detail: "expo 55.0.4; Lucent supports SDK 56 and 57, and SDK 58 on its prerelease lane",
+      fix: "upgrade to Expo SDK 57 (npx expo install expo@^57.0.0 --fix)",
+    });
+    expect(with_("59.0.0")).toMatchObject({ status: "warn" });
+  });
+
   it("finds mismatched versions: the app's Lucent is not the one running", () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-home-"));
     const root = app({

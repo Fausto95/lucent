@@ -8,9 +8,12 @@
  * GitHub, at the versions its gradle/libs.versions.toml names.
  *
  *   node scripts/react-native-headers.ts 0.86 0.87 next
+ *   node scripts/react-native-headers.ts --window
  *
- * A release is a version, the newest of a minor (`0.86`) or a dist-tag
- * (`next`). Each goes to ~/.cache/lucent/react-native-headers/<version>
+ * A release is a version, the newest of a minor (`0.86`) or of a range, or
+ * a dist-tag (`next`); `--window` names the releases Lucent supports (its
+ * window, and the newest candidate on its prerelease lane), as
+ * lucent doctor checks them. Each goes to ~/.cache/lucent/react-native-headers/<version>
  * (or $LUCENT_RN_HEADERS/<version>), with a toolchain.json that
  * packages/compiler/test/ui/react-native-headers.ts reads: its host
  * compiles stand in for iOS's (React Native's cxx platform headers) and
@@ -22,6 +25,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { REQUIREMENTS } from "../packages/lucent/src/cli/doctor.ts";
 
 /** Where assembled releases go: one directory per version. */
 export const headersCache = (): string =>
@@ -374,10 +378,19 @@ function relink(dir: string, from: string, to: string): void {
   }
 }
 
+/** The releases Lucent supports: the window's, and the newest on the prerelease lane. */
+export function windowReleases(): string[] {
+  const { window, prerelease } = REQUIREMENTS.reactNative;
+  return [...window, `~${prerelease}.0-0`];
+}
+
 if (import.meta.main) {
-  const specs = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const specs = args.flatMap((a) => (a === "--window" ? windowReleases() : [a]));
   if (!specs.length) {
-    console.error("usage: node scripts/react-native-headers.ts <version|minor|dist-tag>…");
+    console.error(
+      "usage: node scripts/react-native-headers.ts --window | <version|minor|range|dist-tag>…",
+    );
     process.exit(2);
   }
 

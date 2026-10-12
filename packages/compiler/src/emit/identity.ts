@@ -31,6 +31,11 @@ export const IDENTITY_UNIT = "lucent_identity.cpp";
  */
 export interface BuildIdentity {
   runtimeAbi: number;
+  /**
+   * The React Native release the app installs, by its minor ("0.86"), which
+   * the native code is compiled against: the package writer adds it.
+   */
+  reactNative?: string;
   programs: Record<string, string>;
   apis: Record<string, Record<string, string>>;
 }

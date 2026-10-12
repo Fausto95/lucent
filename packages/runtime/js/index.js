@@ -61,8 +61,16 @@ function mismatch(problem, action) {
  */
 const programs = new Map();
 
+/** Whether React Native release `a` ("0.87") is newer than `b`. */
+function newerRelease(a, b) {
+  const [x, y] = [a.split(".").map(Number), b.split(".").map(Number)];
+  for (let i = 0; i < Math.max(x.length, y.length); i++)
+    if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+  return false;
+}
+
 function checkProgram(actual, expected) {
-  const key = `${actual.host}\n${expected.runtimeAbi}\n${expected.programs[actual.target]}`;
+  const key = `${actual.host}\n${expected.runtimeAbi}\n${expected.reactNative}\n${expected.programs[actual.target]}`;
   if (programs.has(key)) return programs.get(key);
 
   let problem;
@@ -70,6 +78,16 @@ function checkProgram(actual, expected) {
     problem = mismatch(
       `the app's native code has Lucent runtime ABI ${actual.runtimeAbi}, and this JavaScript needs ${expected.runtimeAbi}.`,
       actual.runtimeAbi > expected.runtimeAbi ? "reload-js" : "compile-native",
+    );
+  } else if (
+    actual.reactNative &&
+    expected.reactNative &&
+    actual.reactNative !== expected.reactNative
+  ) {
+    // Each side names the release it was built for only where it knows it.
+    problem = mismatch(
+      `the app's native code was built against React Native ${actual.reactNative}, and this JavaScript for ${expected.reactNative}.`,
+      newerRelease(actual.reactNative, expected.reactNative) ? "reload-js" : "compile-native",
     );
   } else if (!expected.programs[actual.target]) {
     problem = mismatch(
@@ -118,7 +136,7 @@ function check(n, name, expected) {
  * native code was built as this JavaScript expects.
  * @param {string} name module name (the file name without .lucent.ts)
  * @param {() => { get(name: string): any }} registry returns React Native's TurboModuleRegistry
- * @param {{ runtimeAbi: number, programs: Record<string, string>, apis: Record<string, Record<string, string>> }} [expected]
+ * @param {{ runtimeAbi: number, reactNative?: string, programs: Record<string, string>, apis: Record<string, Record<string, string>> }} [expected]
  *   the build identity lucent build wrote next to the proxies (none from older proxies: nothing is checked)
  */
 function loadModule(name, registry, expected) {

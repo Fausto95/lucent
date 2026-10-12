@@ -87,7 +87,8 @@ const areas = {
     "scripts/example-app/",
   ],
   sdkCoverage: ["config/sdk-coverage.json"],
-  reactNativeReleases: ["scripts/react-native-headers.ts"],
+  // The script, and the window it reads.
+  reactNativeReleases: ["scripts/react-native-headers.ts", "packages/lucent/src/cli/doctor.ts"],
 } satisfies Record<string, Pattern[]>;
 
 type Area = keyof typeof areas;
@@ -122,7 +123,7 @@ const harnesses = [
     // Lucent's React Native C++ against the headers of each release it supports.
     name: "React Native releases (headers)",
     key: "rn-releases",
-    run: "node scripts/react-native-headers.ts 0.85 0.86 0.87 next && pnpm exec vp test run packages/compiler/test/ui/react-native-releases.test.ts",
+    run: "node scripts/react-native-headers.ts --window && pnpm exec vp test run packages/compiler/test/ui/react-native-releases.test.ts",
     needs: ["runtime", "compiler", "reactNativeReleases"],
   },
   {

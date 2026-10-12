@@ -458,6 +458,26 @@ jsi::Object Host::modules(jsi::Runtime& rt) {
   return all;
 }
 
+namespace {
+
+struct ReactNativeBuild {
+  std::mutex m;
+  std::string minor;
+};
+
+ReactNativeBuild& reactNativeBuild() {
+  static ReactNativeBuild build;
+  return build;
+}
+
+}  // namespace
+
+void setReactNativeBuild(std::string minor) {
+  ReactNativeBuild& build = reactNativeBuild();
+  std::lock_guard<std::mutex> g(build.m);
+  build.minor = std::move(minor);
+}
+
 jsi::Object Host::identity(jsi::Runtime& rt) {
   const BuildIdentity& built = buildIdentity();
 
@@ -471,6 +491,12 @@ jsi::Object Host::identity(jsi::Runtime& rt) {
   o.setProperty(rt, "target", jsi::String::createFromUtf8(rt, built.target));
   o.setProperty(rt, "program", jsi::String::createFromUtf8(rt, built.program));
   o.setProperty(rt, "modules", modules);
+
+  {
+    ReactNativeBuild& build = reactNativeBuild();
+    std::lock_guard<std::mutex> g(build.m);
+    if (!build.minor.empty()) o.setProperty(rt, "reactNative", jsi::String::createFromUtf8(rt, build.minor));
+  }
 
   return o;
 }

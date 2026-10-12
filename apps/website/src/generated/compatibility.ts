@@ -2,8 +2,21 @@
 
 export const requirements = {
   "node": "22.12",
-  "reactNative": "0.88",
-  "expoSdk": 58,
+  "reactNative": {
+    "window": [
+      "0.85",
+      "0.86",
+      "0.87"
+    ],
+    "prerelease": "0.88"
+  },
+  "expoSdk": {
+    "window": [
+      56,
+      57
+    ],
+    "prerelease": 58
+  },
   "jdk": {
     "min": 17,
     "max": 21

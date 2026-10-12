@@ -992,6 +992,20 @@ static void hostsTellTheirBuildIdentity() {
 
   CHECK(b.number("mods.__lucentIdentity.host") == static_cast<double>(second->id()));
   CHECK(second->id() != first->id());
+  // No React Native release here: the identity names none.
+  CHECK(b.string("typeof mods.__lucentIdentity.reactNative") == "undefined");
+}
+
+/// The React Native release the TurboModule was compiled against, which
+/// the loader checks the JavaScript's against.
+static void theIdentityNamesTheReactNativeReleaseBuiltAgainst() {
+  setReactNativeBuild("0.86");
+  JsThread js;
+  install(js);
+
+  CHECK(js.string("mods.__lucentIdentity.reactNative") == "0.86");
+
+  setReactNativeBuild("");
 }
 
 // --- teardown -------------------------------------------------------------------
@@ -1938,6 +1952,7 @@ int main() {
   runtimesHaveTheirOwnHosts();
   newHostsReplaceOldOnes();
   hostsTellTheirBuildIdentity();
+  theIdentityNamesTheReactNativeReleaseBuiltAgainst();
   theNewestHostOwnsModuleWork();
   tasksRunningAcrossAReloadReadNoModuleStorage();
   twoRuntimesKeepTheirOwnWork();

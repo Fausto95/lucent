@@ -47,7 +47,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165, #167, #168 merged)                                                                                       |
 | [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | in progress (#175, #180, #183 merged)                                                                                             |
 | [T74](#t74)   | Callback executors and stream backpressure                        | in progress (#181, #182, #187 merged)                                                                                             |
-| [T75](#t75)   | Support a window of stable React Native and Expo releases         | in progress (#190, #191 merged)                                                                                                   |
+| [T75](#t75)   | Support a window of stable React Native and Expo releases         | in progress (#190, #191, #194 merged)                                                                                             |
 | [T76](#t76)   | App-delegate and Activity integration hooks                       | ready (decision 0076); needs nothing open                                                                                         |
 | [T77](#t77)   | Classes the OS instantiates, and typed package Kotlin             | waiting; needs T60, T76                                                                                                           |
 | [T79](#t79)   | Prebuilt C and C++ dependencies: C++ extensions and prefab        | waiting; needs T72                                                                                                                |
@@ -1861,7 +1861,9 @@ preview, so a library author can publish for the versions their users run.
   [0074](decisions/0074-a-window-of-stable-react-native-and-expo-releases.md);
   Lucent's React Native C++ compiles against each of its releases (#190),
   and no release needs a fallback
-  ([0079](decisions/0079-react-native-0-85-is-in-the-window-and-no-release-needs-a-fallback.md), #191).
+  ([0079](decisions/0079-react-native-0-85-is-in-the-window-and-no-release-needs-a-fallback.md), #191);
+  doctor, init and the loader check it (#194). Left: the nightly
+  matrix of fresh apps.
 - **Area:** Tooling, runtime (RN integration), verification.
 - **Needs:** none.
 - **Verify:** V1, V5, V6.
@@ -1906,14 +1908,21 @@ names 0.88's continuous event category mapping.
       than refuse: none lacks one
       ([0079](decisions/0079-react-native-0-85-is-in-the-window-and-no-release-needs-a-fallback.md)),
       so the build generates none (#191).
-- [ ] `lucent doctor` checks the window and names the lane; the loader's
-      identity check gains the React Native version it was built against.
+- [x] `lucent doctor` checks the window and names the lane; the loader's
+      identity check gains the React Native version it was built against:
+      a release before the window fails, one after it warns; the
+      TurboModule names the minor it was compiled against, the package
+      writer the one the app installs, and the loader refuses a difference
+      (#194).
 - [ ] `scripts/smoke-install.ts` takes a React Native and Expo version and
       CI runs the matrix (bare and Expo × each window release) nightly, as
       [0062](decisions/0062-device-runs-are-nightly-only-until-they-are-reliable.md)
       runs devices; the example apps stay on the prerelease lane.
-- [ ] The website's compatibility page, the README's "Works in" line and
-      `lucent init`'s messages say the window.
+- [x] The website's compatibility page, the README's "Works in" line and
+      `lucent init`'s messages say the window: init warns of a release
+      outside it. Package ranges stay as they are: a semver range admits no
+      release candidate, so `>=0.85` would refuse the prerelease lane, and
+      npm takes only `*` for every release (#194).
 
 **Done when:** the packed package installs and the example modules and a
 component run in fresh bare and Expo apps on each release of the window,
