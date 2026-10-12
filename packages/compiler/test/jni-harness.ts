@@ -242,5 +242,8 @@ export function jvmRun(
   const run = spawnSync(exe, [jars.join(":")], { encoding: "utf8", timeout: 60_000 });
   // The JVM's notice of JAVA_TOOL_OPTIONS (a proxy's settings, on some machines) is not the program's.
   const stderr = run.stderr.replace(/^Picked up JAVA_TOOL_OPTIONS: .*\n/m, "");
-  return { status: run.status, stdout: run.stdout, stderr };
+  // Nor is -Xcheck:jni's warning that a signal handler it installed changed, which it prints on
+  // CI's Macs now and then (Lucent installs none).
+  const stdout = run.stdout.replace(/^Warning: SIG[A-Z]+ handler modified!\n/gm, "");
+  return { status: run.status, stdout, stderr };
 }
