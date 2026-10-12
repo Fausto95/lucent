@@ -993,9 +993,11 @@ identity (`src/emit/identity.ts`):
 
 `lucent_identity.cpp` defines `lucent::js::buildIdentity()` for the
 program it is part of, and the host answers `__lucentIdentity` with it:
-`{host, runtimeAbi, target, program, modules: {name: api}}`. The whole
-compile's identity is `js/_lucent/identity.js`, which every proxy passes
-the loader, and the native package's `manifest.json`. A body edit
+`{host, runtimeAbi, reactNative, target, program, modules: {name: api}}`,
+where `reactNative` is the release the TurboModule was compiled against
+("0.86"). The whole compile's identity is `js/_lucent/identity.js`, which
+every proxy passes the loader, and the native package's `manifest.json`;
+it names the React Native release the app installed. A body edit
 rewrites that file, not the proxies.
 
 Before a module loads, the loader compares the two. Its errors carry
@@ -1006,6 +1008,8 @@ Before a module loads, the loader compares the two. Its errors carry
 | has no identity (built before them)                  | error, `compile-native`                  |
 | has an older runtime ABI                             | error, `compile-native`                  |
 | has a newer runtime ABI                              | error, `reload-js`                       |
+| was built against an older React Native release      | error, `compile-native`                  |
+| was built against a newer React Native release       | error, `reload-js`                       |
 | is for a target this JavaScript was not compiled for | error, `compile-native`                  |
 | lacks the module, or has another API for it          | error, `compile-native`                  |
 | has the same APIs, another program                   | warning, once per host; the module loads |
@@ -1015,9 +1019,10 @@ A different program with the same APIs warns rather than refuses: calls
 are safe, only the implementation is older (or newer), and developers
 keep working on JavaScript while the app rebuilds. The warning (LogBox,
 in development) says so, so nobody runs stale native code without
-knowing. Only the runtime ABI orders two builds; otherwise the loader
-cannot tell which side is older, so the messages name the rebuild and,
-for an app installed after the JavaScript was built, the reload. Neither
+knowing. Only the runtime ABI and the React Native release order two
+builds; otherwise the loader cannot tell which side is older, so the
+messages name the rebuild and, for an app installed after the JavaScript
+was built, the reload. Neither
 claims that a JavaScript update replaces native code. The result is kept
 per host and build of the JavaScript: a reload (a new host) or a new
 `identity.js` from Metro checks again. Proxies from before identities

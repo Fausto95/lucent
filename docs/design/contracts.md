@@ -36,7 +36,7 @@ so; the code is what runs.
 | C-BIGINT | The runtime's `BigInt` and its native integer conversions                       | v1.1            | v1 frozen; v1.1 proposed           | `packages/runtime/cpp/lucent/bigint.h`                                                              |
 | C-BUFFER | Native buffers, borrows and transfers                                           | v1.4            | Proposed                           | `packages/runtime/cpp/lucent/buffer.h`, `lucent:core`                                               |
 | C-VIEW   | Component descriptions, mounts, platform hosts, toolkit bodies                  | v2.2            | Proposed                           | `packages/compiler/src/ui/contract.ts`, `packages/runtime/cpp/rn/`                                  |
-| C-BUILD  | Build records, required actions, SDK locks, build identities                    | v1.6            | v1 frozen; v1.1 to v1.6 proposed   | `packages/lucent/src/cli/build-graph.ts`, `pipeline.ts`; `packages/compiler/src/emit/identity.ts`   |
+| C-BUILD  | Build records, required actions, SDK locks, build identities                    | v1.7            | v1 frozen; v1.1 to v1.7 proposed   | `packages/lucent/src/cli/build-graph.ts`, `pipeline.ts`; `packages/compiler/src/emit/identity.ts`   |
 | C-TRACE  | Correlated runtime and build tracing                                            | v1              | Proposed                           | `packages/runtime/cpp/lucent/trace.h`, `packages/lucent/src/cli/trace.ts`                           |
 | C-EXT    | Typed native extensions: C libraries a Lucent package declares                  | v1              | Proposed                           | `packages/runtime/cpp/lucent/extension.h`, `lucent.json` `extensions`                               |
 
@@ -2349,7 +2349,7 @@ new view` is public. Migration: drop `LUCENT_VIEWS=fabric` from builds
 
 ## C-BUILD: build records and identities
 
-**Current version: v1.5 (proposed).** v1 is frozen.
+**Current version: v1.7 (proposed).** v1 is frozen.
 
 C-BUILD is what a build records about itself and what it requires of the
 app afterwards. `build`, `check`, `dev`, Metro and the native build hooks
@@ -2491,6 +2491,8 @@ a program every target shares):
 ```ts
 export interface BuildIdentity {
   runtimeAbi: number;
+  /** The React Native release the app installs, by its minor ("0.86"); none outside an app. */
+  reactNative?: string;
   /** Target → hash of the target's generated files. */
   programs: Record<string, string>;
   /** Target → module → hash of what JavaScript sees of the module. */
@@ -2508,17 +2510,23 @@ export interface BuildIdentity {
 - `runtimeAbi` is the compiler's `RUNTIME_ABI` (2), equal to the
   runtime's `kRuntimeAbi` in `lucent/jsi/host.h`; the generated identity
   unit (`lucent_identity.cpp`) static-asserts the equality.
+- `reactNative` is added by the native package's writer, from the
+  `react-native` Node resolves from the project; the TurboModule names
+  the release it was compiled against (`REACT_NATIVE_VERSION_*` from
+  `cxxreact/ReactNativeVersion.h`, where the headers have it) through
+  `lucent::js::setReactNativeBuild`.
 - Native code exposes the identity as `__lucentIdentity` on the host;
   JavaScript gets the expected identity from `js/_lucent/identity.js` in
   the native package, which proxies pass to `loadModule`. The identity
   is also in the native package's `manifest.json`.
 - The loader checks each module before loading it, once per host and
   expected program:
-  - no identity, a different runtime ABI, a target program missing from
+  - no identity, a different runtime ABI, a different React Native
+    release (when both sides name one), a target program missing from
     the expected identity, a module missing, or a module API that
     differs: throws an `Error` with `code: "LUCENT_NATIVE_MISMATCH"` and
     `action`, a pending-action kind (`compile-native`, or `reload-js`
-    when the native runtime ABI is newer);
+    when the native runtime ABI or React Native release is newer);
   - a program-only difference: one warning, and the module loads.
 - `identity.js` is ignored by pending-action classification: it moves
   with the generated native code, whose change already names the action.
@@ -2562,6 +2570,9 @@ export interface BuildIdentity {
   (`lucent-sdk.schemas/`, `SdkOptions.schemas`, `lucent sdk lock
 --schemas`, `sdk lock --json`'s `schemas`). Migration: none
   (additive).
+- **v1.7** (2026-10-12, T75): `BuildIdentity.reactNative`; the identity
+  names the React Native release on each side, and the loader refuses a
+  difference. Migration: none (optional on both sides).
 
 ## C-TRACE: correlated tracing
 

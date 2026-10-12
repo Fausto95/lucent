@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { findOwnFiles, LUCENT_EXTENSION } from "@lucent-lang/compiler/packages";
+import { type Check, expoSdk, reactNative } from "../doctor.ts";
 import { type PackageManager, packageManagerOf, runner } from "../package-manager.ts";
 import { withLucentTsconfig, withVscodeSettings } from "../tsconfig.ts";
 import {
@@ -38,6 +39,8 @@ export interface InitPlan {
   manual: Manual[];
   /** The command to run once the app is set up. */
   next: string;
+  /** The app's React Native and Expo releases, where Lucent does not support them. */
+  releases?: Check[];
 }
 
 const read = (root: string, file: string) =>
@@ -136,6 +139,9 @@ export function planInit(root: string): InitPlan {
     packageManager,
     changes,
     manual,
+    releases: [reactNative(root), ...(kind === "expo" ? [expoSdk(root)] : [])].filter(
+      (c) => c.status === "fail" || c.status === "warn",
+    ),
     next: kind === "expo" ? `${x} expo run:ios` : `${x} lucent build && ${x} react-native run-ios`,
   };
 }

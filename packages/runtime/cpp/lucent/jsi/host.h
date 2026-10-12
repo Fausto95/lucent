@@ -104,6 +104,12 @@ const BuildIdentity& buildIdentity();
 /// The name JavaScript reads the build identity by, next to the modules.
 inline constexpr const char* kIdentityName = "__lucentIdentity";
 
+/// The React Native release the app's native code was compiled against,
+/// by its minor ("0.86"): the build identity tells JavaScript, which was
+/// built for one too. The TurboModule sets it from React Native's headers;
+/// unset (a test host), the identity leaves it out.
+void setReactNativeBuild(std::string minor);
+
 class Host : public std::enable_shared_from_this<Host>, public RuntimeWork {
  public:
   /// Creates the host for `rt`. Call on the JS thread. A runtime has one

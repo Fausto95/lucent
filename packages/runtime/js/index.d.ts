@@ -1,6 +1,8 @@
 /** What lucent build compiled: the runtime ABI, each target's program and each module's API. */
 export interface BuildIdentity {
   runtimeAbi: number;
+  /** The React Native release the app installed, by its minor ("0.86"); none outside an app. */
+  reactNative?: string;
   programs: Record<string, string>;
   apis: Record<string, Record<string, string>>;
 }

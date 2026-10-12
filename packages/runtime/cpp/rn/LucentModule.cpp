@@ -8,9 +8,19 @@
 
 #include <string>
 
+#if __has_include(<cxxreact/ReactNativeVersion.h>)
+#include <cxxreact/ReactNativeVersion.h>
+#endif
+
 namespace facebook::react {
 
 LucentModule::LucentModule(std::shared_ptr<CallInvoker> jsInvoker) : TurboModule(kModuleName, std::move(jsInvoker)) {
+#ifdef REACT_NATIVE_VERSION_MINOR
+  // The release this was compiled against, which the loader checks the
+  // JavaScript's against.
+  lucent::js::setReactNativeBuild(std::to_string(REACT_NATIVE_VERSION_MAJOR) + "." +
+                                  std::to_string(REACT_NATIVE_VERSION_MINOR));
+#endif
 #ifndef NDEBUG
   // Lists the objects module code makes, for the cycle report at teardown.
   lucent::debug::trackObjects();

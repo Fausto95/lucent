@@ -20,6 +20,11 @@ export async function applyPlan(
   out.print(
     `${t.brand(t.symbols.brand)} ${t.bold(`lucent ${command}`)}  ${t.dim(`${plan.kind === "expo" ? "Expo app" : "bare React Native app"} · ${plan.packageManager}`)}\n`,
   );
+  // What Lucent supports of React Native and Expo, where the app's releases are not that.
+  for (const c of plan.releases ?? [])
+    out.print(
+      `${t.warn(t.symbols.warn)} ${c.label} ${c.detail}${c.fix ? `\n    ${t.dim(c.fix)}` : ""}`,
+    );
   const nextLine = () => out.print(`\n${t.dim("next")}  ${plan.next}`);
   const manual = () => {
     for (const m of plan.manual)

@@ -140,7 +140,7 @@ export const comparisonRows: ComparisonRow[] = [
       lucent: {
         value: "Both",
         tone: "available",
-        detail: `React Native ${requirements.reactNative}+, New Architecture; Expo SDK ${requirements.expoSdk}+, in a development build. See [Compatibility](/docs/api/compatibility/)`,
+        detail: `React Native ${requirements.reactNative.window[0]} to ${requirements.reactNative.window.at(-1)}, New Architecture; Expo SDK ${requirements.expoSdk.window.join(" and ")}, in a development build. See [Compatibility](/docs/api/compatibility/)`,
       },
       expo: { value: "Both", tone: "available", detail: "bare apps install the `expo` package" },
       nitro: { value: "Both", tone: "available", detail: "React Native 0.75+" },

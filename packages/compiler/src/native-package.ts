@@ -181,6 +181,23 @@ export function packagePods(manifest: NativeInputs["manifest"] | undefined): [st
  * platforms, and the JavaScript proxies. Files whose content did not change
  * are left alone so native builds stay incremental.
  */
+/**
+ * The React Native release a project installs, by its minor ("0.86"): the
+ * react-native Node resolves from `root` (in a monorepo, up the tree). None
+ * outside an app.
+ */
+export function installedReactNative(root: string): string | undefined {
+  for (let dir = path.resolve(root); ; dir = path.dirname(dir)) {
+    const manifest = path.join(dir, "node_modules/react-native/package.json");
+    if (fs.existsSync(manifest)) {
+      const { version } = JSON.parse(fs.readFileSync(manifest, "utf8")) as { version?: string };
+      const minor = /^(\d+)\.(\d+)/.exec(version ?? "");
+      return minor ? `${minor[1]}.${minor[2]}` : undefined;
+    }
+    if (path.dirname(dir) === dir) return undefined;
+  }
+}
+
 export function writeNativePackage(
   result: EmitResult,
   outDir: string,
@@ -244,7 +261,11 @@ export function writeNativePackage(
   const inSources = (f: string) => sources.some((dir) => f.startsWith(`${dir}/`));
 
   // The project's directory, which the build maps to "." (see the templates).
-  const projectDir = path.relative(outDir, options.root ?? path.resolve(outDir, "../.."));
+  const projectRoot = options.root ?? path.resolve(outDir, "../..");
+  const projectDir = path.relative(outDir, projectRoot);
+  // The build identity, with the React Native release the app's native code builds against.
+  const reactNative = installedReactNative(projectRoot);
+  const identity = result.identity && { ...result.identity, ...(reactNative && { reactNative }) };
   const cmakeFile = path.join(outDir, "android/CMakeLists.txt");
   want.set(cmakeFile, withProjectDir(want.get(cmakeFile)!.toString(), projectDir));
 
@@ -313,7 +334,7 @@ export function writeNativePackage(
     want.set(path.join(outDir, "js", `${name}.js`), content);
   want.set(path.join(outDir, "js", LOADER), fs.readFileSync(path.join(rt, "js/index.js")));
   want.set(path.join(outDir, "js", VIEWS_RUNTIME), fs.readFileSync(path.join(rt, "js/views.js")));
-  if (result.identity) want.set(path.join(outDir, "js", IDENTITY), identityScript(result.identity));
+  if (identity) want.set(path.join(outDir, "js", IDENTITY), identityScript(identity));
   for (const [name, content] of [...(result.java ?? []), ...(result.kotlin ?? [])])
     want.set(path.join(outDir, "android/src/main/java", name), content);
 
@@ -360,7 +381,7 @@ export function writeNativePackage(
         inputs: options.check?.inputs,
         read: options.check?.read,
         realpaths: options.check?.realpaths,
-        identity: result.identity,
+        identity,
       },
       null,
       2,
