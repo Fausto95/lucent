@@ -13,7 +13,7 @@
  * A release is a version, the newest of a minor (`0.86`) or of a range, or
  * a dist-tag (`next`); `--window` names the releases Lucent supports (its
  * window, and the newest candidate on its prerelease lane), as
- * lucent doctor checks them. Each goes to ~/.cache/lucent/react-native-headers/<version>
+ * lucent doctor checks them. Each goes to ~/.cache/lucent-react-native-headers/<version>
  * (or $LUCENT_RN_HEADERS/<version>), with a toolchain.json that
  * packages/compiler/test/ui/react-native-headers.ts reads: its host
  * compiles stand in for iOS's (React Native's cxx platform headers) and
@@ -29,7 +29,7 @@ import { REQUIREMENTS } from "../packages/lucent/src/cli/doctor.ts";
 
 /** Where assembled releases go: one directory per version. */
 export const headersCache = (): string =>
-  process.env.LUCENT_RN_HEADERS ?? path.join(os.homedir(), ".cache/lucent/react-native-headers");
+  process.env.LUCENT_RN_HEADERS ?? path.join(os.homedir(), ".cache/lucent-react-native-headers");
 
 /** What toolchain.json says of a release: absolute paths. */
 export interface AssembledRelease {

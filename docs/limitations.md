@@ -28,6 +28,11 @@ generated from this file.
   design's gate for app integration asks for it.
 - **react-native-screens.** Not in the example apps, so hosting inside its
   screens is untested.
+- **The window's releases, run.** Apps on React Native 0.85 to 0.87 and
+  Expo SDK 56 and 57 are built nightly (window.yml, T75), not run: the
+  device runs run the example apps, which are on the prerelease lane. A
+  failure only a running app shows (a renderer or autolinking difference
+  at launch) would show first in a user's app.
 - **Device-locale casing.** `toLocaleUpperCase`/`toLocaleLowerCase` were
   checked for a Turkish locale on macOS only; Android's JNI path is
   compiled, not run.
