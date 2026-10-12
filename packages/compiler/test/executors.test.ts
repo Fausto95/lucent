@@ -502,3 +502,112 @@ export async function run(): Promise<string> {
     expect(jvmRun(p.r, p.dir, fake!.run)).toMatchObject({ status: 0, stdout: "2\n" });
   }, 300_000);
 });
+
+const emitting = `import { Channel, EventEmitter } from "lucent:core";
+import { executor, on } from "lucent:thread";
+import { CompletableFuture } from "lucent:android/java.util.concurrent";
+import { Runnable, Thread } from "lucent:android/java.lang";
+
+const events = new EventEmitter<{ frame: (size: number, where: string) => void }>();
+
+/** Emits from its own state, on the executor. */
+class Frames implements Runnable {
+  private count = 0;
+
+  constructor(private readonly events: EventEmitter<{ frame: (size: number, where: string) => void }>) {}
+
+  run(): void {
+    this.count++;
+    this.events.emit("frame", this.count * 10, "from an object");
+  }
+}
+
+export async function run(): Promise<string> {
+  const frames = executor("frames");
+  const heard = new Channel<string>("lossless");
+  const module = Thread.currentThread()?.getId() ?? 0n;
+  events.addListener("frame", (size, where) => {
+    const here = Thread.currentThread()?.getId() ?? 0n;
+    heard.send(\`\${size} \${where}, heard \${here === module ? "on the module's thread" : "elsewhere"}\`);
+  });
+
+  // What the function emits through goes to the emitter's module, which runs its listeners.
+  const ev = events;
+  CompletableFuture.runAsync(
+    on(frames, () => {
+      const here = Thread.currentThread()?.getId() ?? 0n;
+      ev.emit("frame", 3, here === module ? "from the module" : "from the executor");
+    }),
+    frames,
+  );
+  const first = await heard.receive();
+
+  CompletableFuture.runAsync(on(frames, new Frames(events)), frames);
+  const second = await heard.receive();
+
+  return \`\${first} | \${second}\`;
+}
+`;
+
+describe.skipIf(!fake || !jdk)("events from an executor", () => {
+  it("are emitted in the emitter's module, which runs the listeners", () => {
+    const p = compiled(emitting);
+
+    expect(messages(p)).toEqual([]);
+    expect(p.cpp).toContain("lucent::transportCopy");
+    expect(jvmRun(p.r, p.dir, fake!.run)).toEqual({
+      status: 0,
+      stdout:
+        "3 from the executor, heard on the module's thread" +
+        " | 10 from an object, heard on the module's thread\n",
+      stderr: "",
+    });
+  }, 300_000);
+
+  const handing = (
+    inner: string,
+    before = "",
+  ) => `import { Channel, EventEmitter } from "lucent:core";
+import { executor, on } from "lucent:thread";
+import { CompletableFuture } from "lucent:android/java.util.concurrent";
+
+const events = new EventEmitter<{ tick: (n: number) => void; job: (done: () => void) => void }>();
+${before}
+export async function run(): Promise<string> {
+  const frames = executor("frames");
+  const ev = events;
+  CompletableFuture.runAsync(on(frames, ${inner}), frames);
+  return "";
+}
+`;
+
+  it("only emit on an emitter", () => {
+    const p = compiled(handing(`() => { ev.addListener("tick", (_n) => {}); }`));
+    // The listeners are the emitter's module's: adding one there is a write of its state.
+    expect(reported(p)).toMatch(
+      /LUCENT3032 (code on an executor only emits on an emitter|.*addListener`, which may be module state `events`)/,
+    );
+  });
+
+  it("emit only what can be copied", () => {
+    const p = compiled(handing(`() => { ev.emit("job", () => {}); }`));
+    expect(reported(p)).toMatch(/LUCENT3032 an event emitted on an executor is copied/);
+  });
+
+  it("emit in the function on the executor, not in a helper that runs listeners", () => {
+    const p = compiled(
+      handing(
+        "() => { tick(ev); }",
+        `function tick(e: EventEmitter<{ tick: (n: number) => void; job: (done: () => void) => void }>): void {
+  e.emit("tick", 1);
+}`,
+      ),
+    );
+    expect(reported(p)).toMatch(/LUCENT3032 .*cannot run on an executor: it calls `tick`/);
+  });
+
+  it("read no module emitter of their own", () => {
+    const p = compiled(handing(`() => { events.emit("tick", 1); }`));
+    expect(reported(p)).toMatch(/LUCENT3032 .*cannot run on an executor: it .*`events`/);
+  });
+});
