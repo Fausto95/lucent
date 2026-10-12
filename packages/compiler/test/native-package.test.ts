@@ -187,7 +187,7 @@ describe("native package", () => {
     const cmake = path.join(out, android.sourceDir, android.cmakeListsPath);
 
     expect(fs.readFileSync(cmake, "utf8")).toContain(
-      `add_library(react_codegen_${android.libraryName} INTERFACE)`,
+      `add_library(react_codegen_${android.libraryName} STATIC`,
     );
   });
 
