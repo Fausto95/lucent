@@ -559,7 +559,7 @@ other: work crosses as posted jobs that own what they carry.
 | An `Actor` (`scheduler.h`) | Its thread, or any thread holding its lock  | Module code of one import component      |
 | The main context           | The platform's UI loop                      | Views, `main()` callbacks, UIKit objects |
 | An `IsolatedContext`       | A thread of its own                         | Compute workers                          |
-| An `ExecutorContext`       | A serial dispatch queue (Apple) or a thread | Platform callbacks; not exposed yet      |
+| An `ExecutorContext`       | A serial dispatch queue (Apple) or a thread | `lucent:thread`'s executors              |
 
 `emit/actors.ts` gives each import component (a package, or the app's
 own modules) an actor, `lucent_app::actor_N`. So a long job in one
@@ -573,15 +573,18 @@ a ticket: it waits only for the holder in place, or defers
 `Lucent: deadlock` (see [semantics.md](semantics.md#concurrency)).
 
 `native.h` holds the platforms' ways in: `postCallback` and `callNow`
-enter module code, `postTo`, `callNowIn` and `runIn` another context, and
-`runOnMain` is `lucent:thread`'s `main()`. A `NativeRef` releases its
+enter module code, `postTo`, `callNowIn` and `runIn` another context,
+`enterOrPost` an executor's (a function handed over with `on(exec, f)`),
+and `runOnMain` is `lucent:thread`'s `main()`. On Android an executor is
+a `dev.lucent.LucentExecutor` (`executorOf`), on iOS its dispatch queue
+(`queueOf`). A `NativeRef` releases its
 object on the context it names (the main context on iOS). Module work
 belongs to the JavaScript runtime it runs for (`RuntimeEntry`,
 `ownedScope()`), so tearing one down cancels its work only.
 
-> **Planned:** `lucent:thread`'s `executor()` ([T109](tasks.md#t109)),
-> module code with no JavaScript runtime ([T130](tasks.md#t130)), and
-> calls from worklet runtimes ([T134](tasks.md#t134)).
+> **Planned:** delegates on an executor ([T109](tasks.md#t109)), module
+> code with no JavaScript runtime ([T130](tasks.md#t130)), and calls from
+> worklet runtimes ([T134](tasks.md#t134)).
 
 ### Scopes, operations and resources
 

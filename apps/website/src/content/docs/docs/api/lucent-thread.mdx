@@ -1,6 +1,6 @@
 ---
 title: lucent:thread
-description: Run code on the platform's main thread.
+description: Run code on the platform's main thread, or hand callbacks to an executor of their own.
 kind: reference
 custom_edit_url: https://github.com/Fausto95/lucent/edit/main/apps/website/src/docs/templates/api/modules.ts
 ---
@@ -40,3 +40,71 @@ While `f` runs, the package's other work waits: keep it short.
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
 | `f` | `() => T` | yes | The code to run on the main thread: its result resolves the promise. |
+
+### executor()
+
+```ts title="thread.d.ts"
+function executor(label: string): Executor;
+```
+
+A new serial executor, for platform callbacks that must not wait behind module code: a camera's frames, an audio block, a socket's reads.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `label` | `string` | yes | Its name, such as `"camera.frames"`. |
+
+```ts title="executor.lucent.ts"
+import { Channel } from "lucent:core";
+import { PLATFORM } from "lucent:platform";
+import { LocationManager } from "lucent:android/android.location";
+import { appContext, available } from "lucent:android";
+import { executor, on } from "lucent:thread";
+
+export async function altitude(): Promise<number> {
+  if (PLATFORM === "ios") return 0;
+  const manager = appContext().getSystemService(LocationManager);
+  if (!manager || !available("android", 30)) return 0;
+
+  const fixes = executor("location.fixes");
+  const altitudes = new Channel<number>("latest");
+  manager.getCurrentLocation(LocationManager.GPS_PROVIDER, null, fixes, on(fixes, (fix) => {
+    altitudes.send(fix ? fix.getAltitude() : 0);
+  }));
+  return (await altitudes.receive()) ?? 0;
+}
+```
+
+### on()
+
+```ts title="thread.d.ts"
+function on<F extends (...args: never[]) => unknown>(executor: Executor, f: F): F;
+```
+
+Hands `f` to the platform to run on `executor`, never holding its module's lock. Pass the result straight to the SDK call that takes it.
+
+When the platform calls `f` on the executor, `f` runs there at once. Called from another thread, an `f` that returns nothing runs in a turn of the executor. One that returns a value is reported as an error.
+
+`f` runs beside module code, so it shares nothing with it. It may not use module state, call JavaScript callbacks or await. It captures only `const` numbers, strings, booleans and bigints, Channels and Executors, and what it makes leaves through a `Channel`.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `executor` | `Executor` | yes | The executor `f` runs on. |
+| `f` | `F` | yes | The callback the platform calls. |
+
+## Classes
+
+### Executor
+
+```ts title="thread.d.ts"
+class Executor extends NSObject {
+  readonly label: string;
+  execute(command: never): void;
+}
+```
+
+A serial executor: a thread of its own that never takes a module's lock. SDK calls that take a queue (iOS) or a `java.util.concurrent.Executor` (Android) take it as it is. Code handed to the platform with `on()` runs on it one call at a time, beside module code, never behind it.
+
+| Member | What it does |
+| --- | --- |
+| `readonly label: string;` | The name it was made with, as Instruments, Perfetto and crash reports show it. |
+| `execute(command: never): void;` | Java's `Executor.execute`, which Android APIs call to run their work on it. Lucent code hands it work with `on()` instead. |

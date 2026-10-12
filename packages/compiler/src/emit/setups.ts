@@ -506,15 +506,27 @@ export function signalMethod(em: FnEmitter, obj: E, name: string, node: ts.CallE
 
 /**
  * How a platform callback of a function made at `node` enters Lucent code.
- * Made in a setup (a view's native subscription), it runs in the main
- * context, never holding an actor's lock: now when the platform waits for
- * it (`callNowIn`), else as a turn of that context (`postTo`). Anywhere
- * else it enters its module's actor (`callNow`, `postCallback`).
+ * Handed over with `on(executor, f)` (`executor`: the C++ expression the
+ * callback holds it as), it enters the executor's context, never an
+ * actor's lock: now when the platform calls it on the executor, else as a
+ * turn of it (`enterOrPost`). Made in a setup (a view's native
+ * subscription), it runs in the main context, also without a lock: now
+ * when the platform waits for it (`callNowIn`), else as a turn of that
+ * context (`postTo`). Anywhere else it enters its module's actor
+ * (`callNow`, `postCallback`).
  */
 export function callbackEntry(
   em: FnEmitter,
   node: ts.Node,
+  executor?: cpp.Expr,
 ): { now: (f: cpp.Expr) => cpp.Expr; later: (f: cpp.Expr) => cpp.Expr } {
+  // Handed to the platform with on(executor, f): the executor's context, never an actor's lock.
+  if (executor)
+    return {
+      now: (f) => cpp.call("lucent::callNowIn", [cpp.deref(executor), f]),
+      later: (f) => cpp.call("lucent::enterOrPost", [cpp.deref(executor), f]),
+    };
+
   if (!setupOf(em.ctx, node)) {
     // The actor of the module the function is in.
     const actor = () => em.ctx.actorAt(node);

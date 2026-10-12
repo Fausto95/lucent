@@ -406,6 +406,10 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "lucent:core.utf8Decode": ALLOCATES,
   "lucent:core.utf8Encode": ALLOCATES,
   "lucent:thread.main": { allocates: true, schedules: true, main: true },
+  "lucent:thread.executor": ALLOCATES,
+  // on() gives its function back for the platform, which runs it on the executor (checked
+  // there as executor code: native.ts's requireExecutorCode).
+  "lucent:thread.on": { keeps: "result" },
   "lucent:android.adoptByteBuffer": ALLOCATES_THROWS,
   "lucent:android.appContext": NONE,
   "lucent:android.available": NONE,

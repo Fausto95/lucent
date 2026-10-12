@@ -228,6 +228,19 @@ auto callNowIn(ExecutionContext& context, F f) -> std::invoke_result_t<F&> {
   }
 }
 
+/// A platform callback into an executor's context (lucent:thread's
+/// `on(exec, f)`) that returns nothing: runs now, in the context, when the
+/// platform calls it on the executor, as it does when the executor is the
+/// queue or the Executor it was given; from any other thread, a turn of
+/// the context.
+template <class F>
+void enterOrPost(ExecutionContext& context, F f) {
+  if (context.onExecutor())
+    callNowIn(context, std::move(f));
+  else
+    context.post(std::move(f));
+}
+
 /// Runs `f` as a turn of `context` and settles the promise, which belongs to
 /// the calling context, with its result there; a context that has shut down
 /// rejects it. Neither side waits for the other. What `f` captures and

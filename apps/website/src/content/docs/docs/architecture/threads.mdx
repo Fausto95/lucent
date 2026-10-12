@@ -1,6 +1,6 @@
 ---
 title: "How do the JS, Lucent and main threads share work?"
-description: "Threads post jobs to each other instead of waiting; module code shares one lock, which compute workers and view code never take."
+description: "Threads post jobs to each other instead of waiting; module code shares one lock, which compute workers, executors and view code never take."
 sidebar_label: "Threads"
 kind: explanation
 ---
@@ -91,3 +91,7 @@ Some APIs must run on the main thread, and the compiler checks that on both plat
 That is safe because a task shares nothing. Its input is copied, and the compiler refuses a task that uses module state or main-thread code ([LUCENT3011](/docs/api/diagnostics/#lucent3011)). Its result is posted back to the code that called `compute`.
 
 Submitting never blocks either: with 1024 tasks already waiting, `compute` rejects at once with a `QuotaExceededError` ([lucent:core](/docs/api/lucent-core/#compute)). [Concurrency](/docs/api/language/concurrency/#compute-tasks) states the other rules exactly.
+
+## Executors take callbacks off the lock
+
+A camera delivering 60 frames a second can't wait for the turn in progress. An executor from `lucent:thread` is a serial thread outside the lock: a dispatch queue on iOS, an `Executor` on Android. `on(executor, f)` hands an SDK call a function that runs there, sharing only constants and channels with module code ([Executors](/docs/api/language/concurrency/#executors)).

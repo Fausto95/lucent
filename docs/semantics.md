@@ -670,12 +670,12 @@ logs a wait past 50 ms. A synchronous call running a JavaScript callback
 lends its actors to the main thread, so JavaScript that waits for the
 main thread there can't deadlock it.
 
-Platform callbacks enter module code under their actor's lock, so a frame
-delegate waits behind synchronous JavaScript calls; `serialQueue(label)`
-from `lucent:ios` only moves them off the main thread. `executor(label)`
-from `lucent:thread`, a serial context that takes no lock, is
-[T109](tasks.md#t109) (the runtime's `ExecutorContext` exists). Worklet
-runtimes can't call Lucent yet ([T134](tasks.md#t134)).
+Other platform callbacks enter module code under their actor's lock, so
+a frame delegate waits behind synchronous JavaScript calls;
+`serialQueue(label)` from `lucent:ios` only moves them off the main
+thread. A function can go on an executor instead (below); a delegate
+can't yet ([T109](tasks.md#t109)). Worklet runtimes can't call Lucent yet
+([T134](tasks.md#t134)).
 
 ### Compute tasks
 
@@ -702,6 +702,32 @@ it or in a module function it calls; other code runs to its end.
 `lucent:core`'s JavaScript `compute` differs in three ways
 ([limitations.md](limitations.md)).
 
+### Executors
+
+`executor(label)` from `lucent:thread` makes a serial context of its own
+that never takes an actor's lock (`ExecutorContext`): a serial dispatch
+queue on iOS, and on Android a thread that a `java.util.concurrent.Executor`
+posts to. An SDK parameter that takes a queue or an `Executor` takes it
+as it is. `label` is the queue's or the thread's name.
+
+`on(executor, f)` hands a function literal to the platform as an SDK
+call's argument (a block, a Java functional interface, a Kotlin
+function), and only there (`LUCENT1007`). When the platform calls `f` on
+the executor, `f` runs there at once, in its context; called from any
+other thread, an `f` returning nothing runs in a turn of the executor,
+and one returning a value is reported as a callback's error is, the
+platform getting a default result. Its microtasks run before it returns.
+
+`f` runs beside module code, so the compiler checks it as a compute task
+(`LUCENT3032`), except that native code of unknown thread is allowed.
+Main-thread native code, module state and computed constants, code the
+compiler can't follow and asynchronous work are refused, and so is an
+`async` `f`. It captures only `const` numbers, strings, booleans,
+bigints, `null` and `undefined`, channels and executors: a `let`, or an
+array, object or native object its maker could change, is refused. What
+it makes leaves through a `Channel`
+([0081](decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md)).
+
 ### Channels
 
 `new Channel<T>(policy, capacity?)` carries values from a producer on any
@@ -714,7 +740,8 @@ whole number from 1, 16 by default and 1 for `"latest"`.
 dropped or never received is released. `receive()` settles on the asking
 context with the next value, or `undefined` once closed and drained, and
 `subscribe(onValue)` delivers values one at a time. A channel crosses to
-a task, which can't receive (`LUCENT3011`), but not to JavaScript.
+a task or an executor's function, which can't receive (`LUCENT3011`, `LUCENT3032`),
+but not to JavaScript.
 
 ### Deadlocks and runtimes
 
@@ -901,5 +928,6 @@ types, `3xxx` modules and where code runs, `9xxx` passed through.
 | `LUCENT3025` | `NativeViewJsx`               | UIKit or Android view JSX its declarations don't provide for                             |
 | `LUCENT3030` | `BorrowEscape`                | a span from `withRead` or `withWrite` that escapes its callback                          |
 | `LUCENT3031` | `UseAfterMove`                | a `NativeBuffer` used after `transfer()` or `compute` moved it                           |
+| `LUCENT3032` | `NotOnExecutor`               | an executor's function that uses module state, main-thread code or async work            |
 | `LUCENT9001` | `TypeScript`                  | a TypeScript error: Lucent compiles only programs that type-check                        |
 | `LUCENT9002` | `InternalError`               | a compiler fault, reported at its function instead of stopping the build                 |

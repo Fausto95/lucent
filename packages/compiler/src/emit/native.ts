@@ -59,6 +59,7 @@ import { javaSubclassName, sdkInstanceMethods } from "./java.ts";
 import { inMainSubclass, subclassNative } from "./objc-subclass.ts";
 import { kotlinShim, type KotlinUse, suspending, type Suspending } from "./kotlin.ts";
 import { callbackEntry, setupOf } from "./setups.ts";
+import { factsOf } from "./compute.ts";
 import {
   isPayloadEnum,
   sdkTypeOf,
@@ -114,6 +115,53 @@ const MAIN_CALLBACKS: Record<string, number> = {
   "lucent:ios.onAppEvent": 1,
   "lucent:ios.onSceneEvent": 1,
 };
+
+/**
+ * `on(executor, f)` from lucent:thread where code is handed to the
+ * platform (an SDK call's argument): its executor and function, the
+ * function checked as executor code. Undefined for any other argument.
+ */
+function handedOn(
+  em: FnEmitter,
+  arg: ts.Expression,
+): { executor: ts.Expression; f: ts.Expression } | undefined {
+  if (!ts.isCallExpression(arg)) return undefined;
+  const b = builtinNamed(em, arg.expression);
+  if (!b || `${b.module}.${b.name}` !== "lucent:thread.on") return undefined;
+  const [executor, f] = arg.arguments;
+  if (!executor || !f || arg.arguments.length !== 2)
+    fail(arg, Codes.UnsupportedCall, "on takes an executor and a function: on(executor, f)");
+  requireExecutorCode(em, f);
+  return { executor, f };
+}
+
+/** The executor an argument jniArgument found in `on(executor, f)`, for jniOf. */
+const handedExecutors = new WeakMap<ts.Node, cpp.Expr>();
+
+/**
+ * Refuses a function handed to an executor that can't run there: it runs
+ * beside its module's code, so it shares nothing with it but what it
+ * captures of constants, channels and executors (decision 0081).
+ */
+function requireExecutorCode(em: FnEmitter, f: ts.Expression): void {
+  if (!(ts.isArrowFunction(f) || ts.isFunctionExpression(f)))
+    fail(
+      f,
+      Codes.UnsupportedCall,
+      "on() takes a function literal: on(executor, (frame) => …), so the compiler checks what it runs",
+    );
+  if (ts.getModifiers(f)?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword))
+    fail(
+      f,
+      Codes.NotOnExecutor,
+      "a function on an executor runs to its end there: it cannot be async",
+    );
+  const facts = factsOf(em.ctx);
+  const unit = facts.unit(f);
+  if (!unit) return;
+  const [violation] = [...facts.check(unit, "executor"), ...facts.checkCaptures(unit, "executor")];
+  if (violation) fail(f, Codes.NotOnExecutor, violation.message);
+}
 
 /** Inside `main(() => …)`: the nearest function is main's argument (or another main-thread built-in's). */
 export function inMainContext(em: FnEmitter, node: ts.Node): boolean {
@@ -181,6 +229,21 @@ export function nativeOfClass(
   if (to.platform === "android")
     return jni("wrap", jni("env"), javaObjectOfClass(em, e, to, node), cpp.str(name));
   return cpp.call(`lucent_app::${swiftOnly ? "swiftObjectOf" : "objcObjectOf"}`, [e.c]);
+}
+
+/**
+ * An executor (lucent:thread's) where the SDK takes a platform object: its
+ * dispatch queue on iOS, a java.util.concurrent.Executor running on it on
+ * Android.
+ */
+export function nativeOfExecutor(em: FnEmitter, e: E, to: LType & { k: "native" }): cpp.Expr {
+  const unit = em.ctx.nativeUnit(em.opts.module);
+  if (to.platform === "ios") {
+    unit.include("lucent/platform/ios.h");
+    return cpp.call("lucent::objc::queueOf", [e.c]);
+  }
+  unit.include("lucent/platform/android.h");
+  return jni("wrap", jni("env"), jni("executorOf", jni("env"), e.c), cpp.str("an executor"));
 }
 
 /** The schema type of argument `index` of a call of an SDK method, constructor or function. */
@@ -610,6 +673,7 @@ function objcBlock(
   lt: LType,
   t: SdkType & { k: "fn" },
   use: Pick<BindingPlan, "display" | "symbol" | "artifact">,
+  executor?: cpp.Expr,
 ): cpp.Expr {
   const fn = lt.k === "opt" ? lt.inner : lt;
   if (fn.k !== "fn") fail(node, Codes.UnsupportedType, "pass a function");
@@ -639,7 +703,7 @@ function objcBlock(
   const after = outs.map((i) =>
     cpp.exprStmt(cpp.call("lucent::objc::writeOut", [cpp.id(`o${i}_`), cpp.id(names[i]!)])),
   );
-  const entry = callbackEntry(em, node);
+  const entry = callbackEntry(em, node, executor && cpp.id("x_"));
   let body: cpp.Stmt[];
   if (!isVoid) {
     const r = cpp.id("r_");
@@ -665,7 +729,11 @@ function objcBlock(
     body = [cpp.exprStmt(entry.later(queued))];
   }
   const params = t.params.map((p, i) => cpp.param(objcType(p), names[i]));
-  const block = cpp.lambda([{ name: "f_", init: f }], params, body);
+  const block = cpp.lambda(
+    [{ name: "f_", init: f }, ...(executor ? [{ name: "x_", init: executor }] : [])],
+    params,
+    body,
+  );
   return cpp.call("lucent::objc::block", [block], [objcType({ ...t, nullable: false })]);
 }
 
@@ -775,6 +843,13 @@ export function toObjc(
       : cpp.call("lucent::objc::toNSError", [v]);
   }
   if (t.k === "fn") {
+    // A function on an executor: on(executor, f).
+    const handed = handedOn(em, arg);
+    if (handed) {
+      const x = em.exprAs(handed.executor, T.executor);
+      const g = em.expr(handed.f);
+      return objcBlock(em, handed.f, g.c, g.t, t, use, x);
+    }
     const f = em.expr(arg);
     // No block: `null` or `undefined` where the platform takes none.
     if (t.nullable && (f.t.k === "null" || f.t.k === "undefined")) return cpp.id("nil");
@@ -1185,6 +1260,11 @@ function jniArgument(em: FnEmitter, ref: SdkClassRef, arg: ts.Expression, t: Sdk
       return { c: cpp.id("lucent::undefined"), t: T.undefined };
     case "ref": {
       const lt: LType = { k: "native", platform: ref.platform, module: t.module, name: t.name };
+      const handed = handedOn(em, arg);
+      if (handed) {
+        handedExecutors.set(arg, em.exprAs(handed.executor, T.executor));
+        return em.expr(handed.f);
+      }
       const value = em.expr(arg);
       if (value.t.k === "fn") return value;
 
@@ -1192,9 +1272,13 @@ function jniArgument(em: FnEmitter, ref: SdkClassRef, arg: ts.Expression, t: Sdk
       return { c: em.coerce(value, typed, arg), t: typed };
     }
     case "tparam":
-    case "fn":
-      // A function as it is (a Kotlin function made of it), or null.
-      return em.expr(arg);
+    case "fn": {
+      // A function as it is (a Kotlin function made of it), or null; on an executor: on(executor, f).
+      const handed = t.k === "fn" ? handedOn(em, arg) : undefined;
+      if (!handed) return em.expr(arg);
+      handedExecutors.set(arg, em.exprAs(handed.executor, T.executor));
+      return em.expr(handed.f);
+    }
     default:
       throw new Error(`${t.k} values, which plans refuse over JNI`);
   }
@@ -1253,13 +1337,13 @@ function jniOf(em: FnEmitter, arg: ts.Expression, t: SdkType, value: E): cpp.Exp
       return cpp.call("LUCENT_JNI_CLASS", [javaClass(em, named.cls.native)]);
     }
     case "ref":
-      if (value.t.k === "fn") return javaProxy(em, arg, value, t);
+      if (value.t.k === "fn") return javaProxy(em, arg, value, t, handedExecutors.get(arg));
       if (eitherMembers(value.t)) return jniEither(em, arg, t, value);
       return jni("unwrap", value.c);
     case "tparam":
       return toJavaObject(arg, value);
     case "fn":
-      return toKotlinFunction(em, arg, t, value);
+      return toKotlinFunction(em, arg, t, value, handedExecutors.get(arg));
     default:
       throw new Error(`${t.k} values, which plans refuse over JNI`);
   }
@@ -1357,7 +1441,13 @@ export function fromJavaObject(code: cpp.Expr, lt: LType, what: string, node: ts
  * A Lucent function where Java takes an interface with one abstract method:
  * a NativeProxy (one per function and interface) implementing that method.
  */
-function javaProxy(em: FnEmitter, arg: ts.Expression, f: E, t: SdkType & { k: "ref" }): cpp.Expr {
+function javaProxy(
+  em: FnEmitter,
+  arg: ts.Expression,
+  f: E,
+  t: SdkType & { k: "ref" },
+  executor?: cpp.Expr,
+): cpp.Expr {
   const iface = findSdkType("android", t.module, t.name);
   const sam =
     iface?.kind === "class" && iface.functional
@@ -1379,13 +1469,29 @@ function javaProxy(em: FnEmitter, arg: ts.Expression, f: E, t: SdkType & { k: "r
     f.t as LType & { k: "fn" },
     "f_",
     (a) => cpp.call(fv, a),
+    executor,
   );
   const identity = cpp.call(cpp.dot(fv, "identity"));
   return cpp.statementExpr(
-    [cpp.varDecl(cpp.auto, "f_", f.c)],
-    jni("proxyFor", env, javaClass(em, iface.native), identity, cpp.initList([entry])),
+    [
+      cpp.varDecl(cpp.auto, "f_", f.c),
+      ...(executor ? [cpp.varDecl(cpp.auto, "x_", executor)] : []),
+    ],
+    jni(
+      "proxyFor",
+      env,
+      javaClass(em, iface.native),
+      identity,
+      cpp.initList([entry]),
+      // One object per function and executor: on(exec, f) and f alone are two.
+      ...(executor ? [executorVariant()] : []),
+    ),
   );
 }
+
+/** The proxy variant of a function on executor `x_`, so it and the function alone are cached apart. */
+const executorVariant = (): cpp.Expr =>
+  cpp.call(cpp.dot(jni("executorVariant", cpp.id("x_")), "c_str"));
 
 /**
  * One method of a proxy: `capture` is what it holds (the function or the
@@ -1402,6 +1508,7 @@ function proxyEntry(
   fn: LType & { k: "fn" },
   capture: cpp.Capture,
   call: (args: cpp.Expr[]) => cpp.Expr,
+  executor?: cpp.Expr,
 ): cpp.Expr {
   const params = m.params.map((p) => parseSdkType(p.type, module, m.typeParams ?? []));
   const n = Math.min(fn.params.length, params.length);
@@ -1453,6 +1560,7 @@ function proxyEntry(
     fn,
     capture,
     call,
+    executor,
   });
 }
 
@@ -1499,6 +1607,8 @@ function proxyMethod(
     fn: LType & { k: "fn" };
     capture: cpp.Capture;
     call: (args: cpp.Expr[]) => cpp.Expr;
+    /** Handed over with on(executor, f): the executor, as a local the method captures (`x_`). */
+    executor?: cpp.Expr;
   },
 ): cpp.Expr {
   const args = proxyArguments(em, node, m.params, m.fn, m.what, m.unboxed);
@@ -1507,7 +1617,7 @@ function proxyMethod(
   const holder = typeof m.capture === "string" ? m.capture : m.capture.name;
   const made = m.call(names.map(cpp.id));
   const jobject = cpp.type("jobject");
-  const entry = callbackEntry(em, node);
+  const entry = callbackEntry(em, node, m.executor && cpp.id("x_"));
 
   // A suspend function: the call is queued, and the continuation resumed once it settles.
   const resumed = (k: number): cpp.Stmt[] => {
@@ -1573,7 +1683,7 @@ function proxyMethod(
             ),
           ];
   const method = cpp.lambda(
-    [m.capture],
+    [m.capture, ...(m.executor ? ["x_"] : [])],
     [
       cpp.param(cpp.pointer(cpp.type("JNIEnv")), "env"),
       cpp.param(cpp.type("jobjectArray"), "args_"),
@@ -1751,9 +1861,11 @@ function toKotlinFunction(
   arg: ts.Expression,
   t: SdkType & { k: "fn" },
   value: E,
+  executor?: cpp.Expr,
 ): cpp.Expr {
   if (value.t.k === "null" || value.t.k === "undefined") return cpp.nullptr;
-  if (value.t.k === "opt") return whenPresent(value, (v) => toKotlinFunction(em, arg, t, v));
+  if (value.t.k === "opt")
+    return whenPresent(value, (v) => toKotlinFunction(em, arg, t, v, executor));
 
   const fn = value.t;
   if (fn.k !== "fn") fail(arg, Codes.UnsupportedType, "pass a function");
@@ -1782,16 +1894,21 @@ function toKotlinFunction(
     fn,
     capture: "f_",
     call: (a) => cpp.call(cpp.id("f_"), a),
+    executor,
   });
 
   return cpp.statementExpr(
-    [cpp.varDecl(cpp.auto, "f_", value.c)],
+    [
+      cpp.varDecl(cpp.auto, "f_", value.c),
+      ...(executor ? [cpp.varDecl(cpp.auto, "x_", executor)] : []),
+    ],
     jni(
       "proxyFor",
       env,
       javaClass(em, `kotlin/jvm/functions/Function${t.params.length}`),
       cpp.call(cpp.dot(cpp.id("f_"), "identity")),
       cpp.initList([entry]),
+      ...(executor ? [executorVariant()] : []),
     ),
   );
 }
@@ -3629,6 +3746,22 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
         fail(f, Codes.UnsupportedCall, "the function passed to main cannot return a promise");
       return { c: cpp.call("lucent::runOnMain", [closure.c]), t };
     }
+    case "lucent:thread.executor": {
+      if (args.length !== 1)
+        fail(node, Codes.UnsupportedCall, 'executor takes its label: executor("camera.frames")');
+      const label = em.exprAs(args[0]!, T.string);
+      return {
+        c: cpp.call("lucent::ExecutorContext::create", [cpp.call(cpp.dot(label, "toUtf8"), [])]),
+        t: T.executor,
+      };
+    }
+    case "lucent:thread.on":
+      fail(
+        node,
+        Codes.UnsupportedCall,
+        "on() hands a function to the platform: pass it straight to the SDK call that takes it, as in setAnalyzer(frames, on(frames, (image) => …))",
+      );
+    // falls through: fail throws
     case "lucent:ios.asString":
     case "lucent:ios.asNumber":
     case "lucent:ios.asBoolean":

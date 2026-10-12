@@ -784,6 +784,69 @@ Opt<NativeRef> hostContext() {
   return wrapOpt(e, context);
 }
 
+namespace {
+
+using ExecutorHandle = std::shared_ptr<ExecutorContext>;
+
+/** LucentExecutor.post: runs `command` on the executor, outside its turns, as an executor runs platform work. */
+jboolean JNICALL executorPost(JNIEnv* e, jclass, jlong handle, jobject command) {
+  return reported(e, "an executor's execute", static_cast<jboolean>(JNI_FALSE), [&] {
+    auto& executor = *reinterpret_cast<ExecutorHandle*>(handle);
+    jobject runnable = e->NewGlobalRef(command);
+    bool posted = executor->execute([runnable] {
+      JNIEnv* env = jni::env();
+      static jmethodID run = method(findClass("java/lang/Runnable"), "run", "()V");
+      env->CallVoidMethod(runnable, run);
+      if (env->ExceptionCheck()) {
+        // A Runnable that throws on an executor: reported, as a callback's error is.
+        try {
+          rethrowPending(env);
+        } catch (...) {
+          reportUncaught(std::current_exception(), "a Runnable on an executor");
+        }
+      }
+      env->DeleteGlobalRef(runnable);
+    });
+    if (!posted) e->DeleteGlobalRef(runnable);
+    return posted ? static_cast<jboolean>(JNI_TRUE) : static_cast<jboolean>(JNI_FALSE);
+  });
+}
+
+/** LucentExecutor.release, from its finalizer: the Java object's hold on the executor ends. */
+void JNICALL executorRelease(JNIEnv* e, jclass, jlong handle) {
+  reported(e, "an executor's release", [&] { delete reinterpret_cast<ExecutorHandle*>(handle); });
+}
+
+jclass lucentExecutorClass(JNIEnv* e) {
+  static jclass cls = [&] {
+    jclass c = findClass("dev/lucent/LucentExecutor");
+    JNINativeMethod natives[] = {
+        {const_cast<char*>("post"), const_cast<char*>("(JLjava/lang/Runnable;)Z"), reinterpret_cast<void*>(executorPost)},
+        {const_cast<char*>("release"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(executorRelease)},
+    };
+    e->RegisterNatives(c, natives, 2);
+    check(e);
+    return c;
+  }();
+  return cls;
+}
+
+}  // namespace
+
+jobject executorOf(JNIEnv* e, const std::shared_ptr<ExecutorContext>& executor) {
+  jclass c = lucentExecutorClass(e);
+  static jmethodID init = method(c, "<init>", "(JLjava/lang/String;)V");
+  auto* handle = new ExecutorHandle(executor);
+  jstring label = e->NewStringUTF(executor->label().c_str());
+  jobject o = e->NewObject(c, init, reinterpret_cast<jlong>(handle), label);
+  e->DeleteLocalRef(label);
+  if (e->ExceptionCheck()) {
+    delete handle;
+    rethrowPending(e);
+  }
+  return o;
+}
+
 #ifdef __ANDROID__
 bool available(double api) {
   static int level = [] {

@@ -304,7 +304,7 @@ Lucent code runs on these kinds of execution context (C-EXEC,
 | Module actor | A package's exports, async continuations and platform callbacks           | One fair lock and one thread per import component; the thread starts with its first job |
 | Main         | Component setups, effects and commands; `main()` callbacks; iOS lifecycle | The platform's UI loop; never takes a ticket on an actor's lock                         |
 | Compute      | `compute(task, input)`                                                    | A bounded pool; tasks share no state and take no lock                                   |
-| Executor     | Platform callbacks put on it with `on(exec, …)` (in progress)             | A serial queue of its own; never takes an actor's lock                                  |
+| Executor     | Functions handed to the platform with `on(exec, f)`; objects planned      | A serial queue of its own; never takes an actor's lock                                  |
 
 Each context has its own queue, microtask queue and root scope. A promise
 belongs to the context current at its creation, and its continuations
@@ -377,25 +377,37 @@ context.
 
 ### Executors
 
-In progress ([0078][d0078], [T109](../tasks.md#t109)). The runtime has
-`ExecutorContext` (C-EXEC v1.8): a serial dispatch queue on Apple
-platforms, a thread of its own elsewhere, never taking an actor's lock.
-The compiler and the platform glue don't expose it yet. The planned API:
+In progress ([0078][d0078], [0081][d0081], [T109](../tasks.md#t109)).
+`executor(label)` from `lucent:thread` is an `ExecutorContext` (C-EXEC
+v1.8): a serial dispatch queue on Apple platforms, a thread of its own
+elsewhere, never taking an actor's lock. Platform APIs take it as a queue
+or a `java.util.concurrent.Executor` (`dev.lucent.LucentExecutor`):
 
 ```ts
+import { Channel } from "lucent:core";
 import { executor, on } from "lucent:thread";
 
+// In the function that hands the analyzer over: what it captures is made there.
 const frames = executor("camera.frames");
-output.setSampleBufferDelegate(on(frames, new FrameHandler()), frames);
+const sizes = new Channel<number>("latest");
+analysis.setAnalyzer(
+  frames,
+  on(frames, (image) => {
+    sizes.send(image.getWidth() * image.getHeight());
+    image.close();
+  }),
+);
 ```
 
-`executor(label)` is a queue, or an Android `Executor`, that platform APIs
-take as they are; it replaces `serialQueue()` for them. `on(exec, …)`
-wraps a delegate or a closure where it is handed to the platform, and the
-glue enters the executor directly. Executor code is checked as a compute
-task's is, but may call native code of any thread or of its own. It keeps
-state only in members no other code touches, and its results leave
-through a `Channel` or as `EventEmitter` events.
+`on(exec, f)` wraps a function literal where it is handed to the
+platform: a block, a Java functional interface or a Kotlin function. The
+glue enters the executor's context at once when the platform calls it
+there, and posts a turn from any other thread. Executor code is checked
+as a compute task's is, but may use native code of unknown thread. It
+captures only constants, channels and executors, and its results leave
+through a `Channel`. **Planned:** `on(exec, delegate)` for objects, with
+members only executor code touches, and `EventEmitter` events posted from
+an executor.
 
 ### Channels
 
@@ -437,17 +449,17 @@ it names.
 
 ### Call directions
 
-| Call                                   | Where it runs                                                         | Values                            |
-| -------------------------------------- | --------------------------------------------------------------------- | --------------------------------- |
-| JavaScript → synchronous export        | JS thread, holding the actor's lock                                   | Validated; copied or lent         |
-| JavaScript → async export              | The actor's thread; the result is posted to JavaScript                | Copied at the call                |
-| JavaScript → component command         | Queued to the mount on the main thread; a request answers a promise   | Copied                            |
-| Platform → callback with no result     | A turn of the actor (`postCallback`)                                  | Retained or copied by the binding |
-| Platform → callback that answers       | The calling thread, holding the actor (`callNow`); on main, see above | Retained or copied by the binding |
-| Platform → executor callback (planned) | The executor's queue, entered directly; no actor                      | The executor's own state only     |
-| Module code → `main(f)`                | The main thread once the actor is free, holding it                    | Shared with the module            |
-| Module or view code → `compute`        | A worker; the result settles on the caller's context                  | Copied, or moved for buffers      |
-| Lucent → JavaScript callback           | At once inside a synchronous call from JavaScript; posted otherwise   | Copied                            |
+| Call                               | Where it runs                                                         | Values                            |
+| ---------------------------------- | --------------------------------------------------------------------- | --------------------------------- |
+| JavaScript → synchronous export    | JS thread, holding the actor's lock                                   | Validated; copied or lent         |
+| JavaScript → async export          | The actor's thread; the result is posted to JavaScript                | Copied at the call                |
+| JavaScript → component command     | Queued to the mount on the main thread; a request answers a promise   | Copied                            |
+| Platform → callback with no result | A turn of the actor (`postCallback`)                                  | Retained or copied by the binding |
+| Platform → callback that answers   | The calling thread, holding the actor (`callNow`); on main, see above | Retained or copied by the binding |
+| Platform → `on(exec, f)` callback  | The executor's queue, entered directly; no actor                      | Constants, channels and executors |
+| Module code → `main(f)`            | The main thread once the actor is free, holding it                    | Shared with the module            |
+| Module or view code → `compute`    | A worker; the result settles on the caller's context                  | Copied, or moved for buffers      |
+| Lucent → JavaScript callback       | At once inside a synchronous call from JavaScript; posted otherwise   | Copied                            |
 
 ### Several runtimes
 
@@ -1037,5 +1049,6 @@ change.
 [d0076]: ../decisions/0076-an-app-delegate-and-activity-subscriber.md
 [d0077]: ../decisions/0077-the-web-is-a-target-for-shared-modules.md
 [d0078]: ../decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md
+[d0081]: ../decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md
 [d0079]: ../decisions/0079-react-native-0-85-is-in-the-window-and-no-release-needs-a-fallback.md
 [d0080]: ../decisions/0080-the-plan-is-rewritten-for-parity-with-nitro-and-expo-modules.md

@@ -66,6 +66,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT3025`](#lucent3025) | JSX of UIKit or Android views that Lucent cannot make: a view, attribute or child its declarations do not provide for. |
 | [`LUCENT3030`](#lucent3030) | A span that withRead or withWrite lends escapes its callback: returned, stored, kept by a closure or callee, or held across await. |
 | [`LUCENT3031`](#lucent3031) | A NativeBuffer is used after transfer() or after it was handed to compute(), which move its bytes to another buffer. |
+| [`LUCENT3032`](#lucent3032) | A function handed to an executor with on() uses module state, main-thread native code or async work, or captures what its maker can change. |
 | [`LUCENT9001`](#lucent9001) | A TypeScript error. Lucent stops at type errors, because it compiles from the checker's types. |
 | [`LUCENT9002`](#lucent9002) | Lucent failed to compile a function it accepted: a bug in the compiler, reported at the function instead of stopping the build. |
 
@@ -1671,6 +1672,62 @@ export function size(): number {
   const buffer = NativeBuffer.allocate(8);
   const moved = buffer.transfer();
   return moved.byteLength;
+}
+```
+
+</TabItem>
+</Tabs>
+
+### LUCENT3032
+
+**Code that cannot run on an executor**
+
+A function on an executor runs on the executor's thread while module code keeps running, so the two share nothing either can change. Module state, computed constants, main-thread native code, code the compiler cannot follow and `await` break that rule, as in a compute task. It may capture `const` numbers, strings, booleans and bigints, channels and executors, and may use native code of unknown thread.
+
+**Fix:** send what it makes through a Channel made beside it, and keep module state on the module's thread.
+
+<Tabs>
+<TabItem label="✗ example.lucent.ts">
+
+```ts title="example.lucent.ts (wrong)"
+import { PLATFORM } from "lucent:platform";
+import { CompletableFuture } from "lucent:android/java.util.concurrent";
+import { executor, on } from "lucent:thread";
+let runs = 0;
+export function start(): number {
+  if (PLATFORM !== "android") return runs;
+  const worker = executor("worker");
+  CompletableFuture.runAsync(
+    on(worker, () => {
+      runs++;
+    }),
+    worker,
+  );
+  return runs;
+}
+```
+
+</TabItem>
+<TabItem label="✓ example.lucent.ts">
+
+```ts title="example.lucent.ts (right)"
+import { Channel } from "lucent:core";
+import { PLATFORM } from "lucent:platform";
+import { CompletableFuture } from "lucent:android/java.util.concurrent";
+import { executor, on } from "lucent:thread";
+let runs = 0;
+export async function start(): Promise<number> {
+  if (PLATFORM !== "android") return runs;
+  const worker = executor("worker");
+  const done = new Channel<number>("latest");
+  CompletableFuture.runAsync(
+    on(worker, () => {
+      done.send(1);
+    }),
+    worker,
+  );
+  runs += (await done.receive()) ?? 0;
+  return runs;
 }
 ```
 

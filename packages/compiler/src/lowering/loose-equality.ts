@@ -57,6 +57,7 @@ const LOOSE: Record<Exclude<LType["k"], "opt" | "union">, Loose> = {
   registry: "object",
   channel: "object",
   nativeHandle: "object",
+  executor: "object",
 };
 
 /** The kinds `==` converts between, in the order the diagnostic names them. */

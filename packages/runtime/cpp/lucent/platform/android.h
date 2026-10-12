@@ -3,7 +3,9 @@
 
 #include <jni.h>
 
+#include <cstdint>
 #include <functional>
+#include <string>
 #include <initializer_list>
 #include <utility>
 
@@ -53,6 +55,17 @@ Opt<NativeRef> nativeError(const Error& error);
 /// reference keeps the Java buffer reachable until the bytes are released.
 /// TypeError for a heap buffer (over a Java array) or a read-only one.
 NativeBuffer adoptByteBuffer(const NativeRef& buffer);
+
+/// An executor (lucent:thread's `executor(label)`) where Java takes a
+/// java.util.concurrent.Executor: a dev.lucent.LucentExecutor (a local
+/// ref) that runs each Runnable on the executor's thread, outside its
+/// turns, and keeps the executor alive until it is collected.
+jobject executorOf(JNIEnv* env, const std::shared_ptr<ExecutorContext>& executor);
+/// A proxy's variant (proxyFor) for a function handed over on `executor`
+/// with lucent:thread's on(), so it and the function alone are two objects.
+inline std::string executorVariant(const std::shared_ptr<ExecutorContext>& executor) {
+  return "executor@" + std::to_string(reinterpret_cast<std::uintptr_t>(executor.get()));
+}
 
 /// Closes an AutoCloseable (a Closeable, a Cursor…): how a `using`
 /// declaration disposes one. Throws what close() throws.

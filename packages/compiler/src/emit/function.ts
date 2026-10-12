@@ -445,6 +445,8 @@ export class FnEmitter {
     }
     // A Lucent class implementing an SDK protocol, where the SDK takes one.
     if (from.k === "class" && to.k === "native") return native.nativeOfClass(this, e, to, node);
+    // An executor where the SDK takes a queue (iOS) or an Executor (Android).
+    if (from.k === "executor" && to.k === "native") return native.nativeOfExecutor(this, e, to);
     fail(node, Codes.UnsupportedType, `cannot convert ${typeKey(from)} to ${typeKey(to)}`);
   }
 

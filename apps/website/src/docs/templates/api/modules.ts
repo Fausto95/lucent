@@ -72,7 +72,8 @@ export function greeting(): string {
     slug: "api/lucent-thread",
     frontmatter: {
       title: "lucent:thread",
-      description: "Run code on the platform's main thread.",
+      description:
+        "Run code on the platform's main thread, or hand callbacks to an executor of their own.",
       kind: "reference",
     },
     intro: [],

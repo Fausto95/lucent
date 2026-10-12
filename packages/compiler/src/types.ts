@@ -62,6 +62,8 @@ export type LType =
   | { k: "buffer" }
   /** lucent:core's NativeHandle (lucent::NativeHandle): an address for other native code, held until released. */
   | { k: "nativeHandle" }
+  /** lucent:thread's Executor (lucent::ExecutorContext): a serial context of its own, for platform callbacks. */
+  | { k: "executor" }
   /** The bytes a NativeBuffer borrow lends (ByteSpan, or MutableByteSpan when writable). */
   | { k: "span"; writable: boolean }
   | { k: "tparam"; name: string }
@@ -118,6 +120,7 @@ export const T = {
   abortController: { k: "abortController" } as LType,
   buffer: { k: "buffer" } as LType,
   nativeHandle: { k: "nativeHandle" } as LType,
+  executor: { k: "executor" } as LType,
   span: { k: "span", writable: false } as LType,
   mutableSpan: { k: "span", writable: true } as LType,
   subscription: { k: "subscription" } as LType,
@@ -1081,6 +1084,8 @@ export class TypeRegistry {
     // lucent:ios's NSObject and Out are platform objects too, and so are a
     // toolkit's values (SwiftUI's types are interfaces).
     const declaredIn = decl && builtinSdkModuleOf(decl.getSourceFile());
+    // lucent:thread's Executor: Lucent's own, which becomes a platform object only where it is handed over.
+    if (declaredIn === "lucent:thread" && sdkSym?.name === "Executor") return T.executor;
     const toolkitValue = !!decl && ts.isInterfaceDeclaration(decl) && !!toolkitOfModule(declaredIn);
     const builtin = decl && (ts.isClassDeclaration(decl) || toolkitValue) ? declaredIn : undefined;
     if (builtin && sdkSym)
@@ -1662,6 +1667,8 @@ export class TypeRegistry {
         return lucent("NativeBuffer");
       case "nativeHandle":
         return lucent("NativeHandle");
+      case "executor":
+        return cpp.type("std::shared_ptr", lucent("ExecutorContext"));
       case "jsvalue":
         return lucent("JSValue");
       case "span":

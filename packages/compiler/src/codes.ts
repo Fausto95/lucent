@@ -49,6 +49,7 @@ export const Codes = {
   NativeViewJsx: "LUCENT3025",
   BorrowEscape: "LUCENT3030",
   UseAfterMove: "LUCENT3031",
+  NotOnExecutor: "LUCENT3032",
   TypeScript: "LUCENT9001",
   InternalError: "LUCENT9002",
 } as const;
@@ -713,6 +714,21 @@ export const Explanations: Record<Code, Explanation> = {
     right: ex(
       'import { NativeBuffer } from "lucent:core";\nexport function size(): number {\n  const buffer = NativeBuffer.allocate(8);\n  const moved = buffer.transfer();\n  return moved.byteLength;\n}\n',
     ),
+  },
+  LUCENT3032: {
+    title: "Code that cannot run on an executor",
+    summary:
+      "A function handed to an executor with on() uses module state, main-thread native code or async work, or captures what its maker can change.",
+    details:
+      "A function on an executor runs on the executor's thread while module code keeps running, so the two share nothing either can change. Module state, computed constants, main-thread native code, code the compiler cannot follow and `await` break that rule, as in a compute task. It may capture `const` numbers, strings, booleans and bigints, channels and executors, and may use native code of unknown thread.",
+    fix: "send what it makes through a Channel made beside it, and keep module state on the module's thread",
+    wrong: ex(
+      'import { PLATFORM } from "lucent:platform";\nimport { CompletableFuture } from "lucent:android/java.util.concurrent";\nimport { executor, on } from "lucent:thread";\nlet runs = 0;\nexport function start(): number {\n  if (PLATFORM !== "android") return runs;\n  const worker = executor("worker");\n  CompletableFuture.runAsync(\n    on(worker, () => {\n      runs++;\n    }),\n    worker,\n  );\n  return runs;\n}\n',
+    ),
+    right: ex(
+      'import { Channel } from "lucent:core";\nimport { PLATFORM } from "lucent:platform";\nimport { CompletableFuture } from "lucent:android/java.util.concurrent";\nimport { executor, on } from "lucent:thread";\nlet runs = 0;\nexport async function start(): Promise<number> {\n  if (PLATFORM !== "android") return runs;\n  const worker = executor("worker");\n  const done = new Channel<number>("latest");\n  CompletableFuture.runAsync(\n    on(worker, () => {\n      done.send(1);\n    }),\n    worker,\n  );\n  runs += (await done.receive()) ?? 0;\n  return runs;\n}\n',
+    ),
+    sdk: "android",
   },
   LUCENT9001: {
     title: "TypeScript error",
