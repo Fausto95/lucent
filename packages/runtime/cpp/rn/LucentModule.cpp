@@ -33,8 +33,11 @@ LucentModule::~LucentModule() {
     // Objects a cycle of strong references keeps for good, each cycle once
     // however many reloads keep finding it.
     for (const auto& cycle : lucent::debug::cycles(true)) {
-      std::string message = "[lucent] " + lucent::debug::describe(cycle);
+      std::string report = lucent::debug::describe(cycle);
+      std::string message = "[lucent] " + report;
       lucent::logError(message.c_str());
+      // The next runtime's loader shows it in LogBox (__lucentDebug.cycles()).
+      lucent::debug::keepReport(std::move(report));
     }
   });
 #endif

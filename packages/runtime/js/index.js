@@ -20,7 +20,24 @@ function getNative(registry) {
         "(iOS: `pod install` first).",
     );
   }
+  showCycles();
   return native;
+}
+
+/**
+ * A debug build's reference cycles that the last teardown (a reload) found,
+ * written once as warnings, which LogBox shows. Release builds have no
+ * __lucentDebug.
+ */
+function showCycles() {
+  const debug = globalThis.__lucentDebug;
+  if (!debug || typeof debug.cycles !== "function") return;
+  Promise.resolve(debug.cycles()).then(
+    (cycles) => {
+      for (const cycle of cycles || []) console.warn(`Lucent: ${cycle}`);
+    },
+    () => {},
+  );
 }
 
 const REBUILD =

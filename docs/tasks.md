@@ -59,7 +59,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [TA35](#ta35) | Bind a package's own pods in an Expo app                          | ready; needs nothing open                                                                                                         |
 | [TA39](#ta39) | ES2023 and ES2024 library methods                                 | done (#159, #160, 2026-10-11)                                                                                                     |
 | [TA40](#ta40) | Deterministic finalization and dispose from JavaScript            | done (#176, #179, 2026-10-11)                                                                                                     |
-| [TA41](#ta41) | Name reference cycles in debug builds                             | in progress (#184, #185 merged)                                                                                                   |
+| [TA41](#ta41) | Name reference cycles in debug builds                             | waiting (needs the maintainer: a device check); #184, #185, #PR_A merged                                                          |
 | [TA42](#ta42) | Throw `RangeError` on stack exhaustion                            | done (#173, 2026-10-11)                                                                                                           |
 | [TA44](#ta44) | `WeakMap` and `WeakSet` keyed by instances                        | done (#170, 2026-10-11)                                                                                                           |
 | [TA46](#ta46) | A web target for shared modules                                   | blocked: a scope decision; needs nothing open                                                                                     |
@@ -2501,8 +2501,9 @@ drops it, through a registry or `using`, with the e2e case green.
 cycle that keeps them: the fields and closure captures on the path, with
 their `.lucent.ts` lines.
 
-- **Status:** in progress: classes and structs merged as #184, closures
-  as #185; the snapshot and LogBox are next.
+- **Status:** waiting (needs the maintainer: the example app on a
+  device or simulator, for Done when): classes and structs merged as
+  #184, closures as #185, the snapshot and LogBox as #PR_A.
 - **Area:** Runtime (live, debug), compiler (classes), tooling (dev).
 - **Needs:** none.
 - **Verify:** V1, V3.
@@ -2515,7 +2516,7 @@ Why: cycles leak by design (not planned to collect); the common shape in
 SDK code is a class holding a closure that captures `this`. Today's
 teardown report says what is left, not why.
 
-- [ ] Debug builds give every class, struct and closure a `visitRefs`
+- [x] Debug builds give every class, struct and closure a `visitRefs`
       that enumerates its strong references with the member's or
       capture's name and source line; a teardown sweep walks what is
       left from the roots the host still holds and prints each cycle once
@@ -2530,9 +2531,18 @@ teardown report says what is left, not why.
       closure that captures what may refer to objects is a
       `lucent::Closure` (its captures in a tuple, named), function values
       report through it, and emitters report their listeners.
-- [ ] `lucent dev` shows the report in LogBox after a reload, once per
+- [x] `lucent dev` shows the report in LogBox after a reload, once per
       cycle; `debugSnapshot()` carries it; Release builds compile none of
-      it.
+      it. A teardown keeps each new cycle's description
+      (`debug::keepReport`); the next runtime's loader asks
+      `__lucentDebug.cycles()` once, a promise settled after the module
+      context has run the teardown's walk, and writes each as a
+      `console.warn`, which LogBox shows; snapshots list them as `cycles`
+      (#PR_A). Release builds never walk or report, but the
+      `lucentRefs_` overrides are compiled in every build, so no class
+      layout depends on NDEBUG (the prebuilt core and the app can differ).
+      Seeing it in the example app after a reload is the maintainer's
+      check (Done when).
 - [x] A fix hint per cycle names the `WeakRef` to add: the last field,
       the reference back to the cycle's oldest object (#184).
 - [x] Tests: `debug_test.cpp` with a two-object cycle and a closure cycle.
