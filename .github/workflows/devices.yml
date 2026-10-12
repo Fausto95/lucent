@@ -80,7 +80,15 @@ jobs:
           xcodebuild -workspace BareExample.xcworkspace -scheme BareExample \
             -configuration Debug -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO FORCE_BUNDLING=1 build | tee build.log | tail -n 200
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO FORCE_BUNDLING=1 build | tee build.log | tail -n 200 || {
+            code=$?
+            # The failure's annotation keeps the output's end: the compiler's errors, last.
+            echo "The build's errors:"
+            grep -E ': (fatal )?error: |^ld: ' build.log | sort -u | head -20 | cut -c1-400
+            # A linker error names its symbols, and their objects, on the lines after it.
+            grep -E -A4 '^(duplicate symbol|Undefined symbols)' build.log | head -30 | cut -c1-400
+            exit $code
+          }
       # A Debug build loads its bundle from Metro: started here, and asked for the bundle once
       # so that the app's first request doesn't wait for the whole build.
       - name: Start Metro

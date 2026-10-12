@@ -337,7 +337,15 @@ jobs:
           xcodebuild -workspace BareExample.xcworkspace -scheme BareExample \
             -configuration Debug -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tee build.log | tail -n 200
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tee build.log | tail -n 200 || {
+            code=$?
+            # The failure's annotation keeps the output's end: the compiler's errors, last.
+            echo "The build's errors:"
+            grep -E ': (fatal )?error: |^ld: ' build.log | sort -u | head -20 | cut -c1-400
+            # A linker error names its symbols, and their objects, on the lines after it.
+            grep -E -A4 '^(duplicate symbol|Undefined symbols)' build.log | head -30 | cut -c1-400
+            exit $code
+          }
       - name: Keep the build log
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
