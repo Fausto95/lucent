@@ -57,7 +57,7 @@ what became of each one that is still linked or was still open.
 | [T135](#t135)            | JavaScript tasks from background entry points              | blocked: a decision on whether Lucent offers it                 |
 | [T136](#t136)            | App Intents, Live Activities and Android widget bodies     | waiting; needs T131, T133                                       |
 | **Distribution**         |                                                            |                                                                 |
-| [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190, #191, #194, #195, #200 merged, as T75)       |
+| [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190, #191, #194, #195, #200, #204 merged)         |
 | [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | ready                                                           |
 | [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | ready                                                           |
 | [T143](#t143)            | Typed Kotlin and Java sources in packages                  | ready                                                           |
@@ -1052,30 +1052,31 @@ read, so Lucent has to generate them.
 
 ### T140: A window of stable React Native and Expo releases, run
 
-**Goal:** Apps on every release in the window build and run, and the
-templates and example apps use a stable release.
+**Goal:** Apps on every release in the window build and run, and
+`lucent create` starts an app on the newest stable release.
 
 - **Status:** in progress: the window is React Native 0.85 to 0.87 and Expo
-  SDK 56 and 57, with 0.88 and SDK 58 as the prerelease lane
+  SDK 56 and 57, with 0.88 and SDK 58 as the prerelease lane, where the
+  example apps stay
   ([0074](decisions/0074-a-window-of-stable-react-native-and-expo-releases.md),
   [0079](decisions/0079-react-native-0-85-is-in-the-window-and-no-release-needs-a-fallback.md)).
   `lucent doctor` checks it, the build identity carries the React Native
-  release, CI compiles against each release's headers, and window.yml
-  builds ten fresh apps nightly, all green on 2026-10-12 (#190, #191,
-  #194, #195, #200, as T75).
+  release, and CI compiles against each release's headers (#190, #191,
+  #194, #195, #200, as T75). `lucent create` starts on 0.87 and SDK 57
+  (#204). window.yml builds ten fresh apps nightly and runs each on the
+  simulator or the emulator, all green on 2026-10-12.
 - **Area:** tooling, verification.
 - **Needs:** nothing.
 - **Verify:** V5, V6.
-- **Where:** `scripts/window-app.ts`, `.github/workflows/window.yml`,
-  `cli/templates/projects.ts`, `scripts/example-app`.
+- **Where:** `scripts/window-app.ts`, `scripts/device-check.ts`,
+  `.github/workflows/window.yml`, `cli/templates/projects.ts`.
 
-- [ ] window.yml launches each app on the simulator or emulator and checks
-      that a Lucent module answers and a component mounts.
-- [ ] `lucent create`'s templates and both example apps move to the newest
-      stable release. A nightly job builds the example app on the
-      prerelease lane.
-- [ ] The docs list the window, and the website's install page reads it
-      from `REQUIREMENTS`.
+- [x] window.yml launches each app on the simulator or emulator and checks
+      that a Lucent module answers and a component mounts and answers
+      through its ref.
+- [x] `lucent create`'s templates move to the newest stable release (#204).
+- [x] The docs list the window, and the website's compatibility page reads
+      it from `REQUIREMENTS`.
 
 **Done when:** window.yml runs every app green on three nights in a row.
 

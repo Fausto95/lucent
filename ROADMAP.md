@@ -172,8 +172,8 @@ other four.
 
 In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
 
-1. [T140](docs/tasks.md#t140): run the window's fresh apps, not only build
-   them, and move the templates and example apps to a stable release.
+1. [T140](docs/tasks.md#t140): the window's fresh apps now build and run
+   nightly; it closes after three green nights in a row.
 2. [T109](docs/tasks.md#t109), [T108](docs/tasks.md#t108) and
    [T107](docs/tasks.md#t107), already in progress: executors, so platform
    callbacks leave the module's lock; platform memory without copies; and
