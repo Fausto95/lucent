@@ -83,10 +83,27 @@ static double counted(double n) {
   return n <= 0 ? 0 : counted(n - 1) + 1;
 }
 
+#if defined(__SANITIZE_THREAD__)
+#define LUCENT_TEST_TSAN 1
+#elif defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+#define LUCENT_TEST_TSAN 1
+#endif
+#endif
+
+/// The largest stack the recursion test fills: TSan keeps a shadow of each
+/// thread's calls, about 64K entries, and filling 8 MB with frames writes
+/// past it.
+#ifdef LUCENT_TEST_TSAN
+static constexpr size_t kLargestFilledStack = 1024 * 1024;
+#else
+static constexpr size_t kLargestFilledStack = 8 * 1024 * 1024;
+#endif
+
 /// Recursion past the stack's room throws a RangeError on every thread,
 /// a small one included, which code catches; the stack works afterwards.
 static void stackExhaustionThrows() {
-  for (size_t bytes : {size_t(256 * 1024), size_t(8 * 1024 * 1024)}) {
+  for (size_t bytes : {size_t(256 * 1024), kLargestFilledStack}) {
     std::string name;
     std::string message;
     double after = 0;
