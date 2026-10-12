@@ -160,7 +160,7 @@ From Lucent code:
 - The package must be one the app's build finds. A module of any other package fails with [LUCENT3001](/docs/api/diagnostics/#lucent3001).
 - A package with an `exports` map must map the path to the `.lucent.ts` file, as `"./src/*": "./src/*.ts"` does. Otherwise the import fails with [LUCENT9001](/docs/api/diagnostics/#lucent9001).
 
-A package's exported types are the same types in every package that imports them. A plugin package can take a core package's `Frame` and return one: it is one class, which JavaScript sees with the core package's prototype, so `instanceof Frame` holds whichever package returned it.
+A package's exported types are the same types in every package that imports them. A plugin package can take a core package's `Frame` and return one. It is one class, which JavaScript sees with the core package's prototype, so `instanceof Frame` holds whichever package returned it.
 
 What else a module may import is in [Modules](/docs/api/language/modules/).
 

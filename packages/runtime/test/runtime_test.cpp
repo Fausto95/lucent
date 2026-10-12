@@ -83,10 +83,27 @@ static double counted(double n) {
   return n <= 0 ? 0 : counted(n - 1) + 1;
 }
 
+#if defined(__SANITIZE_THREAD__)
+#define LUCENT_TEST_TSAN 1
+#elif defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+#define LUCENT_TEST_TSAN 1
+#endif
+#endif
+
+/// The largest stack the recursion test fills: TSan keeps a shadow of each
+/// thread's calls, about 64K entries, and filling 8 MB with frames writes
+/// past it.
+#ifdef LUCENT_TEST_TSAN
+static constexpr size_t kLargestFilledStack = 1024 * 1024;
+#else
+static constexpr size_t kLargestFilledStack = 8 * 1024 * 1024;
+#endif
+
 /// Recursion past the stack's room throws a RangeError on every thread,
 /// a small one included, which code catches; the stack works afterwards.
 static void stackExhaustionThrows() {
-  for (size_t bytes : {size_t(256 * 1024), size_t(8 * 1024 * 1024)}) {
+  for (size_t bytes : {size_t(256 * 1024), kLargestFilledStack}) {
     std::string name;
     std::string message;
     double after = 0;
@@ -685,6 +702,17 @@ static void optionalsAndUnions() {
   m.set(S("n"), Opt<String>(null));
   CHECK(flat(m.get(S("n"))).isNull());
   CHECK(flat(m.get(S("x"))).isUndefined());
+
+  // An optional object, or union holding one, in storage of its own (a
+  // promise's value): its traits are asked while the optional of it is
+  // being made.
+  std::optional<Opt<Ref<Object>>> stored;
+  std::optional<Opt<Union<Ref<Object>, double>>> storedUnion;
+  Promise<Opt<Ref<Object>>> pending;
+  stored.emplace(std::make_shared<Object>());
+  CHECK(stored->has() && !storedUnion.has_value() && !pending.settled());
+  Array<Opt<Ref<Object>>> objects{Opt<Ref<Object>>(null)};
+  CHECK(flat(objects.get(0)).isNull() && flat(objects.get(1)).isUndefined());
 }
 
 /// Two objects that reach each other, one of them weakly (a delegate's owner).

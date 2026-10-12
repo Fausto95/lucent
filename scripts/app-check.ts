@@ -137,7 +137,7 @@ async function main() {
   let failed = 0;
   for (const c of cases) {
     const lines = [];
-    const out = (...a) => lines.push(a.map((x) => String(x)).join(" "));
+    const out = (...a) => lines.push(...a.map((x) => String(x)).join(" ").split("\\n"));
     let error;
     try { c.run(c.module, out, (x) => x, {}); } catch (e) { error = String(e); }
     const deadline = Date.now() + 10000;

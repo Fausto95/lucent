@@ -46,14 +46,14 @@ export declare function nativeError(error: Error): Throwable | null;
 
 /**
  * A NativeBuffer of a direct ByteBuffer's bytes, all of its capacity,
- * uncopied: what an SDK hands over as a direct buffer (a decoder's output,
- * a library's storage) becomes bytes Lucent owns, which can move to a
- * worker or, with `transferToArrayBuffer()`, to JavaScript without a copy.
- * The Java buffer is kept reachable until the bytes are released.
+ * uncopied; the Java buffer is kept reachable until the bytes are
+ * released. What an SDK hands over as a direct buffer (a decoder's output,
+ * a library's storage) becomes bytes Lucent owns. They can move to a
+ * worker, or to JavaScript with `transferToArrayBuffer()`, without a copy.
  *
  * Adopting hands the bytes over: Java code must not read or write the
- * buffer from then on, and the bytes are only as valid as whatever made
- * them keeps them (an `Image`'s planes end at `close()`).
+ * buffer from then on. The bytes are only as valid as whatever made them
+ * keeps them (an `Image`'s planes end at `close()`).
  *
  * ```ts
  * import { adoptByteBuffer } from "lucent:android";

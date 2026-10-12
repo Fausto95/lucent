@@ -116,9 +116,10 @@ describe.skipIf(!android)("components whose content is Compose", () => {
     // A handler the content calls: the Lucent function.
     expect(glue).toMatch(/\.setAction\(\d+, flip, "toggle\.android\.lucent\.tsx:\d+"\)/);
     // What the content reads from the setup: an effect each, calling the function computing it,
-    // the text computed in C++.
+    // the text computed in C++. The signal it reads is an object: the function is a
+    // lucent::closure, which names what it captures for a debug build's cycle report.
     expect(glue).toMatch(
-      /lucent::Fn<bool\(\)> (v\d+_) = lucent::Fn<bool\(\)>\(\[on = on\]\(\) mutable -> bool \{[^}]*return on\.get\(\);[^]*lucent::ui::effect\(lucent::ui::mainGraph\(\), lucent::ui::inContent\(lucent_content, \[content_\d+_, lucent_get = \1\]\(\) mutable \{/,
+      /lucent::Fn<bool\(\)> (v\d+_) = lucent::Fn<bool\(\)>\(lucent::closure\("toggle\.android\.lucent\.tsx:\d+", "on", \[\]\(std::decay_t<decltype\(on\)>& on\) -> bool \{[^}]*return on\.get\(\);[^]*lucent::ui::effect\(lucent::ui::mainGraph\(\), lucent::ui::inContent\(lucent_content, \[content_\d+_, lucent_get = \1\]\(\) mutable \{/,
     );
     expect(glue).toMatch(/double (v\d+_) = pulses\.get\(\);[^}]*return \1 == 0\.0;/);
     expect(glue).toMatch(/lucent::concat\([^;]*LUCENT_STR\(" taps"\)\);/);

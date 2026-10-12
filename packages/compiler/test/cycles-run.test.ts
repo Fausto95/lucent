@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
+import { hostLibs } from "../../runtime/test/sources.ts";
 import { compile, runtimeDir } from "../src/index.ts";
 import { buildObjects } from "./parallel-build.ts";
 
@@ -157,7 +158,10 @@ describe("a debug build's cycle report", () => {
       expect(printed).toBe("");
 
       const binary = path.join(dir, "cycles");
-      const link = spawnSync(cxx!, [...objects, "-lpthread", "-o", binary], { encoding: "utf8" });
+      // The runtime's localeCompare uses CoreFoundation on a Mac.
+      const link = spawnSync(cxx!, [...objects, "-lpthread", ...hostLibs, "-o", binary], {
+        encoding: "utf8",
+      });
       expect(link.stderr).toBe("");
 
       const run = spawnSync(binary, { encoding: "utf8" });
