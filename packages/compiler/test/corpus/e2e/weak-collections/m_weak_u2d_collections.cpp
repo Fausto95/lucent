@@ -280,7 +280,7 @@ lucent::String m_weak_u2d_collections::cached() {
   lucent::WeakMap<lucent::Ref<lucent_app::C_Node>, double> sizes = lucent::WeakMap<lucent::Ref<lucent_app::C_Node>, double>();
   lucent::Box<double> computed{};
   *computed = 0.0;
-  lucent::Fn<double(lucent::Ref<lucent_app::C_Node>)> v3_ = lucent::Fn<double(lucent::Ref<lucent_app::C_Node>)>([sizes = sizes, computed = computed](lucent::Ref<lucent_app::C_Node> p0_) mutable -> double {
+  lucent::Fn<double(lucent::Ref<lucent_app::C_Node>)> v3_ = lucent::Fn<double(lucent::Ref<lucent_app::C_Node>)>(lucent::closure("weak-collections.lucent.ts:99", "sizes,computed", [](std::decay_t<decltype(sizes)>& sizes, std::decay_t<decltype(computed)>& computed, lucent::Ref<lucent_app::C_Node> p0_) -> double {
     lucent::checkStack();
     lucent::Opt<double> known = sizes.get(p0_);
     bool v5_ = !lucent::strictEquals(known, lucent::undefined);
@@ -294,7 +294,7 @@ lucent::String m_weak_u2d_collections::cached() {
     (void)sizes.set(p0_, static_cast<double>(v13_));
     lucent::String v15_ = p0_->name;
     return static_cast<double>(static_cast<int64_t>(v15_.length()));
-  });
+  }, sizes, computed));
   lucent::Fn<double(lucent::Ref<lucent_app::C_Node>)> size = std::move(v3_);
   lucent::Ref<lucent_app::C_Node> r_long_ = lucent_app::C_Node::create(LUCENT_STR("long"));
   lucent::Ref<lucent_app::C_Node> r_short_ = lucent_app::C_Node::create(LUCENT_STR("s"));

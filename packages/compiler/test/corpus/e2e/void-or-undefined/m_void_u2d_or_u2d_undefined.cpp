@@ -74,7 +74,7 @@ lucent::String m_void_u2d_or_u2d_undefined::arrows(bool p0_) {
   lucent::checkStack();
   lucent::Ref<lucent_app::C_Log> log = lucent_app::C_Log::create();
   lucent::Opt<lucent::Ref<lucent_app::C_Log>> maybe = lucent_app::m_void_u2d_or_u2d_undefined::maybeLog(p0_, log);
-  lucent::Fn<void()> v5_ = lucent::Fn<void()>([maybe = maybe]() mutable -> void {
+  lucent::Fn<void()> v5_ = lucent::Fn<void()>(lucent::closure("void-or-undefined.lucent.ts:29", "maybe", [](std::decay_t<decltype(maybe)>& maybe) -> void {
     lucent::checkStack();
     bool v2_ = !maybe.has();
     if (v2_) {
@@ -83,12 +83,12 @@ lucent::String m_void_u2d_or_u2d_undefined::arrows(bool p0_) {
       v3_->add(LUCENT_STR("arrow"));
     }
     return;
-  });
+  }, maybe));
   lucent::Fn<void()> add = std::move(v5_);
   add();
   lucent::Undefined result = lucent::undefined;
   lucent::String v9_ = lucent::toJsString(result);
-  lucent::Fn<void()> v12_ = lucent::Fn<void()>([maybe = maybe]() mutable -> void {
+  lucent::Fn<void()> v12_ = lucent::Fn<void()>(lucent::closure("void-or-undefined.lucent.ts:32", "maybe", [](std::decay_t<decltype(maybe)>& maybe) -> void {
     lucent::checkStack();
     bool v2_ = !maybe.has();
     if (v2_) {
@@ -97,7 +97,7 @@ lucent::String m_void_u2d_or_u2d_undefined::arrows(bool p0_) {
       v3_->add(LUCENT_STR("callback"));
     }
     return;
-  });
+  }, maybe));
   lucent::String v13_ = lucent_app::m_void_u2d_or_u2d_undefined::run(v12_);
   lucent::Array<lucent::String> v16_ = log->lines;
   lucent::String v18_ = v16_.join(LUCENT_STR(","));

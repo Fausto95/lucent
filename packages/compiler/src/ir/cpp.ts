@@ -6,7 +6,9 @@
  * (or, for a call, discarded with `(void)`).
  */
 import { cpp } from "@lucent-lang/codegen";
+import path from "node:path";
 import ts from "typescript";
+import { mayRefer } from "../emit/refs.ts";
 import { Codes, CompileError } from "../diagnostics.ts";
 import { type ConversionStep, conversionStep } from "../lowering/conversions.ts";
 import { heldAs, throughMembers } from "../lowering/members.ts";
@@ -1290,6 +1292,42 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
     // A coroutine's frame must not reference the lambda's captures: they are its parameters.
     const coroutine = (fn.async && !eagerAsync(fn)) || fn.generator !== undefined;
     const names = captures.map((c) => c.name);
+
+    // Kept as a function value, capturing what may refer to objects: a lucent::Closure, which
+    // holds the captures and says what they refer to for a debug build's cycle report
+    // (lucent/refs.h). Its code takes them first: by reference, so a capture's changes
+    // last, or by value for a coroutine, whose frame then owns them.
+    if (
+      !e.isInlined(op.result) &&
+      op.enters === undefined &&
+      fn.captures.some((c) => mayRefer(c.type))
+    ) {
+      // Typed as what they capture (not `auto`, which would make every use of them dependent).
+      const held = (init: cpp.Expr) => cpp.type("std::decay_t", cpp.decltype(init));
+      const code = cpp.lambda(
+        [],
+        [
+          ...captures.map((c) =>
+            cpp.param(coroutine ? held(c.init) : cpp.reference(held(c.init)), c.name),
+          ),
+          ...params,
+        ],
+        body,
+        { ret },
+      );
+      const site = `${path.basename(fn.source.file)}:${fn.source.line}`;
+      const made = cpp.call("lucent::closure", [
+        cpp.str(site),
+        cpp.str(fn.captures.map((c) => c.name).join(",")),
+        code,
+        ...captures.map((c) => c.init),
+      ]);
+
+      e.define(op, op.result, cpp.construct(e.backend.cppType(e.typeOf(op.result)), [made]));
+      e.lineChanged();
+      return;
+    }
+
     const lambda = coroutine
       ? cpp.lambda(
           captures,

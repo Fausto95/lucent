@@ -117,7 +117,7 @@ lucent::String m_events::inLucent() {
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void()>>> ticks = lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void()>>::create({"tick", "fail"});
   lucent::Box<lucent::Opt<lucent::EventSubscription>> second{};
-  lucent::Fn<void(double)> v4_ = lucent::Fn<void(double)>([log = log, second = second](double p0_) mutable -> void {
+  lucent::Fn<void(double)> v4_ = lucent::Fn<void(double)>(lucent::closure("events.lucent.ts:45", "log,second", [](std::decay_t<decltype(log)>& log, std::decay_t<decltype(second)>& second, double p0_) -> void {
     lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("a")) + lucent::toJsString(p0_);
     (void)log.push(v4_);
@@ -128,31 +128,31 @@ lucent::String m_events::inLucent() {
       lucent::EventSubscription v9_ = v6_.value();
       v9_->remove();
     }
-  });
+  }, log, second));
   (void)ticks->addListener<0>(v4_);
-  lucent::Fn<void(double)> v8_ = lucent::Fn<void(double)>([log = log](double p0_) mutable -> void {
+  lucent::Fn<void(double)> v8_ = lucent::Fn<void(double)>(lucent::closure("events.lucent.ts:49", "log", [](std::decay_t<decltype(log)>& log, double p0_) -> void {
     lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("b")) + lucent::toJsString(p0_);
     (void)log.push(v4_);
-  });
+  }, log));
   lucent::EventSubscription v9_ = ticks->addListener<0>(v8_);
   *second = lucent::Opt<lucent::EventSubscription>(v9_);
-  lucent::Fn<void(double)> v14_ = lucent::Fn<void(double)>([log = log, ticks = ticks](double p0_) mutable -> void {
+  lucent::Fn<void(double)> v14_ = lucent::Fn<void(double)>(lucent::closure("events.lucent.ts:52", "log,ticks", [](std::decay_t<decltype(log)>& log, std::decay_t<decltype(ticks)>& ticks, double p0_) -> void {
     lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("c")) + lucent::toJsString(p0_);
     (void)log.push(v4_);
     bool v7_ = p0_ == 1.0;
     if (v7_) {
-      lucent::Fn<void(double)> v10_ = lucent::Fn<void(double)>([log = log](double p0_) mutable -> void {
+      lucent::Fn<void(double)> v10_ = lucent::Fn<void(double)>(lucent::closure("events.lucent.ts:54", "log", [](std::decay_t<decltype(log)>& log, double p0_) -> void {
         lucent::checkStack();
         lucent::String v4_ = lucent::String(LUCENT_STR("d")) + lucent::toJsString(p0_);
         double v5_ = log.push(v4_);
         (void)((void)v5_, lucent::undefined);
         return;
-      });
+      }, log));
       (void)ticks->addListener<0>(v10_);
     }
-  });
+  }, log, ticks));
   (void)ticks->addListener<0>(v14_);
   ticks->emit<0>(1.0);
   ticks->emit<0>(2.0);
@@ -169,12 +169,12 @@ lucent::String m_events::inLucent() {
     lucent::throwError(v1_);
   });
   (void)ticks->addListener<1>(v38_);
-  lucent::Fn<void()> v42_ = lucent::Fn<void()>([log = log]() mutable -> void {
+  lucent::Fn<void()> v42_ = lucent::Fn<void()>(lucent::closure("events.lucent.ts:66", "log", [](std::decay_t<decltype(log)>& log) -> void {
     lucent::checkStack();
     double v2_ = log.push(LUCENT_STR("not reached"));
     (void)((void)v2_, lucent::undefined);
     return;
-  });
+  }, log));
   (void)ticks->addListener<1>(v42_);
   {
     std::exception_ptr ex46_;

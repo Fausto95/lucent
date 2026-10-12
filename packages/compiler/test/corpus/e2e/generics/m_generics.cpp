@@ -74,12 +74,12 @@ lucent::String m_generics::demo() {
   });
   lucent::Map<lucent::String, lucent::Array<lucent::String>> groups = lucent_app::m_generics::groupBy<lucent::String>(v38_, v39_);
   lucent::Array<lucent::String> g = lucent::Array<lucent::String>{};
-  lucent::Fn<double(lucent::Array<lucent::String>, lucent::String, lucent::Map<lucent::String, lucent::Array<lucent::String>>)> v44_ = lucent::Fn<double(lucent::Array<lucent::String>, lucent::String, lucent::Map<lucent::String, lucent::Array<lucent::String>>)>([g = g](lucent::Array<lucent::String> p0_, lucent::String p1_, lucent::Map<lucent::String, lucent::Array<lucent::String>> p2_) mutable -> double {
+  lucent::Fn<double(lucent::Array<lucent::String>, lucent::String, lucent::Map<lucent::String, lucent::Array<lucent::String>>)> v44_ = lucent::Fn<double(lucent::Array<lucent::String>, lucent::String, lucent::Map<lucent::String, lucent::Array<lucent::String>>)>(lucent::closure("generics.lucent.ts:45", "g", [](std::decay_t<decltype(g)>& g, lucent::Array<lucent::String> p0_, lucent::String p1_, lucent::Map<lucent::String, lucent::Array<lucent::String>> p2_) -> double {
     lucent::checkStack();
     lucent::String v6_ = p0_.join(LUCENT_STR("+"));
     lucent::String v8_ = lucent::concat(p1_, LUCENT_STR(":"), v6_);
     return g.push(v8_);
-  });
+  }, g));
   groups.forEach(lucent::Fn<void(lucent::Array<lucent::String>, lucent::String, lucent::Map<lucent::String, lucent::Array<lucent::String>>)>([fn_1_ = v44_](lucent::Array<lucent::String> a0, lucent::String a1, lucent::Map<lucent::String, lucent::Array<lucent::String>> a2) {
     fn_1_(a0, a1, a2);
   }));

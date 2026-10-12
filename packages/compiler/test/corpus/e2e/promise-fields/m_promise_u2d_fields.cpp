@@ -82,17 +82,15 @@ lucent::Promise<void> C_Writer::write(lucent::String p0_, double p1_) {
   lucent::checkStack();
   lucent::Promise<void> previous = this->pending;
   lucent::Ref<lucent_app::C_Writer> v4_ = lucent::selfRef(this);
-  lucent::Fn<lucent::Promise<void>()> v5_ = lucent::Fn<lucent::Promise<void>()>([self = v4_, previous = previous, ms = p1_, s = p0_]() -> lucent::Promise<void> {
-    return [](auto self, auto previous, auto ms, auto s) -> lucent::Promise<void> {
-      lucent::checkStack();
-      co_await previous;
-      lucent::Promise<void> v3_ = lucent::delay(ms);
-      co_await v3_;
-      lucent::Array<lucent::String> v5_ = self->log;
-      (void)v5_.push(s);
-      co_return;
-    }(self, previous, ms, s);
-  });
+  lucent::Fn<lucent::Promise<void>()> v5_ = lucent::Fn<lucent::Promise<void>()>(lucent::closure("promise-fields.lucent.ts:11", "this,previous,ms,s", [](std::decay_t<decltype(v4_)> self, std::decay_t<decltype(previous)> previous, std::decay_t<decltype(p1_)> ms, std::decay_t<decltype(p0_)> s) -> lucent::Promise<void> {
+    lucent::checkStack();
+    co_await previous;
+    lucent::Promise<void> v3_ = lucent::delay(ms);
+    co_await v3_;
+    lucent::Array<lucent::String> v5_ = self->log;
+    (void)v5_.push(s);
+    co_return;
+  }, v4_, previous, p1_, p0_));
   lucent::Promise<void> v6_ = v5_();
   this->pending = v6_;
   lucent::Promise<void> v8_ = this->pending;
@@ -131,7 +129,7 @@ lucent::Promise<double> C_Cache::read() {
   lucent::Promise<lucent::Ref<lucent_app::S_Point>> v0_ = this->point;
   lucent::Ref<lucent_app::S_Point> v1_ = co_await v0_;
   lucent::Ref<lucent_app::S_Point> p = std::move(v1_);
-  lucent::Fn<lucent::Promise<double>()> v3_ = lucent::Fn<lucent::Promise<double>()>([p = p]() mutable -> lucent::Promise<double> {
+  lucent::Fn<lucent::Promise<double>()> v3_ = lucent::Fn<lucent::Promise<double>()>(lucent::closure("promise-fields.lucent.ts:52", "p", [](std::decay_t<decltype(p)>& p) -> lucent::Promise<double> {
     try {
       lucent::checkStack();
       double v1_ = p->x;
@@ -140,7 +138,7 @@ lucent::Promise<double> C_Cache::read() {
     } catch (...) {
       return lucent::Promise<double>::rejected(lucent::currentError(std::current_exception()));
     }
-  });
+  }, p));
   lucent::Promise<double> v4_ = v3_();
   lucent::Opt<lucent::Promise<double>> v5_ = lucent::Opt<lucent::Promise<double>>(v4_);
   this->total = v5_;

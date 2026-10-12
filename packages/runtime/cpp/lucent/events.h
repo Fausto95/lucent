@@ -28,6 +28,7 @@
 #include "function.h"
 #include "json.h"
 #include "jsstring.h"
+#include "refs.h"
 #include "scheduler.h"
 
 namespace lucent {
@@ -90,6 +91,10 @@ class EventEmitterObject : public Object {
   }
 
   const std::vector<std::string>& names() const { return names_; }
+
+  /// What its listeners' and observers' closures capture, for a debug
+  /// build's cycle report (refs.h).
+  void lucentRefs_(debug::RefSink& s) const override { listenerRefs(s, std::make_index_sequence<kEvents>{}); }
 
   /// The index of the event `name`, or kEvents when it has none.
   size_t indexOf(const std::string& name) const {
@@ -191,6 +196,19 @@ class EventEmitterObject : public Object {
     uint64_t id;
     Fn<void(bool)> fn;
   };
+
+  template <size_t... I>
+  void listenerRefs(debug::RefSink& s, std::index_sequence<I...>) const {
+    (
+        [&] {
+          const std::string event = I < names_.size() ? names_[I] : std::string("an event");
+          const std::string listener = "the " + event + " listener";
+          for (const auto& l : std::get<I>(listeners_)) debug::refs(s, l.fn, listener.c_str(), "");
+          const std::string observer = "the " + event + " observer";
+          for (const auto& o : observers_[I]) debug::refs(s, o.fn, observer.c_str(), "");
+        }(),
+        ...);
+  }
 
   /// Drops event I's listeners whose owner is gone.
   template <size_t I>

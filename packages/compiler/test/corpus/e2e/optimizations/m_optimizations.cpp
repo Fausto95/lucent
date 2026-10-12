@@ -780,10 +780,10 @@ lucent::String m_optimizations::heapObjects(double p0_) {
   lucent::Ref<lucent_app::S_Point> kept = ({ auto obj_8_ = std::make_shared<lucent_app::S_Point>(); obj_8_->x = 2.0; obj_8_->y = p0_; obj_8_; });
   lucent::Array<lucent::Ref<lucent_app::S_Point>> all = lucent::Array<lucent::Ref<lucent_app::S_Point>>{kept};
   lucent::Ref<lucent_app::S_Point> captured = ({ auto obj_9_ = std::make_shared<lucent_app::S_Point>(); obj_9_->x = 3.0; obj_9_->y = 3.0; obj_9_; });
-  lucent::Fn<double()> v11_ = lucent::Fn<double()>([captured = captured]() mutable -> double {
+  lucent::Fn<double()> v11_ = lucent::Fn<double()>(lucent::closure("optimizations.lucent.ts:219", "captured", [](std::decay_t<decltype(captured)>& captured) -> double {
     lucent::checkStack();
     return captured->x;
-  });
+  }, captured));
   lucent::Fn<double()> read = std::move(v11_);
   lucent::Ref<lucent_app::S_Point> compared = ({ auto obj_10_ = std::make_shared<lucent_app::S_Point>(); obj_10_->x = 4.0; obj_10_->y = 4.0; obj_10_; });
   lucent::Opt<lucent::Ref<lucent_app::S_Point>> v18_ = all.getIndex(static_cast<int64_t>(0));
@@ -953,7 +953,7 @@ lucent::String m_optimizations::stringKeys() {
   lucent::String approx = std::get<5>(v7_);
   lucent::String rest = std::get<6>(v7_);
   lucent::Map<lucent::String, double> counts = lucent::Map<lucent::String, double>();
-  lucent::Fn<lucent::Map<lucent::String, double>(lucent::String)> v17_ = lucent::Fn<lucent::Map<lucent::String, double>(lucent::String)>([counts = counts](lucent::String p0_) mutable -> lucent::Map<lucent::String, double> {
+  lucent::Fn<lucent::Map<lucent::String, double>(lucent::String)> v17_ = lucent::Fn<lucent::Map<lucent::String, double>(lucent::String)>(lucent::closure("optimizations.lucent.ts:305", "counts", [](std::decay_t<decltype(counts)>& counts, lucent::String p0_) -> lucent::Map<lucent::String, double> {
     lucent::checkStack();
     lucent::Opt<double> v3_ = counts.get(p0_);
     bool v5_ = !v3_.has();
@@ -965,7 +965,7 @@ lucent::String m_optimizations::stringKeys() {
     }
     double v10_ = v8_ + 1.0;
     return counts.set(p0_, v10_);
-  });
+  }, counts));
   lucent::Fn<lucent::Map<lucent::String, double>(lucent::String)> add = std::move(v17_);
   lucent::String r_short_ = LUCENT_STR("abc");
   (void)add(r_short_);

@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"recursion-limit", "193
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "eb97a4fa12224336", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "e46bb70d2ac715cd", kModuleIdentities, 1};
   return identity;
 }
 

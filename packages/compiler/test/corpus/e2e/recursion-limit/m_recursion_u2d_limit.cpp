@@ -126,13 +126,13 @@ lucent::String m_recursion_u2d_limit::throughMethod() {
 lucent::String m_recursion_u2d_limit::throughClosure() {
   lucent::checkStack();
   lucent::Box<lucent::Fn<double(double)>> f{};
-  lucent::Fn<double(double)> v0_ = lucent::Fn<double(double)>([f = f](double p0_) mutable -> double {
+  lucent::Fn<double(double)> v0_ = lucent::Fn<double(double)>(lucent::closure("recursion-limit.lucent.ts:41", "f", [](std::decay_t<decltype(f)>& f, double p0_) -> double {
     lucent::checkStack();
     lucent::Fn<double(double)> v1_ = *f;
     double v3_ = p0_ + 1.0;
     double v4_ = v1_(v3_);
     return v4_ + 1.0;
-  });
+  }, f));
   *f = std::move(v0_);
   {
     std::exception_ptr ex5_;
@@ -190,7 +190,7 @@ lucent::String m_recursion_u2d_limit::mutual() {
 double m_recursion_u2d_limit::bounded() {
   lucent::checkStack();
   lucent::Box<lucent::Fn<double(double)>> sum{};
-  lucent::Fn<double(double)> v0_ = lucent::Fn<double(double)>([sum = sum](double p0_) mutable -> double {
+  lucent::Fn<double(double)> v0_ = lucent::Fn<double(double)>(lucent::closure("recursion-limit.lucent.ts:68", "sum", [](std::decay_t<decltype(sum)>& sum, double p0_) -> double {
     lucent::checkStack();
     bool v2_ = p0_ == 0.0;
     double v9_{};
@@ -203,7 +203,7 @@ double m_recursion_u2d_limit::bounded() {
       v9_ = p0_ + v7_;
     }
     return v9_;
-  });
+  }, sum));
   *sum = std::move(v0_);
   lucent::Fn<double(double)> v1_ = *sum;
   return v1_(1000.0);

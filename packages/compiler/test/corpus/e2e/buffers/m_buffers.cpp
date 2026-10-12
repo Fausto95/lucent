@@ -443,7 +443,7 @@ lucent::String m_buffers::conflicts() {
   lucent::checkStack();
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::allocate(4.0);
   lucent::Array<lucent::String> out = lucent::Array<lucent::String>{};
-  lucent::Fn<void(lucent::ByteSpan)> v6_ = lucent::Fn<void(lucent::ByteSpan)>([buffer = buffer, out = out](lucent::ByteSpan p0_) mutable -> void {
+  lucent::Fn<void(lucent::ByteSpan)> v6_ = lucent::Fn<void(lucent::ByteSpan)>(lucent::closure("buffers.lucent.ts:116", "buffer,out", [](std::decay_t<decltype(buffer)>& buffer, std::decay_t<decltype(out)>& out, lucent::ByteSpan p0_) -> void {
     lucent::checkStack();
     {
       std::exception_ptr ex4_;
@@ -505,9 +505,9 @@ lucent::String m_buffers::conflicts() {
     double v27_ = lucent::withRead(buffer, v26_);
     lucent::String v29_ = lucent::String(LUCENT_STR("nested ")) + lucent::toJsString(v27_);
     (void)out.push(v29_);
-  });
+  }, buffer, out));
   lucent::withRead(buffer, v6_);
-  lucent::Fn<void(lucent::MutableByteSpan)> v11_ = lucent::Fn<void(lucent::MutableByteSpan)>([buffer = buffer, out = out](lucent::MutableByteSpan p0_) mutable -> void {
+  lucent::Fn<void(lucent::MutableByteSpan)> v11_ = lucent::Fn<void(lucent::MutableByteSpan)>(lucent::closure("buffers.lucent.ts:138", "buffer,out", [](std::decay_t<decltype(buffer)>& buffer, std::decay_t<decltype(out)>& out, lucent::MutableByteSpan p0_) -> void {
     lucent::checkStack();
     {
       std::exception_ptr ex3_;
@@ -525,7 +525,7 @@ lucent::String m_buffers::conflicts() {
         (void)out.push(v6_);
       }
     }
-  });
+  }, buffer, out));
   lucent::withWrite(buffer, v11_);
   return out.join(LUCENT_STR("; "));
 }
@@ -647,11 +647,11 @@ lucent::Promise<lucent::String> m_buffers::borrowedHandoff() {
   lucent::checkStack();
   lucent::NativeBuffer buffer = lucent::NativeBufferObject::allocate(4.0);
   lucent::Box<lucent::Opt<lucent::Promise<double>>> pending{};
-  lucent::Fn<void(lucent::ByteSpan)> v4_ = lucent::Fn<void(lucent::ByteSpan)>([pending = pending, buffer = buffer](lucent::ByteSpan p0_) mutable -> void {
+  lucent::Fn<void(lucent::ByteSpan)> v4_ = lucent::Fn<void(lucent::ByteSpan)>(lucent::closure("buffers.lucent.ts:207", "pending,buffer", [](std::decay_t<decltype(pending)>& pending, std::decay_t<decltype(buffer)>& buffer, lucent::ByteSpan p0_) -> void {
     lucent::checkStack();
     lucent::Promise<double> v2_ = lucent::compute(lucent_tasks::m_buffers::entry_scan, std::tuple<lucent::NativeBuffer>{buffer}, lucent::ComputeOptions{lucent::Opt<lucent::AbortSignal>(), lucent::moduleScope()});
     *pending = lucent::Opt<lucent::Promise<double>>(v2_);
-  });
+  }, pending, buffer));
   lucent::withRead(buffer, v4_);
   {
     std::exception_ptr ex12_;
@@ -843,14 +843,14 @@ lucent::String m_buffers::texts() {
     return lucent::concat(lucent::toJsString(p0_), LUCENT_STR(" "), v1_);
   });
   lucent::String spans = lucent::withRead(buffer, v6_);
-  lucent::Fn<bool(lucent::ByteSpan)> v10_ = lucent::Fn<bool(lucent::ByteSpan)>([buffer = buffer](lucent::ByteSpan p0_) mutable -> bool {
+  lucent::Fn<bool(lucent::ByteSpan)> v10_ = lucent::Fn<bool(lucent::ByteSpan)>(lucent::closure("buffers.lucent.ts:304", "buffer", [](std::decay_t<decltype(buffer)>& buffer, lucent::ByteSpan p0_) -> bool {
     lucent::checkStack();
-    lucent::Fn<bool(lucent::ByteSpan)> v2_ = lucent::Fn<bool(lucent::ByteSpan)>([a = p0_](lucent::ByteSpan p0_) mutable -> bool {
+    lucent::Fn<bool(lucent::ByteSpan)> v2_ = lucent::Fn<bool(lucent::ByteSpan)>(lucent::closure("buffers.lucent.ts:304", "a", [](std::decay_t<decltype(p0_)>& a, lucent::ByteSpan p0_) -> bool {
       lucent::checkStack();
       return lucent::strictEquals(a, p0_);
-    });
+    }, p0_));
     return lucent::withRead(buffer, v2_);
-  });
+  }, buffer));
   bool same = lucent::withRead(buffer, v10_);
   lucent::Bytes v16_ = lucent::Bytes(0.0);
   lucent::NativeBuffer v17_ = lucent::NativeBufferObject::fromBytes(v16_);

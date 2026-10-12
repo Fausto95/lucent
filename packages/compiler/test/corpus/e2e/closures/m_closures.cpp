@@ -116,11 +116,11 @@ double m_closures::compose(double p0_) {
     return p0_ + 1.0;
   });
   lucent::Fn<double(double)> addOne = std::move(v2_);
-  lucent::Fn<double(double)> v5_ = lucent::Fn<double(double)>([addOne = addOne, r_double_ = r_double_](double p0_) mutable -> double {
+  lucent::Fn<double(double)> v5_ = lucent::Fn<double(double)>(lucent::closure("closures.lucent.ts:21", "addOne,double", [](std::decay_t<decltype(addOne)>& addOne, std::decay_t<decltype(r_double_)>& r_double_, double p0_) -> double {
     lucent::checkStack();
     double v3_ = r_double_(p0_);
     return addOne(v3_);
-  });
+  }, addOne, r_double_));
   lucent::Fn<double(double)> both = std::move(v5_);
   return both(p0_);
 }
@@ -128,7 +128,7 @@ double m_closures::compose(double p0_) {
 double m_closures::recurse(double p0_) {
   lucent::checkStack();
   lucent::Box<lucent::Fn<double(double)>> fact{};
-  lucent::Fn<double(double)> v1_ = lucent::Fn<double(double)>([fact = fact](double p0_) mutable -> double {
+  lucent::Fn<double(double)> v1_ = lucent::Fn<double(double)>(lucent::closure("closures.lucent.ts:26", "fact", [](std::decay_t<decltype(fact)>& fact, double p0_) -> double {
     lucent::checkStack();
     bool v2_ = p0_ <= 1.0;
     double v9_{};
@@ -141,7 +141,7 @@ double m_closures::recurse(double p0_) {
       v9_ = p0_ * v7_;
     }
     return v9_;
-  });
+  }, fact));
   *fact = std::move(v1_);
   lucent::Fn<double(double)> v2_ = *fact;
   return v2_(p0_);
@@ -151,7 +151,7 @@ double m_closures::memo(double p0_) {
   lucent::checkStack();
   lucent::Map<double, double> cache = lucent::Map<double, double>();
   lucent::Box<lucent::Fn<double(double)>> fib{};
-  lucent::Fn<double(double)> v3_ = lucent::Fn<double(double)>([cache = cache, fib = fib](double p0_) mutable -> double {
+  lucent::Fn<double(double)> v3_ = lucent::Fn<double(double)>(lucent::closure("closures.lucent.ts:34", "cache,fib", [](std::decay_t<decltype(cache)>& cache, std::decay_t<decltype(fib)>& fib, double p0_) -> double {
     lucent::checkStack();
     bool v2_ = p0_ < 2.0;
     if (v2_) {
@@ -171,7 +171,7 @@ double m_closures::memo(double p0_) {
     double v = v13_ + v17_;
     (void)cache.set(p0_, v);
     return v;
-  });
+  }, cache, fib));
   *fib = std::move(v3_);
   lucent::Fn<double(double)> v4_ = *fib;
   return v4_(p0_);

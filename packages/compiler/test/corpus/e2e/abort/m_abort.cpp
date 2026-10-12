@@ -115,39 +115,37 @@ lucent::Promise<lucent::String> m_abort::controllerInLucent() {
   lucent::AbortController c = std::make_shared<lucent::AbortControllerObject>();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
   lucent::AbortSignal v3_ = c->signal;
-  lucent::Fn<double()> v5_ = lucent::Fn<double()>([log = log]() mutable -> double {
+  lucent::Fn<double()> v5_ = lucent::Fn<double()>(lucent::closure("abort.lucent.ts:37", "log", [](std::decay_t<decltype(log)>& log) -> double {
     lucent::checkStack();
     return log.push(LUCENT_STR("listener"));
-  });
+  }, log));
   v3_->addEventListener(lucent::Fn<void()>([fn_1_ = v5_]() {
     fn_1_();
   }));
-  lucent::Fn<lucent::Promise<void>()> v9_ = lucent::Fn<lucent::Promise<void>()>([c = c, log = log]() -> lucent::Promise<void> {
-    return [](auto c, auto log) -> lucent::Promise<void> {
-      lucent::checkStack();
-      {
-        std::exception_ptr ex8_;
-        try {
-          lucent::AbortSignal v2_ = c->signal;
-          lucent::Promise<void> v3_ = lucent::delay(1000.0, lucent::Opt<lucent::AbortSignal>(v2_));
-          co_await v3_;
-          (void)log.push(LUCENT_STR("late"));
-        } catch (const lucent::GeneratorReturn&) {
-          throw;
-        } catch (...) {
-          ex8_ = std::current_exception();
-        }
-        if (ex8_) {
-          lucent::Error v8_ = lucent::currentError(ex8_);
-          lucent::Error e = std::move(v8_);
-          lucent::String v12_ = e->name;
-          lucent::String v13_ = lucent::String(LUCENT_STR("caught ")) + v12_;
-          (void)log.push(v13_);
-        }
+  lucent::Fn<lucent::Promise<void>()> v9_ = lucent::Fn<lucent::Promise<void>()>(lucent::closure("abort.lucent.ts:38", "c,log", [](std::decay_t<decltype(c)> c, std::decay_t<decltype(log)> log) -> lucent::Promise<void> {
+    lucent::checkStack();
+    {
+      std::exception_ptr ex8_;
+      try {
+        lucent::AbortSignal v2_ = c->signal;
+        lucent::Promise<void> v3_ = lucent::delay(1000.0, lucent::Opt<lucent::AbortSignal>(v2_));
+        co_await v3_;
+        (void)log.push(LUCENT_STR("late"));
+      } catch (const lucent::GeneratorReturn&) {
+        throw;
+      } catch (...) {
+        ex8_ = std::current_exception();
       }
-      co_return;
-    }(c, log);
-  });
+      if (ex8_) {
+        lucent::Error v8_ = lucent::currentError(ex8_);
+        lucent::Error e = std::move(v8_);
+        lucent::String v12_ = e->name;
+        lucent::String v13_ = lucent::String(LUCENT_STR("caught ")) + v12_;
+        (void)log.push(v13_);
+      }
+    }
+    co_return;
+  }, c, log));
   lucent::Promise<void> waiting = v9_();
   lucent::AbortSignal v14_ = c->signal;
   bool v15_ = v14_->aborted.load();
@@ -197,10 +195,10 @@ lucent::Promise<lucent::String> m_abort::customReason() {
 lucent::Promise<lucent::String> m_abort::abortedMidway(lucent::AbortSignal p0_) {
   lucent::checkStack();
   lucent::Array<lucent::String> log = lucent::Array<lucent::String>{};
-  lucent::Fn<double()> v3_ = lucent::Fn<double()>([log = log]() mutable -> double {
+  lucent::Fn<double()> v3_ = lucent::Fn<double()>(lucent::closure("abort.lucent.ts:68", "log", [](std::decay_t<decltype(log)>& log) -> double {
     lucent::checkStack();
     return log.push(LUCENT_STR("js aborted"));
-  });
+  }, log));
   p0_->addEventListener(lucent::Fn<void()>([fn_2_ = v3_]() {
     fn_2_();
   }));

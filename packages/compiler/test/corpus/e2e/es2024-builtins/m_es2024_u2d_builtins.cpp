@@ -311,15 +311,13 @@ lucent::Promise<lucent::String> m_es2024_u2d_builtins::resolvers() {
   resolve = lucent::Fn<void(std::variant<lucent::Promise<double>, double>)>([fn_6_ = v2_](std::variant<lucent::Promise<double>, double> a0) {
     fn_6_(lucent::narrow<double>(a0));
   });
-  lucent::Fn<lucent::Promise<void>()> v5_ = lucent::Fn<lucent::Promise<void>()>([resolve = resolve]() -> lucent::Promise<void> {
-    return [](auto resolve) -> lucent::Promise<void> {
-      lucent::checkStack();
-      lucent::Promise<void> v1_ = lucent::delay(1.0);
-      co_await v1_;
-      resolve(std::variant<lucent::Promise<double>, double>(21.0));
-      co_return;
-    }(resolve);
-  });
+  lucent::Fn<lucent::Promise<void>()> v5_ = lucent::Fn<lucent::Promise<void>()>(lucent::closure("es2024-builtins.lucent.ts:79", "resolve", [](std::decay_t<decltype(resolve)> resolve) -> lucent::Promise<void> {
+    lucent::checkStack();
+    lucent::Promise<void> v1_ = lucent::delay(1.0);
+    co_await v1_;
+    resolve(std::variant<lucent::Promise<double>, double>(21.0));
+    co_return;
+  }, resolve));
   lucent::Fn<lucent::Promise<void>()> later = std::move(v5_);
   (void)later();
   double v9_ = co_await promise;

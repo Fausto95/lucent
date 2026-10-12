@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"native-handles", "8310
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "d4b5640a432f778d", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "e8482e9d0ffe5817", kModuleIdentities, 1};
   return identity;
 }
 

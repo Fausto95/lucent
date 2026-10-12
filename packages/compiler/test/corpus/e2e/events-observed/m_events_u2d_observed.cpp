@@ -130,19 +130,19 @@ lucent::String m_events_u2d_observed::late() {
   lucent::Array<lucent::String> heard = lucent::Array<lucent::String>{};
   lucent::Fn<void(lucent::String)> v3_ = lucent::Fn<void(lucent::String)>([](lucent::String p0_) mutable -> void {});
   lucent::EventSubscription listening = local->addListener<1>(v3_);
-  lucent::Fn<double(bool)> v7_ = lucent::Fn<double(bool)>([heard = heard](bool p0_) mutable -> double {
+  lucent::Fn<double(bool)> v7_ = lucent::Fn<double(bool)>(lucent::closure("events-observed.lucent.ts:63", "heard", [](std::decay_t<decltype(heard)>& heard, bool p0_) -> double {
     lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("status ")) + lucent::toJsString(p0_);
     return heard.push(v4_);
-  });
+  }, heard));
   lucent::EventSubscription observer = local->onObserved(1, lucent::Fn<void(bool)>([fn_1_ = v7_](bool a0) {
     fn_1_(a0);
   }));
-  lucent::Fn<double(bool)> v11_ = lucent::Fn<double(bool)>([heard = heard](bool p0_) mutable -> double {
+  lucent::Fn<double(bool)> v11_ = lucent::Fn<double(bool)>(lucent::closure("events-observed.lucent.ts:64", "heard", [](std::decay_t<decltype(heard)>& heard, bool p0_) -> double {
     lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("reading ")) + lucent::toJsString(p0_);
     return heard.push(v4_);
-  });
+  }, heard));
   (void)local->onObserved(0, lucent::Fn<void(bool)>([fn_2_ = v11_](bool a0) {
     fn_2_(a0);
   }));
@@ -160,7 +160,7 @@ lucent::String m_events_u2d_observed::reentrant() {
   lucent::checkStack();
   lucent::Ref<lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void(lucent::String)>>> local = lucent::EventEmitterObject<lucent::Fn<void(double)>, lucent::Fn<void(lucent::String)>>::create({"reading", "status"});
   lucent::Array<lucent::String> heard = lucent::Array<lucent::String>{};
-  lucent::Fn<void(bool)> v5_ = lucent::Fn<void(bool)>([heard = heard, local = local](bool p0_) mutable -> void {
+  lucent::Fn<void(bool)> v5_ = lucent::Fn<void(bool)>(lucent::closure("events-observed.lucent.ts:76", "heard,local", [](std::decay_t<decltype(heard)>& heard, std::decay_t<decltype(local)>& local, bool p0_) -> void {
     lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("reading ")) + lucent::toJsString(p0_);
     (void)heard.push(v4_);
@@ -169,13 +169,13 @@ lucent::String m_events_u2d_observed::reentrant() {
       lucent::EventSubscription v8_ = local->addListener<1>(v7_);
       v8_->remove();
     }
-  });
+  }, heard, local));
   (void)local->onObserved(0, v5_);
-  lucent::Fn<double(bool)> v9_ = lucent::Fn<double(bool)>([heard = heard](bool p0_) mutable -> double {
+  lucent::Fn<double(bool)> v9_ = lucent::Fn<double(bool)>(lucent::closure("events-observed.lucent.ts:80", "heard", [](std::decay_t<decltype(heard)>& heard, bool p0_) -> double {
     lucent::checkStack();
     lucent::String v4_ = lucent::String(LUCENT_STR("status ")) + lucent::toJsString(p0_);
     return heard.push(v4_);
-  });
+  }, heard));
   (void)local->onObserved(1, lucent::Fn<void(bool)>([fn_3_ = v9_](bool a0) {
     fn_3_(a0);
   }));

@@ -113,28 +113,28 @@ lucent::Array<lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent:
     return v4_.join(LUCENT_STR("|"));
   });
   lucent::Array<lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>> strings = lucent::Array<lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>>{v17_, v19_, v21_, v23_, v25_, v27_, v29_, v31_, v33_, v35_, v37_, v38_, v39_};
-  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v42_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>([xs = xs](lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) mutable -> lucent::String {
+  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v42_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>(lucent::closure("optional-arguments.lucent.ts:28", "xs", [](std::decay_t<decltype(xs)>& xs, lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) -> lucent::String {
     lucent::checkStack();
     lucent::Array<double> v3_ = xs.slice(p0_.valueOr(lucent::kNaN));
     return v3_.join();
-  });
-  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v44_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>([xs = xs](lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) mutable -> lucent::String {
+  }, xs));
+  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v44_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>(lucent::closure("optional-arguments.lucent.ts:29", "xs", [](std::decay_t<decltype(xs)>& xs, lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) -> lucent::String {
     lucent::checkStack();
     lucent::Array<double> v4_ = xs.slice(1.0, p0_.valueOr(lucent::kInfinity));
     return v4_.join();
-  });
-  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v46_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>([xs = xs](lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) mutable -> lucent::String {
+  }, xs));
+  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v46_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>(lucent::closure("optional-arguments.lucent.ts:30", "xs", [](std::decay_t<decltype(xs)>& xs, lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) -> lucent::String {
     lucent::checkStack();
     lucent::Array<double> ys = ({ lucent::Array<double> arr_1_; arr_1_.append(xs); arr_1_; });
     lucent::Array<double> removed = ys.splice(1.0, p0_.valueOr(lucent::kNaN));
     lucent::String v8_ = removed.join();
     lucent::String v11_ = ys.join();
     return lucent::concat(v8_, LUCENT_STR("/"), v11_);
-  });
-  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v48_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>([xs = xs](lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) mutable -> lucent::String {
+  }, xs));
+  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v48_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>(lucent::closure("optional-arguments.lucent.ts:36", "xs", [](std::decay_t<decltype(xs)>& xs, lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) -> lucent::String {
     lucent::checkStack();
     return xs.join(p1_.valueOr(LUCENT_STR(",")));
-  });
+  }, xs));
   lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v49_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>([](lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) mutable -> lucent::String {
     lucent::checkStack();
     lucent::Array<double> v6_ = lucent::Array<double>{0.0, 0.0, 0.0, 0.0};
@@ -147,21 +147,21 @@ lucent::Array<lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent:
     lucent::Array<double> v9_ = v6_.fill(7.0, 1.0, p0_.valueOr(lucent::kInfinity));
     return v9_.join();
   });
-  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v52_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>([xs = xs](lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) mutable -> lucent::String {
+  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v52_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>(lucent::closure("optional-arguments.lucent.ts:39", "xs", [](std::decay_t<decltype(xs)>& xs, lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) -> lucent::String {
     lucent::checkStack();
     double v4_ = xs.indexOf(2.0, p0_.valueOr(lucent::kNaN));
     return lucent::toJsString(v4_);
-  });
-  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v54_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>([xs = xs](lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) mutable -> lucent::String {
+  }, xs));
+  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v54_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>(lucent::closure("optional-arguments.lucent.ts:40", "xs", [](std::decay_t<decltype(xs)>& xs, lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) -> lucent::String {
     lucent::checkStack();
     double v4_ = xs.lastIndexOf(2.0, p0_.valueOr(lucent::kNaN));
     return lucent::toJsString(v4_);
-  });
-  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v56_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>([xs = xs](lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) mutable -> lucent::String {
+  }, xs));
+  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v56_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>(lucent::closure("optional-arguments.lucent.ts:41", "xs", [](std::decay_t<decltype(xs)>& xs, lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) -> lucent::String {
     lucent::checkStack();
     bool v4_ = xs.includes(1.0, p0_.valueOr(lucent::kNaN));
     return lucent::toJsString(v4_);
-  });
+  }, xs));
   lucent::Array<lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>> arrays = lucent::Array<lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>>{v42_, v44_, v46_, v48_, v49_, v50_, v52_, v54_, v56_};
   lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v59_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>([bytes = bytes](lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) mutable -> lucent::String {
     lucent::checkStack();
@@ -245,24 +245,24 @@ lucent::Array<lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent:
     return lucent::toJsString(v5_);
   });
   lucent::Fn<lucent::String(lucent::Date, double)> wall = std::move(v80_);
-  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v82_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>([wall = wall](lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) mutable -> lucent::String {
+  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v82_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>(lucent::closure("optional-arguments.lucent.ts:75", "wall", [](std::decay_t<decltype(wall)>& wall, lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) -> lucent::String {
     lucent::checkStack();
     lucent::Date d = lucent::dateFromLocal(2020.0, 1.0, p0_.valueOr(lucent::kNaN));
     double v8_ = d->getTime();
     return wall(d, v8_);
-  });
-  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v84_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>([wall = wall](lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) mutable -> lucent::String {
+  }, wall));
+  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v84_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>(lucent::closure("optional-arguments.lucent.ts:80", "wall", [](std::decay_t<decltype(wall)>& wall, lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) -> lucent::String {
     lucent::checkStack();
     lucent::Date d = lucent::dateFromLocal(2020.0, 1.0, 15.0);
     double v10_ = d->setHours(10.0, p0_.valueOr(lucent::kNaN));
     return wall(d, v10_);
-  });
-  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v86_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>([wall = wall](lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) mutable -> lucent::String {
+  }, wall));
+  lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v86_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>(lucent::closure("optional-arguments.lucent.ts:85", "wall", [](std::decay_t<decltype(wall)>& wall, lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) -> lucent::String {
     lucent::checkStack();
     lucent::Date d = lucent::dateFromLocal(2020.0, 1.0, 15.0);
     double v10_ = d->setMinutes(5.0, p0_.valueOr(lucent::kNaN));
     return wall(d, v10_);
-  });
+  }, wall));
   lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)> v87_ = lucent::Fn<lucent::String(lucent::Opt<double>, lucent::Opt<lucent::String>)>([](lucent::Opt<double> p0_, lucent::Opt<lucent::String> p1_) mutable -> lucent::String {
     lucent::checkStack();
     double v5_ = lucent::dateUTC(2020.0, 1.0, 15.0);
