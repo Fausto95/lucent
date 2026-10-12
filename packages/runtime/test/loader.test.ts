@@ -7,6 +7,7 @@ const loaderFile = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".
 
 interface Identity {
   runtimeAbi: number;
+  reactNative?: string;
   programs: Record<string, string>;
   apis: Record<string, Record<string, string>>;
 }
@@ -36,6 +37,7 @@ function installNative(
   identity?: Partial<{
     host: number;
     runtimeAbi: number;
+    reactNative: string;
     target: string;
     program: string;
     modules: Record<string, string>;
@@ -118,6 +120,39 @@ describe("the loader's check of the app's native code", () => {
 
     expect(e.action).toBe("compile-native");
     expect(e.message).toMatch(/module "a".*api-a0.*api-a1/s);
+  });
+
+  it("refuses native code built against another React Native release", () => {
+    installNative({ reactNative: "0.86" });
+
+    // The app upgraded React Native, and this JavaScript was built after: rebuild the app.
+    const older = failure(() =>
+      freshLoader().loadModule("a", noRegistry, { ...built, reactNative: "0.87" }),
+    );
+    expect(older.action).toBe("compile-native");
+    expect(older.message).toMatch(
+      /built against React Native 0\.86, and this JavaScript for 0\.87\..*compile-native/s,
+    );
+
+    // JavaScript built before the app's upgrade, as an update over the air sends it.
+    const newer = failure(() =>
+      freshLoader().loadModule("a", noRegistry, { ...built, reactNative: "0.85" }),
+    );
+    expect(newer.action).toBe("reload-js");
+  });
+
+  it("checks the React Native release only where both sides name one", () => {
+    const modules = installNative({ reactNative: "0.86" });
+
+    expect(freshLoader().loadModule("a", noRegistry, { ...built, reactNative: "0.86" })).toBe(
+      modules.a,
+    );
+    expect(freshLoader().loadModule("a", noRegistry, built)).toBe(modules.a);
+
+    installNative({});
+    expect(
+      freshLoader().loadModule("a", noRegistry, { ...built, reactNative: "0.87" }),
+    ).toBeDefined();
   });
 
   it("refuses a module the installed app does not have", () => {

@@ -70,11 +70,12 @@ describe("ci-changes", () => {
     ]);
   });
 
-  it("compiles against each React Native release for the runtime, the compiler and the script", () => {
+  it("compiles against each React Native release for the runtime, the compiler, the script and the window", () => {
     for (const f of [
       "packages/runtime/cpp/rn/LucentViews.h",
       "packages/compiler/src/ui/fabric.ts",
       "scripts/react-native-headers.ts",
+      "packages/lucent/src/cli/doctor.ts",
     ])
       expect(keys([f])).toContain("rn-releases");
     expect(keys(["packages/lucent/src/cli/main.ts"])).not.toContain("rn-releases");

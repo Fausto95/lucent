@@ -182,6 +182,28 @@ describe("init's plan", () => {
   });
 });
 
+describe("init and the app's React Native", () => {
+  const installing = (version: string) =>
+    write(bareApp(), {
+      "node_modules/react-native/package.json": JSON.stringify({ name: "react-native", version }),
+    });
+
+  it("says when the app's React Native is older than Lucent supports, and what to do", () => {
+    const r = lucent(installing("0.84.1"), "--yes");
+
+    expect(r.status).toBe(0);
+    expect(r.out).toContain(
+      "React Native 0.84.1; Lucent supports 0.85 to 0.87, and 0.88 on its prerelease lane",
+    );
+    expect(r.out).toMatch(/\n +upgrade react-native to 0\.87\n/);
+  });
+
+  it("says nothing of a release Lucent supports", () => {
+    expect(planInit(installing("0.86.3")).releases).toEqual([]);
+    expect(planInit(installing("0.88.0-rc.4")).releases).toEqual([]);
+  });
+});
+
 describe("lucent init --yes", () => {
   it("sets up a bare app, scaffolds a module and says what to run next", () => {
     const root = bareApp();
