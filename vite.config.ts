@@ -39,8 +39,9 @@ const generated = [
 
 /**
  * The slow tests: they build and run whole programs with the platforms'
- * toolchains (Swift, the JVM, Mac Catalyst, Gradle), or extract an SDK into
- * an empty cache, minutes where the others take seconds. CI runs them, and
+ * toolchains (Swift, the JVM, Mac Catalyst, Gradle), extract an SDK into
+ * an empty cache, or compile against several React Native releases,
+ * minutes where the others take seconds. CI runs them, and
  * so does `pnpm test:all`; a plain `pnpm test` here leaves them out.
  */
 const slow = [
@@ -54,6 +55,7 @@ const slow = [
   "packages/compiler/test/unknown-library.test.ts",
   "packages/compiler/test/ui/*-run.test.ts",
   "packages/compiler/test/cycles-run.test.ts",
+  "packages/compiler/test/ui/react-native-releases.test.ts",
   "packages/lucent/test/android-project.test.ts",
   "packages/lucent/test/bare-example-bundle.test.ts",
   "packages/lucent/test/component-types.test.ts",

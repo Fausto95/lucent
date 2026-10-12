@@ -194,7 +194,9 @@ std::optional<T> prop(
     const char* name,
     const char* key,
     const std::optional<T>& source) {
-  const RawValue* value = raw.at(key);
+  // With no prefix or suffix: React Native 0.87 added at(name), and earlier
+  // releases take only this.
+  const RawValue* value = raw.at(key, nullptr, nullptr);
 
   if (value == nullptr) return source;
   if (!value->hasValue()) return std::nullopt;
@@ -221,7 +223,7 @@ std::bitset<N> handlers(
   auto out = source;
 
   for (std::size_t slot = 0; slot < N; ++slot)
-    if (const RawValue* value = raw.at(keys[slot])) out[slot] = value->hasValue();
+    if (const RawValue* value = raw.at(keys[slot], nullptr, nullptr)) out[slot] = value->hasValue();
 
   return out;
 }

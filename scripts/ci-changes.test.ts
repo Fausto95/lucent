@@ -13,7 +13,13 @@ describe("ci-changes", () => {
       apps: true,
       devices: true,
     });
-    expect(keys(undefined)).toEqual(["e2e", "bench", "app-check-bare", "app-check-expo"]);
+    expect(keys(undefined)).toEqual([
+      "e2e",
+      "bench",
+      "rn-releases",
+      "app-check-bare",
+      "app-check-expo",
+    ]);
   });
 
   it("runs only the unit tests for contributor docs and changesets", () => {
@@ -62,6 +68,16 @@ describe("ci-changes", () => {
       "app-check-bare",
       "app-check-expo",
     ]);
+  });
+
+  it("compiles against each React Native release for the runtime, the compiler and the script", () => {
+    for (const f of [
+      "packages/runtime/cpp/rn/LucentViews.h",
+      "packages/compiler/src/ui/fabric.ts",
+      "scripts/react-native-headers.ts",
+    ])
+      expect(keys([f])).toContain("rn-releases");
+    expect(keys(["packages/lucent/src/cli/main.ts"])).not.toContain("rn-releases");
   });
 
   it("runs an app's own checks for an app change", () => {

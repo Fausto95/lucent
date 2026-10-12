@@ -10,14 +10,20 @@
  *
  * Running them: React Native's prebuilt frameworks the Pods hold (or
  * LUCENT_RN_PODS) have a Mac Catalyst slice, which runs on this Mac.
+ *
+ * Any machine: the releases scripts/react-native-headers.ts assembled,
+ * compiled with this machine's clang (hostToolchains).
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { type AssembledRelease, headersCache } from "../../../../scripts/react-native-headers.ts";
 import { runtimeDir } from "../../src/index.ts";
 import { ndkClang } from "../android-harness.ts";
 import { runAll } from "../parallel-build.ts";
+
+export type { AssembledRelease };
 
 const ROOT = path.resolve(import.meta.dirname, "../../../..");
 const REACT_NATIVE = path.join(ROOT, "apps/bare-example/node_modules/react-native");
@@ -42,15 +48,18 @@ const FOLLY_ANDROID = [
 ];
 
 /** Lucent's flags, warnings as errors, and the headers every platform shares. */
-function common(platform: { view: string; graphics: string }): string[] {
+function common(
+  platform: { view: string; graphics: string },
+  reactCommon: string = REACT_COMMON,
+): string[] {
   const system = [
-    REACT_COMMON,
-    path.join(REACT_COMMON, "react/renderer/components/view/platform", platform.view),
-    path.join(REACT_COMMON, "react/renderer/graphics/platform", platform.graphics),
-    path.join(REACT_COMMON, "jsi"),
-    path.join(REACT_COMMON, "yoga"),
-    path.join(REACT_COMMON, "callinvoker"),
-    path.join(REACT_COMMON, "runtimeexecutor"),
+    reactCommon,
+    path.join(reactCommon, "react/renderer/components/view/platform", platform.view),
+    path.join(reactCommon, "react/renderer/graphics/platform", platform.graphics),
+    path.join(reactCommon, "jsi"),
+    path.join(reactCommon, "yoga"),
+    path.join(reactCommon, "callinvoker"),
+    path.join(reactCommon, "runtimeexecutor"),
   ];
 
   return [
@@ -209,6 +218,82 @@ export function androidToolchain(): Toolchain | undefined {
       fbjni,
     ],
   };
+}
+
+/** The releases scripts/react-native-headers.ts assembled, oldest first. */
+export function assembledReleases(): AssembledRelease[] {
+  const cache = headersCache();
+  const releases = (fs.existsSync(cache) ? fs.readdirSync(cache) : [])
+    .map((dir) => path.join(cache, dir, "toolchain.json"))
+    .filter((manifest) => fs.existsSync(manifest))
+    .map((manifest) => JSON.parse(fs.readFileSync(manifest, "utf8")) as AssembledRelease);
+  const order = (v: string) => v.split(/[.-]/).map((p) => (/^\d+$/.test(p) ? Number(p) : p));
+
+  return releases.sort((a, b) => {
+    const [x, y] = [order(a.version), order(b.version)];
+
+    for (let i = 0; i < Math.max(x.length, y.length); i++) {
+      if (x[i] === y[i]) continue;
+      // A prerelease (0.88.0-rc.4) comes before its release (0.88.0).
+      if (x[i] === undefined) return 1;
+      if (y[i] === undefined) return -1;
+      return x[i]! < y[i]! ? -1 : 1;
+    }
+
+    return 0;
+  });
+}
+
+/** Folly's configuration where no folly-config.h is generated: React Native's for Android, less libc++. */
+const FOLLY_HOST = FOLLY_ANDROID.filter((f) => f !== "-DFOLLY_USE_LIBCPP=1");
+
+/**
+ * This machine's compiler against an assembled release's headers: `cxx`
+ * as an iOS build has them (React Native's cxx platform headers), and
+ * `android` as an Android build does (react-android's prefab layout, JNI
+ * and fbjni), when the release has the JDK's JNI headers. Both only check
+ * syntax: nothing they compile is linked.
+ */
+export function hostToolchains(release: AssembledRelease): {
+  cxx: Toolchain;
+  android?: Toolchain;
+} {
+  const reactCommon = path.join(release.reactNative, "ReactCommon");
+  const cxx: Toolchain = {
+    command: "clang++",
+    args: [
+      ...common({ view: "cxx", graphics: "cxx" }, reactCommon),
+      ...FOLLY_HOST,
+      "-isystem",
+      path.join(reactCommon, "react/nativemodule/core"),
+      "-isystem",
+      release.include,
+    ],
+  };
+
+  if (!release.jni) return { cxx };
+
+  const android: Toolchain = {
+    command: "clang++",
+    args: [
+      ...common({ view: "android", graphics: "android" }, reactCommon),
+      // The Android headers' code paths, on this machine's compiler.
+      "-D__ANDROID__=1",
+      // The NDK's libc++ brings <format> in with other headers, and React
+      // Native's Android graphics conversions count on that.
+      "-include",
+      "format",
+      "-DRN_SERIALIZABLE_STATE=1",
+      ...FOLLY_ANDROID,
+      ...[release.ndk, release.jni, path.join(release.jni, "linux"), ...release.prefab].flatMap(
+        (dir) => ["-isystem", dir],
+      ),
+      "-isystem",
+      release.include,
+    ],
+  };
+
+  return { cxx, android };
 }
 
 function reactNativeVersion(): string {
