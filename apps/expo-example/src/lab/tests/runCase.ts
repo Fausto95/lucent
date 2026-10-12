@@ -16,7 +16,9 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 export async function runCase(c: TestCase): Promise<CaseResult> {
   const lines: string[] = [];
   const start = Date.now();
-  const print = (...args: unknown[]) => lines.push(args.map((a) => String(a)).join(" "));
+  // One line per line printed, as the expected lines are split.
+  const print = (...args: unknown[]) =>
+    lines.push(...args.map((a) => String(a)).join(" ").split("\n"));
 
   let error: string | undefined;
   try {
