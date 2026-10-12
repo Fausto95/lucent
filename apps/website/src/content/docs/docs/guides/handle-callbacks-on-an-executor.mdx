@@ -17,8 +17,6 @@ import { executor, on } from "lucent:thread";
 /** Each position, as the platform reports it. */
 export const moves = new EventEmitter<{ fix: (latitude: number, longitude: number) => void }>();
 
-const fixes = executor("location.fixes");
-
 /** Reports positions to `moves` from an executor, so they never wait behind module code. */
 export function watch(): void {
   if (PLATFORM === "ios") throw new Error("Android only, in this guide");
@@ -26,6 +24,7 @@ export function watch(): void {
   const manager = appContext().getSystemService(LocationManager);
   if (!manager) throw new Error("No location service");
 
+  const fixes = executor("location.fixes");
   const ev = moves;
   manager.requestLocationUpdates(
     LocationManager.GPS_PROVIDER,
