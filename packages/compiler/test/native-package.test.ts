@@ -169,6 +169,28 @@ describe("native package", () => {
     );
   });
 
+  it("gives React Native 0.85 and 0.86's autolinking the codegen library it links", () => {
+    // Their autolinking adds a library's cmakeListsPath (by default its codegen output, which
+    // Lucent has none of) and links react_codegen_<libraryName>, without checking either exists.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const src = path.join(dir, "sample.lucent.ts");
+    fs.writeFileSync(src, "export function one(): number { return 1; }");
+    const out = path.join(dir, "native");
+    writeNativePackage(compile([src]), out);
+
+    const config = createRequire(import.meta.url)(path.join(out, "react-native.config.js")) as {
+      dependency: {
+        platforms: { android: { sourceDir: string; cmakeListsPath: string; libraryName: string } };
+      };
+    };
+    const android = config.dependency.platforms.android;
+    const cmake = path.join(out, android.sourceDir, android.cmakeListsPath);
+
+    expect(fs.readFileSync(cmake, "utf8")).toContain(
+      `add_library(react_codegen_${android.libraryName} INTERFACE)`,
+    );
+  });
+
   it("names the React Native release the app installs in the build identity", () => {
     const app = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
     fs.mkdirSync(path.join(app, "node_modules/react-native"), { recursive: true });
