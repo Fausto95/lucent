@@ -44,6 +44,10 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       {
         "status": "next",
         "text": "Promise chaining and combinators, timers, and web APIs such as `TextEncoder` and `URL`."
+      },
+      {
+        "status": "next",
+        "text": "Classes that extend `EventEmitter`, so native objects have their own listeners."
       }
     ],
     "goal": "Write a module once in TypeScript, and call it from JavaScript as a native module."
@@ -88,8 +92,16 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "Native needs declared by the app's own modules, not only by packages."
       },
       {
+        "status": "next",
+        "text": "Privacy manifests, Android `<queries>` and Gradle plugins, declared by packages."
+      },
+      {
         "status": "later",
         "text": "C++ libraries, and a package's own Kotlin and Java, typed in Lucent."
+      },
+      {
+        "status": "later",
+        "text": "Swift, Kotlin and C++ that call Lucent modules."
       }
     ],
     "goal": "Call the iOS and Android SDKs, and the libraries an app links, directly from Lucent."
@@ -99,7 +111,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
     "items": [
       {
         "status": "done",
-        "text": "Each package on a thread of its own, so packages don't block each other or the main thread."
+        "text": "Modules that don't import each other on threads of their own, which never block the main thread."
       },
       {
         "status": "done",
@@ -132,6 +144,10 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       {
         "status": "later",
         "text": "iOS app extensions and widgets, with SwiftUI bodies."
+      },
+      {
+        "status": "later",
+        "text": "App Intents, Live Activities and Android widget bodies."
       },
       {
         "status": "later",
@@ -170,6 +186,10 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       {
         "status": "later",
         "text": "View controllers as component roots, such as `AVPlayerViewController`."
+      },
+      {
+        "status": "later",
+        "text": "A component's ref passed to a module function, as view capture needs."
       }
     ],
     "goal": "Native views from Lucent components, rendered by React Native's Fabric."
@@ -199,7 +219,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "done",
-        "text": "Performance budgets, checked in CI."
+        "text": "Performance budgets for calls, kernels and size, checked in CI."
       },
       {
         "status": "in progress",
@@ -212,6 +232,10 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       {
         "status": "later",
         "text": "A web target for shared modules."
+      },
+      {
+        "status": "later",
+        "text": "Monorepos, upgrades and Release builds, tested as a matrix."
       },
       {
         "status": "later",
@@ -249,14 +273,15 @@ export const limitations: { title: string; items: string[] }[] = [
       "Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)): break them with `WeakRef`, or key what one side holds in a `WeakMap`.",
       "A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)). A `WeakMap` value that holds its own key keeps it, and the entry, for as long as the map lives.",
       "`Uint8Array` is the only typed array, and `DataView` is refused ([T100](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t100)).",
-      "`null` and `undefined` from JavaScript are told apart for arguments, setter values and object fields only ([T101](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t101)). Inside arrays, maps, sets, records, tuples, callback results and promise values, `T | undefined` also takes `null`, and `T | null` takes `undefined`.",
+      "`null` and `undefined` from JavaScript are checked apart for arguments, setter values and object fields only ([T101](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t101)). Inside arrays, maps, sets, records, tuples, callback results and promise values, `T | undefined` also takes `null`, and `T | null` takes `undefined`. Narrowing such a value then throws `TypeError`.",
       "A recursive union alias, such as a `Json` type of arrays and records, crashes the compiler instead of giving a diagnostic ([T102](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t102)).",
       "`then`, `catch`, `finally`, `Promise.race`, `Promise.any` and `Promise.allSettled` are refused: use `await` and `Promise.all` ([T103](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t103)).",
       "There are no `setTimeout`, `setInterval` or `queueMicrotask`: use `delay` from `lucent:core` ([T104](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t104)).",
       "`TextEncoder`, `TextDecoder`, `atob`, `btoa`, `URL` and `crypto` are not available. `lucent:core` has `utf8Encode` and `utf8Decode` ([T105](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t105)).",
       "Refused built-ins give `LUCENT1003` unless noted. They include `normalize()`, `locales` and `options` arguments, an error's `cause`, `JSON.stringify`'s replacer and indent, `flat()`, resizable `ArrayBuffer`s and `new Proxy` ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106) lifts some).",
-      "Object rest in destructuring (`LUCENT1004`) and spread arguments (`LUCENT1007`) are refused, but for `push(...xs)` and `Math.min(...xs)` and `Math.max(...xs)`. So is `for await` ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106)).",
+      "Object rest in destructuring (`LUCENT1004`) is refused, and so are spread arguments into fixed parameters or from tuples (`LUCENT1007`). `for await` gives `LUCENT1009` ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106)).",
       "Decorators give `LUCENT1005`, and default exports `LUCENT3003`.",
+      "A class can't extend `EventEmitter` (`LUCENT1005`): hold one in a field instead ([T113](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t113)).",
       "On object types, `Object.keys`, `values` and `entries` are refused, and so are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`).",
       "`new Array(n)` needs a whole `.fill(v)`, even when each index is then assigned. `Array.from({ length: n })` needs a map function when elements can't be `undefined`. Writing past an array's end throws `RangeError`.",
       "A declaration file of platform files can't declare a class (`export declare class`) ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106)). A shared class with `PLATFORM` branches is the way today.",
@@ -266,9 +291,9 @@ export const limitations: { title: string; items: string[] }[] = [
       "The JavaScript reference of `compute` differs from native in three cases. An object's copy loses its `#private` fields, and native throws `DataCloneError` for a subclass instance behind a base type. An abort after the task ran but before the promise settled rejects natively and resolves in JavaScript.",
       "Module state is process-wide: two runtimes alive at once share it. A new `Host` resets it only while no other runtime is live.",
       "Module code runs only once a JavaScript runtime has installed Lucent. Background tasks, services and extensions can't run it yet ([T130](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t130)).",
-      "Platform callbacks enter module code under their package's lock, so a frame delegate waits behind synchronous JavaScript calls ([T109](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t109)).",
+      "Platform callbacks enter module code through its actor, so a frame delegate waits behind synchronous JavaScript calls ([T109](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t109)).",
       "Worklet runtimes can't call Lucent modules ([T134](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t134)).",
-      "A delegate that must answer on the main thread waits for the job that holds its package's actor. Calls that nest two packages' actors in a cycle throw `Lucent: deadlock` rather than hang.",
+      "A delegate that must answer on the main thread waits for the job that holds its module's actor. Calls that nest two packages' actors in a cycle throw `Lucent: deadlock` rather than hang.",
       "On iOS, module code gets no event for the URLs the app opens, no push token and no remote notifications. Only the app delegate receives them ([T110](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t110)). On Android, `onActivityEvent(\"newIntent\", …)` carries the URLs.",
       "The app's own `lucent.json` isn't read: only packages declare Info.plist keys, entitlements, pods and Gradle dependencies ([T111](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t111)). Android permissions of the app's own modules are still inferred from the SDK.",
       "iOS adopts no platform memory without a copy: `withPixelBytes` copies. Android adopts direct `ByteBuffer`s ([T108](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t108)).",

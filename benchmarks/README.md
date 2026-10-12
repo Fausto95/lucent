@@ -23,12 +23,13 @@ node scripts/website.ts                              # regenerates the page's ta
 Commit the results file with the regenerated website files. Run from a clean
 tree, so the recorded commit is the code that was measured.
 
-## Device comparisons, not yet published
+## Framework comparisons, not yet published
 
 `bench-expo`, `bench-nitro`, `bench-turbo` and `bench-turbo-cxx` are
 [NitroBenchmarks](https://github.com/mrousavy/NitroBenchmarks)' modules, as
 workspace packages the example apps link. Their Compare tab times 100,000
 calls of `addNumbers` and `addStrings` through each, beside Lucent. Run it
 in a Release build ([docs/testing.md](../docs/testing.md)). Its results
-aren't published until they come from physical devices, which
-[docs/limitations.md](../docs/limitations.md) defers to the maintainer.
+aren't published yet: [T153](../docs/tasks.md#t153) runs the comparison on
+the iOS simulator and the Android emulator in CI and publishes it with its
+method.

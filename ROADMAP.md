@@ -65,11 +65,13 @@ parity on phones and tablets.
 
 ## Status at a glance
 
-Lucent 0.2.0 is on npm as `@lucent-lang/lucent` (2026-10-06). Modules,
-platform bindings with generated Swift and Kotlin, isolated compute,
-native buffers, typed C extensions, the CLI and native views (in preview)
-all work today. Everything is tested on hosts, the iOS simulator and the
-Android emulator, and nothing has run on a physical device.
+Lucent 0.2.0 is on npm as `@lucent-lang/lucent` (2026-10-06), and `main`
+has moved on since: ✅ below means done on `main`, and some of it waits for
+the next release. Modules, platform bindings with generated Swift and
+Kotlin, isolated compute, native buffers, typed C extensions, the CLI and
+native views (in preview) all work. Everything is tested on hosts, the iOS
+simulator and the Android emulator, and nothing has run on a physical
+device.
 
 The website shows the following areas. Each line is one short sentence:
 ✅ done · 🚧 in progress · ⏳ next · 🔭 later.
@@ -88,6 +90,7 @@ Goal: Write a module once in TypeScript, and call it from JavaScript as a native
 - ⏳ Typed arrays and `DataView`, and `null` kept apart from `undefined` in every container.
 - ⏳ JSON-shaped values through recursive union types.
 - ⏳ Promise chaining and combinators, timers, and web APIs such as `TextEncoder` and `URL`.
+- ⏳ Classes that extend `EventEmitter`, so native objects have their own listeners.
 
 ### Platform APIs
 
@@ -102,13 +105,15 @@ Goal: Call the iOS and Android SDKs, and the libraries an app links, directly fr
 - 🚧 Platform memory as JavaScript bytes without a copy, done for Android's `ByteBuffer`.
 - ⏳ Opened URLs, push tokens, notifications and back presses, from the app delegate and Activity.
 - ⏳ Native needs declared by the app's own modules, not only by packages.
+- ⏳ Privacy manifests, Android `<queries>` and Gradle plugins, declared by packages.
 - 🔭 C++ libraries, and a package's own Kotlin and Java, typed in Lucent.
+- 🔭 Swift, Kotlin and C++ that call Lucent modules.
 
 ### Execution modes
 
 Goal: Lucent code runs wherever the platform calls it, on the thread it needs, with or without JavaScript.
 
-- ✅ Each package on a thread of its own, so packages don't block each other or the main thread.
+- ✅ Modules that don't import each other on threads of their own, which never block the main thread.
 - ✅ `main()` for main-thread work, and `compute` for parallel work that shares no state.
 - ✅ Swift `async` and Kotlin `suspend` APIs as promises, cancelled through `AbortSignal`.
 - ✅ Channels that carry values between threads, bounded, with a drop policy.
@@ -117,6 +122,7 @@ Goal: Lucent code runs wherever the platform calls it, on the thread it needs, w
 - 🔭 Android services, receivers, workers and widgets written as Lucent classes.
 - 🔭 iOS background tasks, background downloads and silent pushes.
 - 🔭 iOS app extensions and widgets, with SwiftUI bodies.
+- 🔭 App Intents, Live Activities and Android widget bodies.
 - 🔭 Calls from worklet runtimes.
 
 ### Views
@@ -130,6 +136,7 @@ Goal: Native views from Lucent components, rendered by React Native's Fabric.
 - ⏳ Instances of exported classes as props, such as a video player.
 - ⏳ React Native's own view props, such as `testID` and `onLayout`.
 - 🔭 View controllers as component roots, such as `AVPlayerViewController`.
+- 🔭 A component's ref passed to a module function, as view capture needs.
 
 ### Distribution and tooling
 
@@ -140,23 +147,26 @@ Goal: Build and ship Lucent modules and packages like any React Native library.
 - ✅ Incremental builds, rebuilds as you edit, and Lucent's errors in the editor.
 - ✅ Crashes and errors that point at `.lucent.ts` lines.
 - ✅ A JavaScript `lucent:core`, so Jest and Vitest run shared modules.
-- ✅ Performance budgets, checked in CI.
+- ✅ Performance budgets for calls, kernels and size, checked in CI.
 - 🚧 React Native 0.85 to 0.87 and Expo SDK 56 and 57, with fresh apps built nightly.
 - ⏳ iOS builds from Xcode alone, and a package's pods in Expo apps.
 - 🔭 A web target for shared modules.
+- 🔭 Monorepos, upgrades and Release builds, tested as a matrix.
 - 🔭 Reference ports, benchmarks against Nitro and Expo Modules, and migration guides.
 
 ## Gates
 
-| Gate                 | Meaning                                                                                   | Closing task               | State |
-| -------------------- | ----------------------------------------------------------------------------------------- | -------------------------- | ----- |
-| Module parity        | The values, objects, threads and app events a Nitro or Expo module offers                 | [T112](docs/tasks.md#t112) | open  |
-| View parity          | Props of any type, React Native's view props, controller roots, objects in toolkit bodies | [T123](docs/tasks.md#t123) | open  |
-| Execution modes      | Code that runs with no JavaScript, in background tasks, services, extensions and worklets | [T133](docs/tasks.md#t133) | open  |
-| Distribution         | Fresh apps on each supported release build and run; packages build like any library       | [T140](docs/tasks.md#t140) | open  |
-| Production candidate | Ports prove each row, stress and budgets pass, the docs cover every row                   | [T155](docs/tasks.md#t155) | open  |
+A gate closes when every task in its range is done. Gates share some
+dependencies, which each task lists; the production candidate needs the
+other four.
 
-The gates are independent but for the last, which needs the others.
+| Gate                 | Meaning                                                                                        | Tasks                           | State |
+| -------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------- | ----- |
+| Module parity        | The values, objects, events, threads, app events and configuration a Nitro or Expo module has  | [T100–T115](docs/tasks.md#t100) | open  |
+| View parity          | Props of any type, React Native's view props, controller roots, objects in toolkit bodies      | [T120–T125](docs/tasks.md#t120) | open  |
+| Execution modes      | Code that runs with no JavaScript, in background tasks, services, extensions and worklets      | [T130–T136](docs/tasks.md#t130) | open  |
+| Distribution         | Fresh apps on each supported release build and run; packages build like any library            | [T140–T145](docs/tasks.md#t140) | open  |
+| Production candidate | Ports prove each row, stress and budgets pass, CI runs what it claims, the docs cover each row | [T150–T157](docs/tasks.md#t150) | open  |
 
 ## What's next
 
@@ -164,8 +174,10 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
 
 1. [T140](docs/tasks.md#t140): run the window's fresh apps, not only build
    them, and move the templates and example apps to a stable release.
-2. [T109](docs/tasks.md#t109): executors, so platform callbacks leave the
-   package's lock. The runtime half is merged.
+2. [T109](docs/tasks.md#t109), [T108](docs/tasks.md#t108) and
+   [T107](docs/tasks.md#t107), already in progress: executors, so platform
+   callbacks leave the module's lock; platform memory without copies; and
+   native handles.
 3. [T110](docs/tasks.md#t110): app-delegate and Activity events, which
    background execution and push need.
 4. [T130](docs/tasks.md#t130): the native root, which every execution mode
@@ -182,7 +194,8 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
 
 - A task's status and checklist change in [docs/tasks.md](docs/tasks.md),
   in the commit that changes them. A new task takes the next free id in
-  its gate's range.
+  its gate's range (T100–T119, T120–T129, T130–T139, T140–T149,
+  T150–T159).
 - A row of [docs/parity.md](docs/parity.md) changes in the commit that
   changes its state.
 - A decision is a new file, `docs/decisions/NNNN-<slug>.md`, with the next

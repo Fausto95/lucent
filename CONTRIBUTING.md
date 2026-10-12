@@ -86,8 +86,9 @@ cancelled: each one gates the release that follows it.
   before the commit that makes it pass.
 - Living docs change in the same commit as the behavior they describe:
   `docs/`, the website, `ROADMAP.md`. A commit that finishes, changes or
-  adds a task updates its entry in [docs/tasks.md](docs/tasks.md); a
-  decision is a new file in [docs/decisions/](docs/decisions/README.md);
+  adds a task updates its entry in [docs/tasks.md](docs/tasks.md), and
+  one that changes what Lucent can do updates its row in
+  [docs/parity.md](docs/parity.md); a decision is a new file in [docs/decisions/](docs/decisions/README.md);
   a limitation found or lifted changes
   [docs/limitations.md](docs/limitations.md). [ROADMAP.md](ROADMAP.md)
   changes when the gates or what's next do.

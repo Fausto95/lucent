@@ -56,11 +56,11 @@ generated from this file.
   it, and the entry, for as long as the map lives.
 - `Uint8Array` is the only typed array, and `DataView` is refused
   ([T100](tasks.md#t100)).
-- `null` and `undefined` from JavaScript are told apart for arguments,
+- `null` and `undefined` from JavaScript are checked apart for arguments,
   setter values and object fields only ([T101](tasks.md#t101)). Inside
   arrays, maps, sets, records, tuples, callback results and promise
   values, `T | undefined` also takes `null`, and `T | null` takes
-  `undefined`.
+  `undefined`. Narrowing such a value then throws `TypeError`.
 - A recursive union alias, such as a `Json` type of arrays and records,
   crashes the compiler instead of giving a diagnostic
   ([T102](tasks.md#t102)).
@@ -76,11 +76,12 @@ generated from this file.
   `normalize()`, `locales` and `options` arguments, an error's `cause`,
   `JSON.stringify`'s replacer and indent, `flat()`, resizable
   `ArrayBuffer`s and `new Proxy` ([T106](tasks.md#t106) lifts some).
-- Object rest in destructuring (`LUCENT1004`) and spread arguments
-  (`LUCENT1007`) are refused, but for `push(...xs)` and
-  `Math.min(...xs)` and `Math.max(...xs)`. So is `for await`
-  ([T106](tasks.md#t106)).
+- Object rest in destructuring (`LUCENT1004`) is refused, and so are
+  spread arguments into fixed parameters or from tuples (`LUCENT1007`).
+  `for await` gives `LUCENT1009` ([T106](tasks.md#t106)).
 - Decorators give `LUCENT1005`, and default exports `LUCENT3003`.
+- A class can't extend `EventEmitter` (`LUCENT1005`): hold one in a field
+  instead ([T113](tasks.md#t113)).
 - On object types, `Object.keys`, `values` and `entries` are refused, and
   so are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`).
 - `new Array(n)` needs a whole `.fill(v)`, even when each index is then
@@ -109,12 +110,12 @@ generated from this file.
 - Module code runs only once a JavaScript runtime has installed Lucent.
   Background tasks, services and extensions can't run it yet
   ([T130](tasks.md#t130)).
-- Platform callbacks enter module code under their package's lock, so a
-  frame delegate waits behind synchronous JavaScript calls
+- Platform callbacks enter module code through its actor, so a frame
+  delegate waits behind synchronous JavaScript calls
   ([T109](tasks.md#t109)).
 - Worklet runtimes can't call Lucent modules ([T134](tasks.md#t134)).
 - A delegate that must answer on the main thread waits for the job that
-  holds its package's actor. Calls that nest two packages' actors in a
+  holds its module's actor. Calls that nest two packages' actors in a
   cycle throw `Lucent: deadlock` rather than hang.
 - On iOS, module code gets no event for the URLs the app opens, no push
   token and no remote notifications. Only the app delegate receives them
