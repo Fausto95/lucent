@@ -675,6 +675,74 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "doc": "The code to run on the main thread: its result resolves the promise."
           }
         ]
+      },
+      {
+        "name": "Executor",
+        "kind": "class",
+        "signature": "class Executor {\n  readonly label: string;\n  execute(command: never): void;\n}",
+        "doc": [
+          "A serial executor: a thread of its own that never takes a module's lock. SDK calls that take a queue (iOS) or a `java.util.concurrent.Executor` (Android) take it as it is. Code handed to the platform with `on()` runs on it one call at a time, beside module code, never behind it."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "label",
+            "signature": "readonly label: string;",
+            "doc": "The name it was made with, as Instruments, Perfetto and crash reports show it."
+          },
+          {
+            "name": "execute",
+            "signature": "execute(command: never): void;",
+            "doc": "Java's `Executor.execute`, which Android APIs call to run their work on it. Lucent code hands it work with `on()` instead."
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "executor",
+        "kind": "function",
+        "signature": "function executor(label: string): Executor;",
+        "doc": [
+          "A new serial executor, for platform callbacks that must not wait behind module code: a camera's frames, an audio block, a socket's reads."
+        ],
+        "examples": [
+          "import { Channel } from \"lucent:core\";\nimport { PLATFORM } from \"lucent:platform\";\nimport { LocationManager } from \"lucent:android/android.location\";\nimport { appContext, available } from \"lucent:android\";\nimport { executor, on } from \"lucent:thread\";\n\nexport async function altitude(): Promise<number> {\n  if (PLATFORM === \"ios\") return 0;\n  const manager = appContext().getSystemService(LocationManager);\n  if (!manager || !available(\"android\", 30)) return 0;\n\n  const fixes = executor(\"location.fixes\");\n  const altitudes = new Channel<number>(\"latest\");\n  manager.getCurrentLocation(LocationManager.GPS_PROVIDER, null, fixes, on(fixes, (fix) => {\n    altitudes.send(fix ? fix.getAltitude() : 0);\n  }));\n  return (await altitudes.receive()) ?? 0;\n}"
+        ],
+        "members": [],
+        "params": [
+          {
+            "name": "label",
+            "type": "string",
+            "optional": false,
+            "doc": "Its name, such as `\"camera.frames\"`."
+          }
+        ]
+      },
+      {
+        "name": "on",
+        "kind": "function",
+        "signature": "function on<F>(executor: Executor, f: F): F;",
+        "doc": [
+          "Hands `f` to the platform to run on `executor`, never holding its module's lock. Pass the result straight to the SDK call that takes it.",
+          "When the platform calls `f` on the executor, `f` runs there at once. Called from another thread, an `f` that returns nothing runs in a turn of the executor. One that returns a value is reported as an error.",
+          "`f` runs beside module code, so it shares nothing with it. It may not use module state, call JavaScript callbacks or await. It captures only `const` numbers, strings, booleans and bigints, Channels and Executors, and what it makes leaves through a `Channel`."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "executor",
+            "type": "Executor",
+            "optional": false,
+            "doc": "The executor `f` runs on."
+          },
+          {
+            "name": "f",
+            "type": "F",
+            "optional": false,
+            "doc": "The callback the platform calls."
+          }
+        ]
       }
     ]
   },

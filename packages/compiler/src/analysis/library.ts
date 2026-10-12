@@ -20,6 +20,8 @@ export interface LibraryEffect {
   readonly task?: true;
   /** It keeps its arguments: in its receiver, or in the value it returns. */
   readonly keeps?: "receiver" | "result";
+  /** It returns its argument at this index itself (lucent:thread's on, which hands it to an executor). */
+  readonly returns?: number;
   /**
    * What it returns: its receiver itself (or a view of the same storage),
    * a new object holding its receiver's elements, or one of them. Anything
@@ -406,6 +408,10 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "lucent:core.utf8Decode": ALLOCATES,
   "lucent:core.utf8Encode": ALLOCATES,
   "lucent:thread.main": { allocates: true, schedules: true, main: true },
+  "lucent:thread.executor": ALLOCATES,
+  // on() gives its function back for the platform, which runs it on the executor (checked
+  // there as executor code: native.ts's requireExecutorCode).
+  "lucent:thread.on": { returns: 1 },
   "lucent:android.adoptByteBuffer": ALLOCATES_THROWS,
   "lucent:android.appContext": NONE,
   "lucent:android.available": NONE,

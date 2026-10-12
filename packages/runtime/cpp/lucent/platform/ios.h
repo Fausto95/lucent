@@ -191,6 +191,8 @@ inline id toId(bool v) { return @(v); }
 inline id toId(const Bytes& b) { return toNSData(b); }
 inline id toId(const Date& d) { return toNSDate(d); }
 inline id toId(const NativeRef& r) { return unwrap(r); }
+/// An executor where Objective-C takes a dispatch queue (an `id`): its serial queue.
+inline id toId(const std::shared_ptr<ExecutorContext>& e) { return (__bridge id)e->platformQueue(); }
 inline id toId(const Null&) { return nil; }
 inline id toId(const Undefined&) { return nil; }
 template <class... Ts>
@@ -612,6 +614,12 @@ inline NativeRef mainQueue() { return wrap(dispatch_get_main_queue(), "mainQueue
 inline NativeRef serialQueue(const String& label) {
   std::string name = label.toUtf8();
   return wrap(dispatch_queue_create(name.c_str(), DISPATCH_QUEUE_SERIAL), "serialQueue");
+}
+
+/// An executor (lucent:thread's `executor(label)`) where the platform takes
+/// a dispatch queue: its serial queue, which runs its turns.
+inline NativeRef queueOf(const std::shared_ptr<ExecutorContext>& executor) {
+  return wrap((__bridge id)executor->platformQueue(), "an executor");
 }
 
 /// `available("ios", major, minor)`.

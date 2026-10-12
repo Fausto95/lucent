@@ -51,6 +51,7 @@ Without the `await delay(0)`, a call to `progress()` from JavaScript would wait 
 | Any other SDK callback, such as a listener, an Android method returning `void`, or another delegate method | Posted to its package's thread | Yes |
 | A handler of `onActivityEvent` from `lucent:android` | Posted to the context that subscribed: its package's thread, for module code | Yes |
 | A compute task | A worker thread | No |
+| A function handed to the platform with `on(executor, f)` | The executor's thread | No |
 | A component's setup, effects and commands, and the callbacks it gives the platform | The main thread, in the main context | No |
 
 ## Packages and their locks
@@ -86,6 +87,46 @@ An Android `@WorkerThread` API called there compiles with a warning ([LUCENT3009
 - Tasks run in parallel with each other and with module code. They never take a package's lock.
 - A task can't touch what module code shares: module state, main-thread or unknown native code, or anything asynchronous ([LUCENT3011](/docs/api/diagnostics/#lucent3011)).
 - Its input is copied when `compute` is called, except a `NativeBuffer`, which moves ([lucent:core](/docs/api/lucent-core/#nativebuffer)). Its result comes back to the caller. Both must be data ([LUCENT3012](/docs/api/diagnostics/#lucent3012)).
+
+## Executors
+
+An executor is a serial thread of its own, outside any package's lock: a callback on it never waits behind module code. It's for callbacks that come often and can't wait, such as a camera's frames; here a one-shot location fix shows the shape.
+
+```ts title="fix.lucent.ts"
+import { Channel } from "lucent:core";
+import { PLATFORM } from "lucent:platform";
+import { LocationManager } from "lucent:android/android.location";
+import { appContext, available } from "lucent:android";
+import { executor, on } from "lucent:thread";
+
+/** The device's latitude, read on an executor: never behind other module code. */
+export async function latitude(): Promise<number> {
+  if (PLATFORM === "ios") throw new Error("Android only, in this sample");
+  if (!available("android", 30)) throw new Error("Needs Android 11");
+  const manager = appContext().getSystemService(LocationManager);
+  if (!manager) throw new Error("No location service");
+
+  const fixes = executor("location.fixes");
+  const latitudes = new Channel<number>("latest");
+  manager.getCurrentLocation(
+    LocationManager.GPS_PROVIDER,
+    null,
+    fixes,
+    on(fixes, (fix) => {
+      latitudes.send(fix ? fix.getLatitude() : 0);
+    }),
+  );
+  return (await latitudes.receive()) ?? 0;
+}
+```
+
+- `executor(label)` from [lucent:thread](/docs/api/lucent-thread/) makes one. An SDK parameter that takes a queue, on iOS, or a `java.util.concurrent.Executor`, on Android, takes it as it is.
+- `on(executor, f)` hands `f` to the platform, as an SDK call's argument and only there ([LUCENT1007](/docs/api/diagnostics/#lucent1007)). `f` is a function literal: a block on iOS, a lambda or a functional interface on Android.
+- When the platform calls `f` on the executor, it runs there at once. Called from another thread, an `f` that returns nothing runs in a turn of the executor. One that returns a value is reported as an error.
+- `f` runs beside module code, so it can't use module state, main-thread native code or anything asynchronous ([LUCENT3032](/docs/api/diagnostics/#lucent3032)). Unlike a compute task, it may use native code of unknown thread, such as the frame it's given.
+- It captures only `const` numbers, strings, booleans and bigints, channels and executors, made in the function that hands it over. What it makes leaves through a channel.
+- The callbacks it hands the platform go on an executor with `on()` too. One handed over without `on()` runs in its package, beside the executor, so it may capture only the same values.
+- Only functions go on an executor so far, and each `on()` makes a new one. So a listener removed by the object it was added as can't be removed yet. A delegate's methods still run under its package's lock.
 
 ## Channels
 
@@ -147,9 +188,10 @@ No context waits for another to finish its work: what one hands another is poste
 
 | Code | When |
 | --- | --- |
-| [LUCENT1007](/docs/api/diagnostics/#lucent1007) | An `async` function passed to `main`. |
+| [LUCENT1007](/docs/api/diagnostics/#lucent1007) | An `async` function passed to `main`, or `on(executor, f)` anywhere but an SDK call's argument. |
 | [LUCENT3006](/docs/api/diagnostics/#lucent3006) | A main-thread-only SDK API in code the main thread doesn't run. |
 | [LUCENT3009](/docs/api/diagnostics/#lucent3009) | An Android `@WorkerThread` API in code the main thread runs (a warning). |
 | [LUCENT3011](/docs/api/diagnostics/#lucent3011) | A compute task that uses module state, main-thread or unknown native code, or `await`. |
 | [LUCENT3012](/docs/api/diagnostics/#lucent3012) | A compute task's input or result, or a channel's values, that aren't data. |
 | [LUCENT3022](/docs/api/diagnostics/#lucent3022) | View code that uses module state. |
+| [LUCENT3032](/docs/api/diagnostics/#lucent3032) | A function on an executor that uses module state, main-thread native code or `await`, or captures what its maker can change. |

@@ -239,6 +239,10 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
       return bufferProperty(obj, name, node);
     case "nativeHandle":
       return nativeHandleProperty(obj, name, node);
+    case "executor":
+      if (name === "label")
+        return str(cpp.call("lucent::String::fromUtf8", [cpp.call(cpp.arrow(o, "label"), [])]));
+      break;
     case "channel":
       return channelProperty(obj, name, node);
     case "span":
@@ -1326,6 +1330,14 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       return bufferMethod(em, obj, name, node);
     case "nativeHandle":
       return nativeHandleMethod(obj, name, node);
+    case "executor":
+      if (name === "execute")
+        fail(
+          node,
+          Codes.UnsupportedBuiltin,
+          "an executor's execute() is for the platform: hand it a function with on(executor, f)",
+        );
+      break;
     case "weak":
       if (name === "deref" && !a.length)
         return { c: cpp.call(cpp.arrow(o, "deref"), []), t: unionOf([t.inner, T.undefined]) };

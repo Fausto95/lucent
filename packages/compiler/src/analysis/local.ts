@@ -1554,6 +1554,10 @@ export class Collector {
 
     for (const r of result) this.returned(effect.result, receiver, r, e, member.name);
 
+    if (effect.returns !== undefined)
+      for (const r of result)
+        this.flow(args[effect.returns] ?? [], r, "alias", e, `is returned by ${code(member.name)}`);
+
     return result;
   }
 

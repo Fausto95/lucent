@@ -8,7 +8,7 @@
 import path from "node:path";
 import ts from "typescript";
 import type { OwnerId } from "../ir/ir.ts";
-import { coreTypesPath, isLibFile } from "../program.ts";
+import { builtinSdkModuleOf, coreTypesPath, isLibFile } from "../program.ts";
 import { type Cause, code, describe, step, type Step, stepsOf, type Summary } from "./facts.ts";
 import { declaredAt, tracked } from "./local.ts";
 import type { MainState } from "./main-state.ts";
@@ -16,8 +16,12 @@ import type { NativeFactsSource } from "./native.ts";
 import type { Solved } from "./solve.ts";
 import type { Unit } from "./units.ts";
 
-/** Where code may be asked to run: an isolated compute task, or the main (UI) thread. */
-export type Context = "task" | "main";
+/**
+ * Where code may be asked to run: an isolated compute task, the main (UI)
+ * thread, or an executor (lucent:thread's `on(executor, f)`), beside its
+ * module's code.
+ */
+export type Context = "task" | "main" | "executor";
 
 export type Rule =
   /** It reads or writes mutable module state, which the module's own thread owns. */
@@ -54,6 +58,7 @@ export interface Violation {
 const CONTEXTS: Record<Context, string> = {
   task: "in a compute task",
   main: "on the main thread",
+  executor: "on an executor",
 };
 
 const FIXES: Record<Rule, string> = {
@@ -107,6 +112,9 @@ const REFUSES: Record<Context, readonly SummaryRule[]> = {
     "asynchronous",
   ],
   main: ["module-state", "unknown-code", "worker-thread", "blocking"],
+  // An executor runs where the platform calls it, as a module's thread does: native code of
+  // unknown thread is its to use, but not the main thread's (decision 0081).
+  executor: ["module-state", "module-constant", "unknown-code", "main-thread", "asynchronous"],
 };
 
 function violation(rule: Rule, unit: Unit, context: Context, cause: Cause): Violation {
@@ -405,6 +413,16 @@ export function checkCaptures(
 
     if (origins.functions.length) continue;
 
+    // On an executor, a capture is shared with the code that made the closure, which runs
+    // beside it: only constants of values that can't change, and channels and executors,
+    // which both ends may use at once.
+    if (context === "executor") {
+      const shared = sharedCapture(checker, c.symbol);
+      if (shared)
+        out.push(violation("not-transferable", unit, context, cause(`${captures}, ${shared}`)));
+      continue;
+    }
+
     const problem = transferProblem(
       checker,
       solved.p.native,
@@ -428,6 +446,48 @@ export function checkCaptures(
   }
 
   return out;
+}
+
+/**
+ * Why a closure on an executor can't capture `symbol`, which the code that
+ * made it keeps using beside it: a variable that can be assigned, or a
+ * value that can change (an array, an object, a class instance). Undefined
+ * for a `const` of a number, string, boolean or bigint, a Channel or an
+ * Executor.
+ */
+function sharedCapture(checker: ts.TypeChecker, symbol: ts.Symbol): string | undefined {
+  const decl = symbol.valueDeclaration;
+  const list = decl && ts.isVariableDeclaration(decl) ? decl.parent : undefined;
+  const constant =
+    !!list && ts.isVariableDeclarationList(list) && !!(list.flags & ts.NodeFlags.Const);
+
+  if (!constant)
+    return "a variable the code that made the closure can assign while it runs: capture a `const`";
+
+  const type = checker.getTypeOfSymbol(symbol);
+  const immutable = (t: ts.Type): boolean =>
+    t.isUnion()
+      ? t.types.every(immutable)
+      : !!(
+          t.flags &
+          (ts.TypeFlags.NumberLike |
+            ts.TypeFlags.StringLike |
+            ts.TypeFlags.BooleanLike |
+            ts.TypeFlags.BigIntLike |
+            ts.TypeFlags.Null |
+            ts.TypeFlags.Undefined)
+        );
+  const name = type.getSymbol()?.getName();
+  const from = (d: ts.Declaration) => {
+    const file = d.getSourceFile();
+    if (name === "Channel") return path.resolve(file.fileName) === path.resolve(coreTypesPath());
+    return name === "Executor" && builtinSdkModuleOf(file) === "lucent:thread";
+  };
+  const shareable = !!type.getSymbol()?.declarations?.some(from);
+
+  if (immutable(type) || shareable) return undefined;
+
+  return "a value the code that made the closure can change while it runs: make it inside the function, or send it through a Channel";
 }
 
 /** How one unit runs another: in its own context, or on the main thread. */

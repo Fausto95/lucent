@@ -427,7 +427,7 @@ takes an `AnalysisInput`: `checker`, `modules`, `platform?`, `native?`,
 | `units`, `unit(node)`, `byId(id)`                | Every function, method, class construction and module initialization.                                   |
 | `summary(unit)`, `effects(unit)`                 | The analysis summary; its IR record.                                                                    |
 | `owners(unit)`                                   | The contexts that may run it, each with why. A helper takes its callers'.                               |
-| `check(unit, "task" \| "main")`                  | Why it cannot run there. Backs LUCENT3011, LUCENT3012 and LUCENT3022.                                   |
+| `check(unit, "task" \| "main" \| "executor")`    | Why it cannot run there. Backs LUCENT3011, LUCENT3012 and LUCENT3022.                                   |
 | `captures(unit)`, `checkCaptures(unit, context)` | What a closure captures; why that cannot go with it.                                                    |
 | `transfer(type, name)`                           | Why a value cannot cross to another context.                                                            |
 | `escapes(symbol)`                                | How a variable's value outlives its unit. Backs LUCENT3030.                                             |
@@ -435,8 +435,8 @@ takes an `AnalysisInput`: `checker`, `modules`, `platform?`, `native?`,
 
 ### Planned
 
-- [T109](../tasks.md#t109): `check` gains an executor context, checked as
-  a compute task is but allowing native code of any thread.
+- [T109](../tasks.md#t109): executor members, which only executor code
+  touches, as `mainState` does for the main thread.
 - [T120](../tasks.md#t120): `mainState` extends to instance members only
   main-thread code touches.
 - [T103](../tasks.md#t103), [T106](../tasks.md#t106): promise chaining,
@@ -555,6 +555,7 @@ owns its scopes.
 | `runOnMain(f)`            | `lucent:thread`'s `main(f)`: `f` on the main thread under the caller's actor, as a promise.                        |
 | `postTo(context, f)`      | A turn of a non-actor context.                                                                                     |
 | `callNowIn(context, f)`   | Now, on the context's own thread; from another thread, reported with a default result.                             |
+| `enterOrPost(context, f)` | An executor's function (`on(exec, f)`) returning nothing: now on the executor, else a turn of it.                  |
 | `runIn(context, f)`       | A turn there, settling a promise of the caller's context; a stopped context rejects.                               |
 
 ### JavaScript runtimes and module scope
@@ -665,8 +666,8 @@ scene is a `SceneId`, never a pointer.
 - [T104](../tasks.md#t104): `setTimeout`, `setInterval` and
   `queueMicrotask` on the calling context, cleared at teardown as
   `onDestroy` hooks run.
-- [T109](../tasks.md#t109): `executor(label)` and `on(exec, …)` in
-  `lucent:thread` over `ExecutorContext`, producing into channels
+- [T109](../tasks.md#t109): `on(exec, delegate)` for objects, and
+  `EventEmitter` events posted from an executor
   ([decision 0078](../decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md)).
 - [T110](../tasks.md#t110): `onAppEvent` gains `openURL`, `userActivity`,
   `pushToken` and its failure, `remoteNotification`, `backgroundFetch`,
