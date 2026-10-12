@@ -9,4 +9,5 @@
   print(await mod.classes());
   for (const v of [1, 2, 3]) mod.record(v);
   print(await mod.recorded());
+  print(await mod.subscribed());
 })();

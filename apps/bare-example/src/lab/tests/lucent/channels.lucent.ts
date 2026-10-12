@@ -144,3 +144,25 @@ export async function recorded(): Promise<string> {
   while (recent.stats().depth > 0) got.push((await recent.receive()) ?? -1);
   return got.join(",");
 }
+
+/** A subscriber takes each value as it comes, until it is removed or the channel closes. */
+export async function subscribed(): Promise<string> {
+  const c = new Channel<number>("lossless", 8);
+  const got: number[] = [];
+  c.send(1);
+  const subscription = c.subscribe((v) => {
+    got.push(v);
+  });
+  c.send(2);
+  await Promise.resolve();
+  await Promise.resolve();
+  c.send(3);
+  await Promise.resolve();
+  await Promise.resolve();
+  subscription.remove();
+  c.send(4);
+  await Promise.resolve();
+  const left = c.stats().depth;
+  const later = await c.receive();
+  return `${got.join(",")} | left ${left} | ${later}`;
+}

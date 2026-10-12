@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <future>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -392,6 +393,84 @@ static void channelsCrossAsThemselves() {
   CHECK(transportCopy(channel) == channel);
 }
 
+// --- subscribers ------------------------------------------------------------------
+
+/// A subscriber gets each value on its context, in order, one at a time:
+/// what was queued, then what comes; a throw is reported and the next one
+/// comes; once removed, values wait in the channel for the next receive.
+static void subscribersTakeEachValue() {
+  auto consumer = IsolatedContext::create();
+  auto channel = ChannelObject<double>::create(ChannelPolicy::Lossless, 16);
+  // Written on the consumer's thread; read there, or once `count` says it is done.
+  std::vector<double> got;
+  std::atomic<size_t> count{0};
+  std::atomic<bool> onConsumer{true};
+  EventSubscription subscription;
+
+  channel->send(1);
+  inTurn(*consumer, [&] {
+    subscription = channel->subscribe(Fn<void(double)>([&](double v) {
+      if (!consumer->isCurrent()) onConsumer = false;
+      got.push_back(v);
+      count++;
+      if (v == 2) throw std::runtime_error("a subscriber that throws");
+    }));
+  });
+
+  std::thread producer([&] {
+    for (double v : {2, 3, 4}) channel->send(v);
+  });
+  producer.join();
+
+  CHECK(within(2000, [&] { return count.load() == 4; }));
+  inTurn(*consumer, [&] { CHECK((got == std::vector<double>{1, 2, 3, 4})); });
+  CHECK(onConsumer.load());
+
+  inTurn(*consumer, [&] { subscription->remove(); });
+  channel->send(5);
+  CHECK(within(2000, [&] { return channel->stats().depth == 1; }));
+  CHECK(count.load() == 4);
+  inTurn(*consumer, [&] { CHECK(channel->receive().value().get() == 5); });
+
+  consumer->shutdown();
+}
+
+/// A subscription ends when the channel is closed and drained, and when the
+/// channel goes: it does not keep the channel.
+static void subscriptionsEndWithTheChannel() {
+  auto consumer = IsolatedContext::create();
+  std::vector<double> got;
+  auto channel = ChannelObject<double>::create(ChannelPolicy::Lossless, 4);
+  std::weak_ptr<ChannelObject<double>> watch = channel;
+  EventSubscription subscription;
+
+  std::atomic<size_t> count{0};
+  inTurn(*consumer, [&] {
+    subscription = channel->subscribe(Fn<void(double)>([&](double v) {
+      got.push_back(v);
+      count++;
+    }));
+  });
+  channel->send(7);
+  channel->close();
+  CHECK(within(2000, [&] { return count.load() == 1; }));
+
+  auto other = ChannelObject<double>::create(ChannelPolicy::Lossless, 4);
+  std::weak_ptr<ChannelObject<double>> otherWatch = other;
+  EventSubscription kept;
+  inTurn(*consumer, [&] { kept = other->subscribe(Fn<void(double)>([](double) {})); });
+  other.reset();
+  CHECK(within(2000, [&] { return otherWatch.expired(); }));
+
+  inTurn(*consumer, [&] {
+    subscription.reset();
+    kept.reset();
+  });
+  channel.reset();
+  CHECK(watch.expired());
+  consumer->shutdown();
+}
+
 int main() {
   losslessRefusesWhenFull();
   latestKeepsTheNewest();
@@ -406,6 +485,8 @@ int main() {
   sendsCopyOrMove();
   policiesByName();
   channelsCrossAsThemselves();
+  subscribersTakeEachValue();
+  subscriptionsEndWithTheChannel();
 
   std::printf("channel: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;
