@@ -165,6 +165,14 @@ jobs:
       - uses: ./.github/actions/sdk-cache
         with:
           key: ${{ matrix.key }}
+      # The React Native releases' headers scripts/react-native-headers.ts assembles, one
+      # directory per version: a new release (a new candidate under next) adds one.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: matrix.key == 'rn-releases'
+        with:
+          path: ~/.cache/lucent/react-native-headers
+          key: rn-headers-${{ hashFiles('scripts/react-native-headers.ts') }}-${{ github.run_id }}
+          restore-keys: rn-headers-${{ hashFiles('scripts/react-native-headers.ts') }}-
       - name: ${{ matrix.name }}
         run: ${{ matrix.run }}
       - name: Compiler cache statistics
