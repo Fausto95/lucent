@@ -23,6 +23,10 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                    | Date       | Decision                                                                    |
 | ------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| [0077](0077-the-web-is-a-target-for-shared-modules.md)                    | 2026-10-12 | The web is a target for shared modules                                      |
+| [0076](0076-an-app-delegate-and-activity-subscriber.md)                   | 2026-10-12 | Lucent ships an app-delegate and Activity subscriber, not a delegate        |
+| [0075](0075-instances-of-exported-classes-as-view-props.md)               | 2026-10-12 | A view prop may be an instance of an exported class                         |
+| [0074](0074-a-window-of-stable-react-native-and-expo-releases.md)         | 2026-10-12 | The current and previous stable React Native and Expo releases              |
 | [0073](0073-every-call-checks-the-stack-in-release-too.md)                | 2026-10-11 | Every call checks the stack, in Release builds too                          |
 | [0072](0072-weakmap-and-weakset-drop-entries-with-their-keys.md)          | 2026-10-11 | WeakMap and WeakSet drop entries with their keys                            |
 | [0071](0071-module-hooks-not-app-delegate-hooks.md)                       | 2026-10-08 | Module hooks, not app-delegate hooks                                        |

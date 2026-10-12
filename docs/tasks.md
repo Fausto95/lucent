@@ -27,7 +27,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [TA26](#ta26) | Lay out the slot after a native-only move on iOS                  | done (#77, 2026-10-04)                                                                                                            |
 | [TA36](#ta36) | Close the gaps four reference ports need                          | done (#128, #129, 2026-10-07)                                                                                                     |
 | [TA37](#ta37) | Close the language gaps the review found                          | done (#149, 2026-10-08)                                                                                                           |
-| [T71](#t71)   | Native object references as view props                            | blocked: a decision superseding 0046 and 0065; needs nothing open                                                                 |
+| [T71](#t71)   | Native object references as view props                            | ready (decision 0075); needs nothing open                                                                                         |
 | [T78](#t78)   | UIKit components with a view-controller root                      | ready; needs nothing open                                                                                                         |
 | [TA38](#ta38) | Accept object literals for data-only interfaces                   | done (#162, #177, 2026-10-11)                                                                                                     |
 | [TA43](#ta43) | Tell a module when JavaScript starts and stops listening          | done (#171, 2026-10-11)                                                                                                           |
@@ -47,8 +47,8 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165, #167, #168 merged)                                                                                       |
 | [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | in progress (#175, #180, #183 merged)                                                                                             |
 | [T74](#t74)   | Callback executors and stream backpressure                        | in progress (#181, #182, #187 merged)                                                                                             |
-| [T75](#t75)   | Support a window of stable React Native and Expo releases         | blocked: a decision on the window; needs nothing open                                                                             |
-| [T76](#t76)   | App-delegate and Activity integration hooks                       | blocked: a decision superseding 0071; needs nothing open                                                                          |
+| [T75](#t75)   | Support a window of stable React Native and Expo releases         | ready (decision 0074); needs nothing open                                                                                         |
+| [T76](#t76)   | App-delegate and Activity integration hooks                       | ready (decision 0076); needs nothing open                                                                                         |
 | [T77](#t77)   | Classes the OS instantiates, and typed package Kotlin             | waiting; needs T60, T76                                                                                                           |
 | [T79](#t79)   | Prebuilt C and C++ dependencies: C++ extensions and prefab        | waiting; needs T72                                                                                                                |
 | [TA30](#ta30) | Bind Kotlin function types and callback properties                | done (#78, 2026-10-04)                                                                                                            |
@@ -62,7 +62,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [TA41](#ta41) | Name reference cycles in debug builds                             | waiting (needs the maintainer: a device check); #184, #185, #186 merged                                                           |
 | [TA42](#ta42) | Throw `RangeError` on stack exhaustion                            | done (#173, 2026-10-11)                                                                                                           |
 | [TA44](#ta44) | `WeakMap` and `WeakSet` keyed by instances                        | done (#170, 2026-10-11)                                                                                                           |
-| [TA46](#ta46) | A web target for shared modules                                   | blocked: a scope decision; needs nothing open                                                                                     |
+| [TA46](#ta46) | A web target for shared modules                                   | ready (decision 0077); needs nothing open                                                                                         |
 | [T67](#t67)   | Pass the integrated production-candidate gate                     | waiting (needs the maintainer); needs T62, T63, T64, T65, T66                                                                     |
 | **G5**        | **Production recommendation**                                     |                                                                                                                                   |
 | [T68](#t68)   | Prepare independent author and app pilot packages                 | waiting (needs the maintainer: pilots); needs T67                                                                                 |
@@ -705,9 +705,10 @@ errors, 64-bit parameters from numbers, and lifecycle hooks.
 resolved and retained by the host, so a port keeps the reference library's
 API without an id-keyed map in main-thread state.
 
-- **Status:** blocked: a decision superseding
-  [0046](decisions/0046-ports-keep-their-apis-views-share-state-the-main.md)
-  and [0065](decisions/0065-platform-members-not-platform-classes.md).
+- **Status:** ready: [0075](decisions/0075-instances-of-exported-classes-as-view-props.md)
+  supersedes [0046](decisions/0046-ports-keep-their-apis-views-share-state-the-main.md)
+  and [0065](decisions/0065-platform-members-not-platform-classes.md) for
+  instance props.
 - **Area:** Compiler (ui, analysis), runtime (hosts, JSI), views runtime.
 - **Needs:** [TA36](#ta36) (done), [TA37](#ta37) (done).
 - **Verify:** V1, V2, V3, V5.
@@ -729,7 +730,7 @@ around every write, and a lifetime the author manages by hand
 (`[Symbol.dispose]`, which JavaScript cannot call, so a dropped `Player`
 stays in the map).
 
-- [ ] Decision: a prop may be an instance (or an optional instance, or an
+- [x] Decision: a prop may be an instance (or an optional instance, or an
       array of instances) of an exported class whose platform members and
       instance methods the view uses are main-thread code. Classes stay
       shared (0065 holds); what changes is that `main-state.ts`'s rule
@@ -737,7 +738,8 @@ stays in the map).
       `main()` callbacks, setups and the view's calls touch is the main
       thread's, read and written there without the lock. A member module
       code also touches is refused in a view with a diagnostic naming the
-      member and both uses.
+      member and both uses. Recorded as
+      [0075](decisions/0075-instances-of-exported-classes-as-view-props.md).
 - [ ] Transport (C-VIEW v2.3): the prop crosses Fabric as the instance's
       id in its host (`InstanceState`) plus the runtime id, boxed as
       nullable props are; the proxy reads the id from the JS object's
@@ -1848,7 +1850,8 @@ simulator and the Android emulator. [T59](#t59) measures it on devices.
 on the previous one, not only on the 0.88 release candidate and the SDK 58
 preview, so a library author can publish for the versions their users run.
 
-- **Status:** blocked: a decision on the window; needs nothing open.
+- **Status:** ready: the window is
+  [0074](decisions/0074-a-window-of-stable-react-native-and-expo-releases.md).
 - **Area:** Tooling, runtime (RN integration), verification.
 - **Needs:** none.
 - **Verify:** V1, V5, V6.
@@ -1876,9 +1879,10 @@ names 0.88's continuous event category mapping.
       `enableAccumulatedUpdatesInRawPropsAndroid`, `jsi::NativeState`,
       `setExternalMemoryPressure`, Yoga headers the runtime includes, the
       Expo config plugin and prebuild hooks Lucent uses.
-- [ ] Decide the window: current stable and the previous (0.86 and 0.87 on
+- [x] Decide the window: current stable and the previous (0.86 and 0.87 on
       2026-10-11; Expo SDK 56 and 57) plus a prerelease lane (0.88 RC, SDK
-      58 preview), with the policy for moving it (when a stable ships).
+      58 preview), with the policy for moving it (when a stable ships):
+      [0074](decisions/0074-a-window-of-stable-react-native-and-expo-releases.md).
 - [ ] Where a window release lacks a feature, generate the fallback rather
       than refuse: an Objective-C++ `RCTTurboModule` provider and a Java
       `TurboReactPackage` where pure-C++ autolinking is missing; explicit
@@ -1913,9 +1917,9 @@ Activity receive (opened URLs, push tokens, background fetch, user
 activities, Activity results Lucent does not already report), through one
 subscriber the app registers once, without Lucent replacing either.
 
-- **Status:** blocked: a decision superseding
-  [0071](decisions/0071-module-hooks-not-app-delegate-hooks.md); needs
-  nothing open.
+- **Status:** ready: [0076](decisions/0076-an-app-delegate-and-activity-subscriber.md)
+  supersedes [0071](decisions/0071-module-hooks-not-app-delegate-hooks.md)
+  for the events it names.
 - **Area:** Apple host, Android host, tooling (init, config plugin),
   lucent:ios, lucent:android.
 - **Needs:** none.
@@ -1938,13 +1942,14 @@ event for URLs and no push token. react-native-video 7's Expo plugin
 sets `android:supportsPictureInPicture` on `MainActivity`, which
 `lucent.json` cannot express.
 
-- [ ] Decision: Lucent ships one subscriber, not a delegate. In an Expo app
+- [x] Decision: Lucent ships one subscriber, not a delegate. In an Expo app
       the native package declares an `ExpoAppDelegateSubscriber` (and
       `ReactActivityLifecycleListener`) in an `expo-module.config.json`
       the build writes next to the podspec, so Expo autolinking registers
       it. In a bare app, `lucent init` adds one forwarding line per
       delegate method to `AppDelegate` and `MainActivity`, and `doctor`
       checks they are there; `lucent build` names the missing ones.
+      Recorded as [0076](decisions/0076-an-app-delegate-and-activity-subscriber.md).
 - [ ] iOS events through `onAppEvent`, typed: `openURL` (url, options),
       `userActivity` (type, url, payload), `pushToken` (`Uint8Array`),
       `remoteNotification` (payload; the handler answers the fetch result
@@ -2629,7 +2634,8 @@ interface values or objects, with entries dropped when the key is freed.
 package supply a web implementation for its platform exports, as Expo's
 `registerWebModule` and react-native-mmkv's `localStorage` fallback do.
 
-- **Status:** blocked: a scope decision; needs nothing open.
+- **Status:** ready: in scope, as
+  [0077](decisions/0077-the-web-is-a-target-for-shared-modules.md) has it.
 - **Area:** Tooling (Metro, build), lucent:core (JavaScript), docs.
 - **Needs:** [0060](decisions/0060-js-dev-mode-runs-modules-as-javascript.md)
   (done).
@@ -2639,9 +2645,10 @@ package supply a web implementation for its platform exports, as Expo's
   `lucent:core`, `platforms.ts` (`*.web.lucent.ts` as a platform file whose
   code is ordinary TypeScript), the website.
 
-- [ ] Decide whether `web` is a target (platform branches refused unless
+- [x] Decide whether `web` is a target (platform branches refused unless
       a `*.web.lucent.ts` twin supplies the exports) or out of scope, and
-      record it.
+      record it: a target,
+      [0077](decisions/0077-the-web-is-a-target-for-shared-modules.md).
 - [ ] If in scope: Metro resolves a module's proxy to its JavaScript run
       on web; `lucent:platform`'s `PLATFORM` is `"web"` there; views are
       not available on web (a diagnostic).
