@@ -156,13 +156,15 @@ class Opt {
   /// A read of a collection of optionals (`xs[i]` of a `(T | undefined)[]`,
   /// `map.get(k)`, `record[k]`): absent when the element is, else the
   /// element as it is, null included. The types flatten `T | undefined |
-  /// undefined` the same way (types.ts's unionOf).
-  explicit Opt(const Opt<Opt<T>>& read) {
+  /// undefined` the same way (types.ts's unionOf). A template, taken only
+  /// for that type: a constructor of `Opt<Opt<T>>` would make that type
+  /// wherever Opt<T>'s constructors are weighed, as std::optional<Opt<T>>
+  /// weighs them while it is incomplete.
+  template <class R>
+    requires std::is_same_v<std::remove_cvref_t<R>, Opt<Opt<T>>>
+  explicit Opt(R&& read) {
     if (!read.has()) state_ = read.isNull() ? State::Null : State::Undefined;
-    else *this = read.get();
-  }
-  explicit Opt(Opt<Opt<T>>&& read) {
-    if (!read.has()) state_ = read.isNull() ? State::Null : State::Undefined;
+    else if constexpr (std::is_lvalue_reference_v<R>) *this = read.get();
     else *this = std::move(read.get());
   }
 
