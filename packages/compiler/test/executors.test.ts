@@ -203,6 +203,33 @@ export async function run(): Promise<string> {
     expect(jvmRun(p.r, p.dir, fake!.run)).toMatchObject({ status: 0, stdout: "4\n" });
   }, 300_000);
 
+  it("posts a function that answers nothing to the executor when the platform calls it elsewhere", () => {
+    // thenAccept runs its Consumer at once, on the calling thread: the module's, not the executor's.
+    const p = compiled(`import { Channel } from "lucent:core";
+import { executor, on } from "lucent:thread";
+import { CompletableFuture } from "lucent:android/java.util.concurrent";
+import { Thread } from "lucent:android/java.lang";
+
+export async function run(): Promise<string> {
+  const frames = executor("frames");
+  const out = new Channel<string>("latest");
+  const module = Thread.currentThread()?.getId() ?? 0n;
+  CompletableFuture.completedFuture("now")?.thenAccept(
+    on(frames, (word) => {
+      const here = Thread.currentThread()?.getId() ?? 0n;
+      out.send(\`\${word} \${here === module ? "on the module's thread" : "on the executor"}\`);
+    }),
+  );
+  return (await out.receive()) ?? "";
+}
+`);
+    expect(messages(p)).toEqual([]);
+    expect(jvmRun(p.r, p.dir, fake!.run)).toMatchObject({
+      status: 0,
+      stdout: "now on the executor\n",
+    });
+  }, 300_000);
+
   it("hands the platform its own functions on an executor too", () => {
     const p = compiled(
       handing(`() => {

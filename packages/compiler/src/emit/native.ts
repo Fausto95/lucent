@@ -688,9 +688,10 @@ function objcBlock(
 
   const names = t.params.map((_, i) => `a${i}_`);
   const isVoid = t.ret.k === "prim" && t.ret.name === "void";
-  const later = plan.delivery === "queued";
   // Pointers it receives (`BOOL *stop`): an Out each, written back once the function returns.
   const outs = t.params.slice(0, n).flatMap((p, i) => (p.k === "out" ? [i] : []));
+  // On an executor, one that answers nothing runs at once there, else in a turn of it (enterOrPost).
+  const later = plan.delivery === "queued" || (!!executor && !outs.length);
   const args = names
     .slice(0, n)
     .map((a, i) =>
@@ -1555,7 +1556,10 @@ function proxyEntry(
     params: params.slice(0, n),
     unboxed: params.slice(0, n).map((p, i) => unboxedSlot(p, slots.params[i])),
     box,
-    queued: plan.delivery === "queued",
+    // On an executor, one that answers nothing runs at once there, else in a turn of it (enterOrPost).
+    queued:
+      plan.delivery === "queued" ||
+      (!!executor && !suspend && ret.k === "prim" && ret.name === "void"),
     // A suspend function's continuation comes after what it declares.
     ...(suspend ? { continuation: params.length } : {}),
     what,
@@ -1891,7 +1895,8 @@ function toKotlinFunction(
     key: `invoke(${"Ljava/lang/Object;".repeat(t.params.length)})`,
     params: t.params.slice(0, n),
     box,
-    queued: plan.delivery === "queued",
+    // On an executor, one that answers nothing runs at once there, else in a turn of it.
+    queued: plan.delivery === "queued" || (!!executor && ret.k === "prim" && ret.name === "void"),
     what,
     fn,
     capture: "f_",
