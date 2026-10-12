@@ -47,7 +47,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165, #167, #168 merged)                                                                                       |
 | [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | in progress (#175, #180, #183 merged)                                                                                             |
 | [T74](#t74)   | Callback executors and stream backpressure                        | in progress (#181, #182, #187 merged)                                                                                             |
-| [T75](#t75)   | Support a window of stable React Native and Expo releases         | ready (decision 0074); needs nothing open                                                                                         |
+| [T75](#t75)   | Support a window of stable React Native and Expo releases         | in progress (#190 merged)                                                                                                         |
 | [T76](#t76)   | App-delegate and Activity integration hooks                       | ready (decision 0076); needs nothing open                                                                                         |
 | [T77](#t77)   | Classes the OS instantiates, and typed package Kotlin             | waiting; needs T60, T76                                                                                                           |
 | [T79](#t79)   | Prebuilt C and C++ dependencies: C++ extensions and prefab        | waiting; needs T72                                                                                                                |
@@ -1857,8 +1857,9 @@ simulator and the Android emulator. [T59](#t59) measures it on devices.
 on the previous one, not only on the 0.88 release candidate and the SDK 58
 preview, so a library author can publish for the versions their users run.
 
-- **Status:** ready: the window is
-  [0074](decisions/0074-a-window-of-stable-react-native-and-expo-releases.md).
+- **Status:** in progress: the window is
+  [0074](decisions/0074-a-window-of-stable-react-native-and-expo-releases.md);
+  Lucent's React Native C++ compiles against each of its releases (#190).
 - **Area:** Tooling, runtime (RN integration), verification.
 - **Needs:** none.
 - **Verify:** V1, V5, V6.
@@ -1890,6 +1891,13 @@ names 0.88's continuous event category mapping.
       2026-10-11; Expo SDK 56 and 57) plus a prerelease lane (0.88 RC, SDK
       58 preview), with the policy for moving it (when a stable ships):
       [0074](decisions/0074-a-window-of-stable-react-native-and-expo-releases.md).
+- [x] Compile Lucent's React Native C++ (the generated Fabric sources, the
+      TurboModule and the Android view host) against the headers of each
+      release, on Linux and in CI: `scripts/react-native-headers.ts`
+      assembles a release's, `react-native-releases.test.ts` compiles, the
+      `rn-releases` harness runs 0.85 (Expo SDK 56's), 0.86, 0.87 and
+      `next`. The props read with `RawProps::at(name)`, new in 0.87; they
+      take the lookup every release has (#190).
 - [ ] Where a window release lacks a feature, generate the fallback rather
       than refuse: an Objective-C++ `RCTTurboModule` provider and a Java
       `TurboReactPackage` where pure-C++ autolinking is missing; explicit
