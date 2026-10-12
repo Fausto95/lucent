@@ -147,7 +147,7 @@ classes' declarations by rule, as [views.md](views.md) describes.
 
 ## Execution modes
 
-**Planned** ([T130](../tasks.md#t130) to [T135](../tasks.md#t135)).
+**Planned** ([T130](../tasks.md#t130) to [T136](../tasks.md#t136)).
 Lucent code runs wherever the platform calls it, with or without
 JavaScript:
 
@@ -157,7 +157,9 @@ JavaScript:
   points** that platform glue calls.
 - Android **services, receivers, workers and widgets**, iOS **background
   tasks**, and iOS **app extensions** written as Lucent code.
-- Calls from **worklet runtimes**.
+- **App Intents and Live Activities**, and Android widget bodies.
+- Calls from **worklet runtimes**, and from native code the app or a
+  library ships ([T114](../tasks.md#t114)).
 
 [native-platform.md](native-platform.md#execution-modes) states the
 model and the decisions still open.

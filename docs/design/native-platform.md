@@ -296,8 +296,8 @@ than moved into a table ([0005][d0005]).
 
 ### Contexts
 
-Lucent code runs on four kinds of execution context (C-EXEC,
-`execution.h`):
+Lucent code runs on these kinds of execution context (C-EXEC,
+`execution.h`; an `IsolatedContext` is a compute worker's):
 
 | Context      | Runs                                                                      | Rules                                                                                   |
 | ------------ | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -457,7 +457,8 @@ scopes, rejects its owed promises and drops its posts, and another
 runtime's work goes on. Module variables are the process's, since
 per-runtime storage would change every variable access. `Host::create`
 resets them only when no other runtime is live, so the first runtime and
-each reload start them anew.
+each reload whose old runtime is gone start them anew. A reload whose old
+runtime is still live keeps them.
 
 ## Lifecycle
 
@@ -617,8 +618,9 @@ platform's body in a `PLATFORM` branch ([0013][d0013]).
 
 ## Execution modes
 
-**Planned** ([T130](../tasks.md#t130) to [T135](../tasks.md#t135)). The
-gate's goal: Lucent code runs wherever the platform calls it, on the
+**Planned** ([T130](../tasks.md#t130) to [T136](../tasks.md#t136), and
+[T114](../tasks.md#t114) for native code that calls Lucent). The gate's
+goal: Lucent code runs wherever the platform calls it, on the
 thread it needs, with or without JavaScript. Nitro and Expo authors write
 this code by hand, or Expo ships it as packages. This section states the
 intended model and the decisions still open.
@@ -669,9 +671,9 @@ with no JavaScript: module state initialized, actors and contexts running,
 under `RuntimeId` 0. A JavaScript `Host` is then one more client, and sees
 the same module state when it installs.
 
-Module initialization moves out of the JSI unit into a JSI-free one. It
-runs once, at first use: a launch, an entry point or a `Host`'s install.
-Without a runtime, a call that needs one throws a typed error, such as
+Module initialization moves out of the JSI unit into a JSI-free one. The
+proposal is that it runs once, at first use: a launch, an entry point or a
+`Host`'s install. Without a runtime, a call that needs one throws a typed error, such as
 calling a JavaScript callback; an event with no listener is dropped. Work
 an entry point starts belongs to a scope of that call, so the platform
 ending the task cancels it.
@@ -679,7 +681,26 @@ ending the task cancels it.
 **Open:** when a reload resets module state once native roots exist. The
 task's example is to reset only when no native root holds the state.
 What "holds" means is part of the decision: an entry point in flight, a
-launch module, a running service.
+launch module, a running service. Three rules of today's runtime have to
+change with it:
+
+- `Host::create` resets module state whenever no other JavaScript runtime
+  is live (`jsi/host.cpp`). A native root isn't an attached runtime, so
+  the first JavaScript install would wipe the root's state.
+- Module setup at `RuntimeId` 0 puts its work and its `onDestroy` hooks
+  under the actor's root scope, and only a `Host`'s teardown runs destroy
+  hooks, so they would never run.
+- `currentRuntime()` falls back to the last attached live runtime
+  (`execution.h`). A worklet `Host`, or React Native starting during a
+  background task, would then own an entry point's work and cancel it at
+  its own teardown.
+
+**Open:** loading the code on Android. Lucent's C++ is an `OBJECT`
+library built into the app's `appmodules`, linked against JSI, React
+Native and fbjni, and its JNI environment comes from fbjni. Running from
+`LucentInitializer` or from a `Worker` in a cold process means loading
+that library before React Native does, or building a JSI-free library of
+its own.
 
 ### Launch-time modules
 
@@ -703,7 +724,9 @@ unverified. On Android, from `LucentInitializer` before
 **Planned** ([T130](../tasks.md#t130)). An entry point is a generated C
 function that runs a module function, or a Lucent instance's method, on
 its actor through the native root. The glue of [T131](../tasks.md#t131),
-[T132](../tasks.md#t132) and [T133](../tasks.md#t133) calls them.
+[T132](../tasks.md#t132) and [T133](../tasks.md#t133) calls them, and so
+does native code the app or a library ships ([T114](../tasks.md#t114)).
+Worklet runtimes go through a `Host` instead ([T134](../tasks.md#t134)).
 
 A synchronous entry runs on the calling thread holding the actor, as
 `callNow` does today, and follows the main-thread rule there. An async
@@ -711,7 +734,9 @@ entry reports its outcome to a completion the caller passes: a C function
 and a context pointer. Arguments are data and platform objects.
 
 **Open:** which functions get entry points, and how they are named. A name
-the OS stores must stay stable across app updates (see below).
+the OS stores must stay stable across app updates (see below). How an
+entry reports an error: `callNow` reports it and returns a default result
+today, which doesn't suit a result the OS reads, such as a `Worker`'s.
 
 ### Android classes the OS instantiates
 
@@ -729,8 +754,9 @@ or Kotlin the package ships.
   as generated subclasses do today.
 - `lucent.json` `android.components[].class` names the Lucent class, and
   the manifest's `android:name` is the generated class.
-- A `CoroutineWorker` needs a Lucent `async` method implementing a
-  `suspend` member ([T112](../tasks.md#t112)).
+- A `CoroutineWorker` needs a Lucent `async` method overriding a Kotlin
+  class's `suspend` member ([T112](../tasks.md#t112)). Implementing an
+  interface's works already.
 
 Each callback keeps its platform's rules: `onReceive` returns quickly, and
 `doWork` blocks a background thread for its result. Calls on the main
@@ -764,10 +790,9 @@ and `expo-notifications` tasks do.
   `lucent.json` `ios.infoPlist`. Tests use a debug-build trigger, since the
   simulator never launches background tasks.
 
-**Open:** how `lucent build` names a missing permitted identifier. The task
-says it checks the identifiers the code registers, but recognizing a call
-to `BGTaskScheduler` by name would be a catalog entry. One rule-based
-option: identifiers declared in `lucent.json`, checked against
+**Open:** whether `lucent build` should check the identifiers at all.
+Recognizing a call to `BGTaskScheduler` by name would be a catalog entry,
+so a check would compare identifiers declared in `lucent.json` with
 `Info.plist`.
 
 ### App extensions and widgets
@@ -783,7 +808,10 @@ extension, a share extension.
   class, or its widget: a `TimelineProvider` through the Swift proxy, the
   body through SwiftUI JSX.
 - **API limits.** APIs unavailable to extensions are refused in extension
-  code, from their availability attributes. No list is kept.
+  code, from their availability attributes. No list is kept. The runtime
+  itself must follow the rule too: `platform/ios_ui.mm` calls
+  `UIApplication.sharedApplication` and observes its notifications from
+  `+load`, which an extension build has to leave out.
 - **Integration.** The Expo plugin adds the target, and a CLI command adds
   it in a bare app. An App Group entitlement lets the app and its
   extension share storage.
@@ -820,18 +848,32 @@ with its calls' results and callbacks posted to its own scheduler.
 offers it. An entry point would start React Native headless and run a
 JavaScript function, as `expo-task-manager` does.
 
+### App Intents, Live Activities and widget bodies
+
+**Planned** ([T136](../tasks.md#t136)), after T131 and T133. App Intents
+and ActivityKit attributes are Swift types that Xcode's tools read at
+build time, so Lucent has to generate them from Lucent classes. A Live
+Activity's body is SwiftUI JSX, as a widget's is. On Android, an
+`AppWidgetProvider` written in Lucent (T131) renders `RemoteViews` it
+builds through the SDK.
+
 ### Open decisions
 
 Each becomes a decision record before its task's work starts:
 
-1. Module state's lifetime with native roots, and what a reload resets.
-2. The entry-point ABI: names, sync and async forms, arguments, scopes.
-3. Launch timing on each platform.
+1. Module state's lifetime with native roots, what a reload resets, and
+   the three runtime rules above.
+2. The entry-point ABI: names, sync and async forms, arguments, errors,
+   scopes, and the API native code sees ([T114](../tasks.md#t114)).
+3. Launch timing on each platform, and loading the code on Android.
 4. Marking OS-instantiated Android classes, their constructors and names.
 5. Checking background identifiers by rule.
-6. Extension targets, their module set and memory budget.
-7. Installing on worklet runtimes, and instances across runtimes.
+6. Extension targets, their module set, their memory budget, and the
+   runtime's own extension-unsafe calls.
+7. Installing on worklet runtimes, which runtime owns an entry's work, and
+   instances across runtimes.
 8. Whether to offer JavaScript background tasks.
+9. Generating App Intents and Live Activity types.
 
 ## Distribution
 
@@ -873,8 +915,9 @@ any other:
 
 ### The release window
 
-Lucent supports the current and previous stable React Native and Expo
-releases, with a prerelease lane ([0074][d0074], [0079][d0079]):
+Lucent supports the stable Expo SDKs of the window and the React Native
+releases from the oldest one's to the newest stable, with a prerelease
+lane ([0074][d0074], [0079][d0079]):
 
 | Lane       | React Native     | Expo SDK     |
 | ---------- | ---------------- | ------------ |
@@ -955,9 +998,9 @@ Tests sit where a failure starts ([testing.md](../testing.md)):
 | Bindings and glue | bindgen and SDK suites; Android glue on a desktop JVM | Real SDKs bind; generated glue compiles and runs   |
 | Apps              | `scripts/app-check.ts`, `scripts/device-check.ts`     | The example apps on the simulator and emulator     |
 | Distribution      | `scripts/smoke-install.ts`, `scripts/window-app.ts`   | The packed package in fresh apps, on each release  |
-| Performance       | `scripts/bench.ts`, `scripts/bench-build.ts`          | Budgets P1 to P8                                   |
+| Performance       | `scripts/bench.ts`, `scripts/bench-build.ts`          | Budgets P1 to P9                                   |
 
-The validation profiles V1 to V9 ([tasks.md](../tasks.md#validation)) name
+The validation profiles V0 to V9, but V8 ([tasks.md](../tasks.md#validation)), name
 the commands. Evidence keeps its level: code, host, simulator or emulator.
 Physical devices are outside the plan ([0080][d0080]), and a check that
 could not run is reported as not run, never as a pass.

@@ -19,6 +19,11 @@ each contract as the code implements it today. The design is
   the minor version for an additive change, the major version for one
   consumers must follow, whose changeset says how to migrate.
 - A **Planned** note names the open task that will change a contract.
+- An interface written before its code is marked **Proposed**, with the
+  task that implements it, until that code merges. This keeps contracts
+  first: the entry-point ABI ([T130](../tasks.md#t130),
+  [T114](../tasks.md#t114)) and new `lucent.json` fields (`launch`,
+  `components[].class`) start here as proposals.
 - History is in git; this file at commit `1f72821d` holds every earlier
   revision. Where code and text disagree, the code runs and the text has a
   bug.
@@ -583,16 +588,16 @@ their own.
 `lucent::js::Host` (`jsi/host.h`) is made per JS runtime, on its thread,
 and owns every JSI object Lucent keeps.
 
-| `Host` member                | Contract                                                                                                                                              |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `create(rt, poster)`         | One per runtime; an earlier host is invalidated and replaced.                                                                                         |
-| `id()`                       | Nonzero, never reused: the `RuntimeId` its scopes and tokens carry.                                                                                   |
-| `scope()`, `scopeFor(actor)` | The roots of its work on the shared actor and on each actor.                                                                                          |
-| `postToJs(task, dropped?)`   | On the JS thread unless torn down first; a dropped task is released on the calling actor.                                                             |
-| `postToModule(actor, job)`   | A turn of `actor` unless torn down before it starts.                                                                                                  |
-| `invalidate()`               | Rejects owed promises with `goneError()` (AbortError), disposes its scopes, drops JSI references. Teardown from the runtime's end runs no JavaScript. |
-| `retain`, `retainValue`      | Ids for JS functions and values; `release` and `releaseValue` work from any thread.                                                                   |
-| `ownership()`                | `runtime`, `promises`, `callbacks`, `identities`, `prototypes`, `modules`, `registrations`, `inFlight`, `values`, `releasedOpen`.                     |
+| `Host` member                | Contract                                                                                                                                                                                                                                  |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create(rt, poster)`         | One per runtime; an earlier host is invalidated and replaced.                                                                                                                                                                             |
+| `id()`                       | Nonzero, never reused: the `RuntimeId` its scopes and tokens carry.                                                                                                                                                                       |
+| `scope()`, `scopeFor(actor)` | The roots of its work on the shared actor and on each actor.                                                                                                                                                                              |
+| `postToJs(task, dropped?)`   | On the JS thread unless torn down first; a dropped task is released on the calling actor.                                                                                                                                                 |
+| `postToModule(actor, job)`   | A turn of `actor` unless torn down before it starts.                                                                                                                                                                                      |
+| `invalidate()`               | Rejects owed promises with an AbortError of its own ("Lucent was torn down…"), disposes its scopes, drops JSI references. Teardown from the runtime's end runs no JavaScript. Lucent code still waiting on JavaScript gets `goneError()`. |
+| `retain`, `retainValue`      | Ids for JS functions and values; `release` and `releaseValue` work from any thread.                                                                                                                                                       |
+| `ownership()`                | `runtime`, `promises`, `callbacks`, `identities`, `prototypes`, `modules`, `registrations`, `inFlight`, `values`, `releasedOpen`.                                                                                                         |
 
 `instanceOf(rt, v)` throws `TypeError` for an object a torn-down host
 made. A `JSValue` is a `HeldJsValue`, released on the JS thread with its
@@ -664,9 +669,11 @@ scene is a `SceneId`, never a pointer.
   `lucent:thread` over `ExecutorContext`, producing into channels
   ([decision 0078](../decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md)).
 - [T110](../tasks.md#t110): `onAppEvent` gains `openURL`, `userActivity`,
-  `pushToken`, `remoteNotification`, `backgroundURLSession` and
-  `shortcutItem`, and `onActivityEvent` gains `backPressed`,
-  `userLeaveHint`, `configurationChanged` and `keyUp`
+  `pushToken` and its failure, `remoteNotification`, `backgroundFetch`,
+  `backgroundURLSession`, `shortcutItem` and
+  `supportedInterfaceOrientations`. Android's back, configuration, new
+  intent and user-leave events come through androidx's listeners where
+  module code can reach them, and the subscriber covers the rest
   ([decision 0076](../decisions/0076-an-app-delegate-and-activity-subscriber.md)).
 - [T130](../tasks.md#t130): a native root. Actors start with no `Host`, a
   later `Host` sees the same module state, and generated C entry points
@@ -933,17 +940,17 @@ struct Mount {
 
 ### Setup, sizing, children and bodies
 
-| Part              | Contract                                                                                                                                                                                                                                                                  |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Setup             | `<X>_setup` with `<X>_Props` and `<X>_Commands`, using `lucent:ui`: `signal`, `effect`, `expose`, `onDispose`, `bind`, `slot`, `invalidateSize`, `Children`, `Continuous`, `Coalesced`.                                                                                   |
-| Reactive graph    | `ui::mainGraph()` (`reactive.h`) runs on its owner only. Signals notify by `Object.is`; computed values are lazy; an effect's last run is disposed before it reruns; one past `loopLimit` runs is reported.                                                               |
-| Content           | `Content` (`view.h`) hears every entry into a mount, functions setup made included (`inContent`). Code after an `await` calls `invalidateSize()`.                                                                                                                         |
-| Sizing            | Without children or a fixed size, a component is a measurable Yoga leaf. The host posts `{ size, constraints, revision }`; the renderer keeps one that answers today's constraints, is not older, and moves the size by over a pixel. At most three unsettled are posted. |
-| Children          | `children?: Children` makes a Yoga container (`SlotShadowNode`). Setup calls `slot<T>()` once. React Native owns each child, the host the slot and order, setup the slot's placement (`Placement { revision, insets, rtl, swapped }`).                                    |
-| Toolkit bodies    | The toolkit's JSX (`View`, `Composed`), returned once as the last statement of its platform's code; a shared file's JSX runtime is `lucent:jsx`. A toolkit name outside its platform's code is LUCENT3024.                                                                |
-| JSX mapping       | SwiftUI: an element is an initializer, a label-named attribute an argument, other attributes modifiers in order. Compose: an element is a composable; children are the content lambda.                                                                                    |
-| Body slots        | Setup data a body reads is a value slot; a setup function it calls, an action slot; an array shown item by item, a keyed list slot. `bind(signal)` gives a view a scalar signal. Helpers become a Swift `View` or a `@Composable`.                                        |
-| Platform-view JSX | A view class is a tag ([views.md](views.md#platform-views-as-jsx)), its attributes derived from its declarations under `"~jsx:<module>.<class>"`.                                                                                                                         |
+| Part              | Contract                                                                                                                                                                                                                                                                                           |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Setup             | `<X>_setup` with `<X>_Props` and `<X>_Commands`, using `lucent:ui`: `signal`, `effect`, `expose`, `onDispose`, `bind`, `slot`, `invalidateSize`, `Children`, `Continuous`, `Coalesced`.                                                                                                            |
+| Reactive graph    | `ui::mainGraph()` (`reactive.h`) runs on its owner only. Signals notify by `Object.is`; computed values are lazy; an effect's last run is disposed before it reruns; one past `loopLimit` runs is reported.                                                                                        |
+| Content           | `Content` (`view.h`) hears every entry into a mount, functions setup made included (`inContent`). Code after an `await` calls `invalidateSize()`.                                                                                                                                                  |
+| Sizing            | Without children or a fixed size, a component is a measurable Yoga leaf. The host posts `{ size, constraints, revision }`; the renderer keeps one that answers today's constraints, is not older, and moves the size by at least one pixel (`1/scale` points). At most three unsettled are posted. |
+| Children          | `children?: Children` makes a Yoga container (`SlotShadowNode`). Setup calls `slot<T>()` once. React Native owns each child, the host the slot and order, setup the slot's placement (`Placement { revision, insets, rtl, swapped }`).                                                             |
+| Toolkit bodies    | The toolkit's JSX (`View`, `Composed`), returned once as the last statement of its platform's code; a shared file's JSX runtime is `lucent:jsx`. A toolkit name outside its platform's code is LUCENT3024.                                                                                         |
+| JSX mapping       | SwiftUI: an element is an initializer, a label-named attribute an argument, other attributes modifiers in order. Compose: an element is a composable; children are the content lambda.                                                                                                             |
+| Body slots        | Setup data a body reads is a value slot; a setup function it calls, an action slot; an array shown item by item, a keyed list slot. `bind(signal)` gives a view a scalar signal. Helpers become a Swift `View` or a `@Composable`.                                                                 |
+| Platform-view JSX | A view class is a tag ([views.md](views.md#platform-views-as-jsx)), its attributes derived from its declarations under `"~jsx:<module>.<class>"`.                                                                                                                                                  |
 
 ### Planned
 
@@ -1192,8 +1199,10 @@ Swift value types cross as boxed references. Kotlin extension functions
 take the receiver first. Android callbacks use one reflection-based
 `NativeProxy`. Packages ship sources only, and an app has one runtime.
 Events are void; commands are a void enqueue or a promise result. SwiftUI
-and Compose views are the toolkit's JSX. A view prop may be an exported
-class's instance
-([0075](../decisions/0075-instances-of-exported-classes-as-view-props.md)),
-and executors wrap code where it is handed to the platform
-([0078](../decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md)).
+and Compose views are the toolkit's JSX. Two accepted decisions are
+planned, not built: a view prop may be an exported class's instance
+([0075](../decisions/0075-instances-of-exported-classes-as-view-props.md),
+[T120](../tasks.md#t120)), and executors wrap code where it is handed to
+the platform
+([0078](../decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md),
+[T109](../tasks.md#t109)).

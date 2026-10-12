@@ -59,7 +59,7 @@ between platforms or from its shared declaration (`ui/merge.ts`).
 
 A component's id is `<package>/<module path>#<export>` (`ui/identity.ts`). A
 Lucent package's module path is under its sources; an app's is under the nearest
-`package.json` with a `name`. Platform suffixes and extensions are stripped, so
+`package.json`, which must have a `name`, or the component has no identity. Platform suffixes and extensions are stripped, so
 split files share one id.
 
 The registration name is `Lucent<export>_<hash>`, the hash being the first 12
@@ -212,7 +212,8 @@ once (`View & UIView`), so the component declares the root view class.
 
 The JSX is compiled as the setup a person would write (`emit/native-jsx.ts`).
 Each view is made at mount, in source order, a parent before its children;
-Android views take `lucent::jni::viewContext()`. Each prop with a value is an
+Android views take `lucent::jni::viewContext()`; a view made after setup, on an
+update or a command, gets `appContext()` instead ([T125](../tasks.md#t125)). Each prop with a value is an
 effect of the mount, set now and whenever what it read changes. A bare attribute
 is `true`, set once.
 
@@ -568,12 +569,12 @@ command name is the command's, and a request's arguments are `[id, …args]`.
    `settle(id, error, value)` settles it. A torn-down runtime's answer is
    dropped.
 
-| Case                                                           | JavaScript sees                                         |
-| -------------------------------------------------------------- | ------------------------------------------------------- |
-| A command while the view isn't mounted                         | `InvalidStateError`, thrown, or a request's rejection   |
-| A request pending when its view unmounts                       | `AbortError`: `<Component> unmounted before answering.` |
-| A request whose command threw, or whose arguments didn't parse | `Error`: `Lucent: <the native message>`                 |
-| An app whose native code has no request channel                | `Error` with the code `LUCENT_NATIVE_MISMATCH`          |
+| Case                                                           | JavaScript sees                                                 |
+| -------------------------------------------------------------- | --------------------------------------------------------------- |
+| A command while the view isn't mounted                         | `InvalidStateError`, thrown, or a request's rejection           |
+| A request pending when its view unmounts                       | `AbortError`: `Lucent: <Component> unmounted before answering.` |
+| A request whose command threw, or whose arguments didn't parse | `Error`: `Lucent: <the native message>`                         |
+| An app whose native code has no request channel                | `Error` with the code `LUCENT_NATIVE_MISMATCH`                  |
 
 ## Children and slots
 
@@ -876,6 +877,8 @@ The view gate closes these gaps ([parity.md](../parity.md#views)):
 | React Native's view props (`testID`, `onLayout`…), and a host ref with `measure`                 | [T121](../tasks.md#t121) |
 | A `UIViewController` root, such as `AVPlayerViewController`                                      | [T122](../tasks.md#t122) |
 | Instance props in SwiftUI and Compose bodies; helpers with toolkit values, children and bindings | [T123](../tasks.md#t123) |
+| A component's ref passed to a module function                                                    | [T124](../tasks.md#t124) |
+| Views made after setup on Android get `appContext()`, not the hosting view's themed context      | [T125](../tasks.md#t125) |
 
 Accepted, with no task ([limitations.md](../limitations.md#views)):
 
@@ -886,8 +889,13 @@ Accepted, with no task ([limitations.md](../limitations.md#views)):
 - A native change no code of the mount makes keeps the old size on iOS, and on
   Android when it asks for no layout. A looser bound measures again, and locale
   isn't an input of a measurement.
-- Android's shell doesn't draw React Native's borders. Android setup code has
-  only `appContext()`, not the hosting view's themed context.
+- Android's shell doesn't draw React Native's borders.
+- A slot inside a native scroll view doesn't scroll with it, transforms between
+  the host and a slot are ignored, and `removeClippedSubviews` doesn't apply to
+  slots.
+- Android mounts each commit, unless the app turns on
+  `enableAccumulatedUpdatesInRawPropsAndroid`.
+- A `Flex` inside a stack view sized by Auto Layout has no intrinsic size.
 - Native-view rules read declarations, not behavior: Android's `AdapterView`
   declares `addView(View, int)` and throws from it. A list's item is one
   element, and a root chosen by a runtime condition is chosen once per mount.

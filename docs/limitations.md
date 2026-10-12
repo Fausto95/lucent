@@ -21,7 +21,21 @@ generated from this file.
 - Android pools component views only when the app turns on React Native's
   `enableViewRecycling`. iOS always recycles them.
 - Intrinsic sizes and slot insets wait for the JavaScript thread to apply
-  them, which takes one layout when it is idle.
+  them, which takes one layout when it is idle. A component shows its
+  previous size, zero at mount, until then.
+- A native change no code of the mount makes keeps the old size on iOS,
+  and on Android when it asks for no layout. Locale isn't an input of a
+  measurement.
+- Android's component shell doesn't draw React Native's borders. Views
+  made after setup get `appContext()`, not the hosting view's themed
+  context ([T125](tasks.md#t125)).
+- A slot inside a native scroll view doesn't scroll with it. Transforms
+  between the host and a slot are ignored, and `removeClippedSubviews`
+  doesn't apply to slots.
+- Android mounts each commit, unless the app turns on
+  `enableAccumulatedUpdatesInRawPropsAndroid`.
+- A `Flex` inside a stack view sized by Auto Layout has no intrinsic
+  size.
 - Absolute children of a padded component follow React Native's
   padding-box rule relative to the slot. A fixed-size slot inside a
   component sized by its children is bounded at three reports.
@@ -34,6 +48,8 @@ generated from this file.
   infinity.
 - SwiftUI: a two-value `onChange` closure doesn't type-check, because
   TypeScript tries the one-value overload first.
+- SwiftUI: a member newer than the app's oldest iOS is LUCENT3024, since a
+  body checks no availability.
 - Compose: class names that clash keep the first package's.
 - Native views' JSX: a plain view's children have no layout, and a
   `Flex`'s are Yoga's. A list's item is one element.

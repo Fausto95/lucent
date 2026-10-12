@@ -22,56 +22,56 @@ what became of each one that is still linked or was still open.
 
 ## Status
 
-| Task                     | Title                                                      | State                                                     |
-| ------------------------ | ---------------------------------------------------------- | --------------------------------------------------------- |
-| **Module parity**        |                                                            |                                                           |
-| [T100](#t100)            | Typed arrays and `DataView`                                | ready                                                     |
-| [T101](#t101)            | Keep `null` apart from `undefined` everywhere              | ready                                                     |
-| [T102](#t102)            | Recursive union types, for JSON-shaped values              | ready                                                     |
-| [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | ready                                                     |
-| [T104](#t104)            | Timers and `queueMicrotask`                                | ready                                                     |
-| [T105](#t105)            | Web APIs that shared code uses                             | ready                                                     |
-| [T106](#t106)            | Language gaps module code meets                            | ready                                                     |
-| [T107](#t107)            | Native objects: memory pressure and native handles         | in progress (#175, #180, #183 merged, as T73)             |
-| [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | in progress (#163, #165, #167, #168 merged, as T72)       |
-| [T109](#t109)            | Executors for platform callbacks                           | in progress (#181, #182, #187, #197 merged, as T74)       |
-| [T110](#t110)            | App-delegate and Activity events                           | ready (decision 0076)                                     |
-| [T111](#t111)            | The app's own native needs and options                     | ready                                                     |
-| [T112](#t112)            | SDK shapes Lucent still refuses                            | ready                                                     |
-| [T113](#t113)            | Classes that extend `EventEmitter`                         | ready                                                     |
-| [T114](#t114)            | Native code that calls Lucent modules                      | waiting; needs T130                                       |
-| [T115](#t115)            | Native configuration packages can't declare yet            | ready                                                     |
-| **View parity**          |                                                            |                                                           |
-| [T120](#t120)            | Instances of exported classes as view props                | ready (decision 0075)                                     |
-| [T121](#t121)            | React Native's view props, refs and view libraries         | ready                                                     |
-| [T122](#t122)            | UIKit components with a view-controller root               | ready                                                     |
-| [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | waiting; needs T120                                       |
-| [T124](#t124)            | A component's ref as a module function's argument          | ready                                                     |
-| [T125](#t125)            | Android views made after setup keep the Activity's context | ready                                                     |
-| **Execution modes**      |                                                            |                                                           |
-| [T130](#t130)            | A native root: module code with no JavaScript runtime      | ready; its first step is a decision                       |
-| [T131](#t131)            | Android classes the OS instantiates, written in Lucent     | waiting; needs T112, T130                                 |
-| [T132](#t132)            | iOS background execution                                   | waiting; needs T110, T130                                 |
-| [T133](#t133)            | iOS app extensions and widgets                             | waiting; needs T130                                       |
-| [T134](#t134)            | Calls from worklet runtimes                                | ready; its first step is a decision                       |
-| [T135](#t135)            | JavaScript tasks from background entry points              | blocked: a decision on whether Lucent offers it           |
-| [T136](#t136)            | App Intents, Live Activities and Android widget bodies     | waiting; needs T131, T133                                 |
-| **Distribution**         |                                                            |                                                           |
-| [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190, #191, #194, #195, #200 merged, as T75) |
-| [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | ready                                                     |
-| [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | ready                                                     |
-| [T143](#t143)            | Typed Kotlin and Java sources in packages                  | ready                                                     |
-| [T144](#t144)            | A web target for shared modules                            | ready (decision 0077)                                     |
-| [T145](#t145)            | The package distribution matrix                            | ready                                                     |
-| **Production candidate** |                                                            |                                                           |
-| [T150](#t150)            | Reference ports for each parity row                        | waiting; each port names its needs                        |
-| [T151](#t151)            | Lifetime, concurrency and Fabric stress validation         | ready                                                     |
-| [T152](#t152)            | The no-catalog audit                                       | ready                                                     |
-| [T153](#t153)            | Benchmarks against Nitro and Expo Modules                  | ready                                                     |
-| [T154](#t154)            | Guides for every parity row, and migration guides          | waiting; needs T150                                       |
-| [T155](#t155)            | The production-candidate gate                              | waiting; needs every other task but T135                  |
-| [T156](#t156)            | CI runs what the docs say it runs                          | ready                                                     |
-| [T157](#t157)            | Small fixes the docs rewrite found                         | ready                                                     |
+| Task                     | Title                                                      | State                                                           |
+| ------------------------ | ---------------------------------------------------------- | --------------------------------------------------------------- |
+| **Module parity**        |                                                            |                                                                 |
+| [T100](#t100)            | Typed arrays and `DataView`                                | ready                                                           |
+| [T101](#t101)            | Keep `null` apart from `undefined` everywhere              | ready                                                           |
+| [T102](#t102)            | Recursive union types, for JSON-shaped values              | ready                                                           |
+| [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | ready                                                           |
+| [T104](#t104)            | Timers and `queueMicrotask`                                | ready                                                           |
+| [T105](#t105)            | Web APIs that shared code uses                             | ready                                                           |
+| [T106](#t106)            | Language gaps module code meets                            | ready                                                           |
+| [T107](#t107)            | Native objects: memory pressure and native handles         | in progress (#175, #180, #183 merged, as T73)                   |
+| [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | in progress (#163, #165, #167, #168 merged, as T72)             |
+| [T109](#t109)            | Executors for platform callbacks                           | in progress (#181, #182, #187, #197 merged, as T74)             |
+| [T110](#t110)            | App-delegate and Activity events                           | ready (decision 0076)                                           |
+| [T111](#t111)            | The app's own native needs and options                     | ready                                                           |
+| [T112](#t112)            | SDK shapes Lucent still refuses                            | ready                                                           |
+| [T113](#t113)            | Classes that extend `EventEmitter`                         | ready                                                           |
+| [T114](#t114)            | Native code that calls Lucent modules                      | waiting; needs T130                                             |
+| [T115](#t115)            | Native configuration packages can't declare yet            | ready                                                           |
+| **View parity**          |                                                            |                                                                 |
+| [T120](#t120)            | Instances of exported classes as view props                | ready (decision 0075)                                           |
+| [T121](#t121)            | React Native's view props, refs and view libraries         | ready                                                           |
+| [T122](#t122)            | UIKit components with a view-controller root               | ready                                                           |
+| [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | waiting; needs T120                                             |
+| [T124](#t124)            | A component's ref as a module function's argument          | ready                                                           |
+| [T125](#t125)            | Android views made after setup keep the Activity's context | ready                                                           |
+| **Execution modes**      |                                                            |                                                                 |
+| [T130](#t130)            | A native root: module code with no JavaScript runtime      | ready; its first step is a decision; `launch` on iOS needs T110 |
+| [T131](#t131)            | Android classes the OS instantiates, written in Lucent     | waiting; needs T112, T130; its first step is a decision         |
+| [T132](#t132)            | iOS background execution                                   | waiting; needs T110, T130                                       |
+| [T133](#t133)            | iOS app extensions and widgets                             | waiting; needs T130                                             |
+| [T134](#t134)            | Calls from worklet runtimes                                | ready; its first step is a decision                             |
+| [T135](#t135)            | JavaScript tasks from background entry points              | blocked: a decision on whether Lucent offers it                 |
+| [T136](#t136)            | App Intents, Live Activities and Android widget bodies     | waiting; needs T131, T133                                       |
+| **Distribution**         |                                                            |                                                                 |
+| [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190, #191, #194, #195, #200 merged, as T75)       |
+| [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | ready                                                           |
+| [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | ready                                                           |
+| [T143](#t143)            | Typed Kotlin and Java sources in packages                  | ready                                                           |
+| [T144](#t144)            | A web target for shared modules                            | ready (decision 0077)                                           |
+| [T145](#t145)            | The package distribution matrix                            | ready                                                           |
+| **Production candidate** |                                                            |                                                                 |
+| [T150](#t150)            | Reference ports for each parity row                        | waiting; each port names its needs                              |
+| [T151](#t151)            | Lifetime, concurrency and Fabric stress validation         | ready                                                           |
+| [T152](#t152)            | The no-catalog audit                                       | ready                                                           |
+| [T153](#t153)            | Benchmarks against Nitro and Expo Modules                  | ready                                                           |
+| [T154](#t154)            | Guides for every parity row, and migration guides          | waiting; needs T150                                             |
+| [T155](#t155)            | The production-candidate gate                              | waiting; needs every other task but T135                        |
+| [T156](#t156)            | CI runs what the docs say it runs                          | ready                                                           |
+| [T157](#t157)            | Small fixes the docs rewrite found                         | ready                                                           |
 
 ## Gates
 
@@ -827,10 +827,11 @@ runtime.
 
 - **Status:** ready; its first step is a decision.
 - **Area:** runtime, compiler.
-- **Needs:** nothing.
+- **Needs:** nothing for the decision and the root; [T110](#t110) for
+  `launch` on iOS, which runs from the app-delegate subscriber.
 - **Verify:** V1, V2, V3, V4.
 - **Where:** `jsi/host.h`, `hooks.h`, `scheduler.h`, `emit/identity.ts`,
-  `emit/bindings.ts`.
+  `emit/bindings.ts`, `runtime/native/android/CMakeLists.txt`.
 
 Today module state belongs to the process, but a module's top level runs
 when a JavaScript runtime installs Lucent, and there is no native way in.
@@ -842,9 +843,15 @@ when a JavaScript runtime installs Lucent, and there is no native way in.
       a reload only when no native root holds it.
 - [ ] A native root: the runtime starts its actors and contexts with no
       `Host`. A JavaScript `Host` that installs later sees the same module
-      state.
+      state: `Host::create` no longer resets state a native root holds,
+      `onDestroy` hooks registered with no runtime run when the root ends,
+      and work an entry point starts belongs to that call's scope, not to
+      the last attached runtime (`currentRuntime()`).
+- [ ] On Android, the code loads without React Native: the native root's
+      library is loaded before `appmodules`, or built apart from it.
 - [ ] Native entry points: generated C functions that run a module
-      function on its actor, for the glue of T131 to T134 to call.
+      function on its actor, for the glue of T131 to T133, and for T114,
+      to call.
 - [ ] `lucent.json` `launch`: modules created at app launch, before the
       first frame, so they can register what the OS requires by then.
 - [ ] Without a runtime, a call that needs one (a JavaScript callback, a
@@ -874,6 +881,10 @@ on host, simulator and emulator.
 Today `android.components` declares a service, receiver or provider, but
 its class must be Java or Kotlin the package ships.
 
+- [ ] A decision: how a class is marked as OS-instantiated without a list
+      of bases (WorkManager and `FragmentManager` instantiate by name, with
+      no manifest entry), which constructors its Java class declares, and
+      how its name stays stable.
 - [ ] A Lucent class extending an OS-instantiated base gets a generated
       Java subclass with the constructor the OS calls (no arguments, or
       `Context` and `WorkerParameters` for a `Worker`). It creates its
@@ -917,7 +928,9 @@ Lucent code, with no JavaScript, as `expo-background-task` and
 - [ ] `backgroundURLSession` and `remoteNotification` (T110) relaunch the
       process into the native root when it isn't running.
 - [ ] `UIBackgroundModes` and `BGTaskSchedulerPermittedIdentifiers` come
-      from `lucent.json` `ios.infoPlist`.
+      from `lucent.json` `ios.infoPlist`. Whether the build checks them is
+      a decision: recognizing `BGTaskScheduler` calls by name would be a
+      catalog entry.
 - [ ] Tests: the simulator runs a task through a debug-build trigger,
       since the scheduler doesn't launch tasks on the simulator.
 
@@ -945,7 +958,9 @@ a SwiftUI body, a notification service extension or a share extension.
 - [ ] The extension links the Lucent runtime and those modules without
       React Native, through a second native build of the same program.
 - [ ] APIs unavailable to extensions are refused in extension code, from
-      their availability attributes.
+      their availability attributes. The runtime's own calls to
+      `UIApplication` (`platform/ios_ui.mm`) stay out of an extension's
+      build.
 - [ ] The Expo plugin adds the target. A bare app gets the target from a
       CLI command.
 - [ ] App Groups: the entitlement from `lucent.json`, so the app and its
@@ -973,7 +988,9 @@ work on `react-native-worklets` runtimes.
       that runtime's thread under its module's actor, the main-thread rule
       on the UI runtime, async results and callbacks posted to that
       runtime's scheduler, instances shared across runtimes).
-- [ ] A `Host` per worklet runtime, torn down with it.
+- [ ] A `Host` per worklet runtime, torn down with it. Work that module
+      code or an entry point starts stays with the runtime that started
+      it, never with the worklet runtime attached last.
 - [ ] Tests: a host test with two runtimes; the example app calls a
       synchronous export from a UI-runtime worklet on the simulator and
       emulator.
