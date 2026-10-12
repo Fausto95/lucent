@@ -74,8 +74,12 @@ export declare function executor(label: string): Executor;
  *
  * `f` runs beside module code, so it shares nothing with it. It may not
  * use module state, call JavaScript callbacks or await. It captures only
- * `const` numbers, strings, booleans and bigints, Channels and Executors,
- * and what it makes leaves through a `Channel`.
+ * `const` numbers, strings, booleans and bigints, Channels, Executors and
+ * EventEmitters.
+ *
+ * What it makes leaves through a `Channel`, or as an event. Its `emit`
+ * runs in the module that made the EventEmitter, which calls the
+ * listeners.
  *
  * An object's class is then made only in `on()`, and uses `this` only
  * for its own members. Its constructor takes the values a function may

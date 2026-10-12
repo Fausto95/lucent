@@ -576,7 +576,7 @@ export const explanations: { code: string; title: string; summary: string; detai
     "code": "LUCENT3032",
     "title": "Code that cannot run on an executor",
     "summary": "Code on an executor uses module state, main-thread native code or async work, or shares what the code that made it can change.",
-    "details": "Code on an executor runs on its thread while module code keeps running, so the two share nothing either can change. In a function or object given to on(), module state, computed constants, main-thread native code, unknown code and `await` break that rule. It holds only constants, channels and executors, and an object is made only in on() and keeps `this` to itself.",
+    "details": "Code on an executor runs on its thread while module code keeps running, so the two share nothing either can change. In a function or object given to on(), module state, computed constants, main-thread native code, unknown code and `await` break that rule. It holds only constants, channels, emitters and executors, and an object is made only in on() and keeps `this` to itself.",
     "fix": "send what it makes through a Channel made beside it, and keep module state on the module's thread",
     "wrong": {
       "example.lucent.ts": "import { PLATFORM } from \"lucent:platform\";\nimport { CompletableFuture } from \"lucent:android/java.util.concurrent\";\nimport { executor, on } from \"lucent:thread\";\nlet runs = 0;\nexport function start(): number {\n  if (PLATFORM !== \"android\") return runs;\n  const worker = executor(\"worker\");\n  CompletableFuture.runAsync(\n    on(worker, () => {\n      runs++;\n    }),\n    worker,\n  );\n  return runs;\n}\n"

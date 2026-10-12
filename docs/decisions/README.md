@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                             | Date       | Decision                                                                    |
 | ---------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| [0083](0083-code-on-an-executor-emits-through-emitters-it-holds.md)                | 2026-10-13 | Code on an executor emits through emitters it holds                         |
 | [0082](0082-objects-go-on-an-executor-where-they-are-made.md)                      | 2026-10-13 | Objects go on an executor where they are made and keep `this` in            |
 | [0081](0081-functions-on-an-executor-share-only-constants-and-channels.md)         | 2026-10-12 | Functions on an executor share only constants, channels and executors       |
 | [0080](0080-the-plan-is-rewritten-for-parity-with-nitro-and-expo-modules.md)       | 2026-10-12 | The plan is rewritten for parity with Nitro and Expo Modules                |

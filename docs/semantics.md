@@ -738,6 +738,16 @@ and its methods are checked as `f` is. The platform's calls of them
 enter the executor as `f`'s do
 ([0082](decisions/0082-objects-go-on-an-executor-where-they-are-made.md)).
 
+An `EventEmitter` is shared too, captured as a `const` or given to an
+executor class's constructor, and a `const` of a shareable value may
+name module state: `const ev = events` lets `f` emit on a module's
+exported emitter. An `emit` written in `f`, in an executor class's
+methods or in a closure in them copies its arguments and emits in a turn
+of the emitter's module, which runs its listeners, Lucent's and
+JavaScript's; nothing else on an emitter is called there, and an `emit`
+in a helper they call is refused as code that runs listeners
+([0083](decisions/0083-code-on-an-executor-emits-through-emitters-it-holds.md)).
+
 Code an executor may run (`f`, an executor class's methods, and the
 functions they call) hands the platform its own callbacks and objects
 with `on()` as well. A function it hands over without `on()` runs in its

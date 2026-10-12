@@ -34,7 +34,7 @@ what became of each one that is still linked or was still open.
 | [T106](#t106)            | Language gaps module code meets                            | ready                                                           |
 | [T107](#t107)            | Native objects: memory pressure and native handles         | in progress (#175, #180, #183 merged, as T73)                   |
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | in progress (#163, #165, #167, #168 merged, as T72)             |
-| [T109](#t109)            | Executors for platform callbacks                           | in progress (#181, #182, #187, #197 as T74, and #206 merged)    |
+| [T109](#t109)            | Executors for platform callbacks                           | in progress (#181, #182, #187, #197 as T74; #206–#208 merged)   |
 | [T110](#t110)            | App-delegate and Activity events                           | ready (decision 0076)                                           |
 | [T111](#t111)            | The app's own native needs and options                     | ready                                                           |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | ready                                                           |
@@ -420,12 +420,14 @@ hold its module's actor.
 
 - **Status:** in progress: `Channel` with its three policies and
   `subscribe`, and the runtime's `ExecutorContext`, are merged (#181,
-  #182, #187, #197, as T74), and so are `executor(label)` and
-  `on(exec, f)` for functions (#206), and objects with `on(exec, new C(…))`
-  (#207). Decided as
+  #182, #187, #197, as T74). So are `executor(label)` and `on(exec, f)`
+  for functions (#206), objects with `on(exec, new C(…))` (#207), and
+  events emitted from executor code (#208). Trace, the bench and a
+  reusable `on()` are left. Decided as
   [0078](decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md),
-  [0081](decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md)
-  and [0082](decisions/0082-objects-go-on-an-executor-where-they-are-made.md).
+  [0081](decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md),
+  [0082](decisions/0082-objects-go-on-an-executor-where-they-are-made.md)
+  and [0083](decisions/0083-code-on-an-executor-emits-through-emitters-it-holds.md).
 - **Area:** compiler, runtime, bindings.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3, V4, V7.
@@ -452,8 +454,9 @@ callbacks still take it, on `serialQueue(label)`'s queue or any other.
       captures are constants, channels and executors (0081).
 - [x] Members only executor code touches are the executor's: an executor
       class keeps `this` to itself, so all of its are (0082).
-- [ ] Executors produce into channels, and post `EventEmitter` events to
-      JavaScript. The guide says which to use for what.
+- [x] Executors produce into channels, and post `EventEmitter` events to
+      JavaScript (0083). The guide says which to use for what
+      ([Handle frequent callbacks on an executor](../apps/website/src/content/docs/docs/guides/handle-callbacks-on-an-executor.mdx)).
 - [ ] Trace: each channel's waits, depth and drops, and an executor's
       spans beside its actor's.
 - [ ] Bench (host): synthetic 1080p frames at 60 Hz through an executor

@@ -69,6 +69,7 @@ export const docsSections: DocSection[] = [
           "guides/run-work-off-the-js-thread",
           "guides/cancel-work",
           "guides/run-in-parallel",
+          "guides/handle-callbacks-on-an-executor",
           "guides/pass-large-buffers",
           "guides/release-native-resources",
         ],

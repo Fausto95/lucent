@@ -46,15 +46,23 @@ export interface Summary {
   /**
    * Module state it reads, by variable key. `constants`: the module
    * constants it reads that are not state but not literals either, which
-   * only the module's thread may read. `unknown`: through code the
-   * compiler cannot see.
+   * only the module's thread may read. `aliases`: module state it reaches
+   * only through a captured `const` of a value both sides of an executor
+   * may use (a channel, an emitter), copied where the closure was made.
+   * `unknown`: through code the compiler cannot see.
    */
   readonly reads: {
     readonly vars: ReadonlyMap<string, Cause>;
     readonly constants: ReadonlyMap<string, Cause>;
+    readonly aliases: ReadonlyMap<string, Cause>;
     readonly unknown?: Cause;
   };
-  readonly writes: { readonly vars: ReadonlyMap<string, Cause>; readonly unknown?: Cause };
+  /** Module state it writes; `aliases`: through such a `const` (a send, an emit). */
+  readonly writes: {
+    readonly vars: ReadonlyMap<string, Cause>;
+    readonly aliases: ReadonlyMap<string, Cause>;
+    readonly unknown?: Cause;
+  };
   /** It mutates an object it did not create: one its caller passed, or reached through one. */
   readonly mutates?: Cause;
   readonly allocates: Levels<"yes" | "unknown">;
@@ -94,9 +102,14 @@ export class SummaryBuilder implements Summary {
   readonly reads = {
     vars: new Map<string, Cause>(),
     constants: new Map<string, Cause>(),
+    aliases: new Map<string, Cause>(),
     unknown: undefined as Cause | undefined,
   };
-  readonly writes = { vars: new Map<string, Cause>(), unknown: undefined as Cause | undefined };
+  readonly writes = {
+    vars: new Map<string, Cause>(),
+    aliases: new Map<string, Cause>(),
+    unknown: undefined as Cause | undefined,
+  };
   mutates?: Cause;
   readonly allocates: Levels<"yes" | "unknown"> = {};
   readonly throws: Levels<"yes" | "unknown"> = {};
@@ -181,8 +194,13 @@ export class SummaryBuilder implements Summary {
 
 /** The same levels, as `EffectSummary` names them. */
 const PROJECT = {
+  // What it reaches through an alias is module state as much as what it names.
   state: (s: Summary["writes"], back: ReadonlyMap<string, Cause>, unknown?: Cause) =>
-    s.unknown || unknown ? "unknown" : s.vars.size || back.size ? "module" : "none",
+    s.unknown || unknown
+      ? "unknown"
+      : s.vars.size || s.aliases.size || back.size
+        ? "module"
+        : "none",
   yesNo: (l: Levels<"yes" | "unknown">) => (l.yes ? "yes" : l.unknown ? "unknown" : "no"),
   known: (l: Levels<"known" | "unknown">) => (l.unknown ? "unknown" : l.known ? "known" : "none"),
 } as const;

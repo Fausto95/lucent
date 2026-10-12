@@ -22,6 +22,7 @@ import {
   type ProgramUnits,
   type Unit,
 } from "./units.ts";
+import { inExecutorCode } from "./executors.ts";
 
 /** `this` in the units of a class (or object literal): one value per owner. */
 export class ThisValue {
@@ -1499,6 +1500,15 @@ export class Collector {
       callee: { kind: "library", member },
       ...given,
     });
+
+    // On an executor, an emit copies its arguments to the emitter's module, which runs the listeners.
+    if (
+      member.name === "lucent:core.EventEmitter.emit" &&
+      inExecutorCode(this.checker, e, this.p.executorClasses)
+    ) {
+      this.own("allocates", "yes", e, `${named}, which copies what it emits`);
+      return this.result(e);
+    }
 
     // A member missing from the table may do anything: `f.call()` runs its receiver.
     if (!effect) {
