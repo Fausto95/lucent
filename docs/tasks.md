@@ -1780,6 +1780,13 @@ executors" and "bounded queues with explicit backpressure".
       (`serialQueue` on iOS, an `Executor` on Android), that never takes
       an actor's lock. Lucent gives the platform a delegate, listener or
       block `on(exec)`; the glue enters the executor's context directly.
+      Decided as
+      [0078](decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md):
+      `executor(label)` makes a serial dispatch queue (iOS) or a
+      single-thread `Executor` (Android) that platform APIs take as is;
+      `on(exec, delegate)` and `on(exec, closure)` put code on it where
+      it is handed over; adopting the platform's own is later; executor
+      code keeps state only in members only it touches.
 - [ ] The compiler checks code that runs on an executor as it checks a
       compute task (`REFUSES.task`), with one difference: native code of
       the executor's own thread, and of any thread, is allowed (a frame's
