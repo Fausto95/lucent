@@ -1,7 +1,7 @@
 # 0074. Lucent supports the current and the previous stable React Native and Expo releases, and a prerelease lane
 
 - **Date:** 2026-10-12
-- **Status:** accepted
+- **Status:** accepted; amended by [0079](0079-react-native-0-85-is-in-the-window-and-no-release-needs-a-fallback.md)
 
 Lucent builds and runs on the current stable React Native release and the
 one before it, and on the current and the previous Expo SDK: React Native
