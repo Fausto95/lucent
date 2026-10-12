@@ -45,6 +45,11 @@ void untrack(const Object* o) noexcept {
   r.objects.erase(o);
 }
 
+std::vector<const void*>& closuresInWalk() {
+  thread_local std::vector<const void*> inside;
+  return inside;
+}
+
 }  // namespace detail
 
 void trackObjects() { detail::tracking.store(true, std::memory_order_relaxed); }

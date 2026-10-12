@@ -132,8 +132,10 @@ template <class T>
 inline constexpr bool mayRefer = !std::is_arithmetic_v<T> && !std::is_enum_v<T> && !std::is_same_v<T, String>;
 
 /// The closures this thread's walk is inside: one that captures itself
-/// (through a box) is read once.
-inline thread_local std::vector<const void*> closuresInWalk;
+/// (through a box) is read once. In refs.cpp: a header's thread-local of a
+/// vector would get an initialization routine in every unit that uses it,
+/// which Apple's linker refuses as duplicates.
+std::vector<const void*>& closuresInWalk();
 
 /// What a closure's captures report, reached through a field: each edge
 /// names the field, the closure and the capture.
@@ -216,7 +218,7 @@ void refs(RefSink& sink, const std::variant<Ts...>& value, const char* name, con
 /// A function value: what its closure captures, once per walk.
 template <class Sig>
 void refs(RefSink& sink, const Fn<Sig>& value, const char* name, const char* where) {
-  auto& inside = detail::closuresInWalk;
+  auto& inside = detail::closuresInWalk();
   const void* id = value.identity();
   if (!id || std::find(inside.begin(), inside.end(), id) != inside.end()) return;
 
