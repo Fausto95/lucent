@@ -128,6 +128,7 @@ describe.skipIf(!sdkAvailable("android"))("the current Activity, results and lif
     expect(sources.map((f) => path.basename(f)).sort()).toEqual([
       "LucentActivities.java",
       "LucentChildren.java",
+      "LucentExecutor.java",
       "LucentFlexView.java",
       "LucentHostView.java",
       "LucentInitializer.java",

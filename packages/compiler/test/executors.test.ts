@@ -81,26 +81,26 @@ describe.skipIf(!fake || !jdk)("executors on Android", () => {
 
 const runningOnApple = `import { Channel } from "lucent:core";
 import { executor, on } from "lucent:thread";
-import { NSOperationQueue, NSThread } from "lucent:ios/Foundation";
+import { OperationQueue, Thread } from "lucent:ios/Foundation";
 
 export async function run(): Promise<string> {
   const frames = executor("lucent.frames");
   const out = new Channel<string>("lossless");
-  const module = NSThread.currentThread.hash;
+  const module = Thread.current.hash;
 
   // An operation queue on the executor's dispatch queue: its blocks run there, and enter at once.
-  const queue = new NSOperationQueue();
+  const queue = new OperationQueue();
   queue.underlyingQueue = frames;
-  queue.addOperationWithBlock(
+  queue.addOperation(
     on(frames, () => {
-      const here = NSThread.currentThread.hash;
+      const here = Thread.current.hash;
       out.send(here === module ? "on the module's thread" : "on the executor");
     }),
   );
   const first = await out.receive();
 
   // Called on another queue's thread: posted to the executor, still off the module.
-  new NSOperationQueue().addOperationWithBlock(
+  new OperationQueue().addOperation(
     on(frames, () => {
       out.send("posted");
     }),
@@ -181,6 +181,27 @@ export async function run(): Promise<string> {
     const p = compiled(handing("async () => { out.send(1); }"));
     expect(reported(p)).toMatch(/LUCENT3032 .*cannot be async/);
   });
+
+  it("types the function's parameters from the SDK call that takes it", () => {
+    const p = compiled(`import { Channel } from "lucent:core";
+import { executor, on } from "lucent:thread";
+import { CompletableFuture } from "lucent:android/java.util.concurrent";
+
+export async function run(): Promise<string> {
+  const frames = executor("frames");
+  const out = new Channel<number>("latest");
+  CompletableFuture.completedFuture("four")?.thenAcceptAsync(
+    on(frames, (word) => {
+      out.send(word?.length ?? 0);
+    }),
+    frames,
+  );
+  return \`\${(await out.receive()) ?? 0}\`;
+}
+`);
+    expect(messages(p)).toEqual([]);
+    expect(jvmRun(p.r, p.dir, fake!.run)).toMatchObject({ status: 0, stdout: "4\n" });
+  }, 300_000);
 
   it("hands the platform its own functions on an executor too", () => {
     const p = compiled(

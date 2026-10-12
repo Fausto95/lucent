@@ -679,7 +679,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "Executor",
         "kind": "class",
-        "signature": "class Executor extends NSObject {\n  readonly label: string;\n  execute(command: never): void;\n}",
+        "signature": "class Executor {\n  readonly label: string;\n  execute(command: never): void;\n}",
         "doc": [
           "A serial executor: a thread of its own that never takes a module's lock. SDK calls that take a queue (iOS) or a `java.util.concurrent.Executor` (Android) take it as it is. Code handed to the platform with `on()` runs on it one call at a time, beside module code, never behind it."
         ],
@@ -721,7 +721,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "on",
         "kind": "function",
-        "signature": "function on<F extends (...args: never[]) => unknown>(executor: Executor, f: F): F;",
+        "signature": "function on<F>(executor: Executor, f: F): F;",
         "doc": [
           "Hands `f` to the platform to run on `executor`, never holding its module's lock. Pass the result straight to the SDK call that takes it.",
           "When the platform calls `f` on the executor, `f` runs there at once. Called from another thread, an `f` that returns nothing runs in a turn of the executor. One that returns a value is reported as an error.",

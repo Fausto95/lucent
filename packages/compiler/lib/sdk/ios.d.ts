@@ -205,3 +205,8 @@ export declare function present<T>(
   build: (resolve: (value: T) => void, reject: (reason: Error) => void) => UIViewController,
   signal?: AbortSignal,
 ): Promise<T>;
+
+declare module "lucent:thread" {
+  /** On iOS an executor is its serial dispatch queue: an API that takes a queue takes it. */
+  interface Executor extends NSObject {}
+}

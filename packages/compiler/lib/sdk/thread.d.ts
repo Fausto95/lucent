@@ -1,7 +1,5 @@
 // lucent:thread — thread affinity for platform code.
 
-import type { NSObject } from "lucent:ios";
-
 /**
  * Runs `f` on the platform's main thread (the main queue on iOS, the main
  * Looper on Android), and resolves with its result. Main-thread-only SDK
@@ -24,7 +22,7 @@ export declare function main<T>(f: () => T): Promise<T>;
  * (Android) take it as it is. Code handed to the platform with `on()` runs
  * on it one call at a time, beside module code, never behind it.
  */
-export declare class Executor extends NSObject {
+export declare class Executor {
   private readonly __lucent_Executor: never;
   /** The name it was made with, as Instruments, Perfetto and crash reports show it. */
   readonly label: string;
@@ -80,4 +78,4 @@ export declare function executor(label: string): Executor;
  * @param executor The executor `f` runs on.
  * @param f The callback the platform calls.
  */
-export declare function on<F extends (...args: never[]) => unknown>(executor: Executor, f: F): F;
+export declare function on<F>(executor: Executor, f: F): F;
