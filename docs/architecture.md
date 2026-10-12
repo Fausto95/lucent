@@ -1,1310 +1,801 @@
-# Architecture
+# How Lucent works
 
-How the compiler, runtime and tooling are built, for people changing them:
-the file-level reference behind the website's
-[Architecture › Internals](https://lucent-lang.dev/docs/architecture/internals/)
-pages, which explain the same parts at a higher level. A change to a part
-updates its section here in the same commit.
+The code-level map for people changing Lucent. It says which package
+does what, and how `lucent build` turns `*.lucent.ts` and `*.lucent.tsx`
+sources into `.lucent/native`. It then covers how that package is linked
+into an app, and how the C++ runtime is layered. Planned work is marked
+and links its task.
 
-```
-          app/src/*.lucent.ts
-                  │  lucent build (packages/lucent)
-                  ▼
- ┌──────────────── packages/compiler ─────────────────┐
- │ program.ts   TypeScript program (strict +          │
- │              noUncheckedIndexedAccess)              │
- │ types.ts     TS types → Lucent types (structs by    │
- │              shape, unions, optionals, classes)     │
- │ emit/        functions, statements, expressions,    │
- │              builtins, classes, closures → C++      │
- │ emit/bindings.ts   JSI conversions, prototypes,     │
- │              module installers                      │
- │ native-package.ts  writes .lucent/native            │
- └──────────────────────────┬──────────────────────────┘
-                            │ syntax trees
- ┌──────── packages/codegen ┴──────────────────────────┐
- │ cpp/ java/ kotlin/ ts/ xml/   one tree and          │
- │                               printer per language  │
- └─────────────────────────────────────────────────────┘
-                  │
-                  ▼
- .lucent/native/                      (autolinked by React Native)
- ├── cpp/lucent/        runtime (copied from packages/runtime/cpp/lucent)
- ├── cpp/rn/            LucentModule: the pure C++ TurboModule "Lucent";
- │                      LucentViews.h, what generated components share;
- │                      LucentViewRequests (commands' answers), LucentViewValues
- │                      (values between React's side and setup's); the hosts:
- │                      LucentComponentView (iOS), LucentViewsAndroid (Android)
- ├── cpp/generated/     lucent_app.h (the runtime), lucent_app_<type>.h (a type's
- │                      declaration and definition: units include those they use),
- │                      m_<module>.cpp, lucent_bindings.cpp,
- │                      lucent_identity.cpp (what the program was built from),
- │                      views/ (components' Fabric sources)
- ├── ios/LucentRegistration.mm       +load → registerCxxModuleToGlobalModuleMap
- ├── android/CMakeLists.txt          OBJECT library linked into appmodules
- ├── android/include/…/ComponentDescriptors.h  components' descriptors, for autolinking
- ├── android/packages.cmake          Lucent packages' C/C++ sources, when any
- ├── android/include/lucentnative.h  stub Java-module provider for autolinking
- ├── LucentNative.podspec
- ├── resolved.json                   Lucent packages' lucent.json, merged, with provenance
- ├── packages/<package>/             the native files each Lucent package lists
- ├── react-native.config.js          pure C++ dependency (cxxModule* fields)
- ├── types/                          lucent:core and SDK declarations (tsconfig paths),
- │                                   types/views/<module>.d.ts components' React types
- └── js/<module>.js                  proxies Metro bundles instead of the .ts,
-     js/_lucent/runtime.js           and the loader they require,
-     js/_lucent/views.js             and the views runtime components' exports use,
-     js/_lucent/components/<module>.js  lucent:views/<module>: requires the module
+[semantics.md](semantics.md) is the language contract.
+[platform-bindings.md](platform-bindings.md) covers SDK bindings,
+[design/views.md](design/views.md) the design of views,
+[tracing.md](tracing.md) traces, and [testing.md](testing.md) the test
+suites. A change to a part updates its section here in the same commit.
+
+```text
+ *.lucent.ts(x) of the app and its Lucent packages
+      │  lucent build · lucent dev · Metro · autolink · Gradle · Expo plugin
+      ▼
+ cli/pipeline.ts  buildProject(): resolve, bind, check, generate
+      ▼
+ compiler  compile(): a TypeScript program per target ─► checks ─►
+      │    analyses ─► semantic IR ─► C++ · Swift · Kotlin · Java · JS
+      │    (bindgen: SDK schemas · codegen: syntax trees and printers)
+      ▼
+ .lucent/native ── pod install (LucentNative.podspec)
+                ── Gradle (CMake into appmodules, an Android library)
+                ── Metro (js/ proxies replace each *.lucent.ts module)
 ```
 
-## Compiler
+## Packages
 
-The compiler builds a real TypeScript `Program` and never re-implements type
-inference. Every expression's type, including the checker's narrowing at that
-location (`if (x !== undefined)`, `switch (s.kind)`, `typeof`, `instanceof`),
-comes from `checker.getTypeAtLocation`. The emitter lowers each expression to a
-C++ expression plus its _representation_ type, and inserts explicit
-conversions where the checker's type differs: unwrapping an optional,
-narrowing a union member, widening into a union, adapting a callback's arity.
+An app installs one package, `@lucent-lang/lucent`. The others are
+private workspace packages that its build bundles or copies.
 
-Emitters build syntax trees, not text: `packages/codegen` (private, bundled
-into the CLI) holds a tree, builders and a printer for each language Lucent
-writes. C++ and Objective-C++ (`cpp`, which also holds the Objective-C
-subclasses of iOS classes Lucent classes extend), the Java subclasses of
-SDK classes (`java`), the Kotlin shims the Android glue calls for what JNI cannot call
-as Kotlin declares it (`kotlin`), SDK declarations and module proxies
-(`ts`), and the library manifest (`xml`). The printers add the parentheses
-precedence and associativity need, so an emitter composes `cpp.binary(a, "+", b)` without
-thinking about what `a` is. The C++ printer also parenthesizes the mixes clang's `-Wparentheses`
-warns about. A tree used as a string throws, rather than printing
-`[object Object]` into the output.
+| Package                 | What it holds                                                                                                                           |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `@lucent-lang/lucent`   | The CLI (`src/cli`), Metro integration (`metro/`), `autolink/`, the Expo plugin (`app.plugin.js`), `gradle/`, the editor plugin (`ts-plugin/`), templates |
+| `@lucent-lang/compiler` | Program setup, checks, analyses, IR, code generation, the native package writer; `lib/` holds the `lucent:*` declarations and `core.cjs` |
+| `@lucent-lang/bindgen`  | Reads SDKs, pods, Swift packages, Gradle libraries and C headers into cached binding schemas and plans                                   |
+| `@lucent-lang/codegen`  | A syntax tree, builders and a printer per language: `cpp` (with Objective-C++), `java`, `kotlin`, `swift`, `ts`, `xml`                   |
+| `@lucent-lang/runtime`  | The C++ runtime (`cpp/lucent`), the TurboModule and view hosts (`cpp/rn`), native templates (`native/`), the JS loader (`js/`)            |
 
-Notable lowering choices:
+The compiler depends on bindgen, codegen, the runtime and `typescript`;
+the CLI on the compiler and bindgen. Bindgen and codegen stand alone.
 
-- **Structs are deduplicated by shape.** `type Point = {x, y}`, an interface with
-  the same fields, and an object literal `{ x: 1, y: 2 }` all share one C++ struct.
-- **Class inheritance** maps to C++ inheritance: methods and accessors in a
-  hierarchy are `virtual`, overrides are checked to keep the native
-  signature, and `super(...)` runs the base's `construct()` and then the
-  subclass's field initializers. A base-typed value converts to JavaScript
-  as its most derived class, whose prototype's `__proto__` is the base's.
-  A class that extends `Error` derives from `ErrorObject`, and its root
-  prototype's `__proto__` is `Error.prototype`, with `name`, `message` and
-  `stack` read from the native error (`defineErrorPrototype`). The
-  generated `errorInstanceToJs` lets `Host::errorToJs` throw, reject or
-  return such an error as its instance, and an instance coming back is
-  itself again.
-- **Interfaces implemented by classes** become abstract C++ bases (`I_Shape`)
-  with pure-virtual methods and `get_`/`set_` accessors for properties.
-  Implementing classes inherit them, fields get generated overrides, and
-  values are `Ref<I_Shape>`. Because every implementer is known at compile
-  time, the JS boundary converts an interface value by trying each
-  implementing class in turn. Generic interfaces are class templates, and an
-  interface that extends others inherits them `virtual`ly, so a class
-  implementing both `A` and `B extends A` has a single `A`.
-- **Integer inference** (`emit/integers.ts`): a local whose every write is
-  a bitwise result (`|`, `^`, `>>>`, `Math.imul`, …) or an integer literal
-  lives in an `int32_t`, `uint32_t` or `int64_t`, and a `for` counter stepped
-  by ±1, or by a larger integer toward a bound (a literal, a `length`) short
-  of 2^53, is an `int64_t` (past 2^53 a double's sums round where int64's
-  would not). Values are exact in both representations, so
-  reads convert to `double` without changing results; expressions also carry
-  their integer form, so chains of bitwise operations never round-trip through
-  `double`. Arithmetic (`+`, `-`, `*`, `%`, compound assignments, `++`) keeps a
-  local a `double`, because `x + 1` does not wrap in JavaScript, unless a range
-  analysis over the local's writes proves every value an exact integer within
-  ±2^53 that is never -0 (a product of non-negative values, a remainder of a
-  non-negative dividend): `sum = (sum + (x >>> 0)) % 1000000007` is an
-  `int64_t`, its writes computed in int64. The analysis does not follow
-  statement order, and a range still growing after a few rounds is any double.
-- **Closures** are C++ lambdas wrapped in `lucent::Fn`. A local captured by a
-  closure _and_ written after its declaration lives in a `lucent::Box`, so both
-  sides see one variable (analysis in `analysis/scopes.ts`). An arrow function
-  passed straight to a runtime method that takes a callback (`sort`, `map`,
-  `filter`, `forEach`, `reduce`, …) and used nowhere else is passed as the
-  lambda itself, which the method's template calls directly and the C++
-  compiler can inline; its identity is never observed.
-- **Generators** are coroutines whose declared return type is
-  `lucent::Iter<T>` (a `coroutine_traits` specialization supplies the
-  promise). `iterator.return()` resumes a suspended generator so that its
-  pending `co_yield` throws `lucent::GeneratorReturn`, which unwinds through
-  the generated `finally` code; JS `catch` clauses rethrow it.
-- **Coroutines** never reference lambda captures: an async arrow becomes a
-  capture-less coroutine that receives its captures as parameters.
-- **`try/finally`** uses completion codes: `return`, `break` and `continue` inside
-  the protected block jump to the finally label and are replayed after it.
-  Catch bodies run outside the C++ `catch` handler, because `co_await` is not
-  allowed inside one.
-- **Evaluation order**: when more than one argument or operand could have side
-  effects, they are evaluated into temporaries left to right (GNU statement
-  expressions, supported by clang and GCC).
-- **Awaits around SDK calls**: the glue of an SDK call, read or construction
-  runs in C++ lambdas, which cannot be coroutines, so a receiver or argument
-  that awaits (`(await file()).getName()`) is evaluated into a temporary
-  first, with the operands before it.
-- **`#line` directives** name the source by its path relative to the
-  project (`CompileOptions.root`), so compiler errors, debugger stepping
-  and the DWARF line table (crash symbolication with the app's dSYM or
-  unstripped `.so`) point at the `.lucent.ts` file, and no machine's path
-  is in the output. The native package's builds map the project's
-  directory to `.` (`-ffile-prefix-map`, in the podspec and CMakeLists),
-  as the test harnesses map the repository's. The printer repeats the
-  directive before every physical line it covers (a `#line N` counts the
-  lines after it up), and after a function names the generated file's own
-  line again.
-  Errors created in Lucent code record the same `__FILE__`/`__LINE__` and
-  enclosing function (`lucent::withSite`), and the JSI boundary puts that
-  frame at the top of the JS error's `stack`.
-- **Names keep their spelling** in C++ (`cppIdent` escapes only C++ keywords
-  and the glue's own names), so a debugger shows them as written. The C
-  library and the SDK headers define macros under ordinary names (`HUGE`,
-  `DOMAIN`, `pascal`, `si_value`), different on each platform, so no list
-  can avoid them: each generated file undefines, after its includes, every
-  name the program declares that it spells as an identifier, outside
-  comments and string literals (`#pragma push_macro`, `#undef`), and
-  restores them at its end (`emit/macros.ts`). The `#line` paths are
-  strings, so the sources' directory never changes the guards.
-- **Trace sites**: each binding names where its export is declared
-  (`LUCENT_TRACE_SITE_AT`, the same relative path as `#line`), so a trace of a call
-  points at the `.lucent.ts` declaration rather than at generated code;
-  native spans inside Lucent code (`LUCENT_TRACE_SCOPE`) get theirs from
-  the `#line` in force.
-- **Semantic IR** (`ir/`): a typed representation between the checker
-  and the C++ tree, in which every value is defined once by an operation
-  and operations run in list order, so evaluation order is data. Control
-  flow is structured: `if`, `loop`, `iterate`, `block` and `try`
-  operations own nested regions, which `break`, `continue` and `yield`
-  (an `if`'s result) leave. Every function, method, accessor,
-  constructor, module `init()` and compute task variant lowers through
-  it, and so does each component's setup; what it
-  cannot lower is a LUCENT diagnostic. What the IR
-  does not model itself (member reads and writes, methods of the runtime
-  and the SDK, constructions, array and object literals) is a `plan`: the
-  IR lowers the subexpressions it takes first, in source order, and the
-  emitter's own code for the leaf (`emit/leaf.ts`) gives its C++ over
-  those values, so builtin and SDK semantics are not written twice. A
-  compound assignment of a field or an element reads it through one plan
-  and writes it through another, around the right side. Nested functions
-  are IR functions of their own, made into C++ lambdas that capture copies
-  of what they read, or share the box of a variable code writes after
-  they capture it (`analysis/scopes.ts`). `for … of` is one operation
-  over a collection's elements, which the C++ walks by its kind (a
-  counter, a hash table's live slots, an iterator closed on early exit).
-  `try` is one operation with its catch and finally regions; the C++
-  sends a return, break or continue past a finally through it with a
-  completion code, and a `using` declaration is a finally that disposes.
-  A generic function's IR keeps its type parameters, and its C++ is a
-  template. Exact integers (literals, the int32 operators, the locals
-  `emit/integers.ts` proves integral) are marked in the IR and live in
-  integer registers in the C++. Async functions and generators are coroutines: each `await`
-  is an operation of its own, and `yield* xs` iterates `xs`. Platform tests
-  keep only what the platform being built runs. Conversions
-  between optionals, unions and absent values are planned once, in
-  `lowering/conversions.ts`, for the IR and the leaves it plans. A verifier checks each function (definitions before uses and
-  inside their region, types, terminators, jump targets, branch results,
-  spans, effect claims) before any C++ exists, and the C++ gives every
-  call its own statement; a jump is C++'s `break` or `continue` when that
-  reaches its target, a `goto` otherwise. The e2e runner compiles under
-  whichever mode is set. `emit/through-ir.ts` is the emitter's one hook
-  into the IR, for module functions, methods, accessors, constructors and
-  modules' `init()` alike.
-- **Program analyses** (`analysis/`, internal): for each program and target,
-  `programFacts` summarizes once what each unit of code may do: functions,
-  closures, methods, accessors, a class's construction and each module's
-  initialization, without other platforms' branches. A unit's own facts
-  (the module state it reads or writes, allocation, throwing, suspension,
-  and native calls with their binding plans' thread and blocking facts)
-  are joined with those of the units it calls, the callbacks it runs (a
-  library's `map`, a native call's during-call callback, a function it
-  passes to a parameter its callee calls) and, at each native call, the
-  Lucent code native code may call back while the call runs: not what
-  the platform's call queues on the actor's thread (its binding plan's
-  `queued` delivery, a turn of its own) nor compute tasks, which the
-  runtime runs. What code called back does (a kept callback, an override
-  of a platform class, a requirement) is recorded apart, as `calledBack`:
-  it runs in the context its glue enters (module code holding the Lucent
-  lock; a component setup's own callbacks in the main context, checked
-  with the setup), so the IR's effects count it and the main-thread and
-  task checks of the caller do not. Module state is a `let`, or a
-  const holding an object: `readonly` does not make its contents
-  immutable. Facts only rise, so iterating to a fixed point handles
-  recursion; units are processed in a fixed order and keep the first
-  cause found, so the results and the call paths explaining them are the
-  same on every build. What the compiler cannot see (a function value it
-  cannot follow, a library member it does not know, an iterator) stays
-  unknown. A program-wide graph of where object and function values flow
-  (variables, literals, closures, calls) resolves function values, tells
-  a mutation of module state from one of a new object, and finds how a
-  value escapes (returned, stored, kept by a callee, used after `await`).
-  Owner checks built on them tell whether a unit can run on an execution
-  context: a compute task refuses module state, module constants that are
-  not literals (a reload of JavaScript runs `init()` again, which assigns
-  them while a task may read them; code reads a literal constant as its
-  literal, not from storage), main-thread or unknown native code, code the
-  compiler cannot see and asynchronous work; the
-  main thread refuses module state, worker-only or blocking native code
-  and code the compiler cannot see. Other checks cover what a closure
-  captures, whether a value's type can be handed to another context
-  (plain data can, and a `NativeBuffer` moves; functions, promises,
-  main-thread native objects and byte spans cannot) and the contexts that
-  run each unit: exports and module
-  initialization on the module's thread, native callbacks where their
-  plans say, `main()` closures on the main thread. Each refusal names its
-  cause path: `run` calls `decode`, which reads module state `cache`.
-  A `NativeBuffer` borrow (`emit/buffers.ts`) lends its callback a span
-  that must not escape by any of those paths; the same module reports a
-  buffer used after it certainly moved (`transfer()`, a compute handoff).
-  Each lowered function's effect record, and
-  each call's throw claim, is its summary; the verifier checks a record
-  admits the mutable module variables it loads and stores and what the
-  functions it calls do (a const holding a number is not state).
-- **Components** (`ui/`): an exported function of a `.lucent.tsx` module
-  whose code, in the target's branches, returns a platform view (a class
-  deriving from UIKit's `UIView` or Android's `View`, the classes Fabric
-  hosts) is a component. It is described, not emitted: the emitter leaves
-  its declaration out, so it is not a function of the module's
-  JavaScript. The description (`ui/contract.ts`, `CompileResult.components`)
-  is the one source for code generators and platform hosts: identity
-  `<package>/<module path>#<export>` (a Lucent package's path under its
-  sources, an app's under the directory of its package.json, platform
-  files sharing their module's), a registration name derived from the
-  identity alone, props (plain data: numbers, strings, booleans, string
-  literal unions, arrays and plain objects, each possibly null or
-  missing), events (callback props named `on…`, returning nothing, each
-  with a slot number in prop order and a delivery: discrete, or
-  continuous or coalesced when `lucent:ui`'s `Continuous<F>` or
-  `Coalesced<F>` marks its type), ref commands (the object literal
-  setup gives `lucent:ui`'s `expose` once, at its top level: void commands
-  enqueue, others answer a promise), whether it takes React children (a
-  `children` prop of `lucent:ui`'s `Children` type, which needs setup to
-  make their slot with `slot<T>()` once, in a `const` at its top level,
-  `T` the platform's container class: UIKit's `UIView`, Android's
-  `ViewGroup`, `ui/roots.ts`), and per platform the returned class and
-  the class the host registers.
-  Setup, the functions it creates and those its commands name are checked
-  for the main thread with the program analysis, where calling an event prop (`props.onChange?.(v)`)
-  only posts its arguments. Each target describes its components;
-  `ui/merge.ts` joins them and refuses a contract that differs between
-  platforms, or from a split module's shared declaration.
+`packages/lucent/vite.config.ts` bundles the CLI and the compiler into
+`dist/` (`vp pack`), and copies `compiler/lib` and
+`runtime/{cpp,js,native}` (and `prebuilt/`) beside it. `runtimeDir()`
+(`compiler/src/native-package.ts`) looks for that `runtime/` first, then
+for the workspace's, so the same code runs bundled and from sources.
 
-  Each target's native code gets each component's
-  Fabric sources, generated from its description (`ui/fabric.ts`):
-  `views/<registration>.h/.cpp` in namespace
-  `lucent::views::<registration>` (a `Props` deriving from `ViewProps`
-  whose values are each missing or their value, the events JavaScript
-  listens to and the props a commit changed; an `EventEmitter` with one
-  `emit` per event, dispatched in React Native's discrete or continuous
-  category, or as a unique event for a coalesced one (which replaces the
-  view's latest waiting event of its type); the `ShadowNode` and
-  `ComponentDescriptor`; the
-  commands' typed arguments), and `views/lucent_views.h`, whose
-  `registerComponents` adds every descriptor. Each module's proxy exports
-  its components (`ui/proxy.ts`) as React components the views runtime
-  (`runtime/js/views.js`) makes from a generated description; their
-  React-facing declarations come from `componentDeclarations`, written
-  to the native package's `types/views/<module>.d.ts`, which the app's
-  `lucent:*` tsconfig path makes `lucent:views/<module>`; Metro's
-  resolver (`withLucent`) maps that name to
-  `js/_lucent/components/<module>.js`, which requires the component's
-  module itself, so the app's two imports are one module. A module's API
-  hash covers its components' contracts. Props and
-  event handlers travel under keys of their own (`ui/transport.ts`:
-  `p<index>`, `e<slot>`, events `lucent<slot>`), never meeting React
-  Native's view props; a nullable value travels boxed (`[value]`),
-  because React sends a removed prop as null; an event's arguments
-  travel by position (`{ args }`), because React Native sets `target` on
-  every payload. A command that answers
-  carries a request id, settled through the native host's
-  `__lucentViewRequests` channel, once: with the command's result or
-  error, or with an `AbortError` if its view unmounts first. A command
-  sent while the view is not mounted fails with an `InvalidStateError`.
+## The build pipeline
 
-  Under the same switch, each component's setup is compiled through the
-  IR, as functions are (`emit/setups.ts`), with `lucent:ui`'s helpers (`effect`, `signal`,
-  `expose`, `onDispose`, `slot`, `invalidateSize`, and the event marks
-  `Continuous` and `Coalesced`: experimental, resolving only under the
-  switch). Setup runs once per mount, so it constructs the native
-  objects it shows and owns directly (`new UILabel()`), as any Lucent
-  code does; the mount holds them until the host destroys it. In the module's namespace, `<Export>_Props` holds a
-  signal (`lucent/view.h`, on the main context's reactive graph) per
-  prop and a route per event, `<Export>_Commands` the functions setup
-  exposes, and `<Export>_setup(props, commands)` returns the view: a
-  function JavaScript does not see. A component taking React children
-  gets its host's slot as a third parameter, which `slot()` in setup is;
-  setup places it in its view, and never reads `props.children`. Reading `props.name` reads the
-  prop's signal, so inside an effect the effect runs again when a commit
-  changes it; calling an event prop sends it along its route; setup and
-  every function it creates run on the main thread, and a function setup
-  gives the platform (a block, a listener) enters the main context when
-  called, never taking an actor's lock (a Lucent class given to the
-  platform from a setup is refused: its methods run in module code).
-  Every function setup creates also enters its mount whenever it runs
-  (the IR's `closure` op `enters` the setup's ambient mount,
-  `lucent_content`, the mount setup ran for, which the setup and the
-  functions on the way capture where they read it), so the
-  host hears that the mount's code ran; `invalidateSize()` marks that
-  mount from code that runs in no such function (after an await). A
-  prop read while
-  setup runs (outside any function) is a warning: setup runs once, so
-  later commits never reach it. `views/<registration>_mount.cpp` defines
-  the component's `Mount` (declared in its Fabric header), which a
-  platform host drives: `create` (committed mount: the props' signals,
-  converted from the commit's values by `rn/LucentViewValues.h`, the
-  events' routes to the host's `emit`, then setup, once, in the mount's
-  scope, with the slot the host made for this mount if the component
-  takes children), `update` (a commit's changed props and listened-to events, as
-  one transaction of the mount's prop inbox, applied at once on the main
-  thread), `setEmit` (a new emitter; setup's native subscriptions stay; none after dispose),
-  `command` (after the pending props; a request answers once through
-  `lucent::views::Respond`, a promise's answer owed by the mount until
-  it settles) and `dispose` (the scope ends; the event routes, the
-  host's `emit` and the view are released, requests still owed are
-  rejected, and what answers later is dropped; later calls do nothing). Each enters the main context itself, so a host calls it
-  from the platform's main thread as it is. Errors setup and commands throw are reported with the
-  component's identity and source line (`lucent::ui::reportViewError`);
-  effects are named by their source line in loop reports.
+### The steps of `buildProject`
 
-  On iOS each component gets `views/<registration>ComponentView.mm`
-  (`emit/views.ts`), a subclass of the shared host `LucentComponentView`
-  (`runtime/cpp/rn`) that registers with React Native's component view
-  factory as it loads and provides the Fabric descriptor. The host mounts
-  when a commit's updates are final on the main thread, giving the mount
-  a `MountToken` {tag, generation}, and creates the component's `Mount`;
-  hands it each later commit; parses commands for it, answering a request
-  through the `Requester` of the runtime that sent it while the view
-  still holds that mount (`answerTo`; dropped once the view holds
-  another, or once that runtime is torn down); sends its events through the view's current
-  event emitter while the view holds that mount; and disposes it when the
-  view is recycled. The React children React Native mounts in the view
-  never go beside the content: the host keeps them in React Native's
-  order and, for a component taking children, puts them in the slot it
-  makes for each mount (`LucentSlotView`, `rn/LucentViewChildren.h`),
-  taking out only those React Native unmounts. The slot shows each child
-  at the frame Yoga gave it in the component's coordinates, wherever the
-  setup put it (its bounds' origin is its origin in the host, realigned
-  at each layout and after each commit and command), and clips
-  them to its bounds; it never lays them out. Children given to a
-  component taking none, and a slot the setup leaves out of its view,
-  are reported.
+Every build goes through `buildProject` in
+`packages/lucent/src/cli/pipeline.ts`, in `build` or `check` mode:
+`lucent build` and `lucent check`, `lucent dev` (which Metro starts),
+`autolink/index.cjs`, Gradle's `lucentBuild` task and the Expo plugin.
+Most steps record a node in the [build record](#build-records). In order:
 
-  Android mounts views from Java, so its host is split. Each component
-  gets a manager (`dev.lucent.generated.<registration>Manager`, a
-  `LucentViewManager` named as the component is registered), which
-  `LucentPackage` returns, and `views/<registration>_android.cpp`
-  (`emit/views.ts`): the same `LucentMounted` over the `Mount` as on
-  iOS, made by `mount` and listed, with `requestIdOf`, by
-  `views/lucent_hosts.cpp`. lucent build lists each descriptor for React
-  Native's autolinking (`componentDescriptors` in react-native.config.js,
-  with the `ComponentDescriptors.h` autolinking includes) wrapped in
-  `HostDescriptor` (`runtime/cpp/rn/LucentViewsAndroid.h`), which records
-  each view's event emitter by surface and tag (`LucentViewRegistry.h`:
-  each JavaScript runtime numbers its views again, so a tag alone would
-  be reused across a reload), since Java never hands it on. The
-  manager passes each commit's props (what changed) and each command to
-  the C++ host (`LucentViewsAndroid.cpp`), which applies the props through
-  the component's `Props`, mounts once the view is attached or sent a
-  command (a commit is on screen by then, which a preallocated view's is
-  not) with a `MountToken` of its own, hands the mount each later commit
-  and command as the iOS host does, shows its view in the shell
-  (`LucentHostView`), and disposes of it when the view is dropped or
-  recycled (the managers pool dropped views when the app turns React
-  Native's `enableViewRecycling` on; iOS recycles them always). The manager is also the view's `IViewGroupManager`: React
-  Native adds and removes the view's children through it, and they go
-  where the iOS host puts them, by the same rules (`LucentChildren`,
-  plain Java): in React Native's order, in the slot the shell makes for
-  each mount of a component taking children (`LucentSlotView`, which the
-  C++ host hands the mount), never in the shell. React Native lays them
-  out (`needsCustomLayoutForChildren` is false); the slot never does, and
-  scrolls its content by its own position in the host, at each layout and
-  before each frame, so they show at Yoga's frames.
+1. **Resolve**: find the app's Lucent files and the packages it depends
+   on, merge their `lucent.json` needs (`resolveNative`,
+   `compiler/src/package-config.ts`), and bind their C extensions.
+2. **Link early**: in build mode, `writeLinkedPackage`
+   (`src/cli/project.ts`) copies missing templates and writes the
+   packages' pods and Gradle artifacts into the build files. So
+   autolinking links the package, and `pod install` installs its pods,
+   even when the check then fails.
+3. **Android dependencies**: when code imports an Android module, Gradle
+   writes `.lucent/android-classpath.json`, once per change of the app's
+   build files or lockfile, one run at a time. Inside a Gradle build or
+   during prebuild no Gradle starts: Android is cached or deferred.
+4. **Targets**: the platforms whose SDK this machine has. When none can
+   be built, a check, or a build that deferred Android, compiles `host`.
+5. **Up to date?**: the build stops when the last passing check still
+   holds (see [Caching](#caching)).
+6. **SDK bindings** (`extract`): load or extract the schema of each
+   imported `lucent:ios/*` and `lucent:android/*` module.
+7. **Check**: run `compile()`. A build writes failing modules'
+   diagnostics to `.lucent/problems.json` for Metro, then
+   `.lucent/sdk-usage.json` once it passes.
+8. **Generate**: `writeNativePackage` writes `.lucent/native`, and
+   `classifyChanges` turns what changed into pending actions.
 
-  An Android component may write its content as Jetpack Compose
-  (`lucent:compose`, experimental, resolving only under the switch, in
-  `.android.lucent.tsx` files): the component returns JSX, its body,
-  which (`ui/compose.ts`) is compiled to Kotlin, never to C++
-  (`ui/toolkit-body.ts` finds toolkit bodies, and keeps them out of the
-  analysis and the emitter). A composable showing UI is an element, whose
-  props are Kotlin's named arguments and whose children are its trailing
-  content lambda (Android files' JSX is typed by `lucent:compose`'s JSX
-  namespace). The component's statements that compose, by Compose's
-  bindings, are lifted into the content before what the JSX shows
-  (`ui/composition.ts` finds them and checks the setup code against
-  them; the setup's C++ leaves them out, `emit/toolkit.ts`'s
-  `liftedStatements`). Its calls, modifier chains, `remember`, effects
-  and animations are Compose's own.
-  `lucent:compose` declares them from Compose's bindings: Lucent ships
-  the schemas of the Compose release its Android library builds with
-  (`lib/sdk/compose.schemas.json.gz`, made by `scripts/compose-bindings.ts`
-  with bindgen's `extractKotlinApi`, which reads the libraries' Kotlin
-  metadata and annotations, and plans them on a `kotlin-source` backend).
-  `ui/compose-dts.ts` writes the declarations after `lucent:compose`'s own
-  (`lib/sdk/compose.d.ts`) by rules, and keeps each one's binding: the
-  schema member, with each parameter's name, position, kind (content,
-  callback or value), default and Kotlin type (Float, Int and Long are
-  branded numbers, so generics keep them), and how its Kotlin is written.
-  The writer reads the bindings (`ui/compose-api.ts`). `lucent sdk`
-  lists, shows and counts Compose's packages as Android modules when views
-  are on (`sdk/modules.ts`). What the body takes from its setup is a slot of a
-  generated state holder: a number, boolean or string the setup computes
-  (the largest such expression reading its props, signals or functions)
-  is Compose state, which an effect of the setup (`emit/toolkit.ts`, the
-  holder `emit/compose.ts` makes) sets on the main context whenever what
-  it read changes; a setup function the body calls from a callback (an
-  action) is a Kotlin function object entering the main context when
-  called (`lucent/platform/compose.h`). `ui/toolkit-body.ts` finds both
-  kinds of slot for every toolkit.
-  The program's Kotlin gets `dev/lucent/compose/<registration>.kt` (the
-  `…State` class, the `@Composable …Content`, the `…Host` object giving
-  it to the runtime's `LucentComposition`, which owns the ComposeView,
-  its composition and their end: `runtime/native/android/src/compose`),
-  and the Android library then applies the Compose compiler plugin at the
-  app's Kotlin version, depends on Compose's BOM and compiles the
-  runtime's Compose sources (`native-build-files.ts`). The Android host
-  gives the setup the context of the shell it mounts in
-  (`jni::hostContext()` while setup runs), which the ComposeView is made
-  with.
+An aborted `signal` (a newer change) stops a build before it publishes.
 
-  Sizing (`runtime/cpp/rn/LucentViewSizing.h`, over the plain exchange
-  in `lucent/sizing.h`): a component with a size of its own (explicit,
-  or given by flex) fills it. A component taking React children is a
-  Yoga container (`SlotShadowNode`, `runtime/cpp/rn/LucentViewSlots.h`):
-  sized by its style, flex and children, as a View is, never by
-  measuring its content. Any other without a size of its own is sized by its content: its
-  shadow node (`HostShadowNode`) is a measurable Yoga leaf that lays out
-  at the latest measurement its state holds (zero before the first, the
-  previous one while the host measures under new constraints) and
-  records in its state the constraints its layout asked for (both
-  bounds, the font scale and the layout direction) when that
-  measurement does not answer them. A measurement answers the
-  constraints it was made under and stricter bounds its size still fits
-  within, the rule Yoga's own measure cache follows, so a column's
-  height bound shrinking as siblings are added measures nothing again.
-  The host measures its view under the constraints on the main thread
-  and posts the size, with those constraints and its content's
-  revision, as a state update; the renderer keeps it only if it is
-  still current (`judge`: it answers the constraints asked for now, and
-  is from no older revision than the one held). No thread waits for
-  another. The host enters its mount (`view.h`'s `Content`) to set it
-  up and to hand it each commit and command, and every function the
-  setup made enters it too whenever it runs (a native callback, an
-  effect): once the outermost entry ends, the content has a new
-  revision and is measured again if the shadow tree needs its size, as
-  it is when a commit's state asks for other constraints. A result
-  that no longer settles its state after 3 posts (size and constraints
-  changing each other) stops the host, logged, until the content
-  changes. On iOS the setup's view is the host's content view, laid out
-  in its content box (frame less border and padding) at each layout,
-  and measured with `sizeThatFits:`, and also on the turn after the
-  text size the user chose changes (content that follows Dynamic Type
-  changes size with no Lucent code running, and React Native lays
-  nothing out again for it). On Android the shell takes Yoga's
-  border and padding as its own padding and lays its content out
-  inside them; the manager hands each commit's state to the C++ host,
-  which measures the content through the shell (`View.measure` at most
-  the constraints, in density-independent pixels), and also when the
-  content asks for a layout (the shell's coalesced relayout: a backstop
-  for a native change no Lucent code made).
-  An iOS component may draw with SwiftUI instead (`lucent:swiftui`,
-  internal under the same switch): its setup returns its body, JSX of
-  SwiftUI's views, and its root is the `UIHostingController` the Swift
-  side makes (`ui/toolkits.ts` lists each toolkit's element type, root
-  class and, for SwiftUI, the module its declarations come from). `lucent:swiftui`
-  is generated from the SDK's SwiftUI, extracted as a module written as
-  source (bindgen's `swift-source.ts`, `sdkSourceModule`: SwiftUI and
-  SwiftUICore, which is publicly part of it, cached like the SDK's
-  schemas): each parameter records its Swift label and whether it is a
-  value, an action or a builder's content, `callForms` (`call-form.ts`)
-  turns those into Lucent's call form, and `sdk/toolkit-dts.ts` declares
-  one overload per form, tagged `@swift <symbol> <form>`, served from
-  the SDK's virtual directory. A view's type also takes one JSX
-  signature per form before them (`jsxForm`: its labels as attributes, a
-  trailing builder's content or its first unlabeled string as children;
-  tagged `… jsx`), whose props end with the view's modifiers as
-  attributes (`<Type>$Modifiers`, each modifier's forms as its value:
-  one, an object, a tuple, or `true`). What the call form cannot write yet is
-  skipped, or refused by the member's plan (`source-plan.ts`, backend
-  `swift-source`); `lucent sdk coverage --ios SwiftUI` counts both, in a
-  `lucent:swiftui` row after SwiftUI's while views are on. `emit/swiftui.ts` writes the body out as Swift
-  (`views/<registration>.swift`: the view, an `ObservableObject` model,
-  and `@_cdecl` functions), each element and call from its member's facts
-  (`ui/source-members.ts` follows the tag back; a modifier attribute's
-  form is the first of the method's, in declaration order, its value's
-  arguments fit by kind and type), refusing what the plan
-  refuses and members newer than the oldest iOS apps run on; the rest of
-  the setup is compiled as any setup's. Literals and SwiftUI's own values stay Swift; a value slot is
-  a property of the model, which an effect of the setup sets; an action
-  slot is a setup function the Swift calls by index
-  (`lucent/platform/swiftui.h`); a conditional view in content is
-  SwiftUI's `if`. `withAnimation` in the setup's code calls a per-site
-  shim that runs SwiftUI's withAnimation around the Lucent code, whose
-  effects run inside it. The component's `LucentMounted` gives the
-  controller to the host as its `controller()`, and the host shows its
-  view and contains it in the nearest view controller. The controller
-  (a generated `UIHostingController` subclass) tracks its content's
-  ideal size (iOS 16), and each change marks the mount's content
-  (`lucent::swiftui::resized`, `invalidateSize`), so a size SwiftUI
-  changes on its own is measured again.
-  A platform file's JSX is its toolkit's (`*.ios.lucent.tsx`: SwiftUI's,
-  `*.android.lucent.tsx`: Compose's). Under the switch the program types
-  JSX with an automatic runtime imported from `lucent:jsx`, and its
-  compiler host resolves each file's implicit `lucent:jsx/jsx-runtime`
-  import to its platform's toolkit module (`jsxRuntimeOf`), whose `JSX`
-  namespace types the elements. A shared file's resolves to `lucent:jsx`
-  (the program's virtual `toolkit/jsx.d.ts`, which `lucent build` writes
-  for the app as `jsx.d.ts`): its `JSX.Element` is the typed toolkits'
-  element types at once (`View & Composed`, which content of either
-  takes) and its `JSX.ElementType` either toolkit's view, so a
-  one-file component writes each platform's toolkit in that platform's
-  code. `platformScopes` takes a toolkit module as its platform's code,
-  as it does the SDK's, and refuses a toolkit's name outside it with
-  LUCENT3024; lucent:ui is every platform's. A function returning a
-  toolkit's JSX element type (`TOOLKITS[t].element`, SwiftUI's `View`)
-  returns the toolkit's root class, as far as components go
-  (`ui/roots.ts`; a one-file element's intersection is the target's
-  toolkit's there, and in `TypeRegistry.lower`, the registry knowing the
-  target platform). Such a component's body is the JSX its setup
-  returns in the platform's code, once, as its last statement, standing
-  in the setup's code or in its platform branches, with the modifiers
-  chained after it (`bodyOf` in `ui/toolkit-body.ts`, pruning the other
-  platform's branches with `branchPlatform`; `jsxToolkitOf` tells a
-  shared file's JSX by its branch, else by the views it shows); a
-  component returning a view on some platforms only fails with
-  LUCENT3023, as its merge would; `emit/toolkit.ts` makes the host from it where
-  the setup returns it, and refuses a toolkit's JSX anywhere else. Its
-  code is the toolkit's: the analyses take it as making the host, and
-  leave its callbacks out. A helper view (`ui/view-helpers.ts`: a
-  function of the platform file, or of a shared file, not exported,
-  returning a toolkit's JSX; in a shared file, its toolkit is the views
-  it shows, and it is that platform's code) is written once per component in the toolkit's language, and
-  never as C++ (the emitter, module registration and the analyses leave
-  it out). What it computes from its props is a value of the body (or a
-  list's item) for each place it is used: the value slot carries the
-  helper's use (`ValueSlot.use`), and its thunk is given, for each
-  `props.name` read, what the element gives it (`Thunk.given`), evaluated
-  once, first. A slot's code is the IR's: a thunk (`LeafOperands.thunk`),
-  a function of the setup computing the slot's expression (of a list's
-  item, for its key and values), which the effect `emit/toolkit.ts`
-  writes calls.
-  [design/views.md](design/views.md) records what the hosts do at run
-  time: registration, the mount lifecycle, routing, threads, sizing,
-  toolkit bodies and the limitations accepted.
+### Inside `compile()`
 
-## Runtime
+`compile(files, options)` in `compiler/src/index.ts` runs in a context
+of its own (`compile-context.ts`), which holds its options and records
+what it read. So an editor check and a `lucent dev` build in one process
+never mix. A `CompileSession` keeps each target's last program, so a
+watcher or editor checks only what changed.
 
-`packages/runtime/cpp/lucent` is header-heavy C++20 with no dependencies
-beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
+**Modules.** `planModules` (`platforms.ts`) splits the files into shared
+modules and platform modules. A platform module is `name.lucent.ts`,
+which only declares exports, and `name.ios.lucent.ts` or
+`name.android.lucent.ts`, which implement them. A target without its
+platform's file compiles the declaration as stubs that throw or reject.
+A shared module may branch on `PLATFORM` from `lucent:platform`.
 
-- `jsstring.h`: `lucent::String`, an immutable, shared, UTF-16 string with a
-  Latin-1 fast path. The handle is 16 bytes: a one-byte string of up to 15
-  units lives in it (zeros past its length, so two compare and hash as two
-  words); any other is one allocation, a header (atomic reference count,
-  cached hash, length, capacity) followed by its units. When the handle is
-  the only owner, `+=` appends in place, so building a string in a loop is
-  linear (`appendTo` does the same for a field or module variable, whose
-  value was read into a temporary first); moving a handle is a memcpy, which libc++'s vector uses as it grows.
-- `number.h`: ECMAScript number semantics. `toString` and `toExponential()`
-  produce the shortest digits that read back as the double, the closest of
-  those, with Dragonbox (`cpp/third_party/dragonbox`, as Hermes does);
-  `toFixed`, `toPrecision` and `toExponential(n)` round on the exact binary
-  value; `toString(radix)` follows V8's digits. A seeded corpus of node's
-  answers (`number/corpus.ts`) checks every form.
-- `bigint.h`: `BigInt`, JavaScript's `bigint` at any precision. A value
-  that fits in 64 bits is held inline and never allocates; a larger one
-  shares immutable 32-bit limbs, so a copy is a reference count. The form
-  is canonical, so equality, ordering and hashing (Map and Set keys) are
-  exact and cheap. Division truncates, bitwise operators and shifts act on
-  an infinite two's complement, and results beyond 2^30 bits throw a
-  `RangeError`, as in V8. Native 64-bit values convert exactly
-  (`toInt64`, `toUint64`: `RangeError` out of range) or wrapping
-  (`wrapToInt64`: `BigInt.asIntN(64)`); `toNativeInteger<I>` is what SDK
-  glue passes a native API (NSInteger, jlong, a struct field's own C type:
-  `RangeError` naming the parameter beyond its range), and `BigInt(v)`
-  reads any native integer exactly. `compare` orders a bigint against a
-  double exactly. A seeded corpus of node's answers (`bigint/corpus.ts`)
-  checks every operation.
-- `array.h`, `map.h`, `bytes.h`: shared containers with JS semantics.
-  An `ArrayBuffer` and its `Uint8Array`s share a `ByteStorage`: bytes the
-  runtime allocated, or bytes adopted from native code with the release
-  they need (`ByteStorage::adopt`), which runs once, when the last
-  ArrayBuffer, view or JavaScript ArrayBuffer over them goes. At the
-  boundary, `Convert<ArrayBuffer>` and `Convert<Bytes>` take a function's
-  result as an rvalue: when nothing else holds the storage (and a view
-  covers all of it), JavaScript's ArrayBuffer is made over it, with its
-  size reported as external memory, instead of over a copy.
-- `async.h`: `Promise<T>` as a coroutine type. Bodies start eagerly, and
-  `await` always resumes from the microtask queue of the execution context
-  that awaited, so a coroutine stays on the context it started on. A
-  promise's state changes only on the context that made it: settling or
-  observing it from another thread posts there.
-- `execution.h`, `scheduler.h`: execution contexts. A context runs turns in
-  order on its executor, each turn followed by the context's own
-  microtasks, and owns a root scope (`scope.h`): disposing a scope under it
-  from another thread, or dropping its last reference there, posts the
-  disposal to the context. Module actors (`Actor`, `scheduler.h`) run
-  modules' code, one per import component (the compiler's
-  `lucent_app::actor_N`; `Actor::shared()` for code of none): an actor's
-  turns run on its own thread, and synchronous calls from other threads
-  enter it by taking its recursive lock (`LucentScope`), which serializes
-  that actor's code, so packages run in parallel. The lock is fair (a
-  ticket lock): threads get it in the order they asked, so the actor's
-  thread, retaking it between the turns of a loop that yields, queues
-  behind a JS thread already waiting to call in. The main thread never
-  takes a ticket (it waits only for the holder in place, or defers), a
-  synchronous JavaScript callback lends its thread's actors to the main
-  thread, and a nested wait for another actor that would close a cycle
-  throws. Its
-  microtasks run only once the stack is empty: at the end of a turn, or in
-  a turn posted when a call from another thread leaves. The main context
-  runs on the platform's UI loop and never takes the lock; isolated
-  contexts each have a thread. A context is entered synchronously only on
-  its own thread (`ContextEntry`); everything else crosses as posted jobs,
-  so no context waits for another.
-- `events.h`: `EventEmitter` (`lucent:core`), each event's listeners by
-  the event's index in the emitter's type, which generated code knows from
-  the name; the instance keeps the names for JavaScript, whose conversion
-  (`jsi/convert.h`) adds listeners that its host's teardown ends.
-- `callback.h`: `fromCallback` and `subscribe` (`lucent:core`), a promise
-  or a subscription over any callback API. Each is an `Operation` under the
-  scope the calling context's work belongs to (`ownedScope`: module code's
-  is its JavaScript runtime's, so a reload ends it), following the signal until it settles: it
-  settles once, at the first of its callbacks, the signal and the scope's
-  disposal, and runs the registration's cleanup once, then (or when the
-  registration returns it, if it settled during registration). Everything
-  it runs belongs to the context it was called on: the functions it hands
-  out, called from another thread, post there in call order, so the value
-  handler, the cleanup and the promise's settlement never run elsewhere. The
-  registration returns its cleanup as it declares it (a function, maybe
-  absent, or nothing); the compiler lowers the call from a table of
-  `lucent:core` helpers (`emit/core.ts`).
-- `resource.h`: `Resource`, the lifecycle of something Lucent code opens
-  and must close once (open, closing while its release runs, closed). It
-  closes at the first of an explicit `close()` (idempotent), the disposal
-  of the scope it belongs to (which refers to it weakly), or its last
-  reference going; the release runs once, on the context the resource
-  requires. Using it after that throws `InvalidStateError`.
-- `handle.h`: `NativeHandle` (T73), an address other native code takes,
-  held valid until `release()`, which runs once from any thread; one whose
-  last reference goes unreleased is released then (`live::noteBackstop()`).
-  `NativeBufferObject::handle()` makes one that holds a read borrow of the
-  bytes; `jsi/convert.h` gives JavaScript one object per handle, with a
-  bigint `pointer`.
-- `channel.h`: `Channel<T>` (T74), values from a producer on any thread
-  to a consumer on its own context. A send never waits; what a full
-  channel does is its policy: `lossless` refuses the send, `latest` keeps
-  one value and replaces it, `drop` drops the oldest. A value it drops,
-  or never delivers (its scope disposed, its last reference gone), is
-  released: a `NativeBuffer` is closed, once. A receive settles on the
-  context that asked; closing refuses sends and lets the consumer drain
-  what was queued, then `undefined`. `stats()` counts what it took,
-  delivered, dropped and refused, and its depth.
-- `operation.h`: native work as a promise. `nativeOperation(registration,
-signal)` starts native work that completes later, on any thread (a
-  Kotlin coroutine, a platform callback), as an `Operation` under the
-  scope the calling context's work belongs to (`ownedScope`), and returns a promise that settles on that
-  context. The registration begins the work and returns what ends it.
-  Disposing the scope, or the signal aborting, cancels it: the promise
-  rejects at once, the work is told to stop, and a result it produces
-  after that is released, never delivered. An already aborted signal
-  never starts it.
-- `lifecycle.h`: the app's and its scenes' lifecycle. The platform adapter
-  reports on the main thread what the platform posts: the app becoming
-  active, going to the background and back, and each scene connecting,
-  activating and disconnecting. Scenes are `SceneId`s, never pointers,
-  listed most recently activated first, and each connected scene has a
-  scope that its disconnection disposes. Lucent code subscribes to an
-  event from any thread: a subscription is a `Resource` that the lifecycle
-  keeps open until it is closed or its scope is disposed (dropping the
-  handle does not end it). Listeners run on the main thread in
-  subscription order; one that throws is reported and the rest run.
-- `presentation.h`: UI shown in a scene until a result, as an `Operation`
-  under the caller's scope. It settles once, at the first of a result, an
-  error, the caller's signal, the scope's disposal or the scene's
-  disconnection, and whatever settles it dismisses what it showed, on the
-  main thread. With no scene in the foreground it fails with an
-  `InvalidStateError` and shows nothing.
-- `platform/ios_ui.h`: the UIKit side of both. From the moment the binary
-  loads, observers of UIKit's notifications (not a replaced app or scene
-  delegate, so the app's and other modules' keep working) report to the
-  shared lifecycle; each scene is tagged with its `SceneId`, and found
-  again through a weak table. The presentation context (the scene to
-  present from, its key window and top view controller) is looked up in
-  UIKit each time it is asked for, on the main thread, and never kept. A
-  presented view controller is held weakly: the person dismissing it (as
-  its presentation controller's delegate, when it has none) or its
-  release cancels the presentation.
-- `transport.h`: what a compute task receives. Its input is copied at
-  submission into a graph only the task holds: each array, collection,
-  byte buffer, date and object once, so aliases and cycles survive;
-  strings cross as they are (immutable). A type crosses if it has a
-  `Transport` (the runtime's value types do; structs and classes get one
-  from `transportObject`); functions, promises and signals do not compile,
-  and an object of a subclass behind its base type is refused with a
-  `DataCloneError`. A transport that moves ownership rather than copying
-  registers the move with the graph, which commits it only once the whole
-  input has been copied.
-- `compute.h`: isolated compute. `compute(entry, input)` copies the input
-  (`transport.h`), runs the entry (a compiled function taking the task's
-  own input and a `TaskContext`) on a bounded pool, and returns a promise
-  that settles on the calling context; the result is moved back, not
-  copied. The pool has one worker fewer than the cores (at least one),
-  each an isolated context that never takes an actor's lock or waits for
-  the UI loop, and a queue of 1024 tasks waiting for a worker; a
-  submission that finds it full is rejected at once with a
-  `QuotaExceededError`, never blocking the caller. A task is an
-  `Operation` under a scope (by default the calling context's, `ownedScope`): it
-  settles once, from its outcome or from a cancellation (its signal, its
-  scope's disposal, the pool's shutdown), which rejects the promise at
-  once. A queued task then leaves the queue; a running one stops at its
-  next safepoint (`TaskContext::checkCancelled`, one relaxed load), and
-  native code between safepoints runs to its end. What loses is released,
-  never delivered: on the worker, or on the owner if the outcome was
-  already posted there. Each task has a scope of its own, disposed on its
-  worker when it returns. The pool counts what it does (`stats()`) and,
-  when given a sink, times each task: taking its lock, waiting for a
-  worker, running, and reaching the owner.
-- `buffer.h`: `NativeBuffer`, bytes native code owns: allocated, or
-  adopted with the release it requires and the executor that release runs
-  on. A reference keeps the handle alive, not access to the bytes: that is
-  a borrow for one synchronous call (`withRead`, `withWrite`). Reads share,
-  a write excludes every other borrow, and a conflicting borrow is refused
-  at once with an `InvalidStateError`, from any thread. The storage is
-  released once, at `close()` (refused while borrowed; false once closed)
-  or when the last reference goes, on its executor; aliases then refuse
-  access. Copies are explicit (`toBytes`, `fromBytes`) and counted.
-  `transfer()` moves the storage, uncopied, to a new handle one generation
-  on, and every alias of the old one refuses access from then on (closing
-  it returns false). A borrowed or closed buffer does not move. That is how
-  a buffer crosses to a compute task: its `Transport` moves it once per
-  input, committed only once the whole input has been copied (a failed copy
-  leaves the sender open); after that the storage follows the task's
-  handle, so a refused submission or a cancelled task releases it.
-  Compiled code borrows through `withRead(buffer, f)` and
-  `withWrite(buffer, f)`, which lend `f` a `ByteSpan` or `MutableByteSpan`:
-  the borrowed bytes with a `Uint8Array`'s element semantics, which the
-  compiler keeps inside `f`. `copyOut` and `copyIn` are the counted copies
-  for callers that cannot be lent the storage (JavaScript). `lucent.h`
-  includes it.
-- `view.h`: what compiled views share: the main context's reactive
-  graph (`mainGraph`), `Event`, whose copies share one route the view's
-  host replaces without setup running again, `reportViewError`, and
-  `Content`, how a mount's host hears that the mount's code ran and may
-  have changed the views it sizes: a `ContentEntry` marks the mount's
-  content while its code runs (`inContent` wraps a function so it
-  enters its mount whenever it runs), and the host's `changed` runs
-  once, when the outermost entry on the main context ends.
-  Code of the mount may listen to its changes too (`listen`: a Flex
-  measuring its leaves again), before the host hears.
-  `invalidateSize` marks it outside any entry (after an await): the host
-  hears in a later turn. Marks made while the host measures are not
-  changes.
-- `ui_children.h`: a native view's children that come and go (T49),
-  which `view.h` includes. A parent's children are `ChildRegions` in
-  order, each its current size, and `ChildOps` is what the parent does
-  natively (insert at an index, remove, and move where it can). A
-  `KeyedList` reconciles an array by key: the keys gone are removed and
-  their scopes disposed once, a kept key's new item is written to its
-  signal (only that item's bindings rerun), a new key's view is made in a
-  scope of its own, then each child is put in place walking the new order
-  (`[a,b,c]` to `[c,a,b]` is one move). Keys are unique and never NaN
-  (`items.h`'s rules): an array breaking them throws before anything
-  changes. `branch` is an effect choosing one of several children, or
-  none, each made in a scope of its own and ended when it goes.
-- `layout.h` (T50, header-only, React Native's Yoga): `LayoutNode`, a node
-  of a layout tree set by React Native's style names and values through
-  one table (undefined restores a default, anything else throws), its
-  leaves measured by a function. Only a root lays out; `fit` answers the
-  size within a bound; `onDirtied` says when a laid-out tree changed.
-  Only code using a Flex includes it, so only those builds need Yoga.
-- `ui_flex.h`: a Flex, lucent:ui's Yoga container, as generated code
-  makes it: a container, a leaf, a Flex's `ChildOps`, style values from
-  what code has. `platform/ios_layout.mm` (LucentFlexView) and
-  `platform/android_layout.cpp` (with dev.lucent.LucentFlexView) define
-  it.
-- `refs.h` (TA41): reference cycles, as a debug build reports them. A
-  debug host turns on `trackObjects()`, after which every `Object` lists
-  itself as it is made (one relaxed load otherwise); each generated class
-  and struct reports its fields' strong references through
-  `lucentRefs_` (emitted in every build, so layouts never depend on
-  NDEBUG; `emit/refs.ts`), and `cycles()` walks the objects alive, finds
-  the strongly connected groups (Tarjan's algorithm) and gives each as the
-  path of fields from its oldest object back to it, once.
-  `rn/LucentModule.cpp` logs each new one at teardown. A closure that
-  captures what may refer to objects is a `lucent::Closure` (the IR's
-  `closure` op): its captures in a tuple, which its code takes first, and
-  their names, so a function value reports what its captures refer to
-  (`Fn::lucentRefs_`, through `detail::Callee`); an emitter reports its
-  listeners and observers.
-- `live.h` and `debug.h` (T61): what a debug build reports of the
-  runtime. A class counts its instances by holding a `live::Counted`
-  member (scopes, operations, resources, a view's effects, signals and
-  computed values); `debug::resources()` reads the counts with the native
-  references. `view.h` keeps the live mounts (`addMount`, which a
-  generated mount calls once its setup succeeds, `removeMount` at its
-  disposal) and how a platform writes a view's tree (`setViewTree`:
-  `platform/ios_debug.mm`, `platform/android_debug.cpp`, installed by the
-  hosts); `debugSnapshot()` writes it all as JSON, which the JSI host's
-  `__lucentDebug.snapshot()` (debug builds) settles on the JS thread with
-  what the host holds. An effect's runs are trace spans (`effect`) at the
-  `.lucent.ts` line the compiler gives `effect()`.
-- `reactive.h`: the UI's reactive graph (the state a view keeps), owned by
-  one execution context, the main one for views: used from any other
-  thread it throws, and it never takes an actor's lock or waits for the JS
-  thread. A signal notifies when a write changes its value by `Object.is`
-  (NaN is itself, 0 and -0 differ): an object by identity, so mutating one
-  in place notifies nothing until a new one is set; `Opt` keeps missing,
-  null and a value apart. A computed value is evaluated when read, and
-  again only when a source it read last time changed since (computed
-  sources brought up to date first, in the order read); an unchanged
-  result stops there, an error is kept and rethrown to readers until a
-  source changes, and it cannot write a signal or read itself. An effect
-  runs once when made, then after something it read changed; each run
-  replaces what the last one read. Before it reruns, and when it or its
-  scope is disposed, its last run's scope is disposed without tracking:
-  tasks started in it cancelled (a continuation that arrives later is
-  dropped), then its cleanups and nested effects in reverse order. Writes
-  inside a transaction, an effect or a cleanup wait for it to end, and the
-  outermost end runs the pending effects at once, in the order they were
-  made: an effect never sees half of a transaction (a view's props commit
-  as one), and nothing waits for a frame. Only the synchronous run tracks:
-  cleanups, `untracked`, and code after an `await` subscribe to nothing.
-  An effect about to run more than `loopLimit` (100) times in one update
-  stops it, and the loop is reported as the chain of effects that made
-  each other pending; the rest wait for their next change. Errors nobody
-  can catch (an effect's, its cleanups', a loop) go to `reportUncaught`.
-  `test/reactive/reference.ts` states the same rules in plain JavaScript,
-  and a seeded corpus of scenarios (`test/reactive/corpus.ts`) must give
-  the same log on both. A mount's props reach it through a `PropInbox`:
-  each commit is the fields that changed, each a write of an already
-  converted value (never a JSI value), posted from any thread. Commits
-  coalesce until the UI applies them all in one transaction, a field's
-  later write replacing its earlier one, so effects see one committed
-  state; code on the UI that must answer now (a command, a measurement)
-  applies what is pending first rather than waiting for the posted job.
-  Disposing the mount drops pending commits and refuses new ones.
-- `trace.h`: tracing, off by default (one relaxed load where it is
-  checked). Started, it keeps the latest events in a bounded buffer and
-  counts those it drops: a posted job's wait for its owner and its run, a
-  wait for an actor's lock, a compute task's wait for a worker, run and
-  delivery (and the pool's saturation), a copy's bytes, native buffer
-  copies and allocations, and native spans (`LUCENT_TRACE_SCOPE`) with the
-  source site their `#line` names. Events that belong together share a
-  correlation id; a job posted from another names it as its parent. It
-  exports a Chrome trace, and on request mirrors spans live into
-  `os_signpost` (Instruments) or ATrace (Perfetto). `LUCENT_TRACE` (on
-  Android, the `debug.lucent.trace` property) starts it with the module
-  context. [tracing.md](tracing.md) says how to capture and read one.
-- `report.h`: `reportUncaught`, where every error no Lucent code can catch
-  goes (a job's, a cleanup's, a platform callback's): the platform's log
-  and stderr.
-- `jsi/host.h`: one `Host` per JS runtime, with an id (`RuntimeId`) no
-  other host has had; a new host for a runtime replaces, and tears down,
-  the one it had. It owns every JSI reference Lucent holds (promise
-  resolvers, callbacks, class prototypes, the identity cache).
-  An anchor object on `global` tears it down while the runtime does.
-  Native code refers to JSI objects only by id and hops to the JS thread to use
-  them. Work for the runtime belongs to the host's scope, under the legacy
-  module context's root. Tearing the host down (a reload, the runtime's
-  end, a new host) disposes it: posted work that has not started is
-  dropped, and Lucent code awaiting a JS promise, or a JS callback's,
-  resumes with an `AbortError`. A task for the JS thread that never runs
-  is released on the actor that posted it, with the values it carries.
-  Torn down while the runtime is usable (`invalidate()`), the host first
-  rejects the JS promises it still owes. A native instance has one JS
-  object per runtime (the identity cache is keyed by the instance), and
-  the host that made it: once that host is torn down, the object is
-  refused with a `TypeError`. `Host::ownership()` reports what a host
-  holds (promises it owes, JS functions, cached objects, prototypes,
-  modules, its scope's registrations, tasks in flight, JS values) and, in
-  debug builds, `releasedOpen`: instances JavaScript let go of whose
-  release closed something still open, a `Resource` or a native buffer's
-  storage (`live::noteBackstop()` in their destructors, which
-  `InstanceState`'s destructor reads around the release); debug builds show
-  it to JavaScript as `__lucentHost.ownership`. `Host::identity()` gives
-  JavaScript the build identity (see [Build identity](#build-identity)),
-  as the `__lucentIdentity` property next to the modules.
-- `regexp.h`: `RegExp` on QuickJS's `libregexp` (vendored, MIT, in
-  `cpp/third_party/quickjs`), which matches Latin-1 and UTF-16 buffers
-  directly; compiled patterns are cached by source and flags.
-- `jsi/convert.h`: `Convert<T>` between JSI values and Lucent values. The
-  compiler emits specializations for structs, classes and unions. A
-  bigint crosses exactly: through `jsi::BigInt`'s 64-bit forms when it
-  fits, else through its digits (the JS side's `BigInt` builds the value
-  it receives). A `NativeBuffer` crosses as an opaque handle (one JS object
-  per buffer, like a class instance) whose `withRead` and `withWrite` lend
-  JavaScript a copy of the bytes under the borrow, written back after a
-  write: JavaScript never holds an `ArrayBuffer` over the storage. Each
-  binding passes `callSync` or `callAsync` its export's trace site (name,
-  `.lucent.ts` file and line): traced, a synchronous call is an entry span
-  there, and an async one shares one id across its call, the job it posts,
-  its result's wait for the JS thread and its delivery.
-- `abort.h`: `AbortController` / `AbortSignal`. A signal from JavaScript is
-  mirrored by a native signal stored as `NativeState` on the JS object; an
-  `abort` listener on the JS signal aborts the mirror synchronously on the JS
-  thread, under the actor's lock, so native listeners run in the same turn as
-  JavaScript's. A signal belongs to the context it was made in: aborting it
-  or changing its listeners from another thread is posted there, where the
-  listeners run, and what a listener throws goes to `reportUncaught`.
+**Programs.** Without platform code, one program serves every target,
+and its identity says `all`. Otherwise each target gets a TypeScript
+program (`createLucentProgram` in `program.ts`): `ios`, `android`, or
+`host` for tests and tools. Options are strict with
+`noUncheckedIndexedAccess`, ES2024, and JSX from `lucent:jsx`.
 
-## React Native integration
+SDK imports resolve to declarations generated from binding schemas
+(`sdk/dts.ts`), served from a virtual directory. A platform without its
+SDK gets untyped modules, so shared code still type-checks.
 
-`LucentModule` is a C++ TurboModule. Its `create(runtime, name)` returns the
-exports object of the Lucent module `name`, built on first access.
+**Checks.** Each stage stops the compile when it fails. First come
+TypeScript's diagnostics, with the declaration files' and platform
+scopes' errors. (`platformScopes` gives each top-level declaration the
+platform whose SDK it uses, and keeps platform code in its branch.) Then
+come conformance (`conformanceErrors`) and the components
+(`ui/analyze.ts`, see [Views](#views-in-brief)).
 
-- **iOS**: `LucentRegistration.mm` registers the module in React Native's
-  global C++ TurboModule map from `+load`. No codegen and no app delegate changes.
-- **Android**: the package is a _pure C++ dependency_. React Native's gradle
-  plugin adds `android/CMakeLists.txt` to the app's `appmodules` build and
-  generates `autolinking_cxxModuleProvider`, which instantiates `LucentModule`.
-  Its Android library also has the runtime's Java: `NativeProxy` for Java
-  interfaces Lucent implements, the components' managers (their views), and `LucentActivities`, started by the
-  `LucentInitializer` provider its manifest declares, which tracks the
-  app's Activities and asks for activity results and permissions through
-  the translucent `LucentRequestActivity`.
+**Generation.** `emitProgram` (`emit/index.ts`) registers classes and
+collects top-level declarations first. Then it lowers classes (bases
+first), functions, component setups, each module's `init()` and compute
+task variants, and writes the files.
 
-Both React Native CLI and Expo autolinking read the app's
-`react-native.config.js`, whose `lucent` entry points at `.lucent/native`.
+Unsupported code fails with `fail(node, Codes.X, …)`, and `Ctx.guard`
+(`emit/context.ts`) records it for that unit while the others compile.
+An internal fault is `LUCENT9002` at its function (`ir/cpp.ts`). A failed
+compile writes nothing.
 
-On the JavaScript side, each proxy requires the loader
-(`js/_lucent/runtime.js`) and calls
-`loadModule(name, () => require("react-native").TurboModuleRegistry, require("./_lucent/identity.js"))`,
-which checks the app's native code first (see
-[Build identity](#build-identity)).
-Resolving `react-native` from the app's own location avoids picking up a second
-copy in monorepos.
+**Merging.** Each target's files go under `<target>/`, and proxies,
+declarations and identities merge. `ui/merge.ts` refuses a component
+whose description differs between platforms.
 
-## Build identity
+### Program analyses
 
-The app binary and the JavaScript bundle are built apart, and may be from
-different sources: the app was not rebuilt after an edit, or a JavaScript
-update reached an older binary. Each compile gives what it built an
-identity (`src/emit/identity.ts`):
+`analysis/` summarizes once per program and target what each unit may
+do. A unit is a function, closure, method, accessor, a class's
+construction or a module's initialization (`units.ts`), without other
+platforms' branches.
 
-- the **runtime ABI** (`RUNTIME_ABI`, the runtime's `kRuntimeAbi`) that
-  generated code and proxies expect of the runtime; generated code
-  `static_assert`s it as it builds;
-- per target (`ios`, `android`, `host`, or `all` for a program every
-  target shares), the **program hash**: the generated files' content,
-  without `#line` directives (code moved to other lines is
-  the same program);
-- per target and module, the **API hash**: what JavaScript sees of the
-  module, its exports and their signatures, with the struct fields, class
-  members, subclasses and interface implementations that cross with them.
-  A body edit changes the program, not the API.
+- `local.ts`: each unit's own facts (module state, allocation, throws,
+  suspension, native calls) and a graph of how values flow.
+- `native.ts` and `library.ts`: facts from binding plans (thread,
+  blocking, callbacks) and from the built-ins. Absent facts are unknown.
+- `solve.ts`: joins each unit's facts with its callees', its callbacks'
+  and the Lucent code native code may call back, up to a fixed point.
+  A fixed order keeps the first cause, so builds explain alike.
+- `ownership.ts`: whether a unit may run on a compute task or the main
+  thread, and whether a value may cross contexts. A refusal prints its
+  cause path: "`run` calls `decode`, which reads module state `cache`".
+- `main-state.ts`: module variables only main-thread code uses, which
+  `init()` assigns on the main thread.
 
-`lucent_identity.cpp` defines `lucent::js::buildIdentity()` for the
-program it is part of, and the host answers `__lucentIdentity` with it:
-`{host, runtimeAbi, reactNative, target, program, modules: {name: api}}`,
-where `reactNative` is the release the TurboModule was compiled against
-("0.86"). The whole compile's identity is `js/_lucent/identity.js`, which
-every proxy passes the loader, and the native package's `manifest.json`;
-it names the React Native release the app installed. A body edit
-rewrites that file, not the proxies.
+`programFacts(lp)` (`analysis/index.ts`) is the entry point. The IR takes
+effect records from it, and compute, buffers, channels and views use its
+checks.
 
-Before a module loads, the loader compares the two. Its errors carry
-`code: "LUCENT_NATIVE_MISMATCH"` and the pending action kind to take:
+### The semantic IR
 
-| The app's native code                                | Result                                   |
-| ---------------------------------------------------- | ---------------------------------------- |
-| has no identity (built before them)                  | error, `compile-native`                  |
-| has an older runtime ABI                             | error, `compile-native`                  |
-| has a newer runtime ABI                              | error, `reload-js`                       |
-| was built against an older React Native release      | error, `compile-native`                  |
-| was built against a newer React Native release       | error, `reload-js`                       |
-| is for a target this JavaScript was not compiled for | error, `compile-native`                  |
-| lacks the module, or has another API for it          | error, `compile-native`                  |
-| has the same APIs, another program                   | warning, once per host; the module loads |
-| is what this JavaScript was built with               | loads                                    |
+`ir/` is a typed representation between the checker and the C++ tree.
+Each value is defined once by an operation, and operations run in their
+region's order (`ir/ir.ts`), so evaluation order is data. Control flow is
+structured: `if`, `loop`, `iterate`, `block` and `try` own regions, which
+`break`, `continue`, `return`, `throw` and `yield` leave.
 
-A different program with the same APIs warns rather than refuses: calls
-are safe, only the implementation is older (or newer), and developers
-keep working on JavaScript while the app rebuilds. The warning (LogBox,
-in development) says so, so nobody runs stale native code without
-knowing. Only the runtime ABI and the React Native release order two
-builds; otherwise the loader cannot tell which side is older, so the
-messages name the rebuild and, for an app installed after the JavaScript
-was built, the reload. Neither
-claims that a JavaScript update replaces native code. The result is kept
-per host and build of the JavaScript: a reload (a new host) or a new
-`identity.js` from Metro checks again. Proxies from before identities
-pass none, and are not checked.
+- `ir/lower.ts` lowers TypeScript, appending each subexpression in
+  JavaScript's order. A right side that may not run (`&&`, `??`, `?:`)
+  goes in a branch.
+- What the IR doesn't model (member access, runtime and SDK methods,
+  constructions, array and object literals) is a `plan`. Its code comes
+  from `emit/leaf.ts`, over operands the IR lowered first in source
+  order. So built-in and SDK semantics are written once.
+- `ir/verify.ts` checks each function before any C++ exists: definitions
+  before uses, types, terminators, jump targets, spans and effect claims.
+- `ir/cpp.ts` makes each operation that does something its own
+  statement, with names or literals as arguments. So C++'s unspecified
+  argument order never matters.
 
-## Platform code
+`emit/through-ir.ts` is the one way in: functions, methods, accessors,
+constructors, `init()`, task variants and component setups all lower
+through it.
 
-A module branches on `PLATFORM` (lucent:platform), the standard form: every
-target's program resolves both platforms' SDK modules (untyped where an SDK
-is missing, with the platform's toolkit module where views are generated;
-TypeScript's errors about a name imported from an untyped module are left
-out wherever the name is used, in a declaration file too). `platformScopes` gives each top-level declaration the platform
-whose SDK it uses outside a branch and checks every use of platform code;
-the emitter leaves other platforms' declarations out and compiles the
-target's branch only (`platformTest`, all in `src/platforms.ts`).
+### Lowering choices
 
-Split modules are the opt-in alternative:
-`haptics.ios.lucent.ts` and `haptics.android.lucent.ts` implement the exports
-`haptics.lucent.ts` declares. `compile()` plans modules
-(`src/platforms.ts`), then builds one program per target: the platform's files
-plus the shared modules, with the declarations as reference files, and
-`lucent:<platform>/*` resolved to `.d.ts` files generated from binding schemas
-(`src/sdk/`) and served from a virtual directory. Each target's output is a
-complete file set under `<target>/`. Declarations of SDK classes lower to the
-`native` LType (`lucent::NativeRef`); `emit/native.ts` maps each use back to
-its schema entry through the checker's resolved declaration and emits
-Objective-C++ message sends or JNI calls. The runtime side is
-`lucent/native.h` and `lucent/platform/{ios,android}`. `native.h` has
-`NativeRef`, which names the context its object must be released on (the
-main context, for Objective-C objects): whichever thread drops the last
-reference, the release runs there. It also has the entry points for
-platform callbacks: `postCallback`,
-`callNow` and `main(f)`'s `runOnMain` enter module code under the Lucent
-lock; `postTo`, `callNowIn` and `runIn` enter another execution context,
-such as the main context, without it.
-Details: [platform-bindings.md](platform-bindings.md).
+- **Types** (`types.ts`): `TypeRegistry.lower` maps a checker type to an
+  `LType`. `T | undefined | null` is `opt`, other unions `union` (a
+  `std::variant`). Object types with the same fields share one struct:
+  `S_<name>`, or `S_Object_<hash>` for an anonymous shape.
+- **Classes** derive from `lucent::Object` (`lucent::ErrorObject` under
+  `Error`), with `virtual` members in a hierarchy (`emit/classes.ts`). An
+  implemented interface is an abstract base (`emit/interfaces.ts`).
+  Generics are templates, checked per instantiation
+  (`emit/instantiations.ts`).
+- **Integers** (`emit/integers.ts`): a local whose every write is an
+  exact integer lives in an `int32_t`, `uint32_t` or `int64_t`.
+  Arithmetic qualifies only when a range analysis proves every value
+  exact within ±2^53 and never -0.
+- **Closures** are `lucent::Fn` values. A variable that closures capture
+  and code writes later lives in a shared box (`analysis/scopes.ts`).
+  Captures that may hold objects make a `lucent::Closure`, for cycle
+  reports. An arrow passed once to a callback method such as `map` stays
+  a plain lambda (`directCallback` in `ir/cpp.ts`).
+- **Coroutines**: async functions return `lucent::Promise<T>`, generators
+  `lucent::Iter<T>`. A coroutine takes its captures as parameters, never
+  by reference. An async function that never awaits is a plain function
+  (`eagerAsync`).
+- **`try`/`finally`**: a jump past a `finally` goes through it with a
+  completion code, as C++'s `break`, `continue` or a `goto`. `using` is a
+  `finally` that disposes.
+- **Small things**: an object literal only its local's field accesses see
+  is a C++ value (`emit/stack-objects.ts`). Each function calls
+  `lucent::checkStack` on entry, so runaway recursion throws
+  `RangeError`. Each file undefines the program's names that a header
+  may define as macros (`emit/macros.ts`).
+- **Positions**: `#line` names each source relative to the project
+  (`lowering/source.ts`), and the builds map the project to `.`
+  (`-ffile-prefix-map`). Debuggers, crash reports and errors
+  (`lucent::withSite`) point at `.lucent.ts` lines, with no machine path.
 
-Native extensions (`lucent:ext/<name>`) are C, so they need no platform
-branch. `resolveNative` checks a package's `extensions` declaration and
-locates its header; `bindExtensions` (`src/extensions/bind.ts`) reads the
-header through bindgen's `extractCHeader` (clang's JSON AST) and checks the
-declaration against it into bindings: handles, functions with one
-`ParamBinding` per C parameter, skipped functions with their reasons.
-`compile()` binds them for the compile (`src/extensions/registry.ts`), the
-program serves `extensionDts` output from the same virtual directory as the
-SDKs, handle classes lower to the `handle` LType (`lucent::Handle`), and
-`emit/extensions.ts` emits each call as a statement expression: arguments
-held in order, converted (a throw there is Lucent's), then the C call inside
-`lucent::ext::call`, noexcept, and the failure check its `failsWhen` names.
-The analyses get the declared thread and blocking from
-`src/extensions/facts.ts`. The runtime side is `lucent/extension.h`: a
-Handle's destroy runs once through a `Resource`, on the context its affinity
-names.
+### Generated files
 
-## Packaging
+`cpp/generated/`, or `cpp/generated/<target>/` with platform code:
 
-An app installs one package, `@lucent-lang/lucent`, which depends on
-`typescript` only. It holds the CLI (`src/cli`), the Metro integration
-(`metro/`), the Expo config plugin (`app.plugin.js`) and the editor plugin
-(`ts-plugin/`). Publishing bundles the CLI and the compiler (with bindgen) into
-`dist/` with `vp pack` (tsdown), and copies what the compiler reads at run time beside
-it: `lib/` (declarations, including `lucent:core`) and `runtime/` (the C++
-runtime, native templates and JS loader). The compiler looks for `runtime/`
-next to its own code before the workspace's `packages/runtime`, so the same
-code runs bundled and from sources. The compiler, bindgen and runtime are
-private workspace packages.
+| File                                   | What it is                                                             |
+| -------------------------------------- | ---------------------------------------------------------------------- |
+| `lucent_app.h`                         | The runtime's headers, the actor accessors, native object declarations |
+| `lucent_app_<Type>.h`                  | One type's definition and inline code (`emit/type-headers.ts`)         |
+| `lucent_app_json.h`, `…_json_read.h`   | JSON readers                                                           |
+| `m_<module>.h`, `m_<module>.cpp`       | A module; `.mm` for iOS code using the SDK or SwiftUI                  |
+| `lucent_bindings.cpp`                  | Module installers, prototypes, conversions, `resetModuleState`         |
+| `lucent_identity.cpp`                  | The build identity, after a `static_assert` on the runtime ABI         |
+| `LucentShims.swift`                    | Swift-only members the glue calls (`@_cdecl` functions)                |
+| `views/…`                              | Components' Fabric sources, mounts and hosts                           |
 
-Nothing Lucent ships is needed at run time as a package: `lucent build` copies
-the runtime and the JS loader into `.lucent/native`. Metro bundles each
-`*.lucent.ts` file as a require of its generated proxy, a module Metro
-watches like any source file, so a build that rewrites a proxy needs a
-reload, not a restart. The proxy requires the loader by a path relative to
-itself, which resolves inside the native package, and `react-native` from
-the app's `node_modules`, which `withLucent` adds to Metro's
-`resolver.nodeModulesPaths` for a native package outside the app
-(`LUCENT_OUT`). `lucent:core` is served by the compiler like `lucent:thread`.
+Headers per module and per type keep a rebuild to the units that use
+what changed.
+
+### Swift, Kotlin and Java
+
+- **Swift** (`emit/swift.ts`, `emit/swift-proxy.ts`): a `@_cdecl` shim per
+  Swift-only member, and a Swift class for a Lucent class conforming to a
+  Swift-only protocol ([design/swift-shims.md](design/swift-shims.md)).
+  The pod then sets `swift_version`.
+- **Objective-C** (`emit/delegates.ts`, `emit/objc-subclass.ts`): an
+  object for a Lucent class implementing SDK protocols, and a subclass
+  for one extending an iOS class.
+- **Kotlin** (`emit/kotlin.ts`): shims in `dev.lucent.shims` for suspend
+  functions, Kotlin defaults and value classes. The library then applies
+  the Kotlin plugin and depends on kotlinx-coroutines 1.7.3.
+- **Java** (`emit/java.ts`): a subclass in `dev.lucent.generated` for a
+  Lucent class extending an Android class, forwarding to C++ through
+  `NativeProxy`.
+
+**Native extensions.** A Lucent package may declare C extensions,
+imported as `lucent:ext/<name>`. `extensions/bind.ts` reads the header
+with bindgen's `extractCHeader` and checks the declaration against it.
+`emit/extensions.ts` converts each argument and calls the C function
+inside `lucent::ext::call` (see
+[lucent-packages.md](lucent-packages.md#c-extensions)).
+
+> **Planned:** C++ headers, callbacks and prefab ([T142](tasks.md#t142)).
 
 ### Build records
 
-`lucent build`, `lucent check`, `lucent dev` and the Gradle and Metro hooks
-share one pipeline (`src/cli/pipeline.ts`). Each run writes
-`.lucent/build-record.json` (`src/cli/build-graph.ts`): its steps as nodes
-(resolve, extract, check, generate) with their inputs and outputs, each a
-project-relative path or key and a content hash, the step's status (ok,
-cached, failed, skipped), and the action the app needs next (none, reload
-JavaScript, compile native code, relink). Timings are kept apart from the
-nodes, so a clean rebuild of the same inputs writes the same nodes. The
-extract node's inputs are the imported SDK modules, each hashed on the
-artifacts its schema was read from, and those artifacts by build-system id
-(`sdk:iphonesimulator27.0`, `pod:Name@1.0`, `maven:group:name:1.0`) and
-content hash. The `extract:extensions` node's inputs are the native
-extensions, each hashed on its header and the native source directories it
-may include from. The resolve node's inputs include each path a Lucent package
-lists in its `lucent.json` (`packages/<package>/<path>`), hashed by its
-files' paths and contents; `.lucent/file-hashes.json` keeps each file's hash
-while its size and times hold (a file changed within a second of being
-hashed is hashed again). The check node's inputs are the sources, the
-targets, and every other file the compile read (`compiler/src/reads.ts`):
-the files imports resolve to, the `package.json` files TypeScript's
-resolution reads and the one that names a module, each hashed by the
-content read, or `missing` for a file it looked for and did not find.
-Those outside the project (the compiler's own, a linked package's) are
-one `outside-project` input, hashed on the contents of the files found
-there, so the node is the same wherever the project, the compiler and
-the working directory are. Where the links resolution followed led is
-left out: it names paths on this machine (see below).
-`startedAt` says when each timed step started (milliseconds from the
-build's start, outside the node hashes like the timings), so `lucent trace`
-(`src/cli/trace.ts`) lays the steps out as spans beside runtime traces; see
-[tracing.md](tracing.md).
+Each run of `buildProject` writes `.lucent/build-record.json`
+(`src/cli/build-graph.ts`), keeping the one before as
+`build-record.previous.json` for `lucent doctor`. It holds:
 
-A check or build answers from the last one that passed while nothing it
-used changed. Its record (`.lucent/check.json`, or for a build the native
-package's `manifest.json`) keeps a key of what it was given (`inputsKey`:
-the sources, the compiler and runtime, the SDKs with the app's dependencies,
-the output location, the targets, the packages' native needs), of the
-files it read, and of where each path resolution followed a link from led
-(TypeScript's `realpath`), and lists those files and paths; the next run
-reads them again (`upToDate`), so a dependency's `package.json` gaining an
-`exports` map, a file a module imports types from, or a linked package
-replaced by an installed copy (whose files where the check read them may
-be the same while those they re-export differ) makes it check again. So does a lost
-record or usage report (`.lucent/sdk-usage.json`); `--frozen` always
-checks again, and `lucent build --force` always builds again (`lucent check`
-takes no `--force`).
+- **Nodes**: each step's id, kind, status (`ok`, `cached`, `failed`,
+  `skipped`), inputs and outputs. Each input or output is a
+  project-relative path or a key with a content hash. So the same inputs
+  give the same nodes on any machine. The check's inputs include every
+  file the compile read (`compiler/src/reads.ts`).
+- **Timings** and **startedAt** per node, outside the node hashes, which
+  `lucent trace` lays out.
+- **Pending actions** (below). `requiredAction` keeps the older
+  single-action form.
 
-### SDK usage and the SDK lock
+### Caching
 
-Every SDK use in generated code goes through its binding plan, and the
-compiler notes each plan it accepts (`compiler/src/sdk/usage.ts`):
-`compile()` returns the program's `sdkUses`, each member once with the
-roles it is used in (call, new, get, set, implement), keyed by native
-symbol (`bindgen/src/usage.ts`), plus the types of its module that the
-used members name. A successful check or build writes them to
-`.lucent/sdk-usage.json` (`src/cli/sdk-usage.ts`) with the targets it
-compiled and, for each used or imported module, the artifacts its schema
-was read from (`id#contentHash`) and the SDK cache entry holding that
-schema (`<scope>/<entry>`). Nothing in it names a machine path.
+A build or check answers from the last passing one while nothing it used
+changed. Its record is `.lucent/check.json` for a check, and the native
+package's `manifest.json` for a build. `upToDate`
+(`compiler/src/native-package.ts`) accepts it when:
 
-The report is one of the check's outputs: a check or build whose inputs
-are unchanged runs again when the report is missing or unreadable.
+- the key matches. `inputsKey` hashes the sources, the compiler, the
+  runtime, the SDKs and the output directory; the pipeline adds the
+  targets and the packages' native needs;
+- every file the check read reads the same, and a missing one is still
+  missing;
+- every path where resolution followed a link leads where it did.
 
-`lucent sdk lock` checks the project and copies that record to
-`lucent-sdk.lock.json`, which the app commits. It fails, writing
-nothing, when a platform the project has code for has no SDK, unless
-`--platforms` leaves that platform out. The lock's targets must be
-platforms Lucent knows. `--frozen` builds and checks read it, skip the
-build caches, and stop:
-
-- when a target the lock lists has no SDK, or when the build would skip
-  it (Android dependencies left to the Gradle build), instead of
-  skipping it with a warning (the untyped `lucent:<platform>/*` stubs
-  stay for editors and plain builds only);
-- before the check, when a used or locked module is read from other
-  artifacts than recorded, or is not recorded;
-- after the check, when the code uses symbols the lock does not record.
-
-With `--schemas`, `lucent sdk lock` also exports what the check read from
-installed SDKs (`exportSchemaSet` in `bindgen/src/provider.ts`) to
-`lucent-sdk.schemas/<platform>/<module>.json`: each module's schema
-(`.source.json` for source modules such as SwiftUI) and the modules its
-types name (`.names.json` on iOS), with the artifacts and cache entry the
-lock records. `projectSdk` passes the directory as `SdkOptions.schemas`;
-where a platform's SDK is missing, `sdkModule`, `sdkNames`,
-`sdkSourceModule`, `sdkModuleArtifacts` and `sdkAvailable` answer from
-it, and `sdkIdentity` names its contents. An installed SDK wins.
-
-`lucent sdk diff` finds each locked symbol in the installed SDK by native
-symbol or by name and signature, then by name alone when one member of
-that name is left (a JVM descriptor changes with the signature; not for
-constructors, whose signature tells overloads apart). A member is looked
-for under its owner as found again, so a member an extension gives
-several types never answers for another type's; each installed symbol
-answers for one locked symbol. It reports it removed, or changed with
-what changed:
-signature, native symbol, owner, TypeScript name, static-ness, `since`,
-deprecation, enum cases. `--all` diffs every member of the used modules,
-reading the locked schemas back from this machine's SDK cache
-(`cachedSchema`) when it still holds them.
+`--force`, `--frozen` and a missing `.lucent/sdk-usage.json` always build
+again. `writeNativePackage` then writes only what changed, each file
+through a temporary file renamed over it (`writeWhole`). Unchanged files
+keep their mtime, so native builds reuse their objects. `manifest.json`
+goes last, because Metro keys its cache on it.
 
 ### Pending actions
 
-The record's `pendingActions`, also `actions` in `lucent build --json`,
-say what the app needs after the build (`src/cli/changes.ts`). They come
-from what the build changed in the native package, never from a source
-file's extension:
+`classifyChanges` (`src/cli/changes.ts`) derives what the app needs from
+what changed in the native package. A package's file is classified by
+the `lucent.json` field that lists it, never by its extension.
+`lucent build --json` reports them as `actions`.
 
-| Changed                                                                                               | Action                                            |
-| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `js/` proxies                                                                                         | `reload-js`                                       |
-| `cpp/`, `ios/`, generated Java; a package's `nativeSources`                                           | `compile-native` (the targets whose code changed) |
-| a package's `resources`, `resourceBundles`, `assets`                                                  | `repackage`                                       |
-| the podspec, `android/` build files; a package's `libraries`, `nativeLibraries`, `vendoredFrameworks` | `relink`                                          |
-| the packages' pods, Gradle artifacts or `minSdk` in `resolved.json`                                   | `relink`                                          |
-| the library manifest; `Info.plist` entries or entitlements in `resolved.json`                         | `reinstall`                                       |
-| a file added or removed that iOS builds                                                               | `relink` on iOS (pod install lists files)         |
-| `types/`, `manifest.json`, `js/_lucent/identity.js` (it changes with the generated code)              | nothing                                           |
+| Changed                                                                    | Action                          |
+| -------------------------------------------------------------------------- | ------------------------------- |
+| `js/` proxies                                                              | `reload-js`                     |
+| `cpp/`, `ios/`, `android/src/main/java/`; a package's `nativeSources`      | `compile-native`                |
+| A package's `resources`, `resourceBundles` or `assets`                     | `repackage`                     |
+| The podspec, other `android/` files; `libraries`; pods, Gradle artifacts or `minSdk` | `relink`              |
+| `AndroidManifest.xml`; Info.plist keys or entitlements in `resolved.json`  | `reinstall`                     |
+| A file iOS builds added or removed                                         | `relink` on iOS (`pod install`) |
+| `types/`, `manifest.json`, `js/_lucent/identity.js`                        | nothing                         |
+| Anything else                                                              | `relink`                        |
 
-A package's file is classified by the field that lists it, in the resolved
-manifest of this build or the last. The packages' pods, Gradle artifacts
-and `minSdk` are compared with the last full build's `resolved.json`: a
-build writes them into the build files before its check, so a full build
-finds those files already written, also after a failed or superseded
-build. An unknown output relinks. Each action has its targets and files;
-`requiredAction` (the single action of C-BUILD v1) stays as it was.
+### Build identity
 
-The native package is published file by file through a temporary file
-renamed over the old one, so Metro never reads half a proxy, and
-`manifest.json` comes last: its module list keys Metro's transform cache,
-and Metro watches the proxies themselves. Unchanged files keep their
-content and mtime.
+The app binary and the JavaScript bundle are built apart and may come
+from different sources. `emit/identity.ts` gives each compile:
+
+- the **runtime ABI** (`RUNTIME_ABI`, the runtime's `kRuntimeAbi`), which
+  `lucent_identity.cpp` asserts at compile time;
+- per target (`ios`, `android`, `host` or `all`), the **program hash** of
+  the generated files, without `#line` lines and trace sites' positions;
+- per target and module, the **API hash** of what JavaScript sees:
+  exports, signatures, the types that cross, components' contracts.
+
+The native side answers `__lucentIdentity` with `{host, runtimeAbi,
+reactNative, target, program, modules}`, `reactNative` being the release
+the TurboModule was compiled against. Each proxy passes the loader
+`js/_lucent/identity.js`, and the loader (`runtime/js/index.js`) compares
+the two. Its errors carry `code: "LUCENT_NATIVE_MISMATCH"` and an
+`action`:
+
+| The app's native code                             | Result                                |
+| ------------------------------------------------- | ------------------------------------- |
+| has no identity                                   | error, `compile-native`               |
+| has an older (newer) runtime ABI                  | error, `compile-native` (`reload-js`) |
+| was built for an older (newer) React Native minor | error, `compile-native` (`reload-js`) |
+| is for a target this JavaScript wasn't built for  | error, `compile-native`               |
+| lacks the module, or has another API for it       | error, `compile-native`               |
+| has the same APIs and another program             | a warning, once per host and build    |
+
+### SDK usage and the lock
+
+The compiler notes each binding plan it accepts (`sdk/usage.ts`). A
+passing check writes them to `.lucent/sdk-usage.json`, with the artifacts
+each schema came from. `lucent sdk lock` copies that to
+`lucent-sdk.lock.json`, and `--frozen` builds stop when the SDKs or
+symbols differ (`src/cli/sdk-usage.ts`). `--schemas` also exports the
+schemas, so a machine without a platform's SDK can type its code.
+
+Besides those records, `.lucent/` holds `file-hashes.json` (package files'
+hashes by their stats), `android-classpath.json` and its `.state.json`,
+`gradle.lock` while a build runs Gradle, and `trace.json` from
+`lucent trace`.
 
 ### Watching
 
-`lucent dev` (and Metro's watcher, which runs it) watches the app and every
-Lucent package whose directory is outside it (workspace or linked
-packages), whole, and the entries of each directory holding a file the
-last build read (for a file it looked for and did not find, the nearest
-directory there is), inside those too: Linux's recursive watch reports
-neither a link swapped for a directory nor what then changes in it. A
-directory replaced since it was watched (another inode at its path) is
-watched again after the next build. A change rebuilds when the last
-build read the file, wherever it is: a file its check read or a path it
-resolved a link from (the build's `read`, the paths its record keys on),
-or a path a package lists (`nativeInputs`); so does a directory between
-a watched one and such a file being created, removed or swapped for a
-link. In the app and its packages, outside dependencies and dot
-directories, so does any module, `package.json` or `lucent.json`, which
-the next build may read whatever the last one did. No build reads what
-builds write, so a build never triggers another; nor does an event for a
-file last changed before the last build started. Saves are debounced; a
-change during a build aborts it (`BuildOptions.signal`) before it writes,
-and one build follows.
+`lucent dev` (`src/cli/dev/session.ts`) watches the app, each Lucent
+package outside it, and the directory of each file the last build read.
+A change rebuilds when the last build read the file, or when it is a
+module, `package.json` or `lucent.json` outside dependencies.
 
-Resolving the Android classpath runs Gradle once at a time: the run holds
-`.lucent/gradle.lock`, and another build waits for it and uses what it
-resolved for the same inputs. The Gradle run gets `LUCENT_GRADLE_CLASSPATH`,
-as the app's own `lucentBuild` task sets it, so no lucent build inside a
-Gradle build launches Gradle again; such a build records the classpath's
-inputs, so later builds reuse it. That Gradle build configured the Lucent
-Android library before `lucentBuild` ran: when the build changes the
-library's `build.gradle` (its first Kotlin shim, a package's Android
-dependency), it writes the new file and fails, asking for another build,
-rather than letting Gradle build the library as it was. A build that
-leaves Android to the Gradle build (`expo prebuild`, which runs no
-Gradle) cannot tell whether Android needs Kotlin shims, or Compose for
-components' content while views are generated, so it writes the library
-configured for them; a Gradle build that configured it so builds
-whatever Android turns out to need, and the next one gets the exact file.
-That build's autolinking also reads the package's component descriptors
-before its `lucentBuild` compiles Android, so a deferred build lists every
-component it describes (each is a component on every platform) and the
-header including their descriptors, which that `lucentBuild` then writes
-before CMake compiles anything.
+Saves are debounced (40 ms). A change during a build aborts it before it
+publishes, and one build follows. Builds never read what builds write.
 
-## Editor diagnostics
+## The native package
 
-`@lucent-lang/lucent/ts-plugin` is a TypeScript language-service plugin. tsserver
-loads it with `require()` and its own `typescript`, which may be a different
-version from the compiler's; the lowering matches on `ts.SyntaxKind`, so the
-plugin never hands the editor's AST to the compiler. It `import()`s the
-compiler (an ES module) asynchronously, refreshes diagnostics once loaded, and
-calls `checkSources(files, readSource, { extensions })` with the project's
-`*.lucent.ts` paths that `lucent build` compiles (`filesInBuild`: not a
-Lucent package inside the app that the app does not depend on), the
-editor's unsaved buffer text and the Lucent packages' native extensions,
-bound once per session (`projectExtensions`). The compiler builds its own program
-(library declarations are parsed once per process) and returns diagnostics
-with offsets and lengths. One check serves every file until a Lucent source
-changes version. TypeScript errors are left to TypeScript.
+`.lucent/native` is a React Native library that autolinking finds
+through the app's `react-native.config.js`.
 
-The plugin also types each Lucent file's JSX with its toolkits, as the
-compiler does: it wraps the host's module resolution, and a
-`*.ios.lucent.tsx` or `*.android.lucent.tsx` file's implicit JSX runtime
-import (a synthesized import of `<jsxImportSource>/jsx-runtime`) resolves
-to `lucent:swiftui` or `lucent:compose`, a shared `.lucent.tsx` file's to
-`lucent:jsx`, through the app's `lucent:*` path. The app's other files
-keep their JSX runtime. An app whose JSX imports no runtime (React
-Native's `jsx: react-native`) gets React's as its import source once it
-has Lucent `.tsx` files: its files' JSX is then typed by
-`react/jsx-runtime`, whose `JSX` is React's.
+| Path                                     | What it is                                                     |
+| ---------------------------------------- | -------------------------------------------------------------- |
+| `cpp/lucent/`, `cpp/third_party/`        | The runtime, Dragonbox and QuickJS's `libregexp`               |
+| `cpp/rn/`                                | The TurboModule and the view hosts                             |
+| `cpp/generated/`                         | The program (see [Generated files](#generated-files))          |
+| `LucentNative.podspec`, `ios/`           | The iOS pod and its registration                               |
+| `android/`                               | CMake files and the Android library                            |
+| `react-native.config.js`, `package.json` | What autolinking reads                                         |
+| `packages/<package>/`                    | Files Lucent packages list in `lucent.json`                    |
+| `prebuilt/`                              | The prebuilt runtime core, when it matches                     |
+| `js/`                                    | Proxies, the loader, the views runtime, the identity           |
+| `types/`                                 | `lucent:*` declarations for the app, components' React types   |
+| `resolved.json`, `manifest.json`         | Merged native needs; module list, check record and identity    |
 
-## Tests
+### iOS
 
-See [testing.md](testing.md).
+`LucentNative.podspec` compiles `cpp/**` and `ios/**` (not other targets'
+code) as C++20 with `-ffp-contract=off` and the prefix map, precompiling
+`cpp/lucent/prefix.h`. `podspec()` (`native-build-files.ts`) adds the
+frameworks, the packages' pods, sources and resources, Swift packages
+(`spm_dependency`), and the highest deployment target asked for.
+
+`ios/LucentRegistration.mm` registers the C++ TurboModule `Lucent` from
+`+load`, with no codegen or app delegate change, and throws on a second
+copy.
+
+> **Planned:** no iOS build phase runs `lucent build`, so an Xcode build
+> is current only after Metro's watcher or `pod install` ran. And
+> `expo prebuild` stops at a package pod not yet installed
+> ([T141](tasks.md#t141)).
+
+### Android
+
+`react-native.config.js` declares a C++ module
+(`cxxModuleHeaderName: "LucentModule"`) and a Java package,
+`dev.lucent.LucentPackage`, which gives React Native the components' view
+managers. With components it also lists their `componentDescriptors`
+(`ui/android.ts`).
+
+- `android/CMakeLists.txt` builds `lucentnative`, an `OBJECT` library
+  React Native links into `appmodules`, plus `packages.cmake` for
+  packages' C and C++ sources.
+- `android/codegen/` (an empty `react_codegen_lucentnative`) and
+  `include/lucentnative.h` (a null module provider) satisfy what
+  autolinking links and calls for every library.
+- `android/build.gradle` is the library with the runtime's Java
+  (`NativeProxy`, `LucentActivities`, the view hosts).
+  `libraryBuildGradle` adds Kotlin, Compose and package dependencies.
+- `AndroidManifest.xml` merges the permissions the called SDK methods
+  need, `LucentInitializer` (Activity tracking from process start) and
+  `LucentRequestActivity` (results and permissions).
+
+### Autolinking, Gradle and Expo
+
+- **Autolinking** (`autolink/index.cjs`): `lucent init` writes the
+  config entry as `require("@lucent-lang/lucent/autolink")(__dirname)`.
+  It runs `lucent build` first when `.lucent/native` is missing or older
+  than a module or `package.json`, so a fresh clone links Lucent.
+- **Gradle** (`gradle/lucent.gradle`): `lucentBuild` runs before each
+  project's `preBuild`, after `lucentClasspath`
+  (`lucent-classpath.gradle`), which writes the app's compile classpath,
+  `minSdk` and `compileSdk`. A standalone build runs that task through an
+  init script, leaving the app's build files alone.
+- **The Gradle race**: Gradle configured the Lucent library before
+  `lucentBuild` ran. A build inside Gradle that changes the library's
+  `build.gradle` writes it and fails, asking for another build. After
+  `expo prebuild`, the deferred `build.gradle` is configured for every
+  Kotlin and Compose need (`deferredLibraryGradle`).
+- **Expo** (`app.plugin.js`): during prebuild it runs `lucent build`
+  with `LUCENT_NO_GRADLE=1`, links the package, applies the Gradle task,
+  and adds the packages' Info.plist keys and entitlements. Keys the app
+  sets win; arrays gain the values they lack.
+
+### The prebuilt core
+
+The core is the runtime's `lucent/*.cpp` files that reach no JSI, React
+Native or fbjni header, plus the regular expression engine
+(`compiler/src/prebuilt-runtime.ts`). `scripts/prebuilt-runtime.ts`
+builds it per target, and a build copies it only when its `sourcesHash`
+and source list match this runtime. The podspec then links
+`LucentCore.xcframework`, and CMake `liblucentcore.a`, instead of
+compiling those sources (`LUCENT_RUNTIME_FROM_SOURCE=1` turns this off).
+
+## The JavaScript side
+
+### The loader and proxies
+
+Each module's proxy (`js/<module>.js`, from `jsProxy` in `emit/index.ts`)
+calls the loader's `loadModule` with the module name, a function giving
+`require("react-native").TurboModuleRegistry`, and the identity. It
+requires `react-native` from the app's location, so a monorepo's second
+copy is never picked. Classes go through `lucentClass`, so `new` and
+`instanceof` work, and enums are frozen objects. A primitive literal
+constant is copied once; other exported values are getters, so an
+exported `let` is live.
+
+The loader (`runtime/js/index.js`) gets the `Lucent` TurboModule, checks
+the [build identity](#build-identity) and returns the module's exports.
+Test hosts install modules as `globalThis.__lucentModules` instead. In a
+debug build it also warns, in LogBox, of the reference cycles the last
+teardown found.
+
+### Metro
+
+`withLucent` (`metro/index.cjs`) wraps a Metro config:
+
+- Its Babel transformer (`metro/transformer.cjs`) bundles a
+  `*.lucent.ts(x)` module as `module.exports = require(<proxy>)`, a
+  module Metro watches. A rebuilt proxy needs a reload, not a restart. A
+  module not yet compiled fails the transform, which Metro retries.
+- A module whose last build failed fails the transform with that build's
+  diagnostics from `.lucent/problems.json`, shown in the RedBox.
+- The cache key covers the package's path, its module list and JS dev
+  mode. The resolver maps `lucent:views` to `js/_lucent/components`, and
+  adds the app's `node_modules` for a package outside the app
+  (`LUCENT_OUT`).
+- On a dev server it starts `lucent dev --compact` (`LUCENT_WATCH=0`
+  stops that).
+
+### JS dev mode
+
+With `withLucent(config, { js: true })` or `LUCENT_JS=1`, Metro bundles
+each `*.lucent.ts` module as its own JavaScript (`metro/js-dev.cjs`), so
+a body edit is a Fast Refresh. `lucent:core` is `compiler/lib/core.cjs`,
+and platform modules throw `LUCENT_JS_DEV_NATIVE` when used. `.lucent.tsx`
+modules keep their native proxies, and release bundles refuse the mode.
+
+### Editor plugin
+
+`ts-plugin/index.js` is a TypeScript language-service plugin. The
+editor's `typescript` may differ from the compiler's, so the plugin
+imports the compiler asynchronously and passes paths and unsaved text,
+never ASTs. It checks the files `lucent build` compiles (`filesInBuild`),
+and resolves each Lucent `.tsx` file's JSX runtime to its toolkit.
+
+## The runtime
+
+`packages/runtime/cpp/lucent` is C++20 with no dependency beyond the
+standard library and the vendored Dragonbox and `libregexp`. Only
+`lucent/jsi/` knows JSI. `lucent/platform/` is the Objective-C++ and JNI
+glue, and `cpp/rn/` the TurboModule and view hosts.
+
+### Values and async functions
+
+`core.h` sets the value model. A value is a primitive held by value
+(`double`, `bool`, `String`), or a handle to a reference-counted object
+(`Array`, `Map`, `Set`, `Dict`, `Bytes`, `Fn`, `Promise`, `Ref<T>`).
+Copying a handle aliases the object, as JavaScript assignment does.
+`Opt<T>` holds `T | undefined | null`, and `Union<…>` other unions.
+
+There is no cycle collector: a cycle of strong references lives until
+the process ends. `weak.h`'s `WeakMap` and `WeakSet` drop an entry with
+its key's last strong reference.
+
+- `jsstring.h`: an immutable, shared UTF-16 string with a Latin-1 form.
+  The handle is 16 bytes and holds a one-byte string of up to 15 units.
+  A sole owner's `+=` appends in place.
+- `number.h`: ECMAScript number semantics, with Dragonbox for shortest
+  round-trip digits.
+- `bigint.h`: `bigint` at any precision. A value that fits in 64 bits is
+  inline; a larger one shares immutable 32-bit limbs. Results beyond
+  2^30 bits throw `RangeError`, as V8 does.
+- `array.h`, `map.h`, `bytes.h`, `date.h`, `regexp.h`, `json.h` and
+  `generator.h` are the other built-ins. Seeded corpora check numbers
+  and bigints against Node (`test/number`, `test/bigint`).
+
+`async.h` makes `Promise<T>` a coroutine type. A body starts at once, and
+an `await` of a promise resumes from the microtask queue, never inline, as
+in JavaScript. An `await` of a plain value doesn't suspend, a known gap
+([semantics.md](semantics.md#async-functions-and-microtasks)). A
+continuation resumes on the context that registered it, so a coroutine
+stays on the context it started on.
+
+> **Planned:** other typed arrays ([T100](tasks.md#t100)), `null` apart
+> from `undefined` in containers ([T101](tasks.md#t101)), and timers
+> ([T104](tasks.md#t104)).
+
+### Execution contexts and actors
+
+An execution context (`execution.h`) runs turns in order. Each turn runs
+its job, then the context's microtasks. Contexts never wait for each
+other: work crosses as posted jobs that own what they carry.
+
+| Context                    | Runs on                                         | Used for                                  |
+| -------------------------- | ----------------------------------------------- | ----------------------------------------- |
+| An `Actor` (`scheduler.h`) | Its thread, or any thread holding its lock      | Module code of one import component       |
+| The main context           | The platform's UI loop                          | Views, `main()` callbacks, UIKit objects  |
+| An `IsolatedContext`       | A thread of its own                             | Compute workers                           |
+| An `ExecutorContext`       | A serial dispatch queue (Apple) or a thread     | Platform callbacks; not exposed yet       |
+
+`emit/actors.ts` gives each import component (a package, or the app's
+own modules) an actor, `lucent_app::actor_N`. So a long job in one
+package delays neither another package nor the main thread.
+
+Every entry into module code holds its actor's lock (`LucentScope`): a
+JavaScript call, a turn on the actor's thread, a platform callback
+(`callNow`). The lock is a fair ticket lock. The main thread never takes
+a ticket: it waits only for the holder in place, or defers
+(`enterFromMain`). A nested wait that would close a cycle throws
+`Lucent: deadlock` (see [semantics.md](semantics.md#concurrency)).
+
+`native.h` holds the platforms' ways in: `postCallback` and `callNow`
+enter module code, `postTo`, `callNowIn` and `runIn` another context, and
+`runOnMain` is `lucent:thread`'s `main()`. A `NativeRef` releases its
+object on the context it names (the main context on iOS). Module work
+belongs to the JavaScript runtime it runs for (`RuntimeEntry`,
+`ownedScope()`), so tearing one down cancels its work only.
+
+> **Planned:** `lucent:thread`'s `executor()` ([T109](tasks.md#t109)),
+> module code with no JavaScript runtime ([T130](tasks.md#t130)), and
+> calls from worklet runtimes ([T134](tasks.md#t134)).
+
+### Scopes, operations and resources
+
+- `scope.h`: a `Scope` owns child scopes, pending operations and
+  cleanups, and disposing it ends them once. An `Operation` settles once
+  from any thread; what loses the race is released, never delivered.
+- `operation.h`: `nativeOperation` turns native work that completes on
+  any thread into a promise of the calling context. Aborting or disposing
+  cancels it.
+- `callback.h`: `fromCallback` and `subscribe` turn callback APIs into a
+  promise or a subscription, run on the calling context.
+- `resource.h`: a `Resource` closes once, at `close()`, its scope's
+  disposal or its last reference. `handle.h`'s `NativeHandle` is an
+  address valid until `release()`.
+- `events.h`: `EventEmitter` keeps listeners by event index, and
+  `onObserved` reports an event's first listener and its last.
+- `abort.h`: an `AbortSignal` belongs to its context. One from JavaScript
+  is mirrored natively and aborted on the JS thread.
+
+> **Planned:** memory pressure for native objects and platform makers of
+> native handles ([T107](tasks.md#t107)).
+
+### Compute, channels and buffers
+
+`compute(entry, input)` (`compute.h`) runs a compiled function on a
+bounded pool: one worker fewer than the cores (at least one), and a queue
+of 1024 tasks. A full queue rejects at once with `QuotaExceededError`.
+Workers never take an actor's lock or wait for the UI loop.
+
+A cancelled task leaves the queue, or stops at its next safepoint
+(`TaskContext::checkCancelled`). `emit/compute.ts` writes a task entry
+per computed function and a variant whose loops check for cancellation.
+
+`transport.h` copies a task's input into a graph only the task holds.
+Each object is copied once, so aliases and cycles survive, and strings
+cross as they are. A subclass instance behind its base type is refused
+with `DataCloneError`.
+
+- `channel.h`: `Channel<T>` carries values from a producer on any thread
+  to a consumer on its own context. A send never waits; a full channel
+  refuses (`lossless`), replaces (`latest`) or drops the oldest (`drop`).
+  A send copies its value as a compute input is copied.
+- `buffer.h`: a `NativeBuffer` is bytes native code owns. Access is a
+  borrow for one synchronous call: reads share, a write excludes, and a
+  conflict throws `InvalidStateError`. `transfer()` moves the storage,
+  which is how a buffer crosses to a task. `emit/buffers.ts` refuses a
+  borrowed span that escapes its callback.
+- `bytes.h`: an `ArrayBuffer` and its `Uint8Array`s share storage. Bytes
+  cross the boundary as copies, but a result nothing else holds moves to
+  JavaScript. A synchronous export that only reads a byte parameter is
+  lent JavaScript's bytes (`emit/lent-bytes.ts`).
+
+> **Planned:** platform memory as JavaScript bytes without a copy on iOS
+> ([T108](tasks.md#t108)).
+
+### The JSI host and conversions
+
+`jsi/host.h` defines one `Host` per JavaScript runtime. It owns every
+JSI reference Lucent keeps: promise resolvers, retained callbacks and
+values, prototypes and the identity cache. JSI values are touched only
+on the JS thread, so other threads use ids and post to it (`postToJs`).
+
+- `LucentModule` (`cpp/rn/LucentModule.cpp`) creates the host on first
+  access, and answers each property with a module's exports, built once
+  per host while holding the module's actor.
+- `Host::create` replaces the runtime's previous host. It runs each
+  module's `init()` (`resetModuleState`, in import order) only when no
+  other runtime is live, because module state is process-wide.
+- `jsi/convert.h` defines `Convert<T>`, and the compiler writes
+  specializations for structs, classes and unions. A value that doesn't
+  convert throws a `TypeError` naming the function and the argument.
+- `callSync` runs an export under the actor's lock on the JS thread.
+  `callAsync` posts a job to the actor's thread and returns a JS promise,
+  settled later on the JS thread.
+- A JavaScript callback called off the JS thread posts to it. One that
+  returns a value must then return a promise.
+- A class instance has one JS object per runtime. Prototypes are kept on
+  the runtime's global object (`__lucentPrototypes`).
+
+### Lifecycle and teardown
+
+A host tears down on a reload, at the runtime's end (an anchor object on
+`global` notices), or when a new host replaces it. `Host::tearDown`:
+
+1. rejects the JS promises it owes with an `AbortError`, while the
+   runtime is still usable;
+2. runs module code's `onDestroy` hooks (`hooks.h`) in each actor;
+3. disposes its scopes, cancelling this runtime's operations, tasks and
+   subscriptions;
+4. drops every JSI reference. A task for the JS thread that never ran is
+   released on the actor that posted it.
+
+A native instance whose host is gone is refused with a `TypeError`.
+`lifecycle.h` reports app and scene events on the main thread, fed by
+UIKit notifications (`platform/ios_ui.mm`). Android's Activity events
+come through `LucentActivities` (`platform/android_activity.cpp`).
+
+> **Planned:** app-delegate events such as opened URLs and push tokens
+> ([T110](tasks.md#t110)).
+
+### The reactive graph (`reactive.h`)
+
+`reactive.h` is the UI's reactive graph: signals, computed values and
+effects owned by one execution context, the main one for views. A call
+from another thread throws `std::logic_error`. Nothing in it takes an
+actor's lock or waits for the JavaScript thread. The rules:
+
+- **Signals.** A write notifies when it changes the value by `Object.is`:
+  NaN is itself, and 0 and -0 differ. An object compares by identity, so
+  mutating it in place notifies nothing. `Opt` keeps missing, null and a
+  value apart. A signal may take another equality.
+- **Computed values** are lazy. One is evaluated when read, and again
+  only when a source it read last time changed since. Computed sources
+  are brought up to date first, in the order read. An unchanged result
+  changes nothing downstream.
+- **Computed errors** are kept and rethrown to readers until a source
+  changes. A computed value can't write a signal or read itself.
+- **Effects** run once when made, then after something they read
+  changed. Each run replaces what the last one read. Before an effect
+  reruns, or when it or its scope is disposed, its last run's scope is
+  disposed, untracked. Its tasks are cancelled first, then its cleanups
+  and nested effects run in reverse order.
+- **Transactions.** Writes inside a transaction, an effect or a cleanup
+  wait for it to end. The outermost end runs the pending effects at once,
+  in the order they were made. No effect sees half a transaction, and
+  nothing waits for a frame.
+- **Tracking.** Only the synchronous run tracks. Cleanups, `untracked()`
+  and code after an `await` read without subscribing.
+- **Loops.** An effect about to run more than `loopLimit` (100) times in
+  one update stops it. The loop is reported with the effects that made
+  each other pending, and the rest wait for their next change.
+- **Errors** nobody can catch (an effect's, a cleanup's, a loop) go to
+  `GraphOptions::onError`, by default `reportUncaught`.
+
+A mount's props reach the graph through a `PropInbox`. A commit is the
+changed fields, each a write of an already converted value, posted from
+any thread. Commits coalesce until the main thread applies them in one
+transaction, so effects see one committed state. Code that must answer
+now (a command, a measurement) calls `drain()` first, and disposing the
+mount drops pending commits.
+
+`test/reactive/reference.ts` states the same rules in plain JavaScript,
+and a seeded corpus (`test/reactive/corpus.ts`) must give the same log on
+both. Each effect run is a trace span at its `.lucent.ts` line.
+
+### Debug features
+
+Debug builds (`NDEBUG` unset) add reports:
+
+- **Live counts** (`live.h`, `debug.h`): scopes, operations, resources,
+  effects, signals, computed values and native references.
+- **Reference cycles** (`refs.h`): each class and struct reports its
+  strong references (`lucentRefs_`, emitted in every build so layouts
+  never depend on `NDEBUG`). At teardown, `LucentModule` logs new cycles
+  as paths of fields, and the native references module code still holds.
+- **`__lucentDebug.snapshot()`**: a promise of the live counts, each
+  mounted component's native view tree, what the host holds and the
+  cycles found. `__lucentDebug.cycles()` gives the cycles alone.
+- **`__lucentHost.ownership`**: what the host holds, and `releasedOpen`:
+  instances JavaScript dropped while something they held was still open.
+- **Main-thread waits** past `mainWaitWarningMs()` are warned about.
+
+In every build, `reportUncaught` (`report.h`) sends errors no Lucent code
+can catch to the platform's log and stderr, and `trace.h` records events
+when asked ([tracing.md](tracing.md)).
+
+## Views in brief
+
+A component is an exported function of a `.lucent.tsx` module that
+returns a platform view, a SwiftUI body or a Compose body. It is
+described, not exported as a function.
+
+- `ui/analyze.ts` describes each component (`ui/contract.ts`): identity,
+  registration name, props, events, ref commands, children and each
+  platform's root class. Setups are checked for the main thread.
+- `ui/fabric.ts` writes the Fabric props, events, shadow node and
+  descriptor (`views/<registration>.h/.cpp`).
+- `emit/setups.ts` compiles each setup through the IR into
+  `views/<registration>_mount.cpp`. Props are signals of the main
+  context's graph, and events are routes.
+- `emit/views.ts` writes the hosts: an iOS view deriving from
+  `LucentComponentView`, and Android C++ hosts with Java managers from
+  `ui/android.ts`.
+- `emit/swiftui.ts` and `ui/compose.ts` write SwiftUI and Compose bodies
+  as Swift and Kotlin, fed through `emit/toolkit.ts`.
+  `emit/native-jsx.ts` lowers JSX of UIKit and Android views.
+- `ui/proxy.ts` adds each component to its module's proxy, and
+  `runtime/js/views.js` makes it a React component, imported as
+  `lucent:views/<module>`.
+
+[design/views.md](design/views.md) is the full design: the component
+model, toolkit bodies, props, events, commands, children, sizing and the
+Fabric integration.
+
+> **Planned:** class instances as props ([T120](tasks.md#t120)), React
+> Native's view props ([T121](tasks.md#t121)), view-controller roots
+> ([T122](tasks.md#t122)) and native objects in toolkit bodies
+> ([T123](tasks.md#t123)).
+
+## Bindings in brief
+
+There is no catalog of SDKs or APIs. Bindgen reads what the app's build
+resolved: the iOS simulator SDK, pods, Swift packages and frameworks, and
+`android.jar` with the app's Gradle classpath, Kotlin metadata included.
+It writes one binding schema per module into a cache
+(`$LUCENT_CACHE_DIR`, else `$XDG_CACHE_HOME/lucent` or `~/.cache/lucent`).
+
+The compiler turns schemas into `lucent:*` declarations (`sdk/dts.ts`)
+and binding plans (`sdk/plans.ts`). `emit/native.ts` writes each use as
+Objective-C++ message sends or JNI calls, with shims where needed.
+[platform-bindings.md](platform-bindings.md) covers sources, schemas,
+calls and threads.
+
+> **Planned:** SDK shapes Lucent still refuses ([T112](tasks.md#t112)),
+> the app's own `lucent.json` ([T111](tasks.md#t111)), typed Kotlin and
+> Java package sources ([T143](tasks.md#t143)), and a web target
+> ([T144](tasks.md#t144)).

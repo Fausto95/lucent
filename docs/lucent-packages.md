@@ -1,252 +1,292 @@
 # Lucent packages
 
-The contributor spec. Users read the
-[`lucent.json` reference](https://lucent-lang.dev/docs/packages/lucent-json/).
+The contributor spec of Lucent packages: how the build finds them, what
+their `lucent.json` declares, and how those needs reach the app. Users read
+the website's
+[package.json](https://lucent-lang.dev/docs/packages/package-json/) and
+[lucent.json](https://lucent-lang.dev/docs/packages/lucent-json/)
+references.
 
-An npm package can ship Lucent modules. An app that installs it gets them
-compiled into its one native package: the same runtime, the same toolchain,
-and no prebuilt binaries to keep in step.
+A Lucent package is an npm package that ships Lucent modules as sources.
+An app that depends on it compiles them into its one native package, with
+the same runtime and toolchain as its own modules. Discovery is
+`packages/compiler/src/packages.ts`. The `lucent.json` schema is
+`package-schema.ts`, and the merge is `package-config.ts`.
 
-## Declaring one
+## What makes a package
 
-In `package.json`:
+A package.json with a `name` and a `lucent` field:
 
 ```json
 {
   "name": "lucent-haptics",
+  "version": "0.1.0",
   "main": "index.ts",
-  "lucent": {
-    "sources": "src",
-    "compatible": ">=0.0.3"
-  }
+  "files": ["index.ts", "src"],
+  "lucent": { "sources": "src", "compatible": "^0.2.0" }
 }
 ```
 
-- `sources` is the directory holding the `*.lucent.ts` modules, platform
-  files included.
-- `compatible` is the range of Lucent versions the package supports (npm
-  range syntax; prerelease tags are ignored). An app on a Lucent outside it
-  fails to build, and the error names the package.
-- `main` re-exports the modules, `export * from "./src/haptics.lucent";`.
-  Metro turns each `.lucent` import into the module's JavaScript proxy.
+| Field               | Default          | Meaning                                                                      |
+| ------------------- | ---------------- | ---------------------------------------------------------------------------- |
+| `lucent.sources`    | `"."`            | The directory of its `*.lucent.ts` and `*.lucent.tsx` modules, at any depth. |
+| `lucent.compatible` | none: any Lucent | The Lucent versions it supports, as an npm range (below).                    |
+| `name`              | required         | Without it the `lucent` field is ignored. It starts every module name.       |
+| `version`           | `"0.0.0"`        | Shown in errors and recorded in `resolved.json`.                             |
+| `dependencies`      |                  | The Lucent packages it needs, followed transitively.                         |
 
-Packages ship sources only.
+`lucentPackageOf` finds the package of a file: the nearest package.json
+with a `name` or `dependencies`. A package.json with neither, such as
+`{ "type": "module" }`, makes no package, so its folder stays its parent's.
+`main` is not read by Lucent. It re-exports the modules
+(`export * from "./src/haptics.lucent"`), and Metro bundles each module's
+proxy in its place.
 
-## Native needs: lucent.json
+## Module names
 
-A `lucent.json` next to `package.json` lists what the package's platform code
-needs from the app:
+`moduleNameOf` in `program.ts` names each module:
 
-```json
-{
-  "ios": {
-    "pods": { "LucentAuthKit": "~> 1.0" },
-    "frameworks": ["LocalAuthentication"],
-    "infoPlist": {
-      "NSFaceIDUsageDescription": "Unlock with Face ID",
-      "UIBackgroundModes": ["fetch"]
-    }
-  },
-  "android": {
-    "dependencies": { "androidx.biometric:biometric": "1.1.0" },
-    "permissions": ["android.permission.USE_BIOMETRIC"]
-  }
-}
-```
+| File                                       | Module                   |
+| ------------------------------------------ | ------------------------ |
+| `lucent-haptics/src/haptics.lucent.ts`     | `lucent-haptics/haptics` |
+| `lucent-haptics/src/haptics.ios.lucent.ts` | `lucent-haptics/haptics` |
+| `@acme/maps/src/geo/region.lucent.ts`      | `@acme/maps/geo/region`  |
+| `src/screens/clock.lucent.ts`, in an app   | `clock`                  |
 
-Its fields are typed (`packages/lucent/schemas/lucent.schema.json`, checked
-by `PACKAGE_FIELDS` in `packages/compiler/src/package-config.ts`). An unknown
-field or a value of the wrong type fails the build, naming the package and
-the field. Finding packages does not read `lucent.json`: an invalid one
-stops the build, not the editor or `lucent check`.
+A package's module is `<package>/<path under sources>`, without
+`.lucent.ts`, `.lucent.tsx` or the platform suffix. An app's module is its
+file name alone. Two modules with one name fail with LUCENT3010, so two
+packages may each have a `storage` module, but an app may not. The name
+keys the module's native registration and its proxy,
+`.lucent/native/js/lucent-haptics/haptics.js`.
 
-The app's build merges the files of all its packages (`resolveNative`).
-The result does not depend on the order packages are found in, and a
-conflict names the two packages that disagree:
+The app's own modules are its module files outside `node_modules`, dot
+directories, `ios`, `android` and other packages' directories
+(`findOwnFiles`). A Lucent package inside the app, such as a workspace
+under `packages/`, is compiled once, as a package, when the app depends
+on it. It is left out otherwise. `lucent init` and `lucent bench` walk the
+same way.
 
-| Need                                    | Rule                                                                                                                                                                                                                                  |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ios.frameworks`, `android.permissions` | Set-like: each once, whoever lists it.                                                                                                                                                                                                |
-| `ios.pods`                              | Every requirement on a pod goes to CocoaPods, which picks the version (`s.dependency "Kit", ">= 1.2", "~> 1.0"`). Requirements that no version meets (`~> 1.0` and `~> 2.0`) fail. Syntax Lucent does not model is left to CocoaPods. |
-| `android.dependencies`                  | Every version of an artifact goes to Gradle, which picks one (the highest, by default). A strict version (`1.0!!`) with any other version fails.                                                                                      |
-| `ios.infoPlist`                         | One value per key: strings and booleans must be equal. Arrays join, deduplicated and sorted.                                                                                                                                          |
+Lucent code imports another package's module by its file path:
+`import { impact } from "lucent-haptics/src/haptics.lucent"`. Importing a
+module of a package the app does not depend on fails with LUCENT3001,
+which says to add it to the app's `dependencies`.
 
-The merged result goes into the native package:
+## Resolution
 
-- **Pods** become dependencies of its podspec, marked `# lucent.json`. A
-  build writes them before it checks the modules, so in a bare React
-  Native app (its `react-native.config.js` links `.lucent/native`, as
-  `lucent init` sets up) a module can import a package's pod before it
-  is installed: the first `lucent build` leaves the podspec depending on
-  it, fails with LUCENT3004 and names the pod, its package and the next
-  steps. Then `pod install` in `ios/` installs it, and the next
-  `lucent build` binds it; when that build adds files to the native
-  package, or a later one changes the pods (a requirement goes from
-  `~> 1.0` to `~> 1.1`), it asks for `pod install` again
-  (`iOS: pod install first`).
-  `lucent check`, which writes nothing, names the pod and says to run
-  `lucent build` first. A pod the packages no longer declare leaves the
-  podspec; a pod the code imports that no package declares must be in
-  the app's Podfile. Expo apps don't get there yet: the config plugin
-  runs `lucent build` in `expo prebuild`, before the pods are installed
-  and before it links the native package, and stops at its failure,
-  which names no steps.
-- A pod binds through the module it defines, as the app target's Pods
-  xcconfig gives it (`podsSearchPaths` in `@lucent-lang/bindgen`): a
-  `module.modulemap` under its header search paths or passed with
-  `-fmodule-map-file`, a `.swiftmodule` in a header search path, a
-  prebuilt `.framework` the pod ships under `Pods/` (on its framework
-  search paths), or, with `use_frameworks!`, the framework module map and
-  umbrella header CocoaPods writes in `Pods/Target Support Files/` and the
-  headers the umbrella imports. Built as a static library (React Native's
-  default), a pod defines one when its podspec sets `DEFINES_MODULE` or
-  the Podfile asks for modular headers (`use_modular_headers!`,
-  `:modular_headers => true`). A Swift pod's module is written by Xcode
-  into the build products directory (`PODS_CONFIGURATION_BUILD_DIR`), so
-  before a build Lucent makes it from the pod's Swift sources
-  (`PODS_TARGET_SRCROOT` in its xcconfig): `swiftc -emit-module` against
-  the app's pods, once per content of its sources, into the cache; a
-  failure is `LUCENT3004` with swiftc's errors. A pod with public
-  Objective-C headers binds through them, as before. A pod that ships an
-  `.xcframework`, which CocoaPods copies to `PODS_XCFRAMEWORKS_BUILD_DIR`,
-  binds through its iOS simulator slice in `Pods/`.
-- **Frameworks** join the podspec's `s.frameworks`, with the frameworks of
-  the `lucent:ios/*` modules its code imports.
-- **Gradle artifacts** are `api` dependencies of its Android library. They
-  join the app's compile classpath, so `lucent:android` binds them.
-- **Permissions** go into its manifest, which Android merges into the app's.
-  Permissions the SDK methods require (`@RequiresPermission`) are added
-  without listing them here, including those of a property's getter when
-  the code reads it and of its setter when the code assigns it (both for
-  `+=`, which reads and assigns).
-- **Info.plist entries** are written by the Expo config plugin: a key the
-  app sets keeps the app's value, and an array gains the values it lacks.
-  For bare apps, `lucent build` names the keys and array values the app's
-  `Info.plist` lacks, and does not edit the app's files.
+`lucentPackages(root)` lists the packages an app compiles:
 
-### Entitlements, Swift packages, components and targets
+| Rule      | Detail                                                                                           |
+| --------- | ------------------------------------------------------------------------------------------------ |
+| Start     | The app's `dependencies`.                                                                        |
+| Followed  | `dependencies` only, in the app and in each Lucent package. Dev, peer and optional ones are not. |
+| Depth     | Transitive through Lucent packages. One that only a plain npm package depends on isn't found.    |
+| Lookup    | `node_modules` from the depending package's real directory up. Links are followed.               |
+| Each once | Keyed by real directory, so a `workspace:*` link and its target are one package.                 |
+| Order     | Sorted by name: the result never depends on the order of discovery.                              |
 
-```json
-{
-  "ios": {
-    "swiftPackages": {
-      "https://github.com/orbit/orbit-swift": {
-        "requirement": { "kind": "upToNextMajorVersion", "minimumVersion": "1.2.0" },
-        "products": ["Orbit"]
-      }
-    },
-    "entitlements": { "com.apple.developer.healthkit": true },
-    "deploymentTarget": "15.1"
-  },
-  "android": {
-    "components": [
-      {
-        "kind": "service",
-        "name": "dev.orbit.SyncService",
-        "exported": false,
-        "foregroundServiceType": "dataSync"
-      }
-    ],
-    "minSdk": 26
-  }
-}
-```
+So a package that takes another as a peer dependency needs the app to
+list both. Two copies of one package at different paths fail the build's
+resolve step: `lucent-haptics is installed twice (0.1.0 and 0.2.0): the
+app can build one copy of a Lucent package`.
 
-| Need                   | Rule                                                                   | In the native package                                                                                                                                                |
-| ---------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ios.entitlements`     | As `infoPlist`: scalars agree, arrays join.                            | The Expo config plugin adds them to the app's entitlements like `Info.plist` entries; for bare apps, `lucent build` names what the app's `.entitlements` file lacks. |
-| `ios.swiftPackages`    | One requirement per package URL (Xcode records one); products join.    | `spm_dependency(s, url:, requirement:, products:)`, React Native's helper, in the podspec.                                                                           |
-| `ios.deploymentTarget` | The highest any package needs.                                         | `s.platforms`: the higher of it and React Native's `min_ios_version_supported`. CocoaPods fails an app target below it.                                              |
-| `android.components`   | One declaration per class; packages that declare one differently fail. | `<application>` of the library's manifest, which Android merges into the app's.                                                                                      |
-| `android.minSdk`       | The highest any package needs.                                         | The library's `minSdk`: the higher of it and the app's `minSdkVersion`. Android's manifest merger fails an app below it.                                             |
+Discovery reads no `lucent.json`. An invalid one fails the build, naming
+the package and the field, not the editor or package discovery.
 
-A component's shape is checked (`kind`, a fully qualified `name`,
-`exported`, `enabled`, `permission`, `authorities` (required for a
-provider), `grantUriPermissions`, `foregroundServiceType`, `intentFilters`
-with `actions`, `categories` and `data`, and `metaData`); anything else
-fails, naming the package and the field.
+The app's root `lucent.json` is not read today: only dependencies declare
+native needs ([T111](tasks.md#t111)). The app's own modules get the
+Android permissions inferred from the SDK, and nothing else. An app
+declares its own pods, Gradle dependencies and plist keys the usual way.
 
-### Native files
+## Compatibility ranges
 
-A package can ship its own native adapter sources, resources, and prebuilt
-frameworks and libraries. Each field lists paths relative to the package
-that lists them; a path outside the package, missing, or of the wrong kind
-fails the build, naming the package, the field and the path.
+`compatible` is checked against the version of the
+`@lucent-lang/lucent` that runs the command (`lucentVersion`). Outside
+the range, check, build, dev builds and the editor report LUCENT3014 at
+the package's `package.json`, and nothing is built.
+`LUCENT_IGNORE_COMPATIBLE=1` turns it into a warning. `lucent doctor`
+reports the same under "Lucent versions".
 
-```json
-{
-  "ios": {
-    "nativeSources": ["native/ios"],
-    "resources": ["assets/chime.caf"],
-    "resourceBundles": { "OrbitAssets": ["assets/images"] },
-    "vendoredFrameworks": ["vendor/Orbit.xcframework"]
-  },
-  "android": {
-    "nativeSources": ["native/android"],
-    "resources": ["res"],
-    "assets": ["assets/android"],
-    "libraries": ["libs/orbit.aar"],
-    "nativeLibraries": ["jniLibs"]
-  }
-}
-```
+`satisfies` reads part of npm's syntax: `^`, `~`, `>=`, `>`, `<=`, `<`,
+`=`, x-ranges and `*`, spaces for "all of" and `||` for "any of".
+Prerelease tags are ignored on both sides, so `0.3.0-rc.1` is `0.3.0`.
+Hyphen ranges, a space after an operator and dist-tags never match, so
+such a range refuses every version.
 
-`lucent build` copies every listed file into the native package under
-`packages/<package>/<path>` (hidden files such as `.DS_Store` stay behind),
-and removes them once a package stops listing them. A build never depends on
-what an earlier one left there. The build files refer to the copies:
+## lucent.json
 
-| Field                     | In the native package                                                                                                                                                                                                    |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ios.nativeSources`       | Directories whose `.h .hpp .m .mm .c .cc .cpp .swift` files join the pod's `source_files`; each is a header search path. Swift makes it a Swift pod, and its public declarations are `lucent:ios/LucentNative`.          |
-| `ios.resources`           | `s.resources`: copied to the app bundle's root under their own names.                                                                                                                                                    |
-| `ios.resourceBundles`     | `s.resource_bundles`: bundle name → what it holds. A bundle belongs to one package.                                                                                                                                      |
-| `ios.vendoredFrameworks`  | `s.vendored_frameworks`: `.framework` and `.xcframework` directories.                                                                                                                                                    |
-| `android.nativeSources`   | Java/Kotlin source roots (`java.srcDirs`; Kotlin applies `org.jetbrains.kotlin.android`). Their C and C++ files join the runtime's CMake target through `android/packages.cmake`, with the directory as an include path. |
-| `android.resources`       | `res.srcDirs`.                                                                                                                                                                                                           |
-| `android.assets`          | `assets.srcDirs`.                                                                                                                                                                                                        |
-| `android.libraries`       | `api(files(…))`: `.aar` and `.jar` files.                                                                                                                                                                                |
-| `android.nativeLibraries` | `jniLibs.srcDirs`: `<abi>/lib*.so`, packaged into the app.                                                                                                                                                               |
+A `lucent.json` next to the package.json lists what the package's platform
+code needs from the app. It has three keys: `ios`, `android` and
+`extensions`. Every field is typed (`PACKAGE_FIELDS`, `EXTENSION_FIELDS`).
+An unknown field or a wrong type fails with
+`<package>/lucent.json: <where>: <problem>`.
 
-Two files that would land in the same place of the app fail the build,
-naming both packages and files: iOS resources by name at the bundle's root
-(namespace one with `resourceBundles`), frameworks by name, Android
-file-based resources, assets and native libraries by path, libraries by file
-name, and Java/Kotlin sources by path. Android merges value resources
-(`values*/`) by name and reports duplicates itself.
+`packages/lucent/schemas/lucent.schema.json` describes the same fields for
+editors, and `packages/lucent/test/lucent-json.test.ts` fails when it and
+the checker disagree.
 
-The Swift in `ios.nativeSources` builds into the native package's own
-module, LucentNative, so code imports what it declares `public` from
-`lucent:ios/LucentNative`, under the same rules as any Swift module: a
-wrapper of your own around an API Lucent cannot bind. Lucent makes the
-module (`swiftc -emit-module`, against the app's pods) on first import,
-once per content of the packages' Swift, and the shims calling it are
-compiled into the same module.
+`resolveNative` merges every package's file. Each list and record in the
+result is sorted. A conflict names the first two packages that disagree,
+so the outcome never depends on discovery order.
 
-Code can import a package's prebuilt frameworks and libraries like the
-app's pods and Gradle dependencies: `lucent:ios/<Module>` binds a vendored
-framework's module (an `.xcframework`'s through the slice its `Info.plist`
-names for the iOS simulator), and `lucent:android/<package>` a library's
-classes, before the app's Gradle build has resolved its classpath. A jar or
-AAR that the classpath lists again is read once (the first artifact with the
-same classes). The bindings are cached on the files' contents, like the
-pods'.
+### iOS fields
 
-`.lucent/native/resolved.json` records the merged needs with the packages
-each came from, every listed path with its package and a hash of its files'
-paths and contents, and every Lucent package with its version. It holds no
-machine-specific path, so the same packages resolve to the same file on
-any machine. The build record's resolve step lists each listed path as an
-input (`packages/<package>/<path>` and its hash), and the build reruns when
-one's content changes.
+| Field                | Value                               | Merge rule                                                       | In the native package                                                         |
+| -------------------- | ----------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `pods`               | pod → requirement (`"~> 1.0"`)      | Every requirement goes to CocoaPods. Ones no version meets fail. | `s.dependency "Kit", ">= 1.2", "~> 1.0" # lucent.json`                        |
+| `frameworks`         | Apple framework names               | Union.                                                           | `s.frameworks`, with those of the `lucent:ios/*` modules the code imports     |
+| `infoPlist`          | key → string, boolean or strings    | Scalars must be equal. Arrays join, deduplicated and sorted.     | Through the Expo plugin, or warnings in bare apps (below)                     |
+| `entitlements`       | as `infoPlist`                      | As `infoPlist`.                                                  | As `infoPlist`, in the app's `.entitlements`                                  |
+| `swiftPackages`      | URL → `{ requirement, products }`   | One requirement per URL. Products join.                          | `spm_dependency(s, url:, requirement:, products:)`                            |
+| `deploymentTarget`   | `"15.1"`                            | The highest.                                                     | `s.platforms`: the higher of it and `min_ios_version_supported`               |
+| `nativeSources`      | directories                         | Listed paths (below).                                            | `s.source_files` (`.h .hpp .m .mm .c .cc .cpp .swift`), `HEADER_SEARCH_PATHS` |
+| `resources`          | files or directories                | Listed paths. One name per bundle root.                          | `s.resources`                                                                 |
+| `resourceBundles`    | bundle → files or directories       | One package per bundle.                                          | `s.resource_bundles`                                                          |
+| `vendoredFrameworks` | `.framework` or `.xcframework` dirs | Listed paths. One framework per name.                            | `s.vendored_frameworks`                                                       |
 
-### Native extensions
+A pod requirement Lucent can't parse is left to CocoaPods
+(`podsCompatible` in `package-versions.ts`). A Swift package requirement
+is one of Xcode's kinds: `upToNextMajorVersion`, `upToNextMinorVersion`,
+`exactVersion`, `versionRange`, `branch` or `revision`.
+
+### Android fields
+
+| Field             | Value                                      | Merge rule                                                           | In the native package                                       |
+| ----------------- | ------------------------------------------ | -------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `dependencies`    | `group:artifact` → version                 | Every version goes to Gradle. A strict `1.0!!` beside another fails. | `api("group:artifact:version")`, once per version asked     |
+| `permissions`     | permission names                           | Union, with those the SDK calls require (`@RequiresPermission`).     | `<uses-permission>` in the library's manifest               |
+| `components`      | activities, services, receivers, providers | One declaration per class. A different one fails.                    | `<application>` of the library's manifest                   |
+| `minSdk`          | API level                                  | The highest.                                                         | `minSdk Math.max(<app's minSdkVersion>, <minSdk>)`          |
+| `nativeSources`   | directories                                | Listed paths. One Java or Kotlin file per path.                      | `java.srcDirs`; C and C++ files in `android/packages.cmake` |
+| `resources`       | `res`-layout directories                   | One file-based resource per path.                                    | `res.srcDirs`                                               |
+| `assets`          | directories                                | One asset per path.                                                  | `assets.srcDirs`                                            |
+| `libraries`       | `.aar` or `.jar` files                     | One library per file name.                                           | `api(files(…))`                                             |
+| `nativeLibraries` | directories of `<abi>/lib*.so`             | One library per path.                                                | `jniLibs.srcDirs`                                           |
+
+A component needs a `kind` and a fully qualified `name`. It may set
+`exported`, `enabled`, `permission`, `grantUriPermissions`,
+`foregroundServiceType`, `theme`, `configChanges`, `intentFilters`
+(`actions`, `categories`, `data`) and `metaData`. A provider needs
+`authorities`. Every manifest also holds the runtime's own two
+components: the `LucentInitializer` provider and the
+`LucentRequestActivity`.
+
+### Listed paths
+
+Paths are relative to the package that lists them (`locate` in
+`package-files.ts`). A path outside the package, missing, or of the wrong
+kind fails, naming the package, the field and the path. `lucent build`
+copies each listed file to `.lucent/native/packages/<package>/<path>`,
+leaving hidden files behind. A copy goes when its package stops listing
+it.
+
+Two files that land in one place of the app fail, naming both packages
+(`landsOnce`). iOS resources collide by name at the bundle's root:
+namespace one with `resourceBundles`. Frameworks collide by name, and
+libraries by file name.
+
+Android resources, assets, native libraries and Java or Kotlin sources
+collide by path. Value resources (`values*/`) are Android's to merge.
+
+### What the build records
+
+`.lucent/native/resolved.json` holds the merged needs, each with the
+packages that asked for it. It also holds every listed path with its hash,
+every extension, and every package with its version. It has no
+machine-specific path, and the Expo plugin reads it.
+
+The build record's resolve step keys on it and on each listed path's
+hash, so a changed file or `lucent.json` reruns the build.
+
+## How needs reach the build
+
+`writeNativePackage` (`native-package.ts`) writes the build files from
+the templates in `packages/runtime/native` (`native-build-files.ts` holds
+the edits). In `lucent build`, before the check runs, `writeLinkedPackage`
+(`cli/project.ts`) writes the podspec's pods and the library's Gradle
+dependencies. So a build whose check fails for want of a pod still leaves
+it declared.
+
+### Android
+
+Nothing needs the app's files. The library's `build.gradle`, manifest and
+`packages.cmake` carry every need, and Gradle's manifest merger and
+dependency resolution do the rest. An app below a package's `minSdk`
+fails in the manifest merger.
+
+Before checking, Lucent resolves the app's classpath with Gradle: the
+`lucentClasspath` task, from an init script. So `lucent:android/*` binds
+the packages' artifacts in the same build. During `expo prebuild`
+(`LUCENT_NO_GRADLE=1`) Android is left to the app's Gradle build, whose
+`lucentBuild` task compiles it.
+
+### Info.plist and entitlements
+
+| App  | What happens                                                                                                                                                                        |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Expo | `app.plugin.js` adds them in `withInfoPlist` and `withEntitlementsPlist`, from `resolved.json`. A key the app sets keeps the app's value. An array gains the values it lacks.       |
+| Bare | `missingAppEntries` warns for each key or array value that `ios/<target>/Info.plist` or `*.entitlements` lacks, "(the Expo config plugin adds it)". It never edits the app's files. |
+
+A bare app's own string value that differs from a package's stands
+without a warning.
+
+### Pods
+
+A package's pod binds once the app has installed it. In a bare app, whose
+`react-native.config.js` links `.lucent/native` as `lucent init` writes
+it, that takes two steps:
+
+1. The first `lucent build` that meets an import of the pod adds it to
+   `LucentNative.podspec`, then fails with LUCENT3004. A notice names the
+   pod, the package and the next steps (`podsToInstall`).
+2. `pod install` in `ios/` installs it. The next `lucent build` binds it.
+
+`lucent check` writes nothing, so it says to run `lucent build` first. A
+later change to the pods asks for `pod install` again ("rebuild the app
+(iOS: pod install first)").
+
+A marked pod no package declares any more leaves the podspec. A pod the
+code imports that no package declares is added unmarked, without a
+version, and must be in the app's Podfile.
+
+Expo apps don't get there yet ([T141](tasks.md#t141)). The config plugin
+runs `lucent build` in `expo prebuild`, before pods are installed and
+before it links the native package. It stops at LUCENT3004, and no step
+is named. iOS also has no build phase that runs `lucent build`: an Xcode
+build is current after Metro's watcher or `pod install` ran.
+
+A pod binds through the module it defines, as the app's Pods xcconfig
+shows it (`podsSearchPaths` in `@lucent-lang/bindgen`). That is a module
+map from `DEFINES_MODULE` or modular headers, a prebuilt framework, or
+the framework CocoaPods writes under `use_frameworks!`. A Swift pod's
+module is made from its sources with `swiftc -emit-module` and cached by
+content. A failure there is LUCENT3004 with swiftc's errors.
+
+## Native code a package ships
+
+| What                                       | Built by                                                    | Typed in Lucent as                                                         |
+| ------------------------------------------ | ----------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Swift in `ios.nativeSources`               | The pod, as module `LucentNative`                           | `lucent:ios/LucentNative`: its `public` declarations                       |
+| Objective-C, C, C++ in `ios.nativeSources` | The pod                                                     | Not bound, except headers declared as an extension                         |
+| Kotlin, Java in `android.nativeSources`    | The library (Kotlin applies `org.jetbrains.kotlin.android`) | Not typed ([T143](tasks.md#t143))                                          |
+| C, C++ in `android.nativeSources`          | The runtime's CMake target                                  | Not bound, except headers declared as an extension                         |
+| `ios.vendoredFrameworks`                   | Linked and embedded by the pod                              | `lucent:ios/<Module>`; an `.xcframework` by its simulator slice            |
+| `android.libraries`                        | `api` dependencies of the library                           | `lucent:android/<java package>`, such as `lucent:android/dev.orbit.shapes` |
+
+Lucent makes the `LucentNative` module from every package's Swift
+(`swiftc -emit-module`, against the app's pods) on first import, once per
+content. The Swift shims calling it are compiled into the same module.
+Write Swift there to wrap an API Lucent can't bind. Prebuilt frameworks
+and libraries are bound from the files themselves, cached on their
+content (`projectSdk` in `project-sdk.ts`).
+
+## C extensions
 
 A package can wrap a C library, or a C interface over C++, as a native
-extension: Lucent code imports its functions and handles from
-`lucent:ext/<name>`, and calls them directly, from shared code too, since
-both platforms build the C code into the one native package. The header
-supplies the signatures; `lucent.json` says what C cannot:
+extension. Lucent code imports its functions and handles from
+`lucent:ext/<name>`, from shared code too, since both platforms compile
+the C. The header gives the signatures, and `lucent.json` says what C
+can't (`extensions/bind.ts` checks one against the other):
 
 ```json
 {
@@ -282,108 +322,114 @@ supplies the signatures; `lucent.json` says what C cannot:
 }
 ```
 
-The header must be in a directory both `ios.nativeSources` and
-`android.nativeSources` list (the implementation is compiled from there,
-and generated code includes the header by its path under that directory),
-and must compile as C and as C++, declaring its functions in `extern "C"`
-when C++ includes it (`#ifdef __cplusplus extern "C" { … }`).
-`lucent build` reads it with clang (`$LUCENT_CLANG`, else `clang` on the
-`PATH`, else Xcode's, else the newest Android NDK's) and checks every name
-and shape the declaration uses against it; a mismatch fails the build,
-naming the package and the field
-(`extensions.orbit-filter.handles.OrbitFilter.destroy: orbit_filter.h declares no function orbit_filter_free`).
+The rules for the header:
 
-| Field                     | Meaning                                                                                                                                                                                                                                                                                                                                                                             |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `handles`                 | Opaque struct (declared, not defined) → a class of `lucent:ext/<name>`. `create` returns a pointer to it (declare `failsWhen: "null"`) and is the constructor; `destroy` is `void f(T *)`; `methods` name functions taking the handle first. `close()` and `[Symbol.dispose]()` destroy it, once; so does its last reference going. Any use after close throws `InvalidStateError`. |
-| `functions.<f>.params`    | What a pointer parameter is: `bytes` read or written (a `Uint8Array`; its `length` parameter gets the array's length), a UTF-8 `string` (`const char *`), or the `error` struct the call fills in. Numbers, booleans and handles need nothing. Nothing escapes the call.                                                                                                            |
-| `functions.<f>.failsWhen` | `null`, `negative`, `nonzero`, `zero` or `false`: the call then throws an Error with the error struct's message (copied at once) and code, else `<f> failed`. With `nonzero` or `false` the result is a status and the Lucent function returns nothing. A function with an `error` parameter needs one.                                                                             |
-| `affinity`                | `any` (the default: any thread, one call at a time) or `main` (used inside `main(() => …)`, destroyed on the main thread), per handle or function.                                                                                                                                                                                                                                  |
-| `blocking`                | Calling the function inside `main(() => …)` is a warning.                                                                                                                                                                                                                                                                                                                           |
-| `errors`                  | A struct the header defines: its `message` field (`const char *`), an integer `code` field, and a `release` function the binding calls after every call that takes the struct, once it was read.                                                                                                                                                                                    |
+- It is a `.h` file in a directory both `ios.nativeSources` and
+  `android.nativeSources` list. Generated code includes it relative to the
+  deepest such directory.
+- It compiles as C and as C++, with C linkage under C++
+  (`#ifdef __cplusplus extern "C" { … }`).
+- clang reads it: `$LUCENT_CLANG`, else `clang` on the `PATH`, else
+  Xcode's, else the newest NDK's (`findClang` in `bindgen/src/c-header.ts`).
+- An extension's name (a letter, then letters, digits, `_` or `-`) belongs
+  to one package.
 
-Integers wider than 32 bits (`long`, `size_t`, `int64_t` and their
-unsigned forms) are bigints; others are numbers, checked on the way in as
-WebIDL's `[EnforceRange]` does. Every header function whose signature
-needs no declaration (numbers and booleans) is bound as it is; one that
-takes a handle must be named (in `functions` or as a method), since only
-its package knows whether it keeps or frees it. One that cannot be bound (a
-callback, a variadic function, a struct by value) is listed at the end of
-the generated declarations with the reason, unless the declaration names
-it, which fails the build. A destroy or release function is never Lucent
-code's to call.
+| Field                     | Meaning                                                                                                                                                                |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `handles.<T>`             | An opaque struct (declared, not defined) becomes a class. `create` returns `T *` and is its constructor. `destroy` is `void f(T *)`. `methods` take `T *` first.       |
+| `handles.<T>.affinity`    | `any` (the default: any thread, one call at a time) or `main`.                                                                                                         |
+| `functions.<f>.params`    | A pointer parameter: `{ bytes: "read" \| "write", length }` (a `Uint8Array`), `{ string: "utf8" }`, or `{ error: "<Struct>" }`. Nothing escapes the call.              |
+| `functions.<f>.failsWhen` | `null`, `negative`, `nonzero`, `zero` or `false`. Failure throws an Error with the struct's message and code. With `nonzero` or `false`, the function returns nothing. |
+| `functions.<f>.affinity`  | `any` or `main`: a `main` function is called inside `main(() => …)`.                                                                                                   |
+| `functions.<f>.blocking`  | Calling it on the main thread is a warning.                                                                                                                            |
+| `errors.<E>`              | A struct with a `message` field (`const char *`), an optional integer `code` and an optional `release` function, called once the struct was read.                      |
 
-Handles stay on the Lucent side: returning one to JavaScript is LUCENT2006.
-A Lucent class keeps one and publishes what JavaScript needs:
+Every name is checked against the header, and a mismatch fails naming the
+field:
+`extensions.orbit-filter.handles.OrbitFilter.destroy: orbit_filter.h declares no function orbit_filter_free`.
 
-```ts
-import { OrbitFilter } from "lucent:ext/orbit-filter";
+Binding rules:
 
-export class Filter {
-  #native: OrbitFilter;
+- Integers of 64 bits are bigints, others numbers. Values are checked on
+  the way in, as WebIDL's `[EnforceRange]` does (`runtime/cpp/lucent/extension.h`).
+- A function of numbers and booleans binds without a declaration. One
+  taking a handle must be declared, since only its package knows whether
+  it keeps or frees it.
+- A function that can't bind (a variadic one, a function pointer, a
+  TypeScript keyword as name) is listed with its reason. Declaring it fails.
+- A destroy or release function is never Lucent code's to call.
+- `close()` and `[Symbol.dispose]()` destroy a handle once, as does its
+  last reference going. A use after that throws `InvalidStateError`.
+- A handle can't cross to JavaScript (LUCENT2006). A Lucent class keeps it
+  and exports what JavaScript needs.
 
-  constructor(strength: number) {
-    this.#native = new OrbitFilter(strength);
-  }
+C++ behind a C interface must catch its exceptions: one that escapes ends
+the process. C++ headers, callbacks, cancellation and prefab are
+[T142](tasks.md#t142). The editor's declarations are
+`.lucent/native/types/ext/<name>.d.ts`. The fixture is
+`packages/compiler/test/fixtures/orbit-filter`, a C interface over a C++
+filter.
 
-  apply(input: Uint8Array): Uint8Array {
-    const output = new Uint8Array(input.length);
-    return output.subarray(0, this.#native.apply(input, output));
-  }
+## Publishing a package
 
-  close(): void {
-    this.#native.close();
-  }
-}
-```
+`lucent create <name> --template library` writes a package to start from
+(`cli/templates/projects.ts`):
 
-C cannot throw, and the C++ behind a C interface must catch what it
-throws and report it through the error struct: an exception escaping an
-extension function ends the process at the call, instead of unwinding
-through Lucent and JSI. Conversions (a closed handle, a number out of
-range) throw before the call. A call holds its handles: a `close()` from
-another thread while it runs destroys the handle when it returns.
+| File            | Holds                                                                                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `package.json`  | `main` and `types` at `index.ts`, `lucent` with `compatible: ^<this Lucent>`, `files`, peer dependencies on `@lucent-lang/lucent` and `react-native`, `prepublishOnly: lucent check` |
+| `index.ts`      | `export *` of each module                                                                                                                                                            |
+| `src/`          | A shared module and a module with iOS and Android code                                                                                                                               |
+| `tsconfig.json` | `lucent:*` paths and the editor plugin, `example/` excluded                                                                                                                          |
+| `.npmignore`    | `example/` and `.lucent/`                                                                                                                                                            |
+| `example/`      | An Expo app that depends on the package with `file:..`, set up as `lucent init --yes` does                                                                                           |
 
-`.lucent/native/types/ext/<name>.d.ts` holds the declarations editors and
-tsc read; `resolved.json` records each extension with its package, header
-hash and declaration, and the build record's `extract:extensions` node the
-inputs its binding read. `packages/compiler/test/fixtures/orbit-filter` is
-the example: a C interface over a C++ filter.
+What to ship: the `main` file, the sources directory, `lucent.json` and
+every path it lists. The template's `files` has no `lucent.json`, since
+it writes none: add both together. Never ship `.lucent/`. Check the
+tarball with `npm pack --dry-run`.
 
-## In the app
+Keep `compatible` a caret range of the Lucent you tested, and widen it
+with `||` once a new Lucent passes. Before 1.0, a minor Lucent release can
+change what compiles. Dependencies on other Lucent packages go in
+`dependencies`, never only in `peerDependencies`.
 
-`lucent build` compiles the app's modules and those of every Lucent package
-it depends on, transitively, found as Node resolves them (workspace links
-are followed). A package's module is named `<package>/<path under sources>`,
-for example `lucent-haptics/haptics`. That name is used for its C++
-namespace, its TurboModule registry entry and its proxy
-(`.lucent/native/js/lucent-haptics/haptics.js`), so two packages may both
-have a `storage` module. App modules keep their file names.
+## Testing a package
 
-The app's modules are its `*.lucent.ts` files outside `node_modules`, dot
-directories, `ios`, `android` and Lucent packages' directories
-(`findOwnFiles` in `packages/compiler/src/packages.ts`). A Lucent package
-inside the app, such as a workspace under `packages/`, is compiled once,
-as a package, when the app depends on it, and left out otherwise. A
-package's modules stop likewise at any other package's directory, such as
-an example app. A `package.json` with neither a name nor dependencies, such
-as `{ "type": "module" }`, makes no package: its folder stays the app's or
-the package's, and its modules are named as theirs. `lucent init` and
-`lucent bench` look for modules and `*.bench.ts` files the same way.
+| Layer                      | How                                                                                                                       | What it proves                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Shared code, as JavaScript | Jest or Vitest with `lucent:core` mapped to `@lucent-lang/lucent/core` (its JavaScript version)                           | The logic, as JavaScript runs it         |
+| The host platform          | `lucent check`; `lucent build --platforms host` (platform code becomes stubs that throw); `lucent bench` for `*.bench.ts` | It compiles; native and JavaScript agree |
+| JS dev mode                | `withLucent(config, { js: true })` or `LUCENT_JS=1` in the example app's Metro                                            | The app's flow, with Fast Refresh        |
+| The platforms              | The example app as a development build, on a simulator and an emulator                                                    | Platform code and native needs           |
 
-Lucent code imports another package's modules by path, for example
-`import { impactAsync } from "lucent-haptics/src/haptics.lucent"`.
+A module that imports `lucent:platform`, `lucent:thread` or an SDK module
+has no JavaScript version, so keep tested logic in shared modules. In JS
+dev mode, an SDK, extension or toolkit import is a stand-in that throws
+`LUCENT_JS_DEV_NATIVE` when used, and `.lucent.tsx` modules stay native
+(`metro/js-dev.cjs`). A release bundle refuses the mode. `lucent bench`
+needs a desktop Hermes (`HERMES_DIR`).
 
-## Examples
+## In this repository
 
-`examples/lucent-haptics` and `examples/lucent-secure-store` are the
-expo-haptics and expo-secure-store ports, installed in both example apps as
-`workspace:*` dependencies. `scripts/smoke-install.ts` installs
-lucent-haptics from its tarball into a fresh app.
+The eight example packages are in `examples/`, and
+`packages/lucent/test/examples.test.ts` compiles each for the host.
+`lucent-haptics`, `lucent-orbit` and `lucent-secure-store` are also
+`workspace:*` dependencies of both example apps. `scripts/smoke-install.ts`
+installs `lucent-haptics` and the `orbit-filter` fixture from their
+tarballs into a fresh project.
 
-Each example records what it has run on in `evidence.json`, at the
-evidence levels of [tasks.md](tasks.md#validation) (code, host, sim,
-device, external), and its README states it in the block
-`node scripts/example-evidence.ts` writes. A run that raises a level
-changes the record and the block in the same commit;
-`packages/lucent/test/examples.test.ts` fails when they differ.
+Each example records what it ran on in `evidence.json`, and its README
+states it in the block `node scripts/example-evidence.ts` writes.
+`examples.test.ts` fails when they differ.
+
+The tests of this spec:
+
+| Test                                                                                    | Covers                                              |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `packages/compiler/test/packages.test.ts`                                               | Discovery, module names, compatibility              |
+| `packages/compiler/test/package-config.test.ts`                                         | The schema, the merge rules, listed paths           |
+| `packages/compiler/test/native-package.test.ts`                                         | The podspec, Gradle, CMake and manifest edits       |
+| `packages/compiler/test/extensions.test.ts`                                             | Extension declarations against headers              |
+| `packages/lucent/test/lucent-json.test.ts`                                              | The JSON schema against the checker                 |
+| `packages/lucent/test/app-plugin.test.ts`, `autolink.test.ts`, `linked-package.test.ts` | The Expo plugin, autolinking, the pre-check package |

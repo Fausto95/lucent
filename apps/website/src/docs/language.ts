@@ -298,7 +298,7 @@ export const features: Feature[] = [
   {
     feature: "`Math`, `String`, `Array`, `Map`, `Date` and the other built-ins",
     status:
-      "Most members, as JavaScript defines them. `Proxy`, `Reflect`, `Intl`, `WeakMap`, `normalize` and locale arguments are refused.",
+      "Most members, as JavaScript defines them. `Proxy`, `Reflect`, `Intl`, `normalize` and locale arguments are refused.",
     page: BUILT_INS,
     cases: ["strings", "collections", "numbers", "dates", "es2023-arrays", "es2024-builtins"],
     refused: [
@@ -551,6 +551,13 @@ export const differences: { title: string; rows: Difference[] }[] = [
         cases: ["null-or-undefined"],
       },
       {
+        js: "A `RegExp` passed to a function is the same object, with its `lastIndex`.",
+        lucent:
+          "It crosses as a new `RegExp` with the same source and flags, and `lastIndex` back at 0.",
+        why: "A regular expression's state lives in native code.",
+        cases: ["regexps"],
+      },
+      {
         js: "An exported `let` holding an object is the module's object.",
         lucent:
           "JavaScript reads the binding live, but gets a copy of each object, array, map or set the module assigns. Changes the module makes inside that value don't reach JavaScript ([Modules](/docs/api/language/modules/#exports)).",
@@ -665,10 +672,24 @@ export const differences: { title: string; rows: Difference[] }[] = [
         cases: [],
       },
       {
-        js: "A thrown instance of an error class reaches a JavaScript caller as itself.",
+        js: "An error object that crosses to and from JavaScript is the same object, with all its fields.",
         lucent:
-          "JavaScript gets an `Error`, `TypeError`, `RangeError` or `SyntaxError` with its `name`, `message` and `code` ([The boundary](/docs/api/language/boundary/#errors)). So `instanceof ParseError` is `false` there, and other fields are dropped.",
-        why: "An error crosses as a new JavaScript error made from its values, not as a reference.",
+          "An instance of an exported error class crosses as itself, so `instanceof` holds. Any other error crosses as a new `Error`, `TypeError`, `RangeError` or `SyntaxError` made from its `name`, `message`, `code` and stack ([The boundary](/docs/api/language/boundary/#errors)). The same error returned twice gives two objects, and a JavaScript error passed in and back loses its other fields.",
+        why: "Only an exported class has a JavaScript class that keeps an instance's identity.",
+        cases: ["errors", "exported-errors"],
+      },
+      {
+        js: "JavaScript code can throw any value.",
+        lucent:
+          "A value a JavaScript callback throws that isn't an `Error` reaches Lucent code as an `Error` whose message is `String(value)`.",
+        why: "Lucent code catches errors only.",
+        cases: ["errors"],
+      },
+      {
+        js: "An error's `name` and `message` hold any value, and `Object.prototype.toString` of one gives `[object Error]`.",
+        lucent:
+          "From JavaScript, `name` and `message` take strings only, or throw a `TypeError`. `Object.prototype.toString` of an instance of a Lucent error class gives `[object Object]`.",
+        why: "They are native strings, and the instance only inherits `Error.prototype`.",
         cases: ["errors", "exported-errors"],
       },
       {
@@ -718,6 +739,13 @@ export const knownGaps: Difference[] = [
       "Arguments, setter values and object fields from JavaScript keep them apart. Inside arrays, maps, sets, records, tuples, callback results and promise values, a `T | undefined` also takes `null`, and a `T | null` takes `undefined`. Code that then narrows the value to `T` throws a `TypeError`. Test for absence with `== null` or `??`.",
     why: "The boundary's check of an element's absent value isn't written yet.",
     cases: ["null-or-undefined"],
+  },
+  {
+    js: "`await` of a value that isn't a promise waits for a microtask, and an async function that returns a promise settles three microtasks after it.",
+    lucent:
+      "`await` of such a value doesn't wait, and `return p` settles one microtask after `p`. Callbacks that depend on that order run in a different order.",
+    why: "The lowering skips the wait for a plain value, and returns a promise's result directly.",
+    cases: ["async"],
   },
   {
     js: "A `let` or `const` read before its declaration runs throws a `ReferenceError`.",
