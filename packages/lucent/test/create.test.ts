@@ -8,6 +8,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
+import { REQUIREMENTS } from "../src/cli/doctor.ts";
+import { projectFiles } from "../src/cli/templates/projects.ts";
 import { runLucent } from "./run-to-exit.ts";
 
 const repo = path.resolve(import.meta.dirname, "../../..");
@@ -148,5 +150,32 @@ describe("lucent new module --template", () => {
     const r = lucent(root, "new", "module", "x", "--template", "nope", "--root", root);
     expect(r.status).toBe(2);
     expect(r.out).toMatch(/function, async, events, view, sdk-ios-android/);
+  });
+});
+
+describe("the templates' releases", () => {
+  // Apps people create ship: a stable release of the window (decisions 0074 and 0079),
+  // never the prerelease lane, which only the example apps follow.
+  const pinned = (template: "bare" | "expo") => {
+    const pkg = JSON.parse(String(projectFiles(template, "my-app").get("package.json"))) as {
+      dependencies: Record<string, string>;
+    };
+    return pkg.dependencies;
+  };
+  const minor = (v: string) => v.replace(/^[~^]/, "").split(".").slice(0, 2).join(".");
+
+  it("pin the window's newest stable React Native for a bare app", () => {
+    const rn = pinned("bare")["react-native"]!;
+    expect(rn).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(minor(rn)).toBe(REQUIREMENTS.reactNative.window.at(-1));
+  });
+
+  it("pin the window's newest Expo SDK, with its React Native, for an Expo app", () => {
+    const deps = pinned("expo");
+    expect(Number(deps.expo!.replace(/^[~^]/, "").split(".")[0])).toBe(
+      REQUIREMENTS.expoSdk.window.at(-1),
+    );
+    expect(deps["react-native"]).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(REQUIREMENTS.reactNative.window).toContain(minor(deps["react-native"]!));
   });
 });
