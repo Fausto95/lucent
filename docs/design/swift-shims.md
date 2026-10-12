@@ -1,10 +1,10 @@
-# Swift shims: calling Swift-only iOS APIs
+# Swift shims
 
-Status: **accepted** (2026-09-24), implemented in Part 2 of the full SDK
-plan; see [decision 0004](../decisions/0004-full-sdk-plan.md).
-
-Goal: Lucent code calls Swift-only APIs (CryptoKit, StoreKit 2, the Swift
-overlays of Foundation and UIKit) the way it calls Objective-C ones:
+How Lucent code calls iOS APIs only Swift can call (CryptoKit, StoreKit 2,
+the Swift overlays of Foundation and UIKit), as built. The glue is
+Objective-C++, so it calls a generated `@_cdecl` function for each Swift
+member a program uses. [platform-bindings.md](../platform-bindings.md)
+covers the rest, and lists what is refused ([T112](../tasks.md#t112)).
 
 ```ts
 import { SHA256 } from "lucent:ios/CryptoKit";
@@ -16,162 +16,234 @@ export function digest(bytes: Uint8Array): Uint8Array {
 
 ## What the schema says
 
-The symbol graph already tells Swift-only declarations apart: their USRs
-start with `s:`. Bindgen reads Swift structs, classes, enums and protocols,
-and Swift members of any type, into the same schema as Objective-C ones,
-marked `abi: "swift"`, with what a shim needs to call them:
+`addSwiftDeclarations` (`packages/bindgen/src/swift.ts`) reads the
+Swift-only declarations of a symbol graph (USRs starting `s:`) into the
+same schema as Objective-C ones. A type has `swift: { kind }`, a member
+`swift: SwiftMember`: its Swift name (`distance(to:)`, `init(x:y:)`), from
+which the call is written, and whether it is `async`, `throws` or
+`mutating`.
 
-- the Swift name of a member (`distance(to:)`, `init(x:y:)`), from which the
-  call is written (`value.distance(to: a0)`);
-- whether it is `static`, `mutating`, `async` or `throws`;
-- a type's qualified Swift name (`AES.GCM.SealedBox`), and a payload enum's
-  cases with their labels and types.
+| Swift declaration                      | Schema                                                                                               |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| A struct or class                      | A class whose `native` is the qualified name (`CryptoKit.AES.GCM.SealedBox`)                         |
+| An enum without payloads               | An enum of its cases' indexes; its members are skipped                                               |
+| An enum with payloads                  | A class with `swift.cases`, each case's labels and types; members skipped                            |
+| A protocol                             | An interface; its associated types are type parameters (`associatedTypes`, `primaryAssociatedTypes`) |
+| A Swift member of an Objective-C class | Joins the class; an Objective-C member of the same name wins                                         |
+| A top-level function or variable       | A module function or constant                                                                        |
 
-Parameters typed `some P` for a standard protocol take the one Lucent type
-that conforms: `some DataProtocol` is a `Uint8Array` (passed as `Data`),
-`some Collection<String>` a `string[]`, `some StringProtocol` a `string`. A
-rule per standard protocol, not per API.
-
-A type also has the members its module's own protocol extensions give it
-(CryptoKit's `SHA256.hash(data:)`, from `HashFunction`; AVFoundation's
-`AVAsset.load(_:)`), their associated types (`Self.Digest`) resolved to
-the typealiases it declares; the standard library's extensions (Sequence,
-Equatable…) are left out. A generic type's statics are bound when their
-extension fixes its type parameters (`AVPartialAsyncProperty<Root>.duration`
-where `Root: AVAsset`). Default arguments at the end are optional (a shim
-per number of arguments), and those Lucent has no value for (`isolation:
-isolated (any Actor)? = #isolation`) are never given. A method named like
-a property (`frame(in:)` and `frame`) is left out: the property stays.
-
-Types that conform to `ContiguousBytes` (a digest, a key) stay objects, and
-get a `bytes: Uint8Array` property that copies their bytes out: a key must
-remain a key to be used again, and its bytes are one property away.
+- **Standard protocols.** `some P`, or a type parameter constrained to
+  `P`, takes the one Lucent type that conforms (`STANDARD_PROTOCOLS` in
+  `symbols.ts`). `some DataProtocol` is a `Uint8Array` (as `Data`),
+  `some StringProtocol` a string, `some Collection<E>` an `E[]`: a rule
+  per protocol, not per API.
+- **Protocol extensions** of the type's own module give it members
+  (`SHA256.hash(data:)`, from `HashFunction`), with `Self.Digest` resolved
+  through its typealiases. The standard library's are left out.
+- **Statics of generic types** bind when their extension fixes the type
+  parameters (`where Root: AVAsset`), as `ownerArgs`.
+- **Defaults.** Trailing default arguments are optional. One whose type
+  has no Lucent value (`isolation: isolated (any Actor)? = #isolation`) is
+  never given.
+- Initializers TypeScript cannot tell apart become static factories
+  (`withService`, `withInt`). A `ContiguousBytes` type gets a `bytes`
+  property that copies its bytes out.
+- Bridged value types (`URL`, `Date`) stay their Objective-C classes or
+  Lucent values. Subscripts, parameter packs, `inout` parameters, failable
+  and generic initializers are skipped with the reason.
 
 ## How a call crosses
 
-Every used Swift member gets one `@_cdecl("lucent_swift_<hash>")` function in
-`.lucent/native/cpp/generated/ios/LucentShims.swift` (the hash is of the
-module, owner, member and role, so a member keeps its symbol). The
-Objective-C++ glue that calls it declares it (`extern "C"`) and calls it
-like any C function; Swift-only modules have no header to import.
+`emit/swift.ts` registers one `@_cdecl("lucent_swift_<hash>")` shim per
+member, role, argument count and type arguments, hashed so a member keeps
+its symbol. All go into `.lucent/native/cpp/generated/ios/LucentShims.swift`,
+and the glue declares each `extern "C"`. Values cross as the Objective-C
+values the glue already converts: one set of conversions serves both.
 
-Values cross as the Objective-C values Lucent already converts, so one set of
-conversions serves Objective-C and Swift:
+| Lucent value                     | Crosses as                                                        |
+| -------------------------------- | ----------------------------------------------------------------- |
+| A number or boolean              | Its C scalar (`SWIFT_SCALARS`: `Double`, `Int`, `Int64`, `Bool`…) |
+| An optional number or boolean    | An `NSNumber`, nil for none                                       |
+| A Swift enum without payloads    | `Int`, the case's index                                           |
+| An Objective-C enum              | `Int`, its raw value (`E(rawValue: .init(truncatingIfNeeded:))`)  |
+| A string, bytes, a date          | `NSString`, `NSData`, `NSDate`, which Swift bridges               |
+| An array or record               | `NSArray`, `NSDictionary`, element by element when needed         |
+| A Swift class instance, an `id`  | The object itself                                                 |
+| A Swift struct                   | A `LucentBox` holding it                                          |
+| A Swift enum with payloads       | An `NSDictionary` of its case ([Enums](#enums))                   |
+| A protocol value                 | The existential `as AnyObject`, read back `as! any P`             |
+| A C struct (`CMTime`, `CGPoint`) | Its bytes as `NSData`, read with `loadUnaligned`                  |
+| A tuple                          | An `NSArray` of its elements' objects                             |
+| A Lucent function                | An Objective-C block, cast with `unsafeBitCast`                   |
 
-- scalars as C scalars; `Bool` as `bool`;
-- `String`, `Data`, `Date`, arrays and dictionaries as the Foundation classes
-  they bridge to (`NSString`, `NSData`, …), and bridged value types (`URL`,
-  `UUID`) as theirs (`NSURL`, `NSUUID`);
-- Swift class instances as object pointers: with Objective-C interop, a
-  Swift object is an Objective-C object, so a `NativeRef` retains and
-  releases it like any other;
-- Swift structs and enums with payloads that don't bridge as boxes: a
-  generic `final class LucentBox<Value>: NSObject` holding the value. Lucent
-  holds the box like any object (boxed references, as decided), and member
-  shims read and write through it: `mutating` members and setters change
-  the value in its box;
-- enums without payloads as integers, the index of the case;
-- C structs (`CMTime`, `CGPoint`) as their bytes (`NSData`), loaded back
-  with `loadUnaligned` in Swift and copied in the glue;
-- objects cross as `void *`: those returned to Lucent retained
-  (`Unmanaged.passRetained`, `__bridge_transfer` in the glue), arguments
-  borrowed (`__bridge`, `takeUnretainedValue`).
+Objects cross as `UnsafeMutableRawPointer`. Arguments are borrowed: the
+glue holds them in locals for the call and passes them `__bridge`, and the
+shim reads them with `takeUnretainedValue` (`lucentObject`). Results are
+retained (`lucentRetained`, `passRetained`), and the glue takes them with
+`__bridge_transfer`. A shim, roughly:
 
-This departs from the plan's "String as a UTF-16 buffer": bridging through
-`NSString` reuses conversions the Objective-C glue already has, tested, and
-keeps one path.
+```swift
+@_cdecl("lucent_swift_9f3c…")
+public func lucent_swift_9f3c…(_ self_: UnsafeMutableRawPointer, _ a0: UnsafeMutableRawPointer) -> Double {
+  let v = (lucentObject(self_) as! LucentBox<Shapes.Point>).value
+    .distance(to: (lucentObject(a0) as! LucentBox<Shapes.Point>).value)
+  return v
+}
+```
 
-`throws` crosses as a trailing error pointer (`error as NSError`,
-retained), which the glue turns into a Lucent error as it does an
-`NSError **`. An `async` call is a native operation of the calling
-context (`lucent/operation.h`): its shim (methods, functions and async
-getters) takes a context pointer (a weak reference to the operation) and a
-C callback; it reads its object arguments into Swift values first
-(arguments are borrowed for the call only), runs `Task { … }`
-(`@MainActor` members with `Task { @MainActor in … }`), returns the task
-retained, and calls back with the result or the error. The callback posts
-to the Lucent thread, which converts the result and settles the
-operation, unless it is no longer pending: then what the task produced is
-released. Async methods take an `AbortSignal` after Swift's arguments;
-its aborting, or the context's scope being disposed, rejects the promise
-at once, and the operation's cleanup cancels the task
-(`lucent_swift_cancel`, which also releases it; a no-op once the task is
-done). An already aborted signal never starts it. Synchronous `@MainActor` members get `@MainActor`
-shims, which the main-thread rule already makes the glue call on the main
-thread; async ones can be awaited from any thread.
+A synchronous `@MainActor` member gets an `@MainActor` shim; the
+main-thread rule already makes the glue call it on the main thread.
+
+## Boxing
+
+`LucentBox<Value>` is a `final class` subclass of `NSObject` with a `var
+value`, which Lucent holds like any object. Member shims read and write
+through it, so `mutating` members and setters change the value in its box.
+An initializer's shim returns a new box, retained.
+
+## Enums
+
+An enum without payloads is a TypeScript `enum` of indexes. The shim
+indexes `[E.a, E.b, …]` with what crossed, and gives back
+`firstIndex(of:)`. A case added after the program was built reads as -1.
+
+An enum with payloads is a union of object types:
+`{ kind: "circle"; center: Point; radius: number } | …`. A payload is named
+by its label, `value` when it is a lone unlabeled one, `_0`, `_1`… for
+several. It crosses as a dictionary, `{"kind": case, field: payload…}`.
+
+- The Swift file gets two functions per enum: `lucentObject_<Name>` (an
+  `if case let` per case) and `lucentValue_<Name>` (a `switch` on `kind`).
+  An absent optional payload is left out of the dictionary.
+- The glue gets an overload of `lucentSwiftObject` per union, which
+  collections' element conversions find, and a reader,
+  `lucentSwiftValue_<hash>`. Both are declared first, since unions nest
+  and an indirect enum holds itself.
+- Cases with the same payload fields share one object type, whose `kind`
+  is any of theirs.
+- A case added after the program was built crosses as `kind: ""`, which
+  the glue reads as a `TypeError` (`unknownSwiftCase`).
+
+## Errors and async
+
+`throws` adds a trailing `UnsafeMutablePointer<UnsafeMutableRawPointer?>`.
+The shim's `catch` stores `error as NSError`, retained, and the glue
+rethrows it as a Lucent error (`throwIfError`), as it does an `NSError **`.
+
+An `async` member (a method, a function or an async getter) is a native
+operation of the calling context (`lucent/operation.h`).
+
+- The shim takes `ctx_`, a heap weak pointer to the operation, and
+  `done_`, a C function of `(ctx, result, error)`.
+- It reads its object arguments into Swift values first, since they are
+  borrowed for the call only. Then it starts `Task { … }` (`Task {
+@MainActor in … }` for a main-actor member) and returns the task in a
+  `LucentTask`, retained.
+- `done_` posts to the package's thread, which converts the result and
+  settles the operation. If the operation is no longer pending, what the
+  task produced is released unread.
+- An async method takes an `AbortSignal` after Swift's arguments. Its
+  aborting, or the context's scope ending, rejects at once; the cleanup
+  calls `lucent_swift_cancel`, which cancels the task and releases it. An
+  already aborted signal never starts it.
+- Async members are exempt from the main-thread rule: they hop to their
+  actor themselves.
 
 ## Generics
 
 Swift generics cannot cross `@_cdecl`. A generic member gets one shim per
-combination of type arguments the program uses (`identity<Double>`,
-`identity<String>`): the call's, from the checker's resolved signature,
-and the receiver's for members of generic types (`Box<Point>`, whose
-values are `LucentBox<Box<Point>>`). A type argument maps back to the
-Swift type it stands for (`number` is `Double`, an SDK class or union is
-itself with its own arguments), and the shim spells out its result's
-type, so a type parameter only the result has is inferred. Generic enums
-with payloads are generic unions, specialized the same way. Unused
-generic members cost nothing, as unused members do.
+combination of type arguments the program uses (`specialize`). They are
+the call's, from the checker's resolved signature, and the receiver's for
+a generic type (`Box<Point>`, held as `LucentBox<Box<Point>>`); a static's
+come from its extension.
 
-## Enums with payloads
+`sdkTypeOf` maps each type argument back to a Swift type: `number` is
+`Double`, `boolean` `Bool`, `Uint8Array` `Data`, an SDK class or union
+itself. Anything else is a diagnostic. The shim spells out its result's
+type, so a type parameter only the result names is inferred. Generic
+enums with payloads are specialized the same way.
 
-In Lucent an enum with payloads is a discriminated union of object types
-(`{ kind: "circle"; center: Point; radius: number } | { kind: "square";
-side: number }`): the payload by label, `value` for a lone unlabeled one,
-`_0`, `_1`… for several. Its members are left out (a union has none). It
-crosses as a dictionary, `{"kind": case, field: payload…}`: the Swift file
-gets two functions per enum (`if case let` to the dictionary, a `switch`
-on `kind` back), and the glue two per union type (an overload of
-`lucentSwiftObject`, which collections' element conversions find, and a
-reader), with each payload converted as any value of its type. A case
-added after the program was built reads as a TypeError.
+## Async sequences
 
-## Protocols
+A result or property typed `AsyncSequence<T>` (`AsyncStream`,
+`some AsyncSequence<T, F>`, or a module type conforming to it) is boxed as
+a `LucentSequence`, erased to its elements as objects. `collect(f, signal)`
+runs `lucent_swift_collect`, a task that hands each element to the glue
+with a `LucentResume` continuation. It waits until the glue calls
+`lucent_swift_resume` after `f` ran, and calls `done` once, with the error
+the sequence ended with or none (`platform/ios_sequence.h`).
 
-A protocol value (`any Drawable`) crosses as an object: Swift objects as
-themselves, other values in Swift's own box (`as AnyObject`), read back
-with `as! any Drawable`; its members are called on the existential.
+## The Swift proxy
 
 A Lucent class that implements a Swift-only protocol gets a generated
-`NSObject` subclass conforming to it, which holds the Lucent object
-(released on the Lucent thread when it goes) and calls each requirement
-through a C function pointer the glue gives it: objects passed and
-returned retained, the call on the Lucent thread as for Objective-C
-protocols (queued when nothing waits for it). One per Lucent object while
-it is in use, in its own table: the same object may have an Objective-C
-delegate too.
+Swift class conforming to it (`emit/swift-proxy.ts`), roughly:
 
-- A property requirement is a computed property: its getter reads the
-  Lucent field or accessor, its setter (when the requirement has one)
-  writes it, while Swift waits. A settable requirement needs a field that
-  is not `readonly`, or a setter.
-- A throwing requirement's C function takes an error out-parameter: what
-  the Lucent method throws comes back as an `NSError` (domain `Lucent`,
-  its name and code kept, so it is the same Lucent error again if it
-  crosses back), which the proxy throws. A requirement that does not
-  throw reports what the Lucent method throws as uncaught.
-- An async requirement awaits a checked continuation, which the proxy
-  hands to the glue retained: the Lucent method runs on the Lucent thread
-  and, when its promise settles, the glue calls a generated `@_cdecl`
-  function that resumes the continuation with the result or, for a
-  throwing one, the error. Swift never waits for the call itself.
+```swift
+final class LucentProxy_4b1e…: NSObject, Shapes.Store {
+  typealias Item = String
+  let ctx_: UnsafeMutableRawPointer          // the Lucent object
+  let release_: @convention(c) (UnsafeMutableRawPointer) -> Void
+  let r0_: @convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> Void
+  deinit { release_(ctx_) }
+  func add(_ a0: String) { r0_(ctx_, lucentRetained(a0 as NSString)) }
+}
+```
+
+- The class is `@MainActor` when one of its protocols is. A `@_cdecl`
+  function, `lucent_swift_proxy_<hash>`, makes one from the Lucent
+  object's handle and a C function pointer per requirement.
+- `swiftObjectOf` gives one per Lucent object while it is in use, in a
+  table of its own (`cachedObject<1>`): the same object may have an
+  Objective-C delegate too. `deinit` releases the Lucent object on its
+  package's thread.
+- Objects are passed and returned retained, both ways.
+- A method requirement runs while Swift waits when its plan says `sync`
+  (a result, a throwing or main-actor requirement); a `void` one is
+  queued. A Lucent method may take fewer parameters than offered.
+- A property requirement is a computed property. Its getter reads the
+  Lucent field or accessor, and its setter writes it, while Swift waits. A
+  settable requirement needs a field that is not `readonly`, or a setter.
+- A throwing requirement's C function takes an error out-parameter. What
+  the Lucent method throws comes back as an `NSError` of domain `Lucent`,
+  its name and code kept (`setError`), so crossing back gives the same
+  Lucent error. A requirement that does not throw reports it as uncaught.
+- An async requirement awaits `withCheckedContinuation` (or its throwing
+  form) and hands the continuation to the glue in a `LucentContinuation`.
+  The Lucent method runs on its package's thread, and when its promise
+  settles the glue calls `lucent_swift_resume_<hash>_<i>` with the result
+  or the error. Swift never waits for the call itself.
 - A `mutating` requirement is implemented as it is: the proxy is a class.
-- A protocol's associated types are type parameters in its declaration
-  (`abstract class Store<Item = unknown>`; `Store<Item>`'s primary ones
-  first), fixed by the class's `implements Store<string>` clause, which
-  becomes `typealias Item = String` in the proxy. `Self` in a requirement
-  is the proxy class: a parameter is declared `this`, a result the
-  protocol, and the Lucent method must be declared to return its own
-  class. Values of such protocols cross only as arguments that name every
-  associated type (`some Store<String>`, which Swift opens from a
-  variable holding `any Store<String>`); that needs the runtime's
-  parameterized protocol types, so the shim is `@available(iOS 16.0, *)`.
-- Initializer and static requirements are refused: Swift would call them
-  without an object. Async or throwing property requirements are refused.
+
+## Associated types and Self
+
+A protocol's associated types are type parameters of its declaration, the
+primary ones first (`abstract class Store<Item = unknown>`). The class's
+`implements Store<string>` clause fixes them, which becomes
+`typealias Item = String` in the proxy; a clause that leaves one out is an
+error.
+
+`Self` in a requirement is the implementing class. A parameter is declared
+`this` and a result the protocol, and the Lucent method must be declared to
+return its own class. The proxy passes `Self` as the Lucent object it
+holds.
+
+A value of such a protocol crosses only as an argument that names every
+associated type (`some Store<String>`), which Swift opens from a variable
+holding `any Store<String>`. That needs the runtime's parameterized
+protocol types, so the shim is `@available(iOS 16.0, *)`. Members of such
+protocols are not called ([T112](../tasks.md#t112)).
+
+Refused: initializer and static requirements (Swift would call them
+without an object), async or throwing property requirements, and generic
+Lucent classes. For an initializer requirement, write the conforming type
+in Swift of the package's own.
 
 ## Build
 
-When a program has shims, the native package's podspec gets
-`s.swift_version` and the generated `.swift` file; programs without them
-build as before. The example apps build it both with `use_frameworks!` and
-as static libraries.
+`LucentShims.swift` is written only when a program has shims, proxies or
+sequences. It imports Foundation and the modules its types name, but not
+`LucentNative`, whose Swift compiles into the same pod. The podspec then
+sets `s.swift_version = "5.9"` and marks the C++ headers private, so the
+module CocoaPods makes for Swift leaves them out (`podspec` in
+`native-build-files.ts`). Each shim carries `@available` from what it
+calls, when above the deployment target.

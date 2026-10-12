@@ -1,785 +1,905 @@
 # Lucent semantics
 
-The specification of what Lucent accepts and how it behaves, for people
-working on the compiler and runtime. Users read the website's
-[API › Language](https://lucent-lang.dev/docs/api/language/) pages, whose
-subset tables and known gaps are generated from
-`apps/website/src/docs/language.ts` and checked against the compiler. When
-this file, the website and the compiler disagree, the e2e cases decide,
-and the other two are fixed in the same change.
+What Lucent accepts and how it behaves, for people who change the
+compiler and the runtime. Users read the website's
+[API › Language](https://lucent-lang.dev/docs/api/language/) pages, built
+from `apps/website/src/docs/language.ts`, which `node scripts/website.ts`
+checks. When this file, the website and the compiler disagree, the e2e
+cases in `packages/compiler/test/e2e/cases/` decide, and the other two
+change in the same commit ([decision 0050](decisions/0050-docs-and-specs-have-one-owner-each.md)).
 
-A `*.lucent.ts` file must type-check with TypeScript in strict mode, plus
-`noUncheckedIndexedAccess`. Lucent accepts the subset below; everything else
-gets a `LUCENT` diagnostic that points at the source, never invalid C++.
+## The contract
 
-**The contract: code that type-checks and uses only this subset behaves
-exactly like the same code running in JavaScript.** Where Lucent cannot match
-JavaScript, it throws rather than silently doing something different, and the
-deviation is listed in [Deviations](#deviations-from-javascript). Every item
-here is covered by a differential case ([testing.md](testing.md)).
+A `*.lucent.ts` file type-checks in strict mode with
+`noUncheckedIndexedAccess`, against the ES2024 library and
+`esnext.disposable` (`program.ts`). Lucent adds `console` and
+`AbortController` (`packages/compiler/lib/globals.d.ts`) and the `lucent:`
+modules (`packages/compiler/lib/sdk/*.d.ts`).
 
-## Modules
+**Code that type-checks and uses only the subset behaves exactly like the
+same code run as JavaScript.** The e2e runner builds each case into a
+Hermes host, runs its script through JSI and against the source run as
+JavaScript, and compares the outputs line by line ([testing.md](testing.md)).
+Each case's first comment says what it tests. Three rules follow:
 
-```ts
-import { delay, error } from "lucent:core";          // helpers with native implementations
-import { parse, type Token } from "./lexer.lucent"; // other Lucent modules
+- **Exact or refused.** What Lucent can't match fails with a `LUCENT`
+  diagnostic at the source, never with invalid C++
+  ([decision 0045](decisions/0045-a-built-in-is-exact-or-refused.md)).
+- **A deviation has a reason.** Native behavior that can't match
+  JavaScript is listed in [Deviations](#deviations-from-javascript) with
+  its reason, and in `language.ts`.
+- **A known gap is a bug.** Code that compiles and differs without a
+  reason gets a known-gap row, a case around it, and a task.
 
-export function f(x: number): number { ... }         // callable from JavaScript
-export async function g(): Promise<string> { ... }   // returns a JS promise; runs off the JS thread
-export class Store { ... }                            // `new Store()` from JavaScript
-export const VERSION = "1.0";                          // copied to JavaScript once
-export let count = 0;                                  // read live: JavaScript sees each new value
-export enum Mode { Fast = "fast", Safe = "safe" }     // becomes a frozen JS object
-export type Item = { id: string; tags: string[] };    // types are free
+## Values and types
 
-let counter = 0;                                      // module state, reset on JS reload
-```
+`LType` in `packages/compiler/src/types.ts` gives each TypeScript type one
+native representation. `runtime/cpp/lucent/core.h` holds the value model:
+primitives by value, and objects as reference-counted handles that alias
+on assignment, as JavaScript objects do.
 
-- The top level may only contain declarations.
-- Exports are named by their declarations: export lists, re-exports and
-  default exports (`export default function f`, which JavaScript would see
-  as `default`) report `LUCENT3003`.
-- An exported `let` is a live binding, as in an ES module: each read from
-  JavaScript gets the value the module holds now. An exported `const` is
-  copied once, as its binding never changes. Refusing an exported `let`
-  that the module reassigns would have broken ordinary counters and
-  caches, and a getter fits both the native exports object and the
-  JavaScript proxy.
-- An exported variable holding an object, array, map, set, record, tuple
-  or `Uint8Array` reaches JavaScript as a copy, by the boundary's copy
-  rule: one copy per value the module assigns, so reads give the same
-  object (`mod.config === mod.config`) and JavaScript's own changes to it
-  stay until the module assigns another. Changes the module makes inside
-  that value (`config.size++`, `list.push(x)`) are not seen by JavaScript,
-  for a `let` or a `const`: export a function that returns the value, or
-  assign a new one, to show them.
-- Top-level declarations initialize in source order, as in JavaScript: a
-  class's static fields where the class is declared, between the module's
-  variables. A JS reload runs every initializer again and resets every
-  static field, one without an initializer to its type's default.
-- Imports are limited to other `*.lucent.ts` files, `lucent:core`, and
-  the `lucent:` platform modules (below). Another Lucent module may be
-  imported by name or as a namespace (`import * as shapes from
-"./shapes.lucent"`, then `shapes.toPoint(v)`, `new shapes.Vec(…)`); the
-  namespace itself is not a value.
-- Module names are file names without `.lucent.ts`, and must be unique within an app.
+| TypeScript                                          | Native representation                                |
+| --------------------------------------------------- | ---------------------------------------------------- |
+| `number`, `bigint`, `boolean`                       | `double`, `lucent::BigInt` of any precision, `bool`  |
+| `string`, string and template literal types         | `lucent::String`: immutable UTF-16, shared           |
+| `T \| undefined`, `T \| null`, `x?: T`              | `Opt<T>`: undefined, null or a value                 |
+| other unions                                        | `std::variant` of the members                        |
+| `T[]`; `[A, B]`                                     | a shared array; a `std::tuple`, which is a value     |
+| `Record<string, V>`, `Map<K, V>`, `Set<T>`          | shared, ordered collections                          |
+| object types, data-only interfaces, mapped types    | a shared struct, one per shape                       |
+| classes                                             | a shared object: fields, methods, accessors, statics |
+| interfaces with methods, or that a class implements | an abstract base class with virtual members          |
+| `(a: A) => R`; `Promise<T>`                         | a function value; a promise (`async` is a coroutine) |
+| `Uint8Array`, `ArrayBuffer`, `Date`, `RegExp`       | a byte view, bytes, a time value, a compiled pattern |
+| `Error` kinds, `class X extends Error`              | an error object: `name`, `message`, `code`           |
+| type parameters                                     | C++ templates                                        |
 
-### Platform code
+### Numbers and bigints
 
-A module uses both platforms' SDKs (`lucent:ios/*`, `lucent:android/*`) and
-branches on `PLATFORM` from `lucent:platform`: `if (PLATFORM === "ios") { … }
-else { … }`. Each platform compiles its own branch, and the top-level
-declarations that use its SDK. This is the standard way to write platform
-code. Splitting a module into `<name>.ios.lucent.ts` and
-`<name>.android.lucent.ts`, implementing what `<name>.lucent.ts` declares, is
-the alternative for modules whose platform halves share nothing. The rules
-are in [platform-bindings.md](platform-bindings.md).
+A `number` is a `double` with ECMAScript arithmetic: `%`, `**`, and
+bitwise operators through ToInt32 (`>>>` through ToUint32). Each operation
+rounds on its own: every build passes `-ffp-contract=off`. Integer
+inference (`emit/integers.ts`) keeps a local in an integer register when
+every write is a proven exact integer; reads convert back, so no result
+changes ([decision 0063](decisions/0063-a-value-only-its-own-local-sees-may-change-representation.md)).
 
-Native 64-bit integers (Java's `long`, Kotlin's `Long`, `int64_t`, `uint64_t`,
-`NSInteger`, `NSUInteger`, Swift's `Int`, `Int64`, `UInt64`) are `bigint`s
-in Lucent, so counts, indices, tags and timestamps from the SDK are
-bigints: `list.count` is `3n`, and `Number(list.count)` makes it a number.
-Every value read from native code is exact, including sentinels at the
-type's limits such as `NSNotFound` and `Long.MAX_VALUE`. A bigint passed in
-must fit the native type (`0n` to `2n ** 64n - 1n` for unsigned ones), or
-the call throws `RangeError` naming the parameter or field. A method's or
-function's own 64-bit parameter (not an array's elements, a field or a
-callback's result) also takes a number that is a safe integer
-(`Number.isSafeInteger`, and not negative for an unsigned one); another
-number throws `RangeError` (`ms of Thread.sleep: 1.5 is not a safe
-integer`) instead of rounding. Results stay bigints. Enums, option
-sets and Android constant groups (`@IntDef`, `@LongDef`) stay numbers; a
-`@LongDef` value a number cannot hold exactly (beyond ±(2^53 − 1)) throws
-`RangeError` instead of rounding. A number passed where native code takes a
-narrower integer (`int`, `int32_t`, `uint8_t`, Java's `short` or `char`, an
-enum's raw value) converts as WebIDL's default conversion: NaN and
-infinities become 0, the rest is truncated and wraps modulo 2^bits, as
-`x | 0` does for 32 bits; a 64-bit one that stays a number (a Swift enum's
-`Int` raw value) throws `RangeError` unless finite and within ±(2^53 − 1).
+Bigint operators match JavaScript's: `/` truncates, `%` takes the
+dividend's sign, and `<` compares a bigint with a number exactly. Mixing
+a bigint and a number in arithmetic is `LUCENT1002`. Dividing by `0n`, a
+negative exponent and a result beyond 2^30 bits (V8's limit) throw
+`RangeError`. A `bigint | number` from an SDK takes relational operators,
+`-`, `~`, `++` and `--` on the kind it holds.
 
-## Types
+### Strings and absent values
 
-| TypeScript                                                                                   | Native representation                                                                                                                                         |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `number`                                                                                     | `double`, with ECMAScript arithmetic (`%`, `**`, bitwise ops through ToInt32, …); every operation rounds separately, as in JavaScript (no fused multiply-add) |
-| `bigint`                                                                                     | integer of any precision (`lucent::BigInt`), with ECMAScript's operators; a value that fits in 64 bits does not allocate                                      |
-| `boolean`                                                                                    | `bool`                                                                                                                                                        |
-| `string` (and string literal types)                                                          | immutable UTF-16 string, stored one byte per unit when possible                                                                                               |
-| `T[]`, `readonly T[]`                                                                        | shared array (assignment aliases, like JS)                                                                                                                    |
-| `[A, B]`                                                                                     | tuple (a value)                                                                                                                                               |
-| `Record<string, V>`, `{ [k: string]: V }`                                                    | string-keyed dictionary, JS key order                                                                                                                         |
-| `Map<K, V>`, `Set<T>`                                                                        | insertion-ordered, SameValueZero keys                                                                                                                         |
-| object types (`type`, `interface`, literals)                                                 | shared struct; types with the same shape share one struct                                                                                                     |
-| `Partial`, `Required`, `Readonly`, `Pick`, `Omit` of an object type, `Record<"a" \| "b", V>` | the object type they resolve to: a struct like any other                                                                                                      |
-| classes                                                                                      | shared object with methods, accessors, statics; `extends` another Lucent class (virtual dispatch, `super`, abstract classes)                                  |
-| interfaces with methods, or named in a class's `implements`                                  | abstract base with virtual methods and property accessors; implemented by classes that declare `implements`, and literals of a data-only one                  |
-| `T \| undefined`, `T \| null`, `x?: T`, `null \| undefined`                                  | optional that remembers `undefined` vs `null`                                                                                                                 |
-| other unions                                                                                 | tagged union (`string \| number`, discriminated object unions, …)                                                                                             |
-| `(a: A) => R`                                                                                | function value (closures capture by reference)                                                                                                                |
-| `Promise<T>`                                                                                 | promise (C++20 coroutine)                                                                                                                                     |
-| `Uint8Array`                                                                                 | byte view over a shared buffer                                                                                                                                |
-| `ArrayBuffer`                                                                                | bytes `Uint8Array`s view; its copies share them                                                                                                               |
-| `Date`                                                                                       | shared mutable time value; local time from the device's time zone database                                                                                    |
-| `Error`, `TypeError`, `RangeError`, `SyntaxError`, `class X extends Error`                   | error object with `name` (its constructor's), `message`, `code`; no `cause` (`LUCENT1003`)                                                                    |
-| unconstrained generics `<T>`                                                                 | C++ templates (functions and classes)                                                                                                                         |
+A string is immutable UTF-16, stored one byte per unit when every unit
+fits (`jsstring.h`). Lone surrogates are valid and cross the boundary
+intact, and `for…of` iterates by code point. `String(x)`, templates and
+`+` give JavaScript's text: arrays and byte views join with `,`, other
+objects name their class (`[object Map]`).
 
-Not supported: `any`, `unknown` (except in `catch`), intersections, `symbol`,
-`object`, getters in object literals, index signatures mixed with
-properties, and extending built-in classes other than `Error`. An override
-must keep the overridden member's native signature (`LUCENT1005` otherwise).
-Decorators report `LUCENT1005`: one runs when its class is defined and may
-replace the class or member it decorates.
+`T | undefined`, `T | null`, `x?: T` and `null | undefined` lower to
+`Opt<T>`, whose three states keep `=== null` and `=== undefined` as in
+JavaScript. `x!` is a checked unwrap: `TypeError` on an absent value. An
+optional field holding `undefined` is unset: `JSON.stringify` and the
+boundary leave it out, and spreading skips it.
 
-Interfaces implemented by classes are _nominal_ for classes: a class must say
-`implements Shape` to be used as a `Shape` (`LUCENT2008` otherwise). Each
-implementing member must have the same native signature as the interface
-member (`LUCENT2009`). Interfaces may be generic (`Source<T>`) and may extend
-other interfaces; optional and generic methods cannot be dispatched virtually
-yet.
+### Arrays, tuples and collections
 
-An object literal stands for such an interface when the interface (and every
-one it extends) has only properties and no type parameters:
-`const p: Point = { x: 1, y: 2 }` beside `const q: Point = new Pixel(3, 4)`.
-The literal is one object, as in JavaScript: an alias sees its writes and
-`===` compares identity. It holds the interface's properties in their declared
-order (a base interface's first), which is the order `JSON.stringify` writes
-and JavaScript receives them in; JavaScript gets it as a plain object, a copy.
-A literal for an interface with a method, or a generic one, reports
-`LUCENT2008` naming why: use a class that declares `implements`.
+An array has no holes: each element holds a value of its type. So
+`a[i] = v` past the end, `a[-1] = v`, `a[1.5] = v` and a larger `length`
+throw `RangeError`; a smaller `length` works. `new Array(n)` needs a whole
+`.fill(v)` after it, and `Array.from({ length: n })` needs a map function
+unless the elements may be `undefined` (`LUCENT1003`). A literal with
+holes is `LUCENT1001`. An `A[]` can't stand for an `(A | B)[]`
+(`LUCENT2004`): the element layouts differ.
+
+A tuple is a fixed-size value: `===` compares its elements. It is read
+with a literal index (`LUCENT1001`), its elements can't be assigned
+(`LUCENT1008`), and array methods on it are refused (`LUCENT1003`).
+
+A record is a string-keyed dictionary in JavaScript's key order:
+integer-like keys ascending, then insertion order (`map.h`).
+`delete record[key]` works, and `in` sees inherited keys
+(`"toString" in r`). `Map` and `Set` keep insertion order and compare keys
+by SameValueZero (a `-0` key is stored as `0`). Numeric index signatures,
+and functions or `JSValue`s as keys, are refused (`LUCENT2002`).
+
+### Object types
+
+Object types with the same fields share one struct, whose field order is
+that of the first such type the compiler meets. `JSON.stringify` and the
+objects JavaScript receives follow it. A value has exactly its type's
+fields (`LUCENT2003`): TypeScript lets `{ x, y, z }` stand for `{ x, y }`,
+but `z` would have nowhere to go.
+
+A struct records neither which optional fields are set nor the order
+JavaScript added them. So on object types `Object.keys`, `values` and
+`entries` (`LUCENT1003`), `for…in` (`LUCENT1009`), `in` and `delete`
+(`LUCENT1002`) and `obj[key]` (`LUCENT1001`) are refused
+([decision 0042](decisions/0042-optional-fields-presence-is-refused-not-guessed.md)).
+Methods in object types (`LUCENT2002`) and getters in literals
+(`LUCENT1001`) are refused; a function-valued property works.
+
+### Interfaces
+
+An interface of properties alone that no class implements is an object
+type, structural like any other. One with methods, or that a class names
+in `implements`, is an abstract base class, and nominal: only a class
+that declares `implements Shape` is a `Shape` (`LUCENT2008`). An object
+literal also fits such an interface when the interface has properties
+alone and no type parameters; JavaScript receives it as a plain object.
+
+An implementing member has exactly the interface member's native
+signature (`LUCENT2009`), where TypeScript also accepts a narrower result
+or an extra optional parameter. Optional and generic interface methods
+can't be dispatched yet (`LUCENT2009`).
+
+### Classes
+
+Classes have fields, `#private` members, methods, accessors, statics,
+abstract members and parameter properties. A class extends another Lucent
+class (virtual dispatch, `super`), `Error`, or an SDK class
+([platform-bindings.md](platform-bindings.md)), and without a constructor
+gets JavaScript's implicit one. Refused with `LUCENT1005`: extending
+other built-ins, an override with another native signature, overriding a
+generic method, static blocks, static fields in generic classes,
+decorators ([decision 0043](decisions/0043-decorators-and-default-exports-are-refused.md)),
+index signatures, and computed names but `[Symbol.dispose]`. Class
+expressions are `LUCENT2002`.
+
+A field read before it is assigned (from a base constructor) reads a
+value type's default: `0`, `""`, `false` or empty. An object-typed one is
+unassigned, and using it throws `TypeError`, through `?.` too, where
+JavaScript reads `undefined`
+([decision 0044](decisions/0044-a-read-before-assignment-throws-never-crashes.md)).
+
+### Generics
+
+Generics compile to C++ templates, one instantiation per set of type
+arguments. A constraint gives no member access (`v.x` on
+`T extends { x: number }` is `LUCENT1003`). A generic function can't be a
+value (`LUCENT1001`) or an export (`LUCENT2007`), and `instanceof` a
+generic class is `LUCENT1002`.
+
+A union holding a type parameter keeps its shape in every instantiation,
+so a type argument that would merge into it is `LUCENT2002`. Each
+instantiation of a generic class is a class of its own: an existing
+`Box<number>` can't be a `Box<number | undefined>` (`LUCENT2004`), though
+a `new` builds the instantiation its value becomes.
+
+### Unions, enums and other types
+
+A union other than an optional is a tagged variant. Narrowing by
+`typeof`, `instanceof`, `Array.isArray`, `===` and a string-literal
+discriminant works; `in` on a union is `LUCENT1002`. A member every type
+of the union declares is read or called on the union's value. `x as T`
+taking a member out of a union checks it, and another member throws
+`TypeError`, since the variant holds one layout.
+
+Literal types widen to their base type. A string enum is a string, a
+numeric enum a number, a mixed one a union, and members are constants
+(`LUCENT3002`). Lucent code can't map a value back to its name (`E[0]`,
+`LUCENT1001`), but an exported numeric enum's JavaScript object has the
+reverse mapping. A call typed `never` may stand wherever a value goes.
+
+`any`, and `unknown` outside `catch`, have no layout (`LUCENT2001`).
+`LUCENT2002` refuses intersections, `symbol`, `object`, `Function`,
+`Intl` types, mixed index signatures, overloaded and constructor function
+types, and `SharedArrayBuffer`. Typed arrays other than `Uint8Array`, and
+`DataView`, are [T100](tasks.md#t100). A recursive union alias
+(`type Json = … | Json[]`) crashes the compiler today ([T102](tasks.md#t102)).
 
 ## Statements and expressions
 
-Supported:
+`let` and `const` work; `var` is `LUCENT1001`. Destructuring works in
+declarations, parameters, `for…of` and assignments, with defaults and
+array rest. Object rest ([T106](tasks.md#t106)), computed keys and
+destructuring in `catch` are `LUCENT1004`. A `let` or `const` read before
+its declaration runs reads as an unassigned field does, where JavaScript
+throws `ReferenceError`: a known gap.
 
-- `let`/`const` (no `var`), destructuring with defaults and rest, in
-  declarations, parameters, `for…of` and assignments.
-- `if`, `while`, `do…while`, `for`, `for…of` (arrays, strings by code point,
-  `Map`, `Set`, records, `Uint8Array`), `for…in` (records, arrays),
-  `switch` with fallthrough, labels with `break`/`continue`,
-  `try`/`catch`/`finally` (including `return`/`break` inside `try`), `throw`.
-- `using` declarations: the value's `[Symbol.dispose]()` runs however the
-  block is left, in reverse order of declaration; `null` and `undefined` are
-  skipped. A disposal that throws while an error is pending throws a
-  `SuppressedError`. Classes define `[Symbol.dispose]()`, the one
-  symbol-keyed member they can have; JavaScript does not see it, so a class
-  JavaScript should close has a `close()` too. A debug build counts the
-  instances JavaScript collected with something still open, a native
-  buffer or a native extension's handle, which their release closed
-  (`host.releasedOpen` in `__lucentDebug.snapshot()`). Not supported: `await using`, and
-  `using` directly in a `case` clause (wrap the clause in a block). The
-  editor needs `esnext.disposable` (or `esnext`) in tsconfig's `lib`: Expo's
-  base config has it, React Native's does not.
-- All arithmetic, comparison, bitwise, logical (`&&`, `||` and `??` return the
-  operand like JS), and assignment operators, including `??=`, `||=`, `&&=`.
-  `===` and `!==` compare arrays, maps, sets, records, `Uint8Array`s,
-  promises and class instances by reference, as in JavaScript; tuples are
-  values and compare element by element. Functions cannot be compared
-  (`LUCENT1002`): not with `===`, not by `indexOf`, `lastIndexOf` or
-  `includes`, not as `Map` keys or `Set` elements (`LUCENT2002`), and not
-  by a generic that compares a type parameter set to a function type.
-- bigint literals (`123n`, `0xffn`, `1_000n`) and every operator on bigints
-  but `>>>`, which JavaScript and TypeScript reject: `/` truncates, `%`
-  takes the dividend's sign, `**` and shifts at any size, `<` and the other
-  relational operators between a bigint and a number compare exact values.
-  A `bigint | number` (a constant group's number or a 64-bit value) takes
-  `<` and the other relational operators, unary `-` and `~`, and `++`/`--`
-  on the kind of value it holds, as in JavaScript.
-  Dividing by `0n`, a negative exponent, and a result beyond 2^30 bits throw
-  `RangeError`.
-- Loose `==` and `!=` between values of one kind, and between `null` or
-  `undefined` and anything. Where JavaScript would convert first (a
-  number, string, boolean or bigint against another of them, or an object
-  against a primitive: `1 == "1"`, `true == 1`, `[1] == 1`) it is rejected
-  with `LUCENT1002`, in generics too once instantiated; compare after
-  converting, with `===`.
-- Optional chaining `a?.b`, `a?.[i]`, `a?.m()`, `f?.()`, and non-null `x!`
-  (checked), also as an assignment target: `xs[i]! += 1`.
-- Template literals, spread in calls, object literals and arrays (any
-  iterable: `[...map]`, `[...set]`, `[...text]`, `[...generator()]`). An
-  object literal of an object type spreads objects, and skips an optional
-  field the object leaves unset, so `{ ...defaults, ...overrides }` keeps
-  the defaults that are not overridden; a record literal spreads records
-  of its value type. Spreading `undefined` or `null` adds nothing.
-  Spreading an object into a record is refused (`LUCENT1001`): an
-  object's fields have no key order nor a record of which optional ones
-  are set.
-- `typeof`, `instanceof` (classes, `Error` kinds, `Array`, `Map`, …), `in`
-  on records, including the keys every object inherits (`"toString" in r`).
-  `in` on a union is refused: tell its members apart by a discriminant.
-- A member every object type or class of a union declares (a field, an
-  accessor, a method) is read or called on the union's value, as
-  JavaScript does: `(a as Disk | Remote).describe(x)` calls the one the
-  value is, its arguments evaluated once.
-- Rest parameters (`...xs: T[]`) on function declarations, methods and
-  constructors, exported ones too: `new File(dir, "a.txt")` from
-  JavaScript gathers its arguments as JavaScript does. Such a function
-  is called, not used as a value, and a function type has no rest
-  parameter (`LUCENT2002`).
-- Arrow functions and function expressions, nested function declarations
-  (hoisted), recursion. Closures share variables with their enclosing scope,
-  and `let` loop variables get a fresh binding per iteration.
-- `async`/`await`, `Promise.all`, `Promise.resolve`/`reject`,
-  `Promise.withResolvers()` (whose `resolve` takes a value and `reject` an
-  `Error`, as a `new Promise` executor's do), `delay(ms, signal?)`.
-- Regular expressions: literals and `new RegExp(pattern, flags)` with every
-  ECMAScript feature and flag (`dgimsuvy`: lookbehind, named groups, Unicode
-  property escapes, sets); `exec`, `test`, `lastIndex`; and `match`,
-  `matchAll`, `search`, `replace`, `replaceAll` (with `$` patterns or a
-  callback) and `split`. A replacement callback that takes capture parameters
-  needs a literal pattern; a capture parameter typed `string` throws
-  `TypeError` if its group did not participate (type it `string | undefined`).
-- Generators (`function*`, generator methods and function expressions) with
-  `yield`, `yield*` and `return;`, lazy like JavaScript's; `for…of`, spread,
-  `Array.from` and `Iterable<T>` parameters over generators, arrays, sets,
-  maps, strings and `Uint8Array`. Leaving a `for…of` early runs the
-  generator's `finally` blocks. Not supported: the value of `yield`
-  (`next(x)`), returning a value from a generator, async generators.
-- `JSON.parse(text) as T` (or into an annotated variable) builds a typed value:
-  plain data only (numbers, strings, booleans, `null`, arrays, tuples,
-  records, object types, and unions that JSON kinds or a string-literal
-  discriminant can tell apart). Revivers are not supported.
-- Cancellation: `AbortSignal` (`aborted`, `throwIfAborted()`,
-  `addEventListener("abort", listener)`) and `new AbortController()`
-  (`signal`, `abort(error?)`). `delay(ms, signal)` rejects with the abort
-  reason. `signal.reason` is untyped and not available; catch the error instead.
+`if`, the loops, `switch` with fallthrough, labels,
+`try`/`catch`/`finally` (with `return` and `break` inside) and `throw`
+work. `for (let …)` gives each iteration its own binding, even when the
+body assigns it. `for…of` iterates arrays, strings, maps, sets, byte
+views, generators and `Iterable<T>`; `for…in` iterates records and arrays.
+`for await` is `LUCENT1009` ([T106](tasks.md#t106)). `debugger`, tagged
+templates (`String.raw`), `new.target`, `arguments` and `this` outside
+class members are `LUCENT1001`.
 
-Evaluation order is JavaScript's (left to right), even where C++ would leave it
-unspecified. An assignment evaluates its target's object and key once, first;
-a compound assignment (`x += f()`) then reads the target before the right side
-runs, so a right side that changes the target does not change what is read.
+Every operator works, `??=`, `||=` and `&&=` included. Optional chaining
+works in every form, and as an assignment target with `!`
+(`xs[i]! += 1`). `===` compares arrays, maps, sets, records, promises and
+instances by reference, tuples by value, and byte views by buffer and
+range (`bytes.h`).
+
+Functions can't be compared, by `===`, `indexOf`, `includes` or as keys
+(`LUCENT1002`, `LUCENT2002`): a named function is a new value at each
+use. Loose `==` works between values of one kind and against `null` or
+`undefined`; where JavaScript converts first (`1 == "1"`) it is
+`LUCENT1002`, in generics too.
+
+Spread works into built-ins that take any number of arguments
+(`push(...xs)`, `Math.min(...xs)`) and into array literals from any
+iterable, and into a function's rest parameter. Into fixed parameters,
+or from a tuple, it is `LUCENT1007` ([T106](tasks.md#t106)). An object literal spreads objects, skipping
+optional fields left unset, so `{ ...defaults, ...overrides }` keeps the
+defaults; `undefined` and `null` spread as nothing. A record literal
+spreads records only (`LUCENT1001`).
+
+**Evaluation order** is JavaScript's, left to right, even where C++
+leaves it unspecified: the IR orders a plan's operands in source order
+(`operands` in `ir/lower.ts`). An assignment evaluates its target's
+object and key once, first. A compound assignment reads the target before
+the right side runs, and a right side that throws stores nothing.
+
+## Functions, errors and `using`
+
+Declarations (hoisted, nested ones too), arrows, function expressions,
+recursion, default and rest parameters work. A closure shares variables
+with its scope: a captured variable that changes is boxed (`Box` in
+`core.h`), and a coroutine frame owns its captures. A function with a rest
+parameter is called, not passed, and a function type has no rest
+parameter (`LUCENT2002`). Overloads (`LUCENT3002`), `call`, `apply` and
+`bind` (`LUCENT1003`) and functions with properties (`LUCENT2002`) are
+refused.
+
+Only errors are thrown: `Error`, `TypeError`, `RangeError`, `SyntaxError`
+and classes extending `Error` (`LUCENT1006` otherwise). An error's `name`
+is its constructor's, unless a class sets its own. `error(code, message)`
+from `lucent:core` makes an `Error` with a `code`, which `errorCode(e)`
+reads. A caught value is `unknown`: narrow it with `instanceof` or
+`as Error`.
+
+In Lucent code `e.stack` is `undefined` unless the error came from
+JavaScript: native code records the site that made an error, not a stack.
+`new Error(message, { cause })` is `LUCENT1003` ([T106](tasks.md#t106)),
+and `AggregateError` `LUCENT2002` ([T103](tasks.md#t103)). The runtime
+throws `TypeError`, `RangeError` and `SyntaxError` where JavaScript
+would, and `Error`s named `AbortError`, `InvalidStateError`,
+`DataCloneError` and `QuotaExceededError` for the web's exceptions.
+
+`using` runs its value's `[Symbol.dispose]()` however the block is left,
+in reverse order, skipping `null` and `undefined`. A disposal that throws
+while an error is pending throws a `SuppressedError` of both. `await
+using`, and `using` directly in a `case` clause, are `LUCENT1001`. The
+editor needs `esnext.disposable` (or `esnext`) in tsconfig's `lib`, which
+Expo's base config has and React Native's lacks.
+
+## Generators and iterables
+
+Generator functions, methods and expressions work with `yield`, `yield*`
+and `return;`, lazily: a body runs on the first `next()`. `for…of`,
+spread and `Array.from` take generators, arrays, sets, maps, strings,
+byte views and `Iterable<T>` parameters. Leaving a `for…of` early runs
+the generator's `finally` blocks.
+
+The value of `yield` and returning a value are `LUCENT1001`, an
+iterator's `throw()` `LUCENT1003`, and async generators `LUCENT2002`
+([T106](tasks.md#t106) lifts these). A class can't define `[Symbol.iterator]`: write
+a generator method. Generators don't cross to JavaScript (`LUCENT2006`).
+
+## Async functions and microtasks
+
+An `async` function is a C++20 coroutine returning `lucent::Promise<T>`
+(`async.h`), and its body starts at once. An `await` of a promise
+suspends, and the coroutine resumes from the microtask queue of the
+context it started on, never inline. A promise belongs to the context
+that made it, and a settlement from another thread is posted there.
+
+An async function without an `await` allocates no frame and settles
+before it returns (`eagerAsync` in `ir/cpp.ts`); what awaits it still
+resumes later. A context's turn runs one job, then its microtasks
+(`execution.h`), and `Promise.all` observes every input at once.
+
+**Known gaps in the microtask order.** Two forms settle sooner than in
+JavaScript, which reorders interleaved async code
+([T103](tasks.md#t103)); `await delay(0)` yields meanwhile.
+
+- `await` of a value that isn't a promise (`await 0`) doesn't suspend
+  (`awaited` in `ir/lower.ts`); JavaScript waits one microtask.
+- `return p` of a promise is lowered as `return await p`. When `p` has
+  already settled, JavaScript settles one microtask later than that.
+
+`new Promise(executor)` runs the executor at once; `resolve` takes a value
+and `reject` an `Error`, and `resolve(promise)` is `LUCENT2002`.
+`Promise.resolve`, `reject`, `all` (an array of one type, or a tuple) and
+`withResolvers` work. `then`, `catch`, `finally`, `race` and `any` are
+`LUCENT1003`, and `allSettled` fails on its result type (`LUCENT2002`)
+([T103](tasks.md#t103)). Awaiting an optional promise is `LUCENT1001`.
+
+There are no timers ([T104](tasks.md#t104)): `delay(ms, signal?)` waits
+on the calling context. `await` of an SDK object is `LUCENT1010`, since
+Lucent never picks a completion API by a class's name.
+`fromCallback(register, signal?)` adapts a listener into a promise, and
+`subscribe(register, onValue, signal?)` into a stream. Neither knows the
+API: `register` starts listening at once and may return the cleanup that
+stops it.
+
+- The first of the callbacks (`resolve` or `reject`; `end`, `fail` or a
+  throwing `onValue` for a subscription) and the signal's abort settles
+  it. Later callbacks do nothing. An abort rejects `fromCallback`'s
+  promise with its reason, and resolves a subscription's.
+- The cleanup runs exactly once, inside the call that settles and before
+  any continuation, or right after `register` returns if it settled
+  during registration. A cleanup that throws is reported as uncaught.
+- A throw from `register` rejects the promise, unless it had settled. An
+  already-aborted signal settles it, and `register` isn't called.
+- The callbacks may come from any thread. They take effect on the thread
+  that called `fromCallback` or `subscribe`, in the order they came.
+
+**Cancellation.** `AbortSignal` has `aborted`, `throwIfAborted()` and
+`addEventListener("abort", f)`; `AbortController` has `signal` and
+`abort(reason?)`, whose reason is an `Error` in Lucent (`LUCENT1003`).
+`signal.reason` has no type: reading it gives `LUCENT2001`, or
+`LUCENT1003` inside an expression. Catch the error instead.
+`abort()` without a reason gives `AbortError: signal is aborted without
+reason`, as React Native and browsers do. A non-object reason from
+JavaScript becomes an `Error` with `String(reason)` as its message.
 
 ## Built-ins
 
-- **Math**: every function and constant.
-- **BigInt**: `BigInt(x)` of a number (`RangeError` unless an integer), a
-  string (`SyntaxError`, which `instanceof SyntaxError` recognizes, unless
-  an integer literal), a boolean or a bigint, or a union of them
-  (`bigint | number`);
-  `BigInt.asIntN`, `BigInt.asUintN`; `toString(radix)`, `valueOf`.
-  `Number(x)` rounds to the nearest double (ties to even), also of a union
-  with numbers, strings, booleans and absent values (`Number(undefined)` is
-  `NaN`, `Number(null)` is `0`); `String(x)` and template
-  literals print the decimal digits. `JSON.stringify` of a bigint throws
-  `TypeError`, as in JavaScript, and `JSON.parse` cannot create one.
-- **Number**: `isInteger`, `isSafeInteger`, `isFinite`, `isNaN`, `parseInt`,
-  `parseFloat`, and the constants; `toString(radix)`, `toFixed`, `toPrecision`,
-  `toExponential`. Globals `parseInt`, `parseFloat`, `isNaN`, `isFinite`,
-  `String()`, `Number()`, `Boolean()`.
-- **String**: `length`, `charAt`, `charCodeAt`, `codePointAt`, `at`, `indexOf`,
-  `lastIndexOf`, `includes`, `startsWith`, `endsWith`, `slice`, `substring`,
-  `substr`, `toUpperCase`/`toLowerCase`, `trim*`, `padStart`/`padEnd`, `repeat`,
-  `replace`/`replaceAll` (string patterns, with `$` patterns), `split`
-  (string separators), `concat`, `localeCompare`, `isWellFormed` and
-  `toWellFormed` (each lone surrogate becomes U+FFFD);
-  `String.fromCharCode`, `String.fromCodePoint`.
-- **Array**: `length` (read/write), `push`, `pop`, `shift`, `unshift`, `slice`,
-  `splice`, `concat`, `join`, `indexOf`, `lastIndexOf`, `includes`, `find`,
-  `findIndex`, `findLast`, `findLastIndex`, `filter`, `map`, `flatMap`,
-  `forEach`, `some`, `every`, `reduce`, `reduceRight`, `sort` (stable;
-  default sort compares strings like JS), `reverse`, the copies
-  `toSorted`, `toReversed`, `toSpliced` and `with` (a `RangeError` for an
-  index outside the array), `fill`, `at`, `keys`, `values`,
-  `entries`; `Array.from` (iterables and `{ length }`), `Array.of`,
-  `Array.isArray` (by the value held; refused on an `Iterable`, which no
-  longer knows what made it), `new Array(n).fill(v)`. Lucent arrays have no
-  holes, which JavaScript's `forEach`, `map`, `indexOf` and `for…in` skip,
-  and filling them with `undefined` would show (`forEach` visits an
-  undefined element, `indexOf(undefined)` finds it). So the forms that make
-  holes are refused at compile time: `new Array(n)` unless a whole
-  `.fill(v)` follows it (preallocating and then assigning each index
-  included: write `Array.from({ length: n }, (_, i) => …)` or
-  `new Array(n).fill(v)`), and `Array.from({ length: n })` without a map
-  function unless the elements may be `undefined` (it makes undefined
-  values, not holes). Writing past the end (`a[i] = v` with `i > length`)
-  and growing `a.length` depend on runtime values, so they throw
-  `RangeError` whatever the element type (see the deviations below).
-- **Map / Set**: the full instance API; `new Map(entries)`, `new Set(iterable)`,
-  and `Map.groupBy(items, key)` over any iterable, keyed by SameValueZero
-  (a `-0` key is stored as `0`).
-- **ArrayBuffer**: `new ArrayBuffer(length)`, `byteLength` and `slice(start?,
-end?)`, which copies. `new Uint8Array(buffer, byteOffset?, length?)` views
-  a buffer's bytes, sharing them as JavaScript's views do, and a view's
-  `buffer` and `byteOffset` name what it views. Lengths and ranges are
-  checked as in JavaScript (`RangeError`). Not supported: resizable buffers
-  (`new ArrayBuffer(length, options)`, `resize`, `transfer`, `detached`),
-  `ArrayBuffer.isView`, `DataView` and `SharedArrayBuffer`; a `Uint8Array`'s
-  `buffer` (typed `ArrayBufferLike`) is an `ArrayBuffer`.
-- **Object**: `keys`, `values`, `entries` (records), `fromEntries`, and
-  `Object.groupBy(items, key)` over any iterable, which makes a record of
-  arrays listed as an object lists its keys; with a key function returning
-  literals, it makes the object type TypeScript gives it, one optional
-  field per key, whose keys follow the type's order (see the deviations).
-  Object
-  types refuse `Object.keys`, `values`, `entries`, `for…in` and `in` (even
-  on a required field): their native layout records neither which optional
-  fields are set nor the order JavaScript made them in, both of which
-  JavaScript shows.
-- **JSON.stringify** of any Lucent value (no replacer or indent). A class
-  instance writes every field JavaScript creates on it, `private` and
-  `protected` ones too (TypeScript visibility does not change serialization):
-  base class fields first, parameter properties before declared fields, never
-  `#` fields, statics or accessors; through a base-typed value it writes as
-  its own class, generic classes included. A `toJSON()` method's value
-  replaces the fields, and so does a `toJSON` function property without
-  parameters on an object or a class (a class field shadows a base class's
-  `toJSON` method, as an own property does); that value's own `toJSON` is
-  not called again. When it is `undefined` or a function, an object omits
-  the property and an array writes `null`. A `toJSON` method that declares
-  parameters (JavaScript passes it the key) is refused (`LUCENT1005`), and
-  so is a class's `toJSON` field that declares them, may be absent or is
-  `async`; an object's `toJSON` function property that declares them is
-  written as a function (omitted), not called.
-- **Strings**: `toUpperCase`/`toLowerCase` use the full Unicode case mappings
-  of the root locale (including the final sigma rule), from tables generated by
-  `scripts/gen-unicode.ts`. `localeCompare`, `toLocaleUpperCase` and
-  `toLocaleLowerCase` use the platform for the device's locale, like Hermes
-  (CoreFoundation on iOS; `java.text.Collator` and `java.lang.String` on
-  Android), so `"i".toLocaleUpperCase()` is `"İ"` on a Turkish device. Their
-  `locales` and `options` arguments are not supported (Lucent has no `Intl`
-  locale data) and give a diagnostic.
-- **console.log / info / debug / warn / error**: written to os_log (iOS) or logcat (Android).
-  A bigint argument prints with its `n` (`1n`), as JavaScript consoles print it.
-- **Date**: `new Date(…)`, `Date.now()`, `Date.parse`, `Date.UTC`, `get…`/`set…` in local time and UTC, `getTimezoneOffset`, `toISOString`, `toString`, `toDateString`, `toTimeString`, `toUTCString`; not the `toLocale…` methods.
-- **lucent:core**: `delay`, `error(code, message)`, `errorCode(e)`,
-  `utf8Encode`, `utf8Decode`, `now()`, `fromCallback(register, signal?)`,
-  `subscribe(register, onValue, signal?)`, `onDestroy(hook)`, `EventEmitter`,
-  `NativeBuffer`, `NativeHandle`, `Channel`.
-- **Module hooks**: a module's top-level code runs for each JavaScript
-  runtime (its create hook). `onDestroy(hook)` from `lucent:core` runs
-  `hook` when that state ends: before a reload initializes the module
-  again (with the old state still in place) or when the runtime goes; the
-  last registered runs first, and the function it returns removes the
-  hook. Run as JavaScript, module state never ends, so hooks never run.
-- **Events** (`EventEmitter<Events>` from `lucent:core`): `Events` names
-  each event and its listener's signature, which returns `void`.
-  `addListener(name, listener)` adds the event's last listener and returns
-  an `EventSubscription`, whose `remove()` removes it (once).
-  `emit(name, ...args)` calls the listeners the event has when the emit
-  starts, in the order they were added; one that throws ends the emit, and
-  the error reaches its caller. `listenerCount(name)` and
-  `removeAllListeners(name?)` read and clear them. In Lucent, an event's
-  name is a string literal type (`LUCENT1007` otherwise). The emitter
-  crosses to JavaScript as the same object each time, with the same
-  methods; a listener JavaScript adds is a JS callback (run at once on the
-  JS thread, posted from elsewhere) and belongs to its runtime, which a
-  reload ends: it is then removed, and not counted.
-  `onObserved(name, observer)` calls `observer(true)` when the event gets
-  its first listener, from Lucent or JavaScript, and `observer(false)`
-  when its last one goes (removed, cleared, or ended by a reload), in the
-  emitter's actor; at once with `true` when the event has listeners
-  already. Its subscription stops it. `removeAllListeners()` clears the
-  events in their declaration order, where the JavaScript implementation
-  of `lucent:core` (tests) goes in the order each was first used.
-- **Callback APIs** (a native listener, say) become promises with
-  `fromCallback`, which settles on what the API reports once, and
-  subscriptions with `subscribe`, which passes each value to `onValue` until
-  the subscription ends. Neither knows the API: `register` starts
-  listening, at once, and may return the cleanup that stops it.
-  - The first of the callbacks (`resolve`/`reject`; `end`/`fail`, or
-    `onValue` throwing, for a subscription) and the signal aborting settles
-    the promise. Later callbacks do nothing, `next` included. The signal
-    rejects `fromCallback`'s promise with its reason, and resolves a
-    subscription's: aborting is how its caller ends it.
-  - The cleanup runs exactly once, inside the call that settles, before any
-    continuation of the promise; or right after `register` returns, if it
-    settled during registration.
-  - A throw from `register` rejects the promise, unless it had settled. An
-    already aborted signal settles it as aborting does, and `register` is
-    not called.
-  - A cleanup that throws is reported as uncaught; the promise keeps its
-    outcome.
-  - The callbacks may be called from any thread: they take effect on the
-    thread `fromCallback` or `subscribe` was called on, in the order they
-    were called.
+Each built-in runs as native code and behaves as JavaScript defines it,
+or the compiler refuses it with `LUCENT1003`
+([decision 0045](decisions/0045-a-built-in-is-exact-or-refused.md)), as
+it refuses an argument Lucent can't honor, such as a locale.
+`emit/builtins.ts` is the inventory: a member it doesn't name is refused.
 
-- **Native buffers** (`NativeBuffer` from `lucent:core`) are bytes native
-  code owns, which move instead of being copied. A `Uint8Array` keeps its
-  copy semantics everywhere.
-  - `NativeBuffer.allocate(size)` (zeroed; a `RangeError` unless `size` is a
-    whole number from 0) and `NativeBuffer.from(bytes)` (a copy) make one;
-    `byteLength` is 0 once it is closed or transferred.
-  - The bytes are reached through a borrow for one call:
-    `withRead(read)` lends `read` a `ByteSpan`, `withWrite(write)` lends
-    `write` a `MutableByteSpan`, and each returns what its callback returns.
-    A span has `length`, `span[i]` (undefined out of range), and when
-    writable `span[i] = v` (wrapping to 0–255, ignored out of range),
-    `fill(value, start?, end?)` and `set(uint8Array, offset?)`. Reads
-    share the buffer; a write needs it to itself; a borrow, close or
-    transfer that conflicts with one in progress throws an
-    `InvalidStateError` (`NativeBuffer is borrowed`) at once.
-  - A span stays in its callback: returning it, storing it, capturing it in
-    a closure that outlives the call, passing it to code that keeps it, or
-    an `async` callback is refused (`LUCENT3030`). The callback is a
-    function literal or the name of a function, so the compiler can check it.
-  - `transfer()` moves the bytes, uncopied, to a new buffer; every reference
-    to the old one then throws `InvalidStateError` (`NativeBuffer was
-transferred`) on use, and closing it does nothing. Passing a buffer to
-    `compute`, alone or inside the input, moves it the same way (a borrowed
-    buffer does not move: the promise rejects), and a task's buffer comes
-    back as it is. A use the compiler can tell certainly follows a move is
-    refused (`LUCENT3031`); other aliases are refused at run time.
-  - `close()`, or `using`, releases the bytes; after that the buffer throws
-    `NativeBuffer is closed` on use. Closing twice does nothing.
-  - `transferToArrayBuffer()` moves the bytes into an `ArrayBuffer`, uncopied,
-    which releases them as the buffer would (on the buffer's executor, when
-    it has one) once nothing holds it; the buffer is then transferred, as
-    after `transfer()`. Returned to JavaScript, the `ArrayBuffer` is still
-    the same bytes.
-  - `toUint8Array()` and `from` are the only copies. `NativeBuffer.stats()`
-    counts allocations, transfers and copies (and the bytes copied) since
-    the app started, to check that a path does not copy.
-  - `handle()` gives a `NativeHandle` of the bytes' address, for native
-    code that takes one (a library JavaScript hands the `pointer` to). It
-    borrows the bytes for read until it is released: reads go on, while
-    writes, `transfer()` and `close()` throw `InvalidStateError`. An empty
-    buffer has no address (`RangeError`), and a closed or transferred one
-    refuses as a read does.
+| Built-in      | Supported                                                                                     |
+| ------------- | --------------------------------------------------------------------------------------------- |
+| `Math`        | every function and constant                                                                   |
+| `Number`      | `isInteger`, `isSafeInteger`, `isFinite`, `isNaN`, `parseInt`, `parseFloat`, constants        |
+| numbers       | `toString(radix)`, `toFixed`, `toPrecision`, `toExponential`, `valueOf`                       |
+| globals       | `parseInt`, `parseFloat`, `isNaN`, `isFinite`, `String`, `Number`, `Boolean`, `BigInt`        |
+| `BigInt`      | `asIntN`, `asUintN`; `toString(radix)`, `valueOf`                                             |
+| `String`      | `fromCharCode`, `fromCodePoint`; every method but `normalize` and the HTML ones (`anchor`)    |
+| `Array`       | `from` (an iterable or `{ length }`), `of`, `isArray`                                         |
+| arrays        | every method but `flat`, `copyWithin` and `toLocaleString`; `unshift` takes one item          |
+| `Map`         | every method; `Map.groupBy`                                                                   |
+| `Set`         | every method but `entries`                                                                    |
+| `Object`      | `keys`, `values`, `entries` (records), `fromEntries`, `groupBy`                               |
+| `Uint8Array`  | `subarray`, `slice`, `fill`, `indexOf`, `includes`, `set`, `forEach`, `map`, `reduce`, `join` |
+| `ArrayBuffer` | `new ArrayBuffer(length)`, `byteLength`, `slice` (a copy)                                     |
+| `Date`        | `now`, `parse`, `UTC`; the `get…`, `set…` and `to…String` methods but `toLocale…`             |
+| `JSON`        | `parse` into a type; `stringify` of one value                                                 |
+| `Promise`     | `resolve`, `reject`, `all`, `withResolvers`                                                   |
+| `console`     | `log`, `info`, `debug`, `warn`, `error`                                                       |
 
-- **Native handles** (`NativeHandle` from `lucent:core`) are an address
-  held valid until released, as VisionCamera's `NativeBuffer` gives Skia
-  one. `pointer` is the address as a bigint (`0n` once released),
-  `released` says whether it was, and `release()` releases it once, from
-  Lucent or JavaScript, on any thread (true the first time). One whose
-  last reference goes unreleased is released then; a debug build counts
-  those JavaScript collected (`host.releasedOpen`). A handle does not
-  cross to a compute task or a channel (`LUCENT3012`).
+`BigInt(x)` takes a number (`RangeError` unless an integer), a string
+(`SyntaxError` unless an integer literal), a boolean or a bigint.
+`Number(x)` of a bigint rounds to the nearest double, ties to even.
+`console` writes a line to the unified log (prefix `[Lucent]`) or logcat
+(tag `Lucent`): an object prints as `String(obj)`, a bigint with its `n`.
 
-- **Channels** (`Channel<T>` from `lucent:core`) carry values from a
-  producer to a consumer that may run on another thread, such as a compute
-  task sending results as it goes.
-  - `new Channel<T>(policy, capacity?)`: what a send into a full channel
-    does is its policy. `"lossless"` refuses it (`send` returns `false`),
-    `"latest"` keeps one value and replaces it, `"drop"` drops the oldest.
-    The capacity is a whole number from 1, 16 by default; a latest
-    channel's is 1 (a `RangeError` otherwise).
-  - `send(value)` never waits. It sends a copy, made as a compute task's
-    input is (a `NativeBuffer` moves), so the element type is data
-    (`LUCENT3012` otherwise); refused, it copies and moves nothing. A
-    value the policy drops, or that is never received, is released: a
-    `NativeBuffer` is closed.
-  - `receive()` is a promise of the next value, settled on the context
-    that asked: at once if one waits, else when one is sent. Once the
-    channel is closed and drained, it is `undefined`. A compute task
-    cannot receive (`LUCENT3011`).
-  - `subscribe(onValue)` calls `onValue` with each value as it comes, one at
-    a time, on the context that subscribed: the next is received once it
-    returns, so the policy still decides what waits. It ends when the
-    channel is closed and drained, or with `remove()` on what it returns,
-    after which values wait for the next receive; what `onValue` throws is
-    reported and the next value comes.
-  - `close()` refuses sends from then on, and says whether it closed it;
-    `closed` reads it. A channel module code makes ends with its
-    JavaScript runtime (a reload), releasing what was never received.
-  - `stats()` counts what it took, received, dropped and refused, the
-    values waiting (`depth`) and the most that ever waited.
-  - A channel crosses to a compute task as itself, so both ends share it,
-    but not to JavaScript (`LUCENT2006`). Lucent has no `for await`:
-    receive in a loop until `undefined`, or subscribe.
+`toUpperCase` and `toLowerCase` use the root locale's full Unicode
+mappings (`scripts/gen-unicode.ts`). `localeCompare`,
+`toLocaleUpperCase` and `toLocaleLowerCase` use the device's locale as
+Hermes does: CoreFoundation on iOS,
+`java.text.Collator` and `java.lang.String` on Android. Their `locales`
+and `options` arguments, and `normalize()`, are refused: Lucent has no
+`Intl` data or normalization tables.
 
-Modules are checked against the ES2024 library. Its typed-array copies
-(`Uint8Array`'s `toSorted`, `toReversed`, `with`, `findLast`,
-`findLastIndex`) and resizable buffers are refused, and later members
-(`Array.fromAsync`, `Set`'s set methods) are TypeScript errors.
+`sort` is stable, and compares strings without a comparator. `keys()`,
+`values()` and `entries()` of arrays, maps and sets return arrays of the
+contents at the call, where JavaScript returns live iterators. A
+`Uint8Array` also has `length`, `byteLength`, `byteOffset` and `buffer`,
+and its `reduce` needs an initial value. Its other methods are refused
+(`LUCENT1003`), `ArrayBuffer.isView` gives `LUCENT1001`, and resizable
+buffers are refused; [T100](tasks.md#t100) adds the methods with the other
+typed arrays. `flat` and `copyWithin` are [T106](tasks.md#t106).
 
-- **WeakRef**: `new WeakRef(target)` of a class instance, an interface
-  value or an object, and `deref()`. Reference counting frees the target
-  with its last strong reference, so `deref()` gives `undefined` from then
-  on, and a cycle through a WeakRef frees. A WeakRef does not cross the
-  boundary.
-- **WeakMap and WeakSet**: keyed by the objects a WeakRef holds (class
-  instances, interface values, objects), by identity: `new WeakMap()` and
-  `new WeakSet()` (empty), `get`, `set`, `has`, `delete` and `add`, with
-  `set` and `add` returning the collection. An entry goes, its value with
-  it, with its key's last strong reference, at once (the key's destructor
-  drops it). No iteration and no `size`, as in JavaScript; neither
-  crosses the boundary, and both belong to the context that made them,
-  as their keys do. A value that holds its own key keeps it: reference
-  counting cannot see that only the entry reaches the key.
-- **FinalizationRegistry**: `new FinalizationRegistry(cleanup)`,
-  `register(target, held, token?)` of the objects a WeakRef holds, and
-  `unregister(token)`, which says whether it removed any. Once a target's
-  last strong reference goes, its registrations' cleanups run with their
-  held values, one each, as jobs of the context that made the registry,
-  after the turn that freed the target; a registration a token removed,
-  or one of a registry gone first, never runs. A target that is its own
-  held value is a `TypeError`. What a cleanup throws is reported. It does
-  not cross the boundary.
+**Regular expressions** take every ECMAScript feature and flag
+(`dgimsuvy`), compiled by QuickJS's libregexp, with `lastIndex`, `match`,
+`replace` and `split` as specified (`regexp.h`). A replacement function
+needs a `RegExp` pattern, and one with capture parameters a literal one.
+A capture typed `string` throws `TypeError` if its group didn't
+participate, and a pattern nested past the stack throws `SyntaxError`.
 
-Not supported: `Intl`, `Symbol`, `Proxy`, `eval`, and
-`String.prototype.normalize` (the runtime has no Unicode normalization
-tables: normalize the string in JavaScript before passing it). Each gives
-a diagnostic.
+**JSON.** `JSON.parse(text) as T` builds a `T` of plain data: numbers,
+strings, booleans, `null`, arrays, tuples, records, object types, and
+unions that JSON kinds or a string-literal discriminant tell apart. A
+mismatch throws `TypeError` naming the path (`expected a number at
+.items[2].price, got a string`); revivers and class targets are refused.
+
+`JSON.stringify` takes no replacer or indent ([T106](tasks.md#t106)), and
+throws `TypeError` on a bigint. A class instance writes every field
+JavaScript creates on it, `private` ones too, base fields first, never `#`
+fields, statics or accessors. A `toJSON()` method's value replaces the
+fields; one with parameters, or `async`, is `LUCENT1005`.
+
+**Dates** take local time from the C library's time zone database, and
+`toString()` has no zone name, as in Hermes:
+`Mon Jul 22 2019 15:51:50 GMT-0700`. Not available yet: `TextEncoder`,
+`TextDecoder`, `atob`, `btoa`, `URL` and `crypto` ([T105](tasks.md#t105)).
+Not planned: `Symbol()`, `Proxy`, `Reflect`, `eval`, `new Function`, `Intl`.
+
+## Modules
+
+A module imports the app's other `*.lucent.ts` files, modules of the
+Lucent packages the app depends on, and `lucent:` modules: `lucent:core`,
+`lucent:thread`, `lucent:platform`, `lucent:ui` and the SDKs. A value
+import from anything else is `LUCENT3001`, but `import type` works from
+anywhere. A namespace import reads the module's exports, and isn't a
+value itself (`LUCENT1001`).
+
+A module's name is its file name without directory, platform suffix and
+`.lucent.ts` (in a package, its path under the sources), unique in the
+app (`LUCENT3010`). Export lists, re-exports and default exports are
+`LUCENT3003`: JavaScript would see `export default function f` as
+`default`. JavaScript sees exported functions, classes, enums (as frozen
+objects), constants, `let`s and emitters.
+
+An exported `let` is a live binding, as in an ES module
+([decision 0041](decisions/0041-an-exported-let-is-a-live-binding.md)).
+A variable holding an object, array, map, set, record, tuple or byte view
+reaches JavaScript as a copy, one per value assigned, so
+`mod.config === mod.config`. Changes inside that value don't reach
+JavaScript: assign a new value, or export a function that returns it.
+
+The top level holds declarations only (`LUCENT3002`), which initialize in
+source order, a class's statics where it is declared. A module's top
+level is its create hook. It runs when a JavaScript runtime installs
+Lucent while no other runtime is live, and again at a reload whose old
+runtime is gone; a runtime that installs beside a live one shares the
+state. `onDestroy(hook)` from `lucent:core` runs
+before a reload or when the runtime goes, last registered first. Module
+code can't run without a JavaScript runtime yet ([T130](tasks.md#t130)).
+
+## Platform code
+
+A shared module imports both platforms' SDKs (`lucent:ios/*`,
+`lucent:android/*`) and branches on `PLATFORM` from `lucent:platform`:
+`if (PLATFORM === "ios") { … } else { … }`, or `?:`. Each platform
+compiles its own branch, and the top-level declarations that use its SDK.
+An SDK used outside its platform's code is `LUCENT3004`. This is the
+standard way to write platform code.
+
+The alternative, for halves that share nothing, is
+`<name>.ios.lucent.ts` and `<name>.android.lucent.ts` implementing what
+`<name>.lucent.ts` declares (`LUCENT3005` when they differ). The
+declaration file holds declarations, types, imports and shared constants
+and enums, but no class yet ([T106](tasks.md#t106)). The rules are in
+[platform-bindings.md](platform-bindings.md); a web platform is
+[T144](tasks.md#t144).
+
+The compiler checks what TypeScript can't: a main-thread-only API outside
+`main(() => …)` (`LUCENT3006`), and an API newer than the app's oldest OS
+without `available()` or an `SDK_INT` check (`LUCENT3007`). It warns for
+an Android constant outside its group (`LUCENT3008`), a `@WorkerThread`
+call on the main thread (`LUCENT3009`), and a misspelled delegate method
+(`LUCENT3013`).
+
+**Native integers.** Java's `long`, Kotlin's `Long`, `int64_t`,
+`uint64_t`, `NSInteger`, `NSUInteger` and Swift's `Int`, `Int64` and
+`UInt64` are `bigint`s ([decision 0008](decisions/0008-every-native-64-bit-integer-is-a-bigint.md)):
+`list.count` is `3n`. Every value read is exact, `NSNotFound` and
+`Long.MAX_VALUE` included, and a bigint passed in that doesn't fit throws
+`RangeError` naming the parameter or field.
+
+A method's or function's own 64-bit parameter also takes a safe-integer
+number, not negative for an unsigned one; another number throws
+`RangeError` (`ms of Thread.sleep: 1.5 is not a safe integer`,
+[decision 0070](decisions/0070-64-bit-parameters-take-safe-integer-numbers.md)).
+Enums, option sets and `@IntDef` or `@LongDef` groups stay numbers. A
+number passed as a narrower integer converts as WebIDL's default
+conversion does (`number.h`): NaN and infinities become 0, and the rest
+truncates and wraps.
+
+**Native errors.** An error a platform call throws is an `Error` whose
+`code` names it: `"NSCocoaErrorDomain:260"`, or a Java exception's class
+name. `nativeError(e)` from `lucent:ios` or `lucent:android` gives back
+the native error, and `errorOf(throwable)` makes one from a callback's
+`Throwable` ([decision 0069](decisions/0069-native-errors-stay-errors-with-their-source-kept.md)).
+Platform objects compare by identity and stay in Lucent (`LUCENT2006`),
+as typed C extensions' handles (`lucent:ext/…`) do; C++ headers and
+extension callbacks are [T142](tasks.md#t142).
 
 ## Crossing the JavaScript boundary
 
-Only exported functions, classes and constants are visible from JavaScript.
-An exported class shows JavaScript its constructor, instance members and
-static methods; its static fields stay inside Lucent.
+`lucent_bindings.cpp` (`emit/bindings.ts`) gives each type that crosses a
+`Convert` from `runtime/cpp/lucent/jsi/convert.h`. Conversions run on the
+JS thread, holding the module's actor.
 
-- **Arguments are validated**, because JavaScript callers can pass anything:
-  `hash: argument 'input' must be a string, got a number`, or for nested values
-  `midpoint: argument 'a'.y must be a number, got undefined`. A synchronous
-  export throws the `TypeError`; an async export (function or method)
-  returns a promise rejected with it, as an async function's throw does. The path is
-  rendered only when a check fails: checking a value allocates nothing for it.
-- **`null` and `undefined` are told apart** where TypeScript does: an
-  argument, a setter's value or an object's field typed `T | undefined` (or
-  `x?: T`) rejects `null`, and one typed `T | null` rejects `undefined`
-  (`label: argument 'name' must be a string or undefined, got null`). Inside
-  an array, a map, a set, a record, a tuple, a callback's result or a
-  promise's value, either absent value is accepted, as the converter there
-  is shared by every optional of that type; so is a field of two object
-  types that differ only in the absent value it admits (`{ v: string |
-null }` and `{ v: string | undefined }` share one native layout). A body
-  that reads the one its type excludes throws `TypeError` when it uses the
-  value.
-- **Values are copied:** arrays, records, maps, sets, tuples, plain objects,
-  `Uint8Array`s and `ArrayBuffer`s cross the boundary as copies. If native code mutates an array it received,
-  the caller's array is unchanged. An `ArrayBuffer`, or a `Uint8Array`
-  viewing the whole of its buffer, that a function returns and nothing
-  else holds (no variable, field or other view) moves instead: its copy
-  would be the only one, so JavaScript gets the same bytes, including bytes
-  adopted from native code, and no one can tell. A synchronous export
-  that only reads a `Uint8Array` or `ArrayBuffer` argument reads
-  JavaScript's own bytes instead, while it runs (a view's bytes, for part
-  of a buffer): its length, elements, read-only methods (`indexOf`,
-  `join`, `slice`…), iteration, spreads, views and copies of it, and
-  passing it to an SDK call, whose binding copies it. So, as in
-  JavaScript, a write JavaScript makes during the call (in a callback)
-  shows. Bytes a function writes, keeps, returns, captures or passes to
-  its own code are copied, as are an async function's and an optional
-  argument's. A plain object reaches JavaScript with
-  its fields in its type's order (see the deviations), without the
-  optional ones left unset.
-- **Class instances keep their identity.** The same native object always maps to
-  the same JS object, so `===` works. Instances live as long as either side
-  holds them.
-- **Exported classes** are constructors: JavaScript calls `new` on them and
-  tests `instanceof`. A class's static methods and fields, its own and those
-  its Lucent base classes declare, are on its constructor; a static field is
-  a property that reads and writes the native one, so the module sees
-  JavaScript's writes.
-- **Interface values** cross as their concrete class instance, and an object
-  literal standing for one as a plain object of its properties. From
-  JavaScript, only instances of Lucent classes that implement the interface
-  are accepted.
-- **Unions of object types** need a string-literal discriminant (for example
-  `kind: "circle"`) so incoming values can be told apart. A value whose
-  discriminant names no member fails with the values accepted:
-  `shape: argument 's'.kind must be "circle" or "square", got "triangle"`.
-- **bigints** cross exactly, as JavaScript bigints, at any size.
-- **Errors** become JS `Error` / `TypeError` / `RangeError` / `SyntaxError` objects with the same
-  `name`, `message` and `code`. Their `stack` starts with the Lucent frame
-  that created the error (`at parse (/abs/path/config.lucent.ts:12)`). JS
-  exceptions thrown by callbacks become Lucent errors that `catch` can handle,
-  and keep their original `stack` if they reach JavaScript again. An instance
-  of a class that extends `Error` crosses as itself, thrown, returned or made
-  with `new` in JavaScript: `instanceof` its class and `Error`, with its
-  fields, and `name`, `message` and `stack` as an Error's. A subclass that no
-  export's types reach (itself, or a base or subclass of a class that
-  crosses) has no prototype in JavaScript: its instances cross as copies,
-  an `Error` with their `name` and `message`.
-- **Callbacks** (`(x: number) => void` parameters):
-  - called while the JS thread is inside a synchronous call, they run
-    synchronously and may return values;
-  - called from async code, they are posted to the JS thread, so they must
-    return `void` or a `Promise` (which Lucent can `await`).
-- **Iterables** can be passed from JavaScript (a snapshot, taken with
-  `Array.from`); iterators and generators cannot be returned to JavaScript.
-- **JSValues** (`JSValue` from `lucent:core`) are JavaScript's values that
-  Lucent holds without looking inside: anything JavaScript passes where one
-  is declared, `undefined` and `null` included, kept in fields, records,
-  arrays, module variables and closures and handed back as the same value
-  (an object keeps its identity, a function stays callable). The runtime's
-  host holds the value until the last Lucent reference goes, releasing it
-  on the JS thread; one held across a reload is a `TypeError` when it goes
-  back. Lucent code cannot read one: comparing (`===`, `indexOf`),
-  converting (`String`, templates, `+`), testing or `typeof` one, writing
-  it as JSON and keying a `Map` or `Set` with it are refused
-  (`LUCENT1002`, `LUCENT1003`, `LUCENT2002`), as is handing it to a
-  compute task (`LUCENT3012`); where the compiler cannot see one (a class
-  written as JSON), the runtime throws `TypeError`. An optional one
-  (`JSValue | undefined`) is absent for JavaScript's `undefined` and `null`
-  alike, as `??` sees them; a plain `JSValue` holding `null` is present.
-- **AbortSignals** can be passed from JavaScript (for example to an exported
-  `async` function) and abort the native side as soon as JavaScript calls
-  `controller.abort()`. They cannot be returned to JavaScript, and an
-  `AbortController` cannot cross at all.
-- **NativeBuffers** cross as opaque handles that keep their identity, like
-  class instances, with the same `byteLength`, `withRead`, `withWrite`,
-  `toUint8Array`, `transfer`, `transferToArrayBuffer`, `handle` and
-  `close`. A **NativeHandle** crosses the same way, with `pointer` (a
-  bigint), `released` and `release()`; from JavaScript, only one that came
-  from Lucent is accepted. A
-  moved `ArrayBuffer` is the buffer's bytes, which no worker can reach
-  any more. JavaScript is never given memory
-  a worker may be writing: its borrows lend it a copy of the bytes (counted
-  by `stats()`), copied back when `withWrite`'s callback returns. So a
-  `Uint8Array` a JavaScript callback keeps does not follow the buffer, where
-  under the JavaScript implementation of `lucent:core` (tests) it is the
-  buffer's own bytes. Spans cannot cross (`LUCENT2006`).
-- **Generic functions and classes** cannot be exported; wrap them in a
-  concrete exported function.
-- **A union holding a type parameter** (`A | B`, `T | undefined`) keeps
-  its shape in every instantiation, since a generic compiles once, so a
-  type argument cannot merge into it (`LUCENT2002`): not an optional,
-  `null` or `undefined`, and in `A | B` not a union nor a type the union
-  already holds (`pick<number, number>`).
-- **Each instantiation of a generic class is a class of its own**
-  (`Box<number>` and `Box<number | undefined>`), where TypeScript lets
-  the first stand for the second. A `new` whose value becomes another
-  instantiation of its class (an array literal mixing `new Box(1)` and
-  `new Box<number | undefined>(u)`, an argument, a return, a field) builds
-  that instantiation, which JavaScript cannot tell apart; an existing
-  instance used as another instantiation is refused (`LUCENT2004`), since
-  a copy would not be the same object.
+| Kind                                                     | How it crosses                                           |
+| -------------------------------------------------------- | -------------------------------------------------------- |
+| numbers, strings, booleans, `undefined`, `null`, bigints | as values; bigints exactly, at any size                  |
+| arrays, tuples, records, maps, sets, plain objects       | copies, both ways                                        |
+| `Uint8Array`, `ArrayBuffer`                              | copies, but for the moves and loans below                |
+| `Date`; `RegExp`                                         | a copy of the time; a new `RegExp`, `lastIndex` lost     |
+| class instances, interface values                        | the same object each time                                |
+| an object literal for an interface                       | a plain object, a copy                                   |
+| functions; promises                                      | callbacks both ways; JS promises out, Lucent promises in |
+| `Iterable<T>` arguments                                  | a snapshot (`Array.from`), iterated lazily               |
+| `AbortSignal`                                            | into Lucent only: one native signal per JS signal        |
+| `EventEmitter`, `NativeBuffer`, `NativeHandle`           | the same opaque object each time                         |
+| `JSValue`                                                | JavaScript's value, handed back as itself                |
 
-## Concurrency model
+`LUCENT2006` refuses generators and iterators or an `AbortSignal` going
+out, `AbortController`, platform objects, extension handles, the weak
+types, `FinalizationRegistry`, `Channel`, byte spans, and match and
+iterator results. Generic classes and values are `LUCENT2007`, and object
+unions without a discriminant `LUCENT2005`.
 
-Lucent code runs **one piece at a time per package**, like JavaScript. Modules
-that import one another (a package, or an app's own modules) share an
-**actor**: a lock and a thread of their own. Every entry into a module holds
-its actor's lock: a synchronous call from the JS thread, a job on the actor's
-thread, or a platform callback.
+### Copies, moves and loans
 
-- A synchronous exported function runs on the JS thread.
-- An `async` exported function starts on its **actor's thread**, so heavy
-  work does not block the JS thread. Its awaits interleave with its actor's
-  other async work exactly as in JavaScript, and its result resolves on the JS
-  thread.
-- A module never races with itself, so there are no data races: modules on
-  different actors share no objects (only values JavaScript copies between
-  them).
-- Actors run in parallel: a long job in one package delays neither another
-  package nor the main thread.
+Arrays and objects copy at the boundary: JavaScript's objects belong to
+the JS thread, and Lucent runs on others. Inside Lucent they are shared.
+Each exception is explicit:
 
-Consequence: while a long async computation runs, synchronous calls from
-JavaScript into the **same package** wait for it to reach an `await`. Keep
-synchronous functions short, or make heavy ones `async`.
+- **Move out.** An `ArrayBuffer`, or a `Uint8Array` viewing all of one,
+  that a function returns and nothing else holds moves: JavaScript gets
+  the same bytes, adopted ones included. The copy would be the only one.
+- **Loan in.** A synchronous export that only reads a `Uint8Array` or
+  `ArrayBuffer` argument reads JavaScript's bytes in place while it runs,
+  so a write JavaScript makes meanwhile shows. Bytes a function writes,
+  keeps, returns, captures or passes on to its own code are copied, as
+  are an async function's and an optional argument's.
+- **`NativeBuffer`.** JavaScript never gets memory a worker may be
+  writing: its `withRead` and `withWrite` lend it a copy, copied back
+  after `withWrite`. `transferToArrayBuffer()` moves the bytes, uncopied.
 
-**The main thread never queues behind module jobs.** `main(f)`, `present()`
-and lifecycle listeners (`onAppEvent`, `onSceneEvent`) run on the main thread
-once their actor is free; until then the main thread goes on with other work.
-A platform callback that must answer now (a delegate method's result) waits
-only for the code holding the actor at that moment, ahead of every other
-waiting entry; a debug build logs when that wait passes 50 ms. While a
-synchronous Lucent function calls a JavaScript callback, the main thread may
-enter its actor, as that JavaScript could: so JavaScript that waits for the
-main thread (a native module method run on the main queue) inside a callback
-cannot deadlock it.
+Android adopts a direct `ByteBuffer` (`adoptByteBuffer`) without a copy;
+iOS copies (`withPixelBytes`) until [T108](tasks.md#t108).
 
-**Types across packages.** A package's exported class, object type, enum
-or interface is one type in every package that imports it, as in the
-module that declares it: one program compiles them all. A `Frame` one
-package makes is a `Frame` in another package's exports, which JavaScript
-sees with the declaring package's prototype, whichever package's function
-returned it. Packages that import one another share an actor.
+### Identity and checks
 
-**Calls across packages.** A module of one package reaches another only
-through JavaScript (a callback that calls the other package's export) or the
-platform (a delegate of another package called during a native call). The
-thread then holds both actors, nested. A nested wait that would close a cycle
-(two threads, each holding one package and waiting for the other's) is refused:
-the call that would wait throws an `Error` whose message starts with
-`Lucent: deadlock`, instead of hanging. Making one of the calls later (from a
-JavaScript promise callback, say) avoids it.
+The same instance always maps to the same JavaScript object, which lives
+while either side holds it. An exported class is a constructor for `new`
+and `instanceof`, with its own and its Lucent bases' statics on it. Public
+fields are prototype accessors, a `readonly` one without a setter, so
+`Object.keys` and `JSON.stringify` in JavaScript see no fields.
 
-**Several JavaScript runtimes.** Work module code starts (an async call, a
-timer, a compute task) belongs to the runtime whose call started it: tearing a
-runtime down (a reload) cancels its work only. Module variables are the
-process's: a runtime started while another is running (a second React Native
-instance) shares them, where the first runtime, and each reload, starts them
-anew.
+A static field is a property over the native one, so the module sees
+JavaScript's writes. Assigning one a class inherits writes the base's
+field, where JavaScript gives the subclass its own. A package's exported
+types are one type in every package that imports it.
 
-## Recursion limits
+Arguments are checked against their types
+(`midpoint: argument 'a'.y must be a number, got undefined`), the path
+rendered only on failure. A synchronous export throws the `TypeError`,
+and an async one rejects with it. Interface values must be instances of
+Lucent classes that implement the interface.
 
-A Lucent function call is a native call: recursion uses the thread's
-native stack. The stack is 8 MB on every thread Lucent starts (actors'
-threads, isolated and compute contexts), where a platform's default for a
-secondary thread is 512 KB (iOS) to 1 MB (Android). The JS thread and the
-main thread have the platform's: about 8 MB on iOS's main thread, 8 MB on
-Android's, and React Native's JS thread its own (1 MB on Android, 512 KB
-or more on iOS, depending on the version). A synchronous exported function
-runs on the JS thread, so its recursion has the JS thread's stack; an
-`async` one starts on its actor's thread.
+`null` and `undefined` are told apart for an argument, a setter's value or
+an object's field: `T | undefined` rejects `null`, and `T | null` rejects
+`undefined`. Inside arrays, maps, sets, records, tuples, callback results
+and promise values either is taken, and code that narrows it to `T` throws
+`TypeError`: a known gap ([T101](tasks.md#t101)).
 
-Each function checks the stack when it is called, as JavaScript engines
-do: one that finds less than a margin (64 KB, or a quarter of a small
-thread's stack) left throws `RangeError: Maximum call stack size
-exceeded`, which code catches as in JavaScript; an `async` one's rejects
-its promise. A function that calls no code of the program (arithmetic on
-its arguments, a comparator) skips the check: it cannot recurse. Where
-JavaScript's limit is a number of frames, Lucent's is the stack's size:
-a frame is a few hundred bytes for a small function, so thousands of
-levels fit on the JS thread and tens of thousands on Lucent's. Regular
-expressions are checked too: a pattern nested past what the stack holds
-throws `SyntaxError` when it is compiled.
+### Callbacks, promises and events
+
+A JavaScript function Lucent holds runs synchronously when called on the
+JS thread during a call from JavaScript, and may return a value. From any
+other thread it is posted, so it returns `void` (a throw goes to the log)
+or a `Promise`. Calling one that returns another value from another
+thread throws an `Error`. Lucent code
+never waits for the JS thread. A Lucent function given to JavaScript
+enters the actor it was made on, and a Lucent promise reaches JavaScript
+as a JS promise, settled and converted on the JS thread.
+
+`EventEmitter<Events>` from `lucent:core` names each event and its void
+listener; in Lucent an event's name is a string literal (`LUCENT1007`).
+`emit` calls the listeners the event has when it starts, in order, and a
+listener's throw ends it. The emitter crosses as one object. A listener
+JavaScript adds runs at once on the JS thread, or posted with copies of
+its arguments, and a reload removes it. From JavaScript, an undeclared
+event throws `TypeError`. `onObserved(name, observer)` hears an event's
+first listener come and its last one go.
+
+### Errors and codes
+
+An instance of a Lucent class that extends `Error` crosses as itself:
+thrown, returned or made with `new` in JavaScript, it is `instanceof` its
+class and `Error`, with its fields. From JavaScript its `name` and
+`message` take strings only, and `Object.prototype.toString` gives
+`[object Object]`, since it only inherits `Error.prototype`. A subclass no
+export's types reach crosses as an `Error` with its name and message.
+
+Every other error crosses as a new JavaScript error each time: an
+`Error`, `TypeError`, `RangeError` or `SyntaxError` with its `name`,
+`message` and `code`. Its `stack` starts with the Lucent frame that made
+it (`at parse (src/config.lucent.ts:12)`, relative to the project). An error JavaScript
+throws into Lucent keeps its `name`, `message`, a string `code` and its
+`stack`, but not its identity or other fields; a thrown non-Error becomes
+an `Error`. An uncatchable error goes to the platform log and stderr.
+
+### JSValue, NativeBuffer and NativeHandle
+
+A `JSValue` is a JavaScript value Lucent holds without reading it. It is
+stored, passed on and handed back as the same value: an object keeps its
+identity, and a function stays callable. The host releases it on the JS
+thread with the last Lucent reference, and one held across a reload
+throws `TypeError` when it goes back. Comparing (but with `undefined` or
+`null`), converting, testing, `typeof`, JSON and keying with one are
+refused (`LUCENT1002`, `1003`, `2002`), and so is a compute task taking
+one (`LUCENT3012`).
+
+A `NativeBuffer` is bytes native code owns, reached through a borrow for
+one call (`buffer.h`): `withRead` lends a `ByteSpan`, and `withWrite` a
+`MutableByteSpan` that needs the buffer to itself. A conflicting borrow,
+close or transfer throws `InvalidStateError` at once, and a span that
+escapes its callback is `LUCENT3030`. After `transfer()` moves the bytes,
+the old buffer throws (`LUCENT3031` where the compiler sees it).
+`close()` or `using` releases them; `from` and `toUint8Array()` are the
+only copies, which `stats()` counts.
+
+A `NativeHandle` is an address held valid until released: `pointer` (a
+bigint, `0n` once released), `released` and `release()`, once, from either
+side and any thread. A buffer's `handle()` borrows its bytes for read
+until then. One whose last reference goes unreleased is released then; a
+debug build counts those JavaScript collected (`host.releasedOpen` in
+`__lucentDebug.snapshot()`). Platform makers are [T107](tasks.md#t107).
+
+### Build identity
+
+Each compile gives the app binary and the JavaScript bundle an identity
+(`emit/identity.ts`): the runtime ABI, a program hash per target and an
+API hash per module. Before a module loads, a different ABI, React Native
+release or API is an error with `code: "LUCENT_NATIVE_MISMATCH"`; another
+program with the same APIs warns once ([architecture.md](architecture.md#build-identity)).
+
+## Concurrency
+
+Lucent code runs one piece at a time per actor, like JavaScript, so a
+module never races with itself (`scheduler.h`,
+[decision 0064](decisions/0064-an-actor-per-package-and-the-main-thread-never-queues.md)).
+An actor is an import component, usually a package or the app's own
+modules: the modules that import one another, type-only imports included
+(`emit/actors.ts`). Each has a lock and a thread, shares no objects with
+another, and runs in parallel with the others.
+
+Every entry into a module holds its actor's lock: a synchronous call from
+the JS thread, a job on the actor's thread, or a platform callback. A
+synchronous export runs on the JS thread. An async one starts on its
+actor's thread, and its awaits interleave with the actor's other async
+work as in JavaScript. A synchronous call into an actor waits for a long
+async job's next `await`, so keep synchronous exports short.
+
+### The main thread and platform callbacks
+
+The main thread never queues behind module jobs. `main(f)` from
+`lucent:thread` runs `f` there once its actor is free, holding it, and
+resolves with its result; `present()`, `onAppEvent` and `onSceneEvent`
+run the same way. Android's `onActivityEvent` runs its handler in a turn
+of the calling context.
+
+A platform callback that must answer now (a delegate's result) waits only
+for the code holding the actor, ahead of queued entries; a debug build
+logs a wait past 50 ms. A synchronous call running a JavaScript callback
+lends its actors to the main thread, so JavaScript that waits for the
+main thread there can't deadlock it.
+
+Platform callbacks enter module code under their actor's lock, so a frame
+delegate waits behind synchronous JavaScript calls; `serialQueue(label)`
+from `lucent:ios` only moves them off the main thread. `executor(label)`
+from `lucent:thread`, a serial context that takes no lock, is
+[T109](tasks.md#t109) (the runtime's `ExecutorContext` exists). Worklet
+runtimes can't call Lucent yet ([T134](tasks.md#t134)).
+
+### Compute tasks
+
+`compute(task, input, options?)` runs `task(input)` on a pool of workers,
+which never take an actor's lock, and resolves on the calling context
+(`compute.h`). The pool has a worker fewer than the cores (at least one)
+and queues 1,024 tasks, then rejects with `QuotaExceededError`.
+
+`task` is a top-level function of one parameter (`LUCENT1007` for a
+closure). It reads no module state or computed constant, runs no
+main-thread native code or async work, and calls only code the compiler
+can follow (`LUCENT3011` names the cause). Its input and result are data
+(`LUCENT3012`): no functions, promises, signals, `JSValue`s or handles.
+
+The input is copied when `compute` is called (`transport.h`): what is
+reached twice is copied once, and cycles survive. A `NativeBuffer` moves
+(a borrowed one rejects), and a subclass instance behind a base type
+throws `DataCloneError`, since its copy would lose fields. The result
+comes back as it is.
+
+Aborting `options.signal` rejects at once, and a queued task never
+starts. A running task stops at its next safepoint, a loop's back edge in
+it or in a module function it calls; other code runs to its end.
+`lucent:core`'s JavaScript `compute` differs in three ways
+([limitations.md](limitations.md)).
+
+### Channels
+
+`new Channel<T>(policy, capacity?)` carries values from a producer on any
+thread to a consumer on its own context (`channel.h`). A send never
+waits: into a full channel, `"lossless"` refuses it (`false`), `"latest"`
+replaces the one value, and `"drop"` drops the oldest. The capacity is a
+whole number from 1, 16 by default and 1 for `"latest"`.
+
+`send` copies as `compute` does (a `NativeBuffer` moves), and what is
+dropped or never received is released. `receive()` settles on the asking
+context with the next value, or `undefined` once closed and drained, and
+`subscribe(onValue)` delivers values one at a time. A channel crosses to
+a task, which can't receive (`LUCENT3011`), but not to JavaScript.
+
+### Deadlocks and runtimes
+
+A module reaches another actor only through JavaScript or the platform,
+holding both actors, nested. A nested wait that would close a cycle throws
+an `Error` starting `Lucent: deadlock` instead of hanging. Work module
+code starts (an async call, a delay, a task) belongs to the runtime whose
+call started it, and tearing a runtime down cancels its work only. Module
+variables are the process's: a second live runtime shares them, and a new
+`Host` resets them only while no other runtime is live.
 
 ## Memory
 
-Objects, arrays, closures and class instances are reference counted. A cycle of
-strong references (for example a parent and child that point at each other, or
-a closure stored on the object it captures) is never freed. Break such cycles
-explicitly, for example by clearing a field, or hold the back reference through
-a `WeakRef`.
+Objects, arrays, closures and instances are reference counted
+(`core.h`). No collector runs, so a cycle of strong references is never
+freed: a parent and child that point at each other, or a closure stored
+on the object it captures. Break the cycle by clearing a field, hold the
+back reference through a `WeakRef`, or key one side in a `WeakMap`.
 
-A debug build names each cycle between class instances and objects that it
-finds at teardown (a reload, the app's end), once, in the platform log: the
-fields that close it, with their source lines, from the cycle's oldest object
-back to it, and the last of them as the one to hold through a `WeakRef`. A
-closure on the path is named by its line and what it captures (`this`, a
-variable), including an emitter's listeners: the hint is then to capture a
-`WeakRef` there instead. The next JavaScript runtime writes each as a
-`console.warn` once, which LogBox shows, and `__lucentDebug.snapshot()` lists
-them all as `cycles`.
+A debug build names each cycle it finds at a teardown, once, in the
+platform log (`refs.h`). It lists the fields that close it, and names the
+last as the one to hold weakly. The next runtime writes each as a
+`console.warn`, and `__lucentDebug.snapshot()` lists them as `cycles`.
+`NativeBuffer`s report their size to JavaScript's collector; other
+instances can't yet ([T107](tasks.md#t107)).
+
+`new WeakRef(target)` holds a class instance, interface value or object,
+freed with its last strong reference: `deref()` then gives `undefined` at
+once. `WeakMap` and `WeakSet`, keyed by the same kinds, have `get`, `set`,
+`has`, `delete` and `add`, and no iteration or `size` (`weak.h`,
+[decision 0072](decisions/0072-weakmap-and-weakset-drop-entries-with-their-keys.md)).
+An entry goes at once with its key, its value with it, but a value that
+holds its own key keeps it. SDK objects as targets or keys are
+[T112](tasks.md#t112).
+
+`new FinalizationRegistry(cleanup)` takes `register(target, held, token?)`
+and `unregister(token)`. Once a target goes, each registration's cleanup
+runs with its held value, as a job of the registry's context after the
+turn that freed it. None of the weak types crosses the boundary.
+
+### Stack checks
+
+A Lucent call is a native call, so recursion uses the native stack. Each
+function that calls program code checks it on entry, in release builds
+too (`stack.h`, [decision 0073](decisions/0073-every-call-checks-the-stack-in-release-too.md)).
+With less than a margin left (64 KB, or a quarter of a small stack), it
+throws `RangeError: Maximum call stack size exceeded`, which code
+catches. An `async` function's check rejects its promise.
+
+Lucent's own threads have 8 MB stacks (`kThreadStackSize` in
+`execution.h`); the JS and main threads have the platform's, and a
+synchronous export recurses on the JS thread's. So the limit depends on
+the thread and the frames' sizes, not on a number of frames.
 
 ## Deviations from JavaScript
 
-| JavaScript                                                                                                                      | Lucent                                                                                                                                                                                                                                                                                                                   |
-| ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `arr[i] = v` with `i > length`, or `arr.length = n` above the length, creates holes                                             | throws `RangeError`, whatever the element type; append with `push` or assign at `length`                                                                                                                                                                                                                                 |
-| `arr[i]` / `record[k]` out of range → `undefined`                                                                               | same, and the type says `T \| undefined`; `!` throws `TypeError` if absent                                                                                                                                                                                                                                               |
-| `x as T` changes nothing at run time: a wrong assertion goes unnoticed                                                          | taking a member out of a union (`x as number` on a `string \| number`) checks the value: another member throws `TypeError` where the assertion is made, since the native value holds one member's layout                                                                                                                 |
-| arrays and objects passed to native code are shared                                                                             | copied at the boundary (inside Lucent they are shared)                                                                                                                                                                                                                                                                   |
-| garbage collection frees cycles                                                                                                 | reference counting leaks cycles                                                                                                                                                                                                                                                                                          |
-| deep recursion throws `RangeError` at the engine's limit                                                                        | it throws `RangeError` when the native stack is nearly full, which depends on the thread's stack and the frames' sizes: see [Recursion limits](#recursion-limits). A regular expression nested past the stack's room throws `SyntaxError` ("stack overflow") instead                                                     |
-| `==` converts first between a number, string, boolean, bigint or object (`1 == "1"`)                                            | refused (`LUCENT1002`); compare with `===` after converting                                                                                                                                                                                                                                                              |
-| functions compare by reference                                                                                                  | comparing two functions is rejected (`LUCENT1002`): a function value has no stable identity                                                                                                                                                                                                                              |
-| tuples are arrays and compare by reference                                                                                      | tuples are values: `===` compares their elements                                                                                                                                                                                                                                                                         |
-| two `subarray()` views of one range are different objects                                                                       | they are one view: `===`, `indexOf` and `Map`/`Set` keys compare a view's buffer and range                                                                                                                                                                                                                               |
-| `console.log(obj)` pretty-prints                                                                                                | prints `String(obj)`                                                                                                                                                                                                                                                                                                     |
-| `str.split(regexp)` inserts `undefined` for a capture group that did not participate                                            | inserts `""` (the result is a `string[]`)                                                                                                                                                                                                                                                                                |
-| `JSON.parse` returns whatever the text contains                                                                                 | the text must match the target type: a mismatch throws `TypeError` naming the path (`expected a number at .items[2].price, got a string`)                                                                                                                                                                                |
-| `JSON.stringify` of parsed data keeps the text's key order                                                                      | keys follow the object type's fixed order (next row)                                                                                                                                                                                                                                                                     |
-| an object's keys come in the order they were added (`{ d: "y", ...p, a: 5 }` lists `d` first)                                   | an object type's keys come in one fixed order: its fields' order in the first type with those fields the compiler meets (types with the same fields share one struct). `JSON.stringify` and the objects JavaScript receives follow it (`Object.keys` and `for…in` refuse object types); use a record where order matters |
-| `{ b: undefined }` has a key `b`, and spreading it sets `b` to `undefined`                                                      | an optional field holding `undefined` is a field left unset: `JSON.stringify` and the boundary leave it out, and spreading skips it                                                                                                                                                                                      |
-| `Date` objects passed to native code are shared                                                                                 | copied at the boundary (inside Lucent they are shared)                                                                                                                                                                                                                                                                   |
-| `date.toString()` includes the zone name in some engines                                                                        | `Mon Jul 22 2019 15:51:50 GMT-0700`, like Hermes; `toLocale…` methods are not supported                                                                                                                                                                                                                                  |
-| `abort()` without a reason uses an `AbortError` whose message depends on the engine                                             | `AbortError: signal is aborted without reason`, as in React Native and browsers (Node says "This operation was aborted")                                                                                                                                                                                                 |
-| an abort reason can be any value                                                                                                | reasons from JavaScript become errors (`String(reason)` as the message when it is not an object); `abort()` in Lucent takes an `Error`                                                                                                                                                                                   |
-| a field or variable read before it is assigned (from a base constructor, say) is `undefined`                                    | a number, string, boolean, tuple, array, map, set, record, `Uint8Array` or `ArrayBuffer` (or their union) reads a default; an object throws `TypeError`                                                                                                                                                                  |
-| `this.p?.x` on an object field not yet assigned is `undefined`                                                                  | throws `TypeError`, as any read of that field does                                                                                                                                                                                                                                                                       |
-| a `let` or `const` read before its declaration runs throws `ReferenceError`                                                     | it reads as a variable not yet assigned, above                                                                                                                                                                                                                                                                           |
-| any object with the right members satisfies an interface                                                                        | only classes that declare `implements`, and object literals of an interface of properties alone; plain JS objects are rejected at the boundary with a `TypeError`                                                                                                                                                        |
-| assigning a static field a class inherits gives the subclass its own                                                            | from JavaScript, it writes the base class's field, which the subclass's constructor shares                                                                                                                                                                                                                               |
-| a `readonly` field can be assigned from JavaScript: TypeScript checks it only at compile time                                   | JavaScript sees a getter without a setter, so assigning one throws `TypeError` in strict mode code and is ignored otherwise                                                                                                                                                                                              |
-| `Object.prototype.toString` of an `Error` subclass's instance gives `[object Error]`                                            | a Lucent class instance is a plain object whose prototype chain reaches `Error.prototype`: it gives `[object Object]`                                                                                                                                                                                                    |
-| any value can be assigned to an error's `name` or `message`                                                                     | from JavaScript, a Lucent error's `name` and `message` take strings; another value throws `TypeError`                                                                                                                                                                                                                    |
-| a class instance in JavaScript has its fields as own properties, `private` ones included                                        | public fields are prototype accessors, other members hidden: `Object.keys` and `JSON.stringify` see no fields                                                                                                                                                                                                            |
-| a class's `[Symbol.dispose]()` is callable from JavaScript                                                                      | it is for Lucent code: JavaScript does not see symbol-keyed members of Lucent classes, and Hermes has no `Symbol.dispose`: give a class JavaScript should close a `close()` method too                                                                                                                                   |
-| a `FinalizationRegistry`'s cleanup runs at some point after the collector frees the target, or never                            | it runs soon after the target's last strong reference goes, as a job, every time                                                                                                                                                                                                                                         |
-| `resolve(promise)` in a promise executor adopts the promise                                                                     | `fromCallback` reports values, not promises: a promise type is refused (`LUCENT1007`); await it and report its value                                                                                                                                                                                                     |
-| `await` on an object without a `then` method gives the object                                                                   | `await` on a platform SDK object is refused (`LUCENT1010`): adapt its completion listener with `fromCallback`                                                                                                                                                                                                            |
-| an error nobody catches (a `fromCallback` cleanup that throws) reaches the host's error handler                                 | it is written to the platform log (logcat, the unified log) and stderr                                                                                                                                                                                                                                                   |
-| a `WeakMap` or `WeakSet` entry lives until the garbage collector runs; a value that holds only its own key frees with it        | an entry goes, its value with it, with its key's last strong reference, at once; a value that holds its own key keeps it and the entry                                                                                                                                                                                   |
-| a `WeakRef`'s target lives until the garbage collector runs, so `deref()` may still give it after the last other reference goes | the target is freed with its last strong reference, and `deref()` gives `undefined` at once                                                                                                                                                                                                                              |
-| an `EventEmitter` from `lucent:core`'s JavaScript takes any event name                                                          | from JavaScript, the native emitter takes only the events its type declares: another name throws `TypeError`                                                                                                                                                                                                             |
+Each row matches a row of `apps/website/src/docs/language.ts`, which
+names the e2e cases around it. A deviation found in code gets a row in
+both, in the same commit.
+
+### Arrays, collections and memory
+
+| JavaScript                                         | Lucent                                                 | Why                                       |
+| -------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------- |
+| `arr[i] = v` past the end leaves holes             | `RangeError`; append with `push` or at `length`        | an array has no holes                     |
+| `arr[-1] = v` and `arr[1.5] = v` add a property    | `RangeError`                                           | an array has elements only                |
+| a larger `length` leaves holes                     | `RangeError`                                           | an array has no holes                     |
+| `new Array(n)` has `n` holes                       | refused unless `.fill(v)` follows (`LUCENT1003`)       | the element type may lack `undefined`     |
+| `x!` does nothing at run time                      | `TypeError` on an absent value                         | the assertion is checked where it is made |
+| `x as T` does nothing at run time                  | taking a member out of a union checks it               | a variant holds one member's layout       |
+| `keys()`, `values()`, `entries()` return iterators | arrays of the contents at the call                     | an array serves wherever they are read    |
+| the collector frees cycles                         | reference counting never does                          | no collector runs                         |
+| a `WeakRef` target lives until the collector runs  | freed with its last strong reference                   | a count reaches zero at once              |
+| a weak entry lives until the collector runs        | it goes with its key; a value holding its key keeps it | nothing traces through a value            |
+| a finalization cleanup runs later, or never        | soon after, as a job, every time                       | a count reaches zero at once              |
+| deep recursion throws at the engine's frame limit  | `RangeError` when the native stack is nearly full      | each call checks the native stack         |
+
+### Objects, comparisons, strings, JSON and dates
+
+| JavaScript                                             | Lucent                                                 | Why                                         |
+| ------------------------------------------------------ | ------------------------------------------------------ | ------------------------------------------- |
+| keys come in the order they were added                 | an object type's one fixed order; use a record         | objects of a type share one layout          |
+| `Object.keys`, `for…in` and `in` see an object's keys  | refused on object types (`LUCENT1003`, `1009`, `1002`) | a layout records neither presence nor order |
+| `{ b: undefined }` has a key `b`                       | an unset field: left out of JSON and the boundary      | a field is set or unset                     |
+| `==` converts first (`1 == "1"`)                       | refused (`LUCENT1002`): convert, then use `===`        | `==` compiles where nothing converts        |
+| functions compare by reference                         | refused (`LUCENT1002`, `LUCENT2002`)                   | a function value has no stable identity     |
+| tuples are arrays, compared by reference               | values: `===` compares elements                        | a tuple is a fixed-size value               |
+| two `subarray()` views of one range differ             | they are one view                                      | a view is a buffer and a range              |
+| `console.log(obj)` shows its structure                 | prints `String(obj)`                                   | the platform log takes text                 |
+| `split(regexp)` inserts `undefined` for a missed group | inserts `""`                                           | the result is a `string[]`                  |
+| `JSON.parse` returns whatever the text holds           | the text must match the type, or `TypeError`           | the value is built in its type's layout     |
+| `JSON.stringify` keeps parsed text's key order         | keys follow the type's order                           | an object type has one order                |
+| `date.toString()` names the zone in some engines       | Hermes's form; `toLocale…` refused                     | Lucent follows Hermes, and has no `Intl`    |
+
+### The boundary
+
+| JavaScript                                          | Lucent                                                  | Why                                        |
+| --------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------ |
+| type annotations are erased                         | arguments are checked: `TypeError` before the code runs | a native value needs its layout            |
+| an exported `let` holding an object is the object   | read live, each value assigned copied once              | values copy at the boundary                |
+| an `EventEmitter` takes any event name              | from JavaScript, declared names only: `TypeError`       | events are numbered when compiled          |
+| arrays and objects passed on are shared             | copied; shared inside Lucent                            | JavaScript's objects stay on the JS thread |
+| a `Uint8Array` or `ArrayBuffer` passed on is shared | copied; a read-only sync call reads them in place       | bytes only read need no copy               |
+| a `RegExp` passed on is shared                      | a new `RegExp`: identity and `lastIndex` lost           | its state lives in native code             |
+| code can read any value it is given                 | a `JSValue` is held, never read                         | only JavaScript reads its values           |
+| `Date` objects passed on are shared                 | copied                                                  | as arrays and objects                      |
+| a function returns its value whenever called        | off the JS thread, posted: `void` or `Promise`          | Lucent never waits for the JS thread       |
+| an instance has its fields as own properties        | prototype accessors, no setter when `readonly`          | the fields live in native code             |
+| `[Symbol.dispose]()` is callable from JavaScript    | not visible: add a `close()`                            | members cross by name; Hermes lacks it     |
+
+### Errors, cancellation, classes and variables
+
+| JavaScript                                                                                         | Lucent                                                                                                | Why                                                          |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `error.stack` is a string                                                                          | `undefined` in Lucent unless from JavaScript                                                          | native code records a site, not a stack                      |
+| `new Error(m, { cause })` keeps the cause                                                          | refused (`LUCENT1003`, [T106](tasks.md#t106))                                                         | an error is a name, a message and a code                     |
+| `abort()`'s message depends on the engine                                                          | `AbortError: signal is aborted without reason`                                                        | one message on both platforms                                |
+| an abort reason can be any value                                                                   | an `Error`; JavaScript's become errors                                                                | Lucent's errors are `Error` objects                          |
+| `resolve(promise)` adopts the promise                                                              | refused (`LUCENT2002`; `LUCENT1007` in `fromCallback`)                                                | a promise settles with a value                               |
+| `await` on an object without `then` gives it                                                       | refused on an SDK object (`LUCENT1010`)                                                               | no completion API is picked by name                          |
+| an error object reaches JavaScript as itself                                                       | an exported error class's instance does; other errors are new, without their identity or extra fields | only an exported class keeps identity                        |
+| JavaScript can throw any value                                                                     | a non-`Error` from a callback becomes an `Error` with `String(value)` as its message                  | Lucent catches errors only                                   |
+| an error's `name` and `message` take any value; `Object.prototype.toString` gives `[object Error]` | from JavaScript, strings only (`TypeError` otherwise); `[object Object]` for a Lucent error class     | native strings; the instance only inherits `Error.prototype` |
+| an uncatchable error reaches the host's handler                                                    | the platform log and stderr                                                                           | native code has no JavaScript handler                        |
+| a field read before it's assigned is `undefined`                                                   | a value type's default; an object throws `TypeError`                                                  | a field holds a native value from the start                  |
+| any object with the right members fits an interface                                                | `implements`, or a literal of a data-only interface                                                   | an interface with methods is a base class                    |
+| assigning an inherited static gives a subclass its own                                             | from JavaScript it writes the base's field                                                            | a static is one native variable                              |
+
+### Known gaps
+
+| JavaScript                                                  | Lucent today                                                   | Task                  |
+| ----------------------------------------------------------- | -------------------------------------------------------------- | --------------------- |
+| `null` and `undefined` differ wherever they appear          | in containers, callback results and promise values either fits | [T101](tasks.md#t101) |
+| a `let` read before its declaration throws `ReferenceError` | it reads as an unassigned field                                | [T106](tasks.md#t106) |
+| `await` of a plain value waits one microtask                | doesn't suspend                                                | [T103](tasks.md#t103) |
+| `return p` in an async function takes three microtasks      | one, as `return await p`                                       | [T103](tasks.md#t103) |
 
 ## Diagnostics
 
-| Code         | Meaning                                                                                                                                                                                                                                                                                                                                           |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `LUCENT1xxx` | unsupported syntax or built-in (`1001` statement/expression, `1003` built-in, `1005` class feature, `1006` throwing a non-Error, `1010` await on a native object, …)                                                                                                                                                                              |
-| `LUCENT2xxx` | types without a native representation (`2001` any/unknown, `2003` inexact object types, `2004` array element variance and generic class instantiations, `2005` ambiguous union at the boundary, `2007` generics at the boundary, `2008` value is not a declared implementation of an interface, `2009` class member does not match its interface) |
-| `LUCENT3xxx` | module structure (`3001` imports, `3002` top-level statements, `3003` exports, `3004` SDK imports the file's platform cannot use, `3005` a platform module's files do not match its declaration, `3006` a main-thread-only API outside `main(() => …)`, `3007` an Android API newer than the oldest supported level, outside a version check)     |
-| `LUCENT9001` | a TypeScript error (Lucent stops at type errors)                                                                                                                                                                                                                                                                                                  |
+Every code of `packages/compiler/src/codes.ts`, which holds each one's
+explanation and fix (`lucent explain LUCENTxxxx`): `1xxx` syntax, `2xxx`
+types, `3xxx` modules and where code runs, `9xxx` passed through.
+
+| Code         | Name                          | Meaning                                                                                  |
+| ------------ | ----------------------------- | ---------------------------------------------------------------------------------------- |
+| `LUCENT1001` | `UnsupportedSyntax`           | syntax outside the subset: `var`, literal accessors, `await using`, tagged templates     |
+| `LUCENT1002` | `UnsupportedOperator`         | `delete`, `in` or `instanceof` where unsupported; a converting `==`; comparing functions |
+| `LUCENT1003` | `UnsupportedBuiltin`          | a built-in, method or argument Lucent doesn't implement exactly                          |
+| `LUCENT1004` | `UnsupportedDestructuring`    | object rest, computed keys, or another pattern outside the subset                        |
+| `LUCENT1005` | `UnsupportedClassFeature`     | extending a built-in, a changed override signature, static blocks, decorators            |
+| `LUCENT1006` | `UnsupportedThrow`            | throwing a value that isn't an `Error`                                                   |
+| `LUCENT1007` | `UnsupportedCall`             | a call with no native form, such as spread into parameters                               |
+| `LUCENT1008` | `UnsupportedAssignmentTarget` | assigning a function, an import, a tuple element or an unknown field                     |
+| `LUCENT1009` | `UnsupportedLoop`             | a loop over a value Lucent can't iterate, or `for await`                                 |
+| `LUCENT1010` | `AwaitNative`                 | `await` on a platform SDK object, which isn't a promise                                  |
+| `LUCENT2001` | `AnyType`                     | `any`, or `unknown` outside `catch`                                                      |
+| `LUCENT2002` | `UnsupportedType`             | a type with no native representation                                                     |
+| `LUCENT2003` | `InexactObject`               | an object used as a type of another shape                                                |
+| `LUCENT2004` | `ArrayVariance`               | a collection as another element type, or an instance as another instantiation            |
+| `LUCENT2005` | `AmbiguousUnion`              | a union JavaScript values can't be told apart by: add a discriminant                     |
+| `LUCENT2006` | `BoundaryType`                | a value that can't cross the JavaScript boundary                                         |
+| `LUCENT2007` | `GenericBoundary`             | a generic function, class or value at the boundary                                       |
+| `LUCENT2008` | `InterfaceNotImplemented`     | a value used as an interface its class doesn't declare                                   |
+| `LUCENT2009` | `InterfaceMismatch`           | a member whose native signature differs from the interface's                             |
+| `LUCENT3001` | `UnsupportedImport`           | a value import from outside Lucent and `lucent:` modules                                 |
+| `LUCENT3002` | `UnsupportedTopLevel`         | a top-level statement, an overload, or a non-constant enum member                        |
+| `LUCENT3003` | `UnsupportedExport`           | export lists, re-exports and default exports                                             |
+| `LUCENT3004` | `SdkImport`                   | an SDK used where its platform can't be, or an SDK without bindings                      |
+| `LUCENT3005` | `PlatformConformance`         | platform files that don't match their declaration file                                   |
+| `LUCENT3006` | `MainThreadOnly`              | a main-thread-only API outside `main(() => …)`                                           |
+| `LUCENT3007` | `Unavailable`                 | an API newer than the app's oldest OS, without a version check                           |
+| `LUCENT3008` | `ConstantOutsideGroup`        | warning: an Android constant outside its `@IntDef` or `@StringDef` group                 |
+| `LUCENT3009` | `BlockingOnMain`              | warning: a `@WorkerThread` member called on the main thread                              |
+| `LUCENT3010` | `ModuleNameClash`             | two modules of one app with one name                                                     |
+| `LUCENT3011` | `NotIsolated`                 | a compute task that touches module state, unfit native code or async work                |
+| `LUCENT3012` | `NotTransferable`             | a compute task's input or result that isn't data                                         |
+| `LUCENT3013` | `UnmatchedRequirement`        | warning: a method named like a protocol requirement that matches none                    |
+| `LUCENT3014` | `IncompatiblePackage`         | a package whose `lucent.compatible` range leaves this Lucent out                         |
+| `LUCENT3020` | `ComponentExport`             | an exported `.lucent.tsx` function returning a view that can't be a component            |
+| `LUCENT3021` | `ComponentContract`           | a component prop, event or command views can't carry, or a reserved name                 |
+| `LUCENT3022` | `ComponentMainThread`         | component code that can't run on the main thread                                         |
+| `LUCENT3023` | `ComponentPlatforms`          | a component that differs between platforms or from its declaration                       |
+| `LUCENT3024` | `ToolkitBody`                 | a SwiftUI or Compose body Lucent can't write out, or toolkit code outside one            |
+| `LUCENT3025` | `NativeViewJsx`               | UIKit or Android view JSX its declarations don't provide for                             |
+| `LUCENT3030` | `BorrowEscape`                | a span from `withRead` or `withWrite` that escapes its callback                          |
+| `LUCENT3031` | `UseAfterMove`                | a `NativeBuffer` used after `transfer()` or `compute` moved it                           |
+| `LUCENT9001` | `TypeScript`                  | a TypeScript error: Lucent compiles only programs that type-check                        |
+| `LUCENT9002` | `InternalError`               | a compiler fault, reported at its function instead of stopping the build                 |

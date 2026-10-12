@@ -1,946 +1,844 @@
-# Platform bindings — what is implemented
+# Platform bindings
 
-The implemented part of [the design](design/m2-platform-bindings.md): platform
-modules, binding schemas extracted on demand from the installed SDKs (or
-read from an exported schema set where one is missing), Objective-C++ and
-JNI glue, the Swift and Kotlin shims generated for what only those
-languages can call, and `main()`. This page describes the current
-behavior; the design document describes where it is going (it predates
-the shims: "no Swift or Kotlin is generated" there is no longer so).
+How Lucent code calls the iOS and Android SDKs, and the libraries an app
+links. Bindings come from the installed SDKs and the app's resolved
+dependencies, read on first import. No list of frameworks, packages or
+classes decides what binds.
 
-## Platform code
+This page is the reference for what the code does today. The language
+rules are in [semantics.md](semantics.md#platform-code), the shared
+interfaces in [C-BIND](design/contracts.md#c-bind-binding-schemas-and-plans),
+the generated Swift in [design/swift-shims.md](design/swift-shims.md), and
+views in [design/views.md](design/views.md). What is still missing is in
+[limitations.md](limitations.md) and [T112](tasks.md#t112).
 
-Platform code is written in one module, branching on `PLATFORM` from
-`lucent:platform`; that is the standard form. Splitting a module into one
-file per platform is the opt-in alternative (below).
+## Imports
+
+| Specifier                          | What it binds                                                                                             |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `lucent:ios/<Module>`              | A Clang or Swift module: an SDK framework, a pod, a module map, a Swift module, a Swift package's product |
+| `lucent:ios/LucentNative`          | The Swift files in the app's Lucent packages' `ios.nativeSources`                                         |
+| `lucent:android/<java.package>`    | A Java package of `android.jar`, of the app's compile classpath, or of a package's `android.libraries`    |
+| `lucent:ext/<name>`                | A C header a package declares in `lucent.json` `extensions`, on both platforms                            |
+| `lucent:ios`, `lucent:android`     | Helpers written by hand: `available`, `Out`, `nativeError`, `appContext`, `currentActivity`…              |
+| `lucent:thread`, `lucent:platform` | `main(f)`, and `PLATFORM`                                                                                 |
 
 ```ts
-import { PLATFORM } from "lucent:platform";
 import { UIDevice } from "lucent:ios/UIKit";
 import { Build } from "lucent:android/android.os";
 import { main } from "lucent:thread";
-
-export async function model(): Promise<string> {
-  if (PLATFORM === "ios") return main(() => UIDevice.current.model);
-  else return Build.MODEL ?? "unknown";
-}
 ```
 
-- The tests are `PLATFORM === "ios"` and `!==` (either side, either
-  platform), and a `const` holding one without a type annotation
-  (`const isIos = PLATFORM === "ios"`; the host build reads `PLATFORM`
-  where a top-level one is used, not at the module's initialization), in
-  `if`/`else` and in `? :`, alone or leading `&&`s
-  (`PLATFORM === "ios" && ready`: the then-branch is iOS code, the
-  else-branch runs on both platforms). `switch (PLATFORM)` runs each
-  platform's case and what it falls through to; a clause both platforms reach
-  is shared code. A guard clause, `if (PLATFORM === "ios") return …` (a
-  plain test, no `else`, a branch ending in return, throw, break or
-  continue), makes the rest of its block the other platform's code, as
-  TypeScript narrows it. Each target compiles what it can run only; the host target
-  throws there ("this code runs only on iOS and Android"). `PLATFORM` as a
-  value is the target's name.
-- A top-level declaration that uses a platform's SDK outside a branch,
-  directly or through another such declaration, belongs to that platform:
-  delegate classes, SDK-typed state, helpers taking SDK types. It compiles on
-  that target only. A declaration using both platforms outside branches is an
-  error; exports run on both platforms, so they branch inside (their
-  platform code outside a branch is reported where it is used).
-- A private member (`private` or `#`) of an exported class, or of a class
-  that uses both platforms, belongs to a platform the same way, and the class
-  stays shared: `private manager: CLLocationManager | null` is an iOS field,
-  and `private media(): MediaPlayer` an Android method. Each build compiles
-  its own platform's members only (the host build neither), so a class
-  JavaScript constructs on both platforms keeps SDK objects. A non-exported
-  class whose platform code is all one platform's still belongs to that
-  platform as a whole; a member of the other platform in a platform's class,
-  and a member using both, are errors. Public members, constructors and
-  parameter properties are shared code: their platform code branches.
-- A platform's code (its imports, declarations and members) may only be used
-  inside its branch or its declarations and members, and `lucent:thread` in
-  either platform's code (LUCENT3004 otherwise).
-- Every target type-checks both branches. Where the other platform's SDK is
-  not installed, its modules are untyped there and TypeScript's errors in its
-  code are ignored (that code is never emitted on that target); values that
-  flow out of such a branch need a type annotation. The same holds for
-  Android while the app's dependencies are not resolved yet, during
-  `expo prebuild`, which runs no Gradle: its imports that are not in the
-  SDK are untyped in the iOS build, and the Gradle build's `lucentBuild`
-  task, which resolves them, builds and checks Android (an import still
-  missing is LUCENT3004 there). An app with no Android project yet (an Expo
-  app before `expo prebuild`) has nothing to resolve them with: when it
-  imports modules neither android.jar nor its Lucent packages' libraries
-  declare, `lucent check` and `lucent build` (host builds included) name
-  them in a warning, leave Android untyped as above, and skip Android until
-  `android/` exists. A build that leaves Android out (`--platforms ios`, or
-  `host`) resolves nothing either, so before a Gradle build has resolved the
-  app's classpath it does the same, its warning naming the Android build
-  (`lucent build --platforms android`, or the app's Gradle build) that
-  resolves them. An app whose Android imports are all in android.jar
-  builds and checks Android as usual.
-- A module that branches is built per target, like split modules, and is
-  Objective-C++ (`.mm`) on iOS.
+The helpers are in `packages/compiler/lib/sdk/` (`ios.d.ts`,
+`android.d.ts`, `thread.d.ts`, `platform.d.ts`). Everything else is
+generated: `compiler/src/sdk/dts.ts` writes a module's declarations from
+its schema, served from a virtual directory (`program.ts`) and cached in
+`<cache>/declarations/` (`sdk/declaration-cache.ts`).
 
-The ports in `scripts/example-app/src/sdk` (expo-application, -clipboard,
--device, -local-authentication, -location, netinfo) and the example packages
-`examples/lucent-haptics` and `examples/lucent-secure-store` are written this
-way: each export branches, and each platform's helpers, delegate classes and
-state sit in sections of their own.
+## Platform code
 
-### Split into platform files (opt-in)
+A module branches on `PLATFORM` from `lucent:platform`; that is the
+standard form. Each target compiles its own branch, and the host target
+throws there ("this code runs only on iOS and Android"). The rules live in
+`compiler/src/platforms.ts`:
 
-When a module's platform halves share nothing, it can be split: a shared
-declaration file and one implementation per platform.
+- A test is `PLATFORM === "ios"` or `!==`, or an unannotated `const` that
+  holds one, in `if`/`else`, `?:`, a leading `&&` or `switch (PLATFORM)`.
+  A guard clause (`if (PLATFORM === "ios") return …`) makes the rest of
+  its block the other platform's.
+- A top-level declaration, or a private member of a shared class, that
+  uses one platform's SDK outside a branch belongs to that platform.
+  Platform code is used only there or in its branch (LUCENT3004).
+- Every target type-checks both branches. Where an SDK is not installed,
+  its modules are untyped and their type errors are ignored.
 
-```
-haptics.lucent.ts          export declare function impactAsync(style?: ImpactStyle): Promise<void>;
-haptics.ios.lucent.ts      the iOS implementation (imports lucent:ios/…)
-haptics.android.lucent.ts  the Android implementation (imports lucent:android/…)
-```
-
-- The shared file may contain only `export declare function`s, types,
-  imports, and the `const`s and enums the implementations share
-  (LUCENT3005 otherwise): those compile into each platform's module (its
-  initialization runs them first), and the implementations import them
-  from the shared file without exporting them again. Put other shared code
-  in another module that all three import.
-- A module may have one platform's implementation only: the other
-  platform's build compiles the shared file's declarations as stubs, as
-  the host build does, which throw or reject "`<module>.<name>` is not
-  available on Android" (or iOS).
-- Each implementation must export exactly the declared values, with types
-  assignable to the declarations (LUCENT3005). JavaScript imports the shared
-  file, so it sees one API; the proxy and the JSI bindings are the same on
-  both platforms.
-- Each platform is checked in its own program: in platform files,
-  `lucent:ios/*` and `lucent:ios` resolve only in `.ios.lucent.ts` files,
-  `lucent:android/*` and `lucent:android` only in `.android.lucent.ts` files,
-  and `lucent:thread` in both (LUCENT3004 otherwise, and for SDK modules
-  without a schema).
-- Other modules import a platform module as usual (`./haptics.lucent`); calls
-  go to the platform's implementation.
-
-### Output
-
-Projects without platform code keep the single layout,
-`.lucent/native/cpp/generated/*`. With platform code, each target gets a
-complete set: `generated/ios/*` (modules with iOS code as `.mm`, Objective-C++
-with ARC) and `generated/android/*`. The podspec compiles `generated/ios`,
-CMake compiles `generated/android`, and the podspec links the frameworks the
-iOS code imports.
-
-`lucent build --platforms host` writes `generated/host/*`, where platform
-branches throw "this code runs only on iOS and Android" and split modules'
-exports throw (or reject) "`<module>.<name>` is not available on this
-platform". `scripts/app-check.ts` uses it to run the rest of an app in the
-Hermes host.
+Split files are the opt-in form: `haptics.lucent.ts` declares what
+`haptics.ios.lucent.ts` and `haptics.android.lucent.ts` implement
+(LUCENT3005). A platform without an implementation gets stubs that throw
+"`<module>.<name>` is not available on Android". Each target's output is
+`.lucent/native/cpp/generated/<target>/`; iOS units with platform code are
+Objective-C++ (`.mm`, ARC).
 
 ## Where bindings come from
 
-There is no list of frameworks or packages. Bindings come from the native
-artifacts the app's build resolved (bindgen's `nativeArtifacts`):
+A build resolves the native artifacts the app links (`nativeArtifacts` in
+`bindgen/src/provider.ts`, built by `artifacts.ts`). Each has a
+build-system identity and a hash of its declaration inputs' contents.
+Paths never enter an identity.
 
-- **iOS**: the simulator SDK (`sdk:iphonesimulator27.0`), read for the app
-  target's deployment target (`IPHONEOS_DEPLOYMENT_TARGET` in the app's
-  Xcode project, else iOS 15.1), and each module on
-  the search paths the app target's Pods xcconfig gives: a pod's modules are
-  one artifact, `pod:Name@version` at the version Podfile.lock installed,
-  with the pods it depends on there; other module maps, frameworks and Swift
-  modules are `clang-module:M`, `framework:M`, `swift-module:M`. Declarations
-  are read with the xcconfig's search paths, module maps and preprocessor
-  definitions (`GCC_PREPROCESSOR_DEFINITIONS`, such as `COCOAPODS=1`). A
-  module's pod is the directory of Pods/ that Podfile.lock names in its
-  path, so a pod may name its module otherwise (`react-native-netinfo`,
-  module `react_native_netinfo`).
-- **iOS Swift packages**: the packages the app's Xcode project references
-  (`ios/<App>.xcodeproj`, its `packageReferences`), at the versions
-  Package.resolved pins (the workspace's, else the project's), are built
-  for Lucent to read: each is cloned at its pinned revision into the cache
-  (`spm/`), with the app's Package.resolved pinning its dependencies, and
-  `xcodebuild` builds its library products (its manifest's, read with
-  `swift package dump-package`) for the simulator at the app's deployment
-  target. Their Swift modules (or frameworks, for dynamic products) are
-  one artifact, `spm:identity@version`; a dependency's modules are its own
-  package's, at the version the app pins. A build runs once per revision,
-  target and Xcode version; one that fails is named where a module it
-  would have given is missing. LucentNative links a package's products
-  where the code imports its modules (`spm_dependency`, at the exact
-  version the app resolved), so the app adds the package to its project
-  without adding the product to its app target: linked by both, a static
-  package's symbols would be duplicated, as React Native's SPM helper
-  warns. A local package (`XCLocalSwiftPackageReference`, its
-  `relativePath` from `ios/`) has no pin: it is built from a copy of its
-  directory, once per content of its files (hidden ones aside), as
-  `spm:identity@local`, and LucentNative links its products by the
-  package's path.
-- **iOS Swift pods**: a pod with Swift sources and no public Objective-C
-  headers (its target's products directory is on the app's library,
-  Swift include or framework search paths; its xcconfig's
-  `PRODUCT_MODULE_NAME` and `PODS_TARGET_SRCROOT` give its module and
-  sources) has its module written by Xcode, which is not there before a
-  build. Lucent makes it from the pod's `.swift` files (`node_modules` and
-  hidden directories aside) with `swiftc -emit-module` against the app's
-  pods, into the cache (`swift-modules/`), keyed by the sources' contents,
-  the SDK, the target, the defines and the keys of the Swift pods it
-  imports, which are made first. It is `pod:Name@version`, and a module
-  swiftc cannot make is `LUCENT3004` with its last errors. The Swift in
-  the app's Lucent packages' `ios.nativeSources` is made the same way, as
-  the module `LucentNative` (`swift-module:LucentNative`), which the
-  native package's pod builds them into: its shims call it without
-  importing it.
-- **iOS pods' XCFrameworks**: the frameworks CocoaPods lists in
-  `Target Support Files/<pod>/<pod>-xcframeworks-input-files.xcfilelist`
-  and copies to `PODS_XCFRAMEWORKS_BUILD_DIR` are read from `Pods/`
-  through the slice their `Info.plist` names for the iOS simulator, as
-  the pod's.
-- **iOS with `use_frameworks!`**: pods are frameworks Xcode builds later, in
-  the build products directory the xcconfig's framework search paths name.
-  Before that build, each is what CocoaPods wrote for it: the module map and
-  umbrella header in `Pods/Target Support Files/<pod>/`, and the public
-  headers the umbrella imports, found by name in the pod's sources (its
-  `PODS_TARGET_SRCROOT`, the nearest file of that name, not under
-  `node_modules`). They are laid out as the framework Xcode will build, in
-  the cache under a hash of their contents, and read as that framework;
-  the generated code imports `<Module/umbrella.h>` and the native package
-  depends on the pod.
-- **Android**: the SDK platform (`android-sdk:35`: android.jar,
-  `api-versions.xml`, `annotations.zip`), then each jar and AAR of the app's
-  resolved compile classpath (its debug variant's; with product flavors the
-  first debug variant by name, so a library only another flavor depends on
-  isn't bindable; its release variant's when it has no debug variant), by
-  its Maven coordinates from Gradle's cache
-  (`maven:group:name:version`), else `jar:`/`aar:` and its file name, and
-  the jars and AARs the app's Lucent packages ship (`android.libraries`,
-  which the classpath does not list: the Lucent library links them). Which
-  packages each has comes from its zip directory alone, so indexing a
-  classpath of hundreds of AARs reads no class.
+| Artifact id                                       | What it is                                                                            |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `sdk:iphonesimulator<version>`                    | Xcode's simulator SDK; its version and build stand for its contents                   |
+| `pod:<Name>@<version>`                            | Every module a pod defines, at the version `Podfile.lock` installed                   |
+| `spm:<identity>@<version>`                        | A Swift package's modules, at its `Package.resolved` pin (`@local` for a local one)   |
+| `framework:M`, `clang-module:M`, `swift-module:M` | A module on the search paths that no pod or package installed                         |
+| `android-sdk:<N>`                                 | `platforms/android-N`: `android.jar`, `data/api-versions.xml`, `data/annotations.zip` |
+| `maven:<group>:<name>:<version>`                  | A jar or AAR from Gradle's cache                                                      |
+| `jar:<file>`, `aar:<file>`                        | Any other jar or AAR, by file name                                                    |
 
-Each artifact is identified by that name and a hash of its declaration
-inputs' contents: headers and module maps, a Swift module, or a jar's
-classes (by name and CRC, so a jar written again with other timestamps
-keeps it), with the SDK's version and build standing for the iOS SDK. Paths
-are never part of it, and what a file's contents give is remembered by its
-size, times and inode so that unchanged files are not read again.
+`projectSdk` (`compiler/src/project-sdk.ts`) gathers a project's inputs:
+pods, the Xcode project, the Gradle classpath file, packages' prebuilt
+binaries and Swift sources, and an exported schema set. A missing SDK is
+LUCENT3004 with the fix; `lucent build` builds the platforms it can and
+says which it skipped.
 
-The first time a program imports `lucent:ios/X` or `lucent:android/p.q`,
-`@lucent-lang/bindgen` extracts that module from the artifact declaring it
-and caches its schema per machine:
+### iOS
+
+- **The SDK** is what `xcrun --sdk iphonesimulator` reports
+  (`$LUCENT_XCRUN` picks the `xcrun`). Declarations are read for
+  `arm64-apple-ios<target>-simulator`: the app target's
+  `IPHONEOS_DEPLOYMENT_TARGET` in `ios/<App>.xcodeproj` (`xcode.ts`), else
+  15.1.
+- **Pods.** `pods.ts` reads `Pods-<App>.debug.xcconfig`: search paths,
+  `-fmodule-map-file` flags and `GCC_PREPROCESSOR_DEFINITIONS`. A module
+  belongs to the pod whose directory under `Pods/` holds its files, as
+  `Podfile.lock` names it, so `react-native-netinfo` may define
+  `react_native_netinfo`.
+- **Pods built as frameworks** (`use_frameworks!`) do not exist before
+  Xcode builds them. Lucent lays each out from the module map, umbrella
+  and public headers CocoaPods wrote, under `memo/…/frameworks/<hash>`.
+- **XCFrameworks**, a pod's or a package's `ios.vendoredFrameworks`, are
+  read through their simulator slice (`vendored.ts`).
+- **Swift pods** (no public Objective-C headers) have no module before a
+  build. `swift-modules.ts` emits one with `swiftc -emit-module` into
+  `swift-modules/<Module>-<key>`, keyed by the sources' contents, the SDK,
+  the target, the defines and the keys of the Swift pods it imports. A
+  module swiftc cannot make is LUCENT3004 with its last errors.
+- **LucentNative**, the Swift of packages' `ios.nativeSources`, is emitted
+  the same way. The native pod compiles it with the shims, which call it
+  without importing it.
+- **Swift packages.** `xcode.ts` reads the project's `packageReferences`
+  and `Package.resolved`. `swift-packages.ts` clones each at its pinned
+  revision into `spm/<identity>-<key>`, with the app's pins, and builds
+  its library products with `xcodebuild` for the simulator. A local
+  package is built from a copy, keyed by its files. A build that fails is
+  named where a module it would have given is missing.
+
+A schema comes from `swift-symbolgraph-extract` (public symbols) with the
+xcconfig's paths, module maps and defines (`symbolGraphArgs` in `ios.ts`).
+Enum values come from clang's JSON AST dump, which symbol graphs lack. A
+scan of the headers says which module declares each Objective-C type
+(`header-index.ts`). The Swift names of C functions (`CGImageGetWidth` as
+`width`) come from API notes and `swift_name` attributes
+(`c-swift-names.ts`).
+
+A module the program meets only in signatures gets **names only**: its
+types' kinds, native names and struct fields, from its symbol graph
+(`namesOf`). Importing the module gives it a full schema.
+
+### Android
+
+- **The SDK platform.** The root is `$ANDROID_HOME`, `$ANDROID_SDK_ROOT` or
+  a usual install location. The platform is `$LUCENT_ANDROID_PLATFORM`,
+  else the app's `compileSdk`, else the newest. `$LUCENT_ANDROID_JARS`
+  replaces it with a list of jars.
+- **The app's classpath.** The `lucentClasspath` task
+  (`lucent-classpath.gradle`) writes `.lucent/android-classpath.json`. It
+  holds the repository jars and AARs of the debug variant's compile
+  classpath (the first flavored one by name; else release), `minSdk` and
+  `compileSdk`. `lucent build` runs it through
+  `lucent-classpath.init.gradle` when an import is not in `android.jar`,
+  once per change of the Gradle inputs.
+- **Packages' `android.libraries`** bind before Gradle runs; the
+  classpath's copy of one is dropped by content.
+
+Indexing an archive reads only its zip directory: its packages, and a hash
+of its classes by name and CRC (`archiveIndex` in `android.ts`). Extraction
+then parses the class files it needs (`classfile.ts`, no JDK). The first
+archive on the classpath wins, as in the class loader.
+
+- Nullability comes from the class files' annotations (`android`,
+  `androidx`, JetBrains, JSR-305, libcore). An unannotated reference is
+  nullable.
+- Thread annotations, `@RequiresPermission`, and `@IntDef`, `@LongDef`
+  and `@StringDef` groups come from `annotations.zip`, the SDK's and each
+  AAR's. Flag groups are left out.
+- API levels come from `api-versions.xml`, and Kotlin classes from their
+  metadata ([below](#kotlin-libraries)).
+
+Before the classpath is resolved, Android is deferred, not failed
+(`cli/pipeline.ts`). Without `android/` (Expo before `expo prebuild`),
+modules outside `android.jar` stay untyped with a warning. A build that
+leaves Android out does the same, naming the build that resolves them.
+
+## The cache
+
+Schemas are cached per machine, never in the project.
 
 ```
-~/.cache/lucent/sdk/android/android-<N>-<hash>/<package>/<inputs>.json   (the SDK platform)
-~/.cache/lucent/sdk/ios/iphonesimulator<version>-<build>-<hash>/<Module>/<inputs>.json   (Xcode's SDK)
+<cache>/                                $LUCENT_CACHE_DIR, else $XDG_CACHE_HOME/lucent, else ~/.cache/lucent
+  sdk/ios/iphonesimulator<version>-<build>-<key>/
+    headers.json                        which SDK module declares each Objective-C type
+    <Module>/<entry>.json               a schema
+    <Module>/<entry>.names.json         a module's type names
+    <Module>/source/<entry>.json        a module written as source (SwiftUI)
+  sdk/android/<android-N | jars>-<key>/<package>/<entry>.json
+  memo/<extractor>/                     what files' contents give, by their stats; pods' frameworks
+  swift-modules/<Module>-<key>/         emitted Swift pods and LucentNative
+  spm/<identity>-<key>/                 checked-out and built Swift packages
+  declarations/<hash>.d.ts              generated SDK declarations
 ```
 
-The directory's hash covers bindgen's own code and schema format, the SDK
-and, on iOS, the target triple and preprocessor definitions. The entry
-records what its extraction read: each module or package whose declarations
-it looked up (its own, and those of the types its signatures and supertypes
-name), with the identities of the artifacts declaring them then. An entry is
-used while those still resolve the same way; so adding a dependency, moving
-the checkout or the Gradle cache, or installing the same pods again extracts
-nothing, while a change to a library whose class a schema uses, or a newly
-linked library that declares a type it could not name before, extracts that
-schema again and only that one. Entries of other resolutions (another
-app's classpath) sit beside each other under the hash of their inputs.
-`$LUCENT_CACHE_DIR` moves the cache (default: `$XDG_CACHE_HOME/lucent`, else
-`~/.cache/lucent`); `$ANDROID_HOME` or `$ANDROID_SDK_ROOT` (or
-`$LUCENT_ANDROID_JARS`) and `$LUCENT_ANDROID_PLATFORM` choose the Android SDK;
-`$LUCENT_XCRUN` (or `xcode-select`) chooses Xcode.
+**Keys.** A scope's `<key>` hashes the extractor's version (a hash of
+bindgen's sources) and `SCHEMA_FORMAT`. iOS adds the target triple and
+defines; Android adds the SDK platform's identity. An `<entry>` hashes its
+inputs: each module or package the extraction looked up (its own, and
+those its signatures and supertypes name), with the identities of the
+artifacts declaring them.
 
-Each schema records the version of the schema format it was written in
-(`format`, bindgen's `SCHEMA_FORMAT`). The cache key covers it, and a cached
-schema of another format is a cache miss: it is extracted again, never an
-error. A schema from anywhere else goes through `loadSchema`, which fails
-with the module's name when the format is missing or not the current one.
+**Hits.** An entry is used while its inputs resolve the same way. Moving
+the checkout or the Gradle cache, or installing the same pods again,
+extracts nothing. A changed library whose class a schema uses, or a new one
+declaring a type it could not name before, extracts that schema again,
+only it. Entries of other resolutions sit beside each other.
 
-- **Android**: the jar is read once per process (a few hundred ms for
-  android.jar), and every package it has can be imported.
-- **iOS**: a module costs its symbol graph (UIKit: about 40 s, once per Xcode)
-  plus clang for its enum values. Frameworks the program only meets in
-  signatures (UIKit's methods take Foundation types) get **names only**: their
-  types as opaque nominal classes, from their symbol graphs; importing such a
-  framework gives it full declarations. Which module declares a type comes
-  from a scan of the headers: the SDK's once per SDK, each other artifact's
-  once per contents.
-- Extractions take a lock per module, so a build and a prefetch never do the
-  same work twice. The lock names its process: a build that finds the lock
-  of a process that died takes it over at once. Entries are published whole
-  (a write and a rename); one that does not parse is a miss, extracted
-  again, and a failed extraction leaves no entry. `lucent build` deals the
-  modules the built platforms import, round robin, to one background
-  extraction per spare core (those already cached return at once), then
-  waits for them: a process per module, each loading the compiler, ran a
-  4-core CI runner out of memory.
-- `lucent sdk prefetch [--ios A,B] [--android p.q] [--all]` extracts ahead of
-  time (default: what the project imports; `--ios` or `--android` alone:
-  every module of that SDK).
-- Without an SDK: a clear LUCENT3004 names the fix; `lucent build` builds the
-  platforms whose SDK is installed and says which it skipped. Where a
-  platform's SDK is missing, its `lucent:<platform>/*` modules are untyped,
-  so shared code still type-checks.
+**Writes.** An extraction holds `<file>.lock`, naming its host and pid
+(`cache.ts`); a lock whose process died, or older than ten minutes, is
+taken over. Entries are written whole and renamed; one that does not parse
+is a miss. `lucent build` starts a background `lucent sdk prefetch` per
+spare core, dealing the imports round robin, then waits on their locks
+(`backgroundPrefetch` in `cli/project.ts`). What a file's contents give is
+remembered by its path, size, times and inode (`memoByStat`), never as a
+key.
 
-## Binding schemas
+**Pruning.** Scope and memo directories hold an `.extractor` mark. Once a
+day the first lookup removes those another extractor wrote and nobody used
+for two weeks (`$LUCENT_NO_CACHE_PRUNE` turns it off). `lucent clean
+--cache --stale` removes them now; `lucent clean --cache` removes
+`<cache>/sdk`.
 
-A module's schema describes classes (native name, superclass, constructors, methods, properties,
-thread rule, availability) and enums in a small type grammar: `int`, `long`,
-`CGFloat`, `string`, `string?`, `long[]`, `Class<T>`, `android.os.Vibrator`,
-`UIDevice`. The compiler turns each into a `.d.ts` served from a virtual
-directory:
+`lucent sdk prefetch [--ios A,B] [--android p.q] [--all]` extracts early.
 
-- classes are nominal (a private brand) and have a private constructor unless
-  the SDK declares initializers;
-- C functions Swift imports as members of CoreFoundation-style handles,
-  as the module's API notes or its headers' `swift_name` attributes say
-  (`CGImageGetWidth` → `cgImage.width`, `CGImageCreateWithImageInRect` →
-  `cgImage.cropping(rect)`): called as the C functions they are, the
-  object where the name puts `self`, a Create/Copy function's result
-  owned;
-- Swift names on iOS (`UIDevice.current`, `init(style:)` → `constructor(style)`),
-  nested types joined with `_` (`UIImpactFeedbackGenerator_FeedbackStyle`);
-  Swift initializers TypeScript cannot tell apart, their parameters' types
-  the same (`init(service: String)`, `init(accessGroup: String)`), are
-  static factories named after their labels (`Keychain.withService(…)`,
-  `Keychain.withAccessGroup(…)`; after their types where the labels are
-  the same, `withInt`), never a `constructor` that would bind whichever
-  is declared first, and `new` with their arguments says so; one whose
-  arguments have no labels stays the `constructor`, as Swift calls it
-  with bare arguments (`new Locale_LanguageCode("en")`, while
-  `init(stringLiteral:)` is `withStringLiteral`); methods
-  that collide get their labels appended (`resize(height:)` →
-  `resizeHeight`). Objective-C initializers are not separated yet. An
-  Objective-C class method Swift imports as an initializer
-  (`+widgetWithLabel:` as `init(label:)`) is a `constructor` too, sent to
-  the class rather than to a new instance;
-- Java names on Android, plus Kotlin-style getter properties
-  (`VibratorManager.defaultVibrator`); Kotlin classes as Kotlin declares
-  them (see below);
-- `T?` → `T | null`; unannotated Java references are nullable
-  (`Build.MODEL: string | null`);
-- an option set (`NS_OPTIONS`, which Swift imports as an `OptionSet`) is
-  its enum or `0`, the empty set no case names: `view.autoresizingMask = 0`;
-  its cases combine with `|`;
-- `Class<T>` parameters take the class itself:
-  `context.getSystemService(Vibrator)` is `Vibrator | null`;
-- inheritance as TypeScript can type it: every Java class extends
-  `java.lang.Object`, and abstract classes keep their constructors
-  (protected ones as protected) so Lucent classes extend them. A class
-  declares again what TypeScript would hide or refuse to merge: the
-  overloads it inherits beside its own, and a property its superclass and
-  an interface give two ways (`ViewGroup.layoutDirection`, as `View`
-  types it). Each is tagged `@lucentInherited` with the class declaring
-  it, which is the one called. A member TypeScript cannot relate to what
-  it overrides (an `Object` result narrowed to an interface) is left out,
-  and coverage lists it with the reason.
-- `x instanceof Cls` tests a platform object's class: `isKindOfClass:` on
-  iOS (false for nil), JNI's `IsInstanceOf` on Android, and narrows `x`
-  to `Cls`. A Swift-only type has no Objective-C class to test, so
-  `instanceof` on one is refused;
-- a Java interface's default method (a Kotlin interface's function with a
-  body) is optional, so a Lucent class implementing the interface may leave
-  it out; callers assert it present:
-  `manager.getCredential!(context, request)`.
+## Schemas, locks and schema sets
 
-Names are for TypeScript; each declaration also records its native
-identity, its `symbol`, which renaming never changes: `objc:` or `c:`
-followed by the clang USR, `swift:` and the Swift USR (both from the symbol
-graph), or `jvm:` and the JVM class name, with `#` and the member's name
-and descriptor for members (`jvm:android/os/Vibrator#vibrate(J)V`; a
-Kotlin-style property is its getter). An overload renamed for TypeScript
-(`setValue_long`) keeps the method it calls, and a member a Swift protocol
-extension gives a conforming type keeps the extension's symbol.
+A schema (`bindgen/src/schema.ts`) lists a module's classes, enums,
+structs, C functions and constants in a small type grammar (`int`,
+`string?`, `long[]`, `Class<T>`, `List<E>`, `Tuple<min: int, max: int>`,
+`AsyncSequence<T>`, `android.os.Vibrator`). It records:
+
+- `format`, which is `SCHEMA_FORMAT`. `loadSchema` refuses another, naming
+  the module; the cache treats one as a miss.
+- `provenance`: the artifact id, kind, content hash, target and extractor,
+  with no machine path.
+- each declaration's `symbol`, which renaming never changes: `objc:` or
+  `c:` and the clang USR, `swift:` and the Swift USR, or
+  `jvm:<internal/Name>#<name><descriptor>`. An artifact and a symbol
+  together identify a declaration.
+- `facts`, what metadata proves ([Calls and threads](#calls-and-threads)),
+  and `skipped`, the members the extractor could not type, with reasons.
+
+Schemas are written in canonical order, so the same inputs give the same
+file.
+
+**The SDK lock.** `lucent sdk lock` checks the project and writes
+`lucent-sdk.lock.json`: the targets, each module's artifacts
+(`id#contentHash`) and cache entry, and every SDK symbol the code uses.
+`lucent build --frozen` fails when a module is read from other artifacts
+or the code uses a symbol the lock lacks. `lucent sdk diff` lists what the
+installed SDKs change for the locked symbols, by native identity; `--all`
+adds the rest of those modules. Each build writes the same record to
+`.lucent/sdk-usage.json`.
+
+**Exported schema sets.** `lucent sdk lock --schemas` also writes
+`lucent-sdk.schemas/<platform>/`. It holds each schema the check read
+(`<module>.json`), each source module (`.source.json`), and the names
+(`.names.json`) of the modules those name; on Android those get full
+schemas. A machine without that SDK (a Linux CI typing iOS code) reads the
+set, and an installed SDK wins. A set of another `SCHEMA_SET_FORMAT` is
+not read.
+
+## Binding plans
+
+`planMember` and `planBinding` (`bindgen/src/binding-plan.ts`) derive a
+member's plan from its schema for one role: `call`, `new`, `get`, `set`,
+or `implement` (a requirement a Lucent class implements). Plans are never
+cached. The compiler refuses a use, documents a declaration and emits glue
+from the same plan, and coverage counts what it refuses.
+
+| Backend         | Used for                                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------------ |
+| `objc`          | Objective-C messages, from Objective-C++                                                         |
+| `c-abi`         | C functions and globals, and CoreFoundation-style handles' members                               |
+| `swift-shim`    | Swift-only members, through `LucentShims.swift`                                                  |
+| `jni`           | Java and Kotlin members JNI can call as they are                                                 |
+| `kotlin-shim`   | Suspend functions, unboxed value classes, suspend function arguments, calls leaving out defaults |
+| `kotlin-source` | Compose content, written as Kotlin source                                                        |
+| `swift-source`  | SwiftUI bodies, written as Swift source                                                          |
+
+A plan has one conversion per receiver, argument and result
+(`passthrough`, `number`, `bigint`, `copy-string`, `copy-array`,
+`retain-object`, `box-swift-value`, `tagged-union`, `enum`, `struct`,
+`optional`, `callback`, `sequence`, `out`, `error`, or `unsupported` with
+its reason). It also has how failure is reported (`nserror-out`,
+`swift-throws`, `java-exception`), facts, availability, the artifacts to
+link, and a `refused` rule when no use can work. A value a use may leave
+out (a defaulted argument, a parameter a block offers) is `omissible`: its
+refusal counts only against uses that give or take it.
+
+The compiler reads plans through `compiler/src/sdk/plans.ts` and
+`requirePlan` in `emit/native.ts`. A refused value is LUCENT2002, an
+assignment LUCENT1008, other rules their own code. The message names the
+native symbol and artifact; for a value that cannot cross, it suggests
+wrapping the member in Swift or Kotlin the app owns:
+
+```
+ABIThing.grid: nested collections from Objective-C are not supported yet (objc:c:objc(cs)ABIThing(im)grid in clang-module:Abi)
+```
+
+Declarations document the same verdict ("Lucent cannot use this yet: …",
+or "Lucent cannot assign this yet: …").
+
+## How native shapes map to TypeScript
+
+### Values
+
+| Native                                                                                                       | TypeScript                                    | Crossing                                 |
+| ------------------------------------------------------------------------------------------------------------ | --------------------------------------------- | ---------------------------------------- |
+| `BOOL`, `bool`, Java `boolean`                                                                               | `boolean`                                     | value                                    |
+| `int`, `float`, `double`, `CGFloat`, `short`, `char`, `int32_t`…                                             | `number`                                      | WebIDL conversion into narrower integers |
+| Java `long`, Kotlin `Long`, `NSInteger`, `NSUInteger`, `int64_t`, `uint64_t`, Swift `Int`, `Int64`, `UInt64` | `bigint`                                      | exact, or `RangeError`                   |
+| `NSString`, `String`, `CharSequence`, `CFString`                                                             | `string`                                      | copied                                   |
+| `NSData`, `Data`, `CFData`, Java `byte[]`                                                                    | `Uint8Array`                                  | copied                                   |
+| `NSDate`, `Date`                                                                                             | `Date`                                        | copied                                   |
+| `NSArray`, `[T]`, `CFArray`, Java arrays, Kotlin read-only `List<E>`                                         | `T[]`                                         | copied, element by element               |
+| `NSDictionary` with string keys, `[String: T]`, `CFDictionary`                                               | `Record<string, T>`                           | copied                                   |
+| `NSSet`, Swift `Set`                                                                                         | `Set<T>`                                      | copied                                   |
+| Swift tuples                                                                                                 | tuples, labels as names                       | copied                                   |
+| `id`, `Any`, `AnyObject`, `AnyHashable`, `CFTypeRef`                                                         | `NSObject` (results), `ObjCValue` (arguments) | retained                                 |
+| A class, protocol or interface                                                                               | its declared class                            | `lucent::NativeRef`                      |
+| Java `Class<T>`                                                                                              | the class itself                              | retained                                 |
+
+Platform objects are `lucent::NativeRef`s: a retained Objective-C object,
+released on the main thread, or a JNI global reference. `===` compares
+identity (`IsSameObject` on Android). They never cross to JavaScript
+(LUCENT2006): return the values instead.
+
+A number passed to a narrower integer or an enum converts as WebIDL's
+default does: NaN and infinities give 0, the rest truncates and wraps
+(`toNativeNumber`). A method's own 64-bit parameter also takes a safe
+integer number; results stay bigints
+([semantics](semantics.md#platform-code)). Java `long` constants are exact
+bigint literals.
+
+Java arrays copy both ways, objects element by element; a `null` element
+the type calls non-null throws `TypeError`. Kotlin's read-only `List<E>`
+is a snapshot: one `toArray()` out, a new `java.util.ArrayList` in. A
+`MutableList`, a `List<*>`, a Java declaration's `java.util.List`, and
+every `Set` and `Map` stay Java objects, changed in place. A direct
+`ByteBuffer` becomes a `NativeBuffer` without a copy through
+`adoptByteBuffer` from `lucent:android`.
+
+### Classes, interfaces and generics
+
+Classes are nominal (a private brand) and have a protected constructor
+unless the SDK declares initializers. Protocols and Java interfaces are
+abstract classes, structural, so Lucent classes implement them. Objective-C
+root classes extend `NSObject` from `lucent:ios`, and Java classes extend
+`java.lang.Object`. Abstract Java classes keep their constructors, so
+Lucent classes extend them.
+
+TypeScript hides inherited overloads once a subclass declares one, so a
+class declares again what it inherits, and a property its superclass and
+an interface give two ways. Each is tagged `@lucentInherited` with the
+class that declares it. A member TypeScript cannot relate to what it
+overrides (an `Object` result narrowed to an interface) is skipped.
+
+`x instanceof Cls` tests a platform object's class: `isKindOfClass:` on
+iOS (false for nil), `IsInstanceOf` on Android. It narrows `x`, which is
+how Lucent code matches a sealed class's cases. Swift-only and
+CoreFoundation types have no class to test, so it is refused there.
+
+Objective-C lightweight generics and Java type parameters are type
+parameters defaulting to `unknown`, so raw references stay valid. On iOS a
+reference gives a generic type all its arguments. A static member names
+only the class type parameters it uses. Swift generic members get a shim
+per combination of type arguments
+([swift-shims.md](design/swift-shims.md#generics)).
+
+### Optionals and nullability
+
+`T?`, `_Nullable T` and `@Nullable T` are `T | null`, and so is an
+unannotated Java reference (`Build.MODEL: string | null`). Kotlin's
+nullability wins where Java's is unknown (type arguments, type variables,
+array elements); a platform type (`String!`) stays unknown. A `nil` or
+`null` result where the type promises an object throws `TypeError`. A
+property Swift imports as `T!` keeps its superclass's non-null contract.
+
+### Enums, option sets and constant groups
+
+`NS_ENUM` is a TypeScript `enum` of its raw values, each value the glue
+uses checked against the SDK with a `static_assert`. `NS_OPTIONS` is the
+same, plus `0` for the empty set (`view.autoresizingMask = 0`); cases
+combine with `|`. A case newer than its enum records its own `since`.
+
+A Swift enum without payloads is an `enum` of its cases' indexes. One with
+payloads is a union discriminated by `kind`:
+`{ kind: "circle"; center: Point; radius: number } | …`. A lone unlabeled
+payload is `value`, several are `_0`, `_1`… Members of Swift enums are
+skipped.
+
+An Android `@IntDef`, `@LongDef` or `@StringDef` group types its parameters
+and results as its constants' literal types
+(`typeof Toast.LENGTH_SHORT | typeof Toast.LENGTH_LONG`). A literal outside
+the group warns (LUCENT3008), since Java compiles it too. A group's
+`long`s stay numbers, exact or `RangeError`. An annotation type holding
+only constants (Play services' `Priority`) is an `enum`.
+
+### Structs and handles
+
+A C struct of numbers, booleans, enums and structs (`CGRect`, `NSRange`)
+is a plain object type, copied by value. An opaque CoreFoundation-style
+handle (`CGImageRef`) is a class whose members are the C functions Swift
+imports for it: `CGImageGetWidth` is `image.width`, with the object where
+the Swift name puts `self`.
+
+### Names
+
+- **iOS** uses Swift's names (`UIDevice.current`, `init(style:)` as the
+  constructor). Nested types join with `_`
+  (`UIImpactFeedbackGenerator_FeedbackStyle`). Methods drop their labels;
+  colliding overloads get them back (`resize(height:)` is `resizeHeight`),
+  or the selector's words when Swift names them alike (`setDoubleForKey`).
+- **Protocol requirements** keep every label, joined with `_`:
+  `locationManager(_:didUpdateLocations:)` is
+  `locationManager_didUpdateLocations`. Two requirements of one name are
+  skipped, never renamed.
+- **Initializers TypeScript cannot tell apart** become static factories:
+  Objective-C ones by their labels (`FileHandle.forUpdatingAtPath(…)`),
+  Swift ones by `with` and their labels (`Keychain.withService(…)`) or
+  types (`withInt`). One without labels stays the constructor. A class
+  method Swift imports as an initializer is a constructor sent to the
+  class.
+- **Android** uses Java names, plus a read-only property for each `get…`
+  or boolean `is…` getter (`VibratorManager.defaultVibrator`). Renamed
+  overloads (`setValue_long`) keep the JVM method they call.
+- Swift types named like JavaScript globals (`Date`, `Array`, `Error`…)
+  are left out.
 
 ### Kotlin libraries
 
-Classes kotlinc wrote carry Kotlin metadata (`@kotlin.Metadata`), which
-bindgen reads from the class file bytes as it indexes a classpath, with its
-own decoder (`kotlin-metadata-reader.ts`, `kotlin-metadata-decode.ts`: no
-JVM runs and no class is loaded), decoding each class the first time an
-extraction needs it. `kotlin.ts` gives each class its Kotlin view, and
-android.ts declares its members from it, each keeping the JVM method it is
-(`descriptor`, `symbol`):
+Classes kotlinc wrote carry `@kotlin.Metadata`, decoded from the class
+bytes on first use with no JVM (`kotlin-metadata-reader.ts`,
+`kotlin-metadata-decode.ts`, `kotlin.ts`). Each member keeps the JVM
+method it is.
 
-- parameters have their Kotlin names, and values Kotlin's nullability where
-  Java's is unknown or a default: type arguments (`List<String?>`), type
-  variables, array elements; enum entries, an object's `INSTANCE` and a
-  companion's field are non-null. A platform type (`String!`) stays
-  unknown, as in Java;
-- a `suspend` function is declared as its source signature, a promise of
-  what it completes with, without the `Continuation` its descriptor ends
-  with (`kotlin.suspend`), taking an `AbortSignal` last;
-- a parameter that declares a default is marked (`kotlin.default`), and is
-  optional where the defaults end the parameter list, or takes `undefined`
-  where one without a default follows (a Kotlin shim leaves
-  it out);
-- a type parameter's bound other than `Any?` is recorded (`kotlin.bounds`:
-  `non-null` for `Any`, `other` for the rest), each `other` one's bounds as
-  Kotlin types a shim writes (`kotlin.upperBounds`: `kotlin.Comparable<T>`;
-  none for a use-site projection), and so is a `fun interface`
-  (`kotlin.fun`);
-- properties are Kotlin's (`isEnabled`, not `enabled`), read through their
-  getter and, when the setter is API, written through it (`setter`);
-- an extension is a static of its facade taking the receiver first
-  (`ExtensionsKt.toQuery(receiver, limit)`, `kotlin.extension`); an
-  extension property is its accessors;
-- top-level functions and properties are statics of their file facade
-  (`ExtensionsKt`) or multi-file facade (`kotlin.kind`);
-- a value class records its underlying property and type; a member the JVM
-  passes one unboxed (a mangled name such as `load-X6dG1pw`, or a long for
-  a `HitId`) is typed with the value class and marked `kotlin.unboxed`;
-- a suspend function parameter is typed as the function Kotlin declares,
-  not `Function2<A, Continuation<R>, Object>` (`kotlin.suspendFunction`);
-- a Kotlin function type (`(Double) -> Unit`, nullable or not) is the
-  function it declares, its result `void` for `Unit`, wherever it is (a
-  parameter, a result, a property), not the `Function1<Double, Unit>` the
-  JVM erases it to; an extension's, a composable's and one of a type
-  Lucent does not bind stay the `FunctionN` class;
-- a read-only `List<E>` of typed elements is `List<E>` in the schema (a
-  copy, see [Calls](#calls)); a `MutableList`, a `List<*>` and a Java
-  declaration's `java.util.List` stay `java.util.List`. A type argument
-  Kotlin declares as a primitive (`List<Int>`, `Flow<Boolean>`) is the
-  number or boolean (`int`, `boolean`), not `java.lang.Integer`;
-- sealed classes list the subclasses Lucent declares; data classes,
-  objects, companions and enums say so.
+- Parameters have Kotlin's names, and properties are Kotlin's
+  (`isEnabled`), through their getter and setter.
+- Extensions and top-level declarations are statics of their facade, an
+  extension taking its receiver first (`ExtensionsKt.toQuery(r, limit)`).
+- A parameter with a default is optional where the defaults end the list,
+  or takes `undefined` where one without a default follows.
+- A value class records its underlying property; members the JVM passes
+  it unboxed are typed with the value class.
+- A Kotlin function type (`(Double) -> Unit`) is a function, not
+  `Function1`, and a suspend function parameter is typed as Kotlin
+  declares it.
+- What Kotlin callers do not see is left out (internal declarations,
+  `$DefaultImpls`, `$default` bridges); what Kotlin generates for Java
+  stays (`@JvmOverloads`, `@JvmStatic`).
+- Metadata newer than the reader knows (1.1 to 2.5; 2.4 when strict)
+  leaves the class as Java sees it, and `skipped` says why.
 
-What Kotlin callers do not see is not declared: internal and private
-classes and members, public fields holding them (an internal companion), `$DefaultImpls` and multi-file parts, `$default`
-bridges, and the statics a value class implements its members with. The
-JVM methods Kotlin generates for Java callers stay, as Java sees them:
-`@JvmOverloads` overloads, the no-argument constructor of a class whose
-parameters all have defaults, `@JvmStatic` statics of companion members,
-an enum's `values()`. A class whose metadata cannot be read (a newer
-Kotlin than the reader knows) is declared as Java sees it, and `skipped`
-says why: `dev.orbit.FutureKt: its Kotlin metadata was not read
-(unsupported Kotlin metadata version 99.0.0; this reader reads 1.1 to
-2.5)`. Metadata naming a JVM method the class file (or a superclass it
-inherits it from) does not have is reported in `skipped` too, and nothing
-calls it; inline functions are left out of that check (`@InlineOnly`
-ones have no method callers reach).
+### Functions
 
-A schema also records its `provenance`: the artifact its declarations come
-from, by build-system identity (`sdk:iphonesimulator27.0`,
-`pod:WidgetsPod@1.0.0` from Podfile.lock, `clang-module:M` or
-`swift-module:M` on the search paths, `android-sdk:35`, Maven coordinates
-from Gradle's cache, else `jar:` or `aar:` and the file name), its kind, the
-target it was read for, the extractor's hash, and a hash of the artifact's
-contents (none for the iOS SDK, which its version names). None of these
-holds a machine path. Two artifacts can declare the same symbol (a library
-and a copy of it); the artifact and the symbol together identify a
-declaration.
+A Lucent function passed where the SDK takes a block, or assigned to a
+block property, becomes a block. A block the SDK hands over is a Lucent
+function that calls it. On Android, a function passed where Java takes a
+functional interface or a Kotlin function type becomes a `NativeProxy`
+object; a Kotlin function Lucent receives holds a global reference.
 
-`planMember` and `planBinding` (bindgen's `binding-plan.ts`) derive a
-member's binding plan from its schema, for a role: a call, a construction,
-a property's read or write, or a protocol or interface method a Lucent
-class implements. A plan has the backend (`objc`, `jni`, `swift-shim`, `kotlin-shim` or
-`c-abi`), one conversion per receiver, argument and result
-(`copy-string`, `retain-object`, `box-swift-value`, `optional`,
-`callback`…), how the member reports failure (an `NSError **` it writes,
-Swift's `throws`, a pending Java exception), the facts that hold for it,
-its availability and the artifacts to link. A callback conversion says
-when native code runs the Lucent function: while it waits for it (a
-result, a call it runs during, the main thread), or queued on the Lucent
-thread. The facts include who owns a result where a general naming
-convention says so: Cocoa's method families (`alloc`, `new`, `copy`,
-`mutableCopy`, `create`) and CoreFoundation's Create/Copy rule transfer it
-to the caller (evidence `objc-method-family`, `cf-create-rule`).
+A callback's plan says when native code runs it. It is `sync` while the
+platform waits (it returns a value, runs during the call, or runs on the
+main thread), else `queued` on its package's thread. A property of a fun
+interface's type takes a function and reads back as the interface.
 
-The plan applies the ABI rules of its backend to each value, knowing which
-way it flows: collections read from Objective-C hold plain values, errors
-do not go in, blocks go in only as arguments and are not nested three
-deep, a block read from native code takes no blocks, a pointer a block or
-requirement receives is written back only while the platform waits and
-only to a number or an enum; JNI cannot write fields or call setters, nor pass arrays of a type
-parameter's values (their Java class depends on the values), nor Kotlin
-functions taking or giving functions, and a Lucent
-class cannot override a class's method whose JVM name Java cannot write
-(an interface's it implements through a proxy, by any name); what only a
-Kotlin shim can call (a suspend function, a value class the JVM unboxes,
-a suspend function argument) has the `kotlin-shim` backend, which refuses
-generic members bounded by a projected type (`T : List<out R>`, whose
-bound the schema does not keep) and overriding a Kotlin class's suspend
-or value-class members, for now;
-Swift shims pass scalars, Swift enums, objects, tuples (as arrays of
-their elements' objects; not of optional values or C structs) and
-closures (as Objective-C blocks, both ways: of numbers, booleans,
-strings and Objective-C objects), optional scalars (as NSNumbers, nil
-for none) and Objective-C enums (as their raw values), not those inside
-collections, nor optional Objective-C enums. Objective-C methods take
-errors (as NSErrors, `toNSError`) as arguments. A Swift AsyncSequence
-(`AsyncStream`, `AsyncThrowingStream`, `some AsyncSequence<E, F>`, or a
-non-generic type of the module conforming to it, by its `Element`) is the
-schema type `AsyncSequence<E>`, a result or property only: the shim boxes
-it as a `LucentSequence` with each element's object conversion, and
-lucent:ios's `AsyncSequence.collect` runs `lucent_swift_collect`, a task
-that hands each element to the glue with a continuation it resumes once
-the Lucent function has run (ios_sequence.h), as Kotlin's Flow.collect
-suspends for its collector. A value that cannot cross is an `unsupported` conversion with
-its reason; a member no use of which can work (a read-only property
-written, a Swift async initializer, a member of a protocol with associated
-types called, a static requirement implemented) is `refused`, with the
-rule's name. A value a use may leave out is
-`omissible`: a parameter a block or requirement receives (a Lucent
-function that leaves it out does not take it), and a Swift argument with
-a default the call does not give; its refusal counts only against the uses
-that give or take it. Types other modules declare are judged by their
-facts (kind, Swift shape) from a lookup; a fact the lookup does not know
-refuses nothing. Plans are derived each time, never cached with the
-schema.
+### Async
 
-The compiler judges every SDK use by its plan (`compiler/src/sdk/plans.ts`,
-with the type facts it reads: other modules' names, and a Swift type's
-declaration): a refused use is a diagnostic (LUCENT2002 for a value,
-LUCENT1008 for an assignment, the member-level rule's code otherwise) with
-the plan's reason, followed by the native symbol and artifact the
-declaration comes from:
-`ABIThing.grid: nested collections from Objective-C are not supported yet (objc:c:objc(cs)ABIThing(im)grid in clang-module:Abi)`.
-The glue takes the rest from the plan too: when a block or implemented
-requirement runs Lucent code, whether a call writes an `NSError **`, and
-who owns a result. A generic Swift use is judged again with its type
-arguments. The declarations document what the plans refuse
-(`Lucent cannot use this yet: …`, or `Lucent cannot assign this yet: …`
-for a property read but not written), judged with the module's own types.
+| Native                                                       | Lucent                                                                   |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Completion handler last, which Swift also imports as `async` | The handler method, plus one without the handler returning a promise     |
+| Swift `async` method                                         | `Promise<T>`, and an optional `signal: AbortSignal` last                 |
+| Swift `async` getter                                         | A property of type `Promise<T>`                                          |
+| Kotlin `suspend` function                                    | `Promise<T>`, and an optional `signal: AbortSignal` last                 |
+| Kotlin `Flow<T>`                                             | A Java object; `await flow.collect((v) => …, signal)` is a suspend call  |
+| Swift `AsyncSequence`, `AsyncStream`                         | `AsyncSequence<T>` from `lucent:ios`; `await seq.collect(f, signal)`     |
+| `Task`, `ListenableFuture`, `CompletionStage`…               | Java objects; `await` on one is LUCENT1010; adapt it with `fromCallback` |
 
-Coverage: `lucent sdk coverage` reports, per module, the members Lucent can
-call and those it can't, with the reasons (Swift-only members among them,
-as "Swift-only"): the members the extractor skipped, and those whose plan
-refuses every use, under the plan's reason. Plans are judged with the
-types other modules declare (`sdkTypeLookup`: their names on iOS, their
-schemas on Android), as builds judge them. Swift's Hashable, Equatable
-and Codable plumbing (`hash(into:)`, `==`, `encode(to:)`, `init(from:)`,
-`hashValue`) is counted apart (`plumbing`), outside the share, and each
-report names the SDK it was read from (`sdk`), which `--check` notes when
-the baseline's differs. A `p.*` prefix that matches no module fails. It places each member at the
-furthest stage the evidence supports, each needing the one before:
-_discovered_ (declared), _representable_ (its plan can work), _generated_
-(the project's last build used it, from `.lucent/sdk-usage.json`; an
-unreadable report counts as none, with a warning) and
-_exercised_ (listed in an `--exercised` file of symbol keys that tests or
-probes write). A stage without evidence is unknown (`-`, `null` in JSON),
-not 0. `--members` lists every member with its stage, symbol key, native
-symbol, artifact and reason. CI fails when a module's unrepresentable
-share grows past `config/sdk-coverage.json`. `--all` takes every module of each
-SDK there is, listing the ones its extractor cannot read rather than
-failing (IOKit, and the cross-import overlays, for the simulator), and
-`--summary <file>` appends a markdown summary: the members in total and
-the 20 reasons that leave out the most, summed across modules. CI runs
-both and shows the summary on its job (reporting only).
-CI's summary has the current numbers, and [T112](tasks.md#t112) records
-them before and after its work.
+A completion handler's promise is settled on its package's thread: the
+handler's `NSError` rejects it, its other argument resolves it. It takes
+no signal. A handler with several results keeps only the block form, and
+protocols declare only the block form.
 
-## Calls
+For Swift `async` and Kotlin `suspend`, aborting the signal, or the
+calling context's scope ending, rejects at once and cancels the task or
+coroutine; a late value is released. A flow's `collect` resolves when the
+flow completes and rejects with what the flow or the collector throws; it
+composes with `subscribe` from `lucent:core`. `AsyncSequence.collect`
+calls `f` for each element in order, the sequence waiting for each call
+(`platform/ios_sequence.h`).
 
-- **iOS**: message sends with the SDK's own selectors, in Objective-C++
-  compiled against the real headers:
-  `[[UIImpactFeedbackGenerator alloc] initWithStyle:static_cast<UIImpactFeedbackStyle>(…)]`.
-  Every enum value used is checked against the SDK with a `static_assert`.
-- **Android**: JNI with descriptors derived from the schema types; class and
-  member IDs are looked up once per call site, local references are freed per
-  call, and classes the system class loader cannot see are loaded through the
-  application's.
-- **Kotlin shims** (Android): what JNI cannot call as Kotlin declares it
-  gets a Kotlin function in `dev.lucent.shims.LucentShims_<package>`,
-  generated for the program (one per member and pattern of arguments it
-  uses) and called over JNI like a static Java method. The Lucent Android
-  library compiles them (the Kotlin plugin, and kotlinx-coroutines 1.7.3
-  or the newer one the app has), and keeps them from the app's shrinker
-  with the rest of `dev.lucent`. Its parameters are
-  numbers and booleans as themselves and any other value as `Any?`, cast
-  to what Kotlin infers from the call, which names its arguments
-  (`receiver.search(prefix = cast(a0))`). A call that leaves out Kotlin
-  defaults calls a shim that leaves them out, so Kotlin's defaults apply;
-  one that gives every argument (`null` included) calls the JVM method.
-  An argument that may be `undefined` where Kotlin has a default is
-  refused: Lucent chooses between the default and the value when it
-  compiles the call. Value classes cross boxed: a shim constructs them,
-  and unboxes and boxes them for the members the JVM passes them unboxed
-  to. A `suspend` call is a promise of the calling context
-  (`lucent::jni::launch`, over `nativeOperation`): its shim starts the
-  coroutine in a scope the shims own, from the calling thread until it
-  first suspends (`Dispatchers.Unconfined`, as a direct call would run),
-  and reports the value or the Throwable to a completion (a
-  `BiConsumer`); what it returns (an `AutoCloseable`) cancels the
-  coroutine's `Job`. The call's `AbortSignal` aborting, or its context's
-  scope being disposed, rejects the promise at once and cancels the
-  coroutine; a value that arrives after that is released, never
-  delivered. A thrown exception rejects the promise as a Java exception
-  does. The glue matches Java objects with `instanceof` (JNI's
-  `IsInstanceOf`), so the cases of a sealed class and their payloads are
-  read as their classes'. A generic member's shim writes its type
-  parameters as `Any?` (`Any` where Kotlin bounds them so,
-  `cast<Flow<Any?>>(receiver).collect(…)`): its values are Java objects
-  either way, and Lucent reads them as the use's type arguments say. Where
-  Kotlin bounds one otherwise (`T : Comparable<T>`), the shim is generic
-  itself: it declares its class's and its member's type parameters with
-  their bounds and passes them on (`fun <T : kotlin.Comparable<T>>
-Board_top(…) = …top<T>(…)`), which the JVM erases. A value class property
-  is assigned through a shim too (`….best = cast(value)`), and its
-  accessors are named as Kotlin's (`getBest`), their JVM names
-  (`getBest-JdFk__0`) kept.
-- **Kotlin functions** (Android): a Lucent function passed or assigned
-  where Kotlin takes a function type is a `kotlin.jvm.functions.FunctionN`
-  (a NativeProxy, over JNI) whose `invoke` converts its boxed arguments and
-  calls it: queued on the Lucent thread when it gives nothing, else now,
-  holding the lock, and its result boxed back; made in a view's setup, it
-  runs on the main thread. It takes as many of the arguments as it
-  declares; a function taking or giving functions is refused. A Kotlin
-  function Lucent receives is a Lucent function holding a global reference
-  to it, which calls `invoke` with its arguments boxed, a Java exception
-  thrown as a Lucent error. A property of a fun interface's type (any Java
-  interface with one abstract method) takes a function when written, as a
-  parameter of that type does: it reads back as the interface (a get and a
-  set accessor of their own types).
-- **Kotlin interfaces Lucent classes implement** (Android): a member the
-  JVM passes value classes unboxed (`judge-8AA5ETM(I)I`) is implemented by
-  the proxy as by any name; its arguments are boxed for Lucent through the
-  class's `box-impl`, and its result unboxed through `unbox-impl`. A
-  suspend member (`pick(List, Continuation)`) queues the Lucent method's
-  call and tells Kotlin it suspended (a `SafeContinuation` over the
-  intercepted continuation, as `suspendCoroutine` makes): the promise it
-  returns resumes it, through the caller's dispatcher, with its value, or
-  with its error as a Java exception that Lucent reads back as the error
-  itself. Its AbortSignal is not given yet.
-- **Kotlin suspend functions Lucent functions implement** (Android): a
-  Lucent function passed where a shim's member takes a suspend function
-  (`step: suspend (String) -> Unit`), or a fun interface whose function
-  suspends (a Flow's `FlowCollector`), reaches the shim as a Kotlin
-  function object (`kotlin.jvm.functions.FunctionN`, a NativeProxy), and
-  the shim passes the lambda Kotlin takes (`{ x0 -> f(x0) }`,
-  `FlowCollector { x0 -> f(x0) }`). Kotlin waits for a suspend function, so
-  the Lucent function runs when Kotlin calls it, on Kotlin's thread,
-  holding the Lucent lock, and its result goes back to Kotlin. What it
-  throws is thrown to Kotlin (a `RuntimeException` with its message), which
-  ends the Kotlin call: the promise rejects with the Lucent error itself.
-  An async Lucent function is refused there (LUCENT1007): Kotlin would go
-  on before its promise settled.
-- **Flows** (Android): a `Flow<T>` is a Java object whose `collect` is a
-  suspend member, so collecting one is a promise of the calling context
-  that the collector runs within, with nothing Lucent adds for flows:
-  `await ticker.count(3).collect((n) => seen.push(n))` resolves when the
-  flow completes, rejects with the error a flow throws (after the values
-  it emitted), and with what the collector throws. Aborting the call's
-  `AbortSignal`, or its context's scope being disposed, rejects it at once
-  and cancels the coroutine collecting the flow, which stops the flow
-  (its `onCompletion` sees a `CancellationException`); a flow that never
-  completes (a `StateFlow`) is collected until then. `FlowKt`'s generic
-  top-level functions are callable the same way (`FlowKt.first(flow)`,
-  `FlowKt.toList(flow)`, whose read-only list is an array). A flow is a
-  `subscribe` from `lucent:core` too: its register starts
-  `collect(next, signal)` with an `AbortController` of its own, calls
-  `end` or `fail` when the collection settles, and returns what aborts
-  it, so the subscription's signal (which resolves it) and a throwing
-  `onValue` (which rejects it) cancel the coroutine.
-- **Swift-only APIs** (iOS): a Swift member the program calls gets a
-  `@_cdecl` shim in `LucentShims.swift`, which the glue calls as a C
-  function ([design](design/swift-shims.md)). Swift structs are boxed
-  objects, changed in place by `mutating` members and setters; enums
-  without payloads are numbers (their cases' indexes); `throws` becomes a
-  Lucent error. `async` members (and async getters) return promises: the
-  shim runs them in a `Task` and the glue settles the promise on the
-  Lucent thread. Async methods take an `AbortSignal` last: its aborting,
-  or the calling context's scope being disposed, rejects the promise at
-  once and cancels the task; a result that arrives after that is
-  released, never delivered. `@MainActor` members follow the main-thread rule when
-  synchronous; async ones hop to the main actor themselves, from any
-  thread. Enums with payloads are unions discriminated by `kind`
-  (`{ kind: "circle"; center: Point; radius: number } | …`; a lone
-  unlabeled payload is `value`, several are `_0`, `_1`…). Generic
-  members get a shim per combination of type arguments the program uses.
-  Protocol values are objects, and a Lucent class implementing a Swift
-  protocol conforms through a generated Swift class: method, property,
-  throwing, async and mutating requirements; associated types are the
-  protocol's type parameters, fixed by `implements Store<string>`, and
-  `Self` is the implementing class (initializer and static requirements
-  are refused).
-- Pointers a method writes through (`CGFloat *`, `NSRange *`, `NSDate **`,
-  `NSError **` where Swift does not throw, `CFTypeRef *`) take an `Out<T>`
-  from `lucent:ios`: read `value` after the call, and set it first for a
-  number or struct the method also reads.
-- A protocol composed with `NSObject` (`NSObject<NSCopying> *`, Swift's
-  `any NSCopying & NSObjectProtocol`) is the protocol: every Objective-C
-  object conforms to NSObject. Other compositions, selectors, class
-  objects and metatypes, raw and read-only pointers, buffers and memory
-  zones have no Lucent value yet; the members using them are skipped,
-  each with what the type is as its reason (`raw pointers
-(UnsafeRawPointer) have no Lucent value: nothing says what they point
-to`), which `lucent sdk coverage` counts.
-- Functions passed where the SDK takes a block, or assigned to a block
-  property, become blocks, and blocks the SDK passes back (a completion handler given to a Lucent function or to a
-  Lucent class's protocol method) become Lucent functions that call them.
-  CoreFoundation values in blocks keep their C types.
-- A Lucent class may extend an Objective-C class (`class Greeting extends
-UIViewController`): a generated Objective-C subclass stands for each
-  instance for its whole life. `super(…)` makes it with the base
-  initializer the call resolves to (the implicit constructor with the one
-  taking no arguments); the class's methods named like the base's
-  instance methods override them, run while the caller waits (an override
-  the base's initializer calls before `super(…)` returns runs the base's);
-  `super.name(…)` calls the base's implementation, and every member the
-  class inherits is its native object's. An instance passes where the
-  base's type, or an Objective-C protocol it implements, is taken: the
-  subclass adopts the protocols. The native object holds the Lucent
-  object, and Lucent references to it hold the native object, so neither
-  goes while the platform or Lucent code has it (the Lucent object is
-  released on the Lucent thread). A subclass of a main-thread class
-  (`UIView`, `UIViewController`) is made and its methods are called on
-  the main thread, where its members run. Refused, with a reason:
-  extending such a class again, a field or accessor where the base has a
-  property of that name, overriding a Swift member, and Swift classes (a
-  Swift subclass would be needed).
-- Platform objects are `lucent::NativeRef`s: a retained Objective-C object
-  (released on the main thread) or a JNI global reference. `===` compares
-  identity (`IsSameObject` on Android). They cannot cross to JavaScript
-  (LUCENT2006).
-- Native 64-bit integers (Java's `long`, Kotlin's `Long`, `int64_t`,
-  `uint64_t`, `NSInteger`, `NSUInteger`, Swift's `Int`, `Int64`,
-  `UInt64`) are `bigint`s, in results, arguments, struct fields, `Out`s
-  (`Out<bigint>` for an `NSInteger *`), arrays and callbacks, and in
-  Kotlin shims' arguments, defaults, value classes and suspend results
-  ([semantics](semantics.md#platform-code)). Every native value crosses
-  exactly, `NSNotFound` and `Long.MAX_VALUE` included; a bigint the
-  native type cannot hold throws `RangeError` naming the parameter or
-  field. Their plans convert them with the `bigint` operation. Java
-  `long` constants are inlined as their exact bigint literals.
-- Enums and option sets (`NS_ENUM`, `NS_OPTIONS`) and Android constant
-  groups (`@IntDef`, `@LongDef`) stay numbers. A `@LongDef` group's
-  `long`s, its constants included, cross as numbers exactly or throw
-  `RangeError` (their plans mark them `exact`).
-- A number crossing into a narrower native integer or an enum
-  (`lucent::toNativeNumber`) takes WebIDL's default conversion on both
-  platforms: NaN and infinities give 0, the rest truncates and wraps
-  modulo 2^bits; a 64-bit target takes the `exact` rule; `float` rounds.
-- Java arrays are copied either way: `byte[]` as a `Uint8Array`, arrays of
-  numbers (`int[]`, `float[]`, `char[]`…) as `number[]`, `long[]` as
-  `bigint[]`, `boolean[]` as
-  `boolean[]`, and arrays of objects, strings and arrays element by element
-  (`File[]` as `File[]`, `int[][]` as `number[][]`); a null element of an
-  object array throws `TypeError` where its type says it is not nullable,
-  as for any other result. Each element's local reference is freed once it
-  is converted.
-- Kotlin's read-only `List<E>` is a snapshot: a result, a property or a
-  suspend function's value is an `E[]` copied from the list's elements
-  (one `toArray()` call), and an `E[]` Lucent passes becomes a new
-  `java.util.ArrayList` holding copies of its elements. Neither side sees
-  what the other changes afterwards: a read-only list may be a view of
-  state that changes (`val titles: List<String> get() = items`), and its
-  copy keeps what it held when it was read. Numbers and booleans Kotlin
-  boxes are numbers and booleans (`List<Int>` is `number[]`), and its
-  `Long`s bigints (`List<Long>` is `bigint[]`, exactly), elements may be
-  `null` where Kotlin's element type says so (`List<String?>` is
-  `(string | null)[]`), a `null` element where it does not throws
-  `TypeError`, and lists of lists are copied deep. Unlike an array, a
-  list of a type parameter's values can be passed: its class does not
-  depend on them. What callers may rely on the
-  identity of stays the Java object, whose methods read and change it in
-  place and whose `===` compares identity: a `MutableList<E>`, a `List<*>`,
-  and every `java.util.List` a Java declaration names, since Java does not
-  say whether it is mutable. A `Set` or `Map` is the Java object too, for
-  now.
-- Java exceptions become Lucent errors whose `code` is the exception class
-  (`java.lang.IllegalArgumentException`) and whose message is the
-  exception's. `errorOf(throwable)` from `lucent:android` makes the same
-  error of a `Throwable` a callback API reports, so an adapter's
-  `reject(errorOf(e))` rejects as the call would have thrown;
-  `nativeError(error)` gives the `Throwable` back (the error keeps a
-  global reference to it), for `instanceof` and its members, and on iOS
-  the `NSError` an error was made from. A
-  `nil`/`null` result where the schema promises an object throws
-  `TypeError`.
-- A `Task`, a `ListenableFuture`, a `CompletionStage` or any other Java
-  object is not a promise: `await` on a value typed as an SDK class is
-  refused (LUCENT1010), whatever the class. Its completion listener becomes one
-  with `fromCallback` from `lucent:core`, like any callback API: call
-  `task.addOnCompleteListener(…)` inside `register` and settle from the
-  listener. No class is recognized by name; the extracted methods are the
-  whole API.
-- Java's `AutoCloseable` (so `Closeable`, `Cursor` and the rest) declares
-  `[Symbol.dispose]()`: `using cursor = …` calls `close()` however the block
-  is left.
-- A `ByteBuffer` is a Java object like any other, whose bytes its methods
-  copy. `adoptByteBuffer(buffer)` from `lucent:android` makes a direct one
-  (`allocateDirect`, or one an SDK returns over native memory) a
-  `NativeBuffer` of its own bytes instead, uncopied, which can move to a
-  worker or, with `transferToArrayBuffer()`, to JavaScript. Java code must
-  leave the buffer alone from then on; a global reference keeps it
-  reachable until the bytes are released. A heap or read-only buffer is
-  a `TypeError`.
+### Errors
 
-## Threads
+| Native failure                               | Lucent error                                                            |
+| -------------------------------------------- | ----------------------------------------------------------------------- |
+| `NSError **` a method writes, Swift `throws` | `Error`, `code` `"<domain>:<code>"`, message the `localizedDescription` |
+| A Java exception, a Kotlin `Throwable`       | `Error`, `code` the class name (`java.lang.IllegalStateException`)      |
+| A completion handler's `NSError`             | the promise's rejection, as above                                       |
 
-`main(f)` from `lucent:thread` runs `f` on the main thread (the main queue;
-the main Looper through a `Handler`) holding the Lucent lock, and resolves
-with its result; the caller never waits for it. Main-thread-only APIs
-(`mainActor` in the schema, `@MainActor` in Swift) are a compile error
-(LUCENT3006) outside a `main(() => …)` literal, a block the SDK runs on the
-main thread, or a protocol requirement it calls there. On Android, the
-SDK's thread annotations say the same: `@UiThread` and `@MainThread` classes
-and methods are main-only (`android.view.View` and every member of it but
-those marked `@AnyThread`), and calling a `@WorkerThread` member in a main
-context warns (LUCENT3009): it blocks. The generated declarations
-document the same rule from the same check: a main-thread class says
-"Main thread only", and a member says so only where it differs from its
-class (an async Swift member of a `@MainActor` class is "Any thread").
+`nativeError(error)` gives back the `NSError` or `Throwable`, for
+`instanceof` and typed reads, or `null` for an error Lucent or JavaScript
+made. `errorOf(throwable)` from `lucent:android` makes the error a call
+would have thrown. Objective-C methods take `Error` arguments as
+`NSError`s. The glue does not catch Objective-C exceptions (`NSException`).
 
-The schema records what those annotations and attributes prove as `facts`
-on classes and members: an affinity (`main`, `worker` or `any`) with the
-annotation as evidence (`@WorkerThread`, `@MainActor`), and blocking and
-ownership left `unknown`, since no annotation proves them (`@WorkerThread`
-says where a member runs, not that it blocks). A member without facts of
-its own takes its class's; without any, every fact is unknown. The
-`mainActor` and `worker` flags the checks above read are derived from the
-same facts, in one place (`bindgen/src/facts.ts`), so the two cannot
-disagree.
+### Out-parameters
 
-`available("ios", major, minor?)` and `available("android", api)` check the
-running OS. An API newer than the oldest OS the app runs on (on iOS, its
-Xcode project's deployment target, never below 15.1; Android API 24), by
-the SDK's availability attributes (iOS) or API levels
-(Android's `api-versions.xml`), must be used under such a check (an `if`, an early exit on the
-opposite check, `?:` or `&&`), or it is LUCENT3007; on iOS, so is passing
-a Swift value that needs a newer Swift runtime (a parameterized protocol
-type, iOS 16). Swift shims are marked `@available` from what they call,
-and the Objective-C++ glue leaves Clang's own availability warnings off:
-the check is Lucent's. `appContext()` returns the Android `Application`
-(`ActivityThread.currentApplication()`).
-
-## Android Activities
-
-`lucent:android` gives Lucent code the app's Activities through
-`dev.lucent.LucentActivities` (runtime `native/android`) and
-`lucent/platform/android_activity.cpp`:
-
-- `currentActivity()`: the Activity last created, started or resumed and
-  not destroyed, or null. `LucentInitializer`, a content provider the
-  library manifest declares, registers the lifecycle callbacks with the
-  process, before any Activity or JavaScript. Activities are held weakly;
-  the reference returned is for use now, on the main thread.
-- `startActivityForResult(intent, signal?)` and
-  `requestPermissions(permissions, signal?)`: each request is an Operation
-  under the scope the calling context's work belongs to (`ownedScope`:
-  module code's ends with its JavaScript runtime; `platform/android_requests.h`),
-  settled exactly once on that context by the id the Java side echoes back.
-  The request runs in `LucentRequestActivity`, a translucent Activity the
-  library manifest declares (no AndroidX, any host Activity), so the app's
-  Activity may be recreated while it is out; recreated itself, it waits for
-  the answer instead of asking again. Permission requests run one at a
-  time. An aborted signal or a disposed scope cancels the promise and tells
-  Java to forget the request: a late answer is dropped, and the Activity it
-  started is finished when Android lets the app (a permission dialog or
-  another app's screen may stay). No Activity: `ERR_NO_ACTIVITY`; no app
-  for the intent: `ERR_ACTIVITY_NOT_FOUND`; the request Activity ending
-  without an answer (a new process after the old one died):
-  `ERR_REQUEST_ENDED`.
-- `onActivityEvent(event, handler)`: `created`, `started`, `resumed`,
-  `paused`, `stopped`, `destroyed` from the lifecycle callbacks, and
-  `newIntent` from AndroidX activities' new-intent listeners (found by
-  name). Handlers run in a turn of the subscribing context; the returned
-  function unsubscribes. Lucent's request Activity is never reported.
-
-A reload of JavaScript does not cancel requests or subscriptions made by
-module code: like module state, they belong to the legacy module context,
-which outlives a runtime.
-
-## Presenting and the app's lifecycle (iOS)
-
-`present(build, signal?)` from `lucent:ios` presents a view controller
-and resolves with its outcome:
+A pointer a method writes through (`CGFloat *`, `NSRange *`, `NSDate **`,
+`CFTypeRef *`, a non-throwing `NSError **`) takes an `Out<T>` from
+`lucent:ios`; an `NSInteger *` is an `Out<bigint>`.
 
 ```ts
-import { UIActivityViewController } from "lucent:ios/UIKit";
-import { present } from "lucent:ios";
+const red = new Out<number>();
+if (color.getRed(red, null, null, null)) use(red.value);
+```
 
-export function share(text: string, signal?: AbortSignal): Promise<boolean> {
-  return present<boolean>((resolve) => {
-    const sheet = new UIActivityViewController([text], null);
-    sheet.completionHandler = (_type, completed) => resolve(completed);
-    return sheet;
-  }, signal);
+Read `value` after the call; set it first for a number or struct the
+method also reads. A pointer a block or requirement receives
+(`BOOL *stop`) is written back after the Lucent function returns, only
+while the platform waits, and only to a number or an enum.
+
+## Calls and threads
+
+**iOS.** Calls are message sends with the SDK's own selectors, in
+Objective-C++ compiled against the real headers. A result of a Cocoa
+method family (`alloc`, `new`, `copy`, `mutableCopy`, `create`) or of a
+Create/Copy function is the caller's (evidence `objc-method-family`,
+`cf-create-rule`). A value set on a `weak` property is retained by its
+owner as an associated object, so a delegate lives while it is set.
+
+**Android.** Calls are JNI with descriptors from the schema. Class and
+member IDs are looked up once per call site (`LUCENT_JNI_SITE`), each call
+runs in a local frame, and a pending exception becomes a Lucent error.
+Classes the system class loader cannot see load through the app's.
+
+**The main thread.** `main(f)` from `lucent:thread` runs `f` on the main
+queue or `Looper`, holding its package's actor, and resolves with its
+result. The main thread never waits for module code. A main-thread-only
+API is LUCENT3006 outside:
+
+- a `main(() => …)` literal, `present`'s builder, or an `onAppEvent` or
+  `onSceneEvent` listener;
+- a block the SDK runs on the main thread (`@MainActor`, or not
+  `@Sendable` in a main-actor member);
+- a requirement the platform calls there, a component's setup, or a
+  member of a class extending a main-thread iOS class.
+
+Swift `async` members are exempt: they hop to their actor. Android
+`@WorkerThread` work on the main thread warns (LUCENT3009). `mainQueue()`
+and `serialQueue(label)` from `lucent:ios` give queues for APIs that take
+one.
+
+**Facts.** The schema records what annotations prove (`bindgen/src/facts.ts`):
+an affinity (`main`, `worker`, `any`) with its evidence (`@MainActor`,
+`@UiThread`, `@MainThread`, `@AnyThread`, `@WorkerThread`). Blocking and
+ownership stay `unknown` unless a rule proves them. A member without facts
+takes its class's, and the older `mainActor` and `worker` flags derive
+from the same facts.
+
+**Availability.** An API newer than the oldest OS the app runs on is
+LUCENT3007 outside a check. The oldest iOS is the deployment target, never
+below 15.1; the oldest Android is the classpath file's `minSdk`, else 24.
+A check is `available("ios", 16)`, `available("android", 31)` or
+`Build_VERSION.SDK_INT >= 31`, with literal arguments, in an `if`, `?:`,
+`&&`, or an early exit on the opposite check. Passing a parameterized
+Swift protocol type needs iOS 16; Swift shims carry `@available`.
+
+`appContext()` is `ActivityThread.currentApplication()`. Java's
+`AutoCloseable` declares `[Symbol.dispose]()`, so `using` closes it.
+
+## Delegates and listeners
+
+A Lucent class that `implements` an SDK protocol or interface goes where
+the SDK takes one.
+
+```ts
+class Updates implements CLLocationManagerDelegate {
+  locationManager_didUpdateLocations(m: CLLocationManager, l: CLLocation[]): void {}
 }
 ```
 
-- `build` runs on the main thread holding the Lucent lock, like `main()`'s
-  function (main-thread APIs compile there), and must be a function
-  literal. It makes the view controller and wires its delegate or
-  completion handler to `resolve` and `reject`; if it settles the promise
-  itself, nothing is presented.
-- The view controller is presented from the scene the person is using:
-  the most recently activated window scene in the foreground (active
-  before inactive), from the top of its key window's presentation chain.
-  None of that is cached: it is looked up in UIKit each time. With no
-  scene in the foreground, or when UIKit does not present it (another
-  presentation under way, a view controller already shown), the promise
-  rejects with an `InvalidStateError`.
-- The promise settles once. Whatever settles it dismisses the view
-  controller if it is still shown, on the main thread. It rejects with an
-  `AbortError` when `signal` aborts, when the person dismisses the view
-  controller (swiping a sheet down; Lucent is its presentation
-  controller's delegate only when it has none), when the view controller
-  is released before settling, or when its scene disconnects. Lucent holds
-  the view controller weakly.
-- A popover without an anchor (`UIActivityViewController` on iPad) is
-  anchored to the middle of the presenting view.
+**Objective-C protocols** (`emit/delegates.ts`). A generated class,
+`Lucent<Name>`, adopts the protocols and forwards the requirements the
+Lucent class implements; optional ones it leaves out stay unimplemented.
+It holds the Lucent object, one per object while in use
+(`lucent::objc::cachedObject`). A requirement that returns a value or is
+main-actor runs while the platform waits, any other is queued, and a
+Lucent method may take fewer parameters than offered.
 
-`onAppEvent(event, listener, signal?)` and `onSceneEvent(event, listener,
-signal?)` subscribe to UIApplication's and UIScene's lifecycle
-notifications, by name (`"didBecomeActive"`, `"willResignActive"`,
-`"didEnterBackground"`, `"willEnterForeground"`,
-`"didReceiveMemoryWarning"`, `"willTerminate"`; `"willConnect"`,
-`"didDisconnect"`, `"didActivate"`, `"willDeactivate"`,
-`"willEnterForeground"`, `"didEnterBackground"`). Each returns the
-function that stops it; aborting `signal` stops it too. The listener runs
-on the main thread during the notification, holding the Lucent lock
-(main-thread APIs compile there); a scene listener gets the scene's
-session's `persistentIdentifier`. What a listener throws is logged, and
-UIKit and the other observers go on. Lucent observes the notifications
-from the moment the app loads: it replaces no app or scene delegate, so
-the app's own and other modules' keep working.
+**Swift-only protocols** get a generated Swift class
+([swift-shims.md](design/swift-shims.md#the-swift-proxy)).
 
-Native code (a package's Objective-C++ sources) reaches the same through
-`lucent/platform/ios_ui.h`: `presentationContext()` gives the scene, key
-window and top view controller for the current turn of the main thread,
-and `presentOperation<T>(scope, signal, build)` presents under a scope of
-its own, whose disposal cancels the presentation.
+**Java interfaces** use one `java.lang.reflect.Proxy` class for every
+interface (`dev/lucent/NativeProxy.java`), keyed by method name and
+parameter descriptor. A default method Lucent leaves out keeps its
+Java body from API 26; on 24 and 25 it returns its zero value, logged.
+Arguments convert on the calling thread. A `void` method is queued; one
+with a result runs while Java waits, and a primitive one that threw gives
+its zero value.
+
+A Kotlin interface's suspend member takes an `async` method: the proxy
+tells Kotlin it suspended (a `SafeContinuation`, as `suspendCoroutine`
+does), and the promise resumes it through the caller's dispatcher. Value
+classes the JVM passes unboxed are boxed for Lucent and back.
+
+## Subclassing
+
+**Objective-C classes**: `class Greeting extends UIViewController` gets a
+generated `LucentSub_<Name>` (`emit/objc-subclass.ts`) standing for each
+instance for its whole life. `super(…)` makes it with the base
+initializer the call resolves to, and the implicit constructor with the
+one without arguments. Methods named like the base's override them, run
+while the caller waits (before `super(…)` returns, the base's run).
+`super.name(…)` calls the base's implementation, and the subclass adopts
+the class's Objective-C protocols.
+
+The native object holds the Lucent object, and each Lucent reference holds
+the native object (an aliasing reference), so neither outlives the other
+and no cycle forms. A subclass of a main-thread class is made and used on
+the main thread.
+
+**Java classes** (`emit/java.ts`). A generated subclass,
+`dev.lucent.generated.<Name>`, is made when an instance first goes to
+Java. It overrides each method the Lucent class defines, and each abstract
+one, through `NativeProxy.dispatch`, and its handle is released when Java
+collects it.
+
+| Refused on iOS                                      | Refused on Android                                         |
+| --------------------------------------------------- | ---------------------------------------------------------- |
+| Swift classes (subclass them in Swift)              | A base without a public constructor taking no arguments    |
+| Extending a Lucent class that extends an iOS class  | `super(…)` with arguments, and `super.name(…)`             |
+| A field named like a base property (set it instead) | Overriding a method whose JVM name Java cannot write       |
+| Overriding a base property with accessors           | Overriding a Kotlin class's suspend or value-class members |
+| Overriding a Swift member                           | Interfaces (implement them)                                |
+| Generic classes; protocols (implement them)         |                                                            |
+
+## Swift shims
+
+What only Swift can call goes through a generated `@_cdecl` function in
+`LucentShims.swift`, which the glue declares `extern "C"`. That covers
+Swift-only types (structs, enums, classes, protocols) and Swift members of
+any type, Objective-C classes' overlays included; an Objective-C member of
+the same name wins. [design/swift-shims.md](design/swift-shims.md) has the
+design.
+
+- Swift structs are boxed objects, changed in place by `mutating` members
+  and setters. A `ContiguousBytes` type gets a `bytes` property that
+  copies its bytes out.
+- `some DataProtocol` takes a `Uint8Array`, `some StringProtocol` a
+  string, `some Collection<E>` an array: one rule per standard protocol.
+- Members a module's own protocol extensions give (`SHA256.hash(data:)`)
+  are bound; the standard library's are not.
+- Trailing default arguments are optional, a shim per count; those Lucent
+  has no value for (`isolation: isolated (any Actor)? = #isolation`) are
+  never given.
+
+With shims, the podspec sets `s.swift_version = "5.9"` and keeps the C++
+headers private, so Swift imports the pod without C++ interop.
+
+## Kotlin shims
+
+What JNI cannot call as Kotlin declares it goes through a generated Kotlin
+function (`emit/kotlin.ts`). That covers suspend functions, unboxed value
+classes, suspend function arguments, and calls leaving out Kotlin
+defaults. Each package gets an object,
+`dev.lucent.shims.LucentShims_<package>`, with a `@JvmStatic` function per
+member and pattern of given arguments, called over JNI as a static method.
+
+- Numbers and booleans pass as themselves, everything else as `Any?`,
+  cast where Kotlin infers the type: `receiver.search(prefix = cast(a0))`.
+- Arguments a call leaves out are left out of the Kotlin call, so
+  Kotlin's defaults apply. An argument that may be `undefined` where
+  Kotlin has a default is refused: the choice is made at compile time.
+- A suspend call launches in the shims' scope
+  (`SupervisorJob() + Dispatchers.Unconfined`) and runs on the calling
+  thread until it first suspends. It reports to a `BiConsumer` of the value
+  or the `Throwable`, and returns an `AutoCloseable` that cancels the job.
+- Type parameters are `Any?` (or `Any`); one bounded otherwise
+  (`T : Comparable<T>`) makes the shim generic, with the bound.
+- A Lucent function passed as a suspend function runs when Kotlin calls
+  it, on Kotlin's thread. An `async` Lucent function is refused there:
+  Kotlin would go on before its promise settled.
+
+The files go to `.lucent/native/android/src/main/java/dev/lucent/shims/`.
+The library applies the Kotlin Android plugin and depends on
+`kotlinx-coroutines-core` 1.7.3, or the app's newer one; its consumer rules
+keep `dev.lucent.**` from the shrinker.
+
+## Activities, scenes and presentation
+
+`lucent:android` reaches the app's Activities through
+`dev.lucent.LucentActivities` and `platform/android_activity.cpp`.
+`LucentInitializer`, a content provider the library's manifest declares,
+registers the lifecycle callbacks when the process starts, before any
+Activity or JavaScript.
+
+- `currentActivity()` is the Activity last created, started or resumed
+  and not destroyed, or null. Activities are held weakly, so use the one
+  returned now, on the main thread.
+- `startActivityForResult(intent, signal?)` and
+  `requestPermissions(permissions, signal?)` each make an operation under
+  the scope of the calling context's work (`ownedScope`; module code's
+  ends with its JavaScript runtime). `platform/android_requests.h` settles
+  it once, on that context, by the id the Java side echoes back.
+- The request runs in `LucentRequestActivity`, a translucent Activity the
+  library's manifest declares. The app's Activity may be recreated while
+  it is out, and the request Activity, recreated, waits for its answer
+  instead of asking again. Permission requests run one at a time.
+- An abort or a disposed scope cancels the promise and tells Java to
+  forget the request, so a late answer is dropped. The errors are
+  `ERR_NO_ACTIVITY`, `ERR_ACTIVITY_NOT_FOUND` and `ERR_REQUEST_ENDED` (the
+  request Activity ended without an answer).
+- `onActivityEvent(event, handler)` reports `created`, `started`,
+  `resumed`, `paused`, `stopped` and `destroyed`, and `newIntent` from
+  AndroidX activities. Lucent's request Activity is never reported.
+
+On iOS, `onAppEvent` and `onSceneEvent` observe UIApplication's and
+UIScene's notifications from the moment the app loads, without replacing
+a delegate, so the app's own delegates and other modules keep working. A
+package's Objective-C++ reaches presentation through `platform/ios_ui.h`:
+`presentationContext()` gives the scene, key window and top view
+controller for the current main-thread turn, and
+`presentOperation<T>(scope, signal, build)` presents under a scope whose
+disposal cancels it.
 
 Presentations and subscriptions made from module code belong to its
-JavaScript runtime's scope (`ownedScope`): a reload ends them, as it
-ends module code's operations, callbacks and timers. An `onDestroy` hook
-from `lucent:core` runs when the module state ends too (before a reload
-initializes it again, holding the Lucent lock; `lucent/hooks.h`), for
-state of its own to release. Not yet: URLs and user activities the app
-opens have no event yet (React Native's `Linking` has them: the app's
-delegate forwards them to `RCTLinkingManager`, which posts
-`RCTOpenURLNotification`, the notification a Lucent event would
-observe); on Android, `onActivityEvent("newIntent", …)` and the created
-Activity's intent carry them. A push token has no hook either: it
-reaches only the app delegate's
-`application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`, which
-Lucent does not replace. Apps that support several scenes are covered by
-unit tests only.
+JavaScript runtime's scope, so a reload ends them.
+[T110](tasks.md#t110) adds the events only the app delegate and the
+Activity receive.
 
-## Verified in the spike
+## Pods, Gradle and Swift packages
 
-- `swift-symbolgraph-extract` on UIKit (iOS 27 SDK) gives clang USRs for
-  Objective-C members (`c:objc(cs)UIImpactFeedbackGenerator(im)impactOccurred`,
-  `(cpy)` class properties, `(py)` properties), `@MainActor` in declaration
-  fragments, enum cases with their C enumerators
-  (`c:@E@UIImpactFeedbackStyle@UIImpactFeedbackStyleMedium`), and
-  completion-handler methods twice under one clang USR: once with the
-  handler, once as Swift `async`. Extracting UIKit takes about 40 s and 29 MB,
-  so extraction results need caching.
-- Generated glue compiles with `-Werror` against the iOS simulator SDK and
-  the NDK (`packages/compiler/test/platforms.test.ts`); derived JNI
-  descriptors match `android.jar`.
-- On devices (Release, iOS 27 simulator and Android 14 emulator, bare and
-  Expo apps), the example apps' SDK tab passes: the `expo-haptics` port
-  (`examples/lucent-haptics`), SDK values, identity across threads,
-  a Java exception's code, and, in the Expo app, the original
-  `expo-haptics` through the same JavaScript API.
-- Threads the app did not start (the Lucent thread) see only the system
-  class loader on Android: framework classes resolve, app classes
-  (fbjni's `NativeRunnable` and `HybridData`, AndroidX, Play services) do
-  not. The main-thread hop runs inside `ThreadScope::WithClassLoader`, and
-  `findClass` falls back to the Application's class loader.
+Bindings install nothing: they read what the app's build installed. The
+native package links what the code uses (`linkModule` in
+`emit/native.ts`, `native-build-files.ts`).
 
-## Not yet
+| The code imports                | The generated native package                                         |
+| ------------------------------- | -------------------------------------------------------------------- |
+| An SDK framework                | Lists it in `s.frameworks`, and imports the module's umbrella header |
+| A pod's module                  | `s.dependency "<Pod>"`                                               |
+| A Swift package's module        | `spm_dependency(s, …)` at the version or revision the app resolved   |
+| A local Swift package           | `spm_dependency` with the package's path                             |
+| A Gradle library                | Nothing: it is on the app's classpath                                |
+| A package's `android.libraries` | An `api` dependency of the Lucent library                            |
 
-[docs/tasks.md](tasks.md) lists what's next and the binding gaps (under
-T28), and [docs/limitations.md](limitations.md) the limitations kept on
-purpose, with the reason.
+A package's `lucent.json` adds its `ios.pods` (marked `# lucent.json`),
+`ios.swiftPackages`, `ios.vendoredFrameworks` and `android.dependencies`.
+The app adds a Swift package to its project but not its product to the
+app target: linked by both, a static package's symbols would be
+duplicated. A package's pod binds once installed; in Expo, `expo prebuild`
+stops at one not installed yet ([T141](tasks.md#t141)). Packages' Kotlin
+and Java are compiled but not typed ([T143](tasks.md#t143)).
+
+## Android permissions
+
+Each SDK method the code calls brings the permissions its
+`@RequiresPermission` names (`value`, `anyOf` and `allOf` alike), from the
+SDK's and the AARs' `annotations.zip`. A property read brings its
+getter's, a write or a JSX prop its setter's. They become
+`<uses-permission>` in the library's `AndroidManifest.xml`, merged into the
+app's beside packages' `android.permissions`. Runtime permissions are still
+asked for with `requestPermissions` from `lucent:android`.
+
+## Typed C extensions
+
+A package declares a C header in `lucent.json`, imported as
+`lucent:ext/<name>` on both platforms, shared code included.
+`compiler/src/extensions/bind.ts` reads the header with clang
+(`bindgen/src/c-header.ts`) and checks the declaration against it
+([C-EXT](design/contracts.md#c-ext-typed-native-extensions)).
+
+```json
+{
+  "extensions": {
+    "orbit": {
+      "header": "native/orbit.h",
+      "handles": {
+        "OrbitFilter": { "create": "orbit_filter_create", "destroy": "orbit_filter_destroy" }
+      },
+      "functions": { "orbit_hash": { "params": { "data": { "bytes": "read", "length": "size" } } } }
+    }
+  }
+}
+```
+
+- The header sits in a directory both `ios.nativeSources` and
+  `android.nativeSources` list, and compiles as C++ with C linkage.
+- A **handle** is an opaque struct with a `create` (null on failure) and a
+  `destroy`. It is a class: `create` is the constructor, `methods` take it
+  first, and `close()` or `[Symbol.dispose]` destroys it once.
+- Numbers, booleans and handles need no declaration; 64-bit integers are
+  bigints. A pointer is `bytes` (read or write, with its length), a UTF-8
+  `string`, or an `error` struct the call fills in.
+- `failsWhen` (`null`, `negative`, `nonzero`, `zero`, `false`) makes a
+  failure throw with the error struct's message and code; `release` frees
+  it. `affinity: "main"` keeps a function or handle on the main thread,
+  and `blocking` warns when it is called there.
+- Header functions the declaration does not name bind when they need
+  nothing; the rest are listed as not bound.
+
+Callbacks, variadic functions, C++ and cancellation are refused
+([T142](tasks.md#t142)).
+
+## Coverage
+
+`lucent sdk coverage` reports how far each member of a module gets
+(`bindgen/src/coverage.ts`):
+
+| Stage           | Evidence                                                                    |
+| --------------- | --------------------------------------------------------------------------- |
+| `discovered`    | The schema declares it                                                      |
+| `representable` | Its plan can work, judged with the types other modules declare              |
+| `generated`     | The project's last build used it (`.lucent/sdk-usage.json`)                 |
+| `exercised`     | An `--exercised` file of symbol keys, which tests or probes write, lists it |
+
+A stage without evidence is unknown (`-`, `null` in JSON), not 0.
+Representable members split into `idiomatic` (a getter as a property, a
+completion handler as a promise) and `raw`; the rest are counted by
+reason. Swift's Hashable, Equatable and Codable plumbing is counted apart.
+
+- `--ios UIKit,Foundation` and `--android 'android.*'` choose modules,
+  else the project's imports; `--all` takes every module of each SDK.
+- `--members` lists each member with its stage, symbol key, native symbol,
+  artifact and reason; `--views` adds what view classes take in JSX.
+- `--check <baseline>` fails when a module's unrepresentable share grows;
+  `--update <file>` writes the reports. CI checks `config/sdk-coverage.json`.
+- `--summary <file>` appends the totals and the 20 reasons that leave out
+  the most.
+
+`lucent sdk show UIKit.UIDevice` prints a declaration, and
+`lucent sdk search <term>` finds names.
+
+## Shapes still refused
+
+Each is a diagnostic with its reason, and coverage counts it.
+[T112](tasks.md#t112) tracks the ones common libraries use.
+
+| Where           | Refused                                                                                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Both platforms  | A `WeakRef` to an SDK object, or a `WeakMap` keyed by one                                                               |
+| Objective-C     | Nested collections read from Objective-C; blocks, errors, out-pointers and classes as collection elements               |
+| Objective-C     | Blocks except as arguments; blocks taking blocks, read from native code; three levels of blocks                         |
+| Objective-C     | Selectors, class objects, metatypes, raw, read-only and buffer pointers, zones, compositions other than with `NSObject` |
+| Swift shims     | Optional closures and tuples; optionals, C structs and Objective-C enums in collections; optional enums; `Set`s         |
+| Swift shims     | Closures taking or giving anything but numbers, booleans, strings and Objective-C objects                               |
+| Swift shims     | Subscripts, parameter packs, `inout` parameters, failable and generic initializers, operators                           |
+| Swift shims     | Members of protocols with associated types; statics of generic types no extension fixes                                 |
+| Swift shims     | Async initializers; async or throwing property requirements; initializer and static requirements                        |
+| Swift shims     | Async sequences other than results                                                                                      |
+| JNI             | Assigning Java fields; arrays of a type parameter's values; Kotlin functions taking or giving functions                 |
+| JNI             | Wildcard types, `Class` other than `Class<T>`, nullable array elements                                                  |
+| Implementations | A `char` argument, or a result that is not a number, boolean, string or object, in a method Java calls                  |
+| Kotlin shims    | Generic members bounded by a projected type (`T : List<out R>`)                                                         |
+| Promise forms   | Completion handlers with several results; completion-handler promises on Android                                        |
+| Subclasses      | See [Subclassing](#subclassing)                                                                                         |
+| C extensions    | Callbacks, variadic functions, C++ ([T142](tasks.md#t142))                                                              |
