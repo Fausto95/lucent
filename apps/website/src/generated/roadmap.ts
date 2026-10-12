@@ -3,76 +3,54 @@
 /** From ROADMAP.md and docs/limitations.md. */
 export const milestones: { title: string; goal?: string; items: { status?: string; text: string }[] }[] = [
   {
-    "title": "Foundations",
+    "title": "Modules",
     "items": [
       {
         "status": "done",
-        "text": "A C++ runtime with JavaScript's numbers, strings, arrays, maps, sets and errors."
+        "text": "Statements, classes, generics, unions, closures, generators, regular expressions and JSON."
       },
       {
         "status": "done",
-        "text": "One C++ TurboModule, autolinked on iOS and Android."
+        "text": "`async` and `await` off the JS thread, `AbortSignal`, and JS callbacks and promises both ways."
       },
       {
         "status": "done",
-        "text": "The compiler: the TypeScript checker, then C++ with `#line` back to the source."
+        "text": "Exported classes whose instances keep their identity in JavaScript."
       },
       {
         "status": "done",
-        "text": "`lucent build`, the Metro integration and the Expo config plugin."
+        "text": "`bigint` of any size, with every native 64-bit integer as one."
       },
       {
         "status": "done",
-        "text": "Every language feature tested against the same code run as JavaScript."
+        "text": "Events through `EventEmitter`, and hooks for listeners starting and for a module ending."
+      },
+      {
+        "status": "done",
+        "text": "`NativeBuffer` and moved `ArrayBuffer`s, which pass bytes without copying."
+      },
+      {
+        "status": "in progress",
+        "text": "Native handles, and memory-pressure hints for objects that hold native memory."
+      },
+      {
+        "status": "next",
+        "text": "Typed arrays and `DataView`, and `null` kept apart from `undefined` in every container."
+      },
+      {
+        "status": "next",
+        "text": "JSON-shaped values through recursive union types."
+      },
+      {
+        "status": "next",
+        "text": "Promise chaining and combinators, timers, and web APIs such as `TextEncoder` and `URL`."
+      },
+      {
+        "status": "next",
+        "text": "Classes that extend `EventEmitter`, so native objects have their own listeners."
       }
     ],
-    "goal": "A module runs as C++ in a bare React Native app and an Expo app, on iOS and Android."
-  },
-  {
-    "title": "The language",
-    "items": [
-      {
-        "status": "done",
-        "text": "Statements, expressions, destructuring and template literals."
-      },
-      {
-        "status": "done",
-        "text": "Object types, unions, narrowing, enums and generics."
-      },
-      {
-        "status": "done",
-        "text": "Classes with inheritance and interfaces, closures, generators, regular expressions and JSON."
-      },
-      {
-        "status": "done",
-        "text": "`async` and `await` off the JS thread, `AbortSignal`, JS callbacks and promises."
-      },
-      {
-        "status": "done",
-        "text": "`bigint`, with values of any size crossing to JavaScript exactly."
-      },
-      {
-        "status": "done",
-        "text": "`using` declarations and `Symbol.dispose`."
-      },
-      {
-        "status": "done",
-        "text": "Lucent code runs one piece at a time, so it has no data races."
-      },
-      {
-        "status": "done",
-        "text": "Heavy work on worker threads with `compute`, checked so a task shares no state."
-      },
-      {
-        "status": "done",
-        "text": "`NativeBuffer`, which hands bytes to tasks and JavaScript without copying them."
-      },
-      {
-        "status": "done",
-        "text": "Events JavaScript listens to with `EventEmitter`, and module hooks with `onDestroy`."
-      }
-    ],
-    "goal": "Self-contained modules, such as parsers, codecs and data structures."
+    "goal": "Write a module once in TypeScript, and call it from JavaScript as a native module."
   },
   {
     "title": "Platform APIs",
@@ -83,55 +61,145 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "done",
-        "text": "One module for both platforms, with platform branches; platform files as an option."
+        "text": "Swift-only and Kotlin-only APIs, such as StoreKit 2 and `Flow`, through generated code."
       },
       {
         "status": "done",
-        "text": "Delegates, listeners and blocks; completion handlers as promises."
+        "text": "Delegates, listeners, blocks and subclasses, with completion handlers as promises."
       },
       {
         "status": "done",
-        "text": "Swift-only APIs, such as StoreKit 2 and CryptoKit, through generated Swift."
+        "text": "OS version checks and main-thread-only APIs, checked at compile time."
       },
       {
         "status": "done",
-        "text": "Kotlin-only APIs, such as `suspend` functions and `Flow`, through generated Kotlin."
+        "text": "Pods, Gradle dependencies, Swift packages and C libraries."
       },
       {
         "status": "done",
-        "text": "Native 64-bit integers as `bigint`, so IDs and sizes stay exact."
+        "text": "The current Activity and scene, activity results, permission requests and app lifecycle events."
+      },
+      {
+        "status": "in progress",
+        "text": "Platform memory as JavaScript bytes without a copy, done for Android's `ByteBuffer`."
+      },
+      {
+        "status": "next",
+        "text": "Opened URLs, push tokens, notifications and back presses, from the app delegate and Activity."
+      },
+      {
+        "status": "next",
+        "text": "Native needs declared by the app's own modules, not only by packages."
+      },
+      {
+        "status": "next",
+        "text": "Privacy manifests, Android `<queries>` and Gradle plugins, declared by packages."
+      },
+      {
+        "status": "later",
+        "text": "C++ libraries, and a package's own Kotlin and Java, typed in Lucent."
+      },
+      {
+        "status": "later",
+        "text": "Swift, Kotlin and C++ that call Lucent modules."
+      }
+    ],
+    "goal": "Call the iOS and Android SDKs, and the libraries an app links, directly from Lucent."
+  },
+  {
+    "title": "Execution modes",
+    "items": [
+      {
+        "status": "done",
+        "text": "Modules that don't import each other on threads of their own, which never block the main thread."
       },
       {
         "status": "done",
-        "text": "SDK objects kept in exported classes, as each platform's private members."
+        "text": "`main()` for main-thread work, and `compute` for parallel work that shares no state."
       },
       {
         "status": "done",
-        "text": "The SDK's own error objects, read back with `nativeError`."
+        "text": "Swift `async` and Kotlin `suspend` APIs as promises, cancelled through `AbortSignal`."
       },
       {
         "status": "done",
-        "text": "Callback APIs as promises and subscriptions, with `fromCallback` and `subscribe`."
+        "text": "Channels that carry values between threads, bounded, with a drop policy."
+      },
+      {
+        "status": "in progress",
+        "text": "Executors, so platform callbacks run on a queue of their own."
+      },
+      {
+        "status": "next",
+        "text": "Module code that runs with no JavaScript runtime."
+      },
+      {
+        "status": "later",
+        "text": "Android services, receivers, workers and widgets written as Lucent classes."
+      },
+      {
+        "status": "later",
+        "text": "iOS background tasks, background downloads and silent pushes."
+      },
+      {
+        "status": "later",
+        "text": "iOS app extensions and widgets, with SwiftUI bodies."
+      },
+      {
+        "status": "later",
+        "text": "App Intents, Live Activities and Android widget bodies."
+      },
+      {
+        "status": "later",
+        "text": "Calls from worklet runtimes."
+      }
+    ],
+    "goal": "Lucent code runs wherever the platform calls it, on the thread it needs, with or without JavaScript."
+  },
+  {
+    "title": "Views",
+    "items": [
+      {
+        "status": "done",
+        "text": "Components that render UIKit and Android views, in preview."
       },
       {
         "status": "done",
-        "text": "Members of generic classes on both platforms, such as `List<E>.get`."
+        "text": "SwiftUI and Jetpack Compose bodies written as JSX, from your SDKs' declarations."
       },
       {
         "status": "done",
-        "text": "Classes extended in Lucent on both platforms, such as a `UIViewController`."
+        "text": "Typed props, events, commands that answer, React children and sizing to content."
       },
       {
         "status": "done",
-        "text": "OS version checks and main-thread-only APIs, checked at compile time on both platforms."
+        "text": "Recycling, keyed lists and Yoga layout, and views that update while JavaScript is blocked."
       },
       {
-        "status": "done",
-        "text": "The current `Activity` and iOS scene, activity results and permission requests."
+        "status": "next",
+        "text": "Instances of exported classes as props, such as a video player."
       },
       {
+        "status": "next",
+        "text": "React Native's own view props, such as `testID` and `onLayout`."
+      },
+      {
+        "status": "later",
+        "text": "View controllers as component roots, such as `AVPlayerViewController`."
+      },
+      {
+        "status": "later",
+        "text": "A component's ref passed to a module function, as view capture needs."
+      }
+    ],
+    "goal": "Native views from Lucent components, rendered by React Native's Fabric."
+  },
+  {
+    "title": "Distribution and tooling",
+    "items": [
+      {
         "status": "done",
-        "text": "Libraries the app links: its pods on iOS, its Gradle dependencies on Android."
+        "text": "`@lucent-lang/lucent` on npm, for bare and Expo apps, with autolinking and a config plugin."
       },
       {
         "status": "done",
@@ -139,83 +207,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "done",
-        "text": "Typed native extensions: C code a package ships, checked against its header."
-      },
-      {
-        "status": "done",
-        "text": "A coverage report of what each SDK binds, and why the rest is skipped."
-      },
-      {
-        "status": "done",
-        "text": "Pinning the SDKs a project uses, and listing what an SDK update changes for your code."
-      },
-      {
-        "status": "done",
-        "text": "Ports of Expo and community modules, checked against the originals."
-      },
-      {
-        "status": "done",
-        "text": "Native libraries nobody has seen before, bound and run with no change to Lucent."
-      },
-      {
-        "status": "done",
-        "text": "The app's Swift packages, bound against the iOS version the app targets."
-      },
-      {
-        "status": "done",
-        "text": "Weak references with `WeakRef`, for delegates and back references."
-      }
-    ],
-    "goal": "Call the iOS and Android SDKs directly from Lucent."
-  },
-  {
-    "title": "Views",
-    "items": [
-      {
-        "status": "done",
-        "text": "Components in `.lucent.tsx` that render UIKit and Android views, in every build (in preview)."
-      },
-      {
-        "status": "done",
-        "text": "SwiftUI and Jetpack Compose bodies written as JSX, from declarations read from your SDKs."
-      },
-      {
-        "status": "done",
-        "text": "One file per component, with each platform's body in a platform branch."
-      },
-      {
-        "status": "done",
-        "text": "Events, commands, requests that answer, recycling, sizing to content and React children."
-      },
-      {
-        "status": "done",
-        "text": "Views that keep updating while JavaScript is blocked."
-      },
-      {
-        "status": "done",
-        "text": "JSX for any SDK view, keyed lists and Yoga layout."
-      },
-      {
-        "status": "next",
-        "text": "A views preview with wrapper ports, such as maps, web views and video."
-      },
-      {
-        "status": "later",
-        "text": "Native lists, gestures and animations, and media pipelines."
-      }
-    ],
-    "goal": "Native views from Lucent components, rendered by React Native's Fabric."
-  },
-  {
-    "title": "Production",
-    "items": [
-      {
-        "status": "done",
-        "text": "`@lucent-lang/lucent` on npm, published from CI with provenance."
-      },
-      {
-        "status": "done",
-        "text": "Incremental builds, and rebuilds as you edit, including linked packages."
+        "text": "Incremental builds, rebuilds as you edit, and Lucent's errors in the editor."
       },
       {
         "status": "done",
@@ -223,38 +215,34 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "done",
-        "text": "Lucent's errors in the editor."
+        "text": "A JavaScript `lucent:core`, so Jest and Vitest run shared modules."
       },
       {
         "status": "done",
-        "text": "A warning when the installed app runs an older native build than your code."
-      },
-      {
-        "status": "done",
-        "text": "A JavaScript `lucent:core`, so Jest and Vitest can run shared modules."
+        "text": "Performance budgets for calls, kernels and size, checked in CI."
       },
       {
         "status": "in progress",
-        "text": "Performance budgets in CI."
+        "text": "React Native 0.85 to 0.87 and Expo SDK 56 and 57, with fresh apps built nightly."
       },
       {
         "status": "next",
-        "text": "Testing on physical devices; today, simulators and emulators."
+        "text": "iOS builds from Xcode alone, and a package's pods in Expo apps."
       },
       {
         "status": "later",
-        "text": "Background tasks, services and app extensions with no live JavaScript."
+        "text": "A web target for shared modules."
       },
       {
         "status": "later",
-        "text": "A tested support window of React Native and Expo versions."
+        "text": "Monorepos, upgrades and Release builds, tested as a matrix."
       },
       {
         "status": "later",
-        "text": "Pilots with independent library authors and real apps."
+        "text": "Reference ports, benchmarks against Nitro and Expo Modules, and migration guides."
       }
     ],
-    "goal": "Ready for apps in production."
+    "goal": "Build and ship Lucent modules and packages like any React Native library."
   }
 ];
 
@@ -262,34 +250,60 @@ export const limitations: { title: string; items: string[] }[] = [
   {
     "title": "Views",
     "items": [
-      "Views are in preview: every build generates them since the switch was removed (2026-10-07), but the preview gate (G3) has not certified them.",
-      "Android pools component views only when the app turns on React Native's `enableViewRecycling`; iOS always recycles them.",
-      "Intrinsic sizes and slot insets wait for the JavaScript thread to apply them (one layout when idle).",
+      "Views are in preview: their API may change before the view gate closes.",
+      "A component's props are data. An instance of an exported class can't be a prop yet ([T120](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t120)).",
+      "A component takes `style` and its own props only. React Native's other view props, such as `testID`, `accessibilityLabel` and `onLayout`, are dropped ([T121](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t121)).",
+      "A component's root is a view. A `UIViewController` root, such as `AVPlayerViewController`, isn't supported yet ([T122](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t122)).",
+      "Android pools component views only when the app turns on React Native's `enableViewRecycling`. iOS always recycles them.",
+      "Intrinsic sizes and slot insets wait for the JavaScript thread to apply them, which takes one layout when it is idle.",
       "Absolute children of a padded component follow React Native's padding-box rule relative to the slot. A fixed-size slot inside a component sized by its children is bounded at three reports.",
-      "Helper view functions take plain data and scalar callbacks only: no toolkit values, children, lists or bindings inside a helper.",
-      "SwiftUI: a static value named like a method (`Animation.easeInOut`) is left out, so write the call. Only closed ranges (`a...b`) are mapped, content conditions must be `boolean`, and `Int(x)` traps on NaN or infinity. A two-value `onChange` closure does not type-check, because TypeScript tries the one-value overload first.",
+      "Helper view functions take plain data and scalar callbacks only: no toolkit values, children, lists or bindings inside a helper ([T123](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t123)).",
+      "SwiftUI: a static value named like a method (`Animation.easeInOut`) is left out, so write the call. Only closed ranges (`a...b`) are mapped, content conditions must be `boolean`, and `Int(x)` traps on NaN or infinity.",
+      "SwiftUI: a two-value `onChange` closure doesn't type-check, because TypeScript tries the one-value overload first.",
       "Compose: class names that clash keep the first package's.",
-      "Native views' JSX (T48): a plain view's children have no layout; a `Flex`'s are Yoga's ([T50](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t50)). A list's item is one element ([T49](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t49)). Its rules read declarations, not behavior: Android's AdapterView declares `addView(View, int)` and throws from it. A root returned under a runtime condition is chosen once per mount. A later change of what the condition read does not swap it. A signal read there is neither tracked nor warned about (a prop is, LUCENT3021).",
-      "Where a platform's SDK is missing, a component's code for that platform is untyped and not checked. Its diagnostics (LUCENT3025 for its native JSX) come only where that SDK is installed."
+      "Native views' JSX: a plain view's children have no layout, and a `Flex`'s are Yoga's. A list's item is one element.",
+      "Native views' JSX rules read declarations, not behavior: Android's `AdapterView` declares `addView(View, int)` and throws from it.",
+      "A root returned under a runtime condition is chosen once per mount. A later change of what the condition read doesn't swap it. A signal read there is neither tracked nor warned about (a prop is, LUCENT3021).",
+      "Where a platform's SDK is missing, a component's code for that platform is untyped and unchecked. Its diagnostics come only where that SDK is installed."
     ]
   },
   {
     "title": "Language, runtime and bindings",
     "items": [
-      "Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)): break them with `WeakRef`, or key what one side holds in a `WeakMap`. A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused. A `WeakMap` value that holds its own key keeps it, and the entry, for as long as the map lives, where JavaScript's ephemerons free both.",
-      "On iOS, module code has no event for the URLs the app opens and no hook for a push token. Both reach only the app delegate, which Lucent does not replace ([T76](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t76)). On Android, `onActivityEvent(\"newIntent\", …)` carries the URLs.",
-      "A declaration file of platform files can't declare a class (`export declare class`): a shared class with platform members holds platform objects instead ([TA37](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#ta37)).",
-      "A few language features differ from JavaScript without a diagnostic; the website lists them under [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps), generated from `apps/website/src/docs/language.ts`.",
-      "Refused built-ins give `LUCENT1003` unless noted. They are `normalize()`, `locales`/`options` arguments, an error's `cause`, resizable `ArrayBuffer`s and `new Proxy`; decorators give `LUCENT1005` and default exports `LUCENT3003`. On object types, `Object.keys`, `values` and `entries` are refused, and so are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`). So is `new Array(n)` without a whole `.fill(v)`, even when each index is then assigned. So is `Array.from({ length: n })` without a map function when elements can't be `undefined`. Writing past an array's end or growing its `length` throws `RangeError`.",
-      "Compute tasks are named top-level functions; safepoints are only in module functions' task variants. The JavaScript reference differs from native in three cases. The copy of an object loses its `#private` fields, and native throws `DataCloneError` for a subclass instance behind a base type. An abort that lands after the task ran but before the promise settled rejects natively and resolves in JavaScript.",
-      "Module state is process-wide: two runtimes alive at once share it. A new `Host` resets it only while no other runtime is live. A reload whose old runtime is still live keeps it.",
-      "A delegate that must answer on the main thread waits for the job that holds its package's actor. Calls that nest two packages' actors in a cycle throw `Lucent: deadlock` rather than hang. The actors' iOS and Android glue has run only through the host tests, not on a device ([T64](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t64)).",
-      "`null` and `undefined` from JavaScript are told apart for arguments, setter values and object fields only. Inside arrays, maps, sets, records, tuples, callback results and promise values, a `T | undefined` also takes `null`, and `T | null` takes `undefined`. A use of such a value then throws `TypeError`.",
-      "A field or variable of an object type read before it is assigned throws `TypeError`. JavaScript reads `undefined`, also through `?.`. One of a value type (number, string, boolean, tuple, array, map, set, record, `Uint8Array`) reads its default. A `let` read before its declaration runs reads as unassigned, not `ReferenceError`.",
-      "On Android API 24 and 25, a Java default method that Lucent does not implement returns its zero value, and the reason is logged.",
-      "A Lucent package's pod binds once installed. In a bare app, the `lucent build` that first meets it declares it in the native package's podspec. That build fails with LUCENT3004 and names the pod. After `pod install`, `lucent build` binds it, and asks for `pod install` again when it adds files. `expo prebuild` stops at that first failure, which names no steps. The config plugin builds before the pods are installed and before it links the native package. A pod binds through the module it defines: `DEFINES_MODULE`, modular headers, a prebuilt `.framework` or `.xcframework`, or `use_frameworks!`. A Swift pod binds through a module Lucent makes from its sources with `swiftc`, or through its public Objective-C headers alone if it has them. Binding a package's own pod in an Expo app is [TA35](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#ta35).",
-      "An Android app with product flavors binds the libraries of its first debug variant by name. A library only another flavor depends on is not bindable.",
-      "Typed native extensions: Kotlin sources in a package are not typed yet (Swift ones are `lucent:ios/LucentNative`; [T77](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t77)), and extension calls cannot be cancelled.",
+      "Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)): break them with `WeakRef`, or key what one side holds in a `WeakMap`.",
+      "A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)). A `WeakMap` value that holds its own key keeps it, and the entry, for as long as the map lives.",
+      "`Uint8Array` is the only typed array, and `DataView` is refused ([T100](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t100)).",
+      "`null` and `undefined` from JavaScript are checked apart for arguments, setter values and object fields only ([T101](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t101)). Inside arrays, maps, sets, records, tuples, callback results and promise values, `T | undefined` also takes `null`, and `T | null` takes `undefined`. Narrowing such a value then throws `TypeError`.",
+      "A recursive union alias, such as a `Json` type of arrays and records, crashes the compiler instead of giving a diagnostic ([T102](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t102)).",
+      "`then`, `catch`, `finally`, `Promise.race`, `Promise.any` and `Promise.allSettled` are refused: use `await` and `Promise.all` ([T103](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t103)).",
+      "There are no `setTimeout`, `setInterval` or `queueMicrotask`: use `delay` from `lucent:core` ([T104](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t104)).",
+      "`TextEncoder`, `TextDecoder`, `atob`, `btoa`, `URL` and `crypto` are not available. `lucent:core` has `utf8Encode` and `utf8Decode` ([T105](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t105)).",
+      "Refused built-ins give `LUCENT1003` unless noted. They include `normalize()`, `locales` and `options` arguments, an error's `cause`, `JSON.stringify`'s replacer and indent, `flat()`, resizable `ArrayBuffer`s and `new Proxy` ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106) lifts some).",
+      "Object rest in destructuring (`LUCENT1004`) is refused, and so are spread arguments into fixed parameters or from tuples (`LUCENT1007`). `for await` gives `LUCENT1009` ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106)).",
+      "Decorators give `LUCENT1005`, and default exports `LUCENT3003`.",
+      "A class can't extend `EventEmitter` (`LUCENT1005`): hold one in a field instead ([T113](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t113)).",
+      "On object types, `Object.keys`, `values` and `entries` are refused, and so are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`).",
+      "`new Array(n)` needs a whole `.fill(v)`, even when each index is then assigned. `Array.from({ length: n })` needs a map function when elements can't be `undefined`. Writing past an array's end throws `RangeError`.",
+      "A declaration file of platform files can't declare a class (`export declare class`) ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106)). A shared class with `PLATFORM` branches is the way today.",
+      "A few language features differ from JavaScript without a diagnostic. The website lists them under [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps), generated from `apps/website/src/docs/language.ts`.",
+      "A field or variable of an object type read before it is assigned throws `TypeError`, where JavaScript reads `undefined`. One of a value type reads its default. A `let` read before its declaration runs reads as unassigned, not `ReferenceError`.",
+      "Compute tasks are named top-level functions, and safepoints are only in module functions' task variants.",
+      "The JavaScript reference of `compute` differs from native in three cases. An object's copy loses its `#private` fields, and native throws `DataCloneError` for a subclass instance behind a base type. An abort after the task ran but before the promise settled rejects natively and resolves in JavaScript.",
+      "Module state is process-wide: two runtimes alive at once share it. A new `Host` resets it only while no other runtime is live.",
+      "Module code runs only once a JavaScript runtime has installed Lucent. Background tasks, services and extensions can't run it yet ([T130](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t130)).",
+      "Platform callbacks enter module code through its actor, so a frame delegate waits behind synchronous JavaScript calls ([T109](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t109)).",
+      "Worklet runtimes can't call Lucent modules ([T134](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t134)).",
+      "A delegate that must answer on the main thread waits for the job that holds its module's actor. Calls that nest two packages' actors in a cycle throw `Lucent: deadlock` rather than hang.",
+      "On iOS, module code gets no event for the URLs the app opens, no push token and no remote notifications. Only the app delegate receives them ([T110](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t110)). On Android, `onActivityEvent(\"newIntent\", …)` carries the URLs.",
+      "The app's own `lucent.json` isn't read: only packages declare Info.plist keys, entitlements, pods and Gradle dependencies ([T111](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t111)). Android permissions of the app's own modules are still inferred from the SDK.",
+      "iOS adopts no platform memory without a copy: `withPixelBytes` copies. Android adopts direct `ByteBuffer`s ([T108](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t108)).",
+      "On Android API 24 and 25, a Java default method that Lucent doesn't implement returns its zero value, and the reason is logged.",
+      "A Lucent package's pod binds once installed. In a bare app, the first `lucent build` that meets it declares it in the podspec and fails with LUCENT3004 naming the pod. After `pod install`, it binds.",
+      "`expo prebuild` stops at a package pod that isn't installed yet ([T141](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t141)). A pod binds through the module it defines: `DEFINES_MODULE`, modular headers, a prebuilt framework, or `use_frameworks!`.",
+      "iOS has no build phase that runs `lucent build`: an Xcode build is current after Metro's watcher or `pod install` ran ([T141](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t141)).",
+      "An Android app with product flavors binds the libraries of its first debug variant by name. A library only another flavor depends on can't be bound.",
+      "Typed extensions are C only: C++ headers, callbacks and cancellation are not supported yet ([T142](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t142)).",
+      "A package's Kotlin and Java sources are compiled but not typed in Lucent. Its Swift sources are, as `lucent:ios/LucentNative` ([T143](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t143)).",
       "Tracing records allocations for native buffers only, and its buffer uses one mutex: fine for debugging, not for continuous production use."
     ]
   }

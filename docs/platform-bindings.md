@@ -523,8 +523,8 @@ failing (IOKit, and the cross-import overlays, for the simulator), and
 `--summary <file>` appends a markdown summary: the members in total and
 the 20 reasons that leave out the most, summed across modules. CI runs
 both and shows the summary on its job (reporting only).
-[SDK coverage](tasks.md#sdk-coverage) in docs/tasks.md records the last
-measured numbers.
+CI's summary has the current numbers, and [T112](tasks.md#t112) records
+them before and after its work.
 
 ## Calls
 
