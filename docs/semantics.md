@@ -723,7 +723,9 @@ fields that close it, with their source lines, from the cycle's oldest object
 back to it, and the last of them as the one to hold through a `WeakRef`. A
 closure on the path is named by its line and what it captures (`this`, a
 variable), including an emitter's listeners: the hint is then to capture a
-`WeakRef` there instead.
+`WeakRef` there instead. The next JavaScript runtime writes each as a
+`console.warn` once, which LogBox shows, and `__lucentDebug.snapshot()` lists
+them all as `cycles`.
 
 ## Deviations from JavaScript
 

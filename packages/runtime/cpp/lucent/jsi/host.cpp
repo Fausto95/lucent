@@ -6,6 +6,8 @@
 
 #include "../execution.h"
 #include "../live.h"
+#include "../native.h"
+#include "../refs.h"
 #include "../view.h"
 #include "convert.h"
 
@@ -159,6 +161,7 @@ class Host::Anchor : public jsi::HostObject {
                                             .call(rt, jsi::String::createFromUtf8(rt, json));
                     jsi::Object snapshot = parsed.getObject(rt);
                     snapshot.setProperty(rt, "host", ownershipObject(rt, host->ownership()));
+                    snapshot.setProperty(rt, "cycles", strings(rt, debug::reports()));
                     host->resolve(rt, id, jsi::Value(rt, snapshot));
                   });
               });
@@ -166,7 +169,39 @@ class Host::Anchor : public jsi::HostObject {
               return promise;
             }));
 
+    // cycles(): a promise of the reference cycles teardowns found since the
+    // last call, settled once the module context has run what a teardown
+    // left it (the teardown's walk is posted there first).
+    debug.setProperty(
+        rt, "cycles",
+        jsi::Function::createFromHostFunction(
+            rt, jsi::PropNameID::forAscii(rt, "cycles"), 0,
+            [weak](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
+              auto host = weak.lock();
+              if (!host) return jsi::Value::undefined();
+
+              uint64_t id = 0;
+              jsi::Value promise = host->createPromise(rt, id);
+
+              postCallback([weak, id] {
+                auto taken = debug::takeReports();
+                if (auto host = weak.lock())
+                  host->postToJs([weak, id, taken = std::move(taken)](jsi::Runtime& rt) {
+                    if (auto host = weak.lock()) host->resolve(rt, id, strings(rt, taken));
+                  });
+              });
+
+              return promise;
+            }));
+
     return debug;
+  }
+
+  /// `list` as a JavaScript array of strings.
+  static jsi::Value strings(jsi::Runtime& rt, const std::vector<std::string>& list) {
+    jsi::Array out(rt, list.size());
+    for (size_t i = 0; i < list.size(); i++) out.setValueAtIndex(rt, i, jsi::String::createFromUtf8(rt, list[i]));
+    return jsi::Value(rt, out);
   }
 #endif
 

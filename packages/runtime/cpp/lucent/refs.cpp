@@ -249,4 +249,38 @@ std::string describe(const Cycle& cycle) {
   return out;
 }
 
+namespace {
+
+struct Reports {
+  std::mutex m;
+  std::vector<std::string> pending;
+  std::vector<std::string> all;
+};
+
+Reports& kept() {
+  static auto* r = new Reports();
+  return *r;
+}
+
+}  // namespace
+
+void keepReport(std::string report) {
+  Reports& r = kept();
+  std::lock_guard<std::mutex> g(r.m);
+  r.all.push_back(report);
+  r.pending.push_back(std::move(report));
+}
+
+std::vector<std::string> takeReports() {
+  Reports& r = kept();
+  std::lock_guard<std::mutex> g(r.m);
+  return std::exchange(r.pending, {});
+}
+
+std::vector<std::string> reports() {
+  Reports& r = kept();
+  std::lock_guard<std::mutex> g(r.m);
+  return r.all;
+}
+
 }  // namespace lucent::debug

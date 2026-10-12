@@ -77,6 +77,18 @@ std::vector<Cycle> cycles(bool fresh = false);
 /// WeakRef to break it."
 std::string describe(const Cycle& cycle);
 
+/// Keeps a cycle's description, as a teardown logs it, for JavaScript to
+/// show: a debug host's next runtime takes it (`__lucentDebug.cycles()`,
+/// which the loader writes to the console, so LogBox shows it once), and
+/// every snapshot lists it.
+void keepReport(std::string report);
+
+/// The descriptions kept since the last call, which it forgets.
+std::vector<std::string> takeReports();
+
+/// Every description kept since the process started.
+std::vector<std::string> reports();
+
 // --- what generated code calls: a field's references ----------------------------
 
 template <class T>

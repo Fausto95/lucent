@@ -198,3 +198,42 @@ describe("the loader's check of the app's native code", () => {
     expect(freshLoader().loadModule("a", noRegistry)).toBe(modules.a);
   });
 });
+
+describe("the loader in a debug build", () => {
+  afterEach(() => {
+    delete (globalThis as { __lucentDebug?: unknown }).__lucentDebug;
+  });
+
+  it("writes the reference cycles the last teardown found as warnings, once per runtime, which LogBox shows", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let asked = 0;
+    (globalThis as { __lucentDebug?: unknown }).__lucentDebug = {
+      cycles: () => {
+        asked++;
+        return Promise.resolve(["a reference cycle keeps 1 object alive: Node.next, to itself."]);
+      },
+    };
+    const lucent = { a: { one: () => 1 } };
+    const registry = () => ({ get: (name: string) => (name === "Lucent" ? lucent : undefined) });
+    const loader = freshLoader();
+
+    expect(loader.loadModule("a", registry)).toBe(lucent.a);
+    loader.loadModule("a", registry);
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(asked).toBe(1);
+    expect(warn.mock.calls.map((c) => String(c[0]))).toEqual([
+      "Lucent: a reference cycle keeps 1 object alive: Node.next, to itself.",
+    ]);
+  });
+
+  it("says nothing in a release build, which has no __lucentDebug", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const lucent = { a: { one: () => 1 } };
+
+    freshLoader().loadModule("a", () => ({ get: () => lucent }));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
