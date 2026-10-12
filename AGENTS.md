@@ -32,7 +32,8 @@ runtime/js           loader, copied to .lucent/native/js/_lucent/runtime.js
 - [ROADMAP.md](ROADMAP.md) is the plan in brief: principles, gates and
   what's next. The work itself is recorded in the same commit as the
   change: a task's status and checklist in `docs/tasks.md` (a new task
-  takes the next free id), a decision as a new
+  takes the next free id in its gate's range), a capability's state in
+  `docs/parity.md` (the matrix against Nitro and Expo Modules), a decision as a new
   `docs/decisions/NNNN-<slug>.md` with a row in its README, a limitation
   found or lifted in `docs/limitations.md`. The design is
   `docs/design/native-platform.md`, the shared interfaces

@@ -1,155 +1,170 @@
-# Known limitations and deferred checks
+# Known limitations
 
-What Lucent doesn't do yet, and the checks no agent can run. A limitation
-leaves this file in the commit that lifts it; a new one found on the way
-is added in the commit that finds it, with the task that tracks it in
+What Lucent doesn't do yet, and what hasn't been verified. A limitation
+leaves this file in the commit that lifts it, and one found on the way is
+added in the commit that finds it, with the task that tracks it in
 [tasks.md](tasks.md). The website's
 [roadmap page](https://lucent-lang.dev/docs/releases/roadmap/#known-limitations)
-shows the groups users meet, Views and Language, runtime and bindings,
+shows the two groups users meet, Views and Language, runtime and bindings,
 generated from this file.
-
-## Deferred checks (need the maintainer)
-
-- **Physical devices (V8).** Nothing has run on a physical iPhone or
-  Android phone: frame, latency, memory, lifecycle and trace evidence for
-  every task, the T10 baselines, the T44 spike's frame results, the TB4
-  migration's device run, and RTL on a device.
-- **StoreKit `purchase()`.** It needs a `.storekit` configuration, which
-  only runs launched by Xcode apply; the call compiles.
-- **Pilots.** T68 and T69 need independent library authors and real apps.
-- **Accessibility tooling.** VoiceOver was checked only through Mac
-  Catalyst for the SwiftUI host; TalkBack and on-device VoiceOver are not
-  run.
-- **Older iOS.** SwiftUI hosting before iOS 16.4 and iOS 17 behavior are
-  unverified (no simulator runtime); iOS before 17 uses a parent override
-  for RTL traits.
-- **Rotation.** Not run for the Compose host.
-- **Android biometric prompt.** Showing a real prompt is not recorded; the
-  design's gate for app integration asks for it.
-- **react-native-screens.** Not in the example apps, so hosting inside its
-  screens is untested.
-- **The window's releases, run.** Apps on React Native 0.85 to 0.87 and
-  Expo SDK 56 and 57 are built nightly (window.yml, T75), not run: the
-  device runs run the example apps, which are on the prerelease lane. A
-  failure only a running app shows (a renderer or autolinking difference
-  at launch) would show first in a user's app.
-- **Device-locale casing.** `toLocaleUpperCase`/`toLocaleLowerCase` were
-  checked for a Turkish locale on macOS only; Android's JNI path is
-  compiled, not run.
-
-## Project infrastructure
-
-- **Vercel.** Both Vercel projects, "website" and "lucent", fail to deploy
-  since #128 (2026-10-07), and were rate limited before that, so
-  lucent-lang.dev still serves the Starlight site from before #120. The
-  repository's build passes from a clean checkout (`pnpm install
---frozen-lockfile && pnpm website:build`, Node 22 and 24, pnpm 9 and
-  10). The cause is in the projects' settings or logs, which are the
-  maintainer's: `npx vercel inspect <deployment> --logs`. Keep one
-  project, with the repository root as its Root Directory and
-  `vercel.json`'s settings.
 
 ## Views
 
-- Views are in preview: every build generates them since the switch was
-  removed (2026-10-07), but the preview gate (G3) has not certified them.
+- Views are in preview: their API may change before the view gate closes.
+- A component's props are data. An instance of an exported class can't be
+  a prop yet ([T120](tasks.md#t120)).
+- A component takes `style` and its own props only. React Native's other
+  view props, such as `testID`, `accessibilityLabel` and `onLayout`, are
+  dropped ([T121](tasks.md#t121)).
+- A component's root is a view. A `UIViewController` root, such as
+  `AVPlayerViewController`, isn't supported yet ([T122](tasks.md#t122)).
 - Android pools component views only when the app turns on React Native's
-  `enableViewRecycling`; iOS always recycles them.
+  `enableViewRecycling`. iOS always recycles them.
 - Intrinsic sizes and slot insets wait for the JavaScript thread to apply
-  them (one layout when idle).
+  them, which takes one layout when it is idle.
 - Absolute children of a padded component follow React Native's
   padding-box rule relative to the slot. A fixed-size slot inside a
   component sized by its children is bounded at three reports.
 - Helper view functions take plain data and scalar callbacks only: no
-  toolkit values, children, lists or bindings inside a helper.
+  toolkit values, children, lists or bindings inside a helper
+  ([T123](tasks.md#t123)).
 - SwiftUI: a static value named like a method (`Animation.easeInOut`) is
   left out, so write the call. Only closed ranges (`a...b`) are mapped,
   content conditions must be `boolean`, and `Int(x)` traps on NaN or
-  infinity. A two-value `onChange` closure does not type-check, because
+  infinity.
+- SwiftUI: a two-value `onChange` closure doesn't type-check, because
   TypeScript tries the one-value overload first.
 - Compose: class names that clash keep the first package's.
-- Native views' JSX (T48): a plain view's children have no layout; a
-  `Flex`'s are Yoga's ([T50](tasks.md#t50)). A list's item is one element
-  ([T49](tasks.md#t49)). Its rules read declarations, not behavior: Android's
-  AdapterView declares `addView(View, int)` and throws from it. A root
-  returned under a runtime condition is chosen once per mount. A later
-  change of what the condition read does not swap it. A signal read there
-  is neither tracked nor warned about (a prop is, LUCENT3021).
+- Native views' JSX: a plain view's children have no layout, and a
+  `Flex`'s are Yoga's. A list's item is one element.
+- Native views' JSX rules read declarations, not behavior: Android's
+  `AdapterView` declares `addView(View, int)` and throws from it.
+- A root returned under a runtime condition is chosen once per mount. A
+  later change of what the condition read doesn't swap it. A signal read
+  there is neither tracked nor warned about (a prop is, LUCENT3021).
 - Where a platform's SDK is missing, a component's code for that platform
-  is untyped and not checked. Its diagnostics (LUCENT3025 for its native
-  JSX) come only where that SDK is installed.
+  is untyped and unchecked. Its diagnostics come only where that SDK is
+  installed.
 
 ## Language, runtime and bindings
 
-- Reference cycles are not collected (see [Not planned](../ROADMAP.md#not-planned)):
-  break them with `WeakRef`, or key what one side holds in a `WeakMap`.
-  A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused.
-  A `WeakMap` value that holds its own key keeps it, and the entry, for
-  as long as the map lives, where JavaScript's ephemerons free both.
-- On iOS, module code has no event for the URLs the app opens and no
-  hook for a push token. Both reach only the app delegate, which Lucent
-  does not replace ([T76](tasks.md#t76)). On Android,
-  `onActivityEvent("newIntent", …)` carries the URLs.
+- Reference cycles are not collected (see
+  [Not planned](../ROADMAP.md#not-planned)): break them with `WeakRef`, or
+  key what one side holds in a `WeakMap`.
+- A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused
+  ([T112](tasks.md#t112)). A `WeakMap` value that holds its own key keeps
+  it, and the entry, for as long as the map lives.
+- `Uint8Array` is the only typed array, and `DataView` is refused
+  ([T100](tasks.md#t100)).
+- `null` and `undefined` from JavaScript are told apart for arguments,
+  setter values and object fields only ([T101](tasks.md#t101)). Inside
+  arrays, maps, sets, records, tuples, callback results and promise
+  values, `T | undefined` also takes `null`, and `T | null` takes
+  `undefined`.
+- A recursive union alias, such as a `Json` type of arrays and records,
+  crashes the compiler instead of giving a diagnostic
+  ([T102](tasks.md#t102)).
+- `then`, `catch`, `finally`, `Promise.race`, `Promise.any` and
+  `Promise.allSettled` are refused: use `await` and `Promise.all`
+  ([T103](tasks.md#t103)).
+- There are no `setTimeout`, `setInterval` or `queueMicrotask`: use
+  `delay` from `lucent:core` ([T104](tasks.md#t104)).
+- `TextEncoder`, `TextDecoder`, `atob`, `btoa`, `URL` and `crypto` are not
+  available. `lucent:core` has `utf8Encode` and `utf8Decode`
+  ([T105](tasks.md#t105)).
+- Refused built-ins give `LUCENT1003` unless noted. They include
+  `normalize()`, `locales` and `options` arguments, an error's `cause`,
+  `JSON.stringify`'s replacer and indent, `flat()`, resizable
+  `ArrayBuffer`s and `new Proxy` ([T106](tasks.md#t106) lifts some).
+- Object rest in destructuring (`LUCENT1004`) and spread arguments
+  (`LUCENT1007`) are refused, but for `push(...xs)` and
+  `Math.min(...xs)` and `Math.max(...xs)`. So is `for await`
+  ([T106](tasks.md#t106)).
+- Decorators give `LUCENT1005`, and default exports `LUCENT3003`.
+- On object types, `Object.keys`, `values` and `entries` are refused, and
+  so are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`).
+- `new Array(n)` needs a whole `.fill(v)`, even when each index is then
+  assigned. `Array.from({ length: n })` needs a map function when elements
+  can't be `undefined`. Writing past an array's end throws `RangeError`.
 - A declaration file of platform files can't declare a class
-  (`export declare class`): a shared class with platform members holds
-  platform objects instead ([TA37](tasks.md#ta37)).
-- A few language features differ from JavaScript without a diagnostic;
-  the website lists them under
+  (`export declare class`) ([T106](tasks.md#t106)). A shared class with
+  `PLATFORM` branches is the way today.
+- A few language features differ from JavaScript without a diagnostic.
+  The website lists them under
   [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps),
   generated from `apps/website/src/docs/language.ts`.
-- Refused built-ins give `LUCENT1003` unless noted. They are
-  `normalize()`, `locales`/`options` arguments, an error's `cause`,
-  resizable `ArrayBuffer`s and `new Proxy`; decorators give `LUCENT1005` and default exports
-  `LUCENT3003`. On
-  object types, `Object.keys`, `values` and `entries` are refused, and so
-  are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`). So is `new
-Array(n)` without a whole `.fill(v)`, even when each index is then
-  assigned. So is `Array.from({ length: n })` without a map function when
-  elements can't be `undefined`. Writing past an array's
-  end or growing its `length` throws `RangeError`.
-- Compute tasks are named top-level functions; safepoints are only in
-  module functions' task variants. The JavaScript reference differs from
-  native in three cases. The copy of an object loses its `#private`
-  fields, and native throws `DataCloneError` for a subclass instance
-  behind a base type. An abort that lands after the task ran but before
-  the promise settled rejects natively and resolves in JavaScript.
-- Module state is process-wide: two runtimes alive at once share it. A
-  new `Host` resets it only while no other runtime is live. A reload
-  whose old runtime is still live keeps it.
+- A field or variable of an object type read before it is assigned throws
+  `TypeError`, where JavaScript reads `undefined`. One of a value type
+  reads its default. A `let` read before its declaration runs reads as
+  unassigned, not `ReferenceError`.
+- Compute tasks are named top-level functions, and safepoints are only in
+  module functions' task variants.
+- The JavaScript reference of `compute` differs from native in three
+  cases. An object's copy loses its `#private` fields, and native throws
+  `DataCloneError` for a subclass instance behind a base type. An abort
+  after the task ran but before the promise settled rejects natively and
+  resolves in JavaScript.
+- Module state is process-wide: two runtimes alive at once share it. A new
+  `Host` resets it only while no other runtime is live.
+- Module code runs only once a JavaScript runtime has installed Lucent.
+  Background tasks, services and extensions can't run it yet
+  ([T130](tasks.md#t130)).
+- Platform callbacks enter module code under their package's lock, so a
+  frame delegate waits behind synchronous JavaScript calls
+  ([T109](tasks.md#t109)).
+- Worklet runtimes can't call Lucent modules ([T134](tasks.md#t134)).
 - A delegate that must answer on the main thread waits for the job that
   holds its package's actor. Calls that nest two packages' actors in a
-  cycle throw `Lucent: deadlock` rather than hang. The actors' iOS and
-  Android glue has run only through the host tests, not on a device
-  ([T64](tasks.md#t64)).
-- `null` and `undefined` from JavaScript are told apart for arguments,
-  setter values and object fields only. Inside arrays, maps, sets,
-  records, tuples, callback results and promise values, a `T | undefined`
-  also takes `null`, and `T | null` takes `undefined`. A use of such a
-  value then throws `TypeError`.
-- A field or variable of an object type read before it is assigned throws
-  `TypeError`. JavaScript reads `undefined`, also through `?.`. One of a
-  value type (number, string, boolean, tuple, array, map, set, record,
-  `Uint8Array`) reads its default. A `let` read before its declaration
-  runs reads as unassigned, not `ReferenceError`.
-- On Android API 24 and 25, a Java default method that Lucent does not
+  cycle throw `Lucent: deadlock` rather than hang.
+- On iOS, module code gets no event for the URLs the app opens, no push
+  token and no remote notifications. Only the app delegate receives them
+  ([T110](tasks.md#t110)). On Android, `onActivityEvent("newIntent", …)`
+  carries the URLs.
+- The app's own `lucent.json` isn't read: only packages declare Info.plist
+  keys, entitlements, pods and Gradle dependencies
+  ([T111](tasks.md#t111)). Android permissions of the app's own modules
+  are still inferred from the SDK.
+- iOS adopts no platform memory without a copy: `withPixelBytes` copies.
+  Android adopts direct `ByteBuffer`s ([T108](tasks.md#t108)).
+- On Android API 24 and 25, a Java default method that Lucent doesn't
   implement returns its zero value, and the reason is logged.
-- A Lucent package's pod binds once installed. In a bare app, the
-  `lucent build` that first meets it declares it in the native package's
-  podspec. That build fails with LUCENT3004 and names the pod. After
-  `pod install`, `lucent build` binds it, and asks for `pod install`
-  again when it adds files. `expo prebuild` stops at that first failure,
-  which names no steps. The config plugin builds before the pods are
-  installed and before it links the native package. A pod binds through
-  the module it defines: `DEFINES_MODULE`, modular headers, a prebuilt
-  `.framework` or `.xcframework`, or `use_frameworks!`. A Swift pod
-  binds through a module Lucent makes from its sources with `swiftc`, or
-  through its public Objective-C headers alone if it has them. Binding a
-  package's own pod in an Expo app is [TA35](tasks.md#ta35).
+- A Lucent package's pod binds once installed. In a bare app, the first
+  `lucent build` that meets it declares it in the podspec and fails with
+  LUCENT3004 naming the pod. After `pod install`, it binds.
+- `expo prebuild` stops at a package pod that isn't installed yet
+  ([T141](tasks.md#t141)). A pod binds through the module it defines:
+  `DEFINES_MODULE`, modular headers, a prebuilt framework, or
+  `use_frameworks!`.
+- iOS has no build phase that runs `lucent build`: an Xcode build is
+  current after Metro's watcher or `pod install` ran ([T141](tasks.md#t141)).
 - An Android app with product flavors binds the libraries of its first
-  debug variant by name. A library only another flavor depends on is not
-  bindable.
-- Typed native extensions: Kotlin sources in a package are not typed
-  yet (Swift ones are `lucent:ios/LucentNative`; [T77](tasks.md#t77)),
-  and extension calls cannot be cancelled.
-- Tracing records allocations for native buffers only, and its buffer
-  uses one mutex: fine for debugging, not for continuous production use.
+  debug variant by name. A library only another flavor depends on can't be
+  bound.
+- Typed extensions are C only: C++ headers, callbacks and cancellation are
+  not supported yet ([T142](tasks.md#t142)).
+- A package's Kotlin and Java sources are compiled but not typed in
+  Lucent. Its Swift sources are, as `lucent:ios/LucentNative`
+  ([T143](tasks.md#t143)).
+- Tracing records allocations for native buffers only, and its buffer uses
+  one mutex: fine for debugging, not for continuous production use.
+
+## Not verified yet
+
+- Nothing has run on a physical iPhone or Android phone. Tests run on
+  hosts, the iOS simulator and the Android emulator.
+- Apps on the window's releases (React Native 0.85 to 0.87, Expo SDK 56
+  and 57) are built nightly, not run ([T140](tasks.md#t140)). The example
+  apps run on the prerelease lane.
+- The actors' iOS and Android glue has run through host tests and the
+  example apps, not under stress ([T151](tasks.md#t151)).
+- StoreKit's `purchase()` needs a `.storekit` configuration, which only an
+  app launched by Xcode applies; the call compiles.
+- VoiceOver was checked through Mac Catalyst for the SwiftUI host only.
+  TalkBack hasn't been run.
+- SwiftUI hosting before iOS 16.4 and iOS 17's behavior are unverified.
+  Before iOS 17, RTL traits come from a parent override.
+- Rotation hasn't been run for the Compose host.
+- A real Android biometric prompt hasn't been shown in a recorded run.
+- Hosting inside react-native-screens is untested.
+- `toLocaleUpperCase` and `toLocaleLowerCase` were checked for a Turkish
+  locale on macOS only. Android's path is compiled, not run.
