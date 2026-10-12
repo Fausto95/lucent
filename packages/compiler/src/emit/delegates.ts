@@ -7,6 +7,7 @@ import type { LucentModule } from "../program.ts";
 import { cpp } from "@lucent-lang/codegen";
 import { type SdkClassRef, sdkInterfacesOf } from "../sdk/declarations.ts";
 import type { Ctx } from "./context.ts";
+import { objectEntry } from "./executors.ts";
 import { FnEmitter } from "./function.ts";
 import {
   fromObjc,
@@ -110,8 +111,9 @@ function objcClassName(info: ClassInfo): string {
  * One requirement: arguments converted to the Lucent method's parameter
  * types (as many as it declares), then the call, queued on the Lucent
  * thread unless the platform waits for it (a result, or the main thread),
- * as its plan says. An override (`now`) always runs while the caller
- * waits: what calls it expects it done when it returns.
+ * as its plan says. An override (`sync`) always runs while the caller
+ * waits: what calls it expects it done when it returns. On an object that
+ * went on an executor, it enters that executor instead (objectEntry).
  */
 export function forward(
   em: FnEmitter,
@@ -119,7 +121,7 @@ export function forward(
   p: SdkClassRef,
   m: SdkMethodSchema,
   impl: ts.MethodDeclaration,
-  now = false,
+  sync = false,
 ): cpp.ObjcMethod {
   const params: SdkType[] = m.params.map((x) => parseSdkType(x.type, p.module));
   const ret = parseSdkType(m.returns, p.module);
@@ -157,6 +159,12 @@ export function forward(
     : [{ name: selector }];
   const owner = cpp.varDecl(cpp.auto, "s_", cpp.arrow(cpp.id("self"), "self_"));
   const method = (body: cpp.Stmt[]): cpp.ObjcMethod => ({ ret: objcType(ret), parts, body });
+  // How its calls enter Lucent code: the executor its object went on, else its module's actor.
+  const onExecutor = objectEntry(em.ctx, info.decl, cpp.arrow(cpp.id("self"), "self_"));
+  const actor = () => em.ctx.actorAt(em.opts.module);
+  const now = (f: cpp.Expr) => onExecutor?.now(f) ?? cpp.call("lucent::callNow", [actor(), f]);
+  const later = (f: cpp.Expr) =>
+    onExecutor?.later(f) ?? cpp.call("lucent::postCallback", [actor(), f]);
   const discard = cpp.exprStmt(cpp.cast("c", cpp.voidType, call));
   if (!isVoid) {
     const r = cpp.id("r_");
@@ -170,44 +178,30 @@ export function forward(
           ),
         ])
       : toObjcExpr(ret, r, false, `${what}'s result`);
-    const now = cpp.lambda(["&"], [], [cpp.varDecl(cpp.auto, "r_", call), cpp.ret(result)], {
+    const answer = cpp.lambda(["&"], [], [cpp.varDecl(cpp.auto, "r_", call), cpp.ret(result)], {
       ret: objcType(ret),
     });
-    if (!outs.length)
-      return method([
-        owner,
-        cpp.ret(cpp.call("lucent::callNow", [em.ctx.actorAt(em.opts.module), now])),
-      ]);
+    if (!outs.length) return method([owner, cpp.ret(now(answer))]);
     return method([
       owner,
       ...before,
-      cpp.varDecl(
-        objcType(ret),
-        "b_",
-        cpp.call("lucent::callNow", [em.ctx.actorAt(em.opts.module), now]),
-      ),
+      cpp.varDecl(objcType(ret), "b_", now(answer)),
       ...after,
       cpp.ret(cpp.id("b_")),
     ]);
   }
-  if (now || plan.delivery === "sync")
+  // On an executor, one that answers nothing runs at once there, else in a turn of it.
+  if (onExecutor ? outs.length > 0 : sync || plan.delivery === "sync")
     return method([
       owner,
       ...before,
-      cpp.exprStmt(
-        cpp.call("lucent::callNow", [
-          em.ctx.actorAt(em.opts.module),
-          cpp.lambda(["&"], [], [discard]),
-        ]),
-      ),
+      cpp.exprStmt(now(cpp.lambda(["&"], [], [discard]))),
       ...after,
     ]);
-  const later = cpp.lambda(
+  const queued = cpp.lambda(
     [{ name: "s_", init: cpp.arrow(cpp.id("self"), "self_") }, ...names.slice(0, n)],
     [],
     [discard],
   );
-  return method([
-    cpp.exprStmt(cpp.call("lucent::postCallback", [em.ctx.actorAt(em.opts.module), later])),
-  ]);
+  return method([cpp.exprStmt(later(queued))]);
 }

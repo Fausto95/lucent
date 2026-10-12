@@ -241,6 +241,15 @@ void enterOrPost(ExecutionContext& context, F f) {
     context.post(std::move(f));
 }
 
+/// lucent:thread's `on(executor, new C(…))`: the object, whose methods the
+/// platform calls enter `executor` (its class keeps it in
+/// `lucentExecutor_`). Set before the platform has it, so never raced.
+template <class T>
+Ref<T> onExecutor(Ref<T> object, std::shared_ptr<ExecutorContext> executor) {
+  object->lucentExecutor_ = std::move(executor);
+  return object;
+}
+
 /// Runs `f` as a turn of `context` and settles the promise, which belongs to
 /// the calling context, with its result there; a context that has shut down
 /// rejects it. Neither side waits for the other. What `f` captures and

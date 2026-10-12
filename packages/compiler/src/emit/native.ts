@@ -60,7 +60,8 @@ import { inMainSubclass, subclassNative } from "./objc-subclass.ts";
 import { kotlinShim, type KotlinUse, suspending, type Suspending } from "./kotlin.ts";
 import { callbackEntry, setupOf } from "./setups.ts";
 import { factsOf } from "./compute.ts";
-import { refuseObjectFromExecutor } from "./executors.ts";
+import { executorClass, refuseObjectFromExecutor, requireExecutorObject } from "./executors.ts";
+import { isOnCall } from "../analysis/index.ts";
 import {
   isPayloadEnum,
   sdkTypeOf,
@@ -132,8 +133,30 @@ function handedOn(
   const [executor, f] = arg.arguments;
   if (!executor || !f || arg.arguments.length !== 2)
     fail(arg, Codes.UnsupportedCall, "on takes an executor and a function: on(executor, f)");
+  // An object made there goes on the executor as an object (nativeBuiltinCall).
+  if (ts.isNewExpression(f)) return undefined;
   requireExecutorCode(em, f);
   return { executor, f };
+}
+
+/**
+ * Whether `call` (an `on()`) is handed straight to the platform: an SDK
+ * call's argument, or the value assigned to an SDK property.
+ */
+function handsToPlatform(em: FnEmitter, call: ts.CallExpression): boolean {
+  const p = call.parent;
+  const sdk = (d: ts.Declaration | undefined) => !!d && !!sdkModuleOf(d.getSourceFile());
+
+  if ((ts.isCallExpression(p) || ts.isNewExpression(p)) && p.arguments?.includes(call))
+    return sdk(em.checker.getResolvedSignature(p)?.declaration);
+  if (
+    ts.isBinaryExpression(p) &&
+    p.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+    p.right === call &&
+    ts.isPropertyAccessExpression(p.left)
+  )
+    return sdk(em.checker.getSymbolAtLocation(p.left)?.declarations?.[0]);
+  return false;
 }
 
 /** The executor an argument jniArgument found in `on(executor, f)`, for jniOf. */
@@ -205,7 +228,8 @@ export function nativeOfClass(
   const info = em.reg.cls(e.t.id);
   const name = info.decl.name?.text ?? "class";
   // The platform would call its methods in module code, holding the Lucent lock, which views never take.
-  if (node && setupOf(em.ctx, node))
+  // On an executor, they run there instead.
+  if (node && setupOf(em.ctx, node) && !isOnCall(em.checker, node))
     fail(
       node,
       Codes.ComponentContract,
@@ -1997,6 +2021,7 @@ function implementedEntries(
   em: FnEmitter,
   info: ClassInfo,
   methods: { module: string; owner: string; method: SdkMethodSchema }[],
+  executor?: cpp.Expr,
 ): cpp.Expr[] {
   const entries: cpp.Expr[] = [];
   const self = cpp.id("s_");
@@ -2014,8 +2039,16 @@ function implementedEntries(
       impl,
     ) as LType & { k: "fn" };
     entries.push(
-      proxyEntry(em, impl, module, owner, method, fn, { name: "s_", init: cpp.id("o_") }, (a) =>
-        cpp.call(cpp.arrow(self, cppIdent(method.name)), a),
+      proxyEntry(
+        em,
+        impl,
+        module,
+        owner,
+        method,
+        fn,
+        { name: "s_", init: cpp.id("o_") },
+        (a) => cpp.call(cpp.arrow(self, cppIdent(method.name)), a),
+        executor,
       ),
     );
   }
@@ -2067,16 +2100,22 @@ function javaObjectOfClass(
   const iface = findSdkType("android", to.module, to.name);
   if (iface?.kind !== "class" || !iface.interface)
     fail(node, Codes.UnsupportedType, `Lucent classes cannot extend ${to.name} yet`);
+  // Its instances go on an executor: its methods enter the one it went on (x_).
+  const onExecutor = executorClass(em.ctx, info.decl);
   const entries = implementedEntries(
     em,
     info,
     (iface.methods ?? [])
       .filter((m) => !m.static)
       .map((method) => ({ module: to.module, owner: iface.name, method })),
+    onExecutor ? cpp.id("x_") : undefined,
   );
   const o = cpp.id("o_");
   return cpp.statementExpr(
-    [cpp.varDecl(cpp.auto, "o_", e.c)],
+    [
+      cpp.varDecl(cpp.auto, "o_", e.c),
+      ...(onExecutor ? [cpp.varDecl(cpp.auto, "x_", cpp.arrow(o, "lucentExecutor_"))] : []),
+    ],
     jni(
       "proxyFor",
       jni("env"),
@@ -3762,12 +3801,35 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
         t: T.executor,
       };
     }
-    case "lucent:thread.on":
+    case "lucent:thread.on": {
+      // An object on an executor, made there: on(executor, new Frames(…)).
+      const [x, made] = args;
+      if (x && made && args.length === 2 && ts.isNewExpression(made)) {
+        if (!handsToPlatform(em, node))
+          fail(
+            node,
+            Codes.UnsupportedCall,
+            "on() hands an object to the platform: pass it straight to the SDK call or property that takes it, as in output.setSampleBufferDelegate(on(frames, new Frames(…)), frames)",
+          );
+        requireExecutorObject(em, made);
+        unit.include("lucent/native.h");
+        // The executor first, then the object, as the source has them.
+        const executor = cpp.varDecl(cpp.auto, "onx_", em.exprAs(x, T.executor));
+        const o = em.expr(made);
+        return {
+          c: cpp.statementExpr(
+            [executor],
+            cpp.call("lucent::onExecutor", [o.c, cpp.call("std::move", [cpp.id("onx_")])]),
+          ),
+          t: o.t,
+        };
+      }
       fail(
         node,
         Codes.UnsupportedCall,
         "on() hands a function to the platform: pass it straight to the SDK call that takes it, as in setAnalyzer(frames, on(frames, (image) => …))",
       );
+    }
     // falls through: fail throws
     case "lucent:ios.asString":
     case "lucent:ios.asNumber":

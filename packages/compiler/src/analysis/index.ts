@@ -39,9 +39,12 @@ import {
 import { type MainState, mainStateOf } from "./main-state.ts";
 import { type Escape, solve, type Solved } from "./solve.ts";
 import { type AnalysedModule, findUnits, type Unit } from "./units.ts";
+import { executorClasses } from "./executors.ts";
 
 export type { Cause, Step, Summary } from "./facts.ts";
 export { describe, stepsOf } from "./facts.ts";
+export { shareableType } from "./ownership.ts";
+export { classMade, isOnCall } from "./executors.ts";
 export type { NativeCallback, NativeClass, NativeFactsSource, NativeUse } from "./native.ts";
 export type { Capture, Context, Rule, TransferProblem, Violation } from "./ownership.ts";
 export type { MainState } from "./main-state.ts";
@@ -81,6 +84,8 @@ export interface ProgramFacts {
   /** The unit a function, method, class (its construction) or source file (its initialization) is. */
   unit(node: ts.Node): Unit | undefined;
   byId(id: string): Unit | undefined;
+  /** The classes whose instances go on an executor (`on(executor, new C(…))`), with those calls. */
+  executorClasses(): ReadonlyMap<ts.ClassLikeDeclaration, readonly ts.CallExpression[]>;
   summary(unit: Unit): Summary;
   /** The IR's effect record for a unit. */
   effects(unit: Unit): EffectSummary;
@@ -152,6 +157,10 @@ class Facts implements ProgramFacts {
       graph: new FlowGraph(),
       posts: input.posts ?? (() => false),
       resolve: (s) => (s.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(s) : s),
+      executorClasses: executorClasses(
+        checker,
+        input.modules.map((m) => m.sourceFile),
+      ),
     };
 
     this.checker = checker;
@@ -164,6 +173,10 @@ class Facts implements ProgramFacts {
 
   unit(node: ts.Node): Unit | undefined {
     return this.solved.p.units.byNode.get(node);
+  }
+
+  executorClasses(): ReadonlyMap<ts.ClassLikeDeclaration, readonly ts.CallExpression[]> {
+    return this.solved.p.executorClasses;
   }
 
   byId(id: string): Unit | undefined {

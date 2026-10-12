@@ -304,7 +304,7 @@ Lucent code runs on these kinds of execution context (C-EXEC,
 | Module actor | A package's exports, async continuations and platform callbacks           | One fair lock and one thread per import component; the thread starts with its first job |
 | Main         | Component setups, effects and commands; `main()` callbacks; iOS lifecycle | The platform's UI loop; never takes a ticket on an actor's lock                         |
 | Compute      | `compute(task, input)`                                                    | A bounded pool; tasks share no state and take no lock                                   |
-| Executor     | Functions handed to the platform with `on(exec, f)`; objects planned      | A serial queue of its own; never takes an actor's lock                                  |
+| Executor     | Functions and objects handed to the platform with `on(exec, …)`           | A serial queue of its own; never takes an actor's lock                                  |
 
 Each context has its own queue, microtask queue and root scope. A promise
 belongs to the context current at its creation, and its continuations
@@ -405,9 +405,10 @@ glue enters the executor's context at once when the platform calls it
 there, and posts a turn from any other thread. Executor code is checked
 as a compute task's is, but may use native code of unknown thread. It
 captures only constants, channels and executors, and its results leave
-through a `Channel`. **Planned:** `on(exec, delegate)` for objects, with
-members only executor code touches, and `EventEmitter` events posted from
-an executor.
+through a `Channel`. An object goes on an executor where it is made,
+`on(exec, new Frames(…))`, and keeps `this` to itself, so its class's
+members are the executor's ([0082][d0082]). **Planned:** `EventEmitter`
+events posted from an executor.
 
 ### Channels
 
@@ -1050,5 +1051,6 @@ change.
 [d0077]: ../decisions/0077-the-web-is-a-target-for-shared-modules.md
 [d0078]: ../decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md
 [d0081]: ../decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md
+[d0082]: ../decisions/0082-objects-go-on-an-executor-where-they-are-made.md
 [d0079]: ../decisions/0079-react-native-0-85-is-in-the-window-and-no-release-needs-a-fallback.md
 [d0080]: ../decisions/0080-the-plan-is-rewritten-for-parity-with-nitro-and-expo-modules.md

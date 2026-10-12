@@ -8,7 +8,7 @@
  */
 import ts from "typescript";
 import type { OwnerId } from "../ir/ir.ts";
-import { builtinSdkModuleOf } from "../program.ts";
+import { isOnCall } from "./executors.ts";
 import { type Cause, code, type Levels, step, type Summary, SummaryBuilder } from "./facts.ts";
 import {
   type Callee,
@@ -349,18 +349,8 @@ class Solver implements Solved {
     const node = site.node;
     const arg =
       ts.isCallExpression(node) || ts.isNewExpression(node) ? node.arguments?.[index] : undefined;
-    if (!arg || !ts.isCallExpression(arg)) return false;
 
-    const checker = this.p.checker;
-    let symbol = checker.getSymbolAtLocation(arg.expression);
-    if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
-    const decl = symbol?.declarations?.[0];
-
-    return (
-      symbol?.name === "on" &&
-      !!decl &&
-      builtinSdkModuleOf(decl.getSourceFile()) === "lucent:thread"
-    );
+    return !!arg && isOnCall(this.p.checker, arg);
   }
 
   /** The function compute runs: an entry of its own, on a worker, not run by its caller. */
@@ -457,19 +447,22 @@ class Solver implements Solved {
       const use = this.p.native.implemented(this.p.checker, u.node);
       if (!use) continue;
 
-      const owner: OwnerId =
-        use.facts.affinity === "main"
+      // A class whose instances go on an executor: the platform calls its methods there.
+      const onExecutor = this.p.executorClasses.has(u.class);
+      const owner: OwnerId = onExecutor
+        ? "executor"
+        : use.facts.affinity === "main"
           ? "main"
           : use.delivery === "queued"
             ? "legacy-module"
             : "unknown";
-      const text = `implements ${code(use.display)}, which the platform calls`;
+      const where = onExecutor ? " on the executor its object went on" : "";
 
       this.entries.push({
         unit: u,
         owner,
-        cause: step(u, u.node, text),
-        reentrant: use.delivery !== "queued",
+        cause: step(u, u.node, `implements ${code(use.display)}, which the platform calls${where}`),
+        reentrant: !onExecutor && use.delivery !== "queued",
       });
     }
   }

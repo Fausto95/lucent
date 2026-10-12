@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                             | Date       | Decision                                                                    |
 | ---------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| [0082](0082-objects-go-on-an-executor-where-they-are-made.md)                      | 2026-10-13 | Objects go on an executor where they are made and keep `this` in            |
 | [0081](0081-functions-on-an-executor-share-only-constants-and-channels.md)         | 2026-10-12 | Functions on an executor share only constants, channels and executors       |
 | [0080](0080-the-plan-is-rewritten-for-parity-with-nitro-and-expo-modules.md)       | 2026-10-12 | The plan is rewritten for parity with Nitro and Expo Modules                |
 | [0079](0079-react-native-0-85-is-in-the-window-and-no-release-needs-a-fallback.md) | 2026-10-12 | React Native 0.85 is in the window; no release in it needs a fallback       |

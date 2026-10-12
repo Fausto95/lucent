@@ -126,10 +126,12 @@ generated from this file.
 - Module code runs only once a JavaScript runtime has installed Lucent.
   Background tasks, services and extensions can't run it yet
   ([T130](tasks.md#t130)).
-- Only functions go on an executor (`on(executor, f)`). Each `on()` makes
-  a new one, so a listener removed by the object it was added as can't be
-  removed. A delegate or another object still enters module code through
-  its actor, so a frame delegate waits behind synchronous JavaScript calls
+- Each `on()` makes a new platform object. A listener that is removed by
+  the object it was added as can't be removed if it went on an executor
+  ([T109](tasks.md#t109)).
+- An object goes on an executor only if its class does nothing else. It
+  is made only in `on()`, isn't exported, extends no class and keeps
+  `this` to itself. So a subclass of an SDK class can't go on one
   ([T109](tasks.md#t109)).
 - Worklet runtimes can't call Lucent modules ([T134](tasks.md#t134)).
 - A delegate that must answer on the main thread waits for the job that

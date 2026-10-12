@@ -112,6 +112,33 @@ export async function run(): Promise<string> {
 }
 `;
 
+const delegateOnApple = `import { Channel } from "lucent:core";
+import { executor, on } from "lucent:thread";
+import { Thread, XMLParser, type XMLParserDelegate } from "lucent:ios/Foundation";
+
+/** Reports where the parser's last call ran. */
+class Ends implements XMLParserDelegate {
+  constructor(private readonly out: Channel<string>) {}
+
+  parserDidEndDocument(_parser: XMLParser): void {
+    const here = Thread.current.name;
+    this.out.send(here === "lucent.module" ? "on the module's thread" : "on the executor");
+  }
+}
+
+export async function run(): Promise<string> {
+  const frames = executor("lucent.xml");
+  const out = new Channel<string>("lossless");
+  // The module's thread, named so the executor's can be told from it.
+  Thread.current.name = "lucent.module";
+  // parse() calls its delegate at once, on the module's thread: posted to the executor.
+  const parser = new XMLParser(new Uint8Array([60, 97, 47, 62]));
+  parser.delegate = on(frames, new Ends(out));
+  parser.parse();
+  return (await out.receive()) ?? "";
+}
+`;
+
 describe.skipIf(!xcode)("executors on iOS", () => {
   it("run a block handed over with on() on the executor's queue, off its module's thread", () => {
     const p = iosProgram(runningOnApple);
@@ -124,6 +151,17 @@ describe.skipIf(!xcode)("executors on iOS", () => {
       stdout: "lucent.frames | on the executor | posted\n",
       stderr: "",
     });
+  }, 300_000);
+});
+
+describe.skipIf(!xcode)("objects on an executor on iOS", () => {
+  it("run a delegate's methods on the executor, off its module's thread", () => {
+    const p = iosProgram(delegateOnApple);
+
+    expect(p.r.diagnostics.map((d) => d.message)).toEqual([]);
+    expect(p.mm).toContain("lucent::onExecutor");
+    expect(p.mm).toMatch(/lucent::enterOrPost\(\*\(?self->self_->lucentExecutor_/);
+    expect(hostRun(p)).toEqual({ status: 0, stdout: "on the executor\n", stderr: "" });
   }, 300_000);
 });
 
@@ -300,4 +338,167 @@ export async function run(): Promise<string> {
     );
     expect(reported(p)).toMatch(/LUCENT1007 on\(\) takes a function literal/);
   });
+});
+
+const jobs = `import { Channel } from "lucent:core";
+import { executor, on } from "lucent:thread";
+import { CompletableFuture, Executors } from "lucent:android/java.util.concurrent";
+import { Runnable, Thread } from "lucent:android/java.lang";
+
+/** Counts its runs: state of its own, which only the executor touches. */
+class Job implements Runnable {
+  private runs = 0;
+
+  constructor(
+    private readonly out: Channel<string>,
+    private readonly module: bigint,
+  ) {}
+
+  run(): void {
+    this.runs++;
+    const here = Thread.currentThread()?.getId() ?? 0n;
+    this.out.send(\`\${here === this.module ? "on the module's thread" : "on the executor"} \${this.runs}\`);
+  }
+}
+
+export async function run(): Promise<string> {
+  const frames = executor("lucent.jobs");
+  const out = new Channel<string>("lossless");
+  const module = Thread.currentThread()?.getId() ?? 0n;
+
+  // Java runs it on the executor, which it enters at once.
+  CompletableFuture.runAsync(on(frames, new Job(out, module)), frames);
+  const first = await out.receive();
+
+  // A pool's thread calls it: posted to the executor.
+  const pool = Executors.newSingleThreadExecutor()!;
+  pool.execute(on(frames, new Job(out, module)));
+  const second = await out.receive();
+  pool.shutdown();
+
+  return \`\${first} | \${second}\`;
+}
+`;
+
+describe.skipIf(!fake || !jdk)("objects on an executor", () => {
+  it("run their methods on the executor, off their module's thread", () => {
+    const p = compiled(jobs);
+
+    expect(messages(p)).toEqual([]);
+    expect(p.cpp).toContain("lucent::onExecutor");
+    expect(jvmRun(p.r, p.dir, fake!.run)).toEqual({
+      status: 0,
+      stdout: "on the executor 1 | on the executor 1\n",
+      stderr: "",
+    });
+  }, 300_000);
+
+  /** A module whose Job class goes on an executor, with `job` in place of its body and `make` in run(). */
+  const handing = (
+    job: string,
+    make = "new Job(out)",
+    before = "",
+  ) => `import { Channel } from "lucent:core";
+import { executor, on } from "lucent:thread";
+import { CompletableFuture } from "lucent:android/java.util.concurrent";
+import { Runnable } from "lucent:android/java.lang";
+
+${before}
+class Job implements Runnable {
+  constructor(private readonly out: Channel<number>) {}
+${job}
+}
+
+export async function run(): Promise<string> {
+  const frames = executor("frames");
+  const out = new Channel<number>("latest");
+  CompletableFuture.runAsync(on(frames, ${make}), frames);
+  return "";
+}
+`;
+
+  it("may not use module state in their methods", () => {
+    const p = compiled(
+      handing("  run(): void { total++; this.out.send(total); }", undefined, "let total = 0;"),
+    );
+    expect(reported(p)).toMatch(/LUCENT3032 .*cannot run on an executor: it .*total/);
+  });
+
+  it("keep `this` to themselves", () => {
+    const p = compiled(
+      handing("  run(): void { keep(this); }", undefined, "function keep(_job: Runnable): void {}"),
+    );
+    expect(reported(p)).toMatch(/LUCENT3032 `this` leaves `Job` here/);
+  });
+
+  it("are given only what both sides may use", () => {
+    const p = compiled(
+      handing(
+        "  constructor(private readonly sizes: number[]) {}\n  run(): void {}",
+        "new Job([1, 2])",
+      ).replace("  constructor(private readonly out: Channel<number>) {}\n", ""),
+    );
+    expect(reported(p)).toMatch(/LUCENT3032 `new Job\(…\)` goes on an executor.*`\[1, 2\]`/);
+  });
+
+  it("are made only where they go on an executor", () => {
+    const p = compiled(
+      handing("  run(): void { this.out.send(1); }").replace(
+        '  const out = new Channel<number>("latest");',
+        '  const out = new Channel<number>("latest");\n  const spare = new Job(out);\n  spare.run();',
+      ),
+    );
+    expect(reported(p)).toMatch(
+      /LUCENT3032 `Job` goes on an executor, so it is made only where it does/,
+    );
+  });
+
+  it("are handed straight to the platform", () => {
+    const p = compiled(
+      handing("  run(): void {}").replace(
+        "CompletableFuture.runAsync(on(frames, new Job(out)), frames);",
+        "const job = on(frames, new Job(out));\n  CompletableFuture.runAsync(job, frames);",
+      ),
+    );
+    expect(reported(p)).toMatch(/LUCENT1007 on\(\) hands an object to the platform/);
+  });
+
+  it("extend no class", () => {
+    const p = compiled(
+      handing("  run(): void {}", undefined, "class Base {}")
+        .replace("class Job implements Runnable {", "class Job extends Base implements Runnable {")
+        .replace(
+          "constructor(private readonly out: Channel<number>) {}",
+          "constructor(private readonly out: Channel<number>) {\n    super();\n  }",
+        ),
+    );
+    expect(reported(p)).toMatch(/LUCENT3032 `Job` extends a class/);
+  });
+
+  it("go on an executor from code on one", () => {
+    const p = compiled(`import { Channel } from "lucent:core";
+import { executor, on } from "lucent:thread";
+import { CompletableFuture } from "lucent:android/java.util.concurrent";
+import { Runnable } from "lucent:android/java.lang";
+
+class Job implements Runnable {
+  constructor(private readonly out: Channel<number>) {}
+  run(): void { this.out.send(2); }
+}
+
+export async function run(): Promise<string> {
+  const frames = executor("frames");
+  const out = new Channel<number>("latest");
+  CompletableFuture.runAsync(
+    on(frames, () => {
+      CompletableFuture.runAsync(on(frames, new Job(out)), frames);
+    }),
+    frames,
+  );
+  return \`\${(await out.receive()) ?? 0}\`;
+}
+`);
+    expect(messages(p)).toEqual([]);
+    expect(jvmRun(p.r, p.dir, fake!.run)).toMatchObject({ status: 0, stdout: "2\n" });
+  }, 300_000);
 });

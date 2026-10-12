@@ -582,7 +582,7 @@ object on the context it names (the main context on iOS). Module work
 belongs to the JavaScript runtime it runs for (`RuntimeEntry`,
 `ownedScope()`), so tearing one down cancels its work only.
 
-> **Planned:** delegates on an executor ([T109](tasks.md#t109)), module
+> **Planned:** executor events posted to JavaScript ([T109](tasks.md#t109)), module
 > code with no JavaScript runtime ([T130](tasks.md#t130)), and calls from
 > worklet runtimes ([T134](tasks.md#t134)).
 

@@ -83,7 +83,7 @@ installed SDKs and libraries ──► bindgen: schemas and binding plans
 | Module actor | A package's code: synchronous exports on the JS thread, async work and callbacks here | One fair lock and one thread per import component. Actors run in parallel; a cyclic nested wait throws.    |
 | Main         | Component setups, effects and commands; `main()` callbacks; iOS lifecycle listeners   | Never queues behind an actor. Module state only main-thread code uses is the main thread's, with no lock.  |
 | Compute      | `compute(task, input)`                                                                | A pool of cores − 1 workers. Tasks share no state: input is copied or moved.                               |
-| Executor     | Functions handed to the platform with `on(exec, f)`; delegates planned                | A serial queue that never takes an actor's lock. Its code captures only constants, channels and executors. |
+| Executor     | Functions and delegates handed to the platform with `on(exec, …)`                     | A serial queue that never takes an actor's lock. Its code captures only constants, channels and executors. |
 | JS thread    | Every JSI value                                                                       | Other threads hold `Host` ids and post to the JS thread.                                                   |
 
 - An actor is a package, or the app's own modules

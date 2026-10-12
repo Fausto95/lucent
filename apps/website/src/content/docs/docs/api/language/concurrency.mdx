@@ -126,7 +126,8 @@ export async function latitude(): Promise<number> {
 - `f` runs beside module code, so it can't use module state, main-thread native code or anything asynchronous ([LUCENT3032](/docs/api/diagnostics/#lucent3032)). Unlike a compute task, it may use native code of unknown thread, such as the frame it's given.
 - It captures only `const` numbers, strings, booleans and bigints, channels and executors, made in the function that hands it over. What it makes leaves through a channel.
 - The callbacks it hands the platform go on an executor with `on()` too. One handed over without `on()` runs in its package, beside the executor, so it may capture only the same values.
-- Only functions go on an executor so far, and each `on()` makes a new one. So a listener removed by the object it was added as can't be removed yet. A delegate's methods still run under its package's lock.
+- A delegate or a listener goes on an executor where it's made, as in `parser.delegate = on(frames, new Collector(out))`. Its class is then made only in `on()`, isn't exported and extends no class. It uses `this` only for its own members, so nothing but the platform reaches it. Its constructor takes only the values `f` may capture, and its methods follow `f`'s rules ([LUCENT3032](/docs/api/diagnostics/#lucent3032)).
+- Each `on()` makes a new platform object. So a listener removed by the object it was added as can't be removed yet.
 
 ## Channels
 
