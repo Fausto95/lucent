@@ -673,9 +673,8 @@ main thread there can't deadlock it.
 Other platform callbacks enter module code under their actor's lock, so
 a frame delegate waits behind synchronous JavaScript calls;
 `serialQueue(label)` from `lucent:ios` only moves them off the main
-thread. A function can go on an executor instead (below); a delegate
-can't yet ([T109](tasks.md#t109)). Worklet runtimes can't call Lucent yet
-([T134](tasks.md#t134)).
+thread. A function or a delegate can go on an executor instead (below).
+Worklet runtimes can't call Lucent yet ([T134](tasks.md#t134)).
 
 ### Compute tasks
 
@@ -728,12 +727,23 @@ array, object or native object its maker could change, is refused. What
 it makes leaves through a `Channel`
 ([0081](decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md)).
 
-Code an executor may run (`f`, and the functions it calls) hands the
-platform its own callbacks with `on()` as well. A function it hands over
-without `on()` runs in its module when the platform calls it, beside the
-executor, so it is refused if it captures what `f`'s rule refuses; an
-object it hands over is refused, since objects can't go on an executor
-yet.
+An object goes on an executor where it is made, as an SDK call's
+argument or an SDK property's value:
+`parser.delegate = on(frames, new Collector(out))`. Its class is then
+an executor class: every `new` of it is such an `on()`, it isn't
+exported and neither extends nor is extended, and `this` in it is only a
+member access's receiver, so nothing but the platform's calls reaches
+the object. Its constructor takes what a function's captures may be,
+and its methods are checked as `f` is. The platform's calls of them
+enter the executor as `f`'s do
+([0082](decisions/0082-objects-go-on-an-executor-where-they-are-made.md)).
+
+Code an executor may run (`f`, an executor class's methods, and the
+functions they call) hands the platform its own callbacks and objects
+with `on()` as well. A function it hands over without `on()` runs in its
+module when the platform calls it, beside the executor, so it is refused
+if it captures what `f`'s rule refuses or uses `this`; an object it
+hands over without `on()` is refused.
 
 ### Channels
 
@@ -935,6 +945,6 @@ types, `3xxx` modules and where code runs, `9xxx` passed through.
 | `LUCENT3025` | `NativeViewJsx`               | UIKit or Android view JSX its declarations don't provide for                             |
 | `LUCENT3030` | `BorrowEscape`                | a span from `withRead` or `withWrite` that escapes its callback                          |
 | `LUCENT3031` | `UseAfterMove`                | a `NativeBuffer` used after `transfer()` or `compute` moved it                           |
-| `LUCENT3032` | `NotOnExecutor`               | an executor's function that uses module state, main-thread code or async work            |
+| `LUCENT3032` | `NotOnExecutor`               | code on an executor using module state, main-thread code, async work or shared values    |
 | `LUCENT9001` | `TypeScript`                  | a TypeScript error: Lucent compiles only programs that type-check                        |
 | `LUCENT9002` | `InternalError`               | a compiler fault, reported at its function instead of stopping the build                 |

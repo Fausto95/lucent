@@ -21,6 +21,7 @@ import { type FnOptions, FnEmitter } from "./function.ts";
 import { initializationThroughIr, type IrMode, throughIr } from "./through-ir.ts";
 import { ifaceOverrides, ifacesOf, virtualMembers } from "./interfaces.ts";
 import { subclassImplicitSuper } from "./objc-subclass.ts";
+import { factsOf } from "./compute.ts";
 import { mayRefer, type RefField, refsDefinition, refsMethod, siteOf } from "./refs.ts";
 
 export interface ClassOutput {
@@ -214,6 +215,14 @@ export function emitClass(
   const nativeSubclass = ctx.platform === "ios" && info.sdkBase?.platform === "ios";
   // Its native object, held while the constructor runs (objc-subclass.ts).
   if (nativeSubclass) body.push(cpp.field(cpp.type("lucent::NativeRef"), "lucentNative_"));
+  // Its instances go on an executor (on(executor, new C(…))): the one the platform's calls enter.
+  if (factsOf(ctx).executorClasses().has(info.decl))
+    body.push(
+      cpp.field(
+        cpp.type("std::shared_ptr", cpp.type("lucent::ExecutorContext")),
+        "lucentExecutor_",
+      ),
+    );
   for (const p of parameterProperties(ctor)) declareField(p, fieldType(p));
   for (const m of info.members) {
     if (!ts.isPropertyDeclaration(m)) continue;

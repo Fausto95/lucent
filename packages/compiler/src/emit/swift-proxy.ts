@@ -21,6 +21,7 @@ import { type ClassInfo, cppIdent, type LType } from "../types.ts";
 import { classMember, classMemberLvalue } from "./builtins.ts";
 import { findMember } from "./classes.ts";
 import type { Ctx, E } from "./context.ts";
+import { objectEntry } from "./executors.ts";
 import { FnEmitter } from "./function.ts";
 import { fromObjc, ifPresent, requirePlan, toNativeNumber, toObjcExpr } from "./native.ts";
 import {
@@ -459,6 +460,25 @@ const staticFn = (
 ): cpp.Decl & { k: "function" } =>
   cpp.fn(name, ret, params, body, { static: true }) as cpp.Decl & { k: "function" };
 
+/**
+ * How a requirement's call enters Lucent code: the executor its object
+ * went on (`s_`, the Lucent object), else its module's actor.
+ */
+function entryOf(
+  em: FnEmitter,
+  decl: ts.ClassLikeDeclaration,
+): { now: (f: cpp.Expr) => cpp.Expr; later: (f: cpp.Expr) => cpp.Expr; executor: boolean } {
+  const onExecutor = objectEntry(em.ctx, decl, cpp.id("s_"));
+  if (onExecutor) return { ...onExecutor, executor: true };
+
+  const actor = () => em.ctx.actorAt(em.opts.module);
+  return {
+    now: (f) => cpp.call("lucent::callNow", [actor(), f]),
+    later: (f) => cpp.call("lucent::postCallback", [actor(), f]),
+    executor: false,
+  };
+}
+
 /** A property requirement: the Lucent field or accessor read, or written, while Swift waits. */
 function propertyFunction(
   em: FnEmitter,
@@ -470,6 +490,7 @@ function propertyFunction(
   const s: E = { c: cpp.id("s_"), t: classT };
   const owner = cpp.varDecl(cpp.auto, "s_", lucentObject(self, cpp.id("ctx_")));
   const ctx = cpp.param(cpp.pointer(cpp.voidType), "ctx_");
+  const entry = entryOf(em, em.reg.cls(classT.id).decl);
 
   if (r.kind === "get") {
     const value = classMember(em, s, classT, r.prop.name, r.node);
@@ -483,12 +504,7 @@ function propertyFunction(
       ],
       { ret: cRet },
     );
-    return staticFn(
-      name,
-      cRet,
-      [ctx],
-      [owner, cpp.ret(cpp.call("lucent::callNow", [em.ctx.actorAt(em.opts.module), now]))],
-    );
+    return staticFn(name, cRet, [ctx], [owner, cpp.ret(entry.now(now))]);
   }
 
   const place = classMemberLvalue(em, s, classT, r.prop.name, r.node);
@@ -499,11 +515,7 @@ function propertyFunction(
     name,
     cpp.voidType,
     [ctx, cpp.param(cType(r.type), "a0")],
-    [
-      owner,
-      ...takenObjects([r.type]),
-      cpp.exprStmt(cpp.call("lucent::callNow", [em.ctx.actorAt(em.opts.module), now])),
-    ],
+    [owner, ...takenObjects([r.type]), cpp.exprStmt(entry.now(now))],
   );
 }
 
@@ -539,6 +551,7 @@ function methodFunction(
     .map((t, i) => lucentValue(em, t, i, fn.params[i]!, self, r.what));
   const owner = cpp.varDecl(cpp.auto, "s_", lucentObject(self, cpp.id("ctx_")));
   const call = cpp.call(cpp.arrow(cpp.id("s_"), cppIdent(r.m.name)), args);
+  const entry = entryOf(em, r.impl.parent as ts.ClassLikeDeclaration);
 
   const cRet = isVoid(r.ret) ? cpp.voidType : cType(r.ret);
   const body: cpp.Stmt[] = isVoid(r.ret)
@@ -565,18 +578,19 @@ function methodFunction(
       ]
     : body;
 
-  if (isVoid(r.ret) && !r.now) {
-    // Nothing waits for it off the main thread: queued, with copies of what it needs.
+  // Nothing waits for it off the main thread: queued, with copies of what it needs. On an
+  // executor, one that answers nothing runs at once there, else in a turn of it.
+  if (isVoid(r.ret) && (!r.now || (entry.executor && !throws))) {
     const later = cpp.lambda(["="], [], guarded, { mutable: true });
     return staticFn(name, cRet, cParams, [
       owner,
       ...takenObjects(r.params),
-      cpp.exprStmt(cpp.call("lucent::postCallback", [em.ctx.actorAt(em.opts.module), later])),
+      cpp.exprStmt(entry.later(later)),
     ]);
   }
 
   const now = cpp.lambda(["&"], [], guarded, isVoid(r.ret) ? {} : { ret: cRet });
-  const run = cpp.call("lucent::callNow", [em.ctx.actorAt(em.opts.module), now]);
+  const run = entry.now(now);
   return staticFn(name, cRet, cParams, [
     owner,
     ...takenObjects(r.params),
@@ -675,7 +689,7 @@ function asyncFunction(
   return staticFn(name, cpp.voidType, cParams, [
     cpp.varDecl(cpp.auto, "s_", lucentObject(self, cpp.id("ctx_"))),
     ...takenObjects(r.params),
-    cpp.exprStmt(cpp.call("lucent::postCallback", [em.ctx.actorAt(em.opts.module), start])),
+    cpp.exprStmt(entryOf(em, r.impl.parent as ts.ClassLikeDeclaration).later(start)),
   ]);
 }
 

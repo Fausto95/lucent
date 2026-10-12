@@ -464,7 +464,18 @@ function sharedCapture(checker: ts.TypeChecker, symbol: ts.Symbol): string | und
   if (!constant)
     return "a variable the code that made the closure can assign while it runs: capture a `const`";
 
-  const type = checker.getTypeOfSymbol(symbol);
+  if (shareableType(checker.getTypeOfSymbol(symbol))) return undefined;
+
+  return "a value the code that made the closure can change while it runs: make it inside the function, or send it through a Channel";
+}
+
+/**
+ * Whether values of `type` can be shared by code that runs at once on two
+ * threads: numbers, strings, booleans, bigints, null and undefined, which
+ * can't change, and lucent:core's Channel and lucent:thread's Executor,
+ * which both sides may use.
+ */
+export function shareableType(type: ts.Type): boolean {
   const immutable = (t: ts.Type): boolean =>
     t.isUnion()
       ? t.types.every(immutable)
@@ -483,11 +494,8 @@ function sharedCapture(checker: ts.TypeChecker, symbol: ts.Symbol): string | und
     if (name === "Channel") return path.resolve(file.fileName) === path.resolve(coreTypesPath());
     return name === "Executor" && builtinSdkModuleOf(file) === "lucent:thread";
   };
-  const shareable = !!type.getSymbol()?.declarations?.some(from);
 
-  if (immutable(type) || shareable) return undefined;
-
-  return "a value the code that made the closure can change while it runs: make it inside the function, or send it through a Channel";
+  return immutable(type) || !!type.getSymbol()?.declarations?.some(from);
 }
 
 /** How one unit runs another: in its own context, or on the main thread. */

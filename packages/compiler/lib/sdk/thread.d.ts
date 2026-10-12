@@ -65,6 +65,8 @@ export declare function executor(label: string): Executor;
 /**
  * Hands `f` to the platform to run on `executor`, never holding its
  * module's lock. Pass the result straight to the SDK call that takes it.
+ * `f` is a function literal, or an object made there, as in
+ * `parser.delegate = on(frames, new Collector(out))`.
  *
  * When the platform calls `f` on the executor, `f` runs there at once.
  * Called from another thread, an `f` that returns nothing runs in a turn
@@ -74,6 +76,10 @@ export declare function executor(label: string): Executor;
  * use module state, call JavaScript callbacks or await. It captures only
  * `const` numbers, strings, booleans and bigints, Channels and Executors,
  * and what it makes leaves through a `Channel`.
+ *
+ * An object's class is then made only in `on()`, and uses `this` only
+ * for its own members. Its constructor takes the values a function may
+ * capture, and its methods follow a function's rules.
  *
  * @param executor The executor `f` runs on.
  * @param f The callback the platform calls.

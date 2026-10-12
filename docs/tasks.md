@@ -421,17 +421,19 @@ hold its module's actor.
 - **Status:** in progress: `Channel` with its three policies and
   `subscribe`, and the runtime's `ExecutorContext`, are merged (#181,
   #182, #187, #197, as T74), and so are `executor(label)` and
-  `on(exec, f)` for functions (#206). Decided as
-  [0078](decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md)
-  and [0081](decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md).
+  `on(exec, f)` for functions (#206), and objects with `on(exec, new C(…))`
+  (#207). Decided as
+  [0078](decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md),
+  [0081](decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md)
+  and [0082](decisions/0082-objects-go-on-an-executor-where-they-are-made.md).
 - **Area:** compiler, runtime, bindings.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3, V4, V7.
 - **Where:** `lib/sdk/thread.d.ts`, `execution.h`, `emit/`, `analysis/`.
 
-A function handed to the platform with `on(exec, f)` runs on the
-executor without its module's lock. A delegate's callbacks still take
-it, on `serialQueue(label)`'s queue or any other.
+A function or an object handed to the platform with `on(exec, …)` runs
+on the executor without its module's lock. Any other delegate's
+callbacks still take it, on `serialQueue(label)`'s queue or any other.
 
 - [x] `executor(label)` from `lucent:thread`: a serial dispatch queue on
       iOS and a single-thread `Executor` on Android, which platform APIs
@@ -439,7 +441,8 @@ it, on `serialQueue(label)`'s queue or any other.
 - [x] `on(exec, f)` puts a function literal on it where it is handed to
       the platform (a block, a Java functional interface, a Kotlin
       function). The glue enters the executor's context directly.
-- [ ] `on(exec, delegate)` does the same for an object.
+- [x] `on(exec, new C(…))` does the same for an object made there: its
+      class's methods enter the executor (0082).
 - [ ] A function on an executor kept in a `const` is one platform object
       wherever it is handed over, so a listener added with it can be
       removed with it.
@@ -447,7 +450,8 @@ it, on `serialQueue(label)`'s queue or any other.
       but allows native code of unknown thread. Module state, main-thread
       code, promises and awaits are refused with the cause path, and
       captures are constants, channels and executors (0081).
-- [ ] Members only executor code touches are the executor's.
+- [x] Members only executor code touches are the executor's: an executor
+      class keeps `this` to itself, so all of its are (0082).
 - [ ] Executors produce into channels, and post `EventEmitter` events to
       JavaScript. The guide says which to use for what.
 - [ ] Trace: each channel's waits, depth and drops, and an executor's

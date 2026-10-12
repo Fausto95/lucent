@@ -66,7 +66,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT3025`](#lucent3025) | JSX of UIKit or Android views that Lucent cannot make: a view, attribute or child its declarations do not provide for. |
 | [`LUCENT3030`](#lucent3030) | A span that withRead or withWrite lends escapes its callback: returned, stored, kept by a closure or callee, or held across await. |
 | [`LUCENT3031`](#lucent3031) | A NativeBuffer is used after transfer() or after it was handed to compute(), which move its bytes to another buffer. |
-| [`LUCENT3032`](#lucent3032) | A function handed to an executor with on() uses module state, main-thread native code or async work, or captures what its maker can change. |
+| [`LUCENT3032`](#lucent3032) | Code on an executor uses module state, main-thread native code or async work, or shares what the code that made it can change. |
 | [`LUCENT9001`](#lucent9001) | A TypeScript error. Lucent stops at type errors, because it compiles from the checker's types. |
 | [`LUCENT9002`](#lucent9002) | Lucent failed to compile a function it accepted: a bug in the compiler, reported at the function instead of stopping the build. |
 
@@ -1682,7 +1682,7 @@ export function size(): number {
 
 **Code that cannot run on an executor**
 
-A function on an executor runs on the executor's thread while module code keeps running, so the two share nothing either can change. Module state, computed constants, main-thread native code, code the compiler cannot follow and `await` break that rule, as in a compute task. It may capture `const` numbers, strings, booleans and bigints, channels and executors, and may use native code of unknown thread.
+Code on an executor runs on its thread while module code keeps running, so the two share nothing either can change. In a function or object given to on(), module state, computed constants, main-thread native code, unknown code and `await` break that rule. It holds only constants, channels and executors, and an object is made only in on() and keeps `this` to itself.
 
 **Fix:** send what it makes through a Channel made beside it, and keep module state on the module's thread.
 

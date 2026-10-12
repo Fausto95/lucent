@@ -186,6 +186,8 @@ export interface Program {
   posts(call: ts.CallExpression): boolean;
   /** Import aliases resolved to what they name. */
   resolve(symbol: ts.Symbol): ts.Symbol;
+  /** The classes whose instances go on an executor, with the `on()` calls that make them. */
+  readonly executorClasses: ReadonlyMap<ts.ClassLikeDeclaration, readonly ts.CallExpression[]>;
 }
 
 /** The flags of types whose values cannot be objects or functions. */
