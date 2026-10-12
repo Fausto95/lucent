@@ -38,6 +38,7 @@
 #include "async.h"
 #include "buffer.h"
 #include "core.h"
+#include "events.h"
 #include "execution.h"
 #include "json.h"
 #include "jsstring.h"
@@ -154,6 +155,19 @@ class ChannelObject final : public Object {
     return next;
   }
 
+  /// Calls `onValue` with each value, on the calling context, one at a
+  /// time as they come: the next is received once it returns, so the
+  /// channel's policy still decides what waits meanwhile. Until the channel
+  /// is closed and drained, or gone, or the subscription is removed. A
+  /// value `onValue` throws on is reported, and the next one comes.
+  EventSubscription subscribe(Fn<void(T)> onValue);
+
+  /// Forgets a receive still waiting (a removed subscription's).
+  void forget(const Promise<Opt<T>>& waiting) {
+    std::lock_guard<std::mutex> g(m_);
+    std::erase_if(waiters_, [&](const Promise<Opt<T>>& w) { return w.identity() == waiting.identity(); });
+  }
+
   /// Any thread. The first call closes it and returns true: sends are
   /// refused from then on, and receives get what is queued, then
   /// undefined.
@@ -262,6 +276,57 @@ class ChannelObject final : public Object {
 /// lucent:core's Channel<T>.
 template <class T>
 using Channel = Ref<ChannelObject<T>>;
+
+template <class T>
+EventSubscription ChannelObject<T>::subscribe(Fn<void(T)> onValue) {
+  // Receives one value at a time; holds the channel weakly, so a channel
+  // nothing else holds goes (and settles the waiting receive).
+  struct Pump : std::enable_shared_from_this<Pump> {
+    std::weak_ptr<ChannelObject> channel;
+    Fn<void(T)> fn;
+    bool active = true;
+    std::optional<Promise<Opt<T>>> waiting;
+
+    void next() {
+      auto c = channel.lock();
+      if (!c || !active) return;
+
+      Promise<Opt<T>> p = c->receive();
+      waiting = p;
+      p.onSettled([self = this->shared_from_this(), p] {
+        self->waiting.reset();
+        if (!p.fulfilled() || !p.value().has()) return;
+
+        T value = p.value().get();
+        if (!self->active) {
+          detail::releaseUnreceived(value);
+          return;
+        }
+
+        try {
+          self->fn(std::move(value));
+        } catch (...) {
+          reportUncaught(std::current_exception(), "channel subscriber");
+        }
+        self->next();
+      });
+    }
+  };
+
+  auto pump = std::make_shared<Pump>();
+  pump->channel = std::static_pointer_cast<ChannelObject>(this->shared_from_this());
+  pump->fn = std::move(onValue);
+  pump->next();
+
+  return std::make_shared<EventSubscriptionObject>([pump] {
+    pump->active = false;
+    if (!pump->waiting) return;
+    // Its waiting receive gets no value now; settled, it lets the pump go.
+    Promise<Opt<T>> waiting = *std::exchange(pump->waiting, std::nullopt);
+    if (auto c = pump->channel.lock()) c->forget(waiting);
+    waiting.resolve(Opt<T>(undefined));
+  });
+}
 
 /// A policy by the name Lucent code gives it: a TypeError for another.
 inline ChannelPolicy channelPolicy(const String& name) {

@@ -79,6 +79,15 @@ export function channelMethod(em: FnEmitter, obj: E, name: string, node: ts.Call
         c: cpp.call(cpp.arrow(o, "receive")),
         t: { k: "promise", inner: unionOf([t.e, T.undefined]) },
       };
+    case "subscribe": {
+      if (a.length !== 1) fail(node, Codes.UnsupportedCall, "subscribe takes the function to call");
+      const onValue: LType = { k: "fn", params: [t.e], ret: T.void };
+
+      return {
+        c: cpp.call(cpp.arrow(o, "subscribe"), [em.exprAs(a[0]!, onValue)]),
+        t: T.subscription,
+      };
+    }
     case "close":
       if (a.length) fail(node, Codes.UnsupportedCall, "close takes no arguments");
 

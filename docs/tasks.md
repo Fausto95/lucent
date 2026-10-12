@@ -46,7 +46,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T66](#t66)   | Complete user documentation and migration examples                | waiting; needs T51, T52, T60                                                                                                      |
 | [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165, #167, #168 merged)                                                                                       |
 | [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | in progress (#175, #180, #183 merged)                                                                                             |
-| [T74](#t74)   | Callback executors and stream backpressure                        | in progress (#181, #182 merged)                                                                                                   |
+| [T74](#t74)   | Callback executors and stream backpressure                        | in progress (#181, #182, #PR_A merged)                                                                                            |
 | [T75](#t75)   | Support a window of stable React Native and Expo releases         | blocked: a decision on the window; needs nothing open                                                                             |
 | [T76](#t76)   | App-delegate and Activity integration hooks                       | blocked: a decision superseding 0071; needs nothing open                                                                          |
 | [T77](#t77)   | Classes the OS instantiates, and typed package Kotlin             | waiting; needs T60, T76                                                                                                           |
@@ -1807,8 +1807,11 @@ Channel<T>(policy, capacity?)`, `send` (a copy, made as a compute
       element types must be data (LUCENT3012); a channel crosses to a
       compute task as itself, not to JavaScript (LUCENT2006); a task
       cannot receive (LUCENT3011); the JavaScript reference in `core.cjs`;
-      the `channels` e2e case. Next: `subscribe` for a consumer (Lucent has
-      no `for await` yet), and executors as producers.
+      the `channels` e2e case. `subscribe(onValue)` is merged too
+      (#PR_A): one value at a time on the subscriber's context, pulled
+      (so the policy still decides what waits), holding the channel
+      weakly, ended by `remove()` or the channel closing. Next: executors
+      as producers.
 - [ ] Events to JavaScript from an executor go through `EventEmitter` as
       posted callbacks (unchanged), or through a channel JavaScript reads
       as a `Coalesced`-like subscription; document which to use for what.

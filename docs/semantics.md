@@ -461,6 +461,12 @@ transferred`) on use, and closing it does nothing. Passing a buffer to
     that asked: at once if one waits, else when one is sent. Once the
     channel is closed and drained, it is `undefined`. A compute task
     cannot receive (`LUCENT3011`).
+  - `subscribe(onValue)` calls `onValue` with each value as it comes, one at
+    a time, on the context that subscribed: the next is received once it
+    returns, so the policy still decides what waits. It ends when the
+    channel is closed and drained, or with `remove()` on what it returns,
+    after which values wait for the next receive; what `onValue` throws is
+    reported and the next value comes.
   - `close()` refuses sends from then on, and says whether it closed it;
     `closed` reads it. A channel module code makes ends with its
     JavaScript runtime (a reload), releasing what was never received.
@@ -468,7 +474,7 @@ transferred`) on use, and closing it does nothing. Passing a buffer to
     values waiting (`depth`) and the most that ever waited.
   - A channel crosses to a compute task as itself, so both ends share it,
     but not to JavaScript (`LUCENT2006`). Lucent has no `for await`:
-    receive in a loop until `undefined`.
+    receive in a loop until `undefined`, or subscribe.
 
 Modules are checked against the ES2024 library. Its typed-array copies
 (`Uint8Array`'s `toSorted`, `toReversed`, `with`, `findLast`,

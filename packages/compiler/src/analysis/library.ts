@@ -388,6 +388,14 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "lucent:core.Channel.new": ALLOCATES_THROWS,
   "lucent:core.Channel.send": { mutates: true, throws: true },
   "lucent:core.Channel.receive": { allocates: true, schedules: true },
+  // The function runs later, on this context, for each value.
+  "lucent:core.Channel.subscribe": {
+    mutates: true,
+    allocates: true,
+    keeps: "receiver",
+    calls: "later",
+    schedules: true,
+  },
   "lucent:core.Channel.close": MUTATES,
   "lucent:core.Channel.stats": ALLOCATES,
   "lucent:core.delay": { allocates: true, schedules: true },
