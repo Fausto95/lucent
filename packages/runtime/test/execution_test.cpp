@@ -1,5 +1,5 @@
 // Unit tests for execution contexts (lucent/execution.h): the legacy module
-// context, the main context and isolated contexts, their microtasks, and
+// context, the main context, isolated contexts and executors, their microtasks, and
 // what crosses between them. Built and run by `packages/runtime/test/run.sh`,
 // also under ASan/UBSan and TSan.
 #include <pthread.h>
@@ -944,6 +944,158 @@ static void threadsHaveTheirStack() {
   context->shutdown();
 }
 
+// --- executors ------------------------------------------------------------
+
+/// An executor's turns run one at a time, in order, on its own thread (a
+/// serial dispatch queue on Apple platforms), never the poster's.
+static void executorsRunTheirTurnsInOrder() {
+  auto exec = ExecutorContext::create("frames");
+  std::mutex m;
+  std::vector<int> order;
+  std::atomic<int> onIt{0};
+  std::atomic<bool> elsewhere{true};
+  const auto poster = std::this_thread::get_id();
+
+  for (int i = 0; i < 50; i++)
+    exec->post([&, i, context = exec.get()] {
+      if (ExecutionContext::current() == context && context->onExecutor()) onIt++;
+      if (std::this_thread::get_id() == poster) elsewhere = false;
+      std::lock_guard<std::mutex> g(m);
+      order.push_back(i);
+    });
+
+  CHECK(exec->waitIdle(5000));
+  std::vector<int> want(50);
+  for (int i = 0; i < 50; i++) want[i] = i;
+  CHECK(order == want);
+  CHECK(onIt == 50 && elsewhere);
+  CHECK(!exec->onExecutor());
+  CHECK(exec->label() == "frames");
+
+  exec->shutdown();
+  CHECK(exec->waitStopped(2000));
+}
+
+/// An executor never takes an actor's lock: its turns run while module code
+/// holds the package's, and while module code waits for them.
+static void executorsNeverTakeAnActorsLock() {
+  auto exec = ExecutorContext::create("audio");
+  std::atomic<bool> ran{false};
+  std::atomic<bool> lockHeldMeanwhile{false};
+  std::atomic<bool> jobSawIt{false};
+
+  Actor::shared().post([&] {
+    exec->post([&] {
+      lockHeldMeanwhile = !Actor::shared().lock().try_lock();
+      if (!lockHeldMeanwhile) Actor::shared().lock().unlock();
+      ran = true;
+    });
+
+    jobSawIt = within(2000, [&] { return ran.load(); });
+  });
+
+  CHECK(Actor::shared().waitIdle(5000));
+  CHECK(jobSawIt && lockHeldMeanwhile);
+
+  exec->shutdown();
+}
+
+/// What the platform runs on an executor (a delegate's call on its queue,
+/// an Executor's Runnable) runs outside a turn; the glue enters the
+/// executor's context directly, and leaving it runs the microtasks.
+static void platformWorkEntersTheExecutor() {
+  auto exec = ExecutorContext::create("sensors");
+  std::atomic<bool> outside{false};
+  std::atomic<bool> entered{false};
+  std::atomic<bool> microtaskRanOnIt{false};
+  std::atomic<bool> microtaskAfterReturn{false};
+  std::atomic<bool> returned{false};
+
+  CHECK(exec->execute([&, context = exec.get()] {
+    outside = ExecutionContext::current() == nullptr && context->onExecutor();
+    {
+      ContextEntry entry(*context);
+      entered = ExecutionContext::current() == context;
+      context->enqueueMicrotask([&, context] {
+        microtaskRanOnIt = ExecutionContext::current() == context;
+        microtaskAfterReturn = returned.load();
+      });
+      returned = true;
+    }
+  }));
+
+  CHECK(within(2000, [&] { return microtaskRanOnIt.load(); }));
+  CHECK(outside && entered && microtaskAfterReturn);
+  // Only on its own thread.
+  CHECK(refused([&] { ContextEntry entry(*exec); }));
+
+  exec->shutdown();
+  CHECK(exec->waitStopped(2000));
+  CHECK(!exec->execute([] {}));
+}
+
+/// Shutting an executor down disposes its root scope on it, after the turn
+/// running now, drops what is still queued, and refuses what comes after.
+static void shutdownDisposesOnTheExecutor() {
+  auto exec = ExecutorContext::create("decoder");
+  std::atomic<bool> cleanupOnIt{false};
+  std::atomic<bool> release{false};
+  std::atomic<bool> laterRan{false};
+
+  exec->root()->onDispose([&, context = exec.get()] { cleanupOnIt = ExecutionContext::current() == context; });
+  exec->post([&] { within(2000, [&] { return release.load(); }); });
+
+  auto queued = std::make_shared<int>(1);
+  std::weak_ptr<int> queuedWatch = queued;
+  exec->post([&, queued] { laterRan = true; });
+  queued.reset();
+
+  auto before = Clock::now();
+  exec->shutdown();
+  CHECK(Clock::now() - before < std::chrono::milliseconds(100));
+  CHECK(!exec->post([] {}));
+
+  release = true;
+  CHECK(exec->waitStopped(2000));
+  CHECK(cleanupOnIt);
+  CHECK(!laterRan && within(2000, [&] { return queuedWatch.expired(); }));
+  CHECK(exec->root()->state() == Scope::State::Disposed);
+
+  // The last reference shuts one down too.
+  std::atomic<bool> cleaned{false};
+  {
+    auto dropped = ExecutorContext::create("dropped");
+    dropped->root()->onDispose([&] { cleaned = true; });
+  }
+  CHECK(within(2000, [&] { return cleaned.load(); }));
+}
+
+/// Timers and settlements come back to the executor, as to any context.
+static void executorsRunTimersAndContinuations() {
+  auto exec = ExecutorContext::create("timers");
+  std::atomic<bool> timerOnIt{false};
+  std::atomic<bool> resumedOnIt{false};
+  auto start = Clock::now();
+  std::atomic<long long> elapsed{0};
+
+  exec->postDelayed(30, [&, context = exec.get()] {
+    timerOnIt = ExecutionContext::current() == context;
+    elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start).count();
+  });
+
+  Promise<double> settled;
+  exec->post([&, settled, context = exec.get()]() mutable {
+    settled.onSettled([&, context] { resumedOnIt = ExecutionContext::current() == context; });
+  });
+  CHECK(exec->waitIdle(2000));
+  std::thread([settled]() mutable { settled.resolve(1.0); }).join();
+
+  CHECK(within(2000, [&] { return timerOnIt.load() && resumedOnIt.load(); }));
+  CHECK(elapsed >= 25);
+
+  exec->shutdown();
+}
+
 int main() {
 #if defined(__linux__)
   // glibc gives a thread that sets no stack size the stack rlimit, 8 MB on
@@ -985,6 +1137,11 @@ int main() {
   lastReferenceDisposesOnTheOwner();
   childOfDisposedParentIsDisposedAtOnce();
   threadsHaveTheirStack();
+  executorsRunTheirTurnsInOrder();
+  executorsNeverTakeAnActorsLock();
+  platformWorkEntersTheExecutor();
+  shutdownDisposesOnTheExecutor();
+  executorsRunTimersAndContinuations();
 
   std::printf("execution: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;
