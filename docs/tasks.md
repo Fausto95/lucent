@@ -46,7 +46,7 @@ free id (`T80` and `TA47` next) and never reuses one.
 | [T66](#t66)   | Complete user documentation and migration examples                | waiting; needs T51, T52, T60                                                                                                      |
 | [T72](#t72)   | Zero-copy bytes at the boundary                                   | in progress (#163, #165, #167, #168 merged)                                                                                       |
 | [T73](#t73)   | Interop handles: native pointers and opaque JavaScript values     | in progress (#175, #180, #183 merged)                                                                                             |
-| [T74](#t74)   | Callback executors and stream backpressure                        | in progress (#181, #182, #187 merged)                                                                                             |
+| [T74](#t74)   | Callback executors and stream backpressure                        | in progress (#181, #182, #187, #197 merged)                                                                                       |
 | [T75](#t75)   | Support a window of stable React Native and Expo releases         | in progress (#190, #191, #194 merged)                                                                                             |
 | [T76](#t76)   | App-delegate and Activity integration hooks                       | ready (decision 0076); needs nothing open                                                                                         |
 | [T77](#t77)   | Classes the OS instantiates, and typed package Kotlin             | waiting; needs T60, T76                                                                                                           |
@@ -1749,7 +1749,8 @@ JavaScript through channels with a stated drop policy. T59 then proves it
 on devices.
 
 - **Status:** in progress: the runtime's channels merged as #181,
-  lucent:core's `Channel` as #182; frames as channel values need
+  lucent:core's `Channel` as #182, subscribing as #187, the runtime's
+  executor as #197; frames as channel values need
   [T72](#t72)'s platform adoptions.
 - **Area:** Runtime (scheduler, execution, transport), compiler (analysis,
   delegates, native), lucent:thread, lucent:core.
@@ -1786,7 +1787,11 @@ executors" and "bounded queues with explicit backpressure".
       single-thread `Executor` (Android) that platform APIs take as is;
       `on(exec, delegate)` and `on(exec, closure)` put code on it where
       it is handed over; adopting the platform's own is later; executor
-      code keeps state only in members only it touches.
+      code keeps state only in members only it touches. The runtime's
+      half: `ExecutorContext` (`execution.h`), a serial dispatch queue on
+      Apple platforms and a thread of its own elsewhere, that never takes
+      an actor's lock; `execute()` runs the platform's work outside a turn
+      for the glue to enter (#197).
 - [ ] The compiler checks code that runs on an executor as it checks a
       compute task (`REFUSES.task`), with one difference: native code of
       the executor's own thread, and of any thread, is allowed (a frame's
