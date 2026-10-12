@@ -2,9 +2,10 @@ name: Window apps
 
 # Fresh apps on each release Lucent supports (decisions 0074 and 0079): bare apps from React
 # Native's template for each release of the window, Expo apps from create-expo-app's for each SDK,
-# with the packed package, a module of each kind and a component, built for the iOS simulator and
-# Android (scripts/window-app.ts). They are built, not run. ci.yml calls it nightly; it can be run
-# by hand too.
+# with the packed package, a module of each kind and a component, built in Release for the iOS
+# simulator and Android, then run there: the app calls the modules, mounts the components and logs
+# its verdict, which scripts/device-check.ts reads (scripts/window-app.ts). ci.yml calls it
+# nightly; it can be run by hand too.
 
 on:
   workflow_call:
@@ -20,6 +21,7 @@ env:
   XCODE_VERSION: "26.6"
   LANG: en_US.UTF-8
   LC_ALL: en_US.UTF-8
+  DEVICE_CHECK_OUT: ${{ github.workspace }}/device-check
 
 jobs:
   apps:
@@ -40,7 +42,7 @@ jobs:
     name: ${{ matrix.name }}
     needs: apps
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 60
+    timeout-minutes: 80
     strategy:
       fail-fast: false
       matrix:
@@ -66,10 +68,37 @@ jobs:
           set -o pipefail
           node scripts/window-app.ts --app ${{ matrix.app }} --release ${{ matrix.release }} \
             --platform ${{ matrix.platform }} --dir "$RUNNER_TEMP/app" 2>&1 | tee window-app.log
-      - name: Keep the log
+      - name: Run the app on the simulator
+        if: matrix.platform == 'ios'
+        timeout-minutes: 20
+        run: |
+          node scripts/window-app.ts --app ${{ matrix.app }} --release ${{ matrix.release }} \
+            --platform ios --dir "$RUNNER_TEMP/app" --check
+      - name: Enable KVM
+        if: matrix.platform == 'android'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run the app on the emulator
+        if: matrix.platform == 'android'
+        timeout-minutes: 25
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          ram-size: 4096M
+          disk-size: 6000M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: node scripts/window-app.ts --app ${{ matrix.app }} --release ${{ matrix.release }} --platform android --dir "$RUNNER_TEMP/app" --check
+      - name: Keep the logs and the screen
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: window-${{ matrix.app }}-${{ matrix.release }}-${{ matrix.platform }}
-          path: window-app.log
+          path: |
+            window-app.log
+            device-check/
           if-no-files-found: ignore

@@ -169,9 +169,10 @@ generated from this file.
 
 - Nothing has run on a physical iPhone or Android phone. Tests run on
   hosts, the iOS simulator and the Android emulator.
-- Apps on the window's releases (React Native 0.85 to 0.87, Expo SDK 56
-  and 57) are built nightly, not run ([T140](tasks.md#t140)). The example
-  apps run on the prerelease lane.
+- Fresh apps on the window's releases (React Native 0.85 to 0.87, Expo
+  SDK 56 and 57) build and run a short check nightly, on the simulator and
+  the emulator. The full Tests screen runs only in the example apps, which
+  are on the prerelease lane.
 - The actors' iOS and Android glue has run through host tests and the
   example apps, not under stress ([T151](tasks.md#t151)).
 - StoreKit's `purchase()` needs a `.storekit` configuration, which only an

@@ -12,11 +12,11 @@ Each suite proves something at one level, and a higher level never
 follows from a lower one. Nothing has run on a physical phone
 ([limitations](limitations.md#not-verified-yet)).
 
-| Level                 | Means                                                         | Suites                                                                                              |
-| --------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Code                  | Generated, type-checked, compiled or compared. Nothing ran.   | Unit tests of generated code, the corpus, NDK and header compiles, CI's app builds, the window apps |
-| Host                  | Ran on a desktop: Hermes, the macOS host, Mac Catalyst, a JVM | End-to-end cases, the runtime, the JSI and JNI hosts, the platform harnesses, app checks, bench     |
-| Simulator or emulator | Ran on the iOS simulator or the Android emulator              | Device runs, and the example apps run by hand                                                       |
+| Level                 | Means                                                         | Suites                                                                                          |
+| --------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Code                  | Generated, type-checked, compiled or compared. Nothing ran.   | Unit tests of generated code, the corpus, NDK and header compiles, CI's app builds              |
+| Host                  | Ran on a desktop: Hermes, the macOS host, Mac Catalyst, a JVM | End-to-end cases, the runtime, the JSI and JNI hosts, the platform harnesses, app checks, bench |
+| Simulator or emulator | Ran on the iOS simulator or the Android emulator              | Device runs, the window apps, and the example apps run by hand                                  |
 
 A check that could not run is not a pass. Tests whose tools are missing
 are skipped (`it.skipIf(!xcode)`, `!jdk`, `!sdkAvailable("android")`), and
@@ -279,6 +279,7 @@ build's proxies with the host's native code.
 node scripts/smoke-install.ts
 node scripts/window-app.ts --matrix
 node scripts/window-app.ts --app bare --release 0.86 --platform android [--no-native]
+node scripts/window-app.ts --app bare --release 0.86 --platform android --dir <app> --check
 ```
 
 `smoke-install.ts` packs `@lucent-lang/lucent`, `examples/lucent-haptics`
@@ -293,10 +294,14 @@ diagnostics. It builds no app.
 
 `window-app.ts` makes a fresh app per release of the window: bare from
 React Native's template (0.85 to 0.87), Expo from `create-expo-app`'s
-(SDK 56 and 57). It adds a module of each kind and a component, runs
-`lucent doctor` and `lucent build`, then `xcodebuild` for the simulator
-or `assembleDebug`. It builds the app and doesn't run it
-([T140](tasks.md#t140)).
+(SDK 56 and 57). It adds a module of each kind and a component, and an
+`App.tsx` that checks them. Then it runs `lucent doctor` and `lucent
+build`, and the platform's Release build for the simulator or Android.
+
+`--check` runs that build with `device-check.ts`: on the simulator it
+boots, or on the emulator already running. The app calls the scaffolded
+modules, mounts the scaffolded component and a probe that answers
+through its ref, and logs its verdict as the Tests screen does.
 
 ## Device runs
 
@@ -317,6 +322,11 @@ stops moving. On failure it keeps the log, a screenshot and the summary
 in `$DEVICE_CHECK_OUT`. By hand, open a screen with a deep link
 (`lucentbare://lab/tests`) or, on iOS, a launch argument
 (`-lucentTab lab/sdk`).
+
+With `--id <bundle id or package>` (and `--process <name>` on iOS), it
+runs another app the same way, opened as its launcher opens it, which is
+how the window apps run. `--no-metro` is for a Release build, whose
+bundle is in the app.
 
 ## Performance budgets
 

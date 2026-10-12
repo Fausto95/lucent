@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { REQUIREMENTS } from "../packages/lucent/src/cli/doctor.ts";
-import { windowApps } from "./window-app.ts";
+import { appIdentity, checkFiles, windowApps } from "./window-app.ts";
 
 describe("the window's apps", () => {
   it("are a bare app on each React Native release and an Expo app on each SDK, on each platform", () => {
@@ -22,5 +22,45 @@ describe("the window's apps", () => {
       expect(app.runner).toBe(app.platform === "ios" ? "macos-26" : "ubuntu-latest");
     expect(new Set(apps.map((a) => a.name)).size).toBe(apps.length);
     expect(apps.map((a) => a.name)).toContain("Expo SDK 56 (iOS simulator)");
+  });
+});
+
+describe("a window app's check", () => {
+  it("knows each app's ids and Release build", () => {
+    expect(appIdentity("bare", "/w/app")).toEqual({
+      iosId: "org.reactjs.native.example.LucentWindow",
+      androidId: "com.lucentwindow",
+      process: "LucentWindow",
+      ios: "/w/app/ios/build/Build/Products/Release-iphonesimulator/LucentWindow.app",
+      android: "/w/app/android/app/build/outputs/apk/release/app-release.apk",
+    });
+    expect(appIdentity("expo", "/w/app")).toMatchObject({
+      iosId: "dev.lucent.window",
+      androidId: "dev.lucent.window",
+    });
+  });
+
+  it("calls the scaffolded modules, mounts both components and logs a verdict", () => {
+    const files = checkFiles();
+    const app = files["App.tsx"]!;
+
+    expect(Object.keys(files).sort()).toEqual([
+      "App.tsx",
+      "src/window-check.lucent.ts",
+      "src/window-probe.lucent.tsx",
+    ]);
+    for (const used of [
+      'from "./src/counter.lucent"',
+      'from "./src/device.lucent"',
+      'from "lucent:views/badge"',
+      "<Badge ",
+      "<WindowProbe ref={probe}",
+      "LUCENT_PROGRESS tests",
+      "LUCENT_SUMMARY tests",
+    ])
+      expect(app).toContain(used);
+    expect(files["src/window-probe.lucent.tsx"]).toContain(
+      'expose({ ping: (): string => "pong" })',
+    );
   });
 });

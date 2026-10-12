@@ -5,19 +5,26 @@
  * from create-expo-app's template for that SDK. It installs the packed
  * @lucent-lang/lucent, runs `lucent init --yes`, adds a module of each
  * kind `lucent new module` scaffolds and a component (`lucent new view`),
- * checks the release with `lucent doctor`, then builds: `lucent build`,
- * and the platform's own build (xcodebuild for the iOS simulator, Gradle's
- * assembleDebug). It builds the app; it does not run it.
+ * and an App.tsx that checks them, checks the release with `lucent
+ * doctor`, then builds: `lucent build`, and the platform's own Release
+ * build (xcodebuild for the iOS simulator, Gradle's assembleRelease).
+ *
+ * `--check` then runs the built app (scripts/device-check.ts): on the iOS
+ * simulator it boots, or on the Android emulator already running. The app
+ * calls the scaffolded modules, mounts the components, asks one for an
+ * answer through its ref, and logs its verdict as the bare example's Tests
+ * screen does.
  *
  *   node scripts/window-app.ts --app bare --release 0.86 --platform android [--dir path] [--no-native]
+ *   node scripts/window-app.ts --app bare --release 0.86 --platform android --dir path --check
  *   node scripts/window-app.ts --matrix
  *
  * `--release` is a React Native minor for a bare app, an Expo SDK for an
  * Expo app; `--no-native` stops before the platform build. `--matrix`
  * prints the window's apps (decisions 0074 and 0079), bare and Expo, for
- * each platform, as the matrix CI's window.yml builds nightly.
+ * each platform, as the matrix CI's window.yml builds and runs nightly.
  */
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -55,6 +62,140 @@ export function windowApps(): WindowApp[] {
       runner: platform === "ios" ? "macos-26" : "ubuntu-latest",
     })),
   );
+}
+
+/** The app's name, which its iOS project, scheme and executable take. */
+export const APP_NAME = "LucentWindow";
+
+/** What the fresh app is called on each platform, and where its Release build is. */
+export function appIdentity(
+  app: AppKind,
+  dir: string,
+): { iosId: string; androidId: string; process: string; ios: string; android: string } {
+  return {
+    // The Community CLI's template names them after the app; an Expo app takes app.json's.
+    iosId: app === "bare" ? `org.reactjs.native.example.${APP_NAME}` : "dev.lucent.window",
+    androidId: app === "bare" ? `com.${APP_NAME.toLowerCase()}` : "dev.lucent.window",
+    process: APP_NAME,
+    ios: path.join(dir, "ios/build/Build/Products/Release-iphonesimulator", `${APP_NAME}.app`),
+    android: path.join(dir, "android/app/build/outputs/apk/release/app-release.apk"),
+  };
+}
+
+/**
+ * The files the app's check adds: a module that logs where device-check.ts
+ * reads (Lucent's console goes to os_log and logcat's Lucent tag), a
+ * component that answers through its ref once mounted, and an App.tsx
+ * that calls the scaffolded modules, renders both components and logs a
+ * verdict: LUCENT_PROGRESS after each check, LUCENT_SUMMARY at the end.
+ */
+export function checkFiles(): Record<string, string> {
+  return {
+    "src/window-check.lucent.ts": `// Lines the window check reads from the device log.
+export function report(line: string): void {
+  console.log(line);
+}
+`,
+    "src/window-probe.lucent.tsx": `// A component the window check mounts; ping() answers through its ref once it is on screen.
+import { PLATFORM } from "lucent:platform";
+import { appContext } from "lucent:android";
+import { TextView } from "lucent:android/android.widget";
+import { UILabel } from "lucent:ios/UIKit";
+import { effect, expose } from "lucent:ui";
+
+export function WindowProbe(props: { label: string }) {
+  expose({ ping: (): string => "pong" });
+
+  if (PLATFORM === "ios") {
+    const label = new UILabel();
+    effect(() => {
+      label.text = props.label;
+    });
+    return label;
+  }
+
+  const text = new TextView(appContext());
+  effect(() => text.setText(props.label));
+  return text;
+}
+`,
+    "App.tsx": `// The window check (scripts/window-app.ts): calls the scaffolded modules, mounts the
+// components, and logs a verdict as the bare example's Tests screen does.
+import { useEffect, useRef, useState } from "react";
+import { SafeAreaView, Text } from "react-native";
+import { Badge } from "lucent:views/badge";
+import { start, watch } from "./src/counter.lucent";
+import { hello } from "./src/device.lucent";
+import { report } from "./src/window-check.lucent";
+import { WindowProbe } from "./src/window-probe.lucent";
+
+type Probe = { ping(): Promise<string> };
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function events(): Promise<boolean> {
+  const controller = new AbortController();
+  let ticks = 0;
+  const watching = watch(() => {
+    ticks++;
+  }, controller.signal);
+  await start(3, 20);
+  for (let i = 0; i < 50 && ticks < 3; i++) await sleep(100);
+  controller.abort();
+  await watching.catch(() => undefined);
+  return ticks === 3;
+}
+
+async function mounted(probe: { current: Probe | null }): Promise<boolean> {
+  for (let i = 0; i < 150; i++) {
+    try {
+      if (probe.current && (await probe.current.ping()) === "pong") return true;
+    } catch {
+      // Not mounted yet.
+    }
+    await sleep(200);
+  }
+  return false;
+}
+
+export default function App() {
+  const probe = useRef<Probe>(null);
+  const [status, setStatus] = useState("checking");
+
+  useEffect(() => {
+    const checks: [string, () => Promise<boolean>][] = [
+      ["platform-module", async () => (await hello("window")).startsWith("Hello, window")],
+      ["events-module", events],
+      ["component", () => mounted(probe)],
+    ];
+    void (async () => {
+      let passed = 0;
+      report(\`LUCENT_PROGRESS tests 0/\${checks.length} started\`);
+      for (const [i, [name, check]] of checks.entries()) {
+        let ok = false;
+        try {
+          ok = await check();
+        } catch (e) {
+          report(\`LUCENT_ERROR \${name}: \${String(e)}\`);
+        }
+        if (ok) passed++;
+        report(\`LUCENT_PROGRESS tests \${i + 1}/\${checks.length} \${name} \${ok ? "ok" : "FAILED"}\`);
+      }
+      report(\`LUCENT_SUMMARY tests \${passed}/\${checks.length} passed\`);
+      setStatus(\`\${passed}/\${checks.length} passed\`);
+    })();
+  }, []);
+
+  return (
+    <SafeAreaView style={{ flex: 1, padding: 24, gap: 12 }}>
+      <Text>Lucent window check: {status}</Text>
+      <Badge title="A component from lucent new view" />
+      <WindowProbe ref={probe} label="A component the check asks" />
+    </SafeAreaView>
+  );
+}
+`,
+  };
 }
 
 function sh(cmd: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): string {
@@ -110,7 +251,7 @@ function create(app: AppKind, release: string, dir: string): string {
         "--yes",
         "@react-native-community/cli@latest",
         "init",
-        "LucentWindow",
+        APP_NAME,
         "--version",
         version,
         "--directory",
@@ -137,11 +278,26 @@ function create(app: AppKind, release: string, dir: string): string {
     );
   }
 
+  if (app === "expo") nameExpoApp(dir);
+
   return (
     JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8")) as {
       dependencies: Record<string, string>;
     }
   ).dependencies["react-native"]!;
+}
+
+/** Names an Expo app as appIdentity says, so prebuild's projects and ids are known. */
+function nameExpoApp(dir: string): void {
+  const file = path.join(dir, "app.json");
+  const config = JSON.parse(fs.readFileSync(file, "utf8")) as {
+    expo: { name?: string; ios?: Record<string, unknown>; android?: Record<string, unknown> };
+  };
+  const ids = appIdentity("expo", dir);
+  config.expo.name = APP_NAME;
+  config.expo.ios = { ...config.expo.ios, bundleIdentifier: ids.iosId };
+  config.expo.android = { ...config.expo.android, package: ids.androidId };
+  fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`);
 }
 
 /** The checks of `lucent doctor --json` that say whether Lucent supports the app's releases. */
@@ -189,7 +345,7 @@ function buildNative(dir: string, app: AppKind, platform: Platform): void {
         "-scheme",
         name,
         "-configuration",
-        "Debug",
+        "Release",
         "-sdk",
         "iphonesimulator",
         "-destination",
@@ -205,7 +361,7 @@ function buildNative(dir: string, app: AppKind, platform: Platform): void {
     sh("npx", ["lucent", "build", "--platforms", "android"], dir);
     sh(
       "./gradlew",
-      ["assembleDebug", "-PreactNativeArchitectures=x86_64", "--no-daemon"],
+      ["assembleRelease", "-PreactNativeArchitectures=x86_64", "--no-daemon"],
       path.join(dir, "android"),
     );
   }
@@ -219,6 +375,7 @@ if (import.meta.main) {
       platform: { type: "string" },
       dir: { type: "string" },
       "no-native": { type: "boolean" },
+      check: { type: "boolean" },
       matrix: { type: "boolean" },
     },
   });
@@ -236,9 +393,28 @@ if (import.meta.main) {
     !values.release
   ) {
     console.error(
-      "usage: node scripts/window-app.ts --app bare|expo --release <minor|sdk> --platform ios|android [--dir path] [--no-native]",
+      "usage: node scripts/window-app.ts --app bare|expo --release <minor|sdk> --platform ios|android [--dir path] [--no-native | --check]",
     );
     process.exit(2);
+  }
+
+  if (values.check) {
+    if (!values.dir) {
+      console.error("--check runs the app an earlier run built in --dir");
+      process.exit(2);
+    }
+    const ids = appIdentity(app, path.resolve(values.dir));
+    const args =
+      platform === "ios"
+        ? ["ios", "--app", ids.ios, "--id", ids.iosId, "--process", ids.process]
+        : ["android", "--apk", ids.android, "--id", ids.androidId, "--process", ids.process];
+    // A Release build carries its bundle: no Metro.
+    const run = spawnSync(
+      process.execPath,
+      [path.join(root, "scripts/device-check.ts"), ...args, "--no-metro"],
+      { stdio: "inherit" },
+    );
+    process.exit(run.status ?? 1);
   }
 
   const work = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-window-"));
@@ -258,6 +434,10 @@ if (import.meta.main) {
   ] as const)
     sh("npx", ["lucent", "new", "module", name, "--template", template], dir);
   sh("npx", ["lucent", "new", "view", "Badge"], dir);
+  for (const [file, text] of Object.entries(checkFiles())) {
+    fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
+    fs.writeFileSync(path.join(dir, file), text);
+  }
   checkReleases(dir, app);
 
   if (!values["no-native"]) buildNative(dir, app, platform);

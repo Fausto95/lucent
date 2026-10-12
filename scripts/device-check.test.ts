@@ -10,6 +10,7 @@ import {
   jsErrorLines,
   lastProgress,
   lastVerdict,
+  parseTarget,
   pickSimulator,
   screenText,
 } from "./device-check.ts";
@@ -303,5 +304,78 @@ describe("diagnose", () => {
       jsErrors: ["E ReactNativeJS: " + "y".repeat(2000)],
     });
     for (const l of lines) expect(l.length).toBeLessThanOrEqual(600);
+  });
+});
+
+describe("parseTarget", () => {
+  it("is the bare example's Tests screen without --id", () => {
+    expect(parseTarget(["ios", "--app", "BareExample.app"])).toEqual({
+      platform: "ios",
+      artifact: "BareExample.app",
+      id: "org.reactjs.native.example.BareExample",
+      process: "BareExample",
+      launchArgs: ["-lucentTab", "lab/tests"],
+      metro: true,
+    });
+    expect(parseTarget(["android", "--apk", "app-debug.apk"])).toMatchObject({
+      id: "com.bareexample",
+      url: "lucentbare://lab/tests",
+      metro: true,
+    });
+  });
+
+  it("opens another app as its launcher does, with its bundle in a Release build", () => {
+    expect(
+      parseTarget([
+        "android",
+        "--apk",
+        "app-release.apk",
+        "--id",
+        "com.lucentwindow",
+        "--process",
+        "LucentWindow",
+        "--no-metro",
+      ]),
+    ).toEqual({
+      platform: "android",
+      artifact: "app-release.apk",
+      id: "com.lucentwindow",
+      process: "LucentWindow",
+      launchArgs: [],
+      metro: false,
+    });
+    expect(parseTarget(["ios", "--app", "build/LucentWindow.app", "--id", "x.y"]).process).toBe(
+      "LucentWindow",
+    );
+  });
+
+  it("refuses a platform without its app", () => {
+    expect(() => parseTarget(["ios", "--apk", "x.apk"])).toThrow(/usage/);
+  });
+});
+
+describe("appLines of another app", () => {
+  it("keeps that app's own error lines", () => {
+    const log =
+      "2026-10-12 12:00:03.000 E  LucentWindow[31848:159e4] something failed\n2026-10-12 12:00:03.000 E  Other[1:2] noise\n";
+    expect(appLines(log, 40, 240, { id: "com.lucentwindow", process: "LucentWindow" })).toEqual([
+      "2026-10-12 12:00:03.000 E  LucentWindow[31848:159e4] something failed",
+    ]);
+  });
+});
+
+describe("diagnose a Release build", () => {
+  it("doesn't blame Metro, which it doesn't use", () => {
+    const facts: Facts = {
+      platform: "android",
+      stop: "no-start",
+      minutes: 8,
+      crash: [],
+      jsErrors: [],
+      metroUp: false,
+      metro: false,
+    };
+    const lines = diagnose(facts);
+    expect(lines.join("\n")).not.toMatch(/Metro/);
   });
 });
