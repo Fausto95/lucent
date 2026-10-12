@@ -59,6 +59,7 @@ function runtimeClasses(dir: string): string {
     out,
     ...java(path.join(host, "java")),
     path.join(runtimeDir(), "native/android/src/main/java/dev/lucent/NativeProxy.java"),
+    path.join(runtimeDir(), "native/android/src/main/java/dev/lucent/LucentExecutor.java"),
   ]);
   if (r.status !== 0) throw new Error(`javac: ${r.stderr}`);
 
