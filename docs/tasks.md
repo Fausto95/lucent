@@ -32,7 +32,7 @@ what became of each one that is still linked or was still open.
 | [T104](#t104)            | Timers and `queueMicrotask`                                | ready                                                           |
 | [T105](#t105)            | Web APIs that shared code uses                             | ready                                                           |
 | [T106](#t106)            | Language gaps module code meets                            | ready                                                           |
-| [T107](#t107)            | Native objects: memory pressure and native handles         | in progress (#175, #180, #183 as T73; #211, #212 merged)        |
+| [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                               |
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | in progress (#163, #165, #167, #168 merged, as T72)             |
 | [T109](#t109)            | Executors for platform callbacks                           | in progress (#181, #182, #187, #197 as T74; #206–#210 merged)   |
 | [T110](#t110)            | App-delegate and Activity events                           | ready (decision 0076)                                           |
@@ -353,11 +353,12 @@ lists none of them as refused.
 native memory an instance holds, and native pointers reach other native
 code as typed handles.
 
-- **Status:** in progress: `NativeHandle`'s type, its JSI conversion and
-  the `opaque-values` and `native-handles` cases are merged (#175, #180,
-  #183, as T73), and so are memory pressure (#211,
-  [0084](decisions/0084-a-class-states-its-native-size-by-implementing-nativesized.md))
-  and the platform makers (#212).
+- **Status:** done (2026-10-13): `NativeHandle`'s type, its JSI
+  conversion and the `opaque-values` and `native-handles` cases (#175,
+  #180, #183, as T73); memory pressure (#211,
+  [0084](decisions/0084-a-class-states-its-native-size-by-implementing-nativesized.md)),
+  the platform makers (#212), and the reload cases and Interop section
+  (#213).
 - **Area:** runtime, bindings.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3, V4.
@@ -377,9 +378,11 @@ report their size to the collector.
       `release()` once, from either side. The JNI host runs the
       `ByteBuffer` one and the macOS host `retainedHandle`; the
       `HardwareBuffer` one compiles for Android, with no host to run it.
-- [ ] The `opaque-values` and `native-handles` cases extended to a reload
-      and to the platform makers.
-- [ ] Semantics: an "Interop" section.
+- [x] The `opaque-values` and `native-handles` cases extended to a reload
+      and to the platform makers. The e2e host replaces its host; the
+      makers, which need a platform, run in `platform-handles.test.ts`
+      on the JNI and macOS hosts.
+- [x] Semantics: an "Interop" section.
 
 **Done when:** a host test shows the collector seeing an instance's native
 size, and the extended cases pass.

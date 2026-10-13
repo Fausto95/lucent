@@ -6,3 +6,28 @@ const handle = mod.handleOf(buffer);
 print(typeof handle.pointer, handle.pointer !== 0n, mod.describe(handle));
 print(handle.release(), handle.release(), handle.pointer, handle.released, mod.describe(handle));
 buffer.close();
+
+// A reload (the native host only): a buffer and a handle of the old host
+// refuse to be used; a new buffer's handle works as before.
+const old = mod.pixels(8);
+const oldHandle = mod.handleOf(old);
+if (globalThis.__lucentReplaceHost) {
+  globalThis.__lucentReplaceHost();
+  print(
+    refusal(() => oldHandle.release()),
+    refusal(() => old.byteLength),
+  );
+} else print("TypeError TypeError");
+const fresh = mod.pixels(8);
+const freshHandle = mod.handleOf(fresh);
+print(mod.describe(freshHandle), freshHandle.release(), mod.describe(freshHandle));
+fresh.close();
+
+function refusal(f) {
+  try {
+    f();
+    return "used";
+  } catch (e) {
+    return e.name;
+  }
+}

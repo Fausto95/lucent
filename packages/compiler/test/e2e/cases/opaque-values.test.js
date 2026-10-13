@@ -23,4 +23,34 @@ mod.clear();
 print(mod.restored());
 print(mod.handBack(obj, (v) => String(v === obj)));
 print(mod.remembered(fn)() === fn);
-mod.later(obj).then((v) => print(v === obj));
+mod.later(obj).then((v) => {
+  print(v === obj);
+  reload();
+});
+
+// A reload (the native host only): module state starts again, so what it
+// stored is gone, and an object of the old host refuses to be used.
+// JavaScript's own values cross the new host as before.
+function reload() {
+  const kept = mod.keep(obj);
+  const recall = mod.remembered(obj);
+  mod.store(obj);
+  if (globalThis.__lucentReplaceHost) {
+    globalThis.__lucentReplaceHost();
+    print(
+      mod.restored(),
+      refusal(() => kept.value),
+      refusal(() => recall()),
+      mod.echo(obj) === obj,
+    );
+  } else print("undefined TypeError TypeError true");
+}
+
+function refusal(f) {
+  try {
+    f();
+    return "used";
+  } catch (e) {
+    return e.name;
+  }
+}

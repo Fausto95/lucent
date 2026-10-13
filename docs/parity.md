@@ -23,7 +23,7 @@ each system lets an author do, not how it does it.
 | Constants and properties            | ✅ getters and setters  | ✅ `Constant`, `Property`        | ✅ `const`, live `let`, class accessors                | —                     |
 | Native objects with identity        | ✅ Hybrid Objects       | ✅ `SharedObject`                | ✅ exported classes                                    | —                     |
 | Dispose from JS                     | ✅ `dispose()`          | ✅ `release()`                   | ✅ `[Symbol.dispose]`                                  | —                     |
-| Memory pressure hint to the GC      | ✅ `memorySize`         | ✅ `getAdditionalMemoryPressure` | 🟡 moved `ArrayBuffer`s only                           | [T107](tasks.md#t107) |
+| Memory pressure hint to the GC      | ✅ `memorySize`         | ✅ `getAdditionalMemoryPressure` | ✅ `NativeSized`, `NativeBuffer`                       | —                     |
 | Objects shared across packages      | ✅                      | ✅ `SharedRef`                   | ✅ between Lucent packages                             | —                     |
 | Events to JS                        | Callbacks only          | ✅ `Events`, `sendEvent`         | ✅ `EventEmitter`                                      | —                     |
 | Events on a native object           | Callbacks only          | ✅ a `SharedObject` emits        | 🟡 an `EventEmitter` field, not a subclass             | [T113](tasks.md#t113) |
