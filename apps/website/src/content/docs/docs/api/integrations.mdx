@@ -26,7 +26,7 @@ kind: reference
 | Modules compiled before an iOS build | `lucent build` at prebuild, then `lucent dev` or Metro's watcher | `lucent build`, `lucent dev` or Metro's watcher: Xcode doesn't run it |
 | `Info.plist` keys and entitlements that Lucent packages list | the plugin adds them at prebuild | `lucent build` names what the app's files lack, and you add it |
 | Android permissions and components | Gradle merges the native package's manifest into the app's | the same |
-| URLs, user activities and push tokens reach `onAppEvent` | not yet | the `LucentAppDelegate` calls that `lucent init` adds to `AppDelegate.swift` and `SceneDelegate.swift` |
+| URLs, user activities and push tokens reach `onAppEvent` | Lucent's subscriber, which Expo's `AppDelegate` calls | the `LucentAppDelegate` calls that `lucent init` adds to `AppDelegate.swift` and `SceneDelegate.swift` |
 
 ## Metro
 

@@ -3,6 +3,9 @@
 // with ARC, iOS only.
 #import "LucentAppDelegate.h"
 
+#import <objc/message.h>
+#import <objc/runtime.h>
+
 #include "ios_app_delegate.h"
 
 #include <algorithm>
@@ -316,6 +319,86 @@ using namespace lucent::objc;
   if (!reportShortcut(shortcutItem)) return NO;
   completionHandler(YES);
   return YES;
+}
+
+@end
+
+/// In an Expo app, what Expo's AppDelegate forwards to its subscribers
+/// (ExpoAppDelegateSubscriberManager), forwarded to LucentAppDelegate, so
+/// the app needs no line of its own. Registered at load, before any
+/// delegate method, as Expo registers its own; in an app without Expo it is
+/// never made. Each completion handler it's given, it calls once, as Expo's
+/// merge of its subscribers' answers waits for.
+@interface LucentExpoSubscriber : UIResponder <UIApplicationDelegate>
+@end
+
+@implementation LucentExpoSubscriber
+
++ (void)load {
+  Class repository = NSClassFromString(@"EXExpoAppDelegateSubscriberRepository");
+  SEL registering = NSSelectorFromString(@"registerSubscriber:");
+  if (!repository || ![repository respondsToSelector:registering]) return;
+  // What Expo's subscribers conform to, though nothing of it is needed beyond UIApplicationDelegate.
+  if (Protocol* subscriber = objc_getProtocol("EXAppDelegateSubscriberProtocol"))
+    class_addProtocol(self, subscriber);
+  ((void (*)(id, SEL, id))objc_msgSend)(repository, registering, [[LucentExpoSubscriber alloc] init]);
+}
+
+/// Orientations only while a module has a say: otherwise Expo keeps Info.plist's.
+- (BOOL)respondsToSelector:(SEL)selector {
+  if (selector == @selector(application:supportedInterfaceOrientationsForWindow:))
+    return AppDelegateEvents::shared().supportedInterfaceOrientations.subscriptions() > 0;
+  return [super respondsToSelector:selector];
+}
+
+- (BOOL)application:(UIApplication*)application didFinishLaunchingWithOptions:(NSDictionary<UIApplicationLaunchOptionsKey, id>*)launchOptions {
+  [LucentAppDelegate application:application didFinishLaunchingWithOptions:launchOptions];
+  return YES;
+}
+
+- (BOOL)application:(UIApplication*)app openURL:(NSURL*)url options:(NSDictionary<UIApplicationOpenURLOptionsKey, id>*)options {
+  return [LucentAppDelegate application:app openURL:url options:options];
+}
+
+- (BOOL)application:(UIApplication*)application
+    continueUserActivity:(NSUserActivity*)userActivity
+      restorationHandler:(void (^)(NSArray<id<UIUserActivityRestoring>>*))restorationHandler {
+  BOOL continued = [LucentAppDelegate application:application continueUserActivity:userActivity];
+  restorationHandler(nil);
+  return continued;
+}
+
+- (void)application:(UIApplication*)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData*)deviceToken {
+  [LucentAppDelegate application:application didRegisterForRemoteNotificationsWithDeviceToken:deviceToken];
+}
+
+- (void)application:(UIApplication*)application didFailToRegisterForRemoteNotificationsWithError:(NSError*)error {
+  [LucentAppDelegate application:application didFailToRegisterForRemoteNotificationsWithError:error];
+}
+
+- (void)application:(UIApplication*)application
+    didReceiveRemoteNotification:(NSDictionary*)userInfo
+          fetchCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler {
+  if (![LucentAppDelegate application:application didReceiveRemoteNotification:userInfo fetchCompletionHandler:completionHandler])
+    completionHandler(UIBackgroundFetchResultNoData);
+}
+
+- (void)application:(UIApplication*)application
+    handleEventsForBackgroundURLSession:(NSString*)identifier
+                      completionHandler:(void (^)(void))completionHandler {
+  if (![LucentAppDelegate application:application handleEventsForBackgroundURLSession:identifier completionHandler:completionHandler])
+    completionHandler();
+}
+
+- (void)application:(UIApplication*)application
+    performActionForShortcutItem:(UIApplicationShortcutItem*)shortcutItem
+               completionHandler:(void (^)(BOOL))completionHandler {
+  if (![LucentAppDelegate application:application performActionForShortcutItem:shortcutItem completionHandler:completionHandler])
+    completionHandler(NO);
+}
+
+- (UIInterfaceOrientationMask)application:(UIApplication*)application supportedInterfaceOrientationsForWindow:(UIWindow*)window {
+  return [LucentAppDelegate application:application supportedInterfaceOrientationsForWindow:window defaultMask:0];
 }
 
 @end
