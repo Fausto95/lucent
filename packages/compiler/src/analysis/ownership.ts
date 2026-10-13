@@ -26,6 +26,11 @@ export type Context = "task" | "main" | "executor";
 export type Rule =
   /** It reads or writes mutable module state, which the module's own thread owns. */
   | "module-state"
+  /**
+   * It reaches module state through a captured `const` of a channel or an
+   * emitter: code on an executor may share one, other contexts may not.
+   */
+  | "module-alias"
   /** It reads a module constant that is not a literal, which a reload assigns again. */
   | "module-constant"
   /** It uses native code that must run on the main thread. */
@@ -63,6 +68,7 @@ const CONTEXTS: Record<Context, string> = {
 
 const FIXES: Record<Rule, string> = {
   "module-state": "pass what it needs as an input, and apply its result on the module's thread",
+  "module-alias": "pass what it needs as an input, and apply its result on the module's thread",
   "module-constant":
     "make the constant a literal (a number, string, boolean or bigint), or pass its value as an input",
   "main-thread": "use the native object on the main thread, and give the task plain data",
@@ -80,13 +86,18 @@ type SummaryRule = Exclude<Rule, "not-transferable">;
 function findings(rule: SummaryRule, s: Summary): [string | undefined, Cause | undefined][] {
   if (rule === "module-state")
     return [...s.reads.vars.entries(), ...[...s.writes.vars].filter(([k]) => !s.reads.vars.has(k))];
+  if (rule === "module-alias")
+    return [
+      ...s.reads.aliases.entries(),
+      ...[...s.writes.aliases].filter(([k]) => !s.reads.aliases.has(k)),
+    ];
 
   return FINDINGS[rule](s).map((c) => [undefined, c]);
 }
 
 /** The facts of a summary each rule refuses, in a fixed order. */
 const FINDINGS: Record<
-  Exclude<SummaryRule, "module-state">,
+  Exclude<SummaryRule, "module-state" | "module-alias">,
   (s: Summary) => (Cause | undefined)[]
 > = {
   "module-constant": (s) => [...s.reads.constants.values()],
@@ -105,13 +116,14 @@ const FINDINGS: Record<
 const REFUSES: Record<Context, readonly SummaryRule[]> = {
   task: [
     "module-state",
+    "module-alias",
     "module-constant",
     "unknown-code",
     "main-thread",
     "unknown-thread",
     "asynchronous",
   ],
-  main: ["module-state", "unknown-code", "worker-thread", "blocking"],
+  main: ["module-state", "module-alias", "unknown-code", "worker-thread", "blocking"],
   // An executor runs where the platform calls it, as a module's thread does: native code of
   // unknown thread is its to use, but not the main thread's (decision 0081).
   executor: ["module-state", "module-constant", "unknown-code", "main-thread", "asynchronous"],
@@ -395,7 +407,10 @@ export function checkCaptures(
     const cause = (text: string, next?: Cause) => step(unit, c.node, text, next);
     const origins = solved.originsOf([c.symbol]);
 
-    for (const m of origins.modules) {
+    // On an executor, a `const` of a value both sides may use was copied where the closure was made.
+    const shared = context === "executor" && !sharedCapture(checker, c.symbol);
+
+    for (const m of shared ? [] : origins.modules) {
       const v = solved.p.units.moduleVars.get(m)!;
       const why = cause(`${captures}, which may be module state ${code(v.name)}, ${v.state}`);
 
@@ -472,8 +487,9 @@ function sharedCapture(checker: ts.TypeChecker, symbol: ts.Symbol): string | und
 /**
  * Whether values of `type` can be shared by code that runs at once on two
  * threads: numbers, strings, booleans, bigints, null and undefined, which
- * can't change, and lucent:core's Channel and lucent:thread's Executor,
- * which both sides may use.
+ * can't change; lucent:core's Channel and lucent:thread's Executor, which
+ * both sides may use; and lucent:core's EventEmitter, which code on an
+ * executor only emits on, posting to the emitter's module.
  */
 export function shareableType(type: ts.Type): boolean {
   const immutable = (t: ts.Type): boolean =>
@@ -491,7 +507,8 @@ export function shareableType(type: ts.Type): boolean {
   const name = type.getSymbol()?.getName();
   const from = (d: ts.Declaration) => {
     const file = d.getSourceFile();
-    if (name === "Channel") return path.resolve(file.fileName) === path.resolve(coreTypesPath());
+    if (name === "Channel" || name === "EventEmitter")
+      return path.resolve(file.fileName) === path.resolve(coreTypesPath());
     return name === "Executor" && builtinSdkModuleOf(file) === "lucent:thread";
   };
 

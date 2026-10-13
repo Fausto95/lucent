@@ -1682,7 +1682,7 @@ export function size(): number {
 
 **Code that cannot run on an executor**
 
-Code on an executor runs on its thread while module code keeps running, so the two share nothing either can change. In a function or object given to on(), module state, computed constants, main-thread native code, unknown code and `await` break that rule. It holds only constants, channels and executors, and an object is made only in on() and keeps `this` to itself.
+Code on an executor runs on its thread while module code keeps running, so the two share nothing either can change. In a function or object given to on(), module state, computed constants, main-thread native code, unknown code and `await` break that rule. It holds only constants, channels, emitters and executors, and an object is made only in on() and keeps `this` to itself.
 
 **Fix:** send what it makes through a Channel made beside it, and keep module state on the module's thread.
 

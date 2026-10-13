@@ -44,7 +44,7 @@ import { executorClasses } from "./executors.ts";
 export type { Cause, Step, Summary } from "./facts.ts";
 export { describe, stepsOf } from "./facts.ts";
 export { shareableType } from "./ownership.ts";
-export { classMade, isOnCall } from "./executors.ts";
+export { classMade, inExecutorCode, isOnCall } from "./executors.ts";
 export type { NativeCallback, NativeClass, NativeFactsSource, NativeUse } from "./native.ts";
 export type { Capture, Context, Rule, TransferProblem, Violation } from "./ownership.ts";
 export type { MainState } from "./main-state.ts";
@@ -257,7 +257,9 @@ class Facts implements ProgramFacts {
 
     list("reads", s.reads.vars);
     list("constants", s.reads.constants);
+    list("reads through an alias", s.reads.aliases);
     list("writes", s.writes.vars);
+    list("writes through an alias", s.writes.aliases);
     list("invokes", s.invokes, (p) => (p as ts.Symbol).name);
     list("escapes", s.escapes);
     list("returns", s.returns);

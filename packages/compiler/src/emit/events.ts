@@ -8,9 +8,11 @@
 import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
-import { type LType, T } from "../types.ts";
+import { type LType, T, typeKey } from "../types.ts";
 import type { E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
+import { inExecutorCode } from "../analysis/index.ts";
+import { factsOf, requireTransports } from "./compute.ts";
 
 type Emitter = LType & { k: "emitter" };
 
@@ -48,9 +50,69 @@ function eventAt(em: FnEmitter, t: Emitter, node: ts.CallExpression, i: number) 
 
 const done = (c: cpp.Expr): E => ({ c, t: T.undefined });
 
+/**
+ * An emit on an executor: its arguments copied, as a channel's sends are,
+ * in order, then emitted in a turn of the emitter's module (its actor),
+ * where its listeners run. The executor waits for none of it.
+ */
+function postedEmit(
+  em: FnEmitter,
+  node: ts.CallExpression,
+  emitter: cpp.Expr,
+  index: number,
+  name: string,
+  params: readonly LType[],
+  args: readonly cpp.Expr[],
+): cpp.Expr {
+  params.forEach((p, i) =>
+    requireTransports(em, p, `${name}'s argument ${i + 1}`, (path, part) =>
+      fail(
+        node.arguments[i + 1] ?? node,
+        Codes.NotOnExecutor,
+        `an event emitted on an executor is copied to its emitter's module: \`${path}\` is a ${typeKey(part)}, which the compiler cannot copy yet`,
+      ),
+    ),
+  );
+  em.ctx.nativeUnit(em.opts.module).include("lucent/transport.h");
+
+  const names = args.map((_, i) => `ea${i}_`);
+  const copies = args.map((a, i) =>
+    cpp.varDecl(cpp.auto, names[i]!, cpp.call("lucent::transportCopy", [a])),
+  );
+  const emit = cpp.lambda(
+    [
+      { name: "e_", init: cpp.id("e_") },
+      ...names.map((n) => ({ name: n, init: cpp.call("std::move", [cpp.id(n)]) })),
+    ],
+    [],
+    [
+      cpp.exprStmt(
+        cpp.call(
+          cpp.arrow(cpp.id("e_"), "emit"),
+          names.map((n) => cpp.call("std::move", [cpp.id(n)])),
+          [cpp.num(index)],
+        ),
+      ),
+    ],
+    { mutable: true },
+  );
+  return cpp.statementExpr(
+    [cpp.varDecl(cpp.auto, "e_", emitter), ...copies],
+    cpp.call("lucent::postCallback", [cpp.call(cpp.arrow(cpp.id("e_"), "actor")), emit]),
+  );
+}
+
 export function emitterMethod(em: FnEmitter, obj: E, name: string, node: ts.CallExpression): E {
   const t = obj.t as Emitter;
   const o = obj.c;
+  // On an executor, an emitter's listeners are its module's: code there only emits, posting to it.
+  const onExecutor = inExecutorCode(em.checker, node, factsOf(em.ctx).executorClasses());
+  if (onExecutor && name !== "emit")
+    fail(
+      node,
+      Codes.NotOnExecutor,
+      `code on an executor only emits on an emitter: its listeners belong to the emitter's module, so ${name}() runs there, not here`,
+    );
 
   switch (name) {
     case "addListener": {
@@ -90,6 +152,7 @@ export function emitterMethod(em: FnEmitter, obj: E, name: string, node: ts.Call
         );
       });
 
+      if (onExecutor) return done(postedEmit(em, node, o, index, event.name, params, args));
       return done(cpp.call(cpp.arrow(o, "emit"), args, [cpp.num(index)]));
     }
     case "listenerCount": {

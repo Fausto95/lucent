@@ -84,7 +84,9 @@ Hands `f` to the platform to run on `executor`, never holding its module's lock.
 
 When the platform calls `f` on the executor, `f` runs there at once. Called from another thread, an `f` that returns nothing runs in a turn of the executor. One that returns a value is reported as an error.
 
-`f` runs beside module code, so it shares nothing with it. It may not use module state, call JavaScript callbacks or await. It captures only `const` numbers, strings, booleans and bigints, Channels and Executors, and what it makes leaves through a `Channel`.
+`f` runs beside module code, so it shares nothing with it. It may not use module state, call JavaScript callbacks or await. It captures only `const` numbers, strings, booleans and bigints, Channels, Executors and EventEmitters.
+
+What it makes leaves through a `Channel`, or as an event. Its `emit` runs in the module that made the EventEmitter, which calls the listeners.
 
 An object's class is then made only in `on()`, and uses `this` only for its own members. Its constructor takes the values a function may capture, and its methods follow a function's rules.
 

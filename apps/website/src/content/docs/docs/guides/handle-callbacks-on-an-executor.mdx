@@ -1,0 +1,83 @@
+---
+title: Handle frequent callbacks on an executor
+description: "Make an executor with `executor()` from `lucent:thread`, and hand the SDK your callback with `on(executor, f)`: it runs there, never behind module code."
+kind: guide
+---
+
+<Tabs>
+<TabItem label="module">
+
+```ts title="moves.lucent.ts"
+import { EventEmitter } from "lucent:core";
+import { PLATFORM } from "lucent:platform";
+import { LocationManager } from "lucent:android/android.location";
+import { appContext, available } from "lucent:android";
+import { executor, on } from "lucent:thread";
+
+/** Each position, as the platform reports it. */
+export const moves = new EventEmitter<{ fix: (latitude: number, longitude: number) => void }>();
+
+/** Reports positions to `moves` from an executor, so they never wait behind module code. */
+export function watch(): void {
+  if (PLATFORM === "ios") throw new Error("Android only, in this guide");
+  if (!available("android", 30)) throw new Error("Needs Android 11");
+  const manager = appContext().getSystemService(LocationManager);
+  if (!manager) throw new Error("No location service");
+
+  const fixes = executor("location.fixes");
+  const ev = moves;
+  manager.requestLocationUpdates(
+    LocationManager.GPS_PROVIDER,
+    1000,
+    0,
+    fixes,
+    on(fixes, (fix) => {
+      if (fix) ev.emit("fix", fix.getLatitude(), fix.getLongitude());
+    }),
+  );
+}
+```
+
+</TabItem>
+<TabItem label="JS usage">
+
+```tsx title="App.tsx"
+import { useEffect, useState } from "react";
+import { Text } from "react-native";
+import { moves, watch } from "./src/moves.lucent";
+
+export function Position() {
+  const [at, setAt] = useState("Waiting for a fix");
+
+  useEffect(() => {
+    const subscription = moves.addListener("fix", (latitude, longitude) =>
+      setAt(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`),
+    );
+    watch();
+    return () => subscription.remove();
+  }, []);
+
+  return <Text>{at}</Text>;
+}
+```
+
+</TabItem>
+</Tabs>
+
+Every other platform callback waits for its package's lock, so it queues behind a long turn or a synchronous call from JavaScript. Use an executor for callbacks that come often and can't wait: frames, samples, sensor readings and positions. The lock and what waits for it are in [Concurrency](/docs/api/language/concurrency/#executors).
+
+## Give the SDK the executor and the callback
+
+`executor(label)` makes a serial thread of its own. An SDK parameter that takes an `Executor` on Android, or a queue on iOS, takes it as it is. `on(executor, f)` goes straight in the SDK call that takes `f`, so the SDK calls `f` on the executor, and `f` runs there at once.
+
+A delegate or a listener object goes on an executor the same way, where you make it: `parser.delegate = on(frames, new Collector(out))`.
+
+## Share only what both sides can use
+
+`f` runs at the same time as module code, so it can't read module state. It captures `const` numbers, strings, booleans, bigints, channels, executors and `EventEmitter`s, which it can't change under module code. [LUCENT3032](/docs/api/diagnostics/#lucent3032) names anything else it touches.
+
+## Choose how results leave
+
+- **To JavaScript, as events.** Capture the module's `EventEmitter` as a `const`, as `ev` above, and `emit()` on it. The emit copies its arguments and runs in the package that made it, which calls the listeners.
+- **To module code, as values.** Make a `Channel` beside the callback and `send()` on it. A `"latest"` channel keeps only the newest value, so module code reads the current one at its own pace.
+- **Large frames.** Send a `NativeBuffer`, which moves instead of copying ([Pass large buffers without copying](/docs/guides/pass-large-buffers/)).

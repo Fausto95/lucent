@@ -9,6 +9,7 @@
 import ts from "typescript";
 import type { OwnerId } from "../ir/ir.ts";
 import { isOnCall } from "./executors.ts";
+import { shareableType } from "./ownership.ts";
 import { type Cause, code, type Levels, step, type Summary, SummaryBuilder } from "./facts.ts";
 import {
   type Callee,
@@ -135,7 +136,8 @@ class Solver implements Solved {
   /** Native calls, by unit: native code may call back any entry there. */
   private readonly reentries = new Map<Unit, Cause[]>();
   /** A closure's uses of variables whose values its creator computed. */
-  private readonly captures = new Map<Unit, { from: Unit; cause: Cause }[]>();
+  /** Values closures capture that their enclosing units computed; `alias`: a `const` of a shareable one. */
+  private readonly captures = new Map<Unit, { from: Unit; cause: Cause; alias: boolean }[]>();
   /** For each value, the calls that pass it and where. */
   private readonly passed = new Map<
     Value,
@@ -423,11 +425,20 @@ class Solver implements Solved {
     const own = this.summaries.get(u)!;
     const origins = this.originsOf([sym]);
 
+    // A `const` of a channel or an emitter: copied where the closure was made, which an executor may share.
+    const decl = sym.valueDeclaration;
+    const list = decl && ts.isVariableDeclaration(decl) ? decl.parent : undefined;
+    const alias =
+      !!list &&
+      ts.isVariableDeclarationList(list) &&
+      !!(list.flags & ts.NodeFlags.Const) &&
+      shareableType(this.p.checker.getTypeOfSymbol(sym));
+
     for (const m of origins.modules) {
       const v = this.moduleVar(m)!;
       const text = `uses ${code(sym.name)}, which may be module state ${code(v.name)}, ${v.state}`;
 
-      own.entry(own.reads.vars, v.key, step(u, node, text));
+      own.entry(alias ? own.reads.aliases : own.reads.vars, v.key, step(u, node, text));
     }
 
     const declared = this.graph.declaredIn.get(sym);
@@ -435,7 +446,7 @@ class Solver implements Solved {
     if (origins.other && declared) {
       const text = `uses ${code(sym.name)}, which ${code(declared.display)} computed`;
 
-      push(this.captures, u, { from: declared, cause: step(u, node, text) });
+      push(this.captures, u, { from: declared, cause: step(u, node, text), alias });
     }
   }
 
@@ -698,9 +709,16 @@ class Solver implements Solved {
 
     for (const e of this.edges.get(u) ?? []) for (const t of e.targets) this.join(s, u, e, t);
 
-    for (const c of this.captures.get(u) ?? [])
-      for (const [key, cause] of this.summaries.get(c.from)!.reads.vars)
-        s.entry(s.reads.vars, key, { ...c.cause, next: cause });
+    for (const c of this.captures.get(u) ?? []) {
+      const from = this.summaries.get(c.from)!;
+
+      // A copied value its maker computed: what it read is reached only through the copy.
+      for (const [key, cause] of from.reads.vars)
+        s.entry(c.alias ? s.reads.aliases : s.reads.vars, key, { ...c.cause, next: cause });
+
+      for (const [key, cause] of from.reads.aliases)
+        s.entry(s.reads.aliases, key, { ...c.cause, next: cause });
+    }
 
     for (const cause of this.reentries.get(u) ?? []) this.reenter(s, cause);
 
@@ -811,10 +829,14 @@ class Solver implements Solved {
       const via = (c: Cause) => step(cause.unit, cause.node, text, c);
       const back = s.calledBack;
 
-      for (const [key, c] of [...from.reads.vars, ...from.calledBack.reads])
+      for (const [key, c] of [...from.reads.vars, ...from.reads.aliases, ...from.calledBack.reads])
         s.entry(back.reads, key, via(c));
 
-      for (const [key, c] of [...from.writes.vars, ...from.calledBack.writes])
+      for (const [key, c] of [
+        ...from.writes.vars,
+        ...from.writes.aliases,
+        ...from.calledBack.writes,
+      ])
         s.entry(back.writes, key, via(c));
 
       const unknown =
@@ -840,14 +862,18 @@ class Solver implements Solved {
     const mutates = s.mutates;
     if (!mutates) return;
 
-    for (const [key, c] of s.reads.vars) {
-      const v = this.keys.get(key);
-      if (!v?.reference || s.writes.vars.has(key)) continue;
+    for (const [reads, writes] of [
+      [s.reads.vars, s.writes.vars],
+      [s.reads.aliases, s.writes.aliases],
+    ] as const)
+      for (const [key, c] of reads) {
+        const v = this.keys.get(key);
+        if (!v?.reference || writes.has(key)) continue;
 
-      const text = `${mutates.text}, which may be module state ${code(v.name)} it reads`;
+        const text = `${mutates.text}, which may be module state ${code(v.name)} it reads`;
 
-      s.entry(s.writes.vars, key, step(u, mutates.node, text, c));
-    }
+        s.entry(writes, key, step(u, mutates.node, text, c));
+      }
   }
 
   /** Which parameters escape or are returned, with the callees' current summaries. */
@@ -879,7 +905,11 @@ function joinEffects(
 
   for (const [key, c] of from.reads.constants) s.entry(s.reads.constants, key, via(c));
 
+  for (const [key, c] of from.reads.aliases) s.entry(s.reads.aliases, key, via(c));
+
   for (const [key, c] of from.writes.vars) s.entry(s.writes.vars, key, via(c));
+
+  for (const [key, c] of from.writes.aliases) s.entry(s.writes.aliases, key, via(c));
 
   if (from.reads.unknown) s.unknownState("reads", via(from.reads.unknown));
 

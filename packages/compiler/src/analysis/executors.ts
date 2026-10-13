@@ -33,6 +33,28 @@ export function classMade(
 }
 
 /**
+ * Whether code at `node` is written on an executor: in a function handed
+ * over with `on()`, or in a method or accessor of a class whose objects
+ * go on one (a constructor and field initializers run in their maker),
+ * or in a closure inside them. An `emit` there posts to its emitter's
+ * module instead of running the listeners.
+ */
+export function inExecutorCode(
+  checker: ts.TypeChecker,
+  node: ts.Node,
+  classes: ReadonlyMap<ts.ClassLikeDeclaration, unknown>,
+): boolean {
+  for (let n: ts.Node | undefined = node; n; n = n.parent) {
+    const p = n.parent;
+    if (!p) break;
+    if ((ts.isArrowFunction(n) || ts.isFunctionExpression(n)) && isOnCall(checker, p))
+      return p.arguments[1] === n;
+    if ((ts.isMethodDeclaration(n) || ts.isAccessor(n)) && ts.isClassLike(p)) return classes.has(p);
+  }
+  return false;
+}
+
+/**
  * The classes whose instances go on an executor (`on(executor, new C(…))`
  * in `files`), each with the `on()` calls that make them.
  */
