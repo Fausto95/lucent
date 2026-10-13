@@ -220,6 +220,24 @@ describe("lucent build, with the events modules listen for", () => {
     expect(warned(["remoteNotification", "openURL"], true)).toEqual([]);
   });
 
+  it("names the launch call an app with launch modules lacks", () => {
+    const root = bareApp({ "ios/Bare/AppDelegate.swift": template });
+    const warned = (launch: string[], expo = false) =>
+      missingDelegateForwards(root, [], expo, launch).map((n) => n.text);
+
+    expect(warned([])).toEqual([]);
+    expect(warned(["lucent-tasks/tasks"])).toEqual([
+      "lucent-tasks/tasks is a launch module, but ios/Bare/AppDelegate.swift doesn't forward application(_:didFinishLaunchingWithOptions:) to it: run lucent init, which adds the call",
+    ]);
+    expect(warned(["lucent-tasks/tasks"], true)).toEqual([]);
+
+    fs.writeFileSync(
+      path.join(root, "ios/Bare/AppDelegate.swift"),
+      withForwards(template, APP_DELEGATE, APP_FORWARDS)!,
+    );
+    expect(warned(["lucent-tasks/tasks"])).toEqual([]);
+  });
+
   it("checks a scene delegate for what UIKit gives it instead", () => {
     const root = bareApp({
       "ios/Bare/AppDelegate.swift": withForwards(template, APP_DELEGATE, APP_FORWARDS)!,

@@ -441,7 +441,9 @@ The top level holds declarations only (`LUCENT3002`), which initialize in
 source order, a class's statics where it is declared. A module's top
 level is its create hook. It runs at the first use of any module, and
 again at the first use after the state ended. A first use is a JavaScript
-runtime's install or a native entry point's call. The state ends when the
+runtime's install, a native entry point's call, or, in an app whose
+packages list launch modules, its launch, which holds the state for the
+process. The state ends when the
 last live runtime goes (a reload) while nothing native holds it; a
 runtime that installs while it lasts shares it (`native_root.h`,
 [decision 0090](decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md)).

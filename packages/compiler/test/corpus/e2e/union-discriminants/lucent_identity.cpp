@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"union-discriminants", 
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "c672fd37c1217de8", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "3fe79383ef6299cc", kModuleIdentities, 1};
   return identity;
 }
 

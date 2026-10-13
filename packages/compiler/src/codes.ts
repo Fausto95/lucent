@@ -41,6 +41,7 @@ export const Codes = {
   NotTransferable: "LUCENT3012",
   UnmatchedRequirement: "LUCENT3013",
   IncompatiblePackage: "LUCENT3014",
+  UnknownLaunchModule: "LUCENT3015",
   EntryNameClash: "LUCENT3016",
   ComponentExport: "LUCENT3020",
   ComponentContract: "LUCENT3021",
@@ -590,6 +591,24 @@ export const Explanations: Record<Code, Explanation> = {
     right: {
       "package.json": '{ "name": "lucent-clock", "version": "1.0.0", "lucent": {} }\n',
       "clock.lucent.ts": "export function now(): number {\n  return Date.now();\n}\n",
+    },
+  },
+  LUCENT3015: {
+    title: "Launch module that isn't one",
+    summary:
+      "A Lucent package's lucent.json lists a module in `launch` that the package doesn't have.",
+    details:
+      "`launch` lists the modules an app creates at launch, before the first frame, so that they can register what the OS requires by then. Each is one of its modules, named by its path under the package's sources without the extension, so `tasks` names `tasks.lucent.ts` in the package. A name that matches none would leave the registration out, so the build fails.",
+    fix: "name the module by its path under the package's sources, without .lucent.ts",
+    wrong: {
+      "package.json": '{ "name": "lucent-tasks", "version": "1.0.0", "lucent": {} }\n',
+      "lucent.json": '{ "launch": ["task"] }\n',
+      "tasks.lucent.ts": "export function pending(): number {\n  return 0;\n}\n",
+    },
+    right: {
+      "package.json": '{ "name": "lucent-tasks", "version": "1.0.0", "lucent": {} }\n',
+      "lucent.json": '{ "launch": ["tasks"] }\n',
+      "tasks.lucent.ts": "export function pending(): number {\n  return 0;\n}\n",
     },
   },
   LUCENT3016: {

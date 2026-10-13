@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"lone-surrogates", "572
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "43b9e4bdf2d947a1", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "ae5d7a380ea6070a", kModuleIdentities, 1};
   return identity;
 }
 

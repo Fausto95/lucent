@@ -453,5 +453,11 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "type": "string",
     "required": false,
     "description": "void f(E *), called after every call that takes the struct, once it was read, when it holds something to free."
+  },
+  {
+    "field": "launch",
+    "type": "string[]",
+    "required": false,
+    "description": "Modules to create at app launch, before the first frame, for what the OS requires by then, such as BGTaskScheduler handlers. Each is a path under the package's sources, without .lucent.ts: \"tasks\" for tasks.lucent.ts. Creating one starts module state, every module's top level, and holds it for the app's process, so a reload keeps it. On iOS, LucentAppDelegate's application(_:didFinishLaunchingWithOptions:) creates them; a bare app's lucent build names the call its AppDelegate lacks."
   }
 ];

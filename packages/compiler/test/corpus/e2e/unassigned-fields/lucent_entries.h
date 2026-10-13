@@ -9,6 +9,10 @@
 extern "C" {
 #endif
 
+/// Starts module state at app launch when packages list launch modules
+/// (lucent.json's launch), holding it for the process; else nothing.
+void lucent_launch(void);
+
 /// unassigned-fields.setConfig(size)
 bool lucent_unassigned_fields_setConfig(double arg0, lucent_error* error);
 

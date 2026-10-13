@@ -897,9 +897,9 @@ runtime.
   ([0090](decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md),
   #228), and the runtime's native root keeps it (#231). Entry points run
   exports with no JavaScript runtime on the host (#233), and code with no
-  runtime fails as after a reload (#234). Launch modules,
-  loading on Android, and runs on the simulator and the emulator are
-  left.
+  runtime fails as after a reload (#234). Launch modules start state at
+  launch on iOS (#235). Loading on Android, launch there, and runs on the
+  simulator and the emulator are left.
 - **Area:** runtime, compiler.
 - **Needs:** nothing for the decision and the root; [T110](#t110) for
   `launch` on iOS, which runs from the app-delegate subscriber.
@@ -937,6 +937,9 @@ when a JavaScript runtime installs Lucent, and there is no native way in.
       strings and `Uint8Array` (#233).
 - [ ] `lucent.json` `launch`: modules created at app launch, before the
       first frame, so they can register what the OS requires by then.
+      Packages list them, LUCENT3015 names one that isn't, and iOS's
+      `LucentAppDelegate` creates them, `lucent build` naming a bare app's
+      missing call (#235). Android's `LucentInitializer` is left.
 - [x] Without a runtime, a call that needs one (a JavaScript callback, a
       `JSValue`) throws a typed error. An event with no listener is
       dropped. It fails as after a reload, with `AbortError`

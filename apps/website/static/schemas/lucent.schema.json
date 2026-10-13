@@ -552,6 +552,14 @@
           }
         }
       }
+    },
+    "launch": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(?!.*\\.lucent\\.tsx?$)[^/\\\\]+(/[^/\\\\]+)*$"
+      },
+      "description": "Modules to create at app launch, before the first frame, for what the OS requires by then, such as BGTaskScheduler handlers. Each is a path under the package's sources, without .lucent.ts: \"tasks\" for tasks.lucent.ts. Creating one starts module state, every module's top level, and holds it for the app's process, so a reload keeps it. On iOS, LucentAppDelegate's application(_:didFinishLaunchingWithOptions:) creates them; a bare app's lucent build names the call its AppDelegate lacks."
     }
   }
 }

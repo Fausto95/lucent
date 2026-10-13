@@ -9,6 +9,10 @@
 extern "C" {
 #endif
 
+/// Starts module state at app launch when packages list launch modules
+/// (lucent.json's launch), holding it for the process; else nothing.
+void lucent_launch(void);
+
 /// es2024-builtins.groupedRecord()
 bool lucent_es2024_builtins_groupedRecord(lucent_error* error, lucent_string* result);
 

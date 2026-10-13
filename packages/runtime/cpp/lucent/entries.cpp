@@ -1,6 +1,21 @@
 #include "entries.h"
 
+#include <mutex>
+
+#include "trace.h"
+
 namespace lucent::entries {
+
+void launch(ModuleInitializer init) {
+  static std::once_flag once;
+  std::call_once(once, [init] {
+    LUCENT_TRACE_SCOPE("lucent.launch");
+    // The process's: never released.
+    static auto* held = new ModuleStateHold();
+    (void)held;
+    ensureModuleState(init);
+  });
+}
 
 lucent_string Kept::keep(const std::string& s) {
   strings_.push_back(s);

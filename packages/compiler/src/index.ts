@@ -31,6 +31,7 @@ import { bindExtensions } from "./extensions/bind.ts";
 import { extensionDts } from "./extensions/dts.ts";
 import { withSourceRoot } from "./lowering/source.ts";
 import { resolveNative } from "./package-config.ts";
+import { readPackageNative } from "./package-schema.ts";
 import { fileHashes } from "./package-files.ts";
 import { ignoreCompatible, incompatibility, lucentPackageOf, lucentPackages } from "./packages.ts";
 import { compileContext, runInCompile } from "./compile-context.ts";
@@ -210,12 +211,16 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
   if (targeted.length)
     throw new Error(`deferred platforms cannot be targets: ${targeted.join(", ")}`);
 
+  // The modules the files' packages create at launch, and LUCENT3015 for a name that is none.
+  const launch = launchModules(files);
+
   // This compile's own options and records: another compile in the process (an editor's check
   // while `lucent dev` builds) has its own.
   const context = compileContext({
     ...(options.sdk ? { sdk: options.sdk } : {}),
     deferred,
     ...(options.extensions ? { extensions: options.extensions } : {}),
+    launch: launch.modules,
   });
   const result = runInCompile(context, () =>
     withSourceRoot(options.root, () => compileWith(files, options)),
@@ -225,6 +230,11 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
   if (options.session) {
     options.session.reads = new Map(read);
     options.session.realpaths = new Map(realpaths);
+  }
+
+  if (launch.problems.length) {
+    result.ok = false;
+    result.diagnostics.push(...launch.problems);
   }
 
   // The Lucent packages of the files whose `compatible` range leaves this Lucent out.
@@ -273,6 +283,45 @@ function packageProblems(files: readonly string[]): Diagnostic[] {
   }
 
   return out;
+}
+
+/**
+ * The modules the Lucent packages of `files` create at launch (lucent.json's
+ * `launch`), by name, and LUCENT3015 for each listed path that is no module
+ * of its package. A lucent.json that fails its check counts none: the
+ * build reports it.
+ */
+function launchModules(files: readonly string[]): { modules: string[]; problems: Diagnostic[] } {
+  const names = new Set(files.map(moduleNameOf));
+  const seen = new Set<string>();
+  const modules = new Set<string>();
+  const problems: Diagnostic[] = [];
+
+  for (const f of files) {
+    const pkg = lucentPackageOf(f);
+    if (!pkg || seen.has(pkg.dir)) continue;
+    seen.add(pkg.dir);
+
+    let launch: string[] | undefined;
+    try {
+      launch = readPackageNative(pkg)?.launch;
+    } catch {
+      continue;
+    }
+
+    for (const listed of launch ?? []) {
+      const name = `${pkg.name}/${listed}`;
+      if (names.has(name)) modules.add(name);
+      else
+        problems.push({
+          code: Codes.UnknownLaunchModule,
+          message: `lucent.json's launch lists "${listed}", but ${pkg.name} has no module ${name}`,
+          file: path.join(pkg.dir, "lucent.json"),
+        });
+    }
+  }
+
+  return { modules: [...modules].sort(), problems };
 }
 
 /** The session part of a program's options: its target's program to reuse, under `key`. */

@@ -9,6 +9,10 @@
 extern "C" {
 #endif
 
+/// Starts module state at app launch when packages list launch modules
+/// (lucent.json's launch), holding it for the process; else nothing.
+void lucent_launch(void);
+
 /// bigint-values.factorialLater(n)
 void lucent_bigint_values_factorialLater(int64_t arg0, void (*done)(void* context, const int64_t* result, const lucent_error* error), void* context);
 

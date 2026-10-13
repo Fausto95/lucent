@@ -122,7 +122,72 @@ int main() {
 }
 `;
 
+const tasks = `let pendingAtLaunch = 3;
+
+export function pending(): number {
+  return pendingAtLaunch;
+}
+`;
+
+const launchMain = `#include <cstdio>
+
+#include "lucent_entries.h"
+#include <lucent/native_root.h>
+
+int main() {
+  std::printf("generation %s, holds %d\\n", lucent::moduleGeneration() ? "started" : "none", (int)lucent::moduleStateHolds());
+  lucent_launch();
+  auto generation = lucent::moduleGeneration();
+  std::printf("launched: generation %s, holds %d\\n", generation ? "started" : "none", (int)lucent::moduleStateHolds());
+  lucent_launch();
+  lucent_error error{};
+  double pending = 0;
+  lucent_lucent_tasks_tasks_pending(&error, &pending);
+  std::printf("again: same %d, holds %d, pending %g\\n", lucent::moduleGeneration() == generation, (int)lucent::moduleStateHolds(), pending);
+  return 0;
+}
+`;
+
 const clangxx = spawnSync("clang++", ["--version"]).status === 0;
+
+/** Builds `files` (a compile's) with `main` and the host runtime, JSI-free units only, and runs it. */
+function run(dir: string, files: ReadonlyMap<string, string>, main: string) {
+  const out = path.join(dir, "out");
+  fs.mkdirSync(out);
+  for (const [name, text] of files) fs.writeFileSync(path.join(out, name), text);
+  fs.writeFileSync(path.join(out, "main.cpp"), main);
+
+  // Everything but the JSI units: no JavaScript runtime is linked.
+  const units = [...files.keys()]
+    .filter((f) => f.endsWith(".cpp") && f !== "lucent_bindings.cpp" && f !== "lucent_identity.cpp")
+    .concat("main.cpp");
+  const jobs = units.map((f) => ({
+    cmd: "clang++",
+    args: [
+      "-std=c++20",
+      "-ffp-contract=off",
+      "-O1",
+      `-I${path.join(runtimeDir(), "cpp")}`,
+      `-I${out}`,
+      "-c",
+      path.join(out, f),
+    ],
+    object: path.join(out, `${f}.o`),
+  }));
+  const printed = compileAll(jobs);
+  expect(jobs.filter((j) => !fs.existsSync(j.object)).map(() => printed)).toEqual([]);
+
+  const exe = path.join(dir, "entries");
+  const link = spawnSync(
+    "clang++",
+    // CoreFoundation on macOS: the runtime's locale-aware strings use it.
+    [...jobs.map((j) => j.object), hostRuntime(), "-lpthread", ...hostLibs, "-o", exe],
+    { encoding: "utf8" },
+  );
+  expect(link.stderr).toBe("");
+
+  return spawnSync(exe, [], { encoding: "utf8" });
+}
 
 describe.skipIf(!clangxx)("native entry points", () => {
   it("give no entry point to exports whose names come out the same, and warn", () => {
@@ -179,45 +244,12 @@ describe.skipIf(!clangxx)("native entry points", () => {
     expect(header).not.toContain("lucent_math_optional");
     expect(header).not.toContain("lucent_math_objects");
     expect(r.files.get("lucent_bindings.cpp")).toContain("lucent_app::initModules();");
+    // No package lists launch modules: launching does nothing.
+    expect(header).toContain("void lucent_launch(void);");
+    expect(r.files.get("lucent_entries.cpp")).toContain('extern "C" void lucent_launch(void) {}');
 
-    const out = path.join(dir, "out");
-    fs.mkdirSync(out);
-    for (const [name, text] of r.files) fs.writeFileSync(path.join(out, name), text);
-    fs.writeFileSync(path.join(out, "main.cpp"), main);
-
-    // Everything but the JSI units: no JavaScript runtime is linked.
-    const units = [...r.files.keys()]
-      .filter(
-        (f) => f.endsWith(".cpp") && f !== "lucent_bindings.cpp" && f !== "lucent_identity.cpp",
-      )
-      .concat("main.cpp");
-    const jobs = units.map((f) => ({
-      cmd: "clang++",
-      args: [
-        "-std=c++20",
-        "-ffp-contract=off",
-        "-O1",
-        `-I${path.join(runtimeDir(), "cpp")}`,
-        `-I${out}`,
-        "-c",
-        path.join(out, f),
-      ],
-      object: path.join(out, `${f}.o`),
-    }));
-    const printed = compileAll(jobs);
-    expect(jobs.filter((j) => !fs.existsSync(j.object)).map(() => printed)).toEqual([]);
-
-    const exe = path.join(dir, "entries");
-    const link = spawnSync(
-      "clang++",
-      // CoreFoundation on macOS: the runtime's locale-aware strings use it.
-      [...jobs.map((j) => j.object), hostRuntime(), "-lpthread", ...hostLibs, "-o", exe],
-      { encoding: "utf8" },
-    );
-    expect(link.stderr).toBe("");
-
-    const run = spawnSync(exe, [], { encoding: "utf8" });
-    expect(run.stdout).toBe(
+    const ran = run(dir, r.files, main);
+    expect(ran.stdout).toBe(
       [
         "generation 0",
         "add 1 5, generation started",
@@ -230,6 +262,45 @@ describe.skipIf(!clangxx)("native entry points", () => {
         "",
       ].join("\n"),
     );
-    expect(run.status).toBe(0);
+    expect(ran.status).toBe(0);
   }, 300_000);
+
+  it("start module state at launch for a package's launch modules, and hold it", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-launch-"));
+    fs.writeFileSync(
+      path.join(dir, "package.json"),
+      JSON.stringify({ name: "lucent-tasks", version: "1.0.0", lucent: {} }),
+    );
+    fs.writeFileSync(path.join(dir, "lucent.json"), JSON.stringify({ launch: ["tasks"] }));
+    fs.writeFileSync(path.join(dir, "tasks.lucent.ts"), tasks);
+    const r = compile([path.join(dir, "tasks.lucent.ts")], { platforms: ["host"] });
+    expect(r.diagnostics.map((d) => d.message)).toEqual([]);
+    expect(r.files.get("lucent_entries.cpp")).toContain("// Launch modules: lucent-tasks/tasks.");
+
+    const ran = run(dir, r.files, launchMain);
+    expect(ran.stdout).toBe(
+      [
+        "generation none, holds 0",
+        "launched: generation started, holds 1",
+        "again: same 1, holds 1, pending 3",
+        "",
+      ].join("\n"),
+    );
+    expect(ran.status).toBe(0);
+  }, 300_000);
+
+  it("fail the build for a launch module the package doesn't have", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-launch-"));
+    fs.writeFileSync(
+      path.join(dir, "package.json"),
+      JSON.stringify({ name: "lucent-tasks", version: "1.0.0", lucent: {} }),
+    );
+    fs.writeFileSync(path.join(dir, "lucent.json"), JSON.stringify({ launch: ["task"] }));
+    fs.writeFileSync(path.join(dir, "tasks.lucent.ts"), tasks);
+    const r = compile([path.join(dir, "tasks.lucent.ts")], { platforms: ["host"] });
+    expect(r.ok).toBe(false);
+    expect(r.diagnostics.map((d) => `${d.code} ${d.message}`)).toEqual([
+      `LUCENT3015 lucent.json's launch lists "task", but lucent-tasks has no module lucent-tasks/task`,
+    ]);
+  });
 });

@@ -9,6 +9,10 @@
 extern "C" {
 #endif
 
+/// Starts module state at app launch when packages list launch modules
+/// (lucent.json's launch), holding it for the process; else nothing.
+void lucent_launch(void);
+
 /// nullish-generics.defaults()
 bool lucent_nullish_generics_defaults(lucent_error* error, lucent_string* result);
 

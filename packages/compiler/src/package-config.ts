@@ -115,6 +115,8 @@ export interface ResolvedNative {
   };
   /** Extension name → the package declaring it, its header and its declaration. */
   extensions: Record<string, ResolvedExtension>;
+  /** Module created at app launch, by name (`<package>/<path>`) → the package that lists it. */
+  launch: Record<string, From>;
 }
 
 export interface ResolvedExtension {
@@ -392,6 +394,14 @@ export function resolveNative(
         (a, b) => a - b,
       ),
     },
+    launch: sorted(
+      declared.flatMap((d) =>
+        [...new Set(d.native.launch ?? [])].map((m): [string, From] => [
+          `${d.name}/${m}`,
+          [d.name],
+        ]),
+      ),
+    ),
     extensions: sorted(
       extensions.map(({ name, pkg, header, declaration }) => [
         name,

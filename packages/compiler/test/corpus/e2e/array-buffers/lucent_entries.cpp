@@ -14,6 +14,9 @@ void initModules() {
 
 }  // namespace lucent_app
 
+// No launch modules: module state starts at its first use.
+extern "C" void lucent_launch(void) {}
+
 #pragma push_macro("checks")
 #undef checks
 #pragma push_macro("digest")

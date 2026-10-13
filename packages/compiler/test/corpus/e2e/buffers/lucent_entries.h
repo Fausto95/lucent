@@ -9,6 +9,10 @@
 extern "C" {
 #endif
 
+/// Starts module state at app launch when packages list launch modules
+/// (lucent.json's launch), holding it for the process; else nothing.
+void lucent_launch(void);
+
 /// buffers.sample()
 void lucent_buffers_sample(void (*done)(void* context, const double* result, const lucent_error* error), void* context);
 

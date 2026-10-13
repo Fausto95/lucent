@@ -433,6 +433,9 @@ export function appDelegates(root: string): { app?: string; scene?: string; objc
   };
 }
 
+/** The event standing for the app's launch modules, which application(_:didFinishLaunchingWithOptions:) creates. */
+const LAUNCH = "launch";
+
 /** For each event that a forward the app may lack carries: the app delegate's method, and a scene delegate's. */
 const EVENT_FORWARDS: Record<string, { app: string; scene?: string }> = {
   openURL: { app: "application(_:open:options:)", scene: "scene(_:openURLContexts:)" },
@@ -448,6 +451,7 @@ const EVENT_FORWARDS: Record<string, { app: string; scene?: string }> = {
   },
   // Location and Bluetooth relaunches come in the app delegate's launch options alone.
   relaunched: { app: "application(_:didFinishLaunchingWithOptions:)" },
+  [LAUNCH]: { app: "application(_:didFinishLaunchingWithOptions:)" },
 };
 
 /** Whether `text` has `find`'s method, with Lucent's line in its body. */
@@ -462,18 +466,24 @@ function forwarded(text: string, find: RegExp): boolean {
 /**
  * What a bare app's delegates must forward for the app delegate's
  * `events` that its modules listen for (the compiler's
- * appDelegateEvents), and don't: one warning each, saying what to run or
- * add. An Expo app's subscriber forwards them all.
+ * appDelegateEvents), and for its `launch` modules (lucent.json's), and
+ * don't: one warning each, saying what to run or add. An Expo app's
+ * subscriber forwards them all.
  */
 export function missingDelegateForwards(
   root: string,
-  events: string[],
+  listened: string[],
   expo: boolean,
+  launch: readonly string[] = [],
 ): { level: "warn"; text: string }[] {
+  const events = launch.length ? [LAUNCH, ...listened] : listened;
   if (expo || !events.length) return [];
   const { app, scene, objc } = appDelegates(root);
   const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
-  const listens = (event: string) => `a module listens for onAppEvent("${event}")`;
+  const listens = (event: string) =>
+    event === LAUNCH
+      ? `${launch[0]} is a launch module`
+      : `a module listens for onAppEvent("${event}")`;
   if (objc && !read(objc).includes("LucentAppDelegate"))
     return [
       {

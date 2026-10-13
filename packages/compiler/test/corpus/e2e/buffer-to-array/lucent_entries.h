@@ -9,6 +9,10 @@
 extern "C" {
 #endif
 
+/// Starts module state at app launch when packages list launch modules
+/// (lucent.json's launch), holding it for the process; else nothing.
+void lucent_launch(void);
+
 /// buffer-to-array.moved()
 bool lucent_buffer_to_array_moved(lucent_error* error, lucent_string* result);
 

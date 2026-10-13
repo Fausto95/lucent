@@ -2,6 +2,7 @@ import { cpp, ts as js } from "@lucent-lang/codegen";
 import path from "node:path";
 import ts from "typescript";
 import { literalConstant, programFacts } from "../analysis/index.ts";
+import { currentCompile } from "../compile-context.ts";
 import { Codes, fail } from "../diagnostics.ts";
 import type { CppFunction } from "../ir/cpp.ts";
 import { LUCENT_EXTENSION, lucentPackageOf } from "../packages.ts";
@@ -553,6 +554,7 @@ export function emitProgram(
     );
   // Native entry points, and the modules' initializer they share with the bindings: JSI-free.
   const entries = ctx.guard(() => entriesOf(ctx, mods)) ?? [];
+  const launched = new Set(currentCompile()?.launch ?? []);
   files.set(ENTRIES_HEADER, entriesHeader(entries));
   files.set(
     ENTRIES_UNIT,
@@ -563,6 +565,7 @@ export function emitProgram(
       bindings.initializations(initOrder),
       entries,
       declared,
+      lp.modules.map((m) => m.name).filter((name) => launched.has(name)),
     ),
   );
   files.set(

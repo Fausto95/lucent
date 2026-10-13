@@ -1,6 +1,7 @@
 /**
  * What one compile works with and records: the SDK locations and the
  * platforms whose imports are deferred, the native extensions it binds,
+ * the modules created at launch,
  * the files it reads (reads.ts) and the SDK symbols it uses (sdk/usage.ts).
  *
  * Each compile has its own context, so two compiles in one process (the
@@ -24,6 +25,8 @@ export interface CompileContext {
   readonly deferred: readonly Platform[];
   /** The native extensions `lucent:ext/<name>` imports. */
   readonly extensions: readonly ExtensionBinding[];
+  /** The modules created at app launch (their packages' lucent.json `launch`), by name. */
+  readonly launch: readonly string[];
   /** Each file read, with what was found there (reads.ts). */
   readonly reads: Map<string, string>;
   /** Each path resolution followed links from, with where it led. */
@@ -38,12 +41,14 @@ export function compileContext(
     sdk?: SdkOptions;
     deferred?: readonly Platform[];
     extensions?: readonly ExtensionBinding[];
+    launch?: readonly string[];
   } = {},
 ): CompileContext {
   return {
     sdk: { ...options.sdk },
     deferred: options.deferred ?? [],
     extensions: options.extensions ?? [],
+    launch: options.launch ?? [],
     reads: new Map(),
     realpaths: new Map(),
     sdkUses: new Map(),

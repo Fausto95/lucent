@@ -9,6 +9,10 @@
 extern "C" {
 #endif
 
+/// Starts module state at app launch when packages list launch modules
+/// (lucent.json's launch), holding it for the process; else nothing.
+void lucent_launch(void);
+
 /// promise-fields.serialized()
 void lucent_promise_fields_serialized(void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context);
 

@@ -58,6 +58,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT3012`](#lucent3012) | A compute() task's input or result holds something other than data, such as a function, a promise or a main-thread native object. |
 | [`LUCENT3013`](#lucent3013) (warning) | A method of a class implementing an SDK protocol, named like one of its requirements but matching none, which the platform never calls. |
 | [`LUCENT3014`](#lucent3014) | A Lucent package whose `lucent.compatible` range in package.json leaves out the Lucent that compiles it. |
+| [`LUCENT3015`](#lucent3015) | A Lucent package's lucent.json lists a module in `launch` that the package doesn't have. |
 | [`LUCENT3016`](#lucent3016) (warning) | Two exported functions whose native entry points, `lucent_<module>_<export>`, come out with the same name. |
 | [`LUCENT3020`](#lucent3020) | An exported `.lucent.tsx` function that returns a view but cannot be a component, or Lucent code calling a component. |
 | [`LUCENT3021`](#lucent3021) | A component prop, event or ref command whose type views cannot carry, or whose name React or the host keeps. |
@@ -1286,6 +1287,63 @@ export function now(): number {
 ```ts title="clock.lucent.ts (right)"
 export function now(): number {
   return Date.now();
+}
+```
+
+</TabItem>
+</Tabs>
+
+### LUCENT3015
+
+**Launch module that isn't one**
+
+`launch` lists the modules an app creates at launch, before the first frame, so that they can register what the OS requires by then. Each is one of its modules, named by its path under the package's sources without the extension, so `tasks` names `tasks.lucent.ts` in the package. A name that matches none would leave the registration out, so the build fails.
+
+**Fix:** name the module by its path under the package's sources, without .lucent.ts.
+
+<Tabs>
+<TabItem label="✗ package.json">
+
+```json title="package.json (wrong)"
+{ "name": "lucent-tasks", "version": "1.0.0", "lucent": {} }
+```
+
+</TabItem>
+<TabItem label="✗ lucent.json">
+
+```json title="lucent.json (wrong)"
+{ "launch": ["task"] }
+```
+
+</TabItem>
+<TabItem label="✗ tasks.lucent.ts">
+
+```ts title="tasks.lucent.ts (wrong)"
+export function pending(): number {
+  return 0;
+}
+```
+
+</TabItem>
+<TabItem label="✓ package.json">
+
+```json title="package.json (right)"
+{ "name": "lucent-tasks", "version": "1.0.0", "lucent": {} }
+```
+
+</TabItem>
+<TabItem label="✓ lucent.json">
+
+```json title="lucent.json (right)"
+{ "launch": ["tasks"] }
+```
+
+</TabItem>
+<TabItem label="✓ tasks.lucent.ts">
+
+```ts title="tasks.lucent.ts (right)"
+export function pending(): number {
+  return 0;
 }
 ```
 
