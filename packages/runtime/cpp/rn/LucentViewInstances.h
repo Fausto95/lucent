@@ -15,7 +15,6 @@
 // is no instance's, and reads as missing.
 #pragma once
 
-#include <jsi/jsi.h>
 #include <lucent/core.h>
 #include <lucent/scope.h>
 
@@ -26,6 +25,11 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+
+namespace facebook::jsi {
+class Function;
+class Runtime;
+}  // namespace facebook::jsi
 
 namespace lucent::js {
 class Host;

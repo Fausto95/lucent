@@ -1,5 +1,6 @@
 #include "LucentViewInstances.h"
 
+#include <jsi/jsi.h>
 #include <lucent/jsi/host.h>
 
 #include <cmath>
