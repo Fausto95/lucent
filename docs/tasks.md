@@ -537,7 +537,11 @@ describes.
       all four through those listeners, back presses answered on the main
       thread (#221). A `ReactActivity` doesn't pass new intents on to
       AndroidX while React runs, so they come from its React context
-      instead. The emulator run and key events are left.
+      instead. Key presses the app didn't handle reach
+      `onActivityEvent("keyDown")` and `"keyUp"` through the Activities'
+      wrapped window callbacks
+      ([0088](decisions/0088-android-key-presses-come-from-a-wrapped-window-callback.md),
+      #226). The emulator run is left.
 - [ ] In an Expo app, an `ExpoAppDelegateSubscriber` and a
       `ReactActivityLifecycleListener` the build declares. In a bare app,
       `lucent init` adds one forwarding line per delegate method,

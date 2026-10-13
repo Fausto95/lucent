@@ -553,4 +553,15 @@ using BackHandler = Fn<bool(NativeRef)>;
 /// Lucent were not there. Returns the function that unsubscribes.
 Fn<void()> onBackPressed(BackHandler handler);
 
+/// A key press's handler: the Activity and the KeyEvent; true if it consumed it.
+using KeyHandler = Fn<bool(NativeRef, NativeRef)>;
+
+/// `onActivityEvent("keyDown" | "keyUp", handler)`: runs `handler` on the
+/// main thread, holding the subscriber's actor, with each key event of that
+/// action the app's views and Activity didn't handle (LucentWindowCallback,
+/// which wraps the Activities' window callbacks while a module listens).
+/// One that consumes it ends it, before the window's own fallback (volume,
+/// media keys). Returns the function that unsubscribes.
+Fn<void()> onKeyEvent(bool up, KeyHandler handler);
+
 }  // namespace lucent::jni

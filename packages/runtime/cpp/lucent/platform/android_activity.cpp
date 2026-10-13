@@ -69,6 +69,19 @@ std::map<uint64_t, BackSubscription>& backs() {
   return *m;
 }
 
+/// A key press's subscriber: which of down and up it hears, and its actor.
+struct KeySubscription {
+  bool up;
+  KeyHandler handler;
+  Actor* actor;
+};
+
+std::mutex keysMutex;
+std::map<uint64_t, KeySubscription>& keys() {
+  static auto* m = new std::map<uint64_t, KeySubscription>();
+  return *m;
+}
+
 std::mutex subscriptionsMutex;
 std::map<uint64_t, Subscription>& subscriptions() {
   static auto* m = new std::map<uint64_t, Subscription>();
@@ -189,6 +202,31 @@ jboolean JNICALL onBack(JNIEnv* e, jclass, jobject activity) {
   return consumed ? JNI_TRUE : JNI_FALSE;
 }
 
+/// A key event the app didn't handle (LucentWindowCallback, on the main
+/// thread): whether a module consumed it, as a back press is answered.
+jboolean JNICALL onKey(JNIEnv* e, jclass, jobject activity, jobject event, jboolean up) {
+  std::vector<KeySubscription> listening;
+  {
+    std::lock_guard<std::mutex> g(keysMutex);
+    for (const auto& [id, s] : keys())
+      if (s.up == (up == JNI_TRUE)) listening.push_back(s);
+  }
+  if (listening.empty()) return JNI_FALSE;
+
+  bool consumed = false;
+  guarded("key press", [&] {
+    NativeRef a = wrap(e, e->NewLocalRef(activity), "Activity");
+    NativeRef k = wrap(e, e->NewLocalRef(event), "KeyEvent");
+    for (auto& s : listening) {
+      if (callNow(*s.actor, [&] { return s.handler(a, k); })) {
+        consumed = true;
+        return;
+      }
+    }
+  });
+  return consumed ? JNI_TRUE : JNI_FALSE;
+}
+
 jclass activities() {
   static jclass cls = [] {
     JNIEnv* e = env();
@@ -199,8 +237,10 @@ jclass activities() {
         {const_cast<char*>("onFailed"), const_cast<char*>("(JLjava/lang/String;Ljava/lang/String;)V"), reinterpret_cast<void*>(onFailed)},
         {const_cast<char*>("onEvent"), const_cast<char*>("(ILandroid/app/Activity;Landroid/content/Intent;)V"), reinterpret_cast<void*>(onEvent)},
         {const_cast<char*>("onBack"), const_cast<char*>("(Landroid/app/Activity;)Z"), reinterpret_cast<void*>(onBack)},
+        {const_cast<char*>("onKey"), const_cast<char*>("(Landroid/app/Activity;Landroid/view/KeyEvent;Z)Z"),
+         reinterpret_cast<void*>(onKey)},
     };
-    e->RegisterNatives(c, natives, 5);
+    e->RegisterNatives(c, natives, 6);
     check(e);
     return c;
   }();
@@ -310,6 +350,40 @@ Fn<void()> onBackPressed(BackHandler handler) {
       std::lock_guard<std::mutex> g(backsMutex);
       if (!backs().erase(id)) return;
       last = backs().empty();
+    }
+
+    if (last) {
+      JNIEnv* env_ = env();
+      env_->CallStaticVoidMethod(activities(), wanted, JNI_FALSE);
+      check(env_);
+    }
+  });
+}
+
+Fn<void()> onKeyEvent(bool up, KeyHandler handler) {
+  static std::atomic<uint64_t> next{1};
+  uint64_t id = next++;
+
+  bool first;
+  {
+    std::lock_guard<std::mutex> g(keysMutex);
+    first = keys().empty();
+    keys().emplace(id, KeySubscription{up, std::move(handler), &currentActor()});
+  }
+
+  JNIEnv* e = env();
+  static jmethodID wanted = staticMethod(activities(), "keysWanted", "(Z)V");
+  if (first) {
+    e->CallStaticVoidMethod(activities(), wanted, JNI_TRUE);
+    check(e);
+  }
+
+  return Fn<void()>([id] {
+    bool last;
+    {
+      std::lock_guard<std::mutex> g(keysMutex);
+      if (!keys().erase(id)) return;
+      last = keys().empty();
     }
 
     if (last) {
