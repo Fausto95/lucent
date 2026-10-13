@@ -570,11 +570,11 @@ rendered only on failure. A synchronous export throws the `TypeError`,
 and an async one rejects with it. Interface values must be instances of
 Lucent classes that implement the interface.
 
-`null` and `undefined` are told apart for an argument, a setter's value or
-an object's field: `T | undefined` rejects `null`, and `T | null` rejects
-`undefined`. Inside arrays, maps, sets, records, tuples, callback results
-and promise values either is taken, and code that narrows it to `T` throws
-`TypeError`: a known gap ([T101](tasks.md#t101)).
+`null` and `undefined` are told apart wherever a value comes from: an
+argument, a setter's value, an object's field, an element of an array,
+tuple, record, map or set, a callback's result or argument, a promise's
+value. `T | undefined` rejects `null`, and `T | null` rejects
+`undefined`, with a `TypeError` naming where the value was.
 
 ### Callbacks, promises and events
 
@@ -981,12 +981,11 @@ both, in the same commit.
 
 ### Known gaps
 
-| JavaScript                                                  | Lucent today                                                   | Task                  |
-| ----------------------------------------------------------- | -------------------------------------------------------------- | --------------------- |
-| `null` and `undefined` differ wherever they appear          | in containers, callback results and promise values either fits | [T101](tasks.md#t101) |
-| a `let` read before its declaration throws `ReferenceError` | it reads as an unassigned field                                | [T106](tasks.md#t106) |
-| `await` of a plain value waits one microtask                | doesn't suspend                                                | [T103](tasks.md#t103) |
-| `return p` in an async function takes three microtasks      | one, as `return await p`                                       | [T103](tasks.md#t103) |
+| JavaScript                                                  | Lucent today                    | Task                  |
+| ----------------------------------------------------------- | ------------------------------- | --------------------- |
+| a `let` read before its declaration throws `ReferenceError` | it reads as an unassigned field | [T106](tasks.md#t106) |
+| `await` of a plain value waits one microtask                | doesn't suspend                 | [T103](tasks.md#t103) |
+| `return p` in an async function takes three microtasks      | one, as `return await p`        | [T103](tasks.md#t103) |
 
 ## Diagnostics
 

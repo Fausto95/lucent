@@ -37,25 +37,25 @@ each system lets an author do, not how it does it.
 
 ## Values that cross
 
-| Capability                             | Nitro                 | Expo Modules              | Lucent                                     | Task                  |
-| -------------------------------------- | --------------------- | ------------------------- | ------------------------------------------ | --------------------- |
-| Numbers, strings, booleans             | ✅                    | ✅                        | ✅                                         | —                     |
-| 64-bit integers                        | ✅ `Int64`, `UInt64`  | ✅ BigInt (iOS)           | ✅ `bigint` of any size                    | —                     |
-| Arrays, tuples, records, maps, sets    | ✅ (tuples: C++ only) | ✅ (no tuples)            | ✅                                         | —                     |
-| Structs with typed fields              | ✅                    | ✅ `Record`               | ✅ object types and interfaces             | —                     |
-| Unions and enums                       | ✅ variants, enums    | ✅ `Either`, `Enumerable` | ✅                                         | —                     |
-| `null` apart from `undefined`          | ✅                    | ✅ `ValueOrUndefined`     | 🟡 not inside containers or promise values | [T101](tasks.md#t101) |
-| Untyped JSON-shaped data               | ✅ `AnyMap`           | ✅ dictionaries of `Any`  | ❌ a recursive union crashes the compiler  | [T102](tasks.md#t102) |
-| `ArrayBuffer`, without copying         | ✅ owning or borrowed | ✅ borrowed or copied     | ✅ moves and lends; `NativeBuffer`         | —                     |
-| Typed arrays other than `Uint8Array`   | — (the `ArrayBuffer`) | ✅ every kind             | ✅ every kind, and `DataView`              | —                     |
-| Platform memory as JS bytes            | ✅ `HardwareBuffer`   | ✅ `Data`, `ByteArray`    | ✅ `ByteBuffer`, frames on both platforms  | [T108](tasks.md#t108) |
-| Native pointers handed to other code   | ✅ via `CustomType`   | —                         | ✅ `NativeHandle`, from platform objects   | —                     |
-| `Date`                                 | ✅                    | 🟡 milliseconds           | ✅                                         | —                     |
-| Errors with codes                      | ✅                    | ✅ `CodedException`       | ✅ `error(code, …)`, platform codes        | —                     |
-| JS callbacks, kept and called later    | ✅ from any thread    | 🟡 in sync functions      | ✅ from any thread                         | —                     |
-| JS promises as arguments               | ✅                    | —                         | ✅                                         | —                     |
-| Opaque JS values held natively         | ✅ raw JSI            | ✅ `JavaScriptValue`      | ✅ `JSValue`                               | —                     |
-| Native objects of other module systems | ✅ Nitro's own        | ✅ Expo's own             | 🟡 held opaque, as `JSValue`               | —                     |
+| Capability                             | Nitro                 | Expo Modules              | Lucent                                    | Task                  |
+| -------------------------------------- | --------------------- | ------------------------- | ----------------------------------------- | --------------------- |
+| Numbers, strings, booleans             | ✅                    | ✅                        | ✅                                        | —                     |
+| 64-bit integers                        | ✅ `Int64`, `UInt64`  | ✅ BigInt (iOS)           | ✅ `bigint` of any size                   | —                     |
+| Arrays, tuples, records, maps, sets    | ✅ (tuples: C++ only) | ✅ (no tuples)            | ✅                                        | —                     |
+| Structs with typed fields              | ✅                    | ✅ `Record`               | ✅ object types and interfaces            | —                     |
+| Unions and enums                       | ✅ variants, enums    | ✅ `Either`, `Enumerable` | ✅                                        | —                     |
+| `null` apart from `undefined`          | ✅                    | ✅ `ValueOrUndefined`     | ✅ everywhere a value comes from          | —                     |
+| Untyped JSON-shaped data               | ✅ `AnyMap`           | ✅ dictionaries of `Any`  | ❌ a recursive union crashes the compiler | [T102](tasks.md#t102) |
+| `ArrayBuffer`, without copying         | ✅ owning or borrowed | ✅ borrowed or copied     | ✅ moves and lends; `NativeBuffer`        | —                     |
+| Typed arrays other than `Uint8Array`   | — (the `ArrayBuffer`) | ✅ every kind             | ✅ every kind, and `DataView`             | —                     |
+| Platform memory as JS bytes            | ✅ `HardwareBuffer`   | ✅ `Data`, `ByteArray`    | ✅ `ByteBuffer`, frames on both platforms | [T108](tasks.md#t108) |
+| Native pointers handed to other code   | ✅ via `CustomType`   | —                         | ✅ `NativeHandle`, from platform objects  | —                     |
+| `Date`                                 | ✅                    | 🟡 milliseconds           | ✅                                        | —                     |
+| Errors with codes                      | ✅                    | ✅ `CodedException`       | ✅ `error(code, …)`, platform codes       | —                     |
+| JS callbacks, kept and called later    | ✅ from any thread    | 🟡 in sync functions      | ✅ from any thread                        | —                     |
+| JS promises as arguments               | ✅                    | —                         | ✅                                        | —                     |
+| Opaque JS values held natively         | ✅ raw JSI            | ✅ `JavaScriptValue`      | ✅ `JSValue`                              | —                     |
+| Native objects of other module systems | ✅ Nitro's own        | ✅ Expo's own             | 🟡 held opaque, as `JSValue`              | —                     |
 
 ## Threads and execution
 

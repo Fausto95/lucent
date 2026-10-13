@@ -546,9 +546,9 @@ export const differences: { title: string; rows: Difference[] }[] = [
       {
         js: "Type annotations are erased: any value reaches a function.",
         lucent:
-          "Each argument from JavaScript is checked against its declared type, and a mismatch throws a `TypeError` before the code runs ([The boundary](/docs/api/language/boundary/#when-a-value-doesnt-match)).",
+          "Each argument from JavaScript is checked against its declared type, and a mismatch throws a `TypeError` before the code runs ([The boundary](/docs/api/language/boundary/#when-a-value-doesnt-match)). That includes `null` where `undefined` is declared, or the other way round, in an element, a callback's result or a promise's value too.",
         why: "A native value needs the declared layout.",
-        cases: ["null-or-undefined"],
+        cases: ["null-or-undefined", "null-undefined-nested"],
       },
       {
         js: "A `RegExp` passed to a function is the same object, with its `lastIndex`.",
@@ -733,13 +733,6 @@ export const differences: { title: string; rows: Difference[] }[] = [
  * fix changes, and a gap without one fails the check.
  */
 export const knownGaps: Difference[] = [
-  {
-    js: "`null` and `undefined` are different values wherever they appear.",
-    lucent:
-      "Arguments, setter values and object fields from JavaScript keep them apart. Inside arrays, maps, sets, records, tuples, callback results and promise values, a `T | undefined` also takes `null`, and a `T | null` takes `undefined`. Code that then narrows the value to `T` throws a `TypeError`. Test for absence with `== null` or `??`.",
-    why: "The boundary's check of an element's absent value isn't written yet.",
-    cases: ["null-or-undefined"],
-  },
   {
     js: "`await` of a value that isn't a promise waits for a microtask, and `return p` of a settled promise takes one microtask more than `return await p`.",
     lucent:

@@ -26,7 +26,7 @@ what became of each one that is still linked or was still open.
 | ------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------- |
 | **Module parity**        |                                                            |                                                               |
 | [T100](#t100)            | Typed arrays and `DataView`                                | done (2026-10-13)                                             |
-| [T101](#t101)            | Keep `null` apart from `undefined` everywhere              | ready                                                         |
+| [T101](#t101)            | Keep `null` apart from `undefined` everywhere              | done (2026-10-13)                                             |
 | [T102](#t102)            | Recursive union types, for JSON-shaped values              | ready                                                         |
 | [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | ready                                                         |
 | [T104](#t104)            | Timers and `queueMicrotask`                                | ready                                                         |
@@ -173,22 +173,20 @@ array is listed as refused.
 `T | null` never holds `undefined`, wherever it comes from, as Nitro's
 optionals and Expo's `ValueOrUndefined` guarantee.
 
-- **Status:** ready.
+- **Status:** done (2026-10-13).
 - **Area:** runtime, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3.
 - **Where:** `jsi/convert.h`, `core.h` (`Opt`), `emit/bindings.ts`.
 
-Today `Opt` keeps the two apart inside containers, but the checks accept
-the wrong one. Inside arrays, maps, sets, records, tuples, callback
-results and promise values from JavaScript, `T | undefined` also takes
-`null`, and `T | null` takes `undefined`; narrowing such a value later
-throws `TypeError`.
+`Opt` kept the two apart inside containers, but the checks took the wrong
+one. Now the compiler spells such an optional `OrUndefined` or `OrNull`
+wherever it sits, and each refuses the other absent value.
 
-- [ ] The boundary rejects the wrong one of the two in each container,
+- [x] The boundary rejects the wrong one of the two in each container,
       callback result and promise value with a `TypeError` naming its
       path, as it does for an argument.
-- [ ] e2e: `null-undefined-nested`, covering each container both ways.
+- [x] e2e: `null-undefined-nested`, covering each container both ways.
 
 **Done when:** the known gap is gone from `apps/website/src/docs/language.ts`
 and [limitations.md](limitations.md).

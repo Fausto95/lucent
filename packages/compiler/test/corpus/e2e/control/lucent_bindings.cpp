@@ -79,7 +79,7 @@ void install_m_control(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "ternaries", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
     return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("ternaries", "packages/compiler/test/e2e/cases/control.lucent.ts", 101), [&]() -> jsi::Value {
-      auto a0 = Convert<lucent::Array<lucent::Opt<double>>>::fromJs(rt, arg(args, count, 0), Path{"ternaries", "argument 'xs'"});
+      auto a0 = Convert<lucent::Array<lucent::js::OrUndefined<double, "a number or undefined">>>::fromJs(rt, arg(args, count, 0), Path{"ternaries", "argument 'xs'"});
       return Convert<lucent::Array<lucent::String>>::toJs(rt, host, lucent_app::m_control::ternaries(std::move(a0)));
     });
   });

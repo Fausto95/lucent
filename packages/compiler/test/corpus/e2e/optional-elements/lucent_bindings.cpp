@@ -32,7 +32,7 @@ void install_m_optional_u2d_elements(jsi::Runtime& rt, Host& host, jsi::Object& 
   defineFunction(rt, exports, "arrays", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
     return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("arrays", "packages/compiler/test/e2e/cases/optional-elements.lucent.ts", 4), [&]() -> jsi::Value {
-      auto a0 = Convert<lucent::Array<lucent::Opt<double>>>::fromJs(rt, arg(args, count, 0), Path{"arrays", "argument 'xs'"});
+      auto a0 = Convert<lucent::Array<lucent::js::OrUndefined<double, "a number or undefined">>>::fromJs(rt, arg(args, count, 0), Path{"arrays", "argument 'xs'"});
       auto a1 = Convert<double>::fromJs(rt, arg(args, count, 1), Path{"arrays", "argument 'i'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optional_u2d_elements::arrays(std::move(a0), std::move(a1)));
     });
@@ -46,7 +46,7 @@ void install_m_optional_u2d_elements(jsi::Runtime& rt, Host& host, jsi::Object& 
   defineFunction(rt, exports, "records", 2, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
     return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("records", "packages/compiler/test/e2e/cases/optional-elements.lucent.ts", 17), [&]() -> jsi::Value {
-      auto a0 = Convert<lucent::Dict<lucent::Opt<double>>>::fromJs(rt, arg(args, count, 0), Path{"records", "argument 'r'"});
+      auto a0 = Convert<lucent::Dict<lucent::js::OrUndefined<double, "a number or undefined">>>::fromJs(rt, arg(args, count, 0), Path{"records", "argument 'r'"});
       auto a1 = Convert<lucent::String>::fromJs(rt, arg(args, count, 1), Path{"records", "argument 'k'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_optional_u2d_elements::records(std::move(a0), std::move(a1)));
     });

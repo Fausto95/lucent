@@ -74,11 +74,6 @@ generated from this file.
 - A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused
   ([T112](tasks.md#t112)). A `WeakMap` value that holds its own key keeps
   it, and the entry, for as long as the map lives.
-- `null` and `undefined` from JavaScript are checked apart for arguments,
-  setter values and object fields only ([T101](tasks.md#t101)). Inside
-  arrays, maps, sets, records, tuples, callback results and promise
-  values, `T | undefined` also takes `null`, and `T | null` takes
-  `undefined`. Narrowing such a value then throws `TypeError`.
 - A recursive union alias, such as a `Json` type of arrays and records,
   crashes the compiler instead of giving a diagnostic
   ([T102](tasks.md#t102)).

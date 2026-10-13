@@ -25,7 +25,7 @@ Write a module once in TypeScript, and call it from JavaScript as a native modul
 | done | `NativeBuffer` and moved `ArrayBuffer`s, which pass bytes without copying. |
 | in progress | Native handles, and memory-pressure hints for objects that hold native memory. |
 | done | Every typed array and `DataView`, copied, lent and moved as `Uint8Array` is. |
-| next | `null` kept apart from `undefined` in every container. |
+| done | `null` kept apart from `undefined` in every container. |
 | next | JSON-shaped values through recursive union types. |
 | next | Promise chaining and combinators, timers, and web APIs such as `TextEncoder` and `URL`. |
 | next | Classes that extend `EventEmitter`, so native objects have their own listeners. |
@@ -131,7 +131,6 @@ Build and ship Lucent modules and packages like any React Native library.
 
 - Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)): break them with `WeakRef`, or key what one side holds in a `WeakMap`.
 - A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)). A `WeakMap` value that holds its own key keeps it, and the entry, for as long as the map lives.
-- `null` and `undefined` from JavaScript are checked apart for arguments, setter values and object fields only ([T101](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t101)). Inside arrays, maps, sets, records, tuples, callback results and promise values, `T | undefined` also takes `null`, and `T | null` takes `undefined`. Narrowing such a value then throws `TypeError`.
 - A recursive union alias, such as a `Json` type of arrays and records, crashes the compiler instead of giving a diagnostic ([T102](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t102)).
 - `then`, `catch`, `finally`, `Promise.race`, `Promise.any` and `Promise.allSettled` are refused: use `await` and `Promise.all` ([T103](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t103)).
 - There are no `setTimeout`, `setInterval` or `queueMicrotask`: use `delay` from `lucent:core` ([T104](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t104)).
