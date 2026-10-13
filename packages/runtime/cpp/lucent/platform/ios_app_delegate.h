@@ -11,7 +11,11 @@
 #include <atomic>
 #include <memory>
 
+#include "../abort.h"
+#include "../async.h"
+#include "../bytes.h"
 #include "../delegate_events.h"
+#include "../function.h"
 #include "ios.h"
 
 namespace lucent::objc {
