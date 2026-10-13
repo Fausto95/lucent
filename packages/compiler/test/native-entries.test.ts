@@ -13,6 +13,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { compile, runtimeDir } from "../src/index.ts";
 import { compileAll } from "./parallel-build.ts";
 import { hostRuntime } from "./swift-harness.ts";
+import { hostLibs } from "../../runtime/test/sources.ts";
 
 const module = `import { onDestroy } from "lucent:core";
 
@@ -209,7 +210,8 @@ describe.skipIf(!clangxx)("native entry points", () => {
     const exe = path.join(dir, "entries");
     const link = spawnSync(
       "clang++",
-      [...jobs.map((j) => j.object), hostRuntime(), "-lpthread", "-o", exe],
+      // CoreFoundation on macOS: the runtime's locale-aware strings use it.
+      [...jobs.map((j) => j.object), hostRuntime(), "-lpthread", ...hostLibs, "-o", exe],
       { encoding: "utf8" },
     );
     expect(link.stderr).toBe("");
