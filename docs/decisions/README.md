@@ -24,6 +24,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 | Number                                                                             | Date       | Decision                                                                    |
 | ---------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
 | [0090](0090-module-state-resets-only-when-nothing-native-holds-it.md)              | 2026-10-13 | Module state starts at first use, resets only when nothing native holds it  |
+| [0089](0089-main-activity-attributes-are-named-or-written-as-plist-entries-are.md) | 2026-10-13 | Main Activity attributes are named or written as Info.plist entries are     |
 | [0088](0088-android-key-presses-come-from-a-wrapped-window-callback.md)            | 2026-10-13 | Android key presses come from a wrapped window callback, not MainActivity   |
 | [0087](0087-lucent-stands-in-front-of-the-apps-notification-delegate.md)           | 2026-10-13 | Lucent stands in front of the app's notification delegate                   |
 | [0086](0086-platform-memory-is-adopted-read-only-unless-asked.md)                  | 2026-10-13 | Platform memory is adopted read-only unless asked; NSData stays a copy      |

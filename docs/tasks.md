@@ -500,7 +500,10 @@ describes.
   `LucentAppDelegate` (#217), which `lucent init` has a bare app's
   delegates call, `lucent doctor` checks and `lucent build` names when
   missing (#218, #220), and an Expo app's `AppDelegate` calls through
-  Lucent's subscriber (#219).
+  Lucent's subscriber (#219). Relaunch reasons and the notification
+  delegate (#223, #224), Android's Activity events, keys and main
+  Activity attributes (#221, #222, #226, #227) are in. The device runs'
+  Platform screen checks them (#225); its passing run is left.
 - **Area:** iOS and Android hosts, runtime, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V3, V4, V5, V6.
@@ -542,17 +545,23 @@ describes.
       wrapped window callbacks
       ([0088](decisions/0088-android-key-presses-come-from-a-wrapped-window-callback.md),
       #226). The emulator run is left.
-- [ ] In an Expo app, an `ExpoAppDelegateSubscriber` and a
+- [x] In an Expo app, an `ExpoAppDelegateSubscriber` and a
       `ReactActivityLifecycleListener` the build declares. In a bare app,
       `lucent init` adds one forwarding line per delegate method,
       `lucent doctor` checks them, and `lucent build` names a missing one.
       `lucent init` and `doctor` do (#218), and the native package is a
       module Swift imports (`import LucentNative`). On iOS, Expo's
       subscribers include Lucent's, registered at load (#219), and
-      `lucent build` names a missing call (#220).
-- [ ] `lucent.json` `android.mainActivity` attributes
-      (`supportsPictureInPicture`, `configChanges`, `launchMode`), merged
-      by the manifest rules; the Expo plugin writes them.
+      `lucent build` names a missing call (#220). On Android neither app
+      needs anything: AndroidX's listeners, the React context and the
+      window callback reach every Activity
+      ([0088](decisions/0088-android-key-presses-come-from-a-wrapped-window-callback.md)).
+- [x] `lucent.json` `android.mainActivity` attributes
+      (`supportsPictureInPicture`, `configChanges`, `launchMode`): a bare
+      app's `lucent build` names what its manifest lacks, and the Expo
+      plugin writes them
+      ([0089](decisions/0089-main-activity-attributes-are-named-or-written-as-plist-entries-are.md),
+      #227).
 - [ ] Tests: `lifecycle_test.cpp` merges answers. The example apps open a
       deep link and read a push token in their device-check runs on the
       simulator and emulator (a fake registration exercises the token

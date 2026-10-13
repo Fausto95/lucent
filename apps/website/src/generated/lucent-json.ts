@@ -305,6 +305,30 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "description": ""
   },
   {
+    "field": "android.mainActivity",
+    "type": "object",
+    "required": false,
+    "description": "Attributes the package needs on the app's main Activity, which the app's manifest declares. A bare app's lucent build names the ones its manifest lacks; the Expo config plugin writes them."
+  },
+  {
+    "field": "android.mainActivity.supportsPictureInPicture",
+    "type": "boolean",
+    "required": false,
+    "description": "android:supportsPictureInPicture=\"true\", for a player that goes picture in picture. false asks nothing."
+  },
+  {
+    "field": "android.mainActivity.configChanges",
+    "type": "string[]",
+    "required": false,
+    "description": "android:configChanges values the Activity must handle itself instead of being recreated, added to the app's (orientation, screenSize)."
+  },
+  {
+    "field": "android.mainActivity.launchMode",
+    "type": "\"standard\" or \"singleTop\" or \"singleTask\" or \"singleInstance\" or \"singleInstancePerTask\"",
+    "required": false,
+    "description": "android:launchMode. Packages that ask for different ones fail the build."
+  },
+  {
     "field": "android.minSdk",
     "type": "integer",
     "required": false,

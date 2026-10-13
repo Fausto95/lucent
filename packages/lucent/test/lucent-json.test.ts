@@ -46,6 +46,7 @@ const read = {
     "libraries",
     "nativeLibraries",
     "components",
+    "mainActivity",
     "minSdk",
   ],
 } as const satisfies {

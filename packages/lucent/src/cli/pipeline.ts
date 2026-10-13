@@ -33,6 +33,7 @@ import {
   backgroundPrefetch,
   mapLucentPaths,
   missingAppEntries,
+  missingMainActivity,
   type Notice,
   hasAndroidProject,
   pendingAndroidModules,
@@ -715,6 +716,7 @@ export async function buildProject(
     detail: path.relative(root, outDir) || ".",
   });
   for (const n of missingAppEntries(root, native.manifest)) notify(n);
+  for (const n of missingMainActivity(root, native.manifest)) notify(n);
   for (const n of missingDelegateForwards(root, result.appDelegateEvents ?? [], isExpoApp(root)))
     notify(n);
   const nativeChanged =

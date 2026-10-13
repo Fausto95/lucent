@@ -25,6 +25,7 @@ import {
 } from "./package-files.ts";
 import {
   type ExtensionDeclaration,
+  type MainActivityAttributes,
   type ManifestComponent,
   type PackageNative,
   type PlistValue,
@@ -49,6 +50,7 @@ export {
   type ParamDeclaration,
   type IntentData,
   type IntentFilter,
+  type MainActivityAttributes,
   type ManifestComponent,
   type PackageNative,
   type PlistValue,
@@ -101,6 +103,13 @@ export interface ResolvedNative {
     nativeLibraries: PackagePath[];
     /** Component class name → the component. */
     components: Record<string, Agreed<ManifestComponent>>;
+    /** What packages need on the app's main Activity: each attribute, and who asked. */
+    mainActivity: {
+      supportsPictureInPicture?: From;
+      /** configChanges value → who asked. */
+      configChanges: Record<string, From>;
+      launchMode?: Agreed<NonNullable<MainActivityAttributes["launchMode"]>>;
+    };
     /** The highest any package needs, and the packages that need it. */
     minSdk?: Agreed<number>;
   };
@@ -375,6 +384,7 @@ export function resolveNative(
       libraries: portable(android.libraries),
       nativeLibraries: portable(android.nativeLibraries),
       components: components(declared),
+      mainActivity: mainActivity(declared),
       ...highest(
         declared,
         "minSdk",
@@ -596,6 +606,34 @@ function components(declared: Declared[]): ResolvedNative["android"]["components
       return [name, { value: declaredAs[0]![0], from: declaredAs.flatMap(([, from]) => from) }];
     }),
   );
+}
+
+/**
+ * The main Activity's attributes packages need: picture in picture if any
+ * asks for it, every configChanges value any asks for, and one launch
+ * mode, which packages that ask for different ones fail on.
+ */
+function mainActivity(declared: Declared[]): ResolvedNative["android"]["mainActivity"] {
+  const pip = declared.filter((d) => d.native.android?.mainActivity?.supportsPictureInPicture);
+  const modes = declared.flatMap((d): [string, From][] => {
+    const mode = d.native.android?.mainActivity?.launchMode;
+    return mode ? [[mode, [d.name]]] : [];
+  });
+
+  const conflict = firstConflict(modes, (a, b) => a === b);
+  if (conflict) {
+    const [[a, fromA], [b, fromB]] = conflict;
+    throw new Error(
+      `the main Activity's launchMode: ${fromA[0]} wants ${a}, ${fromB[0]} wants ${b}`,
+    );
+  }
+
+  const launchMode = modes[0]?.[0] as MainActivityAttributes["launchMode"];
+  return {
+    ...(pip.length ? { supportsPictureInPicture: pip.map((d) => d.name) } : {}),
+    configChanges: union(declared, (n) => n.android?.mainActivity?.configChanges),
+    ...(launchMode ? { launchMode: { value: launchMode, from: modes.flatMap(([, f]) => f) } } : {}),
+  };
 }
 
 /** Every path each package lists in `field`, located in its package, in package then path order. */
