@@ -294,6 +294,10 @@ before it returns (`eagerAsync` in `ir/cpp.ts`); what awaits it still
 resumes later. A context's turn runs one job, then its microtasks
 (`execution.h`), and `Promise.all` observes every input at once.
 
+An actor's turn first runs the microtasks a call from JavaScript left.
+They come before a job queued during that call, such as a timer due at
+once.
+
 **Known gaps in the microtask order.** Two forms settle sooner than in
 JavaScript, which reorders interleaved async code
 ([T103](tasks.md#t103)); `await delay(0)` yields meanwhile.

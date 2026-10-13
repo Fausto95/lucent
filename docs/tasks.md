@@ -279,7 +279,8 @@ runtime's `timers.h` runs them, and `globals.d.ts` declares them.
 - [x] Timers a module started are cleared at teardown, as `onDestroy`
       hooks run.
 - [x] e2e: `timers` (microtasks among them); `execution_test.cpp`
-      checks their context and a scope's disposal.
+      checks their context and a scope's disposal, and `actor_test.cpp`
+      that a call's microtasks run before a job queued during it.
 
 **Done when:** the cases pass natively and as JavaScript.
 

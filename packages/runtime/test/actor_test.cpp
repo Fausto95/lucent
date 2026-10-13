@@ -15,6 +15,7 @@
 #include <future>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "lucent/entries.h"
 #include "lucent/lucent.h"
@@ -221,6 +222,24 @@ static void mainFromModuleCodeRunsOnceTheActorIsFree() {
 
   CHECK(within(2000, [&] { return p.settled(); }));
   CHECK(p.fulfilled() && p.value());
+}
+
+/// A call's microtasks, handed to the actor as the call ends, run before a
+/// job queued while the call ran (a timer due at once): microtasks before
+/// the next task, as in JavaScript.
+static void aCallsMicrotasksRunBeforeTheNextJob() {
+  Actor& a = Actor::create("micro");
+  std::vector<std::string> order;  // Read and written holding a's lock.
+
+  {
+    LucentScope call(a);
+    a.post([&] { order.push_back("job"); });
+    a.enqueueMicrotask([&] { order.push_back("micro"); });
+  }
+  CHECK(a.waitIdle(2000));
+
+  LucentScope after(a);
+  CHECK(order.size() == 2 && order[0] == "micro" && order[1] == "job");
 }
 
 // --- the main thread must answer: never behind the queue --------------------------
@@ -498,6 +517,7 @@ int main() {
   actorsAreDistinct();
   aLongJobDelaysNeitherAnotherActorNorMain();
   mainFromModuleCodeRunsOnceTheActorIsFree();
+  aCallsMicrotasksRunBeforeTheNextJob();
   mainWaitsOnlyForTheHolder();
   aJavaScriptCallbackLendsItsActorToMain();
   reenteringALentActorWaitsForTheBorrower();
