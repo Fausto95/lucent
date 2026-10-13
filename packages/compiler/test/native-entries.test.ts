@@ -124,6 +124,28 @@ int main() {
 const clangxx = spawnSync("clang++", ["--version"]).status === 0;
 
 describe.skipIf(!clangxx)("native entry points", () => {
+  it("give no entry point to exports whose names come out the same, and warn", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-entries-"));
+    fs.writeFileSync(
+      path.join(dir, "a_b.lucent.ts"),
+      "export function c(): number {\n  return 1;\n}\n",
+    );
+    fs.writeFileSync(
+      path.join(dir, "a.lucent.ts"),
+      "export function b_c(): number {\n  return 2;\n}\nexport function d(): number {\n  return 3;\n}\n",
+    );
+    const r = compile([path.join(dir, "a.lucent.ts"), path.join(dir, "a_b.lucent.ts")], {
+      platforms: ["host"],
+    });
+    expect(r.diagnostics).toEqual([]);
+    expect((r.warnings ?? []).map((d) => `${d.code} ${d.message}`)).toEqual([
+      "LUCENT3016 a.b_c and a_b.c would have the same native entry point, lucent_a_b_c: neither gets one",
+    ]);
+    const header = r.files.get("lucent_entries.h")!;
+    expect(header).not.toContain("lucent_a_b_c");
+    expect(header).toContain("bool lucent_a_d(lucent_error* error, double* result);");
+  });
+
   it("run module functions with no JavaScript runtime, and give their errors to the caller", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-entries-"));
     fs.writeFileSync(path.join(dir, "math.lucent.ts"), module);

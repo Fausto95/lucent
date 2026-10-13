@@ -31,6 +31,8 @@ describe("generated files for incremental native builds", () => {
     expect([...files.keys()].sort()).toEqual([
       "lucent_app.h",
       "lucent_bindings.cpp",
+      "lucent_entries.cpp",
+      "lucent_entries.h",
       "lucent_identity.cpp",
       "m_a.cpp",
       "m_a.h",
@@ -61,7 +63,15 @@ describe("generated files for incremental native builds", () => {
       dir,
     );
     const changed = [...before.keys()].filter((k) => before.get(k) !== after.get(k)).sort();
-    expect(changed).toEqual(["lucent_bindings.cpp", "lucent_identity.cpp", "m_a.cpp", "m_a.h"]);
+    // The new export has an entry point.
+    expect(changed).toEqual([
+      "lucent_bindings.cpp",
+      "lucent_entries.cpp",
+      "lucent_entries.h",
+      "lucent_identity.cpp",
+      "m_a.cpp",
+      "m_a.h",
+    ]);
   });
 });
 
@@ -152,6 +162,8 @@ function rebuilt(before: Map<string, string>, after: Map<string, string>): strin
     .sort();
 }
 
+// lucent_entries.cpp, like lucent_bindings.cpp, includes every module's header: the modules'
+// initializer calls each one's init().
 describe("the types' headers", () => {
   const point = (fields: string) => `export interface Point { ${fields} }
 export function norm(p: Point): number { return Math.hypot(p.x, p.y); }
@@ -174,6 +186,7 @@ export function sum(n: number): number { const p = pair(n); return p.first + p.s
     const after = build({ ...sources, point: point("x: number; y: number; z?: number") }, dir);
     expect(rebuilt(before, after)).toEqual([
       "lucent_bindings.cpp",
+      "lucent_entries.cpp",
       "lucent_identity.cpp",
       "m_point.cpp",
       "m_user.cpp",
@@ -189,6 +202,7 @@ export function sum(n: number): number { const p = pair(n); return p.first + p.s
     const after = build({ ...sources, point: `${extra}${sources.point}` }, dir);
     expect(rebuilt(before, after)).toEqual([
       "lucent_bindings.cpp",
+      "lucent_entries.cpp",
       "lucent_identity.cpp",
       "m_point.cpp",
       "m_user.cpp",
@@ -208,6 +222,7 @@ export function sum(n: number): number { const p = pair(n); return p.first + p.s
     );
     expect(rebuilt(before, after)).toEqual([
       "lucent_bindings.cpp",
+      "lucent_entries.cpp",
       "lucent_identity.cpp",
       "m_label.cpp",
     ]);

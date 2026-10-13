@@ -7,8 +7,8 @@
  * both start module state with. Neither file reaches JSI.
  */
 import { cpp } from "@lucent-lang/codegen";
+import type ts from "typescript";
 import { Codes } from "../codes.ts";
-import { CompileError } from "../diagnostics.ts";
 import { cppIdent, isVoidish, type LType } from "../types.ts";
 import { actorName } from "./actors.ts";
 import type { ModuleExports } from "./bindings.ts";
@@ -47,12 +47,12 @@ export function entryName(module: string, name: string): string {
 
 /**
  * The entries of `mods`' exported functions whose parameters and result
- * cross: required parameters only, and no generator. Two exports whose
- * names come out the same are LUCENT3010.
+ * cross: required parameters only, and no generator. Exports whose names
+ * come out the same get none, and LUCENT3016 warns, naming them
+ * (decision 0094).
  */
 export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
-  const out: Entry[] = [];
-  const named = new Map<string, string>();
+  const out: (Entry & { of: string; node: ts.Node })[] = [];
 
   for (const m of mods) {
     const actor = ctx.actors.of.get(m.module);
@@ -83,14 +83,7 @@ export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
       const name = entryName(m.module.name, exportName);
       const of = `${m.module.name}.${exportName}`;
       const doc = `${of}(${f.params.map((p) => p.name).join(", ")})`;
-      const clash = named.get(name);
-      if (clash)
-        throw new CompileError(
-          f.decl.name,
-          Codes.ModuleNameClash,
-          `${of} and ${clash} have the same native entry point, ${name}: rename one`,
-        );
-      named.set(name, of);
+      const node = f.decl.name!;
 
       const cParams = params.map((p) => `${p.crossing!.c} ${p.name}`);
       const args = params.map((p) => `lucent::entries::in(${p.name})`).join(", ");
@@ -107,6 +100,8 @@ export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
         out.push({
           name,
           doc,
+          of,
+          node,
           declaration: `${signature};`,
           definition: [
             `extern "C" ${signature} {`,
@@ -144,6 +139,8 @@ export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
       out.push({
         name,
         doc,
+        of,
+        node,
         declaration: `${signature};`,
         definition: [
           `extern "C" ${signature} {`,
@@ -157,7 +154,23 @@ export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
     }
   }
 
-  return out;
+  // Two exports that would share a name: neither gets it, which keeps a name from changing
+  // hands when one of them comes or goes.
+  const byName = new Map<string, typeof out>();
+  for (const e of out) byName.set(e.name, [...(byName.get(e.name) ?? []), e]);
+  for (const [name, same] of byName) {
+    if (same.length < 2) continue;
+    const [last] = same.slice(-1);
+    ctx.warn(
+      last!.node,
+      Codes.EntryNameClash,
+      `${same.map((e) => e.of).join(" and ")} would have the same native entry point, ${name}: neither gets one`,
+    );
+  }
+
+  return out
+    .filter((e) => byName.get(e.name)!.length === 1)
+    .map(({ name, doc, declaration, definition }) => ({ name, doc, declaration, definition }));
 }
 
 /** lucent_entries.h: a C header Swift, Objective-C, C and C++ can include. */

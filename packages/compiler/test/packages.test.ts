@@ -117,7 +117,9 @@ describe("Lucent packages", () => {
       "storage",
     ]);
     expect(r.proxies.get("lucent-a/storage")).toContain('loadModule("lucent-a/storage"');
-    const headers = [...r.files.keys()].filter((f) => f.endsWith(".h") && f !== "lucent_app.h");
+    const headers = [...r.files.keys()].filter(
+      (f) => f.endsWith(".h") && f !== "lucent_app.h" && f !== "lucent_entries.h",
+    );
     expect(new Set(headers).size).toBe(4);
   });
 

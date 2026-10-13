@@ -797,7 +797,9 @@ at first;
 and the modules' initializer, `lucent_app::initModules`, which a `Host`
 and a native call both start state with. Neither reaches JSI, so the
 runtime ABI is 3. Entries take their parameters by position (`arg0`), as
-a parameter's own name could be a macro. No entry exists yet for a Lucent
+a parameter's own name could be a macro. Two exports whose names come out
+the same get none, and LUCENT3016 warns
+([0094](../decisions/0094-exports-that-would-share-an-entry-point-get-none.md)). No entry exists yet for a Lucent
 instance's method.
 
 ### Android classes the OS instantiates

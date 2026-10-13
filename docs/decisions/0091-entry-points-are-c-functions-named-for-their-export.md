@@ -1,7 +1,7 @@
 # 0091. Entry points are C functions named for their export
 
 - **Date:** 2026-10-13
-- **Status:** accepted
+- **Status:** accepted; amended by [0094](0094-exports-that-would-share-an-entry-point-get-none.md)
 
 The entry-point ABI of [T130](../tasks.md#t130), the second decision
 [native-platform.md](../design/native-platform.md#open-decisions) asked
