@@ -441,6 +441,50 @@ The details are `{}` for `"location"`, and for Bluetooth the `restorationIdentif
 | `listener` | `(reason: RelaunchReason, details: string) => void` | yes | Called with the reason and its details' JSON. |
 | `signal` | `AbortSignal` | no | Stops listening, as the returned function does. |
 
+### onAppEvent()
+
+```ts title="ios.d.ts"
+function onAppEvent(
+  event: "willPresentNotification",
+  listener: (notification: string) => NotificationPresentation[],
+  signal?: AbortSignal,
+): () => void;
+```
+
+Calls `listener` with each notification that arrives while the app is in the foreground, as JSON. It answers how iOS shows it: `[]` hides it.
+
+The JSON has the request's `identifier`, its content's `title`, `subtitle`, `body`, `badge`, `categoryIdentifier`, `threadIdentifier` and `userInfo`, its `date` in milliseconds, and whether it is `remote`.
+
+The first listener puts Lucent in front of `UNUserNotificationCenter`'s delegate, which it shares with the app's: that one still gets every call. iOS shows the notification as the modules and the app's delegate asked together.
+
+A delegate set after the first listener replaces Lucent's.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `event` | `"willPresentNotification"` | yes | `"willPresentNotification"`. |
+| `listener` | `(notification: string) => NotificationPresentation[]` | yes | Called with the notification's JSON; answers how to show it. |
+| `signal` | `AbortSignal` | no | Stops listening, as the returned function does. |
+
+### onAppEvent()
+
+```ts title="ios.d.ts"
+function onAppEvent(
+  event: "notificationResponse",
+  listener: (action: string, notification: string, text: string) => void,
+  signal?: AbortSignal,
+): () => void;
+```
+
+Calls `listener` with each response the person gives a notification. It gets the action's identifier, the notification as JSON, and the text typed for a text input action (`""` otherwise). A tap is `"com.apple.UNNotificationDefaultActionIdentifier"`.
+
+It shares `UNUserNotificationCenter`'s delegate as `"willPresentNotification"` does. A notification that launched the app comes before any listener, so it is `"relaunched"`'s `"notification"`.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `event` | `"notificationResponse"` | yes | `"notificationResponse"`. |
+| `listener` | `(action: string, notification: string, text: string) => void` | yes | Called with the action, the notification's JSON and the text. |
+| `signal` | `AbortSignal` | no | Stops listening, as the returned function does. |
+
 ### onSceneEvent()
 
 ```ts title="ios.d.ts"
@@ -562,6 +606,14 @@ type FetchResult = "newData" | "noData" | "failed";
 ```
 
 A remote notification's or a background fetch's answer, as UIBackgroundFetchResult names it.
+
+### NotificationPresentation
+
+```ts title="ios.d.ts"
+type NotificationPresentation = "banner" | "list" | "sound" | "badge";
+```
+
+How a notification that arrives in the foreground is shown: none of them hides it.
 
 ### RelaunchReason
 

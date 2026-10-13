@@ -52,4 +52,11 @@ Fn<void()> listensForURLs(Fn<bool(String, String)> listener, Opt<AbortSignal> si
 
 Fn<void()> answersNotifications(Fn<Promise<String>(String)> listener) { return objc::onRemoteNotification(std::move(listener)); }
 
+// UNUserNotificationCenter's delegate, shared: how to present one, and the person's response.
+Fn<void()> presentsNotifications(Fn<Array<String>(String)> listener) { return objc::onWillPresentNotification(std::move(listener)); }
+
+Fn<void()> hearsResponses(Fn<void(String, String, String)> listener) { return objc::onNotificationResponse(std::move(listener)); }
+
+NSUInteger bannerAndSound() { return objc::presentationOptionsNamed(Array<String>{String::fromLatin1("banner"), String::fromLatin1("sound")}); }
+
 BOOL forwardsAURL(UIApplication* app, NSURL* url) { return [LucentAppDelegate application:app openURL:url options:@{}]; }

@@ -222,6 +222,9 @@ export declare function onAppEvent(
 /** A remote notification's or a background fetch's answer, as UIBackgroundFetchResult names it. */
 export type FetchResult = "newData" | "noData" | "failed";
 
+/** How a notification that arrives in the foreground is shown: none of them hides it. */
+export type NotificationPresentation = "banner" | "list" | "sound" | "badge";
+
 /**
  * Why iOS launched the app. It may run in the background for a location
  * event or a Bluetooth accessory. Or the person opened one of its
@@ -407,6 +410,51 @@ export declare function onAppEvent(
 export declare function onAppEvent(
   event: "relaunched",
   listener: (reason: RelaunchReason, details: string) => void,
+  signal?: AbortSignal,
+): () => void;
+
+/**
+ * Calls `listener` with each notification that arrives while the app is
+ * in the foreground, as JSON. It answers how iOS shows it: `[]` hides it.
+ *
+ * The JSON has the request's `identifier`, its content's `title`,
+ * `subtitle`, `body`, `badge`, `categoryIdentifier`, `threadIdentifier`
+ * and `userInfo`, its `date` in milliseconds, and whether it is `remote`.
+ *
+ * The first listener puts Lucent in front of `UNUserNotificationCenter`'s
+ * delegate, which it shares with the app's: that one still gets every
+ * call. iOS shows the notification as the modules and the app's delegate
+ * asked together.
+ *
+ * A delegate set after the first listener replaces Lucent's.
+ *
+ * @param event `"willPresentNotification"`.
+ * @param listener Called with the notification's JSON; answers how to show it.
+ * @param signal Stops listening, as the returned function does.
+ */
+export declare function onAppEvent(
+  event: "willPresentNotification",
+  listener: (notification: string) => NotificationPresentation[],
+  signal?: AbortSignal,
+): () => void;
+
+/**
+ * Calls `listener` with each response the person gives a notification.
+ * It gets the action's identifier, the notification as JSON, and the text
+ * typed for a text input action (`""` otherwise). A tap is
+ * `"com.apple.UNNotificationDefaultActionIdentifier"`.
+ *
+ * It shares `UNUserNotificationCenter`'s delegate as
+ * `"willPresentNotification"` does. A notification that launched the app
+ * comes before any listener, so it is `"relaunched"`'s `"notification"`.
+ *
+ * @param event `"notificationResponse"`.
+ * @param listener Called with the action, the notification's JSON and the text.
+ * @param signal Stops listening, as the returned function does.
+ */
+export declare function onAppEvent(
+  event: "notificationResponse",
+  listener: (action: string, notification: string, text: string) => void,
   signal?: AbortSignal,
 ): () => void;
 

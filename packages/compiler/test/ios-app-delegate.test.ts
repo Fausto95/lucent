@@ -36,6 +36,12 @@ export async function run(): Promise<string> {
     onAppEvent("relaunched", (reason, details) => {
       heard.push(reason === "location" ? details : reason);
     }),
+    onAppEvent("willPresentNotification", (notification) =>
+      notification.includes("quiet") ? [] : ["banner", "sound"],
+    ),
+    onAppEvent("notificationResponse", (action, notification, text) => {
+      heard.push(action + notification.length + text);
+    }),
     onAppEvent("didBecomeActive", () => {}),
   ];
   for (const stop of stops) stop();
@@ -58,6 +64,8 @@ export async function run(): Promise<string> {
       "onBackgroundURLSession",
       "onSupportedInterfaceOrientations",
       "onRelaunched",
+      "onWillPresentNotification",
+      "onNotificationResponse",
     ])
       expect(mm).toContain(`lucent::objc::${fn}(`);
     expect(mm).toContain('lucent::objc::onAppEvent(LUCENT_STR("didBecomeActive")');
@@ -65,6 +73,7 @@ export async function run(): Promise<string> {
     expect(p.r.appDelegateEvents).toEqual([
       "backgroundFetch",
       "backgroundURLSession",
+      "notificationResponse",
       "openURL",
       "pushToken",
       "pushTokenFailed",
@@ -73,6 +82,7 @@ export async function run(): Promise<string> {
       "shortcutItem",
       "supportedInterfaceOrientations",
       "userActivity",
+      "willPresentNotification",
     ]);
   });
 });

@@ -16,6 +16,18 @@
 #include "../native.h"
 #include "ios_ui.h"
 
+/// UNUserNotificationCenter's delegate while a module listens for
+/// notifications: it reports them to Lucent modules, and forwards every
+/// call to the delegate the app had (`next`, which the center held weakly
+/// too), merging their answers as Expo's notifications module merges its
+/// delegates': the presentation options all asked for. Made at the first
+/// subscription, on the main thread, after the app set its own delegate at
+/// launch; one the app sets later replaces it. It reads UserNotifications'
+/// objects by key, so the runtime links nothing more.
+@interface LucentNotificationDelegate : NSObject
+@property(nonatomic, weak) id next;
+@end
+
 namespace lucent::objc {
 
 AppDelegateEvents& AppDelegateEvents::shared() {
@@ -134,6 +146,54 @@ bool reportShortcut(UIApplicationShortcutItem* item) {
       DelegateItem{stringOf(item.type), stringOf(item.localizedTitle), jsonOf(item.userInfo)}));
 }
 
+/// A UNNotification as JSON: its request's identifier and content, its
+/// date, and whether a push or the app scheduled it.
+String notificationJSON(id notification) {
+  id request = [notification valueForKey:@"request"];
+  id content = [request valueForKey:@"content"];
+  id trigger = [request valueForKey:@"trigger"];
+  Class push = NSClassFromString(@"UNPushNotificationTrigger");
+  NSDate* date = [notification valueForKey:@"date"];
+  NSMutableDictionary* out = [NSMutableDictionary dictionary];
+  out[@"identifier"] = [request valueForKey:@"identifier"] ?: @"";
+  for (NSString* key in @[ @"title", @"subtitle", @"body", @"categoryIdentifier", @"threadIdentifier" ])
+    out[key] = [content valueForKey:key] ?: @"";
+  out[@"badge"] = [content valueForKey:@"badge"] ?: [NSNull null];
+  out[@"userInfo"] = [content valueForKey:@"userInfo"] ?: @{};
+  out[@"date"] = date ? @(date.timeIntervalSince1970 * 1000) : [NSNull null];
+  out[@"remote"] = @(push && [trigger isKindOfClass:push]);
+  return jsonOf(out);
+}
+
+/// Runs `work` on the main thread, where reports are made: now if this is it.
+void onMain(dispatch_block_t work) {
+  if (NSThread.isMainThread)
+    work();
+  else
+    dispatch_async(dispatch_get_main_queue(), work);
+}
+
+SEL willPresentSelector() { return NSSelectorFromString(@"userNotificationCenter:willPresentNotification:withCompletionHandler:"); }
+SEL didReceiveSelector() {
+  return NSSelectorFromString(@"userNotificationCenter:didReceiveNotificationResponse:withCompletionHandler:");
+}
+
+void installNotificationDelegate() {
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    onMain(^{
+      Class centers = NSClassFromString(@"UNUserNotificationCenter");
+      if (!centers) return;
+      id center = ((id (*)(id, SEL))objc_msgSend)(centers, NSSelectorFromString(@"currentNotificationCenter"));
+      // The center holds its delegate weakly: this one lives as long as the process.
+      static LucentNotificationDelegate* shared;
+      shared = [[LucentNotificationDelegate alloc] init];
+      shared.next = ((id (*)(id, SEL))objc_msgSend)(center, NSSelectorFromString(@"delegate"));
+      ((void (*)(id, SEL, id))objc_msgSend)(center, NSSelectorFromString(@"setDelegate:"), shared);
+    });
+  });
+}
+
 }  // namespace
 
 String jsonOf(NSDictionary* info) {
@@ -225,10 +285,89 @@ Fn<void()> onRelaunched(Fn<void(String, String)> listener, Opt<AbortSignal> sign
   });
 }
 
+NSUInteger presentationOptionsNamed(const Array<String>& names) {
+  // UNNotificationPresentationOptions' values: the runtime doesn't link UserNotifications.
+  NSUInteger options = 0;
+  for (size_t i = 0; i < names.size(); i++) {
+    const String name = names.at(i);
+    if (name == String::fromLatin1("badge")) options |= 1 << 0;
+    if (name == String::fromLatin1("sound")) options |= 1 << 1;
+    if (name == String::fromLatin1("list")) options |= 1 << 3;
+    if (name == String::fromLatin1("banner")) options |= 1 << 4;
+  }
+  return options;
+}
+
+Fn<void()> onWillPresentNotification(Fn<Array<String>(String)> listener, Opt<AbortSignal> signal) {
+  installNotificationDelegate();
+  return subscribeTo(AppDelegateEvents::shared().willPresentNotification, signal,
+                     [listener](Actor& actor, const String& notification) {
+                       return callNow(actor, [&] { return listener(notification); });
+                     });
+}
+
+Fn<void()> onNotificationResponse(Fn<void(String, String, String)> listener, Opt<AbortSignal> signal) {
+  installNotificationDelegate();
+  return subscribeTo(AppDelegateEvents::shared().notificationResponse, signal, [listener](Actor& actor, const NotificationResponse& r) {
+    enterFromMain(actor, [listener, r] { listener(r.action, r.notification, r.text); });
+  });
+}
+
 }  // namespace lucent::objc
 
 using namespace lucent;
 using namespace lucent::objc;
+
+@implementation LucentNotificationDelegate
+
+- (BOOL)respondsToSelector:(SEL)selector {
+  return [super respondsToSelector:selector] || [self.next respondsToSelector:selector];
+}
+
+/// What only the app's delegate answers (openSettingsForNotification): its own.
+- (id)forwardingTargetForSelector:(SEL)selector {
+  return [self.next respondsToSelector:selector] ? self.next : [super forwardingTargetForSelector:selector];
+}
+
+- (void)userNotificationCenter:(id)center
+       willPresentNotification:(id)notification
+         withCompletionHandler:(void (^)(NSUInteger))completionHandler {
+  onMain(^{
+    NSUInteger asked = 0;
+    for (const Array<String>& answer : AppDelegateEvents::shared().willPresentNotification.report(notificationJSON(notification)))
+      asked |= presentationOptionsNamed(answer);
+
+    id next = self.next;
+    if ([next respondsToSelector:willPresentSelector()]) {
+      ((void (*)(id, SEL, id, id, void (^)(NSUInteger)))objc_msgSend)(next, willPresentSelector(), center, notification,
+                                                                      ^(NSUInteger options) {
+                                                                        completionHandler(options | asked);
+                                                                      });
+    } else {
+      completionHandler(asked);
+    }
+  });
+}
+
+- (void)userNotificationCenter:(id)center
+    didReceiveNotificationResponse:(id)response
+             withCompletionHandler:(void (^)(void))completionHandler {
+  onMain(^{
+    // A text input action's response has the text typed.
+    SEL typed = NSSelectorFromString(@"userText");
+    NSString* text = [response respondsToSelector:typed] ? [response valueForKey:@"userText"] : nil;
+    AppDelegateEvents::shared().notificationResponse.report(NotificationResponse{
+        stringOf([response valueForKey:@"actionIdentifier"]), notificationJSON([response valueForKey:@"notification"]), stringOf(text)});
+
+    id next = self.next;
+    if ([next respondsToSelector:didReceiveSelector()])
+      ((void (*)(id, SEL, id, id, void (^)(void)))objc_msgSend)(next, didReceiveSelector(), center, response, completionHandler);
+    else
+      completionHandler();
+  });
+}
+
+@end
 
 @implementation LucentAppDelegate
 

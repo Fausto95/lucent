@@ -720,7 +720,10 @@ any had some, else failed if any failed, and the orientations are those
 every module that answered allows. A fetch's answers come by a promise,
 and iOS hears them after 25 seconds at the latest. A URL, activity,
 shortcut, push token or relaunch reason that comes before any subscriber
-waits for the first one (`delegate_events.h`).
+waits for the first one (`delegate_events.h`). "willPresentNotification"
+and "notificationResponse" come from the `UNUserNotificationCenter`
+delegate Lucent puts in front of the app's at the first listener: a
+notification is shown as every module and the app's delegate asked.
 
 A platform callback that must answer now (a delegate's result) waits only
 for the code holding the actor, ahead of queued entries; a debug build

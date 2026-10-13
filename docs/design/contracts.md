@@ -447,7 +447,8 @@ takes an `AnalysisInput`: `checker`, `modules`, `platform?`, `native?`,
 in namespace `lucent`, with no JSI type but `lucent/jsi`'s `Host`. The text
 at this version also covers `channel.h` and `hooks.h`, which shipped
 before the text named them. v1.9 added `handed.h`, v1.10
-`delegate_events.h`, and v1.11 the kept `relaunched` event.
+`delegate_events.h`, and v1.11 the kept `relaunched` event and the
+notification delegate's events.
 
 **Implemented by** `packages/runtime/cpp/lucent/`: `scope.h`,
 `execution.h`, `scheduler.h`, `native.h`, `handed.h`, `delegate_events.h`, `async.h`, `abort.h`,
@@ -666,13 +667,13 @@ scene is a `SceneId`, never a pointer.
 receives, which `LucentAppDelegate` (`platform/ios_app_delegate.mm`)
 reports.
 
-| Member                            | Contract                                                                                                                                                                                                                        |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DelegateEvent<P, A>(keep)`       | Listeners in subscription order, on the main thread; `report(p)` gives their answers, a throw's left out.                                                                                                                       |
-| `keep`                            | A report with no subscriber waits for the first one, which hears it on the main thread: a URL, activity, shortcut, push token or relaunch reason.                                                                               |
-| `mergeFetchResults`, `anyHandled` | Expo's merge: new data if any, else failed if any, else no data; handled if any handled.                                                                                                                                        |
-| `FetchAnswers`                    | Each `reply()` answers once; `done` runs once, when all answered after `close()`, or at `expire()` with what came.                                                                                                              |
-| Lucent API                        | `onAppEvent` from `lucent:ios` with `openURL`, `userActivity`, `shortcutItem`, `pushToken`, `pushTokenFailed`, `remoteNotification`, `backgroundFetch`, `backgroundURLSession`, `supportedInterfaceOrientations`, `relaunched`. |
+| Member                            | Contract                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DelegateEvent<P, A>(keep)`       | Listeners in subscription order, on the main thread; `report(p)` gives their answers, a throw's left out.                                                                                                                                                                                                                 |
+| `keep`                            | A report with no subscriber waits for the first one, which hears it on the main thread: a URL, activity, shortcut, push token or relaunch reason.                                                                                                                                                                         |
+| `mergeFetchResults`, `anyHandled` | Expo's merge: new data if any, else failed if any, else no data; handled if any handled.                                                                                                                                                                                                                                  |
+| `FetchAnswers`                    | Each `reply()` answers once; `done` runs once, when all answered after `close()`, or at `expire()` with what came.                                                                                                                                                                                                        |
+| Lucent API                        | `onAppEvent` from `lucent:ios` with `openURL`, `userActivity`, `shortcutItem`, `pushToken`, `pushTokenFailed`, `remoteNotification`, `backgroundFetch`, `backgroundURLSession`, `supportedInterfaceOrientations`, `relaunched`; `willPresentNotification` and `notificationResponse` from Lucent's notification delegate. |
 
 ### Planned
 
