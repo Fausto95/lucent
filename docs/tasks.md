@@ -513,10 +513,11 @@ describes.
       several modules merge as Expo merges them), `backgroundFetch`,
       `backgroundURLSession` (identifier, and a completion the module
       calls), `shortcutItem` and `supportedInterfaceOrientations`.
-- [ ] The URL, user activity, shortcut or relaunch reason (location,
+- [x] The URL, user activity, shortcut or relaunch reason (location,
       Bluetooth, a notification) that launched the app is kept until the
-      first subscriber takes it. URLs, user activities, shortcuts and the
-      push token are (#217); relaunch reasons are left.
+      first subscriber takes it: URLs, user activities, shortcuts and the
+      push token (#217), and relaunch reasons through
+      `onAppEvent("relaunched")` (#223).
 - [ ] `UNUserNotificationCenter`'s delegate (`willPresent`,
       `didReceive`) shared between modules, as Expo's notifications
       module shares it.

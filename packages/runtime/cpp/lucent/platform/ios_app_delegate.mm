@@ -9,6 +9,7 @@
 #include "ios_app_delegate.h"
 
 #include <algorithm>
+#include <cstring>
 #include <memory>
 #include <vector>
 
@@ -115,6 +116,18 @@ bool reportActivity(NSUserActivity* activity) {
       DelegateItem{stringOf(activity.activityType), stringOf(activity.webpageURL.absoluteString), jsonOf(activity.userInfo)}));
 }
 
+/// A reason the app was launched for, with its details as JSON. A
+/// notification is reported once, whichever delegate gives it first.
+void reportRelaunch(const char* reason, id details) {
+  static bool notified = false;
+  const bool notification = std::strcmp(reason, "notification") == 0;
+  if (notification && notified) return;
+  if (notification) notified = true;
+
+  NSDictionary* info = [details isKindOfClass:[NSDictionary class]] ? details : nil;
+  AppDelegateEvents::shared().relaunched.report(DelegateItem{String::fromLatin1(reason), String(), jsonOf(info)});
+}
+
 bool reportShortcut(UIApplicationShortcutItem* item) {
   if (!item) return false;
   return anyHandled(AppDelegateEvents::shared().shortcutItem.report(
@@ -206,6 +219,12 @@ Fn<void()> onSupportedInterfaceOrientations(Fn<double()> listener, Opt<AbortSign
                      [listener](Actor& actor, const bool&) { return callNow(actor, [&] { return listener(); }); });
 }
 
+Fn<void()> onRelaunched(Fn<void(String, String)> listener, Opt<AbortSignal> signal) {
+  return subscribeTo(AppDelegateEvents::shared().relaunched, signal, [listener](Actor& actor, const DelegateItem& r) {
+    enterFromMain(actor, [listener, reason = r.type, details = r.payload] { listener(reason, details); });
+  });
+}
+
 }  // namespace lucent::objc
 
 using namespace lucent;
@@ -220,6 +239,16 @@ using namespace lucent::objc;
   NSDictionary* activity = launchOptions[UIApplicationLaunchOptionsUserActivityDictionaryKey];
   for (id value in activity.allValues)
     if ([value isKindOfClass:[NSUserActivity class]]) reportActivity(value);
+
+  // Relaunched in the background for a location event or a Bluetooth accessory, or opened from a
+  // notification: the restoration identifiers of the Bluetooth managers to make again.
+  if (launchOptions[UIApplicationLaunchOptionsLocationKey]) reportRelaunch("location", @{});
+  if (NSArray* centrals = launchOptions[UIApplicationLaunchOptionsBluetoothCentralsKey])
+    reportRelaunch("bluetoothCentrals", @{@"restorationIdentifiers" : centrals});
+  if (NSArray* peripherals = launchOptions[UIApplicationLaunchOptionsBluetoothPeripheralsKey])
+    reportRelaunch("bluetoothPeripherals", @{@"restorationIdentifiers" : peripherals});
+  if (NSDictionary* notification = launchOptions[UIApplicationLaunchOptionsRemoteNotificationKey])
+    reportRelaunch("notification", notification);
 }
 
 + (BOOL)application:(UIApplication*)application openURL:(NSURL*)url options:(NSDictionary<UIApplicationOpenURLOptionsKey, id>*)options {
@@ -301,6 +330,9 @@ using namespace lucent::objc;
   for (UIOpenURLContext* context in connectionOptions.URLContexts) reportURL(context.URL, context.options.sourceApplication);
   for (NSUserActivity* activity in connectionOptions.userActivities) reportActivity(activity);
   reportShortcut(connectionOptions.shortcutItem);
+  // A UNNotificationResponse, read by key so that the runtime needs no UserNotifications.
+  if (id opened = connectionOptions.notificationResponse)
+    reportRelaunch("notification", [opened valueForKeyPath:@"notification.request.content.userInfo"]);
 }
 
 + (BOOL)scene:(UIScene*)scene openURLContexts:(NSSet<UIOpenURLContext*>*)URLContexts {

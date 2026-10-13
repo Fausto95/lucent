@@ -213,6 +213,9 @@ describe("lucent build, with the events modules listen for", () => {
       "didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler) { completionHandler(.noData) }",
     );
 
+    // Relaunch reasons come with the launch options, which init's line forwards.
+    expect(warned(["relaunched"])).toEqual([]);
+
     // Expo's AppDelegate forwards everything to Lucent's subscriber.
     expect(warned(["remoteNotification", "openURL"], true)).toEqual([]);
   });
