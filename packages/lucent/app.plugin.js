@@ -146,8 +146,43 @@ function withPackageEntries(app, packages) {
   return out;
 }
 
+/**
+ * The app's AndroidManifest.xml (as Expo's mods parse it) with the main
+ * Activity's attributes Lucent packages need: picture in picture, and the
+ * configChanges values it lacks. The app's own launchMode stands; a
+ * package that needs another is warned about (`warn`).
+ */
+function withMainActivity(manifest, needs, warn = () => {}) {
+  if (!needs) return manifest;
+  const activities = manifest.manifest?.application?.[0]?.activity ?? [];
+  const launcher = (a) =>
+    (a["intent-filter"] ?? []).some((f) =>
+      (f.category ?? []).some((c) => c.$?.["android:name"] === "android.intent.category.LAUNCHER"),
+    );
+  const main = activities.find(launcher);
+  if (!main) return manifest;
+
+  const attributes = (main.$ ??= {});
+  if (needs.supportsPictureInPicture) attributes["android:supportsPictureInPicture"] = "true";
+
+  const handled = (attributes["android:configChanges"] ?? "").split("|").filter(Boolean);
+  const added = Object.keys(needs.configChanges ?? {}).filter((v) => !handled.includes(v));
+  if (added.length) attributes["android:configChanges"] = [...handled, ...added].join("|");
+
+  const mode = needs.launchMode?.value;
+  if (mode && !attributes["android:launchMode"]) attributes["android:launchMode"] = mode;
+  else if (mode && attributes["android:launchMode"] !== mode)
+    warn(
+      `${needs.launchMode.from.join(" and ")} need android:launchMode="${mode}" on the main Activity, which says ${attributes["android:launchMode"]}: the app's stands`,
+    );
+
+  return manifest;
+}
+
 function withLucent(config) {
   const {
+    WarningAggregator,
+    withAndroidManifest,
     withAppBuildGradle,
     withDangerousMod,
     withEntitlementsPlist,
@@ -174,6 +209,14 @@ function withLucent(config) {
     c.modResults = withPackageEntries(c.modResults, ios.entitlements || {});
     return c;
   });
+  config = withAndroidManifest(config, (c) => {
+    if (!c.modRequest.introspect) buildOnce(c.modRequest.projectRoot);
+    const { android } = resolvedNative(c.modRequest.projectRoot);
+    c.modResults = withMainActivity(c.modResults, android?.mainActivity, (text) =>
+      WarningAggregator.addWarningAndroid("lucent", text),
+    );
+    return c;
+  });
   for (const platform of ["ios", "android"]) {
     config = withDangerousMod(config, [
       platform,
@@ -193,3 +236,4 @@ module.exports.buildArgs = buildArgs;
 module.exports.prebuildPlatforms = prebuildPlatforms;
 module.exports.linkNativePackage = linkNativePackage;
 module.exports.withPackageEntries = withPackageEntries;
+module.exports.withMainActivity = withMainActivity;

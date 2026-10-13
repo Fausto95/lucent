@@ -72,6 +72,30 @@ export interface ManifestComponent {
   metaData?: Record<string, string>;
 }
 
+/** The launch modes an Activity can have (`android:launchMode`). */
+export const LAUNCH_MODES = [
+  "standard",
+  "singleTop",
+  "singleTask",
+  "singleInstance",
+  "singleInstancePerTask",
+] as const;
+
+/**
+ * Attributes the code needs on the app's main Activity, which the app's
+ * manifest declares (react-native-video's picture in picture). A bare
+ * app's build names the ones its manifest lacks; the Expo config plugin
+ * writes them.
+ */
+export interface MainActivityAttributes {
+  /** `android:supportsPictureInPicture="true"`. */
+  supportsPictureInPicture?: boolean;
+  /** `android:configChanges` values the Activity must handle itself, added to the app's (`["orientation", "screenSize"]`). */
+  configChanges?: string[];
+  /** `android:launchMode`. */
+  launchMode?: (typeof LAUNCH_MODES)[number];
+}
+
 /**
  * A native extension: a C header whose functions Lucent code calls, and
  * what those functions do that C declarations cannot say. Every name is a
@@ -169,6 +193,8 @@ export interface PackageNative {
     /** Directories of prebuilt `<abi>/lib*.so` libraries packaged into the app. */
     nativeLibraries?: string[];
     components?: ManifestComponent[];
+    /** What the code needs on the app's main Activity. */
+    mainActivity?: MainActivityAttributes;
     /** The lowest Android API level the code runs on. */
     minSdk?: number;
   };
@@ -356,6 +382,11 @@ export const PACKAGE_FIELDS = {
     libraries: strings,
     nativeLibraries: strings,
     components: listOf(component),
+    mainActivity: fields({
+      supportsPictureInPicture: boolean,
+      configChanges: strings,
+      launchMode: oneOf(LAUNCH_MODES),
+    } satisfies Record<keyof MainActivityAttributes, Check>),
     minSdk: positiveInteger,
   },
 } satisfies {

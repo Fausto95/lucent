@@ -358,6 +358,34 @@
             }
           }
         },
+        "mainActivity": {
+          "type": "object",
+          "description": "Attributes the package needs on the app's main Activity, which the app's manifest declares. A bare app's lucent build names the ones its manifest lacks; the Expo config plugin writes them.",
+          "additionalProperties": false,
+          "properties": {
+            "supportsPictureInPicture": {
+              "type": "boolean",
+              "description": "android:supportsPictureInPicture=\"true\", for a player that goes picture in picture. false asks nothing."
+            },
+            "configChanges": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "android:configChanges values the Activity must handle itself instead of being recreated, added to the app's (orientation, screenSize)."
+            },
+            "launchMode": {
+              "enum": [
+                "standard",
+                "singleTop",
+                "singleTask",
+                "singleInstance",
+                "singleInstancePerTask"
+              ],
+              "description": "android:launchMode. Packages that ask for different ones fail the build."
+            }
+          }
+        },
         "minSdk": {
           "type": "integer",
           "minimum": 1,

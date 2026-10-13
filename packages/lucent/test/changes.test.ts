@@ -31,6 +31,7 @@ function manifest(over: Partial<ResolvedNative["ios"]> = {}): ResolvedNative {
       libraries: [at("libs/orbit.aar")],
       nativeLibraries: [at("jniLibs")],
       components: {},
+      mainActivity: { configChanges: {} },
     },
     extensions: {},
   };
@@ -121,6 +122,11 @@ describe("classifying a build's changes into the actions the app needs", () => {
     });
     expect(classify({ written: ["resolved.json"], manifest: plist })).toEqual([
       { kind: "reinstall", targets: ["ios"], files: ["resolved.json#ios.infoPlist"] },
+    ]);
+    const pip = manifest();
+    pip.android.mainActivity = { supportsPictureInPicture: ["lucent-orbit"], configChanges: {} };
+    expect(classify({ written: ["resolved.json"], manifest: pip })).toEqual([
+      { kind: "reinstall", targets: ["android"], files: ["resolved.json#android.mainActivity"] },
     ]);
     // The rest of resolved.json is reflected in the build files.
     expect(classify({ written: ["resolved.json", "manifest.json"] })).toEqual([]);

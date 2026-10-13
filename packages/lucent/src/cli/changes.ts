@@ -168,6 +168,13 @@ export function classifyChanges(change: NativeChange): PendingAction[] {
       for (const key of APP_CONFIGURATION)
         if (canonical(change.manifest.ios[key]) !== canonical(change.previous?.ios[key] ?? {}))
           need("reinstall", ["ios"], `resolved.json#ios.${key}`);
+      // The main Activity's attributes, which the app's manifest takes.
+      const noAttributes = { configChanges: {} };
+      if (
+        canonical(change.manifest.android.mainActivity ?? noAttributes) !==
+        canonical(change.previous?.android.mainActivity ?? noAttributes)
+      )
+        need("reinstall", ["android"], "resolved.json#android.mainActivity");
 
       for (const platform of ["ios", "android"] as const)
         for (const [field, of] of Object.entries(LINKED_DEPENDENCIES[platform]))

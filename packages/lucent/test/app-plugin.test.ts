@@ -15,6 +15,20 @@ const plugin = require("../app.plugin.js") as {
     app: Record<string, unknown>,
     packages: Record<string, { value: unknown }>,
   ) => Record<string, unknown>;
+  withMainActivity: (
+    manifest: Manifest,
+    needs: {
+      supportsPictureInPicture?: string[];
+      configChanges: Record<string, string[]>;
+      launchMode?: { value: string; from: string[] };
+    },
+    warn?: (text: string) => void,
+  ) => Manifest;
+};
+
+/** AndroidManifest.xml as Expo's mods parse it. */
+type Manifest = {
+  manifest: { application: { activity: { $: Record<string, string>; [k: string]: unknown }[] }[] };
 };
 
 function app(config?: string): string {
@@ -85,6 +99,66 @@ describe("the Expo config plugin's Info.plist entries from Lucent packages", () 
   });
 });
 
+describe("the Expo config plugin's main Activity attributes from Lucent packages", () => {
+  const manifest = (attributes: Record<string, string>): Manifest => ({
+    manifest: {
+      application: [
+        {
+          activity: [
+            { $: { "android:name": ".Other" } },
+            {
+              $: { "android:name": ".MainActivity", ...attributes },
+              "intent-filter": [
+                {
+                  action: [{ $: { "android:name": "android.intent.action.MAIN" } }],
+                  category: [{ $: { "android:name": "android.intent.category.LAUNCHER" } }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  });
+
+  it("adds picture in picture and the configChanges the app lacks, and keeps its launchMode", () => {
+    const warnings: string[] = [];
+    const out = plugin.withMainActivity(
+      manifest({
+        "android:configChanges": "orientation|screenSize",
+        "android:launchMode": "singleTask",
+      }),
+      {
+        supportsPictureInPicture: ["lucent-video"],
+        configChanges: { screenSize: ["lucent-video"], smallestScreenSize: ["lucent-video"] },
+        launchMode: { value: "singleTop", from: ["lucent-video"] },
+      },
+      (w) => warnings.push(w),
+    );
+
+    expect(out.manifest.application[0]!.activity[1]!.$).toEqual({
+      "android:name": ".MainActivity",
+      "android:configChanges": "orientation|screenSize|smallestScreenSize",
+      "android:launchMode": "singleTask",
+      "android:supportsPictureInPicture": "true",
+    });
+    expect(out.manifest.application[0]!.activity[0]!.$).toEqual({ "android:name": ".Other" });
+    expect(warnings).toEqual([
+      'lucent-video need android:launchMode="singleTop" on the main Activity, which says singleTask: the app\'s stands',
+    ]);
+  });
+
+  it("sets a launchMode the app doesn't, and changes nothing when no package asks", () => {
+    expect(
+      plugin.withMainActivity(manifest({}), {
+        configChanges: {},
+        launchMode: { value: "singleTop", from: ["lucent-video"] },
+      }).manifest.application[0]!.activity[1]!.$["android:launchMode"],
+    ).toBe("singleTop");
+    expect(plugin.withMainActivity(manifest({}), { configChanges: {} })).toEqual(manifest({}));
+  });
+});
+
 describe("the Expo config plugin's Gradle task", () => {
   it("applies the Gradle task to a Kotlin app build script during prebuild", async () => {
     const { compileModsAsync } = require("expo/config-plugins") as {
@@ -98,6 +172,12 @@ describe("the Expo config plugin's Gradle task", () => {
     fs.mkdirSync(path.join(root, "android/app"), { recursive: true });
     fs.writeFileSync(path.join(root, "android/app/build.gradle.kts"), script);
     fs.writeFileSync(path.join(root, "android/settings.gradle.kts"), 'include(":app")\n');
+    // What the main Activity's attributes go into.
+    fs.mkdirSync(path.join(root, "android/app/src/main"), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, "android/app/src/main/AndroidManifest.xml"),
+      '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application/></manifest>\n',
+    );
     fs.writeFileSync(path.join(root, "package.json"), '{ "name": "app" }\n');
     fs.writeFileSync(
       path.join(root, "a.lucent.ts"),
