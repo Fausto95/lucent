@@ -314,10 +314,12 @@ through its ref, and logs its verdict as the Tests screen does.
 ```sh
 node scripts/device-check.ts ios --app apps/bare-example/ios/build/Build/Products/Debug-iphonesimulator/BareExample.app
 node scripts/device-check.ts android --apk apps/bare-example/android/app/build/outputs/apk/debug/app-debug.apk
+node scripts/device-check.ts ios --app <LucentExpoExample.app> --example expo --no-metro
+node scripts/device-check.ts android --apk apps/expo-example/android/app/build/outputs/apk/release/app-release.apk --example expo --no-metro
 ```
 
-`scripts/device-check.ts` installs the bare example's Debug build on a
-booted simulator or a running emulator, and opens its Tests screen. That
+`scripts/device-check.ts` installs an example app's build on a booted
+simulator or a running emulator, and opens its Tests screen. That
 screen runs the one-module e2e cases through the C++ the platform's own
 toolchain built. Then it opens the Platform screen, which checks what
 only the platform gives module code. A launch module's state started at
@@ -327,15 +329,21 @@ receiver the OS makes from a Lucent class. Frames
 reach a channel through an executor without a copy, and the app opens a
 deep link to itself. On iOS
 a push registration answers, and on Android a back press and a rotation
-reach the module. Start Metro on port 8081 first: the Debug build loads
-its bundle from it.
+reach the module.
+
+The bare example's Debug build loads its bundle from Metro: start Metro
+on port 8081 first. The Expo example (`--example expo`) is built as an
+Expo app is: `expo prebuild --no-install`, then `pod install` on iOS,
+which builds Lucent's modules through the Podfile's hook, and the Gradle
+build on Android. CI builds it for Release, which carries its bundle
+(`--no-metro`).
 
 The script follows each screen's `LUCENT_PROGRESS` lines to its
 `LUCENT_SUMMARY <screen> N/M passed` verdict. It gives up early when the
 app exits or a run stops moving. On failure it keeps the log, a screenshot and the summary
 in `$DEVICE_CHECK_OUT`. By hand, open a screen with a deep link
-(`lucentbare://lab/tests`) or, on iOS, a launch argument
-(`-lucentTab lab/sdk`).
+(`lucentbare://lab/tests`, `lucentexpo://lab/tests`) or, on iOS, a launch
+argument (`-lucentTab lab/sdk`).
 
 With `--id <bundle id or package>` (and `--process <name>` on iOS), it
 runs another app the same way, opened as its launcher opens it, which is
@@ -390,7 +398,7 @@ nightly schedule (03:17 UTC) and by hand. Its `changes` job
 | Website                                             | `website.ts --check`, typecheck, build                                                                                                                                                | `packages/`, `apps/website/`, the website scripts, `README.md`, `ROADMAP.md` and the other files it reads |
 | SDK coverage, runtime (libc++)                      | `SANITIZE=1 run.sh` with clang; `lucent sdk coverage --check config/sdk-coverage.json`                                                                                                | `packages/`, `config/sdk-coverage.json`                                                                   |
 | Bare example (iOS simulator build), (Android build) | `pod install`, `lucent build`, `pod install`, `xcodebuild` (outside pull requests, also with `use_frameworks!` static and dynamic); `lucent build`, Android coverage, `assembleDebug` | `packages/`, the bare app and its sources                                                                 |
-| Device run (iOS, Android)                           | `devices.yml`: `device-check.ts` on the simulator and on an API 35 emulator                                                                                                           | Never: nightly and by hand                                                                                |
+| Device run (iOS, Android), each example             | `devices.yml`: `device-check.ts` on the simulator and on an API 35 emulator, the bare example's Debug build and the Expo example's Release build                                      | Never: nightly and by hand                                                                                |
 | Window apps                                         | `window.yml`: `window-app.ts` for each app of the matrix                                                                                                                              | Never: nightly and by hand                                                                                |
 | CI                                                  | Passes when every job above but the device and window runs passed or was skipped                                                                                                      | Always                                                                                                    |
 
@@ -469,7 +477,7 @@ Every new build of Lucent C++ passes `-ffp-contract=off`.
    `ui/android-children.test.ts`), and the Compose host's rules on the JVM
    (`compose-host.test.ts`).
 5. The React Native releases job compiles the Fabric sources against each
-   release. Device runs open the Tests screen only, so run a view's demo in
+   release. Device runs open the Tests and Platform screens only, so run a view's demo in
    the example apps by hand, on a simulator and an emulator.
 
 ## Generated files to keep in step
