@@ -14,7 +14,10 @@
 import { createHash } from "node:crypto";
 import type { Platform } from "../sdk/schema.ts";
 
-/** Plain data a view receives as a prop, an event sends, or a command takes and answers. */
+/**
+ * Plain data a view receives as a prop, an event sends, or a command takes
+ * and answers; and, in a prop only, an instance of an exported class.
+ */
 export type ViewType =
   | { readonly k: "number" }
   | { readonly k: "boolean" }
@@ -24,7 +27,18 @@ export type ViewType =
   | { readonly k: "array"; readonly element: ViewType }
   | { readonly k: "object"; readonly fields: readonly ViewField[] }
   /** The value, or null. */
-  | { readonly k: "nullable"; readonly inner: ViewType };
+  | { readonly k: "nullable"; readonly inner: ViewType }
+  /**
+   * An instance of an exported Lucent class, or of a class extending it: a
+   * prop's only. `class` is its id (`<Lucent module>.<name>`), `module` the
+   * Lucent module whose JavaScript exports it.
+   */
+  | {
+      readonly k: "instance";
+      readonly class: string;
+      readonly name: string;
+      readonly module: string;
+    };
 
 /**
  * A prop, an object field or a parameter. `optional`: it may be missing
@@ -110,7 +124,7 @@ export interface ComponentDescription {
 }
 
 /** The version of the description's layout; a change consumers must follow bumps it. */
-export const VIEW_CONTRACT_VERSION = 2;
+export const VIEW_CONTRACT_VERSION = 3;
 
 /** A component's identity. */
 export function componentId(pkg: string, module: string, name: string): string {

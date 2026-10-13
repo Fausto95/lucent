@@ -164,6 +164,8 @@ class ValueTypes {
         return this.enumType(t.values, path);
       case "object":
         return this.objectType(t.fields, path);
+      case "instance":
+        return cpp.type("lucent::views::Instance");
     }
   }
 

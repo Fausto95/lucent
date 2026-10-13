@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                             | Date       | Decision                                                                    |
 | ---------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| [0098](0098-an-instance-prop-is-held-from-its-commit-and-checked-by-member.md)     | 2026-10-13 | An instance prop is held from its commit, and checked member by member      |
 | [0097](0097-exported-classes-extending-android-classes-are-os-made.md)             | 2026-10-13 | An exported class extending an Android class is one the OS can make         |
 | [0096](0096-ios-background-tasks-are-package-code-a-launch-module-registers.md)    | 2026-10-13 | iOS background tasks are package code a launch module registers             |
 | [0095](0095-android-loads-appmodules-itself-for-launch.md)                         | 2026-10-13 | Android loads the app's appmodules itself, not a library of Lucent's own    |

@@ -11,7 +11,8 @@
  */
 import path from "node:path";
 import ts from "typescript";
-import { analyze, type Cause, type ProgramFacts, type Unit } from "../analysis/index.ts";
+import { analyze, type Cause, describe, type ProgramFacts, type Unit } from "../analysis/index.ts";
+import { code } from "../analysis/facts.ts";
 import { NO_NATIVE, type NativeFactsSource, SDK_NATIVE } from "../analysis/native.ts";
 import { Codes, type Diagnostic } from "../diagnostics.ts";
 import { platformScopes } from "../platforms.ts";
@@ -30,6 +31,8 @@ import {
   type ComponentDescription,
   componentId,
   registrationName,
+  type ViewField,
+  type ViewType,
 } from "./contract.ts";
 import {
   describeCommands,
@@ -52,9 +55,10 @@ import {
   SLOT_VIEWS,
   sdkRoot,
   sdkSlot,
+  toolkitOf,
 } from "./roots.ts";
 import { setupSlot } from "./slot.ts";
-import { ViewTypes } from "./values.ts";
+import { type InstanceClass, ViewTypes } from "./values.ts";
 
 /** What the analysis needs to know about the program's SDKs and helpers. */
 export interface ViewEnv {
@@ -174,7 +178,7 @@ export function analyzeViews(lp: LucentProgram, env: ViewEnv = sdkViews(lp)): Vi
       ...commandFunctions(checker, c, calls.exposes, lp.platform),
     ]),
   });
-  const types = new ViewTypes(checker, (t, name) => facts.transfer(t, name));
+  const types = new ViewTypes(checker, (t, name) => facts.transfer(t, name), lucentClasses(lp));
   const components: ComponentDescription[] = [];
   const setups = new Map<string, FunctionLike>();
 
@@ -575,6 +579,14 @@ function describeComponent(
 
   props.problems.forEach(report);
 
+  // A toolkit body's values cross into Swift and Kotlin as data (T123).
+  if (toolkitOf(classIdentity(checker, c.root)))
+    for (const p of props.props.filter((x) => holdsInstance(x.type)))
+      report({
+        message: `\`${c.name}\`'s prop \`${p.name}\` holds an instance: a SwiftUI or Compose body takes plain data only, for now`,
+        node: c.props && checker.getTypeAtLocation(c.props).getProperty(p.name)?.valueDeclaration,
+      });
+
   if (!props.problems.length)
     diagnostics.push(...declarationMismatch(checker, types, env, c, props));
 
@@ -589,7 +601,7 @@ function describeComponent(
     : [];
   const named = exposed.commands ? namedFunctions(checker, exposed.commands) : [];
 
-  diagnostics.push(...mainThread(facts, c, named));
+  diagnostics.push(...mainThread(facts, c, named, instanceClasses(checker, props.props, c)));
 
   if (diagnostics.length || !identity) return { diagnostics };
 
@@ -732,7 +744,12 @@ function exposedCommands(
  * commands name (`named`) cannot run on the main thread. One cause is
  * reported once per rule, however many of them reach it.
  */
-function mainThread(facts: ProgramFacts, c: Candidate, named: readonly ts.Node[]): Diagnostic[] {
+function mainThread(
+  facts: ProgramFacts,
+  c: Candidate,
+  named: readonly ts.Node[],
+  classes: ReadonlySet<ts.ClassLikeDeclaration>,
+): Diagnostic[] {
   const setup = facts.unit(c.fn);
 
   // A host program's stub declares a component without code.
@@ -756,7 +773,69 @@ function mainThread(facts: ProgramFacts, c: Candidate, named: readonly ts.Node[]
       out.push({ ...at(v.cause.node, Codes.ComponentMainThread, v.message), fix: v.fix });
     }
 
+  // Instances its props reach: their members' uses off the main thread.
+  for (const race of facts.viewMemberRaces(roots, classes))
+    out.push({
+      ...at(
+        race.view.node,
+        Codes.ComponentMainThread,
+        `${code(c.name)} cannot run on the main thread: it ${describe(race.view)}. It is not the main thread's alone: ${race.other}.`,
+      ),
+      fix: "use the member only on the main thread (in views and `main()` callbacks), or make it `readonly` and assign it in the constructor only",
+    });
+
   return out;
+}
+
+/** The Lucent classes whose instances component `c`'s props take. */
+function instanceClasses(
+  checker: ts.TypeChecker,
+  props: readonly ViewField[],
+  c: Candidate,
+): Set<ts.ClassLikeDeclaration> {
+  const out = new Set<ts.ClassLikeDeclaration>();
+  const type = c.props && checker.getTypeAtLocation(c.props);
+
+  const visit = (t: ts.Type, seen: Set<ts.Type>): void => {
+    if (seen.has(t)) return;
+
+    seen.add(t);
+
+    if (t.isUnion()) return t.types.forEach((m) => visit(m, seen));
+
+    const decl = t.getSymbol()?.declarations?.find(ts.isClassLike);
+
+    if (decl && !decl.getSourceFile().isDeclarationFile) out.add(decl);
+
+    if (checker.isArrayType(t))
+      checker.getTypeArguments(t as ts.TypeReference).forEach((a) => visit(a, seen));
+    else if (!decl && t.flags & ts.TypeFlags.Object && !t.getCallSignatures().length)
+      for (const p of checker.getPropertiesOfType(t)) visit(checker.getTypeOfSymbol(p), seen);
+  };
+
+  for (const p of props) {
+    const symbol = type?.getProperty(p.name);
+
+    if (symbol && holdsInstance(p.type)) visit(checker.getTypeOfSymbol(symbol), new Set());
+  }
+
+  return out;
+}
+
+/** Whether a view value holds an instance anywhere. */
+function holdsInstance(t: ViewType): boolean {
+  switch (t.k) {
+    case "instance":
+      return true;
+    case "nullable":
+      return holdsInstance(t.inner);
+    case "array":
+      return holdsInstance(t.element);
+    case "object":
+      return t.fields.some((f) => holdsInstance(f.type));
+    default:
+      return false;
+  }
 }
 
 /** The last step of a cause path: what breaks the rule. */
@@ -773,6 +852,28 @@ function within(unit: Unit, parent: Unit): boolean {
   for (let u = unit.parent; u; u = u.parent) if (u === parent) return true;
 
   return false;
+}
+
+/**
+ * The Lucent classes of `lp`'s modules: each one's id (`<module>.<name>`,
+ * as the emitter registers it) and whether its module exports it. A split
+ * module's declaration file is its module's.
+ */
+function lucentClasses(lp: LucentProgram): InstanceClass {
+  const modules = new Map<ts.SourceFile, string>();
+
+  for (const m of lp.modules) {
+    modules.set(m.sourceFile, m.name);
+    if (m.declaration) modules.set(m.declaration, m.name);
+  }
+
+  return (decl) => {
+    const module = modules.get(decl.getSourceFile());
+
+    if (!module || !decl.name) return undefined;
+
+    return { id: `${module}.${decl.name.text}`, module, exported: exported(decl) };
+  };
 }
 
 function exported(s: ts.Statement): boolean {

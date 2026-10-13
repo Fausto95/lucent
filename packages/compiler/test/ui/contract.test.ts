@@ -179,7 +179,7 @@ export function Bad(props: Props): Label {
       "`Bad`'s prop `view` is a main-thread native object (View): views take plain data (numbers, strings, booleans, arrays and plain objects)",
       "`Bad`'s prop `at` is a `Date`: views take plain data (numbers, strings, booleans, arrays and plain objects)",
       "`Bad`'s prop `nested.f` is a function: only a top-level prop can be an event",
-      "`Bad`'s prop `point` is a `Point` object: views take plain data (numbers, strings, booleans, arrays and plain objects)",
+      "`Bad`'s prop `point` is a `Point`, which its module does not export: a prop takes instances of an exported class, which JavaScript makes",
       "`Bad`'s prop `items` is a `Map`: views take plain data (numbers, strings, booleans, arrays and plain objects)",
     ]);
   });

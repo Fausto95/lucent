@@ -140,7 +140,8 @@ Each member of the props object that isn't a function is a prop. A prop's type i
 | `bigint` | no | Pass a number or a string. |
 | A union of different types, `string \| number` | no | A view value has one type. |
 | A tuple | no | Use an object. |
-| A class instance, a `Date`, a `Map`, a `Record`, a native object | no | Only plain objects with declared fields cross. |
+| An instance of an exported class | yes | Its class takes no type arguments: see [Instances](#instances). |
+| Another class's instance, a `Date`, a `Map`, a `Record`, a native object | no | Only plain objects with declared fields cross. |
 | A function | as an event | See [Events](#events). |
 
 A missing prop and `null` are different values. Setup reads `undefined` for a prop JavaScript leaves out, and `null` for one it sets to null.
@@ -156,6 +157,59 @@ These names belong to React or to the host, and fail as props:
 Setup runs once per mount, so read a prop where its value is used. An `effect`, a SwiftUI or Compose body and a JSX attribute read it again after a commit changes it.
 
 Setup reading a prop in its own code, outside the functions it makes and outside JSX, warns with LUCENT3021: that value never changes. Setup using `props` as a whole, such as passing it on or copying it, fails with LUCENT3021.
+
+### Instances
+
+A prop can be an instance of a class its module exports, as Expo's `VideoView` takes a player. It can be alone, `T | null`, or in an array:
+
+```tsx title="track.lucent.tsx"
+import { appContext } from "lucent:android";
+import { TextView } from "lucent:android/android.widget";
+import { UILabel } from "lucent:ios/UIKit";
+import { PLATFORM } from "lucent:platform";
+import { effect } from "lucent:ui";
+
+export class Track {
+  readonly title: string;
+
+  constructor(title: string) {
+    this.title = title;
+  }
+}
+
+export function TrackView(props: { track: Track; next?: Track | null }) {
+  const shown = () =>
+    props.next ? `${props.track.title}, then ${props.next.title}` : props.track.title;
+
+  if (PLATFORM === "ios") {
+    const label = new UILabel();
+
+    effect(() => {
+      label.text = shown();
+    });
+
+    return label;
+  }
+
+  const text = new TextView(appContext());
+
+  effect(() => {
+    text.setText(shown());
+  });
+
+  return text;
+}
+```
+
+JavaScript passes the instance itself: `<TrackView track={new Track("Intro")} />`. A value that isn't an instance of the class throws a `TypeError` where React renders it. The view holds the instance while it shows it, so the instance lives until JavaScript, the view and Lucent code all let it go.
+
+Setup runs on the main thread without the lock module code takes. So it may use a member of an instance only where no race can happen:
+
+- A member nothing writes once the instance is made, such as a `readonly` field, can be read anywhere.
+- A member only main-thread code uses is the main thread's: setup, the functions it makes, and `main()` callbacks.
+- A member that code off the main thread uses too, either one writing it, fails with [LUCENT3022](/docs/api/diagnostics/#lucent3022). JavaScript counts as that code: it reads a public field, and writes one that isn't `readonly`.
+
+Using a member that holds an array or an object counts as writing it, since it may change what it holds. A SwiftUI or Compose body takes no instance prop yet.
 
 ## Events
 
@@ -328,7 +382,7 @@ A mount is one run of setup on one host view, for as long as that view shows tha
 | --- | --- |
 | [LUCENT3020](/docs/api/diagnostics/#lucent3020) | An export that returns a view but can't be a component, or Lucent code that calls a component. |
 | [LUCENT3021](/docs/api/diagnostics/#lucent3021) | A prop, event, command or slot that breaks these rules, or a name React or the host keeps. Also `props` used as a whole, and setup giving the platform an instance of a Lucent class: give it a function. A prop read once in setup warns. |
-| [LUCENT3022](/docs/api/diagnostics/#lucent3022) | Setup code that can't run on the main thread: module state, code the compiler can't follow, or native code unfit for it. |
+| [LUCENT3022](/docs/api/diagnostics/#lucent3022) | Setup code that can't run on the main thread: module state, code the compiler can't follow, or native code unfit for it. Also an instance's member that code off the main thread uses too. |
 | [LUCENT3023](/docs/api/diagnostics/#lucent3023) | Props, events or commands that differ between platforms, or a component on one platform only. |
 | [LUCENT3024](/docs/api/diagnostics/#lucent3024) | A SwiftUI or Compose body Lucent can't write out: see [SwiftUI and Compose in JSX](/docs/api/views/swiftui-and-compose/#diagnostics). |
 | [LUCENT3025](/docs/api/diagnostics/#lucent3025) | UIKit or Android JSX Lucent can't make: see [UIKit and Android views in JSX](/docs/api/views/platform-views/#diagnostics). |

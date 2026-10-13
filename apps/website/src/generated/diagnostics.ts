@@ -494,7 +494,7 @@ export const explanations: { code: string; title: string; summary: string; detai
     "code": "LUCENT3021",
     "title": "Component prop, event or command that cannot cross",
     "summary": "A component prop, event or ref command whose type views cannot carry, or whose name React or the host keeps.",
-    "details": "Props, event arguments and command arguments and results are plain data: numbers, strings, booleans, string literal unions, arrays and plain objects, possibly null. A function prop is an event named `on…`, whose call from the view posts its arguments to JavaScript, so it returns nothing. `key`, `ref`, `children` and `style` belong to React and the host.",
+    "details": "Props, event arguments and command arguments and results are plain data: numbers, strings, booleans, string literal unions, arrays and plain objects, possibly null. A function prop is an event named `on…`, whose call from the view posts its arguments to JavaScript, so it returns nothing. `key`, `ref`, `children` and `style` belong to React and the host.\n\nA prop may also be an instance of an exported class, alone, possibly null, or in an array. The view holds it while it shows it. Its class takes no type arguments, no event or command takes an instance, and a SwiftUI or Compose body takes none yet.",
     "fix": "pass plain data, make events return nothing, and name them onSomething",
     "wrong": {
       "package.json": "{ \"name\": \"example-app\" }\n",
@@ -509,7 +509,7 @@ export const explanations: { code: string; title: string; summary: string; detai
     "code": "LUCENT3022",
     "title": "Component code that cannot run on the main thread",
     "summary": "A component's setup, or a function it creates, using module state, code the compiler cannot follow, or native code unfit for the main thread.",
-    "details": "A component sets up its view on the main (UI) thread, where its handlers run, and reads only module state main-thread code alone uses. Code the compiler cannot follow may do anything; blocking or background-only native code freezes the UI. Calling an event prop directly (`props.onChange?.(value)`) is fine: it posts the event to JavaScript.",
+    "details": "A component sets up its view on the main (UI) thread, where its handlers run, and reads only module state main-thread code alone uses. Code the compiler cannot follow may do anything; blocking or background-only native code freezes the UI. Calling an event prop directly (`props.onChange?.(value)`) is fine: it posts the event to JavaScript.\n\nA view may use an instance prop's member that only main-thread code uses, or that nothing writes once made. One that code off the main thread uses too, either of them writing it, is refused where the view uses it. Neither `main()` callbacks nor the constructor count.",
     "fix": "keep the state in the component (a local), or pass it in as a prop",
     "wrong": {
       "package.json": "{ \"name\": \"example-app\" }\n",

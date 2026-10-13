@@ -40,6 +40,7 @@ import { type MainState, mainStateOf } from "./main-state.ts";
 import { type Escape, solve, type Solved } from "./solve.ts";
 import { type AnalysedModule, findUnits, type Unit } from "./units.ts";
 import { executorClasses } from "./executors.ts";
+import { type MemberRace, viewMemberRaces } from "./view-members.ts";
 
 export type { Cause, Step, Summary } from "./facts.ts";
 export { describe, stepsOf } from "./facts.ts";
@@ -48,6 +49,7 @@ export { classMade, inExecutorCode, isOnCall, keptOn } from "./executors.ts";
 export type { NativeCallback, NativeClass, NativeFactsSource, NativeUse } from "./native.ts";
 export type { Capture, Context, Rule, TransferProblem, Violation } from "./ownership.ts";
 export type { MainState } from "./main-state.ts";
+export type { MemberRace } from "./view-members.ts";
 export type { EscapeKind } from "./local.ts";
 export type { AnalysedModule, ModuleVar, Unit, UnitKind } from "./units.ts";
 export { literalConstant } from "./units.ts";
@@ -95,6 +97,15 @@ export interface ProgramFacts {
   check(unit: Unit, context: Context): Violation[];
   /** The module state only main-thread code uses, which views may use too (main-state.ts). */
   mainState(): MainState;
+  /**
+   * The members of instances of `classes` (and of the classes they reach)
+   * that a view's code, run from `roots`, uses while code off the main
+   * thread uses them too, one writing (view-members.ts).
+   */
+  viewMemberRaces(
+    roots: readonly Unit[],
+    classes: ReadonlySet<ts.ClassLikeDeclaration>,
+  ): MemberRace[];
   /** The variables a closure captures. */
   captures(unit: Unit): Capture[];
   /** Why what a closure captures cannot go with it to `context`. */
@@ -212,6 +223,13 @@ class Facts implements ProgramFacts {
       this.mainRoots,
     );
     return this.main;
+  }
+
+  viewMemberRaces(
+    roots: readonly Unit[],
+    classes: ReadonlySet<ts.ClassLikeDeclaration>,
+  ): MemberRace[] {
+    return viewMemberRaces(this.solved, (u) => this.owners(u), roots, classes);
   }
 
   captures(unit: Unit): Capture[] {

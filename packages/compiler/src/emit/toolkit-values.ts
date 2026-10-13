@@ -19,6 +19,7 @@ import { cpp } from "@lucent-lang/codegen";
 import { cppIdent, type LType, T } from "../types.ts";
 import type { ViewType } from "../ui/contract.ts";
 import type { ScalarType } from "../ui/toolkit-body.ts";
+import { toolkitInstance } from "../ui/values.ts";
 import type { Ctx } from "./context.ts";
 
 /** The encoded `value`, of Lucent type `lt` and view type `vt`, with `runtime`'s functions. */
@@ -88,6 +89,8 @@ export function encoded(
         [value],
       );
     }
+    case "instance":
+      return toolkitInstance();
   }
 }
 

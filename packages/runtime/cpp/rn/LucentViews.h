@@ -9,7 +9,8 @@
 // (`T | null`), which the component's proxy boxes: `[value]`, `[null]` for
 // null. React sends a removed prop as null, and turns undefined into null
 // inside objects and argument lists, so without the box a missing value and
-// null would look the same.
+// null would look the same. An instance of a Lucent class arrives as its id
+// (LucentViewInstances.h), which reading finds it by.
 #pragma once
 
 #include <folly/dynamic.h>
@@ -20,6 +21,7 @@
 
 #include <lucent/report.h>
 
+#include "LucentViewInstances.h"
 #include "LucentViewRequests.h"
 
 #include <array>
@@ -58,6 +60,8 @@ using Fields = std::unordered_map<std::string, RawValue>;
 inline void read(const RawValue& raw, double& out);
 inline void read(const RawValue& raw, bool& out);
 inline void read(const RawValue& raw, std::string& out);
+/** An instance prop: the instance its id names, held from now on. */
+inline void read(const RawValue& raw, Instance& out);
 template <typename T>
 void read(const RawValue& raw, std::vector<T>& out);
 /** A nullable value: boxed. */
@@ -80,6 +84,18 @@ inline void read(const RawValue& raw, std::string& out) {
   if (!raw.hasType<std::string>()) throw Mismatch("expected a string");
 
   out = static_cast<std::string>(raw);
+}
+
+inline void read(const RawValue& raw, Instance& out) {
+  if (!raw.hasType<double>()) throw Mismatch("expected an instance's id");
+
+  std::string why;
+  double id = static_cast<double>(raw);
+  Ref<Object> object = instanceIds().find(id, why);
+
+  if (!object) throw Mismatch(why);
+
+  out = Instance{id, std::move(object)};
 }
 
 /** A string that must be one of `values` (a string literal union). */
@@ -242,6 +258,9 @@ inline bool same(bool a, bool b) { return a == b; }
 
 inline bool same(const std::string& a, const std::string& b) { return a == b; }
 
+/** An instance is unchanged while it is the same one. */
+inline bool same(const Instance& a, const Instance& b) { return a.object == b.object; }
+
 template <typename T>
 bool same(const std::vector<T>& a, const std::vector<T>& b);
 template <typename T>
@@ -285,6 +304,9 @@ inline jsi::Value toJs(jsi::Runtime&, bool value) { return jsi::Value(value); }
 inline jsi::Value toJs(jsi::Runtime& runtime, const std::string& value) {
   return jsi::String::createFromUtf8(runtime, value);
 }
+
+/** An instance as its id: only a prop is one, which no event or answer sends. */
+inline jsi::Value toJs(jsi::Runtime&, const Instance& value) { return jsi::Value(value.id); }
 
 template <typename T>
 jsi::Value toJs(jsi::Runtime& runtime, const std::vector<T>& value);

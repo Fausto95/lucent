@@ -80,6 +80,7 @@ import type { E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
 import { bodySetup, mountContent, type Setup, setupOf } from "./setups.ts";
 import type { ToolkitEmitter, ToolkitFile } from "./toolkit.ts";
+import { toolkitInstance } from "../ui/values.ts";
 import { scalarType } from "./toolkit-values.ts";
 
 /** How each kind of value is held in Swift and crosses from C++. */
@@ -170,6 +171,8 @@ export class SwiftValues {
         return swift.array(this.type(t.element));
       case "object":
         return swift.type(this.struct(t));
+      case "instance":
+        return toolkitInstance();
     }
   }
 
@@ -189,6 +192,8 @@ export class SwiftValues {
         return swift.arrayLiteral([]);
       case "object":
         return swift.call(swift.name(this.struct(t)), []);
+      case "instance":
+        return toolkitInstance();
     }
   }
 
@@ -230,6 +235,8 @@ export class SwiftValues {
         );
       case "object":
         return swift.call(swift.name(this.struct(t)), [{ value: x }]);
+      case "instance":
+        return toolkitInstance();
     }
   }
 

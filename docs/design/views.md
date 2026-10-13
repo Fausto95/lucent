@@ -432,13 +432,46 @@ and they are plain data (`ui/describe.ts`, `ui/values.ts`).
 | `T[]`, its elements never `undefined`              | `array`    | `std::vector<T>`              |
 | Object types declared in Lucent code, mapped types | `object`   | a generated `ObjectN_` struct |
 | `T \| null`                                        | `nullable` | `std::optional<T>`            |
+| An exported class, in a prop only                  | `instance` | `lucent::views::Instance`     |
 
 An optional prop (`?`, or `undefined` in its type) may be missing, as may an
 object's optional field and a command's optional parameter. Refused, with the
 path to the problem: bigint, tuples, mixed unions, index signatures and
-recursive types. So are library objects (`Date`, `Map`, `Uint8Array`), class
-instances, native objects, promises, nested functions and values of unknown or
-generic type.
+recursive types. So are library objects (`Date`, `Map`, `Uint8Array`), native
+objects, promises, nested functions and values of unknown or generic type. An
+instance of a class its module doesn't export, or of a generic class, is
+refused too, and so is one in an event or a command.
+
+### Instances
+
+A prop may be an instance of an exported class: alone, `T | null`, or in an
+array ([0075](../decisions/0075-instances-of-exported-classes-as-view-props.md),
+[0098](../decisions/0098-an-instance-prop-is-held-from-its-commit-and-checked-by-member.md)).
+It travels as its id ([Events](#events) has the keys), and the commit's props
+hold it from the JavaScript call that commits. The mount's signal holds it
+while it shows it, so it lives until its JavaScript object, every commit and
+mount that has it, and Lucent code let it go.
+
+A view's code runs on the main thread without its module's lock. So the
+members of an instance it reaches follow the rule module variables follow
+(`analysis/view-members.ts`). A member only main-thread code uses is the
+main thread's, and one nothing writes once its instance is made may be read
+anywhere. One that code off the main thread uses too, either of them writing
+it, is LUCENT3022 where the view uses it.
+
+| Use                                                         | Side                |
+| ----------------------------------------------------------- | ------------------- |
+| The setup, functions it makes, and what they call           | The view's          |
+| A `main()` callback                                         | Neither: it locks   |
+| Code anything but the main thread runs (module code, tasks) | Off the main thread |
+| JavaScript reading a public field, or writing one           | Off the main thread |
+| The class's construction                                    | Neither: it's first |
+
+A use of a member holding an array, a collection, a library object or a
+plain object counts as a write, since it may change what it holds. One
+holding an instance is a use of that instance's members, checked in turn.
+The React types import the class from `lucent:module/<module>`, which
+`lucent build` writes as the module's own exports.
 
 ### Missing, null and unchanged
 
@@ -885,8 +918,7 @@ The view gate closes these gaps ([parity.md](../parity.md#views)):
 
 | Gap                                                                                              | Task                     |
 | ------------------------------------------------------------------------------------------------ | ------------------------ |
-| An instance of an exported class as a prop (`<VideoView player={player} />`)                     | [T120](../tasks.md#t120) |
-| React Native's view props (`testID`, `onLayout`…), and a host ref with `measure`                 | [T121](../tasks.md#t121) |
+| Views inside Reanimated, Gesture Handler and react-native-screens, and view props on devices     | [T121](../tasks.md#t121) |
 | A `UIViewController` root, such as `AVPlayerViewController`                                      | [T122](../tasks.md#t122) |
 | Instance props in SwiftUI and Compose bodies; helpers with toolkit values, children and bindings | [T123](../tasks.md#t123) |
 | A component's ref passed to a module function                                                    | [T124](../tasks.md#t124) |

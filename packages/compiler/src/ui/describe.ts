@@ -99,7 +99,7 @@ export function describeProps(
     const signature = callable(checker, type);
 
     if (!signature) {
-      push(out.props, report, types.field(p, prop), (path, text) => {
+      push(out.props, report, types.prop(p, prop), (path, text) => {
         return `\`${name}\`'s prop \`${path}\` is ${text}`;
       });
       continue;

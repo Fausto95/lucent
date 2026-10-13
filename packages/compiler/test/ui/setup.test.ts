@@ -148,6 +148,80 @@ describe("a component's compiled setup", () => {
     );
 
   it.skipIf(!sdks.ios)(
+    "takes instances of an exported class as props, each held as its class, and compiles with its mount",
+    () => {
+      const props = "{ player: Player; next?: Player | null; queue: Player[] }";
+      const { result } = build(
+        {
+          "player.lucent.ts": `export class Player {
+  readonly title: string;
+
+  constructor(title: string) {
+    this.title = title;
+  }
+}
+`,
+          "view.lucent.ts": `import type { UILabel } from "lucent:ios/UIKit";
+import type { TextView } from "lucent:android/android.widget";
+import type { Player } from "./player.lucent";
+
+export declare function PlayerView(props: ${props}): UILabel | TextView;
+`,
+          "view.ios.lucent.tsx": `import { UILabel } from "lucent:ios/UIKit";
+import { effect } from "lucent:ui";
+import type { Player } from "./player.lucent";
+
+export function PlayerView(props: ${props}): UILabel {
+  const label = new UILabel();
+
+  effect(() => {
+    label.text = props.player.title + String(props.queue.length) + (props.next?.title ?? "");
+  });
+
+  return label;
+}
+`,
+        },
+        "ios",
+      );
+
+      expect(result.diagnostics).toEqual([]);
+
+      const reg = result.components?.[0]?.registration;
+      const mount = file(result, `ios/views/${reg}_mount.cpp`);
+
+      expect(file(result, "ios/m_view.h")).toContain(
+        "lucent::ui::Signal<lucent::Ref<lucent_app::C_Player>> p0_player{};",
+      );
+      expect(mount).toContain(
+        'lucent::views::lucentInstance<lucent_app::C_Player>(lucent::views::required(props.values.player, "PlayerView\'s prop player"), "Player")',
+      );
+      expect(result.instanceModules?.get("player")).toMatch(/player\.lucent\.ts$/);
+
+      const toolchain = iosHostToolchain();
+
+      if (!toolchain) return;
+
+      const out = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-setup-cc-"));
+
+      for (const [f, text] of result.files) {
+        fs.mkdirSync(path.dirname(path.join(out, f)), { recursive: true });
+        fs.writeFileSync(path.join(out, f), text);
+      }
+
+      const units = [...result.files.keys()]
+        .filter((f) => /\.(cpp|mm)$/.test(f) && !f.endsWith("lucent_identity.cpp"))
+        .map((f) => path.join(out, f));
+      const args = [...toolchain.args, "-Wno-unused-variable", "-fobjc-arc"];
+
+      expect(compileErrors({ ...toolchain, args }, path.join(out, "ios"), units)).toBe("");
+
+      fs.rmSync(out, { recursive: true, force: true });
+    },
+    300_000,
+  );
+
+  it.skipIf(!sdks.ios)(
     "delivers each event as lucent:ui marks it, and calls a marked event like any other",
     () => {
       const props =

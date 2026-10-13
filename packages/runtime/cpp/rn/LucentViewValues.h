@@ -9,6 +9,8 @@
 
 #include <lucent/lucent.h>
 
+#include "LucentViewInstances.h"
+
 #include <optional>
 #include <string>
 #include <type_traits>
@@ -26,6 +28,19 @@ Array<L> lucentArray(const std::vector<R>& items, F&& each) {
   Array<L> out;
 
   for (const auto& item : items) out.push(L(each(item)));
+
+  return out;
+}
+
+/**
+ * An instance prop's instance, as the class the prop declares: a TypeError
+ * for an instance of another class (`expected` names the declared one).
+ */
+template <class T>
+Ref<T> lucentInstance(const Instance& value, const char* expected) {
+  Ref<T> out = std::dynamic_pointer_cast<T>(value.object);
+
+  if (!out) throwTypeError((std::string("expected a ") + expected).c_str());
 
   return out;
 }

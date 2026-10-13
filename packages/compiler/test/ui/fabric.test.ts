@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { fabricSources } from "../../src/ui/fabric.ts";
-import { CAPTION, CARD, components, GAUGE, PICKER } from "./views-fixture.ts";
+import { CAPTION, CARD, components, GAUGE, instanceComponents, PICKER } from "./views-fixture.ts";
 
 const sources = () => fabricSources(components());
 const header = (registration: string) => sources().get(`views/${registration}.h`) ?? "";
@@ -147,6 +147,18 @@ describe("Fabric sources", () => {
   it("shield the program's names from macros", () => {
     expect(header(GAUGE)).toContain('#pragma push_macro("aria_u2d_label")');
     expect(source(GAUGE)).toContain('#pragma pop_macro("value")');
+  });
+
+  it("hold an instance prop as the instance its id names, alone, nullable or in an array", () => {
+    const [player] = instanceComponents();
+    const files = fabricSources([player!]);
+    const h = files.get(`views/${player!.registration}.h`) ?? "";
+    const cpp = files.get(`views/${player!.registration}.cpp`) ?? "";
+
+    expect(h).toContain("std::optional<lucent::views::Instance> player{};");
+    expect(h).toContain("std::optional<std::optional<lucent::views::Instance>> next{};");
+    expect(h).toContain("std::optional<std::vector<lucent::views::Instance>> queue{};");
+    expect(cpp).toContain('lucent::views::prop(raw, ComponentName, "player", "p0", source.player)');
   });
 
   it("are the same whatever order the components come in", () => {

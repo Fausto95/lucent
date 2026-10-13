@@ -354,9 +354,11 @@ A component's setup and the code it runs live on the main context, with
 no actor lock. They may still use module state, by rule ([0046][d0046]): a
 module variable only main-thread code uses belongs to the main thread
 (`analysis/main-state.ts`). One that module code also uses is refused in
-the view, naming both uses. **Planned** ([0075][d0075],
-[T120](../tasks.md#t120)): the same rule for an instance's members, so an
-instance of an exported class can be a view prop.
+the view, naming both uses. The same rule holds for an instance's
+members, so an instance of an exported class can be a view prop
+([0075][d0075], [T120](../tasks.md#t120)): a member a view uses that code
+off the main thread uses too, one of them writing it, is refused
+(`analysis/view-members.ts`).
 
 ### Compute
 
@@ -660,8 +662,9 @@ platform's body in a `PLATFORM` branch ([0013][d0013]).
 
 React Native's view props reach the host view, and the ref has the host's
 `measure` and `measureInWindow`; a request takes a signal
-([T121](../tasks.md#t121), #244). **Planned:** instances of exported
-classes as props ([T120](../tasks.md#t120)), the view libraries' cases
+([T121](../tasks.md#t121), #244). A prop may be an instance of an
+exported class, which the view holds while it shows it
+([T120](../tasks.md#t120), #247). **Planned:** the view libraries' cases
 ([T121](../tasks.md#t121)), view-controller roots
 ([T122](../tasks.md#t122)) and objects in toolkit bodies
 ([T123](../tasks.md#t123)).
