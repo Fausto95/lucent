@@ -38,7 +38,7 @@ import { compileContext, runInCompile } from "./compile-context.ts";
 import { sdkUsesOf } from "./sdk/usage.ts";
 import { analyzeViews, hasComponentModules } from "./ui/analyze.ts";
 import { ts as js } from "@lucent-lang/codegen";
-import type { ComponentDescription } from "./ui/contract.ts";
+import type { ComponentDescription, ViewType } from "./ui/contract.ts";
 import { componentDeclarations } from "./ui/proxy.ts";
 import { mergeComponents, type TargetComponents } from "./ui/merge.ts";
 
@@ -427,6 +427,8 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
         ...plan.shared,
         ...declarations,
       ]);
+      const instances = instanceModuleFiles(merged.components, [...plan.shared, ...declarations]);
+      if (instances.size) out.instanceModules = instances;
     }
   }
   out.diagnostics = dedupe(out.diagnostics);
@@ -537,6 +539,28 @@ function componentModuleFiles(
   files: readonly string[],
 ): Map<string, string> {
   const modules = new Set(components.map((c) => c.jsModule));
+
+  return new Map(
+    files
+      .map((file) => [moduleNameOf(file), path.resolve(file)] as const)
+      .filter(([name]) => modules.has(name)),
+  );
+}
+
+/** The file of each module, among the non-platform `files`, whose classes components' props take instances of. */
+function instanceModuleFiles(
+  components: readonly ComponentDescription[],
+  files: readonly string[],
+): Map<string, string> {
+  const modules = new Set<string>();
+  const visit = (t: ViewType): void => {
+    if (t.k === "instance") modules.add(t.module);
+    else if (t.k === "nullable") visit(t.inner);
+    else if (t.k === "array") visit(t.element);
+    else if (t.k === "object") t.fields.forEach((f) => visit(f.type));
+  };
+
+  for (const c of components) for (const p of c.props) visit(p.type);
 
   return new Map(
     files

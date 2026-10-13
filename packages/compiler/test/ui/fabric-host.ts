@@ -1,5 +1,6 @@
 /**
- * The views fixture's generated Fabric sources, written out with a file
+ * The views fixture's generated Fabric sources (and the players
+ * fixture's, whose props are instances), written out with a file
  * that uses what a platform host uses, for compiling against React
  * Native's headers.
  */
@@ -7,7 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fabricSources } from "../../src/ui/fabric.ts";
-import { GAUGE, components } from "./views-fixture.ts";
+import { GAUGE, components, instanceComponents } from "./views-fixture.ts";
 
 /**
  * Uses what a platform host uses: the descriptor provider the renderer
@@ -46,7 +47,7 @@ facebook::jsi::Value host(
 /** Writes the fixture's sources and the host's file: the directory, and the files to compile. */
 export function writeFabricSources(): { dir: string; files: string[] } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-fabric-"));
-  const sources = fabricSources(components());
+  const sources = fabricSources([...components(), ...instanceComponents()]);
 
   for (const [name, text] of [...sources, ["host.cpp", HOST] as const]) {
     fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });

@@ -75,6 +75,37 @@ export function components(): ComponentDescription[] {
   return a.components;
 }
 
+/**
+ * A component taking instances of an exported class (decision 0075): one,
+ * an optional nullable one, and an array of them; the view reads what
+ * nothing writes once an instance is made.
+ */
+export const PLAYERS_SOURCE = `import { Label } from "./native";
+
+export class Player {
+  readonly title: string;
+
+  constructor(title: string) {
+    this.title = title;
+  }
+}
+
+export function PlayerView(props: { player: Player; next?: Player | null; queue: Player[] }): Label {
+  const label = new Label();
+  label.text = props.player.title + String(props.queue.length) + (props.next?.title ?? "");
+  return label;
+}
+`;
+
+/** The players fixture's description: PlayerView, of module `players`. */
+export function instanceComponents(): ComponentDescription[] {
+  const a = views({ "players.lucent.tsx": PLAYERS_SOURCE });
+
+  if (a.diagnostics.length) throw new Error(a.diagnostics.map((d) => d.message).join("\n"));
+
+  return a.components;
+}
+
 export const CAPTION = "LucentCaption_90d454e99718";
 export const GAUGE = "LucentGauge_9f3932d52a2f";
 export const PICKER = "LucentPicker_8770a845170b";

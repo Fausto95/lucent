@@ -1,10 +1,12 @@
 /**
  * The plain data a view's boundary carries, from checked types: numbers,
  * strings, booleans, string literal unions, arrays and plain objects, each
- * possibly null. What cannot cross (native objects, functions, promises)
- * is refused by the analysis's transfer rule; what could cross to a
- * compute task but has no Fabric props representation (bigints, dates,
- * maps, class instances) is refused here.
+ * possibly null; and in a prop, an instance of an exported Lucent class,
+ * which crosses as its id (decision 0075). What cannot cross (native
+ * objects, functions, promises) is refused by the analysis's transfer
+ * rule; what could cross to a compute task but has no Fabric props
+ * representation (bigints, dates, maps, other class instances) is refused
+ * here.
  */
 import ts from "typescript";
 import type { TransferProblem } from "../analysis/index.ts";
@@ -28,15 +30,43 @@ export const UNDEFINED = "a value that may be undefined: use null for a missing 
 
 type Transfer = (type: ts.Type, path: string) => TransferProblem | undefined;
 
+/**
+ * A Lucent class: its id (`<module>.<name>`), its Lucent module's name and
+ * whether the module exports it; none for a class Lucent code does not
+ * declare.
+ */
+export type InstanceClass = (
+  decl: ts.ClassDeclaration,
+) => { readonly id: string; readonly module: string; readonly exported: boolean } | undefined;
+
 export class ViewTypes {
   private readonly checker: ts.TypeChecker;
   private readonly transfer: Transfer;
+  private readonly instanceClass: InstanceClass;
   /** The object types being converted, outermost first: meeting one again is a cycle. */
   private readonly visiting = new Set<ts.Type>();
+  /** Whether what is converted is a prop's: an instance may be one. */
+  private inProp = false;
 
-  constructor(checker: ts.TypeChecker, transfer: Transfer) {
+  constructor(
+    checker: ts.TypeChecker,
+    transfer: Transfer,
+    instanceClass: InstanceClass = () => undefined,
+  ) {
     this.checker = checker;
     this.transfer = transfer;
+    this.instanceClass = instanceClass;
+  }
+
+  /** A component's prop: a field, which may hold instances of exported classes. */
+  prop(symbol: ts.Symbol, path: string): Converted<ViewField> {
+    this.inProp = true;
+
+    try {
+      return this.field(symbol, path);
+    } finally {
+      this.inProp = false;
+    }
   }
 
   /** A property of an object type (a prop, a field), named by `path`; undefined makes it optional. */
@@ -139,6 +169,10 @@ export class ViewTypes {
   private object(t: ts.Type, path: string): Converted<ViewType> {
     const symbol = t.getSymbol() ?? t.aliasSymbol;
     const decl = symbol?.declarations?.[0];
+
+    if (symbol && symbol.flags & ts.SymbolFlags.Class && decl && ts.isClassDeclaration(decl))
+      return this.instance(t, decl, path);
+
     const mapped =
       !!(t.flags & ts.TypeFlags.Object) &&
       !!((t as ts.ObjectType).objectFlags & ts.ObjectFlags.Mapped);
@@ -149,18 +183,7 @@ export class ViewTypes {
           !(symbol!.flags & ts.SymbolFlags.Class))) &&
       !(t.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.TypeParameter));
 
-    if (!plain) {
-      const refused = this.transfer(t, path);
-
-      if (refused) return problem(refused.path, `${refused.reason}: ${PLAIN}`);
-
-      const kind = decl && isLibFile(decl.getSourceFile()) ? "" : " object";
-
-      return problem(
-        path,
-        `a \`${symbol?.getName() ?? this.checker.typeToString(t)}\`${kind}: ${PLAIN}`,
-      );
-    }
+    if (!plain) return this.notPlain(t, path);
 
     if (this.checker.getIndexInfosOfType(t).length)
       return problem(
@@ -179,6 +202,50 @@ export class ViewTypes {
     }
   }
 
+  /** Why a value of `t`, an object that is not plain data, cannot cross. */
+  private notPlain(t: ts.Type, path: string): Converted<ViewType> {
+    const symbol = t.getSymbol() ?? t.aliasSymbol;
+    const decl = symbol?.declarations?.[0];
+    const refused = this.transfer(t, path);
+
+    if (refused) return problem(refused.path, `${refused.reason}: ${PLAIN}`);
+
+    const kind = decl && isLibFile(decl.getSourceFile()) ? "" : " object";
+
+    return problem(
+      path,
+      `a \`${symbol?.getName() ?? this.checker.typeToString(t)}\`${kind}: ${PLAIN}`,
+    );
+  }
+
+  /**
+   * An instance of a class: a prop's may be one of an exported Lucent
+   * class that takes no type arguments, which crosses as its id. Other
+   * classes' instances (the SDK's, the library's) are not plain data.
+   */
+  private instance(t: ts.Type, decl: ts.ClassDeclaration, path: string): Converted<ViewType> {
+    const name = decl.name?.text ?? this.checker.typeToString(t);
+    const known = decl.getSourceFile().isDeclarationFile ? undefined : this.instanceClass(decl);
+
+    if (!known) return this.notPlain(t, path);
+
+    if (!this.inProp) return problem(path, `a \`${name}\`, an instance: only a prop may be one`);
+
+    if (!known.exported)
+      return problem(
+        path,
+        `a \`${name}\`, which its module does not export: a prop takes instances of an exported class, which JavaScript makes`,
+      );
+
+    if (decl.typeParameters?.length)
+      return problem(
+        path,
+        `a \`${name}\`, an instance of a generic class: a prop's class takes no type arguments`,
+      );
+
+    return { ok: { k: "instance", class: known.id, name, module: known.module } };
+  }
+
   private fields(t: ts.Type, path: string): Converted<ViewType> {
     const fields: ViewField[] = [];
 
@@ -192,6 +259,14 @@ export class ViewTypes {
 
     return { ok: { k: "object", fields } };
   }
+}
+
+/**
+ * What code for a toolkit body (SwiftUI, Compose) does with an instance:
+ * nothing, as the view analysis refuses one there (T123).
+ */
+export function toolkitInstance(): never {
+  throw new Error("a toolkit body takes no instance props: the view analysis refuses them (T123)");
 }
 
 /** Whether null is one of a type's values. */

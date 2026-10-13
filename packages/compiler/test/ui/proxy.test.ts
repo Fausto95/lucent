@@ -7,7 +7,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { runtimeDir } from "../../src/index.ts";
 import { componentDeclarations, componentExports, VIEWS_RUNTIME } from "../../src/ui/proxy.ts";
 import { views } from "./fixture.ts";
-import { components, SOURCE } from "./views-fixture.ts";
+import { components, instanceComponents, SOURCE } from "./views-fixture.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "../../../..");
 
@@ -148,8 +148,11 @@ export const childless = (
 );
 `;
 
-/** TypeScript's errors for `files`, with React 19's and the example app's React Native types. */
-function typeErrors(files: Record<string, string>): string[] {
+/**
+ * TypeScript's errors for `files`, with React 19's and the example app's
+ * React Native types; `paths` maps more modules to files among them.
+ */
+function typeErrors(files: Record<string, string>, paths: Record<string, string> = {}): string[] {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-proxy-"));
 
   for (const [name, text] of Object.entries(files)) {
@@ -179,6 +182,9 @@ function typeErrors(files: Record<string, string>): string[] {
         "react-native": [
           path.join(ROOT, "apps/bare-example/node_modules/react-native/types_generated/index.d.ts"),
         ],
+        ...Object.fromEntries(
+          Object.entries(paths).map(([spec, file]) => [spec, [path.join(dir, file)]]),
+        ),
       },
     },
   });
@@ -214,5 +220,75 @@ describe("a module's proxy and declarations", () => {
     expect(errors).toMatch(/Property 'mode' is missing/);
     expect(errors).toMatch(/nope/);
     expect(errors).toMatch(/'children' does not exist/);
+  }, 60_000);
+});
+
+const PLAYERS_APP = `import { Player } from "lucent:module/players";
+import { PlayerView } from "./players";
+
+const a = new Player("a");
+
+export const shown = <PlayerView player={a} next={null} queue={[a, new Player("b")]} />;
+`;
+
+const PLAYERS_MISUSE = `import { PlayerView } from "./players";
+
+// An object with a Player's fields passes TypeScript, and the views runtime refuses it at render.
+export const notAPlayer = <PlayerView player="a" queue={[]} />;
+`;
+
+describe("a component taking instances", () => {
+  const exported = () =>
+    js.printUnit({
+      decls: [
+        js.stmt(js.exprStmt(js.str("use strict"))),
+        ...componentExports(instanceComponents(), "./"),
+      ],
+    });
+  const declared = () => js.printUnit(componentDeclarations(instanceComponents()));
+
+  it("sends each instance as its id, alone, boxed or in an array", () => {
+    const text = exported();
+
+    expect(text).toContain(
+      '{ name: "player", key: "p0", shape: { i: "players.Player", c: "Player" } },',
+    );
+    expect(text).toContain(
+      '{ name: "next", key: "p1", shape: { n: { i: "players.Player", c: "Player" } } },',
+    );
+    expect(text).toContain(
+      '{ name: "queue", key: "p2", shape: { a: { i: "players.Player", c: "Player" } } },',
+    );
+  });
+
+  it("types each as its class, from its module's own exports", () => {
+    const text = declared();
+
+    expect(text).toContain('import type { Player } from "lucent:module/players";');
+    expect(text).toContain("player: Player; next?: Player | null; queue: Player[];");
+  });
+
+  const files = () => ({
+    "players.js": exported(),
+    "players.d.ts": declared(),
+    // What `lucent build` writes for the module: its own exports, here declared.
+    "module/players.d.ts": `export declare class Player {
+  readonly title: string;
+  constructor(title: string);
+}
+`,
+    [VIEWS_RUNTIME]: fs.readFileSync(path.join(runtimeDir(), "js/views.js"), "utf8"),
+    [VIEWS_RUNTIME.replace(/\.js$/, ".d.ts")]: fs.readFileSync(
+      path.join(runtimeDir(), "js/views.d.ts"),
+      "utf8",
+    ),
+  });
+  const paths = { "lucent:module/players": "module/players.d.ts" };
+
+  it("type-check with an app passing instances, and refuse other values", () => {
+    expect(typeErrors({ ...files(), "app.tsx": PLAYERS_APP }, paths)).toEqual([]);
+    expect(typeErrors({ ...files(), "wrong.tsx": PLAYERS_MISUSE }, paths).join("\n")).toMatch(
+      /Type 'string' is not assignable to type 'Player'/,
+    );
   }, 60_000);
 });

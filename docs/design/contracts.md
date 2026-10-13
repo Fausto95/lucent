@@ -37,7 +37,7 @@ each contract as the code implements it today. The design is
 | [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.14   | `packages/runtime/cpp/lucent/`                              |
 | [C-BIGINT](#c-bigint-the-runtimes-bigint)                    | The runtime's `BigInt` and native integer conversions                 | v1.1    | `lucent/bigint.h`                                           |
 | [C-BUFFER](#c-buffer-native-buffers)                         | Native buffers, borrows, moves, loans, adoptions, native handles      | v1.6    | `lucent/buffer.h`, `handle.h`, `bytes.h`, `jsi/convert.*`   |
-| [C-VIEW](#c-view-components-and-views)                       | Component descriptions, transport, mounts, hosts, toolkit bodies      | v2.5    | `packages/compiler/src/ui/`, `packages/runtime/cpp/rn/`     |
+| [C-VIEW](#c-view-components-and-views)                       | Component descriptions, transport, mounts, hosts, toolkit bodies      | v3.0    | `packages/compiler/src/ui/`, `packages/runtime/cpp/rn/`     |
 | [C-BUILD](#c-build-build-records-and-identities)             | Build records, pending actions, SDK locks, build identities           | v1.7    | `packages/lucent/src/cli/`, `compiler/src/emit/identity.ts` |
 | [C-TRACE](#c-trace-correlated-tracing)                       | Correlated runtime and build tracing                                  | v1      | `lucent/trace.h`, `packages/lucent/src/cli/trace.ts`        |
 | [C-EXT](#c-ext-typed-native-extensions)                      | C libraries a Lucent package declares                                 | v1      | `compiler/src/extensions/`, `lucent/extension.h`            |
@@ -819,7 +819,7 @@ runs: Hermes has no `ArrayBuffer.prototype.transfer`, and JSI no detach.
 
 ## C-VIEW: components and views
 
-**Version: v2.5.** `VIEW_CONTRACT_VERSION` in the code is 2: it counts
+**Version: v3.0.** `VIEW_CONTRACT_VERSION` in the code is 3: it counts
 layout changes of `ComponentDescription` that consumers must follow, not
 every revision. Views are in preview; [views.md](views.md) describes their
 runtime.
@@ -871,7 +871,14 @@ export type ViewType =
   | { readonly k: "enum"; readonly values: readonly string[] } // sorted
   | { readonly k: "array"; readonly element: ViewType }
   | { readonly k: "object"; readonly fields: readonly ViewField[] }
-  | { readonly k: "nullable"; readonly inner: ViewType };
+  | { readonly k: "nullable"; readonly inner: ViewType }
+  // A prop's only: an instance of an exported class, `class` its id (`<module>.<name>`)
+  | {
+      readonly k: "instance";
+      readonly class: string;
+      readonly name: string;
+      readonly module: string;
+    };
 
 export interface ComponentDescription {
   readonly id: string;
@@ -887,7 +894,7 @@ export interface ComponentDescription {
   readonly platforms: Partial<Record<Platform, PlatformBinding>>;
   readonly source: { readonly file: string; readonly line: number; readonly column: number }; // messages only
 }
-export const VIEW_CONTRACT_VERSION = 2;
+export const VIEW_CONTRACT_VERSION = 3;
 ```
 
 | Type (all fields `readonly`) | Fields                                                                                                    |
@@ -900,14 +907,15 @@ export const VIEW_CONTRACT_VERSION = 2;
 
 ### Props, events and commands
 
-| Part      | Contract                                                                                                                                                                                               |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Props     | The props parameter's properties, in order, plain data only; `optional` is `?` or `undefined`. `key`, `ref`, `style` and `children` (but as `Children`) are reserved.                                  |
-| Refused   | With the path: bigint, library objects (`Date`, `Map`, `Set`, `Uint8Array`), class instances, tuples, mixed unions, index signatures, recursive types, nested functions, destructured props.           |
-| Events    | Callback props named `on[A-Z]…` returning nothing; the slot is the index among events. A direct call posts `{ args: [...] }` without trailing omitted arguments. An alias of the prop is unknown code. |
-| Order     | A view's events arrive in the order sent; a coalesced one replaces the latest waiting event of its type. Events and answers have no mutual order.                                                      |
-| Commands  | One `expose({...})` at setup's top level. A `void` result is `enqueue`; `T` or `Promise<T>` is `request`, with arguments `[id, …]`.                                                                    |
-| Agreement | Setup and all it exposes pass `check(unit, "main")`. Props, events and commands agree across targets and with a split module's declaration (LUCENT3023).                                               |
+| Part      | Contract                                                                                                                                                                                                |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Props     | The props parameter's properties, in order, plain data only; `optional` is `?` or `undefined`. `key`, `ref`, `style` and `children` (but as `Children`) are reserved.                                   |
+| Instances | A prop may be an instance of an exported, non-generic class, alone, `T \| null` or in an array. A view's use of a member that code off the main thread uses too, one of them writing it, is LUCENT3022. |
+| Refused   | With the path: bigint, library objects (`Date`, `Map`, `Set`, `Uint8Array`), other class instances, tuples, mixed unions, index signatures, recursive types, nested functions, destructured props.      |
+| Events    | Callback props named `on[A-Z]…` returning nothing; the slot is the index among events. A direct call posts `{ args: [...] }` without trailing omitted arguments. An alias of the prop is unknown code.  |
+| Order     | A view's events arrive in the order sent; a coalesced one replaces the latest waiting event of its type. Events and answers have no mutual order.                                                       |
+| Commands  | One `expose({...})` at setup's top level. A `void` result is `enqueue`; `T` or `Promise<T>` is `request`, with arguments `[id, …]`.                                                                     |
+| Agreement | Setup and all it exposes pass `check(unit, "main")`. Props, events and commands agree across targets and with a split module's declaration (LUCENT3023).                                                |
 
 | Delivery             | Prop type                    | React Native                     |
 | -------------------- | ---------------------------- | -------------------------------- |
@@ -917,15 +925,16 @@ export const VIEW_CONTRACT_VERSION = 2;
 
 ### Transport
 
-| What            | Contract                                                                                                                                                                                                                                           |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Keys            | Prop at `index`: `p<index>`. Handler in `slot`: `e<slot>`, true while JavaScript listens. Event: `lucent<slot>`, registered as `topLucent<slot>`.                                                                                                  |
-| Nullable values | Boxed, `[value]` or `[null]`: React sends a removed prop as null, and undefined as null inside objects.                                                                                                                                            |
-| C++ values      | Keep presence and nullness; `changed()` treats `Object.is` or deep equality as unchanged.                                                                                                                                                          |
-| Requests        | `__lucentViewRequests(settle)` (`kRequestsName`), settled `settle(id, error \| null, value)` on the JS thread. A runtime's ids start at `requestBase(id)`, its id × 2^32. JavaScript rejects pending requests at unmount and ignores late answers. |
-| Generated files | `cpp/generated/<target>/views/<registration>.{h,cpp}`, `<registration>_mount.cpp`, `views/lucent_views.{h,cpp}`, in `lucent::views::<registration>`.                                                                                               |
-| React surface   | Own props, callbacks, `style` and a `ref` to the commands, typed in `types/views/<module>.d.ts`. `lucent:views/<module>` resolves to `js/_lucent/components/<module>.js` (`CompileResult.componentModules`).                                       |
-| API hash        | Covers component contracts (C-BUILD).                                                                                                                                                                                                              |
+| What            | Contract                                                                                                                                                                                                                                                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Keys            | Prop at `index`: `p<index>`. Handler in `slot`: `e<slot>`, true while JavaScript listens. Event: `lucent<slot>`, registered as `topLucent<slot>`.                                                                                                                                                                                    |
+| Nullable values | Boxed, `[value]` or `[null]`: React sends a removed prop as null, and undefined as null inside objects.                                                                                                                                                                                                                              |
+| Instances       | `__lucentViewInstance(value)` (`kInstanceName`) gives an instance's id: its runtime's id × 2^32 plus its number there, the same while it lives. The proxy checks the class's prototype first (a `TypeError` at render). Props hold the instance from their parse; an id of a gone instance or a torn-down runtime reads as missing.  |
+| C++ values      | Keep presence and nullness; `changed()` treats `Object.is` or deep equality as unchanged.                                                                                                                                                                                                                                            |
+| Requests        | `__lucentViewRequests(settle)` (`kRequestsName`), settled `settle(id, error \| null, value)` on the JS thread. A runtime's ids start at `requestBase(id)`, its id × 2^32. JavaScript rejects pending requests at unmount and ignores late answers.                                                                                   |
+| Generated files | `cpp/generated/<target>/views/<registration>.{h,cpp}`, `<registration>_mount.cpp`, `views/lucent_views.{h,cpp}`, in `lucent::views::<registration>`.                                                                                                                                                                                 |
+| React surface   | Own props, callbacks, React Native's `ViewProps` and a `ref` to the commands, typed in `types/views/<module>.d.ts`, an instance's class from `lucent:module/<module>` (`types/module/<module>.d.ts`, `instanceModules`). `lucent:views/<module>` resolves to `js/_lucent/components/<module>.js` (`CompileResult.componentModules`). |
+| API hash        | Covers component contracts (C-BUILD).                                                                                                                                                                                                                                                                                                |
 
 ### Mount and hosts
 
@@ -971,13 +980,8 @@ struct Mount {
 
 ### Planned
 
-- [T120](../tasks.md#t120), per
-  [decision 0075](../decisions/0075-instances-of-exported-classes-as-view-props.md):
-  a new `ViewType` for an instance (optional, or in an array) of an
-  exported class. It crosses as its id in its host plus the runtime id,
-  and the mount resolves and holds it on the main thread at commit.
-- [T121](../tasks.md#t121): React Native's view props pass through; the
-  ref gains `measure` and `measureInWindow`. [T122](../tasks.md#t122): an
+- [T121](../tasks.md#t121): components inside view libraries, and view
+  props checked on devices. [T122](../tasks.md#t122): an
   iOS root may be a `UIViewController`. [T123](../tasks.md#t123): toolkit
   bodies take instance props. [T144](../tasks.md#t144): views on the web
   are a diagnostic.
@@ -1214,7 +1218,7 @@ Swift value types cross as boxed references. Kotlin extension functions
 take the receiver first. Android callbacks use one reflection-based
 `NativeProxy`. Packages ship sources only, and an app has one runtime.
 Events are void; commands are a void enqueue or a promise result. SwiftUI
-and Compose views are the toolkit's JSX. One accepted decision is
-planned, not built: a view prop may be an exported class's instance
+and Compose views are the toolkit's JSX. A view prop may be an exported
+class's instance
 ([0075](../decisions/0075-instances-of-exported-classes-as-view-props.md),
-[T120](../tasks.md#t120)).
+[0098](../decisions/0098-an-instance-prop-is-held-from-its-commit-and-checked-by-member.md)).

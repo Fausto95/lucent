@@ -5,7 +5,7 @@
  * LucentViewValues.h); event arguments and a request's answer go back into
  * the renderer's types (lucent::views::assign*). Every kind of view value:
  * numbers, booleans, strings, string literal unions, arrays, plain objects,
- * each maybe null or missing.
+ * each maybe null or missing; and in props, instances of exported classes.
  */
 import { cpp } from "@lucent-lang/codegen";
 import { cppIdent, type LType } from "../types.ts";
@@ -50,6 +50,15 @@ export function toLucent(ctx: Ctx, vt: ViewType, lt: LType, r: X): X {
         views("lucentNullable"),
         [r, each(toLucent(ctx, vt.inner, inner, value))],
         [ctx.reg.cppType(inner)],
+      );
+    }
+    case "instance": {
+      if (lt.k !== "class") throw new Error(`expected a class type (got ${lt.k})`);
+
+      return cpp.call(
+        views("lucentInstance"),
+        [r, cpp.str(vt.name)],
+        [cpp.type(`lucent_app::${ctx.reg.cls(lt.id).cppName}`)],
       );
     }
     case "object": {
@@ -136,6 +145,8 @@ export function assignRepr(ctx: Ctx, target: X, vt: ViewType, lt: LType, src: X)
           ]),
         ),
       ];
+    case "instance":
+      throw new Error("an instance is a prop's only: no event or answer sends one");
     case "object": {
       const struct = ctx.reg.struct(structId(lt));
       const names = fabricNames.object(vt.fields);

@@ -42,7 +42,7 @@ what became of each one that is still linked or was still open.
 | [T114](#t114)            | Native code that calls Lucent modules                      | waiting; needs T130                                           |
 | [T115](#t115)            | Native configuration packages can't declare yet            | ready                                                         |
 | **View parity**          |                                                            |                                                               |
-| [T120](#t120)            | Instances of exported classes as view props                | in progress (#245)                                            |
+| [T120](#t120)            | Instances of exported classes as view props                | in progress (#245, #247)                                      |
 | [T121](#t121)            | React Native's view props, refs and view libraries         | in progress (#244)                                            |
 | [T122](#t122)            | UIKit components with a view-controller root               | ready                                                         |
 | [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | waiting; needs T120                                           |
@@ -739,19 +739,23 @@ props and Expo's shared-object props do, per
 - **Where:** `ui/contract.ts`, `ui/transport.ts`, `rn/LucentViewValues*`,
   `runtime/js/views.js`.
 
-- [ ] Transport (C-VIEW): the prop crosses Fabric as the instance's id in
-      its host plus the runtime id. A value that is not an instance of the
-      declared class is a `TypeError` at render. The ids and the views
-      runtime's side are done (#245): `rn/LucentViewInstances.h`.
-- [ ] The commit's props find the instance as React Native parses them, in
+- [x] Transport (C-VIEW v3.0): the prop crosses Fabric as the instance's
+      id in its host plus the runtime id. A value that is not an instance
+      of the declared class is a `TypeError` at render. The ids and the
+      views runtime's side (#245), the description's `instance` type, the
+      proxy's shape and the React types (#247).
+- [x] The commit's props find the instance as React Native parses them, in
       the JavaScript call that commits, and hold it; the mount holds it
       while it shows it. Not later, on the main thread: by then JavaScript
-      may have let it go. An id of a freed instance or of a torn-down
-      runtime is reported and reads as missing.
-- [ ] Members only main-thread code touches are the main thread's. A member
-      module code also touches is refused where a view uses it, naming both
-      uses.
-- [ ] Arrays of instances, and `T | null`.
+      may have let it go
+      ([0098](decisions/0098-an-instance-prop-is-held-from-its-commit-and-checked-by-member.md)).
+      An id of a freed instance or of a torn-down runtime is reported and
+      reads as missing.
+- [x] Members only main-thread code touches are the main thread's. A member
+      module code also touches, one of them writing it, is refused where a
+      view uses it, naming both uses (`analysis/view-members.ts`,
+      LUCENT3022).
+- [x] Arrays of instances, and `T | null`.
 - [ ] e2e: `view-ref-props` (host JSI harness: an instance prop set,
       replaced, nulled and freed). 1,000 mount and unmount cycles return
       the owned counts to baseline (P7).

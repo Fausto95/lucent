@@ -111,6 +111,7 @@ When the two differ in a way calls can't survive, the load throws an `Error` who
 | `module "x" is not in the app's native code` | The app was built without the module, usually before it was added. | `compile-native` |
 | `module "x" of the app's native code has other exports or signatures` | Its exports, their signatures or the types they pass differ between the two builds. | `compile-native` |
 | `the app's native code cannot answer view commands` | A component's request rejects with it when the app was built before Lucent answered requests. Views are experimental. | `compile-native` |
+| `the app's native code cannot pass instances to views` | A component taking an instance prop throws it where React renders, when the app was built before Lucent passed instances to views. | `compile-native` |
 
 [Get a module change into the running app](/docs/guides/apply-a-change/) shows which change needs which action.
 

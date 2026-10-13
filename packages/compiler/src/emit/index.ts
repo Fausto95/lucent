@@ -98,6 +98,12 @@ export interface EmitResult {
    */
   componentModules?: Map<string, string>;
   /**
+   * The file of each module whose classes components' props take instances
+   * of (the shared one), by module name: what `lucent:module/<name>`
+   * re-exports, for those props' types.
+   */
+  instanceModules?: Map<string, string>;
+  /**
    * Declarations of the lucent:* modules the platform modules use
    * (`ios/UIKit.d.ts`, `thread.d.ts`…), for the app's own TypeScript:
    * map `lucent:*` to them in tsconfig paths.
