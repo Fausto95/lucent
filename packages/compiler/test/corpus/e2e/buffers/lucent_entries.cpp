@@ -14,6 +14,35 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("aliases")
+#undef aliases
+#pragma push_macro("borrowedHandoff")
+#undef borrowedHandoff
+#pragma push_macro("conflicts")
+#undef conflicts
+#pragma push_macro("copies")
+#undef copies
+#pragma push_macro("handoff")
+#undef handoff
+#pragma push_macro("inputs")
+#undef inputs
+#pragma push_macro("kept")
+#undef kept
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("sample")
+#undef sample
+#pragma push_macro("sizes")
+#undef sizes
+#pragma push_macro("snapshots")
+#undef snapshots
+#pragma push_macro("spans")
+#undef spans
+#pragma push_macro("stream")
+#undef stream
+#pragma push_macro("texts")
+#undef texts
+
 extern "C" void lucent_buffers_sample(void (*done)(void* context, const double* result, const lucent_error* error), void* context) {
   lucent::entries::callAsync<double>(
       &lucent_app::initModules, lucent_app::actor_0(),
@@ -157,3 +186,18 @@ extern "C" bool lucent_buffers_texts(lucent_error* error, lucent_string* result)
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("texts")
+#pragma pop_macro("stream")
+#pragma pop_macro("spans")
+#pragma pop_macro("snapshots")
+#pragma pop_macro("sizes")
+#pragma pop_macro("sample")
+#pragma pop_macro("out")
+#pragma pop_macro("kept")
+#pragma pop_macro("inputs")
+#pragma pop_macro("handoff")
+#pragma pop_macro("copies")
+#pragma pop_macro("conflicts")
+#pragma pop_macro("borrowedHandoff")
+#pragma pop_macro("aliases")

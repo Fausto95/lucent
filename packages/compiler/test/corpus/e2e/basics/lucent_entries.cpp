@@ -14,6 +14,11 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("clamp")
+#undef clamp
+#pragma push_macro("describe")
+#undef describe
+
 extern "C" bool lucent_basics_clamp(double arg0, double arg1, double arg2, lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_basics::clamp(lucent::entries::in(arg0), lucent::entries::in(arg1), lucent::entries::in(arg2));
@@ -27,3 +32,6 @@ extern "C" bool lucent_basics_describe(double arg0, lucent_error* error, lucent_
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("describe")
+#pragma pop_macro("clamp")

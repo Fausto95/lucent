@@ -14,6 +14,23 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("assigned")
+#undef assigned
+#pragma push_macro("assignedLet")
+#undef assignedLet
+#pragma push_macro("compared")
+#undef compared
+#pragma push_macro("field")
+#undef field
+#pragma push_macro("loose")
+#undef loose
+#pragma push_macro("nulled")
+#undef nulled
+#pragma push_macro("typeofTest")
+#undef typeofTest
+#pragma push_macro("value")
+#undef value
+
 extern "C" bool lucent_narrowed_absent_assigned(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_narrowed_u2d_absent::assigned();
@@ -62,3 +79,12 @@ extern "C" bool lucent_narrowed_absent_loose(double arg0, lucent_error* error, l
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("value")
+#pragma pop_macro("typeofTest")
+#pragma pop_macro("nulled")
+#pragma pop_macro("loose")
+#pragma pop_macro("field")
+#pragma pop_macro("compared")
+#pragma pop_macro("assignedLet")
+#pragma pop_macro("assigned")

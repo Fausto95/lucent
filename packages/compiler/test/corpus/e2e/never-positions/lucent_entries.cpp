@@ -14,6 +14,59 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("argument")
+#undef argument
+#pragma push_macro("assigned")
+#undef assigned
+#pragma push_macro("assignedField")
+#undef assignedField
+#pragma push_macro("compared")
+#undef compared
+#pragma push_macro("compound")
+#undef compound
+#pragma push_macro("compoundShared")
+#undef compoundShared
+#pragma push_macro("condition")
+#undef condition
+#pragma push_macro("constructed")
+#undef constructed
+#pragma push_macro("defaults")
+#undef defaults
+#pragma push_macro("element")
+#undef element
+#pragma push_macro("exhaustive")
+#undef exhaustive
+#pragma push_macro("field")
+#undef field
+#pragma push_macro("initialized")
+#undef initialized
+#pragma push_macro("leftOperand")
+#undef leftOperand
+#pragma push_macro("looped")
+#undef looped
+#pragma push_macro("mapped")
+#undef mapped
+#pragma push_macro("negated")
+#undef negated
+#pragma push_macro("nothing")
+#undef nothing
+#pragma push_macro("operands")
+#undef operands
+#pragma push_macro("pushed")
+#undef pushed
+#pragma push_macro("r_template_")
+#undef r_template_
+#pragma push_macro("switched")
+#undef switched
+#pragma push_macro("tuple")
+#undef tuple
+#pragma push_macro("u_arguments_")
+#undef u_arguments_
+#pragma push_macro("unary")
+#undef unary
+#pragma push_macro("value")
+#undef value
+
 extern "C" bool lucent_never_positions_argument(bool arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_never_u2d_positions::argument(lucent::entries::in(arg0));
@@ -188,3 +241,30 @@ extern "C" bool lucent_never_positions_nothing(lucent_error* error, lucent_strin
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("value")
+#pragma pop_macro("unary")
+#pragma pop_macro("u_arguments_")
+#pragma pop_macro("tuple")
+#pragma pop_macro("switched")
+#pragma pop_macro("r_template_")
+#pragma pop_macro("pushed")
+#pragma pop_macro("operands")
+#pragma pop_macro("nothing")
+#pragma pop_macro("negated")
+#pragma pop_macro("mapped")
+#pragma pop_macro("looped")
+#pragma pop_macro("leftOperand")
+#pragma pop_macro("initialized")
+#pragma pop_macro("field")
+#pragma pop_macro("exhaustive")
+#pragma pop_macro("element")
+#pragma pop_macro("defaults")
+#pragma pop_macro("constructed")
+#pragma pop_macro("condition")
+#pragma pop_macro("compoundShared")
+#pragma pop_macro("compound")
+#pragma pop_macro("compared")
+#pragma pop_macro("assignedField")
+#pragma pop_macro("assigned")
+#pragma pop_macro("argument")

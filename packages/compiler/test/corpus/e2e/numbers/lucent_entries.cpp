@@ -14,6 +14,15 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("fib")
+#undef fib
+#pragma push_macro("multiplyAdd")
+#undef multiplyAdd
+#pragma push_macro("precision")
+#undef precision
+#pragma push_macro("special")
+#undef special
+
 extern "C" bool lucent_numbers_special(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_numbers::special();
@@ -41,3 +50,8 @@ extern "C" bool lucent_numbers_multiplyAdd(double arg0, double arg1, double arg2
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("special")
+#pragma pop_macro("precision")
+#pragma pop_macro("multiplyAdd")
+#pragma pop_macro("fib")

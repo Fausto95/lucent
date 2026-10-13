@@ -14,6 +14,13 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("madeRecords")
+#undef madeRecords
+#pragma push_macro("maps")
+#undef maps
+#pragma push_macro("nulls")
+#undef nulls
+
 extern "C" bool lucent_optional_elements_maps(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_optional_u2d_elements::maps();
@@ -34,3 +41,7 @@ extern "C" bool lucent_optional_elements_nulls(lucent_error* error, lucent_strin
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("nulls")
+#pragma pop_macro("maps")
+#pragma pop_macro("madeRecords")

@@ -14,6 +14,23 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("counters")
+#undef counters
+#pragma push_macro("mixed")
+#undef mixed
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("shifts")
+#undef shifts
+#pragma push_macro("signedZero")
+#undef signedZero
+#pragma push_macro("unsignedAccumulate")
+#undef unsignedAccumulate
+#pragma push_macro("value")
+#undef value
+#pragma push_macro("wraparound")
+#undef wraparound
+
 extern "C" bool lucent_integers_wraparound(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_integers::wraparound();
@@ -55,3 +72,12 @@ extern "C" bool lucent_integers_unsignedAccumulate(double arg0, lucent_error* er
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("wraparound")
+#pragma pop_macro("value")
+#pragma pop_macro("unsignedAccumulate")
+#pragma pop_macro("signedZero")
+#pragma pop_macro("shifts")
+#pragma pop_macro("out")
+#pragma pop_macro("mixed")
+#pragma pop_macro("counters")

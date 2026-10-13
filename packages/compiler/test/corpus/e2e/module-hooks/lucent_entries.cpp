@@ -14,9 +14,14 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("hooks")
+#undef hooks
+
 extern "C" bool lucent_module_hooks_hooks(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_module_u2d_hooks::hooks();
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("hooks")

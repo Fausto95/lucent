@@ -14,6 +14,13 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("arrays")
+#undef arrays
+#pragma push_macro("identity")
+#undef identity
+#pragma push_macro("positions")
+#undef positions
+
 extern "C" bool lucent_generic_instantiations_arrays(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_generic_u2d_instantiations::arrays();
@@ -34,3 +41,7 @@ extern "C" bool lucent_generic_instantiations_identity(lucent_error* error, luce
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("positions")
+#pragma pop_macro("identity")
+#pragma pop_macro("arrays")

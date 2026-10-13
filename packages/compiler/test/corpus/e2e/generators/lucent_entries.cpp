@@ -14,6 +14,23 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("basics")
+#undef basics
+#pragma push_macro("closures")
+#undef closures
+#pragma push_macro("earlyExit")
+#undef earlyExit
+#pragma push_macro("iterables")
+#undef iterables
+#pragma push_macro("lazy")
+#undef lazy
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("throwsInside")
+#undef throwsInside
+#pragma push_macro("tree")
+#undef tree
+
 extern "C" bool lucent_generators_basics(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_generators::basics();
@@ -62,3 +79,12 @@ extern "C" bool lucent_generators_iterables(lucent_error* error, lucent_string* 
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("tree")
+#pragma pop_macro("throwsInside")
+#pragma pop_macro("out")
+#pragma pop_macro("lazy")
+#pragma pop_macro("iterables")
+#pragma pop_macro("earlyExit")
+#pragma pop_macro("closures")
+#pragma pop_macro("basics")

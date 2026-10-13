@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"promise-fields", "6a57
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "42e54fe62c8fd1e2", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "fccc1c72d0a00900", kModuleIdentities, 1};
   return identity;
 }
 

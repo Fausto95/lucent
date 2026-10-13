@@ -14,6 +14,29 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("account")
+#undef account
+#pragma push_macro("generics")
+#undef generics
+#pragma push_macro("inherited")
+#undef inherited
+#pragma push_macro("kept")
+#undef kept
+#pragma push_macro("nested")
+#undef nested
+#pragma push_macro("shapes")
+#undef shapes
+#pragma push_macro("throughBase")
+#undef throughBase
+#pragma push_macro("toJsonField")
+#undef toJsonField
+#pragma push_macro("toJsonOnce")
+#undef toJsonOnce
+#pragma push_macro("toJsonUndefined")
+#undef toJsonUndefined
+#pragma push_macro("value")
+#undef value
+
 extern "C" bool lucent_stringify_classes_account(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_stringify_u2d_classes::account();
@@ -76,3 +99,15 @@ extern "C" bool lucent_stringify_classes_generics(lucent_error* error, lucent_st
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("value")
+#pragma pop_macro("toJsonUndefined")
+#pragma pop_macro("toJsonOnce")
+#pragma pop_macro("toJsonField")
+#pragma pop_macro("throughBase")
+#pragma pop_macro("shapes")
+#pragma pop_macro("nested")
+#pragma pop_macro("kept")
+#pragma pop_macro("inherited")
+#pragma pop_macro("generics")
+#pragma pop_macro("account")

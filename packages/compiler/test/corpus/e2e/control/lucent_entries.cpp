@@ -14,6 +14,21 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("catches")
+#undef catches
+#pragma push_macro("classify")
+#undef classify
+#pragma push_macro("finallyOrder")
+#undef finallyOrder
+#pragma push_macro("labeled")
+#undef labeled
+#pragma push_macro("logic")
+#undef logic
+#pragma push_macro("nestedFinally")
+#undef nestedFinally
+#pragma push_macro("out")
+#undef out
+
 extern "C" bool lucent_control_classify(double arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_control::classify(lucent::entries::in(arg0));
@@ -55,3 +70,11 @@ extern "C" bool lucent_control_logic(lucent_string arg0, double arg1, lucent_err
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("out")
+#pragma pop_macro("nestedFinally")
+#pragma pop_macro("logic")
+#pragma pop_macro("labeled")
+#pragma pop_macro("finallyOrder")
+#pragma pop_macro("classify")
+#pragma pop_macro("catches")

@@ -14,6 +14,33 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("buffers")
+#undef buffers
+#pragma push_macro("capacities")
+#undef capacities
+#pragma push_macro("classes")
+#undef classes
+#pragma push_macro("closing")
+#undef closing
+#pragma push_macro("copies")
+#undef copies
+#pragma push_macro("fromTask")
+#undef fromTask
+#pragma push_macro("kept")
+#undef kept
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("policies")
+#undef policies
+#pragma push_macro("record")
+#undef record
+#pragma push_macro("recorded")
+#undef recorded
+#pragma push_macro("subscribed")
+#undef subscribed
+#pragma push_macro("waits")
+#undef waits
+
 extern "C" void lucent_channels_policies(void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context) {
   lucent::entries::callAsync<lucent::String>(
       &lucent_app::initModules, lucent_app::actor_0(),
@@ -180,3 +207,17 @@ extern "C" void lucent_channels_subscribed(void (*done)(void* context, const luc
         done(context, &out, nullptr);
       });
 }
+
+#pragma pop_macro("waits")
+#pragma pop_macro("subscribed")
+#pragma pop_macro("recorded")
+#pragma pop_macro("record")
+#pragma pop_macro("policies")
+#pragma pop_macro("out")
+#pragma pop_macro("kept")
+#pragma pop_macro("fromTask")
+#pragma pop_macro("copies")
+#pragma pop_macro("closing")
+#pragma pop_macro("classes")
+#pragma pop_macro("capacities")
+#pragma pop_macro("buffers")

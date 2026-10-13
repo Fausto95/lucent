@@ -14,6 +14,33 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("arithmetic")
+#undef arithmetic
+#pragma push_macro("compare")
+#undef compare
+#pragma push_macro("counted")
+#undef counted
+#pragma push_macro("firstThrows")
+#undef firstThrows
+#pragma push_macro("locals")
+#undef locals
+#pragma push_macro("mulAdd")
+#undef mulAdd
+#pragma push_macro("negate")
+#undef negate
+#pragma push_macro("numbers")
+#undef numbers
+#pragma push_macro("operands")
+#undef operands
+#pragma push_macro("pair")
+#undef pair
+#pragma push_macro("reset")
+#undef reset
+#pragma push_macro("secondThrows")
+#undef secondThrows
+#pragma push_macro("trail")
+#undef trail
+
 extern "C" bool lucent_order_reset(lucent_error* error) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     (void)kept;
@@ -104,3 +131,17 @@ extern "C" bool lucent_order_compare(double arg0, double arg1, lucent_string arg
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("trail")
+#pragma pop_macro("secondThrows")
+#pragma pop_macro("reset")
+#pragma pop_macro("pair")
+#pragma pop_macro("operands")
+#pragma pop_macro("numbers")
+#pragma pop_macro("negate")
+#pragma pop_macro("mulAdd")
+#pragma pop_macro("locals")
+#pragma pop_macro("firstThrows")
+#pragma pop_macro("counted")
+#pragma pop_macro("compare")
+#pragma pop_macro("arithmetic")

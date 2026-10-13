@@ -14,6 +14,47 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("appends")
+#undef appends
+#pragma push_macro("boundedElements")
+#undef boundedElements
+#pragma push_macro("boundedSum")
+#undef boundedSum
+#pragma push_macro("building")
+#undef building
+#pragma push_macro("compound")
+#undef compound
+#pragma push_macro("crc")
+#undef crc
+#pragma push_macro("doubleElements")
+#undef doubleElements
+#pragma push_macro("heapObjects")
+#undef heapObjects
+#pragma push_macro("intElements")
+#undef intElements
+#pragma push_macro("kept")
+#undef kept
+#pragma push_macro("mutatingCallbacks")
+#undef mutatingCallbacks
+#pragma push_macro("negativeRemainder")
+#undef negativeRemainder
+#pragma push_macro("numberStrings")
+#undef numberStrings
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("pastExact")
+#undef pastExact
+#pragma push_macro("signedProducts")
+#undef signedProducts
+#pragma push_macro("sometimesFractional")
+#undef sometimesFractional
+#pragma push_macro("stackObjects")
+#undef stackObjects
+#pragma push_macro("stringKeys")
+#undef stringKeys
+#pragma push_macro("unbounded")
+#undef unbounded
+
 extern "C" bool lucent_optimizations_boundedSum(double arg0, lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_optimizations::boundedSum(lucent::entries::in(arg0));
@@ -139,3 +180,24 @@ extern "C" bool lucent_optimizations_numberStrings(lucent_error* error, lucent_s
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("unbounded")
+#pragma pop_macro("stringKeys")
+#pragma pop_macro("stackObjects")
+#pragma pop_macro("sometimesFractional")
+#pragma pop_macro("signedProducts")
+#pragma pop_macro("pastExact")
+#pragma pop_macro("out")
+#pragma pop_macro("numberStrings")
+#pragma pop_macro("negativeRemainder")
+#pragma pop_macro("mutatingCallbacks")
+#pragma pop_macro("kept")
+#pragma pop_macro("intElements")
+#pragma pop_macro("heapObjects")
+#pragma pop_macro("doubleElements")
+#pragma pop_macro("crc")
+#pragma pop_macro("compound")
+#pragma pop_macro("building")
+#pragma pop_macro("boundedSum")
+#pragma pop_macro("boundedElements")
+#pragma pop_macro("appends")

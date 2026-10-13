@@ -14,6 +14,11 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("bump")
+#undef bump
+#pragma push_macro("grow")
+#undef grow
+
 extern "C" bool lucent_exported_variables_bump(lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_exported_u2d_variables::bump();
@@ -27,3 +32,6 @@ extern "C" bool lucent_exported_variables_grow(lucent_error* error) {
     lucent_app::m_exported_u2d_variables::grow();
   });
 }
+
+#pragma pop_macro("grow")
+#pragma pop_macro("bump")

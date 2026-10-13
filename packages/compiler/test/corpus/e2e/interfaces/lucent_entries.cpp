@@ -14,6 +14,19 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("counters")
+#undef counters
+#pragma push_macro("describeAll")
+#undef describeAll
+#pragma push_macro("feeds")
+#undef feeds
+#pragma push_macro("loadVia")
+#undef loadVia
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("tagged")
+#undef tagged
+
 extern "C" bool lucent_interfaces_describeAll(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_interfaces::describeAll();
@@ -58,3 +71,10 @@ extern "C" bool lucent_interfaces_tagged(lucent_error* error, lucent_string* res
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("tagged")
+#pragma pop_macro("out")
+#pragma pop_macro("loadVia")
+#pragma pop_macro("feeds")
+#pragma pop_macro("describeAll")
+#pragma pop_macro("counters")

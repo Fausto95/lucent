@@ -14,6 +14,23 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("absent")
+#undef absent
+#pragma push_macro("copies")
+#undef copies
+#pragma push_macro("independent")
+#undef independent
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("replacing")
+#undef replacing
+#pragma push_macro("searches")
+#undef searches
+#pragma push_macro("sorting")
+#undef sorting
+#pragma push_macro("splicing")
+#undef splicing
+
 extern "C" bool lucent_es2023_arrays_copies(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_es2023_u2d_arrays::copies();
@@ -62,3 +79,12 @@ extern "C" bool lucent_es2023_arrays_absent(lucent_error* error, lucent_string* 
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("splicing")
+#pragma pop_macro("sorting")
+#pragma pop_macro("searches")
+#pragma pop_macro("replacing")
+#pragma pop_macro("out")
+#pragma pop_macro("independent")
+#pragma pop_macro("copies")
+#pragma pop_macro("absent")

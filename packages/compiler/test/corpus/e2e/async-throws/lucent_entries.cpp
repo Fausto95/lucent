@@ -14,6 +14,13 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("arrows")
+#undef arrows
+#pragma push_macro("exported")
+#undef exported
+#pragma push_macro("functions")
+#undef functions
+
 extern "C" void lucent_async_throws_functions(void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context) {
   lucent::entries::callAsync<lucent::String>(
       &lucent_app::initModules, lucent_app::actor_0(),
@@ -64,3 +71,7 @@ extern "C" void lucent_async_throws_exported(void (*done)(void* context, const l
         done(context, &out, nullptr);
       });
 }
+
+#pragma pop_macro("functions")
+#pragma pop_macro("exported")
+#pragma pop_macro("arrows")

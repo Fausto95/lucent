@@ -14,6 +14,19 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("described")
+#undef described
+#pragma push_macro("labelled")
+#undef labelled
+#pragma push_macro("locations")
+#undef locations
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("relayed")
+#undef relayed
+#pragma push_macro("value")
+#undef value
+
 extern "C" bool lucent_classes_relayed(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_classes::relayed();
@@ -41,3 +54,10 @@ extern "C" bool lucent_classes_described(lucent_error* error, lucent_string* res
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("value")
+#pragma pop_macro("relayed")
+#pragma pop_macro("out")
+#pragma pop_macro("locations")
+#pragma pop_macro("labelled")
+#pragma pop_macro("described")

@@ -14,6 +14,23 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("comparisons")
+#undef comparisons
+#pragma push_macro("echo")
+#undef echo
+#pragma push_macro("lengths")
+#undef lengths
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("same")
+#undef same
+#pragma push_macro("stringified")
+#undef stringified
+#pragma push_macro("templated")
+#undef templated
+#pragma push_macro("units")
+#undef units
+
 extern "C" bool lucent_lone_surrogates_lengths(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_lone_u2d_surrogates::lengths();
@@ -62,3 +79,12 @@ extern "C" bool lucent_lone_surrogates_same(lucent_string arg0, lucent_error* er
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("units")
+#pragma pop_macro("templated")
+#pragma pop_macro("stringified")
+#pragma pop_macro("same")
+#pragma pop_macro("out")
+#pragma pop_macro("lengths")
+#pragma pop_macro("echo")
+#pragma pop_macro("comparisons")

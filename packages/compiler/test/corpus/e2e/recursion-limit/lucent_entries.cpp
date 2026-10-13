@@ -14,6 +14,21 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("bounded")
+#undef bounded
+#pragma push_macro("error")
+#undef error
+#pragma push_macro("mutual")
+#undef mutual
+#pragma push_macro("throughClosure")
+#undef throughClosure
+#pragma push_macro("throughMethod")
+#undef throughMethod
+#pragma push_macro("unbounded")
+#undef unbounded
+#pragma push_macro("unboundedAsync")
+#undef unboundedAsync
+
 extern "C" bool lucent_recursion_limit_unbounded(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_recursion_u2d_limit::unbounded();
@@ -65,3 +80,11 @@ extern "C" void lucent_recursion_limit_unboundedAsync(void (*done)(void* context
         done(context, &out, nullptr);
       });
 }
+
+#pragma pop_macro("unboundedAsync")
+#pragma pop_macro("unbounded")
+#pragma pop_macro("throughMethod")
+#pragma pop_macro("throughClosure")
+#pragma pop_macro("mutual")
+#pragma pop_macro("error")
+#pragma pop_macro("bounded")

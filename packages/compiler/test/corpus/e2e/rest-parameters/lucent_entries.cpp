@@ -14,9 +14,14 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("internal")
+#undef internal
+
 extern "C" bool lucent_rest_parameters_internal(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_rest_u2d_parameters::internal();
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("internal")

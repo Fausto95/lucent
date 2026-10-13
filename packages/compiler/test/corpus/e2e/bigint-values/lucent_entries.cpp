@@ -14,6 +14,13 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("factorialLater")
+#undef factorialLater
+#pragma push_macro("failLater")
+#undef failLater
+#pragma push_macro("out")
+#undef out
+
 extern "C" void lucent_bigint_values_factorialLater(int64_t arg0, void (*done)(void* context, const int64_t* result, const lucent_error* error), void* context) {
   lucent::entries::callAsync<lucent::BigInt>(
       &lucent_app::initModules, lucent_app::actor_0(),
@@ -47,3 +54,7 @@ extern "C" void lucent_bigint_values_failLater(lucent_string arg0, void (*done)(
         done(context, &out, nullptr);
       });
 }
+
+#pragma pop_macro("out")
+#pragma pop_macro("failLater")
+#pragma pop_macro("factorialLater")

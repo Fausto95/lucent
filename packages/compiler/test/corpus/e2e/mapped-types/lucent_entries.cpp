@@ -14,9 +14,14 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("inLucent")
+#undef inLucent
+
 extern "C" bool lucent_mapped_types_inLucent(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_mapped_u2d_types::inLucent();
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("inLucent")

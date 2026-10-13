@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"unassigned-fields", "6
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "31fd02068b8c0cd6", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "a4e88a28ac902201", kModuleIdentities, 1};
   return identity;
 }
 

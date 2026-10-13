@@ -14,6 +14,11 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("controllerInLucent")
+#undef controllerInLucent
+#pragma push_macro("customReason")
+#undef customReason
+
 extern "C" void lucent_abort_controllerInLucent(void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context) {
   lucent::entries::callAsync<lucent::String>(
       &lucent_app::initModules, lucent_app::actor_0(),
@@ -47,3 +52,6 @@ extern "C" void lucent_abort_customReason(void (*done)(void* context, const luce
         done(context, &out, nullptr);
       });
 }
+
+#pragma pop_macro("customReason")
+#pragma pop_macro("controllerInLucent")

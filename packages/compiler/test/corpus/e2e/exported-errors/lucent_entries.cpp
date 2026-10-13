@@ -14,6 +14,13 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("fail")
+#undef fail
+#pragma push_macro("failToken")
+#undef failToken
+#pragma push_macro("later")
+#undef later
+
 extern "C" bool lucent_exported_errors_fail(double arg0, lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_exported_u2d_errors::fail(lucent::entries::in(arg0));
@@ -44,3 +51,7 @@ extern "C" void lucent_exported_errors_later(double arg0, void (*done)(void* con
         done(context, &out, nullptr);
       });
 }
+
+#pragma pop_macro("later")
+#pragma pop_macro("failToken")
+#pragma pop_macro("fail")

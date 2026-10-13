@@ -14,6 +14,27 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("absents")
+#undef absents
+#pragma push_macro("cases")
+#undef cases
+#pragma push_macro("declared")
+#undef declared
+#pragma push_macro("keys")
+#undef keys
+#pragma push_macro("literals")
+#undef literals
+#pragma push_macro("objects")
+#undef objects
+#pragma push_macro("optionals")
+#undef optionals
+#pragma push_macro("primitives")
+#undef primitives
+#pragma push_macro("searches")
+#undef searches
+#pragma push_macro("unions")
+#undef unions
+
 extern "C" bool lucent_mixed_equality_literals(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_mixed_u2d_equality::literals();
@@ -83,3 +104,14 @@ extern "C" bool lucent_mixed_equality_keys(lucent_error* error, lucent_string* r
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("unions")
+#pragma pop_macro("searches")
+#pragma pop_macro("primitives")
+#pragma pop_macro("optionals")
+#pragma pop_macro("objects")
+#pragma pop_macro("literals")
+#pragma pop_macro("keys")
+#pragma pop_macro("declared")
+#pragma pop_macro("cases")
+#pragma pop_macro("absents")

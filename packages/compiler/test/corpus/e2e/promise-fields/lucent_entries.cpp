@@ -14,6 +14,13 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("cached")
+#undef cached
+#pragma push_macro("serialized")
+#undef serialized
+#pragma push_macro("stringified")
+#undef stringified
+
 extern "C" void lucent_promise_fields_serialized(void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context) {
   lucent::entries::callAsync<lucent::String>(
       &lucent_app::initModules, lucent_app::actor_0(),
@@ -54,3 +61,7 @@ extern "C" bool lucent_promise_fields_stringified(lucent_error* error, lucent_st
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("stringified")
+#pragma pop_macro("serialized")
+#pragma pop_macro("cached")

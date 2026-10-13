@@ -14,6 +14,19 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("asArguments")
+#undef asArguments
+#pragma push_macro("asOperands")
+#undef asOperands
+#pragma push_macro("asValues")
+#undef asValues
+#pragma push_macro("throwsAsArgument")
+#undef throwsAsArgument
+#pragma push_macro("throwsAsValue")
+#undef throwsAsValue
+#pragma push_macro("value")
+#undef value
+
 extern "C" bool lucent_absent_results_asArguments(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_absent_u2d_results::asArguments();
@@ -48,3 +61,10 @@ extern "C" bool lucent_absent_results_throwsAsValue(lucent_error* error, lucent_
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("value")
+#pragma pop_macro("throwsAsValue")
+#pragma pop_macro("throwsAsArgument")
+#pragma pop_macro("asValues")
+#pragma pop_macro("asOperands")
+#pragma pop_macro("asArguments")

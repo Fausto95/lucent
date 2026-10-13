@@ -14,9 +14,14 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("generators")
+#undef generators
+
 extern "C" bool lucent_generator_bodies_generators(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_generator_u2d_bodies::generators();
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("generators")

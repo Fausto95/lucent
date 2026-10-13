@@ -562,6 +562,7 @@ export function emitProgram(
         : [cpp.include(INDEX_HEADER)],
       bindings.initializations(initOrder),
       entries,
+      declared,
     ),
   );
   files.set(

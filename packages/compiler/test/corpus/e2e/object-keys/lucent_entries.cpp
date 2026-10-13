@@ -14,6 +14,11 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("enumerated")
+#undef enumerated
+#pragma push_macro("literalKeys")
+#undef literalKeys
+
 extern "C" bool lucent_object_keys_literalKeys(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_object_u2d_keys::literalKeys();
@@ -27,3 +32,6 @@ extern "C" bool lucent_object_keys_enumerated(lucent_error* error, lucent_string
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("literalKeys")
+#pragma pop_macro("enumerated")

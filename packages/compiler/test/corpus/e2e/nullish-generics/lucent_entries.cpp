@@ -14,6 +14,13 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("defaults")
+#undef defaults
+#pragma push_macro("present")
+#undef present
+#pragma push_macro("presentString")
+#undef presentString
+
 extern "C" bool lucent_nullish_generics_defaults(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_nullish_u2d_generics::defaults();
@@ -34,3 +41,7 @@ extern "C" bool lucent_nullish_generics_presentString(lucent_string arg0, lucent
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("presentString")
+#pragma pop_macro("present")
+#pragma pop_macro("defaults")

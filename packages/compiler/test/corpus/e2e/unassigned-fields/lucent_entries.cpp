@@ -14,6 +14,19 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("baseReadsField")
+#undef baseReadsField
+#pragma push_macro("baseReadsUnion")
+#undef baseReadsUnion
+#pragma push_macro("definiteField")
+#undef definiteField
+#pragma push_macro("moduleVariable")
+#undef moduleVariable
+#pragma push_macro("setConfig")
+#undef setConfig
+#pragma push_macro("staticField")
+#undef staticField
+
 extern "C" bool lucent_unassigned_fields_setConfig(double arg0, lucent_error* error) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     (void)kept;
@@ -55,3 +68,10 @@ extern "C" bool lucent_unassigned_fields_moduleVariable(lucent_error* error, luc
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("staticField")
+#pragma pop_macro("setConfig")
+#pragma pop_macro("moduleVariable")
+#pragma pop_macro("definiteField")
+#pragma pop_macro("baseReadsUnion")
+#pragma pop_macro("baseReadsField")

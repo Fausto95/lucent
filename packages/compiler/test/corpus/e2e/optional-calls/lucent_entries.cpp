@@ -14,6 +14,17 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("asserted")
+#undef asserted
+#pragma push_macro("callbacks")
+#undef callbacks
+#pragma push_macro("chains")
+#undef chains
+#pragma push_macro("expressions")
+#undef expressions
+#pragma push_macro("statements")
+#undef statements
+
 extern "C" bool lucent_optional_calls_statements(bool arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_optional_u2d_calls::statements(lucent::entries::in(arg0));
@@ -48,3 +59,9 @@ extern "C" bool lucent_optional_calls_asserted(lucent_error* error, lucent_strin
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("statements")
+#pragma pop_macro("expressions")
+#pragma pop_macro("chains")
+#pragma pop_macro("callbacks")
+#pragma pop_macro("asserted")

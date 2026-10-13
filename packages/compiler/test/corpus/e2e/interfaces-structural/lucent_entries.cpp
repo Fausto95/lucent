@@ -14,6 +14,17 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("identity")
+#undef identity
+#pragma push_macro("json")
+#undef json
+#pragma push_macro("labeled")
+#undef labeled
+#pragma push_macro("literals")
+#undef literals
+#pragma push_macro("placed")
+#undef placed
+
 extern "C" bool lucent_interfaces_structural_literals(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_interfaces_u2d_structural::literals();
@@ -48,3 +59,9 @@ extern "C" bool lucent_interfaces_structural_json(lucent_error* error, lucent_st
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("placed")
+#pragma pop_macro("literals")
+#pragma pop_macro("labeled")
+#pragma pop_macro("json")
+#pragma pop_macro("identity")

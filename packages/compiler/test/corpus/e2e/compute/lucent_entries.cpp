@@ -14,6 +14,31 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("bytes")
+#undef bytes
+#pragma push_macro("cancelled")
+#undef cancelled
+#pragma push_macro("constants")
+#undef constants
+#pragma push_macro("conversions")
+#undef conversions
+#pragma push_macro("done")
+#undef done
+#pragma push_macro("graph")
+#undef graph
+#pragma push_macro("many")
+#undef many
+#pragma push_macro("objects")
+#undef objects
+#pragma push_macro("result")
+#undef result
+#pragma push_macro("results")
+#undef results
+#pragma push_macro("root")
+#undef root
+#pragma push_macro("snapshot")
+#undef snapshot
+
 extern "C" void lucent_compute_root(double arg0, void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context) {
   lucent::entries::callAsync<lucent::String>(
       &lucent_app::initModules, lucent_app::actor_0(),
@@ -183,3 +208,16 @@ extern "C" void lucent_compute_conversions(void (*done)(void* context, const luc
         done(context, &out, nullptr);
       });
 }
+
+#pragma pop_macro("snapshot")
+#pragma pop_macro("root")
+#pragma pop_macro("results")
+#pragma pop_macro("result")
+#pragma pop_macro("objects")
+#pragma pop_macro("many")
+#pragma pop_macro("graph")
+#pragma pop_macro("done")
+#pragma pop_macro("conversions")
+#pragma pop_macro("constants")
+#pragma pop_macro("cancelled")
+#pragma pop_macro("bytes")

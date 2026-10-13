@@ -14,6 +14,11 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("greet")
+#undef greet
+#pragma push_macro("greetNow")
+#undef greetNow
+
 extern "C" void lucent_async_arguments_greet(lucent_string arg0, double arg1, void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context) {
   lucent::entries::callAsync<lucent::String>(
       &lucent_app::initModules, lucent_app::actor_0(),
@@ -37,3 +42,6 @@ extern "C" bool lucent_async_arguments_greetNow(lucent_string arg0, lucent_error
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("greetNow")
+#pragma pop_macro("greet")

@@ -14,6 +14,23 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("compare")
+#undef compare
+#pragma push_macro("invalid")
+#undef invalid
+#pragma push_macro("local")
+#undef local
+#pragma push_macro("now")
+#undef now
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("parse")
+#undef parse
+#pragma push_macro("setters")
+#undef setters
+#pragma push_macro("utc")
+#undef utc
+
 extern "C" bool lucent_dates_utc(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_dates::utc();
@@ -62,3 +79,12 @@ extern "C" bool lucent_dates_now(lucent_error* error, bool* result) {
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("utc")
+#pragma pop_macro("setters")
+#pragma pop_macro("parse")
+#pragma pop_macro("out")
+#pragma pop_macro("now")
+#pragma pop_macro("local")
+#pragma pop_macro("invalid")
+#pragma pop_macro("compare")

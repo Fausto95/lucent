@@ -14,6 +14,23 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("fromLucent")
+#undef fromLucent
+#pragma push_macro("late")
+#undef late
+#pragma push_macro("observed")
+#undef observed
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("reentrant")
+#undef reentrant
+#pragma push_macro("removed")
+#undef removed
+#pragma push_macro("stopWatching")
+#undef stopWatching
+#pragma push_macro("value")
+#undef value
+
 extern "C" bool lucent_events_observed_observed(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_events_u2d_observed::observed();
@@ -55,3 +72,12 @@ extern "C" bool lucent_events_observed_stopWatching(lucent_error* error, lucent_
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("value")
+#pragma pop_macro("stopWatching")
+#pragma pop_macro("removed")
+#pragma pop_macro("reentrant")
+#pragma pop_macro("out")
+#pragma pop_macro("observed")
+#pragma pop_macro("late")
+#pragma pop_macro("fromLucent")

@@ -14,6 +14,27 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("basics")
+#undef basics
+#pragma push_macro("callbackReplace")
+#undef callbackReplace
+#pragma push_macro("dynamic")
+#undef dynamic
+#pragma push_macro("flags")
+#undef flags
+#pragma push_macro("globalExec")
+#undef globalExec
+#pragma push_macro("matchAllGroups")
+#undef matchAllGroups
+#pragma push_macro("named")
+#undef named
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("sticky")
+#undef sticky
+#pragma push_macro("stringMethods")
+#undef stringMethods
+
 extern "C" bool lucent_regexps_basics(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_regexps::basics();
@@ -76,3 +97,14 @@ extern "C" bool lucent_regexps_callbackReplace(lucent_string arg0, lucent_error*
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("stringMethods")
+#pragma pop_macro("sticky")
+#pragma pop_macro("out")
+#pragma pop_macro("named")
+#pragma pop_macro("matchAllGroups")
+#pragma pop_macro("globalExec")
+#pragma pop_macro("flags")
+#pragma pop_macro("dynamic")
+#pragma pop_macro("callbackReplace")
+#pragma pop_macro("basics")

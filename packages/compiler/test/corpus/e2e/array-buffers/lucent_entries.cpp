@@ -14,6 +14,17 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("checks")
+#undef checks
+#pragma push_macro("digest")
+#undef digest
+#pragma push_macro("result")
+#undef result
+#pragma push_macro("value")
+#undef value
+#pragma push_macro("views")
+#undef views
+
 extern "C" bool lucent_array_buffers_views(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_array_u2d_buffers::views();
@@ -44,3 +55,9 @@ extern "C" void lucent_array_buffers_digest(double arg0, void (*done)(void* cont
         done(context, &out, nullptr);
       });
 }
+
+#pragma pop_macro("views")
+#pragma pop_macro("value")
+#pragma pop_macro("result")
+#pragma pop_macro("digest")
+#pragma pop_macro("checks")

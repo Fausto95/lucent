@@ -14,6 +14,17 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("fromTask")
+#undef fromTask
+#pragma push_macro("moved")
+#undef moved
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("refusals")
+#undef refusals
+#pragma push_macro("value")
+#undef value
+
 extern "C" bool lucent_buffer_to_array_moved(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_buffer_u2d_to_u2d_array::moved();
@@ -44,3 +55,9 @@ extern "C" bool lucent_buffer_to_array_refusals(lucent_error* error, lucent_stri
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("value")
+#pragma pop_macro("refusals")
+#pragma pop_macro("out")
+#pragma pop_macro("moved")
+#pragma pop_macro("fromTask")

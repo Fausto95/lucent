@@ -14,6 +14,17 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("area")
+#undef area
+#pragma push_macro("areaOf")
+#undef areaOf
+#pragma push_macro("passed")
+#undef passed
+#pragma push_macro("pick")
+#undef pick
+#pragma push_macro("radiusOf")
+#undef radiusOf
+
 extern "C" bool lucent_conditional_objects_passed(bool arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_conditional_u2d_objects::passed(lucent::entries::in(arg0));
@@ -58,3 +69,9 @@ extern "C" void lucent_conditional_objects_pick(bool arg0, void (*done)(void* co
         done(context, &out, nullptr);
       });
 }
+
+#pragma pop_macro("radiusOf")
+#pragma pop_macro("pick")
+#pragma pop_macro("passed")
+#pragma pop_macro("areaOf")
+#pragma pop_macro("area")

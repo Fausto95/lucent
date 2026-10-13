@@ -14,6 +14,31 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("allRejectsEarly")
+#undef allRejectsEarly
+#pragma push_macro("allTicks")
+#undef allTicks
+#pragma push_macro("eagerOrder")
+#undef eagerOrder
+#pragma push_macro("failing")
+#undef failing
+#pragma push_macro("noAwait")
+#undef noAwait
+#pragma push_macro("orderCheck")
+#undef orderCheck
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("promiseOfNothing")
+#undef promiseOfNothing
+#pragma push_macro("r_double_")
+#undef r_double_
+#pragma push_macro("recovers")
+#undef recovers
+#pragma push_macro("tupleRejectsEarly")
+#undef tupleRejectsEarly
+#pragma push_macro("value")
+#undef value
+
 extern "C" void lucent_async_double(double arg0, void (*done)(void* context, const double* result, const lucent_error* error), void* context) {
   lucent::entries::callAsync<double>(
       &lucent_app::initModules, lucent_app::actor_0(),
@@ -183,3 +208,16 @@ extern "C" void lucent_async_promiseOfNothing(void (*done)(void* context, const 
         done(context, &out, nullptr);
       });
 }
+
+#pragma pop_macro("value")
+#pragma pop_macro("tupleRejectsEarly")
+#pragma pop_macro("recovers")
+#pragma pop_macro("r_double_")
+#pragma pop_macro("promiseOfNothing")
+#pragma pop_macro("out")
+#pragma pop_macro("orderCheck")
+#pragma pop_macro("noAwait")
+#pragma pop_macro("failing")
+#pragma pop_macro("eagerOrder")
+#pragma pop_macro("allTicks")
+#pragma pop_macro("allRejectsEarly")

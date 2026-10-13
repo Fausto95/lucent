@@ -14,6 +14,13 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("delegates")
+#undef delegates
+#pragma push_macro("identities")
+#undef identities
+#pragma push_macro("trees")
+#undef trees
+
 extern "C" bool lucent_weak_refs_delegates(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_weak_u2d_refs::delegates();
@@ -34,3 +41,7 @@ extern "C" bool lucent_weak_refs_identities(lucent_error* error, lucent_string* 
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("trees")
+#pragma pop_macro("identities")
+#pragma pop_macro("delegates")

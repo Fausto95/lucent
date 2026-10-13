@@ -14,6 +14,25 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("aborts")
+#undef aborts
+#pragma push_macro("arrays")
+#undef arrays
+#pragma push_macro("bytes")
+#undef bytes
+#pragma push_macro("collections")
+#undef collections
+#pragma push_macro("kinds")
+#undef kinds
+#pragma push_macro("log")
+#undef log
+#pragma push_macro("optionals")
+#undef optionals
+#pragma push_macro("promises")
+#undef promises
+#pragma push_macro("value")
+#undef value
+
 extern "C" bool lucent_object_strings_arrays(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_object_u2d_strings::arrays();
@@ -69,3 +88,13 @@ extern "C" bool lucent_object_strings_log(lucent_error* error) {
     lucent_app::m_object_u2d_strings::log();
   });
 }
+
+#pragma pop_macro("value")
+#pragma pop_macro("promises")
+#pragma pop_macro("optionals")
+#pragma pop_macro("log")
+#pragma pop_macro("kinds")
+#pragma pop_macro("collections")
+#pragma pop_macro("bytes")
+#pragma pop_macro("arrays")
+#pragma pop_macro("aborts")

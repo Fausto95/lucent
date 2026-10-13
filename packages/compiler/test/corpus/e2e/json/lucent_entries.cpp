@@ -14,6 +14,21 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("lastKeyWins")
+#undef lastKeyWins
+#pragma push_macro("mixed")
+#undef mixed
+#pragma push_macro("numbers")
+#undef numbers
+#pragma push_macro("roundTrip")
+#undef roundTrip
+#pragma push_macro("shapes")
+#undef shapes
+#pragma push_macro("strings")
+#undef strings
+#pragma push_macro("summarize")
+#undef summarize
+
 extern "C" bool lucent_json_summarize(lucent_string arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_json::summarize(lucent::entries::in(arg0));
@@ -62,3 +77,11 @@ extern "C" bool lucent_json_lastKeyWins(lucent_error* error, double* result) {
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("summarize")
+#pragma pop_macro("strings")
+#pragma pop_macro("shapes")
+#pragma pop_macro("roundTrip")
+#pragma pop_macro("numbers")
+#pragma pop_macro("mixed")
+#pragma pop_macro("lastKeyWins")

@@ -14,6 +14,19 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("rank")
+#undef rank
+#pragma push_macro("sign")
+#undef sign
+#pragma push_macro("size")
+#undef size
+#pragma push_macro("steps")
+#undef steps
+#pragma push_macro("weekday")
+#undef weekday
+#pragma push_macro("weight")
+#undef weight
+
 extern "C" bool lucent_switch_returns_size(double arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_switch_u2d_returns::size(lucent::entries::in(arg0));
@@ -55,3 +68,10 @@ extern "C" bool lucent_switch_returns_sign(double arg0, lucent_error* error, luc
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("weight")
+#pragma pop_macro("weekday")
+#pragma pop_macro("steps")
+#pragma pop_macro("size")
+#pragma pop_macro("sign")
+#pragma pop_macro("rank")

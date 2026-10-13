@@ -14,6 +14,19 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("channelJson")
+#undef channelJson
+#pragma push_macro("counts")
+#undef counts
+#pragma push_macro("done")
+#undef done
+#pragma push_macro("download")
+#undef download
+#pragma push_macro("finishNow")
+#undef finishNow
+#pragma push_macro("inLucent")
+#undef inLucent
+
 extern "C" void lucent_events_download(lucent_string arg0, void (*done)(void* context, const lucent_error* error), void* context) {
   lucent::entries::callAsync<void>(
       &lucent_app::initModules, lucent_app::actor_0(),
@@ -48,3 +61,10 @@ extern "C" bool lucent_events_channelJson(lucent_error* error, lucent_string* re
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("inLucent")
+#pragma pop_macro("finishNow")
+#pragma pop_macro("download")
+#pragma pop_macro("done")
+#pragma pop_macro("counts")
+#pragma pop_macro("channelJson")

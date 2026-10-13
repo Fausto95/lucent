@@ -14,6 +14,21 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("bytesOps")
+#undef bytesOps
+#pragma push_macro("checksum")
+#undef checksum
+#pragma push_macro("colorName")
+#undef colorName
+#pragma push_macro("counterKeys")
+#undef counterKeys
+#pragma push_macro("jsonOut")
+#undef jsonOut
+#pragma push_macro("level")
+#undef level
+#pragma push_macro("roundTrip")
+#undef roundTrip
+
 extern "C" bool lucent_misc_colorName(lucent_string arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_misc::colorName(lucent::entries::in(arg0));
@@ -62,3 +77,11 @@ extern "C" bool lucent_misc_counterKeys(lucent_string arg0, lucent_error* error,
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("roundTrip")
+#pragma pop_macro("level")
+#pragma pop_macro("jsonOut")
+#pragma pop_macro("counterKeys")
+#pragma pop_macro("colorName")
+#pragma pop_macro("checksum")
+#pragma pop_macro("bytesOps")

@@ -14,6 +14,13 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("absent")
+#undef absent
+#pragma push_macro("containers")
+#undef containers
+#pragma push_macro("unions")
+#undef unions
+
 extern "C" bool lucent_function_values_absent(bool arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_function_u2d_values::absent(lucent::entries::in(arg0));
@@ -34,3 +41,7 @@ extern "C" bool lucent_function_values_containers(lucent_error* error, lucent_st
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("unions")
+#pragma pop_macro("containers")
+#pragma pop_macro("absent")

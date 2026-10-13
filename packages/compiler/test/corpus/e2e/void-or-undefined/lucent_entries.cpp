@@ -14,6 +14,15 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("arrows")
+#undef arrows
+#pragma push_macro("declared")
+#undef declared
+#pragma push_macro("kept")
+#undef kept
+#pragma push_macro("result")
+#undef result
+
 extern "C" bool lucent_void_or_undefined_arrows(bool arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_void_u2d_or_u2d_undefined::arrows(lucent::entries::in(arg0));
@@ -34,3 +43,8 @@ extern "C" bool lucent_void_or_undefined_kept(bool arg0, lucent_error* error, lu
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("result")
+#pragma pop_macro("kept")
+#pragma pop_macro("declared")
+#pragma pop_macro("arrows")

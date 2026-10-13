@@ -14,6 +14,13 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("counted")
+#undef counted
+#pragma push_macro("shapes")
+#undef shapes
+#pragma push_macro("zoo")
+#undef zoo
+
 extern "C" bool lucent_inheritance_shapes(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_inheritance::shapes();
@@ -34,3 +41,7 @@ extern "C" bool lucent_inheritance_counted(lucent_error* error, double* result) 
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("zoo")
+#pragma pop_macro("shapes")
+#pragma pop_macro("counted")

@@ -14,6 +14,23 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("caught")
+#undef caught
+#pragma push_macro("groupedIterables")
+#undef groupedIterables
+#pragma push_macro("groupedMap")
+#undef groupedMap
+#pragma push_macro("groupedRecord")
+#undef groupedRecord
+#pragma push_macro("groupingThrows")
+#undef groupingThrows
+#pragma push_macro("resolvers")
+#undef resolvers
+#pragma push_macro("value")
+#undef value
+#pragma push_macro("wellFormed")
+#undef wellFormed
+
 extern "C" bool lucent_es2024_builtins_groupedRecord(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_es2024_u2d_builtins::groupedRecord();
@@ -65,3 +82,12 @@ extern "C" bool lucent_es2024_builtins_wellFormed(lucent_error* error, lucent_st
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("wellFormed")
+#pragma pop_macro("value")
+#pragma pop_macro("resolvers")
+#pragma pop_macro("groupingThrows")
+#pragma pop_macro("groupedRecord")
+#pragma pop_macro("groupedMap")
+#pragma pop_macro("groupedIterables")
+#pragma pop_macro("caught")

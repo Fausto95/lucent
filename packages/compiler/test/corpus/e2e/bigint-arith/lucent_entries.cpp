@@ -14,6 +14,21 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("divide")
+#undef divide
+#pragma push_macro("kind")
+#undef kind
+#pragma push_macro("order")
+#undef order
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("power")
+#undef power
+#pragma push_macro("select")
+#undef select
+#pragma push_macro("truthiness")
+#undef truthiness
+
 extern "C" bool lucent_bigint_arith_divide(int64_t arg0, int64_t arg1, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_bigint_u2d_arith::divide(lucent::entries::in(arg0), lucent::entries::in(arg1));
@@ -55,3 +70,11 @@ extern "C" bool lucent_bigint_arith_select(int64_t arg0, lucent_error* error, lu
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("truthiness")
+#pragma pop_macro("select")
+#pragma pop_macro("power")
+#pragma pop_macro("out")
+#pragma pop_macro("order")
+#pragma pop_macro("kind")
+#pragma pop_macro("divide")

@@ -14,6 +14,15 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("absent")
+#undef absent
+#pragma push_macro("comparisons")
+#undef comparisons
+#pragma push_macro("members")
+#undef members
+#pragma push_macro("optionals")
+#undef optionals
+
 extern "C" bool lucent_union_generics_members(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_union_u2d_generics::members();
@@ -41,3 +50,8 @@ extern "C" bool lucent_union_generics_absent(bool arg0, lucent_error* error, luc
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("optionals")
+#pragma pop_macro("members")
+#pragma pop_macro("comparisons")
+#pragma pop_macro("absent")

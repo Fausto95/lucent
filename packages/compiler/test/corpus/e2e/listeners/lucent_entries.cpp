@@ -14,6 +14,31 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("aborts")
+#undef aborts
+#pragma push_macro("cleanupOrder")
+#undef cleanupOrder
+#pragma push_macro("completesDuringRegistration")
+#undef completesDuringRegistration
+#pragma push_macro("done")
+#undef done
+#pragma push_macro("failed")
+#undef failed
+#pragma push_macro("namedRegistration")
+#undef namedRegistration
+#pragma push_macro("registrationThrows")
+#undef registrationThrows
+#pragma push_macro("rejects")
+#undef rejects
+#pragma push_macro("settlesOnce")
+#undef settlesOnce
+#pragma push_macro("subscriptionEnds")
+#undef subscriptionEnds
+#pragma push_macro("subscriptions")
+#undef subscriptions
+#pragma push_macro("voidResults")
+#undef voidResults
+
 extern "C" void lucent_listeners_settlesOnce(void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context) {
   lucent::entries::callAsync<lucent::String>(
       &lucent_app::initModules, lucent_app::actor_0(),
@@ -183,3 +208,16 @@ extern "C" void lucent_listeners_subscriptionEnds(void (*done)(void* context, co
         done(context, &out, nullptr);
       });
 }
+
+#pragma pop_macro("voidResults")
+#pragma pop_macro("subscriptions")
+#pragma pop_macro("subscriptionEnds")
+#pragma pop_macro("settlesOnce")
+#pragma pop_macro("rejects")
+#pragma pop_macro("registrationThrows")
+#pragma pop_macro("namedRegistration")
+#pragma pop_macro("failed")
+#pragma pop_macro("done")
+#pragma pop_macro("completesDuringRegistration")
+#pragma pop_macro("cleanupOrder")
+#pragma pop_macro("aborts")

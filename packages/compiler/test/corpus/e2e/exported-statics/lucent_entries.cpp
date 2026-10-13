@@ -3,6 +3,9 @@
 #include "m_exported_u2d_statics.h"
 #include <lucent/entries.h>
 
+#pragma push_macro("scope")
+#undef scope
+
 namespace lucent_app {
 
 void initModules() {
@@ -14,9 +17,16 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma pop_macro("scope")
+
+#pragma push_macro("read")
+#undef read
+
 extern "C" bool lucent_exported_statics_read(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_exported_u2d_statics::read();
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("read")

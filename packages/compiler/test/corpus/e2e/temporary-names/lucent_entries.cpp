@@ -14,6 +14,21 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("finals")
+#undef finals
+#pragma push_macro("iterators")
+#undef iterators
+#pragma push_macro("keysOf")
+#undef keysOf
+#pragma push_macro("loops")
+#undef loops
+#pragma push_macro("objects")
+#undef objects
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("pushes")
+#undef pushes
+
 extern "C" bool lucent_temporary_names_objects(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_temporary_u2d_names::objects();
@@ -55,3 +70,11 @@ extern "C" bool lucent_temporary_names_keysOf(lucent_error* error, lucent_string
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("pushes")
+#pragma pop_macro("out")
+#pragma pop_macro("objects")
+#pragma pop_macro("loops")
+#pragma pop_macro("keysOf")
+#pragma pop_macro("iterators")
+#pragma pop_macro("finals")

@@ -14,6 +14,17 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("declared")
+#undef declared
+#pragma push_macro("declaredLet")
+#undef declaredLet
+#pragma push_macro("fromArrow")
+#undef fromArrow
+#pragma push_macro("fromMethod")
+#undef fromMethod
+#pragma push_macro("returned")
+#undef returned
+
 extern "C" bool lucent_never_values_returned(lucent_string arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_never_u2d_values::returned(lucent::entries::in(arg0));
@@ -48,3 +59,9 @@ extern "C" bool lucent_never_values_declaredLet(bool arg0, lucent_error* error, 
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("returned")
+#pragma pop_macro("fromMethod")
+#pragma pop_macro("fromArrow")
+#pragma pop_macro("declaredLet")
+#pragma pop_macro("declared")

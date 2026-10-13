@@ -14,6 +14,21 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("cached")
+#undef cached
+#pragma push_macro("interfaceKeys")
+#undef interfaceKeys
+#pragma push_macro("maps")
+#undef maps
+#pragma push_macro("objectKeys")
+#undef objectKeys
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("sets")
+#undef sets
+#pragma push_macro("values")
+#undef values
+
 extern "C" bool lucent_weak_collections_maps(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_weak_u2d_collections::maps();
@@ -55,3 +70,11 @@ extern "C" bool lucent_weak_collections_cached(lucent_error* error, lucent_strin
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("values")
+#pragma pop_macro("sets")
+#pragma pop_macro("out")
+#pragma pop_macro("objectKeys")
+#pragma pop_macro("maps")
+#pragma pop_macro("interfaceKeys")
+#pragma pop_macro("cached")

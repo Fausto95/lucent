@@ -14,6 +14,37 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("captured")
+#undef captured
+#pragma push_macro("elementThrows")
+#undef elementThrows
+#pragma push_macro("elements")
+#undef elements
+#pragma push_macro("entries")
+#undef entries
+#pragma push_macro("fields")
+#undef fields
+#pragma push_macro("locals")
+#undef locals
+#pragma push_macro("members")
+#undef members
+#pragma push_macro("moduleLogical")
+#undef moduleLogical
+#pragma push_macro("moduleNumbers")
+#undef moduleNumbers
+#pragma push_macro("moduleString")
+#undef moduleString
+#pragma push_macro("moduleThrows")
+#undef moduleThrows
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("replaced")
+#undef replaced
+#pragma push_macro("reset")
+#undef reset
+#pragma push_macro("trail")
+#undef trail
+
 extern "C" bool lucent_assignment_order_reset(lucent_error* error) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     (void)kept;
@@ -111,3 +142,19 @@ extern "C" bool lucent_assignment_order_members(lucent_error* error, double* res
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("trail")
+#pragma pop_macro("reset")
+#pragma pop_macro("replaced")
+#pragma pop_macro("out")
+#pragma pop_macro("moduleThrows")
+#pragma pop_macro("moduleString")
+#pragma pop_macro("moduleNumbers")
+#pragma pop_macro("moduleLogical")
+#pragma pop_macro("members")
+#pragma pop_macro("locals")
+#pragma pop_macro("fields")
+#pragma pop_macro("entries")
+#pragma pop_macro("elements")
+#pragma pop_macro("elementThrows")
+#pragma pop_macro("captured")

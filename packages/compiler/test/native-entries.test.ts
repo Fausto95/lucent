@@ -146,6 +146,22 @@ describe.skipIf(!clangxx)("native entry points", () => {
     expect(header).toContain("bool lucent_a_d(lucent_error* error, double* result);");
   });
 
+  it("undefine the program's names as macros around the entries", () => {
+    // Apple's AssertMacros.h defines check(assertion) as a macro.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-entries-"));
+    fs.writeFileSync(
+      path.join(dir, "probe.lucent.ts"),
+      "export function check(n: number): number {\n  return n;\n}\n",
+    );
+    const r = compile([path.join(dir, "probe.lucent.ts")], { platforms: ["host"] });
+    expect(r.diagnostics).toEqual([]);
+    const unit = r.files.get("lucent_entries.cpp")!;
+    const at = (text: string) => unit.indexOf(text);
+    expect(at('#pragma push_macro("check")\n#undef check')).toBeGreaterThan(0);
+    expect(at("lucent_app::m_probe::check(")).toBeGreaterThan(at("#undef check"));
+    expect(at('#pragma pop_macro("check")')).toBeGreaterThan(at("lucent_app::m_probe::check("));
+  });
+
   it("run module functions with no JavaScript runtime, and give their errors to the caller", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-entries-"));
     fs.writeFileSync(path.join(dir, "math.lucent.ts"), module);

@@ -14,6 +14,25 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("crc32")
+#undef crc32
+#pragma push_macro("fnv1a")
+#undef fnv1a
+#pragma push_macro("mandelbrot")
+#undef mandelbrot
+#pragma push_macro("murmur")
+#undef murmur
+#pragma push_macro("sieve")
+#undef sieve
+#pragma push_macro("sortNumbers")
+#undef sortNumbers
+#pragma push_macro("strings")
+#undef strings
+#pragma push_macro("wordCount")
+#undef wordCount
+#pragma push_macro("xorshift")
+#undef xorshift
+
 extern "C" bool lucent_kernels_murmur(double arg0, lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_kernels::murmur(lucent::entries::in(arg0));
@@ -76,3 +95,13 @@ extern "C" bool lucent_kernels_strings(double arg0, lucent_error* error, double*
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("xorshift")
+#pragma pop_macro("wordCount")
+#pragma pop_macro("strings")
+#pragma pop_macro("sortNumbers")
+#pragma pop_macro("sieve")
+#pragma pop_macro("murmur")
+#pragma pop_macro("mandelbrot")
+#pragma pop_macro("fnv1a")
+#pragma pop_macro("crc32")

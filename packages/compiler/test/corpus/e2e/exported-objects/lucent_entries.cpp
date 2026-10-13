@@ -14,9 +14,14 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("ping")
+#undef ping
+
 extern "C" bool lucent_exported_objects_ping(double arg0, lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_exported_u2d_objects::ping(lucent::entries::in(arg0));
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("ping")

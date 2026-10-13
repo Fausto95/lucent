@@ -14,6 +14,17 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("instanceOfArray")
+#undef instanceOfArray
+#pragma push_macro("instanceOfKinds")
+#undef instanceOfKinds
+#pragma push_macro("matchIsArray")
+#undef matchIsArray
+#pragma push_macro("tupleIsArray")
+#undef tupleIsArray
+#pragma push_macro("unionOfArrays")
+#undef unionOfArrays
+
 extern "C" bool lucent_kind_checks_tupleIsArray(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_kind_u2d_checks::tupleIsArray();
@@ -48,3 +59,9 @@ extern "C" bool lucent_kind_checks_instanceOfKinds(lucent_error* error, lucent_s
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("unionOfArrays")
+#pragma pop_macro("tupleIsArray")
+#pragma pop_macro("matchIsArray")
+#pragma pop_macro("instanceOfKinds")
+#pragma pop_macro("instanceOfArray")

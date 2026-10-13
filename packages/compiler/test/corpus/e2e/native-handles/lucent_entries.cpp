@@ -14,6 +14,13 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("borrows")
+#undef borrows
+#pragma push_macro("refused")
+#undef refused
+#pragma push_macro("shared")
+#undef shared
+
 extern "C" bool lucent_native_handles_borrows(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_native_u2d_handles::borrows();
@@ -34,3 +41,7 @@ extern "C" bool lucent_native_handles_shared(lucent_error* error, lucent_string*
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("shared")
+#pragma pop_macro("refused")
+#pragma pop_macro("borrows")

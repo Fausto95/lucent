@@ -19,6 +19,13 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("bump")
+#undef bump
+#pragma push_macro("later")
+#undef later
+#pragma push_macro("steps")
+#undef steps
+
 extern "C" void lucent_clock_later(double arg0, void (*done)(void* context, const double* result, const lucent_error* error), void* context) {
   lucent::entries::callAsync<double>(
       &lucent_app::initModules, lucent_app::actor_0(),
@@ -59,3 +66,7 @@ extern "C" void lucent_counter_steps(double arg0, void (*done)(void* context, co
         done(context, &out, nullptr);
       });
 }
+
+#pragma pop_macro("steps")
+#pragma pop_macro("later")
+#pragma pop_macro("bump")

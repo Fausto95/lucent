@@ -16,6 +16,11 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("throughNamespace")
+#undef throughNamespace
+#pragma push_macro("vectorsMade")
+#undef vectorsMade
+
 extern "C" bool lucent_main_vectorsMade(lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_main_::vectorsMade();
@@ -29,3 +34,6 @@ extern "C" bool lucent_main_throughNamespace(lucent_error* error, lucent_string*
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("vectorsMade")
+#pragma pop_macro("throughNamespace")

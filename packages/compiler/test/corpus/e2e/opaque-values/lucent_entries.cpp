@@ -14,9 +14,14 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("clear")
+#undef clear
+
 extern "C" bool lucent_opaque_values_clear(lucent_error* error) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     (void)kept;
     lucent_app::m_opaque_u2d_values::clear();
   });
 }
+
+#pragma pop_macro("clear")

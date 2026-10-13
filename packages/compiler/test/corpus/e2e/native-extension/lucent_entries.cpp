@@ -14,6 +14,19 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("closeTwice")
+#undef closeTwice
+#pragma push_macro("kept")
+#undef kept
+#pragma push_macro("labelBytes")
+#undef labelBytes
+#pragma push_macro("live")
+#undef live
+#pragma push_macro("scoped")
+#undef scoped
+#pragma push_macro("shortOutput")
+#undef shortOutput
+
 extern "C" bool lucent_extension_live(lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_extension::live();
@@ -48,3 +61,10 @@ extern "C" bool lucent_extension_closeTwice(lucent_error* error, double* result)
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("shortOutput")
+#pragma pop_macro("scoped")
+#pragma pop_macro("live")
+#pragma pop_macro("labelBytes")
+#pragma pop_macro("kept")
+#pragma pop_macro("closeTwice")

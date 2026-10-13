@@ -14,6 +14,17 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("kept")
+#undef kept
+#pragma push_macro("oneToken")
+#undef oneToken
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("registers")
+#undef registers
+#pragma push_macro("sameTarget")
+#undef sameTarget
+
 extern "C" bool lucent_finalization_registers(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_finalization::registers();
@@ -34,3 +45,9 @@ extern "C" bool lucent_finalization_oneToken(lucent_error* error, lucent_string*
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("sameTarget")
+#pragma pop_macro("registers")
+#pragma pop_macro("out")
+#pragma pop_macro("oneToken")
+#pragma pop_macro("kept")

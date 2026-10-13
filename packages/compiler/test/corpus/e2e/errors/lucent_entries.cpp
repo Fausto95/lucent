@@ -14,6 +14,17 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("divide")
+#undef divide
+#pragma push_macro("failDeep")
+#undef failDeep
+#pragma push_macro("rethrow")
+#undef rethrow
+#pragma push_macro("safeDivide")
+#undef safeDivide
+#pragma push_macro("validate")
+#undef validate
+
 extern "C" bool lucent_errors_divide(double arg0, double arg1, lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_errors::divide(lucent::entries::in(arg0), lucent::entries::in(arg1));
@@ -48,3 +59,9 @@ extern "C" bool lucent_errors_failDeep(lucent_error* error, double* result) {
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("validate")
+#pragma pop_macro("safeDivide")
+#pragma pop_macro("rethrow")
+#pragma pop_macro("failDeep")
+#pragma pop_macro("divide")

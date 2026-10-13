@@ -14,6 +14,21 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("entries")
+#undef entries
+#pragma push_macro("flatMapped")
+#undef flatMapped
+#pragma push_macro("fromLength")
+#undef fromLength
+#pragma push_macro("fromUndefined")
+#undef fromUndefined
+#pragma push_macro("mapOps")
+#undef mapOps
+#pragma push_macro("newArrayLength")
+#undef newArrayLength
+#pragma push_macro("out")
+#undef out
+
 extern "C" bool lucent_collections_mapOps(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_collections::mapOps();
@@ -48,3 +63,11 @@ extern "C" bool lucent_collections_flatMapped(lucent_error* error, lucent_string
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("out")
+#pragma pop_macro("newArrayLength")
+#pragma pop_macro("mapOps")
+#pragma pop_macro("fromUndefined")
+#pragma pop_macro("fromLength")
+#pragma pop_macro("flatMapped")
+#pragma pop_macro("entries")

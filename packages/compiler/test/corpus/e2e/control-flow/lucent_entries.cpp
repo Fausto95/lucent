@@ -14,6 +14,57 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("bits")
+#undef bits
+#pragma push_macro("clamp")
+#undef clamp
+#pragma push_macro("conditions")
+#undef conditions
+#pragma push_macro("countdown")
+#undef countdown
+#pragma push_macro("doContinue")
+#undef doContinue
+#pragma push_macro("firstSquareOver")
+#undef firstSquareOver
+#pragma push_macro("grade")
+#undef grade
+#pragma push_macro("increments")
+#undef increments
+#pragma push_macro("nanLoop")
+#undef nanLoop
+#pragma push_macro("oddsBelow")
+#undef oddsBelow
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("pairs")
+#undef pairs
+#pragma push_macro("reassign")
+#undef reassign
+#pragma push_macro("reset")
+#undef reset
+#pragma push_macro("result")
+#undef result
+#pragma push_macro("scopes")
+#undef scopes
+#pragma push_macro("sign")
+#undef sign
+#pragma push_macro("skipBlock")
+#undef skipBlock
+#pragma push_macro("sumTo")
+#undef sumTo
+#pragma push_macro("ternary")
+#undef ternary
+#pragma push_macro("throwsOut")
+#undef throwsOut
+#pragma push_macro("totals")
+#undef totals
+#pragma push_macro("trail")
+#undef trail
+#pragma push_macro("truthy")
+#undef truthy
+#pragma push_macro("value")
+#undef value
+
 extern "C" bool lucent_control_flow_reset(lucent_error* error) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     (void)kept;
@@ -167,3 +218,29 @@ extern "C" bool lucent_control_flow_grade(double arg0, lucent_error* error, luce
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("value")
+#pragma pop_macro("truthy")
+#pragma pop_macro("trail")
+#pragma pop_macro("totals")
+#pragma pop_macro("throwsOut")
+#pragma pop_macro("ternary")
+#pragma pop_macro("sumTo")
+#pragma pop_macro("skipBlock")
+#pragma pop_macro("sign")
+#pragma pop_macro("scopes")
+#pragma pop_macro("result")
+#pragma pop_macro("reset")
+#pragma pop_macro("reassign")
+#pragma pop_macro("pairs")
+#pragma pop_macro("out")
+#pragma pop_macro("oddsBelow")
+#pragma pop_macro("nanLoop")
+#pragma pop_macro("increments")
+#pragma pop_macro("grade")
+#pragma pop_macro("firstSquareOver")
+#pragma pop_macro("doContinue")
+#pragma pop_macro("countdown")
+#pragma pop_macro("conditions")
+#pragma pop_macro("clamp")
+#pragma pop_macro("bits")

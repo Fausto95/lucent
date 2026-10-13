@@ -14,6 +14,23 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("attempt")
+#undef attempt
+#pragma push_macro("fromNumber")
+#undef fromNumber
+#pragma push_macro("fromString")
+#undef fromString
+#pragma push_macro("json")
+#undef json
+#pragma push_macro("radix")
+#undef radix
+#pragma push_macro("roundTrip")
+#undef roundTrip
+#pragma push_macro("same")
+#undef same
+#pragma push_macro("toNumber")
+#undef toNumber
+
 extern "C" bool lucent_bigint_conversions_fromNumber(double arg0, lucent_error* error, int64_t* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_bigint_u2d_conversions::fromNumber(lucent::entries::in(arg0));
@@ -69,3 +86,12 @@ extern "C" bool lucent_bigint_conversions_roundTrip(int64_t arg0, lucent_error* 
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("toNumber")
+#pragma pop_macro("same")
+#pragma pop_macro("roundTrip")
+#pragma pop_macro("radix")
+#pragma pop_macro("json")
+#pragma pop_macro("fromString")
+#pragma pop_macro("fromNumber")
+#pragma pop_macro("attempt")

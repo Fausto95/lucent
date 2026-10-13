@@ -14,6 +14,25 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("builder")
+#undef builder
+#pragma push_macro("compare")
+#undef compare
+#pragma push_macro("countChars")
+#undef countChars
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("pad")
+#undef pad
+#pragma push_macro("reverseWords")
+#undef reverseWords
+#pragma push_macro("splitLimits")
+#undef splitLimits
+#pragma push_macro("stats")
+#undef stats
+#pragma push_macro("unicode")
+#undef unicode
+
 extern "C" bool lucent_strings_stats(lucent_string arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_strings::stats(lucent::entries::in(arg0));
@@ -69,3 +88,13 @@ extern "C" bool lucent_strings_splitLimits(double arg0, lucent_error* error, luc
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("unicode")
+#pragma pop_macro("stats")
+#pragma pop_macro("splitLimits")
+#pragma pop_macro("reverseWords")
+#pragma pop_macro("pad")
+#pragma pop_macro("out")
+#pragma pop_macro("countChars")
+#pragma pop_macro("compare")
+#pragma pop_macro("builder")

@@ -14,6 +14,27 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("caught")
+#undef caught
+#pragma push_macro("derived")
+#undef derived
+#pragma push_macro("inheritedName")
+#undef inheritedName
+#pragma push_macro("named")
+#undef named
+#pragma push_macro("parseError")
+#undef parseError
+#pragma push_macro("subCoded")
+#undef subCoded
+#pragma push_macro("thrown")
+#undef thrown
+#pragma push_macro("thrownNamed")
+#undef thrownNamed
+#pragma push_macro("twoLevels")
+#undef twoLevels
+#pragma push_macro("withoutMessage")
+#undef withoutMessage
+
 extern "C" bool lucent_implicit_constructors_parseError(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_implicit_u2d_constructors::parseError();
@@ -83,3 +104,14 @@ extern "C" bool lucent_implicit_constructors_thrown(lucent_error* error) {
     lucent_app::m_implicit_u2d_constructors::thrown();
   });
 }
+
+#pragma pop_macro("withoutMessage")
+#pragma pop_macro("twoLevels")
+#pragma pop_macro("thrownNamed")
+#pragma pop_macro("thrown")
+#pragma pop_macro("subCoded")
+#pragma pop_macro("parseError")
+#pragma pop_macro("named")
+#pragma pop_macro("inheritedName")
+#pragma pop_macro("derived")
+#pragma pop_macro("caught")

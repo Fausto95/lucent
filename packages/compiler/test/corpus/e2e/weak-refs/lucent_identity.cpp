@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"weak-refs", "b65126e2a
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "28d83d6af2ae6c8e", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "3647dfd0fc15fdc8", kModuleIdentities, 1};
   return identity;
 }
 

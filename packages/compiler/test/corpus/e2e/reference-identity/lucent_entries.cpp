@@ -14,6 +14,25 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("arrays")
+#undef arrays
+#pragma push_macro("bytes")
+#undef bytes
+#pragma push_macro("maps")
+#undef maps
+#pragma push_macro("optionals")
+#undef optionals
+#pragma push_macro("promises")
+#undef promises
+#pragma push_macro("records")
+#undef records
+#pragma push_macro("sets")
+#undef sets
+#pragma push_macro("unions")
+#undef unions
+#pragma push_macro("values")
+#undef values
+
 extern "C" bool lucent_reference_identity_arrays(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_reference_u2d_identity::arrays();
@@ -76,3 +95,13 @@ extern "C" bool lucent_reference_identity_unions(lucent_error* error, lucent_str
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("values")
+#pragma pop_macro("unions")
+#pragma pop_macro("sets")
+#pragma pop_macro("records")
+#pragma pop_macro("promises")
+#pragma pop_macro("optionals")
+#pragma pop_macro("maps")
+#pragma pop_macro("bytes")
+#pragma pop_macro("arrays")

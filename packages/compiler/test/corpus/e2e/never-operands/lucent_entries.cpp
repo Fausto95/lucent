@@ -14,6 +14,19 @@ void initModules() {
 
 }  // namespace lucent_app
 
+#pragma push_macro("conditional")
+#undef conditional
+#pragma push_macro("logical")
+#undef logical
+#pragma push_macro("nullishArrow")
+#undef nullishArrow
+#pragma push_macro("nullishMethod")
+#undef nullishMethod
+#pragma push_macro("nullishObject")
+#undef nullishObject
+#pragma push_macro("value")
+#undef value
+
 extern "C" bool lucent_never_operands_nullishObject(bool arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_never_u2d_operands::nullishObject(lucent::entries::in(arg0));
@@ -48,3 +61,10 @@ extern "C" bool lucent_never_operands_conditional(double arg0, lucent_error* err
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
+
+#pragma pop_macro("value")
+#pragma pop_macro("nullishObject")
+#pragma pop_macro("nullishMethod")
+#pragma pop_macro("nullishArrow")
+#pragma pop_macro("logical")
+#pragma pop_macro("conditional")

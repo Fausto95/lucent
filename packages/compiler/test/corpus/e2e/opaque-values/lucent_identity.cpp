@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"opaque-values", "6e72d
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "7d0c90433cef959c", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "f5211f264440e3cc", kModuleIdentities, 1};
   return identity;
 }
 
