@@ -1,7 +1,7 @@
 # 0090. Module state starts at first use, and a reload resets it only when nothing native holds it
 
 - **Date:** 2026-10-13
-- **Status:** accepted
+- **Status:** accepted; amended by [0093](0093-a-callback-with-no-runtime-fails-as-after-a-reload.md)
 
 The first decision of [T130](../tasks.md#t130). Module state is the
 process's, and lives in generations. A generation starts at the first use

@@ -743,9 +743,11 @@ So three rules of the runtime changed with `native_root.h`:
   instead, and its work belongs to the call's scopes, which `end()`
   disposes.
 
-Without a runtime, a call that needs one throws an `InvalidStateError`,
-such as calling a JavaScript callback; an event with no listener is
-dropped.
+With no runtime, module code fails as it does after a reload
+([decision 0093](../decisions/0093-a-callback-with-no-runtime-fails-as-after-a-reload.md)).
+A JavaScript callback that returns a promise or a value fails with
+`AbortError: The JavaScript runtime is gone`. A `void` one, and an event
+its listeners heard, are dropped.
 
 Loading the code on Android is decided by
 [0092](../decisions/0092-launch-runs-in-the-apps-launch-and-android-loads-lucent-by-itself.md):

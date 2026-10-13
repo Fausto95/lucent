@@ -896,7 +896,8 @@ runtime.
 - **Status:** in progress: module state's lifetime is decided
   ([0090](decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md),
   #228), and the runtime's native root keeps it (#231). Entry points run
-  exports with no JavaScript runtime on the host (#233). Launch modules,
+  exports with no JavaScript runtime on the host (#233), and code with no
+  runtime fails as after a reload (#234). Launch modules,
   loading on Android, and runs on the simulator and the emulator are
   left.
 - **Area:** runtime, compiler.
@@ -936,14 +937,18 @@ when a JavaScript runtime installs Lucent, and there is no native way in.
       strings and `Uint8Array` (#233).
 - [ ] `lucent.json` `launch`: modules created at app launch, before the
       first frame, so they can register what the OS requires by then.
-- [ ] Without a runtime, a call that needs one (a JavaScript callback, a
+- [x] Without a runtime, a call that needs one (a JavaScript callback, a
       `JSValue`) throws a typed error. An event with no listener is
-      dropped.
-- [ ] Tests: a host test calls an entry point with no `Host`, then
+      dropped. It fails as after a reload, with `AbortError`
+      ([0093](decisions/0093-a-callback-with-no-runtime-fails-as-after-a-reload.md)).
+- [x] Tests: a host test calls an entry point with no `Host`, then
       attaches one that reads the state; `actor_test.cpp` covers startup
       with no runtime. `host_test.cpp` starts state from a `NativeCall` a
       runtime then shares (#231), and `native-entries.test.ts` calls
-      generated entries with no runtime linked (#233).
+      generated entries with no runtime linked (#233). `actor_test.cpp`
+      starts module state from entries with no runtime, from the main
+      thread too, and `host_test.cpp` calls a gone runtime's callback from
+      a native call (#234).
 
 **Done when:** an entry point runs module code with no JavaScript runtime,
 on host, simulator and emulator.
