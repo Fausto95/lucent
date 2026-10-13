@@ -25,9 +25,9 @@ each holding its actor. A process that ends runs none.
 
 Work an entry point starts belongs to a scope of that call, under its
 actor's root, which the platform's end of the task disposes. Inside an
-entry point, and in the turns it posts, `currentRuntime()` is 0, never the
-last attached runtime. The fallback to that runtime stays for platform
-callbacks no call made. With no runtime, calling a JavaScript callback or
+entry point, and in the turns it posts, the code runs for that call, never
+for the last attached JavaScript runtime. The fallback to that runtime
+stays for platform callbacks no call made. With no runtime, calling a JavaScript callback or
 reading a `JSValue` throws an `InvalidStateError`. An event with no
 listener is dropped.
 

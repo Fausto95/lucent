@@ -717,9 +717,9 @@ So three rules of today's runtime change:
   under the actor's root scope, and only a `Host`'s teardown runs destroy
   hooks. Hooks will run when their generation ends.
 - `currentRuntime()` falls back to the last attached live runtime
-  (`execution.h`). Inside an entry point it will be 0, and the entry's
-  work will belong to a scope of its call, which the platform's end of the
-  task disposes.
+  (`execution.h`). Inside an entry point the code will run for that call
+  instead, and its work will belong to a scope of the call, which the
+  platform's end of the task disposes.
 
 Without a runtime, a call that needs one throws an `InvalidStateError`,
 such as calling a JavaScript callback; an event with no listener is
