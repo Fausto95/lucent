@@ -35,7 +35,7 @@ what became of each one that is still linked or was still open.
 | [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                               |
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | in progress (#163, #165, #167, #168 as T72; #216 merged)        |
 | [T109](#t109)            | Executors for platform callbacks                           | in progress (#181, #182, #187, #197 as T74; #206–#210 merged)   |
-| [T110](#t110)            | App-delegate and Activity events                           | in progress (#217 merged)                                       |
+| [T110](#t110)            | App-delegate and Activity events                           | in progress (#217, #218 merged)                                 |
 | [T111](#t111)            | The app's own native needs and options                     | ready                                                           |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | ready                                                           |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | ready                                                           |
@@ -495,7 +495,8 @@ receive, through the subscriber
 describes.
 
 - **Status:** in progress: iOS's events reach `onAppEvent` typed, through
-  `LucentAppDelegate` (#217); apps don't call it yet.
+  `LucentAppDelegate` (#217), which `lucent init` has a bare app's
+  delegates call, and `lucent doctor` checks (#218).
 - **Area:** iOS and Android hosts, runtime, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V3, V4, V5, V6.
@@ -528,6 +529,8 @@ describes.
       `ReactActivityLifecycleListener` the build declares. In a bare app,
       `lucent init` adds one forwarding line per delegate method,
       `lucent doctor` checks them, and `lucent build` names a missing one.
+      `lucent init` and `doctor` do (#218), and the native package is a
+      module Swift imports (`import LucentNative`).
 - [ ] `lucent.json` `android.mainActivity` attributes
       (`supportsPictureInPicture`, `configChanges`, `launchMode`), merged
       by the manifest rules; the Expo plugin writes them.

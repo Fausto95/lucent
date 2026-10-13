@@ -23,6 +23,10 @@ Pod::Spec.new do |s|
   # runtime's Android glue is guarded by __ANDROID__.
   s.source_files = ["cpp/**/*.{h,cpp,inc,c,mm}", "ios/**/*.{h,mm}"]
   s.exclude_files = ["cpp/generated/android/**", "cpp/generated/host/**"]
+  # The one header the app sees, in the module `import LucentNative` gives
+  # Swift: what the app's delegates forward to Lucent modules. The rest are
+  # the pod's own, so the module carries no C++.
+  s.public_header_files = "cpp/lucent/platform/LucentAppDelegate.h"
   # The runtime's core, prebuilt when the package has it (lucent build copies it for the
   # runtime it was built from): its sources are linked from the xcframework instead of
   # compiled. LUCENT_RUNTIME_FROM_SOURCE=1 at pod install compiles them.
@@ -40,6 +44,7 @@ Pod::Spec.new do |s|
   s.prefix_header_file = "cpp/lucent/prefix.h"
   s.pod_target_xcconfig = {
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++20",
+    "DEFINES_MODULE" => "YES",
     "GCC_PRECOMPILE_PREFIX_HEADER" => "YES",
     "HEADER_SEARCH_PATHS" => "\"$(PODS_TARGET_SRCROOT)/cpp\" \"$(PODS_TARGET_SRCROOT)/cpp/generated/ios\" \"$(PODS_TARGET_SRCROOT)/cpp/generated\" \"$(PODS_TARGET_SRCROOT)/cpp/rn\"",
     # The vendored regular expression engine (third_party/quickjs) is C.

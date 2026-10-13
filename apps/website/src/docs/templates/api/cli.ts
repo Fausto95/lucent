@@ -93,6 +93,7 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
       kind: "list",
       items: [
         "the plugin in `app.json`, the Gradle line and the `react-native.config.js` entry",
+        "the `LucentAppDelegate` calls in the app's delegates",
         "the `lucent:*` path and the editor plugin in `tsconfig.json`",
         "VS Code's TypeScript settings and the `.gitignore` lines",
       ],

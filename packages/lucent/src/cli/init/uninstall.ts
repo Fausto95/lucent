@@ -9,6 +9,7 @@ import ts from "typescript";
 import { type PackageManager, packageManagerOf, runner } from "../package-manager.ts";
 import { type Change, type InitPlan, type Manual } from "./plan.ts";
 import { GRADLE_LINES, linkNativePackage, metroConfig } from "./patch.ts";
+import { appDelegates, FORWARD, withoutForwards } from "./app-delegate.ts";
 
 const read = (root: string, file: string) =>
   fs.existsSync(path.join(root, file)) ? fs.readFileSync(path.join(root, file), "utf8") : undefined;
@@ -210,6 +211,17 @@ export function planUninstall(root: string): InitPlan {
     const text = read(root, gradle);
     if (text !== undefined)
       change(gradle, "stop running lucent build before Android builds", removeGradleTask(text));
+  }
+
+  const { app, scene } = appDelegates(root);
+  for (const delegate of [app, scene]) {
+    const text = delegate === undefined ? undefined : read(root, delegate);
+    if (text?.includes(FORWARD))
+      change(
+        delegate!,
+        "stop forwarding the app delegate's events to Lucent",
+        withoutForwards(text),
+      );
   }
 
   const rn = read(root, "react-native.config.js");

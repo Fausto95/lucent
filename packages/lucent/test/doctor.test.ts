@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
+import { APP_DELEGATE, APP_FORWARDS, withForwards } from "../src/cli/init/app-delegate.ts";
 import { type Check, diagnose, type Probe, type RunResult } from "../src/cli/doctor.ts";
 import { runToExit } from "./run-to-exit.ts";
 
@@ -152,6 +153,26 @@ describe("lucent doctor", () => {
     );
     expect(podfile).toMatchObject({ status: "fail" });
     expect(podfile.detail).toMatch(/use_native_modules!/);
+  });
+
+  it("finds an app delegate that doesn't forward to Lucent modules, and says to run lucent init", () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-home-"));
+    const delegate = `import UIKit\n\n@main\nclass AppDelegate: UIResponder, UIApplicationDelegate {\n  func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {\n    true\n  }\n}\n`;
+    const missing = find(
+      diagnose(app({ "ios/App/AppDelegate.swift": delegate }), machine(home)),
+      "app-delegate",
+    );
+    expect(missing.status).toBe("warn");
+    expect(missing.detail).toContain("AppDelegate application(_:open:options:)");
+    expect(missing.fix).toBe("run lucent init, which adds the calls");
+
+    const forwarded = withForwards(delegate, APP_DELEGATE, APP_FORWARDS)!;
+    const ok = find(
+      diagnose(app({ "ios/App/AppDelegate.swift": forwarded }), machine(home)),
+      "app-delegate",
+    );
+    expect(ok.status).toBe("ok");
+    expect(find(diagnose(app(), machine(home)), "app-delegate").status).toBe("skip");
   });
 
   it("finds a missing CocoaPods", () => {

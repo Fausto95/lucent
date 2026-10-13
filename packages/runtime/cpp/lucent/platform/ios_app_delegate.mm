@@ -83,6 +83,23 @@ std::shared_ptr<FetchAnswers> fetchAnswers(void (^completion)(UIBackgroundFetchR
   return answers;
 }
 
+/// What Info.plist lets the app turn to, for this device (UIKit's own
+/// default when it says nothing).
+UIInterfaceOrientationMask infoPlistOrientations() {
+  NSDictionary* info = NSBundle.mainBundle.infoDictionary;
+  const bool pad = UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad;
+  NSArray* names = (pad ? info[@"UISupportedInterfaceOrientations~ipad"] : nil) ?: info[@"UISupportedInterfaceOrientations"];
+  UIInterfaceOrientationMask mask = 0;
+  for (NSString* name in names) {
+    if ([name isEqualToString:@"UIInterfaceOrientationPortrait"]) mask |= UIInterfaceOrientationMaskPortrait;
+    if ([name isEqualToString:@"UIInterfaceOrientationPortraitUpsideDown"]) mask |= UIInterfaceOrientationMaskPortraitUpsideDown;
+    if ([name isEqualToString:@"UIInterfaceOrientationLandscapeLeft"]) mask |= UIInterfaceOrientationMaskLandscapeLeft;
+    if ([name isEqualToString:@"UIInterfaceOrientationLandscapeRight"]) mask |= UIInterfaceOrientationMaskLandscapeRight;
+  }
+  if (mask) return mask;
+  return pad ? UIInterfaceOrientationMaskAll : UIInterfaceOrientationMaskAllButUpsideDown;
+}
+
 bool reportURL(NSURL* url, NSString* sourceApplication) {
   if (!url) return false;
   return anyHandled(AppDelegateEvents::shared().openURL.report(
@@ -267,7 +284,8 @@ using namespace lucent::objc;
 
 + (UIInterfaceOrientationMask)application:(UIApplication*)application
     supportedInterfaceOrientationsForWindow:(UIWindow*)window
-                                defaultMask:(UIInterfaceOrientationMask)mask {
+                                defaultMask:(UIInterfaceOrientationMask)given {
+  const UIInterfaceOrientationMask mask = given ? given : infoPlistOrientations();
   UIInterfaceOrientationMask allowed = mask;
   for (double answer : AppDelegateEvents::shared().supportedInterfaceOrientations.report(true)) {
     auto said = static_cast<UIInterfaceOrientationMask>(answer > 0 ? answer : 0);

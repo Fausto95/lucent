@@ -5,6 +5,15 @@ import { type Check, expoSdk, reactNative } from "../doctor.ts";
 import { type PackageManager, packageManagerOf, runner } from "../package-manager.ts";
 import { withLucentTsconfig, withVscodeSettings } from "../tsconfig.ts";
 import {
+  APP_DELEGATE,
+  APP_FORWARDS,
+  appDelegates,
+  FORWARD,
+  SCENE_DELEGATE,
+  SCENE_FORWARDS,
+  withForwards,
+} from "./app-delegate.ts";
+import {
   addExpoPlugin,
   applyGradleTask,
   HELLO,
@@ -103,6 +112,29 @@ export function planInit(root: string): InitPlan {
     if (linked === "manual")
       manual.push({ file: "react-native.config.js", why: linkWhy, snippet: RN_CONFIG_SNIPPET });
     else change("react-native.config.js", linkWhy, linked);
+
+    // What only the app's delegates receive, for modules' onAppEvent.
+    const forwardWhy =
+      "forward URLs, user activities, shortcuts and the push token to Lucent modules";
+    const { app, scene, objc } = appDelegates(root);
+    if (app) {
+      const after = withForwards(read(root, app)!, APP_DELEGATE, APP_FORWARDS);
+      if (after !== undefined && after !== read(root, app)) change(app, forwardWhy, after);
+    }
+    if (scene) {
+      const after = withForwards(read(root, scene)!, SCENE_DELEGATE, SCENE_FORWARDS);
+      if (after !== undefined && after !== read(root, scene)) change(scene, forwardWhy, after);
+    }
+    if (objc && !read(root, objc)!.includes("LucentAppDelegate"))
+      manual.push({
+        file: objc,
+        why: forwardWhy,
+        snippet: `#import <LucentNative/lucent/platform/LucentAppDelegate.h>
+// In each delegate method UIKit calls, first: ${FORWARD}
+[LucentAppDelegate application:application didFinishLaunchingWithOptions:launchOptions];
+[LucentAppDelegate application:app openURL:url options:options];
+[LucentAppDelegate application:application continueUserActivity:userActivity];`,
+      });
   }
 
   const tsconfig = read(root, "tsconfig.json");

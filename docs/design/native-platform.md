@@ -522,11 +522,19 @@ through a promise, with a 25-second deadline, merged across modules as
 Expo merges them. The URL, activity or shortcut that launched the app
 waits for its first subscriber.
 
-**Planned:** the calls themselves. In an Expo app, an
-`ExpoAppDelegateSubscriber` and a `ReactActivityLifecycleListener`,
-declared in an `expo-module.config.json` the build writes. In a bare app,
-`lucent init` adds one forwarding line per delegate method, which `lucent
-doctor` checks. Android's events through `onActivityEvent`.
+In a bare app, `lucent init` adds one call per delegate method, first in
+each method the app has and in a method it adds otherwise, each line
+ending `// lucent:forward` (`cli/init/app-delegate.ts`); `lucent doctor`
+checks them and `lucent uninstall` removes them. The native package is a
+module with that one public header, so Swift imports it (`import
+LucentNative`). Only harmless calls are added unasked: the remote
+notification's method makes UIKit ask for its background mode, and an
+orientations method replaces Info.plist's.
+
+**Planned:** in an Expo app, an `ExpoAppDelegateSubscriber` and a
+`ReactActivityLifecycleListener`, declared in an `expo-module.config.json`
+the build writes; `lucent build` naming a call a module needs that the
+app lacks; Android's events through `onActivityEvent`.
 
 ## Bytes and buffers
 

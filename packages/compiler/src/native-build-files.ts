@@ -86,23 +86,15 @@ export function podspec(template: string, inputs: PodspecInputs): string {
   }
 
   // Swift shims (Swift-only iOS APIs) or packages' Swift make it a Swift pod, only when there are any.
-  if (inputs.swift) {
-    const headers = [
-      "cpp/**/*.{h,inc}",
-      "ios/**/*.h",
-      ...inputs.sources.map((dir) => `${dir}/**/*.{h,hpp}`),
-    ];
-
+  // The module CocoaPods makes for it holds the one public header (the
+  // template's public_header_files), so Swift imports it without C++ interop.
+  if (inputs.swift)
     text = text
       .replace(/^(\s*s\.source_files\s*=\s*\["cpp\/\*\*\/\*\.\{[\w,]+)\}/m, "$1,swift}")
-      // The module CocoaPods makes for Swift leaves the C++ headers out:
-      // Swift imports it without C++ interop.
       .replace(
         /^(\s*s\.source_files\s*=.*)$/m,
-        (line: string) =>
-          `${line}\n  s.swift_version = "5.9"\n  s.private_header_files = ${list(headers)}`,
+        (line: string) => `${line}\n  s.swift_version = "5.9"`,
       );
-  }
 
   const lines = [
     ...(inputs.resources.length ? [`  s.resources = ${list(inputs.resources)}`] : []),
