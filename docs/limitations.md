@@ -137,9 +137,9 @@ generated from this file.
 - A `UNUserNotificationCenter` delegate the app sets after a module first
   listens for notifications replaces Lucent's, so modules hear none after
   it ([T110](tasks.md#t110)).
-- On Android, module code hears no key events. An Activity that isn't
-  AndroidX's `ComponentActivity` reports no new intent, configuration
-  change, leave hint or back press ([T110](tasks.md#t110)).
+- On Android, an Activity that isn't AndroidX's `ComponentActivity`
+  reports no configuration change, leave hint or back press, nor a new
+  intent outside React Native's ([T110](tasks.md#t110)).
 - The app's own `lucent.json` isn't read: only packages declare Info.plist
   keys, entitlements, pods and Gradle dependencies
   ([T111](tasks.md#t111)). Android permissions of the app's own modules

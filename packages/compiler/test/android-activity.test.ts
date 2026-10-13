@@ -51,6 +51,9 @@ export async function run(): Promise<string> {
     events.push("left");
   });
   const stopBack = onActivityEvent("backPressed", (activity) => activity.isFinishing());
+  // Keys the app didn't handle, down and up: true consumes one.
+  const stopKeys = onActivityEvent("keyDown", (activity, key) => key.getKeyCode() === 24);
+  const stopKeysUp = onActivityEvent("keyUp", (activity, key) => key.isLongPress());
 
   const name = await main(() => currentActivity()?.getLocalClassName() ?? "none");
 
@@ -66,6 +69,8 @@ export async function run(): Promise<string> {
   stopChanges();
   stopLeaving();
   stopBack();
+  stopKeys();
+  stopKeysUp();
 
   return \`\${name} \${picked.getResultCode()} \${picked.getResultData()?.getDataString()} \${granted.join()} \${events.length}\`;
 }
@@ -108,6 +113,8 @@ describe.skipIf(!sdkAvailable("android"))("the current Activity, results and lif
     expect(cpp).toContain('lucent::jni::onActivityEvent(LUCENT_STR("configurationChanged")');
     expect(cpp).toContain('lucent::jni::onActivityEvent(LUCENT_STR("userLeaveHint")');
     expect(cpp).toContain("lucent::jni::onBackPressed(");
+    expect(cpp).toContain("lucent::jni::onKeyEvent(false, ");
+    expect(cpp).toContain("lucent::jni::onKeyEvent(true, ");
   });
 
   it("compiles the generated glue and the runtime's Activity support with the NDK", () => {
@@ -154,6 +161,7 @@ describe.skipIf(!sdkAvailable("android"))("the current Activity, results and lif
       "LucentViewManager.java",
       "LucentViewManagers.java",
       "LucentViews.java",
+      "LucentWindowCallback.java",
       "NativeProxy.java",
     ]);
 

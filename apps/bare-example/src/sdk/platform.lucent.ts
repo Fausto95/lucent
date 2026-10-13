@@ -3,7 +3,8 @@
 // Lab's Platform screen, which the device runs open on the simulator and
 // the emulator): frames reaching a channel through an executor, uncopied;
 // a deep link the app opens to itself; a push token, or why there is none
-// (iOS); back presses and a configuration change (Android). Each probe that
+// (iOS); back presses, key presses and a configuration change (Android).
+// Each probe that
 // doesn't apply to the platform says "none".
 import { Channel, delay, NativeBuffer } from "lucent:core";
 import { PLATFORM } from "lucent:platform";
@@ -17,6 +18,7 @@ import { ActivityInfo } from "lucent:android/android.content.pm";
 import { Color, PixelFormat } from "lucent:android/android.graphics";
 import { ImageReader } from "lucent:android/android.media";
 import { Handler, Looper } from "lucent:android/android.os";
+import { KeyEvent } from "lucent:android/android.view";
 
 /** How many frames a probe makes, and their side in pixels. */
 const FRAMES = 4;
@@ -212,6 +214,36 @@ export async function pressBack(): Promise<string> {
   stop();
 
   return heard === 1 ? "consumed" : `${heard} presses`;
+}
+
+/**
+ * Presses a key nothing in the app handles (F12) through the Activity's
+ * window, as the system delivers keys: the module hears it go down and
+ * come up, after the app's views and Activity let it through.
+ */
+export async function pressKey(): Promise<string> {
+  if (PLATFORM !== "android") return "none";
+
+  const heard: string[] = [];
+  const stopDown = onActivityEvent("keyDown", (_activity, key) => {
+    heard.push(`down ${key.getKeyCode()}`);
+    return true;
+  });
+  const stopUp = onActivityEvent("keyUp", (_activity, key) => {
+    heard.push(`up ${key.getKeyCode()}`);
+    return true;
+  });
+
+  await main(() => {
+    const window = currentActivity()?.getWindow();
+    const decor = window?.getDecorView();
+    decor?.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_F12));
+    decor?.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_F12));
+  });
+  stopDown();
+  stopUp();
+
+  return heard.join(", ") || "nothing heard";
 }
 
 /** Turns the Activity to landscape and back: its configuration changes, which module code hears. */

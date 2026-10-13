@@ -3,6 +3,7 @@ import type { Activity, Instrumentation_ActivityResult } from "lucent:android/an
 import type { Context, Intent } from "lucent:android/android.content";
 import type { Throwable } from "lucent:android/java.lang";
 import type { HardwareBuffer } from "lucent:android/android.hardware";
+import type { KeyEvent } from "lucent:android/android.view";
 import type { ByteBuffer } from "lucent:android/java.nio";
 import type { NativeBuffer, NativeHandle } from "lucent:core";
 
@@ -239,4 +240,22 @@ export declare function onActivityEvent(
 export declare function onActivityEvent(
   event: "backPressed",
   handler: (activity: Activity) => boolean,
+): () => void;
+
+/**
+ * Runs `handler` with each key press the app's views and Activity didn't
+ * handle, as it goes down (`"keyDown"`) or comes up (`"keyUp"`). It runs
+ * on the main thread while Android waits: true consumes the key, before
+ * the window's own handling of volume and media keys.
+ *
+ * Lucent wraps the Activities' window callbacks while a module listens,
+ * so the app's `MainActivity` needs no lines. A camera module, say, takes
+ * `KeyEvent.KEYCODE_VOLUME_UP` as its shutter.
+ *
+ * @param event `"keyDown"` or `"keyUp"`.
+ * @param handler Called with the Activity and the key event; true if it consumed it.
+ */
+export declare function onActivityEvent(
+  event: "keyDown" | "keyUp",
+  handler: (activity: Activity, key: KeyEvent) => boolean,
 ): () => void;
