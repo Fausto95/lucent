@@ -126,13 +126,13 @@ end
     [`pods/${PACKAGE_POD}/LWKAnswer.h`]: `#import <Foundation/Foundation.h>
 
 @interface LWKAnswer : NSObject
-+ (NSInteger)answer;
++ (double)answer;
 @end
 `,
     [`pods/${PACKAGE_POD}/LWKAnswer.m`]: `#import "LWKAnswer.h"
 
 @implementation LWKAnswer
-+ (NSInteger)answer {
++ (double)answer {
   return 42;
 }
 @end
@@ -281,9 +281,17 @@ function sh(cmd: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = {
       maxBuffer: 256 << 20,
     });
   } catch (e) {
-    // The end of what the command printed, last: CI's annotation keeps the output's end.
+    // The end of what the command printed, last: CI's annotation keeps the output's end. A
+    // build's errors come after it (xcodebuild ends with notes about its script phases).
     const out = (e as { stdout?: string }).stdout ?? "";
-    process.stderr.write(`${out.slice(-12_000)}\n✗ ${cmd} ${args.join(" ")} failed in ${cwd}\n`);
+    const errors = out
+      .split("\n")
+      .filter((l) => /: (fatal )?error: |^ld: |^error: |\*\* BUILD FAILED \*\*/.test(l))
+      .slice(-30)
+      .map((l) => l.slice(0, 400));
+    process.stderr.write(
+      `${out.slice(-12_000)}\n${errors.length ? `The errors:\n${errors.join("\n")}\n` : ""}✗ ${cmd} ${args.join(" ")} failed in ${cwd}\n`,
+    );
     process.exit(1);
   }
 }
