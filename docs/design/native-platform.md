@@ -578,12 +578,15 @@ the context that release runs on (`NativeBuffer::adopt`). `adoptByteBuffer`
 in `lucent:android` adopts a direct `ByteBuffer`. `NativeBuffer.stats()`
 counts allocations, adoptions, transfers and copies, so a test proves a
 path doesn't copy. A `NativeHandle` is an address other native code takes,
-with a `release()` that runs once from either side (`handle.h`).
+with a `release()` that runs once from either side (`handle.h`). A buffer's
+`handle()` makes one, as do `retainedHandle` in `lucent:ios` (an object,
+retained) and `handleOf` in `lucent:android` (a direct `ByteBuffer` or a
+`HardwareBuffer`). A class that implements `NativeSized` reports its
+`nativeSize` to the collector, as a `NativeBuffer` reports its size
+([0084](../decisions/0084-a-class-states-its-native-size-by-implementing-nativesized.md)).
 
 **Planned:** iOS adoption of `NSData` bytes and `CVPixelBuffer` planes,
-and Android's `HardwareBuffer` ([T108](../tasks.md#t108)). Platform
-makers for handles, and classes that state their native size to the
-collector ([T107](../tasks.md#t107)). Every typed array and `DataView`, on
+and Android's `HardwareBuffer` ([T108](../tasks.md#t108)). Every typed array and `DataView`, on
 the same paths as `Uint8Array` ([T100](../tasks.md#t100)).
 
 ## Native extensions

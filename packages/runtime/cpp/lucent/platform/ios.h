@@ -14,6 +14,7 @@
 #include "../bigint.h"
 #include "../bytes.h"
 #include "../date.h"
+#include "../handle.h"
 #include "../jsstring.h"
 #include "../map.h"
 #include "../native.h"
@@ -614,6 +615,18 @@ inline NativeRef mainQueue() { return wrap(dispatch_get_main_queue(), "mainQueue
 inline NativeRef serialQueue(const String& label) {
   std::string name = label.toUtf8();
   return wrap(dispatch_queue_create(name.c_str(), DISPATCH_QUEUE_SERIAL), "serialQueue");
+}
+
+/// lucent:ios's retainedHandle(object): the object's address, retained
+/// (+1, as CFRetain would) until the handle is released, then released
+/// once (CFRelease). Native code that takes an `id` or a CF type, such as a
+/// CVPixelBufferRef, reads the pointer.
+inline NativeHandle retainedHandle(const NativeRef& object) {
+  id o = unwrap(object);
+  if (!o) throwTypeError("retainedHandle needs an object, not nil");
+
+  void* retained = (__bridge_retained void*)o;
+  return NativeHandleObject::make(retained, [retained] { CFRelease(retained); }, String::fromUtf8(object_getClassName(o)));
 }
 
 /// An executor (lucent:thread's `executor(label)`) where the platform takes

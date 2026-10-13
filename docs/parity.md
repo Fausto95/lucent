@@ -49,7 +49,7 @@ each system lets an author do, not how it does it.
 | `ArrayBuffer`, without copying         | ✅ owning or borrowed | ✅ borrowed or copied     | ✅ moves and lends; `NativeBuffer`         | —                     |
 | Typed arrays other than `Uint8Array`   | — (the `ArrayBuffer`) | ✅ every kind             | ❌                                         | [T100](tasks.md#t100) |
 | Platform memory as JS bytes            | ✅ `HardwareBuffer`   | ✅ `Data`, `ByteArray`    | 🟡 Android `ByteBuffer`; iOS copies        | [T108](tasks.md#t108) |
-| Native pointers handed to other code   | ✅ via `CustomType`   | —                         | 🟡 `NativeHandle`, no platform makers      | [T107](tasks.md#t107) |
+| Native pointers handed to other code   | ✅ via `CustomType`   | —                         | ✅ `NativeHandle`, from platform objects   | —                     |
 | `Date`                                 | ✅                    | 🟡 milliseconds           | ✅                                         | —                     |
 | Errors with codes                      | ✅                    | ✅ `CodedException`       | ✅ `error(code, …)`, platform codes        | —                     |
 | JS callbacks, kept and called later    | ✅ from any thread    | 🟡 in sync functions      | ✅ from any thread                         | —                     |

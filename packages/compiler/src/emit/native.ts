@@ -3867,6 +3867,21 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
         c: cpp.call("lucent::objc::serialQueue", [em.exprAs(args[0]!, T.string)]),
         t: { k: "native", platform: "ios", module: "lucent:ios", name: "NSObject" },
       };
+    case "lucent:ios.retainedHandle": {
+      if (args.length !== 1)
+        fail(node, Codes.UnsupportedCall, "retainedHandle takes the object to hold");
+      unit.include("lucent/platform/ios.h");
+      const nsObject: LType = {
+        k: "native",
+        platform: "ios",
+        module: "lucent:ios",
+        name: "NSObject",
+      };
+      return {
+        c: cpp.call("lucent::objc::retainedHandle", [em.exprAs(args[0]!, nsObject)]),
+        t: T.nativeHandle,
+      };
+    }
     case "lucent:ios.withPixelBytes": {
       unit.include("lucent/platform/ios_pixels.h");
       em.ctx.frameworks.add("CoreVideo");
@@ -3975,6 +3990,21 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
         c: cpp.call("lucent::jni::errorOf", [em.exprAs(args[0]!, declaredArg(em, args[0]!))]),
         t: T.error,
       };
+    case "lucent:android.handleOf": {
+      if (args.length !== 1)
+        fail(node, Codes.UnsupportedCall, "handleOf takes the buffer to hand over");
+      unit.include("lucent/platform/android.h");
+      // Which overload the checker chose: a ByteBuffer's bytes, or a HardwareBuffer.
+      const declared = declaredArg(em, args[0]!);
+      const hardware = declared.k === "native" && declared.name === "HardwareBuffer";
+      return {
+        c: cpp.call(
+          hardware ? "lucent::jni::hardwareBufferHandle" : "lucent::jni::byteBufferHandle",
+          [em.exprAs(args[0]!, declared)],
+        ),
+        t: T.nativeHandle,
+      };
+    }
     case "lucent:android.adoptByteBuffer":
       unit.include("lucent/platform/android.h");
       return {

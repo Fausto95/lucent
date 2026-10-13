@@ -173,6 +173,8 @@ So a `Uint8Array` that a JavaScript callback keeps doesn't follow the buffer. Un
 
 A `NativeHandle` is an address for a library that takes one. JavaScript gets it from `buffer.handle()` or a Lucent function, and passes `handle.pointer`, a bigint, to the library. The bytes stay put until `handle.release()`: writes, `transfer()` and `close()` throw meanwhile.
 
+Lucent code makes one of a platform object: `retainedHandle` from [lucent:ios](/docs/api/lucent-ios/#retainedhandle) retains an object, and `handleOf` from [lucent:android](/docs/api/lucent-android/#handleof) holds a direct `ByteBuffer` or a `HardwareBuffer`.
+
 Release a handle once the library is done with it. One that JavaScript drops unreleased is released when its garbage collector frees it, and a debug build counts it as `host.releasedOpen` in `__lucentDebug.snapshot()`.
 
 ## What can't cross

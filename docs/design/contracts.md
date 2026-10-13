@@ -36,7 +36,7 @@ each contract as the code implements it today. The design is
 | [C-IR](#c-ir-semantic-ir-and-program-facts)                  | The semantic IR, its verifier, effect summaries, program facts        | v1.3    | `packages/compiler/src/ir/`, `analysis/`                    |
 | [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.8    | `packages/runtime/cpp/lucent/`                              |
 | [C-BIGINT](#c-bigint-the-runtimes-bigint)                    | The runtime's `BigInt` and native integer conversions                 | v1.1    | `lucent/bigint.h`                                           |
-| [C-BUFFER](#c-buffer-native-buffers)                         | Native buffers, borrows, moves, loans, adoptions, native handles      | v1.4    | `lucent/buffer.h`, `handle.h`, `bytes.h`, `jsi/convert.*`   |
+| [C-BUFFER](#c-buffer-native-buffers)                         | Native buffers, borrows, moves, loans, adoptions, native handles      | v1.5    | `lucent/buffer.h`, `handle.h`, `bytes.h`, `jsi/convert.*`   |
 | [C-VIEW](#c-view-components-and-views)                       | Component descriptions, transport, mounts, hosts, toolkit bodies      | v2.5    | `packages/compiler/src/ui/`, `packages/runtime/cpp/rn/`     |
 | [C-BUILD](#c-build-build-records-and-identities)             | Build records, pending actions, SDK locks, build identities           | v1.7    | `packages/lucent/src/cli/`, `compiler/src/emit/identity.ts` |
 | [C-TRACE](#c-trace-correlated-tracing)                       | Correlated runtime and build tracing                                  | v1      | `lucent/trace.h`, `packages/lucent/src/cli/trace.ts`        |
@@ -709,14 +709,17 @@ has `toLongArray`, `fromLongArray` and `unboxLong`.
 
 ## C-BUFFER: native buffers
 
-**Version: v1.4.** How bytes cross without a copy, and every exception to
-the copy rule. The text at this version also covers `NativeHandle` and
-`NativeBuffer::handle()`, which shipped before the text named them.
+**Version: v1.5.** How bytes cross without a copy, every exception to
+the copy rule, and the native memory an object reports to JavaScript's
+collector. v1.5 added the platforms' handle makers and memory pressure
+([T107](../tasks.md#t107)).
 
 **Implemented by** `lucent/buffer.h`, `handle.h`, `bytes.h`
 (`ByteStorage`), `jsi/convert.h` and `convert.cpp` (`Borrowed`, the JS
-handles), `platform/android.h`, `compiler/lib/sdk/core.d.ts`, and the
-compiler's `emit/buffers.ts` and `emit/lent-bytes.ts`.
+handles), `jsi/host.cpp` (memory pressure), `platform/android.h` and
+`ios.h`, `compiler/lib/sdk/core.d.ts`, and the compiler's
+`emit/buffers.ts`, `emit/lent-bytes.ts` and `emit/classes.ts`
+(`NativeSized`).
 
 ### Invariants
 
@@ -772,29 +775,28 @@ unborrowed), the storage, an atomic size, `Destroy` with its executor,
 | Lent arguments       | `Convert<ArrayBuffer>::borrow` and `Convert<Bytes>::borrow` give a `Borrowed<T>` over JavaScript's bytes (`ByteStorage::lend`) for a synchronous export that only reads them (`emit/lent-bytes.ts`). When it goes, storage anything still holds is copied (`keep()`). Loans are not counted. |
 | Android `ByteBuffer` | `jni::adoptByteBuffer` (`adoptByteBuffer` in `lucent:android`) adopts a direct buffer's capacity under a global reference. Heap or read-only buffers throw `TypeError`. Java must leave it alone after.                                                                                      |
 | `ArrayBuffer` move   | `transferToArrayBuffer()` hands the storage, `Destroy` and executor to adopted `ByteStorage`, released with the last Lucent or JavaScript holder.                                                                                                                                            |
-| Native handles       | A `NativeHandle` gives other native code the address.                                                                                                                                                                                                                                        |
+| Native handles       | A `NativeHandle` gives other native code the address: a buffer's `handle()`; `objc::retainedHandle` (`retainedHandle` in `lucent:ios`), an object retained +1 and released once; `jni::byteBufferHandle` and `jni::hardwareBufferHandle` (`handleOf` in `lucent:android`).                   |
 
 A loan is safe because JavaScript cannot detach a buffer while the call
 runs: Hermes has no `ArrayBuffer.prototype.transfer`, and JSI no detach.
 
 ### Native handles and JavaScript
 
-| Part              | Contract                                                                                                                                                                                                                                                                                 |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NativeHandle`    | `make(pointer, release, kind)`: a non-null pointer, `kind` naming it in errors. `pointer()` is 0 once released. `release()` is idempotent from any thread; its error reaches the caller. An unreleased handle goes with its last reference, which a debug build counts (`releasedOpen`). |
-| JS `NativeBuffer` | `lucent:NativeBuffer`, the same object while JavaScript holds it: `byteLength`, `toUint8Array`, `withRead`, `withWrite`, `transfer`, `transferToArrayBuffer`, `handle`, `close`, `Symbol.dispose`. Borrows lend a counted copy; `withWrite` copies back even if the callback throws.     |
-| JS `NativeHandle` | `lucent:NativeHandle`: `pointer` (a bigint), `released`, `release()`. Spans never cross (LUCENT2006).                                                                                                                                                                                    |
-| `lucent:core`     | Its `NativeBufferStats` leaves out `released`, which garbage collection makes uncountable. Its JavaScript reference has the same states, errors, messages and counters.                                                                                                                  |
-| Borrow checks     | A borrow's callback is a function literal or named function (LUCENT1007), neither async nor a generator, and its span does not escape (both LUCENT3030).                                                                                                                                 |
-| Move checks       | A move is `x.transfer()`, `x.transferToArrayBuffer()` or `compute(task, x \| {x} \| [x])`. A later use of `x` in the block, once the move certainly ran, is LUCENT3031. The runtime refuses the rest.                                                                                    |
+| Part              | Contract                                                                                                                                                                                                                                                                                                                                        |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NativeHandle`    | `make(pointer, release, kind)`: a non-null pointer, `kind` naming it in errors. `pointer()` is 0 once released. `release()` is idempotent from any thread; its error reaches the caller. An unreleased handle goes with its last reference, which a debug build counts (`releasedOpen`).                                                        |
+| Platform makers   | `byteBufferHandle`: a direct `ByteBuffer`'s address under a global reference; a heap one is `TypeError`. `hardwareBufferHandle`: the `AHardwareBuffer`, acquired; before API 26, `TypeError`. `retainedHandle`: the object, `__bridge_retained`, released with `CFRelease`; nil is `TypeError`.                                                 |
+| Memory pressure   | `Object::lucentNativeSize_()`, 0 by default: an open `NativeBuffer`'s size, or a `NativeSized` class's `nativeSize` read under its module's lock. The host sets the change since its last report as external memory when the object crosses, and after a JavaScript call to its methods or setters. Past `UINT32_MAX`, it reports `UINT32_MAX`. |
+| JS `NativeBuffer` | `lucent:NativeBuffer`, the same object while JavaScript holds it: `byteLength`, `toUint8Array`, `withRead`, `withWrite`, `transfer`, `transferToArrayBuffer`, `handle`, `close`, `Symbol.dispose`. Borrows lend a counted copy; `withWrite` copies back even if the callback throws.                                                            |
+| JS `NativeHandle` | `lucent:NativeHandle`: `pointer` (a bigint), `released`, `release()`. Spans never cross (LUCENT2006).                                                                                                                                                                                                                                           |
+| `lucent:core`     | Its `NativeBufferStats` leaves out `released`, which garbage collection makes uncountable. Its JavaScript reference has the same states, errors, messages and counters.                                                                                                                                                                         |
+| Borrow checks     | A borrow's callback is a function literal or named function (LUCENT1007), neither async nor a generator, and its span does not escape (both LUCENT3030).                                                                                                                                                                                        |
+| Move checks       | A move is `x.transfer()`, `x.transferToArrayBuffer()` or `compute(task, x \| {x} \| [x])`. A later use of `x` in the block, once the move certainly ran, is LUCENT3031. The runtime refuses the rest.                                                                                                                                           |
 
 ### Planned
 
 - [T100](../tasks.md#t100): typed arrays and `DataView` cross as
   `Uint8Array` does, and type views of a `NativeBuffer` inside borrows.
-- [T107](../tasks.md#t107): platform makers for `NativeHandle`
-  (`retainedHandle` on iOS; a `HardwareBuffer` or direct `ByteBuffer` on
-  Android), and memory pressure for exported classes' instances.
 - [T108](../tasks.md#t108): adoptions join the exceptions table: an
   `NSData`'s bytes and a locked `CVPixelBuffer` plane on iOS, a
   `HardwareBuffer` (API 26+) on Android.

@@ -858,6 +858,26 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         ]
       },
       {
+        "name": "retainedHandle",
+        "kind": "function",
+        "signature": "function retainedHandle(object: NSObject): NativeHandle;",
+        "doc": [
+          "A handle native code reads: the object's address, retained (+1) until the handle is released, then released once. A library that takes an `id` or a CF type, such as a frame processor taking a CVPixelBufferRef, gets `pointer`; JavaScript gets the same handle. Release it, from either side, once the library is done."
+        ],
+        "examples": [
+          "import { type NSObject, retainedHandle } from \"lucent:ios\";\nimport type { NativeHandle } from \"lucent:core\";\n\n// A camera frame's CVPixelBuffer, as a sample buffer delegate gets it.\nfunction forSkia(pixelBuffer: NSObject): NativeHandle {\n  return retainedHandle(pixelBuffer);\n}"
+        ],
+        "members": [],
+        "params": [
+          {
+            "name": "object",
+            "type": "NSObject",
+            "optional": false,
+            "doc": "The object to hold: a nil one is a TypeError."
+          }
+        ]
+      },
+      {
         "name": "withPixelBytes",
         "kind": "function",
         "signature": "function withPixelBytes<R>(\n  pixelBuffer: NSObject,\n  f: (bytes: Uint8Array, bytesPerRow: number, width: number, height: number) => R,\n  plane?: number,\n): R;",
@@ -1226,6 +1246,44 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "type": "ByteBuffer",
             "optional": false,
             "doc": "A direct ByteBuffer (`ByteBuffer.allocateDirect`), not read-only: a heap or read-only buffer is a TypeError."
+          }
+        ]
+      },
+      {
+        "name": "handleOf",
+        "kind": "function",
+        "signature": "function handleOf(buffer: ByteBuffer): NativeHandle;",
+        "doc": [
+          "A handle native code reads: a direct ByteBuffer's bytes' address, the Java buffer kept reachable until the handle is released. A library that takes a pointer (a decoder, a GPU upload) gets `pointer`; JavaScript gets the same handle. Release it, from either side, once the library is done."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "buffer",
+            "type": "ByteBuffer",
+            "optional": false,
+            "doc": "A direct ByteBuffer (`ByteBuffer.allocateDirect`): a heap buffer is a TypeError."
+          }
+        ]
+      },
+      {
+        "name": "handleOf",
+        "kind": "function",
+        "signature": "function handleOf(buffer: HardwareBuffer): NativeHandle;",
+        "doc": [
+          "A HardwareBuffer's `AHardwareBuffer*` (the NDK's), acquired until the handle is released. Native code that draws or uploads it takes the pointer, such as a camera frame going to Skia. Needs Android 8 (API 26), as HardwareBuffer does."
+        ],
+        "examples": [
+          "import { available, handleOf } from \"lucent:android\";\nimport type { NativeHandle } from \"lucent:core\";\nimport type { HardwareBuffer } from \"lucent:android/android.hardware\";\n\nfunction forSkia(frame: HardwareBuffer): NativeHandle | null {\n  return available(\"android\", 26) ? handleOf(frame) : null;\n}"
+        ],
+        "members": [],
+        "params": [
+          {
+            "name": "buffer",
+            "type": "HardwareBuffer",
+            "optional": false,
+            "doc": "The HardwareBuffer: it may be closed while the handle holds its buffer."
           }
         ]
       },
