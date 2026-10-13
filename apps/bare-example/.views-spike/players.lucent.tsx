@@ -1,10 +1,11 @@
 // The players spike's module, in expo-video's shape: a class JavaScript
 // makes keeps a native object (a label standing in for a video player) in
 // a map only main-thread code uses, under its id, and a view shows the
-// one whose id it takes as a prop, as Expo's VideoView does. JavaScript
-// renames a player through main() and the view shows it without a
-// render. Its plain functions take a rest parameter and an ArrayBuffer
-// through the app's real JSI.
+// player it takes as a prop, as Expo's VideoView takes its player. The
+// view holds the player while it shows it, and reads its id, which
+// nothing writes once it is made. JavaScript renames a player through
+// main() and the view shows it without a render. Its plain functions take
+// a rest parameter and an ArrayBuffer through the app's real JSI.
 import { appContext } from "lucent:android";
 import { FrameLayout, TextView } from "lucent:android/android.widget";
 import { ViewGroup } from "lucent:android/android.view";
@@ -74,13 +75,13 @@ export class Player {
   }
 }
 
-/** Shows the label of the player whose id it takes. */
-export function PlayerView(props: { player: number }) {
+/** Shows the label of the player it takes. */
+export function PlayerView(props: { player: Player }) {
   if (PLATFORM === "ios") {
     const view = new UIView();
 
     effect(() => {
-      const label = iosLabels.get(props.player);
+      const label = iosLabels.get(props.player.id);
 
       if (!label) return;
 
@@ -96,7 +97,7 @@ export function PlayerView(props: { player: number }) {
   const frame = new FrameLayout(appContext());
 
   effect(() => {
-    const label = androidLabels.get(props.player);
+    const label = androidLabels.get(props.player.id);
     const parent = label?.getParent();
 
     if (!label) return;

@@ -16,7 +16,7 @@ generated from this file.
   command's.
 - The check of an instance's members follows them through its class, the
   classes around it and the interfaces they implement. A use through
-  another structural type, or a spread, isn't seen ([T120](tasks.md#t120)).
+  another structural type, or a spread, isn't seen.
 - A component inside Reanimated's animated views, Gesture Handler's
   detectors or react-native-screens' screens is untested
   ([T121](tasks.md#t121)).

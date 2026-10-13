@@ -20,9 +20,12 @@ import {
 } from "./react-native-headers.ts";
 
 const rn = path.join(runtimeDir(), "cpp/rn");
-const TURBO_MODULE = ["LucentModule.cpp", "LucentViewInstances.cpp", "LucentViewRequests.cpp"].map(
-  (f) => path.join(rn, f),
-);
+const TURBO_MODULE = [
+  "LucentModule.cpp",
+  "LucentViewInstances.cpp",
+  "LucentViewInstancesJs.cpp",
+  "LucentViewRequests.cpp",
+].map((f) => path.join(rn, f));
 
 /** The flags the Android build compiles Lucent's code with (CMakeLists.txt). */
 const lucentAndroid = (toolchain: Toolchain): Toolchain => ({

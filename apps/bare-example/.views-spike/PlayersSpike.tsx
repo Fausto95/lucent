@@ -1,5 +1,5 @@
 // The players spike's screen: two players JavaScript makes, each shown by
-// a PlayerView taking its id, as Expo's VideoView takes its player's. Two
+// a PlayerView taking it, as Expo's VideoView takes its player. Two
 // seconds in, JavaScript renames the first through main(): its view shows
 // the new title with no render. The screen logs (LUCENT_VIEWS lines) what
 // a rest parameter and ArrayBuffers give through the app's JSI.
@@ -10,7 +10,7 @@ import * as players from "./players.lucent";
 
 const { Player, PlayerView, joined, checksum, filled } = players as unknown as {
   Player: new (title: string) => { id: number; rename(title: string): void };
-  PlayerView: (props: { player: number; style?: object }) => React.ReactNode;
+  PlayerView: (props: { player: { id: number }; style?: object }) => React.ReactNode;
   joined: (...words: string[]) => string;
   checksum: (buffer: ArrayBuffer) => number;
   filled: (n: number, value: number) => ArrayBuffer;
@@ -44,12 +44,9 @@ export function PlayersSpike() {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 32 }}>
         <Text>{`players ${first.id} and ${second.id}`}</Text>
+        <PlayerView player={first} style={{ width: 280, height: 48, backgroundColor: "#e8f0fe" }} />
         <PlayerView
-          player={first.id}
-          style={{ width: 280, height: 48, backgroundColor: "#e8f0fe" }}
-        />
-        <PlayerView
-          player={second.id}
+          player={second}
           style={{ width: 280, height: 48, backgroundColor: "#fde8e8" }}
         />
       </View>

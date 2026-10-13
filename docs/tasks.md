@@ -42,10 +42,10 @@ what became of each one that is still linked or was still open.
 | [T114](#t114)            | Native code that calls Lucent modules                      | waiting; needs T130                                           |
 | [T115](#t115)            | Native configuration packages can't declare yet            | ready                                                         |
 | **View parity**          |                                                            |                                                               |
-| [T120](#t120)            | Instances of exported classes as view props                | in progress (#245, #247)                                      |
+| [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                             |
 | [T121](#t121)            | React Native's view props, refs and view libraries         | in progress (#244)                                            |
 | [T122](#t122)            | UIKit components with a view-controller root               | ready                                                         |
-| [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | waiting; needs T120                                           |
+| [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | ready                                                         |
 | [T124](#t124)            | A component's ref as a module function's argument          | ready                                                         |
 | [T125](#t125)            | Android views made after setup keep the Activity's context | ready                                                         |
 | **Execution modes**      |                                                            |                                                               |
@@ -732,7 +732,7 @@ and Expo app with no manual step.
 props and Expo's shared-object props do, per
 [0075](decisions/0075-instances-of-exported-classes-as-view-props.md).
 
-- **Status:** ready.
+- **Status:** done (2026-10-13).
 - **Area:** views, runtime, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3, V5.
@@ -756,9 +756,13 @@ props and Expo's shared-object props do, per
       view uses it, naming both uses (`analysis/view-members.ts`,
       LUCENT3022).
 - [x] Arrays of instances, and `T | null`.
-- [ ] e2e: `view-ref-props` (host JSI harness: an instance prop set,
-      replaced, nulled and freed). 1,000 mount and unmount cycles return
+- [x] `view-ref-props`: an instance prop set, replaced, nulled and freed,
+      mounted as a host mounts it, on Mac Catalyst against React Native's
+      renderer (`ui/view-ref-props-run.test.ts`; views need the renderer,
+      which the e2e host has not). 1,000 mount and unmount cycles return
       the owned counts to baseline (P7).
+- [x] The bare example's players screen passes its players as instance
+      props (`.views-spike/players.lucent.tsx`).
 
 **Done when:** the case passes and the bare example's players screen uses an
 instance prop.
@@ -837,7 +841,7 @@ counterpart, a `Fragment` root, is in [T131](#t131).
 **Goal:** Toolkit bodies take what UIKit and Android bodies take: instance
 props, and helper functions with children and bindings.
 
-- **Status:** waiting; needs T120.
+- **Status:** ready.
 - **Area:** views, compiler.
 - **Needs:** T120.
 - **Verify:** V1, V4, V5.
