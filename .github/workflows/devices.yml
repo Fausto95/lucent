@@ -1,10 +1,12 @@
 name: Device run
 
-# The bare example's Tests screen (every end-to-end case, through the C++ the compiler wrote and
-# the platform's own toolchain built) on the iOS simulator or the Android emulator, until it
-# shows its verdict (testID lucent-summary, logged as LUCENT_SUMMARY). ci.yml calls it nightly,
-# for pull requests that change the runtime or the compiler, and before a release; it can be
-# run by hand too.
+# An example app's Tests screen (every end-to-end case, through the C++ the compiler wrote and
+# the platform's own toolchain built), then its Platform screen, on the iOS simulator or the
+# Android emulator, until each shows its verdict (testID lucent-summary, logged as
+# LUCENT_SUMMARY). The bare example's Debug build loads its bundle from Metro; the Expo
+# example's, made by expo prebuild and its pod install as an Expo app's is, is a Release build
+# that carries its bundle. ci.yml calls it nightly and on a manual run; it can be run by hand
+# too.
 
 on:
   workflow_call:
@@ -13,6 +15,11 @@ on:
         description: ios or android
         required: true
         type: string
+      app:
+        description: bare or expo, the example app
+        required: false
+        default: bare
+        type: string
   workflow_dispatch:
     inputs:
       platform:
@@ -20,6 +27,12 @@ on:
         required: true
         type: choice
         options: [ios, android]
+      app:
+        description: The example app
+        required: false
+        default: bare
+        type: choice
+        options: [bare, expo]
 
 permissions:
   contents: read
@@ -38,7 +51,7 @@ env:
 jobs:
   ios:
     name: iOS simulator
-    if: inputs.platform == 'ios'
+    if: inputs.platform == 'ios' && inputs.app != 'expo'
     runs-on: macos-26
     timeout-minutes: 60
     env:
@@ -98,7 +111,7 @@ jobs:
           nohup pnpm exec react-native start --port 8081 > "$METRO_LOG" 2>&1 &
           for _ in $(seq 60); do curl -sf http://localhost:8081/status && break; sleep 2; done
           curl -sSf --max-time 600 -o /dev/null 'http://localhost:8081/index.bundle?platform=ios&dev=true&minify=false'
-      - name: Run the Tests screen
+      - name: Run the Tests and Platform screens
         run: node scripts/device-check.ts ios --app apps/bare-example/ios/build/Build/Products/Debug-iphonesimulator/BareExample.app
       - name: Keep the logs and the screen
         if: failure()
@@ -112,7 +125,7 @@ jobs:
 
   android:
     name: Android emulator
-    if: inputs.platform == 'android'
+    if: inputs.platform == 'android' && inputs.app != 'expo'
     # Linux with KVM: an emulator two to three times faster than on macOS, and no macOS runner held.
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -153,7 +166,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Run the Tests screen on the emulator
+      - name: Run the Tests and Platform screens on the emulator
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 35
@@ -169,6 +182,119 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: device-run-android
+          path: |
+            device-check/
+          if-no-files-found: ignore
+
+  ios-expo:
+    name: Expo example, iOS simulator
+    if: inputs.platform == 'ios' && inputs.app == 'expo'
+    runs-on: macos-26
+    timeout-minutes: 75
+    env:
+      USE_CCACHE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/sdk-cache
+        with:
+          key: devices-ios-expo
+      - uses: ./.github/actions/ccache
+        with:
+          key: ios-expo
+      # As in an Expo app: prebuild writes ios/ (the config plugin runs lucent build, which leaves
+      # iOS to pod install while the packages' pods aren't installed), and pod install installs
+      # them and builds Lucent's modules again (the Podfile's lucent_post_install).
+      - name: Prebuild
+        working-directory: apps/expo-example
+        run: pnpm exec expo prebuild --platform ios --no-install
+      - name: Install pods
+        working-directory: apps/expo-example/ios
+        run: pod install
+      - name: Build for the simulator
+        working-directory: apps/expo-example/ios
+        timeout-minutes: 45
+        run: |
+          set -o pipefail
+          name=$(basename *.xcworkspace .xcworkspace)
+          echo "APP=$PWD/build/Build/Products/Release-iphonesimulator/$name.app" >> "$GITHUB_ENV"
+          xcodebuild -workspace "$name.xcworkspace" -scheme "$name" \
+            -configuration Release -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tee build.log | tail -n 200 || {
+            code=$?
+            echo "The build's errors:"
+            grep -E ': (fatal )?error: |^ld: ' build.log | sort -u | head -20 | cut -c1-400
+            grep -E -A4 '^(duplicate symbol|Undefined symbols)' build.log | head -30 | cut -c1-400
+            exit $code
+          }
+      - name: Run the Tests and Platform screens
+        run: node scripts/device-check.ts ios --app "$APP" --example expo --no-metro
+      - name: Keep the logs and the screen
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: device-run-expo-ios
+          path: |
+            device-check/
+            apps/expo-example/ios/build.log
+          if-no-files-found: ignore
+
+  android-expo:
+    name: Expo example, Android emulator
+    if: inputs.platform == 'android' && inputs.app == 'expo'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/sdk-cache
+        with:
+          key: devices-android-expo
+      - uses: ./.github/actions/ccache
+        with:
+          key: android-expo
+      # Prebuild writes android/; the Gradle build resolves the app's Android dependencies and
+      # compiles Lucent's modules (its lucentBuild task).
+      - name: Prebuild
+        working-directory: apps/expo-example
+        run: pnpm exec expo prebuild --platform android --no-install
+      - name: Build
+        working-directory: apps/expo-example/android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --build-cache --parallel
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run the Tests and Platform screens on the emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          ram-size: 4096M
+          disk-size: 6000M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: node scripts/device-check.ts android --apk apps/expo-example/android/app/build/outputs/apk/release/app-release.apk --example expo --no-metro
+      - name: Keep the logs and the screen
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: device-run-expo-android
           path: |
             device-check/
           if-no-files-found: ignore

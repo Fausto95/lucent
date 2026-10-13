@@ -1,22 +1,25 @@
 /**
- * Runs the bare example's Tests and Platform screens on a booted-here iOS
+ * Runs an example app's Tests and Platform screens on a booted-here iOS
  * simulator or a running Android emulator, and passes when every check of
  * both passed: every end-to-end case, then what only the platform gives
  * (frames through an executor, a deep link, a push token, back presses).
- * With --id, it runs another app's Tests screen the same way (the window's
- * fresh apps, scripts/window-app.ts), opened as its launcher opens it:
- *   1. installs the Debug build (its bundle comes from Metro, which the
- *      caller started on port 8081);
+ * The bare example by default, the Expo example with --example expo. With
+ * --id, it runs another app's Tests screen the same way (the window's fresh
+ * apps, scripts/window-app.ts), opened as its launcher opens it:
+ *   1. installs the build (a Debug build's bundle comes from Metro, which
+ *      the caller started on port 8081);
  *   2. opens each screen in turn: on Android with the deep link
- *      lucentbare://lab/<screen>, on iOS with the launch argument
- *      `-lucentTab lab/<screen>` (the simulator asks to confirm a link that
- *      `simctl openurl` opens, and nobody is there to confirm it);
+ *      <scheme>://lab/<screen> (lucentbare, lucentexpo), on iOS with the
+ *      launch argument `-lucentTab lab/<screen>` (the simulator asks to
+ *      confirm a link that `simctl openurl` opens, and nobody is there to
+ *      confirm it);
  *   3. follows the lines the screen logs, LUCENT_PROGRESS after each check
  *      and LUCENT_SUMMARY with its verdict (`LUCENT_SUMMARY tests 70/70
  *      passed`), before opening the next.
  *
  *   node scripts/device-check.ts ios --app <BareExample.app>
  *   node scripts/device-check.ts android --apk <app-debug.apk>
+ *   node scripts/device-check.ts ios --app <LucentExpoExample.app> --example expo --no-metro
  *   node scripts/device-check.ts ios --app <.app> --id <bundle id> --process <name> [--no-metro]
  *   node scripts/device-check.ts android --apk <.apk> --id <package> [--no-metro]
  *
@@ -117,8 +120,8 @@ export function appLines(
   width = 240,
   // iOS lines name the process; Android's, the package.
   app: { id: string; process: string } = {
-    id: BARE_EXAMPLE.package,
-    process: BARE_EXAMPLE.process,
+    id: EXAMPLES.bare.package,
+    process: EXAMPLES.bare.process,
   },
 ): string[] {
   const own = appLine(app);
@@ -300,12 +303,27 @@ export function pickSimulator(list: {
   return undefined;
 }
 
-/** The bare example: its iOS bundle identifier, its Android package, its process. */
-const BARE_EXAMPLE = {
-  id: "org.reactjs.native.example.BareExample",
-  package: "com.bareexample",
-  process: "BareExample",
-};
+/**
+ * The example apps: their iOS bundle identifier, Android package, process
+ * (the iOS executable: Expo's prebuild names it after app.json's name) and
+ * URL scheme.
+ */
+export const EXAMPLES = {
+  bare: {
+    id: "org.reactjs.native.example.BareExample",
+    package: "com.bareexample",
+    process: "BareExample",
+    scheme: "lucentbare",
+  },
+  expo: {
+    id: "dev.lucent.expoexample",
+    package: "dev.lucent.expoexample",
+    process: "LucentExpoExample",
+    scheme: "lucentexpo",
+  },
+} as const;
+
+export type Example = keyof typeof EXAMPLES;
 
 /** A Lab screen a run opens, and how. */
 export interface Screen {
@@ -317,8 +335,8 @@ export interface Screen {
   url?: string;
 }
 
-/** The bare example's screens a run checks, in order: every end-to-end case, then the platform's. */
-const BARE_SCREENS = ["tests", "platform"];
+/** An example's screens a run checks, in order: every end-to-end case, then the platform's. */
+const EXAMPLE_SCREENS = ["tests", "platform"];
 
 /** The app a run checks, and how it is opened. */
 export interface Target {
@@ -336,9 +354,9 @@ export interface Target {
 }
 
 /**
- * The run's target from the command line. Without --id, the bare example's
- * Tests and Platform screens; with --id, that app's Tests screen, opened as
- * its launcher opens it.
+ * The run's target from the command line. Without --id, an example's Tests
+ * and Platform screens (--example, the bare one by default); with --id, that
+ * app's Tests screen, opened as its launcher opens it.
  */
 export function parseTarget(argv: string[]): Target {
   const { values, positionals } = parseArgs({
@@ -347,6 +365,7 @@ export function parseTarget(argv: string[]): Target {
     options: {
       app: { type: "string" },
       apk: { type: "string" },
+      example: { type: "string" },
       id: { type: "string" },
       process: { type: "string" },
       "no-metro": { type: "boolean" },
@@ -355,22 +374,29 @@ export function parseTarget(argv: string[]): Target {
   const [platform] = positionals;
   const artifact =
     platform === "ios" ? values.app : platform === "android" ? values.apk : undefined;
-  if ((platform !== "ios" && platform !== "android") || !artifact)
+  const example = values.example ?? "bare";
+  if (
+    (platform !== "ios" && platform !== "android") ||
+    !artifact ||
+    !Object.hasOwn(EXAMPLES, example) ||
+    (values.id && values.example)
+  )
     throw new Error(
-      "usage: device-check.ts ios --app <.app> | android --apk <.apk> [--id <bundle id or package> --process <name>] [--no-metro]",
+      "usage: device-check.ts ios --app <.app> | android --apk <.apk> [--example bare|expo | --id <bundle id or package> --process <name>] [--no-metro]",
     );
   const metro = !values["no-metro"];
   if (!values.id) {
-    const screens = BARE_SCREENS.map((id) =>
+    const app = EXAMPLES[example as Example];
+    const screens = EXAMPLE_SCREENS.map((id) =>
       platform === "ios"
         ? { id, launchArgs: ["-lucentTab", `lab/${id}`] }
-        : { id, launchArgs: [], url: `lucentbare://lab/${id}` },
+        : { id, launchArgs: [], url: `${app.scheme}://lab/${id}` },
     );
     return {
       platform,
       artifact,
-      id: platform === "ios" ? BARE_EXAMPLE.id : BARE_EXAMPLE.package,
-      process: BARE_EXAMPLE.process,
+      id: platform === "ios" ? app.id : app.package,
+      process: app.process,
       screens,
       metro,
     };
