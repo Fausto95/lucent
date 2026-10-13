@@ -430,12 +430,14 @@ hold its module's actor.
   for functions (#206), objects with `on(exec, new C(…))` (#207), and
   events emitted from executor code (#208), trace (#209) and the host
   bench (#210: `executor_test.cpp`, p99 under 2 ms while the actor is
-  held 500 ms, no actor waits). A reusable `on()`, and frames through an
-  executor on the simulator and the emulator, are left. Decided as
+  held 500 ms, no actor waits), and an `on()` kept in a `const` (#215).
+  Frames through an executor on the simulator and the emulator are
+  left. Decided as
   [0078](decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md),
   [0081](decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md),
-  [0082](decisions/0082-objects-go-on-an-executor-where-they-are-made.md)
-  and [0083](decisions/0083-code-on-an-executor-emits-through-emitters-it-holds.md).
+  [0082](decisions/0082-objects-go-on-an-executor-where-they-are-made.md),
+  [0083](decisions/0083-code-on-an-executor-emits-through-emitters-it-holds.md)
+  and [0085](decisions/0085-a-const-keeps-one-platform-object-of-an-executor-callback.md).
 - **Area:** compiler, runtime, bindings.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3, V4, V7.
@@ -453,9 +455,10 @@ callbacks still take it, on `serialQueue(label)`'s queue or any other.
       function). The glue enters the executor's context directly.
 - [x] `on(exec, new C(…))` does the same for an object made there: its
       class's methods enter the executor (0082).
-- [ ] A function on an executor kept in a `const` is one platform object
+- [x] A function on an executor kept in a `const` is one platform object
       wherever it is handed over, so a listener added with it can be
-      removed with it.
+      removed with it. So is an object
+      ([0085](decisions/0085-a-const-keeps-one-platform-object-of-an-executor-callback.md)).
 - [x] The compiler checks executor functions as it checks a compute task,
       but allows native code of unknown thread. Module state, main-thread
       code, promises and awaits are refused with the cause path, and

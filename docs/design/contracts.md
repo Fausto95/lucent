@@ -34,7 +34,7 @@ each contract as the code implements it today. The design is
 | ------------------------------------------------------------ | --------------------------------------------------------------------- | ------- | ----------------------------------------------------------- |
 | [C-BIND](#c-bind-binding-schemas-and-plans)                  | SDK schemas, native identity, provenance, facts, binding plans, usage | v1.5    | `packages/bindgen/src/`                                     |
 | [C-IR](#c-ir-semantic-ir-and-program-facts)                  | The semantic IR, its verifier, effect summaries, program facts        | v1.3    | `packages/compiler/src/ir/`, `analysis/`                    |
-| [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.8    | `packages/runtime/cpp/lucent/`                              |
+| [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.9    | `packages/runtime/cpp/lucent/`                              |
 | [C-BIGINT](#c-bigint-the-runtimes-bigint)                    | The runtime's `BigInt` and native integer conversions                 | v1.1    | `lucent/bigint.h`                                           |
 | [C-BUFFER](#c-buffer-native-buffers)                         | Native buffers, borrows, moves, loans, adoptions, native handles      | v1.5    | `lucent/buffer.h`, `handle.h`, `bytes.h`, `jsi/convert.*`   |
 | [C-VIEW](#c-view-components-and-views)                       | Component descriptions, transport, mounts, hosts, toolkit bodies      | v2.5    | `packages/compiler/src/ui/`, `packages/runtime/cpp/rn/`     |
@@ -443,13 +443,13 @@ takes an `AnalysisInput`: `checker`, `modules`, `platform?`, `native?`,
 
 ## C-EXEC: execution identities, scopes and operations
 
-**Version: v1.8.** The runtime's model of who owns work and where it runs,
+**Version: v1.9.** The runtime's model of who owns work and where it runs,
 in namespace `lucent`, with no JSI type but `lucent/jsi`'s `Host`. The text
 at this version also covers `channel.h` and `hooks.h`, which shipped
-before the text named them.
+before the text named them. v1.9 added `handed.h`.
 
 **Implemented by** `packages/runtime/cpp/lucent/`: `scope.h`,
-`execution.h`, `scheduler.h`, `native.h`, `async.h`, `abort.h`,
+`execution.h`, `scheduler.h`, `native.h`, `handed.h`, `async.h`, `abort.h`,
 `resource.h`, `callback.h`, `transport.h`, `compute.h`, `channel.h`,
 `lifecycle.h`, `presentation.h`, `hooks.h`, `report.h`, `jsi/host.h`.
 
@@ -555,6 +555,7 @@ owns its scopes.
 | `postTo(context, f)`      | A turn of a non-actor context.                                                                                     |
 | `callNowIn(context, f)`   | Now, on the context's own thread; from another thread, reported with a default result.                             |
 | `enterOrPost(context, f)` | An executor's function (`on(exec, f)`) returning nothing: now on the executor, else a turn of it.                  |
+| `handedFunction(x, f)`    | `const g = on(x, f)`: `f`, keeping `x` and, by `madeAs(type, make)`, one platform object per type (`handedOf(g)`). |
 | `runIn(context, f)`       | A turn there, settling a promise of the caller's context; a stopped context rejects.                               |
 
 ### JavaScript runtimes and module scope

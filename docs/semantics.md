@@ -747,7 +747,12 @@ as it is. `label` is the queue's or the thread's name.
 
 `on(executor, f)` hands a function literal to the platform as an SDK
 call's argument (a block, a Java functional interface, a Kotlin
-function), and only there (`LUCENT1007`). When the platform calls `f` on
+function), and only there (`LUCENT1007`). It may also be a `const` in a
+function's body, each use of which is such an argument or an SDK
+property's value: wherever it goes, it is one platform object, so a
+listener added with it is removed with it
+([0085](decisions/0085-a-const-keeps-one-platform-object-of-an-executor-callback.md)).
+When the platform calls `f` on
 the executor, `f` runs there at once, in its context; called from any
 other thread, an `f` returning nothing runs in a turn of the executor,
 and one returning a value is reported as a callback's error is, the
@@ -764,7 +769,7 @@ it makes leaves through a `Channel`
 ([0081](decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md)).
 
 An object goes on an executor where it is made, as an SDK call's
-argument or an SDK property's value:
+argument or an SDK property's value, or in a `const` as a function does:
 `parser.delegate = on(frames, new Collector(out))`. Its class is then
 an executor class: every `new` of it is such an `on()`, it isn't
 exported and neither extends nor is extended, and `this` in it is only a

@@ -82,6 +82,8 @@ function on<F>(executor: Executor, f: F): F;
 
 Hands `f` to the platform to run on `executor`, never holding its module's lock. Pass the result straight to the SDK call that takes it. `f` is a function literal, or an object made there, as in `parser.delegate = on(frames, new Collector(out))`.
 
+To hand it over more than once, keep it in a `const`, and only pass it to SDK calls and properties. It's one platform object each time, so `manager.removeUpdates(listener)` removes what was added.
+
 When the platform calls `f` on the executor, `f` runs there at once. Called from another thread, an `f` that returns nothing runs in a turn of the executor. One that returns a value is reported as an error.
 
 `f` runs beside module code, so it shares nothing with it. It may not use module state, call JavaScript callbacks or await. It captures only `const` numbers, strings, booleans and bigints, Channels, Executors and EventEmitters.

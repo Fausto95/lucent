@@ -8,7 +8,7 @@
  */
 import ts from "typescript";
 import type { OwnerId } from "../ir/ir.ts";
-import { isOnCall } from "./executors.ts";
+import { isOnCall, keptOn } from "./executors.ts";
 import { shareableType } from "./ownership.ts";
 import { type Cause, code, type Levels, step, type Summary, SummaryBuilder } from "./facts.ts";
 import {
@@ -346,13 +346,16 @@ class Solver implements Solved {
     });
   }
 
-  /** Whether a call's argument at `index` is lucent:thread's `on(executor, f)`. */
+  /**
+   * Whether a call's argument at `index` is lucent:thread's `on(executor,
+   * f)`, or a function on an executor kept in a const.
+   */
   private onExecutor(site: CallSite, index: number): boolean {
     const node = site.node;
     const arg =
       ts.isCallExpression(node) || ts.isNewExpression(node) ? node.arguments?.[index] : undefined;
 
-    return !!arg && isOnCall(this.p.checker, arg);
+    return !!arg && (isOnCall(this.p.checker, arg) || !!keptOn(this.p.checker, arg));
   }
 
   /** The function compute runs: an entry of its own, on a worker, not run by its caller. */

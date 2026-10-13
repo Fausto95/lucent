@@ -20,6 +20,44 @@ export function isOnCall(checker: ts.TypeChecker, node: ts.Node): node is ts.Cal
   );
 }
 
+/**
+ * A function or object on an executor kept in a `const` in a function's
+ * body, `const listener = on(executor, (e) => …)` or `on(executor, new
+ * C(…))`: its declaration, executor and function literal or `new`, for
+ * `node` naming it, or the declaration itself. Its uses each hand it to
+ * the platform, where it is one object.
+ */
+export function keptOn(
+  checker: ts.TypeChecker,
+  node: ts.Node,
+):
+  | {
+      decl: ts.VariableDeclaration & { name: ts.Identifier };
+      executor: ts.Expression;
+      f: ts.Expression;
+    }
+  | undefined {
+  let decl: ts.Node | undefined = node;
+  if (ts.isIdentifier(node)) {
+    let symbol = checker.getSymbolAtLocation(node);
+    if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+    decl = symbol?.valueDeclaration;
+  }
+  if (!decl || !ts.isVariableDeclaration(decl) || !ts.isIdentifier(decl.name)) return undefined;
+
+  const list = decl.parent;
+  const call = decl.initializer;
+  if (!ts.isVariableDeclarationList(list) || !(list.flags & ts.NodeFlags.Const)) return undefined;
+  // In a function: a module's top level holds no executor code.
+  if (ts.isSourceFile(list.parent.parent)) return undefined;
+  if (!call || !isOnCall(checker, call) || call.arguments.length !== 2) return undefined;
+
+  const [executor, f] = call.arguments as unknown as [ts.Expression, ts.Expression];
+  if (!(ts.isArrowFunction(f) || ts.isFunctionExpression(f) || ts.isNewExpression(f)))
+    return undefined;
+  return { decl: decl as ts.VariableDeclaration & { name: ts.Identifier }, executor, f };
+}
+
 /** The Lucent class a `new` makes, when the compiler can name it. */
 export function classMade(
   checker: ts.TypeChecker,
