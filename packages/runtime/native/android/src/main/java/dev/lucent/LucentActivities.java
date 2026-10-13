@@ -29,7 +29,8 @@ import java.util.Map;
  */
 public final class LucentActivities implements Application.ActivityLifecycleCallbacks {
   /** Lifecycle events, as native code numbers them. */
-  static final int CREATED = 0, STARTED = 1, RESUMED = 2, PAUSED = 3, STOPPED = 4, DESTROYED = 5, NEW_INTENT = 6;
+  static final int CREATED = 0, STARTED = 1, RESUMED = 2, PAUSED = 3, STOPPED = 4, DESTROYED = 5, NEW_INTENT = 6,
+      CONFIGURATION_CHANGED = 7, USER_LEAVE_HINT = 8;
 
   /** Request kinds. */
   static final int RESULT = 0, PERMISSIONS = 1;
@@ -79,6 +80,24 @@ public final class LucentActivities implements Application.ActivityLifecycleCall
 
   public static void listen(boolean on) {
     listening = on;
+  }
+
+  /**
+   * Whether a module listens for back presses: the Activities' back
+   * callbacks (LucentBack, which needs AndroidX) are enabled only then, so
+   * that back works as it would without Lucent otherwise. Any thread.
+   */
+  public static void backWanted(boolean on) {
+    try {
+      Class.forName("dev.lucent.LucentBack").getDeclaredMethod("setWanted", boolean.class).invoke(null, on);
+    } catch (ReflectiveOperationException e) {
+      Log.w(TAG, "back presses need AndroidX's OnBackPressedDispatcher", e);
+    }
+  }
+
+  /** A back press for Lucent modules (LucentBack): whether one consumed it. Main thread. */
+  static boolean backPressed(Activity a) {
+    return onBack(a);
   }
 
   // --- requests, from native code -------------------------------------------------
@@ -202,6 +221,9 @@ public final class LucentActivities implements Application.ActivityLifecycleCall
 
     current = new WeakReference<>(a);
     newIntents(a);
+    listenTo(a, "addOnConfigurationChangedListener", "androidx.core.util.Consumer", CONFIGURATION_CHANGED);
+    listenTo(a, "addOnUserLeaveHintListener", "java.lang.Runnable", USER_LEAVE_HINT);
+    backPresses(a);
     event(CREATED, a, null);
   }
 
@@ -280,6 +302,54 @@ public final class LucentActivities implements Application.ActivityLifecycleCall
     }
   }
 
+  /**
+   * An AndroidX listener for `event` (a configuration change, the user
+   * leaving): `add` takes a `listener` (a Consumer or a Runnable), found by
+   * name, as new intents' is. An Activity without it reports none.
+   */
+  private static void listenTo(Activity a, String add, String listener, int event) {
+    Method adding;
+    Class<?> type;
+    try {
+      type = Class.forName(listener, false, a.getClassLoader());
+      adding = a.getClass().getMethod(add, type);
+    } catch (ReflectiveOperationException e) {
+      return;
+    }
+
+    WeakReference<Activity> held = new WeakReference<>(a);
+    InvocationHandler on = (proxy, m, args) -> {
+      switch (m.getName()) {
+        case "accept":
+        case "run":
+          Activity at = held.get();
+          if (at != null) event(event, at, null);
+          return null;
+        case "equals":
+          return proxy == args[0];
+        case "hashCode":
+          return System.identityHashCode(proxy);
+        default:
+          return "Lucent " + add;
+      }
+    };
+
+    try {
+      adding.invoke(a, Proxy.newProxyInstance(a.getClassLoader(), new Class<?>[] {type}, on));
+    } catch (ReflectiveOperationException e) {
+      // No listener: the event goes unreported for this Activity.
+    }
+  }
+
+  /** Back presses through the Activity's OnBackPressedDispatcher (LucentBack), when AndroidX has one. */
+  private static void backPresses(Activity a) {
+    try {
+      Class.forName("dev.lucent.LucentBack").getDeclaredMethod("attach", Activity.class).invoke(null, a);
+    } catch (ReflectiveOperationException e) {
+      // No AndroidX: back presses go unreported.
+    }
+  }
+
   // --- to native code ------------------------------------------------------------
 
   private static native void onResult(long id, int resultCode, Intent data);
@@ -289,4 +359,6 @@ public final class LucentActivities implements Application.ActivityLifecycleCall
   private static native void onFailed(long id, String code, String message);
 
   private static native void onEvent(int kind, Activity activity, Intent intent);
+
+  private static native boolean onBack(Activity activity);
 }

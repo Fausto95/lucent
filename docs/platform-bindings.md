@@ -699,8 +699,13 @@ Activity or JavaScript.
   `ERR_NO_ACTIVITY`, `ERR_ACTIVITY_NOT_FOUND` and `ERR_REQUEST_ENDED` (the
   request Activity ended without an answer).
 - `onActivityEvent(event, handler)` reports `created`, `started`,
-  `resumed`, `paused`, `stopped` and `destroyed`, and `newIntent` from
-  AndroidX activities. Lucent's request Activity is never reported.
+  `resumed`, `paused`, `stopped` and `destroyed`, and from AndroidX
+  activities' listeners `newIntent`, `configurationChanged` and
+  `userLeaveHint`. Lucent's request Activity is never reported.
+- `onActivityEvent("backPressed", handler)` hears back presses through
+  AndroidX's `OnBackPressedDispatcher` (`LucentBack.java`), with a
+  callback enabled only while a module listens. A handler answers whether
+  it consumed the press; one none consumes goes on as without Lucent.
 
 On iOS, `onAppEvent` and `onSceneEvent` observe UIApplication's and
 UIScene's notifications from the moment the app loads, without replacing

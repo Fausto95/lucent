@@ -526,7 +526,9 @@ describes.
       `addOnNewIntentListener`, `addOnUserLeaveHintListener`), tested on
       the emulator. The subscriber covers the rest. Back handling goes
       through the dispatcher, since Android 16 doesn't call
-      `onBackPressed` for apps targeting API 36.
+      `onBackPressed` for apps targeting API 36. `onActivityEvent` reports
+      all four through those listeners, back presses answered on the main
+      thread (#221); the emulator run and key events are left.
 - [ ] In an Expo app, an `ExpoAppDelegateSubscriber` and a
       `ReactActivityLifecycleListener` the build declares. In a bare app,
       `lucent init` adds one forwarding line per delegate method,

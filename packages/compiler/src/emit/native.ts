@@ -4202,6 +4202,14 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
     }
     case "lucent:android.onActivityEvent": {
       unit.include("lucent/platform/android.h");
+      // A back press answers whether it was consumed: its own subscription.
+      if (eventNamed(em, args[0]!) === "backPressed")
+        return {
+          c: cpp.call("lucent::jni::onBackPressed", [
+            em.exprAs(args[1]!, declaredArg(em, args[1]!)),
+          ]),
+          t: em.lt(node),
+        };
       return {
         c: cpp.call("lucent::jni::onActivityEvent", [
           em.exprAs(args[0]!, T.string),

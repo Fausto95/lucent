@@ -134,9 +134,9 @@ generated from this file.
 - A delegate that must answer on the main thread waits for the job that
   holds its module's actor. Calls that nest two packages' actors in a
   cycle throw `Lucent: deadlock` rather than hang.
-- On Android, module code hears an Activity's lifecycle and its new
-  intents only: no back press, configuration change, user-leave hint or
-  key yet ([T110](tasks.md#t110)).
+- On Android, module code hears no key events. An Activity that isn't
+  AndroidX's `ComponentActivity` reports no new intent, configuration
+  change, leave hint or back press ([T110](tasks.md#t110)).
 - The app's own `lucent.json` isn't read: only packages declare Info.plist
   keys, entitlements, pods and Gradle dependencies
   ([T111](tasks.md#t111)). Android permissions of the app's own modules

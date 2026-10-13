@@ -236,6 +236,37 @@ Runs `handler` after each `event` of the app's Activities, with the Activity (an
 | `event` | `ActivityEvent` | yes | The lifecycle event, or `"newIntent"`. |
 | `handler` | `(activity: Activity, intent: Intent \| null) => void` | yes | Called with the Activity, and the intent for `"newIntent"`. |
 
+### onActivityEvent()
+
+```ts title="android.d.ts"
+function onActivityEvent(
+  event: "backPressed",
+  handler: (activity: Activity) => boolean,
+): () => void;
+```
+
+Runs `handler` on each back press, on the main thread while Android waits for its answer: true consumes the press. With no module consuming it, back goes on as it would without Lucent. React Native's own handling, JavaScript's `BackHandler`, comes first.
+
+Lucent hears it through AndroidX's `OnBackPressedDispatcher`, the one way an app targeting Android 16 does, enabled only while a module listens.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `event` | `"backPressed"` | yes | `"backPressed"`. |
+| `handler` | `(activity: Activity) => boolean` | yes | Called with the Activity; true if it consumed the press. |
+
+```ts title="onActivityEvent.lucent.ts"
+import { onActivityEvent } from "lucent:android";
+
+// Closes the module's panel before the screen goes.
+function closeOnBack(isOpen: () => boolean, close: () => void): () => void {
+  return onActivityEvent("backPressed", () => {
+    if (!isOpen()) return false;
+    close();
+    return true;
+  });
+}
+```
+
 ## Types
 
 ### ActivityEvent
@@ -248,7 +279,9 @@ type ActivityEvent =
   | "paused"
   | "stopped"
   | "destroyed"
-  | "newIntent";
+  | "newIntent"
+  | "configurationChanged"
+  | "userLeaveHint";
 ```
 
-The lifecycle events of the app's Activities, and a new intent sent to one.
+The lifecycle events of the app's Activities, and a new intent sent to one. From AndroidX's listeners also a configuration change, such as a rotation or dark mode, and the person leaving the app with Home.

@@ -19,7 +19,9 @@ namespace lucent::jni {
 namespace {
 
 /// Lifecycle events, numbered as LucentActivities numbers them.
-constexpr std::array<const char*, 7> kEvents = {"created", "started", "resumed", "paused", "stopped", "destroyed", "newIntent"};
+constexpr std::array<const char*, 9> kEvents = {"created",   "started",   "resumed",
+                                                "paused",    "stopped",   "destroyed",
+                                                "newIntent", "configurationChanged", "userLeaveHint"};
 
 jclass activities();
 
@@ -54,6 +56,18 @@ struct Subscription {
   /// Where the handler runs: the context that subscribed.
   ContextRef context;
 };
+
+/// A back press's subscriber, and the actor its handler runs holding.
+struct BackSubscription {
+  BackHandler handler;
+  Actor* actor;
+};
+
+std::mutex backsMutex;
+std::map<uint64_t, BackSubscription>& backs() {
+  static auto* m = new std::map<uint64_t, BackSubscription>();
+  return *m;
+}
 
 std::mutex subscriptionsMutex;
 std::map<uint64_t, Subscription>& subscriptions() {
@@ -151,6 +165,30 @@ void JNICALL onEvent(JNIEnv* e, jclass, jint kind, jobject activity, jobject int
   });
 }
 
+/// A back press (LucentBack, on the main thread): whether a module consumed
+/// it, its handlers run in subscription order while Android waits.
+jboolean JNICALL onBack(JNIEnv* e, jclass, jobject activity) {
+  std::vector<BackSubscription> listening;
+  {
+    std::lock_guard<std::mutex> g(backsMutex);
+    for (const auto& [id, s] : backs()) listening.push_back(s);
+  }
+  if (listening.empty()) return JNI_FALSE;
+
+  bool consumed = false;
+  guarded("back press", [&] {
+    NativeRef a = wrap(e, e->NewLocalRef(activity), "Activity");
+    for (auto& s : listening) {
+      // As a delegate that answers: the actor taken in place on the main thread.
+      if (callNow(*s.actor, [&] { return s.handler(a); })) {
+        consumed = true;
+        return;
+      }
+    }
+  });
+  return consumed ? JNI_TRUE : JNI_FALSE;
+}
+
 jclass activities() {
   static jclass cls = [] {
     JNIEnv* e = env();
@@ -160,8 +198,9 @@ jclass activities() {
         {const_cast<char*>("onPermissions"), const_cast<char*>("(J[Ljava/lang/String;[I)V"), reinterpret_cast<void*>(onPermissions)},
         {const_cast<char*>("onFailed"), const_cast<char*>("(JLjava/lang/String;Ljava/lang/String;)V"), reinterpret_cast<void*>(onFailed)},
         {const_cast<char*>("onEvent"), const_cast<char*>("(ILandroid/app/Activity;Landroid/content/Intent;)V"), reinterpret_cast<void*>(onEvent)},
+        {const_cast<char*>("onBack"), const_cast<char*>("(Landroid/app/Activity;)Z"), reinterpret_cast<void*>(onBack)},
     };
-    e->RegisterNatives(c, natives, 4);
+    e->RegisterNatives(c, natives, 5);
     check(e);
     return c;
   }();
@@ -242,6 +281,40 @@ Fn<void()> onActivityEvent(const String& event, ActivityHandler handler) {
     if (last) {
       JNIEnv* env_ = env();
       env_->CallStaticVoidMethod(activities(), listen, JNI_FALSE);
+      check(env_);
+    }
+  });
+}
+
+Fn<void()> onBackPressed(BackHandler handler) {
+  static std::atomic<uint64_t> next{1};
+  uint64_t id = next++;
+
+  bool first;
+  {
+    std::lock_guard<std::mutex> g(backsMutex);
+    first = backs().empty();
+    backs().emplace(id, BackSubscription{std::move(handler), &currentActor()});
+  }
+
+  JNIEnv* e = env();
+  static jmethodID wanted = staticMethod(activities(), "backWanted", "(Z)V");
+  if (first) {
+    e->CallStaticVoidMethod(activities(), wanted, JNI_TRUE);
+    check(e);
+  }
+
+  return Fn<void()>([id] {
+    bool last;
+    {
+      std::lock_guard<std::mutex> g(backsMutex);
+      if (!backs().erase(id)) return;
+      last = backs().empty();
+    }
+
+    if (last) {
+      JNIEnv* env_ = env();
+      env_->CallStaticVoidMethod(activities(), wanted, JNI_FALSE);
       check(env_);
     }
   });
