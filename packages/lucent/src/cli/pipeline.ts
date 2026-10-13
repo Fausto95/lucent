@@ -717,7 +717,12 @@ export async function buildProject(
   });
   for (const n of missingAppEntries(root, native.manifest)) notify(n);
   for (const n of missingMainActivity(root, native.manifest)) notify(n);
-  for (const n of missingDelegateForwards(root, result.appDelegateEvents ?? [], isExpoApp(root)))
+  for (const n of missingDelegateForwards(
+    root,
+    result.appDelegateEvents ?? [],
+    isExpoApp(root),
+    Object.keys(native.manifest.launch ?? {}),
+  ))
     notify(n);
   const nativeChanged =
     w.removed.length > 0 || [...written].some((f) => !f.startsWith("js/") && f !== "manifest.json");

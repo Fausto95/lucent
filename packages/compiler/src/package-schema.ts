@@ -200,6 +200,12 @@ export interface PackageNative {
   };
   /** Extension name (`lucent:ext/<name>`) → the extension. */
   extensions?: Record<string, ExtensionDeclaration>;
+  /**
+   * The package's modules to create at app launch, before the first frame
+   * (decision 0092): each one's path under the package's sources, without
+   * the extension.
+   */
+  launch?: string[];
 }
 
 /** Checks a lucent.json value: an error message naming where it is, or undefined. */
@@ -472,10 +478,20 @@ const extensions: Check = (v, at) =>
     )
     .find(Boolean);
 
+/** A module's path under its package's sources, without the extension: `jobs/sync` for jobs/sync.lucent.ts. */
+const modulePath: Check = (v, at) =>
+  typeof v === "string" &&
+  !v.includes("\\") &&
+  !/\.lucent\.tsx?$/.test(v) &&
+  v.split("/").every((part) => part !== "" && part !== "." && part !== "..")
+    ? undefined
+    : `${at} must be a module's path under the package's sources, without .lucent.ts ("tasks" for tasks.lucent.ts)`;
+
 const lucentJson = fields({
   ios: fields(PACKAGE_FIELDS.ios),
   android: fields(PACKAGE_FIELDS.android),
   extensions,
+  launch: listOf(modulePath),
 });
 
 /** A package's lucent.json, checked; undefined when it has none. */

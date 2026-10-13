@@ -11,6 +11,10 @@
 // it started that still runs. Lucent owns the strings, bytes and errors it
 // passes: a synchronous entry's last until the thread's next entry call, a
 // completion's until it returns.
+//
+// lucent_launch(), which every app's lucent_entries.h declares, starts
+// module state at launch when a package lists launch modules (lucent.json's
+// `launch`), and does nothing otherwise. iOS's LucentAppDelegate calls it.
 #pragma once
 
 #include <stdbool.h>
@@ -114,6 +118,13 @@ struct EntryScope {
 };
 
 }  // namespace detail
+
+/// Starts module state at app launch for an app with launch modules
+/// (lucent_launch, decisions 0092 and 0090), running `init` on the calling
+/// thread, the main one, and holds it for the process: no reload ends it.
+/// Work the modules start then belongs to their actors' roots. A second
+/// call does nothing.
+void launch(ModuleInitializer init);
 
 /// A synchronous entry: runs `f(kept)` holding `actor`, for a native call
 /// that starts module state (`init`) if none lasts and ends as it returns.

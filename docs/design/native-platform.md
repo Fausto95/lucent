@@ -756,7 +756,7 @@ Lucent's C++ becomes `liblucent.so`, which `appmodules` links, and
 
 ### Launch-time modules
 
-**Planned** ([T130](../tasks.md#t130)). `lucent.json` gains `launch`: the
+**On iOS** ([T130](../tasks.md#t130), #235). `lucent.json` gains `launch`: the
 modules created at app launch, before the first frame, for registrations
 the OS requires by then. iOS requires every `BGTaskScheduler` handler
 before `application(_:didFinishLaunchingWithOptions:)` returns. Android
@@ -769,6 +769,17 @@ Launch runs in `LucentAppDelegate`'s
 `application(_:didFinishLaunchingWithOptions:)` on iOS, before the
 delegate returns, and in `LucentInitializer` on Android
 ([0092](../decisions/0092-launch-runs-in-the-apps-launch-and-android-loads-lucent-by-itself.md)).
+
+A package lists its modules by their paths under its sources (`tasks` for
+tasks.lucent.ts), and a path that is none of them is LUCENT3015. Each
+target's `lucent_entries.cpp` defines `lucent_launch`, which the app
+delegate calls first. With launch modules, it starts module state through
+`entries::launch`: once, traced as `lucent.launch`, and held for the
+process. Without, it does nothing, and state starts at its first use as
+before. Starting state runs every module's top level, not only the listed
+ones', since a generation is all of them. A bare app whose delegate
+doesn't forward the launch call gets a warning from `lucent build`.
+Android doesn't create them yet: that needs Lucent to load by itself.
 
 ### Native entry points
 

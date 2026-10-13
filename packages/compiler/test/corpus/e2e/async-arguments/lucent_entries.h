@@ -9,6 +9,10 @@
 extern "C" {
 #endif
 
+/// Starts module state at app launch when packages list launch modules
+/// (lucent.json's launch), holding it for the process; else nothing.
+void lucent_launch(void);
+
 /// async-arguments.greet(name, times)
 void lucent_async_arguments_greet(lucent_string arg0, double arg1, void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context);
 

@@ -534,6 +534,24 @@ describe("entitlements, Swift packages, manifest components and target requireme
     ).toThrow(/lucent-a\/lucent.json: android.mainActivity.launchMode must be one of/);
   });
 
+  it("names each package's launch modules by package, and checks their paths", () => {
+    const { manifest } = resolveNative([
+      pkg("lucent-tasks", { launch: ["tasks", "jobs/sync", "tasks"] }),
+      pkg("lucent-push", { launch: ["channels"] }),
+      pkg("lucent-other"),
+    ]);
+    expect(manifest.launch).toEqual({
+      "lucent-push/channels": ["lucent-push"],
+      "lucent-tasks/jobs/sync": ["lucent-tasks"],
+      "lucent-tasks/tasks": ["lucent-tasks"],
+    });
+
+    for (const path of ["tasks.lucent.ts", "../tasks", "/tasks", "jobs//sync"])
+      expect(() => resolveNative([pkg("lucent-a", { launch: [path] })])).toThrow(
+        "lucent-a/lucent.json: launch.0 must be a module's path under the package's sources",
+      );
+  });
+
   it("declares a manifest component once, and fails when packages declare it differently", () => {
     const sync = {
       kind: "service",

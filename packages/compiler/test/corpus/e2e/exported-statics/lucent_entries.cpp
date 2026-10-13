@@ -19,6 +19,9 @@ void initModules() {
 
 #pragma pop_macro("scope")
 
+// No launch modules: module state starts at its first use.
+extern "C" void lucent_launch(void) {}
+
 #pragma push_macro("read")
 #undef read
 

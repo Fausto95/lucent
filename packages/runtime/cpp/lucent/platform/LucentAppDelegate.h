@@ -13,7 +13,9 @@ NS_ASSUME_NONNULL_BEGIN
 __attribute__((visibility("default")))
 @interface LucentAppDelegate : NSObject
 
-/// The URL, user activity or shortcut that launched an app without scenes.
+/// Creates the launch modules packages list (lucent.json's `launch`), then
+/// reports the URL, user activity or shortcut that launched an app without
+/// scenes, and why iOS launched it.
 + (void)application:(UIApplication *)application
     didFinishLaunchingWithOptions:(nullable NSDictionary<UIApplicationLaunchOptionsKey, id> *)launchOptions
     NS_SWIFT_NAME(application(_:didFinishLaunchingWithOptions:));

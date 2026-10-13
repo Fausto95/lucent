@@ -34,6 +34,7 @@ function manifest(over: Partial<ResolvedNative["ios"]> = {}): ResolvedNative {
       mainActivity: { configChanges: {} },
     },
     extensions: {},
+    launch: {},
   };
 }
 

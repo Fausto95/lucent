@@ -16,6 +16,10 @@
 #include "../native.h"
 #include "ios_ui.h"
 
+// The app's generated lucent_entries.cpp: starts module state for the launch
+// modules packages list (lucent.json's launch), or does nothing.
+extern "C" void lucent_launch(void);
+
 /// UNUserNotificationCenter's delegate while a module listens for
 /// notifications: it reports them to Lucent modules, and forwards every
 /// call to the delegate the app had (`next`, which the center held weakly
@@ -373,6 +377,9 @@ using namespace lucent::objc;
 
 + (void)application:(UIApplication*)application
     didFinishLaunchingWithOptions:(NSDictionary<UIApplicationLaunchOptionsKey, id>*)launchOptions {
+  // Launch modules first: they register with the OS before launch ends, and hear what follows.
+  lucent_launch();
+
   reportURL(launchOptions[UIApplicationLaunchOptionsURLKey], launchOptions[UIApplicationLaunchOptionsSourceApplicationKey]);
   reportShortcut(launchOptions[UIApplicationLaunchOptionsShortcutItemKey]);
   NSDictionary* activity = launchOptions[UIApplicationLaunchOptionsUserActivityDictionaryKey];
