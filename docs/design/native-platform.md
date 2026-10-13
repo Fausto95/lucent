@@ -80,7 +80,7 @@ Recursion that would overflow throws `RangeError`, in Release builds too
 ### Mechanisms in core, APIs in packages
 
 Core provides mechanisms: actors and executors, buffers, channels,
-lifecycle events, and, planned, native entry points and launch-time
+lifecycle events, native entry points, and, planned, launch-time
 modules. An API built on them is a Lucent package: a background-task
 scheduler, a notifications module, a widget kit. Core never special-cases
 one, which keeps the no-catalog rule true for execution modes.
@@ -718,8 +718,8 @@ them ([T150](../tasks.md#t150)'s ports), none a core special case.
 runtime with no JavaScript: module state initialized, actors and contexts
 running. A JavaScript `Host` is then one more client, and sees the same
 module state when it installs. `native_root.h` keeps the state's
-generations and holds, and `NativeCall` is a native call's work. No
-generated code calls it yet: entry points are next.
+generations and holds, and `NativeCall` is a native call's work, which
+each generated entry point runs.
 
 Module initialization moves out of the JSI unit into a JSI-free one.
 [Decision 0090](../decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md)
@@ -770,7 +770,7 @@ delegate returns, and in `LucentInitializer` on Android
 
 ### Native entry points
 
-**Planned** ([T130](../tasks.md#t130)). An entry point is a generated C
+**Done on the host** ([T130](../tasks.md#t130), #233). An entry point is a generated C
 function that runs a module function, or a Lucent instance's method, on
 its actor through the native root. The glue of [T131](../tasks.md#t131),
 [T132](../tasks.md#t132) and [T133](../tasks.md#t133) calls them, and so
@@ -791,6 +791,16 @@ is a `NativeCall`, and the work it started ends when it returns or
 completes. Numbers, booleans, `bigint`, strings and `Uint8Array` cross
 at first;
 [T114](../tasks.md#t114) adds the rest with its Swift and Kotlin APIs.
+
+`entries.h` holds the C types and the two calls a generated entry makes,
+`entries::call` and `callAsync`. `lucent_entries.cpp` defines the entries
+and the modules' initializer, `lucent_app::initModules`, which a `Host`
+and a native call both start state with. Neither reaches JSI, so the
+runtime ABI is 3. Entries take their parameters by position (`arg0`), as
+a parameter's own name could be a macro. Two exports whose names come out
+the same get none, and LUCENT3016 warns
+([0094](../decisions/0094-exports-that-would-share-an-entry-point-get-none.md)). No entry exists yet for a Lucent
+instance's method.
 
 ### Android classes the OS instantiates
 

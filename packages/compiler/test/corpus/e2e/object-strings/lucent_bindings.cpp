@@ -96,10 +96,7 @@ const ModuleDef* registeredModules(size_t& count) {
 }
 
 void resetModuleState() {
-  {
-    lucent::LucentScope scope(lucent_app::actor_0());
-    lucent_app::m_object_u2d_strings::init();
-  }
+  lucent_app::initModules();
 }
 
 }  // namespace lucent::js

@@ -15,3 +15,9 @@ inline lucent::Actor& actor_0() {
 }  // namespace lucent_app
 
 #pragma pop_macro("a")
+
+namespace lucent_app {
+
+void initModules();
+
+}  // namespace lucent_app

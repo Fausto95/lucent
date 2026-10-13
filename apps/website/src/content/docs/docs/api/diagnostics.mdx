@@ -58,6 +58,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT3012`](#lucent3012) | A compute() task's input or result holds something other than data, such as a function, a promise or a main-thread native object. |
 | [`LUCENT3013`](#lucent3013) (warning) | A method of a class implementing an SDK protocol, named like one of its requirements but matching none, which the platform never calls. |
 | [`LUCENT3014`](#lucent3014) | A Lucent package whose `lucent.compatible` range in package.json leaves out the Lucent that compiles it. |
+| [`LUCENT3016`](#lucent3016) (warning) | Two exported functions whose native entry points, `lucent_<module>_<export>`, come out with the same name. |
 | [`LUCENT3020`](#lucent3020) | An exported `.lucent.tsx` function that returns a view but cannot be a component, or Lucent code calling a component. |
 | [`LUCENT3021`](#lucent3021) | A component prop, event or ref command whose type views cannot carry, or whose name React or the host keeps. |
 | [`LUCENT3022`](#lucent3022) | A component's setup, or a function it creates, using module state, code the compiler cannot follow, or native code unfit for the main thread. |
@@ -1285,6 +1286,53 @@ export function now(): number {
 ```ts title="clock.lucent.ts (right)"
 export function now(): number {
   return Date.now();
+}
+```
+
+</TabItem>
+</Tabs>
+
+### LUCENT3016
+
+**Exports with one native entry point** (a warning)
+
+Native code calls a module's export through its entry point, named for the module and the export. Every character but letters and digits becomes `_`, so `a_b.c` and `a.b_c` both come out as `lucent_a_b_c`. Neither then gets one, so that a name never moves from one export to the other.
+
+**Fix:** rename one of the exports, or one of the modules, if native code calls it.
+
+<Tabs>
+<TabItem label="✗ a_b.lucent.ts">
+
+```ts title="a_b.lucent.ts (wrong)"
+export function c(): number {
+  return 1;
+}
+```
+
+</TabItem>
+<TabItem label="✗ a.lucent.ts">
+
+```ts title="a.lucent.ts (wrong)"
+export function b_c(): number {
+  return 2;
+}
+```
+
+</TabItem>
+<TabItem label="✓ a_b.lucent.ts">
+
+```ts title="a_b.lucent.ts (right)"
+export function c(): number {
+  return 1;
+}
+```
+
+</TabItem>
+<TabItem label="✓ a.lucent.ts">
+
+```ts title="a.lucent.ts (right)"
+export function bc(): number {
+  return 2;
 }
 ```
 

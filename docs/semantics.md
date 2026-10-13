@@ -439,15 +439,22 @@ JavaScript: assign a new value, or export a function that returns it.
 
 The top level holds declarations only (`LUCENT3002`), which initialize in
 source order, a class's statics where it is declared. A module's top
-level is its create hook. It runs at the first use of any module, a
-JavaScript runtime's install today, and again at the first use after the
-state ended. The state ends when the last live runtime goes (a reload)
-while nothing native holds it; a runtime that installs while it lasts
-shares it (`native_root.h`,
+level is its create hook. It runs at the first use of any module, and
+again at the first use after the state ended. A first use is a JavaScript
+runtime's install or a native entry point's call. The state ends when the
+last live runtime goes (a reload) while nothing native holds it; a
+runtime that installs while it lasts shares it (`native_root.h`,
 [decision 0090](decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md)).
 `onDestroy(hook)` from `lucent:core` runs when the state ends, last
-registered first. No entry point runs module code without a JavaScript
-runtime yet ([T130](tasks.md#t130)).
+registered first.
+
+A native entry point, `lucent_<module>_<export>` in `lucent_entries.h`,
+runs an export from native code with no JavaScript runtime
+([decision 0091](decisions/0091-entry-points-are-c-functions-named-for-their-export.md)).
+It holds the state until it returns, or until an `async` export's
+completion runs, and then cancels the work it started that still runs. A
+throw goes to its caller as a `lucent_error`, never reported, and no
+result is made up. A `bigint` result past `int64_t` is a `RangeError`.
 
 ## Platform code
 

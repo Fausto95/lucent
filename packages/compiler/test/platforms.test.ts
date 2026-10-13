@@ -180,6 +180,8 @@ describe.skipIf(!ios)("platform modules", () => {
     expect([...r.files.keys()].sort()).toEqual([
       "lucent_app.h",
       "lucent_bindings.cpp",
+      "lucent_entries.cpp",
+      "lucent_entries.h",
       "lucent_identity.cpp",
       "m_plain.cpp",
       "m_plain.h",

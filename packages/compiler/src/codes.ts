@@ -41,6 +41,7 @@ export const Codes = {
   NotTransferable: "LUCENT3012",
   UnmatchedRequirement: "LUCENT3013",
   IncompatiblePackage: "LUCENT3014",
+  EntryNameClash: "LUCENT3016",
   ComponentExport: "LUCENT3020",
   ComponentContract: "LUCENT3021",
   ComponentMainThread: "LUCENT3022",
@@ -589,6 +590,23 @@ export const Explanations: Record<Code, Explanation> = {
     right: {
       "package.json": '{ "name": "lucent-clock", "version": "1.0.0", "lucent": {} }\n',
       "clock.lucent.ts": "export function now(): number {\n  return Date.now();\n}\n",
+    },
+  },
+  LUCENT3016: {
+    title: "Exports with one native entry point",
+    summary:
+      "Two exported functions whose native entry points, `lucent_<module>_<export>`, come out with the same name.",
+    details:
+      "Native code calls a module's export through its entry point, named for the module and the export. Every character but letters and digits becomes `_`, so `a_b.c` and `a.b_c` both come out as `lucent_a_b_c`. Neither then gets one, so that a name never moves from one export to the other.",
+    fix: "rename one of the exports, or one of the modules, if native code calls it",
+    severity: "warning",
+    wrong: {
+      "a_b.lucent.ts": "export function c(): number {\n  return 1;\n}\n",
+      "a.lucent.ts": "export function b_c(): number {\n  return 2;\n}\n",
+    },
+    right: {
+      "a_b.lucent.ts": "export function c(): number {\n  return 1;\n}\n",
+      "a.lucent.ts": "export function bc(): number {\n  return 2;\n}\n",
     },
   },
   LUCENT3020: {

@@ -443,6 +443,22 @@ export const explanations: { code: string; title: string; summary: string; detai
     }
   },
   {
+    "code": "LUCENT3016",
+    "title": "Exports with one native entry point",
+    "summary": "Two exported functions whose native entry points, `lucent_<module>_<export>`, come out with the same name.",
+    "details": "Native code calls a module's export through its entry point, named for the module and the export. Every character but letters and digits becomes `_`, so `a_b.c` and `a.b_c` both come out as `lucent_a_b_c`. Neither then gets one, so that a name never moves from one export to the other.",
+    "fix": "rename one of the exports, or one of the modules, if native code calls it",
+    "wrong": {
+      "a_b.lucent.ts": "export function c(): number {\n  return 1;\n}\n",
+      "a.lucent.ts": "export function b_c(): number {\n  return 2;\n}\n"
+    },
+    "right": {
+      "a_b.lucent.ts": "export function c(): number {\n  return 1;\n}\n",
+      "a.lucent.ts": "export function bc(): number {\n  return 2;\n}\n"
+    },
+    "warning": true
+  },
+  {
     "code": "LUCENT3020",
     "title": "Export that cannot be a component",
     "summary": "An exported `.lucent.tsx` function that returns a view but cannot be a component, or Lucent code calling a component.",

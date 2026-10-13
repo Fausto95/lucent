@@ -121,11 +121,13 @@ generated from this file.
   `DataCloneError` for a subclass instance behind a base type. An abort
   after the task ran but before the promise settled rejects natively and
   resolves in JavaScript.
-- Module state is process-wide: two runtimes alive at once share it. A new
-  `Host` resets it only while no other runtime is live.
-- Module code runs only once a JavaScript runtime has installed Lucent.
-  Background tasks, services and extensions can't run it yet
-  ([T130](tasks.md#t130)).
+- Module state is process-wide: runtimes and native calls alive at once
+  share it. A new `Host` starts it again only when none of them holds it.
+- Native code runs a module function without a JavaScript runtime only
+  through its entry point. A function gets one only if its parameters and
+  result are numbers, booleans, `bigint`s, strings or `Uint8Array`s.
+- Nothing starts module code at launch yet, and background tasks,
+  services and extensions can't run it ([T130](tasks.md#t130)).
 - An object goes on an executor only if its class does nothing else. It
   is made only in `on()`, isn't exported, extends no class and keeps
   `this` to itself. So a subclass of an SDK class can't go on one
