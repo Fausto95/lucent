@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { checksSummary, progressLine, summaryLine } from "./summary";
+import { checksSummary, failureLine, progressLine, summaryLine } from "./summary";
 
 describe("checksSummary", () => {
   it("says ALL PASSED when every check passes", () => {
@@ -40,6 +40,21 @@ describe("summaryLine", () => {
   it("keeps the line on one line", () => {
     expect(summaryLine("compare", "numbers 1.2x\nstrings 0.9x")).toBe(
       "LUCENT_SUMMARY compare numbers 1.2x strings 0.9x",
+    );
+  });
+});
+
+describe("failureLine", () => {
+  it("says why a check failed, on one line", () => {
+    expect(
+      failureLine("tests", {
+        name: "closures",
+        pass: false,
+        why: 'line 2 of 3: expected "1",\ngot "2"',
+      }),
+    ).toBe('LUCENT_FAILURE tests closures: line 2 of 3: expected "1", got "2"');
+    expect(failureLine("sdk", { name: "x", pass: false })).toBe(
+      "LUCENT_FAILURE sdk x: no reason given",
     );
   });
 });

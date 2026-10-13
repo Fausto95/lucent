@@ -7,7 +7,18 @@ export interface CaseResult {
   lines: string[];
   expected: string[];
   error?: string;
+  /** Why it failed: its error, or its first line that differs from the expected one. */
+  why?: string;
   ms: number;
+}
+
+/** The first line `lines` and `expected` differ in, in words. */
+function firstDifference(lines: string[], expected: string[]): string | undefined {
+  const n = Math.max(lines.length, expected.length);
+  for (let i = 0; i < n; i++)
+    if (lines[i] !== expected[i])
+      return `line ${i + 1} of ${expected.length}: expected ${JSON.stringify(expected[i] ?? "(no line)")}, got ${JSON.stringify(lines[i] ?? "(no line)")}`;
+  return undefined;
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -32,13 +43,17 @@ export async function runCase(c: TestCase): Promise<CaseResult> {
     error = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
   }
 
-  // Async cases print as their promises settle.
-  const deadline = Date.now() + 10000;
+  // Async cases print as their promises settle; a slow device (an emulator
+  // running a Debug build) gets a minute.
+  const deadline = Date.now() + 60000;
   if (!error) while (lines.length < c.expected.length && Date.now() < deadline) await sleep(20);
   await sleep(50);
 
   const pass =
     !error && lines.length === c.expected.length && lines.every((l, i) => l === c.expected[i]);
+  const why = pass
+    ? undefined
+    : (error ?? `${firstDifference(lines, c.expected)} (${lines.length} lines in ${Date.now() - start} ms)`);
 
-  return { name: c.name, pass, lines, expected: c.expected, error, ms: Date.now() - start };
+  return { name: c.name, pass, lines, expected: c.expected, error, why, ms: Date.now() - start };
 }
