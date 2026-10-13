@@ -195,6 +195,12 @@ check corpora against JavaScript: BigInt and number formatting against
 Node, the reactive graph against `reactive/reference.ts`. `run_binary.sh`
 fails a test on its status or on a sanitizer report in its output.
 
+`executor_test.cpp` is the executor bench: 1080p frames at 60 Hz, run on
+an executor as a camera's delegate is, into a `latest` channel, while a
+synchronous call holds the module's actor for 500 ms. It fails if the
+handler waits for an actor or starts 50 ms late at p99, and prints its
+latency and the channel's drops.
+
 It also fails when the vendored QuickJS exports an unprefixed symbol. On
 macOS it runs the Objective-C helpers and syntax-checks the UIKit glue
 against the simulator SDK. The runtime's TypeScript tests (`headers`,

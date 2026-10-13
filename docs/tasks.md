@@ -34,7 +34,7 @@ what became of each one that is still linked or was still open.
 | [T106](#t106)            | Language gaps module code meets                            | ready                                                           |
 | [T107](#t107)            | Native objects: memory pressure and native handles         | in progress (#175, #180, #183 merged, as T73)                   |
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | in progress (#163, #165, #167, #168 merged, as T72)             |
-| [T109](#t109)            | Executors for platform callbacks                           | in progress (#181, #182, #187, #197 as T74; #206–#208 merged)   |
+| [T109](#t109)            | Executors for platform callbacks                           | in progress (#181, #182, #187, #197 as T74; #206–#210 merged)   |
 | [T110](#t110)            | App-delegate and Activity events                           | ready (decision 0076)                                           |
 | [T111](#t111)            | The app's own native needs and options                     | ready                                                           |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | ready                                                           |
@@ -422,8 +422,10 @@ hold its module's actor.
   `subscribe`, and the runtime's `ExecutorContext`, are merged (#181,
   #182, #187, #197, as T74). So are `executor(label)` and `on(exec, f)`
   for functions (#206), objects with `on(exec, new C(…))` (#207), and
-  events emitted from executor code (#208). Trace is next; the bench and
-  a reusable `on()` are left. Decided as
+  events emitted from executor code (#208), trace (#209) and the host
+  bench (#210: `executor_test.cpp`, p99 under 2 ms while the actor is
+  held 500 ms, no actor waits). A reusable `on()`, and frames through an
+  executor on the simulator and the emulator, are left. Decided as
   [0078](decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md),
   [0081](decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md),
   [0082](decisions/0082-objects-go-on-an-executor-where-they-are-made.md)
@@ -459,7 +461,7 @@ callbacks still take it, on `serialQueue(label)`'s queue or any other.
       ([Handle frequent callbacks on an executor](../apps/website/src/content/docs/docs/guides/handle-callbacks-on-an-executor.mdx)).
 - [x] Trace: each channel's waits, depth and drops, and an executor's
       spans beside its actor's.
-- [ ] Bench (host): synthetic 1080p frames at 60 Hz through an executor
+- [x] Bench (host): synthetic 1080p frames at 60 Hz through an executor
       into a `latest` channel, while a 500 ms synchronous JavaScript call
       holds the module's actor. The executor thread waits on no actor,
       drops are counted, and the p99 handler latency is reported.
