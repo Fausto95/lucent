@@ -2,6 +2,8 @@
 export interface Check {
   readonly name: string;
   readonly pass: boolean;
+  /** Why it failed, in a line: the first line that differs, the error. */
+  readonly why?: string;
 }
 
 export interface Summary {
@@ -32,6 +34,16 @@ export function progressLine(
     ? `${check.name} ${check.pass ? "ok" : "FAILED"}${check.ms === undefined ? "" : ` ${check.ms}ms`}`
     : "started";
   return `LUCENT_PROGRESS ${screen} ${done}/${total} ${detail}`;
+}
+
+/**
+ * Why a check failed, as a line a script watching the device log quotes in
+ * its report: `LUCENT_FAILURE tests closures: line 3: expected "1", got "2"`.
+ */
+export function failureLine(screen: string, check: Check): string {
+  const why = (check.why ?? "no reason given").replace(/\s+/g, " ").trim();
+  const short = why.length > 300 ? `${why.slice(0, 299)}…` : why;
+  return `LUCENT_FAILURE ${screen} ${check.name}: ${short}`;
 }
 
 /** The verdict of a run of pass/fail checks. */

@@ -77,6 +77,12 @@ export function lastProgress(log: string, screen = "tests"): Progress | undefine
   return found;
 }
 
+/** Why each failed check of `screen` failed, as the screen logged it: `closures: line 3 …`. */
+export function failures(log: string, screen = "tests"): string[] {
+  const line = new RegExp(`LUCENT_FAILURE ${escaped(screen)} ([^\\n]*)`, "g");
+  return [...new Set([...log.matchAll(line)].map((m) => m[1]!.trim()))];
+}
+
 /** Progress for people: `12/70 run (last: closures, failed)`. */
 export function describeProgress(p: Progress | undefined): string {
   if (!p) return "no case ran";
@@ -193,6 +199,8 @@ export interface Facts {
   minutes: number;
   verdict?: Verdict;
   progress?: Progress;
+  /** Why the screen's failed checks failed (LUCENT_FAILURE). */
+  failures?: string[];
   /** Whether the app's process was running at the end (undefined: unknown). */
   running?: boolean;
   crash: string[];
@@ -243,6 +251,7 @@ export function diagnose(f: Facts): string[] {
   const lines = [
     `Device run (${f.platform}) failed. ${why}`,
     `Progress: ${describeProgress(f.progress)}.`,
+    ...(f.failures ?? []).slice(0, 8).map((w) => `Failed: ${w}`),
     `App: ${f.running === undefined ? "unknown" : f.running ? "running" : "not running"}.${f.metro === false ? "" : ` Metro: ${f.metroUp ? "up" : "not answering"}.`}`,
   ];
   if (f.crash.length > 1)
@@ -692,6 +701,7 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
   const facts: Facts = {
     platform,
     lab: screen.id,
+    failures: failures(device.lucent(), screen.id),
     stop,
     minutes: (Date.now() - (stop === "stalled" ? moved : opened)) / 60_000,
     verdict,

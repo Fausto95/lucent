@@ -5,6 +5,7 @@ import {
   crashReport,
   describeProgress,
   diagnose,
+  failures,
   type Facts,
   iosAppPid,
   jsErrorLines,
@@ -256,6 +257,28 @@ describe("diagnose", () => {
       "Device run (ios) failed. The app crashed after case 12/70 (closures): crash report BareExample-2026-10-08.ips: EXC_CRASH, SIGABRT",
     );
     expect(lines).toContain("App: not running. Metro: up.");
+  });
+
+  it("quotes why each check failed", () => {
+    const lines = diagnose({
+      ...base,
+      stop: "verdict",
+      verdict: {
+        passed: 95,
+        total: 96,
+        ok: false,
+        line: "LUCENT_SUMMARY tests 95/96 passed; failed: x",
+      },
+      failures: ['recursion-limit: line 6 of 6: expected "RangeError true true", got "(no line)"'],
+    });
+    expect(lines[2]).toBe(
+      'Failed: recursion-limit: line 6 of 6: expected "RangeError true true", got "(no line)"',
+    );
+    expect(
+      failures(
+        "LUCENT_FAILURE tests a: why\nLUCENT_FAILURE platform b: other\nLUCENT_FAILURE tests a: why\n",
+      ),
+    ).toEqual(["a: why"]);
   });
 
   it("names the screen that failed", () => {
