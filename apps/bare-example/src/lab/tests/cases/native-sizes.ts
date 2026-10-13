@@ -13,10 +13,11 @@ export default function run(mod, print, lucentClass, mods) {
   // Other external memory comes and goes meanwhile (strings, the engine's own): a little leeway.
   const SLACK = 64 * 1024;
   /**
-   * Whether `step` moves the count by about `delta`. On a device Hermes
-   * collects concurrently, and a collection that frees other garbage's
-   * external memory meanwhile spoils a try: up to three, `undo` putting back
-   * what the step changed before the next.
+   * Whether `step` moves the count by about `delta`. A collection that the
+   * step's allocation starts, and that frees other garbage's external memory
+   * (the JavaScript run's buffers), spoils a try, as it does in the example
+   * apps' Release builds: up to three, `undo` putting back what the step
+   * changed, or leaving nothing counted to free, before the next.
    */
   const moves = (delta, step, undo) => {
     for (let tries = 0; tries < 3; tries++) {
@@ -31,7 +32,11 @@ export default function run(mod, print, lucentClass, mods) {
 
   // Made and loaded in module code: counted when it crosses.
   let img;
-  let ok = moves(MB, () => (img = mod.image(MB)));
+  let ok = moves(
+    MB,
+    () => (img = mod.image(MB)),
+    () => img.clear(),
+  );
   print(img.nativeSize, ok);
 
   // A call that changes it: counted when the call returns.
