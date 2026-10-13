@@ -531,10 +531,16 @@ LucentNative`). Only harmless calls are added unasked: the remote
 notification's method makes UIKit ask for its background mode, and an
 orientations method replaces Info.plist's.
 
-**Planned:** in an Expo app, an `ExpoAppDelegateSubscriber` and a
-`ReactActivityLifecycleListener`, declared in an `expo-module.config.json`
-the build writes; `lucent build` naming a call a module needs that the
-app lacks; Android's events through `onActivityEvent`.
+In an Expo app, `LucentExpoSubscriber` registers itself with Expo's
+subscribers at load, as Expo registers its own, through
+`EXExpoAppDelegateSubscriberRepository` found at run time: the native
+package needs no Expo dependency and the app no line. It answers each
+completion handler once, as Expo's merge waits for, and offers
+orientations only while a module has a say.
+
+**Planned:** a `ReactActivityLifecycleListener` for Expo's Android side,
+`lucent build` naming a call a module needs that the app lacks, and
+Android's events through `onActivityEvent`.
 
 ## Bytes and buffers
 
