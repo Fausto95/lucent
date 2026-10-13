@@ -238,7 +238,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "React Native 0.85 to 0.87 and Expo SDK 56 and 57, with fresh apps built nightly."
       },
       {
-        "status": "next",
+        "status": "done",
         "text": "iOS builds from Xcode alone, and a package's pods in Expo apps."
       },
       {
@@ -319,7 +319,7 @@ export const limitations: { title: string; items: string[] }[] = [
       "Swift's `Data` and `NSData` cross into Lucent as a copy, so a file's or a response's bytes reach JavaScript after one copy ([T108](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t108)).",
       "On Android API 24 and 25, a Java default method that Lucent doesn't implement returns its zero value, and the reason is logged.",
       "A Lucent package's pod binds once installed. In a bare app, the first `lucent build` that meets it declares it in the podspec and fails with LUCENT3004 naming the pod. After `pod install`, it binds.",
-      "A pod binds through the module it defines: `DEFINES_MODULE`, modular headers, a prebuilt framework, or `use_frameworks!`. Dynamic linkage is untested ([T141](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t141)).",
+      "A pod binds through the module it defines: `DEFINES_MODULE`, modular headers, a prebuilt framework, or `use_frameworks!`.",
       "An Android app with product flavors binds the libraries of its first debug variant by name. A library only another flavor depends on can't be bound.",
       "Typed extensions are C only: C++ headers, callbacks and cancellation are not supported yet ([T142](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t142)).",
       "A package's Kotlin and Java sources are compiled but not typed in Lucent. Its Swift sources are, as `lucent:ios/LucentNative` ([T143](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t143)).",

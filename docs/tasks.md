@@ -58,7 +58,7 @@ what became of each one that is still linked or was still open.
 | [T136](#t136)            | App Intents, Live Activities and Android widget bodies     | waiting; needs T131, T133                                     |
 | **Distribution**         |                                                            |                                                               |
 | [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190, #191, #194, #195, #200, #204 merged)       |
-| [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | in progress (#258)                                            |
+| [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | done (2026-10-14)                                             |
 | [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | ready                                                         |
 | [T143](#t143)            | Typed Kotlin and Java sources in packages                  | ready                                                         |
 | [T144](#t144)            | A web target for shared modules                            | ready (decision 0077)                                         |
@@ -1223,7 +1223,7 @@ read, so Lucent has to generate them.
 **Goal:** An iOS build from Xcode alone is current, and a package's own pods
 bind in an Expo app.
 
-- **Status:** in progress (#258).
+- **Status:** done (2026-10-14).
 - **Area:** tooling, iOS host.
 - **Needs:** nothing.
 - **Verify:** V4, V5, V6.
@@ -1248,8 +1248,8 @@ stopped with LUCENT3004 at a package's pod that wasn't installed yet
       the pods are installed and lists the new sources in the pod's target.
 - [x] A pod the build still can't find fails with LUCENT3004, and a notice
       names it (`unboundPods`).
-- [ ] Builds with `use_frameworks! :linkage => :static` and with dynamic
-      linkage.
+- [x] Builds with `use_frameworks! :linkage => :static` and with dynamic
+      linkage: CI builds the bare example with each, outside pull requests.
 - [x] Tests: a package importing a pod its `lucent.json` declares, in the
       window's fresh Expo and bare apps (`scripts/window-app.ts`), which
       call it on the simulator. The Expo app builds with `pod install` and

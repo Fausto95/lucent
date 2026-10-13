@@ -152,7 +152,7 @@ Goal: Build and ship Lucent modules and packages like any React Native library.
 - ✅ A JavaScript `lucent:core`, so Jest and Vitest run shared modules.
 - ✅ Performance budgets for calls, kernels and size, checked in CI.
 - 🚧 React Native 0.85 to 0.87 and Expo SDK 56 and 57, with fresh apps built nightly.
-- ⏳ iOS builds from Xcode alone, and a package's pods in Expo apps.
+- ✅ iOS builds from Xcode alone, and a package's pods in Expo apps.
 - 🔭 A web target for shared modules.
 - 🔭 Monorepos, upgrades and Release builds, tested as a matrix.
 - 🔭 Reference ports, benchmarks against Nitro and Expo Modules, and migration guides.
@@ -188,8 +188,8 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
    from `undefined`, promises and timers ([T100](docs/tasks.md#t100),
    [T101](docs/tasks.md#t101), [T103](docs/tasks.md#t103),
    [T104](docs/tasks.md#t104), done): JSON values.
-6. [T141](docs/tasks.md#t141): Xcode builds, and a package's pods in Expo
-   apps.
+6. [T141](docs/tasks.md#t141) (done): Xcode builds, and a package's pods
+   in Expo apps.
 
 ## Recording work
 

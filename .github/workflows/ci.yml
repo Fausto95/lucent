@@ -290,16 +290,23 @@ jobs:
           if-no-files-found: ignore
 
   ios:
-    name: Bare example (iOS simulator build)
+    name: Bare example (iOS simulator build${{ matrix.linkage != 'libraries' && format(', {0} frameworks', matrix.linkage) || '' }})
     needs: changes
     if: needs.changes.outputs.apps == 'true'
     runs-on: macos-26
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # React Native's default, static libraries; and, outside pull requests, the app built
+        # with each linkage of use_frameworks!, which the Podfile reads from USE_FRAMEWORKS.
+        linkage: ${{ fromJSON(github.event_name == 'pull_request' && '["libraries"]' || '["libraries", "static", "dynamic"]') }}
     env:
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
       # React Native's pods compile through ccache when pod install sees this.
       USE_CCACHE: "1"
+      USE_FRAMEWORKS: ${{ matrix.linkage != 'libraries' && matrix.linkage || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -351,7 +358,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: ios-build-log
+          name: ios-build-log-${{ matrix.linkage }}
           path: apps/bare-example/ios/build.log
       - name: Compiler cache statistics
         if: always()
