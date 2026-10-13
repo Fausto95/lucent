@@ -324,6 +324,14 @@ class NativeBuffer {
   readonly byteLength: number;
   withRead<R>(read: (bytes: ByteSpan) => R): R;
   withWrite<R>(write: (bytes: MutableByteSpan) => R): R;
+  withReadAs<A extends ViewedArray, R>(
+    type: ViewedArrayType<A>,
+    read: (values: TypedSpan<A>) => R,
+  ): R;
+  withWriteAs<A extends ViewedArray, R>(
+    type: ViewedArrayType<A>,
+    write: (values: MutableTypedSpan<A>) => R,
+  ): R;
   toUint8Array(): Uint8Array;
   transfer(): NativeBuffer;
   transferToArrayBuffer(): ArrayBuffer;
@@ -336,6 +344,8 @@ class NativeBuffer {
 Bytes native code owns, handed to compute tasks and JavaScript without copying them. A `Uint8Array` is copied whenever it crosses, while a NativeBuffer moves.
 
 The bytes are reached through a borrow, for the length of one call. `withRead` lends them to its callback as a `ByteSpan`, and `withWrite` as a `MutableByteSpan`. Reads share the buffer, while a write needs it to itself.
+
+`withReadAs` and `withWriteAs` lend them as another typed array's elements: `buffer.withReadAs(Float32Array, (samples) => …)`.
 
 A borrow that conflicts with one in progress throws an InvalidStateError ("NativeBuffer is borrowed") at once. That is a write inside a read, or a close or transfer inside either.
 
@@ -376,6 +386,8 @@ export async function sample(): Promise<number> {
 | `readonly byteLength: number;` | How many bytes it holds: 0 once closed or transferred. |
 | `withRead<R>(read: (bytes: ByteSpan) => R): R;` | Calls `read` with the bytes, while no one writes them, and returns what it returns. |
 | `withWrite<R>(write: (bytes: MutableByteSpan) => R): R;` | Calls `write` with the bytes, while nothing else borrows them, and returns what it returns. A read-only buffer (a frame adopted for reading) throws InvalidStateError. |
+| `withReadAs<A extends ViewedArray, R>(type: ViewedArrayType<A>, read: (values: TypedSpan<A>) => R): R;` | Calls `read` with the bytes read as `type`'s elements, little-endian, as `new Float32Array(buffer)` reads them. Bytes that aren't a whole number of elements throw a RangeError. |
+| `withWriteAs<A extends ViewedArray, R>(type: ViewedArrayType<A>, write: (values: MutableTypedSpan<A>) => R): R;` | Calls `write` with the bytes as `type`'s elements, as `withWrite` and `withReadAs` do. |
 | `toUint8Array(): Uint8Array;` | A copy of the bytes, independent of the buffer from then on. |
 | `transfer(): NativeBuffer;` | Moves the bytes, uncopied, to a new buffer: every reference to this one refuses them from now on. |
 | `transferToArrayBuffer(): ArrayBuffer;` | Moves the bytes, uncopied, into an `ArrayBuffer`. Every reference to this buffer refuses them from now on, and the ArrayBuffer releases them as the buffer would have. Returned to JavaScript, it is the same bytes. A borrowed buffer does not move (an InvalidStateError), nor does a read-only one, since an ArrayBuffer is writable. |
@@ -536,6 +548,65 @@ The bytes `withWrite` lends, written like a `Uint8Array`'s: values wrap to 0–2
 | `[index: number]: number;` |  |
 | `fill(value: number, start?: number, end?: number): void;` | Sets the bytes from `start` to `end` (counted from the end when negative) to `value`. |
 | `set(source: Uint8Array, offset?: number): void;` | Copies `source` in at `offset`: a RangeError if it does not fit. |
+
+### ViewedArray
+
+```ts title="core.d.ts"
+type ViewedArray =
+  | Int8Array
+  | Uint8Array
+  | Uint8ClampedArray
+  | Int16Array
+  | Uint16Array
+  | Int32Array
+  | Uint32Array
+  | Float32Array
+  | Float64Array
+  | BigInt64Array
+  | BigUint64Array;
+```
+
+The typed arrays a buffer's bytes can be read as.
+
+### ViewedArrayType
+
+```ts title="core.d.ts"
+interface ViewedArrayType<A extends ViewedArray> {
+  new (buffer: ArrayBuffer): A;
+  readonly BYTES_PER_ELEMENT: number;
+}
+```
+
+A typed array's constructor, which names the elements `withReadAs` lends: `Float32Array`.
+
+### TypedSpan
+
+```ts title="core.d.ts"
+interface TypedSpan<A extends ViewedArray> {
+  readonly length: number;
+  readonly [index: number]: A[number];
+}
+```
+
+The bytes `withReadAs` lends, read like a typed array of kind `A`: `values[i]` is undefined out of range.
+
+### MutableTypedSpan
+
+```ts title="core.d.ts"
+interface MutableTypedSpan<A extends ViewedArray> extends TypedSpan<A> {
+  [index: number]: A[number];
+  fill(value: A[number], start?: number, end?: number): void;
+  set(source: ArrayLike<A[number]>, offset?: number): void;
+}
+```
+
+The bytes `withWriteAs` lends, written like a typed array of kind `A`: values convert as `A` converts them, writes out of range do nothing.
+
+| Member | What it does |
+| --- | --- |
+| `[index: number]: A[number];` |  |
+| `fill(value: A[number], start?: number, end?: number): void;` | Sets the elements from `start` to `end` (counted from the end when negative) to `value`. |
+| `set(source: ArrayLike<A[number]>, offset?: number): void;` | Copies `source`'s values in at `offset`: a RangeError if they do not fit. |
 
 ### NativeBufferStats
 

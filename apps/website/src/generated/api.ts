@@ -341,10 +341,11 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "NativeBuffer",
         "kind": "class",
-        "signature": "class NativeBuffer {\n  private constructor();\n  static allocate(size: number): NativeBuffer;\n  static from(bytes: Uint8Array): NativeBuffer;\n  static stats(): NativeBufferStats;\n  readonly byteLength: number;\n  withRead<R>(read: (bytes: ByteSpan) => R): R;\n  withWrite<R>(write: (bytes: MutableByteSpan) => R): R;\n  toUint8Array(): Uint8Array;\n  transfer(): NativeBuffer;\n  transferToArrayBuffer(): ArrayBuffer;\n  close(): void;\n  handle(): NativeHandle;\n  [Symbol.dispose](): void;\n}",
+        "signature": "class NativeBuffer {\n  private constructor();\n  static allocate(size: number): NativeBuffer;\n  static from(bytes: Uint8Array): NativeBuffer;\n  static stats(): NativeBufferStats;\n  readonly byteLength: number;\n  withRead<R>(read: (bytes: ByteSpan) => R): R;\n  withWrite<R>(write: (bytes: MutableByteSpan) => R): R;\n  withReadAs<A extends ViewedArray, R>(\n    type: ViewedArrayType<A>,\n    read: (values: TypedSpan<A>) => R,\n  ): R;\n  withWriteAs<A extends ViewedArray, R>(\n    type: ViewedArrayType<A>,\n    write: (values: MutableTypedSpan<A>) => R,\n  ): R;\n  toUint8Array(): Uint8Array;\n  transfer(): NativeBuffer;\n  transferToArrayBuffer(): ArrayBuffer;\n  close(): void;\n  handle(): NativeHandle;\n  [Symbol.dispose](): void;\n}",
         "doc": [
           "Bytes native code owns, handed to compute tasks and JavaScript without copying them. A `Uint8Array` is copied whenever it crosses, while a NativeBuffer moves.",
           "The bytes are reached through a borrow, for the length of one call. `withRead` lends them to its callback as a `ByteSpan`, and `withWrite` as a `MutableByteSpan`. Reads share the buffer, while a write needs it to itself.",
+          "`withReadAs` and `withWriteAs` lend them as another typed array's elements: `buffer.withReadAs(Float32Array, (samples) => …)`.",
           "A borrow that conflicts with one in progress throws an InvalidStateError (\"NativeBuffer is borrowed\") at once. That is a write inside a read, or a close or transfer inside either.",
           "The callback is a function literal or the name of a function, and its span stays inside it. Returning the span, storing it, keeping it in a closure or a callee, or holding it across `await` is refused (LUCENT3030).",
           "`transfer()` moves the bytes to a new buffer, uncopied. Every reference to the old one then throws an InvalidStateError (\"NativeBuffer was transferred\"), and closing it does nothing. A use the compiler can tell follows a move is refused (LUCENT3031).",
@@ -385,6 +386,16 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "name": "withWrite",
             "signature": "withWrite<R>(write: (bytes: MutableByteSpan) => R): R;",
             "doc": "Calls `write` with the bytes, while nothing else borrows them, and returns what it returns. A read-only buffer (a frame adopted for reading) throws InvalidStateError."
+          },
+          {
+            "name": "withReadAs",
+            "signature": "withReadAs<A extends ViewedArray, R>(type: ViewedArrayType<A>, read: (values: TypedSpan<A>) => R): R;",
+            "doc": "Calls `read` with the bytes read as `type`'s elements, little-endian, as `new Float32Array(buffer)` reads them. Bytes that aren't a whole number of elements throw a RangeError."
+          },
+          {
+            "name": "withWriteAs",
+            "signature": "withWriteAs<A extends ViewedArray, R>(type: ViewedArrayType<A>, write: (values: MutableTypedSpan<A>) => R): R;",
+            "doc": "Calls `write` with the bytes as `type`'s elements, as `withWrite` and `withReadAs` do."
           },
           {
             "name": "toUint8Array",
@@ -511,6 +522,88 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "name": "set",
             "signature": "set(source: Uint8Array, offset?: number): void;",
             "doc": "Copies `source` in at `offset`: a RangeError if it does not fit."
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "ViewedArray",
+        "kind": "type",
+        "signature": "type ViewedArray =\n  | Int8Array\n  | Uint8Array\n  | Uint8ClampedArray\n  | Int16Array\n  | Uint16Array\n  | Int32Array\n  | Uint32Array\n  | Float32Array\n  | Float64Array\n  | BigInt64Array\n  | BigUint64Array;",
+        "doc": [
+          "The typed arrays a buffer's bytes can be read as."
+        ],
+        "examples": [],
+        "members": [],
+        "params": []
+      },
+      {
+        "name": "ViewedArrayType",
+        "kind": "interface",
+        "signature": "interface ViewedArrayType<A extends ViewedArray> {\n  new (buffer: ArrayBuffer): A;\n  readonly BYTES_PER_ELEMENT: number;\n}",
+        "doc": [
+          "A typed array's constructor, which names the elements `withReadAs` lends: `Float32Array`."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "[index]",
+            "signature": "new (buffer: ArrayBuffer): A;",
+            "doc": ""
+          },
+          {
+            "name": "BYTES_PER_ELEMENT",
+            "signature": "readonly BYTES_PER_ELEMENT: number;",
+            "doc": ""
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "TypedSpan",
+        "kind": "interface",
+        "signature": "interface TypedSpan<A extends ViewedArray> {\n  readonly length: number;\n  readonly [index: number]: A[number];\n}",
+        "doc": [
+          "The bytes `withReadAs` lends, read like a typed array of kind `A`: `values[i]` is undefined out of range."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "length",
+            "signature": "readonly length: number;",
+            "doc": ""
+          },
+          {
+            "name": "[index]",
+            "signature": "readonly [index: number]: A[number];",
+            "doc": ""
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "MutableTypedSpan",
+        "kind": "interface",
+        "signature": "interface MutableTypedSpan<A extends ViewedArray> extends TypedSpan<A> {\n  [index: number]: A[number];\n  fill(value: A[number], start?: number, end?: number): void;\n  set(source: ArrayLike<A[number]>, offset?: number): void;\n}",
+        "doc": [
+          "The bytes `withWriteAs` lends, written like a typed array of kind `A`: values convert as `A` converts them, writes out of range do nothing."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "[index]",
+            "signature": "[index: number]: A[number];",
+            "doc": ""
+          },
+          {
+            "name": "fill",
+            "signature": "fill(value: A[number], start?: number, end?: number): void;",
+            "doc": "Sets the elements from `start` to `end` (counted from the end when negative) to `value`."
+          },
+          {
+            "name": "set",
+            "signature": "set(source: ArrayLike<A[number]>, offset?: number): void;",
+            "doc": "Copies `source`'s values in at `offset`: a RangeError if they do not fit."
           }
         ],
         "params": []
@@ -2252,7 +2345,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           },
           {
             "name": "justifyContent",
-            "signature": "justifyContent?:\n    | \"flex-start\"\n    | \"center\"\n    | \"flex-end\"\n    | \"space-between\"\n    | \"space-around\"\n    | \"space-evenly\";",
+            "signature": "justifyContent?: | \"flex-start\" | \"center\" | \"flex-end\" | \"space-between\" | \"space-around\" | \"space-evenly\";",
             "doc": ""
           },
           {

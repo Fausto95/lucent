@@ -563,13 +563,13 @@ C-BUFFER:
 | Path                | When                                                                         | Copies              |
 | ------------------- | ---------------------------------------------------------------------------- | ------------------- |
 | Copy                | The default                                                                  | One per crossing    |
-| Move out            | A returned `ArrayBuffer`, or whole-buffer `Uint8Array`, nothing else holds   | None                |
+| Move out            | A returned `ArrayBuffer`, or whole-buffer typed array, nothing else holds    | None                |
 | Move                | `transfer()`, `transferToArrayBuffer()`, a buffer in a compute input or send | None                |
 | Loan in             | A synchronous export that only reads a byte argument                         | None, for the call  |
-| Borrow              | `withRead` and `withWrite` on a `NativeBuffer`                               | None, for the call  |
+| Borrow              | `withRead`, `withWrite` and their typed forms on a `NativeBuffer`            | None, for the call  |
 | Address loan        | `NativeBuffer.handle()`                                                      | None, until release |
 | Adoption            | Platform memory taken as a buffer: Android's direct `ByteBuffer` today       | None                |
-| JavaScript's borrow | `withRead` or `withWrite` called from JavaScript                             | One, counted        |
+| JavaScript's borrow | A borrow called from JavaScript                                              | One, counted        |
 
 ### Moves
 
@@ -586,14 +586,17 @@ each call from JavaScript (0084).
 
 ### Loans
 
-A synchronous export that only reads a `Uint8Array` or `ArrayBuffer`
+A synchronous export that only reads a typed array or `ArrayBuffer`
 argument reads JavaScript's own bytes while it runs (`emit/lent-bytes.ts`).
 The check is syntactic and conservative: a write, store, return or capture
 keeps the copy. As in JavaScript, a write JavaScript makes during the call
 shows.
 
 `withRead` and `withWrite` lend a `NativeBuffer`'s bytes as a span for one
-call (`buffer.h`). Reads share; a write excludes everything else, and a
+call (`buffer.h`), and `withReadAs` and `withWriteAs` as a typed array's
+elements
+([0099](../decisions/0099-a-buffer-is-borrowed-as-typed-elements-through-spans.md)).
+Reads share; a write excludes everything else, and a
 conflicting borrow throws at once. A span returned, stored, captured or
 held across `await` is `LUCENT3030`. JavaScript is never given memory a
 worker may write: its borrows get a copy, written back after `withWrite`.
@@ -620,9 +623,6 @@ when asked; read-only, it refuses writes and `transferToArrayBuffer()`. An
 
 Every typed array takes the same paths as `Uint8Array`: copied, lent and
 moved. A `DataView` crosses as a copy of the bytes it views.
-
-**Planned:** typed views of a `NativeBuffer`'s bytes inside its borrows
-([T100](../tasks.md#t100)).
 
 ## Native extensions
 

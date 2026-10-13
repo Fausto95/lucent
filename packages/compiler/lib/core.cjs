@@ -331,6 +331,14 @@ function borrowable(s, write) {
   if (s.writing || (write && s.readers > 0)) throw invalidState("is borrowed");
 }
 
+/** The bytes as `type`'s elements, as native code lends them: a RangeError unless they are whole elements. */
+function viewAs(type, bytes) {
+  const size = type.BYTES_PER_ELEMENT;
+  if (bytes.byteLength % size !== 0)
+    throw new RangeError(`byte length of ${type.name} should be a multiple of ${size}`);
+  return new type(bytes.buffer, bytes.byteOffset, bytes.byteLength / size);
+}
+
 /**
  * Bytes native code owns, as the native runtime keeps them: borrowed for
  * one call, moved by transfer() and compute, copied only by from() and
@@ -389,6 +397,14 @@ class NativeBuffer {
     } finally {
       s.writing = false;
     }
+  }
+
+  withReadAs(type, read) {
+    return this.withRead((bytes) => read(viewAs(type, bytes)));
+  }
+
+  withWriteAs(type, write) {
+    return this.withWrite((bytes) => write(viewAs(type, bytes)));
   }
 
   toUint8Array() {

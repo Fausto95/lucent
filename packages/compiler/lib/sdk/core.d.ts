@@ -331,6 +331,9 @@ export declare function compute<T, R>(
  * a `MutableByteSpan`. Reads share the buffer, while a write needs it to
  * itself.
  *
+ * `withReadAs` and `withWriteAs` lend them as another typed array's
+ * elements: `buffer.withReadAs(Float32Array, (samples) => …)`.
+ *
  * A borrow that conflicts with one in progress throws an InvalidStateError
  * ("NativeBuffer is borrowed") at once. That is a write inside a read, or
  * a close or transfer inside either.
@@ -400,6 +403,22 @@ export declare class NativeBuffer {
    * reading) throws InvalidStateError.
    */
   withWrite<R>(write: (bytes: MutableByteSpan) => R): R;
+
+  /**
+   * Calls `read` with the bytes read as `type`'s elements, little-endian,
+   * as `new Float32Array(buffer)` reads them. Bytes that aren't a whole
+   * number of elements throw a RangeError.
+   */
+  withReadAs<A extends ViewedArray, R>(
+    type: ViewedArrayType<A>,
+    read: (values: TypedSpan<A>) => R,
+  ): R;
+
+  /** Calls `write` with the bytes as `type`'s elements, as `withWrite` and `withReadAs` do. */
+  withWriteAs<A extends ViewedArray, R>(
+    type: ViewedArrayType<A>,
+    write: (values: MutableTypedSpan<A>) => R,
+  ): R;
 
   /** A copy of the bytes, independent of the buffer from then on. */
   toUint8Array(): Uint8Array;
@@ -497,6 +516,49 @@ export interface MutableByteSpan extends ByteSpan {
 
   /** Copies `source` in at `offset`: a RangeError if it does not fit. */
   set(source: Uint8Array, offset?: number): void;
+}
+
+/** The typed arrays a buffer's bytes can be read as. */
+export type ViewedArray =
+  | Int8Array
+  | Uint8Array
+  | Uint8ClampedArray
+  | Int16Array
+  | Uint16Array
+  | Int32Array
+  | Uint32Array
+  | Float32Array
+  | Float64Array
+  | BigInt64Array
+  | BigUint64Array;
+
+/** A typed array's constructor, which names the elements `withReadAs` lends: `Float32Array`. */
+export interface ViewedArrayType<A extends ViewedArray> {
+  new (buffer: ArrayBuffer): A;
+  readonly BYTES_PER_ELEMENT: number;
+}
+
+/**
+ * The bytes `withReadAs` lends, read like a typed array of kind `A`:
+ * `values[i]` is undefined out of range.
+ */
+export interface TypedSpan<A extends ViewedArray> {
+  readonly length: number;
+  readonly [index: number]: A[number];
+}
+
+/**
+ * The bytes `withWriteAs` lends, written like a typed array of kind `A`:
+ * values convert as `A` converts them, writes out of range do nothing.
+ */
+export interface MutableTypedSpan<A extends ViewedArray> extends TypedSpan<A> {
+  [index: number]: A[number];
+
+  /** Sets the elements from `start` to `end` (counted from the end when negative) to `value`. */
+  fill(value: A[number], start?: number, end?: number): void;
+
+  /** Copies `source`'s values in at `offset`: a RangeError if they do not fit. */
+  set(source: ArrayLike<A[number]>, offset?: number): void;
 }
 
 /** Counts of what native buffers have done, for checking that a path does not copy. */

@@ -203,6 +203,55 @@ ${body}
   });
 });
 
+describe("typed borrows", () => {
+  const TYPED = `import { NativeBuffer, type TypedSpan, type MutableTypedSpan } from "lucent:core";\n`;
+
+  it("lends a span of the typed array's elements, a Uint8Array's being withRead's", () => {
+    const { r, text } = build(`${TYPED}
+function peak(samples: TypedSpan<Float32Array>): number {
+  let top = 0;
+  for (let i = 0; i < samples.length; i++) top = Math.max(top, samples[i]!);
+  return top;
+}
+
+function clear(words: MutableTypedSpan<BigInt64Array>): void {
+  words.fill(0n);
+}
+
+export function f(buffer: NativeBuffer): number {
+  buffer.withWriteAs(BigInt64Array, clear);
+  return buffer.withReadAs(Float32Array, peak) + buffer.withReadAs(Uint8Array, (b) => b.length);
+}
+`);
+
+    expect(r.diagnostics).toEqual([]);
+
+    const unit = text("m_m.cpp");
+
+    expect(unit).toContain("lucent::withReadAs<lucent::typed::Float32>(");
+    expect(unit).toContain("lucent::withWriteAs<lucent::typed::BigInt64>(");
+    expect(unit).toContain("lucent::TypedSpan<lucent::typed::Float32>");
+    expect(unit).toContain("lucent::MutableTypedSpan<lucent::typed::BigInt64>");
+    expect(unit).toContain("lucent::withRead(");
+  });
+
+  it("refuses a span kept past its borrow", () => {
+    const [d, ...rest] = refusals(`${TYPED}
+const kept: TypedSpan<Int16Array>[] = [];
+
+export function f(buffer: NativeBuffer): void {
+  buffer.withReadAs(Int16Array, (words) => {
+    kept.push(words);
+  });
+}
+`);
+
+    expect(rest).toEqual([]);
+    expect(d).toMatchObject({ code: "LUCENT3030" });
+    expect(d!.message).toContain("withReadAs lends the bytes only while its callback runs");
+  });
+});
+
 describe("moves", () => {
   const moves = (body: string) =>
     refusals(`${IMPORTS}

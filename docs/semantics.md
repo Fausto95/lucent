@@ -645,7 +645,11 @@ objects hold.
 
 A `NativeBuffer` is bytes native code owns, reached through a borrow for
 one call (`buffer.h`): `withRead` lends a `ByteSpan`, and `withWrite` a
-`MutableByteSpan` that needs the buffer to itself. A conflicting borrow,
+`MutableByteSpan` that needs the buffer to itself. `withReadAs` and
+`withWriteAs` lend them as another typed array's elements
+(`TypedSpan<Float32Array>`), little-endian, converted on write as that
+array converts. Bytes that aren't whole elements throw `RangeError`, as
+`new Float32Array(buffer)` does. A conflicting borrow,
 close or transfer throws `InvalidStateError` at once, and a span that
 escapes its callback is `LUCENT3030`. After `transfer()` moves the bytes,
 the old buffer throws (`LUCENT3031` where the compiler sees it).
@@ -1031,7 +1035,7 @@ types, `3xxx` modules and where code runs, `9xxx` passed through.
 | `LUCENT3023` | `ComponentPlatforms`          | a component that differs between platforms or from its declaration                       |
 | `LUCENT3024` | `ToolkitBody`                 | a SwiftUI or Compose body Lucent can't write out, or toolkit code outside one            |
 | `LUCENT3025` | `NativeViewJsx`               | UIKit or Android view JSX its declarations don't provide for                             |
-| `LUCENT3030` | `BorrowEscape`                | a span from `withRead` or `withWrite` that escapes its callback                          |
+| `LUCENT3030` | `BorrowEscape`                | a span from a `NativeBuffer`'s borrow that escapes its callback                          |
 | `LUCENT3031` | `UseAfterMove`                | a `NativeBuffer` used after `transfer()` or `compute` moved it                           |
 | `LUCENT3032` | `NotOnExecutor`               | code on an executor using module state, main-thread code, async work or shared values    |
 | `LUCENT9001` | `TypeScript`                  | a TypeScript error: Lucent compiles only programs that type-check                        |

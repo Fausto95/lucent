@@ -68,8 +68,12 @@ export type LType =
   | { k: "nativeHandle" }
   /** lucent:thread's Executor (lucent::ExecutorContext): a serial context of its own, for platform callbacks. */
   | { k: "executor" }
-  /** The bytes a NativeBuffer borrow lends (ByteSpan, or MutableByteSpan when writable). */
-  | { k: "span"; writable: boolean }
+  /**
+   * The bytes a NativeBuffer borrow lends: a ByteSpan, or MutableByteSpan
+   * when writable; with `name`, the TypedSpan or MutableTypedSpan that
+   * withReadAs and withWriteAs lend, its elements that typed array's.
+   */
+  | { k: "span"; writable: boolean; name?: TypedName }
   | { k: "tparam"; name: string }
   /** An object of a platform SDK class (lucent:ios/…, lucent:android/…). */
   | { k: "native"; platform: Platform; module: string; name: string }
@@ -125,9 +129,12 @@ export function isTypedName(name: string): name is TypedName {
   return (TYPED_NAMES as readonly string[]).includes(name);
 }
 
-/** The value a typed array's element is: a bigint for the 64-bit integer kinds, else a number. */
+/**
+ * The value a typed array's element is, or a span's: a bigint for the
+ * 64-bit integer kinds, else a number.
+ */
 export function typedElement(t: LType): LType {
-  return t.k === "typed" && t.name.startsWith("Big") ? T.bigint : T.number;
+  return (t.k === "typed" || t.k === "span") && t.name?.startsWith("Big") ? T.bigint : T.number;
 }
 
 /** Whether `t` is a typed array: a Uint8Array or another. */
@@ -213,7 +220,7 @@ function keyWith(t: LType, struct: (id: string) => string): string {
     case "native":
       return `N:${t.platform}:${t.module}.${t.name}`;
     case "span":
-      return t.writable ? "mutableSpan" : "span";
+      return `${t.writable ? "mutableSpan" : "span"}${t.name ? `<${t.name}>` : ""}`;
     case "typed":
       return t.name;
     case "handle":
@@ -1095,6 +1102,21 @@ export class TypeRegistry {
     return { k: "emitter", events: list };
   }
 
+  /** `TypedSpan<Float32Array>`: a span of that typed array's elements; of a Uint8Array's, a ByteSpan. */
+  private lowerTypedSpan(type: ts.ObjectType, writable: boolean, node: ts.Node): LType {
+    const [a] = (type as ts.TypeReference).target
+      ? this.checker.getTypeArguments(type as ts.TypeReference)
+      : [];
+    const of = a ? this.lower(a, node) : undefined;
+    if (!of || !isTypedArray(of))
+      fail(
+        node,
+        Codes.UnsupportedType,
+        "a TypedSpan names the typed array it reads as: TypedSpan<Float32Array>",
+      );
+    return of.k === "typed" ? { k: "span", writable, name: of.name } : { k: "span", writable };
+  }
+
   private lowerObject(type: ts.ObjectType, node: ts.Node): LType {
     const c = this.checker;
     const sdkSym = type.getSymbol();
@@ -1107,6 +1129,12 @@ export class TypeRegistry {
         ? CORE_TYPES[sdkSym.name]
         : undefined;
     if (core) return core;
+    if (
+      (sdkSym?.name === "TypedSpan" || sdkSym?.name === "MutableTypedSpan") &&
+      decl &&
+      isCoreFile(decl.getSourceFile())
+    )
+      return this.lowerTypedSpan(type, sdkSym.name === "MutableTypedSpan", node);
     if (sdkSym?.name === "EventEmitter" && decl && isCoreFile(decl.getSourceFile()))
       return this.lowerEmitter(type, node);
     if (sdkSym?.name === "Channel" && decl && isCoreFile(decl.getSourceFile())) {
@@ -1715,7 +1743,12 @@ export class TypeRegistry {
       case "jsvalue":
         return lucent("JSValue");
       case "span":
-        return lucent(t.writable ? "MutableByteSpan" : "ByteSpan");
+        return t.name
+          ? lucent(
+              t.writable ? "MutableTypedSpan" : "TypedSpan",
+              lucent(`typed::${t.name.replace(/Array$/, "")}`),
+            )
+          : lucent(t.writable ? "MutableByteSpan" : "ByteSpan");
       case "tparam":
         return cpp.type(cppIdent(t.name));
       case "native":

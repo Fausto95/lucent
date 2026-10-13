@@ -198,10 +198,10 @@ void jsonWrite(JsonWriter& w, const TypedArray<K>& b) {
 inline void jsonWrite(JsonWriter& w, const DataView&) { w.raw("{}"); }
 /// An ArrayBuffer has no enumerable own properties.
 inline void jsonWrite(JsonWriter& w, const ArrayBuffer&) { w.raw("{}"); }
-template <bool Writable>
-class BasicByteSpan;
-template <bool Writable>
-void jsonWrite(JsonWriter& w, const BasicByteSpan<Writable>& b) {
+template <class K, bool Writable>
+class BasicSpan;
+template <class K, bool Writable>
+void jsonWrite(JsonWriter& w, const BasicSpan<K, Writable>& b) {
   jsonWriteBytes(w, b);
 }
 

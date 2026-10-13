@@ -421,6 +421,8 @@ const LIBRARY: Record<string, LibraryEffect> = {
   // A borrow: the callback runs now, and what it returns is the call's.
   "lucent:core.NativeBuffer.withRead": { calls: "during", throws: true },
   "lucent:core.NativeBuffer.withWrite": { calls: "during", mutates: true, throws: true },
+  "lucent:core.NativeBuffer.withReadAs": { calls: "during", throws: true },
+  "lucent:core.NativeBuffer.withWriteAs": { calls: "during", mutates: true, throws: true },
   "lucent:core.NativeBuffer.toUint8Array": ALLOCATES_THROWS,
   "lucent:core.NativeBuffer.transfer": { mutates: true, allocates: true, throws: true },
   "lucent:core.NativeBuffer.transferToArrayBuffer": {
@@ -436,6 +438,8 @@ const LIBRARY: Record<string, LibraryEffect> = {
   // Not the receiver back, unlike Uint8Array's: a span never leaves its borrow.
   "lucent:core.MutableByteSpan.fill": MUTATES,
   "lucent:core.MutableByteSpan.set": { mutates: true, throws: true },
+  "lucent:core.MutableTypedSpan.fill": MUTATES,
+  "lucent:core.MutableTypedSpan.set": { mutates: true, throws: true },
   "lucent:core.EventEmitter.new": ALLOCATES,
   "lucent:core.EventEmitter.addListener": { mutates: true, allocates: true, keeps: "receiver" },
   // emit runs the listeners: code of any effect (it is not listed).

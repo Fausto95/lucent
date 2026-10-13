@@ -294,11 +294,38 @@ NativeBuffer bufferThis(jsi::Runtime& rt, const jsi::Value& self, const char* me
   return Convert<NativeBuffer>::fromJs(rt, self, Path{method, "this"});
 }
 
-jsi::Function callbackArg(jsi::Runtime& rt, const jsi::Value* args, size_t count, const char* method) {
-  const jsi::Value& f = arg(args, count, 0);
-  if (!f.isObject() || !f.getObject(rt).isFunction(rt)) throwBoundaryError(rt, Path{method, "argument 0"}, "a function", f);
+jsi::Function callbackArg(jsi::Runtime& rt, const jsi::Value* args, size_t count, const char* method, size_t at = 0) {
+  const jsi::Value& f = arg(args, count, at);
+  if (!f.isObject() || !f.getObject(rt).isFunction(rt))
+    throwBoundaryError(rt, Path{method, at == 0 ? "argument 0" : "argument 1"}, "a function", f);
 
   return f.getObject(rt).getFunction(rt);
+}
+
+/// The typed array constructor a borrow's first argument names (`Float32Array`).
+jsi::Function viewedType(jsi::Runtime& rt, const jsi::Value* args, size_t count, const char* method) {
+  const jsi::Value& t = arg(args, count, 0);
+  if (t.isObject() && t.getObject(rt).isFunction(rt)) {
+    jsi::Function f = t.getObject(rt).getFunction(rt);
+    if (f.getProperty(rt, "BYTES_PER_ELEMENT").isNumber()) return f;
+  }
+  throwBoundaryError(rt, Path{method, "argument 0"}, "a typed array's constructor", t);
+}
+
+/// A RangeError unless `bytes` bytes are a whole number of `type`'s
+/// elements, as `new Float32Array(buffer)` throws: before any copy is made.
+void wholeElements(jsi::Runtime& rt, jsi::Function& type, size_t bytes) {
+  auto size = static_cast<size_t>(type.getProperty(rt, "BYTES_PER_ELEMENT").getNumber());
+  if (size != 0 && bytes % size == 0) return;
+
+  std::string name = type.getProperty(rt, "name").toString(rt).utf8(rt);
+  throwRangeError(("byte length of " + name + " should be a multiple of " + std::to_string(size)).c_str());
+}
+
+/// JavaScript's `type` (a typed array constructor) over `bytes`.
+jsi::Value viewOver(jsi::Runtime& rt, jsi::Function& type, const std::shared_ptr<FreshBytes>& bytes) {
+  jsi::ArrayBuffer ab(rt, bytes);
+  return type.callAsConstructor(rt, ab);
 }
 
 /// A method of the handle, calling `body(rt, host, buffer, args, count)`.
@@ -352,6 +379,38 @@ void bufferPrototype(jsi::Runtime& rt, Host&, jsi::Object& proto) {
                         } back{bytes, *lent};
 
                         return write.call(rt, uint8ArrayOver(rt, lent));
+                      });
+                    }));
+
+  // As withRead and withWrite, the copy lent as another typed array.
+  proto.setProperty(rt, "withReadAs",
+                    bufferMethod(rt, "withReadAs", 2, [](jsi::Runtime& rt, Host&, const NativeBuffer& b, const jsi::Value* args, size_t count) {
+                      jsi::Function type = viewedType(rt, args, count, "withReadAs");
+                      jsi::Function read = callbackArg(rt, args, count, "withReadAs", 1);
+
+                      return b->withRead([&](std::span<const uint8_t> bytes) {
+                        wholeElements(rt, type, bytes.size());
+                        return read.call(rt, viewOver(rt, type, std::make_shared<FreshBytes>(NativeBufferObject::copyOut(bytes))));
+                      });
+                    }));
+
+  proto.setProperty(rt, "withWriteAs",
+                    bufferMethod(rt, "withWriteAs", 2, [](jsi::Runtime& rt, Host&, const NativeBuffer& b, const jsi::Value* args, size_t count) {
+                      jsi::Function type = viewedType(rt, args, count, "withWriteAs");
+                      jsi::Function write = callbackArg(rt, args, count, "withWriteAs", 1);
+
+                      return b->withWrite([&](std::span<uint8_t> bytes) {
+                        wholeElements(rt, type, bytes.size());
+                        auto lent = std::make_shared<FreshBytes>(NativeBufferObject::copyOut(bytes));
+                        jsi::Value values = viewOver(rt, type, lent);
+
+                        struct CopyBack {
+                          std::span<uint8_t> to;
+                          const FreshBytes& from;
+                          ~CopyBack() { NativeBufferObject::copyIn(to, from.bytes()); }
+                        } back{bytes, *lent};
+
+                        return write.call(rt, values);
                       });
                     }));
 

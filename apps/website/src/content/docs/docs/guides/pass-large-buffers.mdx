@@ -62,6 +62,8 @@ export async function inspect(): Promise<void> {
 
 `NativeBuffer.allocate(size)` makes zeroed bytes in native memory. `withWrite` and `withRead` lend them to a callback, and the bytes stay inside it: returning them, storing them or holding them across an `await` fails with [LUCENT3030](/docs/api/diagnostics/#lucent3030).
 
+Samples that aren't bytes read the same way. `buffer.withReadAs(Float32Array, (samples) => …)` lends the bytes as floats, and `withWriteAs` writes them so, converting as a `Float32Array` does. Bytes that aren't a whole number of elements throw a `RangeError`.
+
 ## Move it to a task
 
 `compute(invert, buffer)` moves the buffer to the task instead of copying it, and the buffer the task returns comes back as it is. `transfer()` moves a buffer the same way. The old buffer then throws an `InvalidStateError` when borrowed, copied or moved, and a use the compiler can see fails to compile:

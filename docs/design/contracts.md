@@ -730,7 +730,9 @@ the copy rule, and the native memory an object reports to JavaScript's
 collector. v1.5 added the platforms' handle makers and memory pressure
 ([T107](../tasks.md#t107)), v1.6 read-only buffers and the frames
 adopted as them ([T108](../tasks.md#t108)), and v1.7 every typed array
-kind on `Uint8Array`'s paths, and `DataView` ([T100](../tasks.md#t100)).
+kind on `Uint8Array`'s paths, `DataView`, and borrows of a buffer as
+typed elements ([T100](../tasks.md#t100),
+[0099](../decisions/0099-a-buffer-is-borrowed-as-typed-elements-through-spans.md)).
 
 **Implemented by** `lucent/buffer.h`, `handle.h`, `bytes.h`
 (`ByteStorage`), `jsi/convert.h` and `convert.cpp` (`Borrowed`, the JS
@@ -771,6 +773,7 @@ unborrowed), the storage, an atomic size, `Destroy` with its executor,
 | `adoptReadOnly(…)`, `readOnly()`                  | As `adopt`, for bytes no one may write: a write borrow and `transferToArrayBuffer` throw.   |
 | `fromBytes(bytes)`, `toBytes()`                   | One counted copy each; `toBytes` under a read borrow.                                       |
 | `withRead(f)`, `withWrite(f)`                     | `f` gets a `std::span` of the bytes. The free forms lend a `ByteSpan` or `MutableByteSpan`. |
+| `withReadAs<K>(b, f)`, `withWriteAs<K>(b, f)`     | Free forms lending `TypedSpan<K>` or `MutableTypedSpan<K>`; `RangeError` unless whole `K`s. |
 | `close()`                                         | True once; false if closed or transferred; throws while borrowed.                           |
 | `transfer()`                                      | Moves storage to a new handle, one generation on.                                           |
 | `transferToArrayBuffer()`                         | Moves storage and its release into an `ArrayBuffer`; counted as a transfer.                 |
@@ -778,14 +781,14 @@ unborrowed), the storage, an atomic size, `Destroy` with its executor,
 | `stats()`                                         | `allocated`, `adopted`, `released`, `transfers`, `copies`, `bytesCopied`.                   |
 | `copyOut`, `copyIn`                               | Counted copies for callers that cannot be lent storage.                                     |
 
-| Policy    | Contract                                                                                                                                                       |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Borrows   | One synchronous call. Reads share; a write excludes every borrow. A conflict throws `InvalidStateError` at once, never waiting.                                |
-| Errors    | `InvalidStateError` "NativeBuffer[ (origin)] is closed", "was transferred", "is borrowed" or "is being transferred"; `RangeError` for a size.                  |
-| Release   | Once: at `close()`, in place, its error reaching the caller; or at the last reference, through `detail::runOn(destroyOn)`, reported.                           |
-| Transfer  | Needs an open, unborrowed buffer. Every alias becomes `Transferred`; `close()` on one returns false, safe for `using`.                                         |
-| To a task | Moves at copy time, commits once the whole input is copied, rolls back on failure. A refused or cancelled task releases it on its executor. Results move back. |
-| Spans     | `ByteSpan` reads like a `Uint8Array`: undefined out of range. `MutableByteSpan` writes wrap to 0–255; out of range, nothing happens.                           |
+| Policy    | Contract                                                                                                                                                        |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Borrows   | One synchronous call. Reads share; a write excludes every borrow. A conflict throws `InvalidStateError` at once, never waiting.                                 |
+| Errors    | `InvalidStateError` "NativeBuffer[ (origin)] is closed", "was transferred", "is borrowed" or "is being transferred"; `RangeError` for a size.                   |
+| Release   | Once: at `close()`, in place, its error reaching the caller; or at the last reference, through `detail::runOn(destroyOn)`, reported.                            |
+| Transfer  | Needs an open, unborrowed buffer. Every alias becomes `Transferred`; `close()` on one returns false, safe for `using`.                                          |
+| To a task | Moves at copy time, commits once the whole input is copied, rolls back on failure. A refused or cancelled task releases it on its executor. Results move back.  |
+| Spans     | `ByteSpan` reads like a `Uint8Array`: undefined out of range. `MutableByteSpan` writes wrap to 0–255; out of range, nothing happens. A `TypedSpan<K>` is `K`'s. |
 
 ### Exceptions to the copy rule
 
@@ -808,16 +811,11 @@ runs: Hermes has no `ArrayBuffer.prototype.transfer`, and JSI no detach.
 | `NativeHandle`    | `make(pointer, release, kind)`: a non-null pointer, `kind` naming it in errors. `pointer()` is 0 once released. `release()` is idempotent from any thread; its error reaches the caller. An unreleased handle goes with its last reference, which a debug build counts (`releasedOpen`).                                                        |
 | Platform makers   | `byteBufferHandle`: a direct `ByteBuffer`'s address under a global reference; a heap one is `TypeError`. `hardwareBufferHandle`: the `AHardwareBuffer`, acquired; before API 26, `TypeError`. `retainedHandle`: the object, `__bridge_retained`, released with `CFRelease`; nil is `TypeError`.                                                 |
 | Memory pressure   | `Object::lucentNativeSize_()`, 0 by default: an open `NativeBuffer`'s size, or a `NativeSized` class's `nativeSize` read under its module's lock. The host sets the change since its last report as external memory when the object crosses, and after a JavaScript call to its methods or setters. Past `UINT32_MAX`, it reports `UINT32_MAX`. |
-| JS `NativeBuffer` | `lucent:NativeBuffer`, the same object while JavaScript holds it: `byteLength`, `toUint8Array`, `withRead`, `withWrite`, `transfer`, `transferToArrayBuffer`, `handle`, `close`, `Symbol.dispose`. Borrows lend a counted copy; `withWrite` copies back even if the callback throws.                                                            |
+| JS `NativeBuffer` | `lucent:NativeBuffer`, the same object while JavaScript holds it: `byteLength`, `toUint8Array`, `withRead`, `withWrite`, `withReadAs`, `withWriteAs`, `transfer`, `transferToArrayBuffer`, `handle`, `close`, `Symbol.dispose`. Borrows lend a counted copy; `withWrite` copies back even if the callback throws.                               |
 | JS `NativeHandle` | `lucent:NativeHandle`: `pointer` (a bigint), `released`, `release()`. Spans never cross (LUCENT2006).                                                                                                                                                                                                                                           |
 | `lucent:core`     | Its `NativeBufferStats` leaves out `released`, which garbage collection makes uncountable. Its JavaScript reference has the same states, errors, messages and counters.                                                                                                                                                                         |
 | Borrow checks     | A borrow's callback is a function literal or named function (LUCENT1007), neither async nor a generator, and its span does not escape (both LUCENT3030).                                                                                                                                                                                        |
 | Move checks       | A move is `x.transfer()`, `x.transferToArrayBuffer()` or `compute(task, x \| {x} \| [x])`. A later use of `x` in the block, once the move certainly ran, is LUCENT3031. The runtime refuses the rest.                                                                                                                                           |
-
-### Planned
-
-- [T100](../tasks.md#t100): typed views of a `NativeBuffer`'s bytes
-  inside borrows.
 
 ## C-VIEW: components and views
 
