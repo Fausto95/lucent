@@ -59,7 +59,9 @@ Pod::Spec.new do |s|
   # Every generated unit parses the runtime's umbrella header (the standard
   # library with it): Xcode precompiles the prefix header once, so an edited
   # module recompiles in about half the time. C sources see nothing of it.
-  s.prefix_header_file = "cpp/lucent/prefix.h"
+  # A build whose check failed leaves no runtime yet (lucent build declares
+  # the packages' pods first), and CocoaPods stops at a missing prefix header.
+  s.prefix_header_file = "cpp/lucent/prefix.h" if File.exist?(File.join(__dir__, "cpp/lucent/prefix.h"))
   s.pod_target_xcconfig = {
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++20",
     "DEFINES_MODULE" => "YES",

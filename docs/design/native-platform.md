@@ -1015,10 +1015,13 @@ any other:
   Xcode would miss the change.
 - **Expo:** during `expo prebuild` the config plugin runs `lucent build`
   for the platforms prebuild writes, then links the native package. It
-  writes the `Info.plist` keys and entitlements packages declare.
-  **Planned:** the subscriber ([T110](../tasks.md#t110)), extension
-  targets ([T133](../tasks.md#t133)) and package pods
-  ([T141](../tasks.md#t141)).
+  writes the `Info.plist` keys and entitlements packages declare. While a
+  package's pod isn't installed, iOS waits for `pod install`: Lucent's
+  CocoaPods hook, which the plugin calls from the Podfile's
+  `post_install`, builds again once the pods are installed, and lists the
+  sources that build added in the `LucentNative` target.
+  **Planned:** the subscriber ([T110](../tasks.md#t110)) and extension
+  targets ([T133](../tasks.md#t133)).
 
 ### The release window
 

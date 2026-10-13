@@ -24,6 +24,7 @@ const plugin = require("../app.plugin.js") as {
     },
     warn?: (text: string) => void,
   ) => Manifest;
+  withPodHook: (podfile: string) => string | undefined;
 };
 
 /** AndroidManifest.xml as Expo's mods parse it. */
@@ -245,4 +246,45 @@ describe("the Expo config plugin's build", () => {
 
     expect(fs.existsSync(path.join(root, ".lucent"))).toBe(false);
   }, 120_000);
+});
+
+describe("the Podfile", () => {
+  // As Expo's template writes it.
+  const podfile = [
+    'require File.join(File.dirname(`node --print "require.resolve(\'expo/package.json\')"`), "scripts/autolinking")',
+    "require 'json'",
+    "",
+    "target 'App' do",
+    "  use_expo_modules!",
+    "",
+    "  post_install do |installer|",
+    "    react_native_post_install(installer)",
+    "  end",
+    "end",
+    "",
+  ].join("\n");
+
+  it("loads Lucent's CocoaPods hook, and calls it first after pod install", () => {
+    const out = plugin.withPodHook(podfile)!;
+    const lines = out.split("\n");
+
+    expect(lines[2]).toBe(
+      'require File.join(File.dirname(`node --print "require.resolve(\'@lucent-lang/lucent/package.json\')"`), "cocoapods/lucent")',
+    );
+    expect(out).toContain(
+      "  post_install do |installer|\n    lucent_post_install(installer)\n    react_native_post_install(installer)\n",
+    );
+    // Once.
+    expect(plugin.withPodHook(out)).toBeUndefined();
+    // The hook file is where the line finds it.
+    expect(fs.existsSync(path.join(__dirname, "../cocoapods/lucent.rb"))).toBe(true);
+  });
+
+  it("adds a post_install to a Podfile without one", () => {
+    const out = plugin.withPodHook("target 'App' do\nend\n")!;
+
+    expect(
+      out.endsWith("\npost_install do |installer|\n  lucent_post_install(installer)\nend\n"),
+    ).toBe(true);
+  });
 });

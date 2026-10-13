@@ -156,10 +156,9 @@ generated from this file.
 - A Lucent package's pod binds once installed. In a bare app, the first
   `lucent build` that meets it declares it in the podspec and fails with
   LUCENT3004 naming the pod. After `pod install`, it binds.
-- `expo prebuild` stops at a package pod that isn't installed yet
-  ([T141](tasks.md#t141)). A pod binds through the module it defines:
-  `DEFINES_MODULE`, modular headers, a prebuilt framework, or
-  `use_frameworks!`.
+- A pod binds through the module it defines: `DEFINES_MODULE`, modular
+  headers, a prebuilt framework, or `use_frameworks!`. Dynamic linkage is
+  untested ([T141](tasks.md#t141)).
 - An Android app with product flavors binds the libraries of its first
   debug variant by name. A library only another flavor depends on can't be
   bound.

@@ -327,15 +327,48 @@ describe("a Lucent package's own pod", () => {
       );
       fs.writeFileSync(path.join(root, "ios/Podfile.lock"), "PODS:\n  - LucentAuthKit (1.0.3)\n");
 
-      // The pod defines no module here: the check still fails, for that alone.
+      // The pod defines no module here: the check still fails, for that alone, naming the pod.
       const r = lucent(root, "build", "--platforms", "ios");
 
       expect(r.status).not.toBe(0);
       expect(r.out).toMatch(/LUCENT3004[\s\S]*lucent:ios\/LucentAuthKit/);
       expect(r.out).not.toContain("is not installed");
+      expect(r.out).toContain(
+        "lucent-auth's pod LucentAuthKit is installed, and lucent:ios/LucentAuthKit still not found: a pod's module binds once the pod defines one",
+      );
     },
     600_000,
   );
+
+  // The config plugin's build (LUCENT_PREBUILD): iOS waits for prebuild's pod install, whose
+  // Podfile's Lucent hook builds again once the pod is installed. No iOS SDK needed to say so.
+  it("leaves iOS to pod install in an Expo app's prebuild, which goes on", () => {
+    const root = appWithPackagePod();
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "app", dependencies: { expo: "55.0.0", "lucent-auth": "1.0.0" } }),
+    );
+    fs.rmSync(path.join(root, "react-native.config.js"));
+
+    const r = runLucent(["build", "--platforms", "ios", "--root", root], {
+      env: { ...process.env, NO_COLOR: "1", LUCENT_PREBUILD: "1", LUCENT_NO_GRADLE: "1" },
+    });
+    const out = r.stdout + r.stderr;
+
+    expect(out).not.toContain("LUCENT3004");
+    expect(r.status).toBe(0);
+    expect(out).toContain(
+      "lucent-auth's pod LucentAuthKit is not installed yet: skipped iOS here. Prebuild's pod install installs it, and builds Lucent's modules again once installed (the Podfile's lucent_post_install)",
+    );
+    expect(
+      fs.readFileSync(path.join(root, ".lucent/native/LucentNative.podspec"), "utf8"),
+    ).toContain('s.dependency "LucentAuthKit", "~> 1.0"');
+    // The native package pod install reads, with nothing compiled: the runtime, and what the
+    // packages need for the config plugin.
+    for (const file of ["cpp/lucent/prefix.h", "resolved.json", "manifest.json"])
+      expect(fs.existsSync(path.join(root, ".lucent/native", file))).toBe(true);
+    expect(fs.existsSync(path.join(root, ".lucent/native/cpp/generated"))).toBe(false);
+  }, 600_000);
 
   it.skipIf(!ios)(
     "is not named in an Expo app's prebuild, where pod install does not install it",

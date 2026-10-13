@@ -56,7 +56,7 @@ Lucent binds a pod only once the app has installed it:
 
 </Steps>
 
-Importing the pod first fails with [`LUCENT3004`](/docs/api/diagnostics/#lucent3004), and a failed build leaves the pod out of the native package. An app that installs your package fails the same way, since nothing has installed the pod yet ([known limitations](/docs/releases/roadmap/#known-limitations)). Until that changes, tell apps to add the pod to their own Podfile and run `pod install` first: Lucent binds any pod the app installed.
+Importing the pod fails with [`LUCENT3004`](/docs/api/diagnostics/#lucent3004) until it's installed. The build still adds it to the native package's podspec, so `pod install` installs it and the next build binds it. In an Expo app that installs your package, prebuild's `pod install` does both.
 
 A Gradle artifact needs no extra step: Lucent resolves the app's Gradle classpath with it before checking your modules.
 

@@ -120,7 +120,7 @@ describe("native package", () => {
           "def install_modules_dependencies(s); end",
           "file = ARGV[0]",
           "spec = eval(File.read(file), binding, file)",
-          'puts JSON.generate(spec.set["script_phase"].merge("dependencies" => spec.set["dependencies"]))',
+          'puts JSON.generate(spec.set["script_phase"].merge("dependencies" => spec.set["dependencies"], "prefix" => spec.set["prefix_header_file"]))',
         ].join("\n");
         const r = spawnSync("ruby", ["-e", script, path.join(out, "LucentNative.podspec")], {
           encoding: "utf8",
@@ -148,6 +148,7 @@ describe("native package", () => {
       expect(phase.script).toContain('cd "$PODS_TARGET_SRCROOT/../.."');
       // The packages' pods are the spec's, after everything else the podspec runs.
       expect(phase.dependencies).toEqual(["Kit"]);
+      expect(phase.prefix).toBe("cpp/lucent/prefix.h");
       expect(phase.script).toMatch(
         /LUCENT_XCODE_BUILD=1 LUCENT_NO_GRADLE=1 \\\n\s*"\$NODE" ".*\/bin\/lucent\.cjs" build\n/,
       );
@@ -158,6 +159,10 @@ describe("native package", () => {
       expect(podSourcesDigest(native)).toBe(record());
       fs.writeFileSync(path.join(native, "cpp/generated/m_more.cpp"), "");
       expect(podSourcesDigest(native)).not.toBe(record());
+
+      // Before a build has written the runtime (a failed check), no prefix header for CocoaPods.
+      fs.rmSync(path.join(native, "cpp/lucent/prefix.h"));
+      expect(evaluate(native).prefix).toBeNull();
 
       // A build keeps the record, and names another package directory than .lucent/native.
       writeNativePackage(program(dir), native, { root: dir });

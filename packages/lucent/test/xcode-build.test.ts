@@ -9,6 +9,7 @@ import {
   writeNativePackage,
 } from "@lucent-lang/compiler";
 import { podInstallStale, xcodeIssue } from "../src/cli/commands/build-check.ts";
+import { unboundPods, uninstalledPods } from "../src/cli/project.ts";
 
 /** A project's native package, as lucent build writes it, and its directory. */
 function nativePackage(): string {
@@ -56,6 +57,36 @@ describe("lucent build in Xcode's build phase", () => {
     );
     expect(xcodeIssue(root, { code: "LUCENT9002", message: "no file", severity: "warning" })).toBe(
       "warning: LUCENT9002: no file",
+    );
+  });
+});
+
+describe("a Lucent package's pod, for the build's notices", () => {
+  const native = {
+    ios: { pods: { LucentAuthKit: { "~> 1.0": ["lucent-auth"] } } },
+  } as unknown as Parameters<typeof uninstalledPods>[0];
+  const notFound = {
+    code: "LUCENT3004",
+    message: "lucent:ios/LucentAuthKit was not found in the SDK or the app's dependencies (…)",
+  };
+
+  it("is named while Podfile.lock lacks it, and once installed if its module isn't found", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pods-"));
+    const lockfile = path.join(dir, "Podfile.lock");
+
+    expect(uninstalledPods(native, {})).toEqual({
+      subject: "lucent-auth's pod LucentAuthKit is not installed",
+      them: "it",
+    });
+    expect(unboundPods(native, {}, [notFound])).toBeUndefined();
+
+    fs.writeFileSync(lockfile, "PODS:\n  - LucentAuthKit (1.0.3)\n");
+    const sdk = { ios: { lockfile } } as Parameters<typeof uninstalledPods>[1];
+
+    expect(uninstalledPods(native, sdk)).toBeUndefined();
+    expect(unboundPods(native, sdk, [])).toBeUndefined();
+    expect(unboundPods(native, sdk, [notFound])?.text).toBe(
+      "lucent-auth's pod LucentAuthKit is installed, and lucent:ios/LucentAuthKit still not found: a pod's module binds once the pod defines one (DEFINES_MODULE, modular headers, a prebuilt framework, or use_frameworks!)",
     );
   });
 });

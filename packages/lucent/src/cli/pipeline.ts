@@ -38,6 +38,8 @@ import {
   hasAndroidProject,
   pendingAndroidModules,
   podsToInstall,
+  unboundPods,
+  uninstalledPods,
   projectHashes,
   projectSdk,
   resolveAndroidDependencies,
@@ -387,6 +389,26 @@ export async function buildProject(
     }
   }
 
+  // In expo prebuild (the config plugin's build), the Lucent packages' pods the app hasn't
+  // installed yet: prebuild's pod install installs them, and the Podfile's Lucent hook then builds
+  // again, binding what they define (cocoapods/lucent.rb). iOS waits for that build.
+  let deferIos = false;
+  const iosDeferReason = "the packages' pods are bound once pod install installs them";
+  const pendingPods =
+    ios && process.env.LUCENT_PREBUILD === "1" ? uninstalledPods(native.manifest, sdk) : undefined;
+
+  if (pendingPods) {
+    deferIos = true;
+    notify({
+      level: "warn",
+      text: `${pendingPods.subject} yet: skipped iOS here. Prebuild's pod install installs ${pendingPods.them}, and builds Lucent's modules again once installed (the Podfile's lucent_post_install)`,
+    });
+    if (platforms?.includes("ios")) {
+      platforms = platforms.filter((p) => p !== "ios");
+      skipped.push({ platform: "ios", reason: iosDeferReason });
+    }
+  }
+
   // Platform code: split platform files, or modules branching on PLATFORM.
   if (!platforms && files.some((f) => platformOf(f) || usesPlatforms(f))) {
     // Build what this machine can: an Android-only Linux host, a Mac without the Android SDK.
@@ -401,6 +423,7 @@ export async function buildProject(
         });
       } else if (p === "android" && deferAndroid)
         skipped.push({ platform: p, reason: deferReason });
+      else if (p === "ios" && deferIos) skipped.push({ platform: p, reason: iosDeferReason });
     }
 
     const installed = (["ios", "android"] as const).filter(
@@ -409,16 +432,18 @@ export async function buildProject(
     if (installed.length) {
       platforms = installed;
       if (build && options.prefetch) backgroundPrefetch(root, files, installed);
-    } else if (deferAndroid || !build) {
-      // Android waiting for its project (or Gradle) is no missing SDK: what can be built here is
-      // (the shared code, checked, and the native package for the Gradle build), and a check
-      // still reports the shared code's problems, with the platforms' SDK imports untyped.
+    } else if (deferAndroid || deferIos || !build) {
+      // Android waiting for its project (or Gradle), or iOS for its pods, is no missing SDK: what
+      // can be built here is (the shared code, checked, and the native package for the later
+      // builds), and a check still reports the shared code's problems, with the platforms' SDK
+      // imports untyped.
       platforms = ["host"];
       notify({
         level: "warn",
-        text: deferAndroid
-          ? "no platform is built here: checked the shared code and wrote the native package, whose Android code the Gradle build compiles"
-          : "no platform SDK is installed: checked with the platforms' SDK imports untyped (as --platforms host does)",
+        text:
+          deferAndroid || deferIos
+            ? "no platform is built here: checked the shared code and wrote the native package, whose platform code the app's builds compile"
+            : "no platform SDK is installed: checked with the platforms' SDK imports untyped (as --platforms host does)",
       });
     } else {
       const detail = "no platform SDK is installed";
@@ -430,6 +455,28 @@ export async function buildProject(
 
   // Every platform asked for is left to a later build: the shared code is checked (host).
   if (platforms && !platforms.length) platforms = ["host"];
+
+  // iOS waits for its pods and nothing else is built here: pod install's build (the Podfile's
+  // lucent_post_install) compiles the modules. The native package is written without them: the
+  // runtime and build files pod install reads, and what the packages need (resolved.json),
+  // which the config plugin reads. No check runs: a host check refuses the platform views
+  // components return. Its manifest has no check, so the next build runs in full.
+  if (build && deferIos && platforms?.every((p) => p === "host")) {
+    graph.record("check", "check", "skipped", { detail: iosDeferReason });
+    writeNativePackage({ files: new Map(), proxies: new Map(), diagnostics: [] }, outDir, {
+      root,
+      native,
+      androidDeferred: deferAndroid,
+    });
+    steps.finish({
+      name: "check",
+      label: "Checked no module",
+      status: "skipped",
+      detail: iosDeferReason,
+    });
+
+    return outcome({ ok: true, modules: moduleSummary(files, []) });
+  }
 
   for (const { platform, reason } of skipped)
     if (lock?.targets.includes(platform))
@@ -560,7 +607,10 @@ export async function buildProject(
   await steps.flush();
   const tCheck = Date.now();
   // Until the Gradle build resolves them, Android's imports are untyped in the iOS program.
-  const deferred: Platform[] = deferAndroid && !platforms?.includes("android") ? ["android"] : [];
+  const deferred: Platform[] = [
+    ...(deferAndroid && !platforms?.includes("android") ? ["android" as const] : []),
+    ...(deferIos && !platforms?.includes("ios") ? ["ios" as const] : []),
+  ];
   const result = compile(files, {
     platforms,
     sdk,
@@ -574,9 +624,11 @@ export async function buildProject(
   const diagnostics = result.diagnostics.map(relative);
   const warnings = (result.warnings ?? []).map(relative);
   if (!result.ok) {
-    // The packages' pods the app lacks: what the iOS code may have failed to import.
+    // The packages' pods the app lacks: what the iOS code may have failed to import. Not in pod
+    // install's own build (lucent_post_install), whose Podfile.lock is not written yet.
     const pods =
       built.includes("ios") &&
+      !process.env.LUCENT_POD_INSTALL &&
       podsToInstall(
         root,
         native.manifest,
@@ -585,6 +637,10 @@ export async function buildProject(
         build,
       );
     if (pods) notify(pods);
+    else if (built.includes("ios") && !process.env.LUCENT_POD_INSTALL) {
+      const unbound = unboundPods(native.manifest, sdk, diagnostics);
+      if (unbound) notify(unbound);
+    }
 
     graph.record("check", "check", "failed", {
       inputs: checkInputs(result.read),

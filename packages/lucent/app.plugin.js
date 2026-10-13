@@ -45,9 +45,11 @@ function buildOnce(projectRoot) {
   // No Gradle during prebuild: android/ is half-written, and a Gradle run would cache it so
   // (autolinking with the template's package). The Gradle task this plugin applies resolves
   // the classpath and builds Android when the app is built.
+  // LUCENT_PREBUILD: iOS waits for the packages' pods prebuild's pod install installs, which the
+  // Podfile's Lucent hook (withPodHook) binds.
   const r = spawnSync(process.execPath, [cli, ...buildArgs(projectRoot, prebuildPlatforms())], {
     stdio: "inherit",
-    env: { ...process.env, LUCENT_NO_GRADLE: "1" },
+    env: { ...process.env, LUCENT_NO_GRADLE: "1", LUCENT_PREBUILD: "1" },
   });
   if (r.status !== 0)
     throw new Error("lucent build failed; fix the errors above and run prebuild again");
@@ -120,6 +122,42 @@ function applyGradleTask(text, language = "groovy") {
   return lines.join("\n");
 }
 
+/** The Podfile line that loads Lucent's CocoaPods hook (cocoapods/lucent.rb), as Expo's own lines find a package. */
+const POD_HOOK_REQUIRE = `require File.join(File.dirname(\`node --print "require.resolve('@lucent-lang/lucent/package.json')"\`), "cocoapods/lucent")`;
+
+/**
+ * The Podfile with Lucent's CocoaPods hook: required after the Podfile's
+ * own requires, and called first in its post_install (one is added when
+ * it has none). Once pod install has installed the packages' pods, the
+ * hook builds Lucent's modules again, binding them. Undefined when the
+ * Podfile has it already.
+ */
+function withPodHook(text) {
+  if (text.includes('"cocoapods/lucent"')) return undefined;
+
+  const lines = text.split("\n");
+  const lastRequire = lines.reduce((at, l, i) => (/^require(_relative)?\b/.test(l) ? i : at), -1);
+  lines.splice(lastRequire + 1, 0, POD_HOOK_REQUIRE);
+
+  const hook = lines.findIndex((l) => /^\s*post_install do \|\w+\|\s*$/.test(l));
+  if (hook >= 0) {
+    const [, indent, name] = /^(\s*)post_install do \|(\w+)\|/.exec(lines[hook]);
+    lines.splice(hook + 1, 0, `${indent}  lucent_post_install(${name})`);
+  } else {
+    const end = lines.at(-1) === "" ? lines.length - 1 : lines.length;
+    lines.splice(
+      end,
+      0,
+      "",
+      "post_install do |installer|",
+      "  lucent_post_install(installer)",
+      "end",
+    );
+  }
+
+  return lines.join("\n");
+}
+
 /** What Lucent packages need (their lucent.json), as the last build resolved it. */
 function resolvedNative(projectRoot) {
   const file = path.join(projectRoot, ".lucent", "native", "resolved.json");
@@ -187,6 +225,7 @@ function withLucent(config) {
     withDangerousMod,
     withEntitlementsPlist,
     withInfoPlist,
+    withPodfile,
   } = require("expo/config-plugins");
   // Gradle builds run lucent build first, like `lucent init` sets up in bare apps.
   config = withAppBuildGradle(config, (c) => {
@@ -217,6 +256,23 @@ function withLucent(config) {
     );
     return c;
   });
+  // pod install builds again once the packages' pods are installed (cocoapods/lucent.rb).
+  if (withPodfile)
+    config = withPodfile(config, (c) => {
+      c.modResults.contents = withPodHook(c.modResults.contents) ?? c.modResults.contents;
+      return c;
+    });
+  else
+    config = withDangerousMod(config, [
+      "ios",
+      async (c) => {
+        const podfile = path.join(c.modRequest.platformProjectRoot, "Podfile");
+        if (!fs.existsSync(podfile)) return c;
+        const text = withPodHook(fs.readFileSync(podfile, "utf8"));
+        if (text !== undefined) fs.writeFileSync(podfile, text);
+        return c;
+      },
+    ]);
   for (const platform of ["ios", "android"]) {
     config = withDangerousMod(config, [
       platform,
@@ -237,3 +293,4 @@ module.exports.prebuildPlatforms = prebuildPlatforms;
 module.exports.linkNativePackage = linkNativePackage;
 module.exports.withPackageEntries = withPackageEntries;
 module.exports.withMainActivity = withMainActivity;
+module.exports.withPodHook = withPodHook;

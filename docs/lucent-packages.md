@@ -249,11 +249,19 @@ A marked pod no package declares any more leaves the podspec. A pod the
 code imports that no package declares is added unmarked, without a
 version, and must be in the app's Podfile.
 
-Expo apps don't get there yet ([T141](tasks.md#t141)). The config plugin
-runs `lucent build` in `expo prebuild`, before pods are installed and
-before it links the native package. It stops at LUCENT3004, and no step
-is named. iOS also has no build phase that runs `lucent build`: an Xcode
-build is current after Metro's watcher or `pod install` ran.
+In an Expo app it takes none. The config plugin's build in `expo
+prebuild` (`LUCENT_PREBUILD`) leaves iOS unbound while a package's pod is
+missing from `Podfile.lock`, with a warning naming it. The plugin links the
+native package, and calls Lucent's CocoaPods hook (`cocoapods/lucent.rb`)
+first in the Podfile's `post_install`. Prebuild's `pod install` installs
+the pod, and the hook runs `lucent build` once it is installed. It adds
+the sources that build wrote to the `LucentNative` target, and links the
+frameworks it added, as the next `pod install` would. Every Xcode build
+runs `lucent build` again, from the pod's build phase.
+
+A pod that is installed but whose module still isn't found fails with
+LUCENT3004, and a notice names the pod and how its module binds
+(`unboundPods`).
 
 A pod binds through the module it defines, as the app's Pods xcconfig
 shows it (`podsSearchPaths` in `@lucent-lang/bindgen`). That is a module

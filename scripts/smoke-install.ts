@@ -138,6 +138,9 @@ if (
 // The line init applies finds the task in the installed package.
 if (!fs.existsSync(path.join(app, "node_modules/@lucent-lang/lucent/gradle/lucent.gradle")))
   throw new Error("the Gradle task is not in the package");
+// The CocoaPods hook the Expo plugin's Podfile line requires.
+if (!fs.existsSync(path.join(app, "node_modules/@lucent-lang/lucent/cocoapods/lucent.rb")))
+  throw new Error("the CocoaPods hook is not in the package");
 fs.rmSync(path.join(app, "android"), { recursive: true });
 
 console.log("• lucent build (installed CLI)");

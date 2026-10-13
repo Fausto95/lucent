@@ -82,6 +82,75 @@ export function appIdentity(
   };
 }
 
+/** The pod a Lucent package of the app declares (packageFiles), which binds once installed. */
+export const PACKAGE_POD = "LucentWindowKit";
+
+/**
+ * A Lucent package the app depends on, as one from npm would be, whose
+ * lucent.json declares a pod: an Objective-C class whose module its iOS
+ * code imports. The pod is local, and the app's Podfile installs it from
+ * its path (podLine). An Expo app's prebuild leaves iOS unbound until pod
+ * install installs it; the Podfile's Lucent hook binds it then.
+ */
+export function packageFiles(): Record<string, string> {
+  return {
+    "packages/lucent-window-kit/package.json": `${JSON.stringify(
+      { name: "lucent-window-kit", version: "1.0.0", lucent: { sources: "src" } },
+      null,
+      2,
+    )}\n`,
+    "packages/lucent-window-kit/lucent.json": `${JSON.stringify({ ios: { pods: { [PACKAGE_POD]: "~> 1.0" } } }, null, 2)}\n`,
+    "packages/lucent-window-kit/src/kit.lucent.ts": `// What the package's pod answers on iOS, through the module its Objective-C class is in.
+import { PLATFORM } from "lucent:platform";
+import { LWKAnswer } from "lucent:ios/${PACKAGE_POD}";
+
+export function kitAnswer(): number {
+  if (PLATFORM === "ios") return LWKAnswer.answer();
+  return 42;
+}
+`,
+    [`pods/${PACKAGE_POD}/${PACKAGE_POD}.podspec`]: `Pod::Spec.new do |s|
+  s.name = "${PACKAGE_POD}"
+  s.version = "1.0.0"
+  s.summary = "The pod a Lucent package of the window check declares"
+  s.homepage = "https://github.com/Fausto95/lucent"
+  s.license = "MIT"
+  s.authors = "Lucent"
+  s.source = { :git => "https://github.com/Fausto95/lucent.git", :tag => s.version.to_s }
+  s.platforms = { :ios => "15.1" }
+  s.source_files = "LWKAnswer.{h,m}"
+  s.public_header_files = "LWKAnswer.h"
+  s.pod_target_xcconfig = { "DEFINES_MODULE" => "YES" }
+end
+`,
+    [`pods/${PACKAGE_POD}/LWKAnswer.h`]: `#import <Foundation/Foundation.h>
+
+@interface LWKAnswer : NSObject
++ (double)answer;
+@end
+`,
+    [`pods/${PACKAGE_POD}/LWKAnswer.m`]: `#import "LWKAnswer.h"
+
+@implementation LWKAnswer
++ (double)answer {
+  return 42;
+}
+@end
+`,
+  };
+}
+
+/** The Podfile with the package's pod installed from its path, in the app's target. */
+export function podLine(podfile: string): string {
+  const line = `  pod '${PACKAGE_POD}', :path => '../pods/${PACKAGE_POD}'`;
+  const target = /^target ['"][^'"]+['"] do$/m.exec(podfile);
+  if (!target) throw new Error("the Podfile has no app target");
+  if (podfile.includes(line)) return podfile;
+  const at = target.index + target[0].length;
+
+  return `${podfile.slice(0, at)}\n${line}${podfile.slice(at)}`;
+}
+
 /**
  * The files the app's check adds: a module that logs where device-check.ts
  * reads (Lucent's console goes to os_log and logcat's Lucent tag), a
@@ -127,6 +196,7 @@ import { Badge } from "lucent:views/badge";
 import { start, watch } from "./src/counter.lucent";
 import { hello } from "./src/device.lucent";
 import { report } from "./src/window-check.lucent";
+import { kitAnswer } from "lucent-window-kit/src/kit.lucent";
 import { WindowProbe } from "./src/window-probe.lucent";
 
 type Probe = { ping(): Promise<string> };
@@ -167,6 +237,7 @@ export default function App() {
       ["platform-module", async () => (await hello("window")).startsWith("Hello, window")],
       ["events-module", events],
       ["component", () => mounted(probe)],
+      ["package-pod", async () => kitAnswer() === 42],
     ];
     void (async () => {
       let passed = 0;
@@ -210,9 +281,17 @@ function sh(cmd: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = {
       maxBuffer: 256 << 20,
     });
   } catch (e) {
-    // The end of what the command printed, last: CI's annotation keeps the output's end.
+    // The end of what the command printed, last: CI's annotation keeps the output's end. A
+    // build's errors come after it (xcodebuild ends with notes about its script phases).
     const out = (e as { stdout?: string }).stdout ?? "";
-    process.stderr.write(`${out.slice(-12_000)}\n✗ ${cmd} ${args.join(" ")} failed in ${cwd}\n`);
+    const errors = out
+      .split("\n")
+      .filter((l) => /: (fatal )?error: |^ld: |^error: |\*\* BUILD FAILED \*\*/.test(l))
+      .slice(-30)
+      .map((l) => l.slice(0, 400));
+    process.stderr.write(
+      `${out.slice(-12_000)}\n${errors.length ? `The errors:\n${errors.join("\n")}\n` : ""}✗ ${cmd} ${args.join(" ")} failed in ${cwd}\n`,
+    );
     process.exit(1);
   }
 }
@@ -328,14 +407,24 @@ function workspace(ios: string): string {
 }
 
 function buildNative(dir: string, app: AppKind, platform: Platform): void {
+  // Prebuild leaves iOS unbound, the package's pod not being installed yet.
   if (app === "expo") sh("npx", ["expo", "prebuild", "--platform", platform, "--no-install"], dir);
 
   if (platform === "ios") {
     const ios = path.join(dir, "ios");
-    // lucent build reads the pods' headers, and pod install links what it writes.
-    sh("pod", ["install"], ios);
-    sh("npx", ["lucent", "build", "--platforms", "ios"], dir);
-    sh("pod", ["install"], ios);
+    const podfile = path.join(ios, "Podfile");
+    fs.writeFileSync(podfile, podLine(fs.readFileSync(podfile, "utf8")));
+    if (app === "expo") {
+      // As the app's developer would: pod install, whose Lucent hook binds the package's pod once
+      // installed, then Xcode's build, whose Lucent phase builds the modules first.
+      sh("pod", ["install"], ios);
+    } else {
+      // A bare app's Podfile has no Lucent hook: lucent build binds the pods pod install
+      // installed, and pod install links what it writes.
+      sh("pod", ["install"], ios);
+      sh("npx", ["lucent", "build", "--platforms", "ios"], dir);
+      sh("pod", ["install"], ios);
+    }
     const name = workspace(ios);
     sh(
       "xcodebuild",
@@ -427,6 +516,15 @@ if (import.meta.main) {
 
   sh("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error"], dir);
   sh("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error", "-D", tarball], dir);
+  for (const [file, text] of Object.entries(packageFiles())) {
+    fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
+    fs.writeFileSync(path.join(dir, file), text);
+  }
+  sh(
+    "npm",
+    ["install", "--no-audit", "--no-fund", "--loglevel=error", "./packages/lucent-window-kit"],
+    dir,
+  );
   sh("npx", ["lucent", "init", "--yes"], dir);
   for (const [name, template] of [
     ["counter", "events"],

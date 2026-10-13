@@ -17,6 +17,7 @@
     "app.plugin.js",
     "autolink",
     "bin",
+    "cocoapods",
     "core",
     "dist",
     "gradle",
