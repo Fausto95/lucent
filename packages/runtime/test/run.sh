@@ -31,7 +31,7 @@ source "$here/parallel.sh"
 # once for all of them.
 tests=(runtime_test scope_test callback_test resource_test lifecycle_test extension_test
   execution_test actor_test compute_test buffer_test bigint_test number_test reactive_test view_test
-  view_registry_test sizing_test slots_test items_test ui_children_test android_requests_test operation_test
+  view_registry_test view_instances_test sizing_test slots_test items_test ui_children_test android_requests_test operation_test
   trace_test layout_test debug_test channel_test executor_test)
 binary() { [[ "$1" == runtime_test ]] && echo "$out" || echo "${out}_${1%_test}"; }
 objs="${out}_objs"
@@ -76,6 +76,8 @@ done < <(find "$yoga/yoga" -name '*.cpp' | sort)
 for t in "${tests[@]}"; do
   bg ${CXX:-clang++} "${flags[@]}" -I"$yoga" -c "$here/$t.cpp" -o "$objs/$t.o"
 done
+# The ids instance props travel by: React Native's side, plain C++.
+bg ${CXX:-clang++} "${flags[@]}" -c "$cpp/rn/LucentViewInstances.cpp" -o "$objs/rn_view_instances.o"
 if [[ "$(uname)" == "Darwin" ]]; then
   bg ${CXX:-clang++} "${flags[@]}" -fobjc-arc -x objective-c++ -c "$here/objc_test.mm" -o "$objs/objc_test.o"
 fi
@@ -88,6 +90,8 @@ drain
 for t in "${tests[@]}"; do
   if [[ "$t" == view_registry_test ]]; then
     bg ${CXX:-clang++} "${flags[@]}" "$objs/$t.o" -o "$(binary "$t")"
+  elif [[ "$t" == view_instances_test ]]; then
+    bg ${CXX:-clang++} "${flags[@]}" "$objs/$t.o" "$objs/rn_view_instances.o" "${robjs[@]}" "${cobjs[@]}" "${libs[@]}" -o "$(binary "$t")"
   elif [[ "$t" == layout_test ]]; then
     bg ${CXX:-clang++} "${flags[@]}" "$objs/$t.o" "${yobjs[@]}" "${robjs[@]}" "${cobjs[@]}" "${libs[@]}" -o "$(binary "$t")"
   else
@@ -153,6 +157,10 @@ run_binary "$log" "${out}_view"
 # Where the Android host finds each view's event emitter: by surface and
 # tag (a tag alone is reused across runtimes), holding nothing alive.
 run_binary "$log" "${out}_view_registry"
+
+# The ids instance props travel by: one per instance while it lives,
+# holding nothing, safe from any thread.
+run_binary "$log" "${out}_view_instances"
 
 # How a component's host sizes to its content: the pixel grid, which
 # measurements the shadow tree accepts, and when the host measures.
