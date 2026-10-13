@@ -224,6 +224,47 @@ jsi::Value Convert<Bytes>::toJs(jsi::Runtime& rt, Host& h, Bytes&& b) {
   return rt.global().getPropertyAsFunction(rt, "Uint8Array").callAsConstructor(rt, ab);
 }
 
+namespace {
+/// "a Float32Array", "an Int8Array".
+std::string aName(const char* name) {
+  return std::string(std::strchr("AEIOU", name[0]) ? "an " : "a ") + name;
+}
+}  // namespace
+
+std::pair<uint8_t*, size_t> typedView(jsi::Runtime& rt, const jsi::Value& v, const Path& p, const char* name, size_t element) {
+  if (!v.isObject() || !isInstanceOf(rt, v.getObject(rt), name)) throwBoundaryError(rt, p, aName(name).c_str(), v);
+  jsi::Object o = v.getObject(rt);
+  jsi::ArrayBuffer ab = o.getPropertyAsObject(rt, "buffer").getArrayBuffer(rt);
+  size_t offset = static_cast<size_t>(o.getProperty(rt, "byteOffset").getNumber());
+  size_t length = static_cast<size_t>(o.getProperty(rt, "byteLength").getNumber());
+  return {ab.data(rt) + offset, length / element};
+}
+
+jsi::Value typedCopy(jsi::Runtime& rt, const char* name, const uint8_t* data, size_t size) {
+  auto buffer = std::make_shared<OwnedBuffer>(std::vector<uint8_t>(data, data + size));
+  jsi::ArrayBuffer ab(rt, buffer);
+  return rt.global().getPropertyAsFunction(rt, name).callAsConstructor(rt, ab);
+}
+
+jsi::Value typedMoved(jsi::Runtime& rt, const char* name, Storage storage) {
+  jsi::ArrayBuffer ab = movedBuffer(rt, std::move(storage));
+  return rt.global().getPropertyAsFunction(rt, name).callAsConstructor(rt, ab);
+}
+
+DataView Convert<DataView>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  if (!v.isObject() || !isInstanceOf(rt, v.getObject(rt), "DataView")) throwBoundaryError(rt, p, "a DataView", v);
+  jsi::Object o = v.getObject(rt);
+  jsi::ArrayBuffer ab = o.getPropertyAsObject(rt, "buffer").getArrayBuffer(rt);
+  size_t offset = static_cast<size_t>(o.getProperty(rt, "byteOffset").getNumber());
+  size_t length = static_cast<size_t>(o.getProperty(rt, "byteLength").getNumber());
+  return DataView::over(ArrayBuffer::copy(ab.data(rt) + offset, length));
+}
+
+jsi::Value Convert<DataView>::toJs(jsi::Runtime& rt, Host&, const DataView& d) {
+  const uint8_t* data = d.storage()->data() + d.offset();
+  return typedCopy(rt, "DataView", data, d.size());
+}
+
 ArrayBuffer Convert<ArrayBuffer>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
   if (!v.isObject() || !v.getObject(rt).isArrayBuffer(rt)) throwBoundaryError(rt, p, "an ArrayBuffer", v);
   jsi::ArrayBuffer ab = v.getObject(rt).getArrayBuffer(rt);

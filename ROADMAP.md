@@ -87,7 +87,8 @@ Goal: Write a module once in TypeScript, and call it from JavaScript as a native
 - ✅ Events through `EventEmitter`, and hooks for listeners starting and for a module ending.
 - ✅ `NativeBuffer` and moved `ArrayBuffer`s, which pass bytes without copying.
 - 🚧 Native handles, and memory-pressure hints for objects that hold native memory.
-- ⏳ Typed arrays and `DataView`, and `null` kept apart from `undefined` in every container.
+- ✅ Every typed array and `DataView`, copied, lent and moved as `Uint8Array` is.
+- ⏳ `null` kept apart from `undefined` in every container.
 - ⏳ JSON-shaped values through recursive union types.
 - ⏳ Promise chaining and combinators, timers, and web APIs such as `TextEncoder` and `URL`.
 - ⏳ Classes that extend `EventEmitter`, so native objects have their own listeners.

@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"borrowed-bytes", "ad3d
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "5cff60dfc0ba4ffd", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "25917eee6da83dd2", kModuleIdentities, 1};
   return identity;
 }
 

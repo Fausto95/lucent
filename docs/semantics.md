@@ -50,7 +50,8 @@ on assignment, as JavaScript objects do.
 | classes                                             | a shared object: fields, methods, accessors, statics |
 | interfaces with methods, or that a class implements | an abstract base class with virtual members          |
 | `(a: A) => R`; `Promise<T>`                         | a function value; a promise (`async` is a coroutine) |
-| `Uint8Array`, `ArrayBuffer`, `Date`, `RegExp`       | a byte view, bytes, a time value, a compiled pattern |
+| typed arrays, `DataView`; `ArrayBuffer`             | `lucent::TypedArray<Kind>`, a view; shared bytes     |
+| `Date`, `RegExp`                                    | a time value, a compiled pattern                     |
 | `Error` kinds, `class X extends Error`              | an error object: `name`, `message`, `code`           |
 | type parameters                                     | C++ templates                                        |
 
@@ -186,8 +187,7 @@ reverse mapping. A call typed `never` may stand wherever a value goes.
 `any`, and `unknown` outside `catch`, have no layout (`LUCENT2001`).
 `LUCENT2002` refuses intersections, `symbol`, `object`, `Function`,
 `Intl` types, mixed index signatures, overloaded and constructor function
-types, and `SharedArrayBuffer`. Typed arrays other than `Uint8Array`, and
-`DataView`, are [T100](tasks.md#t100). A recursive union alias
+types, and `SharedArrayBuffer`. A recursive union alias
 (`type Json = … | Json[]`) crashes the compiler today ([T102](tasks.md#t102)).
 
 ## Statements and expressions
@@ -346,25 +346,26 @@ or the compiler refuses it with `LUCENT1003`
 it refuses an argument Lucent can't honor, such as a locale.
 `emit/builtins.ts` is the inventory: a member it doesn't name is refused.
 
-| Built-in      | Supported                                                                                     |
-| ------------- | --------------------------------------------------------------------------------------------- |
-| `Math`        | every function and constant                                                                   |
-| `Number`      | `isInteger`, `isSafeInteger`, `isFinite`, `isNaN`, `parseInt`, `parseFloat`, constants        |
-| numbers       | `toString(radix)`, `toFixed`, `toPrecision`, `toExponential`, `valueOf`                       |
-| globals       | `parseInt`, `parseFloat`, `isNaN`, `isFinite`, `String`, `Number`, `Boolean`, `BigInt`        |
-| `BigInt`      | `asIntN`, `asUintN`; `toString(radix)`, `valueOf`                                             |
-| `String`      | `fromCharCode`, `fromCodePoint`; every method but `normalize` and the HTML ones (`anchor`)    |
-| `Array`       | `from` (an iterable or `{ length }`), `of`, `isArray`                                         |
-| arrays        | every method but `flat`, `copyWithin` and `toLocaleString`; `unshift` takes one item          |
-| `Map`         | every method; `Map.groupBy`                                                                   |
-| `Set`         | every method but `entries`                                                                    |
-| `Object`      | `keys`, `values`, `entries` (records), `fromEntries`, `groupBy`                               |
-| `Uint8Array`  | `subarray`, `slice`, `fill`, `indexOf`, `includes`, `set`, `forEach`, `map`, `reduce`, `join` |
-| `ArrayBuffer` | `new ArrayBuffer(length)`, `byteLength`, `slice` (a copy)                                     |
-| `Date`        | `now`, `parse`, `UTC`; the `get…`, `set…` and `to…String` methods but `toLocale…`             |
-| `JSON`        | `parse` into a type; `stringify` of one value                                                 |
-| `Promise`     | `resolve`, `reject`, `all`, `withResolvers`                                                   |
-| `console`     | `log`, `info`, `debug`, `warn`, `error`                                                       |
+| Built-in      | Supported                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| `Math`        | every function and constant                                                                |
+| `Number`      | `isInteger`, `isSafeInteger`, `isFinite`, `isNaN`, `parseInt`, `parseFloat`, constants     |
+| numbers       | `toString(radix)`, `toFixed`, `toPrecision`, `toExponential`, `valueOf`                    |
+| globals       | `parseInt`, `parseFloat`, `isNaN`, `isFinite`, `String`, `Number`, `Boolean`, `BigInt`     |
+| `BigInt`      | `asIntN`, `asUintN`; `toString(radix)`, `valueOf`                                          |
+| `String`      | `fromCharCode`, `fromCodePoint`; every method but `normalize` and the HTML ones (`anchor`) |
+| `Array`       | `from` (an iterable or `{ length }`), `of`, `isArray`                                      |
+| arrays        | every method but `flat`, `copyWithin` and `toLocaleString`; `unshift` takes one item       |
+| `Map`         | every method; `Map.groupBy`                                                                |
+| `Set`         | every method but `entries`                                                                 |
+| `Object`      | `keys`, `values`, `entries` (records), `fromEntries`, `groupBy`                            |
+| typed arrays  | every `%TypedArray%` method but `toLocaleString`; `from` (no map function), `of`           |
+| `DataView`    | every getter and setter, both byte orders                                                  |
+| `ArrayBuffer` | `new ArrayBuffer(length)`, `byteLength`, `slice` (a copy), `isView`                        |
+| `Date`        | `now`, `parse`, `UTC`; the `get…`, `set…` and `to…String` methods but `toLocale…`          |
+| `JSON`        | `parse` into a type; `stringify` of one value                                              |
+| `Promise`     | `resolve`, `reject`, `all`, `withResolvers`                                                |
+| `console`     | `log`, `info`, `debug`, `warn`, `error`                                                    |
 
 `BigInt(x)` takes a number (`RangeError` unless an integer), a string
 (`SyntaxError` unless an integer literal), a boolean or a bigint.
@@ -381,13 +382,12 @@ and `options` arguments, and `normalize()`, are refused: Lucent has no
 `Intl` data or normalization tables.
 
 `sort` is stable, and compares strings without a comparator. `keys()`,
-`values()` and `entries()` of arrays, maps and sets return arrays of the
-contents at the call, where JavaScript returns live iterators. A
-`Uint8Array` also has `length`, `byteLength`, `byteOffset` and `buffer`,
-and its `reduce` needs an initial value. Its other methods are refused
-(`LUCENT1003`), `ArrayBuffer.isView` gives `LUCENT1001`, and resizable
-buffers are refused; [T100](tasks.md#t100) adds the methods with the other
-typed arrays. `flat` and `copyWithin` are [T106](tasks.md#t106).
+`values()` and `entries()` of arrays, maps, sets and typed arrays return
+arrays of the contents at the call, where JavaScript returns live
+iterators. Typed arrays convert what is written as JavaScript does, and
+views of one buffer share its bytes, little-endian on every device.
+Resizable buffers are refused. Arrays' `flat` and `copyWithin` are
+[T106](tasks.md#t106).
 
 **Regular expressions** take every ECMAScript feature and flag
 (`dgimsuvy`), compiled by QuickJS's libregexp, with `lastIndex`, `match`,
@@ -517,7 +517,7 @@ JS thread, holding the module's actor.
 | -------------------------------------------------------- | -------------------------------------------------------- |
 | numbers, strings, booleans, `undefined`, `null`, bigints | as values; bigints exactly, at any size                  |
 | arrays, tuples, records, maps, sets, plain objects       | copies, both ways                                        |
-| `Uint8Array`, `ArrayBuffer`                              | copies, but for the moves and loans below                |
+| typed arrays, `DataView`, `ArrayBuffer`                  | copies of their kind, but for the moves and loans below  |
 | `Date`; `RegExp`                                         | a copy of the time; a new `RegExp`, `lastIndex` lost     |
 | class instances, interface values                        | the same object each time                                |
 | an object literal for an interface                       | a plain object, a copy                                   |
@@ -539,10 +539,10 @@ Arrays and objects copy at the boundary: JavaScript's objects belong to
 the JS thread, and Lucent runs on others. Inside Lucent they are shared.
 Each exception is explicit:
 
-- **Move out.** An `ArrayBuffer`, or a `Uint8Array` viewing all of one,
+- **Move out.** An `ArrayBuffer`, or a typed array viewing all of one,
   that a function returns and nothing else holds moves: JavaScript gets
   the same bytes, adopted ones included. The copy would be the only one.
-- **Loan in.** A synchronous export that only reads a `Uint8Array` or
+- **Loan in.** A synchronous export that only reads a typed array or
   `ArrayBuffer` argument reads JavaScript's bytes in place while it runs,
   so a write JavaScript makes meanwhile shows. Bytes a function writes,
   keeps, returns, captures or passes on to its own code are copied, as
@@ -943,19 +943,19 @@ both, in the same commit.
 
 ### The boundary
 
-| JavaScript                                          | Lucent                                                  | Why                                        |
-| --------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------ |
-| type annotations are erased                         | arguments are checked: `TypeError` before the code runs | a native value needs its layout            |
-| an exported `let` holding an object is the object   | read live, each value assigned copied once              | values copy at the boundary                |
-| an `EventEmitter` takes any event name              | from JavaScript, declared names only: `TypeError`       | events are numbered when compiled          |
-| arrays and objects passed on are shared             | copied; shared inside Lucent                            | JavaScript's objects stay on the JS thread |
-| a `Uint8Array` or `ArrayBuffer` passed on is shared | copied; a read-only sync call reads them in place       | bytes only read need no copy               |
-| a `RegExp` passed on is shared                      | a new `RegExp`: identity and `lastIndex` lost           | its state lives in native code             |
-| code can read any value it is given                 | a `JSValue` is held, never read                         | only JavaScript reads its values           |
-| `Date` objects passed on are shared                 | copied                                                  | as arrays and objects                      |
-| a function returns its value whenever called        | off the JS thread, posted: `void` or `Promise`          | Lucent never waits for the JS thread       |
-| an instance has its fields as own properties        | prototype accessors, no setter when `readonly`          | the fields live in native code             |
-| `[Symbol.dispose]()` is callable from JavaScript    | not visible: add a `close()`                            | members cross by name; Hermes lacks it     |
+| JavaScript                                         | Lucent                                                  | Why                                        |
+| -------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------ |
+| type annotations are erased                        | arguments are checked: `TypeError` before the code runs | a native value needs its layout            |
+| an exported `let` holding an object is the object  | read live, each value assigned copied once              | values copy at the boundary                |
+| an `EventEmitter` takes any event name             | from JavaScript, declared names only: `TypeError`       | events are numbered when compiled          |
+| arrays and objects passed on are shared            | copied; shared inside Lucent                            | JavaScript's objects stay on the JS thread |
+| a typed array or `ArrayBuffer` passed on is shared | copied; a read-only sync call reads them in place       | bytes only read need no copy               |
+| a `RegExp` passed on is shared                     | a new `RegExp`: identity and `lastIndex` lost           | its state lives in native code             |
+| code can read any value it is given                | a `JSValue` is held, never read                         | only JavaScript reads its values           |
+| `Date` objects passed on are shared                | copied                                                  | as arrays and objects                      |
+| a function returns its value whenever called       | off the JS thread, posted: `void` or `Promise`          | Lucent never waits for the JS thread       |
+| an instance has its fields as own properties       | prototype accessors, no setter when `readonly`          | the fields live in native code             |
+| `[Symbol.dispose]()` is callable from JavaScript   | not visible: add a `close()`                            | members cross by name; Hermes lacks it     |
 
 ### Errors, cancellation, classes and variables
 

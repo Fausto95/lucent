@@ -1,7 +1,7 @@
 /**
  * Byte arguments a synchronous export reads in place (C-BUFFER v1.4's
- * lent bytes): a `Uint8Array` or `ArrayBuffer` parameter its body only reads
- * while it runs. The boundary then lends JavaScript's own bytes for the
+ * lent bytes): a typed array or `ArrayBuffer` parameter its body only
+ * reads while it runs. The boundary then lends JavaScript's own bytes for the
  * call instead of copying them, which no one can tell apart from a copy
  * except by seeing JavaScript's writes during the call, as JavaScript
  * itself would.
@@ -20,8 +20,48 @@ import { libraryMember } from "../analysis/library.ts";
 /** Properties a read of which reads the bytes' size or place. */
 const SIZES = new Set(["length", "byteLength", "byteOffset"]);
 
-/** Methods of `Uint8Array` and `ArrayBuffer` that only read their receiver. */
-const READS = new Set(["includes", "indexOf", "lastIndexOf", "join", "slice", "toString"]);
+/**
+ * Methods of typed arrays, `ArrayBuffer` and `DataView` that only read their
+ * receiver and take no callback (one is given the array itself).
+ */
+const READS = new Set([
+  "at",
+  "includes",
+  "indexOf",
+  "lastIndexOf",
+  "join",
+  "slice",
+  "toReversed",
+  "toSorted",
+  "toString",
+  "with",
+  "getInt8",
+  "getUint8",
+  "getInt16",
+  "getUint16",
+  "getInt32",
+  "getUint32",
+  "getFloat32",
+  "getFloat64",
+  "getBigInt64",
+  "getBigUint64",
+]);
+
+/** The constructors whose `new` views the bytes it is given, or copies them. */
+const VIEWS = new Set([
+  "Int8ArrayConstructor.new",
+  "Uint8ArrayConstructor.new",
+  "Uint8ClampedArrayConstructor.new",
+  "Int16ArrayConstructor.new",
+  "Uint16ArrayConstructor.new",
+  "Int32ArrayConstructor.new",
+  "Uint32ArrayConstructor.new",
+  "Float32ArrayConstructor.new",
+  "Float64ArrayConstructor.new",
+  "BigInt64ArrayConstructor.new",
+  "BigUint64ArrayConstructor.new",
+  "DataViewConstructor.new",
+]);
 
 /** Library functions that only read the bytes they are given, by name. */
 const READERS = new Set([
@@ -94,7 +134,7 @@ function readContext(
 
     if (SIZES.has(name)) return !written(parent);
 
-    // A Uint8Array's buffer: here, only the bytes it views.
+    // A typed array's buffer: here, only the bytes it views.
     if (name === "buffer") return !written(parent) && readContext(checker, fn, parent);
 
     const call = parent.parent;
@@ -113,11 +153,9 @@ function readContext(
 
   if (ts.isSpreadElement(parent) && ts.isArrayLiteralExpression(parent.parent)) return true;
 
-  // A view of them (`new Uint8Array(buffer)`), or a copy (`new Uint8Array(bytes)`).
+  // A view of them (`new Float32Array(buffer)`), or a copy (`new Int16Array(bytes)`).
   if (ts.isNewExpression(parent) && parent.arguments?.[0] === expr)
-    return (
-      named(checker, parent) === "Uint8ArrayConstructor.new" && readContext(checker, fn, parent)
-    );
+    return VIEWS.has(named(checker, parent) ?? "") && readContext(checker, fn, parent);
 
   if (ts.isCallExpression(parent) && parent.arguments.includes(expr))
     return copiesArguments(checker, parent);

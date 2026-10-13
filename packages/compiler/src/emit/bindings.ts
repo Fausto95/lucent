@@ -788,7 +788,7 @@ export class BindingsEmitter {
     params.forEach((p, i) => {
       const k = p.cppType.k;
       const param = decl.parameters[i];
-      if ((k === "bytes" || k === "arrayBuffer") && !p.rest && param)
+      if ((k === "bytes" || k === "typed" || k === "arrayBuffer") && !p.rest && param)
         if (onlyReads(this.ctx.checker, decl, param)) lent.add(i);
     });
     return lent;
@@ -1063,6 +1063,12 @@ export class BindingsEmitter {
         case "bytes":
           test(instance("Uint8Array"));
           break;
+        case "typed":
+          test(instance(m.name));
+          break;
+        case "dataView":
+          test(instance("DataView"));
+          break;
         case "arrayBuffer":
           test(cpp.and(isObject, cpp.call(cpp.dot(object, "isArrayBuffer"), [rt])));
           break;
@@ -1145,6 +1151,8 @@ export class BindingsEmitter {
         return [...new Set(t.ms.map((m) => this.describe(m)))].join(" or ");
       case "opt":
         return `${this.describe(t.inner)} or ${t.absent ?? "null or undefined"}`;
+      case "typed":
+        return `${/^[AEIOU]/.test(t.name) ? "an" : "a"} ${t.name}`;
       default:
         return DESCRIPTIONS[t.k] ?? "a value";
     }
@@ -1212,7 +1220,17 @@ export class BindingsEmitter {
 const [rt, v, p] = [cpp.id("rt"), cpp.id("v"), cpp.id("p")];
 
 /** Kinds the boundary copies into a new JavaScript object at each conversion. */
-const COPIED = new Set<LType["k"]>(["struct", "array", "tuple", "map", "set", "dict", "bytes"]);
+const COPIED = new Set<LType["k"]>([
+  "struct",
+  "array",
+  "tuple",
+  "map",
+  "set",
+  "dict",
+  "bytes",
+  "typed",
+  "dataView",
+]);
 /** Kinds `lucent::strictEquals` compares: by identity, or as primitives. */
 const COMPARED = new Set<LType["k"]>([
   ...COPIED,
@@ -1263,6 +1281,7 @@ const DESCRIPTIONS: Partial<Record<LType["k"], string>> = {
   struct: "an object",
   fn: "a function",
   bytes: "a Uint8Array",
+  dataView: "a DataView",
   error: "an Error",
   date: "a Date",
   regexp: "a RegExp",

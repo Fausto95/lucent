@@ -159,21 +159,5 @@ void JsonWriter::quote(const String& s) {
 
 Iter<String> iterOf(const String& s) { return iterOf(splitCodePoints(s)); }
 
-namespace {
-class BytesIter final : public IterObject<double> {
- public:
-  explicit BytesIter(Bytes b) : b_(std::move(b)) {}
-  std::optional<double> next() override {
-    if (i_ >= b_.size()) return std::nullopt;
-    return b_.at(i_++);
-  }
-
- private:
-  Bytes b_;
-  size_t i_ = 0;
-};
-}  // namespace
-
-Iter<double> iterOf(const Bytes& b) { return std::make_shared<BytesIter>(b); }
 
 }  // namespace lucent

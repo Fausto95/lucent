@@ -1650,6 +1650,8 @@ const ITERATIONS: Partial<Record<LType["k"], (it: Iteration) => cpp.Stmt[]>> = {
 
   bytes: (it) => [it.counted(it.size(it.coll), it.body(it.at(it.coll)))],
 
+  typed: (it) => [it.counted(it.size(it.coll), it.body(it.at(it.coll)))],
+
   regexMatch: (it) => {
     const items = cpp.arrow(it.coll, "items");
 

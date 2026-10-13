@@ -32,6 +32,8 @@ const LOOSE: Record<Exclude<LType["k"], "opt" | "union">, Loose> = {
   fn: "object",
   promise: "object",
   bytes: "object",
+  typed: "object",
+  dataView: "object",
   arrayBuffer: "object",
   error: "object",
   date: "object",

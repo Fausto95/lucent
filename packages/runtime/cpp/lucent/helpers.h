@@ -54,13 +54,15 @@ T setElement(const Array<T>& a, double i, V&& v) {
   Array<T> copy = a;
   return setElement(copy, i, std::forward<V>(v));
 }
-inline double elementAt(const Bytes& b, double i) {
-  Opt<double> v = b.get(i);
-  if (!v.has()) throwRangeError("Uint8Array index out of bounds");
+template <class K>
+typename K::V elementAt(const TypedArray<K>& b, double i) {
+  Opt<typename K::V> v = b.get(i);
+  if (!v.has()) throwRangeError((std::string(K::name) + " index out of bounds").c_str());
   return v.get();
 }
-inline double setElement(const Bytes& b, double i, double v) {
-  Bytes copy = b;
+template <class K>
+typename K::V setElement(const TypedArray<K>& b, double i, typename K::V v) {
+  TypedArray<K> copy = b;
   copy.set(i, v);
   return v;
 }

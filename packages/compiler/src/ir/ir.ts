@@ -532,6 +532,8 @@ export function elementOf(t: LType): LType | undefined {
       return T.string;
     case "bytes":
       return T.number;
+    case "typed":
+      return t.name.startsWith("Big") ? T.bigint : T.number;
     case "regexMatch":
       return unionOf([T.string, T.undefined]);
     default:

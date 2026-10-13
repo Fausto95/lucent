@@ -725,11 +725,12 @@ has `toLongArray`, `fromLongArray` and `unboxLong`.
 
 ## C-BUFFER: native buffers
 
-**Version: v1.5.** How bytes cross without a copy, every exception to
+**Version: v1.7.** How bytes cross without a copy, every exception to
 the copy rule, and the native memory an object reports to JavaScript's
 collector. v1.5 added the platforms' handle makers and memory pressure
-([T107](../tasks.md#t107)), and v1.6 read-only buffers and the frames
-adopted as them ([T108](../tasks.md#t108)).
+([T107](../tasks.md#t107)), v1.6 read-only buffers and the frames
+adopted as them ([T108](../tasks.md#t108)), and v1.7 every typed array
+kind on `Uint8Array`'s paths, and `DataView` ([T100](../tasks.md#t100)).
 
 **Implemented by** `lucent/buffer.h`, `handle.h`, `bytes.h`
 (`ByteStorage`), `jsi/convert.h` and `convert.cpp` (`Borrowed`, the JS
@@ -740,7 +741,8 @@ handles), `jsi/host.cpp` (memory pressure), `platform/android.h`,
 
 ### Invariants
 
-- An ordinary `Uint8Array` or `ArrayBuffer` copies both ways.
+- An ordinary typed array, `DataView` or `ArrayBuffer` copies both ways,
+  as the kind it is: a `DataView` in a buffer of its own bytes.
 - A `NativeBuffer`'s reference count keeps storage alive; access is a
   borrow.
 - Borrows are synchronous and scoped, and cannot escape. A transfer with
@@ -787,14 +789,14 @@ unborrowed), the storage, an atomic size, `Destroy` with its executor,
 
 ### Exceptions to the copy rule
 
-| Exception            | Rule                                                                                                                                                                                                                                                                                         |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Returned bytes move  | A returned `ArrayBuffer`, or whole-buffer `Uint8Array`, that nothing else holds gives JavaScript the same bytes, adopted ones included, with their size as external memory pressure.                                                                                                         |
-| Lent arguments       | `Convert<ArrayBuffer>::borrow` and `Convert<Bytes>::borrow` give a `Borrowed<T>` over JavaScript's bytes (`ByteStorage::lend`) for a synchronous export that only reads them (`emit/lent-bytes.ts`). When it goes, storage anything still holds is copied (`keep()`). Loans are not counted. |
-| Android `ByteBuffer` | `jni::adoptByteBuffer` (`adoptByteBuffer` in `lucent:android`) adopts a direct buffer's capacity under a global reference. Heap or read-only buffers throw `TypeError`. Java must leave it alone after.                                                                                      |
-| Frames               | `objc::adoptPixelBuffer` and `jni::adoptHardwareBuffer` (`lucent:ios`, `lucent:android`) adopt one plane, retained or acquired and locked for the CPU until released: read-only (`adoptReadOnly`) for `"read"`, writable for `"readwrite"`. An `NSData` stays a copy (0086).                 |
-| `ArrayBuffer` move   | `transferToArrayBuffer()` hands the storage, `Destroy` and executor to adopted `ByteStorage`, released with the last Lucent or JavaScript holder.                                                                                                                                            |
-| Native handles       | A `NativeHandle` gives other native code the address: a buffer's `handle()`; `objc::retainedHandle` (`retainedHandle` in `lucent:ios`), an object retained +1 and released once; `jni::byteBufferHandle` and `jni::hardwareBufferHandle` (`handleOf` in `lucent:android`).                   |
+| Exception            | Rule                                                                                                                                                                                                                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Returned bytes move  | A returned `ArrayBuffer`, or whole-buffer typed array, that nothing else holds gives JavaScript the same bytes, adopted ones included, with their size as external memory pressure.                                                                                                                  |
+| Lent arguments       | `Convert<ArrayBuffer>::borrow` and `Convert<TypedArray<K>>::borrow` give a `Borrowed<T>` over JavaScript's bytes (`ByteStorage::lend`) for a synchronous export that only reads them (`emit/lent-bytes.ts`). When it goes, storage anything still holds is copied (`keep()`). Loans are not counted. |
+| Android `ByteBuffer` | `jni::adoptByteBuffer` (`adoptByteBuffer` in `lucent:android`) adopts a direct buffer's capacity under a global reference. Heap or read-only buffers throw `TypeError`. Java must leave it alone after.                                                                                              |
+| Frames               | `objc::adoptPixelBuffer` and `jni::adoptHardwareBuffer` (`lucent:ios`, `lucent:android`) adopt one plane, retained or acquired and locked for the CPU until released: read-only (`adoptReadOnly`) for `"read"`, writable for `"readwrite"`. An `NSData` stays a copy (0086).                         |
+| `ArrayBuffer` move   | `transferToArrayBuffer()` hands the storage, `Destroy` and executor to adopted `ByteStorage`, released with the last Lucent or JavaScript holder.                                                                                                                                                    |
+| Native handles       | A `NativeHandle` gives other native code the address: a buffer's `handle()`; `objc::retainedHandle` (`retainedHandle` in `lucent:ios`), an object retained +1 and released once; `jni::byteBufferHandle` and `jni::hardwareBufferHandle` (`handleOf` in `lucent:android`).                           |
 
 A loan is safe because JavaScript cannot detach a buffer while the call
 runs: Hermes has no `ArrayBuffer.prototype.transfer`, and JSI no detach.
@@ -814,8 +816,8 @@ runs: Hermes has no `ArrayBuffer.prototype.transfer`, and JSI no detach.
 
 ### Planned
 
-- [T100](../tasks.md#t100): typed arrays and `DataView` cross as
-  `Uint8Array` does, and type views of a `NativeBuffer` inside borrows.
+- [T100](../tasks.md#t100): typed views of a `NativeBuffer`'s bytes
+  inside borrows.
 
 ## C-VIEW: components and views
 

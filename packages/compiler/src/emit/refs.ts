@@ -24,6 +24,8 @@ const PLAIN = new Set<LType["k"]>([
   "date",
   "regexp",
   "bytes",
+  "typed",
+  "dataView",
   "arrayBuffer",
 ]);
 

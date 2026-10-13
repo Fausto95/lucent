@@ -48,7 +48,11 @@ export type LType =
   | { k: "union"; ms: LType[] }
   | { k: "fn"; params: LType[]; ret: LType }
   | { k: "promise"; inner: LType }
+  /** A Uint8Array. */
   | { k: "bytes" }
+  /** Another typed array (lucent::TypedArray<Kind>): `name` is its class. */
+  | { k: "typed"; name: TypedName }
+  | { k: "dataView" }
   | { k: "arrayBuffer" }
   | { k: "error" }
   | { k: "date" }
@@ -99,6 +103,36 @@ const ERROR_NAMES = ["Error", "TypeError", "RangeError", "SyntaxError"] as const
 
 export function isErrorName(name: string): name is (typeof ERROR_NAMES)[number] {
   return (ERROR_NAMES as readonly string[]).includes(name);
+}
+
+/** The typed arrays besides Uint8Array, by class. */
+export const TYPED_NAMES = [
+  "Int8Array",
+  "Uint8ClampedArray",
+  "Int16Array",
+  "Uint16Array",
+  "Int32Array",
+  "Uint32Array",
+  "Float32Array",
+  "Float64Array",
+  "BigInt64Array",
+  "BigUint64Array",
+] as const;
+
+export type TypedName = (typeof TYPED_NAMES)[number];
+
+export function isTypedName(name: string): name is TypedName {
+  return (TYPED_NAMES as readonly string[]).includes(name);
+}
+
+/** The value a typed array's element is: a bigint for the 64-bit integer kinds, else a number. */
+export function typedElement(t: LType): LType {
+  return t.k === "typed" && t.name.startsWith("Big") ? T.bigint : T.number;
+}
+
+/** Whether `t` is a typed array: a Uint8Array or another. */
+export function isTypedArray(t: LType): t is LType & { k: "bytes" | "typed" } {
+  return t.k === "bytes" || t.k === "typed";
 }
 
 export const T = {
@@ -180,6 +214,8 @@ function keyWith(t: LType, struct: (id: string) => string): string {
       return `N:${t.platform}:${t.module}.${t.name}`;
     case "span":
       return t.writable ? "mutableSpan" : "span";
+    case "typed":
+      return t.name;
     case "handle":
       return `H:${t.extension}.${t.name}`;
     case "signal":
@@ -1143,6 +1179,7 @@ export class TypeRegistry {
     }
     const lib = this.libName(type);
     if (lib && isErrorName(lib)) return T.error;
+    if (lib && isTypedName(lib)) return { k: "typed", name: lib };
     if (lib) {
       const args = c.getTypeArguments(type as ts.TypeReference);
       switch (lib) {
@@ -1159,6 +1196,8 @@ export class TypeRegistry {
           return T.bytes;
         case "ArrayBuffer":
           return T.arrayBuffer;
+        case "DataView":
+          return { k: "dataView" };
         case "Date":
           return T.date;
         case "RegExp":
@@ -1645,6 +1684,10 @@ export class TypeRegistry {
         return lucent("Promise", this.cppRetType(t.inner));
       case "bytes":
         return lucent("Bytes");
+      case "typed":
+        return lucent(t.name);
+      case "dataView":
+        return lucent("DataView");
       case "arrayBuffer":
         return lucent("ArrayBuffer");
       case "error":

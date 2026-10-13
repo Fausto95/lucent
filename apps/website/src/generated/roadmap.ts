@@ -34,8 +34,12 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "Native handles, and memory-pressure hints for objects that hold native memory."
       },
       {
+        "status": "done",
+        "text": "Every typed array and `DataView`, copied, lent and moved as `Uint8Array` is."
+      },
+      {
         "status": "next",
-        "text": "Typed arrays and `DataView`, and `null` kept apart from `undefined` in every container."
+        "text": "`null` kept apart from `undefined` in every container."
       },
       {
         "status": "next",
@@ -279,7 +283,6 @@ export const limitations: { title: string; items: string[] }[] = [
     "items": [
       "Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)): break them with `WeakRef`, or key what one side holds in a `WeakMap`.",
       "A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)). A `WeakMap` value that holds its own key keeps it, and the entry, for as long as the map lives.",
-      "`Uint8Array` is the only typed array, and `DataView` is refused ([T100](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t100)).",
       "`null` and `undefined` from JavaScript are checked apart for arguments, setter values and object fields only ([T101](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t101)). Inside arrays, maps, sets, records, tuples, callback results and promise values, `T | undefined` also takes `null`, and `T | null` takes `undefined`. Narrowing such a value then throws `TypeError`.",
       "A recursive union alias, such as a `Json` type of arrays and records, crashes the compiler instead of giving a diagnostic ([T102](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t102)).",
       "`then`, `catch`, `finally`, `Promise.race`, `Promise.any` and `Promise.allSettled` are refused: use `await` and `Promise.all` ([T103](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t103)).",

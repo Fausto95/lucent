@@ -732,6 +732,31 @@ String utf8Decode(const Bytes& b);
 template <class T>
 using IsBytes = std::is_same<T, Bytes>;
 template <class T>
+using IsInt8Array = std::is_same<T, Int8Array>;
+template <class T>
+using IsUint8ClampedArray = std::is_same<T, Uint8ClampedArray>;
+template <class T>
+using IsInt16Array = std::is_same<T, Int16Array>;
+template <class T>
+using IsUint16Array = std::is_same<T, Uint16Array>;
+template <class T>
+using IsInt32Array = std::is_same<T, Int32Array>;
+template <class T>
+using IsUint32Array = std::is_same<T, Uint32Array>;
+template <class T>
+using IsFloat32Array = std::is_same<T, Float32Array>;
+template <class T>
+using IsFloat64Array = std::is_same<T, Float64Array>;
+template <class T>
+using IsBigInt64Array = std::is_same<T, BigInt64Array>;
+template <class T>
+using IsBigUint64Array = std::is_same<T, BigUint64Array>;
+template <class T>
+using IsDataView = std::is_same<T, DataView>;
+/// ArrayBuffer.isView: any typed array, or a DataView.
+template <class T>
+struct IsView : std::bool_constant<IsTypedArray<T>::value || std::is_same_v<T, DataView>> {};
+template <class T>
 using IsArrayBuffer = std::is_same<T, ArrayBuffer>;
 
 }  // namespace lucent
