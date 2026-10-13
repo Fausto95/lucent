@@ -1,16 +1,19 @@
 /**
- * Runs the bare example's Tests screen on a booted-here iOS simulator or a
- * running Android emulator, and passes when every end-to-end case passed.
- * With --id, it runs another app the same way (the window's fresh apps,
- * scripts/window-app.ts), opened as its launcher opens it:
+ * Runs the bare example's Tests and Platform screens on a booted-here iOS
+ * simulator or a running Android emulator, and passes when every check of
+ * both passed: every end-to-end case, then what only the platform gives
+ * (frames through an executor, a deep link, a push token, back presses).
+ * With --id, it runs another app's Tests screen the same way (the window's
+ * fresh apps, scripts/window-app.ts), opened as its launcher opens it:
  *   1. installs the Debug build (its bundle comes from Metro, which the
  *      caller started on port 8081);
- *   2. opens the Tests screen: on Android with the deep link
- *      lucentbare://lab/tests, on iOS with the launch argument
- *      `-lucentTab lab/tests` (the simulator asks to confirm a link that
+ *   2. opens each screen in turn: on Android with the deep link
+ *      lucentbare://lab/<screen>, on iOS with the launch argument
+ *      `-lucentTab lab/<screen>` (the simulator asks to confirm a link that
  *      `simctl openurl` opens, and nobody is there to confirm it);
- *   3. follows the lines the screen logs, LUCENT_PROGRESS after each case and
- *      LUCENT_SUMMARY with its verdict (`LUCENT_SUMMARY tests 70/70 passed`).
+ *   3. follows the lines the screen logs, LUCENT_PROGRESS after each check
+ *      and LUCENT_SUMMARY with its verdict (`LUCENT_SUMMARY tests 70/70
+ *      passed`), before opening the next.
  *
  *   node scripts/device-check.ts ios --app <BareExample.app>
  *   node scripts/device-check.ts android --apk <app-debug.apk>
@@ -32,6 +35,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
+const escaped = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export interface Verdict {
   passed: number;
   total: number;
@@ -39,10 +44,11 @@ export interface Verdict {
   line: string;
 }
 
-/** The last Tests verdict in a device log, if the screen got that far. */
-export function lastVerdict(log: string): Verdict | undefined {
+/** The last verdict of `screen` in a device log, if the screen got that far. */
+export function lastVerdict(log: string, screen = "tests"): Verdict | undefined {
   let found: Verdict | undefined;
-  for (const m of log.matchAll(/LUCENT_SUMMARY tests (\d+)\/(\d+) passed[^\n]*/g)) {
+  const line = new RegExp(`LUCENT_SUMMARY ${escaped(screen)} (\\d+)\\/(\\d+) passed[^\\n]*`, "g");
+  for (const m of log.matchAll(line)) {
     const passed = Number(m[1]);
     const total = Number(m[2]);
     found = { passed, total, ok: total > 0 && passed === total, line: m[0].trim() };
@@ -58,10 +64,11 @@ export interface Progress {
   pass?: boolean;
 }
 
-/** How far the last Tests run got: `LUCENT_PROGRESS tests 5/70 closures ok 12ms`. */
-export function lastProgress(log: string): Progress | undefined {
+/** How far the last run of `screen` got: `LUCENT_PROGRESS tests 5/70 closures ok 12ms`. */
+export function lastProgress(log: string, screen = "tests"): Progress | undefined {
   let found: Progress | undefined;
-  for (const m of log.matchAll(/LUCENT_PROGRESS tests (\d+)\/(\d+) ([^\n]*)/g)) {
+  const line = new RegExp(`LUCENT_PROGRESS ${escaped(screen)} (\\d+)\\/(\\d+) ([^\\n]*)`, "g");
+  for (const m of log.matchAll(line)) {
     const done = Number(m[1]);
     const total = Number(m[2]);
     const c = m[3]!.trim().match(/^(.*) (ok|FAILED)(?: \d+ms)?$/);
@@ -84,8 +91,6 @@ const CRASH =
 /** Lines that say JavaScript failed: a red box, a fatal JS error, a bundle that didn't load. */
 const JS_ERROR =
   /RedBox|RCTFatal|Unhandled JS Exception|Uncaught (Error|TypeError|ReferenceError)|E ReactNativeJS|Could not connect to (the )?development server|Unable to load script|No (script|bundle) URL|Invariant Violation|SyntaxError:|TypeError:|ReferenceError:|Requiring unknown module|Packager status check/;
-
-const escaped = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** The app's own lines: Lucent, React Native, JavaScript, crashes, its errors. */
 const appLine = (app: { id: string; process: string }) =>
@@ -181,6 +186,8 @@ export type Stop = "verdict" | "timeout" | "exited" | "stalled" | "no-start";
 
 export interface Facts {
   platform: "ios" | "android";
+  /** The Lab screen that failed: "tests" when left out. */
+  lab?: string;
   stop: Stop;
   /** Minutes waited: since the app opened, or for a stalled run since its last case. */
   minutes: number;
@@ -204,25 +211,30 @@ const minutes = (m: number) => {
   return `${n} minute${n === 1 ? "" : "s"}`;
 };
 
+/** "Tests" for the "tests" screen. */
+const titled = (id: string) => `${id.charAt(0).toUpperCase()}${id.slice(1)}`;
+
 /** A short account of a failed run: the first line says why, the others what was seen. */
 export function diagnose(f: Facts): string[] {
+  const lab = f.lab ?? "tests";
+  const screen = `${titled(lab)} screen`;
   const at = f.progress?.name
     ? `after case ${f.progress.done}/${f.progress.total} (${f.progress.name})`
     : f.progress
       ? "before its first case finished"
-      : "before the Tests screen started a run";
+      : `before the ${screen} started a run`;
   let why: string;
   if (f.verdict && !f.verdict.ok)
-    why = `The Tests screen failed: ${f.verdict.line.replace(/^LUCENT_SUMMARY tests /, "")}`;
+    why = `The ${screen} failed: ${f.verdict.line.replace(`LUCENT_SUMMARY ${lab} `, "")}`;
   else if (f.crash.length > 0) why = `The app crashed ${at}: ${f.crash[0]!.trim()}`;
   else if (f.stop === "exited" || f.running === false)
     why = `The app exited ${at}, with no crash in the log`;
   else if (!f.progress && f.metro !== false && !f.metroUp)
-    why = "Metro stopped answering on localhost:8081, and the Tests screen never started a run";
+    why = `Metro stopped answering on localhost:8081, and the ${screen} never started a run`;
   else if (!f.progress && f.jsErrors.length > 0)
-    why = `The Tests screen never started a run; JavaScript failed: ${f.jsErrors[0]!.trim()}`;
+    why = `The ${screen} never started a run; JavaScript failed: ${f.jsErrors[0]!.trim()}`;
   else if (!f.progress)
-    why = `The Tests screen never started a run in ${minutes(f.minutes)} (no LUCENT_PROGRESS line): the bundle didn't load, the screen didn't open, or Lucent's console doesn't reach the device log`;
+    why = `The ${screen} never started a run in ${minutes(f.minutes)} (no LUCENT_PROGRESS line): the bundle didn't load, the screen didn't open, or Lucent's console doesn't reach the device log`;
   else if (f.stop === "stalled")
     why = `The run stopped moving ${at}: no case finished for ${minutes(f.minutes)}`;
   else
@@ -286,6 +298,19 @@ const BARE_EXAMPLE = {
   process: "BareExample",
 };
 
+/** A Lab screen a run opens, and how. */
+export interface Screen {
+  /** Its id, which its LUCENT_PROGRESS and LUCENT_SUMMARY lines name. */
+  id: string;
+  /** iOS: the launch arguments that open it. */
+  launchArgs: string[];
+  /** Android: the deep link that opens it; none opens the launcher activity. */
+  url?: string;
+}
+
+/** The bare example's screens a run checks, in order: every end-to-end case, then the platform's. */
+const BARE_SCREENS = ["tests", "platform"];
+
 /** The app a run checks, and how it is opened. */
 export interface Target {
   platform: "ios" | "android";
@@ -295,17 +320,16 @@ export interface Target {
   id: string;
   /** Its process: the executable's name (iOS logs and crash reports). */
   process: string;
-  /** iOS: the launch arguments. */
-  launchArgs: string[];
-  /** Android: the deep link that opens it; none opens its launcher activity. */
-  url?: string;
+  /** The screens it opens, one after the other. */
+  screens: Screen[];
   /** Whether the build loads its bundle from Metro (a Debug build). */
   metro: boolean;
 }
 
 /**
  * The run's target from the command line. Without --id, the bare example's
- * Tests screen; with --id, that app opened as its launcher opens it.
+ * Tests and Platform screens; with --id, that app's Tests screen, opened as
+ * its launcher opens it.
  */
 export function parseTarget(argv: string[]): Target {
   const { values, positionals } = parseArgs({
@@ -328,31 +352,26 @@ export function parseTarget(argv: string[]): Target {
     );
   const metro = !values["no-metro"];
   if (!values.id) {
-    return platform === "ios"
-      ? {
-          platform,
-          artifact,
-          id: BARE_EXAMPLE.id,
-          process: BARE_EXAMPLE.process,
-          launchArgs: ["-lucentTab", "lab/tests"],
-          metro,
-        }
-      : {
-          platform,
-          artifact,
-          id: BARE_EXAMPLE.package,
-          process: BARE_EXAMPLE.process,
-          launchArgs: [],
-          url: "lucentbare://lab/tests",
-          metro,
-        };
+    const screens = BARE_SCREENS.map((id) =>
+      platform === "ios"
+        ? { id, launchArgs: ["-lucentTab", `lab/${id}`] }
+        : { id, launchArgs: [], url: `lucentbare://lab/${id}` },
+    );
+    return {
+      platform,
+      artifact,
+      id: platform === "ios" ? BARE_EXAMPLE.id : BARE_EXAMPLE.package,
+      process: BARE_EXAMPLE.process,
+      screens,
+      metro,
+    };
   }
   return {
     platform,
     artifact,
     id: values.id,
     process: values.process ?? path.basename(artifact).replace(/\.(app|apk)$/, ""),
-    launchArgs: [],
+    screens: [{ id: "tests", launchArgs: [] }],
     metro,
   };
 }
@@ -407,7 +426,7 @@ async function waitForMetro(platform: string): Promise<void> {
 
 interface Device {
   install(): void;
-  open(): void;
+  open(screen: Screen): void;
   /** The Lucent lines of the device log since the app opened (LUCENT_PROGRESS, LUCENT_SUMMARY). */
   lucent(): string;
   /** The app's whole log, crash buffers included. */
@@ -449,7 +468,7 @@ function ios(target: Target): Device {
   const reports = path.join(process.env.HOME ?? "", "Library/Logs/DiagnosticReports");
   return {
     install: () => sh("xcrun", ["simctl", "install", sim.udid, target.artifact]),
-    open: () =>
+    open: (screen) =>
       console.log(
         sh("xcrun", [
           "simctl",
@@ -457,7 +476,7 @@ function ios(target: Target): Device {
           "--terminate-running-process",
           sim.udid,
           target.id,
-          ...target.launchArgs,
+          ...screen.launchArgs,
         ]).trim(),
       ),
     lucent: () => show('eventMessage CONTAINS "LUCENT_"'),
@@ -505,9 +524,10 @@ function android(target: Target): Device {
       sh("adb", ["install", "-r", target.artifact]);
       sh("adb", ["logcat", "-b", "all", "-c"], true);
     },
-    open: () => {
-      const { url } = target;
-      // A deep link opens a screen; without one, the launcher's intent opens the app.
+    open: (screen) => {
+      const { url } = screen;
+      // A deep link opens a screen, in the app already running too; without one, the launcher's
+      // intent opens the app.
       const out = url
         ? sh("adb", [
             "shell",
@@ -613,9 +633,18 @@ async function main(): Promise<boolean> {
   if (target.metro) await waitForMetro(platform);
   const device = platform === "ios" ? ios(target) : android(target);
   device.install();
-  device.open();
+  for (const screen of target.screens) if (!(await check(target, device, screen))) return false;
+  return true;
+}
+
+/** Opens `screen` and waits for its verdict: true when every check passed, else a report of why not. */
+async function check(target: Target, device: Device, screen: Screen): Promise<boolean> {
+  const { platform } = target;
+  device.open(screen);
   const opened = Date.now();
-  console.log(`Opened ${target.id}; waiting up to ${TIMEOUT_MS / 60000} minutes for its verdict.`);
+  console.log(
+    `Opened ${target.id} (${screen.id}); waiting up to ${TIMEOUT_MS / 60000} minutes for its verdict.`,
+  );
 
   let verdict: Verdict | undefined;
   let progress: Progress | undefined;
@@ -625,14 +654,14 @@ async function main(): Promise<boolean> {
   while (Date.now() < opened + TIMEOUT_MS) {
     await sleep(POLL_MS);
     const lucent = device.lucent();
-    verdict = lastVerdict(lucent);
+    verdict = lastVerdict(lucent, screen.id);
     if (verdict) {
       stop = "verdict";
       break;
     }
-    const now = lastProgress(lucent);
+    const now = lastProgress(lucent, screen.id);
     if (now && (now.done !== progress?.done || now.total !== progress?.total)) {
-      console.log(`Progress: ${describeProgress(now)}`);
+      console.log(`Progress (${screen.id}): ${describeProgress(now)}`);
       moved = Date.now();
     }
     progress = now;
@@ -662,6 +691,7 @@ async function main(): Promise<boolean> {
   const evidence = device.evidence();
   const facts: Facts = {
     platform,
+    lab: screen.id,
     stop,
     minutes: (Date.now() - (stop === "stalled" ? moved : opened)) / 60_000,
     verdict,

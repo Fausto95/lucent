@@ -436,8 +436,8 @@ hold its module's actor.
   events emitted from executor code (#208), trace (#209) and the host
   bench (#210: `executor_test.cpp`, p99 under 2 ms while the actor is
   held 500 ms, no actor waits), and an `on()` kept in a `const` (#215).
-  Frames through an executor on the simulator and the emulator are
-  left. Decided as
+  The device runs' Platform screen checks frames through an executor
+  (#225); a device run that passes it is left. Decided as
   [0078](decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md),
   [0081](decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md),
   [0082](decisions/0082-objects-go-on-an-executor-where-they-are-made.md),
@@ -482,8 +482,10 @@ callbacks still take it, on `serialQueue(label)`'s queue or any other.
 - [x] Semantics: the concurrency model gains executors and channels.
 
 **Done when:** the bench shows no actor wait on the executor thread, and
-camera frames reach a channel through an executor on the simulator and the
-emulator.
+frames reach a channel through an executor in the device runs' Platform
+screen. On the emulator they are an `ImageReader`'s, adopted uncopied. The
+simulator has no camera, so there an operation queue on the executor's
+queue makes them.
 
 <a id="t110"></a>
 
@@ -550,7 +552,11 @@ describes.
 - [ ] Tests: `lifecycle_test.cpp` merges answers. The example apps open a
       deep link and read a push token in their device-check runs on the
       simulator and emulator (a fake registration exercises the token
-      path).
+      path). The bare example's Platform screen, which the device runs
+      open after the Tests screen, opens a deep link to the app, registers
+      for a push token (an unsigned simulator build answers why it has
+      none), and presses back and rotates on Android (#225); a device run
+      is left.
 
 **Done when:** both example apps receive each event in their device-check
 runs.
