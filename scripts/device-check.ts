@@ -389,7 +389,7 @@ const seconds = (name: string, fallback: number) => Number(process.env[name] ?? 
 const TIMEOUT_MS = seconds("DEVICE_CHECK_TIMEOUT_S", 900);
 /** Until the screen starts its run: Metro serves the bundle, the app opens the screen. */
 const START_MS = seconds("DEVICE_CHECK_START_S", 480);
-/** Between two finished cases (a case gives up after 10 seconds). */
+/** Between two finished cases (a case gives up after a minute). */
 const STALL_MS = seconds("DEVICE_CHECK_STALL_S", 180);
 const POLL_MS = 10_000;
 

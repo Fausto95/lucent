@@ -42,14 +42,18 @@ export async function runCase(c: TestCase): Promise<CaseResult> {
     error = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
   }
 
-  // Async cases print as their promises settle.
-  const deadline = Date.now() + 10000;
+  // Async cases print as their promises settle; a slow device (an emulator
+  // running a Debug build) gets a minute.
+  const deadline = Date.now() + 60000;
   if (!error) while (lines.length < c.expected.length && Date.now() < deadline) await sleep(20);
   await sleep(50);
 
   const pass =
     !error && lines.length === c.expected.length && lines.every((l, i) => l === c.expected[i]);
-  const why = pass ? undefined : (error ?? firstDifference(lines, c.expected));
+  const why = pass
+    ? undefined
+    : (error ??
+      `${firstDifference(lines, c.expected)} (${lines.length} lines in ${Date.now() - start} ms)`);
 
   return { name: c.name, pass, lines, expected: c.expected, error, why, ms: Date.now() - start };
 }
