@@ -160,8 +160,6 @@ generated from this file.
   ([T141](tasks.md#t141)). A pod binds through the module it defines:
   `DEFINES_MODULE`, modular headers, a prebuilt framework, or
   `use_frameworks!`.
-- iOS has no build phase that runs `lucent build`: an Xcode build is
-  current after Metro's watcher or `pod install` ran ([T141](tasks.md#t141)).
 - An Android app with product flavors binds the libraries of its first
   debug variant by name. A library only another flavor depends on can't be
   bound.

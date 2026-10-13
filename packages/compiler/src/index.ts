@@ -139,6 +139,8 @@ export {
   deferredLibraryGradle,
   inputsKey,
   packagePods,
+  POD_INSTALL_RECORD,
+  podSourcesDigest,
   upToDate,
   writeNativePackage,
   writeWhole,

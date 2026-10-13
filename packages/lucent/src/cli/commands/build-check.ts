@@ -1,8 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Diagnostic, Target } from "@lucent-lang/compiler";
+import {
+  type Diagnostic,
+  POD_INSTALL_RECORD,
+  podSourcesDigest,
+  type Target,
+} from "@lucent-lang/compiler";
 import type { Invocation } from "../args.ts";
-import { ACTION_TEXT, filesText } from "../changes.ts";
+import { ACTION_TEXT, filesText, needsPodInstall } from "../changes.ts";
+import type { PendingAction } from "../build-graph.ts";
 import { buildProject, type BuildOutcome, nextText, plural } from "../pipeline.ts";
 import type { Notice } from "../project.ts";
 import { renderDiagnostic } from "../ui/diagnostic.ts";
@@ -27,12 +33,44 @@ export function parsePlatforms(flag: string | boolean | undefined): Target[] | u
   return [...new Set(given)] as Target[];
 }
 
+/**
+ * A diagnostic as Xcode reads a script's output: an issue at its file and
+ * line, which the issue navigator opens.
+ */
+export function xcodeIssue(root: string, d: Diagnostic): string {
+  const where = d.file ? `${path.resolve(root, d.file)}:${d.line}:${d.column}: ` : "";
+
+  return `${where}${d.severity === "warning" ? "warning" : "error"}: ${d.code}: ${d.message}`;
+}
+
+/**
+ * Why Xcode's build would miss what this build wrote: LucentNative's
+ * podspec or sources differ from what pod install saw, as the podspec
+ * recorded it (POD_INSTALL_RECORD), and CocoaPods lists a pod's files at pod
+ * install. Undefined when they don't, or when nothing was recorded.
+ */
+export function podInstallStale(outDir: string, actions: PendingAction[]): string | undefined {
+  const record = path.join(outDir, POD_INSTALL_RECORD);
+  if (!fs.existsSync(record)) return undefined;
+
+  const now = podSourcesDigest(outDir);
+  if (!now || fs.readFileSync(record, "utf8").trim() === now) return undefined;
+
+  const changed = actions.filter((a) => a.kind === "relink" && a.targets.includes("ios"));
+  const files = changed.flatMap((a) => a.files);
+  const which = needsPodInstall(actions) && files.length ? ` (${filesText(files, 3)})` : "";
+
+  return `the native package's sources or podspec changed since pod install${which}, and Xcode builds the files pod install listed: run pod install in ios/, then build again`;
+}
+
 /** `lucent build` and `lucent check`: check always, write the native package for build. */
 export async function buildOrCheck(
   command: "build" | "check",
   { root, flags, out }: Invocation,
 ): Promise<number> {
   const theme = out.theme;
+  // Run by LucentNative's build phase in Xcode (the podspec's script_phase).
+  const xcode = command === "build" && process.env.LUCENT_XCODE_BUILD === "1";
   const sources = new Map<string, string | undefined>();
   const notices: Notice[] = [];
   const notify = (n: Notice) => {
@@ -106,6 +144,7 @@ export async function buildOrCheck(
   }
   if (result.fatal) {
     out.error(`${theme.error(theme.symbols.fail)} ${result.fatal}`);
+    if (xcode) out.error(`error: ${result.fatal}`);
     return 1;
   }
   if (!result.ok) {
@@ -121,6 +160,18 @@ export async function buildOrCheck(
     out.error("");
     for (const d of result.warnings)
       out.error(`${renderDiagnostic(d, d.file ? source(d.file) : undefined, theme)}\n`);
+    if (xcode) for (const d of result.warnings) out.error(xcodeIssue(root, d));
+  }
+  if (xcode) {
+    const stale = podInstallStale(
+      path.resolve(root, typeof flags.out === "string" ? flags.out : ".lucent/native"),
+      result.actions,
+    );
+    if (stale) {
+      out.error(`${theme.error(theme.symbols.fail)} ${stale}`);
+      out.error(`error: ${stale}`);
+      return 1;
+    }
   }
   if (command === "check") {
     out.print(
@@ -161,6 +212,7 @@ export async function buildOrCheck(
     out.error("");
     for (const d of diagnostics)
       out.error(`${renderDiagnostic(d, d.file ? source(d.file) : undefined, theme)}\n`);
+    if (xcode) for (const d of diagnostics) out.error(xcodeIssue(root, d));
     const errors = diagnostics.filter((d) => d.severity !== "warning").length;
     const summary = `${plural(errors, "error")} ${theme.dim("·")} ${plural(modules, "module")} ${theme.dim("·")} ${duration(ms)}`;
     out.error(`  ${theme.error(summary)}${build ? theme.dim("  no code was generated") : ""}`);

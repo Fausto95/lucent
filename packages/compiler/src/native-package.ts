@@ -136,6 +136,54 @@ export function upToDate(file: string, key: string): CheckReads | undefined {
   return checkRecord(key, reads).inputs === last.inputs ? reads : undefined;
 }
 
+/**
+ * Where LucentNative.podspec records, at pod install, the digest of what
+ * CocoaPods saw (podSourcesDigest): in the native package, which the build
+ * keeps.
+ */
+export const POD_INSTALL_RECORD = ".pod-install";
+
+/** The sources a pod's digest lists: Dir.glob's `{cpp,ios,packages}/**\/*.{c,cc,cpp,m,mm,swift}`. */
+const POD_DIGEST_SOURCE = /\.(c|cc|cpp|m|mm|swift)$/;
+
+/**
+ * The digest LucentNative.podspec records at pod install, of the native
+ * package as it is now: the podspec's bytes, then the sources CocoaPods
+ * lists for the pod (the other platforms' generated code left out), sorted,
+ * each after a newline. A digest unlike the record's means the pod's files
+ * changed since pod install, which Xcode's build would not see. Hidden
+ * files and directories are left out, as Ruby's Dir.glob leaves them, and
+ * a symbolic link to a directory is not followed. Undefined without a
+ * podspec.
+ */
+export function podSourcesDigest(nativeDir: string): string | undefined {
+  const podspecFile = path.join(nativeDir, "LucentNative.podspec");
+  if (!fs.existsSync(podspecFile)) return undefined;
+
+  const sources: string[] = [];
+  const walk = (rel: string) => {
+    for (const e of fs.readdirSync(path.join(nativeDir, rel), { withFileTypes: true })) {
+      if (e.name.startsWith(".")) continue;
+      const file = `${rel}/${e.name}`;
+
+      if (e.isDirectory()) walk(file);
+      else if ((e.isFile() || e.isSymbolicLink()) && POD_DIGEST_SOURCE.test(e.name))
+        sources.push(file);
+    }
+  };
+
+  for (const top of ["cpp", "ios", "packages"])
+    if (fs.existsSync(path.join(nativeDir, top))) walk(top);
+
+  const listed = sources
+    .filter((f) => !f.startsWith("cpp/generated/android/") && !f.startsWith("cpp/generated/host/"))
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const digest = crypto.createHash("sha256").update(fs.readFileSync(podspecFile));
+
+  for (const f of listed) digest.update(`\n${f}`);
+  return digest.digest("hex");
+}
+
 function listFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
   const out: string[] = [];
@@ -412,10 +460,15 @@ export function writeNativePackage(
   // What the app's Lucent packages contribute, and which package each need came from.
   if (native) want.set(path.join(outDir, "resolved.json"), `${JSON.stringify(native, null, 2)}\n`);
 
-  // Gradle builds android/ in place: its outputs are not the package's files.
+  // Gradle builds android/ in place: its outputs are not the package's files. Nor is what the
+  // podspec records at pod install (POD_INSTALL_RECORD).
   const buildOutput = /^android[\\/](build|\.cxx|\.gradle)[\\/]/;
   const existing = new Set(
-    listFiles(outDir).filter((f) => !buildOutput.test(path.relative(outDir, f))),
+    listFiles(outDir).filter((f) => {
+      const rel = path.relative(outDir, f);
+
+      return !buildOutput.test(rel) && rel !== POD_INSTALL_RECORD;
+    }),
   );
   const before = new Set(existing);
 

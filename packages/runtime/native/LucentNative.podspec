@@ -8,6 +8,24 @@ lucent_root = File.expand_path(lucent_project, __dir__)
 lucent_root = File.realpath(lucent_root) if File.exist?(lucent_root)
 lucent_prefix_map = "-ffile-prefix-map=\"#{lucent_root}\"=."
 
+# This package's directory relative to the project, for the build phase
+# below: named when lucent build was told another one than .lucent/native.
+require "pathname"
+lucent_out = Pathname.new(File.realpath(__dir__)).relative_path_from(Pathname.new(lucent_root)).to_s
+lucent_out_flag = lucent_out == ".lucent/native" ? "" : " --out \"#{lucent_out}\""
+
+# What pod install saw: this podspec and the sources it lists, as a digest.
+# CocoaPods lists a pod's files at pod install, so lucent build, run by the
+# build phase below, fails when either changed since: the build would miss
+# a new file. lucent build computes the same digest (podSourcesDigest).
+# Without the record (a read-only package), the build can't tell.
+require "digest"
+lucent_sources = Dir.glob("{cpp,ios,packages}/**/*.{c,cc,cpp,m,mm,swift}", base: __dir__)
+  .reject { |f| f.start_with?("cpp/generated/android/", "cpp/generated/host/") }
+  .sort
+lucent_record = Digest::SHA256.hexdigest(([File.binread(__FILE__)] + lucent_sources.map(&:b)).join("\n".b))
+File.write(File.join(__dir__, ".pod-install"), "#{lucent_record}\n") rescue nil
+
 Pod::Spec.new do |s|
   s.name         = "LucentNative"
   s.version      = "0.1.0"
@@ -54,6 +72,31 @@ Pod::Spec.new do |s|
     # itself at +load, so nothing is looked up by name.
     "OTHER_CFLAGS" => "$(inherited) -w -fvisibility=hidden #{lucent_prefix_map}",
     "OTHER_CPLUSPLUSFLAGS" => "$(inherited) #{lucent_prefix_map} -ffp-contract=off -fexceptions -frtti -fvisibility=hidden -fvisibility-inlines-hidden -Wno-gnu-statement-expression -Wno-unused-label -Wno-parentheses-equality -Wno-comma",
+    # The build phase below reads and writes the project's files, which a sandbox would refuse.
+    "ENABLE_USER_SCRIPT_SANDBOXING" => "NO",
+  }
+
+  # Every build of the app runs lucent build first, as Android's lucentBuild
+  # task does: the native package matches the *.lucent.ts sources however
+  # the app is built (Xcode, xcodebuild, CI), with Metro running or not.
+  # React Native's .xcode.env names node, which Xcode's PATH may not have.
+  # Xcode's SDK and deployment target settings are left out of the build:
+  # clang would take them as its own.
+  s.script_phase = {
+    :name => "Lucent build",
+    :execution_position => :before_compile,
+    :always_out_of_date => "1",
+    :script => <<~SH,
+      set -e
+      if [ -f "$PODS_ROOT/../.xcode.env" ]; then . "$PODS_ROOT/../.xcode.env"; fi
+      if [ -f "$PODS_ROOT/../.xcode.env.local" ]; then . "$PODS_ROOT/../.xcode.env.local"; fi
+      NODE="${NODE_BINARY:-node}"
+      cd "$PODS_TARGET_SRCROOT/#{lucent_project}"
+      LUCENT_PACKAGE=$("$NODE" --print "require.resolve('@lucent-lang/lucent/package.json')")
+      env -u SDKROOT -u IPHONEOS_DEPLOYMENT_TARGET -u MACOSX_DEPLOYMENT_TARGET -u TVOS_DEPLOYMENT_TARGET -u XROS_DEPLOYMENT_TARGET \\
+        LUCENT_XCODE_BUILD=1 LUCENT_NO_GRADLE=1 \\
+        "$NODE" "$(dirname "$LUCENT_PACKAGE")/bin/lucent.cjs" build#{lucent_out_flag}
+    SH
   }
 
   install_modules_dependencies(s)
