@@ -456,6 +456,28 @@ export async function buildProject(
   // Every platform asked for is left to a later build: the shared code is checked (host).
   if (platforms && !platforms.length) platforms = ["host"];
 
+  // iOS waits for its pods and nothing else is built here: pod install's build (the Podfile's
+  // lucent_post_install) compiles the modules. The native package is written without them: the
+  // runtime and build files pod install reads, and what the packages need (resolved.json),
+  // which the config plugin reads. No check runs: a host check refuses the platform views
+  // components return. Its manifest has no check, so the next build runs in full.
+  if (build && deferIos && platforms?.every((p) => p === "host")) {
+    graph.record("check", "check", "skipped", { detail: iosDeferReason });
+    writeNativePackage({ files: new Map(), proxies: new Map(), diagnostics: [] }, outDir, {
+      root,
+      native,
+      androidDeferred: deferAndroid,
+    });
+    steps.finish({
+      name: "check",
+      label: "Checked no module",
+      status: "skipped",
+      detail: iosDeferReason,
+    });
+
+    return outcome({ ok: true, modules: moduleSummary(files, []) });
+  }
+
   for (const { platform, reason } of skipped)
     if (lock?.targets.includes(platform))
       return lockProblem(`the SDK lock requires ${platform}, which this build skips: ${reason}`);

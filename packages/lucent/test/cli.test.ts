@@ -363,6 +363,11 @@ describe("a Lucent package's own pod", () => {
     expect(
       fs.readFileSync(path.join(root, ".lucent/native/LucentNative.podspec"), "utf8"),
     ).toContain('s.dependency "LucentAuthKit", "~> 1.0"');
+    // The native package pod install reads, with nothing compiled: the runtime, and what the
+    // packages need for the config plugin.
+    for (const file of ["cpp/lucent/prefix.h", "resolved.json", "manifest.json"])
+      expect(fs.existsSync(path.join(root, ".lucent/native", file))).toBe(true);
+    expect(fs.existsSync(path.join(root, ".lucent/native/cpp/generated"))).toBe(false);
   }, 600_000);
 
   it.skipIf(!ios)(
