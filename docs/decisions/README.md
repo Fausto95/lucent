@@ -26,6 +26,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 | [0092](0092-launch-runs-in-the-apps-launch-and-android-loads-lucent-by-itself.md)  | 2026-10-13 | Launch modules run in the app's launch; Android loads Lucent by itself      |
 | [0091](0091-entry-points-are-c-functions-named-for-their-export.md)                | 2026-10-13 | Entry points are C functions named for their export                         |
 | [0090](0090-module-state-resets-only-when-nothing-native-holds-it.md)              | 2026-10-13 | Module state starts at first use, resets only when nothing native holds it  |
+| [0087](0087-lucent-stands-in-front-of-the-apps-notification-delegate.md)           | 2026-10-13 | Lucent stands in front of the app's notification delegate                   |
 | [0086](0086-platform-memory-is-adopted-read-only-unless-asked.md)                  | 2026-10-13 | Platform memory is adopted read-only unless asked; NSData stays a copy      |
 | [0085](0085-a-const-keeps-one-platform-object-of-an-executor-callback.md)          | 2026-10-13 | A const keeps one platform object of an executor's callback                 |
 | [0084](0084-a-class-states-its-native-size-by-implementing-nativesized.md)         | 2026-10-13 | A class states its native size by implementing NativeSized                  |

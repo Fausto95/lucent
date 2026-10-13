@@ -137,6 +137,16 @@ const DELEGATE_EVENTS: Record<string, { fn: string; params: LType[]; ret: LType 
     ret: T.number,
   },
   relaunched: { fn: "onRelaunched", params: [T.string, T.string], ret: T.void },
+  willPresentNotification: {
+    fn: "onWillPresentNotification",
+    params: [T.string],
+    ret: { k: "array", e: T.string },
+  },
+  notificationResponse: {
+    fn: "onNotificationResponse",
+    params: [T.string, T.string, T.string],
+    ret: T.void,
+  },
 };
 
 /** The event an onAppEvent call names, when its type is a string literal. */

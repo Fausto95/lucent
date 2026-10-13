@@ -518,9 +518,13 @@ describes.
       first subscriber takes it: URLs, user activities, shortcuts and the
       push token (#217), and relaunch reasons through
       `onAppEvent("relaunched")` (#223).
-- [ ] `UNUserNotificationCenter`'s delegate (`willPresent`,
+- [x] `UNUserNotificationCenter`'s delegate (`willPresent`,
       `didReceive`) shared between modules, as Expo's notifications
-      module shares it.
+      module shares it: `onAppEvent("willPresentNotification")` and
+      `onAppEvent("notificationResponse")`, Lucent's delegate in front of
+      the app's
+      ([0087](decisions/0087-lucent-stands-in-front-of-the-apps-notification-delegate.md),
+      #224).
 - [ ] Android: first, which events module code already reaches through
       androidx's listeners on the current `ComponentActivity`
       (`onBackPressedDispatcher`, `addOnConfigurationChangedListener`,
