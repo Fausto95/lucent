@@ -26,14 +26,14 @@ export function summary(scores: number[]): Uint8Array {
 export async function poll(ready: () => Promise<boolean>, signal: AbortSignal): Promise<number> {
   let tries = 1;
   while (!(await ready())) {
-    await delay(500, signal); // in place of setTimeout
+    await delay(500, signal); // a timer that stops when the signal aborts
     tries++;
   }
   return tries;
 }
 ```
 
-`toSorted()` leaves `scores` as it was, `utf8Encode` stands in for `TextEncoder`, and `delay` for `setTimeout`. [Not available](/docs/api/language/built-ins/#not-available) lists the other replacements.
+`toSorted()` leaves `scores` as it was, `utf8Encode` stands in for `TextEncoder`, and `delay` waits as a promise. [Not available](/docs/api/language/built-ins/#not-available) lists the other replacements.
 
 ## Math
 
@@ -69,6 +69,8 @@ The operators on bigints are on [Statements](/docs/api/language/statements/#bigi
 | `Number(x)`                                                             | A number, string, boolean, bigint, `null` or `undefined`, or a union of those. A bigint rounds to the nearest number. |
 | `Boolean(x)`                                                            | Any value, by its truthiness.                                                                                         |
 | `BigInt(x)`                                                             | See [BigInt](/docs/api/language/built-ins/#bigint).                                                                   |
+| `setTimeout(f, ms?)`, `setInterval(f, ms?)`, `clearTimeout(id)`, `clearInterval(id)` | `f` runs as a turn of the context that started it, and timers due together run in the order they started (case `timers`). A reload clears a module's timers. Extra arguments for `f` aren't taken. |
+| `queueMicrotask(f)` | `f` runs after the current code, with the context's other microtasks. |
 
 `encodeURIComponent`, `decodeURIComponent`, `encodeURI` and `decodeURI` aren't available. Neither is `globalThis` ([LUCENT1001](/docs/api/diagnostics/#lucent1001)).
 
@@ -258,7 +260,6 @@ What JavaScript's built-ins lack has a native implementation in `lucent:core`. [
 
 | JavaScript                                         | Fails with               | Use instead                                                                                  |
 | -------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
-| `setTimeout`, `setInterval`                        | LUCENT9001: not declared | `await delay(ms, signal)` from `lucent:core`, in a loop for an interval                      |
 | `TextEncoder`, `TextDecoder`                       | LUCENT9001: not declared | `utf8Encode` and `utf8Decode` from `lucent:core`                                             |
 | `xs.flat()`                                        | LUCENT1003               | `xs.flatMap((x) => x)`                                                                       |
 | `Promise.race`, `Promise.any`                      | LUCENT1003               | None                                                                                         |
@@ -267,7 +268,6 @@ What JavaScript's built-ins lack has a native implementation in `lucent:core`. [
 | `Object.hasOwn(r, k)`                              | LUCENT1003               | `k in r`                                                                                     |
 | `Intl`, `toLocaleString()`                         | LUCENT2002, LUCENT1003   | `toFixed`, `padStart`, `toISOString` and the `Date` getters                                  |
 | `structuredClone(x)`                               | LUCENT9001: not declared | A spread or `slice()`, which copies one level                                                |
-| `queueMicrotask(f)`                                | LUCENT9001: not declared | `await Promise.resolve()`, then the code                                                     |
 | `fetch`                                            | LUCENT9001: not declared | Call it from JavaScript, or the platform's HTTP API through `lucent:ios` or `lucent:android` |
 | `eval`, `Reflect`, `globalThis`                    | LUCENT1003, LUCENT1001   | None                                                                                         |
 | `new Proxy(target, handler)`, `str.normalize()`    | LUCENT1003               | None; normalize the string in JavaScript before passing it                                   |

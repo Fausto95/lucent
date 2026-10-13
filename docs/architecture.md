@@ -544,8 +544,6 @@ in JavaScript. An `await` of a plain value doesn't suspend, a known gap
 continuation resumes on the context that registered it, so a coroutine
 stays on the context it started on.
 
-> **Planned:** timers ([T104](tasks.md#t104)).
-
 ### Execution contexts and actors
 
 An execution context (`execution.h`) runs turns in order. Each turn runs

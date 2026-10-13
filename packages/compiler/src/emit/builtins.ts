@@ -2390,6 +2390,28 @@ export function globalCall(
   const decl = sym.declarations?.[0];
   if (!decl || !decl.getSourceFile().isDeclarationFile) return undefined;
   switch (name) {
+    // Timers run on the calling context (timers.h).
+    case "setTimeout":
+    case "setInterval": {
+      const handler = em.exprAs(a[0]!, { k: "fn", params: [], ret: T.void });
+      const ms = optArg(em, node, 1, T.number, cpp.num("0.0")) ?? cpp.num("0.0");
+      return num(cpp.call("lucent::setTimer", [handler, ms, cpp.bool(name === "setInterval")]));
+    }
+    case "clearTimeout":
+    case "clearInterval":
+      return {
+        c: cpp.call("lucent::clearTimer", [
+          a[0] ? em.exprAs(a[0], unionOf([T.number, T.undefined])) : cpp.id("lucent::undefined"),
+        ]),
+        t: T.undefined,
+      };
+    case "queueMicrotask":
+      return {
+        c: cpp.call("lucent::queueMicrotask", [
+          em.exprAs(a[0]!, { k: "fn", params: [], ret: T.void }),
+        ]),
+        t: T.undefined,
+      };
     case "parseInt":
       return num(
         cpp.call("lucent::parseInt", [

@@ -504,6 +504,48 @@ static void delaysResumeOnTheirContext() {
   a->shutdown();
 }
 
+static void timersRunOnTheirContextAndEndWithItsScope() {
+  auto a = IsolatedContext::create();
+  std::mutex m;
+  std::vector<std::string> log;
+  std::atomic<bool> done{false};
+  std::atomic<bool> allOnA{true};
+  auto record = [&](const char* what) {
+    std::lock_guard<std::mutex> lock(m);
+    log.push_back(what);
+    if (!a->isCurrent()) allOnA = false;
+  };
+
+  // Timers by due time, those due together in order; a microtask first; a cleared one never.
+  inside(*a, [&] {
+    setTimer(Fn<void()>([&] { record("ten"); }), 10, false);
+    setTimer(Fn<void()>([&] { record("zero"); }), 0, false);
+    double cleared = setTimer(Fn<void()>([&] { record("never"); }), 5, false);
+    setTimer(Fn<void()>([&] { record("nan"); }), std::nan(""), false);
+    clearTimer(Opt<double>(cleared));
+    clearTimer(Opt<double>(undefined));
+    queueMicrotask(Fn<void()>([&] { record("micro"); }));
+    setTimer(Fn<void()>([&] { done = true; }), 20, false);
+  });
+
+  CHECK(within(2000, [&] { return done.load(); }));
+  CHECK((log == std::vector<std::string>{"micro", "zero", "nan", "ten"}));
+  CHECK(allOnA);
+
+  // An interval runs until its scope goes (a reload, for module code), as clearInterval would stop it.
+  std::atomic<int> ticks{0};
+  inside(*a, [&] { setTimer(Fn<void()>([&] { ticks++; }), 1, true); });
+  CHECK(within(2000, [&] { return ticks.load() >= 3; }));
+  a->root()->dispose();
+  std::this_thread::sleep_for(std::chrono::milliseconds(30));
+  int seen = ticks.load();
+  std::this_thread::sleep_for(std::chrono::milliseconds(30));
+  CHECK(ticks.load() == seen);
+  CHECK(pendingTimers() == 0);
+
+  a->shutdown();
+}
+
 static void promiseAllGathersAcrossContexts() {
   auto a = IsolatedContext::create();
   Promise<double> fromModule;
@@ -1122,6 +1164,7 @@ int main() {
   settlementElsewhereIsPostedToTheOwner();
   registrationAndSettlementRace();
   delaysResumeOnTheirContext();
+  timersRunOnTheirContextAndEndWithItsScope();
   promiseAllGathersAcrossContexts();
   settlementAfterShutdownIsDropped();
   mainCallbacksAvoidTheLucentLock();
