@@ -32,7 +32,7 @@ what became of each one that is still linked or was still open.
 | [T104](#t104)            | Timers and `queueMicrotask`                                | ready                                                           |
 | [T105](#t105)            | Web APIs that shared code uses                             | ready                                                           |
 | [T106](#t106)            | Language gaps module code meets                            | ready                                                           |
-| [T107](#t107)            | Native objects: memory pressure and native handles         | in progress (#175, #180, #183 merged, as T73)                   |
+| [T107](#t107)            | Native objects: memory pressure and native handles         | in progress (#175, #180, #183 as T73; #211 merged)              |
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | in progress (#163, #165, #167, #168 merged, as T72)             |
 | [T109](#t109)            | Executors for platform callbacks                           | in progress (#181, #182, #187, #197 as T74; #206–#208 merged)   |
 | [T110](#t110)            | App-delegate and Activity events                           | ready (decision 0076)                                           |
@@ -355,18 +355,18 @@ code as typed handles.
 
 - **Status:** in progress: `NativeHandle`'s type, its JSI conversion and
   the `opaque-values` and `native-handles` cases are merged (#175, #180,
-  #183, as T73).
+  #183, as T73), and so is memory pressure (#211,
+  [0084](decisions/0084-a-class-states-its-native-size-by-implementing-nativesized.md)).
 - **Area:** runtime, bindings.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3, V4.
 - **Where:** `handle.h`, `jsi/convert.cpp`, `lib/sdk/ios.d.ts`,
   `lib/sdk/android.d.ts`.
 
-Today only a moved `ArrayBuffer` reports its size to the collector
-(`convert.cpp`). A `NativeBuffer`'s JavaScript object and class instances
-report none.
+A moved `ArrayBuffer`, a `NativeBuffer` and a `NativeSized` instance
+report their size to the collector.
 
-- [ ] Memory pressure: a decision on how a class states its native size
+- [x] Memory pressure: a decision on how a class states its native size
       (a member it declares, read when an instance crosses and when it
       changes), then `setExternalMemoryPressure` on its JavaScript object.
       `NativeBuffer` reports its size the same way.

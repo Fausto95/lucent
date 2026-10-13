@@ -1,5 +1,7 @@
 #include "host.h"
 
+#include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -647,16 +649,39 @@ void defineClass(jsi::Runtime& rt, Host& host, jsi::Object& exports, const char*
   exports.setProperty(rt, name, factory);
 }
 
+void reportNativeSize(jsi::Runtime& rt, const jsi::Object& object, InstanceState& state) {
+  // Hermes takes up to 32 bits of external memory per object, and throws past that.
+  size_t size = std::min<size_t>(state.object ? state.object->lucentNativeSize_() : 0, UINT32_MAX);
+  if (size == state.reported) return;
+
+  object.setExternalMemoryPressure(rt, size);
+  state.reported = size;
+}
+
+void reportNativeSize(jsi::Runtime& rt, const jsi::Value& self) {
+  if (!self.isObject()) return;
+  jsi::Object o = self.getObject(rt);
+  if (!o.hasNativeState(rt)) return;
+  if (auto s = std::dynamic_pointer_cast<InstanceState>(o.getNativeState(rt)); s && s->host->alive())
+    reportNativeSize(rt, o, *s);
+}
+
 jsi::Value Host::wrap(jsi::Runtime& rt, const Ref<Object>& instance, const char* key, PrototypeInit init) {
   if (!instance) return jsi::Value::null();
   auto it = identities_.find(instance.get());
   if (it != identities_.end()) {
     jsi::Value v = it->second.lock(rt);
-    if (v.isObject()) return v;
+    // Each crossing tells the collector the size it holds now.
+    if (v.isObject()) {
+      reportNativeSize(rt, v);
+      return v;
+    }
   }
   jsi::Object& proto = prototype(rt, key, init);
   jsi::Object obj = jsi::Object::create(rt, jsi::Value(rt, proto));
-  obj.setNativeState(rt, std::make_shared<InstanceState>(instance, shared_from_this()));
+  auto state = std::make_shared<InstanceState>(instance, shared_from_this());
+  obj.setNativeState(rt, state);
+  reportNativeSize(rt, obj, *state);
   // Periodically drop cache entries whose JS objects were collected.
   if (++identitySweep_ >= 256) {
     identitySweep_ = 0;

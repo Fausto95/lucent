@@ -792,8 +792,11 @@ A debug build names each cycle it finds at a teardown, once, in the
 platform log (`refs.h`). It lists the fields that close it, and names the
 last as the one to hold weakly. The next runtime writes each as a
 `console.warn`, and `__lucentDebug.snapshot()` lists them as `cycles`.
-`NativeBuffer`s report their size to JavaScript's collector; other
-instances can't yet ([T107](tasks.md#t107)).
+A `NativeBuffer`, and an instance of a class implementing `NativeSized`
+from `lucent:core`, report the native memory they hold to JavaScript's
+collector: when they cross to JavaScript, and after a call from
+JavaScript changes it
+([0084](decisions/0084-a-class-states-its-native-size-by-implementing-nativesized.md)).
 
 `new WeakRef(target)` holds a class instance, interface value or object,
 freed with its last strong reference: `deref()` then gives `undefined` at

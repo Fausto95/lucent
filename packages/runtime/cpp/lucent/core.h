@@ -16,6 +16,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <tuple>
@@ -28,6 +29,15 @@ namespace lucent {
 
 template <class T>
 using Ref = std::shared_ptr<T>;
+
+/// A `nativeSize` (lucent:core's NativeSized) as a byte count: what is not
+/// a positive number is 0, and a size past what memory holds is the most.
+inline size_t nativeSizeOf(double bytes) {
+  if (!(bytes > 0)) return 0;
+  constexpr size_t most = std::numeric_limits<size_t>::max();
+  if (bytes >= static_cast<double>(most)) return most;
+  return static_cast<size_t>(bytes);
+}
 
 /// What indexBelow gives for a number that is not an index below its limit.
 inline constexpr size_t kNoIndex = SIZE_MAX;
@@ -95,6 +105,12 @@ struct Object : std::enable_shared_from_this<Object> {
   /// Generated classes and structs report their fields; the runtime's
   /// objects hold none worth naming.
   virtual void lucentRefs_(debug::RefSink&) const {}
+
+  /// The bytes of native memory it holds, which JavaScript's collector
+  /// counts toward its JavaScript object (lucent:core's NativeSized): a
+  /// native buffer's size, or what a class's `nativeSize` says, read in its
+  /// module. 0 for an object that holds none. Called on the JS thread.
+  virtual size_t lucentNativeSize_() { return 0; }
 
   /// Records that `table` keeps an entry keyed by this object, for the
   /// object's destructor to drop.

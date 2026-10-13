@@ -478,6 +478,34 @@ How a compute task runs.
 | --- | --- |
 | `signal?: AbortSignal;` | Aborting it cancels the task: the promise rejects with its reason at once. |
 
+### NativeSized
+
+```ts title="core.d.ts"
+interface NativeSized {
+  readonly nativeSize: number;
+}
+```
+
+A class whose instances hold native memory the JavaScript collector can't see: an image's pixels, a model's weights. `nativeSize` is how many bytes, which the collector counts toward each instance's object, so that holding many of them collects them sooner. Lucent reads it each time an instance crosses to JavaScript, and after each call JavaScript makes on it.
+
+```ts title="nativeSized.lucent.ts"
+import { NativeBuffer, type NativeSized } from "lucent:core";
+
+export class Image implements NativeSized {
+  private pixels = NativeBuffer.allocate(0);
+  get nativeSize(): number {
+    return this.pixels.byteLength;
+  }
+  load(width: number, height: number): void {
+    this.pixels = NativeBuffer.allocate(width * height * 4);
+  }
+}
+```
+
+| Member | What it does |
+| --- | --- |
+| `readonly nativeSize: number;` | The bytes of native memory an instance holds: 0 when it holds none. |
+
 ### ByteSpan
 
 ```ts title="core.d.ts"
