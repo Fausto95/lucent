@@ -144,7 +144,7 @@ generated from this file.
   are still inferred from the SDK.
 - Swift's `Data` and `NSData` cross into Lucent as a copy, so a file's or
   a response's bytes reach JavaScript after one copy
-  ([0086](decisions/0086-platform-memory-is-adopted-read-only-unless-asked.md)).
+  ([T108](tasks.md#t108)).
 - On Android API 24 and 25, a Java default method that Lucent doesn't
   implement returns its zero value, and the reason is logged.
 - A Lucent package's pod binds once installed. In a bare app, the first
