@@ -188,6 +188,166 @@ export declare function onAppEvent(
   signal?: AbortSignal,
 ): () => void;
 
+/** A remote notification's or a background fetch's answer, as UIBackgroundFetchResult names it. */
+export type FetchResult = "newData" | "noData" | "failed";
+
+/**
+ * Calls `listener` with each URL the app is asked to open, and the bundle
+ * id of the app that asked (`""` when iOS doesn't say). It answers whether
+ * it opened the URL.
+ *
+ * The URL comes from the app delegate, or the scene delegate in an app with
+ * scenes, which forwards it to Lucent. A URL that launched the app waits for
+ * the first listener. `listener` runs on the main thread while iOS waits
+ * for its answer.
+ *
+ * ```ts
+ * import { onAppEvent } from "lucent:ios";
+ *
+ * function watchLinks(open: (path: string) => void): () => void {
+ *   return onAppEvent("openURL", (url) => {
+ *     if (!url.startsWith("myapp://")) return false;
+ *     open(url.slice("myapp://".length));
+ *     return true;
+ *   });
+ * }
+ * ```
+ *
+ * @param event `"openURL"`.
+ * @param listener Called with the URL and the asking app's bundle id.
+ * @param signal Stops listening, as the returned function does.
+ */
+export declare function onAppEvent(
+  event: "openURL",
+  listener: (url: string, sourceApplication: string) => boolean,
+  signal?: AbortSignal,
+): () => void;
+
+/**
+ * Calls `listener` with each user activity the app is asked to continue,
+ * such as a universal link or a Spotlight result. It gets the activity's
+ * `activityType`, its web page URL (`""` for none) and its `userInfo` as
+ * JSON, and answers whether it continued it. One that launched the app
+ * waits for the first listener.
+ *
+ * @param event `"userActivity"`.
+ * @param listener Called with the type, the URL and the userInfo's JSON.
+ * @param signal Stops listening, as the returned function does.
+ */
+export declare function onAppEvent(
+  event: "userActivity",
+  listener: (type: string, webpageURL: string, userInfo: string) => boolean,
+  signal?: AbortSignal,
+): () => void;
+
+/**
+ * Calls `listener` with each home screen quick action the person chose:
+ * its `type`, its title and its `userInfo` as JSON. It answers whether it
+ * handled it. One that launched the app waits for the first listener.
+ *
+ * @param event `"shortcutItem"`.
+ * @param listener Called with the type, the title and the userInfo's JSON.
+ * @param signal Stops listening, as the returned function does.
+ */
+export declare function onAppEvent(
+  event: "shortcutItem",
+  listener: (type: string, title: string, userInfo: string) => boolean,
+  signal?: AbortSignal,
+): () => void;
+
+/**
+ * Calls `listener` with the device token for push notifications, once the
+ * app registered (`UIApplication.shared.registerForRemoteNotifications()`).
+ * A token that came before any listener waits for the first one.
+ *
+ * @param event `"pushToken"`.
+ * @param listener Called with the token's bytes.
+ * @param signal Stops listening, as the returned function does.
+ */
+export declare function onAppEvent(
+  event: "pushToken",
+  listener: (token: Uint8Array) => void,
+  signal?: AbortSignal,
+): () => void;
+
+/**
+ * Calls `listener` with the error when registering for push notifications
+ * fails, an `Error` whose `code` is the NSError's.
+ *
+ * @param event `"pushTokenFailed"`.
+ * @param listener Called with the error.
+ * @param signal Stops listening, as the returned function does.
+ */
+export declare function onAppEvent(
+  event: "pushTokenFailed",
+  listener: (error: Error) => void,
+  signal?: AbortSignal,
+): () => void;
+
+/**
+ * Calls `listener` with each remote notification's `userInfo` as JSON,
+ * the app in the foreground or woken for it. It resolves with what it
+ * fetched.
+ *
+ * The modules' answers merge as Expo merges them: new data if any had
+ * some, else failed if any failed. iOS gets them after 25 seconds at the
+ * latest.
+ *
+ * @param event `"remoteNotification"`.
+ * @param listener Called with the userInfo's JSON.
+ * @param signal Stops listening, as the returned function does.
+ */
+export declare function onAppEvent(
+  event: "remoteNotification",
+  listener: (userInfo: string) => Promise<FetchResult>,
+  signal?: AbortSignal,
+): () => void;
+
+/**
+ * Calls `listener` when iOS wakes the app for a background fetch. Its
+ * answer merges with other modules' as a remote notification's does.
+ *
+ * @param event `"backgroundFetch"`.
+ * @param listener Called for each fetch.
+ * @param signal Stops listening, as the returned function does.
+ */
+export declare function onAppEvent(
+  event: "backgroundFetch",
+  listener: () => Promise<FetchResult>,
+  signal?: AbortSignal,
+): () => void;
+
+/**
+ * Calls `listener` when iOS wakes the app for a background URL session's
+ * events, with the session's identifier. It answers whether the session is
+ * its own, then calls `done` once it handled them. iOS hears once every
+ * module that claimed it is done.
+ *
+ * @param event `"backgroundURLSession"`.
+ * @param listener Called with the identifier, and `done`.
+ * @param signal Stops listening, as the returned function does.
+ */
+export declare function onAppEvent(
+  event: "backgroundURLSession",
+  listener: (identifier: string, done: () => void) => boolean,
+  signal?: AbortSignal,
+): () => void;
+
+/**
+ * Calls `listener` each time iOS asks which orientations the app supports.
+ * It answers a `UIInterfaceOrientationMask`, or 0 for no say: iOS gets the
+ * orientations every module that has a say allows, of those the app does.
+ *
+ * @param event `"supportedInterfaceOrientations"`.
+ * @param listener Answers the orientations it allows.
+ * @param signal Stops listening, as the returned function does.
+ */
+export declare function onAppEvent(
+  event: "supportedInterfaceOrientations",
+  listener: () => number,
+  signal?: AbortSignal,
+): () => void;
+
 /**
  * Like `onAppEvent`, for each scene's `event`: `listener` gets the scene's
  * session's `persistentIdentifier`.

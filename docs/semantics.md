@@ -700,6 +700,19 @@ resolves with its result; `present()`, `onAppEvent` and `onSceneEvent`
 run the same way. Android's `onActivityEvent` runs its handler in a turn
 of the calling context.
 
+`onAppEvent`'s app-delegate events ("openURL", "userActivity",
+"shortcutItem", "pushToken", "pushTokenFailed", "remoteNotification",
+"backgroundFetch", "backgroundURLSession",
+"supportedInterfaceOrientations") come from `LucentAppDelegate`, which
+the app's delegates call (`ios_app_delegate.mm`). A listener that answers
+runs while UIKit waits, and the modules' answers merge: a URL, activity
+or shortcut is handled if any module handled it, a fetch has new data if
+any had some, else failed if any failed, and the orientations are those
+every module that answered allows. A fetch's answers come by a promise,
+and iOS hears them after 25 seconds at the latest. A URL, activity,
+shortcut or push token that comes before any subscriber waits for the
+first one (`delegate_events.h`).
+
 A platform callback that must answer now (a delegate's result) waits only
 for the code holding the actor, ahead of queued entries; a debug build
 logs a wait past 50 ms. A synchronous call running a JavaScript callback
