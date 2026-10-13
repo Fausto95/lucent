@@ -75,6 +75,10 @@ What a Lucent package's platform code needs from the app that installs it, next 
 | `android.components[].intentFilters[].data[].pathPattern` | `string` |  |  |
 | `android.components[].intentFilters[].data[].mimeType` | `string` |  |  |
 | `android.components[].metaData` | `{ [name]: string }` |  |  |
+| `android.mainActivity` | `object` |  | Attributes the package needs on the app's main Activity, which the app's manifest declares. A bare app's lucent build names the ones its manifest lacks; the Expo config plugin writes them. |
+| `android.mainActivity.supportsPictureInPicture` | `boolean` |  | android:supportsPictureInPicture="true", for a player that goes picture in picture. false asks nothing. |
+| `android.mainActivity.configChanges` | `string[]` |  | android:configChanges values the Activity must handle itself instead of being recreated, added to the app's (orientation, screenSize). |
+| `android.mainActivity.launchMode` | `"standard" or "singleTop" or "singleTask" or "singleInstance" or "singleInstancePerTask"` |  | android:launchMode. Packages that ask for different ones fail the build. |
 | `android.minSdk` | `integer` |  | The lowest Android API level the package runs on. The library requires the highest any package needs, and never less than the app's minSdkVersion. Android's manifest merger fails an app below it. |
 
 Only packages have a `lucent.json`: an app's own is not read. An app adds its pods, Gradle dependencies, permissions and `Info.plist` entries the usual way. Its pods and Gradle dependencies can be imported from `lucent:ios/*` and `lucent:android/*` too.

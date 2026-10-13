@@ -407,6 +407,76 @@ export function missingAppEntries(root: string, native: ResolvedNative): Notice[
   return out;
 }
 
+/** A manifest element's attributes, by name (`android:name`). */
+function xmlAttributes(tag: string): Map<string, string> {
+  return new Map([...tag.matchAll(/([\w:.-]+)\s*=\s*"([^"]*)"/g)].map((m) => [m[1]!, m[2]!]));
+}
+
+/**
+ * The app's main Activity in its manifest: the one its launcher opens, and
+ * its attributes. Undefined without a manifest or a launcher Activity.
+ */
+export function mainActivityOf(
+  manifest: string,
+): { name: string; attributes: Map<string, string> } | undefined {
+  for (const m of manifest.matchAll(/<activity\b([^>]*?)(\/>|>([\s\S]*?)<\/activity>)/g)) {
+    if (!m[3]?.includes("android.intent.category.LAUNCHER")) continue;
+    const attributes = xmlAttributes(m[1]!);
+    return { name: attributes.get("android:name") ?? "the main Activity", attributes };
+  }
+  return undefined;
+}
+
+/**
+ * The main Activity attributes Lucent packages need that the app's manifest
+ * lacks, named as Info.plist entries are: the manifest is the app's. Its
+ * own launch mode stands, named when a package needs another.
+ */
+export function missingMainActivity(root: string, native: ResolvedNative): Notice[] {
+  const needs = native.android.mainActivity;
+  if (!needs) return [];
+
+  const file = path.join("android", "app", "src", "main", "AndroidManifest.xml");
+  const asked =
+    !!needs.supportsPictureInPicture ||
+    Object.keys(needs.configChanges).length > 0 ||
+    !!needs.launchMode;
+  if (!asked || !fs.existsSync(path.join(root, file))) return [];
+
+  const main = mainActivityOf(fs.readFileSync(path.join(root, file), "utf8"));
+  const who = (from: string[]) => `${from.join(" and ")} ${from.length === 1 ? "needs" : "need"}`;
+  const out: Notice[] = [];
+  const warn = (text: string) =>
+    out.push({ level: "warn", text: `${text} (the Expo config plugin adds it)` });
+
+  if (!main) {
+    warn(
+      `Lucent packages need attributes on the main Activity, but ${file} has no launcher Activity`,
+    );
+    return out;
+  }
+
+  const on = `on ${main.name} in ${file}`;
+  if (
+    needs.supportsPictureInPicture &&
+    main.attributes.get("android:supportsPictureInPicture") !== "true"
+  )
+    warn(`${who(needs.supportsPictureInPicture)} android:supportsPictureInPicture="true" ${on}`);
+
+  const handled = new Set((main.attributes.get("android:configChanges") ?? "").split("|"));
+  for (const [value, from] of Object.entries(needs.configChanges))
+    if (!handled.has(value)) warn(`${who(from)} "${value}" in android:configChanges ${on}`);
+
+  const mode = main.attributes.get("android:launchMode") ?? "standard";
+  if (needs.launchMode && needs.launchMode.value !== mode)
+    out.push({
+      level: "warn",
+      text: `${who(needs.launchMode.from)} android:launchMode="${needs.launchMode.value}" ${on}, which says ${mode}: the app's stands`,
+    });
+
+  return out;
+}
+
 /**
  * The entries of an XML property list: strings, booleans and arrays of
  * strings by value, any other value as present (null).

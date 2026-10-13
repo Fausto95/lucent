@@ -493,6 +493,47 @@ describe("entitlements, Swift packages, manifest components and target requireme
     );
   });
 
+  it("joins what packages need on the main Activity, and fails on two launch modes", () => {
+    const { manifest } = resolveNative([
+      pkg("lucent-video", {
+        android: {
+          mainActivity: {
+            supportsPictureInPicture: true,
+            configChanges: ["screenSize", "orientation"],
+          },
+        },
+      }),
+      pkg("lucent-camera", {
+        android: { mainActivity: { configChanges: ["orientation"], launchMode: "singleTask" } },
+      }),
+      pkg("lucent-other", { android: { mainActivity: { supportsPictureInPicture: false } } }),
+    ]);
+
+    expect(manifest.android.mainActivity).toEqual({
+      supportsPictureInPicture: ["lucent-video"],
+      configChanges: {
+        orientation: ["lucent-camera", "lucent-video"],
+        screenSize: ["lucent-video"],
+      },
+      launchMode: { value: "singleTask", from: ["lucent-camera"] },
+    });
+    expect(resolveNative([pkg("lucent-a")]).manifest.android.mainActivity).toEqual({
+      configChanges: {},
+    });
+
+    expect(() =>
+      resolveNative([
+        pkg("lucent-a", { android: { mainActivity: { launchMode: "singleTop" } } }),
+        pkg("lucent-b", { android: { mainActivity: { launchMode: "singleTask" } } }),
+      ]),
+    ).toThrow(
+      "the main Activity's launchMode: lucent-a wants singleTop, lucent-b wants singleTask",
+    );
+    expect(() =>
+      resolveNative([pkg("lucent-a", { android: { mainActivity: { launchMode: "single" } } })]),
+    ).toThrow(/lucent-a\/lucent.json: android.mainActivity.launchMode must be one of/);
+  });
+
   it("declares a manifest component once, and fails when packages declare it differently", () => {
     const sync = {
       kind: "service",
