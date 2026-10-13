@@ -544,9 +544,8 @@ in JavaScript. An `await` of a plain value doesn't suspend, a known gap
 continuation resumes on the context that registered it, so a coroutine
 stays on the context it started on.
 
-> **Planned:** other typed arrays ([T100](tasks.md#t100)), `null` apart
-> from `undefined` in containers ([T101](tasks.md#t101)), and timers
-> ([T104](tasks.md#t104)).
+> **Planned:** `null` apart from `undefined` in containers
+> ([T101](tasks.md#t101)), and timers ([T104](tasks.md#t104)).
 
 ### Execution contexts and actors
 

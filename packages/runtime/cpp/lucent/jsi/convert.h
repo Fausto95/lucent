@@ -399,7 +399,10 @@ class Borrowed {
 
  private:
   static const Storage& storageOf(const ArrayBuffer& b) { return b.storage(); }
-  static const Storage& storageOf(const Bytes& b) { return b.buffer(); }
+  template <class K>
+  static const Storage& storageOf(const TypedArray<K>& b) {
+    return b.buffer();
+  }
 
   T value_;
 };
@@ -426,6 +429,50 @@ struct Convert<ArrayBuffer> {
   static Borrowed<ArrayBuffer> borrow(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const ArrayBuffer& b);
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, ArrayBuffer&& b);
+};
+
+// --- the other typed arrays, and DataView ---------------------------------------------------
+
+/// The elements a JavaScript `name` (a typed array's class) views, each
+/// `element` bytes long: where they start, and how many there are.
+std::pair<uint8_t*, size_t> typedView(jsi::Runtime& rt, const jsi::Value& v, const Path& p, const char* name, size_t element);
+/// A new JavaScript `name` over a copy of the `size` bytes at `data`.
+jsi::Value typedCopy(jsi::Runtime& rt, const char* name, const uint8_t* data, size_t size);
+/// A new JavaScript `name` over `storage`, which no Lucent code holds from now on.
+jsi::Value typedMoved(jsi::Runtime& rt, const char* name, Storage storage);
+
+/// A typed array crosses as Uint8Array does: a copy, lent to a synchronous
+/// call that only reads it, moved when a function returns one nothing else
+/// holds that views the whole of its buffer.
+template <class K>
+struct Convert<TypedArray<K>> {
+  using A = TypedArray<K>;
+
+  static A fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+    auto [data, n] = typedView(rt, v, p, K::name, A::kElement);
+    A out(static_cast<double>(n));
+    if (n) std::memcpy(out.data(), data, n * A::kElement);
+    return out;
+  }
+  static Borrowed<A> borrow(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+    auto [data, n] = typedView(rt, v, p, K::name, A::kElement);
+    return Borrowed<A>(A::view(ByteStorage::lend(data, n * A::kElement), 0, n));
+  }
+  static jsi::Value toJs(jsi::Runtime& rt, Host&, const A& a) {
+    return typedCopy(rt, K::name, a.data(), a.size() * A::kElement);
+  }
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, A&& a) {
+    bool whole = a.offset() == 0 && a.size() * A::kElement == a.buffer()->size();
+    if (!whole || a.buffer().use_count() != 1 || a.buffer()->lent()) return toJs(rt, h, static_cast<const A&>(a));
+    return typedMoved(rt, K::name, a.buffer());
+  }
+};
+
+/// A DataView crosses as a copy of the bytes it views, in a buffer of their own.
+template <>
+struct Convert<DataView> {
+  static DataView fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const DataView& d);
 };
 
 // --- native buffers ------------------------------------------------------------------------

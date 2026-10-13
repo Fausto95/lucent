@@ -225,7 +225,27 @@ Iter<std::tuple<K, V>> iterOf(const Map<K, V>& m) {
 }
 /// Strings iterate by code point.
 Iter<String> iterOf(const String& s);
-Iter<double> iterOf(const Bytes& b);
+namespace detail {
+/// A typed array's elements, in order.
+template <class K>
+class TypedIter final : public IterObject<typename K::V> {
+ public:
+  explicit TypedIter(TypedArray<K> a) : a_(std::move(a)) {}
+  std::optional<typename K::V> next() override {
+    if (i_ >= a_.size()) return std::nullopt;
+    return a_.at(i_++);
+  }
+
+ private:
+  TypedArray<K> a_;
+  size_t i_ = 0;
+};
+}  // namespace detail
+
+template <class K>
+Iter<typename K::V> iterOf(const TypedArray<K>& a) {
+  return std::make_shared<detail::TypedIter<K>>(a);
+}
 
 /// `[...it]` / `Array.from(it)`.
 template <class T>

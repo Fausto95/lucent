@@ -74,8 +74,6 @@ generated from this file.
 - A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused
   ([T112](tasks.md#t112)). A `WeakMap` value that holds its own key keeps
   it, and the entry, for as long as the map lives.
-- `Uint8Array` is the only typed array, and `DataView` is refused
-  ([T100](tasks.md#t100)).
 - `null` and `undefined` from JavaScript are checked apart for arguments,
   setter values and object fields only ([T101](tasks.md#t101)). Inside
   arrays, maps, sets, records, tuples, callback results and promise

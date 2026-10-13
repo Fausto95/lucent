@@ -323,10 +323,19 @@ inline const Storage& copiedStorage(const Storage& buffer, CopyGraph& graph) {
 /// Views of one buffer stay views of one (copied) buffer, as
 /// structuredClone keeps them: a view carries its whole buffer, so slice()
 /// a small view of a large buffer before submitting it.
+template <class K>
+struct Transport<TypedArray<K>> {
+  static TypedArray<K> copy(const TypedArray<K>& source, CopyGraph& graph) {
+    return TypedArray<K>::view(detail::copiedStorage(source.buffer(), graph), source.offset(), source.size());
+  }
+};
+
+/// A DataView stays a view of its (copied) buffer.
 template <>
-struct Transport<Bytes> {
-  static Bytes copy(const Bytes& source, CopyGraph& graph) {
-    return Bytes::view(detail::copiedStorage(source.buffer(), graph), source.offset(), source.size());
+struct Transport<DataView> {
+  static DataView copy(const DataView& source, CopyGraph& graph) {
+    ArrayBuffer buffer(detail::copiedStorage(source.storage(), graph));
+    return DataView::over(buffer, source.byteOffset(), source.byteLength());
   }
 };
 

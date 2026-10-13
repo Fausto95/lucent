@@ -87,7 +87,7 @@ lucent::String m_borrowed_u2d_bytes::partAround(lucent::Bytes p0_, lucent::Fn<vo
   p1_();
   lucent::Array<double> v8_ = p0_.toArray();
   lucent::String v10_ = v8_.join(LUCENT_STR(","));
-  double v12_ = p0_.length();
+  double v12_ = p0_.byteLength();
   lucent::String v13_ = lucent::toJsString(v12_);
   return lucent::concat(before, LUCENT_STR(" "), v10_, LUCENT_STR(" "), v13_);
 }

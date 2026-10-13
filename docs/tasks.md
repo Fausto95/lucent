@@ -25,7 +25,7 @@ what became of each one that is still linked or was still open.
 | Task                     | Title                                                      | State                                                         |
 | ------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------- |
 | **Module parity**        |                                                            |                                                               |
-| [T100](#t100)            | Typed arrays and `DataView`                                | in progress (#249)                                            |
+| [T100](#t100)            | Typed arrays and `DataView`                                | in progress (#249, #251)                                      |
 | [T101](#t101)            | Keep `null` apart from `undefined` everywhere              | ready                                                         |
 | [T102](#t102)            | Recursive union types, for JSON-shaped values              | ready                                                         |
 | [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | ready                                                         |
@@ -132,33 +132,33 @@ result.
 and crosses the boundary, so audio, sensor and model modules pass samples
 as Expo modules do.
 
-- **Status:** in progress (#249).
+- **Status:** in progress (#249, #251).
 - **Area:** compiler, runtime.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3, V7.
 - **Where:** `runtime/cpp/lucent` (`bytes.h` and a typed-array header),
   `emit/builtins.ts`, `jsi/convert.*`, `lib/sdk`.
 
-Today only `Uint8Array` and `ArrayBuffer` exist; `new Float32Array(n)` is
-refused with LUCENT2002, and `DataView` too. The runtime has them all
-(#249): `lucent/bytes.h`'s `TypedArray<Kind>`, `Uint8Array` among them,
-and `DataView`; the compiler doesn't yet.
+The runtime has them all (#249): `lucent/bytes.h`'s `TypedArray<Kind>`,
+`Uint8Array` among them, and `DataView`. The compiler takes them, and the
+boundary carries them (#251). What's left is a typed view of a
+`NativeBuffer`'s bytes.
 
-- [ ] `Int8Array`, `Uint8ClampedArray`, `Int16Array`, `Uint16Array`,
+- [x] `Int8Array`, `Uint8ClampedArray`, `Int16Array`, `Uint16Array`,
       `Int32Array`, `Uint32Array`, `Float32Array`, `Float64Array`,
       `BigInt64Array` and `BigUint64Array`, with the methods `Uint8Array`
       has, as views over one `ArrayBuffer` at any byte offset, with
       JavaScript's conversion and clamping on write.
-- [ ] `DataView`, every getter and setter, both byte orders.
-- [ ] The `%TypedArray%` methods `Uint8Array` still refuses (`at`,
+- [x] `DataView`, every getter and setter, both byte orders.
+- [x] The `%TypedArray%` methods `Uint8Array` still refuses (`at`,
       `filter`, `sort`, `lastIndexOf` and the rest), for every kind, and
-      `ArrayBuffer.isView` (LUCENT1001 today).
-- [ ] The boundary treats them as `Uint8Array`: copied by default, lent to
+      `ArrayBuffer.isView`.
+- [x] The boundary treats them as `Uint8Array`: copied by default, lent to
       a synchronous export that only reads, moved on return when nothing
       else holds the buffer.
 - [ ] A typed view of a `NativeBuffer`'s bytes inside `withRead` and
       `withWrite`.
-- [ ] e2e: `typed-arrays`, `data-view`; semantics and the website's
+- [x] e2e: `typed-arrays`, `data-view`; semantics and the website's
       language page list them.
 
 **Done when:** the cases pass natively and as JavaScript, and no typed

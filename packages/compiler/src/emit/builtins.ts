@@ -12,10 +12,14 @@ import {
   holdsJsValue,
   jsValueOpaque,
   isErrorName,
+  isTypedArray,
   isVoidish,
   type LType,
+  sameType,
   stripOpt,
   T,
+  TYPED_NAMES,
+  typedElement,
   typeKey,
   unionOf,
 } from "../types.ts";
@@ -176,11 +180,17 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
       if (name === "size") return num(cpp.call(cpp.dot(o, "size"), []));
       break;
     case "bytes":
-      if (name === "length" || name === "byteLength")
-        return num(cpp.call(cpp.dot(o, "length"), []));
-      if (name === "byteOffset") return num(cpp.call(cpp.dot(o, "byteOffset"), []));
+    case "typed":
+      if (name === "length" || name === "byteLength" || name === "byteOffset")
+        return num(cpp.call(cpp.dot(o, name), []));
+      if (name === "BYTES_PER_ELEMENT") return num(numberExpr(TYPED_SIZES[typedClass(t)]!));
       if (name === "buffer")
         return { c: cpp.call(cpp.dot(o, "arrayBuffer"), []), t: T.arrayBuffer };
+      break;
+    case "dataView":
+      if (name === "byteLength" || name === "byteOffset")
+        return num(cpp.call(cpp.dot(o, name), []));
+      if (name === "buffer") return { c: cpp.call(cpp.dot(o, "buffer"), []), t: T.arrayBuffer };
       break;
     case "arrayBuffer":
       if (name === "byteLength") return num(cpp.call(cpp.dot(o, "byteLength"), []));
@@ -613,6 +623,8 @@ export function staticProperty(em: FnEmitter, node: ts.PropertyAccessExpression)
   }
   if (isLibGlobal(em, obj, "Number") && name in NUMBER_CONSTANTS)
     return num(NUMBER_CONSTANTS[name]!());
+  const typed = typedGlobal(em, obj);
+  if (typed && name === "BYTES_PER_ELEMENT") return num(numberExpr(TYPED_SIZES[typed]!));
   // Enum members are constants.
   const memberSym = em.checker.getSymbolAtLocation(node);
   const memberDecl =
@@ -804,6 +816,47 @@ export function staticCall(
       };
     }
     fail(node, Codes.UnsupportedBuiltin, `Object.${name} is not supported on ${typeKey(v.t)}`);
+  }
+  if (isLibGlobal(em, obj, "ArrayBuffer")) {
+    if (name === "isView") return heldKind(node, em.expr(a[0]!), "View");
+    fail(node, Codes.UnsupportedBuiltin, `ArrayBuffer.${name} is not supported`);
+  }
+  const typed = typedGlobal(em, obj);
+  if (typed) {
+    const rt = em.lt(node);
+    const e = typedElement(rt);
+    const cls = typedCpp(rt);
+    if (name === "of")
+      return {
+        c: cpp.call(`${cls}::fromArray`, [
+          cpp.construct(
+            em.reg.cppType({ k: "array", e }),
+            a.map((x) => em.exprAs(x, e)),
+            true,
+          ),
+        ]),
+        t: rt,
+      };
+    if (name === "from" && a.length === 1) {
+      const v = em.expr(a[0]!);
+      const vt = stripOpt(v.t);
+      if (vt.k === "array" && vt.e.k === e.k)
+        return {
+          c: cpp.call(`${cls}::fromArray`, [em.coerce(v, { k: "array", e }, a[0]!)]),
+          t: rt,
+        };
+      if (isTypedArray(vt) && typedElement(vt).k === e.k)
+        return sameType(vt, rt)
+          ? { c: cpp.call(cpp.dot(v.c, "slice"), []), t: rt }
+          : { c: cpp.call(`${cls}::fromTyped`, [v.c]), t: rt };
+    }
+    fail(
+      node,
+      Codes.UnsupportedBuiltin,
+      name === "from"
+        ? `${typed}.from takes an array or a typed array: map it first (\`${typed}.from(values.map(f))\`)`
+        : `${typed}.${name} is not supported`,
+    );
   }
   if (isLibGlobal(em, obj, "Array")) {
     const rt = em.lt(node);
@@ -1326,7 +1379,10 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
     case "set":
       return setMethod(em, obj as E & { t: { k: "set"; e: LType } }, name, node);
     case "bytes":
-      return bytesMethod(em, o, name, node);
+    case "typed":
+      return typedMethod(em, obj, name, node);
+    case "dataView":
+      return dataViewMethod(em, o, name, node);
     case "arrayBuffer":
       if (name === "slice")
         return {
@@ -2129,34 +2185,65 @@ function setMethod(
   fail(node, Codes.UnsupportedBuiltin, `Set.prototype.${name} is not supported`);
 }
 
-function bytesMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExpression): E {
+/**
+ * A typed array's methods: Uint8Array's and the other kinds', each of
+ * %TypedArray%'s methods. Elements are numbers, or bigints for the 64-bit
+ * integer kinds.
+ */
+function typedMethod(em: FnEmitter, obj: E, name: string, node: ts.CallExpression): E {
+  const o = obj.c;
+  const self = stripOpt(obj.t);
+  const e = typedElement(self);
   const a = node.arguments;
   const n = (i: number, ifUndefined: cpp.Expr) => optArg(em, node, i, T.number, ifUndefined);
+  const cb = (params: LType[], ret?: LType) => callback(em, a[0], params, ret);
+  const cls = typedClass(self);
   switch (name) {
     case "subarray":
     case "slice":
-      return { c: cpp.call(cpp.dot(o, name), [...argList(n(0, NAN), n(1, END))]), t: T.bytes };
+      return { c: cpp.call(cpp.dot(o, name), [...argList(n(0, NAN), n(1, END))]), t: self };
     case "fill":
       return {
-        c: cpp.call(cpp.dot(o, "fill"), [
-          argAs(em, node, 0, T.number),
-          ...argList(n(1, NAN), n(2, END)),
+        c: cpp.call(cpp.dot(o, "fill"), [argAs(em, node, 0, e), ...argList(n(1, NAN), n(2, END))]),
+        t: self,
+      };
+    case "copyWithin":
+      return {
+        c: cpp.call(cpp.dot(o, "copyWithin"), [
+          n(0, NAN) ?? cpp.num("0.0"),
+          n(1, NAN) ?? cpp.num("0.0"),
+          ...argList(n(2, END)),
         ]),
-        t: T.bytes,
+        t: self,
       };
     case "indexOf":
-      return num(
-        cpp.call(cpp.dot(o, "indexOf"), [argAs(em, node, 0, T.number), ...argList(n(1, NAN))]),
-      );
+    case "lastIndexOf":
+      return num(cpp.call(cpp.dot(o, name), [argAs(em, node, 0, e), ...argList(n(1, NAN))]));
     case "includes":
-      return bool(
-        cpp.call(cpp.dot(o, "includes"), [argAs(em, node, 0, T.number), ...argList(n(1, NAN))]),
+      return bool(cpp.call(cpp.dot(o, "includes"), [argAs(em, node, 0, e), ...argList(n(1, NAN))]));
+    case "at":
+      return elementOrUndefined(
+        cpp.call(cpp.dot(o, "atIndex"), [n(0, cpp.num("0.0")) ?? cpp.num("0.0")]),
+        e,
       );
+    case "with":
+      return {
+        c: cpp.call(cpp.dot(o, "with"), [
+          n(0, cpp.num("0.0")) ?? cpp.num("0.0"),
+          argAs(em, node, 1, e),
+        ]),
+        t: self,
+      };
     case "set": {
       const src = em.expr(a[0]!);
       const st = stripOpt(src.t);
-      if (st.k !== "bytes" && !(st.k === "array" && st.e.k === "number"))
-        fail(node, Codes.UnsupportedBuiltin, "set() needs a Uint8Array or number[]");
+      const same = isTypedArray(st) && typedElement(st).k === e.k;
+      if (!same && !(st.k === "array" && st.e.k === e.k))
+        fail(
+          node,
+          Codes.UnsupportedBuiltin,
+          `set() needs a typed array or an array of ${e.k === "bigint" ? "bigints" : "numbers"}`,
+        );
       return {
         c: cpp.call(cpp.dot(o, "setFrom"), [...argList(src.c, n(1, NAN))]),
         t: T.undefined,
@@ -2164,35 +2251,130 @@ function bytesMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExpr
     }
     case "forEach":
       return {
-        c: cpp.call(cpp.dot(o, "forEach"), [
-          callback(em, a[0], [T.number, T.number, T.bytes], T.void).c,
-        ]),
+        c: cpp.call(cpp.dot(o, "forEach"), [cb([e, T.number, self], T.void).c]),
         t: T.undefined,
       };
     case "map":
+      return { c: cpp.call(cpp.dot(o, "map"), [cb([e, T.number, self], e).c]), t: self };
+    case "filter":
       return {
-        c: cpp.call(cpp.dot(o, "map"), [
-          callback(em, a[0], [T.number, T.number, T.bytes], T.number).c,
-        ]),
-        t: T.bytes,
+        c: cpp.call(cpp.dot(o, "filter"), [truthyCallback(em, a[0], [e, T.number, self])]),
+        t: self,
       };
-    case "reduce": {
+    case "some":
+    case "every":
+      return bool(cpp.call(cpp.dot(o, name), [truthyCallback(em, a[0], [e, T.number, self])]));
+    case "find":
+    case "findLast":
+      return elementOrUndefined(
+        cpp.call(cpp.dot(o, name), [truthyCallback(em, a[0], [e, T.number, self])]),
+        e,
+      );
+    case "findIndex":
+    case "findLastIndex":
+      return num(cpp.call(cpp.dot(o, name), [truthyCallback(em, a[0], [e, T.number, self])]));
+    case "reduce":
+    case "reduceRight": {
+      if (a.length < 2)
+        return { c: cpp.call(cpp.dot(o, name), [cb([e, e, T.number, self], e).c]), t: e };
       const rt = em.lt(node);
-      if (!a[1]) fail(node, Codes.UnsupportedBuiltin, "Uint8Array reduce needs an initial value");
+      // The initial value is lowered before the callback, as for arrays.
+      const init = em.exprAs(a[1]!, rt);
       return {
-        c: cpp.call(cpp.dot(o, "reduce"), [
-          callback(em, a[0], [rt, T.number, T.number, T.bytes], rt).c,
-          cpp.construct(em.reg.cppType(rt), [em.exprAs(a[1], rt)]),
+        c: cpp.call(cpp.dot(o, name), [
+          cb([rt, e, T.number, self], rt).c,
+          cpp.construct(em.reg.cppType(rt), [init]),
         ]),
         t: rt,
       };
     }
+    case "sort":
+    case "toSorted":
+      if (!a[0]) return { c: cpp.call(cpp.dot(o, name), []), t: self };
+      return { c: cpp.call(cpp.dot(o, name), [cb([e, e], T.number).c]), t: self };
+    case "reverse":
+    case "toReversed":
+      return { c: cpp.call(cpp.dot(o, name), []), t: self };
     case "join":
       return str(
         cpp.call(cpp.dot(o, "join"), [...argList(optArg(em, node, 0, T.string, stringExpr(",")))]),
       );
+    case "toString":
+      return str(cpp.call(cpp.dot(o, "join"), []));
+    // Arrays of the contents at the call, as arrays' are (docs/semantics.md).
+    case "values":
+      return { c: cpp.call(cpp.dot(o, "toArray"), []), t: { k: "array", e } };
+    case "keys": {
+      const index = cpp.lambda([], [cpp.param(cpp.type("double"), "i")], [cpp.ret(cpp.id("i"))]);
+      return {
+        c: cpp.call("lucent::Array<double>::generate", [cpp.call(cpp.dot(o, "length")), index]),
+        t: { k: "array", e: T.number },
+      };
+    }
+    case "entries":
+      return {
+        c: cpp.call("lucent::arrayEntries", [cpp.call(cpp.dot(o, "toArray"), [])]),
+        t: { k: "array", e: { k: "tuple", es: [T.number, e] } },
+      };
   }
-  fail(node, Codes.UnsupportedBuiltin, `Uint8Array.prototype.${name} is not supported`);
+  fail(node, Codes.UnsupportedBuiltin, `${cls}.prototype.${name} is not supported`);
+}
+
+/** Each typed array's element size, in bytes. */
+const TYPED_SIZES: Record<string, number> = {
+  Uint8Array: 1,
+  Int8Array: 1,
+  Uint8ClampedArray: 1,
+  Int16Array: 2,
+  Uint16Array: 2,
+  Int32Array: 4,
+  Uint32Array: 4,
+  Float32Array: 4,
+  Float64Array: 8,
+  BigInt64Array: 8,
+  BigUint64Array: 8,
+};
+
+/** The typed array class `obj` names (`Float32Array` in `Float32Array.from`), if it is one. */
+function typedGlobal(em: FnEmitter, obj: ts.Expression): string | undefined {
+  return ts.isIdentifier(obj) && obj.text in TYPED_SIZES && isLibGlobal(em, obj, obj.text)
+    ? obj.text
+    : undefined;
+}
+
+/** A typed array's C++ type: lucent::Bytes, lucent::Float32Array… */
+function typedCpp(t: LType): string {
+  return t.k === "typed" ? `lucent::${t.name}` : "lucent::Bytes";
+}
+
+/** A typed array's class: Uint8Array, Float32Array… */
+function typedClass(t: LType): string {
+  return t.k === "typed" ? t.name : "Uint8Array";
+}
+
+/** A DataView's getters and setters, each in either byte order. */
+function dataViewMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExpression): E {
+  const match =
+    /^(get|set)(Int8|Uint8|Int16|Uint16|Int32|Uint32|Float32|Float64|BigInt64|BigUint64)$/.exec(
+      name,
+    );
+  if (!match) fail(node, Codes.UnsupportedBuiltin, `DataView.prototype.${name} is not supported`);
+  const [, how, kind] = match;
+  const value = kind!.startsWith("Big") ? T.bigint : T.number;
+  const single = kind === "Int8" || kind === "Uint8";
+  const at = argAs(em, node, 0, T.number);
+  const little = (i: number) =>
+    single || !node.arguments[i]
+      ? []
+      : [cpp.call("lucent::truthy", [em.expr(node.arguments[i]!).c])];
+  if (how === "get") {
+    const c = cpp.call(cpp.dot(o, name), [at, ...little(1)]);
+    return value.k === "bigint" ? big(c) : num(c);
+  }
+  return {
+    c: cpp.call(cpp.dot(o, name), [at, argAs(em, node, 1, value), ...little(2)]),
+    t: T.undefined,
+  };
 }
 
 // --- globals -------------------------------------------------------------------------------
@@ -2300,6 +2482,8 @@ const LIB_CONSTRUCTORS: Record<string, LType["k"]> = {
   Set: "set",
   Array: "array",
   Uint8Array: "bytes",
+  ...Object.fromEntries(TYPED_NAMES.map((name) => [name, "typed"])),
+  DataView: "dataView",
   ArrayBuffer: "arrayBuffer",
   Promise: "promise",
 };
@@ -2316,6 +2500,33 @@ export function requireConstructor(em: FnEmitter, node: ts.NewExpression, t: LTy
   const name = callee.text;
   const makes = isErrorName(name) ? "error" : LIB_CONSTRUCTORS[name];
   if (makes !== t.k) fail(node, Codes.UnsupportedBuiltin, `new ${name}() is not supported`);
+}
+
+/**
+ * `new X(…)` for a typed array: empty; of a length; a view of an
+ * ArrayBuffer (at an offset, of a length); or a copy of an array's values or
+ * another typed array's, converted.
+ */
+function newTyped(em: FnEmitter, node: ts.NewExpression, t: LType): E {
+  const a = node.arguments ?? ts.factory.createNodeArray();
+  const cls = typedCpp(t);
+  const e = typedElement(t);
+  if (!a[0]) return { c: cpp.construct(cpp.type(cls)), t };
+  const v = em.expr(a[0]);
+  const vt = stripOpt(v.t);
+  if (vt.k === "arrayBuffer") {
+    const index = (x: ts.Expression | undefined) =>
+      x ? em.exprAs(x, unionOf([T.number, T.undefined])) : cpp.id("lucent::undefined");
+    return { c: cpp.call(`${cls}::over`, [em.coerce(v, vt, a[0]), index(a[1]), index(a[2])]), t };
+  }
+  if (vt.k === "number") return { c: cpp.call(cls, [v.c]), t };
+  if (vt.k === "array" && vt.e.k === e.k)
+    return { c: cpp.call(`${cls}::fromArray`, [em.coerce(v, { k: "array", e }, a[0])]), t };
+  if (isTypedArray(vt) && typedElement(vt).k === e.k)
+    return sameType(vt, t)
+      ? { c: cpp.call(cpp.dot(v.c, "slice"), []), t }
+      : { c: cpp.call(`${cls}::fromTyped`, [v.c]), t };
+  fail(node, Codes.UnsupportedBuiltin, `new ${typedClass(t)}(${typeKey(v.t)})`);
 }
 
 export function newBuiltin(
@@ -2467,29 +2678,23 @@ export function newBuiltin(
           : cpp.construct(cpp.type("lucent::ArrayBuffer")),
         t,
       };
-    case "bytes": {
-      if (!a[0]) return { c: cpp.construct(cpp.type("lucent::Bytes")), t };
-      const v = em.expr(a[0]);
-      const vt = stripOpt(v.t);
-      if (vt.k === "arrayBuffer") {
-        const index = (x: ts.Expression | undefined) =>
-          x ? em.exprAs(x, unionOf([T.number, T.undefined])) : cpp.id("lucent::undefined");
-
-        return {
-          c: cpp.call("lucent::Bytes::over", [em.coerce(v, vt, a[0]), index(a[1]), index(a[2])]),
-          t,
-        };
-      }
-      if (vt.k === "number") return { c: cpp.call("lucent::Bytes", [v.c]), t };
-      if (vt.k === "array")
-        return {
-          c: cpp.call("lucent::Bytes::fromArray", [
-            em.coerce(v, { k: "array", e: T.number }, a[0]),
-          ]),
-          t,
-        };
-      if (vt.k === "bytes") return { c: cpp.call(cpp.dot(v.c, "slice"), []), t };
-      fail(node, Codes.UnsupportedBuiltin, `new Uint8Array(${typeKey(v.t)})`);
+    case "bytes":
+    case "typed":
+      return newTyped(em, node, t);
+    case "dataView": {
+      const buffer = a[0] && em.expr(a[0]);
+      if (!buffer || stripOpt(buffer.t).k !== "arrayBuffer")
+        fail(node, Codes.UnsupportedBuiltin, "new DataView() takes an ArrayBuffer");
+      const index = (x: ts.Expression | undefined) =>
+        x ? em.exprAs(x, unionOf([T.number, T.undefined])) : cpp.id("lucent::undefined");
+      return {
+        c: cpp.call("lucent::DataView::over", [
+          em.coerce(buffer, T.arrayBuffer, a[0]!),
+          index(a[1]),
+          index(a[2]),
+        ]),
+        t,
+      };
     }
     case "promise": {
       // The executor runs now, with functions that settle the promise once;
@@ -2576,12 +2781,22 @@ export function refuseCause(em: FnEmitter, options: ts.Expression | undefined): 
 
 // --- instanceof / super ----------------------------------------------------------------------
 
-/** The runtime trait that recognizes each built-in kind `instanceof` and Array.isArray test. */
+/**
+ * The runtime trait that recognizes each built-in kind `instanceof`,
+ * Array.isArray and ArrayBuffer.isView (a "View": any typed array or
+ * DataView) test.
+ */
 const KIND_TRAITS = {
   Array: "lucent::IsJsArray",
   Map: "lucent::IsMap",
   Set: "lucent::IsSet",
   Uint8Array: "lucent::IsBytes",
+  ...(Object.fromEntries(TYPED_NAMES.map((n) => [n, `lucent::Is${n}`])) as Record<
+    (typeof TYPED_NAMES)[number],
+    string
+  >),
+  DataView: "lucent::IsDataView",
+  View: "lucent::IsView",
   ArrayBuffer: "lucent::IsArrayBuffer",
   Date: "lucent::IsDate",
 } as const;

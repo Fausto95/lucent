@@ -28,7 +28,9 @@ function byExport(bindings: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const chunk of bindings.split("defineFunction(rt, exports, ").slice(1)) {
     const name = /^"(\w+)"/.exec(chunk)?.[1];
-    const how = /auto a0 = Convert<lucent::(?:Bytes|ArrayBuffer)>::(\w+)\(/.exec(chunk)?.[1];
+    const how = /auto a0 = Convert<lucent::(?:Bytes|ArrayBuffer|\w+Array|DataView)>::(\w+)\(/.exec(
+      chunk,
+    )?.[1];
     if (name) out[name] = how ?? "other";
   }
   return out;
@@ -70,6 +72,54 @@ export function spread(bytes: Uint8Array): number {
       methods: "borrow",
       viewed: "borrow",
       spread: "borrow",
+    });
+  });
+
+  it("lends other typed arrays, and buffers read through views of any kind", () => {
+    expect(
+      conversions(`
+export function samples(s: Float32Array): number {
+  let peak = 0;
+  for (const x of s) peak = Math.max(peak, Math.abs(x));
+  return peak + (s.at(-1) ?? 0) + s.toSorted()[0]! + s.with(0, 1)[0]!;
+}
+
+export function words(buffer: ArrayBuffer): number {
+  const w = new Uint16Array(buffer, 0, 2);
+  const d = new DataView(buffer);
+  return (w[1] ?? 0) + d.getUint16(0) + d.getFloat32(0, true);
+}
+
+export function big(b: BigInt64Array): bigint {
+  return b[0] ?? 0n;
+}
+
+export function setThrough(buffer: ArrayBuffer): number {
+  const d = new DataView(buffer);
+  d.setUint8(0, 1);
+  return d.byteLength;
+}
+
+export function sorted(s: Int16Array): number {
+  s.sort();
+  return s.length;
+}
+
+export function each(s: Int16Array): number {
+  let n = 0;
+  s.forEach((x, i, all) => {
+    n += all[i] ?? x;
+  });
+  return n;
+}
+`),
+    ).toEqual({
+      samples: "borrow",
+      words: "borrow",
+      big: "borrow",
+      setThrough: "fromJs",
+      sorted: "fromJs",
+      each: "fromJs",
     });
   });
 

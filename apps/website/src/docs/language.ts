@@ -195,10 +195,10 @@ export const features: Feature[] = [
   },
   {
     feature:
-      "Object types, arrays, tuples, records, `Map`, `Set`, `Uint8Array`, `ArrayBuffer`, `Date`, `RegExp`",
+      "Object types, arrays, tuples, records, `Map`, `Set`, typed arrays, `ArrayBuffer`, `DataView`, `Date`, `RegExp`",
     status: "Yes.",
     page: TYPES,
-    cases: ["collections", "array-buffers", "dates", "regexps"],
+    cases: ["collections", "array-buffers", "typed-arrays", "data-view", "dates", "regexps"],
   },
   {
     feature: "Classes, interfaces, enums, unions and generics",
@@ -397,10 +397,10 @@ export const differences: { title: string; rows: Difference[] }[] = [
         cases: [],
       },
       {
-        js: "`map.keys()`, `values()` and `entries()`, and the same methods of arrays and sets, return iterators.",
+        js: "`map.keys()`, `values()` and `entries()`, and the same methods of arrays, sets and typed arrays, return iterators.",
         lucent: "They return arrays, holding the contents at the time of the call.",
         why: "An array serves everywhere these iterators are read: `for…of`, spread and `Array.from`.",
-        cases: ["collections"],
+        cases: ["collections", "typed-arrays"],
       },
       {
         js: "Garbage collection frees cycles.",
@@ -578,11 +578,11 @@ export const differences: { title: string; rows: Difference[] }[] = [
         cases: ["reference-identity"],
       },
       {
-        js: "A `Uint8Array` or `ArrayBuffer` passed to other code is shared.",
+        js: "A typed array, `DataView` or `ArrayBuffer` passed to other code is shared.",
         lucent:
           "Copied at the boundary. A synchronous function that only reads one reads JavaScript's bytes in place while it runs, so JavaScript's writes meanwhile show. Inside Lucent they're shared.",
         why: "The same as for arrays and objects. Bytes a call only reads need no copy: nothing holds them once it returns.",
-        cases: ["array-buffers", "borrowed-bytes"],
+        cases: ["array-buffers", "borrowed-bytes", "typed-arrays"],
       },
       {
         js: "Code can read any value it is given.",
@@ -706,7 +706,7 @@ export const differences: { title: string; rows: Difference[] }[] = [
       {
         js: "A field read before it's assigned, such as a subclass field read from a base constructor, is `undefined`.",
         lucent:
-          'A number, string, boolean, tuple, array, map, set, record or `Uint8Array` reads its default: `0`, `""`, `false` or empty. An object or class reads as unset: using it throws a `TypeError`, through `?.` too.',
+          'A number, string, boolean, tuple, array, map, set, record or typed array reads its default: `0`, `""`, `false` or empty. An object or class reads as unset: using it throws a `TypeError`, through `?.` too.',
         why: "A field holds a native value from the start.",
         cases: ["unassigned-fields"],
       },

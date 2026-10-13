@@ -678,15 +678,14 @@ export function f(round: boolean): number {
     });
   });
 
-  describe("ES2023's typed-array members", () => {
-    it.each(["toSorted()", "toReversed()", "with(0, 1)", "findLast((x) => x > 1)"])(
-      "rejects Uint8Array.%s",
-      (call) => {
-        expect(codes(`export function f(b: Uint8Array): void { b.${call}; }`)).toContain(
-          "LUCENT1003",
-        );
-      },
-    );
+  describe("ES2023's copies", () => {
+    it("accepts a typed array's", () => {
+      expect(
+        codes(
+          "export function f(b: Uint8Array): number { return b.toSorted().length + b.toReversed().length + b.with(0, 1).length + (b.findLast((x) => x > 1) ?? 0); }",
+        ),
+      ).toEqual([]);
+    });
 
     it("accepts the array copies", () => {
       expect(

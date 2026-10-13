@@ -618,8 +618,11 @@ when asked; read-only, it refuses writes and `transferToArrayBuffer()`. An
 `NSData` stays a copy
 ([0086](../decisions/0086-platform-memory-is-adopted-read-only-unless-asked.md)).
 
-**Planned:** Every typed array and `DataView`, on the same paths as
-`Uint8Array` ([T100](../tasks.md#t100)).
+Every typed array takes the same paths as `Uint8Array`: copied, lent and
+moved. A `DataView` crosses as a copy of the bytes it views.
+
+**Planned:** typed views of a `NativeBuffer`'s bytes inside its borrows
+([T100](../tasks.md#t100)).
 
 ## Native extensions
 

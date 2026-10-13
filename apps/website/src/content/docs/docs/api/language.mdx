@@ -97,7 +97,7 @@ No JavaScript engine runs in native code. Lucent gives each value a native layou
 | Module state, and what a JavaScript reload does to it | Initialized in source order, and again on each reload. | [Modules](/docs/api/language/modules/) |
 | Platform branches (`PLATFORM === "ios"`) and platform files | Yes. | [Platform code](/docs/api/language/platform-code/) |
 | `number`, `bigint`, `string`, `boolean`, `null`, `undefined` | Yes, computed exactly as JavaScript computes them. | [Types](/docs/api/language/types/) |
-| Object types, arrays, tuples, records, `Map`, `Set`, `Uint8Array`, `ArrayBuffer`, `Date`, `RegExp` | Yes. | [Types](/docs/api/language/types/) |
+| Object types, arrays, tuples, records, `Map`, `Set`, typed arrays, `ArrayBuffer`, `DataView`, `Date`, `RegExp` | Yes. | [Types](/docs/api/language/types/) |
 | Classes, interfaces, enums, unions and generics | Yes. Interfaces with methods, or that a class implements, are nominal; an object literal stands for one of properties alone. | [Types](/docs/api/language/types/) |
 | Native 64-bit integers from the SDKs | `bigint`s. | [Types](/docs/api/language/types/) |
 | `any`, intersections, `symbol`, `object` | No (`LUCENT2001`, `LUCENT2002`). | [Types](/docs/api/language/types/) |

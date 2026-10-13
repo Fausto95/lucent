@@ -47,7 +47,7 @@ each system lets an author do, not how it does it.
 | `null` apart from `undefined`          | ✅                    | ✅ `ValueOrUndefined`     | 🟡 not inside containers or promise values | [T101](tasks.md#t101) |
 | Untyped JSON-shaped data               | ✅ `AnyMap`           | ✅ dictionaries of `Any`  | ❌ a recursive union crashes the compiler  | [T102](tasks.md#t102) |
 | `ArrayBuffer`, without copying         | ✅ owning or borrowed | ✅ borrowed or copied     | ✅ moves and lends; `NativeBuffer`         | —                     |
-| Typed arrays other than `Uint8Array`   | — (the `ArrayBuffer`) | ✅ every kind             | ❌                                         | [T100](tasks.md#t100) |
+| Typed arrays other than `Uint8Array`   | — (the `ArrayBuffer`) | ✅ every kind             | ✅ every kind, and `DataView`              | —                     |
 | Platform memory as JS bytes            | ✅ `HardwareBuffer`   | ✅ `Data`, `ByteArray`    | ✅ `ByteBuffer`, frames on both platforms  | [T108](tasks.md#t108) |
 | Native pointers handed to other code   | ✅ via `CustomType`   | —                         | ✅ `NativeHandle`, from platform objects   | —                     |
 | `Date`                                 | ✅                    | 🟡 milliseconds           | ✅                                         | —                     |

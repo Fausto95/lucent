@@ -1,0 +1,7 @@
+print(mod.orders());
+print(mod.bounds());
+const data = new Uint8Array([0xca, 0xfe, 0xba, 0xbe, 2, 0, 0xff, 0xff, 7, 0]);
+print(mod.header(data));
+const original = new DataView(new ArrayBuffer(2));
+const back = mod.copied(original);
+print(back instanceof DataView, back.getUint8(0), back.byteLength);

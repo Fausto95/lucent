@@ -21,6 +21,8 @@ import {
   typeKey,
   unionOf,
   unionShapeBreak,
+  isTypedArray,
+  typedElement,
 } from "../types.ts";
 import { containsAwait, type FunctionLike, symbolOf } from "../analysis/scopes.ts";
 import * as builtins from "./builtins.ts";
@@ -777,7 +779,8 @@ export class FnEmitter {
       case "string":
         return iterOf(T.string);
       case "bytes":
-        return iterOf(T.number);
+      case "typed":
+        return iterOf(typedElement(t));
     }
     fail(node, Codes.UnsupportedLoop, `${typeKey(e.t)} is not iterable`);
   }
@@ -797,7 +800,8 @@ export class FnEmitter {
       case "string":
         return { c: cpp.call("lucent::splitCodePoints", [v]), e: T.string };
       case "bytes":
-        return { c: cpp.call(cpp.dot(v, "toArray")), e: T.number };
+      case "typed":
+        return { c: cpp.call(cpp.dot(v, "toArray")), e: typedElement(t) };
       case "iter":
         return { c: cpp.call("lucent::iterToArray", [v]), e: t.e };
     }
@@ -1325,8 +1329,8 @@ export class FnEmitter {
     if (ts.isElementAccessExpression(target)) {
       const obj = this.expr(target.expression);
       const ot = stripOpt(obj.t);
-      if (ot.k === "array" || ot.k === "bytes" || (ot.k === "span" && ot.writable)) {
-        const elemT = ot.k === "array" ? ot.e : T.number;
+      if (ot.k === "array" || isTypedArray(ot) || (ot.k === "span" && ot.writable)) {
+        const elemT = ot.k === "array" ? ot.e : typedElement(ot);
         const idx = this.exprAs(target.argumentExpression, T.number);
         // Integer elements take what the analysis proved an exact integer of their kind.
         const kind = obj.elements;
@@ -2091,9 +2095,10 @@ export class FnEmitter {
           t: unionOf([T.string, T.undefined]),
         };
       case "bytes":
+      case "typed":
         return {
           c: cpp.call(cpp.dot(obj.c, "get"), [this.exprAs(arg, T.number)]),
-          t: unionOf([T.number, T.undefined]),
+          t: unionOf([typedElement(t), T.undefined]),
         };
       case "span":
         return spanElement(obj, this.exprAs(arg, T.number));
@@ -2790,8 +2795,8 @@ function unify(pattern: LType, actual: LType, map: Map<string, LType>): void {
         ? a.e
         : a.k === "string"
           ? T.string
-          : a.k === "bytes"
-            ? T.number
+          : isTypedArray(a)
+            ? typedElement(a)
             : a.k === "map"
               ? ({ k: "tuple", es: [a.key, a.val] } as LType)
               : undefined;

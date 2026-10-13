@@ -190,7 +190,12 @@ void jsonWriteBytes(JsonWriter& w, const B& b) {
   }
   w.raw("}");
 }
-inline void jsonWrite(JsonWriter& w, const Bytes& b) { jsonWriteBytes(w, b); }
+template <class K>
+void jsonWrite(JsonWriter& w, const TypedArray<K>& b) {
+  jsonWriteBytes(w, b);
+}
+/// A DataView has no enumerable own properties.
+inline void jsonWrite(JsonWriter& w, const DataView&) { w.raw("{}"); }
 /// An ArrayBuffer has no enumerable own properties.
 inline void jsonWrite(JsonWriter& w, const ArrayBuffer&) { w.raw("{}"); }
 template <bool Writable>

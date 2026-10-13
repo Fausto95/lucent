@@ -58,6 +58,56 @@ const PROMISE: LibraryEffect = {
 };
 const CONTINUES: LibraryEffect = { allocates: true, schedules: true, calls: "later" };
 
+/** Every typed array, Uint8Array among them. */
+const TYPED_ARRAYS = [
+  "Uint8Array",
+  "Int8Array",
+  "Uint8ClampedArray",
+  "Int16Array",
+  "Uint16Array",
+  "Int32Array",
+  "Uint32Array",
+  "Float32Array",
+  "Float64Array",
+  "BigInt64Array",
+  "BigUint64Array",
+];
+
+/** What a typed array's methods do, the same for every kind. */
+const TYPED_METHODS: Record<string, LibraryEffect> = {
+  at: NONE,
+  copyWithin: REORDERS,
+  entries: ALLOCATES,
+  every: VISITS,
+  fill: REORDERS,
+  filter: MAPS,
+  find: VISITS,
+  findIndex: VISITS,
+  findLast: VISITS,
+  findLastIndex: VISITS,
+  forEach: VISITS,
+  includes: NONE,
+  indexOf: NONE,
+  join: ALLOCATES,
+  keys: ALLOCATES,
+  lastIndexOf: NONE,
+  map: MAPS,
+  reduce: { calls: "during", throws: true },
+  reduceRight: { calls: "during", throws: true },
+  reverse: REORDERS,
+  set: { mutates: true, throws: true },
+  slice: ALLOCATES,
+  some: VISITS,
+  sort: { mutates: true, calls: "during", result: "receiver" },
+  // A view of the same bytes.
+  subarray: { allocates: true, result: "receiver" },
+  toReversed: ALLOCATES,
+  toSorted: { allocates: true, calls: "during" },
+  toString: ALLOCATES,
+  values: ALLOCATES,
+  with: ALLOCATES_THROWS,
+};
+
 /** Date's getters (each also as `getUTC…`), and its setters. */
 const DATE_FIELDS = [
   "FullYear",
@@ -158,20 +208,33 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "Set.values": COPY,
   "SetConstructor.new": COLLECTS,
 
-  "Uint8Array.at": NONE,
-  "Uint8Array.fill": REORDERS,
-  "Uint8Array.forEach": VISITS,
-  "Uint8Array.includes": NONE,
-  "Uint8Array.indexOf": NONE,
-  "Uint8Array.join": ALLOCATES,
-  "Uint8Array.map": MAPS,
-  "Uint8Array.reduce": VISITS,
-  "Uint8Array.set": { mutates: true, throws: true },
-  "Uint8Array.slice": ALLOCATES,
-  // A view of the same bytes.
-  "Uint8Array.subarray": { allocates: true, result: "receiver" },
-  "Uint8Array.toString": ALLOCATES,
-  "Uint8ArrayConstructor.new": { allocates: true, throws: true },
+  ...Object.fromEntries(
+    TYPED_ARRAYS.flatMap((name) => [
+      ...Object.entries(TYPED_METHODS).map(([m, e]) => [`${name}.${m}`, e] as const),
+      [`${name}Constructor.new`, ALLOCATES_THROWS] as const,
+      [`${name}Constructor.from`, ALLOCATES_THROWS] as const,
+      [`${name}Constructor.of`, ALLOCATES] as const,
+    ]),
+  ),
+  ...Object.fromEntries(
+    [
+      "Int8",
+      "Uint8",
+      "Int16",
+      "Uint16",
+      "Int32",
+      "Uint32",
+      "Float32",
+      "Float64",
+      "BigInt64",
+      "BigUint64",
+    ].flatMap((k) => [
+      [`DataView.get${k}`, { throws: true }] as const,
+      [`DataView.set${k}`, { mutates: true, throws: true }] as const,
+    ]),
+  ),
+  "DataViewConstructor.new": ALLOCATES_THROWS,
+  "ArrayBufferConstructor.isView": NONE,
 
   "String.at": ALLOCATES,
   "String.charAt": ALLOCATES,
