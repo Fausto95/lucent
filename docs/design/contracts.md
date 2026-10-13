@@ -34,7 +34,7 @@ each contract as the code implements it today. The design is
 | ------------------------------------------------------------ | --------------------------------------------------------------------- | ------- | ----------------------------------------------------------- |
 | [C-BIND](#c-bind-binding-schemas-and-plans)                  | SDK schemas, native identity, provenance, facts, binding plans, usage | v1.5    | `packages/bindgen/src/`                                     |
 | [C-IR](#c-ir-semantic-ir-and-program-facts)                  | The semantic IR, its verifier, effect summaries, program facts        | v1.3    | `packages/compiler/src/ir/`, `analysis/`                    |
-| [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.10   | `packages/runtime/cpp/lucent/`                              |
+| [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.11   | `packages/runtime/cpp/lucent/`                              |
 | [C-BIGINT](#c-bigint-the-runtimes-bigint)                    | The runtime's `BigInt` and native integer conversions                 | v1.1    | `lucent/bigint.h`                                           |
 | [C-BUFFER](#c-buffer-native-buffers)                         | Native buffers, borrows, moves, loans, adoptions, native handles      | v1.6    | `lucent/buffer.h`, `handle.h`, `bytes.h`, `jsi/convert.*`   |
 | [C-VIEW](#c-view-components-and-views)                       | Component descriptions, transport, mounts, hosts, toolkit bodies      | v2.5    | `packages/compiler/src/ui/`, `packages/runtime/cpp/rn/`     |
@@ -443,11 +443,11 @@ takes an `AnalysisInput`: `checker`, `modules`, `platform?`, `native?`,
 
 ## C-EXEC: execution identities, scopes and operations
 
-**Version: v1.9.** The runtime's model of who owns work and where it runs,
+**Version: v1.11.** The runtime's model of who owns work and where it runs,
 in namespace `lucent`, with no JSI type but `lucent/jsi`'s `Host`. The text
 at this version also covers `channel.h` and `hooks.h`, which shipped
-before the text named them. v1.9 added `handed.h`, and v1.10
-`delegate_events.h`.
+before the text named them. v1.9 added `handed.h`, v1.10
+`delegate_events.h`, and v1.11 the kept `relaunched` event.
 
 **Implemented by** `packages/runtime/cpp/lucent/`: `scope.h`,
 `execution.h`, `scheduler.h`, `native.h`, `handed.h`, `delegate_events.h`, `async.h`, `abort.h`,
@@ -666,13 +666,13 @@ scene is a `SceneId`, never a pointer.
 receives, which `LucentAppDelegate` (`platform/ios_app_delegate.mm`)
 reports.
 
-| Member                            | Contract                                                                                                                                                                                                          |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DelegateEvent<P, A>(keep)`       | Listeners in subscription order, on the main thread; `report(p)` gives their answers, a throw's left out.                                                                                                         |
-| `keep`                            | A report with no subscriber waits for the first one, which hears it on the main thread: a URL, activity, shortcut or push token.                                                                                  |
-| `mergeFetchResults`, `anyHandled` | Expo's merge: new data if any, else failed if any, else no data; handled if any handled.                                                                                                                          |
-| `FetchAnswers`                    | Each `reply()` answers once; `done` runs once, when all answered after `close()`, or at `expire()` with what came.                                                                                                |
-| Lucent API                        | `onAppEvent` from `lucent:ios` with `openURL`, `userActivity`, `shortcutItem`, `pushToken`, `pushTokenFailed`, `remoteNotification`, `backgroundFetch`, `backgroundURLSession`, `supportedInterfaceOrientations`. |
+| Member                            | Contract                                                                                                                                                                                                                        |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DelegateEvent<P, A>(keep)`       | Listeners in subscription order, on the main thread; `report(p)` gives their answers, a throw's left out.                                                                                                                       |
+| `keep`                            | A report with no subscriber waits for the first one, which hears it on the main thread: a URL, activity, shortcut, push token or relaunch reason.                                                                               |
+| `mergeFetchResults`, `anyHandled` | Expo's merge: new data if any, else failed if any, else no data; handled if any handled.                                                                                                                                        |
+| `FetchAnswers`                    | Each `reply()` answers once; `done` runs once, when all answered after `close()`, or at `expire()` with what came.                                                                                                              |
+| Lucent API                        | `onAppEvent` from `lucent:ios` with `openURL`, `userActivity`, `shortcutItem`, `pushToken`, `pushTokenFailed`, `remoteNotification`, `backgroundFetch`, `backgroundURLSession`, `supportedInterfaceOrientations`, `relaunched`. |
 
 ### Planned
 

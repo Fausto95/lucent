@@ -727,8 +727,9 @@ What only the app delegate or a scene delegate receives reaches
 `onAppEvent` through `LucentAppDelegate`, whose class methods the
 delegates call with what UIKit gave them: `openURL`, `userActivity`,
 `shortcutItem`, `pushToken`, `pushTokenFailed`, `remoteNotification`,
-`backgroundFetch`, `backgroundURLSession` and
-`supportedInterfaceOrientations`. Each listener has its event's own
+`backgroundFetch`, `backgroundURLSession`,
+`supportedInterfaceOrientations` and `relaunched` (a location, Bluetooth
+or notification launch). Each listener has its event's own
 arguments and answer. Lucent's init adds the calls to a bare app's
 `AppDelegate.swift` and `SceneDelegate.swift`, each line ending in a
 `// lucent:forward` comment. In an Expo app, Lucent's subscriber gets

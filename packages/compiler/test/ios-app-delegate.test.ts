@@ -33,6 +33,9 @@ export async function run(): Promise<string> {
       return identifier === "lucent.downloads";
     }),
     onAppEvent("supportedInterfaceOrientations", () => 2),
+    onAppEvent("relaunched", (reason, details) => {
+      heard.push(reason === "location" ? details : reason);
+    }),
     onAppEvent("didBecomeActive", () => {}),
   ];
   for (const stop of stops) stop();
@@ -54,6 +57,7 @@ export async function run(): Promise<string> {
       "onBackgroundFetch",
       "onBackgroundURLSession",
       "onSupportedInterfaceOrientations",
+      "onRelaunched",
     ])
       expect(mm).toContain(`lucent::objc::${fn}(`);
     expect(mm).toContain('lucent::objc::onAppEvent(LUCENT_STR("didBecomeActive")');
@@ -64,6 +68,7 @@ export async function run(): Promise<string> {
       "openURL",
       "pushToken",
       "pushTokenFailed",
+      "relaunched",
       "remoteNotification",
       "shortcutItem",
       "supportedInterfaceOrientations",

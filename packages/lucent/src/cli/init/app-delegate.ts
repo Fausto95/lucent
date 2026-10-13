@@ -446,6 +446,8 @@ const EVENT_FORWARDS: Record<string, { app: string; scene?: string }> = {
   backgroundURLSession: {
     app: "application(_:handleEventsForBackgroundURLSession:completionHandler:)",
   },
+  // Location and Bluetooth relaunches come in the app delegate's launch options alone.
+  relaunched: { app: "application(_:didFinishLaunchingWithOptions:)" },
 };
 
 /** Whether `text` has `find`'s method, with Lucent's line in its body. */

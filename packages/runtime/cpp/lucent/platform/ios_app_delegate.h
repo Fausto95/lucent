@@ -60,6 +60,10 @@ struct AppDelegateEvents {
   DelegateEvent<std::shared_ptr<FetchAnswers>> backgroundFetch;
   DelegateEvent<URLSessionEvents> backgroundURLSession;
   DelegateEvent<bool, double> supportedInterfaceOrientations;
+  /// Why iOS launched the app in the background, or a notification the
+  /// person opened it with: the reason ("location", "bluetoothCentrals",
+  /// "bluetoothPeripherals", "notification") and its details as JSON.
+  DelegateEvent<DelegateItem> relaunched{true};
 
   /// The process's, which LucentAppDelegate reports to.
   static AppDelegateEvents& shared();
@@ -94,6 +98,8 @@ Fn<void()> onBackgroundFetch(Fn<Promise<String>()> listener, Opt<AbortSignal> si
 Fn<void()> onBackgroundURLSession(Fn<bool(String, Fn<void()>)> listener, Opt<AbortSignal> signal = {});
 /// "supportedInterfaceOrientations": `listener()`, a UIInterfaceOrientationMask, or 0 for no say.
 Fn<void()> onSupportedInterfaceOrientations(Fn<double()> listener, Opt<AbortSignal> signal = {});
+/// "relaunched": `listener(reason, details)`, once for each reason the app was launched for.
+Fn<void()> onRelaunched(Fn<void(String, String)> listener, Opt<AbortSignal> signal = {});
 
 /// A userInfo dictionary as JSON: values JSON has no form for (a date,
 /// data, any other object) as their description.

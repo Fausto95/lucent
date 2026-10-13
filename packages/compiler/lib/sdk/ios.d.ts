@@ -223,6 +223,17 @@ export declare function onAppEvent(
 export type FetchResult = "newData" | "noData" | "failed";
 
 /**
+ * Why iOS launched the app. It may run in the background for a location
+ * event or a Bluetooth accessory. Or the person opened one of its
+ * notifications.
+ */
+export type RelaunchReason =
+  | "location"
+  | "bluetoothCentrals"
+  | "bluetoothPeripherals"
+  | "notification";
+
+/**
  * Calls `listener` with each URL the app is asked to open, and the bundle
  * id of the app that asked (`""` when iOS doesn't say). It answers whether
  * it opened the URL.
@@ -376,6 +387,26 @@ export declare function onAppEvent(
 export declare function onAppEvent(
   event: "supportedInterfaceOrientations",
   listener: () => number,
+  signal?: AbortSignal,
+): () => void;
+
+/**
+ * Calls `listener` with each reason iOS launched the app for, and its
+ * details as JSON. The reasons wait for the first listener. A module that
+ * resumes location or Bluetooth work learns from them why the app runs.
+ *
+ * The details are `{}` for `"location"`, and for Bluetooth the
+ * `restorationIdentifiers` of the managers to make again. For a
+ * notification they are its `userInfo`, given once even when both
+ * delegates report it.
+ *
+ * @param event `"relaunched"`.
+ * @param listener Called with the reason and its details' JSON.
+ * @param signal Stops listening, as the returned function does.
+ */
+export declare function onAppEvent(
+  event: "relaunched",
+  listener: (reason: RelaunchReason, details: string) => void,
   signal?: AbortSignal,
 ): () => void;
 
