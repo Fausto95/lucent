@@ -6,16 +6,18 @@
 #include <mutex>
 #include <vector>
 
-#include "execution.h"
+#include "native_root.h"
 #include "report.h"
+#include "scheduler.h"
 
 namespace lucent {
 
 namespace {
 
 struct Hook {
-  // Held, so its address names no other scope while the hook waits.
-  std::shared_ptr<Scope> scope;
+  uint64_t generation;
+  /// The actor the hook's module code ran in (actors are never destroyed).
+  Actor* actor;
   uint64_t id;
   Fn<void()> run;
 };
@@ -35,12 +37,13 @@ Hooks& hooks() {
 
 Fn<void()> onDestroy(Fn<void()> hook) {
   Hooks& h = hooks();
-  auto scope = moduleScope();
+  Actor* actor = Actor::current();
+  uint64_t generation = moduleGeneration();
   uint64_t id = 0;
   {
     std::lock_guard<std::mutex> g(h.m);
     id = ++h.next;
-    h.list.push_back(Hook{std::move(scope), id, std::move(hook)});
+    h.list.push_back(Hook{generation, actor ? actor : &Actor::shared(), id, std::move(hook)});
   }
 
   return Fn<void()>([id] {
@@ -50,13 +53,13 @@ Fn<void()> onDestroy(Fn<void()> hook) {
   });
 }
 
-void runDestroyHooks(const Scope* scope) {
+void runDestroyHooks(uint64_t generation) {
   Hooks& h = hooks();
   std::vector<Hook> mine;
   {
     std::lock_guard<std::mutex> g(h.m);
     for (auto it = h.list.begin(); it != h.list.end();) {
-      if (it->scope.get() == scope) {
+      if (it->generation == generation) {
         mine.push_back(std::move(*it));
         it = h.list.erase(it);
       } else {
@@ -66,6 +69,7 @@ void runDestroyHooks(const Scope* scope) {
   }
 
   for (auto it = mine.rbegin(); it != mine.rend(); ++it) {
+    LucentScope lock(*it->actor);
     try {
       it->run();
     } catch (...) {

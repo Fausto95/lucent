@@ -301,14 +301,15 @@ Runtimes& runtimes() {
   return *state;
 }
 
-/// The default runtime: the last attached that is live, else the last
-/// attached that is still there. Under the lock.
+/// The default runtime: the last attached JavaScript runtime that is
+/// live, else the last attached that is still there; never a native call.
+/// Under the lock.
 RuntimeId defaultRuntime(Runtimes& r) {
   RuntimeId fallback = 0;
 
   for (auto it = r.attached.rbegin(); it != r.attached.rend(); ++it) {
     auto work = it->second.lock();
-    if (!work) continue;
+    if (!work || !work->javascript()) continue;
     if (work->live()) return it->first;
     if (!fallback) fallback = it->first;
   }
@@ -327,6 +328,11 @@ const std::shared_ptr<Scope>& goneScope() {
 }
 
 }  // namespace
+
+RuntimeId newRuntimeId() {
+  static std::atomic<RuntimeId> next{1};
+  return next.fetch_add(1, std::memory_order_relaxed);
+}
 
 void attachRuntime(RuntimeId id, std::weak_ptr<RuntimeWork> work) {
   Runtimes& r = runtimes();
@@ -358,7 +364,7 @@ size_t otherRuntimes(RuntimeId except) {
   size_t n = 0;
   for (auto& [id, weak] : r.attached) {
     if (id == except) continue;
-    if (auto work = weak.lock(); work && work->live()) n++;
+    if (auto work = weak.lock(); work && work->live() && work->javascript()) n++;
   }
   return n;
 }

@@ -8,6 +8,7 @@
 
 #include "../execution.h"
 #include "../live.h"
+#include "../native_root.h"
 #include "../native.h"
 #include "../refs.h"
 #include "../view.h"
@@ -29,9 +30,6 @@ std::unordered_map<jsi::Runtime*, std::weak_ptr<Host>>& registry() {
 // Changes whenever the registry does, so a thread's cached host is known
 // stale. Constant-initialized: reading it needs no guard.
 std::atomic<uint64_t> registryGeneration{1};
-
-// Constant-initialized: safe to use during static initialization.
-std::atomic<RuntimeId> nextRuntimeId{1};
 
 // The last host this thread looked up: every call from JavaScript asks for
 // it, and a thread nearly always talks to one runtime. One thread_local, as
@@ -236,11 +234,14 @@ std::shared_ptr<Host> Host::create(jsi::Runtime& rt, JsPoster poster) {
   // cancels that work, and only that.
   attachRuntime(host->id(), host);
 
-  // Module state is the process's: a second runtime alongside a first
-  // shares it. Each module's initialization holds its actor.
-  if (!otherRuntimes(host->id())) {
+  // Module state is the process's (decision 0090): a runtime installed
+  // while a generation lasts (beside another runtime, or once a native
+  // root started it) shares it; else its install starts one, its modules'
+  // work belonging to this runtime. Each module's initialization holds its
+  // actor.
+  {
     RuntimeEntry entry(host->id());
-    resetModuleState();
+    ensureModuleState(&resetModuleState);
   }
   return host;
 }
@@ -267,7 +268,7 @@ const jsi::PropNameID& Host::makeProp(jsi::Runtime& rt, const PropName& name) {
 }
 
 Host::Host(jsi::Runtime& rt, JsPoster poster)
-    : id_(nextRuntimeId.fetch_add(1, std::memory_order_relaxed)),
+    : id_(newRuntimeId()),
       rt_(rt),
       poster_(std::move(poster)),
       jsThread_(std::this_thread::get_id()),
@@ -388,24 +389,18 @@ void Host::tearDown(bool runtimeUsable) {
 
   owed.clear();
 
-  // Module code's destroy hooks for this runtime's state, each in its
-  // actor, before the next initialization (Host::create tears the old host
-  // down first); then each scope cancels its operations and runs its
-  // cleanups.
-  std::vector<std::pair<const ExecutionContext*, std::shared_ptr<Scope>>> scopes;
+  // The last runtime going ends module state, unless a native root holds
+  // it: its destroy hooks run, each in its actor, before the next
+  // initialization (Host::create tears the old host down first). Then each
+  // scope cancels its operations and runs its cleanups.
+  endModuleStateUnlessHeld(id_);
+
+  std::vector<std::shared_ptr<Scope>> scopes;
   {
     std::lock_guard<std::mutex> g(scopesMutex_);
-    for (auto& [context, scope] : scopes_) scopes.emplace_back(context, scope);
+    for (auto& [context, scope] : scopes_) scopes.push_back(scope);
   }
-  for (auto& [context, scope] : scopes) {
-    if (auto* actor = dynamic_cast<const Actor*>(context)) {
-      LucentScope lock(const_cast<Actor&>(*actor));
-      runDestroyHooks(scope.get());
-    } else {
-      runDestroyHooks(scope.get());
-    }
-  }
-  for (auto& [context, scope] : scopes)
+  for (auto& scope : scopes)
     if (auto e = scope->dispose()) reportUncaught(e, "host");
 
   functions_.clear();

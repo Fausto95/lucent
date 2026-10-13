@@ -22,6 +22,7 @@
 #include <type_traits>
 
 #include "lucent/compute.h"
+#include "lucent/native_root.h"
 #include "lucent/operation.h"
 #include "lucent/refs.h"
 #include "lucent/resource.h"
@@ -1151,6 +1152,97 @@ static void destroyHooksRunWhenModuleStateEnds() {
   CHECK(m_t::unregistered == 0);
 }
 
+// --- the native root ----------------------------------------------------------
+
+/// Native code calls module code with no JavaScript runtime (an entry
+/// point's): its call starts module state, a runtime installed after
+/// shares it, and a reload while the call lasts leaves it as it is. Once
+/// nothing native holds it, the last runtime's teardown ends it, its hooks
+/// run, and the next use starts it again (decision 0090).
+static void aNativeCallStartsModuleStateARuntimeShares() {
+  CHECK(moduleGeneration() == 0);
+  int before = m_t::initialized;
+  int destroyedBefore = m_t::destroyed;
+
+  auto call = NativeCall::start();
+  CHECK(moduleStateHolds() == 1);
+  {
+    NativeCall::Entry entry(*call);
+    CHECK(ensureModuleState(&resetModuleState));
+    CHECK(!ensureModuleState(&resetModuleState));
+    // Its work is the call's: no runtime is attached to fall back on.
+    CHECK(currentRuntime() == call->id() && m_t::scopeRuntime() == call->id());
+  }
+  CHECK(m_t::initialized == before + 1);
+  uint64_t generation = moduleGeneration();
+  CHECK(generation != 0);
+
+  JsThread js;
+  install(js);
+  CHECK(m_t::initialized == before + 1 && moduleGeneration() == generation);
+  CHECK(js.string("'' + mods.t.value(2)") == "4");
+
+  // A reload while the call holds the state: the new host shares it.
+  install(js);
+  CHECK(m_t::initialized == before + 1 && moduleGeneration() == generation);
+  CHECK(m_t::destroyed == destroyedBefore);
+
+  // Outside the call, the default runtime is the JavaScript one, never the call.
+  CHECK(currentRuntime() != call->id());
+
+  call->end();
+  CHECK(moduleStateHolds() == 0);
+
+  js.destroyRuntime();
+  CHECK(within(2000, [&] { return m_t::destroyed == destroyedBefore + 1; }));
+  CHECK(moduleGeneration() == 0);
+
+  JsThread next;
+  install(next);
+  CHECK(m_t::initialized == before + 2 && moduleGeneration() > generation);
+  next.destroyRuntime();
+  CHECK(within(2000, [] { return moduleGeneration() == 0; }));
+}
+
+/// Work a native call starts is the call's, in the turns it posts too:
+/// ending the call cancels it, and a runtime's teardown spares it.
+static void aNativeCallsWorkEndsWithIt() {
+  m_t::workCleanups = 0;
+  m_t::workAborted = 0;
+  m_t::ticks = 0;
+  m_t::tickerEnded = 0;
+
+  JsThread js;
+  install(js);
+
+  auto call = NativeCall::start();
+  {
+    NativeCall::Entry entry(*call);
+    LucentScope scope;
+    m_t::listen();
+    (void)m_t::ticker();
+  }
+  CHECK(within(2000, [] { return m_t::ticks.load() > 3; }));
+
+  // The runtime goes: the call's work goes on.
+  js.destroyRuntime();
+  int at = m_t::ticks;
+  CHECK(within(2000, [&] { return m_t::ticks.load() > at + 3; }));
+  CHECK(m_t::workCleanups == 0 && m_t::tickerEnded == 0);
+
+  call->end();
+  CHECK(within(2000, [] { return m_t::workCleanups.load() == 3; }));
+  CHECK(within(2000, [] { return m_t::workAborted.load() == 3; }));
+  CHECK(within(2000, [] { return m_t::tickerEnded.load() == 1; }));
+
+  // Nothing holds the state now, but no runtime's teardown came to end it.
+  CHECK(moduleGeneration() != 0);
+  JsThread last;
+  install(last);
+  last.destroyRuntime();
+  CHECK(within(2000, [] { return moduleGeneration() == 0; }));
+}
+
 // --- events -------------------------------------------------------------------
 
 /// A listener JavaScript added belongs to its runtime: after a reload,
@@ -1963,6 +2055,8 @@ int main() {
   awaitedJsPromisesRejectAtTeardown();
   callbacksDroppedWithTheRuntimeReject();
   destroyHooksRunWhenModuleStateEnds();
+  aNativeCallStartsModuleStateARuntimeShares();
+  aNativeCallsWorkEndsWithIt();
   listenersEndWithTheirRuntime();
   observersHearJavaScriptsListeners();
   reloadsStopModuleWork();

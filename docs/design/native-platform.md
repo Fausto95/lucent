@@ -702,10 +702,12 @@ them ([T150](../tasks.md#t150)'s ports), none a core special case.
 
 ### The native root
 
-**Planned** ([T130](../tasks.md#t130)). The native root starts the runtime
-with no JavaScript: module state initialized, actors and contexts running,
-under `RuntimeId` 0. A JavaScript `Host` is then one more client, and sees
-the same module state when it installs.
+**In progress** ([T130](../tasks.md#t130)). The native root starts the
+runtime with no JavaScript: module state initialized, actors and contexts
+running. A JavaScript `Host` is then one more client, and sees the same
+module state when it installs. `native_root.h` keeps the state's
+generations and holds, and `NativeCall` is a native call's work. No
+generated code calls it yet: entry points are next.
 
 Module initialization moves out of the JSI unit into a JSI-free one.
 [Decision 0090](../decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md)
@@ -716,18 +718,18 @@ down while no native root holds the state. A `launch` module holds it for
 the process, an entry point until its work's scope ends, and an instance
 the OS made while it lives. `onDestroy` hooks belong to the generation.
 
-So three rules of today's runtime change:
+So three rules of the runtime changed with `native_root.h`:
 
-- `Host::create` resets module state whenever no other JavaScript runtime
-  is live (`jsi/host.cpp`). It will start a generation only when none
-  lasts, and share one that a native root started.
-- Module setup at `RuntimeId` 0 puts its work and its `onDestroy` hooks
-  under the actor's root scope, and only a `Host`'s teardown runs destroy
-  hooks. Hooks will run when their generation ends.
+- `Host::create` reset module state whenever no other JavaScript runtime
+  was live (`jsi/host.cpp`). It starts a generation only when none lasts,
+  and shares one that a native root started.
+- `onDestroy` hooks belonged to a runtime's module scope, and only a
+  `Host`'s teardown ran them. They belong to the generation, and run when
+  it ends.
 - `currentRuntime()` falls back to the last attached live runtime
-  (`execution.h`). Inside an entry point the code will run for that call
-  instead, and its work will belong to a scope of the call, which the
-  platform's end of the task disposes.
+  (`execution.h`). Inside a `NativeCall` the code runs for that call
+  instead, and its work belongs to the call's scopes, which `end()`
+  disposes.
 
 Without a runtime, a call that needs one throws an `InvalidStateError`,
 such as calling a JavaScript callback; an event with no listener is

@@ -34,7 +34,7 @@ each contract as the code implements it today. The design is
 | ------------------------------------------------------------ | --------------------------------------------------------------------- | ------- | ----------------------------------------------------------- |
 | [C-BIND](#c-bind-binding-schemas-and-plans)                  | SDK schemas, native identity, provenance, facts, binding plans, usage | v1.5    | `packages/bindgen/src/`                                     |
 | [C-IR](#c-ir-semantic-ir-and-program-facts)                  | The semantic IR, its verifier, effect summaries, program facts        | v1.3    | `packages/compiler/src/ir/`, `analysis/`                    |
-| [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.10   | `packages/runtime/cpp/lucent/`                              |
+| [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.12   | `packages/runtime/cpp/lucent/`                              |
 | [C-BIGINT](#c-bigint-the-runtimes-bigint)                    | The runtime's `BigInt` and native integer conversions                 | v1.1    | `lucent/bigint.h`                                           |
 | [C-BUFFER](#c-buffer-native-buffers)                         | Native buffers, borrows, moves, loans, adoptions, native handles      | v1.6    | `lucent/buffer.h`, `handle.h`, `bytes.h`, `jsi/convert.*`   |
 | [C-VIEW](#c-view-components-and-views)                       | Component descriptions, transport, mounts, hosts, toolkit bodies      | v2.5    | `packages/compiler/src/ui/`, `packages/runtime/cpp/rn/`     |
@@ -443,14 +443,14 @@ takes an `AnalysisInput`: `checker`, `modules`, `platform?`, `native?`,
 
 ## C-EXEC: execution identities, scopes and operations
 
-**Version: v1.9.** The runtime's model of who owns work and where it runs,
+**Version: v1.12.** The runtime's model of who owns work and where it runs,
 in namespace `lucent`, with no JSI type but `lucent/jsi`'s `Host`. The text
 at this version also covers `channel.h` and `hooks.h`, which shipped
-before the text named them. v1.9 added `handed.h`, and v1.10
-`delegate_events.h`.
+before the text named them. v1.9 added `handed.h`, v1.10
+`delegate_events.h`, and v1.12 `native_root.h`.
 
 **Implemented by** `packages/runtime/cpp/lucent/`: `scope.h`,
-`execution.h`, `scheduler.h`, `native.h`, `handed.h`, `delegate_events.h`, `async.h`, `abort.h`,
+`execution.h`, `scheduler.h`, `native.h`, `native_root.h`, `handed.h`, `delegate_events.h`, `async.h`, `abort.h`,
 `resource.h`, `callback.h`, `transport.h`, `compute.h`, `channel.h`,
 `lifecycle.h`, `presentation.h`, `hooks.h`, `report.h`, `jsi/host.h`.
 
@@ -565,14 +565,15 @@ Module code's work belongs to the JavaScript runtime it runs for. A reload
 cancels that runtime's work only, and two React Native instances keep
 their own.
 
-| Part                               | Contract                                                                                                                                              |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RuntimeWork`                      | A runtime's work, a scope per actor; `Host` implements it. `attachRuntime(id, work)`, `detachRuntime(id)`.                                            |
-| `RuntimeEntry`, `currentRuntime()` | A thread runs for the runtime whose call it is in; posts carry it. Elsewhere: the last attached live runtime, else the last attached.                 |
-| `moduleScope()`                    | That runtime's scope on the calling actor; the actor's root with none attached; disposed once its runtime is torn down.                               |
-| `ownedScope(owner)`                | Where promise-returning APIs register work: an actor's module scope, or another context's root.                                                       |
-| `onDestroy(hook)` (`hooks.h`)      | Registers under the current module scope. `runDestroyHooks(scope)` runs them last first, under the lock, at the host's teardown. A throw is reported. |
-| Module state                       | The process's. `Host::create` resets it (`resetModuleState`) only when no other runtime is live.                                                      |
+| Part                               | Contract                                                                                                                                                                                            |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RuntimeWork`                      | A runtime's work, a scope per actor; `Host` and `NativeCall` implement it. `attachRuntime(id, work)`, `detachRuntime(id)`, ids from `newRuntimeId()`.                                               |
+| `RuntimeEntry`, `currentRuntime()` | A thread runs for the runtime whose call it is in; posts carry it. Elsewhere: the last attached live JavaScript runtime, else the last attached.                                                    |
+| `moduleScope()`                    | That runtime's scope on the calling actor; the actor's root with none attached; disposed once its runtime is torn down.                                                                             |
+| `ownedScope(owner)`                | Where promise-returning APIs register work: an actor's module scope, or another context's root.                                                                                                     |
+| `onDestroy(hook)` (`hooks.h`)      | Registers under the current generation. `runDestroyHooks(generation)` runs them last first, each holding its actor, as it ends. A throw is reported.                                                |
+| Module state (`native_root.h`)     | The process's, in generations (0090). `ensureModuleState(init)` starts one when none lasts; `endModuleStateUnlessHeld` ends it in the last runtime's teardown, unless a `ModuleStateHold` holds it. |
+| `NativeCall`                       | A native call's work: a runtime of its own, never the default, no JavaScript runtime to `otherRuntimes`. Holds module state; `end()` disposes its scopes.                                           |
 
 ### Promises, references and resources
 
