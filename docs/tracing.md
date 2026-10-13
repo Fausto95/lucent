@@ -137,15 +137,11 @@ steady clock, so the processes share a view, not a timeline.
   device rarely exit that way, so use the platform's tooling there.
 - Allocations are recorded for native buffers only. Copies at the JSI
   boundary are inside `entry` spans, not `copy` events.
-- Not traced: class fields and accessors, exported variables, the main
-  thread's waits for an actor (`enterFromMain`), channel waits and drops,
-  and executors.
+- Not traced: class fields and accessors, exported variables, and the
+  main thread's waits for an actor (`enterFromMain`).
 - `lucent trace` sums spans only, and spans nest: an `entry` includes its
   `lucent-lock`. `buffer.copy` is an instant, so its bytes are left out
   of the printed totals.
-
-> **Planned:** each channel's waits, depth and drops, and an executor's
-> spans beside its actor's ([T109](tasks.md#t109)).
 
 ## Related logs
 

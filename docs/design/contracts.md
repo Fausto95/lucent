@@ -665,8 +665,6 @@ scene is a `SceneId`, never a pointer.
 - [T104](../tasks.md#t104): `setTimeout`, `setInterval` and
   `queueMicrotask` on the calling context, cleared at teardown as
   `onDestroy` hooks run.
-- [T109](../tasks.md#t109): `EventEmitter` events posted from an executor
-  ([decision 0078](../decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md)).
 - [T110](../tasks.md#t110): `onAppEvent` gains `openURL`, `userActivity`,
   `pushToken` and its failure, `remoteNotification`, `backgroundFetch`,
   `backgroundURLSession`, `shortcutItem` and
@@ -1196,10 +1194,7 @@ Swift value types cross as boxed references. Kotlin extension functions
 take the receiver first. Android callbacks use one reflection-based
 `NativeProxy`. Packages ship sources only, and an app has one runtime.
 Events are void; commands are a void enqueue or a promise result. SwiftUI
-and Compose views are the toolkit's JSX. Two accepted decisions are
+and Compose views are the toolkit's JSX. One accepted decision is
 planned, not built: a view prop may be an exported class's instance
 ([0075](../decisions/0075-instances-of-exported-classes-as-view-props.md),
-[T120](../tasks.md#t120)), and executors wrap code where it is handed to
-the platform
-([0078](../decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md),
-[T109](../tasks.md#t109)).
+[T120](../tasks.md#t120)).
