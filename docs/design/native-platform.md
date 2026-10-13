@@ -707,29 +707,31 @@ with no JavaScript: module state initialized, actors and contexts running,
 under `RuntimeId` 0. A JavaScript `Host` is then one more client, and sees
 the same module state when it installs.
 
-Module initialization moves out of the JSI unit into a JSI-free one. The
-proposal is that it runs once, at first use: a launch, an entry point or a
-`Host`'s install. Without a runtime, a call that needs one throws a typed error, such as
-calling a JavaScript callback; an event with no listener is dropped. Work
-an entry point starts belongs to a scope of that call, so the platform
-ending the task cancels it.
+Module initialization moves out of the JSI unit into a JSI-free one.
+[Decision 0090](../decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md)
+sets module state's lifetime. State lives in generations, each started at
+the first use of any module: a `Host`'s install, an entry point's call, or
+launch. A generation ends when the last live JavaScript runtime is torn
+down while no native root holds the state. A `launch` module holds it for
+the process, an entry point until its work's scope ends, and an instance
+the OS made while it lives. `onDestroy` hooks belong to the generation.
 
-**Open:** when a reload resets module state once native roots exist. The
-task's example is to reset only when no native root holds the state.
-What "holds" means is part of the decision: an entry point in flight, a
-launch module, a running service. Three rules of today's runtime have to
-change with it:
+So three rules of today's runtime change:
 
 - `Host::create` resets module state whenever no other JavaScript runtime
-  is live (`jsi/host.cpp`). A native root isn't an attached runtime, so
-  the first JavaScript install would wipe the root's state.
+  is live (`jsi/host.cpp`). It will start a generation only when none
+  lasts, and share one that a native root started.
 - Module setup at `RuntimeId` 0 puts its work and its `onDestroy` hooks
   under the actor's root scope, and only a `Host`'s teardown runs destroy
-  hooks, so they would never run.
+  hooks. Hooks will run when their generation ends.
 - `currentRuntime()` falls back to the last attached live runtime
-  (`execution.h`). A worklet `Host`, or React Native starting during a
-  background task, would then own an entry point's work and cancel it at
-  its own teardown.
+  (`execution.h`). Inside an entry point the code will run for that call
+  instead, and its work will belong to a scope of the call, which the
+  platform's end of the task disposes.
+
+Without a runtime, a call that needs one throws an `InvalidStateError`,
+such as calling a JavaScript callback; an event with no listener is
+dropped.
 
 **Open:** loading the code on Android. Lucent's C++ is an `OBJECT`
 library built into the app's `appmodules`, linked against JSI, React
@@ -898,7 +900,8 @@ builds through the SDK.
 Each becomes a decision record before its task's work starts:
 
 1. Module state's lifetime with native roots, what a reload resets, and
-   the three runtime rules above.
+   the three runtime rules above: decided,
+   [0090](../decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md).
 2. The entry-point ABI: names, sync and async forms, arguments, errors,
    scopes, and the API native code sees ([T114](../tasks.md#t114)).
 3. Launch timing on each platform, and loading the code on Android.
