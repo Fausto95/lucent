@@ -16,6 +16,24 @@ interface Navigator extends Visit {
   back: (() => void) | null;
 }
 
+/** Holds on the navigator's back handling: while any is held, back presses go past it. */
+let held = 0;
+
+/**
+ * Lets back presses go past the navigator until the returned function is
+ * called: the Lab's back press probe, which module code must hear after
+ * JavaScript declined the press.
+ */
+export function holdBack(): () => void {
+  held += 1;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    held -= 1;
+  };
+}
+
 /**
  * The one piece of navigation state: the current route. It starts at the
  * launch argument's route, then follows deep links (the one that opened the
@@ -52,6 +70,7 @@ export function useNavigator(catalog: RouteCatalog): Navigator {
     if (!up) return;
 
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (held > 0) return false;
       open(up);
       return true;
     });

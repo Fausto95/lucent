@@ -37,6 +37,10 @@ Each screen runs when it opens and shows its verdict at the top (testID
   lines the same code prints as JavaScript. **ALL PASSED** when everything
   matches; tap a case for its lines.
 - **SDK**: the platform probes and the ports' parity cases.
+- **Platform events**: what only the platform gives module code: frames
+  through an executor into a channel, uncopied; a deep link the app opens
+  to itself; a push token or why there is none (iOS); a back press
+  JavaScript lets through, and a rotation (Android).
 - **Benchmark**: compute kernels in Lucent against the same TypeScript in
   Hermes.
 - **Compare**: NitroBenchmarks, Lucent next to Turbo and Nitro modules.
@@ -54,7 +58,7 @@ xcrun simctl launch booted org.reactjs.native.example.BareExample -lucentTab lab
 
 Routes: `examples`, `lab`, `examples/<demo>` (`haptics`, `secure-store`,
 `device`, `network`, `files`, `location`, `biometrics`, `crypto`, `compute`,
-`tasks`) and `lab/<screen>` (`tests`, `sdk`, `bench`, `compare`). A bare
+`tasks`) and `lab/<screen>` (`tests`, `sdk`, `platform`, `bench`, `compare`). A bare
 name works too (`-lucentTab tests`). The iOS simulator asks to confirm a
 link from `simctl openurl`, so unattended iOS scripts use `-lucentTab`.
 
