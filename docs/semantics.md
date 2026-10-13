@@ -187,8 +187,9 @@ reverse mapping. A call typed `never` may stand wherever a value goes.
 `any`, and `unknown` outside `catch`, have no layout (`LUCENT2001`).
 `LUCENT2002` refuses intersections, `symbol`, `object`, `Function`,
 `Intl` types, mixed index signatures, overloaded and constructor function
-types, and `SharedArrayBuffer`. A recursive union alias
-(`type Json = … | Json[]`) crashes the compiler today ([T102](tasks.md#t102)).
+types, `SharedArrayBuffer`, and, until [T102](tasks.md#t102), a union that
+holds itself in an array or record (`type Json = … | Json[]`); through an
+object type's field, it compiles.
 
 ## Statements and expressions
 

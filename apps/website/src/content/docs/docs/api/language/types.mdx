@@ -66,6 +66,7 @@ An array is a reference: assigning it shares it. A tuple is a value, and `===` c
 | --- | --- | --- |
 | `any`, and `unknown` outside a `catch` clause | [LUCENT2001](/docs/api/diagnostics/#lucent2001) | A concrete type, a union or a generic. |
 | Intersections, `A & B` | [LUCENT2002](/docs/api/diagnostics/#lucent2002) | One object type with every field. |
+| Unions that hold themselves in an array or record, `type Json = … \| Json[]` | `LUCENT2002` | An object type for the nested values, whose field holds the union. |
 | `object`, `symbol` | `LUCENT2002` | A concrete type. |
 | Object types with methods or getters | `LUCENT2002` | A class, or a property whose type is a function. |
 | Function types with overloads or properties, and rest parameters | `LUCENT2002` | One signature, and an array parameter. |

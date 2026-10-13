@@ -74,9 +74,8 @@ generated from this file.
 - A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused
   ([T112](tasks.md#t112)). A `WeakMap` value that holds its own key keeps
   it, and the entry, for as long as the map lives.
-- A recursive union alias, such as a `Json` type of arrays and records,
-  crashes the compiler instead of giving a diagnostic
-  ([T102](tasks.md#t102)).
+- A union that refers to itself, such as a `Json` type of arrays and
+  records, is refused (`LUCENT2002`) ([T102](tasks.md#t102)).
 - `then`, `catch`, `finally`, `Promise.race`, `Promise.any` and
   `Promise.allSettled` are refused: use `await` and `Promise.all`
   ([T103](tasks.md#t103)).

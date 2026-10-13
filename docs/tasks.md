@@ -27,7 +27,7 @@ what became of each one that is still linked or was still open.
 | **Module parity**        |                                                            |                                                               |
 | [T100](#t100)            | Typed arrays and `DataView`                                | done (2026-10-13)                                             |
 | [T101](#t101)            | Keep `null` apart from `undefined` everywhere              | done (2026-10-13)                                             |
-| [T102](#t102)            | Recursive union types, for JSON-shaped values              | ready                                                         |
+| [T102](#t102)            | Recursive union types, for JSON-shaped values              | in progress (#254)                                            |
 | [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | ready                                                         |
 | [T104](#t104)            | Timers and `queueMicrotask`                                | ready                                                         |
 | [T105](#t105)            | Web APIs that shared code uses                             | ready                                                         |
@@ -202,17 +202,17 @@ and returns untyped data, as Nitro's `AnyMap` and Expo's dictionaries do:
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 ```
 
-- **Status:** ready.
+- **Status:** in progress (#254).
 - **Area:** compiler, runtime.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3.
 - **Where:** `types.ts`, `emit/`, `jsi/convert.h`.
 
-Today the compiler overflows its stack on that alias (`RangeError:
-Maximum call stack size exceeded`), a crash instead of a diagnostic.
+The compiler overflowed its stack on that alias (`RangeError: Maximum
+call stack size exceeded`). Now it refuses it with LUCENT2002 (#254).
 
-- [ ] First, a regression test: the alias gives a `LUCENT` diagnostic, not
-      a crash (`diagnostics.test.ts`).
+- [x] First, a regression test: the alias gives a `LUCENT` diagnostic, not
+      a crash (`diagnostics.test.ts`, #254).
 - [ ] A recursive union lowers to a variant that holds its recursive
       members by reference. `typeof` and `Array.isArray` narrow it.
 - [ ] It crosses both ways at any depth, under the stack check, and

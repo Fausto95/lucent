@@ -643,6 +643,12 @@ export class TypeRegistry {
   private readonly structNames = new Set<string>();
   private readonly byTsType = new Map<ts.Type, LType>();
   private readonly inProgress = new Map<ts.Type, string>();
+  /**
+   * The unions being lowered, each with the object types being lowered when
+   * it started: one met again inside itself, with no object type between
+   * (whose struct breaks the cycle), is a recursive alias.
+   */
+  private readonly unionsLowering = new Map<ts.Type, number>();
   /** Structs lowered but not registered: part of a cycle whose outermost struct is still lowering. */
   private readonly deferred = new Map<ts.Type, PendingStruct>();
   private deferredOrder: ts.Type[] = [];
@@ -1021,7 +1027,21 @@ export class TypeRegistry {
     // A Uint8Array's `buffer`: Lucent has no SharedArrayBuffer, so it is an ArrayBuffer.
     if (type.aliasSymbol?.name === "ArrayBufferLike" && this.libName(type)) return T.arrayBuffer;
     if (type.isUnion()) {
-      return unionOf(type.types.map((t) => this.lower(t, node)));
+      const started = this.unionsLowering.get(type);
+      if (started === this.inProgress.size)
+        fail(
+          node,
+          Codes.UnsupportedType,
+          `${type.aliasSymbol ? `\`${type.aliasSymbol.name}\`` : "this union"} refers to itself, and a recursive union type has no native representation yet: give the nested values a class or an object type of their own`,
+        );
+      // Inside an object type it holds: lowered again, its structs already named.
+      const again = started !== undefined;
+      if (!again) this.unionsLowering.set(type, this.inProgress.size);
+      try {
+        return unionOf(type.types.map((t) => this.lower(t, node)));
+      } finally {
+        if (!again) this.unionsLowering.delete(type);
+      }
     }
     // A shared file's JSX element (`View & Composed`): the target platform's toolkit's.
     const elements = type.isIntersection() ? elementsOf(type) : undefined;
