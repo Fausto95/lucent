@@ -53,7 +53,7 @@ Lucent checks this when a module loads. If its exports or signatures changed, lo
 
 ## Build without Metro
 
-Without the dev server, run `npx lucent build` before an iOS build. Android's Gradle build runs it first on its own. The build ends with the same answer:
+Without the dev server, Xcode's build and Android's Gradle build run `lucent build` first on their own. Run `npx lucent build` yourself to see what a change needs. The build ends with the same answer:
 
 ```sh title="terminal" nocopy
 modules  greet  shared

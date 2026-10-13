@@ -8,6 +8,8 @@ import {
   compile,
   type LucentPackage,
   packagePods,
+  POD_INSTALL_RECORD,
+  podSourcesDigest,
   resolveNative,
   runtimeDir,
   withPodDependencies,
@@ -95,6 +97,76 @@ describe("native package", () => {
       /^lucent_project = "\.\."$/m,
     );
   });
+
+  // CocoaPods evaluates the podspec as Ruby: a stand-in for its DSL records what the spec sets.
+  it.skipIf(!hasRuby)(
+    "records what pod install saw, and builds the project before the pod compiles",
+    () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+      const evaluate = (out: string) => {
+        const script = [
+          'require "json"',
+          "class Recorder",
+          "  def initialize; @set = {}; end",
+          "  def method_missing(name, *args)",
+          '    @set[name.to_s.chomp("=")] = args[0] if name.to_s.end_with?("=")',
+          '    (@set["dependencies"] ||= []) << args[0] if name == :dependency',
+          "  end",
+          "  def respond_to_missing?(*) true end",
+          "  def set; @set; end",
+          "end",
+          "module Pod; class Spec; def self.new; r = Recorder.new; yield r; r; end; end; end",
+          'def min_ios_version_supported; "15.1"; end',
+          "def install_modules_dependencies(s); end",
+          "file = ARGV[0]",
+          "spec = eval(File.read(file), binding, file)",
+          'puts JSON.generate(spec.set["script_phase"].merge("dependencies" => spec.set["dependencies"]))',
+        ].join("\n");
+        const r = spawnSync("ruby", ["-e", script, path.join(out, "LucentNative.podspec")], {
+          encoding: "utf8",
+        });
+
+        expect(r.stderr).toBe("");
+        return JSON.parse(r.stdout) as Record<string, string>;
+      };
+
+      const native = path.join(dir, ".lucent/native");
+      writeNativePackage(program(dir), native, {
+        root: dir,
+        native: nativeOf(["lucent-kit", { ios: { pods: { Kit: "~> 1.0" } } }]),
+      });
+      const phase = evaluate(native);
+      const record = () => fs.readFileSync(path.join(native, POD_INSTALL_RECORD), "utf8").trim();
+
+      // The digest pod install records is the one lucent build computes.
+      expect(record()).toBe(podSourcesDigest(native));
+      expect(phase).toMatchObject({
+        name: "Lucent build",
+        execution_position: "before_compile",
+        always_out_of_date: "1",
+      });
+      expect(phase.script).toContain('cd "$PODS_TARGET_SRCROOT/../.."');
+      // The packages' pods are the spec's, after everything else the podspec runs.
+      expect(phase.dependencies).toEqual(["Kit"]);
+      expect(phase.script).toMatch(
+        /LUCENT_XCODE_BUILD=1 LUCENT_NO_GRADLE=1 \\\n\s*"\$NODE" ".*\/bin\/lucent\.cjs" build\n/,
+      );
+
+      // Another platform's code is no file of the pod's; a new source is.
+      fs.mkdirSync(path.join(native, "cpp/generated/android"), { recursive: true });
+      fs.writeFileSync(path.join(native, "cpp/generated/android/m_more.cpp"), "");
+      expect(podSourcesDigest(native)).toBe(record());
+      fs.writeFileSync(path.join(native, "cpp/generated/m_more.cpp"), "");
+      expect(podSourcesDigest(native)).not.toBe(record());
+
+      // A build keeps the record, and names another package directory than .lucent/native.
+      writeNativePackage(program(dir), native, { root: dir });
+      expect(fs.existsSync(path.join(native, POD_INSTALL_RECORD))).toBe(true);
+      const elsewhere = path.join(dir, "build/native");
+      writeNativePackage(program(dir), elsewhere, { root: dir });
+      expect(evaluate(elsewhere).script).toContain('build --out "build/native"\n');
+    },
+  );
 
   it("precompiles the runtime's umbrella header in both platforms' builds", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
@@ -331,7 +403,7 @@ describe("native package", () => {
     writeNativePackage(plain, path.join(dir, "plain"));
     const podspec = (out: string) =>
       fs.readFileSync(path.join(dir, out, "LucentNative.podspec"), "utf8");
-    expect(podspec("plain")).not.toContain("swift");
+    expect(podspec("plain")).not.toMatch(/s\.source_files\s*=.*\bswift\b|swift_version/);
     const files = new Map([...plain.files, ["ios/LucentShims.swift", "import Foundation\n"]]);
     writeNativePackage({ ...plain, files }, path.join(dir, "shims"));
     expect(podspec("shims")).toMatch(/s\.source_files\s*=.*\bswift\b/);

@@ -58,7 +58,7 @@ what became of each one that is still linked or was still open.
 | [T136](#t136)            | App Intents, Live Activities and Android widget bodies     | waiting; needs T131, T133                                     |
 | **Distribution**         |                                                            |                                                               |
 | [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190, #191, #194, #195, #200, #204 merged)       |
-| [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | ready                                                         |
+| [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | in progress (#258)                                            |
 | [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | ready                                                         |
 | [T143](#t143)            | Typed Kotlin and Java sources in packages                  | ready                                                         |
 | [T144](#t144)            | A web target for shared modules                            | ready (decision 0077)                                         |
@@ -1223,20 +1223,22 @@ read, so Lucent has to generate them.
 **Goal:** An iOS build from Xcode alone is current, and a package's own pods
 bind in an Expo app.
 
-- **Status:** ready.
+- **Status:** in progress (#258).
 - **Area:** tooling, iOS host.
 - **Needs:** nothing.
 - **Verify:** V4, V5, V6.
 - **Where:** `runtime/native` (podspec), `app.plugin.js`,
   `cli/project.ts`.
 
-Today iOS has no build phase that runs `lucent build`: a build relies on
+Before, iOS had no build phase that ran `lucent build`: a build relied on
 Metro's watcher or on autolinking at `pod install`. `expo prebuild`
 stops with LUCENT3004 at a package's pod that isn't installed yet.
 
-- [ ] `lucent build` runs from the iOS build once pods are installed (a
-      podspec `script_phase`, or a Podfile `post_install` hook), as
-      Android's `lucentBuild` task does.
+- [x] `lucent build` runs from the iOS build once pods are installed, as
+      Android's `lucentBuild` task does: the podspec's `script_phase`.
+      The podspec records at `pod install` what CocoaPods listed
+      (`.pod-install`), and the phase asks for `pod install` when the
+      build changes it.
 - [ ] In `expo prebuild`, a package pod missing from `Podfile.lock` defers
       iOS binding with a warning naming the pod and the step that binds
       it. The plugin then links the native package, so prebuild's

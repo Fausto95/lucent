@@ -63,7 +63,7 @@ Your app imports a module like any TypeScript file, but none of its code runs as
 
    React Native's autolinking finds the native package through the `lucent` entry of `react-native.config.js`. On iOS, CocoaPods compiles it, and it registers itself as the app loads. On Android, Gradle adds its CMake project to the app's native build.
 
-   Either way, one C++ TurboModule named `Lucent` serves every module, with no codegen step. Metro's watcher, the Expo config plugin and a Gradle task run `lucent build` for you ([integrations](/docs/api/integrations/)). Editing a module changes native code, so the app needs a native rebuild: a JavaScript reload keeps the old code ([Apply a change](/docs/guides/apply-a-change/)).
+   Either way, one C++ TurboModule named `Lucent` serves every module, with no codegen step. Metro's watcher, the Expo config plugin, a Gradle task and an Xcode build phase run `lucent build` for you ([integrations](/docs/api/integrations/)). Editing a module changes native code, so the app needs a native rebuild: a JavaScript reload keeps the old code ([Apply a change](/docs/guides/apply-a-change/)).
 
 5. ### Metro bundles a proxy in the module's place
 

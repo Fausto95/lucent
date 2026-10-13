@@ -60,7 +60,8 @@ kind: reference
 | --- | --- |
 | `package.json` | Names the package `lucent`. It's private: the native package is never published. |
 | `react-native.config.js` | What autolinking reads: the Android library, its C++ module and the components' descriptors. iOS links through the podspec. |
-| `LucentNative.podspec` | The iOS pod: the C++ and Swift to compile, and the frameworks, pods and files that the modules and Lucent packages need. |
+| `LucentNative.podspec` | The iOS pod: the C++ and Swift to compile, and the frameworks, pods and files that the modules and Lucent packages need. Its build phase runs `lucent build` in every Xcode build. |
+| `.pod-install` | Written by the podspec at `pod install`: a digest of the podspec and the sources CocoaPods listed. The build phase compares it with the package's to tell when `pod install` must run again. |
 | `manifest.json` | The modules built, and the key of the build's inputs: a build with the same inputs is skipped. It's written last, and Metro's cache keys on it. |
 | `resolved.json` | What the app's Lucent packages need, merged from their `lucent.json` files, with the package each need came from. The Expo plugin reads it. |
 | `cpp/lucent/` | Lucent's C++ runtime, copied from `@lucent-lang/lucent`. |
@@ -84,7 +85,7 @@ kind: reference
 | `types/ext/` | One `<name>.d.ts` per [native extension](/docs/packages/native-extensions/), for `lucent:ext/<name>`. |
 | `types/views/` | Each module's components as React sees them. |
 
-Gradle's own output, `android/build/`, `android/.cxx/` and `android/.gradle/`, appears there when Android builds. Lucent leaves it alone.
+Gradle's own output, `android/build/`, `android/.cxx/` and `android/.gradle/`, appears there when Android builds. Lucent leaves it alone, and `.pod-install` too.
 
 ## Generated, cached or safe to delete
 
@@ -92,5 +93,5 @@ Gradle's own output, `android/build/`, `android/.cxx/` and `android/.gradle/`, a
 - Don't edit `native/`. A build whose inputs changed rewrites it to match the sources, and deletes any file it didn't write, Gradle's output aside. `lucent build --force` rewrites it even when no input changed.
 - A build leaves an unchanged file as it was, content and time, so native builds stay incremental.
 - [`lucent clean`](/docs/api/cli/#lucent-clean) deletes `.lucent/`. The next build compiles every module. When the code imports from `lucent:android/*` and the app has `android/gradlew`, it also runs Gradle for the classpath again.
-- After a clean, run `lucent build` before you build either platform. Xcode doesn't run it, and a Gradle build that has to create `.lucent/native` [stops and asks you to build again](/docs/architecture/builds/#a-gradle-build-can-ask-for-another).
+- After a clean, run `lucent build` before you build either platform. A Gradle build that has to create `.lucent/native` [stops and asks you to build again](/docs/architecture/builds/#a-gradle-build-can-ask-for-another).
 - The SDK bindings cache isn't in `.lucent/`: it's in `~/.cache/lucent`, which [`LUCENT_CACHE_DIR`](/docs/api/environment-variables/) moves. `lucent clean --cache` deletes its SDK entries too.

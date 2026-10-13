@@ -1007,8 +1007,12 @@ any other:
   and its watcher rebuilds as files change.
 - **Android:** the Gradle scripts run a `lucentBuild` task before
   `preBuild`, and resolve the classpath that bindings read.
-- **iOS:** no build phase runs `lucent build` yet. An Xcode build is current
-  after Metro's watcher or `pod install` ran ([T141](../tasks.md#t141)).
+- **iOS:** the `LucentNative` pod's build phase runs `lucent build` before
+  the pod compiles, with the `node` that `.xcode.env` names, and prints
+  problems as Xcode's issues. The podspec records at `pod install` a digest
+  of itself and the sources CocoaPods listed (`.pod-install`). When the
+  build changes either, the phase fails and asks for `pod install`, since
+  Xcode would miss the change.
 - **Expo:** during `expo prebuild` the config plugin runs `lucent build`
   for the platforms prebuild writes, then links the native package. It
   writes the `Info.plist` keys and entitlements packages declare.
