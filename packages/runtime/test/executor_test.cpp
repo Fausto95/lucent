@@ -6,6 +6,8 @@
 // what module code was too busy to take, and the handler's latency (from
 // the frame's due time to its handler's start) is reported. Built and run
 // by `packages/runtime/test/run.sh`, also under ASan/UBSan and TSan.
+// And a function on an executor kept in a const: the platform objects made
+// of it, one per type it is handed over as.
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -19,6 +21,7 @@
 
 #include "lucent/buffer.h"
 #include "lucent/channel.h"
+#include "lucent/handed.h"
 #include "lucent/lucent.h"
 #include "lucent/native.h"
 #include "lucent/trace.h"
@@ -156,8 +159,59 @@ static void framesNeverWaitForTheActor() {
   frames->shutdown();
 }
 
+/// `const f = on(executor, g)`: `f` calls `g`, keeps its executor, and
+/// gives each place it is handed over as one type the same object, made
+/// once; a function made without on() is refused.
+static void keptFunctionsAreOneObjectPerType() {
+  auto ticks = ExecutorContext::create("lucent.ticks");
+  int calls = 0;
+  Fn<int(int)> f = handedFunction(ticks, Fn<int(int)>([&](int n) {
+                                    calls++;
+                                    return n * 2;
+                                  }));
+  CHECK(f(21) == 42 && calls == 1);
+
+  const auto& h = handedOf(f);
+  CHECK(h.executor == ticks);
+  CHECK(h.f(1) == 2 && calls == 2);
+
+  static int released = 0;
+  int made = 0;
+  auto make = [&] {
+    made++;
+    return NativeRef(new int(made), [](void* p) {
+      delete static_cast<int*>(p);
+      released++;
+    }, nullptr);
+  };
+  NativeRef block = h.madeAs("void (^)(int)", make);
+  CHECK(h.madeAs("void (^)(int)", make).same(block));
+  // Its copies share what was made.
+  Fn<int(int)> copy = f;
+  CHECK(handedOf(copy).madeAs("void (^)(int)", make).same(block));
+  NativeRef other = h.madeAs("int (^)(int)", make);
+  CHECK(!other.same(block) && made == 2);
+
+  bool refused = false;
+  try {
+    handedOf(Fn<int(int)>([](int n) { return n; }));
+  } catch (const Exception& e) {
+    refused = e.error()->name.toUtf8() == "TypeError";
+  }
+  CHECK(refused);
+
+  // What was made goes with the last copy of the function.
+  block = NativeRef();
+  other = NativeRef();
+  f = Fn<int(int)>();
+  copy = Fn<int(int)>();
+  CHECK(released == 2);
+  ticks->shutdown();
+}
+
 int main() {
   framesNeverWaitForTheActor();
+  keptFunctionsAreOneObjectPerType();
 
   std::printf("executor: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

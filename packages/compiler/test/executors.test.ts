@@ -324,12 +324,25 @@ class Job implements Runnable {
 
 export async function run(): Promise<string> {
   const frames = executor("frames");
+  let later = on(frames, () => {});
+  return frames.label;
+}
+`);
+    expect(reported(p)).toMatch(/LUCENT1007 .*pass it straight to the SDK call that takes it/);
+
+    // Kept in a const, it is still only handed over.
+    const called = compiled(`import { executor, on } from "lucent:thread";
+
+export async function run(): Promise<string> {
+  const frames = executor("frames");
   const later = on(frames, () => {});
   later();
   return frames.label;
 }
 `);
-    expect(reported(p)).toMatch(/LUCENT1007 .*pass it straight to the SDK call that takes it/);
+    expect(reported(called)).toMatch(
+      /LUCENT1007 `later` is a function on an executor: it is only handed to the platform/,
+    );
   });
 
   it("is a function literal, so the compiler sees what it runs", () => {
@@ -453,11 +466,11 @@ export async function run(): Promise<string> {
     );
   });
 
-  it("are handed straight to the platform", () => {
+  it("are handed straight to the platform, or kept in a const", () => {
     const p = compiled(
       handing("  run(): void {}").replace(
         "CompletableFuture.runAsync(on(frames, new Job(out)), frames);",
-        "const job = on(frames, new Job(out));\n  CompletableFuture.runAsync(job, frames);",
+        "let job = on(frames, new Job(out));\n  CompletableFuture.runAsync(job, frames);",
       ),
     );
     expect(reported(p)).toMatch(/LUCENT1007 on\(\) hands an object to the platform/);
