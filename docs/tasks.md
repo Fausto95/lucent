@@ -35,7 +35,7 @@ what became of each one that is still linked or was still open.
 | [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                             |
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | done (2026-10-13)                                             |
 | [T109](#t109)            | Executors for platform callbacks                           | done (2026-10-13)                                             |
-| [T110](#t110)            | App-delegate and Activity events                           | in progress (#217 to #222 merged; #223–#229)                  |
+| [T110](#t110)            | App-delegate and Activity events                           | in progress (#217–#227 merged); Expo device run left          |
 | [T111](#t111)            | The app's own native needs and options                     | ready                                                         |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | ready                                                         |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | ready                                                         |
@@ -50,8 +50,8 @@ what became of each one that is still linked or was still open.
 | [T125](#t125)            | Android views made after setup keep the Activity's context | ready                                                         |
 | **Execution modes**      |                                                            |                                                               |
 | [T130](#t130)            | A native root: module code with no JavaScript runtime      | done (2026-10-13)                                             |
-| [T131](#t131)            | Android classes the OS instantiates, written in Lucent     | in progress: decided (0097); needs T112 for `CoroutineWorker` |
-| [T132](#t132)            | iOS background execution                                   | in progress (#238)                                            |
+| [T131](#t131)            | Android classes the OS instantiates, written in Lucent     | in progress (#239, #240, #243); Fragments and 2 fixtures left |
+| [T132](#t132)            | iOS background execution                                   | in progress (#238 merged); relaunches left                    |
 | [T133](#t133)            | iOS app extensions and widgets                             | waiting; needs T130                                           |
 | [T134](#t134)            | Calls from worklet runtimes                                | ready; its first step is a decision                           |
 | [T135](#t135)            | JavaScript tasks from background entry points              | blocked: a decision on whether Lucent offers it               |
