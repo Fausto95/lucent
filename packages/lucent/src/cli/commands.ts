@@ -72,14 +72,14 @@ export const commands: CommandSpec[] = [
   {
     name: "init",
     summary:
-      "Set an app up for Lucent: the Metro config, the Expo plugin or the Gradle task, tsconfig.json, .gitignore, a first module",
+      "Set an app up for Lucent: Metro, the Expo plugin or Gradle and the app delegate, tsconfig.json, .gitignore, a first module",
     flags: [{ name: "yes", description: "Apply every change without asking" }],
     load: () => import("./commands/init.ts"),
   },
   {
     name: "uninstall",
     summary:
-      "Revert what lucent init and the Expo plugin changed: the Metro config, app.json, the Gradle task, react-native.config.js, tsconfig.json, .gitignore",
+      "Revert what lucent init and the Expo plugin changed: Metro, app.json, Gradle, react-native.config.js, the app delegate, tsconfig.json, .gitignore",
     flags: [{ name: "yes", description: "Apply every change without asking" }],
     load: () => import("./commands/uninstall.ts"),
   },

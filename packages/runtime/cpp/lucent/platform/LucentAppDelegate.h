@@ -15,64 +15,79 @@ __attribute__((visibility("default")))
 
 /// The URL, user activity or shortcut that launched an app without scenes.
 + (void)application:(UIApplication *)application
-    didFinishLaunchingWithOptions:(nullable NSDictionary<UIApplicationLaunchOptionsKey, id> *)launchOptions;
+    didFinishLaunchingWithOptions:(nullable NSDictionary<UIApplicationLaunchOptionsKey, id> *)launchOptions
+    NS_SWIFT_NAME(application(_:didFinishLaunchingWithOptions:));
 
 /// Whether a module opened it.
 + (BOOL)application:(UIApplication *)application
             openURL:(NSURL *)url
-            options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options;
+            options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options
+    NS_SWIFT_NAME(application(_:open:options:));
 
 /// Whether a module continued it.
-+ (BOOL)application:(UIApplication *)application continueUserActivity:(NSUserActivity *)userActivity;
++ (BOOL)application:(UIApplication *)application continueUserActivity:(NSUserActivity *)userActivity
+    NS_SWIFT_NAME(application(_:continue:));
 
 + (void)application:(UIApplication *)application
-    didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken;
+    didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken
+    NS_SWIFT_NAME(application(_:didRegisterForRemoteNotificationsWithDeviceToken:));
 
 + (void)application:(UIApplication *)application
-    didFailToRegisterForRemoteNotificationsWithError:(NSError *)error;
+    didFailToRegisterForRemoteNotificationsWithError:(NSError *)error
+    NS_SWIFT_NAME(application(_:didFailToRegisterForRemoteNotificationsWithError:));
 
 /// Whether a module takes it: Lucent then calls `completionHandler` once,
 /// with the modules' answers merged, else the caller does.
 + (BOOL)application:(UIApplication *)application
     didReceiveRemoteNotification:(NSDictionary *)userInfo
-          fetchCompletionHandler:(void (^)(UIBackgroundFetchResult result))completionHandler;
+          fetchCompletionHandler:(void (^)(UIBackgroundFetchResult result))completionHandler
+    NS_SWIFT_NAME(application(_:didReceiveRemoteNotification:fetchCompletionHandler:));
 
 /// As for a remote notification.
 + (BOOL)application:(UIApplication *)application
-    performFetchWithCompletionHandler:(void (^)(UIBackgroundFetchResult result))completionHandler;
+    performFetchWithCompletionHandler:(void (^)(UIBackgroundFetchResult result))completionHandler
+    NS_SWIFT_NAME(application(_:performFetchWithCompletionHandler:));
 
 /// Whether a module claims the session: Lucent then calls
 /// `completionHandler` once every module that claimed it is done.
 + (BOOL)application:(UIApplication *)application
     handleEventsForBackgroundURLSession:(NSString *)identifier
-                      completionHandler:(void (^)(void))completionHandler;
+                      completionHandler:(void (^)(void))completionHandler
+    NS_SWIFT_NAME(application(_:handleEventsForBackgroundURLSession:completionHandler:));
 
 /// Whether a module handled it: Lucent then calls `completionHandler` with YES.
 + (BOOL)application:(UIApplication *)application
     performActionForShortcutItem:(UIApplicationShortcutItem *)shortcutItem
-               completionHandler:(void (^)(BOOL succeeded))completionHandler;
+               completionHandler:(void (^)(BOOL succeeded))completionHandler
+    NS_SWIFT_NAME(application(_:performActionFor:completionHandler:));
 
 /// The orientations every module that has a say allows, of `mask` (what the
-/// app allows otherwise): `mask` when none has a say, or they share none.
+/// app allows otherwise; Info.plist's for none): `mask` when no module has
+/// a say, or they share none.
 + (UIInterfaceOrientationMask)application:(UIApplication *)application
     supportedInterfaceOrientationsForWindow:(nullable UIWindow *)window
-                                defaultMask:(UIInterfaceOrientationMask)mask;
+                                defaultMask:(UIInterfaceOrientationMask)mask
+    NS_SWIFT_NAME(application(_:supportedInterfaceOrientationsFor:defaultMask:));
 
 // In an app with scenes, UIKit gives these to the scene delegate instead.
 
 /// The URLs, user activity or shortcut that launched the app or the scene.
-+ (void)scene:(UIScene *)scene willConnectWithOptions:(UISceneConnectionOptions *)connectionOptions;
++ (void)scene:(UIScene *)scene willConnectWithOptions:(UISceneConnectionOptions *)connectionOptions
+    NS_SWIFT_NAME(scene(_:willConnectWithOptions:));
 
 /// Whether a module opened one of them.
-+ (BOOL)scene:(UIScene *)scene openURLContexts:(NSSet<UIOpenURLContext *> *)URLContexts;
++ (BOOL)scene:(UIScene *)scene openURLContexts:(NSSet<UIOpenURLContext *> *)URLContexts
+    NS_SWIFT_NAME(scene(_:openURLContexts:));
 
 /// Whether a module continued it.
-+ (BOOL)scene:(UIScene *)scene continueUserActivity:(NSUserActivity *)userActivity;
++ (BOOL)scene:(UIScene *)scene continueUserActivity:(NSUserActivity *)userActivity
+    NS_SWIFT_NAME(scene(_:continue:));
 
 /// As for the app delegate's shortcut.
 + (BOOL)windowScene:(UIWindowScene *)windowScene
     performActionForShortcutItem:(UIApplicationShortcutItem *)shortcutItem
-               completionHandler:(void (^)(BOOL succeeded))completionHandler;
+               completionHandler:(void (^)(BOOL succeeded))completionHandler
+    NS_SWIFT_NAME(windowScene(_:performActionFor:completionHandler:));
 
 @end
 

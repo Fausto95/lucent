@@ -5,6 +5,12 @@ import path from "node:path";
 import { androidSdkCandidates } from "./sdks.ts";
 import { ignoreCompatible, incompatibility, lucentPackages } from "@lucent-lang/compiler/packages";
 import { buildChecks } from "./doctor-build.ts";
+import {
+  APP_FORWARDS,
+  appDelegates,
+  missingForwards,
+  SCENE_FORWARDS,
+} from "./init/app-delegate.ts";
 import { packageManagerOf } from "./package-manager.ts";
 
 export interface RunResult {
@@ -119,6 +125,7 @@ export function diagnose(root: string, probe: Probe): Check[] {
     ...android(probe),
     jdk(probe),
     gradleTask(root, expo),
+    appDelegateForwards(root, expo),
     autolinking(root, expo),
     metro(root),
     tsconfig(root),
@@ -395,6 +402,47 @@ function jdk(probe: Probe): Check {
     `${major || "unknown version"}; React Native's Gradle build needs ${min} to ${max}`,
     `set JAVA_HOME to JDK ${min} or ${max} (macOS: export JAVA_HOME=$(/usr/libexec/java_home -v ${max}))`,
   );
+}
+
+/**
+ * Whether a bare app's delegates forward what only they receive to Lucent
+ * modules: the calls `lucent init` adds (init/app-delegate.ts). An Expo
+ * app's subscriber needs none.
+ */
+function appDelegateForwards(root: string, expo: boolean): Check {
+  const label = "App delegate forwarding";
+  if (expo) return skip("app-delegate", label, "an Expo app: Lucent's subscriber forwards");
+  const { app, scene, objc } = appDelegates(root);
+  if (!app && !objc) return skip("app-delegate", label, "no ios/*/AppDelegate");
+  if (objc)
+    return read(path.join(root, objc))!.includes("LucentAppDelegate")
+      ? ok("app-delegate", label, `${objc} calls LucentAppDelegate`)
+      : warn(
+          "app-delegate",
+          label,
+          `${objc} doesn't call LucentAppDelegate, so modules hear no URL, user activity or push token`,
+          "call it first in each delegate method (lucent init prints the lines)",
+        );
+  const missing = [
+    ...missingForwards(read(path.join(root, app!))!, APP_FORWARDS).map((m) => `AppDelegate ${m}`),
+    ...(scene
+      ? missingForwards(read(path.join(root, scene))!, SCENE_FORWARDS).map(
+          (m) => `SceneDelegate ${m}`,
+        )
+      : []),
+  ];
+  return missing.length === 0
+    ? ok(
+        "app-delegate",
+        label,
+        `forwards to LucentAppDelegate${scene ? ", with the scene delegate" : ""}`,
+      )
+    : warn(
+        "app-delegate",
+        label,
+        `not forwarded to Lucent modules: ${missing.join(", ")}`,
+        "run lucent init, which adds the calls",
+      );
 }
 
 function gradleTask(root: string, expo: boolean): Check {

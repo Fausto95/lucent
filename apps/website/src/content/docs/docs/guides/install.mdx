@@ -58,6 +58,7 @@ Expo Go isn't supported: it can't load Lucent's native code. Use a development b
    ✓ metro.config.js  bundle each *.lucent.ts as the proxy of its native module
    ✓ android/app/build.gradle  run lucent build before every Android build
    ✓ react-native.config.js  autolink the generated native package (.lucent/native)
+   ✓ ios/App/AppDelegate.swift  forward URLs, user activities, shortcuts and the push token to Lucent modules
    ✓ tsconfig.json  let editors and tsc resolve lucent:*, check indexing as the compiler does, and show Lucent's errors as you type
    ✓ .vscode/settings.json  have VS Code use the project's TypeScript, which loads the editor plugin
    ✓ .gitignore  the native package is generated, like a build output

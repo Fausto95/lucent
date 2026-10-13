@@ -15,8 +15,8 @@ Every command finds the `*.lucent.ts` files under the project, skipping `node_mo
 | [`lucent check`](#lucent-check) | Type-check and validate every module without writing anything |
 | [`lucent dev`](#lucent-dev) | Rebuild on every change: a live dashboard of modules, platforms and problems (one line per build outside a terminal) |
 | [`lucent doctor`](#lucent-doctor) | Check the machine, the app and its builds: Node, React Native, Xcode, CocoaPods, Android, the JDK, Metro, versions |
-| [`lucent init`](#lucent-init) | Set an app up for Lucent: the Metro config, the Expo plugin or the Gradle task, tsconfig.json, .gitignore, a first module |
-| [`lucent uninstall`](#lucent-uninstall) | Revert what lucent init and the Expo plugin changed: the Metro config, app.json, the Gradle task, react-native.config.js, tsconfig.json, .gitignore |
+| [`lucent init`](#lucent-init) | Set an app up for Lucent: Metro, the Expo plugin or Gradle and the app delegate, tsconfig.json, .gitignore, a first module |
+| [`lucent uninstall`](#lucent-uninstall) | Revert what lucent init and the Expo plugin changed: Metro, app.json, Gradle, react-native.config.js, the app delegate, tsconfig.json, .gitignore |
 | [`lucent create`](#lucent-create) | Create a project from a template: an Expo, bare or native-view app, a Lucent library, or modules alone |
 | [`lucent new module`](#lucent-new-module) | Scaffold a module in src/ from a template (function, async, events, view, sdk-ios-android), or with --ios / --android one that branches on PLATFORM |
 | [`lucent new view`](#lucent-new-view) | Scaffold a component in src/: its declaration, and each platform's native views in a Flex |
@@ -129,7 +129,7 @@ It also reads the app's builds, from the files they wrote, without building anyt
 
 ## lucent init
 
-Set an app up for Lucent: the Metro config, the Expo plugin or the Gradle task, tsconfig.json, .gitignore, a first module
+Set an app up for Lucent: Metro, the Expo plugin or Gradle and the app delegate, tsconfig.json, .gitignore, a first module
 
 | Flag | Meaning |
 | --- | --- |
@@ -141,7 +141,7 @@ It shows each change as a diff and applies the ones you confirm; `--yes` applies
 
 ## lucent uninstall
 
-Revert what lucent init and the Expo plugin changed: the Metro config, app.json, the Gradle task, react-native.config.js, tsconfig.json, .gitignore
+Revert what lucent init and the Expo plugin changed: Metro, app.json, Gradle, react-native.config.js, the app delegate, tsconfig.json, .gitignore
 
 | Flag | Meaning |
 | --- | --- |
@@ -152,6 +152,7 @@ It has no JSON output: with `--json`, it exits with code 2.
 It reverts what `lucent init` and the Expo config plugin changed, shown as diffs like init's. It unwraps the Metro config and removes these:
 
 - the plugin in `app.json`, the Gradle line and the `react-native.config.js` entry
+- the `LucentAppDelegate` calls in the app's delegates
 - the `lucent:*` path and the editor plugin in `tsconfig.json`
 - VS Code's TypeScript settings and the `.gitignore` lines
 
