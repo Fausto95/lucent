@@ -1896,6 +1896,31 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "doc": "Called with the Activity; true if it consumed the press."
           }
         ]
+      },
+      {
+        "name": "onActivityEvent",
+        "kind": "function",
+        "signature": "function onActivityEvent(\n  event: \"keyDown\" | \"keyUp\",\n  handler: (activity: Activity, key: KeyEvent) => boolean,\n): () => void;",
+        "doc": [
+          "Runs `handler` with each key press the app's views and Activity didn't handle, as it goes down (`\"keyDown\"`) or comes up (`\"keyUp\"`). It runs on the main thread while Android waits: true consumes the key, before the window's own handling of volume and media keys.",
+          "Lucent wraps the Activities' window callbacks while a module listens, so the app's `MainActivity` needs no lines. A camera module, say, takes `KeyEvent.KEYCODE_VOLUME_UP` as its shutter."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "\"keyDown\" | \"keyUp\"",
+            "optional": false,
+            "doc": "`\"keyDown\"` or `\"keyUp\"`."
+          },
+          {
+            "name": "handler",
+            "type": "(activity: Activity, key: KeyEvent) => boolean",
+            "optional": false,
+            "doc": "Called with the Activity and the key event; true if it consumed it."
+          }
+        ]
       }
     ]
   },

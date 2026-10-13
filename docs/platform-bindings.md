@@ -710,6 +710,12 @@ Activity or JavaScript.
   AndroidX's `OnBackPressedDispatcher` (`LucentBack.java`), with a
   callback enabled only while a module listens. A handler answers whether
   it consumed the press; one none consumes goes on as without Lucent.
+- `onActivityEvent("keyDown" | "keyUp", handler)` hears the key events
+  the app's views and Activity didn't handle, through
+  `LucentWindowCallback.java`, which wraps each started Activity's
+  window callback while a module listens. A handler answers whether it
+  consumed the key, before the window's volume and media key handling
+  ([0088](decisions/0088-android-key-presses-come-from-a-wrapped-window-callback.md)).
 
 On iOS, `onAppEvent` and `onSceneEvent` observe UIApplication's and
 UIScene's notifications from the moment the app loads, without replacing

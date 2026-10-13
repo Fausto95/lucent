@@ -65,5 +65,10 @@ export const platformCases: SdkCase[] = [
     run: back,
     expected: ios ? "none" : "consumed",
   },
+  {
+    name: "keys: a key the app didn't handle reaches the module",
+    run: Probe.pressKey,
+    expected: ios ? "none" : "down 142, up 142",
+  },
   { name: "configuration: a rotation", run: Probe.rotate, expected: ios ? "none" : "changed" },
 ];

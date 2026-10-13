@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.KeyEvent;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -41,6 +42,8 @@ public final class LucentActivities implements Application.ActivityLifecycleCall
   private static volatile WeakReference<Activity> current = new WeakReference<>(null);
   /** Whether native code listens to lifecycle events. */
   private static volatile boolean listening;
+  /** Whether a module listens for key presses: Activities' windows are wrapped from then on. */
+  private static volatile boolean keys;
   /** Whether new intents React Native takes are heard (LucentReact), tried once. */
   private static boolean reactWatched;
   /** The new intent reported last: one that reaches both React Native and AndroidX is reported once. */
@@ -237,6 +240,7 @@ public final class LucentActivities implements Application.ActivityLifecycleCall
 
     current = new WeakReference<>(a);
     reactIntents(a);
+    if (keys) LucentWindowCallback.wrap(a);
     event(STARTED, a, null);
   }
 
@@ -305,6 +309,26 @@ public final class LucentActivities implements Application.ActivityLifecycleCall
     } catch (ReflectiveOperationException e) {
       // No listener: new intents go unreported for this Activity.
     }
+  }
+
+  /** Whether a module listens for key presses: the Activity in front is wrapped now, the others as they start. */
+  public static void keysWanted(boolean on) {
+    keys = on;
+    if (!on) return;
+
+    main.post(
+        () -> {
+          Activity at = current.get();
+          if (at != null) LucentWindowCallback.wrap(at);
+        });
+  }
+
+  /** A key event the app didn't handle (LucentWindowCallback): whether a module consumed it. */
+  static boolean keyPressed(Activity a, KeyEvent event) {
+    int action = event.getAction();
+    if (!keys || (action != KeyEvent.ACTION_DOWN && action != KeyEvent.ACTION_UP)) return false;
+
+    return onKey(a, event, action == KeyEvent.ACTION_UP);
   }
 
   /** A new intent, once: React Native's ReactActivity hands it to React, others to AndroidX's listeners. */
@@ -399,4 +423,6 @@ public final class LucentActivities implements Application.ActivityLifecycleCall
   private static native void onEvent(int kind, Activity activity, Intent intent);
 
   private static native boolean onBack(Activity activity);
+
+  private static native boolean onKey(Activity activity, KeyEvent event, boolean up);
 }
