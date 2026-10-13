@@ -1,10 +1,13 @@
 /**
  * How a value is encoded for its native view: 0, as it is; `n`, a nullable
- * value, boxed; `a`, an array's elements; `o`, some of an object's fields.
+ * value, boxed; `i`, an instance of the Lucent class whose id it is (`c`:
+ * its name), as its id; `a`, an array's elements; `o`, some of an object's
+ * fields.
  */
 export type Shape =
   | 0
   | { n: Shape }
+  | { i: string; c: string }
   | { a: Shape }
   | { o: readonly { name: string; shape: Shape }[] };
 

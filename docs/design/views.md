@@ -516,6 +516,18 @@ length limit, and shared event names keep its registry unambiguous.
 | The native event      | `lucent<slot>`                         | `lucent1`    |
 | React Native's name   | `topLucent<slot>`, mapped to `e<slot>` | `topLucent1` |
 
+An instance prop travels as a number (`rn/LucentViewInstances.h`): its
+runtime's id times 2^32, plus the instance's number in that runtime. The
+views runtime asks the Lucent module for it (`__lucentViewInstance`), after
+finding the class's prototype in the value's chain. A value of another
+class is a `TypeError` where React renders.
+
+The same instance has the same id while it lives, so passing it again
+changes nothing. The commit's props find the instance as React Native
+parses them, in the JavaScript call that commits, and hold it. The ids hold
+nothing: an id whose instance is gone, or whose runtime was torn down,
+reads as missing ([T120](../tasks.md#t120)).
+
 ## Commands
 
 A component's commands come from one `expose` call, given an object literal of

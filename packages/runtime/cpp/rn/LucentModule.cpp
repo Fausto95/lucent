@@ -4,6 +4,7 @@
 #include <lucent/native.h>
 #include <lucent/refs.h>
 
+#include "LucentViewInstances.h"
 #include "LucentViewRequests.h"
 
 #include <string>
@@ -28,6 +29,9 @@ LucentModule::LucentModule(std::shared_ptr<CallInvoker> jsInvoker) : TurboModule
 }
 
 LucentModule::~LucentModule() {
+  // Its runtime's instance ids name nothing from now on: a commit still
+  // holding one (a reload's last frame) reads it as missing.
+  if (host_) lucent::views::instanceIds().forget(host_->id());
 #ifndef NDEBUG
   // Platform objects module code still holds when the module goes (a
   // reload, the app's end): module state, delegates and listeners never
@@ -65,6 +69,7 @@ jsi::Value LucentModule::create(jsi::Runtime& runtime, const jsi::PropNameID& pr
   auto name = propName.utf8(runtime);
 
   if (name == lucent::views::kRequestsName) return requestsConnector(runtime);
+  if (name == lucent::views::kInstanceName) return lucent::views::instanceIdFunction(host_, runtime);
 
   return host_->module(runtime, name);
 }

@@ -11,25 +11,92 @@
  * A value as its native view reads it. A nullable value travels boxed,
  * `[value]` (`[null]` for null), because React sends a removed prop as
  * null and turns undefined into null inside objects and argument lists:
- * unboxed, a missing value and null would look the same. `shape` says
- * where a value holds nullable ones: 0 (nowhere), `{ n }` (it is one),
- * `{ a }` (its elements) or `{ o }` (some of its fields).
+ * unboxed, a missing value and null would look the same. An instance of a
+ * Lucent class travels as its id (instanceId). `shape` says where a value
+ * holds nullable ones or instances: 0 (nowhere), `{ n }` (it is
+ * nullable), `{ i, c }` (it is an instance of class `i`, named `c`), `{ a }`
+ * (its elements) or `{ o }` (some of its fields). `at` names the value in
+ * messages (`at.where`), and gives the native host's instance ids
+ * (`at.ids()`).
  */
-function encode(value, shape) {
+function encode(value, shape, at) {
   if (value === undefined || shape === 0) return value;
 
-  if ("n" in shape) return value === null ? [null] : [encode(value, shape.n)];
+  if ("n" in shape) return value === null ? [null] : [encode(value, shape.n, at)];
 
-  if ("a" in shape) return Array.isArray(value) ? value.map((v) => encode(v, shape.a)) : value;
+  if ("i" in shape) return instanceId(value, shape, at);
+
+  if ("a" in shape) return Array.isArray(value) ? value.map((v) => encode(v, shape.a, at)) : value;
 
   if (value === null || typeof value !== "object") return value;
 
   const out = { ...value };
   for (const field of shape.o) {
     if (Object.prototype.hasOwnProperty.call(out, field.name))
-      out[field.name] = encode(out[field.name], field.shape);
+      out[field.name] = encode(out[field.name], field.shape, at);
   }
   return out;
+}
+
+/** What a value is, for a message: "null", "a number", "an object", "a Date"… */
+function described(value) {
+  if (value === null) return "null";
+
+  const name =
+    typeof value !== "object"
+      ? typeof value
+      : value.constructor && value.constructor.name && value.constructor.name !== "Object"
+        ? value.constructor.name
+        : "object";
+
+  return `${/^[aeiou]/i.test(name) ? "an" : "a"} ${name}`;
+}
+
+/**
+ * The id of `value`, an instance of the Lucent class `shape.i`, or one
+ * extending it, which its native view finds it by: a TypeError, thrown
+ * where React renders, for anything else. A class's prototype is kept on
+ * the global object under its id once JavaScript has one of its instances.
+ */
+function instanceId(value, shape, at) {
+  const prototypes = globalThis.__lucentPrototypes;
+  const proto = prototypes ? prototypes[shape.i] : undefined;
+
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    !proto ||
+    !Object.prototype.isPrototypeOf.call(proto, value)
+  )
+    throw new TypeError(`Lucent: ${at.where} takes a ${shape.c}, not ${described(value)}.`);
+
+  return at.ids()(value);
+}
+
+/** The error of an app whose native code is older than its JavaScript. */
+function nativeMismatch(what) {
+  const e = new Error(
+    `Lucent: the app's native code cannot ${what}. Recompile the app's native code: run ` +
+      "`lucent build`, then build and install the app again (compile-native).",
+  );
+  e.code = "LUCENT_NATIVE_MISMATCH";
+  e.action = "compile-native";
+  return e;
+}
+
+// The native host's function giving an instance's id, once asked for.
+let instanceIdOf;
+
+/** The native host's function giving an instance's id (its __lucentViewInstance). */
+function instanceIds(ReactNative) {
+  if (instanceIdOf) return instanceIdOf;
+
+  const host = ReactNative.TurboModuleRegistry.get("Lucent");
+  const ids = host ? host.__lucentViewInstance : undefined;
+  if (typeof ids !== "function") throw nativeMismatch("pass instances to views");
+
+  instanceIdOf = ids;
+  return ids;
 }
 
 /** React Native's view configuration: the props and handlers under their keys, the events by slot. */
@@ -67,7 +134,7 @@ function ownOf(config) {
 }
 
 /** The native view's props for React's `props` (but its ref). */
-function hostProps(config, props) {
+function hostProps(config, props, ReactNative) {
   // React Native's view props (style, testID, accessibilityLabel, onLayout…), which every host
   // view takes, as they are: the component's own go under their keys.
   const out = {};
@@ -76,7 +143,11 @@ function hostProps(config, props) {
 
   for (const prop of config.props) {
     const value = given(props, prop.name);
-    if (value !== undefined) out[prop.key] = encode(value, prop.shape);
+    if (value !== undefined)
+      out[prop.key] = encode(value, prop.shape, {
+        where: `${config.displayName}'s prop ${prop.name}`,
+        ids: () => instanceIds(ReactNative),
+      });
   }
 
   // React calls the handler of the latest commit, which calls that commit's
@@ -137,15 +208,8 @@ function connect(ReactNative) {
   if (connected) return;
 
   const host = ReactNative.TurboModuleRegistry.get("Lucent");
-  if (!host || typeof host.__lucentViewRequests !== "function") {
-    const e = new Error(
-      "Lucent: the app's native code cannot answer view commands. Recompile the app's native " +
-        "code: run `lucent build`, then build and install the app again (compile-native).",
-    );
-    e.code = "LUCENT_NATIVE_MISMATCH";
-    e.action = "compile-native";
-    throw e;
-  }
+  if (!host || typeof host.__lucentViewRequests !== "function")
+    throw nativeMismatch("answer view commands");
 
   const base = host.__lucentViewRequests(settleRequest);
   requestBase = typeof base === "number" ? base : 0;
@@ -172,8 +236,9 @@ function commandsOf(config, host, mount, native, ReactNative) {
 
   for (const command of config.commands) {
     const where = `${config.displayName}.${command.name}()`;
+    const at = { where, ids: () => instanceIds(ReactNative) };
     const encoded = (args) =>
-      args.slice(0, command.params.length).map((a, i) => encode(a, command.params[i]));
+      args.slice(0, command.params.length).map((a, i) => encode(a, command.params[i], at));
 
     const unmounted = () =>
       named("InvalidStateError", `Lucent: ${where}: the view is not mounted.`);
@@ -268,7 +333,7 @@ function lucentComponent(config, React, ReactNative) {
 
     return React.createElement(
       Host,
-      { ...hostProps(config, props), ref: host },
+      { ...hostProps(config, props, ReactNative), ref: host },
       ...childrenOf(props),
     );
   }
