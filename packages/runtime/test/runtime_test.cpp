@@ -1099,6 +1099,62 @@ static void async() {
   }
 }
 
+// `return p` from a coroutine: the frame ends there, and its promise adopts
+// p a thenable job and p's reaction later.
+static Promise<double> adopting(Promise<double> p, std::string* order) {
+  co_await later(0.0);
+  *order += "r";
+  co_return co_await adopt<double>(p);
+}
+
+static Promise<void> adoptingNothing(Promise<void> p) {
+  co_await later(undefined);
+  co_return co_await adopt<void>(p);
+}
+
+static void promiseCombinators() {
+  std::string order;
+  Promise<double> adopted, eager, raced, anyOf, converted;
+  Promise<void> nothing;
+  Promise<Array<String>> settled;
+  {
+    LucentScope scope;
+    Promise<double> one = Promise<double>::resolved(1);
+    adopted = adopting(one, &order);
+    promiseThen<double>(one, [&order](double) {
+      order += "1";
+      return 0.0;
+    });
+    eager = adoptedPromise<double>(Promise<double>::rejected(makeError(S("no"))));
+    converted = adoptedPromise<double>(Promise<String>::resolved(S("abc")), [](const String& x) { return double(x.length()); });
+    nothing = adoptingNothing(Promise<void>::resolved());
+    raced = promiseRaceTuple<double>(std::make_tuple(Promise<double>(), Promise<double>::resolved(2)), asIs, asIs);
+    anyOf = promiseAny(Array<Promise<double>>{Promise<double>::rejected(makeError(S("a"))),
+                                              Promise<double>::rejected(makeError(S("b")))});
+    settled = promiseAllSettled<String>(Array<Promise<double>>{one, Promise<double>::rejected(makeError(S("c")))},
+                                        [](double) { return S("ok"); }, [](Error e) { return e->message; });
+  }
+  Actor::shared().waitIdle(1000);
+
+  LucentScope scope;
+  // The coroutine resumed from its await before one's reaction ran.
+  CHECK(order == "r1");
+  CHECK(adopted.fulfilled() && adopted.value() == 1);
+  CHECK(!eager.fulfilled() && eager.settled());
+  CHECK_STR(eager.error()->message, "no");
+  CHECK(converted.fulfilled() && converted.value() == 3);
+  CHECK(nothing.fulfilled());
+  CHECK(raced.fulfilled() && raced.value() == 2);
+  CHECK(anyOf.settled() && !anyOf.fulfilled());
+  CHECK_STR(anyOf.error()->name, "AggregateError");
+  Array<Error> reasons = aggregateErrors(anyOf.error());
+  CHECK(reasons.size() == 2);
+  CHECK_STR(reasons.items()[1]->message, "b");
+  CHECK(settled.fulfilled() && settled.value().size() == 2);
+  CHECK_STR(settled.value().items()[0], "ok");
+  CHECK_STR(settled.value().items()[1], "c");
+}
+
 // The Lucent thread sleeps until the earliest timer while other threads add
 // timers; growing the timer heap must not invalidate the deadline it waits on.
 static void timersPostedWhileWaiting() {
@@ -1558,6 +1614,7 @@ int main() {
   errors();
   unassignedStorage();
   async();
+  promiseCombinators();
   timersPostedWhileWaiting();
   abortSignals();
   dates();

@@ -183,10 +183,10 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
    makes, and iOS background execution.
 4. [T120](docs/tasks.md#t120) and [T121](docs/tasks.md#t121): object props
    and React Native's view props, which most view modules need.
-5. [T102](docs/tasks.md#t102) and [T103](docs/tasks.md#t103), after typed
-   arrays, `null` kept apart from `undefined` and timers
-   ([T100](docs/tasks.md#t100), [T101](docs/tasks.md#t101),
-   [T104](docs/tasks.md#t104), done): JSON values and promises.
+5. [T102](docs/tasks.md#t102), after typed arrays, `null` kept apart
+   from `undefined`, promises and timers ([T100](docs/tasks.md#t100),
+   [T101](docs/tasks.md#t101), [T103](docs/tasks.md#t103),
+   [T104](docs/tasks.md#t104), done): JSON values.
 6. [T141](docs/tasks.md#t141): Xcode builds, and a package's pods in Expo
    apps.
 

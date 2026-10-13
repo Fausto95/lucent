@@ -161,7 +161,7 @@ const sized = (size: cpp.Expr): E => {
 
 // --- properties -----------------------------------------------------------------------
 
-export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E {
+export function property(em: FnEmitter, obj: E, name: string, node: ts.Node): E {
   const t = obj.t;
   const o = obj.c;
   switch (t.k) {
@@ -262,6 +262,13 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
     case "error":
       if (name === "message") return str(cpp.arrow(o, "message"));
       if (name === "name") return str(cpp.arrow(o, "name"));
+      // An AggregateError's reasons, which its declaration types as any[]: Errors, as Lucent rejects.
+      if (
+        name === "errors" &&
+        ts.isPropertyAccessExpression(node) &&
+        isAggregate(em, node.expression)
+      )
+        return { c: cpp.call("lucent::aggregateErrors", [o]), t: { k: "array", e: T.error } };
       if (name === "stack")
         return { c: cpp.arrow(o, "stack"), t: unionOf([T.string, T.undefined]) };
       break;
@@ -605,6 +612,75 @@ export function isJsonParse(em: FnEmitter, node: ts.CallExpression): boolean {
 
 export function isMathGlobal(em: FnEmitter, id: ts.Expression): boolean {
   return isLibGlobal(em, id, "Math");
+}
+
+/**
+ * How Promise.race and Promise.any over a tuple give an input's value
+ * (`from`) as their result (`to`): as it is, or converted.
+ */
+function inputConverter(em: FnEmitter, from: LType, to: LType, node: ts.Node): cpp.Expr {
+  if (isVoidish(to) || from.k === "never" || sameType(from, to)) return cpp.id("lucent::asIs");
+
+  return cpp.lambda(
+    [],
+    [cpp.param(em.reg.cppType(from), "x")],
+    [cpp.ret(em.coerce({ c: cpp.id("x"), t: from }, to, node))],
+    { ret: em.reg.cppType(to) },
+  );
+}
+
+/**
+ * Promise.allSettled's functions that make an input's outcome, of the
+ * PromiseSettledResult `result`: from its value (of `inner`), and from the
+ * Error it rejected with.
+ */
+function settledMakers(
+  em: FnEmitter,
+  inner: LType,
+  result: LType,
+  node: ts.Node,
+): [cpp.Expr, cpp.Expr] {
+  const members = result.k === "union" ? result.ms : [result];
+  const made = (status: string, field: string, from: LType): cpp.Expr => {
+    const s = members.find(
+      (m) =>
+        m.k === "struct" &&
+        em.reg.struct(m.id).fields.some((f) => f.name === "status" && f.literal === status),
+    );
+    if (!s || s.k !== "struct")
+      fail(node, Codes.UnsupportedBuiltin, `Promise.allSettled's ${typeKey(result)} results`);
+    const info = em.reg.struct(s.id);
+    const target = info.fields.find((f) => f.name === field)!;
+    const o = cpp.id("o");
+    const made = cpp.call("std::make_shared", [], [cpp.type(`lucent_app::${info.cppName}`)]);
+
+    return cpp.lambda(
+      [],
+      [cpp.param(em.reg.cppType(from), "x")],
+      [
+        cpp.varDecl(cpp.auto, "o", made),
+        cpp.exprStmt(cpp.assign(cpp.arrow(o, "status"), stringExpr(status))),
+        cpp.exprStmt(
+          cpp.assign(
+            cpp.arrow(o, cppIdent(field)),
+            em.coerce({ c: cpp.id("x"), t: from }, target.type, node),
+          ),
+        ),
+        cpp.ret(em.coerce({ c: o, t: s }, result, node)),
+      ],
+      { ret: em.reg.cppType(result) },
+    );
+  };
+
+  return [made("fulfilled", "value", inner), made("rejected", "reason", T.error)];
+}
+
+/** Whether `node`'s type is the library's AggregateError. */
+function isAggregate(em: FnEmitter, node: ts.Expression): boolean {
+  const sym = em.checker.getNonNullableType(em.checker.getTypeAtLocation(node)).getSymbol();
+  const decl = sym?.declarations?.[0];
+
+  return sym?.name === "AggregateError" && !!decl && isLibFile(decl.getSourceFile());
 }
 
 function isLibGlobal(em: FnEmitter, id: ts.Expression, name: string): boolean {
@@ -1024,6 +1100,72 @@ export function staticCall(
         };
       }
       fail(node, Codes.UnsupportedBuiltin, "Promise.all needs an array of promises of one type");
+    }
+    if (name === "race" || name === "any") {
+      const src = em.expr(a[0]!, em.lt(a[0]!));
+      const st = stripOpt(src.t);
+      const which = name === "race" ? "Race" : "Any";
+      if (st.k === "array" && st.e.k === "promise")
+        return { c: cpp.call(`lucent::promise${which}`, [src.c]), t: st.e };
+      if (st.k === "tuple" && st.es.every((e) => e.k === "promise")) {
+        const converters = st.es.map((e) =>
+          inputConverter(em, (e as LType & { k: "promise" }).inner, rt.inner, node),
+        );
+        return {
+          c: cpp.call(
+            `lucent::promise${which}Tuple`,
+            [src.c, ...converters],
+            [em.reg.cppRetType(rt.inner)],
+          ),
+          t: rt,
+        };
+      }
+      fail(node, Codes.UnsupportedBuiltin, `Promise.${name} needs an array or a tuple of promises`);
+    }
+    if (name === "allSettled") {
+      const src = em.expr(a[0]!, em.lt(a[0]!));
+      const st = stripOpt(src.t);
+      const out = rt.inner;
+      if (st.k === "array" && st.e.k === "promise" && out.k === "array") {
+        const [fulfilled, rejected] = settledMakers(em, st.e.inner, out.e, node);
+        return {
+          c: cpp.call(
+            "lucent::promiseAllSettled",
+            [src.c, fulfilled, rejected],
+            [em.reg.cppType(out.e)],
+          ),
+          t: rt,
+        };
+      }
+      if (
+        st.k === "tuple" &&
+        st.es.every((e) => e.k === "promise") &&
+        out.k === "tuple" &&
+        out.es.length === st.es.length
+      ) {
+        const makers = st.es.map((e, i) =>
+          settledMakers(em, (e as LType & { k: "promise" }).inner, out.es[i]!, node),
+        );
+        return {
+          c: cpp.call("lucent::promiseAllSettledTuple", [
+            src.c,
+            cpp.call(
+              "std::make_tuple",
+              makers.map(([f]) => f),
+            ),
+            cpp.call(
+              "std::make_tuple",
+              makers.map(([, g]) => g),
+            ),
+          ]),
+          t: rt,
+        };
+      }
+      fail(
+        node,
+        Codes.UnsupportedBuiltin,
+        "Promise.allSettled needs an array or a tuple of promises",
+      );
     }
     fail(node, Codes.UnsupportedBuiltin, `Promise.${name} is not supported`);
   }
@@ -1528,9 +1670,69 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
         fail(node, Codes.UnsupportedBuiltin, `Function.prototype.${name} is not supported`);
       break;
     case "promise":
-      fail(node, Codes.UnsupportedBuiltin, `promise.${name}() is not supported; use await`);
+      return promiseMethod(em, obj as E & { t: { k: "promise" } }, name, node);
   }
   fail(node, Codes.UnsupportedBuiltin, `.${name}() is not supported on ${typeKey(t)}`);
+}
+
+/**
+ * `p.then(f, g)`, `p.catch(g)` and `p.finally(f)`, in JavaScript's microtask
+ * order (async.h). A handler gives a value, or a promise the result adopts;
+ * a rejection handler gets the Error.
+ */
+function promiseMethod(
+  em: FnEmitter,
+  obj: E & { t: { k: "promise" } },
+  name: string,
+  node: ts.CallExpression,
+): E {
+  const a = node.arguments;
+  const rt = em.lt(node);
+  if (rt.k !== "promise") fail(node, Codes.UnsupportedBuiltin, `promise.${name}()`);
+  const r = em.reg.cppRetType(rt.inner);
+  const given = (x: ts.Expression | undefined) =>
+    x && !(ts.isIdentifier(x) && x.text === "undefined") && x.kind !== ts.SyntaxKind.NullKeyword
+      ? x
+      : undefined;
+  // What a handler returns: a promise of the result's type, adopted, or a value of it.
+  const handler = (x: ts.Expression, params: LType[], ret: LType) => {
+    const sig = em.checker.getTypeAtLocation(x).getCallSignatures()[0];
+    const own = sig && em.reg.lower(em.checker.getReturnTypeOfSignature(sig), x);
+    // finally's handler: a promise of anything is waited for; its value is dropped.
+    if (ret.k === "void") return callback(em, x, params, own?.k === "promise" ? own : T.void).c;
+    return callback(em, x, params, own?.k === "promise" ? { k: "promise", inner: ret } : ret).c;
+  };
+  const value = isVoidish(obj.t.inner) ? [] : [obj.t.inner];
+  // A promise that never fulfils (`Promise.reject(e)`): its fulfilment handler never runs.
+  const fulfils = obj.t.inner.k !== "never";
+  const call = (fn: string, args: cpp.Expr[], targs: cpp.Type[]) => ({
+    c: cpp.call(fn, [obj.c, ...args], targs),
+    t: rt,
+  });
+  switch (name) {
+    case "then": {
+      const [f, g] = [fulfils ? given(a[0]) : undefined, given(a[1])];
+      if (!f && !g) return call("lucent::promisePass", [], [r]);
+      if (!f) return call("lucent::promiseCatch", [handler(g!, [T.error], rt.inner)], [r]);
+      if (!g) return call("lucent::promiseThen", [handler(f, value, rt.inner)], [r]);
+      return call(
+        "lucent::promiseThen",
+        [handler(f, value, rt.inner), handler(g, [T.error], rt.inner)],
+        [r],
+      );
+    }
+    case "catch": {
+      const g = given(a[0]);
+      if (!g) return call("lucent::promisePass", [], [r]);
+      return call("lucent::promiseCatch", [handler(g, [T.error], rt.inner)], [r]);
+    }
+    case "finally": {
+      const f = given(a[0]);
+      if (!f) return call("lucent::promiseFinally", [cpp.lambda([], [], [])], []);
+      return call("lucent::promiseFinally", [handler(f, [], T.void)], []);
+    }
+  }
+  fail(node, Codes.UnsupportedBuiltin, `promise.${name}() is not supported`);
 }
 
 /** Capturing groups in a pattern (parentheses, not counting (?: …) or lookarounds). */
@@ -2897,7 +3099,10 @@ export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
   const v = em.expr(node.left);
   const right = node.right;
   if (ts.isIdentifier(right)) {
-    if (isErrorName(right.text) && isLibGlobal(em, right, right.text)) {
+    if (
+      (isErrorName(right.text) || right.text === "AggregateError") &&
+      isLibGlobal(em, right, right.text)
+    ) {
       const kind = right.text === "Error" ? cpp.nullptr : cpp.str(right.text);
       return bool(cpp.call("lucent::isErrorOf", [v.c, kind]));
     }

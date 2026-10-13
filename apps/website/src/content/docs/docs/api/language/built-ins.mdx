@@ -196,7 +196,9 @@ The string methods that take a `RegExp` are on [String](/docs/api/language/built
 | `e instanceof Error`, and `TypeError`, `RangeError`, `SyntaxError`                                        | As in JavaScript. `BigInt()` and `JSON.parse` throw a `SyntaxError`.                                                           |
 | `error(code, message)`, `errorCode(e)`                                                                    | From [lucent:core](/docs/api/lucent-core/#error): an error with a `code` that JavaScript reads.                                |
 
-`AggregateError`, `EvalError`, `ReferenceError` and `URIError` aren't available ([LUCENT2002](/docs/api/diagnostics/#lucent2002)).
+`Promise.any` rejects with an `AggregateError`, which `instanceof` tells apart. TypeScript types its `errors` as `any[]`, so read them as `e.errors as Error[]`. `new AggregateError` fails with [LUCENT1003](/docs/api/diagnostics/#lucent1003).
+
+`EvalError`, `ReferenceError` and `URIError` aren't available ([LUCENT2002](/docs/api/diagnostics/#lucent2002)).
 
 ## Promise
 
@@ -205,10 +207,9 @@ The string methods that take a `RegExp` are on [String](/docs/api/language/built
 | `new Promise((resolve, reject) => …)`              | The executor is a function literal. It runs at once, and a throw from it rejects the promise.                                            |
 | `Promise.resolve(value?)`, `Promise.reject(error)` |                                                                                                                                          |
 | `Promise.all(promises)`                            | An array of promises of one type, or a tuple of promises.                                                                                |
+| `Promise.race`, `Promise.any`, `Promise.allSettled` | As `Promise.all` takes them. `allSettled`'s rejected outcomes give the `Error` as their `reason`. |
 | `Promise.withResolvers()`                          | A promise with the functions that settle it, once. `resolve` takes a value, not a promise, and `reject` an `Error`, as an executor's do. |
-| `await`                                            | In place of `then`, `catch` and `finally`, which aren't available.                                                                       |
-
-`Promise.race` and `Promise.any` aren't available, and `Promise.allSettled` fails with [LUCENT2002](/docs/api/diagnostics/#lucent2002).
+| `promise.then`, `promise.catch`, `promise.finally` | In JavaScript's microtask order, as `await` is.                                                                                          |
 
 ## Typed arrays
 
@@ -262,8 +263,6 @@ What JavaScript's built-ins lack has a native implementation in `lucent:core`. [
 | -------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
 | `TextEncoder`, `TextDecoder`                       | LUCENT9001: not declared | `utf8Encode` and `utf8Decode` from `lucent:core`                                             |
 | `xs.flat()`                                        | LUCENT1003               | `xs.flatMap((x) => x)`                                                                       |
-| `Promise.race`, `Promise.any`                      | LUCENT1003               | None                                                                                         |
-| `promise.then`, `promise.catch`, `promise.finally` | LUCENT1003               | `await`, inside `try`, `catch` and `finally`                                                 |
 | `Object.assign(a, b)`                              | LUCENT1003               | `{ ...a, ...b }`                                                                             |
 | `Object.hasOwn(r, k)`                              | LUCENT1003               | `k in r`                                                                                     |
 | `Intl`, `toLocaleString()`                         | LUCENT2002, LUCENT1003   | `toFixed`, `padStart`, `toISOString` and the `Date` getters                                  |

@@ -1226,7 +1226,8 @@ export class TypeRegistry {
       return { k: "signal", inner: this.lower(inner!, node) };
     }
     const lib = this.libName(type);
-    if (lib && isErrorName(lib)) return T.error;
+    // Promise.any's AggregateError is an Error, its `errors` read as Error[] (emit/builtins.ts).
+    if (lib && (isErrorName(lib) || lib === "AggregateError")) return T.error;
     if (lib && isTypedName(lib)) return { k: "typed", name: lib };
     if (lib) {
       const args = c.getTypeArguments(type as ts.TypeReference);
@@ -1310,6 +1311,24 @@ export class TypeRegistry {
             field("promise", { k: "promise", inner }),
             field("resolve", { k: "fn", params: none ? [] : [inner], ret: T.void }),
             field("reject", { k: "fn", params: [T.error], ret: T.void }),
+          ]);
+        }
+        case "PromiseFulfilledResult":
+        case "PromiseRejectedResult": {
+          // Promise.allSettled's outcomes (emit/builtins.ts): a rejection's reason is the Error
+          // the promise rejected with.
+          const field = (name: string, t: LType, literal?: string): StructField => ({
+            name,
+            type: t,
+            optional: false,
+            readonly: false,
+            ...(literal === undefined ? {} : { literal }),
+          });
+          const fulfilled = lib === "PromiseFulfilledResult";
+
+          return this.registerStruct(type, c.getPropertiesOfType(type), node, [
+            field("status", T.string, fulfilled ? "fulfilled" : "rejected"),
+            fulfilled ? field("value", this.lower(args[0]!, node)) : field("reason", T.error),
           ]);
         }
         case "AbortSignal":

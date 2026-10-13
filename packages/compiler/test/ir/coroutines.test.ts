@@ -17,6 +17,10 @@ export async function both(): Promise<number> {
 export async function forwarded(): Promise<number> {
   return later(3);
 }
+export async function forwardedLater(): Promise<number> {
+  await 0;
+  return later(4);
+}
 export async function fails(): Promise<number> {
   throw new Error("no");
 }
@@ -48,10 +52,24 @@ describe("coroutines in the IR", () => {
     );
   });
 
-  it("returns what a returned promise fulfils with", () => {
-    const forwarded = body(cppOf(module(SAMPLE)), "forwarded");
+  it("adopts a returned promise once the function has finished", () => {
+    const out = cppOf(module(SAMPLE));
+    const forwarded = body(out, "forwarded");
+    const later = body(out, "forwardedLater");
 
-    expect(inOrder(forwarded, "later(3.0)", "co_await", "co_return")).toBe(true);
+    expect(forwarded).toContain(
+      "return lucent::adoptedPromise<double>(lucent_app::m_sample::later(3.0));",
+    );
+
+    expect(forwarded).not.toContain("co_");
+
+    expect(
+      inOrder(
+        later,
+        "co_await lucent::later<double>(0.0)",
+        "co_return co_await lucent::adopt<double>(lucent_app::m_sample::later(4.0));",
+      ),
+    ).toBe(true);
   });
 
   it("rejects its promise with what a body that never awaits throws", () => {

@@ -16,7 +16,7 @@ import { BIGINT_OPERATORS } from "../lowering/bigint.ts";
 import { bigintExpr, numberExpr, stringExpr } from "../lowering/literals.ts";
 import { sourcePath } from "../lowering/source.ts";
 import { assignedRead } from "../lowering/unassigned.ts";
-import { cppIdent, isVoidish, type LType, T } from "../types.ts";
+import { cppIdent, isVoidish, type LType, sameType, T, typeKey } from "../types.ts";
 import {
   type BinaryOp,
   type BuiltinName,
@@ -222,6 +222,8 @@ class Emitter {
   /** Declarations the body starts with (where a return through a finally keeps its value). */
   private readonly prologue: cpp.Stmt[] = [];
   private returned?: string;
+  /** Where a `return p` through a finally keeps `p`, by its type's key. */
+  private readonly adopted = new Map<string, string>();
   private framesMade = 0;
   /** An async function's or a generator's body: a C++ coroutine. */
   private readonly coroutine: boolean;
@@ -967,6 +969,65 @@ class Emitter {
     return cpp.block([...keep, this.route("return", () => [this.ret(kept)])]);
   }
 
+  /**
+   * `return p` in an async function: its promise adopts `p`, a promise of
+   * `t`, once it has finished, `convert` (a function of the program's, of
+   * `fn` type) giving what `p` fulfils with as its own type when given;
+   * past a finally, both are kept and the finally runs first.
+   */
+  adopt(value: cpp.Expr, t: LType, convert?: { code: cpp.Expr; type: LType }): cpp.Stmt {
+    if (this.frames.length) {
+      const key = `${typeKey(t)}${convert ? ` by ${typeKey(convert.type)}` : ""}`;
+      let kept = this.adopted.get(key);
+
+      if (!kept) {
+        kept = `adopt${this.adopted.size}_`;
+        this.adopted.set(key, kept);
+        this.prologue.push(
+          cpp.varDecl(this.backend.cppType(t), kept, undefined, { style: "brace" }),
+        );
+        if (convert)
+          this.prologue.push(
+            cpp.varDecl(this.backend.cppType(convert.type), `${kept}by_`, undefined, {
+              style: "brace",
+            }),
+          );
+      }
+
+      const id = cpp.id(kept);
+      const by = convert && { code: cpp.id(`${kept}by_`), type: convert.type };
+
+      return cpp.block([
+        cpp.exprStmt(cpp.assign(id, value)),
+        ...(convert && by ? [cpp.exprStmt(cpp.assign(by.code, convert.code))] : []),
+        this.route(`adopt ${key}`, () => [this.adopt(id, t, by)]),
+      ]);
+    }
+
+    const result = this.fn.result;
+    const inner = t.k === "promise" ? t.inner : T.never;
+    const args = [value];
+
+    // What it fulfils with, converted to the function's type.
+    if (convert) args.push(convert.code);
+    else if (!isVoidish(result) && inner.k !== "never" && !sameType(inner, result))
+      args.push(
+        cpp.lambda(
+          [],
+          [cpp.param(this.backend.cppType(inner), "x")],
+          [cpp.ret(converted(cpp.id("x"), inner, result, this.backend))],
+          { ret: this.backend.cppType(result) },
+        ),
+      );
+
+    const r = this.backend.cppRetType(result);
+
+    if (this.eager) return cpp.ret(cpp.call("lucent::adoptedPromise", args, [r]));
+
+    this.suspending();
+    return cpp.coReturn(cpp.coAwait(cpp.call("lucent::adopt", args, [r])));
+  }
+
   /** Where a return through a finally keeps its value, declared at the start of the body. */
   private returnVariable(): string {
     if (!this.returned) {
@@ -1365,7 +1426,13 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
   unreachable: (op, e) => e.emit(op, cpp.exprStmt(cpp.call("lucent::unreachable"))),
 
   await: (op, e) => {
-    const awaited = cpp.coAwait(e.value(op.promise));
+    const t = e.typeOf(op.promise);
+    // Of what is not a promise: that value, a microtask later.
+    const awaited = cpp.coAwait(
+      t.k === "promise"
+        ? e.value(op.promise)
+        : cpp.call("lucent::later", [e.value(op.promise)], [e.backend.cppType(t)]),
+    );
 
     e.suspending();
 
@@ -1381,7 +1448,15 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
   // No code using it runs: it is spelled as the constant its C++ type holds.
   never: (op, e) => e.inline(op.result, cpp.id("lucent::undefined")),
 
-  return: (op, e) => e.emit(op, e.ret(op.value === undefined ? undefined : e.value(op.value))),
+  return: (op, e) => {
+    const value = op.value === undefined ? undefined : e.value(op.value);
+    const convert =
+      op.convert === undefined
+        ? undefined
+        : { code: e.value(op.convert), type: e.typeOf(op.convert) };
+
+    e.emit(op, op.adopt ? e.adopt(value!, e.typeOf(op.value!), convert) : e.ret(value));
+  },
 
   // The catch gets the exception as an Error; iterator.return() unwinds a generator through
   // finally blocks only, so it passes catches.

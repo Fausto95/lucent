@@ -927,6 +927,46 @@ export function depth(v: Json): number {
     });
   });
 
+  describe("promises", () => {
+    it("refuses awaiting a value that may or may not be a promise", () => {
+      const r = compileSource(
+        "export async function f(x: number | Promise<number>): Promise<number> { return await x; }",
+      );
+
+      expect(r.diagnostics[0]).toMatchObject({
+        code: "LUCENT1001",
+        message: expect.stringContaining("may or may not be a promise"),
+      });
+    });
+
+    it("accepts then, catch, finally and the combinators", () => {
+      expect(
+        codes(
+          [
+            "export async function f(ps: Promise<number>[]): Promise<string> {",
+            "  const a = await Promise.race(ps).then((n) => n + 1).catch((e: Error) => e.message.length);",
+            "  const b = await Promise.any([ps[0]!, Promise.resolve('x')]).finally(() => {});",
+            "  const c = await Promise.allSettled(ps);",
+            "  return `${a} ${b} ${c.map((r) => r.status).join()}`;",
+            "}",
+          ].join("\n"),
+        ),
+      ).toEqual([]);
+    });
+
+    it("reads an AggregateError's errors as Errors, and refuses making one", () => {
+      expect(
+        codes(
+          "export function f(e: Error): string { return e instanceof AggregateError ? `${e.errors.length} ${(e.errors as Error[]).map((x) => x.message).join()}` : ''; }",
+        ),
+      ).toEqual([]);
+
+      expect(
+        codes('export function f(): Error { return new AggregateError([new Error("a")], "m"); }'),
+      ).toEqual(["LUCENT1003"]);
+    });
+  });
+
   describe("string methods that need Unicode or locale data", () => {
     it.each([
       ["normalize()", "export function f(s: string): string { return s.normalize(); }"],

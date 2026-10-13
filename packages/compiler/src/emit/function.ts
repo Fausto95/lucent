@@ -1960,7 +1960,15 @@ export class FnEmitter {
     }
     if (t.k === "promise")
       fail(node, Codes.UnsupportedSyntax, "awaiting an optional promise is not supported");
-    return e;
+    if (t.k === "union" && t.ms.some((m) => m.k === "promise"))
+      fail(
+        node,
+        Codes.UnsupportedSyntax,
+        "awaiting a value that may or may not be a promise is not supported",
+        "give it one type: a promise, or a value that is not one",
+      );
+    // Of what is not a promise: that value, a microtask later.
+    return { c: cpp.coAwait(cpp.call("lucent::later", [e.c], [this.reg.cppType(e.t)])), t: e.t };
   }
 
   private deleteExpr(node: ts.DeleteExpression): E {

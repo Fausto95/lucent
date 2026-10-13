@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                             | Date       | Decision                                                                    |
 | ---------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| [0101](0101-async-functions-adopt-returned-promises.md)                            | 2026-10-13 | An async function adopts a returned promise after it finishes               |
 | [0099](0099-a-buffer-is-borrowed-as-typed-elements-through-spans.md)               | 2026-10-13 | A buffer is borrowed as typed elements through spans, not typed arrays      |
 | [0098](0098-an-instance-prop-is-held-from-its-commit-and-checked-by-member.md)     | 2026-10-13 | An instance prop is held from its commit, and checked member by member      |
 | [0097](0097-exported-classes-extending-android-classes-are-os-made.md)             | 2026-10-13 | An exported class extending an Android class is one the OS can make         |
