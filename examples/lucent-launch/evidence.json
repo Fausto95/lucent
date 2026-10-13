@@ -1,6 +1,7 @@
 [
   {
-    "level": "host",
-    "how": "by the example packages' unit test"
+    "level": "sim",
+    "date": "2026-10-13",
+    "how": "in the bare example's device runs, whose Platform screen checks that its state started before JavaScript, and on Android its notification channel"
   }
 ]

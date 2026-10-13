@@ -174,20 +174,16 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
 
 1. [T140](docs/tasks.md#t140): the window's fresh apps now build and run
    nightly; it closes after three green nights in a row.
-2. [T109](docs/tasks.md#t109), [T108](docs/tasks.md#t108) and
-   [T107](docs/tasks.md#t107), already in progress: executors, so platform
-   callbacks leave the module's lock; platform memory without copies; and
-   native handles.
-3. [T110](docs/tasks.md#t110): app-delegate and Activity events, which
-   background execution and push need.
-4. [T130](docs/tasks.md#t130): the native root, which every execution mode
-   builds on, then [T131](docs/tasks.md#t131) and
-   [T132](docs/tasks.md#t132).
-5. [T120](docs/tasks.md#t120) and [T121](docs/tasks.md#t121): object props
+2. [T110](docs/tasks.md#t110): app-delegate and Activity events, whose
+   device runs pass in the bare example; the Expo example's run is left.
+3. [T131](docs/tasks.md#t131) and [T132](docs/tasks.md#t132), on the
+   native root ([T130](docs/tasks.md#t130), done): Android classes the OS
+   makes, and iOS background execution.
+4. [T120](docs/tasks.md#t120) and [T121](docs/tasks.md#t121): object props
    and React Native's view props, which most view modules need.
-6. [T100](docs/tasks.md#t100) to [T104](docs/tasks.md#t104): typed arrays,
+5. [T100](docs/tasks.md#t100) to [T104](docs/tasks.md#t104): typed arrays,
    `null` and `undefined`, JSON values, promises and timers.
-7. [T141](docs/tasks.md#t141): Xcode builds, and a package's pods in Expo
+6. [T141](docs/tasks.md#t141): Xcode builds, and a package's pods in Expo
    apps.
 
 ## Recording work
