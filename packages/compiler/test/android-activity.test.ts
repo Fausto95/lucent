@@ -154,6 +154,7 @@ describe.skipIf(!sdkAvailable("android"))("the current Activity, results and lif
       "LucentFlexView.java",
       "LucentHostView.java",
       "LucentInitializer.java",
+      "LucentLaunch.java",
       "LucentPackage.java",
       "LucentReact.java",
       "LucentRequestActivity.java",

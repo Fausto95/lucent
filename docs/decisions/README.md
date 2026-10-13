@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                             | Date       | Decision                                                                    |
 | ---------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| [0095](0095-android-loads-appmodules-itself-for-launch.md)                         | 2026-10-13 | Android loads the app's appmodules itself, not a library of Lucent's own    |
 | [0094](0094-exports-that-would-share-an-entry-point-get-none.md)                   | 2026-10-13 | Exports that would share an entry point get none, with a warning            |
 | [0093](0093-a-callback-with-no-runtime-fails-as-after-a-reload.md)                 | 2026-10-13 | A JavaScript callback with no runtime fails as it does after a reload       |
 | [0092](0092-launch-runs-in-the-apps-launch-and-android-loads-lucent-by-itself.md)  | 2026-10-13 | Launch modules run in the app's launch; Android loads Lucent by itself      |

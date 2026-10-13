@@ -321,6 +321,12 @@ export function writeNativePackage(
   const cmake = packagesCmake(options.native);
   if (cmake) want.set(path.join(outDir, "android/packages.cmake"), cmake);
 
+  // Whether LucentInitializer loads the app's code to create launch modules: the template's no.
+  if (Object.keys(native?.launch ?? {}).length) {
+    const launch = path.join(outDir, "android/src/main/java/dev/lucent/LucentLaunch.java");
+    want.set(launch, withLaunchModules(want.get(launch)!.toString()));
+  }
+
   // The components' Android registration, when views are generated. The Gradle build
   // that builds a deferred Android reads the autolinking config before it does.
   const views = result.components ?? [];
@@ -476,4 +482,11 @@ function highestVersion(versions: (string | undefined)[]): string | undefined {
     .filter((v): v is string => !!v)
     .sort(compareVersions)
     .at(-1);
+}
+
+/** LucentLaunch.java (the template's) for an app whose packages list launch modules. */
+export function withLaunchModules(template: string): string {
+  const off = "static final boolean MODULES = false;";
+  if (!template.includes(off)) throw new Error("LucentLaunch.java has no MODULES flag to set");
+  return template.replace(off, "static final boolean MODULES = true;");
 }

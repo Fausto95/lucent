@@ -1,7 +1,7 @@
 # 0092. Launch modules run in the app's launch, and Android loads Lucent by itself
 
 - **Date:** 2026-10-13
-- **Status:** accepted
+- **Status:** accepted; amended by [0095](0095-android-loads-appmodules-itself-for-launch.md)
 
 The third decision [T130](../tasks.md#t130) needs. `lucent.json`'s
 `launch` lists modules to create at app launch, and their creation starts
