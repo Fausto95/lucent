@@ -319,12 +319,16 @@ node scripts/device-check.ts android --apk apps/bare-example/android/app/build/o
 `scripts/device-check.ts` installs the bare example's Debug build on a
 booted simulator or a running emulator, and opens its Tests screen. That
 screen runs the one-module e2e cases through the C++ the platform's own
-toolchain built. Start Metro on port 8081 first: the Debug build loads
+toolchain built. Then it opens the Platform screen, which checks what
+only the platform gives module code. Frames reach a channel through an
+executor without a copy, and the app opens a deep link to itself. On iOS
+a push registration answers, and on Android a back press and a rotation
+reach the module. Start Metro on port 8081 first: the Debug build loads
 its bundle from it.
 
-The script follows the `LUCENT_PROGRESS` lines to the `LUCENT_SUMMARY
-tests N/M passed` verdict. It gives up early when the app exits or a run
-stops moving. On failure it keeps the log, a screenshot and the summary
+The script follows each screen's `LUCENT_PROGRESS` lines to its
+`LUCENT_SUMMARY <screen> N/M passed` verdict. It gives up early when the
+app exits or a run stops moving. On failure it keeps the log, a screenshot and the summary
 in `$DEVICE_CHECK_OUT`. By hand, open a screen with a deep link
 (`lucentbare://lab/tests`) or, on iOS, a launch argument
 (`-lucentTab lab/sdk`).

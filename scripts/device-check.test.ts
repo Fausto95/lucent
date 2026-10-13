@@ -42,6 +42,14 @@ describe("lastVerdict", () => {
 
   it("ignores the other screens and an empty run", () => {
     expect(lastVerdict("LUCENT_SUMMARY sdk 3/3 passed")).toBeUndefined();
+    // Another screen's, when asked for it.
+    expect(lastVerdict("LUCENT_SUMMARY tests 3/3 passed", "platform")).toBeUndefined();
+    expect(lastVerdict("LUCENT_SUMMARY platform 4/5 passed; failed: back", "platform")).toEqual({
+      passed: 4,
+      total: 5,
+      ok: false,
+      line: "LUCENT_SUMMARY platform 4/5 passed; failed: back",
+    });
     expect(lastVerdict("LUCENT_SUMMARY tests 0/0 passed")?.ok).toBe(false);
   });
 });
@@ -91,6 +99,12 @@ describe("lastProgress", () => {
       "started, 0/70 run",
     );
     expect(lastProgress("LUCENT_PROGRESS sdk 1/3 clipboard ok 4ms")).toBeUndefined();
+    expect(lastProgress("LUCENT_PROGRESS platform 1/5 frames ok 40ms", "platform")).toEqual({
+      done: 1,
+      total: 5,
+      name: "frames",
+      pass: true,
+    });
   });
 });
 
@@ -244,6 +258,26 @@ describe("diagnose", () => {
     expect(lines).toContain("App: not running. Metro: up.");
   });
 
+  it("names the screen that failed", () => {
+    const lines = diagnose({
+      ...base,
+      lab: "platform",
+      stop: "verdict",
+      verdict: {
+        passed: 4,
+        total: 5,
+        ok: false,
+        line: "LUCENT_SUMMARY platform 4/5 passed; failed: back",
+      },
+    });
+    expect(lines[0]).toBe(
+      "Device run (ios) failed. The Platform screen failed: 4/5 passed; failed: back",
+    );
+    expect(diagnose({ ...base, lab: "platform", stop: "no-start", minutes: 8 })[0]).toMatch(
+      /The Platform screen never started a run in 8 minutes/,
+    );
+  });
+
   it("tells an exit without a crash", () => {
     const lines = diagnose({ ...base, stop: "exited", running: false });
     expect(lines[0]).toBe(
@@ -308,18 +342,24 @@ describe("diagnose", () => {
 });
 
 describe("parseTarget", () => {
-  it("is the bare example's Tests screen without --id", () => {
+  it("is the bare example's Tests and Platform screens without --id", () => {
     expect(parseTarget(["ios", "--app", "BareExample.app"])).toEqual({
       platform: "ios",
       artifact: "BareExample.app",
       id: "org.reactjs.native.example.BareExample",
       process: "BareExample",
-      launchArgs: ["-lucentTab", "lab/tests"],
+      screens: [
+        { id: "tests", launchArgs: ["-lucentTab", "lab/tests"] },
+        { id: "platform", launchArgs: ["-lucentTab", "lab/platform"] },
+      ],
       metro: true,
     });
     expect(parseTarget(["android", "--apk", "app-debug.apk"])).toMatchObject({
       id: "com.bareexample",
-      url: "lucentbare://lab/tests",
+      screens: [
+        { id: "tests", url: "lucentbare://lab/tests" },
+        { id: "platform", url: "lucentbare://lab/platform" },
+      ],
       metro: true,
     });
   });
@@ -341,7 +381,7 @@ describe("parseTarget", () => {
       artifact: "app-release.apk",
       id: "com.lucentwindow",
       process: "LucentWindow",
-      launchArgs: [],
+      screens: [{ id: "tests", launchArgs: [] }],
       metro: false,
     });
     expect(parseTarget(["ios", "--app", "build/LucentWindow.app", "--id", "x.y"]).process).toBe(
