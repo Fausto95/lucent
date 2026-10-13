@@ -138,6 +138,81 @@ inline const jsi::Value& arg(const jsi::Value* args, size_t count, size_t i) {
 template <class T, class Enable = void>
 struct Convert;
 
+// --- boundary spellings ------------------------------------------------------------
+
+/// A string literal as a template argument: what a boundary error says a
+/// value must be.
+template <size_t N>
+struct Text {
+  constexpr Text(const char (&s)[N]) { std::copy_n(s, N, chars); }
+  char chars[N];
+};
+
+/// TypeScript's `T | undefined` and `T | null`, spelled for the boundary
+/// only: each converts to `Opt<T>` as Convert<Opt<T>> does, but admits only
+/// its own absent value, failing the other with `Expected`. Generated code
+/// spells a value's type with them wherever such an optional sits (an
+/// array's elements, a callback's result, a promise's value…); Lucent
+/// values never have these types (ValueOf).
+template <class T, Text Expected>
+struct OrUndefined;
+template <class T, Text Expected>
+struct OrNull;
+
+/// The Lucent value a boundary spelling converts to: the spelling itself,
+/// but for OrUndefined and OrNull, which are Opt, and the containers of them.
+template <class S>
+struct ValueOfSpec {
+  using type = S;
+};
+template <class S>
+using ValueOf = typename ValueOfSpec<S>::type;
+
+template <class T, Text E>
+struct ValueOfSpec<OrUndefined<T, E>> {
+  using type = Opt<ValueOf<T>>;
+};
+template <class T, Text E>
+struct ValueOfSpec<OrNull<T, E>> {
+  using type = Opt<ValueOf<T>>;
+};
+template <class T>
+struct ValueOfSpec<Opt<T>> {
+  using type = Opt<ValueOf<T>>;
+};
+template <class T>
+struct ValueOfSpec<Array<T>> {
+  using type = Array<ValueOf<T>>;
+};
+template <class... Ts>
+struct ValueOfSpec<std::tuple<Ts...>> {
+  using type = std::tuple<ValueOf<Ts>...>;
+};
+template <class V>
+struct ValueOfSpec<Dict<V>> {
+  using type = Dict<ValueOf<V>>;
+};
+template <class K, class V>
+struct ValueOfSpec<Map<K, V>> {
+  using type = Map<ValueOf<K>, ValueOf<V>>;
+};
+template <class T>
+struct ValueOfSpec<Set<T>> {
+  using type = Set<ValueOf<T>>;
+};
+template <class T>
+struct ValueOfSpec<Iter<T>> {
+  using type = Iter<ValueOf<T>>;
+};
+template <class T>
+struct ValueOfSpec<Promise<T>> {
+  using type = Promise<ValueOf<T>>;
+};
+template <class R, class... A>
+struct ValueOfSpec<Fn<R(A...)>> {
+  using type = Fn<ValueOf<R>(ValueOf<A>...)>;
+};
+
 /// Conversions that also take an object the caller owns (generated structs):
 /// an array element is moved into one instead of its handle being cloned.
 template <class T>
@@ -206,22 +281,42 @@ struct Convert<Null> {
 
 template <class T>
 struct Convert<Opt<T>> {
-  static Opt<T> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  using V = Opt<ValueOf<T>>;
+
+  static V fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
     if (v.isUndefined()) return undefined;
     if (v.isNull()) return null;
     return Convert<T>::fromJs(rt, v, p);
   }
-  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Opt<T>& v) {
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const V& v) {
     if (v.isUndefined()) return jsi::Value::undefined();
     if (v.isNull()) return jsi::Value::null();
     return Convert<T>::toJs(rt, h, v.get());
   }
   /// A value no Lucent code holds any more (a function's result): its
   /// value is handed on as such, so bytes can move instead of copying.
-  static jsi::Value toJs(jsi::Runtime& rt, Host& h, Opt<T>&& v) {
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, V&& v) {
     if (v.isUndefined()) return jsi::Value::undefined();
     if (v.isNull()) return jsi::Value::null();
     return Convert<T>::toJs(rt, h, std::move(v.get()));
+  }
+};
+
+/// `T | undefined` inside a container: null fails with `E`.
+template <class T, Text E>
+struct Convert<OrUndefined<T, E>> : Convert<Opt<T>> {
+  static Opt<ValueOf<T>> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+    if (v.isNull()) throwBoundaryError(rt, p, E.chars, v);
+    return Convert<Opt<T>>::fromJs(rt, v, p);
+  }
+};
+
+/// `T | null` inside a container: undefined fails with `E`.
+template <class T, Text E>
+struct Convert<OrNull<T, E>> : Convert<Opt<T>> {
+  static Opt<ValueOf<T>> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+    if (v.isUndefined()) throwBoundaryError(rt, p, E.chars, v);
+    return Convert<Opt<T>>::fromJs(rt, v, p);
   }
 };
 
@@ -229,12 +324,13 @@ struct Convert<Opt<T>> {
 /// `T | undefined`) or, when `admitsNull`, `null` (`T | null`). The other one
 /// fails with `expected`, where Convert<Opt<T>> would take both.
 template <class T>
-Opt<T> optionalFromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p, bool admitsNull, const char* expected) {
+Opt<ValueOf<T>> optionalFromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p, bool admitsNull, const char* expected) {
+  using V = Opt<ValueOf<T>>;
   if (v.isUndefined() || v.isNull()) {
     // A JSValue admits JavaScript's every value: either absent one is absent, as `??` sees it.
     if constexpr (!std::is_same_v<T, JSValue>)
       if (v.isNull() != admitsNull) throwBoundaryError(rt, p, expected, v);
-    return v.isNull() ? Opt<T>(null) : Opt<T>(undefined);
+    return v.isNull() ? V(null) : V(undefined);
   }
   return Convert<T>::fromJs(rt, v, p);
 }
@@ -243,27 +339,29 @@ Opt<T> optionalFromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p, bool
 
 template <class T>
 struct Convert<Array<T>> {
-  static Array<T> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  using E = ValueOf<T>;
+
+  static Array<E> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
     if (!v.isObject() || !v.getObject(rt).isArray(rt)) throwBoundaryError(rt, p, "an array", v);
     jsi::Array a = v.getObject(rt).getArray(rt);
     size_t n = a.size(rt);
-    std::vector<typename Array<T>::Elem> items;
+    std::vector<typename Array<E>::Elem> items;
     items.reserve(n);
     for (size_t i = 0; i < n; i++) {
       if constexpr (ConvertsFromObject<T>) {
         jsi::Value e = a.getValueAtIndex(rt, i);
         if (!e.isObject()) throwBoundaryError(rt, p.index(i), "an object", e);
-        items.push_back(static_cast<typename Array<T>::Elem>(Convert<T>::fromObject(rt, std::move(e).getObject(rt), p.index(i))));
+        items.push_back(static_cast<typename Array<E>::Elem>(Convert<T>::fromObject(rt, std::move(e).getObject(rt), p.index(i))));
       } else {
-        items.push_back(static_cast<typename Array<T>::Elem>(Convert<T>::fromJs(rt, a.getValueAtIndex(rt, i), p.index(i))));
+        items.push_back(static_cast<typename Array<E>::Elem>(Convert<T>::fromJs(rt, a.getValueAtIndex(rt, i), p.index(i))));
       }
     }
-    return Array<T>(std::move(items));
+    return Array<E>(std::move(items));
   }
-  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Array<T>& v) {
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Array<E>& v) {
     const auto& items = v.items();
     jsi::Array a(rt, items.size());
-    for (size_t i = 0; i < items.size(); i++) a.setValueAtIndex(rt, i, Convert<T>::toJs(rt, h, static_cast<T>(items[i])));
+    for (size_t i = 0; i < items.size(); i++) a.setValueAtIndex(rt, i, Convert<T>::toJs(rt, h, static_cast<E>(items[i])));
     return jsi::Value(std::move(a));
   }
 };
@@ -272,12 +370,14 @@ struct Convert<Array<T>> {
 
 template <class... Ts>
 struct Convert<std::tuple<Ts...>> {
-  static std::tuple<Ts...> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  using V = std::tuple<ValueOf<Ts>...>;
+
+  static V fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
     if (!v.isObject() || !v.getObject(rt).isArray(rt)) throwBoundaryError(rt, p, "an array", v);
     jsi::Array a = v.getObject(rt).getArray(rt);
     return read(rt, a, p, std::index_sequence_for<Ts...>{});
   }
-  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const std::tuple<Ts...>& t) {
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const V& t) {
     jsi::Array a(rt, sizeof...(Ts));
     write(rt, h, a, t, std::index_sequence_for<Ts...>{});
     return jsi::Value(std::move(a));
@@ -285,12 +385,12 @@ struct Convert<std::tuple<Ts...>> {
 
  private:
   template <size_t... I>
-  static std::tuple<Ts...> read(jsi::Runtime& rt, jsi::Array& a, const Path& p, std::index_sequence<I...>) {
+  static V read(jsi::Runtime& rt, jsi::Array& a, const Path& p, std::index_sequence<I...>) {
     size_t n = a.size(rt);
-    return std::tuple<Ts...>(Convert<Ts>::fromJs(rt, I < n ? a.getValueAtIndex(rt, I) : jsi::Value::undefined(), p.index(I))...);
+    return V(Convert<Ts>::fromJs(rt, I < n ? a.getValueAtIndex(rt, I) : jsi::Value::undefined(), p.index(I))...);
   }
   template <size_t... I>
-  static void write(jsi::Runtime& rt, Host& h, jsi::Array& a, const std::tuple<Ts...>& t, std::index_sequence<I...>) {
+  static void write(jsi::Runtime& rt, Host& h, jsi::Array& a, const V& t, std::index_sequence<I...>) {
     (a.setValueAtIndex(rt, I, Convert<Ts>::toJs(rt, h, std::get<I>(t))), ...);
   }
 };
@@ -299,11 +399,11 @@ struct Convert<std::tuple<Ts...>> {
 
 template <class V>
 struct Convert<Dict<V>> {
-  static Dict<V> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  static Dict<ValueOf<V>> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
     if (!v.isObject() || v.getObject(rt).isArray(rt) || v.getObject(rt).isFunction(rt)) throwBoundaryError(rt, p, "an object", v);
     jsi::Object o = v.getObject(rt);
     jsi::Array names = o.getPropertyNames(rt);
-    Dict<V> out;
+    Dict<ValueOf<V>> out;
     size_t n = names.size(rt);
     for (size_t i = 0; i < n; i++) {
       jsi::String key = names.getValueAtIndex(rt, i).getString(rt);
@@ -311,7 +411,7 @@ struct Convert<Dict<V>> {
     }
     return out;
   }
-  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Dict<V>& d) {
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Dict<ValueOf<V>>& d) {
     jsi::Object o(rt);
     auto& t = d.table();
     for (size_t i = 0; i < t.slotCount(); i++) {
@@ -328,11 +428,11 @@ bool isInstanceOf(jsi::Runtime& rt, const jsi::Object& o, const char* ctor);
 
 template <class K, class V>
 struct Convert<Map<K, V>> {
-  static Map<K, V> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  static Map<ValueOf<K>, ValueOf<V>> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
     if (!v.isObject() || !isInstanceOf(rt, v.getObject(rt), "Map")) throwBoundaryError(rt, p, "a Map", v);
     jsi::Value entries = v.getObject(rt).getPropertyAsFunction(rt, "entries").callWithThis(rt, v.getObject(rt));
     jsi::Array list = rt.global().getPropertyAsObject(rt, "Array").getPropertyAsFunction(rt, "from").call(rt, entries).getObject(rt).getArray(rt);
-    Map<K, V> out;
+    Map<ValueOf<K>, ValueOf<V>> out;
     size_t n = list.size(rt);
     for (size_t i = 0; i < n; i++) {
       jsi::Array pair = list.getValueAtIndex(rt, i).getObject(rt).getArray(rt);
@@ -341,7 +441,7 @@ struct Convert<Map<K, V>> {
     }
     return out;
   }
-  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Map<K, V>& m) {
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Map<ValueOf<K>, ValueOf<V>>& m) {
     jsi::Object out = rt.global().getPropertyAsFunction(rt, "Map").callAsConstructor(rt).getObject(rt);
     jsi::Function set = out.getPropertyAsFunction(rt, "set");
     auto& t = m.table();
@@ -355,15 +455,15 @@ struct Convert<Map<K, V>> {
 
 template <class T>
 struct Convert<Set<T>> {
-  static Set<T> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  static Set<ValueOf<T>> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
     if (!v.isObject() || !isInstanceOf(rt, v.getObject(rt), "Set")) throwBoundaryError(rt, p, "a Set", v);
     jsi::Array list = rt.global().getPropertyAsObject(rt, "Array").getPropertyAsFunction(rt, "from").call(rt, v).getObject(rt).getArray(rt);
-    Set<T> out;
+    Set<ValueOf<T>> out;
     size_t n = list.size(rt);
     for (size_t i = 0; i < n; i++) out.add(Convert<T>::fromJs(rt, list.getValueAtIndex(rt, i), p.index(i)));
     return out;
   }
-  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Set<T>& s) {
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Set<ValueOf<T>>& s) {
     jsi::Object out = rt.global().getPropertyAsFunction(rt, "Set").callAsConstructor(rt).getObject(rt);
     jsi::Function add = out.getPropertyAsFunction(rt, "add");
     auto& t = s.table();
@@ -533,7 +633,7 @@ struct Convert<RegExp> {
 /// A JavaScript iterable arrives as a snapshot (Array.from), iterated lazily.
 template <class T>
 struct Convert<Iter<T>> {
-  static Iter<T> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  static Iter<ValueOf<T>> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
     if (!v.isObject() && !v.isString()) throwBoundaryError(rt, p, "an iterable", v);
     jsi::Function from = rt.global().getPropertyAsObject(rt, "Array").getPropertyAsFunction(rt, "from");
     return iterOf(Convert<Array<T>>::fromJs(rt, from.call(rt, v), p));
@@ -605,14 +705,14 @@ void settleLater(Host& host, uint64_t id, const Promise<T>& p, uint64_t traceId 
 /// thread when the Lucent one does.
 template <class T>
 struct Convert<Promise<T>> {
-  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Promise<T>& p) {
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Promise<ValueOf<T>>& p) {
     uint64_t id = 0;
     jsi::Value jsPromise = h.createPromise(rt, id);
     settleLater(h, id, p);
     return jsPromise;
   }
   /// A JS promise passed into Lucent (e.g. returned by a callback).
-  static Promise<T> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+  static Promise<ValueOf<T>> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
 };
 
 // --- functions -------------------------------------------------------------------------------
@@ -676,18 +776,22 @@ struct IsPromiseType<Promise<T>> : std::true_type {};
 
 template <class R, class... A>
 struct Convert<Fn<R(A...)>> {
-  static Fn<R(A...)> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  /// The function's Lucent type: its result and parameters as values (ValueOf).
+  using RV = ValueOf<R>;
+  using F = Fn<RV(ValueOf<A>...)>;
+
+  static F fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
     if (!v.isObject() || !v.getObject(rt).isFunction(rt)) throwBoundaryError(rt, p, "a function", v);
     Host& host = Host::get(rt);
     auto cb = std::make_shared<JsCallback>(host, host.retain(rt, v.getObject(rt).getFunction(rt)));
     auto where = std::make_shared<const Site>(p, " (callback ", ")");
-    return Fn<R(A...)>([cb, where](A... args) -> R { return invoke(cb, where, std::move(args)...); });
+    return F([cb, where](ValueOf<A>... args) -> RV { return invoke(cb, where, std::move(args)...); });
   }
 
-  static R invoke(const std::shared_ptr<JsCallback>& cb, const std::shared_ptr<const Site>& where, A... args) {
+  static RV invoke(const std::shared_ptr<JsCallback>& cb, const std::shared_ptr<const Site>& where, ValueOf<A>... args) {
     auto host = cb->host();
     if (!host || !host->alive()) {
-      if constexpr (std::is_void_v<R>) return;
+      if constexpr (std::is_void_v<RV>) return;
       else throwError(Host::goneError());
     }
     if (host->onJsThread()) {
@@ -704,14 +808,14 @@ struct Convert<Fn<R(A...)>> {
       } catch (const jsi::JSError& e) {
         throw Exception(Host::errorFromJs(rt, e));
       }
-      if constexpr (std::is_void_v<R>) {
+      if constexpr (std::is_void_v<RV>) {
         return;
       } else {
         return Convert<R>::fromJs(rt, result, Path::at(*where, "return value"));
       }
     }
     Actor* actor = &currentActor();
-    if constexpr (std::is_void_v<R>) {
+    if constexpr (std::is_void_v<RV>) {
       std::weak_ptr<Host> weak = host;
       host->postToJs([cb, actor, args...](jsi::Runtime& rt) mutable {
         auto host = cb->host();
@@ -731,8 +835,8 @@ struct Convert<Fn<R(A...)>> {
         }
       });
       return;
-    } else if constexpr (IsPromiseType<R>::value) {
-      R out;
+    } else if constexpr (IsPromiseType<RV>::value) {
+      RV out;
       // If the task never runs (the runtime went), the promise rejects.
       auto gone = [out] { out.reject(Host::goneError()); };
       host->postToJs([cb, out, where, actor, args...](jsi::Runtime& rt) mutable {
@@ -752,10 +856,10 @@ struct Convert<Fn<R(A...)>> {
             ParkedActors parked;
             result = fn->call(rt, static_cast<const jsi::Value*>(argv.data()), argv.size());
           }
-          R inner = Convert<R>::fromJs(rt, result, Path::at(*where, "return value"));
+          RV inner = Convert<R>::fromJs(rt, result, Path::at(*where, "return value"));
           inner.onSettled([inner, out] {
             if (inner.fulfilled()) {
-              if constexpr (std::is_void_v<typename R::value_type>) out.resolve(undefined);
+              if constexpr (std::is_void_v<typename RV::value_type>) out.resolve(undefined);
               else out.resolve(inner.value());
             } else {
               out.reject(inner.error());
@@ -775,7 +879,7 @@ struct Convert<Fn<R(A...)>> {
   }
 
   /// The function holds the actor it was made on: JavaScript's calls enter it.
-  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Fn<R(A...)>& f) {
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const F& f) {
     std::weak_ptr<Host> weak = h.weak_from_this();
     Actor* actor = &currentActor();
     return jsi::Function::createFromHostFunction(
@@ -796,9 +900,9 @@ struct Convert<Fn<R(A...)>> {
 
  private:
   template <size_t... I>
-  static jsi::Value call(jsi::Runtime& rt, Host& h, const Fn<R(A...)>& f, const jsi::Value* args, size_t count, std::index_sequence<I...>) {
+  static jsi::Value call(jsi::Runtime& rt, Host& h, const F& f, const jsi::Value* args, size_t count, std::index_sequence<I...>) {
     static const jsi::Value undef = jsi::Value::undefined();
-    if constexpr (std::is_void_v<R>) {
+    if constexpr (std::is_void_v<RV>) {
       f(Convert<std::decay_t<A>>::fromJs(rt, I < count ? args[I] : undef, Path::argument("function", I))...);
       return jsi::Value::undefined();
     } else {
@@ -808,8 +912,8 @@ struct Convert<Fn<R(A...)>> {
 };
 
 template <class T>
-Promise<T> Convert<Promise<T>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
-  Promise<T> out;
+Promise<ValueOf<T>> Convert<Promise<T>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  Promise<ValueOf<T>> out;
   if (!v.isObject() || !v.getObject(rt).getProperty(rt, "then").isObject()) {
     // Not a thenable: behaves like `await value`.
     if constexpr (std::is_void_v<T>) out.resolve(undefined);

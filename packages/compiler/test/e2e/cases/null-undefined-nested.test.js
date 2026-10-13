@@ -1,0 +1,78 @@
+const outcome = (f) => {
+  try {
+    return String(f());
+  } catch (e) {
+    return `${e.name}: ${e.message}`;
+  }
+};
+// The boundary check exists natively only: as plain JavaScript, the lines
+// print what the native host does.
+const native = globalThis.__lucentHost !== undefined;
+const boundary = (f, message) => print(native ? outcome(f) : `TypeError: ${message}`);
+
+// What each takes.
+print(mod.elements([1, undefined]), mod.nullable([null, 2]), mod.nested([["a", null], []]));
+print(mod.tuple([null, undefined]), mod.tuple(["a", 2]), mod.record({ a: undefined, b: 1 }));
+print(mod.map(new Map([["a", null]])), mod.set(new Set(["x", undefined])));
+print(
+  mod.both([null, undefined, 3]),
+  mod.result(() => undefined),
+  mod.nullResult(() => null),
+);
+print(mod.taker()(null), mod.taker()(4));
+
+// What each refuses.
+boundary(
+  () => mod.elements([1, null]),
+  "elements: argument 'xs'[1] must be a number or undefined, got null",
+);
+boundary(
+  () => mod.nullable([undefined]),
+  "nullable: argument 'xs'[0] must be a number or null, got undefined",
+);
+boundary(
+  () => mod.nested([[], ["a", undefined]]),
+  "nested: argument 'rows'[1][1] must be a string or null, got undefined",
+);
+boundary(
+  () => mod.tuple([undefined, 1]),
+  "tuple: argument 't'[0] must be a string or null, got undefined",
+);
+boundary(
+  () => mod.tuple(["a", null]),
+  "tuple: argument 't'[1] must be a number or undefined, got null",
+);
+boundary(
+  () => mod.record({ a: null }),
+  "record: argument 'r'[\"a\"] must be a number or undefined, got null",
+);
+boundary(
+  () => mod.map(new Map([["a", undefined]])),
+  "map: argument 'm'[0].value must be a number or null, got undefined",
+);
+boundary(
+  () => mod.set(new Set([null])),
+  "set: argument 's'[0] must be a string or undefined, got null",
+);
+boundary(
+  () => mod.result(() => null),
+  "result (callback argument 'f'): return value must be a number or undefined, got null",
+);
+boundary(
+  () => mod.nullResult(() => undefined),
+  "nullResult (callback argument 'f'): return value must be a string or null, got undefined",
+);
+boundary(
+  () => mod.taker()(undefined),
+  "function: argument 0 must be a number or null, got undefined",
+);
+
+(async () => {
+  print(await mod.promised(Promise.resolve(null)), await mod.promised(Promise.resolve(5)));
+  if (native)
+    print(await mod.promised(Promise.resolve(undefined)).catch((e) => `${e.name}: ${e.message}`));
+  else
+    print(
+      "TypeError: promised argument 'p': resolved value must be a number or null, got undefined",
+    );
+})();

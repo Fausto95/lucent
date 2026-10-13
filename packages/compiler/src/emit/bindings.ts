@@ -435,7 +435,7 @@ export class BindingsEmitter {
     const from: cpp.Stmt[] = [];
     const to: cpp.Stmt[] = [];
     info.fields.forEach((f, i) => {
-      const ft = this.reg.cppType(f.type);
+      const ft = this.spelled(f.type);
       const field = cpp.arrow(v, cppIdent(f.name));
       from.push(
         cpp.exprStmt(
@@ -738,7 +738,7 @@ export class BindingsEmitter {
       );
     }
 
-    const t = this.reg.cppType(m.types[0]!);
+    const t = this.spelled(m.types[0]!);
     const got =
       m.kind === "accessor" ? cpp.call(place(`get_${cppIdent(m.name)}`)) : place(cppIdent(m.name));
     const getter = cpp.lambda(
@@ -884,7 +884,7 @@ export class BindingsEmitter {
         ]
       : isVoidish(ret)
         ? [cpp.exprStmt(moved), cpp.ret(cpp.call("jsi::Value::undefined"))]
-        : [cpp.ret(toJs(this.reg.cppType(ret), host, moved))];
+        : [cpp.ret(toJs(this.spelled(ret), host, moved))];
     // An async call is traced by callAsync, which carries its id on, and its
     // arguments' checks reject its promise.
     return sync(
@@ -988,7 +988,7 @@ export class BindingsEmitter {
     }
     for (const c of m.consts) {
       const name = cpp.str(c.decl.name.getText());
-      const value = toJs(this.reg.cppType(c.type), cpp.id("host"), cpp.id(c.cpp));
+      const value = toJs(this.spelled(c.type), cpp.id("host"), cpp.id(c.cpp));
       // One copy per value the module assigns, as JavaScript holds one object.
       const read = copiedOnce(c.type)
         ? cpp.call(cpp.dot(cpp.id("host"), "exported"), [
@@ -1131,13 +1131,61 @@ export class BindingsEmitter {
    * takes both.
    */
   private convertFromJs(t: LType, value: cpp.Expr, at: cpp.Expr): cpp.Expr {
-    if (t.k !== "opt" || t.absent === undefined) return fromJs(this.reg.cppType(t), value, at);
+    if (t.k !== "opt" || t.absent === undefined) return fromJs(this.spelled(t), value, at);
 
     return cpp.call(
       "optionalFromJs",
       [rt, value, at, cpp.bool(t.absent === "null"), cpp.str(this.describe(t))],
-      [this.reg.cppType(t.inner)],
+      [this.spelled(t.inner, false)],
     );
+  }
+
+  /**
+   * `t` spelled for a conversion: its C++ type, but where an optional that
+   * TypeScript gives one absent value sits in an array, tuple, record, map,
+   * set, iterable, promise or function, `OrUndefined` or `OrNull`, which
+   * refuse the other (convert.h's ValueOf maps the spelling back to the
+   * type). At the top, convertFromJs checks it, and a value going to
+   * JavaScript needs no check.
+   */
+  private spelled(t: LType, top = true): cpp.Type {
+    if (!strictInside(t, top)) return this.reg.cppType(t);
+
+    const lucent = (name: string, ...args: cpp.TemplateArg[]) =>
+      cpp.type(`lucent::${name}`, ...args);
+    const inner = (u: LType) => this.spelled(u, false);
+
+    switch (t.k) {
+      case "opt":
+        return t.absent && !top
+          ? cpp.type(
+              `lucent::js::${t.absent === "undefined" ? "OrUndefined" : "OrNull"}`,
+              inner(t.inner),
+              cpp.str(this.describe(t)),
+            )
+          : lucent("Opt", inner(t.inner));
+      case "array":
+        return lucent("Array", inner(t.e));
+      case "tuple":
+        return cpp.type("std::tuple", ...t.es.map(inner));
+      case "map":
+        return lucent("Map", inner(t.key), inner(t.val));
+      case "set":
+        return lucent("Set", inner(t.e));
+      case "dict":
+        return lucent("Dict", inner(t.val));
+      case "iter":
+        return lucent("Iter", inner(t.e));
+      case "promise":
+        return lucent("Promise", isVoidish(t.inner) ? cpp.voidType : inner(t.inner));
+      case "fn":
+        return lucent(
+          "Fn",
+          cpp.fnType(isVoidish(t.ret) ? cpp.voidType : inner(t.ret), t.params.map(inner)),
+        );
+      default:
+        return this.reg.cppType(t);
+    }
   }
 
   /** What a boundary error says `t` must be: "a string or undefined". */
@@ -1160,7 +1208,7 @@ export class BindingsEmitter {
 
   /** `return U(Convert<M>::fromJs(rt, v, p));` */
   private unionMember(s: cpp.Type, m: LType): cpp.Stmt {
-    return cpp.ret(cpp.construct(s, [fromJs(this.reg.cppType(m), v, p)]));
+    return cpp.ret(cpp.construct(s, [fromJs(this.spelled(m), v, p)]));
   }
 
   /** Tells union object members apart by a string-literal discriminant field. */
@@ -1298,6 +1346,34 @@ const PROTO_PARAMS = [
   cpp.param(cpp.reference(cpp.type("Host")), "host"),
   cpp.param(cpp.reference(cpp.type("jsi::Object")), "proto"),
 ];
+/**
+ * Whether `t` holds, where its conversion reaches, an optional that admits
+ * one absent value (but `t` itself, at the top): spelled() then spells it
+ * for the boundary.
+ */
+function strictInside(t: LType, top = false): boolean {
+  switch (t.k) {
+    case "opt":
+      return (t.absent !== undefined && !top) || strictInside(t.inner);
+    case "array":
+    case "set":
+    case "iter":
+      return strictInside(t.e);
+    case "tuple":
+      return t.es.some((e) => strictInside(e));
+    case "map":
+      return strictInside(t.key) || strictInside(t.val);
+    case "dict":
+      return strictInside(t.val);
+    case "promise":
+      return strictInside(t.inner);
+    case "fn":
+      return t.params.some((p) => strictInside(p)) || strictInside(t.ret);
+    default:
+      return false;
+  }
+}
+
 const fromJsParams = () => [RUNTIME, cpp.param(cpp.reference(cpp.constType(JS_VALUE)), "v"), PATH];
 const fromObjectParams = () => [
   RUNTIME,

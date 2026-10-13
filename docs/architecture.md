@@ -544,8 +544,7 @@ in JavaScript. An `await` of a plain value doesn't suspend, a known gap
 continuation resumes on the context that registered it, so a coroutine
 stays on the context it started on.
 
-> **Planned:** `null` apart from `undefined` in containers
-> ([T101](tasks.md#t101)), and timers ([T104](tasks.md#t104)).
+> **Planned:** timers ([T104](tasks.md#t104)).
 
 ### Execution contexts and actors
 
@@ -653,6 +652,10 @@ on the JS thread, so other threads use ids and post to it (`postToJs`).
 - `jsi/convert.h` defines `Convert<T>`, and the compiler writes
   specializations for structs, classes and unions. A value that doesn't
   convert throws a `TypeError` naming the function and the argument.
+  Where a `T | undefined` or `T | null` sits inside a container, a
+  callback or a promise, the compiler spells it `OrUndefined<T, …>` or
+  `OrNull<T, …>`, which refuse the other absent value; `ValueOf` maps a
+  spelling to the C++ type it converts to.
 - `callSync` runs an export under the actor's lock on the JS thread.
   `callAsync` posts a job to the actor's thread and returns a JS promise,
   settled later on the JS thread.

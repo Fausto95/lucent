@@ -64,7 +64,7 @@ midpoint(saved, home); // TypeError: midpoint: argument 'a'.y must be a number, 
 | `bigint` | A copy, exact at any size | A bigint; a number is refused |
 | `string`, string literal types | A copy | A string; any string, for a literal type |
 | enums | A copy of the member's value | A number or a string; membership isn't checked |
-| `T \| undefined`, `T \| null`, `x?: T` | The value, or its absence: `undefined` and `null` stay apart | `undefined` or `null`, whatever the type names; the value keeps which one it is. Test it with `== null` or `??`: after `x !== undefined`, a `null` throws a `TypeError` where it's used. |
+| `T \| undefined`, `T \| null`, `x?: T` | The value, or its absence: `undefined` and `null` stay apart | The absent value the type names, wherever it sits: in an argument, a field, an element, a callback's result or a promise's value. The other one throws a `TypeError`; `T \| null \| undefined` takes both. |
 | `T[]` | A copy | An array; each element is checked |
 | `[A, B]` | A copy | An array; a missing element is read as `undefined` |
 | object types, interfaces without methods | A copy; an optional field that isn't set is left out | An object with each declared field; other fields are ignored |
