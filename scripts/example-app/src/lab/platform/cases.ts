@@ -1,6 +1,9 @@
-// What only the platform gives module code (T108–T110): the device runs open
-// this screen after the Tests screen, on the simulator and the emulator.
+// What only the platform gives module code (T108–T110, T130): the device
+// runs open this screen after the Tests screen, on the simulator and the
+// emulator.
 import { Linking, Platform } from "react-native";
+import { channelReady, startedAtMs } from "lucent-launch";
+import { BUNDLE_STARTED } from "../../bundleStarted";
 import { holdBack } from "../../navigation/useNavigator";
 import * as Probe from "../../sdk/platform.lucent";
 import type { SdkCase } from "../sdk/types";
@@ -48,7 +51,24 @@ async function back(): Promise<string> {
   }
 }
 
+/**
+ * A launch module's state started at launch, before JavaScript: from the
+ * app delegate (iOS) or LucentInitializer (Android), which also created a
+ * notification channel with the app's context.
+ */
+async function launched(): Promise<string> {
+  const started = startedAtMs();
+  if (started > BUNDLE_STARTED) return `started ${started - BUNDLE_STARTED} ms after JavaScript`;
+  if (!ios && !channelReady()) return "no notification channel";
+  return "before JavaScript";
+}
+
 export const platformCases: SdkCase[] = [
+  {
+    name: "launch: a launch module's state starts before JavaScript",
+    run: launched,
+    expected: "before JavaScript",
+  },
   {
     name: "executor: frames reach a channel, uncopied",
     run: Probe.frames,

@@ -62,6 +62,7 @@ describe("the example packages", () => {
       "lucent-haptics",
       "lucent-http",
       "lucent-kv-storage",
+      "lucent-launch",
       "lucent-orbit",
       "lucent-rating",
       "lucent-secure-store",

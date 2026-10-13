@@ -55,6 +55,9 @@ importers:
       lucent-haptics:
         specifier: workspace:*
         version: link:../../examples/lucent-haptics
+      lucent-launch:
+        specifier: workspace:*
+        version: link:../../examples/lucent-launch
       lucent-orbit:
         specifier: workspace:*
         version: link:../../examples/lucent-orbit
@@ -164,6 +167,9 @@ importers:
       lucent-haptics:
         specifier: workspace:*
         version: link:../../examples/lucent-haptics
+      lucent-launch:
+        specifier: workspace:*
+        version: link:../../examples/lucent-launch
       lucent-orbit:
         specifier: workspace:*
         version: link:../../examples/lucent-orbit
@@ -308,6 +314,8 @@ importers:
   examples/lucent-http: {}
 
   examples/lucent-kv-storage: {}
+
+  examples/lucent-launch: {}
 
   examples/lucent-orbit: {}
 
