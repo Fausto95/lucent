@@ -50,8 +50,12 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "`setTimeout`, `setInterval` and `queueMicrotask`, on the context that calls them."
       },
       {
+        "status": "done",
+        "text": "Promise chaining and combinators, settled in JavaScript's microtask order."
+      },
+      {
         "status": "next",
-        "text": "Promise chaining and combinators, and web APIs such as `TextEncoder` and `URL`."
+        "text": "Web APIs such as `TextEncoder` and `URL`."
       },
       {
         "status": "next",

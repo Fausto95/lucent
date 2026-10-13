@@ -28,7 +28,8 @@ Write a module once in TypeScript, and call it from JavaScript as a native modul
 | done | `null` kept apart from `undefined` in every container. |
 | next | JSON-shaped values through recursive union types. |
 | done | `setTimeout`, `setInterval` and `queueMicrotask`, on the context that calls them. |
-| next | Promise chaining and combinators, and web APIs such as `TextEncoder` and `URL`. |
+| done | Promise chaining and combinators, settled in JavaScript's microtask order. |
+| next | Web APIs such as `TextEncoder` and `URL`. |
 | next | Classes that extend `EventEmitter`, so native objects have their own listeners. |
 
 ## Platform APIs
