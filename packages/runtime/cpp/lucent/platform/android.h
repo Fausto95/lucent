@@ -66,6 +66,14 @@ NativeHandle byteBufferHandle(const NativeRef& buffer);
 /// code (Skia, a GPU library) takes. A TypeError where the NDK has none.
 NativeHandle hardwareBufferHandle(const NativeRef& buffer);
 
+/// `adoptHardwareBuffer(buffer, access)` from lucent:android (API 26): a
+/// NativeBuffer of a single-plane HardwareBuffer's bytes (stride × height
+/// pixels), uncopied, locked for the CPU (for reading, or for reading and
+/// writing when `access` is "readwrite") until the bytes are released, then
+/// unlocked and released once. A TypeError where the NDK has none, for a
+/// planar or layered buffer, or one not made for that CPU use.
+NativeBuffer adoptHardwareBuffer(const NativeRef& buffer, const String& access = String::fromLatin1("read"));
+
 /// An executor (lucent:thread's `executor(label)`) where Java takes a
 /// java.util.concurrent.Executor: a dev.lucent.LucentExecutor (a local
 /// ref) that runs each Runnable on the executor's thread, outside its

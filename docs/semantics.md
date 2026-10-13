@@ -642,8 +642,15 @@ only copies, which `stats()` counts.
 
 Platform memory becomes a buffer without a copy where the platform lends
 it: `adoptByteBuffer` in `lucent:android` adopts a direct `ByteBuffer`,
-which Java must leave alone after. iOS copies (`withPixelBytes`) until
-[T108](tasks.md#t108).
+which Java must leave alone after. `adoptPixelBuffer` in `lucent:ios` and
+`adoptHardwareBuffer` in `lucent:android` adopt a frame's plane, locked
+for reading until released, or for writing too with `"readwrite"`. Bytes
+adopted for reading are read-only: a write, from Lucent or JavaScript,
+and `transferToArrayBuffer()` throw `InvalidStateError`, since an
+`ArrayBuffer` is writable, and a move keeps them so. `withPixelBytes` is
+the copying form. An `NSData` isn't adopted: Swift's `Data` crosses as a
+`Uint8Array` copy
+([0086](decisions/0086-platform-memory-is-adopted-read-only-unless-asked.md)).
 
 ### Native handles
 

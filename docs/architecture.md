@@ -630,14 +630,13 @@ with `DataCloneError`.
   borrow for one synchronous call: reads share, a write excludes, and a
   conflict throws `InvalidStateError`. `transfer()` moves the storage,
   which is how a buffer crosses to a task. `emit/buffers.ts` refuses a
-  borrowed span that escapes its callback.
+  borrowed span that escapes its callback. `adoptReadOnly` holds bytes no
+  one may write: a frame `platform/ios_pixels.h` or `android.cpp` locked
+  for reading.
 - `bytes.h`: an `ArrayBuffer` and its `Uint8Array`s share storage. Bytes
   cross the boundary as copies, but a result nothing else holds moves to
   JavaScript. A synchronous export that only reads a byte parameter is
   lent JavaScript's bytes (`emit/lent-bytes.ts`).
-
-> **Planned:** platform memory as JavaScript bytes without a copy on iOS
-> ([T108](tasks.md#t108)).
 
 ### The JSI host and conversions
 

@@ -353,14 +353,32 @@ NativeHandle byteBufferHandle(const NativeRef& buffer) {
 
 namespace {
 
+/// AHardwareBuffer_Desc, as <android/hardware_buffer.h> lays it out.
+struct HardwareBufferDesc {
+  uint32_t width;
+  uint32_t height;
+  uint32_t layers;
+  uint32_t format;
+  uint64_t usage;
+  uint32_t stride;
+  uint32_t rfu0;
+  uint64_t rfu1;
+};
+
 /// The NDK's AHardwareBuffer functions (API 26, in libnativewindow.so),
 /// found at run time, since an app runs from API 24; null without them.
 struct HardwareBuffers {
   using FromJava = void* (*)(JNIEnv*, jobject);
   using Hold = void (*)(void*);
+  using Describe = void (*)(const void*, HardwareBufferDesc*);
+  using Lock = int (*)(void*, uint64_t, int32_t, const void*, void**);
+  using Unlock = int (*)(void*, int32_t*);
   FromJava fromJava = nullptr;
   Hold acquire = nullptr;
   Hold release = nullptr;
+  Describe describe = nullptr;
+  Lock lock = nullptr;
+  Unlock unlock = nullptr;
 };
 
 const HardwareBuffers& hardwareBuffers() {
@@ -372,6 +390,9 @@ const HardwareBuffers& hardwareBuffers() {
       h.fromJava = reinterpret_cast<HardwareBuffers::FromJava>(dlsym(lib, "AHardwareBuffer_fromHardwareBuffer"));
       h.acquire = reinterpret_cast<HardwareBuffers::Hold>(dlsym(lib, "AHardwareBuffer_acquire"));
       h.release = reinterpret_cast<HardwareBuffers::Hold>(dlsym(lib, "AHardwareBuffer_release"));
+      h.describe = reinterpret_cast<HardwareBuffers::Describe>(dlsym(lib, "AHardwareBuffer_describe"));
+      h.lock = reinterpret_cast<HardwareBuffers::Lock>(dlsym(lib, "AHardwareBuffer_lock"));
+      h.unlock = reinterpret_cast<HardwareBuffers::Unlock>(dlsym(lib, "AHardwareBuffer_unlock"));
     }
 #endif
     return h;
@@ -379,7 +400,81 @@ const HardwareBuffers& hardwareBuffers() {
   return found;
 }
 
+/// The bytes a pixel of a single-plane format takes (AHARDWAREBUFFER_FORMAT_*),
+/// 0 for a planar or compressed one; a BLOB's bytes are its width.
+size_t bytesPerPixel(uint32_t format) {
+  switch (format) {
+    case 1:     // R8G8B8A8_UNORM
+    case 2:     // R8G8B8X8_UNORM
+    case 0x2b:  // R10G10B10A2_UNORM
+      return 4;
+    case 3:  // R8G8B8_UNORM
+      return 3;
+    case 4:  // R5G6B5_UNORM
+      return 2;
+    case 0x16:  // R16G16B16A16_FLOAT
+      return 8;
+    case 0x21:  // BLOB
+    case 0x38:  // R8_UNORM
+      return 1;
+    default:
+      return 0;
+  }
+}
+
 }  // namespace
+
+NativeBuffer adoptHardwareBuffer(const NativeRef& buffer, const String& access) {
+  const bool writable = access == String::fromLatin1("readwrite");
+  if (!writable && !(access == String::fromLatin1("read")))
+    failWith("TypeError", "adoptHardwareBuffer's access is \"read\" or \"readwrite\"");
+
+  const HardwareBuffers& h = hardwareBuffers();
+  if (!h.fromJava || !h.acquire || !h.release || !h.describe || !h.lock || !h.unlock)
+    failWith("TypeError", "adoptHardwareBuffer needs Android 8 (API 26), whose NDK gives an AHardwareBuffer");
+
+  void* native = h.fromJava(env(), unwrap(buffer));
+  if (!native) failWith("TypeError", "adoptHardwareBuffer: the HardwareBuffer has no AHardwareBuffer (was it closed?)");
+
+  HardwareBufferDesc desc{};
+  h.describe(native, &desc);
+  const size_t pixel = bytesPerPixel(desc.format);
+  if (!pixel || desc.layers != 1)
+    failWith("TypeError", "adoptHardwareBuffer needs a buffer of one layer and one plane (RGBA_8888, RGB_565, BLOB…), not format " +
+                              std::to_string(desc.format));
+
+  // The CPU uses it was made for: AHARDWAREBUFFER_USAGE_CPU_READ_MASK, and the write mask.
+  const uint64_t read = desc.usage & 0xFu, write = desc.usage & 0xF0u;
+  if (!read || (writable && !write))
+    failWith("TypeError", writable ? "adoptHardwareBuffer: the HardwareBuffer wasn't made for CPU reads and writes "
+                                     "(USAGE_CPU_READ_OFTEN | USAGE_CPU_WRITE_OFTEN)"
+                                   : "adoptHardwareBuffer: the HardwareBuffer wasn't made for CPU reads (USAGE_CPU_READ_OFTEN)");
+
+  void* address = nullptr;
+  const uint64_t usage = read | (writable ? write : 0);
+  if (h.lock(native, usage, -1, nullptr, &address) != 0 || !address)
+    failWith("Error", "adoptHardwareBuffer: the HardwareBuffer could not be locked");
+
+  // Held for the bytes, which the Java object may be closed under.
+  h.acquire(native);
+  const size_t size = desc.format == 0x21 ? desc.width : static_cast<size_t>(desc.stride) * desc.height * pixel;
+  auto unlock = h.unlock;
+  auto release = h.release;
+  NativeBufferObject::Destroy destroy = [native, unlock, release](uint8_t*, size_t) {
+    unlock(native, nullptr);
+    release(native);
+  };
+  try {
+    auto* data = static_cast<uint8_t*>(address);
+    return writable ? NativeBufferObject::adopt(data, size, std::move(destroy), nullptr, String::fromLatin1("HardwareBuffer"))
+                    : NativeBufferObject::adoptReadOnly(data, size, std::move(destroy), nullptr,
+                                                        String::fromLatin1("HardwareBuffer"));
+  } catch (...) {
+    unlock(native, nullptr);
+    release(native);
+    throw;
+  }
+}
 
 NativeHandle hardwareBufferHandle(const NativeRef& buffer) {
   const HardwareBuffers& h = hardwareBuffers();

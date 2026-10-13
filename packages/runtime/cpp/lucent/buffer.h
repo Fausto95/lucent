@@ -74,6 +74,14 @@ class NativeBufferObject final : public Object {
   static NativeBuffer adopt(uint8_t* data, size_t size, Destroy destroy, ExecutionContext* destroyOn = nullptr,
                             String origin = {});
 
+  /// Takes `size` bytes at `data` that no one may write, as adopt does: an
+  /// immutable NSData's, or a pixel buffer locked for reading. Reads,
+  /// handles, transfers and copies go on; a write borrow and
+  /// transferToArrayBuffer() (JavaScript would write it) throw
+  /// InvalidStateError.
+  static NativeBuffer adoptReadOnly(const uint8_t* data, size_t size, Destroy destroy,
+                                    ExecutionContext* destroyOn = nullptr, String origin = {});
+
   /// A new buffer holding a copy of `bytes`.
   static NativeBuffer fromBytes(const Bytes& bytes, String origin = {});
 
@@ -98,6 +106,9 @@ class NativeBufferObject final : public Object {
   uint32_t generation() const { return generation_; }
 
   const String& origin() const { return origin_; }
+
+  /// Whether its bytes are read-only (adoptReadOnly): a transfer keeps it so.
+  bool readOnly() const { return readOnly_; }
 
   /// Borrows now in progress.
   size_t readers() const { return word_.load(std::memory_order_acquire) >> kReaderShift; }
@@ -144,7 +155,8 @@ class NativeBufferObject final : public Object {
   /// Moves the storage into an ArrayBuffer, uncopied: this handle and its
   /// aliases refuse access from now on, as after transfer(), and the
   /// ArrayBuffer's last holder (Lucent's or JavaScript's) runs the release
-  /// the storage needs, on its executor. Counted as a transfer.
+  /// the storage needs, on its executor. Counted as a transfer. A read-only
+  /// buffer throws InvalidStateError: an ArrayBuffer is writable.
   ArrayBuffer transferToArrayBuffer();
 
   static NativeBufferStats stats();
@@ -183,10 +195,14 @@ class NativeBufferObject final : public Object {
   };
 
   NativeBufferObject(uint8_t* data, size_t size, Destroy destroy, ExecutionContext* destroyOn, String origin,
-                     uint32_t generation);
+                     uint32_t generation, bool readOnly);
 
   /// Throws the InvalidStateError for a use the word refuses.
   [[noreturn]] void refuse(uint32_t word) const;
+  /// Throws the InvalidStateError for writing read-only bytes, `why` ending its first clause.
+  [[noreturn]] void refuseWrite(const char* why) const;
+  /// "NativeBuffer", with its origin when it has one.
+  String name() const;
 
   /// Moves from open with no borrow to `to`; throws if it cannot.
   void seize(State to);
@@ -211,6 +227,7 @@ class NativeBufferObject final : public Object {
 
   const String origin_;
   const uint32_t generation_;
+  const bool readOnly_;
 };
 
 /// The bytes a borrow lends compiled code, with a Uint8Array's element

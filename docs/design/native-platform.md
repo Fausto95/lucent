@@ -585,9 +585,14 @@ retained) and `handleOf` in `lucent:android` (a direct `ByteBuffer` or a
 `nativeSize` to the collector, as a `NativeBuffer` reports its size
 ([0084](../decisions/0084-a-class-states-its-native-size-by-implementing-nativesized.md)).
 
-**Planned:** iOS adoption of `NSData` bytes and `CVPixelBuffer` planes,
-and Android's `HardwareBuffer` ([T108](../tasks.md#t108)). Every typed array and `DataView`, on
-the same paths as `Uint8Array` ([T100](../tasks.md#t100)).
+`adoptPixelBuffer` in `lucent:ios` and `adoptHardwareBuffer` in
+`lucent:android` adopt a frame's plane, locked for reading, or for writing
+when asked; read-only, it refuses writes and `transferToArrayBuffer()`. An
+`NSData` stays a copy
+([0086](../decisions/0086-platform-memory-is-adopted-read-only-unless-asked.md)).
+
+**Planned:** Every typed array and `DataView`, on the same paths as
+`Uint8Array` ([T100](../tasks.md#t100)).
 
 ## Native extensions
 

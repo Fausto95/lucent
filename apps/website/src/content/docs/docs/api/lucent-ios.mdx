@@ -105,6 +105,35 @@ For a planar format (YUV), the plane is the one given; otherwise plane 0. The by
 | `f` | `(bytes: Uint8Array, bytesPerRow: number, width: number, height: number) => R` | yes | What reads the bytes; its result is withPixelBytes's. |
 | `plane` | `number` | no | The plane of a planar format; 0 when left out. |
 
+### adoptPixelBuffer()
+
+```ts title="ios.d.ts"
+function adoptPixelBuffer(
+  pixelBuffer: NSObject,
+  plane?: number,
+  access?: "read" | "readwrite",
+): NativeBuffer;
+```
+
+A NativeBuffer of a CVPixelBuffer plane's bytes, uncopied: the pixel buffer is retained and locked until they're released, then unlocked. A camera frame can move to a worker, or with `"readwrite"` to JavaScript (`transferToArrayBuffer()`), without a copy. `withPixelBytes` is the form that copies.
+
+The bytes are the plane's `bytesPerRow × height`. A read-only buffer's writes throw `InvalidStateError`, and so does `transferToArrayBuffer()`, since an ArrayBuffer is writable.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `pixelBuffer` | `NSObject` | yes | A CVPixelBuffer, such as `CMSampleBufferGetImageBuffer(sample)`. |
+| `plane` | `number` | no | The plane of a planar format; 0 when left out. |
+| `access` | `"read" \| "readwrite"` | no | `"read"` (the default) locks it for reading, and `"readwrite"` for writing too. |
+
+```ts title="adoptPixelBuffer.lucent.ts"
+import { adoptPixelBuffer, type NSObject } from "lucent:ios";
+
+// A frame's pixels, for JavaScript: no copy on the way.
+function forJavaScript(pixelBuffer: NSObject): ArrayBuffer {
+  return adoptPixelBuffer(pixelBuffer, 0, "readwrite").transferToArrayBuffer();
+}
+```
+
 ### asString()
 
 ```ts title="ios.d.ts"

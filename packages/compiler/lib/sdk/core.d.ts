@@ -392,7 +392,11 @@ export declare class NativeBuffer {
   /** Calls `read` with the bytes, while no one writes them, and returns what it returns. */
   withRead<R>(read: (bytes: ByteSpan) => R): R;
 
-  /** Calls `write` with the bytes, while nothing else borrows them, and returns what it returns. */
+  /**
+   * Calls `write` with the bytes, while nothing else borrows them, and
+   * returns what it returns. A read-only buffer (a frame adopted for
+   * reading) throws InvalidStateError.
+   */
   withWrite<R>(write: (bytes: MutableByteSpan) => R): R;
 
   /** A copy of the bytes, independent of the buffer from then on. */
@@ -405,7 +409,8 @@ export declare class NativeBuffer {
    * Moves the bytes, uncopied, into an `ArrayBuffer`. Every reference to
    * this buffer refuses them from now on, and the ArrayBuffer releases
    * them as the buffer would have. Returned to JavaScript, it is the same
-   * bytes. A borrowed buffer does not move (an InvalidStateError).
+   * bytes. A borrowed buffer does not move (an InvalidStateError), nor
+   * does a read-only one, since an ArrayBuffer is writable.
    */
   transferToArrayBuffer(): ArrayBuffer;
 

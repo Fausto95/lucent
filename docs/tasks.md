@@ -33,7 +33,7 @@ what became of each one that is still linked or was still open.
 | [T105](#t105)            | Web APIs that shared code uses                             | ready                                                           |
 | [T106](#t106)            | Language gaps module code meets                            | ready                                                           |
 | [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                               |
-| [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | in progress (#163, #165, #167, #168 merged, as T72)             |
+| [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | in progress (#163, #165, #167, #168 as T72; #216 merged)        |
 | [T109](#t109)            | Executors for platform callbacks                           | in progress (#181, #182, #187, #197 as T74; #206–#210 merged)   |
 | [T110](#t110)            | App-delegate and Activity events                           | ready (decision 0076)                                           |
 | [T111](#t111)            | The app's own native needs and options                     | ready                                                           |
@@ -396,21 +396,26 @@ size, and the extended cases pass.
 
 - **Status:** in progress: returned buffers move, a synchronous export
   reads JavaScript's bytes in place, and Android adopts a direct
-  `ByteBuffer` (#163, #165, #167, #168, as T72).
+  `ByteBuffer` (#163, #165, #167, #168, as T72). Frames are adopted on both
+  platforms, read-only unless asked (#216,
+  [0086](decisions/0086-platform-memory-is-adopted-read-only-unless-asked.md)).
+  A simulator or emulator run is left.
 - **Area:** runtime, bindings.
 - **Needs:** nothing.
 - **Verify:** V1, V3, V4, V5, V7.
 - **Where:** `buffer.h`, `platform/`, `lib/sdk/ios.d.ts`,
   `lib/sdk/android.d.ts`.
 
-- [ ] lucent:ios adopts an `NSData`'s bytes as an `ArrayBuffer`, retained
-      until released.
-- [ ] lucent:ios adopts a `CVPixelBuffer` plane: its base address is
+- [x] ~~lucent:ios adopts an `NSData`'s bytes as an `ArrayBuffer`, retained
+      until released.~~ Decided against (0086): Swift's `Data` and
+      `NSData` cross as `Uint8Array` copies, so Lucent never holds one,
+      and their bytes may be shared or mapped read-only.
+- [x] lucent:ios adopts a `CVPixelBuffer` plane: its base address is
       locked for the buffer's life, read-only unless asked, then unlocked
       and released once. `withPixelBytes` stays as the copying form.
-- [ ] lucent:android adopts a `HardwareBuffer` (API 26 and later, behind
+- [x] lucent:android adopts a `HardwareBuffer` (API 26 and later, behind
       `available`), through the NDK's `AHardwareBuffer`.
-- [ ] Semantics: the boundary's copy rule names each exception. The
+- [x] Semantics: the boundary's copy rule names each exception. The
       C-BUFFER contract records the adoptions.
 
 **Done when:** each adoption has a host test, and a simulator or emulator

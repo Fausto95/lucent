@@ -72,6 +72,39 @@ export declare function nativeError(error: Error): Throwable | null;
 export declare function adoptByteBuffer(buffer: ByteBuffer): NativeBuffer;
 
 /**
+ * A NativeBuffer of a HardwareBuffer's bytes, uncopied, locked for the CPU
+ * until they're released, then unlocked. A camera's or a decoder's frame
+ * (`Image.getHardwareBuffer()`) can move to a worker, or with
+ * `"readwrite"` to JavaScript (`transferToArrayBuffer()`), without a copy.
+ *
+ * The bytes are `stride × height` pixels of one plane. A read-only
+ * buffer's writes throw `InvalidStateError`, and so does
+ * `transferToArrayBuffer()`, since an ArrayBuffer is writable. Needs
+ * Android 8 (API 26), as HardwareBuffer does.
+ *
+ * ```ts
+ * import { adoptHardwareBuffer, available } from "lucent:android";
+ * import type { Image } from "lucent:android/android.media";
+ *
+ * // A frame's pixels, for JavaScript: no copy on the way.
+ * function forJavaScript(frame: Image): ArrayBuffer | null {
+ *   if (!available("android", 28)) return null;
+ *   const pixels = frame.getHardwareBuffer();
+ *   return pixels ? adoptHardwareBuffer(pixels, "readwrite").transferToArrayBuffer() : null;
+ * }
+ * ```
+ *
+ * @param buffer A HardwareBuffer of one layer and one plane (RGBA_8888,
+ * RGB_565, BLOB…), made for the CPU uses asked: otherwise a TypeError.
+ * @param access `"read"` (the default) locks it for reading, and
+ * `"readwrite"` for writing too.
+ */
+export declare function adoptHardwareBuffer(
+  buffer: HardwareBuffer,
+  access?: "read" | "readwrite",
+): NativeBuffer;
+
+/**
  * A handle native code reads: a direct ByteBuffer's bytes' address, the
  * Java buffer kept reachable until the handle is released. A library that
  * takes a pointer (a decoder, a GPU upload) gets `pointer`; JavaScript gets
