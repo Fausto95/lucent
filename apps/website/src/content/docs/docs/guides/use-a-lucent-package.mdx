@@ -50,8 +50,10 @@ Run `npx expo prebuild`. The config plugin adds the keys and entitlements to you
 </TabItem>
 </Tabs>
 
-:::caution
-A package whose modules import a pod it lists fails your first build with [`LUCENT3004`](/docs/api/diagnostics/#lucent3004) until that pod is installed ([known limitations](/docs/releases/roadmap/#known-limitations)). In a bare app, add the pod to `ios/Podfile` and run `pod install` first. In an Expo app, prebuild compiles your modules before it installs pods, so it fails the same way.
+:::note
+A package whose modules import a pod it lists binds that pod once it's installed. In an Expo app, prebuild leaves iOS to its `pod install`, which builds your modules again once the pod is in.
+
+In a bare app, the first `lucent build` adds the pod to the native package and fails with [`LUCENT3004`](/docs/api/diagnostics/#lucent3004), naming it. Run `pod install`, then `lucent build` and `pod install` again.
 :::
 
 ## When the versions don't match

@@ -24,6 +24,7 @@ kind: reference
 | React Native links `.lucent/native` | the plugin writes the `react-native.config.js` entry at prebuild | the `react-native.config.js` entry that `lucent init` adds |
 | Modules compiled before an Android build | the Gradle task, which the plugin applies | the Gradle task, which `lucent init` applies |
 | Modules compiled before an iOS build | the `LucentNative` pod's build phase, in every Xcode build | the `LucentNative` pod's build phase, in every Xcode build |
+| Lucent packages' pods bound once installed | Lucent's hook in the Podfile's `post_install`, which the plugin adds | `lucent build` after `pod install`, then `pod install` again |
 | `Info.plist` keys and entitlements that Lucent packages list | the plugin adds them at prebuild | `lucent build` names what the app's files lack, and you add it |
 | Android permissions and components | Gradle merges the native package's manifest into the app's | the same |
 | URLs, user activities and push tokens reach `onAppEvent` | Lucent's subscriber, which Expo's `AppDelegate` calls | the `LucentAppDelegate` calls that `lucent init` adds to `AppDelegate.swift` and `SceneDelegate.swift`; `lucent build` names one a module needs that's missing |

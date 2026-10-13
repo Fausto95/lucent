@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 import { REQUIREMENTS } from "../packages/lucent/src/cli/doctor.ts";
-import { appIdentity, checkFiles, windowApps } from "./window-app.ts";
+import {
+  appIdentity,
+  checkFiles,
+  PACKAGE_POD,
+  packageFiles,
+  podLine,
+  windowApps,
+} from "./window-app.ts";
 
 describe("the window's apps", () => {
   it("are a bare app on each React Native release and an Expo app on each SDK, on each platform", () => {
@@ -62,5 +69,28 @@ describe("a window app's check", () => {
     expect(files["src/window-probe.lucent.tsx"]).toContain(
       'expose({ ping: (): string => "pong" })',
     );
+  });
+
+  it("depends on a Lucent package whose pod the Podfile installs from its path", () => {
+    const files = packageFiles();
+
+    expect(JSON.parse(files["packages/lucent-window-kit/lucent.json"]!)).toEqual({
+      ios: { pods: { [PACKAGE_POD]: "~> 1.0" } },
+    });
+    expect(files["packages/lucent-window-kit/src/kit.lucent.ts"]).toContain(
+      `from "lucent:ios/${PACKAGE_POD}"`,
+    );
+    expect(files[`pods/${PACKAGE_POD}/${PACKAGE_POD}.podspec`]).toContain(
+      '"DEFINES_MODULE" => "YES"',
+    );
+    expect(checkFiles()["App.tsx"]).toContain('["package-pod", async () => kitAnswer() === 42]');
+
+    const podfile = "platform :ios, '15.1'\n\ntarget 'LucentWindow' do\n  use_expo_modules!\nend\n";
+    const out = podLine(podfile);
+
+    expect(out).toBe(
+      `platform :ios, '15.1'\n\ntarget 'LucentWindow' do\n  pod '${PACKAGE_POD}', :path => '../pods/${PACKAGE_POD}'\n  use_expo_modules!\nend\n`,
+    );
+    expect(podLine(out)).toBe(out);
   });
 });

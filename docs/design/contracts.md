@@ -1073,15 +1073,16 @@ unchanged. `native-build`, `install` and `reload` are reserved.
 
 ### Options, outcome, lock and usage
 
-| Part           | Contract                                                                                                                                                                                                                                                                     |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BuildOptions` | `mode`, `force`, `platforms`, `out`, `prefetch`, `signal` (a newer change aborts the build before it publishes), `frozen`, `session`.                                                                                                                                        |
-| `BuildOutcome` | `ok`, `fatal`, `upToDate`, `files`, `modules`, `diagnostics`, `warnings`, `next`, `actions`, `superseded`, `nativeInputs`, `read`, `record`, `usage`, `skipped` (targets left out, and why), `ms`.                                                                           |
-| Read lists     | `.lucent/check.json` and `manifest.json` list what a passing check read (`read`) and the links it followed (`realpaths`); the record does not.                                                                                                                               |
-| Usage and lock | `.lucent/sdk-usage.json` and `lucent-sdk.lock.json` (committed beside `package.json`) hold C-BIND's `SdkUsage`, under `sdk-lock.schema.json`. A missing or unreadable usage file reruns the check.                                                                           |
-| Xcode's phase  | `LUCENT_XCODE_BUILD=1`, from the podspec's `script_phase`: problems also print as Xcode issues (`file:line:col: error: CODE: message`), and a build fails when `podSourcesDigest` differs from the `.pod-install` digest the podspec wrote at pod install.                   |
-| `--frozen`     | Fails unless every locked target has its SDK and the SDKs and symbols match the lock; takes nothing from earlier caches. `lucent sdk lock` writes the lock; `lucent sdk diff` follows `sdk-diff.schema.json`.                                                                |
-| Schema set     | `lucent sdk lock --schemas` writes `lucent-sdk.schemas/<platform>/`: one `SchemaSetEntry` per file (`format` 1, `platform`, `module`, `kind`, `artifacts`, `entry?`, `schema` or `names`). Read through `SdkOptions.schemas` only where the platform's SDK is not installed. |
+| Part           | Contract                                                                                                                                                                                                                                                                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BuildOptions` | `mode`, `force`, `platforms`, `out`, `prefetch`, `signal` (a newer change aborts the build before it publishes), `frozen`, `session`.                                                                                                                                                                                                       |
+| `BuildOutcome` | `ok`, `fatal`, `upToDate`, `files`, `modules`, `diagnostics`, `warnings`, `next`, `actions`, `superseded`, `nativeInputs`, `read`, `record`, `usage`, `skipped` (targets left out, and why), `ms`.                                                                                                                                          |
+| Read lists     | `.lucent/check.json` and `manifest.json` list what a passing check read (`read`) and the links it followed (`realpaths`); the record does not.                                                                                                                                                                                              |
+| Usage and lock | `.lucent/sdk-usage.json` and `lucent-sdk.lock.json` (committed beside `package.json`) hold C-BIND's `SdkUsage`, under `sdk-lock.schema.json`. A missing or unreadable usage file reruns the check.                                                                                                                                          |
+| Xcode's phase  | `LUCENT_XCODE_BUILD=1`, from the podspec's `script_phase`: problems also print as Xcode issues (`file:line:col: error: CODE: message`), and a build fails when `podSourcesDigest` differs from the `.pod-install` digest the podspec wrote at pod install.                                                                                  |
+| Pods to come   | `LUCENT_PREBUILD=1` (the Expo config plugin's build): while a Lucent package's pod is missing from `Podfile.lock`, iOS is skipped and deferred. `cocoapods/lucent.rb`'s `lucent_post_install` builds with `LUCENT_POD_INSTALL=1` once pods are installed, then lists the new sources in the `LucentNative` target and links new frameworks. |
+| `--frozen`     | Fails unless every locked target has its SDK and the SDKs and symbols match the lock; takes nothing from earlier caches. `lucent sdk lock` writes the lock; `lucent sdk diff` follows `sdk-diff.schema.json`.                                                                                                                               |
+| Schema set     | `lucent sdk lock --schemas` writes `lucent-sdk.schemas/<platform>/`: one `SchemaSetEntry` per file (`format` 1, `platform`, `module`, `kind`, `artifacts`, `entry?`, `schema` or `names`). Read through `SdkOptions.schemas` only where the platform's SDK is not installed.                                                                |
 
 ### Build identity
 
@@ -1125,8 +1126,6 @@ the native code, whose change already names the action.
   at launch.
 - [T133](../tasks.md#t133): an extension target is a second native build
   of the same program.
-- [T141](../tasks.md#t141): `expo prebuild` defers binding a package's pod
-  that isn't installed yet.
 - [T144](../tasks.md#t144): the web resolves proxies to modules run as
   JavaScript, with no native identity to check.
 

@@ -1232,22 +1232,28 @@ bind in an Expo app.
 
 Before, iOS had no build phase that ran `lucent build`: a build relied on
 Metro's watcher or on autolinking at `pod install`. `expo prebuild`
-stops with LUCENT3004 at a package's pod that isn't installed yet.
+stopped with LUCENT3004 at a package's pod that wasn't installed yet
+([decision 0102](decisions/0102-pod-install-binds-the-pods-prebuild-could-not.md)).
 
 - [x] `lucent build` runs from the iOS build once pods are installed, as
       Android's `lucentBuild` task does: the podspec's `script_phase`.
       The podspec records at `pod install` what CocoaPods listed
       (`.pod-install`), and the phase asks for `pod install` when the
       build changes it.
-- [ ] In `expo prebuild`, a package pod missing from `Podfile.lock` defers
+- [x] In `expo prebuild`, a package pod missing from `Podfile.lock` defers
       iOS binding with a warning naming the pod and the step that binds
       it. The plugin then links the native package, so prebuild's
-      `pod install` installs the pod.
-- [ ] A pod the build still can't find fails with LUCENT3004 naming it.
+      `pod install` installs the pod. The plugin also calls Lucent's
+      CocoaPods hook from the Podfile's `post_install`, which builds once
+      the pods are installed and lists the new sources in the pod's target.
+- [x] A pod the build still can't find fails with LUCENT3004, and a notice
+      names it (`unboundPods`).
 - [ ] Builds with `use_frameworks! :linkage => :static` and with dynamic
       linkage.
-- [ ] Tests: a package importing a pod its `lucent.json` declares, in a
-      fresh Expo app (smoke install) and a bare app.
+- [x] Tests: a package importing a pod its `lucent.json` declares, in the
+      window's fresh Expo and bare apps (`scripts/window-app.ts`), which
+      call it on the simulator. The Expo app builds with `pod install` and
+      Xcode alone.
 
 **Done when:** the smoke install's Expo app binds a package pod with no
 manual step, and Xcode builds without Metro running.

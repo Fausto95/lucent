@@ -328,6 +328,61 @@ export function podsToInstall(
   const linked = fs.existsSync(config) && linksNativePackage(fs.readFileSync(config, "utf8"));
   if (!linked || !fs.existsSync(path.join(root, "ios/Podfile"))) return undefined;
 
+  const missing = uninstalledPods(native, sdk);
+  if (!missing) return undefined;
+
+  const { subject, them } = missing;
+
+  return {
+    level: "warn",
+    text: wrote
+      ? `${subject}: ${podspec} depends on ${them}; run pod install in ios/, then lucent build`
+      : `${subject}: run lucent build, which adds ${them} to ${podspec}, then pod install in ios/`,
+  };
+}
+
+/**
+ * For a check whose iOS modules were not found (LUCENT3004) once the
+ * Lucent packages' pods are all installed: the pods, named, and how a
+ * pod's module binds. Undefined otherwise.
+ */
+export function unboundPods(
+  native: ResolvedNative,
+  sdk: SdkOptions,
+  diagnostics: readonly { code: string; message: string }[],
+): Notice | undefined {
+  const pods = Object.entries(native.ios.pods);
+  if (!pods.length || uninstalledPods(native, sdk)) return undefined;
+
+  const modules = [
+    ...new Set(
+      diagnostics
+        .filter((d) => d.code === "LUCENT3004")
+        .flatMap((d) => /^(lucent:ios\/\S+) was not found/.exec(d.message)?.[1] ?? []),
+    ),
+  ];
+  if (!modules.length) return undefined;
+
+  const named = pods.map(
+    ([pod, asked]) => `${[...new Set(Object.values(asked).flat())].join(" and ")}'s pod ${pod}`,
+  );
+
+  return {
+    level: "warn",
+    text: `${named.join(", ")} ${pods.length === 1 ? "is" : "are"} installed, and ${modules.join(", ")} still not found: a pod's module binds once the pod defines one (DEFINES_MODULE, modular headers, a prebuilt framework, or use_frameworks!)`,
+  };
+}
+
+/**
+ * The Lucent packages' pods the app's Podfile.lock lacks, in words: each
+ * with the packages that ask for it (`subject`: "lucent-auth's pod
+ * AuthKit is not installed"), and the pronoun for them. Undefined when
+ * every one is installed.
+ */
+export function uninstalledPods(
+  native: ResolvedNative,
+  sdk: SdkOptions,
+): { subject: string; them: string } | undefined {
   const installed = new Set(sdk.ios?.lockfile ? lockedPods(sdk.ios.lockfile).keys() : []);
   const missing = Object.entries(native.ios.pods).filter(
     ([pod]) => !installed.has(pod.split("/")[0]!),
@@ -337,14 +392,10 @@ export function podsToInstall(
   const named = missing.map(
     ([pod, asked]) => `${[...new Set(Object.values(asked).flat())].join(" and ")}'s pod ${pod}`,
   );
-  const subject = `${named.join(", ")} ${missing.length === 1 ? "is" : "are"} not installed`;
-  const them = missing.length === 1 ? "it" : "them";
 
   return {
-    level: "warn",
-    text: wrote
-      ? `${subject}: ${podspec} depends on ${them}; run pod install in ios/, then lucent build`
-      : `${subject}: run lucent build, which adds ${them} to ${podspec}, then pod install in ios/`,
+    subject: `${named.join(", ")} ${missing.length === 1 ? "is" : "are"} not installed`,
+    them: missing.length === 1 ? "it" : "them",
   };
 }
 
