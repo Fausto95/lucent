@@ -7,6 +7,7 @@ import {
   APP_FORWARDS,
   FORWARD,
   IMPORT,
+  missingDelegateForwards,
   missingForwards,
   SCENE_DELEGATE,
   SCENE_FORWARDS,
@@ -185,5 +186,45 @@ describe("lucent init and uninstall, with the app's delegates", () => {
     expect(plan.manual.find((m) => m.file === "ios/Bare/AppDelegate.mm")!.snippet).toContain(
       "[LucentAppDelegate application:app openURL:url options:options];",
     );
+  });
+});
+
+describe("lucent build, with the events modules listen for", () => {
+  it("names what the app's delegates don't forward, and what to add", () => {
+    const root = bareApp({ "ios/Bare/AppDelegate.swift": template });
+    const warned = (events: string[], expo = false) =>
+      missingDelegateForwards(root, events, expo).map((n) => n.text);
+
+    expect(warned(["openURL"])).toEqual([
+      'a module listens for onAppEvent("openURL"), but ios/Bare/AppDelegate.swift doesn\'t forward application(_:open:options:) to it: run lucent init, which adds the call',
+    ]);
+    fs.writeFileSync(
+      path.join(root, "ios/Bare/AppDelegate.swift"),
+      withForwards(template, APP_DELEGATE, APP_FORWARDS)!,
+    );
+    expect(warned(["openURL", "pushToken"])).toEqual([]);
+
+    // What init leaves to the app: the method to add.
+    const [notification] = warned(["remoteNotification"]);
+    expect(notification).toContain(
+      "doesn't forward application(_:didReceiveRemoteNotification:fetchCompletionHandler:) to it. Add:",
+    );
+    expect(notification).toContain(
+      "didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler) { completionHandler(.noData) }",
+    );
+
+    // Expo's AppDelegate forwards everything to Lucent's subscriber.
+    expect(warned(["remoteNotification", "openURL"], true)).toEqual([]);
+  });
+
+  it("checks a scene delegate for what UIKit gives it instead", () => {
+    const root = bareApp({
+      "ios/Bare/AppDelegate.swift": withForwards(template, APP_DELEGATE, APP_FORWARDS)!,
+      "ios/Bare/SceneDelegate.swift": scene,
+    });
+
+    expect(missingDelegateForwards(root, ["openURL"], false).map((n) => n.text)).toEqual([
+      'a module listens for onAppEvent("openURL"), but ios/Bare/SceneDelegate.swift doesn\'t forward scene(_:openURLContexts:) to it: run lucent init, which adds the call',
+    ]);
   });
 });

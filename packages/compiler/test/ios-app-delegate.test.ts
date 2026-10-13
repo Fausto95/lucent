@@ -57,5 +57,17 @@ export async function run(): Promise<string> {
     ])
       expect(mm).toContain(`lucent::objc::${fn}(`);
     expect(mm).toContain('lucent::objc::onAppEvent(LUCENT_STR("didBecomeActive")');
+    // What the app's delegates must forward, for lucent build to check.
+    expect(p.r.appDelegateEvents).toEqual([
+      "backgroundFetch",
+      "backgroundURLSession",
+      "openURL",
+      "pushToken",
+      "pushTokenFailed",
+      "remoteNotification",
+      "shortcutItem",
+      "supportedInterfaceOrientations",
+      "userActivity",
+    ]);
   });
 });
