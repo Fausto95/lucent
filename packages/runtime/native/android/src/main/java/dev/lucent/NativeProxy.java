@@ -142,9 +142,37 @@ public final class NativeProxy implements InvocationHandler {
     release(handle);
   }
 
+  private static boolean loaded;
+
+  /**
+   * Loads the app's appmodules library, which holds Lucent's code, unless
+   * it is: what a class the OS makes does before its first native call, in
+   * a process React Native may not have started (decision 0095).
+   */
+  public static synchronized void loadLibrary() {
+    if (loaded) return;
+    try {
+      System.loadLibrary("appmodules");
+    } catch (UnsatisfiedLinkError e) {
+      // A host that links Lucent into its executable (the desktop JNI host) has no such library.
+    }
+    loaded = true;
+  }
+
+  /**
+   * For generated classes the OS makes (decision 0097): their Lucent side,
+   * made from `self` and the constructor's arguments, as its handle.
+   */
+  public static long adopt(Object self, String cls, Object[] args) {
+    loadLibrary();
+    return adoptNative(self, cls, args);
+  }
+
   private static native boolean has(long handle, String key);
 
   private static native Object call(long handle, String key, Object[] args);
 
   private static native void release(long handle);
+
+  private static native long adoptNative(Object self, String cls, Object[] args);
 }

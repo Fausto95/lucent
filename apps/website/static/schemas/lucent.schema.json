@@ -251,7 +251,7 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["kind", "name"],
+            "required": ["kind"],
             "if": {
               "properties": {
                 "kind": {
@@ -269,7 +269,12 @@
               "name": {
                 "type": "string",
                 "pattern": "^[A-Za-z_$][\\w$]*(\\.[A-Za-z_$][\\w$]*)+$",
-                "description": "Fully qualified class name."
+                "description": "Fully qualified class name: Java or Kotlin the package ships. Give it or class."
+              },
+              "class": {
+                "type": "string",
+                "pattern": "^[^#]+#[A-Za-z_$][\\w$]*$",
+                "description": "A Lucent class the OS makes, as \"<module path>#<Class>\" within the package, such as \"workers#SyncWorker\": an exported class extending an Android class. The component is its Java class, dev.lucent.app.<package>.<module path>.<Class>. Give it or name."
               },
               "exported": {
                 "type": "boolean"
@@ -355,7 +360,15 @@
                   "type": "string"
                 }
               }
-            }
+            },
+            "oneOf": [
+              {
+                "required": ["name"]
+              },
+              {
+                "required": ["class"]
+              }
+            ]
           }
         },
         "mainActivity": {

@@ -54,8 +54,13 @@ export interface IntentFilter {
 /** An Android manifest component: an `<activity>`, `<service>`, `<receiver>` or `<provider>`. */
 export interface ManifestComponent {
   kind: "activity" | "service" | "receiver" | "provider";
-  /** Fully qualified class name. */
+  /** Fully qualified class name. Without one, `class`'s Java class. */
   name: string;
+  /**
+   * A Lucent class the OS makes (decision 0097), as `<module path>#<Class>`
+   * within the package: the component is its Java class.
+   */
+  class?: string;
   exported?: boolean;
   enabled?: boolean;
   permission?: string;
@@ -336,11 +341,23 @@ const intentFilter = fields(
   ["actions"],
 );
 
+/** A Lucent class of the package: `<module path>#<Class>`. */
+const lucentClass: Check = (v, at) => {
+  const [module, name, ...rest] = typeof v === "string" ? v.split("#") : [];
+  return module !== undefined &&
+    name !== undefined &&
+    !rest.length &&
+    /^[A-Za-z_$][\w$]*$/.test(name)
+    ? modulePath(module, at)
+    : `${at} must be a Lucent class of the package: "<module path>#<Class>", as "workers#SyncWorker"`;
+};
+
 const component = refine(
   fields(
     {
       kind: oneOf(["activity", "service", "receiver", "provider"]),
       name: className,
+      class: lucentClass,
       exported: boolean,
       enabled: boolean,
       permission: string,
@@ -352,12 +369,14 @@ const component = refine(
       intentFilters: listOf(intentFilter),
       metaData: recordOf(string),
     } satisfies Record<keyof ManifestComponent, Check>,
-    ["kind", "name"],
+    ["kind"],
   ),
   (v, at) =>
-    v.kind === "provider" && v.authorities === undefined
-      ? `${at}.authorities is required for a provider`
-      : undefined,
+    (v.name === undefined) === (v.class === undefined)
+      ? `${at} needs a name or a class, not both`
+      : v.kind === "provider" && v.authorities === undefined
+        ? `${at}.authorities is required for a provider`
+        : undefined,
 );
 
 /** Every field the build reads from a lucent.json, per platform, and how it is checked. */

@@ -74,14 +74,18 @@ const main = `#include <atomic>
 
 #include "jni_host.h"
 #include "m_m.h"
+#include <lucent/native_root.h>
+#include <lucent/platform/android.h>
 
 int main(int, char** argv) {
   lucentStartJvm(argv[1]);
+  // NativeProxy's natives before Java calls any: a class the OS makes calls one first.
+  lucent::jni::installNatives(lucent::jni::env());
+  // Module state, as the native root starts it.
+  lucent::ensureModuleState(&lucent_app::initModules);
   std::atomic<bool> done{false};
 
   lucent::postCallback(lucent_app::actor_0(), [&done] {
-    lucent_app::m_m::init();
-
     auto p = lucent_app::m_m::run();
     p.onSettled([p, &done] {
       if (p.fulfilled()) {
@@ -177,6 +181,19 @@ export function jvmRun(
 
   // The program's Kotlin shims, against the app's classpath.
   const jars = [...classpath, runtimeClasses(dir)];
+  // Its Java subclasses of SDK classes (the classes the OS makes among them).
+  const java = [...(r.java ?? [])].map(([f, text]) => {
+    const file = path.join(out, "java", f);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, text);
+    return file;
+  });
+  if (java.length) {
+    const classes = path.join(dir, "program-classes");
+    const j = runJavac(["--release", "11", "-cp", jars.join(":"), "-d", classes, ...java]);
+    if (j.status !== 0) throw new Error(`javac: ${j.stderr}`);
+    jars.push(classes);
+  }
   const shims = [...(r.kotlin ?? [])].map(([f, text]) => {
     const file = path.join(out, "kotlin", f);
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -210,6 +227,8 @@ export function jvmRun(
     },
     { source: path.join(host, "jni_host.cpp"), extra: [] },
     { source: path.join(out, "android/m_m.cpp"), extra: [] },
+    // The modules' initializer, which the native root starts state with.
+    { source: path.join(out, "android/lucent_entries.cpp"), extra: [] },
     { source: path.join(out, "android/main.cpp"), extra: [] },
   ].map(({ source, extra }) => ({
     cmd: clang[0],

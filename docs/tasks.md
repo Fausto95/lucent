@@ -968,7 +968,10 @@ on host, simulator and emulator.
 `Fragment` is a Lucent class.
 
 - **Status:** in progress: decided
-  ([0097](decisions/0097-exported-classes-extending-android-classes-are-os-made.md)).
+  ([0097](decisions/0097-exported-classes-extending-android-classes-are-os-made.md)),
+  and an exported class extending an Android class is one the OS makes,
+  on the desktop JVM host (#240). Fragments and the emulator fixtures are
+  left.
 - **Area:** Android host, compiler.
 - **Needs:** T130; T112 for `CoroutineWorker`.
 - **Verify:** V1, V4, V5.
@@ -984,22 +987,23 @@ its class must be Java or Kotlin the package ships.
       parameters are the Java one's, and its name comes from the module's
       path
       ([0097](decisions/0097-exported-classes-extending-android-classes-are-os-made.md)).
-- [ ] A Lucent class extending an OS-instantiated base gets a generated
+- [x] A Lucent class extending an OS-instantiated base gets a generated
       Java subclass with the constructor the OS calls (no arguments, or
       `Context` and `WorkerParameters` for a `Worker`). It creates its
       Lucent instance on first use, on the calling thread, through the
       native root. Its Java name is stable across builds, since WorkManager
-      stores it.
-- [ ] `lucent.json` `android.components[].class` names the Lucent class,
+      stores it. `NativeProxy.adopt` and the generated factory; the class
+      calls its base's members on the object the OS made (#240).
+- [x] `lucent.json` `android.components[].class` names the Lucent class,
       and the manifest's `android:name` is the generated class.
       `foregroundServiceType`, intent filters and permissions work as
-      today.
+      today (#240).
 - [ ] A `Fragment` shown through a `FragmentActivity`'s manager, and a
       `Fragment` as a component's Android root (the counterpart of
       [T122](#t122)). When the OS recreates it, a new Lucent instance is
       made and the module is told.
 - [ ] Tests on the desktop JVM host (`test/fake-android.ts`): an
-      OS-style instantiation. On the emulator: a periodic `Worker` that
+      OS-style instantiation (`os-classes.test.ts`, #240). On the emulator: a periodic `Worker` that
       runs with the app in the background, and a foreground
       `MediaSessionService` that survives the Activity's recreation.
 

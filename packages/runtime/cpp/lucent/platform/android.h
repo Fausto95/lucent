@@ -278,6 +278,30 @@ jobject proxyFor(JNIEnv* env, const char* iface, const void* identity, std::init
  */
 jobject subclassFor(JNIEnv* env, const char* cls, const void* identity, std::initializer_list<std::pair<const char*, ProxyMethod>> methods);
 
+// --- classes the OS makes (decision 0097) -------------------------------------------
+
+/**
+ * Makes the Lucent side of a generated class the OS made (a Worker, a
+ * Service): from NativeProxy.adopt, which the class's constructor calls
+ * with itself and its arguments. Returns the handle the Java object keeps.
+ */
+using OsFactory = jlong (*)(JNIEnv* env, jobject self, jobjectArray args);
+
+/// Registers the factory of generated class `cls` (a JNI name), at load. Returns true.
+bool registerOsClass(const char* cls, OsFactory make);
+
+/**
+ * The handle of `self`, a generated class the OS made, standing for the
+ * Lucent instance `convert` turns into a Java object as subclassFor does:
+ * that call gives `self` instead of a new object, so the instance's Java
+ * object is the OS's. `keep` (the instance's hold on module state) lives
+ * as long as the handle.
+ */
+jlong adoptSubclass(JNIEnv* env, jobject self, const char* cls, std::shared_ptr<void> keep, const std::function<jobject()>& convert);
+
+/// Registers NativeProxy's natives now, before any Java object calls one (a class the OS makes).
+void installNatives(JNIEnv* env);
+
 /// The i-th argument of a proxy call (a local reference; boxed primitives).
 jobject arg(JNIEnv* env, jobjectArray args, int i);
 /// Primitive values of boxed arguments, and boxed results.

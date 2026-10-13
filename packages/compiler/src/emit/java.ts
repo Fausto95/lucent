@@ -7,7 +7,9 @@ import {
   parseSdkType,
   type SdkClassSchema,
   type SdkMethodSchema,
+  type SdkType,
 } from "../sdk/schema.ts";
+import { osJavaName } from "../os-names.ts";
 import type { ClassInfo, LType } from "../types.ts";
 
 /** An SDK class's instance methods, its SDK superclasses' included, with the module each is typed in. */
@@ -46,7 +48,77 @@ export function javaKey(m: SdkMethodSchema): string {
 
 /** The generated Java subclass that stands for instances of `info` (JNI name). */
 export function javaSubclassName(info: ClassInfo): string {
-  return `dev/lucent/generated/${info.cppName.replace(/^C_/, "")}`;
+  return osMade(info)
+    ? osClassName(info)
+    : `dev/lucent/generated/${info.cppName.replace(/^C_/, "")}`;
+}
+
+/** Classes whose Java name another's came out as: they keep a name of the build's (decision 0097). */
+const clashing = new WeakSet<ClassInfo>();
+
+/** Gives `info` no name the OS can rely on: another class's came out the same. */
+export function refuseOsName(info: ClassInfo): void {
+  clashing.add(info);
+}
+
+/**
+ * Whether the OS can make `info`'s Java class by name (decision 0097): an
+ * exported, concrete class extending an Android class.
+ */
+export function osMade(info: ClassInfo): boolean {
+  return (
+    info.exported &&
+    !info.abstract &&
+    !info.typeParams.length &&
+    info.sdkBase?.platform === "android" &&
+    !clashing.has(info)
+  );
+}
+
+/**
+ * The Java class the OS makes for `info` (JNI name):
+ * `dev/lucent/app/<module>/<Class>`, the module's name (`<package>/<path>`)
+ * as package segments, each character but letters and digits `_`, and a
+ * `_` in front of a segment Java would refuse.
+ */
+export function osClassName(info: ClassInfo): string {
+  return osJavaName(info.module, info.decl.name!.text);
+}
+
+/** Whether `base`'s Java class has a public constructor without arguments, which Lucent's own instances use. */
+export function constructibleBase(base: LType & { k: "native" }): boolean {
+  const cls = findSdkType("android", base.module, base.name);
+  return cls?.kind === "class" && (cls.constructors ?? []).some((c) => !c.params.length);
+}
+
+/**
+ * The base constructor an OS-made class's Java constructor calls: the one
+ * taking the Lucent constructor's parameters, in order. Its descriptor.
+ */
+function osConstructor(info: ClassInfo, baseCls: SdkClassSchema, params: LType[]): string {
+  const fits = (sdk: SdkType, lt: LType): boolean => {
+    const t = lt.k === "opt" ? lt.inner : lt;
+    if (sdk.k === "ref") return t.k === "native" && t.module === sdk.module && t.name === sdk.name;
+    if (sdk.k === "string") return t.k === "string";
+    if (sdk.k === "prim") return sdk.name === "boolean" ? t.k === "boolean" : t.k === "number";
+    return false;
+  };
+  const found = (baseCls.constructors ?? []).find(
+    (c) => c.params.length === params.length && c.params.every((p, i) => fits(p.type, params[i]!)),
+  );
+  if (!found)
+    fail(
+      info.decl.members.find(ts.isConstructorDeclaration) ?? info.decl,
+      Codes.UnsupportedClassFeature,
+      `${info.decl.name?.text}: ${baseCls.name} has no public constructor taking its constructor's parameters, which the OS would call`,
+    );
+  return (
+    found.descriptor ??
+    jniDescriptor(
+      found.params.map((p) => p.type),
+      { k: "prim", name: "void", nullable: false },
+    )
+  );
 }
 
 /**
@@ -56,19 +128,27 @@ export function javaSubclassName(info: ClassInfo): string {
  * others keep the SDK's body. Made with the handle of the C++ side, released
  * when Java collects the object.
  */
-export function javaSubclass(info: ClassInfo): { path: string; source: string } {
+export function javaSubclass(
+  info: ClassInfo,
+  constructorParams: LType[] = [],
+): { path: string; source: string } {
   const base = info.sdkBase!;
   const baseCls = findSdkType("android", base.module, base.name);
   if (baseCls?.kind !== "class")
     fail(info.decl, Codes.UnsupportedClassFeature, `${base.name} has no binding`);
   if (baseCls.interface)
     fail(info.decl, Codes.UnsupportedClassFeature, `${base.name} is an interface: implement it`);
-  if (!(baseCls.constructors ?? []).some((c) => !c.params.length))
+  // Lucent's own instances are made with a handle, through the base's constructor without
+  // arguments; a class the OS makes may have only the OS's.
+  const own = constructibleBase(base);
+  if (!own && !osMade(info))
     fail(
       info.decl,
       Codes.UnsupportedClassFeature,
       `${base.name} has no public constructor without arguments to extend`,
+      `export the class, so that the OS makes it (decision 0097)`,
     );
+  const byOs = osMade(info) ? osConstructor(info, baseCls, constructorParams) : undefined;
   const defined = new Set(
     info.members
       .filter(
@@ -112,22 +192,27 @@ export function javaSubclass(info: ClassInfo): { path: string; source: string } 
   }
   const source = java.printUnit({
     banner: "Generated by Lucent. Do not edit.",
-    package: "dev.lucent.generated",
+    package: javaSubclassName(info).split("/").slice(0, -1).join("."),
     imports: ["dev.lucent.NativeProxy"],
     types: [
       java.cls(
         name,
         [
           java.field(["private", "final"], java.primitive("long"), "handle"),
-          java.constructor(
-            ["public"],
-            name,
-            [java.param(java.primitive("long"), "handle")],
-            [
-              java.exprStmt(java.call(undefined, "super")),
-              java.exprStmt(java.assign(java.access(java.self, "handle"), handle)),
-            ],
-          ),
+          ...(own
+            ? [
+                java.constructor(
+                  ["public"],
+                  name,
+                  [java.param(java.primitive("long"), "handle")],
+                  [
+                    java.exprStmt(java.call(undefined, "super")),
+                    java.exprStmt(java.assign(java.access(java.self, "handle"), handle)),
+                  ],
+                ),
+              ]
+            : []),
+          ...(byOs ? [osMadeConstructor(name, javaSubclassName(info), byOs)] : []),
           ...methods,
           java.method(
             ["protected"],
@@ -156,12 +241,46 @@ export function javaSubclass(info: ClassInfo): { path: string; source: string } 
         {
           modifiers: ["public", "final"],
           extends: java.type(javaName(baseCls.native)),
-          doc: `Lucent's ${info.decl.name?.text ?? name}: forwards to its C++ side.`,
+          doc: byOs
+            ? `Lucent's ${info.decl.name?.text ?? name}, which the OS makes by this name: forwards to its C++ side.`
+            : `Lucent's ${info.decl.name?.text ?? name}: forwards to its C++ side.`,
         },
       ),
     ],
   });
   return { path: `${javaSubclassName(info)}.java`, source };
+}
+
+/**
+ * The constructor the OS calls (decision 0097): the base's, with its
+ * arguments, then the Lucent side, which NativeProxy.adopt makes from the
+ * object and the same arguments.
+ */
+function osMadeConstructor(name: string, cls: string, descriptor: string): java.Member {
+  const { params } = javaTypes(descriptor);
+  const ps = params.map((t, i) => java.param(t, `a${i}`));
+  const args = ps.map((p) => java.name(p.name));
+  return java.constructor(
+    ["public"],
+    name,
+    ps,
+    [
+      java.exprStmt(java.call(undefined, "super", args)),
+      java.exprStmt(
+        java.assign(
+          java.access(java.self, "handle"),
+          java.call(java.name("NativeProxy"), "adopt", [
+            java.self,
+            java.str(cls),
+            java.newArray(java.type("Object"), args),
+          ]),
+        ),
+      ),
+    ],
+    {
+      doc: "The constructor the OS calls: the base's, then the Lucent side, through the native root.",
+    },
+  );
 }
 
 /** `android/net/ConnectivityManager$NetworkCallback` → `android.net.ConnectivityManager.NetworkCallback`. */

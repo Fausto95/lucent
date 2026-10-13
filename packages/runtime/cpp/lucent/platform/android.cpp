@@ -14,6 +14,7 @@
 #endif
 
 #include <atomic>
+#include <cstring>
 #include <deque>
 #include <thread>
 #include <cstdint>
@@ -721,7 +722,23 @@ struct ProxyTarget {
   std::unordered_map<std::string, ProxyMethod> methods;
   /// The actor that made it, where what its methods captured is released.
   Actor* actor = &currentActor();
+  /// What lives as long as the Java object: an OS-made instance's hold on module state.
+  std::shared_ptr<void> keep;
 };
+
+/// The Java object the OS made that the next subclassFor of its class, on this thread, stands for.
+struct Adopting {
+  jobject self = nullptr;
+  const char* cls = nullptr;
+  jlong handle = 0;
+};
+thread_local Adopting* adopting = nullptr;
+
+std::mutex osClassesMutex;
+std::unordered_map<std::string, OsFactory>& osClasses() {
+  static auto* m = new std::unordered_map<std::string, OsFactory>();
+  return *m;
+}
 
 struct ProxyEntry {
   jweak ref = nullptr;
@@ -775,6 +792,31 @@ void JNICALL proxyRelease(JNIEnv* e, jclass, jlong handle) {
   reported(e, "a proxy's release", [&] { releaseProxy(e, handle); });
 }
 
+/// NativeProxy.adopt: a generated class the OS made asks for its Lucent side.
+/// What fails (no such class, its constructor threw) is thrown to Java, to
+/// whatever made it.
+jlong JNICALL proxyAdopt(JNIEnv* e, jclass, jobject self, jstring cls, jobjectArray args) {
+  try {
+    const char* chars = e->GetStringUTFChars(cls, nullptr);
+    if (!chars) return 0;  // OutOfMemoryError pending
+    std::string name(chars);
+    e->ReleaseStringUTFChars(cls, chars);
+
+    OsFactory make = nullptr;
+    {
+      std::lock_guard<std::mutex> g(osClassesMutex);
+      auto it = osClasses().find(name);
+      if (it != osClasses().end()) make = it->second;
+    }
+    if (!make) throwError(String::fromLatin1("Error"), String::fromUtf8("no Lucent class is " + name + " in this build"));
+    return make(e, self, args);
+  } catch (...) {
+    if (e->ExceptionCheck()) return 0;
+    throwToJava(e, currentError(std::current_exception()));
+    return 0;
+  }
+}
+
 void releaseProxy(JNIEnv* e, jlong handle) {
   auto* t = reinterpret_cast<ProxyTarget*>(handle);
   {
@@ -797,8 +839,9 @@ jclass nativeProxyClass(JNIEnv* e) {
         {const_cast<char*>("has"), const_cast<char*>("(JLjava/lang/String;)Z"), reinterpret_cast<void*>(proxyHas)},
         {const_cast<char*>("call"), const_cast<char*>("(JLjava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;"), reinterpret_cast<void*>(proxyCall)},
         {const_cast<char*>("release"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(proxyRelease)},
+        {const_cast<char*>("adoptNative"), const_cast<char*>("(Ljava/lang/Object;Ljava/lang/String;[Ljava/lang/Object;)J"), reinterpret_cast<void*>(proxyAdopt)},
     };
-    e->RegisterNatives(c, natives, 3);
+    e->RegisterNatives(c, natives, 4);
     check(e);
     return c;
   }();
@@ -855,11 +898,49 @@ jobject proxyFor(JNIEnv* e, const char* iface, const void* identity, std::initia
 }
 
 jobject subclassFor(JNIEnv* e, const char* cls, const void* identity, std::initializer_list<std::pair<const char*, ProxyMethod>> methods) {
-  return cachedJavaObject(e, {identity, cls}, methods, [&](jlong handle) {
+  return cachedJavaObject(e, {identity, cls}, methods, [&](jlong handle) -> jobject {
+    // The OS made the object: it is the instance's, with this handle.
+    if (adopting && !adopting->handle && std::strcmp(adopting->cls, cls) == 0) {
+      adopting->handle = handle;
+      return e->NewLocalRef(adopting->self);
+    }
     jclass c = findClass(cls);
     return e->NewObject(c, method(c, "<init>", "(J)V"), handle);
   });
 }
+
+bool registerOsClass(const char* cls, OsFactory make) {
+  std::lock_guard<std::mutex> g(osClassesMutex);
+  osClasses()[cls] = make;
+  return true;
+}
+
+jlong adoptSubclass(JNIEnv* e, jobject self, const char* cls, std::shared_ptr<void> keep, const std::function<jobject()>& convert) {
+  Adopting adoption{self, cls, 0};
+  Adopting* outer = adopting;
+  adopting = &adoption;
+  jobject o = nullptr;
+  try {
+    o = convert();
+  } catch (...) {
+    adopting = outer;
+    throw;
+  }
+  adopting = outer;
+  if (o) e->DeleteLocalRef(o);
+  if (!adoption.handle) throwError(String::fromLatin1("Error"), String::fromUtf8(std::string("the Lucent side of ") + cls + " was made elsewhere"));
+  reinterpret_cast<ProxyTarget*>(adoption.handle)->keep = std::move(keep);
+  return adoption.handle;
+}
+
+void installNatives(JNIEnv* e) { nativeProxyClass(e); }
+
+#ifdef __ANDROID__
+// Found by its name: a class the OS makes calls it before Lucent registered any native.
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_NativeProxy_adoptNative(JNIEnv* e, jclass c, jobject self, jstring cls, jobjectArray args) {
+  return proxyAdopt(e, c, self, cls, args);
+}
+#endif
 
 jobject arg(JNIEnv* e, jobjectArray args, int i) { return e->GetObjectArrayElement(args, i); }
 
