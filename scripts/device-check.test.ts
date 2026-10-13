@@ -401,15 +401,15 @@ describe("parseTarget", () => {
       ],
       metro: false,
     });
-    expect(
-      parseTarget(["android", "--apk", "app-release.apk", "--example", "expo"]),
-    ).toMatchObject({
-      id: "dev.lucent.expoexample",
-      screens: [
-        { id: "tests", url: "lucentexpo://lab/tests" },
-        { id: "platform", url: "lucentexpo://lab/platform" },
-      ],
-    });
+    expect(parseTarget(["android", "--apk", "app-release.apk", "--example", "expo"])).toMatchObject(
+      {
+        id: "dev.lucent.expoexample",
+        screens: [
+          { id: "tests", url: "lucentexpo://lab/tests" },
+          { id: "platform", url: "lucentexpo://lab/platform" },
+        ],
+      },
+    );
   });
 
   it("refuses an example it doesn't know, and an example with --id", () => {
