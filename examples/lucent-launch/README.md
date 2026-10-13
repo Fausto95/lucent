@@ -28,6 +28,6 @@ channelReady(); // whether launch created the notification channel (Android)
 
 <!-- evidence: from evidence.json, written by scripts/example-evidence.ts -->
 
-**Evidence:** Compiled for the host, without either SDK, by the example packages' unit test. Not yet typed against the SDKs, or run on a simulator, an emulator or a device.
+**Evidence:** Run on the iOS simulator and the Android emulator in the bare example's device runs, whose Platform screen checks that its state started before JavaScript, and on Android its notification channel (2026-10-13). Not yet run on a physical device.
 
 <!-- /evidence -->

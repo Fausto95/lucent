@@ -37,6 +37,6 @@ makes, which Lucent code can't be yet.
 
 <!-- evidence: from evidence.json, written by scripts/example-evidence.ts -->
 
-**Evidence:** Compiled for the host, without either SDK, by the example packages' unit test. Not yet typed against the SDKs, or run on a simulator, an emulator or a device.
+**Evidence:** Run on the iOS simulator and the Android emulator in the bare example's device runs, whose Platform screen checks that launch registered the handler and runs it with a stand-in task (2026-10-13). Not yet run on a physical device.
 
 <!-- /evidence -->

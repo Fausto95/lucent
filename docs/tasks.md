@@ -33,9 +33,9 @@ what became of each one that is still linked or was still open.
 | [T105](#t105)            | Web APIs that shared code uses                             | ready                                                         |
 | [T106](#t106)            | Language gaps module code meets                            | ready                                                         |
 | [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                             |
-| [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | in progress (#163, #165, #167, #168 as T72; #216 merged)      |
-| [T109](#t109)            | Executors for platform callbacks                           | in progress (#181, #182, #187, #197 as T74; #206–#210 merged) |
-| [T110](#t110)            | App-delegate and Activity events                           | in progress (#217 to #220 merged)                             |
+| [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | done (2026-10-13)                                             |
+| [T109](#t109)            | Executors for platform callbacks                           | done (2026-10-13)                                             |
+| [T110](#t110)            | App-delegate and Activity events                           | in progress (#217 to #222 merged; #223–#229)                  |
 | [T111](#t111)            | The app's own native needs and options                     | ready                                                         |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | ready                                                         |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | ready                                                         |
@@ -49,7 +49,7 @@ what became of each one that is still linked or was still open.
 | [T124](#t124)            | A component's ref as a module function's argument          | ready                                                         |
 | [T125](#t125)            | Android views made after setup keep the Activity's context | ready                                                         |
 | **Execution modes**      |                                                            |                                                               |
-| [T130](#t130)            | A native root: module code with no JavaScript runtime      | in progress (#228, #231 merged; #233–#237)                    |
+| [T130](#t130)            | A native root: module code with no JavaScript runtime      | done (2026-10-13)                                             |
 | [T131](#t131)            | Android classes the OS instantiates, written in Lucent     | in progress: decided (0097); needs T112 for `CoroutineWorker` |
 | [T132](#t132)            | iOS background execution                                   | in progress (#238)                                            |
 | [T133](#t133)            | iOS app extensions and widgets                             | waiting; needs T130                                           |
@@ -394,12 +394,13 @@ size, and the extended cases pass.
 **Goal:** A camera frame, an image or a file's bytes reach JavaScript as an
 `ArrayBuffer` without a copy, on both platforms.
 
-- **Status:** in progress: returned buffers move, a synchronous export
-  reads JavaScript's bytes in place, and Android adopts a direct
+- **Status:** done (2026-10-13): returned buffers move, a synchronous
+  export reads JavaScript's bytes in place, and Android adopts a direct
   `ByteBuffer` (#163, #165, #167, #168, as T72). Frames are adopted on both
   platforms, read-only unless asked (#216,
   [0086](decisions/0086-platform-memory-is-adopted-read-only-unless-asked.md)).
-  A simulator or emulator run is left.
+  The emulator's device run adopts an `ImageReader`'s frames with no copy
+  (#225, #230).
 - **Area:** runtime, bindings.
 - **Needs:** nothing.
 - **Verify:** V1, V3, V4, V5, V7.
@@ -429,15 +430,16 @@ run shows no copy of the payload (the buffer's stats count none).
 a serial executor of its own, never queued behind JavaScript calls that
 hold its module's actor.
 
-- **Status:** in progress: `Channel` with its three policies and
+- **Status:** done (2026-10-13): `Channel` with its three policies and
   `subscribe`, and the runtime's `ExecutorContext`, are merged (#181,
   #182, #187, #197, as T74). So are `executor(label)` and `on(exec, f)`
   for functions (#206), objects with `on(exec, new C(…))` (#207), and
   events emitted from executor code (#208), trace (#209) and the host
   bench (#210: `executor_test.cpp`, p99 under 2 ms while the actor is
   held 500 ms, no actor waits), and an `on()` kept in a `const` (#215).
-  The device runs' Platform screen checks frames through an executor
-  (#225); a device run that passes it is left. Decided as
+  The device runs' Platform screen checks frames through an executor,
+  and passes on the simulator and the emulator (#225, 2026-10-13): done.
+  Decided as
   [0078](decisions/0078-executors-are-wrapped-where-code-is-handed-to-the-platform.md),
   [0081](decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md),
   [0082](decisions/0082-objects-go-on-an-executor-where-they-are-made.md),
@@ -503,7 +505,8 @@ describes.
   Lucent's subscriber (#219). Relaunch reasons and the notification
   delegate (#223, #224), Android's Activity events, keys and main
   Activity attributes (#221, #222, #226, #227) are in. The device runs'
-  Platform screen checks them (#225); its passing run is left.
+  Platform screen checks them, and passes on the simulator and the
+  emulator (#225, 2026-10-13). The Expo example's device run is left.
 - **Area:** iOS and Android hosts, runtime, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V3, V4, V5, V6.
@@ -530,7 +533,7 @@ describes.
       the app's
       ([0087](decisions/0087-lucent-stands-in-front-of-the-apps-notification-delegate.md),
       #224).
-- [ ] Android: first, which events module code already reaches through
+- [x] Android: first, which events module code already reaches through
       androidx's listeners on the current `ComponentActivity`
       (`onBackPressedDispatcher`, `addOnConfigurationChangedListener`,
       `addOnNewIntentListener`, `addOnUserLeaveHintListener`), tested on
@@ -544,7 +547,7 @@ describes.
       `onActivityEvent("keyDown")` and `"keyUp"` through the Activities'
       wrapped window callbacks
       ([0088](decisions/0088-android-key-presses-come-from-a-wrapped-window-callback.md),
-      #226). The emulator run is left.
+      #226). The emulator's device run passes (2026-10-13).
 - [x] In an Expo app, an `ExpoAppDelegateSubscriber` and a
       `ReactActivityLifecycleListener` the build declares. In a bare app,
       `lucent init` adds one forwarding line per delegate method,
@@ -568,8 +571,9 @@ describes.
       path). The bare example's Platform screen, which the device runs
       open after the Tests screen, opens a deep link to the app, registers
       for a push token (an unsigned simulator build answers why it has
-      none), and presses back and rotates on Android (#225); a device run
-      is left.
+      none), and presses back and rotates on Android (#225), and passes
+      on the simulator and the emulator (2026-10-13). The Expo example's
+      device run is left.
 
 **Done when:** both example apps receive each event in their device-check
 runs.
@@ -893,13 +897,14 @@ code; first confirm it with a test.
 background task, a push or an extension, before or without any JavaScript
 runtime.
 
-- **Status:** in progress: module state's lifetime is decided
+- **Status:** done (2026-10-13): module state's lifetime is decided
   ([0090](decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md),
   #228), and the runtime's native root keeps it (#231). Entry points run
   exports with no JavaScript runtime on the host (#233), and code with no
   runtime fails as after a reload (#234). Launch modules start state at
   launch (#235, #236). The device runs' Platform screen checks a launch
-  module's state on the simulator and the emulator (#237).
+  module's state on the simulator and the emulator (#237), and passes on
+  both (2026-10-13).
 - **Area:** runtime, compiler.
 - **Needs:** nothing for the decision and the root; [T110](#t110) for
   `launch` on iOS, which runs from the app-delegate subscriber.
@@ -1020,8 +1025,8 @@ Lucent code, with no JavaScript, as `expo-background-task` and
 - **Status:** in progress: decided
   ([0096](decisions/0096-ios-background-tasks-are-package-code-a-launch-module-registers.md)),
   and a package's launch module registers a handler that ends its own
-  work (#238). Relaunches for background URL sessions and silent pushes
-  are left.
+  work (#238), which the simulator's device run checks (2026-10-13).
+  Relaunches for background URL sessions and silent pushes are left.
 - **Area:** iOS host, runtime, tooling.
 - **Needs:** T110, T130.
 - **Verify:** V1, V4, V5.
@@ -1039,8 +1044,12 @@ Lucent code, with no JavaScript, as `expo-background-task` and
       a decision: recognizing `BGTaskScheduler` calls by name would be a
       catalog entry. It checks them as any entry
       ([0096](decisions/0096-ios-background-tasks-are-package-code-a-launch-module-registers.md)).
-- [ ] Tests: the simulator runs a task through a debug-build trigger,
-      since the scheduler doesn't launch tasks on the simulator.
+- [x] Tests: the simulator runs a task through a debug-build trigger,
+      since the scheduler doesn't launch tasks on the simulator. The
+      Platform screen checks that launch registered the handler, and runs
+      it with a stand-in task to its end and to its expiration
+      ([0096](decisions/0096-ios-background-tasks-are-package-code-a-launch-module-registers.md)),
+      passing on the simulator (2026-10-13).
 
 **Done when:** the trigger runs a registered task's Lucent handler on the
 simulator in CI.

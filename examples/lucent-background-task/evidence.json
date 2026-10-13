@@ -1,6 +1,7 @@
 [
   {
-    "level": "host",
-    "how": "by the example packages' unit test"
+    "level": "sim",
+    "date": "2026-10-13",
+    "how": "in the bare example's device runs, whose Platform screen checks that launch registered the handler and runs it with a stand-in task"
   }
 ]
