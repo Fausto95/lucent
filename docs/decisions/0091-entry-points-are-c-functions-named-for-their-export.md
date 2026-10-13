@@ -22,16 +22,18 @@ module's actor, as `callNow` does, and follows the main-thread rule
 there. An `async` function's entry takes a completion, a C function and a
 context pointer, which Lucent calls once, from the module's context, with
 the result or the error. Lucent owns the strings, bytes and errors it
-passes, valid until the call or completion returns.
+passes. A synchronous entry's stay valid until the calling thread's next
+entry call, and a completion's until it returns: a caller that keeps one
+copies it.
 
 Each call is a `NativeCall` ([0090](0090-module-state-resets-only-when-nothing-native-holds-it.md)).
 It starts module state if no generation lasts, and holds it until a
 synchronous call returns or an `async` call's completion runs. Then the
 work it started that still runs is cancelled. What crosses at first:
 numbers, booleans, `bigint` as `int64_t` (a `RangeError` past it),
-strings, `Uint8Array` and `NativeBuffer` as bytes (a buffer moves), and
-nothing (`void`). A function with any other type gets no entry. Platform
-objects, structs, arrays and classes come with
+strings, `Uint8Array` as bytes, and nothing (`void`). A function with any
+other type gets no entry. `NativeBuffer`s, platform objects, structs,
+arrays and classes come with
 [T114](../tasks.md#t114)'s Swift and Kotlin APIs, which wrap these
 functions.
 

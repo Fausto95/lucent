@@ -774,7 +774,8 @@ gets `lucent_<module>_<export>`, declared in `lucent_entries.h`. A
 synchronous entry returns whether it succeeded, with its result and its
 error through pointers. An `async` one calls a completion once. Each call
 is a `NativeCall`, and the work it started ends when it returns or
-completes. Numbers, booleans, `bigint`, strings and bytes cross at first;
+completes. Numbers, booleans, `bigint`, strings and `Uint8Array` cross
+at first;
 [T114](../tasks.md#t114) adds the rest with its Swift and Kotlin APIs.
 
 ### Android classes the OS instantiates
