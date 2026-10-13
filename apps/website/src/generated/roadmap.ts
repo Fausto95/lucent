@@ -92,12 +92,12 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "The current Activity and scene, activity results, permission requests and app lifecycle events."
       },
       {
-        "status": "in progress",
-        "text": "Platform memory as JavaScript bytes without a copy, done for Android's `ByteBuffer`."
+        "status": "done",
+        "text": "Opened URLs, push tokens, notifications and back presses, from the app delegate and Activity."
       },
       {
-        "status": "next",
-        "text": "Opened URLs, push tokens, notifications and back presses, from the app delegate and Activity."
+        "status": "in progress",
+        "text": "Platform memory as JavaScript bytes without a copy, done for Android's `ByteBuffer`."
       },
       {
         "status": "next",
