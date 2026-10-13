@@ -42,7 +42,7 @@ what became of each one that is still linked or was still open.
 | [T114](#t114)            | Native code that calls Lucent modules                      | waiting; needs T130                                           |
 | [T115](#t115)            | Native configuration packages can't declare yet            | ready                                                         |
 | **View parity**          |                                                            |                                                               |
-| [T120](#t120)            | Instances of exported classes as view props                | ready (decision 0075)                                         |
+| [T120](#t120)            | Instances of exported classes as view props                | in progress (#245)                                            |
 | [T121](#t121)            | React Native's view props, refs and view libraries         | in progress (#244)                                            |
 | [T122](#t122)            | UIKit components with a view-controller root               | ready                                                         |
 | [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | waiting; needs T120                                           |
@@ -741,10 +741,13 @@ props and Expo's shared-object props do, per
 
 - [ ] Transport (C-VIEW): the prop crosses Fabric as the instance's id in
       its host plus the runtime id. A value that is not an instance of the
-      declared class is a `TypeError` at render.
-- [ ] The mount resolves the id to the instance on the main thread at
-      commit, and holds it while it shows it. An id of a freed instance or
-      of another runtime is reported and reads as missing.
+      declared class is a `TypeError` at render. The ids and the views
+      runtime's side are done (#245): `rn/LucentViewInstances.h`.
+- [ ] The commit's props find the instance as React Native parses them, in
+      the JavaScript call that commits, and hold it; the mount holds it
+      while it shows it. Not later, on the main thread: by then JavaScript
+      may have let it go. An id of a freed instance or of a torn-down
+      runtime is reported and reads as missing.
 - [ ] Members only main-thread code touches are the main thread's. A member
       module code also touches is refused where a view uses it, naming both
       uses.

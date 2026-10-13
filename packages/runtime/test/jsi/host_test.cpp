@@ -29,6 +29,7 @@
 #include "lucent/jsi/convert.h"
 #include "lucent/jsi/host.h"
 #include "lucent/trace.h"
+#include "rn/LucentViewInstances.h"
 #include "rn/LucentViewRequests.h"
 
 namespace jsi = facebook::jsi;
@@ -2080,6 +2081,157 @@ static void viewAnswersOfAGoneRuntimeReleaseWhatTheyCarry() {
   CHECK(js.number("settled.length") == 0);
 }
 
+// --- instances as view props -----------------------------------------------------
+//
+// A component's proxy sends an instance prop as its id
+// (rn/LucentViewInstances.h): the commit's props find the instance by it
+// and hold it, and the ids hold nothing.
+
+/// Installs the Lucent module's __lucentViewInstance as a global, as the views runtime reaches it.
+static void installInstanceIds(JsThread& js, const std::shared_ptr<Host>& host) {
+  js.run([&](jsi::Runtime& rt) {
+    rt.global().setProperty(rt, views::kInstanceName, views::instanceIdFunction(host, rt));
+  });
+}
+
+/// The instance JavaScript's `expression` evaluates to.
+static Ref<Object> instanceAt(JsThread& js, const std::string& expression) {
+  return js.run([&](jsi::Runtime& rt) {
+    return instanceOf(rt, rt.evaluateJavaScript(std::make_shared<jsi::StringBuffer>(expression), "test.js"));
+  });
+}
+
+/// An instance has one id while it lives, its runtime's, and the id finds it.
+static void anInstanceHasOneIdWhileItLives() {
+  JsThread js;
+  auto host = install(js);
+  installInstanceIds(js, host);
+
+  js.eval("var a = mods.t.handle(), b = mods.t.handle();");
+  double a = js.number("__lucentViewInstance(a)");
+  double b = js.number("__lucentViewInstance(b)");
+
+  CHECK(js.number("__lucentViewInstance(a)") == a);
+  CHECK(a != b);
+  CHECK(a >= host->id() * views::kInstancesPerRuntime && a < (host->id() + 1) * views::kInstancesPerRuntime);
+
+  std::string why;
+  CHECK(views::instanceIds().find(a, why) == instanceAt(js, "a"));
+  CHECK(views::instanceIds().find(b, why) == instanceAt(js, "b"));
+}
+
+/// Only an instance of a Lucent class has an id: anything else is a TypeError.
+static void onlyInstancesHaveIds() {
+  JsThread js;
+  auto host = install(js);
+  installInstanceIds(js, host);
+
+  const char* attempt = "(v) => { try { __lucentViewInstance(v); return 'accepted'; } catch (e) { return e.name + ': ' + e.message; } }";
+  js.eval(std::string("var attempt = ") + attempt + ";");
+
+  for (const char* value : {"({})", "5", "null", "undefined", "Object.create(Object.getPrototypeOf(mods.t.handle()))"})
+    CHECK(js.string(std::string("attempt(") + value + ")") ==
+          "TypeError: Lucent: a view's instance prop takes an instance of a Lucent class");
+
+  std::string why;
+  CHECK(!views::instanceIds().find(5, why) && why == "not an instance's id");
+  CHECK(!views::instanceIds().find(host->id() * views::kInstancesPerRuntime + 0.5, why) && why == "not an instance's id");
+  CHECK(!views::instanceIds().find((host->id() + 1000) * views::kInstancesPerRuntime + 1, why) && why == "the id of no instance alive");
+}
+
+/// The ids hold nothing: once JavaScript lets an instance go, and nothing
+/// else holds it, its id finds nothing; what found it first holds it.
+static void anIdHoldsNothingAndAFoundInstanceIsHeld() {
+  JsThread js;
+  auto host = install(js);
+  installInstanceIds(js, host);
+  int before = m_t::handlesReleased;
+
+  double gone = js.number("(function () { return __lucentViewInstance(mods.t.handle()); })()");
+  double kept = js.number("(function () { return __lucentViewInstance(mods.t.handle()); })()");
+
+  std::string why;
+  Ref<Object> held = views::instanceIds().find(kept, why);
+  CHECK(held != nullptr);
+
+  js.run([](jsi::Runtime& rt) { rt.instrumentation().collectGarbage("test"); });
+
+  CHECK(within(2000, [&] { return m_t::handlesReleased == before + 1; }));
+  CHECK(!views::instanceIds().find(gone, why) && why == "the id of no instance alive");
+  CHECK(views::instanceIds().find(kept, why) == held);
+
+  held = nullptr;
+
+  CHECK(within(2000, [&] { return m_t::handlesReleased == before + 2; }));
+  CHECK(!views::instanceIds().find(kept, why) && why == "the id of no instance alive");
+}
+
+/// A runtime torn down (a reload) leaves its ids naming nothing, the
+/// instances module code still holds too; a new runtime's ids are its own.
+static void idsOfATornDownRuntimeNameNothing() {
+  JsThread js;
+  auto host = install(js);
+  installInstanceIds(js, host);
+
+  js.eval("var kept = mods.t.handle();");
+  double id = js.number("__lucentViewInstance(kept)");
+  Ref<Object> stillHeld = instanceAt(js, "kept");
+
+  views::instanceIds().forget(host->id());
+
+  std::string why;
+  CHECK(!views::instanceIds().find(id, why) && why == "an instance of a JavaScript runtime that was torn down");
+  CHECK(views::instanceIds().entries(host->id()) == 0);
+
+  JsThread next;
+  auto nextHost = install(next);
+  installInstanceIds(next, nextHost);
+  double fresh = next.number("__lucentViewInstance(mods.t.handle())");
+
+  CHECK(fresh >= nextHost->id() * views::kInstancesPerRuntime);
+  CHECK(fresh != id);
+}
+
+/// The entries of instances that are gone are swept as new ids are given:
+/// mounting and unmounting views leaves the registry its size.
+static void entriesOfGoneInstancesAreSwept() {
+  JsThread js;
+  auto host = install(js);
+  installInstanceIds(js, host);
+
+  for (int round = 0; round < 8; ++round) {
+    js.eval("(function () { for (var i = 0; i < 125; i++) __lucentViewInstance(mods.t.handle()); })();");
+    js.run([](jsi::Runtime& rt) { rt.instrumentation().collectGarbage("test"); });
+  }
+
+  CHECK(views::instanceIds().entries(host->id()) < 512);
+}
+
+/// Commits find instances on React Native's threads while JavaScript gives
+/// ids on its own: the registry is safe from any thread (TSan).
+static void idsAreFoundFromAnyThread() {
+  JsThread js;
+  auto host = install(js);
+  installInstanceIds(js, host);
+
+  js.eval("var all = []; for (var i = 0; i < 64; i++) all.push(mods.t.handle());");
+  std::vector<double> ids;
+  for (int i = 0; i < 64; ++i) ids.push_back(js.number("__lucentViewInstance(all[" + std::to_string(i) + "])"));
+
+  std::atomic<int> found{0};
+  std::thread reader([&] {
+    std::string why;
+    for (int pass = 0; pass < 50; ++pass)
+      for (double id : ids)
+        if (views::instanceIds().find(id, why)) found++;
+  });
+
+  js.eval("for (var i = 0; i < 500; i++) __lucentViewInstance(mods.t.handle());");
+  reader.join();
+
+  CHECK(found == 50 * 64);
+}
+
 int main() {
   runtimesHaveTheirOwnHosts();
   newHostsReplaceOldOnes();
@@ -2122,6 +2274,12 @@ int main() {
   viewRequestsOfAGoneRuntimeAreDropped();
   viewAnswersFollowTheirMount();
   viewAnswersOfAGoneRuntimeReleaseWhatTheyCarry();
+  anInstanceHasOneIdWhileItLives();
+  onlyInstancesHaveIds();
+  anIdHoldsNothingAndAFoundInstanceIsHeld();
+  idsOfATornDownRuntimeNameNothing();
+  entriesOfGoneInstancesAreSwept();
+  idsAreFoundFromAnyThread();
 
   std::printf("host: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

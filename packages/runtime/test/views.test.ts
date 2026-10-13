@@ -221,6 +221,86 @@ describe("a component's props", () => {
   });
 });
 
+/** A player view: an instance prop, a nullable one and an array of them, of class "m#Player". */
+const PLAYER: ComponentConfig = {
+  name: "LucentPlayerView_0",
+  displayName: "PlayerView",
+  props: [
+    { name: "player", key: "p0", shape: { i: "m#Player", c: "Player" } },
+    { name: "next", key: "p1", shape: { n: { i: "m#Player", c: "Player" } } },
+    { name: "queue", key: "p2", shape: { a: { i: "m#Player", c: "Player" } } },
+  ],
+  events: [],
+  commands: [],
+};
+
+describe("a component's instance props", () => {
+  // A class's prototype, kept under its id as a host keeps it, and a subclass's.
+  const proto = {};
+  const prototypes = { "m#Player": proto, "m#Other": {} };
+  const ids = new WeakMap<object, number>();
+  let last = 4294967296;
+  const native = {
+    __lucentViewInstance: (value: object) => {
+      if (!ids.has(value)) ids.set(value, ++last);
+      return ids.get(value);
+    },
+  };
+
+  afterEach(() => {
+    delete (globalThis as { __lucentPrototypes?: object }).__lucentPrototypes;
+  });
+
+  it("go to the native view as their ids, the same each commit, inside boxes and arrays", () => {
+    (globalThis as { __lucentPrototypes?: object }).__lucentPrototypes = prototypes;
+    const a = Object.create(proto) as object;
+    const b = Object.create(Object.create(proto)) as object;
+    const { mount } = setup(native, PLAYER);
+
+    const first = mount({ player: a, next: null, queue: [a, b] }).element.props;
+    const again = mount({ player: a, next: b, queue: [] }).element.props;
+
+    expect(first.p0).toBe(ids.get(a));
+    expect(again.p0).toBe(first.p0);
+    expect(first.p1).toEqual([null]);
+    expect(again.p1).toEqual([ids.get(b)]);
+    expect(first.p2).toEqual([ids.get(a), ids.get(b)]);
+    expect(mount({ player: a }).element.props).not.toHaveProperty("p1");
+  });
+
+  it("throw a TypeError where React renders a value that is not an instance of the class", () => {
+    (globalThis as { __lucentPrototypes?: object }).__lucentPrototypes = prototypes;
+    const { mount } = setup(native, PLAYER);
+    const other = Object.create(prototypes["m#Other"]) as object;
+
+    expect(() => mount({ player: other })).toThrow(
+      new TypeError("Lucent: PlayerView's prop player takes a Player, not an object."),
+    );
+    expect(() => mount({ player: 5 })).toThrow(
+      "PlayerView's prop player takes a Player, not a number.",
+    );
+    expect(() => mount({ player: new Date() })).toThrow("takes a Player, not a Date.");
+    expect(() => mount({ player: Object.create(proto), queue: [null] })).toThrow(
+      "PlayerView's prop queue takes a Player, not null.",
+    );
+  });
+
+  it("are refused when no instance of the class reached JavaScript yet", () => {
+    const { mount } = setup(native, PLAYER);
+
+    expect(() => mount({ player: {} })).toThrow(TypeError);
+  });
+
+  it("throw when the app's native code cannot pass instances", () => {
+    (globalThis as { __lucentPrototypes?: object }).__lucentPrototypes = prototypes;
+    const { mount } = setup({}, PLAYER);
+
+    expect(() => mount({ player: Object.create(proto) })).toThrow(
+      expect.objectContaining({ code: "LUCENT_NATIVE_MISMATCH", action: "compile-native" }),
+    );
+  });
+});
+
 describe("a component's events", () => {
   it("have a handler only while their callback is a function", () => {
     const { mount } = setup();

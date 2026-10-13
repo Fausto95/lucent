@@ -10,7 +10,7 @@ out="${TMPDIR:-/tmp}/lucent-jsi-test"
 source "$here/../run_binary.sh"
 log="${out}_output.log"
 
-HARNESS=0 "$here/build.sh" "${out}_host" "$here/host_test.cpp" "$here/../../cpp/rn/LucentViewRequests.cpp"
+HARNESS=0 "$here/build.sh" "${out}_host" "$here/host_test.cpp" "$here/../../cpp/rn/LucentViewRequests.cpp" "$here/../../cpp/rn/LucentViewInstances.cpp"
 run_binary "$log" "${out}_host"
 
 "$here/build.sh" "${out}_manual" "$here/manual_module.cpp"
