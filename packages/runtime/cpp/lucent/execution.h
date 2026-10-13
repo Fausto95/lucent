@@ -163,6 +163,10 @@ class ExecutionContext : public Scope::Owner, public std::enable_shared_from_thi
   /// (the main thread, for the main context), entered or not.
   virtual bool onExecutor() const = 0;
 
+  /// What a trace calls it, as its events' detail (an executor's label,
+  /// kept for the process); null for one that has no name.
+  virtual const char* traceName() const { return nullptr; }
+
   /// Any thread: runs `job` as a turn of this context. False if the
   /// context has stopped; the job is then destroyed on the calling thread.
   bool post(Job job) override;
@@ -277,6 +281,8 @@ class ExecutorContext final : public ExecutionContext {
 
   const std::string& label() const { return label_; }
 
+  const char* traceName() const override { return traceName_; }
+
   /// Whether the calling thread runs the executor's work now.
   bool onExecutor() const override;
 
@@ -307,6 +313,7 @@ class ExecutorContext final : public ExecutionContext {
   bool dispatchDelayed(double ms, Job job) override;
 
   const std::string label_;
+  const char* const traceName_;
   std::unique_ptr<Lane> lane_;
   std::atomic<bool> stopping_{false};
 };

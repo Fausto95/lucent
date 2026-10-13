@@ -44,6 +44,7 @@
 #include "jsstring.h"
 #include "report.h"
 #include "scope.h"
+#include "trace.h"
 #include "transport.h"
 
 namespace lucent {
@@ -140,11 +141,20 @@ class ChannelObject final : public Object {
   /// The next value, settled on the calling context: at once if one is
   /// queued, else when one is sent; undefined once closed and drained.
   Promise<Opt<T>> receive() {
-    std::lock_guard<std::mutex> g(m_);
+    std::unique_lock<std::mutex> g(m_);
     if (!queue_.empty()) {
       T value = std::move(queue_.front());
       queue_.pop_front();
+      const uint64_t sentAt = sentAt_.front();
+      sentAt_.pop_front();
       stats_.received++;
+      const size_t depth = queue_.size();
+      g.unlock();
+
+      if (sentAt && trace::enabled()) [[unlikely]] {
+        trace::span(trace::Category::Queue, "channel.wait", sentAt, trace::now(), {.id = traceId_});
+        trace::counter("channel.depth", static_cast<int64_t>(depth), traceId_);
+      }
       return Promise<Opt<T>>::resolved(Opt<T>(std::move(value)));
     }
 
@@ -207,37 +217,49 @@ class ChannelObject final : public Object {
     std::optional<T> dropped;
     std::optional<Promise<Opt<T>>> waiter;
     std::optional<T> handed;
+    // What a trace records, once the lock is let go: the depth after the send, the totals.
+    const bool tracing = trace::enabled();
+    size_t depth = 0;
+    uint64_t refused = 0;
+    uint64_t drops = 0;
     {
       std::lock_guard<std::mutex> g(m_);
       if (closed_) {
-        stats_.refused++;
-        return false;
-      }
-
-      const bool full = waiters_.empty() && queue_.size() >= capacity_;
-      if (full && policy_ == ChannelPolicy::Lossless) {
-        stats_.refused++;
-        return false;
-      }
-
-      T value = make();
-      if (!waiters_.empty()) {
-        waiter.emplace(std::move(waiters_.front()));
-        waiters_.pop_front();
-        handed.emplace(std::move(value));
-        stats_.received++;
+        refused = ++stats_.refused;
+      } else if (waiters_.empty() && queue_.size() >= capacity_ && policy_ == ChannelPolicy::Lossless) {
+        refused = ++stats_.refused;
       } else {
-        if (full) {
-          dropped.emplace(std::move(queue_.front()));
-          queue_.pop_front();
-          stats_.dropped++;
+        const bool full = waiters_.empty() && queue_.size() >= capacity_;
+        T value = make();
+        if (!waiters_.empty()) {
+          waiter.emplace(std::move(waiters_.front()));
+          waiters_.pop_front();
+          handed.emplace(std::move(value));
+          stats_.received++;
+        } else {
+          if (full) {
+            dropped.emplace(std::move(queue_.front()));
+            queue_.pop_front();
+            sentAt_.pop_front();
+            drops = ++stats_.dropped;
+          }
+          queue_.push_back(std::move(value));
+          // When it was sent, for the trace's wait from send to receive (0: untraced).
+          sentAt_.push_back(tracing ? trace::now() : 0);
         }
-        queue_.push_back(std::move(value));
-      }
 
-      stats_.sent++;
-      if (queue_.size() > stats_.highWater) stats_.highWater = queue_.size();
+        stats_.sent++;
+        if (queue_.size() > stats_.highWater) stats_.highWater = queue_.size();
+        depth = queue_.size();
+      }
     }
+
+    if (tracing) [[unlikely]] {
+      if (refused) trace::instant(trace::Category::Queue, "channel.refused", {.id = traceId_, .value = static_cast<int64_t>(refused)});
+      if (drops) trace::instant(trace::Category::Queue, "channel.dropped", {.id = traceId_, .value = static_cast<int64_t>(drops)});
+      if (!refused) trace::counter("channel.depth", static_cast<int64_t>(depth), traceId_);
+    }
+    if (refused) return false;
 
     if (dropped) detail::releaseUnreceived(*dropped);
     if (waiter) waiter->resolve(Opt<T>(std::move(*handed)));
@@ -252,6 +274,7 @@ class ChannelObject final : public Object {
       std::lock_guard<std::mutex> g(m_);
       closed_ = true;
       left.swap(queue_);
+      sentAt_.clear();
       waiting.swap(waiters_);
       stats_.dropped += left.size();
     }
@@ -265,6 +288,10 @@ class ChannelObject final : public Object {
 
   mutable std::mutex m_;
   std::deque<T> queue_;
+  /// When each queued value was sent, on the trace clock (0: not traced).
+  std::deque<uint64_t> sentAt_;
+  /// Its events' id in a trace: its depth is a series of its own.
+  const uint64_t traceId_ = trace::newId();
   std::deque<Promise<Opt<T>>> waiters_;
   bool closed_ = false;
   ChannelStats stats_;

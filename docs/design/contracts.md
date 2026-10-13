@@ -1128,8 +1128,9 @@ in `lucent/jsi/convert.h`, the compiler's `emit/trace-site.ts`, and
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `entry`      | `<export>`, with its `.lucent.ts` site                                                                                                                                      |
 | `lock`       | `lucent-lock`                                                                                                                                                               |
-| `queue`      | `wait`, `js.wait`                                                                                                                                                           |
-| `run`        | `run`                                                                                                                                                                       |
+| `queue`      | `wait` (detail: an executor's label), `js.wait`; span `channel.wait` and instants `channel.dropped`, `channel.refused` (id: the channel; value: the count so far)           |
+| `run`        | `run` (detail: an executor's label); `enter`, a callback entering a non-actor context at once                                                                               |
+| counter      | `channel.depth`, a series per channel id                                                                                                                                    |
 | `native`     | The `LUCENT_TRACE_SCOPE` name, with its site                                                                                                                                |
 | `completion` | `<export>`                                                                                                                                                                  |
 | `compute`    | Spans `compute.wait`, `compute.run`, `compute.deliver` (detail: the entry); instants `compute.saturated` (value: queue depth), `compute.rejected`; counter `compute.queued` |
@@ -1146,9 +1147,6 @@ in `lucent/jsi/convert.h`, the compiler's `emit/trace-site.ts`, and
 | Mirror      | Opt-in os_signpost (subsystem `dev.lucent`, category `runtime`). On Android, ATrace async sections `category:name` (API 29, via `dlsym`) and counters, always, behind `ATrace_isEnabled`. |
 | Sites       | Bindings name the export's declaration; native spans take `__FILE__` and `__LINE__` under the compiler's `#line`. Identities ignore positions.                                            |
 | CLI         | `lucent trace` merges `.lucent/build-record.json` (`startedAt`, `timings`; untimed nodes are marks) with `--runtime` traces into `.lucent/trace.json` or `--out`.                         |
-
-**Planned:** [T109](../tasks.md#t109) traces each channel's waits, depth
-and drops, and an executor's spans beside its actor's.
 
 ## C-EXT: typed native extensions
 

@@ -6,7 +6,9 @@
 #include <fstream>
 #include <map>
 #include <mutex>
+#include <set>
 #include <string>
+#include <string_view>
 
 #include "execution.h"
 
@@ -392,7 +394,9 @@ void instant(Category category, const char* name, const Detail& detail) noexcept
   if (platformOn.load(std::memory_order_relaxed)) platformInstant(category, name, detail.value);
 }
 
-void counter(const char* name, int64_t value) noexcept {
+void counter(const char* name, int64_t value) noexcept { counter(name, value, 0); }
+
+void counter(const char* name, int64_t value, uint64_t id) noexcept {
   if (!enabled()) return;
 
   Event e;
@@ -400,9 +404,20 @@ void counter(const char* name, int64_t value) noexcept {
   e.name = name;
   e.startNs = now();
   e.value = value;
+  e.id = id;
   record(e);
 
   if (platformOn.load(std::memory_order_relaxed)) platformCounter(name, value);
+}
+
+const char* intern(std::string_view text) {
+  static std::mutex m;
+  // Never freed: events point at them for as long as the buffer is read.
+  static auto* kept = new std::set<std::string, std::less<>>();
+  std::lock_guard<std::mutex> g(m);
+  auto at = kept->find(text);
+  if (at == kept->end()) at = kept->emplace(text).first;
+  return at->c_str();
 }
 
 uint64_t currentId() noexcept { return runningId; }
@@ -450,6 +465,11 @@ std::string chromeJson(const std::vector<Event>& events) {
 
     out += ",\"pid\":1,\"tid\":";
     appendNumber(out, e.thread);
+    // A counter's id makes a series of its own: each channel's depth.
+    if (e.phase == Event::Phase::Counter && e.id) {
+      out += ",\"id\":";
+      appendNumber(out, static_cast<long long>(e.id));
+    }
     out += ",\"args\":{";
 
     if (e.phase == Event::Phase::Counter) {

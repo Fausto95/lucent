@@ -40,7 +40,11 @@ a value, a count, a detail or a source site.
 | `lock`       | `lucent-lock`                                    | A thread waits for an actor's lock it doesn't hold yet              |
 | `queue`      | `wait`                                           | A job posted to any execution context waits to run                  |
 | `run`        | `run`                                            | That job runs                                                       |
+| `run`        | `enter`                                          | A callback enters an executor or the main context at once           |
 | `queue`      | `js.wait`                                        | An async export's result waits for the JS thread                    |
+| `queue`      | `channel.wait`                                   | A value waits in a `Channel`, from its send to its receipt          |
+| `queue`      | `channel.dropped`, `channel.refused`             | A full channel drops a value or refuses a send (value: the count)   |
+| counter      | `channel.depth`                                  | A channel's queued values after a send or receive, by channel id    |
 | `completion` | The export's name                                | That result converts and settles the JS promise                     |
 | `compute`    | `compute.wait`, `compute.run`, `compute.deliver` | A compute task waits for a worker, runs, and is delivered           |
 | `compute`    | `compute.saturated`, `compute.rejected`          | Every worker is busy (value: queue depth); the queue is full        |
@@ -50,9 +54,11 @@ a value, a count, a detail or a source site.
 | `effect`     | `effect`, at its `.lucent.ts` line               | A view's effect runs: a prop binding, a toolkit slot, an `effect()` |
 | `native`     | The name given to `LUCENT_TRACE_SCOPE`           | Native code marks a span                                            |
 
-The `buffer.*` and `compute.saturated`/`rejected` events are instants,
-`compute.queued` is a counter of the queue's depth, and the rest are
-spans. `LUCENT_TRACE_SCOPE` takes its site from `__FILE__` and
+The `buffer.*`, `channel.dropped`/`refused` and
+`compute.saturated`/`rejected` events are instants, `compute.queued` and
+`channel.depth` are counters, and the rest are spans. An executor's
+`wait`, `run` and `enter` spans carry its label as their detail, so they
+read apart from its actor's. Each channel's events share its id. `LUCENT_TRACE_SCOPE` takes its site from `__FILE__` and
 `__LINE__`; native code may use it, but generated code emits none.
 
 A synchronous `entry` span covers the lock wait, the argument

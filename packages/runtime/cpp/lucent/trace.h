@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace lucent::trace {
@@ -170,6 +171,12 @@ void instant(Category category, const char* name, uint64_t id = 0, int64_t value
 void instant(Category category, const char* name, const Detail& detail) noexcept;
 
 void counter(const char* name, int64_t value) noexcept;
+/// A counter of one series among those of the same name: a channel's depth, by its id.
+void counter(const char* name, int64_t value, uint64_t id) noexcept;
+
+/// A copy of `text` that lives as long as the process, for an event's
+/// name or detail (an executor's label): one per distinct text.
+const char* intern(std::string_view text);
 
 /// The correlation id of the traced job running on this thread (0: none).
 uint64_t currentId() noexcept;

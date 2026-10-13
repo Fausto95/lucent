@@ -99,9 +99,12 @@ A counter's `args` holds its value under its name. Flow events (`ph` `s` and `f`
 | --- | --- | --- |
 | `entry` | the export's name (`Class.method` for a method) | A call from JavaScript into an exported function or method, until it returns. Has a `site`, and an `id` when the export is async. |
 | `lock` | `lucent-lock` | A wait for the [Lucent lock](/docs/api/language/concurrency/), by a call from JavaScript, a platform callback or a turn of the Lucent thread. Recorded only when the thread doesn't hold the lock already. |
-| `queue` | `wait` | A posted job waiting for its execution context, such as the Lucent thread or a compute worker, to run it. |
+| `queue` | `wait` | A posted job waiting for its execution context, such as the Lucent thread or a compute worker, to run it. An executor's carry its label as `detail`. |
+| `queue` | `channel.wait` | A value waiting in a `Channel`, from its send to its receipt. Each channel has its own `id`. |
+| `queue` | `channel.dropped`, `channel.refused` | Instants: a full channel dropped a value, or refused a send. `value` is the channel's count of each so far. |
 | `queue` | `js.wait` | An async call's result waiting for the JS thread. |
-| `run` | `run` | A posted job running. |
+| `run` | `run` | A posted job running. An executor's carry its label as `detail`. |
+| `run` | `enter` | A platform callback running at once on an executor, with its label as `detail`, or in view code on the main thread. |
 | `native` | the scope's name | A scope of C++ code that marked itself, with its `site`. Lucent's own code records none: only C++ you write does. |
 | `effect` | `effect` | A run of a view's effect: an attribute or prop kept up to date, a list's items, or an `effect()` in a component's setup. Its `site` is the effect's `.lucent.ts` or `.lucent.tsx` line. |
 | `completion` | the export's name (`Class.method` for a method) | An async call's result being converted and its promise settled, on the JS thread. |
@@ -111,6 +114,7 @@ A counter's `args` holds its value under its name. Flow events (`ph` `s` and `f`
 | `copy` | `transport.copy` | A copy of a compute task's input: `value` bytes and `count` objects. `count` is -1 when the copy failed. |
 | `copy` | `buffer.copy` | An instant: bytes a native buffer copied, for `NativeBuffer.from`, `toUint8Array()`, and `withRead` or `withWrite` called from JavaScript (`withWrite` copies back too). |
 | `alloc` | `buffer.allocate`, `buffer.adopt` | Instants: a native buffer allocated, or made over memory native code owns. `value` is its size. |
+| counter | `channel.depth` | A channel's queued values after each send and receive, one series per channel `id`. |
 | `build` | the step's id: `resolve`, `check`, `generate`, … | A step of the last build, which `lucent trace` adds: a span when the step was timed, else a mark. `args` holds its `kind`, `status` and `detail`. |
 
 ## lucent trace
