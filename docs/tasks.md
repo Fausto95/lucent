@@ -25,7 +25,7 @@ what became of each one that is still linked or was still open.
 | Task                     | Title                                                      | State                                                         |
 | ------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------- |
 | **Module parity**        |                                                            |                                                               |
-| [T100](#t100)            | Typed arrays and `DataView`                                | ready                                                         |
+| [T100](#t100)            | Typed arrays and `DataView`                                | in progress (#249)                                            |
 | [T101](#t101)            | Keep `null` apart from `undefined` everywhere              | ready                                                         |
 | [T102](#t102)            | Recursive union types, for JSON-shaped values              | ready                                                         |
 | [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | ready                                                         |
@@ -132,7 +132,7 @@ result.
 and crosses the boundary, so audio, sensor and model modules pass samples
 as Expo modules do.
 
-- **Status:** ready.
+- **Status:** in progress (#249).
 - **Area:** compiler, runtime.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3, V7.
@@ -140,7 +140,9 @@ as Expo modules do.
   `emit/builtins.ts`, `jsi/convert.*`, `lib/sdk`.
 
 Today only `Uint8Array` and `ArrayBuffer` exist; `new Float32Array(n)` is
-refused with LUCENT2002, and `DataView` too.
+refused with LUCENT2002, and `DataView` too. The runtime has them all
+(#249): `lucent/bytes.h`'s `TypedArray<Kind>`, `Uint8Array` among them,
+and `DataView`; the compiler doesn't yet.
 
 - [ ] `Int8Array`, `Uint8ClampedArray`, `Int16Array`, `Uint16Array`,
       `Int32Array`, `Uint32Array`, `Float32Array`, `Float64Array`,
