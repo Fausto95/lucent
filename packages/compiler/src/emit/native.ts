@@ -4085,10 +4085,11 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
     case "lucent:ios.onAppEvent":
     case "lucent:ios.onSceneEvent": {
       // One of the app delegate's: its own runtime function and listener.
-      const delegate =
-        b.name === "onAppEvent" ? DELEGATE_EVENTS[eventNamed(em, args[0]!) ?? ""] : undefined;
-      if (delegate) {
+      const event = b.name === "onAppEvent" ? eventNamed(em, args[0]!) : undefined;
+      const delegate = event ? DELEGATE_EVENTS[event] : undefined;
+      if (event && delegate) {
         unit.include("lucent/platform/ios_app_delegate.h");
+        em.ctx.appDelegateEvents.add(event);
         const listener: LType = { k: "fn", params: delegate.params, ret: delegate.ret };
         const f = args[1]!;
         const e =
