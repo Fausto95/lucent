@@ -63,6 +63,28 @@ A new serial dispatch queue (`dispatch_queue_create(label, DISPATCH_QUEUE_SERIAL
 | --- | --- | --- | --- |
 | `label` | `string` | yes | The queue's name, as Instruments and crash reports show it, such as `"camera.frames"`. |
 
+### retainedHandle()
+
+```ts title="ios.d.ts"
+function retainedHandle(object: NSObject): NativeHandle;
+```
+
+A handle native code reads: the object's address, retained (+1) until the handle is released, then released once. A library that takes an `id` or a CF type, such as a frame processor taking a CVPixelBufferRef, gets `pointer`; JavaScript gets the same handle. Release it, from either side, once the library is done.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `object` | `NSObject` | yes | The object to hold: a nil one is a TypeError. |
+
+```ts title="retainedHandle.lucent.ts"
+import { type NSObject, retainedHandle } from "lucent:ios";
+import type { NativeHandle } from "lucent:core";
+
+// A camera frame's CVPixelBuffer, as a sample buffer delegate gets it.
+function forSkia(pixelBuffer: NSObject): NativeHandle {
+  return retainedHandle(pixelBuffer);
+}
+```
+
 ### withPixelBytes()
 
 ```ts title="ios.d.ts"

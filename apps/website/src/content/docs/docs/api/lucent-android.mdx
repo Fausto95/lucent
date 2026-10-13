@@ -101,6 +101,40 @@ function forJavaScript(decoded: ByteBuffer): ArrayBuffer {
 }
 ```
 
+### handleOf()
+
+```ts title="android.d.ts"
+function handleOf(buffer: ByteBuffer): NativeHandle;
+```
+
+A handle native code reads: a direct ByteBuffer's bytes' address, the Java buffer kept reachable until the handle is released. A library that takes a pointer (a decoder, a GPU upload) gets `pointer`; JavaScript gets the same handle. Release it, from either side, once the library is done.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `buffer` | `ByteBuffer` | yes | A direct ByteBuffer (`ByteBuffer.allocateDirect`): a heap buffer is a TypeError. |
+
+### handleOf()
+
+```ts title="android.d.ts"
+function handleOf(buffer: HardwareBuffer): NativeHandle;
+```
+
+A HardwareBuffer's `AHardwareBuffer*` (the NDK's), acquired until the handle is released. Native code that draws or uploads it takes the pointer, such as a camera frame going to Skia. Needs Android 8 (API 26), as HardwareBuffer does.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `buffer` | `HardwareBuffer` | yes | The HardwareBuffer: it may be closed while the handle holds its buffer. |
+
+```ts title="handleOf.lucent.ts"
+import { available, handleOf } from "lucent:android";
+import type { NativeHandle } from "lucent:core";
+import type { HardwareBuffer } from "lucent:android/android.hardware";
+
+function forSkia(frame: HardwareBuffer): NativeHandle | null {
+  return available("android", 26) ? handleOf(frame) : null;
+}
+```
+
 ### available()
 
 ```ts title="android.d.ts"

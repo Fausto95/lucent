@@ -1,5 +1,6 @@
 // lucent:ios — iOS helpers for platform code.
 
+import type { NativeHandle } from "lucent:core";
 import type { NSError } from "lucent:ios/Foundation";
 import type { UIViewController } from "lucent:ios/UIKit";
 
@@ -34,6 +35,27 @@ export declare function mainQueue(): NSObject;
  * @param label The queue's name, as Instruments and crash reports show it, such as `"camera.frames"`.
  */
 export declare function serialQueue(label: string): NSObject;
+
+/**
+ * A handle native code reads: the object's address, retained (+1) until
+ * the handle is released, then released once. A library that takes an
+ * `id` or a CF type, such as a frame processor taking a CVPixelBufferRef,
+ * gets `pointer`; JavaScript gets the same handle. Release it, from either
+ * side, once the library is done.
+ *
+ * ```ts
+ * import { type NSObject, retainedHandle } from "lucent:ios";
+ * import type { NativeHandle } from "lucent:core";
+ *
+ * // A camera frame's CVPixelBuffer, as a sample buffer delegate gets it.
+ * function forSkia(pixelBuffer: NSObject): NativeHandle {
+ *   return retainedHandle(pixelBuffer);
+ * }
+ * ```
+ *
+ * @param object The object to hold: a nil one is a TypeError.
+ */
+export declare function retainedHandle(object: NSObject): NativeHandle;
 
 /**
  * Calls `f` with a CVPixelBuffer's bytes, locked for reading while it

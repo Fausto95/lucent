@@ -56,6 +56,16 @@ Opt<NativeRef> nativeError(const Error& error);
 /// TypeError for a heap buffer (over a Java array) or a read-only one.
 NativeBuffer adoptByteBuffer(const NativeRef& buffer);
 
+/// lucent:android's handleOf(buffer) for a direct ByteBuffer: its bytes'
+/// address, the Java buffer kept reachable until the handle is released.
+/// A TypeError for a heap buffer, which has no address of its own.
+NativeHandle byteBufferHandle(const NativeRef& buffer);
+
+/// lucent:android's handleOf(buffer) for a HardwareBuffer (API 26): its
+/// AHardwareBuffer, acquired until the handle is released, which native
+/// code (Skia, a GPU library) takes. A TypeError where the NDK has none.
+NativeHandle hardwareBufferHandle(const NativeRef& buffer);
+
 /// An executor (lucent:thread's `executor(label)`) where Java takes a
 /// java.util.concurrent.Executor: a dev.lucent.LucentExecutor (a local
 /// ref) that runs each Runnable on the executor's thread, outside its

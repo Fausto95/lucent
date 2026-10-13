@@ -629,7 +629,10 @@ bigint, `0n` once released), `released` and `release()`, once, from either
 side and any thread. A buffer's `handle()` borrows its bytes for read
 until then. One whose last reference goes unreleased is released then; a
 debug build counts those JavaScript collected (`host.releasedOpen` in
-`__lucentDebug.snapshot()`). Platform makers are [T107](tasks.md#t107).
+`__lucentDebug.snapshot()`). `retainedHandle(object)` in `lucent:ios`
+retains an object (+1) until released; `handleOf` in `lucent:android`
+holds a direct `ByteBuffer` (a heap one is a `TypeError`) or acquires a
+`HardwareBuffer`.
 
 ### Build identity
 

@@ -2,8 +2,9 @@
 import type { Activity, Instrumentation_ActivityResult } from "lucent:android/android.app";
 import type { Context, Intent } from "lucent:android/android.content";
 import type { Throwable } from "lucent:android/java.lang";
+import type { HardwareBuffer } from "lucent:android/android.hardware";
 import type { ByteBuffer } from "lucent:android/java.nio";
-import type { NativeBuffer } from "lucent:core";
+import type { NativeBuffer, NativeHandle } from "lucent:core";
 
 /** The application Context. */
 export declare function appContext(): Context;
@@ -69,6 +70,36 @@ export declare function nativeError(error: Error): Throwable | null;
  * read-only: a heap or read-only buffer is a TypeError.
  */
 export declare function adoptByteBuffer(buffer: ByteBuffer): NativeBuffer;
+
+/**
+ * A handle native code reads: a direct ByteBuffer's bytes' address, the
+ * Java buffer kept reachable until the handle is released. A library that
+ * takes a pointer (a decoder, a GPU upload) gets `pointer`; JavaScript gets
+ * the same handle. Release it, from either side, once the library is done.
+ *
+ * @param buffer A direct ByteBuffer (`ByteBuffer.allocateDirect`): a heap
+ * buffer is a TypeError.
+ */
+export declare function handleOf(buffer: ByteBuffer): NativeHandle;
+/**
+ * A HardwareBuffer's `AHardwareBuffer*` (the NDK's), acquired until the
+ * handle is released. Native code that draws or uploads it takes the
+ * pointer, such as a camera frame going to Skia. Needs Android 8 (API 26),
+ * as HardwareBuffer does.
+ *
+ * ```ts
+ * import { available, handleOf } from "lucent:android";
+ * import type { NativeHandle } from "lucent:core";
+ * import type { HardwareBuffer } from "lucent:android/android.hardware";
+ *
+ * function forSkia(frame: HardwareBuffer): NativeHandle | null {
+ *   return available("android", 26) ? handleOf(frame) : null;
+ * }
+ * ```
+ *
+ * @param buffer The HardwareBuffer: it may be closed while the handle holds its buffer.
+ */
+export declare function handleOf(buffer: HardwareBuffer): NativeHandle;
 
 /**
  * Whether the device runs at least API level `api` (`Build.VERSION.SDK_INT >= api`).

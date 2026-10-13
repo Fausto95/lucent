@@ -7,6 +7,7 @@
 #include "android.h"
 
 #ifdef __ANDROID__
+#include <dlfcn.h>
 #include <fbjni/NativeRunnable.h>
 #include <fbjni/fbjni.h>
 #include <sys/system_properties.h>
@@ -336,6 +337,62 @@ NativeBuffer adoptByteBuffer(const NativeRef& buffer) {
   jobject held = e->NewGlobalRef(b);
   return NativeBufferObject::adopt(data, static_cast<size_t>(capacity),
                                    [held](uint8_t*, size_t) { env()->DeleteGlobalRef(held); });
+}
+
+NativeHandle byteBufferHandle(const NativeRef& buffer) {
+  JNIEnv* e = env();
+  jobject b = unwrap(buffer);
+  void* data = e->GetDirectBufferAddress(b);
+  if (!data)
+    failWith("TypeError", "handleOf needs a direct ByteBuffer (ByteBuffer.allocateDirect), not one over a Java array");
+
+  // Released on whichever thread lets it go: env() attaches it.
+  jobject held = e->NewGlobalRef(b);
+  return NativeHandleObject::make(data, [held] { env()->DeleteGlobalRef(held); }, String::fromLatin1("ByteBuffer"));
+}
+
+namespace {
+
+/// The NDK's AHardwareBuffer functions (API 26, in libnativewindow.so),
+/// found at run time, since an app runs from API 24; null without them.
+struct HardwareBuffers {
+  using FromJava = void* (*)(JNIEnv*, jobject);
+  using Hold = void (*)(void*);
+  FromJava fromJava = nullptr;
+  Hold acquire = nullptr;
+  Hold release = nullptr;
+};
+
+const HardwareBuffers& hardwareBuffers() {
+  static const HardwareBuffers found = [] {
+    HardwareBuffers h;
+#ifdef __ANDROID__
+    void* lib = dlopen("libnativewindow.so", RTLD_NOW);
+    if (lib) {
+      h.fromJava = reinterpret_cast<HardwareBuffers::FromJava>(dlsym(lib, "AHardwareBuffer_fromHardwareBuffer"));
+      h.acquire = reinterpret_cast<HardwareBuffers::Hold>(dlsym(lib, "AHardwareBuffer_acquire"));
+      h.release = reinterpret_cast<HardwareBuffers::Hold>(dlsym(lib, "AHardwareBuffer_release"));
+    }
+#endif
+    return h;
+  }();
+  return found;
+}
+
+}  // namespace
+
+NativeHandle hardwareBufferHandle(const NativeRef& buffer) {
+  const HardwareBuffers& h = hardwareBuffers();
+  if (!h.fromJava || !h.acquire || !h.release)
+    failWith("TypeError", "handleOf(HardwareBuffer) needs Android 8 (API 26), whose NDK gives an AHardwareBuffer");
+
+  void* native = h.fromJava(env(), unwrap(buffer));
+  if (!native) failWith("TypeError", "handleOf: the HardwareBuffer has no AHardwareBuffer (was it closed?)");
+
+  // Acquired for the handle: the Java object may be closed meanwhile.
+  h.acquire(native);
+  auto release = h.release;
+  return NativeHandleObject::make(native, [release, native] { release(native); }, String::fromLatin1("AHardwareBuffer"));
 }
 
 void close(const NativeRef& closeable) {
