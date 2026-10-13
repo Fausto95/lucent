@@ -1,0 +1,5 @@
+{
+  "android": {
+    "components": [{ "kind": "receiver", "class": "ping#Ping", "exported": false }]
+  }
+}

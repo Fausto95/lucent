@@ -975,8 +975,9 @@ on host, simulator and emulator.
 - **Status:** in progress: decided
   ([0097](decisions/0097-exported-classes-extending-android-classes-are-os-made.md)),
   and an exported class extending an Android class is one the OS makes,
-  on the desktop JVM host (#240). Fragments and the emulator fixtures are
-  left.
+  on the desktop JVM host (#240). The device runs' Platform screen sends a
+  broadcast to a Lucent `BroadcastReceiver` (`examples/lucent-broadcast`,
+  #243). Fragments and the emulator fixtures are left.
 - **Area:** Android host, compiler.
 - **Needs:** T130; T112 for `CoroutineWorker`.
 - **Verify:** V1, V4, V5.

@@ -38,7 +38,9 @@ Each screen runs when it opens and shows its verdict at the top (testID
   matches; tap a case for its lines.
 - **SDK**: the platform probes and the ports' parity cases.
 - **Platform events**: what only the platform gives module code: a launch
-  module's state, started before JavaScript (`lucent-launch`); frames
+  module's state, started before JavaScript (`lucent-launch`); a
+  background task's handler (`lucent-background-task`); a broadcast to a
+  receiver written in Lucent (`lucent-broadcast`, Android); frames
   through an executor into a channel, uncopied; a deep link the app opens
   to itself; a push token or why there is none (iOS); a back press
   JavaScript lets through, and a rotation (Android).

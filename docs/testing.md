@@ -321,7 +321,9 @@ booted simulator or a running emulator, and opens its Tests screen. That
 screen runs the one-module e2e cases through the C++ the platform's own
 toolchain built. Then it opens the Platform screen, which checks what
 only the platform gives module code. A launch module's state started at
-launch, before JavaScript (the `lucent-launch` example package). Frames
+launch, before JavaScript (the `lucent-launch` example package). A
+background task's handler runs, and on Android a broadcast reaches a
+receiver the OS makes from a Lucent class. Frames
 reach a channel through an executor without a copy, and the app opens a
 deep link to itself. On iOS
 a push registration answers, and on Android a back press and a rotation
