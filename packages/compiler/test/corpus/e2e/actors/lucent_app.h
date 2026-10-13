@@ -15,3 +15,9 @@ inline lucent::Actor& actor_1() {
 }
 
 }  // namespace lucent_app
+
+namespace lucent_app {
+
+void initModules();
+
+}  // namespace lucent_app

@@ -895,13 +895,16 @@ runtime.
 
 - **Status:** in progress: module state's lifetime is decided
   ([0090](decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md),
-  #228), and the runtime's native root keeps it (#231). Entry points,
-  launch modules and loading on Android are left.
+  #228), and the runtime's native root keeps it (#231). Entry points run
+  exports with no JavaScript runtime on the host (#233). Launch modules,
+  loading on Android, and runs on the simulator and the emulator are
+  left.
 - **Area:** runtime, compiler.
 - **Needs:** nothing for the decision and the root; [T110](#t110) for
   `launch` on iOS, which runs from the app-delegate subscriber.
 - **Verify:** V1, V2, V3, V4.
-- **Where:** `jsi/host.h`, `hooks.h`, `scheduler.h`, `emit/identity.ts`,
+- **Where:** `jsi/host.h`, `hooks.h`, `native_root.h`, `entries.h`,
+  `scheduler.h`, `emit/identity.ts`, `emit/entries.ts`,
   `emit/bindings.ts`, `runtime/native/android/CMakeLists.txt`.
 
 Today module state belongs to the process, but a module's top level runs
@@ -925,10 +928,12 @@ when a JavaScript runtime installs Lucent, and there is no native way in.
       apart, as `liblucent.so`, and launch's timing on each platform, are
       decided
       ([0092](decisions/0092-launch-runs-in-the-apps-launch-and-android-loads-lucent-by-itself.md)).
-- [ ] Native entry points: generated C functions that run a module
+- [x] Native entry points: generated C functions that run a module
       function on its actor, for the glue of T131 to T133, and for T114,
       to call. Their ABI is decided
       ([0091](decisions/0091-entry-points-are-c-functions-named-for-their-export.md)).
+      `lucent_entries.h` and `entries.h`, for numbers, booleans, `bigint`,
+      strings and `Uint8Array` (#233).
 - [ ] `lucent.json` `launch`: modules created at app launch, before the
       first frame, so they can register what the OS requires by then.
 - [ ] Without a runtime, a call that needs one (a JavaScript callback, a
@@ -936,7 +941,9 @@ when a JavaScript runtime installs Lucent, and there is no native way in.
       dropped.
 - [ ] Tests: a host test calls an entry point with no `Host`, then
       attaches one that reads the state; `actor_test.cpp` covers startup
-      with no runtime.
+      with no runtime. `host_test.cpp` starts state from a `NativeCall` a
+      runtime then shares (#231), and `native-entries.test.ts` calls
+      generated entries with no runtime linked (#233).
 
 **Done when:** an entry point runs module code with no JavaScript runtime,
 on host, simulator and emulator.

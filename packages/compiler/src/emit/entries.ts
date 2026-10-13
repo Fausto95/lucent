@@ -1,0 +1,204 @@
+/**
+ * Native entry points (decision 0091): a C function for each exported
+ * module function whose types cross without JavaScript,
+ * `lucent_<module>_<export>`, declared in lucent_entries.h and defined in
+ * lucent_entries.cpp, which also defines the modules' initializer
+ * (`lucent_app::initModules`) that the native root and a JavaScript Host
+ * both start module state with. Neither file reaches JSI.
+ */
+import { cpp } from "@lucent-lang/codegen";
+import { Codes } from "../codes.ts";
+import { CompileError } from "../diagnostics.ts";
+import { cppIdent, isVoidish, type LType } from "../types.ts";
+import { actorName } from "./actors.ts";
+import type { ModuleExports } from "./bindings.ts";
+import type { Ctx } from "./context.ts";
+
+export const ENTRIES_HEADER = "lucent_entries.h";
+export const ENTRIES_UNIT = "lucent_entries.cpp";
+
+/** How a type crosses an entry: its C type, and its C++ type in module code. */
+interface Crossing {
+  c: string;
+  cpp: string;
+}
+
+const CROSSING: Partial<Record<LType["k"], Crossing>> = {
+  number: { c: "double", cpp: "double" },
+  boolean: { c: "bool", cpp: "bool" },
+  string: { c: "lucent_string", cpp: "lucent::String" },
+  bigint: { c: "int64_t", cpp: "lucent::BigInt" },
+  bytes: { c: "lucent_bytes", cpp: "lucent::Bytes" },
+};
+
+/** A module function's entry: what the two files say of it. */
+export interface Entry {
+  name: string;
+  /** `module.export(parameters)`, for the header's comment. */
+  doc: string;
+  declaration: string;
+  definition: string;
+}
+
+/** The C name of a module's export: other characters than letters and digits made `_`. */
+export function entryName(module: string, name: string): string {
+  return `lucent_${module.replace(/[^A-Za-z0-9]/g, "_")}_${name.replace(/[^A-Za-z0-9]/g, "_")}`;
+}
+
+/**
+ * The entries of `mods`' exported functions whose parameters and result
+ * cross: required parameters only, and no generator. Two exports whose
+ * names come out the same are LUCENT3010.
+ */
+export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
+  const out: Entry[] = [];
+  const named = new Map<string, string>();
+
+  for (const m of mods) {
+    const actor = ctx.actors.of.get(m.module);
+    const actorExpr = actor === undefined ? "lucent::Actor::shared()" : `${actorName(actor)}()`;
+
+    for (const f of m.functions) {
+      if (f.generic || f.decl.asteriskToken) continue;
+      if (f.params.some((p) => p.optional || p.rest)) continue;
+
+      // Named by position: a parameter's own name could be a macro (NAN)
+      // or one of the entry's locals.
+      const params = f.params.map((p, i) => ({
+        name: `arg${i}`,
+        crossing: CROSSING[p.type.k],
+      }));
+      if (params.some((p) => !p.crossing)) continue;
+
+      const ret = f.async
+        ? f.type.ret.k === "promise"
+          ? f.type.ret.inner
+          : f.type.ret
+        : f.type.ret;
+      const nothing = isVoidish(ret);
+      const result = nothing ? undefined : CROSSING[ret.k];
+      if (!nothing && !result) continue;
+
+      const exportName = f.decl.name!.text;
+      const name = entryName(m.module.name, exportName);
+      const of = `${m.module.name}.${exportName}`;
+      const doc = `${of}(${f.params.map((p) => p.name).join(", ")})`;
+      const clash = named.get(name);
+      if (clash)
+        throw new CompileError(
+          f.decl.name,
+          Codes.ModuleNameClash,
+          `${of} and ${clash} have the same native entry point, ${name}: rename one`,
+        );
+      named.set(name, of);
+
+      const cParams = params.map((p) => `${p.crossing!.c} ${p.name}`);
+      const args = params.map((p) => `lucent::entries::in(${p.name})`).join(", ");
+      const fn = `lucent_app::${m.module.ns}::${cppIdent(exportName)}`;
+
+      if (!f.async) {
+        const signature = `bool ${name}(${[...cParams, "lucent_error* error", ...(result ? [`${result.c}* result`] : [])].join(", ")})`;
+        const body = result
+          ? [
+              `    auto value = ${fn}(${args});`,
+              `    if (result) *result = lucent::entries::out(kept, value);`,
+            ]
+          : [`    ${fn}(${args});`];
+        out.push({
+          name,
+          doc,
+          declaration: `${signature};`,
+          definition: [
+            `extern "C" ${signature} {`,
+            `  return lucent::entries::call(&lucent_app::initModules, ${actorExpr}, error, [&](lucent::entries::Kept& kept) {`,
+            ...(result ? [] : ["    (void)kept;"]),
+            ...body,
+            `  });`,
+            `}`,
+          ].join("\n"),
+        });
+        continue;
+      }
+
+      const done = result
+        ? `void (*done)(void* context, const ${result.c}* result, const lucent_error* error)`
+        : `void (*done)(void* context, const lucent_error* error)`;
+      const signature = `void ${name}(${[...cParams, done, "void* context"].join(", ")})`;
+      const settle = result
+        ? [
+            `      [done, context](lucent::entries::Kept& kept, const ${result.cpp}* value, const lucent_error* error) {`,
+            `        if (!value) return done(context, nullptr, error);`,
+            `        ${result.c} out{};`,
+            `        try {`,
+            `          out = lucent::entries::out(kept, *value);`,
+            `        } catch (...) {`,
+            `          lucent_error failed = lucent::entries::errorOf(kept, lucent::entries::caught(std::current_exception()));`,
+            `          return done(context, nullptr, &failed);`,
+            `        }`,
+            `        done(context, &out, nullptr);`,
+            `      });`,
+          ]
+        : [
+            `      [done, context](lucent::entries::Kept&, const lucent_error* error) { done(context, error); });`,
+          ];
+      out.push({
+        name,
+        doc,
+        declaration: `${signature};`,
+        definition: [
+          `extern "C" ${signature} {`,
+          `  lucent::entries::callAsync<${result ? result.cpp : "void"}>(`,
+          `      &lucent_app::initModules, ${actorExpr},`,
+          `      [&] { return ${fn}(${args}); },`,
+          ...settle,
+          `}`,
+        ].join("\n"),
+      });
+    }
+  }
+
+  return out;
+}
+
+/** lucent_entries.h: a C header Swift, Objective-C, C and C++ can include. */
+export function entriesHeader(entries: Entry[]): string {
+  return [
+    "// Generated by Lucent. Do not edit.",
+    "// Native entry points: each runs a module function with or without a",
+    "// JavaScript runtime (lucent/entries.h says how).",
+    "#pragma once",
+    "",
+    "#include <lucent/entries.h>",
+    "",
+    "#ifdef __cplusplus",
+    'extern "C" {',
+    "#endif",
+    "",
+    ...entries.flatMap((e) => [`/// ${e.doc}`, e.declaration, ""]),
+    "#ifdef __cplusplus",
+    "}",
+    "#endif",
+    "",
+  ].join("\n");
+}
+
+/**
+ * lucent_entries.cpp: the modules' initializer, each module's init()
+ * holding its actor in `initializations`' order, and the entries.
+ */
+export function entriesUnit(
+  includes: cpp.Decl[],
+  initializations: cpp.Stmt[],
+  entries: Entry[],
+): string {
+  const head = cpp.printUnit({
+    banner: "Generated by Lucent. Do not edit.",
+    decls: [
+      cpp.include(ENTRIES_HEADER),
+      ...includes,
+      cpp.include("lucent/entries.h", true),
+      cpp.namespace("lucent_app", [cpp.fn("initModules", cpp.voidType, [], initializations)]),
+    ],
+  });
+  return [head.trimEnd(), "", ...entries.flatMap((e) => [e.definition, ""])].join("\n");
+}

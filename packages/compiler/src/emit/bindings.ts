@@ -256,7 +256,7 @@ export class BindingsEmitter {
   }
 
   /** lucent_bindings.cpp's declarations, after the headers of the modules it installs. */
-  generate(mods: ModuleExports[], initOrder: LucentModule[]): cpp.Decl[] {
+  generate(mods: ModuleExports[]): cpp.Decl[] {
     for (const m of mods) {
       for (const f of m.functions) {
         if (f.generic) {
@@ -375,7 +375,13 @@ export class BindingsEmitter {
           [cpp.param(cpp.reference(cpp.type("size_t")), "count")],
           [cpp.exprStmt(cpp.assign(count, cpp.num(mods.length))), cpp.ret(cpp.id("kModules"))],
         ),
-        cpp.fn("resetModuleState", cpp.voidType, [], this.initializations(initOrder)),
+        // The modules' initializer is JSI-free (lucent_entries.cpp), shared with native entry points.
+        cpp.fn(
+          "resetModuleState",
+          cpp.voidType,
+          [],
+          [cpp.exprStmt(cpp.call("lucent_app::initModules"))],
+        ),
       ]),
     ];
   }
@@ -384,7 +390,7 @@ export class BindingsEmitter {
    * Each module's init() in `order`, holding its actor: a run of modules
    * of one actor in one block (an actor is never taken twice at once).
    */
-  private initializations(order: LucentModule[]): cpp.Stmt[] {
+  initializations(order: LucentModule[]): cpp.Stmt[] {
     const out: cpp.Stmt[] = [];
     let run: { actor: number | undefined; inits: cpp.Stmt[] } | undefined;
     const flush = () => {

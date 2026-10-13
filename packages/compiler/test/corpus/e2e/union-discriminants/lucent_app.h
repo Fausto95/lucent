@@ -10,3 +10,9 @@ inline lucent::Actor& actor_0() {
 }
 
 }  // namespace lucent_app
+
+namespace lucent_app {
+
+void initModules();
+
+}  // namespace lucent_app

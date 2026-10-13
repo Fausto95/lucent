@@ -10,6 +10,7 @@ import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
 import { actorDecls, actorsOf } from "./actors.ts";
 import { BindingsEmitter, type ModuleExports } from "./bindings.ts";
+import { ENTRIES_HEADER, ENTRIES_UNIT, entriesHeader, entriesOf, entriesUnit } from "./entries.ts";
 import {
   type ClassOutput,
   emitClass,
@@ -362,7 +363,7 @@ export function emitProgram(
   const bindings = new BindingsEmitter(ctx);
   const mods = lp.modules.map((m) => exportsOf.get(m)!);
   const initOrder = topoSort(lp.modules, imports);
-  const bindingsDecls = bindings.generate(mods, initOrder);
+  const bindingsDecls = bindings.generate(mods);
 
   const templateOf = (ps: string[]) => (ps.length ? { template: ps.map(cppIdent) } : {});
   const structDefs: TypeItem[] = [...ctx.reg.structs.values()].map((s) => ({
@@ -471,6 +472,8 @@ export function emitProgram(
           : []),
         // Each package's actor accessor: no types, so here beside the runtime's header.
         ...(ctx.actors.names.length ? shielded([app(actorDecls(ctx.actors))]) : []),
+        // The modules' initializer (lucent_entries.cpp): a Host's install and native entries start state with it.
+        app([cpp.fn("initModules", cpp.voidType, [])]),
         ...(nativeDecls.length
           ? shielded([app([...natives, ...nativeDecls.map((n) => n.decl)])])
           : []),
@@ -548,6 +551,19 @@ export function emitProgram(
         sequences: ctx.swiftSequences,
       }),
     );
+  // Native entry points, and the modules' initializer they share with the bindings: JSI-free.
+  const entries = ctx.guard(() => entriesOf(ctx, mods)) ?? [];
+  files.set(ENTRIES_HEADER, entriesHeader(entries));
+  files.set(
+    ENTRIES_UNIT,
+    entriesUnit(
+      lp.modules.length
+        ? lp.modules.map((m) => cpp.include(`${m.ns}.h`))
+        : [cpp.include(INDEX_HEADER)],
+      bindings.initializations(initOrder),
+      entries,
+    ),
+  );
   files.set(
     "lucent_bindings.cpp",
     cpp.printUnit({
