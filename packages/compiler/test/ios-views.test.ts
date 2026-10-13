@@ -35,7 +35,7 @@ export function Gauge(props: Props): UILabel {
       text.text = "reset";
       props.onReset();
     },
-    measure: (unit: "pt" | "px"): number => (unit === "pt" ? props.value * 2 : props.value),
+    sample: (unit: "pt" | "px"): number => (unit === "pt" ? props.value * 2 : props.value),
     points: async (): Promise<Point[]> => props.points ?? [],
     mode: (): "linear" | "radial" => props.mode,
     origin: (): Point => ({ x: 0, y: null }),
@@ -90,7 +90,7 @@ describe("components' iOS hosts", () => {
       expect(result.warnings ?? []).toEqual([]);
       expect(result.components?.[0]?.commands.map((c) => [c.name, c.result.kind])).toEqual([
         ["reset", "enqueue"],
-        ["measure", "request"],
+        ["sample", "request"],
         ["points", "request"],
         ["mode", "request"],
         ["origin", "request"],

@@ -119,4 +119,4 @@ Both platforms expose the same commands. A one-file component calls `expose()` i
 
 ## When a call fails
 
-A call to a view that isn't mounted throws an `InvalidStateError`, and a request whose view unmounts first rejects with an `AbortError`. [Commands and requests](/docs/api/views/components/#commands-and-requests) lists each error.
+A call to a view that isn't mounted throws an `InvalidStateError`, and a request whose view unmounts first rejects with an `AbortError`. A caller that stops waiting passes `{ signal }` after a request's arguments: aborting it rejects the request. [Commands and requests](/docs/api/views/components/#commands-and-requests) lists each error.

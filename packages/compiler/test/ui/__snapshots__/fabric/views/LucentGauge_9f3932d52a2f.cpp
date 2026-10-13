@@ -119,7 +119,7 @@ void EventEmitter::emit(Event2 event) const {
 }
 
 std::optional<double> requestId(const std::string& name, const folly::dynamic& args) {
-  if (((name == "measure") || (name == "flush")) && (args.isArray() && !args.empty() && args[0].isNumber())) {
+  if (((name == "sample") || (name == "flush")) && (args.isArray() && !args.empty() && args[0].isNumber())) {
     return args[0].asDouble();
   }
   return std::nullopt;
@@ -131,7 +131,7 @@ Command parseCommand(const std::string& name, const folly::dynamic& args) {
     Command0 command;
     return command;
   }
-  if (name == "measure") {
+  if (name == "sample") {
     Command1 command;
     lucent::views::argument(items, 0, "request", command.request_);
     lucent::views::argument(items, 1, "unit", command.unit);

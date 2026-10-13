@@ -35,7 +35,7 @@ const GAUGE: ComponentConfig = {
   ],
   commands: [
     { name: "reset", request: false, params: [] },
-    { name: "measure", request: true, params: [{ n: 0 }] },
+    { name: "sample", request: true, params: [{ n: 0 }] },
     { name: "flush", request: true, params: [] },
   ],
 };
@@ -174,6 +174,30 @@ describe("a component's props", () => {
     expect(element.props).toMatchObject({ p0: 1, p2: [], style });
   });
 
+  it("go to the native view beside React Native's view props, which pass as they are", () => {
+    const { mount } = setup();
+    const onLayout = () => {};
+    const { element } = mount({
+      ...required,
+      testID: "gauge",
+      accessibilityLabel: "Speed",
+      nativeID: "g",
+      onLayout,
+    });
+
+    expect(element.props).toMatchObject({
+      p0: 1,
+      testID: "gauge",
+      accessibilityLabel: "Speed",
+      nativeID: "g",
+      onLayout,
+    });
+    // The component's own go only under their keys.
+    expect(element.props).not.toHaveProperty("value");
+    expect(element.props).not.toHaveProperty("onReset");
+    expect(element.props).not.toHaveProperty("children");
+  });
+
   it("leave a missing prop out, and box a nullable one: null and a value stay apart", () => {
     const { mount } = setup();
 
@@ -266,6 +290,59 @@ describe("a component's commands", () => {
     return { ref, props: { ...required, ...props, ref } };
   };
 
+  it("measure the host view, as any host view's ref does", () => {
+    const { mount } = setup();
+    const { ref, props } = refOf({});
+    const { view } = mount(props);
+    const calls: string[] = [];
+    Object.assign(view, {
+      measure: (cb: (...a: number[]) => void) => (calls.push("measure"), cb(0, 0, 10, 20, 5, 6)),
+      measureInWindow: (cb: (...a: number[]) => void) => (calls.push("window"), cb(5, 6, 10, 20)),
+    });
+
+    const got: number[][] = [];
+    ref.current!.measure!((...a: number[]) => got.push(a));
+    ref.current!.measureInWindow!((...a: number[]) => got.push(a));
+
+    expect(calls).toEqual(["measure", "window"]);
+    expect(got).toEqual([
+      [0, 0, 10, 20, 5, 6],
+      [5, 6, 10, 20],
+    ]);
+  });
+
+  it("reject a request whose signal aborts (its reason, or an AbortError), and ignore its late answer", async () => {
+    const { mount, dispatched, connections } = setup();
+    const { ref, props } = refOf({});
+    const { view } = mount(props);
+
+    const controller = new AbortController();
+    const sampled = ref.current!.sample!(1, { signal: controller.signal });
+    const flushed = ref.current!.flush!({ signal: controller.signal });
+    expect(dispatched).toEqual([
+      { instance: view, command: "sample", args: [1, [1]] },
+      { instance: view, command: "flush", args: [2] },
+    ]);
+
+    controller.abort();
+    await expect(sampled).rejects.toMatchObject({ name: "AbortError" });
+    await expect(flushed).rejects.toMatchObject({ name: "AbortError" });
+    connections[0]!(1, null, 42);
+
+    // Already aborted: the command isn't sent.
+    const why = new Error("not now");
+    const before = dispatched.length;
+    await expect(ref.current!.flush!({ signal: AbortSignal.abort(why) })).rejects.toBe(why);
+    expect(dispatched).toHaveLength(before);
+
+    // Answered first: the signal no longer matters.
+    const late = new AbortController();
+    const answered = ref.current!.flush!({ signal: late.signal });
+    connections[0]!(3, null, "done");
+    late.abort();
+    await expect(answered).resolves.toBe("done");
+  });
+
   it("send a void command to the mounted view, arguments encoded and extra ones dropped", () => {
     const { mount, dispatched } = setup();
     const { ref, props } = refOf({});
@@ -281,11 +358,11 @@ describe("a component's commands", () => {
     const { ref, props } = refOf({});
     const { view } = mount(props);
 
-    const measured = ref.current!.measure!(null);
+    const measured = ref.current!.sample!(null);
     const flushed = ref.current!.flush!();
 
     expect(dispatched).toEqual([
-      { instance: view, command: "measure", args: [1, [null]] },
+      { instance: view, command: "sample", args: [1, [null]] },
       { instance: view, command: "flush", args: [2] },
     ]);
     expect(connections).toHaveLength(1);
@@ -303,9 +380,9 @@ describe("a component's commands", () => {
     const { ref, props } = refOf({});
     const { view } = mount(props);
 
-    const measured = ref.current!.measure!(null);
+    const measured = ref.current!.sample!(null);
 
-    expect(dispatched).toEqual([{ instance: view, command: "measure", args: [base + 1, [null]] }]);
+    expect(dispatched).toEqual([{ instance: view, command: "sample", args: [base + 1, [null]] }]);
 
     connections[0]!(base + 1, null, 7);
 
@@ -318,7 +395,7 @@ describe("a component's commands", () => {
     const { unmount } = mount(props);
     const handle = ref.current!;
 
-    const measured = handle.measure!("pt");
+    const measured = handle.sample!("pt");
     unmount();
     views.settleRequest(1, null, 42);
 
@@ -362,7 +439,7 @@ describe("a component's commands", () => {
     const { ref, props } = refOf({});
     mount(props);
 
-    const measured = ref.current!.measure!("pt");
+    const measured = ref.current!.sample!("pt");
     connections[0]!(1, 'measure: unit: "cm" is none of the declared strings');
 
     await expect(measured).rejects.toMatchObject({

@@ -43,7 +43,7 @@ what became of each one that is still linked or was still open.
 | [T115](#t115)            | Native configuration packages can't declare yet            | ready                                                         |
 | **View parity**          |                                                            |                                                               |
 | [T120](#t120)            | Instances of exported classes as view props                | ready (decision 0075)                                         |
-| [T121](#t121)            | React Native's view props, refs and view libraries         | ready                                                         |
+| [T121](#t121)            | React Native's view props, refs and view libraries         | in progress (#244)                                            |
 | [T122](#t122)            | UIKit components with a view-controller root               | ready                                                         |
 | [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | waiting; needs T120                                           |
 | [T124](#t124)            | A component's ref as a module function's argument          | ready                                                         |
@@ -763,7 +763,9 @@ instance prop.
 **Goal:** A Lucent component takes the view props every React Native view
 takes, as Expo views do, and works inside the view libraries apps use.
 
-- **Status:** ready.
+- **Status:** in progress: view props pass through, the ref measures the
+  host, and requests take a signal (#244). The view libraries' cases and
+  the device tests are left.
 - **Area:** views.
 - **Needs:** nothing.
 - **Verify:** V1, V5.
@@ -775,13 +777,15 @@ Today the proxy passes `style` and the component's own props only, so
 dropped. A pending command's request settles only on an answer or an
 unmount.
 
-- [ ] The proxy passes React Native's view props through to the host view,
+- [x] The proxy passes React Native's view props through to the host view,
       and the component's type accepts them (`ViewProps`, minus `children`
-      unless the component declares it).
-- [ ] The ref has the host's `measure` and `measureInWindow` beside the
-      component's commands; a command with either name is a diagnostic.
-- [ ] A caller can cancel a pending command's request with an
-      `AbortSignal`.
+      unless the component declares it). The component's own props and
+      events take the place of the view props of their names (#244).
+- [x] The ref has the host's `measure` and `measureInWindow` beside the
+      component's commands; a command with either name is a diagnostic
+      (LUCENT3021, #244).
+- [x] A caller can cancel a pending command's request with an
+      `AbortSignal`, passed as `{ signal }` after its arguments (#244).
 - [ ] A component inside Reanimated's animated views, Gesture Handler's
       detectors and react-native-screens' screens mounts, animates and
       receives touches.

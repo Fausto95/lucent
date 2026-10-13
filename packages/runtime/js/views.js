@@ -51,9 +51,28 @@ function viewConfig(config) {
 const given = (props, name) =>
   Object.prototype.hasOwnProperty.call(props, name) ? props[name] : undefined;
 
+/** The names of a component's own props: its props', its events', and its children. */
+const ownNames = new WeakMap();
+function ownOf(config) {
+  let names = ownNames.get(config);
+  if (!names) {
+    names = new Set([
+      "children",
+      ...config.props.map((p) => p.name),
+      ...config.events.map((e) => e.name),
+    ]);
+    ownNames.set(config, names);
+  }
+  return names;
+}
+
 /** The native view's props for React's `props` (but its ref). */
 function hostProps(config, props) {
-  const out = { style: props.style };
+  // React Native's view props (style, testID, accessibilityLabel, onLayout…), which every host
+  // view takes, as they are: the component's own go under their keys.
+  const out = {};
+  const own = ownOf(config);
+  for (const name of Object.keys(props)) if (!own.has(name)) out[name] = props[name];
 
   for (const prop of config.props) {
     const value = given(props, prop.name);
@@ -75,8 +94,9 @@ function hostProps(config, props) {
 //
 // A request's promise settles once: with the command's result, with its
 // error (an Error of the native side's message), or with an AbortError
-// when its view unmounts first (the native side's work is not stopped:
-// its answer is dropped). A command sent while the view is not mounted
+// when its view unmounts first, or when the caller aborts the signal it
+// passed after the command's arguments (`{ signal }`): the native side's
+// work is not stopped, and its answer is dropped. A command sent while the view is not mounted
 // fails with an InvalidStateError: thrown by a void command, the
 // rejection of a request.
 
@@ -106,6 +126,7 @@ function settleRequest(id, error, value) {
 
   pending.delete(id);
   request.mount.delete(id);
+  request.unfollow();
 
   if (error === null || error === undefined) request.resolve(value);
   else request.reject(new Error(`Lucent: ${error}`));
@@ -131,9 +152,23 @@ function connect(ReactNative) {
   connected = true;
 }
 
-/** The ref's methods: each sends its command to the mounted native view. */
+/** The AbortError of a request its caller aborted: the signal's reason, if it gives one. */
+function aborted(signal, where) {
+  return signal.reason !== undefined
+    ? signal.reason
+    : named("AbortError", `Lucent: ${where}: aborted.`);
+}
+
+/**
+ * The ref's methods: each sends its command to the mounted native view;
+ * and the host view's measure and measureInWindow, as any host view's ref
+ * has them.
+ */
 function commandsOf(config, host, mount, native, ReactNative) {
-  const out = {};
+  const out = {
+    measure: (callback) => host.current && host.current.measure(callback),
+    measureInWindow: (callback) => host.current && host.current.measureInWindow(callback),
+  };
 
   for (const command of config.commands) {
     const where = `${config.displayName}.${command.name}()`;
@@ -148,13 +183,27 @@ function commandsOf(config, host, mount, native, ReactNative) {
           new Promise((resolve, reject) => {
             if (!host.current) throw unmounted();
 
+            // What the caller passed after the command's arguments: its signal.
+            const options = args[command.params.length];
+            const signal =
+              options !== null && typeof options === "object" ? options.signal : undefined;
+            if (signal && signal.aborted) throw aborted(signal, where);
+
             connect(ReactNative);
 
             // The answer comes in a later turn of the JavaScript thread, after the id is pending.
             const id = requestBase + ++lastRequest;
             native[command.name](host.current, id, ...encoded(args));
 
-            pending.set(id, { resolve, reject, mount });
+            const abort = () => {
+              if (!pending.delete(id)) return;
+              mount.delete(id);
+              reject(aborted(signal, where));
+            };
+            if (signal) signal.addEventListener("abort", abort, { once: true });
+            const unfollow = () => signal && signal.removeEventListener("abort", abort);
+
+            pending.set(id, { resolve, reject, mount, unfollow });
             mount.add(id);
           })
       : (...args) => {
@@ -172,10 +221,11 @@ function abandon(config, mount) {
   for (const id of mount) {
     const request = pending.get(id);
     pending.delete(id);
-    if (request)
-      request.reject(
-        named("AbortError", `Lucent: ${config.displayName} unmounted before answering.`),
-      );
+    if (!request) continue;
+    request.unfollow();
+    request.reject(
+      named("AbortError", `Lucent: ${config.displayName} unmounted before answering.`),
+    );
   }
   mount.clear();
 }

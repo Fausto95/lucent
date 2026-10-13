@@ -37,7 +37,7 @@ export function Gauge(props: {
       text.setText(`${props.label ?? "gauge"}: reset`);
       props.onReset?.();
     },
-    measure: (unit: "pt" | "px"): number => (unit === "pt" ? props.value * 2 : props.value),
+    sample: (unit: "pt" | "px"): number => (unit === "pt" ? props.value * 2 : props.value),
     // What the screen shows, as the mount applied the latest commit.
     shown: (): string => text.getText()?.toString() ?? "",
     // The React Native view hosting this mount, named the first time it is

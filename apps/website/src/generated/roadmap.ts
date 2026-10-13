@@ -252,7 +252,7 @@ export const limitations: { title: string; items: string[] }[] = [
     "items": [
       "Views are in preview: their API may change before the view gate closes.",
       "A component's props are data. An instance of an exported class can't be a prop yet ([T120](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t120)).",
-      "A component takes `style` and its own props only. React Native's other view props, such as `testID`, `accessibilityLabel` and `onLayout`, are dropped ([T121](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t121)).",
+      "A component inside Reanimated's animated views, Gesture Handler's detectors or react-native-screens' screens is untested ([T121](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t121)).",
       "A component's root is a view. A `UIViewController` root, such as `AVPlayerViewController`, isn't supported yet ([T122](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t122)).",
       "Android pools component views only when the app turns on React Native's `enableViewRecycling`. iOS always recycles them.",
       "Intrinsic sizes and slot insets wait for the JavaScript thread to apply them, which takes one layout when it is idle. A component shows its previous size, zero at mount, until then.",

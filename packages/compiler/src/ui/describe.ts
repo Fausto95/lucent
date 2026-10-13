@@ -150,6 +150,9 @@ export function describeProps(
 }
 
 /** The commands of component `name` from the object it exposes, of type `exposed`. */
+/** The ref methods every component's ref has, from its host view (views.js), which a command can't be. */
+export const HOST_REF_METHODS = new Set(["measure", "measureInWindow"]);
+
 export function describeCommands(
   checker: ts.TypeChecker,
   types: ViewTypes,
@@ -167,6 +170,14 @@ export function describeCommands(
     if (!signature) {
       report(
         `\`${name}\`'s command \`${command}\` is not a function: every exposed member is a command`,
+      );
+      continue;
+    }
+
+    // The ref has the host view's own, as every host view's does.
+    if (HOST_REF_METHODS.has(command)) {
+      report(
+        `\`${name}\`'s command \`${command}\` takes the name of the host view's own ref method: rename it`,
       );
       continue;
     }

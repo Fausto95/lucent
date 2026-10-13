@@ -28,7 +28,7 @@ exports.Gauge = lucentComponent({
   ],
   commands: [
     { name: "reset", request: false, params: [] },
-    { name: "measure", request: true, params: [0] },
+    { name: "sample", request: true, params: [0] },
     { name: "flush", request: true, params: [] },
   ],
 }, require("react"), require("react-native"));
