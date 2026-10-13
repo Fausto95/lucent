@@ -297,7 +297,6 @@ export const limitations: { title: string; items: string[] }[] = [
       "The JavaScript reference of `compute` differs from native in three cases. An object's copy loses its `#private` fields, and native throws `DataCloneError` for a subclass instance behind a base type. An abort after the task ran but before the promise settled rejects natively and resolves in JavaScript.",
       "Module state is process-wide: two runtimes alive at once share it. A new `Host` resets it only while no other runtime is live.",
       "Module code runs only once a JavaScript runtime has installed Lucent. Background tasks, services and extensions can't run it yet ([T130](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t130)).",
-      "Each `on()` makes a new platform object. A listener that is removed by the object it was added as can't be removed if it went on an executor ([T109](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t109)).",
       "An object goes on an executor only if its class does nothing else. It is made only in `on()`, isn't exported, extends no class and keeps `this` to itself. So a subclass of an SDK class can't go on one ([T109](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t109)).",
       "Worklet runtimes can't call Lucent modules ([T134](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t134)).",
       "A delegate that must answer on the main thread waits for the job that holds its module's actor. Calls that nest two packages' actors in a cycle throw `Lucent: deadlock` rather than hang.",

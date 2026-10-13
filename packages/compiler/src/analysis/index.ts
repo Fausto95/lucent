@@ -44,7 +44,7 @@ import { executorClasses } from "./executors.ts";
 export type { Cause, Step, Summary } from "./facts.ts";
 export { describe, stepsOf } from "./facts.ts";
 export { shareableType } from "./ownership.ts";
-export { classMade, inExecutorCode, isOnCall } from "./executors.ts";
+export { classMade, inExecutorCode, isOnCall, keptOn } from "./executors.ts";
 export type { NativeCallback, NativeClass, NativeFactsSource, NativeUse } from "./native.ts";
 export type { Capture, Context, Rule, TransferProblem, Violation } from "./ownership.ts";
 export type { MainState } from "./main-state.ts";

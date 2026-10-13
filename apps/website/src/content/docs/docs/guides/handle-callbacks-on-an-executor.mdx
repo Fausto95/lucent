@@ -10,15 +10,15 @@ kind: guide
 ```ts title="moves.lucent.ts"
 import { EventEmitter } from "lucent:core";
 import { PLATFORM } from "lucent:platform";
-import { LocationManager } from "lucent:android/android.location";
+import { type Location, LocationManager } from "lucent:android/android.location";
 import { appContext, available } from "lucent:android";
 import { executor, on } from "lucent:thread";
 
 /** Each position, as the platform reports it. */
 export const moves = new EventEmitter<{ fix: (latitude: number, longitude: number) => void }>();
 
-/** Reports positions to `moves` from an executor, so they never wait behind module code. */
-export function watch(): void {
+/** Reports positions to `moves` from an executor, until the function it returns stops it. */
+export function watch(): () => void {
   if (PLATFORM === "ios") throw new Error("Android only, in this guide");
   if (!available("android", 30)) throw new Error("Needs Android 11");
   const manager = appContext().getSystemService(LocationManager);
@@ -26,15 +26,12 @@ export function watch(): void {
 
   const fixes = executor("location.fixes");
   const ev = moves;
-  manager.requestLocationUpdates(
-    LocationManager.GPS_PROVIDER,
-    1000,
-    0,
-    fixes,
-    on(fixes, (fix) => {
-      if (fix) ev.emit("fix", fix.getLatitude(), fix.getLongitude());
-    }),
-  );
+  // Kept in a const, it's one listener: removeUpdates removes the one added.
+  const listener = on(fixes, (fix: Location | null) => {
+    if (fix) ev.emit("fix", fix.getLatitude(), fix.getLongitude());
+  });
+  manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, fixes, listener);
+  return () => manager.removeUpdates(listener);
 }
 ```
 
@@ -53,8 +50,11 @@ export function Position() {
     const subscription = moves.addListener("fix", (latitude, longitude) =>
       setAt(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`),
     );
-    watch();
-    return () => subscription.remove();
+    const stop = watch();
+    return () => {
+      stop();
+      subscription.remove();
+    };
   }, []);
 
   return <Text>{at}</Text>;
@@ -71,6 +71,8 @@ Every other platform callback waits for its package's lock, so it queues behind 
 `executor(label)` makes a serial thread of its own. An SDK parameter that takes an `Executor` on Android, or a queue on iOS, takes it as it is. `on(executor, f)` goes straight in the SDK call that takes `f`, so the SDK calls `f` on the executor, and `f` runs there at once.
 
 A delegate or a listener object goes on an executor the same way, where you make it: `parser.delegate = on(frames, new Collector(out))`.
+
+To remove a listener later, keep it in a `const`, as `listener` above, and pass it only to SDK calls. It's the same platform object each time, so `removeUpdates(listener)` removes the one `requestLocationUpdates` added.
 
 ## Share only what both sides can use
 

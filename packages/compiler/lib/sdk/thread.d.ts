@@ -68,6 +68,10 @@ export declare function executor(label: string): Executor;
  * `f` is a function literal, or an object made there, as in
  * `parser.delegate = on(frames, new Collector(out))`.
  *
+ * To hand it over more than once, keep it in a `const`, and only pass it
+ * to SDK calls and properties. It's one platform object each time, so
+ * `manager.removeUpdates(listener)` removes what was added.
+ *
  * When the platform calls `f` on the executor, `f` runs there at once.
  * Called from another thread, an `f` that returns nothing runs in a turn
  * of the executor. One that returns a value is reported as an error.

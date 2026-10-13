@@ -59,6 +59,12 @@ class Fn<R(A...)> {
   }
   explicit operator bool() const { return f_ != nullptr; }
   const void* identity() const { return f_.get(); }
+  /// What it calls, when that is a `C` (as std::function::target), else null.
+  template <class C>
+  const C* target() const {
+    auto* c = dynamic_cast<const detail::Callable<C, R, A...>*>(f_.get());
+    return c ? &c->f : nullptr;
+  }
   /// What its captures refer to (refs.h).
   void lucentRefs_(debug::RefSink& s, const char* name, const char* where) const {
     if (f_) f_->lucentRefs_(s, name, where);

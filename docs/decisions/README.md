@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                             | Date       | Decision                                                                    |
 | ---------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| [0085](0085-a-const-keeps-one-platform-object-of-an-executor-callback.md)          | 2026-10-13 | A const keeps one platform object of an executor's callback                 |
 | [0084](0084-a-class-states-its-native-size-by-implementing-nativesized.md)         | 2026-10-13 | A class states its native size by implementing NativeSized                  |
 | [0083](0083-code-on-an-executor-emits-through-emitters-it-holds.md)                | 2026-10-13 | Code on an executor emits through emitters it holds                         |
 | [0082](0082-objects-go-on-an-executor-where-they-are-made.md)                      | 2026-10-13 | Objects go on an executor where they are made and keep `this` in            |

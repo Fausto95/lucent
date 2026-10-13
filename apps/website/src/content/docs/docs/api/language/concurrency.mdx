@@ -128,7 +128,7 @@ export async function latitude(): Promise<number> {
 - To tell JavaScript, it emits on an `EventEmitter` it holds: capture the module's as a `const` (`const ev = events`), then call `ev.emit(…)` in `f`. The emit copies its arguments and runs in the package that made the `EventEmitter`, which calls the listeners.
 - The callbacks it hands the platform go on an executor with `on()` too. One handed over without `on()` runs in its package, beside the executor, so it may capture only the same values.
 - A delegate or a listener goes on an executor where it's made, as in `parser.delegate = on(frames, new Collector(out))`. Its class is then made only in `on()`, isn't exported and extends no class. It uses `this` only for its own members, so nothing but the platform reaches it. Its constructor takes only the values `f` may capture, and its methods follow `f`'s rules ([LUCENT3032](/docs/api/diagnostics/#lucent3032)).
-- Each `on()` makes a new platform object. So a listener removed by the object it was added as can't be removed yet.
+- To hand a function or an object over more than once, keep it in a `const` in the function that makes it: `const listener = on(fixes, (fix) => …)`. Each use must pass it to an SDK call or property ([LUCENT1007](/docs/api/diagnostics/#lucent1007)). It's one platform object each time, so `removeUpdates(listener)` removes what was added.
 
 ## Channels
 
@@ -190,7 +190,7 @@ No context waits for another to finish its work: what one hands another is poste
 
 | Code | When |
 | --- | --- |
-| [LUCENT1007](/docs/api/diagnostics/#lucent1007) | An `async` function passed to `main`, or `on(executor, f)` anywhere but an SDK call's argument. |
+| [LUCENT1007](/docs/api/diagnostics/#lucent1007) | An `async` function passed to `main`, or `on(executor, f)` anywhere but an SDK call's argument or a `const` passed only to them. |
 | [LUCENT3006](/docs/api/diagnostics/#lucent3006) | A main-thread-only SDK API in code the main thread doesn't run. |
 | [LUCENT3009](/docs/api/diagnostics/#lucent3009) | An Android `@WorkerThread` API in code the main thread runs (a warning). |
 | [LUCENT3011](/docs/api/diagnostics/#lucent3011) | A compute task that uses module state, main-thread or unknown native code, or `await`. |

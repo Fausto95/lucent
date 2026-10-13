@@ -61,7 +61,7 @@ import { kotlinShim, type KotlinUse, suspending, type Suspending } from "./kotli
 import { callbackEntry, setupOf } from "./setups.ts";
 import { factsOf } from "./compute.ts";
 import { executorClass, refuseObjectFromExecutor, requireExecutorObject } from "./executors.ts";
-import { isOnCall } from "../analysis/index.ts";
+import { isOnCall, keptOn } from "../analysis/index.ts";
 import {
   isPayloadEnum,
   sdkTypeOf,
@@ -140,10 +140,11 @@ function handedOn(
 }
 
 /**
- * Whether `call` (an `on()`) is handed straight to the platform: an SDK
- * call's argument, or the value assigned to an SDK property.
+ * Whether `call` (an `on()`, or a const it is kept in) is handed straight
+ * to the platform: an SDK call's argument, or the value assigned to an SDK
+ * property.
  */
-function handsToPlatform(em: FnEmitter, call: ts.CallExpression): boolean {
+function handsToPlatform(em: FnEmitter, call: ts.Expression): boolean {
   const p = call.parent;
   const sdk = (d: ts.Declaration | undefined) => !!d && !!sdkModuleOf(d.getSourceFile());
 
@@ -161,6 +162,46 @@ function handsToPlatform(em: FnEmitter, call: ts.CallExpression): boolean {
 
 /** The executor an argument jniArgument found in `on(executor, f)`, for jniOf. */
 const handedExecutors = new WeakMap<ts.Node, cpp.Expr>();
+
+/**
+ * A function on an executor kept in a const (`const listener = on(executor,
+ * f)`) where `arg` hands it to the platform: what `lucent::handedOf` gives
+ * of it, its function (`.f`) and executor (`.executor`), and its literal's
+ * type. Undefined for any other argument.
+ */
+function handedKept(em: FnEmitter, arg: ts.Expression): { held: cpp.Expr; t: LType } | undefined {
+  const kept = keptOn(em.checker, arg);
+  // An object kept so is itself, one platform object as any object is.
+  if (!kept || !ts.isIdentifier(arg) || ts.isNewExpression(kept.f)) return undefined;
+  em.ctx.nativeUnit(em.opts.module).include("lucent/handed.h");
+  return { held: cpp.call("lucent::handedOf", [em.expr(arg).c]), t: em.lt(kept.f) };
+}
+
+/**
+ * Refuses a use of a function or object on an executor kept in a const
+ * that does not hand it to the platform: called, or given to Lucent code,
+ * it would run beside the executor, in its module.
+ */
+function requireHandedUses(
+  em: FnEmitter,
+  decl: ts.VariableDeclaration & { name: ts.Identifier },
+): void {
+  const symbol = em.checker.getSymbolAtLocation(decl.name);
+  const scope = decl.parent.parent.parent;
+  const init = decl.initializer;
+  const made = init && ts.isCallExpression(init) ? init.arguments[1] : undefined;
+  const visit = (n: ts.Node): void => {
+    if (ts.isIdentifier(n) && n !== decl.name && em.checker.getSymbolAtLocation(n) === symbol)
+      if (!handsToPlatform(em, n))
+        fail(
+          n,
+          Codes.UnsupportedCall,
+          `\`${decl.name.text}\` is ${made && ts.isNewExpression(made) ? "an object" : "a function"} on an executor: it is only handed to the platform, as an SDK call's argument or an SDK property's value, where it is one object each time`,
+        );
+    ts.forEachChild(n, visit);
+  };
+  visit(scope);
+}
 
 /**
  * Refuses a function handed to an executor that can't run there: it runs
@@ -870,6 +911,21 @@ export function toObjc(
       : cpp.call("lucent::objc::toNSError", [v]);
   }
   if (t.k === "fn") {
+    // A function on an executor kept in a const: one block for each block type, made once.
+    const kept = handedKept(em, arg);
+    if (kept) {
+      const h = cpp.id("h_");
+      const type = objcType({ ...t, nullable: false });
+      const block = objcBlock(em, arg, cpp.dot(h, "f"), kept.t, t, use, cpp.dot(h, "executor"));
+      const made = cpp.call(cpp.dot(h, "madeAs"), [
+        cpp.str(cpp.printType(type)),
+        cpp.lambda(["&"], [], [cpp.ret(cpp.call("lucent::objc::wrap", [block, cpp.str("on")]))]),
+      ]);
+      return cpp.statementExpr(
+        [cpp.varDecl(cpp.reference(cpp.constType(cpp.auto)), "h_", kept.held)],
+        cpp.cast("c", type, cpp.call("lucent::objc::unwrap", [made])),
+      );
+    }
     // A function on an executor: on(executor, f).
     const handed = handedOn(em, arg);
     if (handed) {
@@ -1287,6 +1343,12 @@ function jniArgument(em: FnEmitter, ref: SdkClassRef, arg: ts.Expression, t: Sdk
       return { c: cpp.id("lucent::undefined"), t: T.undefined };
     case "ref": {
       const lt: LType = { k: "native", platform: ref.platform, module: t.module, name: t.name };
+      // Kept in a const: its function and executor, one proxy while Java holds it (proxyFor).
+      const kept = handedKept(em, arg);
+      if (kept) {
+        handedExecutors.set(arg, cpp.dot(kept.held, "executor"));
+        return { c: cpp.dot(kept.held, "f"), t: kept.t };
+      }
       const handed = handedOn(em, arg);
       if (handed) {
         handedExecutors.set(arg, em.exprAs(handed.executor, T.executor));
@@ -1301,6 +1363,11 @@ function jniArgument(em: FnEmitter, ref: SdkClassRef, arg: ts.Expression, t: Sdk
     case "tparam":
     case "fn": {
       // A function as it is (a Kotlin function made of it), or null; on an executor: on(executor, f).
+      const kept = t.k === "fn" ? handedKept(em, arg) : undefined;
+      if (kept) {
+        handedExecutors.set(arg, cpp.dot(kept.held, "executor"));
+        return { c: cpp.dot(kept.held, "f"), t: kept.t };
+      }
       const handed = t.k === "fn" ? handedOn(em, arg) : undefined;
       if (!handed) return em.expr(arg);
       handedExecutors.set(arg, em.exprAs(handed.executor, T.executor));
@@ -3805,11 +3872,14 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
       // An object on an executor, made there: on(executor, new Frames(…)).
       const [x, made] = args;
       if (x && made && args.length === 2 && ts.isNewExpression(made)) {
-        if (!handsToPlatform(em, node))
+        // Kept in a const, to be handed over more than once: the same object wherever it goes.
+        const kept = node.parent && keptOn(em.checker, node.parent);
+        if (kept && kept.decl.initializer === node) requireHandedUses(em, kept.decl);
+        else if (!handsToPlatform(em, node))
           fail(
             node,
             Codes.UnsupportedCall,
-            "on() hands an object to the platform: pass it straight to the SDK call or property that takes it, as in output.setSampleBufferDelegate(on(frames, new Frames(…)), frames)",
+            "on() hands an object to the platform: pass it straight to the SDK call or property that takes it, as in output.setSampleBufferDelegate(on(frames, new Frames(…)), frames), or keep it in a const to hand it over more than once",
           );
         requireExecutorObject(em, made);
         unit.include("lucent/native.h");
@@ -3824,10 +3894,26 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
           t: o.t,
         };
       }
+      // Kept in a const, to be handed over more than once: one platform object wherever it goes.
+      const kept = node.parent && keptOn(em.checker, node.parent);
+      if (kept && kept.decl.initializer === node) {
+        requireExecutorCode(em, kept.f);
+        requireHandedUses(em, kept.decl);
+        unit.include("lucent/handed.h");
+        const executor = cpp.varDecl(cpp.auto, "onx_", em.exprAs(kept.executor, T.executor));
+        const f = em.expr(kept.f);
+        return {
+          c: cpp.statementExpr(
+            [executor],
+            cpp.call("lucent::handedFunction", [cpp.call("std::move", [cpp.id("onx_")]), f.c]),
+          ),
+          t: f.t,
+        };
+      }
       fail(
         node,
         Codes.UnsupportedCall,
-        "on() hands a function to the platform: pass it straight to the SDK call that takes it, as in setAnalyzer(frames, on(frames, (image) => …))",
+        "on() hands a function to the platform: pass it straight to the SDK call that takes it, as in setAnalyzer(frames, on(frames, (image) => …)), or keep it in a const to hand it over more than once",
       );
     }
     // falls through: fail throws

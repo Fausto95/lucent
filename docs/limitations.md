@@ -126,9 +126,6 @@ generated from this file.
 - Module code runs only once a JavaScript runtime has installed Lucent.
   Background tasks, services and extensions can't run it yet
   ([T130](tasks.md#t130)).
-- Each `on()` makes a new platform object. A listener that is removed by
-  the object it was added as can't be removed if it went on an executor
-  ([T109](tasks.md#t109)).
 - An object goes on an executor only if its class does nothing else. It
   is made only in `on()`, isn't exported, extends no class and keeps
   `this` to itself. So a subclass of an SDK class can't go on one
