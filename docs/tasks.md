@@ -35,7 +35,7 @@ what became of each one that is still linked or was still open.
 | [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                               |
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | in progress (#163, #165, #167, #168 as T72; #216 merged)        |
 | [T109](#t109)            | Executors for platform callbacks                           | in progress (#181, #182, #187, #197 as T74; #206–#210 merged)   |
-| [T110](#t110)            | App-delegate and Activity events                           | in progress (#217, #218, #219 merged)                           |
+| [T110](#t110)            | App-delegate and Activity events                           | in progress (#217 to #220 merged)                               |
 | [T111](#t111)            | The app's own native needs and options                     | ready                                                           |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | ready                                                           |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | ready                                                           |
@@ -496,8 +496,9 @@ describes.
 
 - **Status:** in progress: iOS's events reach `onAppEvent` typed, through
   `LucentAppDelegate` (#217), which `lucent init` has a bare app's
-  delegates call, and `lucent doctor` checks (#218), and an Expo app's
-  `AppDelegate` calls through Lucent's subscriber (#219).
+  delegates call, `lucent doctor` checks and `lucent build` names when
+  missing (#218, #220), and an Expo app's `AppDelegate` calls through
+  Lucent's subscriber (#219).
 - **Area:** iOS and Android hosts, runtime, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V3, V4, V5, V6.
@@ -532,7 +533,8 @@ describes.
       `lucent doctor` checks them, and `lucent build` names a missing one.
       `lucent init` and `doctor` do (#218), and the native package is a
       module Swift imports (`import LucentNative`). On iOS, Expo's
-      subscribers include Lucent's, registered at load (#219).
+      subscribers include Lucent's, registered at load (#219), and
+      `lucent build` names a missing call (#220).
 - [ ] `lucent.json` `android.mainActivity` attributes
       (`supportsPictureInPicture`, `configChanges`, `launchMode`), merged
       by the manifest rules; the Expo plugin writes them.

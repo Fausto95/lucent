@@ -28,6 +28,7 @@ import {
   writeNativePackage,
 } from "@lucent-lang/compiler";
 import { type SdkUsage, sdkModuleArtifacts } from "@lucent-lang/bindgen";
+import { isExpoApp, missingDelegateForwards } from "./init/app-delegate.ts";
 import {
   backgroundPrefetch,
   mapLucentPaths,
@@ -714,6 +715,8 @@ export async function buildProject(
     detail: path.relative(root, outDir) || ".",
   });
   for (const n of missingAppEntries(root, native.manifest)) notify(n);
+  for (const n of missingDelegateForwards(root, result.appDelegateEvents ?? [], isExpoApp(root)))
+    notify(n);
   const nativeChanged =
     w.removed.length > 0 || [...written].some((f) => !f.startsWith("js/") && f !== "manifest.json");
   const actions = classifyChanges({

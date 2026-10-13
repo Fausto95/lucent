@@ -230,10 +230,16 @@ export const SCENE_FORWARDS: (Forward & { labels: string[] })[] = [
  * What the app adds when a module listens, since added unasked they would
  * change the app: the events, and the method to add to the app delegate.
  */
-export const OPTIONAL_FORWARDS: { events: string[]; method: string; snippet: string }[] = [
+export const OPTIONAL_FORWARDS: {
+  events: string[];
+  method: string;
+  find: RegExp;
+  snippet: string;
+}[] = [
   {
     events: ["remoteNotification"],
     method: "application(_:didReceiveRemoteNotification:fetchCompletionHandler:)",
+    find: app([["didReceiveRemoteNotification", "\\["]]),
     snippet: `func application(
     _ application: UIApplication,
     didReceiveRemoteNotification userInfo: [AnyHashable: Any],
@@ -243,8 +249,20 @@ export const OPTIONAL_FORWARDS: { events: string[]; method: string; snippet: str
   }`,
   },
   {
+    events: ["backgroundFetch"],
+    method: "application(_:performFetchWithCompletionHandler:)",
+    find: app([["performFetchWithCompletionHandler", "@escaping"]]),
+    snippet: `func application(
+    _ application: UIApplication,
+    performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    if !LucentAppDelegate.application(application, performFetchWithCompletionHandler: completionHandler) { completionHandler(.noData) } ${FORWARD}
+  }`,
+  },
+  {
     events: ["supportedInterfaceOrientations"],
     method: "application(_:supportedInterfaceOrientationsFor:)",
+    find: app([["supportedInterfaceOrientationsFor", "UIWindow"]]),
     snippet: `func application(
     _ application: UIApplication,
     supportedInterfaceOrientationsFor window: UIWindow?
@@ -413,4 +431,94 @@ export function appDelegates(root: string): { app?: string; scene?: string; objc
       ? undefined
       : (found("AppDelegate.mm") ?? found("AppDelegate.m")),
   };
+}
+
+/** For each event that a forward the app may lack carries: the app delegate's method, and a scene delegate's. */
+const EVENT_FORWARDS: Record<string, { app: string; scene?: string }> = {
+  openURL: { app: "application(_:open:options:)", scene: "scene(_:openURLContexts:)" },
+  userActivity: { app: "application(_:continue:restorationHandler:)", scene: "scene(_:continue:)" },
+  shortcutItem: {
+    app: "application(_:performActionFor:completionHandler:)",
+    scene: "windowScene(_:performActionFor:completionHandler:)",
+  },
+  pushToken: { app: "application(_:didRegisterForRemoteNotificationsWithDeviceToken:)" },
+  pushTokenFailed: { app: "application(_:didFailToRegisterForRemoteNotificationsWithError:)" },
+  backgroundURLSession: {
+    app: "application(_:handleEventsForBackgroundURLSession:completionHandler:)",
+  },
+};
+
+/** Whether `text` has `find`'s method, with Lucent's line in its body. */
+function forwarded(text: string, find: RegExp): boolean {
+  const found = find.exec(text);
+  if (!found) return false;
+  const open = text.indexOf("{", found.index + found[0].length);
+  const close = open < 0 ? undefined : matchingBrace(text, open);
+  return close !== undefined && text.slice(open, close).includes(FORWARD);
+}
+
+/**
+ * What a bare app's delegates must forward for the app delegate's
+ * `events` that its modules listen for (the compiler's
+ * appDelegateEvents), and don't: one warning each, saying what to run or
+ * add. An Expo app's subscriber forwards them all.
+ */
+export function missingDelegateForwards(
+  root: string,
+  events: string[],
+  expo: boolean,
+): { level: "warn"; text: string }[] {
+  if (expo || !events.length) return [];
+  const { app, scene, objc } = appDelegates(root);
+  const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
+  const listens = (event: string) => `a module listens for onAppEvent("${event}")`;
+  if (objc && !read(objc).includes("LucentAppDelegate"))
+    return [
+      {
+        level: "warn",
+        text: `${listens(events[0]!)}, but ${objc} doesn't call LucentAppDelegate: call it first in each delegate method (lucent init prints the lines)`,
+      },
+    ];
+  if (!app) return [];
+
+  const out: { level: "warn"; text: string }[] = [];
+  const appText = read(app);
+  const sceneText = scene ? read(scene) : undefined;
+  for (const event of events) {
+    const optional = OPTIONAL_FORWARDS.find((f) => f.events.includes(event));
+    if (optional) {
+      if (!forwarded(appText, optional.find))
+        out.push({
+          level: "warn",
+          text: `${listens(event)}, but ${app} doesn't forward ${optional.method} to it. Add:\n  ${optional.snippet}`,
+        });
+      continue;
+    }
+    const needs = EVENT_FORWARDS[event];
+    if (!needs) continue;
+    // In an app with scenes, UIKit gives URLs, activities and shortcuts to the scene delegate.
+    const [file, text, method, forwards] =
+      needs.scene && sceneText !== undefined
+        ? [scene!, sceneText, needs.scene, SCENE_FORWARDS]
+        : [app, appText, needs.app, APP_FORWARDS];
+    if (missingForwards(text, forwards).includes(method))
+      out.push({
+        level: "warn",
+        text: `${listens(event)}, but ${file} doesn't forward ${method} to it: run lucent init, which adds the call`,
+      });
+  }
+  return out;
+}
+
+/** Whether the app at `root` is an Expo app: Expo's AppDelegate forwards to Lucent's subscriber. */
+export function isExpoApp(root: string): boolean {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    return "expo" in { ...pkg.dependencies, ...pkg.devDependencies };
+  } catch {
+    return false;
+  }
 }

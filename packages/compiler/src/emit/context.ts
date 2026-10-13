@@ -109,6 +109,8 @@ export class Ctx {
   platform?: Platform;
   /** Per module: includes and checks its platform glue needs. */
   readonly frameworks = new Set<string>();
+  /** Per program: the app delegate's events the iOS code subscribes to (`onAppEvent("openURL", …)`). */
+  readonly appDelegateEvents = new Set<string>();
   /** Per program: the pods whose modules the iOS platform code imports (LucentNative depends on them). */
   readonly pods = new Set<string>();
   /** Per program: the app's Swift packages whose modules it imports (`identity@version`). */

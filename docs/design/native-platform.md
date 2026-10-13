@@ -538,9 +538,13 @@ package needs no Expo dependency and the app no line. It answers each
 completion handler once, as Expo's merge waits for, and offers
 orientations only while a module has a say.
 
+`lucent build` knows which events the program subscribes to (the
+compiler's `appDelegateEvents`) and names each call a bare app's delegates
+lack, with the method to add for the remote notification's, the
+background fetch's and the orientations'.
+
 **Planned:** a `ReactActivityLifecycleListener` for Expo's Android side,
-`lucent build` naming a call a module needs that the app lacks, and
-Android's events through `onActivityEvent`.
+and Android's events through `onActivityEvent`.
 
 ## Bytes and buffers
 
