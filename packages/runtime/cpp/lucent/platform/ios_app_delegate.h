@@ -49,6 +49,15 @@ struct URLSessionEvents {
   std::shared_ptr<std::atomic<int>> claims;
 };
 
+/// The person's response to a notification: the action they chose
+/// (UNNotificationDefaultActionIdentifier for a tap), the notification as
+/// JSON, and what they typed ("" unless a text input action).
+struct NotificationResponse {
+  String action;
+  String notification;
+  String text;
+};
+
 /// What the delegates report, and Lucent code subscribes to.
 struct AppDelegateEvents {
   DelegateEvent<OpenURLRequest, bool> openURL{true};
@@ -64,6 +73,11 @@ struct AppDelegateEvents {
   /// person opened it with: the reason ("location", "bluetoothCentrals",
   /// "bluetoothPeripherals", "notification") and its details as JSON.
   DelegateEvent<DelegateItem> relaunched{true};
+  /// UNUserNotificationCenter's delegate, which Lucent shares with the
+  /// app's: a notification arriving in the foreground, as JSON, answered
+  /// with how to present it; and the person's response to one.
+  DelegateEvent<String, Array<String>> willPresentNotification;
+  DelegateEvent<NotificationResponse> notificationResponse;
 
   /// The process's, which LucentAppDelegate reports to.
   static AppDelegateEvents& shared();
@@ -100,6 +114,15 @@ Fn<void()> onBackgroundURLSession(Fn<bool(String, Fn<void()>)> listener, Opt<Abo
 Fn<void()> onSupportedInterfaceOrientations(Fn<double()> listener, Opt<AbortSignal> signal = {});
 /// "relaunched": `listener(reason, details)`, once for each reason the app was launched for.
 Fn<void()> onRelaunched(Fn<void(String, String)> listener, Opt<AbortSignal> signal = {});
+/// "willPresentNotification": `listener(notification)`, how to present it
+/// ("banner", "list", "sound", "badge"). The first subscription puts
+/// Lucent in front of UNUserNotificationCenter's delegate.
+Fn<void()> onWillPresentNotification(Fn<Array<String>(String)> listener, Opt<AbortSignal> signal = {});
+/// "notificationResponse": `listener(action, notification, text)`.
+Fn<void()> onNotificationResponse(Fn<void(String, String, String)> listener, Opt<AbortSignal> signal = {});
+
+/// UNNotificationPresentationOptions of their names; unknown names add none.
+NSUInteger presentationOptionsNamed(const Array<String>& names);
 
 /// A userInfo dictionary as JSON: values JSON has no form for (a date,
 /// data, any other object) as their description.

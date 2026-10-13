@@ -1163,6 +1163,17 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "params": []
       },
       {
+        "name": "NotificationPresentation",
+        "kind": "type",
+        "signature": "type NotificationPresentation = \"banner\" | \"list\" | \"sound\" | \"badge\";",
+        "doc": [
+          "How a notification that arrives in the foreground is shown: none of them hides it."
+        ],
+        "examples": [],
+        "members": [],
+        "params": []
+      },
+      {
         "name": "RelaunchReason",
         "kind": "type",
         "signature": "type RelaunchReason =\n  | \"location\"\n  | \"bluetoothCentrals\"\n  | \"bluetoothPeripherals\"\n  | \"notification\";",
@@ -1469,6 +1480,70 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "type": "(reason: RelaunchReason, details: string) => void",
             "optional": false,
             "doc": "Called with the reason and its details' JSON."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Stops listening, as the returned function does."
+          }
+        ]
+      },
+      {
+        "name": "onAppEvent",
+        "kind": "function",
+        "signature": "function onAppEvent(\n  event: \"willPresentNotification\",\n  listener: (notification: string) => NotificationPresentation[],\n  signal?: AbortSignal,\n): () => void;",
+        "doc": [
+          "Calls `listener` with each notification that arrives while the app is in the foreground, as JSON. It answers how iOS shows it: `[]` hides it.",
+          "The JSON has the request's `identifier`, its content's `title`, `subtitle`, `body`, `badge`, `categoryIdentifier`, `threadIdentifier` and `userInfo`, its `date` in milliseconds, and whether it is `remote`.",
+          "The first listener puts Lucent in front of `UNUserNotificationCenter`'s delegate, which it shares with the app's: that one still gets every call. iOS shows the notification as the modules and the app's delegate asked together.",
+          "A delegate set after the first listener replaces Lucent's."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "\"willPresentNotification\"",
+            "optional": false,
+            "doc": "`\"willPresentNotification\"`."
+          },
+          {
+            "name": "listener",
+            "type": "(notification: string) => NotificationPresentation[]",
+            "optional": false,
+            "doc": "Called with the notification's JSON; answers how to show it."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Stops listening, as the returned function does."
+          }
+        ]
+      },
+      {
+        "name": "onAppEvent",
+        "kind": "function",
+        "signature": "function onAppEvent(\n  event: \"notificationResponse\",\n  listener: (action: string, notification: string, text: string) => void,\n  signal?: AbortSignal,\n): () => void;",
+        "doc": [
+          "Calls `listener` with each response the person gives a notification. It gets the action's identifier, the notification as JSON, and the text typed for a text input action (`\"\"` otherwise). A tap is `\"com.apple.UNNotificationDefaultActionIdentifier\"`.",
+          "It shares `UNUserNotificationCenter`'s delegate as `\"willPresentNotification\"` does. A notification that launched the app comes before any listener, so it is `\"relaunched\"`'s `\"notification\"`."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "\"notificationResponse\"",
+            "optional": false,
+            "doc": "`\"notificationResponse\"`."
+          },
+          {
+            "name": "listener",
+            "type": "(action: string, notification: string, text: string) => void",
+            "optional": false,
+            "doc": "Called with the action, the notification's JSON and the text."
           },
           {
             "name": "signal",

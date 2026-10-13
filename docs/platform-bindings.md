@@ -729,7 +729,11 @@ delegates call with what UIKit gave them: `openURL`, `userActivity`,
 `shortcutItem`, `pushToken`, `pushTokenFailed`, `remoteNotification`,
 `backgroundFetch`, `backgroundURLSession`,
 `supportedInterfaceOrientations` and `relaunched` (a location, Bluetooth
-or notification launch). Each listener has its event's own
+or notification launch). `willPresentNotification` and
+`notificationResponse` come from `UNUserNotificationCenter`, whose
+delegate Lucent becomes at the first listener, forwarding to the app's
+([0087](decisions/0087-lucent-stands-in-front-of-the-apps-notification-delegate.md)).
+Each listener has its event's own
 arguments and answer. Lucent's init adds the calls to a bare app's
 `AppDelegate.swift` and `SceneDelegate.swift`, each line ending in a
 `// lucent:forward` comment. In an Expo app, Lucent's subscriber gets

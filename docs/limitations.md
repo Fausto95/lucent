@@ -134,6 +134,9 @@ generated from this file.
 - A delegate that must answer on the main thread waits for the job that
   holds its module's actor. Calls that nest two packages' actors in a
   cycle throw `Lucent: deadlock` rather than hang.
+- A `UNUserNotificationCenter` delegate the app sets after a module first
+  listens for notifications replaces Lucent's, so modules hear none after
+  it ([T110](tasks.md#t110)).
 - On Android, module code hears no key events. An Activity that isn't
   AndroidX's `ComponentActivity` reports no new intent, configuration
   change, leave hint or back press ([T110](tasks.md#t110)).
