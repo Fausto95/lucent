@@ -722,8 +722,9 @@ delegates call with what UIKit gave them: `openURL`, `userActivity`,
 `supportedInterfaceOrientations`. Each listener has its event's own
 arguments and answer. Lucent's init adds the calls to a bare app's
 `AppDelegate.swift` and `SceneDelegate.swift`, each line ending in a
-`// lucent:forward` comment. [T110](tasks.md#t110) adds them to Expo
-apps, and the events only the Activity receives.
+`// lucent:forward` comment. In an Expo app, Lucent's subscriber gets
+them from Expo's `AppDelegate`. [T110](tasks.md#t110) adds the events
+only the Activity receives.
 
 ## Pods, Gradle and Swift packages
 
