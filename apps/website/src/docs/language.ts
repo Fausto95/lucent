@@ -208,6 +208,12 @@ export const features: Feature[] = [
     cases: ["classes", "interfaces", "interfaces-structural", "generics", "union-discriminants"],
   },
   {
+    feature: "Union aliases that name themselves, for JSON-shaped data (`type Json = … | Json[]`)",
+    status: "Yes, at any depth; one with type parameters is refused (`LUCENT2002`).",
+    page: TYPES,
+    cases: ["json-values"],
+  },
+  {
     feature: "Native 64-bit integers from the SDKs",
     status: "`bigint`s.",
     page: TYPES,

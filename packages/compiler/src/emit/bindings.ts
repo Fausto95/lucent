@@ -26,6 +26,8 @@ export class BindingsEmitter {
   private readonly ifaces = new Map<string, LType & { k: "iface" }>();
   private readonly unions = new Map<string, LType & { k: "union" }>();
   private readonly unionSites = new Map<string, ts.Node>();
+  /** Recursive aliases that cross: each converts as its type does, then is wrapped (J_<id>). */
+  private readonly recs = new Map<string, LType>();
   private readonly flows = new Set<string>();
 
   private readonly ctx: Ctx;
@@ -40,6 +42,12 @@ export class BindingsEmitter {
 
   /** Records every type that crosses the boundary so it gets a Convert. */
   use(t: LType, node: ts.Node): void {
+    if (t.k === "rec") return this.use(t.body, node);
+    if ((t.k === "opt" || t.k === "union") && t.rec) {
+      if (this.recs.has(t.rec)) return;
+      this.recs.set(t.rec, t);
+      return this.use({ ...t, rec: undefined } as LType, node);
+    }
     switch (t.k) {
       case "struct": {
         if (this.structs.has(t.id)) return;
@@ -218,6 +226,8 @@ export class BindingsEmitter {
       case "map":
         this.flow(t.key, out, node);
         return this.flow(t.val, out, node);
+      case "rec":
+        return this.flow(t.body, out, node);
       case "opt":
         return this.flow(t.inner, out, node);
       case "promise":
@@ -320,6 +330,7 @@ export class BindingsEmitter {
       specialize(this.reg.cppType({ k: "class", id, args: [] }), false);
     for (const t of this.ifaces.values()) specialize(this.reg.cppType(t), false);
     for (const u of this.unions.values()) specialize(this.reg.cppType(u), false);
+    for (const [id, t] of this.recs) specialize(this.reg.cppType({ k: "rec", id, body: t }), false);
     const guarded = (f: () => cpp.Decl[]) => js.push(...(this.ctx.guard(f) ?? []));
     for (const id of this.structs) guarded(() => this.structConvert(id));
     for (const id of this.classes) guarded(() => this.classConvert(id));
@@ -338,6 +349,7 @@ export class BindingsEmitter {
       });
       if (decls) js.push(...decls);
     }
+    for (const [id, t] of this.recs) js.push(...this.recConvert(id, t));
     const installers = mods.flatMap((m) => this.ctx.guard(() => this.installer(m)) ?? []);
     // Each installs holding its actor (`&lucent_app::actor_N`).
     const modules = mods.map((m) => {
@@ -1140,6 +1152,38 @@ export class BindingsEmitter {
     );
   }
 
+  /** A recursive alias converts as its type (an Opt or variant), wrapped in or out of J_<id>. */
+  private recConvert(id: string, t: LType): cpp.Decl[] {
+    const s = this.reg.cppType({ k: "rec", id, body: t });
+    const base = this.reg.cppType(t);
+    const scope = cpp.type("Convert", s);
+    return [
+      // Checked as at the top: its own absent value only, and its depth against the stack.
+      cpp.fn(
+        "fromJs",
+        s,
+        fromJsParams(),
+        [
+          cpp.exprStmt(cpp.call("lucent::checkStack", [])),
+          cpp.ret(cpp.construct(s, [this.convertFromJs(t, v, p)])),
+        ],
+        { inline: true, scope },
+      ),
+      cpp.fn(
+        "toJs",
+        JS_VALUE,
+        toJsParams(s),
+        [
+          cpp.exprStmt(cpp.call("lucent::checkStack", [])),
+          cpp.ret(
+            toJs(base, cpp.id("h"), cpp.cast("static", cpp.reference(cpp.constType(base)), v)),
+          ),
+        ],
+        { inline: true, scope },
+      ),
+    ];
+  }
+
   /**
    * `t` spelled for a conversion: its C++ type, but where an optional that
    * TypeScript gives one absent value sits in an array, tuple, record, map,
@@ -1149,6 +1193,9 @@ export class BindingsEmitter {
    * JavaScript needs no check.
    */
   private spelled(t: LType, top = true): cpp.Type {
+    // A recursive alias held in a container is its J_ type, whose Convert checks it.
+    if (t.k === "rec" || ((t.k === "opt" || t.k === "union") && t.rec))
+      return this.reg.cppType(t, !top);
     if (!strictInside(t, top)) return this.reg.cppType(t);
 
     const lucent = (name: string, ...args: cpp.TemplateArg[]) =>
@@ -1352,6 +1399,7 @@ const PROTO_PARAMS = [
  * for the boundary.
  */
 function strictInside(t: LType, top = false): boolean {
+  if ((t.k === "opt" || t.k === "union") && t.rec) return false;
   switch (t.k) {
     case "opt":
       return (t.absent !== undefined && !top) || strictInside(t.inner);

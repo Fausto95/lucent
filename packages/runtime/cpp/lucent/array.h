@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "core.h"
+#include "stack.h"
 #include "equality.h"
 #include "jserror.h"
 #include "function.h"
@@ -23,6 +24,9 @@ class Array;
 
 template <class T>
 String toJsString(const Opt<T>& v);
+/// A recursive alias's value, as the Opt or variant it is: its depth checked against the stack.
+template <RecursiveAlias T>
+String toJsString(const T& v);
 // Defined in ops.h / helpers.h; declared here so element types that are
 // unions or tuples resolve inside Array's templates (ADL only searches std).
 template <class... Ts>
@@ -535,6 +539,12 @@ template <class T>
 struct IsJsArray<Array<T>> : std::true_type {};
 template <class... Ts>
 struct IsJsArray<std::tuple<Ts...>> : std::true_type {};
+
+template <RecursiveAlias T>
+String toJsString(const T& v) {
+  checkStack();
+  return toJsString(aliasValue(v));
+}
 
 template <class T>
 String toJsString(const Opt<T>& v) {

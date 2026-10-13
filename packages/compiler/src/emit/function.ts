@@ -15,6 +15,7 @@ import {
   isVoidish,
   type LType,
   sameType,
+  resolved,
   stripOpt,
   substitute,
   T,
@@ -341,8 +342,11 @@ export class FnEmitter {
   }
 
   /** Converts a value to another representation the checker proved compatible. */
-  coerce(e: E, to: LType, node?: ts.Node): cpp.Expr {
-    const from = e.t;
+  coerce(e: E, target: LType, node?: ts.Node): cpp.Expr {
+    // A recursive alias's reference to itself converts as the alias's type does.
+    const to = resolved(target);
+    const from = resolved(e.t);
+    if (from !== e.t) e = { ...e, t: from };
 
     // A value typed never has any type: it throws before there is one to convert. A value to
     // pass as a never (one the checker narrowed away, as in an exhaustive switch) does not exist.
@@ -2475,7 +2479,7 @@ export class FnEmitter {
       // Elements of another type: converted one by one, from an array that outlives the loop
       // (a range-for keeps only its range's own temporary alive, not the array `items()` is of).
       const from = this.ctx.fresh("from");
-      const item = cpp.staticCast(this.reg.cppType(items.e), cpp.id("e"));
+      const item = cpp.staticCast(this.reg.cppType(items.e, true), cpp.id("e"));
 
       parts.push(cpp.varDecl(cpp.auto, from, items.c), {
         k: "forRange",

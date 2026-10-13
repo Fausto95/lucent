@@ -17,6 +17,7 @@
 #include "date.h"
 #include "regexp.h"
 #include "core.h"
+#include "stack.h"
 #include "jserror.h"
 #include "function.h"
 #include "map.h"
@@ -55,6 +56,12 @@ template <JsonClass C>
 bool jsonValue(JsonWriter& w, const Ref<C>& v);
 template <JsonClass C>
 void jsonWrite(JsonWriter& w, const Ref<C>& v);
+/// A recursive alias's value, as the Opt or variant it is: its depth checked against the stack.
+template <RecursiveAlias T>
+bool jsonValue(JsonWriter& w, const T& v) {
+  checkStack();
+  return jsonValue(w, aliasValue(v));
+}
 
 /// Whether a value is omitted from objects (undefined, functions).
 template <class T>
@@ -69,6 +76,10 @@ bool jsonOmitted(const Opt<T>& v) {
 template <class Sig>
 bool jsonOmitted(const Fn<Sig>&) {
   return true;
+}
+template <RecursiveAlias T>
+bool jsonOmitted(const T& v) {
+  return jsonOmitted(aliasValue(v));
 }
 
 inline void jsonWrite(JsonWriter& w, double v) {

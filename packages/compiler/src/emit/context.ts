@@ -3,7 +3,7 @@ import ts from "typescript";
 import type { Platform } from "../sdk/schema.ts";
 import { CompileError, type Diagnostic, toDiagnostic } from "../diagnostics.ts";
 import type { LucentModule } from "../program.ts";
-import { type ClassInfo, type LType, T, TypeRegistry, unionOf } from "../types.ts";
+import { type ClassInfo, type LType, resolved, T, TypeRegistry, unionOf } from "../types.ts";
 import { CaptureAnalysis } from "../analysis/scopes.ts";
 import type { KotlinShim } from "./kotlin.ts";
 import type { SwiftShim } from "./swift.ts";
@@ -34,9 +34,12 @@ export interface E {
  * not an optional of one.
  */
 export function elementOrUndefined(read: cpp.Expr, element: LType): E {
+  // A recursive alias held in a collection is its J_ type: flat() gives its value.
+  const own = resolved(element);
+  const alias = (own.k === "opt" || own.k === "union") && !!own.rec;
   return {
-    c: element.k === "opt" ? cpp.call("lucent::flat", [read]) : read,
-    t: unionOf([element, T.undefined]),
+    c: own.k === "opt" || alias ? cpp.call("lucent::flat", [read]) : read,
+    t: unionOf([own, T.undefined]),
   };
 }
 

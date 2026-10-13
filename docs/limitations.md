@@ -74,8 +74,6 @@ generated from this file.
 - A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused
   ([T112](tasks.md#t112)). A `WeakMap` value that holds its own key keeps
   it, and the entry, for as long as the map lives.
-- A union that refers to itself, such as a `Json` type of arrays and
-  records, is refused (`LUCENT2002`) ([T102](tasks.md#t102)).
 - `new AggregateError` is refused (`LUCENT1003`). Read the `errors` of
   the one `Promise.any` rejects with as `e.errors as Error[]`, since
   TypeScript types them `any`.

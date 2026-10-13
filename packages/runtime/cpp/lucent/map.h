@@ -33,6 +33,8 @@ struct KeyHash {
       return k.hash();
     } else if constexpr (IsRef<K>::value) {
       return std::hash<const void*>()(static_cast<const void*>(k.get()));
+    } else if constexpr (RecursiveAlias<K>) {
+      return KeyHash<typename K::LucentAliasOf>()(k);
     } else if constexpr (IsOpt<K>::value) {
       if (!k.has()) return k.isNull() ? 3 : 4;
       return KeyHash<std::decay_t<decltype(k.get())>>()(k.get());

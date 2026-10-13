@@ -1,0 +1,42 @@
+const value = { a: [1, "x", null, { b: [true, false] }], c: {}, d: [[[]]] };
+print(mod.depth(value), mod.depth(3), mod.depth([]));
+print(
+  mod.kind(null),
+  mod.kind(value),
+  mod.kind([1, 2]),
+  mod.kind("s"),
+  mod.kind(2),
+  mod.kind(false),
+);
+print(JSON.stringify(mod.echo(value)));
+print(mod.stringify(value));
+print(JSON.stringify(mod.parse('{"x":[1,{"y":null}],"z":"w"}')));
+print(mod.stringify(mod.parse("[1,[2,[3,[4]]]]")), mod.depth(mod.parse("[1,[2,[3,[4]]]]")));
+print(JSON.stringify(mod.made()));
+print(
+  mod.sum([1, [2, [3, [4]]], 5]),
+  mod.sum(7),
+  JSON.stringify(mod.grown()),
+  mod.sum(mod.grown()),
+);
+print(mod.names({ name: "a", kids: ["b", { name: "c", kids: [] }] }), mod.names("leaf"));
+print(
+  mod.kept([
+    ["a", null],
+    ["n", 2],
+    ["s", "x"],
+  ]),
+);
+const seen = [];
+mod.visit([1, [2], { k: null }], (x) => seen.push(JSON.stringify(x)));
+print(seen.join(" "));
+mod.later({ x: [1] }).then((v) => print(JSON.stringify(v)));
+mod.counted([[1], { a: [[]] }]).then((n) => print("task", n));
+print(mod.described([1, 2]), mod.described("s"), mod.described(null));
+
+// Deep values: 400 arrays in arrays cross, parse and print as in JavaScript
+// (Hermes's JSON stops at 512 levels).
+let deep = 0;
+for (let i = 0; i < 400; i++) deep = [deep];
+const text = `${"[".repeat(400)}0${"]".repeat(400)}`;
+print(mod.depth(deep), mod.depth(mod.parse(text)), mod.stringify(mod.echo(deep)) === text);
