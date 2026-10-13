@@ -22,6 +22,7 @@ public abstract class Job {
   public Job(String label) { this.label = label; }
   public String getLabel() { return label; }
   public abstract String work();
+  public String compare(Job other) { return "base"; }
 }
 `,
   // What WorkManager does with a worker's class name.
@@ -29,7 +30,7 @@ public abstract class Job {
 public final class Os {
   public static String make(String name, String label) throws Exception {
     Job job = (Job) Class.forName(name).getConstructor(String.class).newInstance(label);
-    return job.work() + ", again " + job.work();
+    return job.work() + ", again " + job.work() + ", " + job.compare(job);
   }
   public static String fail(String name) {
     try {
@@ -62,6 +63,11 @@ export class Echo extends Job {
   // The base's getLabel(), on the object the OS made.
   work(): string {
     return \`\${this.getLabel()} #\${this.n}\`;
+  }
+
+  // A platform object crosses: JavaScript never sees the class.
+  compare(other: Job): string {
+    return other.getLabel() === this.getLabel() ? "same" : "other";
   }
 }
 
@@ -96,7 +102,8 @@ describe.skipIf(!android || !jdk)("Android classes the OS makes", () => {
 
     expect(jvmRun(r, dir, android!.run)).toEqual({
       status: 0,
-      stdout: "first #1, again first #1 | second #2, again second #2 | no bad jobs | made 2\n",
+      stdout:
+        "first #1, again first #1, same | second #2, again second #2, same | no bad jobs | made 2\n",
       stderr: "",
     });
   }, 300_000);

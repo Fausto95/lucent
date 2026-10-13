@@ -172,7 +172,9 @@ export function emitProgram(
           module: m,
           info,
         });
-        if (info.exported) exportsOf.get(m)!.classes.push(info);
+        // A class the OS makes, which only a platform file exports, is no JavaScript export.
+        if (info.exported && !undeclared(lp.checker, m, s.name.text))
+          exportsOf.get(m)!.classes.push(info);
         ctx.guard(() => ctx.reg.registerImplements(info));
       }
     }
@@ -1395,4 +1397,11 @@ function primitiveLiteral(e: ts.Expression | undefined): boolean {
     e.kind === ts.SyntaxKind.TrueKeyword ||
     e.kind === ts.SyntaxKind.FalseKeyword
   );
+}
+
+/** Whether platform module `m`'s shared declaration file leaves out export `name`. */
+function undeclared(checker: ts.TypeChecker, m: LucentModule, name: string): boolean {
+  if (!m.declaration) return false;
+  const sym = checker.getSymbolAtLocation(m.declaration);
+  return !sym || !checker.getExportsOfModule(sym).some((e) => e.name === name);
 }
