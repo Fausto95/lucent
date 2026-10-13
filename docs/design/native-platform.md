@@ -553,7 +553,9 @@ storage to a new handle, and every alias of the old one then throws
 
 A returned `ArrayBuffer` that nothing else holds moves to JavaScript,
 since its copy would be the only one. Its size is reported to the
-collector (`setExternalMemoryPressure`).
+collector (`setExternalMemoryPressure`), as a `NativeBuffer`'s is and a
+`NativeSized` class instance's `nativeSize`, at each crossing and after
+each call from JavaScript (0084).
 
 ### Loans
 

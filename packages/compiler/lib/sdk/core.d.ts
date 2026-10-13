@@ -448,6 +448,33 @@ export declare class NativeHandle {
   release(): boolean;
 }
 
+/**
+ * A class whose instances hold native memory the JavaScript collector
+ * can't see: an image's pixels, a model's weights. `nativeSize` is how
+ * many bytes, which the collector counts toward each instance's object,
+ * so that holding many of them collects them sooner. Lucent reads it
+ * each time an instance crosses to JavaScript, and after each call
+ * JavaScript makes on it.
+ *
+ * ```ts
+ * import { NativeBuffer, type NativeSized } from "lucent:core";
+ *
+ * export class Image implements NativeSized {
+ *   private pixels = NativeBuffer.allocate(0);
+ *   get nativeSize(): number {
+ *     return this.pixels.byteLength;
+ *   }
+ *   load(width: number, height: number): void {
+ *     this.pixels = NativeBuffer.allocate(width * height * 4);
+ *   }
+ * }
+ * ```
+ */
+export interface NativeSized {
+  /** The bytes of native memory an instance holds: 0 when it holds none. */
+  readonly nativeSize: number;
+}
+
 /** The bytes `withRead` lends, read like a `Uint8Array`'s: `bytes[i]` is undefined out of range. */
 export interface ByteSpan {
   readonly length: number;

@@ -91,6 +91,9 @@ class NativeBufferObject final : public Object {
   /// The bytes it holds: 0 once closed or transferred.
   size_t size() const { return size_.load(std::memory_order_acquire); }
 
+  /// What it holds, for JavaScript's collector: 0 once moved or closed.
+  size_t lucentNativeSize_() override { return state() == State::Open ? size() : 0; }
+
   /// How many times its storage was transferred before reaching it.
   uint32_t generation() const { return generation_; }
 

@@ -267,7 +267,10 @@ jsi::Function bufferMethod(jsi::Runtime& rt, const char* name, unsigned argc, F 
       rt, jsi::PropNameID::forAscii(rt, name), argc,
       [name, body](jsi::Runtime& rt, const jsi::Value& self, const jsi::Value* args, size_t count) -> jsi::Value {
         Host& host = Host::get(rt);
-        return callSync(rt, host, [&] { return body(rt, host, bufferThis(rt, self, name), args, count); });
+        jsi::Value result = callSync(rt, host, [&] { return body(rt, host, bufferThis(rt, self, name), args, count); });
+        // A transfer or a close leaves it holding nothing: the collector counts that.
+        reportNativeSize(rt, self);
+        return result;
       });
 }
 

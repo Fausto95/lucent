@@ -447,6 +447,25 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "params": []
       },
       {
+        "name": "NativeSized",
+        "kind": "interface",
+        "signature": "interface NativeSized {\n  readonly nativeSize: number;\n}",
+        "doc": [
+          "A class whose instances hold native memory the JavaScript collector can't see: an image's pixels, a model's weights. `nativeSize` is how many bytes, which the collector counts toward each instance's object, so that holding many of them collects them sooner. Lucent reads it each time an instance crosses to JavaScript, and after each call JavaScript makes on it."
+        ],
+        "examples": [
+          "import { NativeBuffer, type NativeSized } from \"lucent:core\";\n\nexport class Image implements NativeSized {\n  private pixels = NativeBuffer.allocate(0);\n  get nativeSize(): number {\n    return this.pixels.byteLength;\n  }\n  load(width: number, height: number): void {\n    this.pixels = NativeBuffer.allocate(width * height * 4);\n  }\n}"
+        ],
+        "members": [
+          {
+            "name": "nativeSize",
+            "signature": "readonly nativeSize: number;",
+            "doc": "The bytes of native memory an instance holds: 0 when it holds none."
+          }
+        ],
+        "params": []
+      },
+      {
         "name": "ByteSpan",
         "kind": "interface",
         "signature": "interface ByteSpan {\n  readonly length: number;\n  readonly [index: number]: number;\n}",

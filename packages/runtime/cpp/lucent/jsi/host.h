@@ -323,13 +323,33 @@ struct InstanceState : jsi::NativeState {
   ~InstanceState() override;
   Ref<Object> object;
   std::shared_ptr<Host> host;
+  /// The native size last given the collector for this object (setExternalMemoryPressure).
+  size_t reported = 0;
 };
 
 /// The native instance behind a JS object, or null. Throws a TypeError for
 /// an object a torn-down host made: the state it belongs to has ended.
 Ref<Object> instanceOf(jsi::Runtime& rt, const jsi::Value& v);
 
+/// Tells the collector the native size of the instance behind `object`
+/// (Object::lucentNativeSize_), if it changed since it last did.
+void reportNativeSize(jsi::Runtime& rt, const jsi::Object& object, InstanceState& state);
+
+/// The same for a call's `this`, once the call returned: what a NativeSized
+/// class's methods and setters change. Nothing for any other value.
+void reportNativeSize(jsi::Runtime& rt, const jsi::Value& self);
+
 using HostFn = jsi::HostFunctionType;
+
+/// `fn`, then the native size of its `this` reported: a NativeSized
+/// class's methods and setters, which may change it.
+inline HostFn reportingSize(HostFn fn) {
+  return [fn = std::move(fn)](jsi::Runtime& rt, const jsi::Value& self, const jsi::Value* args, size_t count) {
+    jsi::Value result = fn(rt, self, args, count);
+    reportNativeSize(rt, self);
+    return result;
+  };
+}
 
 void defineFunction(jsi::Runtime& rt, jsi::Object& target, const char* name, unsigned argc, HostFn fn);
 /// Defines an enumerable accessor property; `setter` may be null.

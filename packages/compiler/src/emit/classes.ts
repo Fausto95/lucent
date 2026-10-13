@@ -1,7 +1,8 @@
 import { cpp } from "@lucent-lang/codegen";
+import path from "node:path";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
-import type { LucentModule } from "../program.ts";
+import { coreTypesPath, type LucentModule } from "../program.ts";
 import { stringExpr } from "../lowering/literals.ts";
 import {
   type ClassChain,
@@ -138,6 +139,39 @@ export function argMap(ctx: Ctx, t: LType & { k: "class" }): Map<string, LType> 
 }
 
 const isField = (m: InstanceMember) => ts.isPropertyDeclaration(m) || ts.isParameter(m);
+
+/**
+ * How a class implementing lucent:core's NativeSized (itself or through a
+ * base) declares `nativeSize`: a field, or a getter. Undefined for a class
+ * that doesn't implement it.
+ */
+export function nativeSized(
+  checker: ts.TypeChecker,
+  decl: ts.ClassLikeDeclaration,
+): "field" | "getter" | undefined {
+  const implementsIt = (c: ts.ClassLikeDeclaration): boolean =>
+    !!c.heritageClauses?.some((h) =>
+      h.types.some((t) => {
+        if (h.token === ts.SyntaxKind.ImplementsKeyword) {
+          const s = checker.getTypeAtLocation(t).getSymbol();
+          return (
+            s?.getName() === "NativeSized" &&
+            !!s.declarations?.some(
+              (d) => path.resolve(d.getSourceFile().fileName) === path.resolve(coreTypesPath()),
+            )
+          );
+        }
+        const base = checker.getTypeAtLocation(t).getSymbol()?.valueDeclaration;
+        return !!base && ts.isClassLike(base) && implementsIt(base);
+      }),
+    );
+  if (!implementsIt(decl)) return undefined;
+
+  const member = checker
+    .getPropertyOfType(checker.getTypeAtLocation(decl), "nativeSize")
+    ?.declarations?.find((d) => ts.isClassElement(d) || ts.isParameter(d));
+  return member && ts.isGetAccessorDeclaration(member) ? "getter" : "field";
+}
 
 /**
  * A class's C++: its definition, members and static initializers; its
@@ -563,6 +597,29 @@ export function emitClass(
     } else if (ts.isIndexSignatureDeclaration(m)) {
       fail(m, Codes.UnsupportedClassFeature, "index signatures in classes are not supported");
     }
+  }
+  // lucent:core's NativeSized: what JavaScript's collector counts, read in its module, holding its lock.
+  const sized = nativeSized(ctx.checker, decl);
+  if (sized) {
+    const self = cpp.id("this");
+    const size =
+      sized === "getter"
+        ? cpp.call(cpp.arrow(self, `get_${cppIdent("nativeSize")}`), [])
+        : cpp.arrow(self, cppIdent("nativeSize"));
+    define(
+      "lucentNativeSize_",
+      cpp.type("size_t"),
+      [],
+      [
+        cpp.varDecl(
+          cpp.type("lucent::LucentScope"),
+          "measuring_",
+          cpp.construct(cpp.type("lucent::LucentScope"), [ctx.actorAt(module)]),
+        ),
+        cpp.ret(cpp.call("lucent::nativeSizeOf", [size])),
+      ],
+      { override: true },
+    );
   }
   body.push(
     cpp.method(

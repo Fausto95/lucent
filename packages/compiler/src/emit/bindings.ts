@@ -4,7 +4,7 @@ import ts from "typescript";
 import { Codes, CompileError, fail } from "../diagnostics.ts";
 import type { LucentModule } from "../program.ts";
 import { type ClassInfo, cppIdent, isVoidish, type LType, stripOpt, typeKey } from "../types.ts";
-import { constructorOf, memberName, parameterProperties } from "./classes.ts";
+import { constructorOf, memberName, nativeSized, parameterProperties } from "./classes.ts";
 import type { Ctx, Global, ParamInfo } from "./context.ts";
 import { FnEmitter } from "./function.ts";
 import { onlyReads } from "./lent-bytes.ts";
@@ -645,7 +645,14 @@ export class BindingsEmitter {
         ? [cpp.exprStmt(cpp.call("defineErrorPrototype", [rt, cpp.id("host"), proto]))]
         : []),
       ...publicMembers(this.ctx, info).map((m) =>
-        this.defineMember(proto, name, m, (n) => cpp.arrow(self, n), selfOf),
+        this.defineMember(
+          proto,
+          name,
+          m,
+          (n) => cpp.arrow(self, n),
+          selfOf,
+          !!nativeSized(this.ctx.checker, info.decl),
+        ),
       ),
     ];
     if (info.base) {
@@ -694,7 +701,10 @@ export class BindingsEmitter {
     m: PublicMember,
     place: (cppName: string) => cpp.Expr,
     selfOf?: (fname: string) => cpp.Stmt,
+    sized = false,
   ): cpp.Stmt {
+    // A NativeSized instance's methods and setters may change its size: reported once they return.
+    const reporting = (f: cpp.Expr) => (sized ? cpp.call("reportingSize", [f]) : f);
     const fname = `${cls}.${m.name}`;
     const prelude = selfOf?.(fname);
     const thisVal = prelude ? "thisVal" : undefined;
@@ -717,7 +727,7 @@ export class BindingsEmitter {
           target,
           cpp.str(m.name),
           cpp.num(m.params!.length),
-          hostFunction(call, thisVal),
+          reporting(hostFunction(call, thisVal)),
         ]),
       );
     }
@@ -746,18 +756,20 @@ export class BindingsEmitter {
         m.kind === "accessor"
           ? cpp.call(place(`set_${cppIdent(m.name)}`), [value])
           : cpp.assign(place(cppIdent(m.name)), value);
-      setter = hostFunction(
-        sync(this.ctx.actorAt(m.node), [
-          ...(prelude ? [prelude] : []),
-          cpp.varDecl(
-            cpp.auto,
-            "value",
-            this.convertFromJs(m.types[0]!, argAt(0), path(fname, "value")),
-          ),
-          cpp.exprStmt(assign),
-          cpp.ret(cpp.call("jsi::Value::undefined")),
-        ]),
-        thisVal,
+      setter = reporting(
+        hostFunction(
+          sync(this.ctx.actorAt(m.node), [
+            ...(prelude ? [prelude] : []),
+            cpp.varDecl(
+              cpp.auto,
+              "value",
+              this.convertFromJs(m.types[0]!, argAt(0), path(fname, "value")),
+            ),
+            cpp.exprStmt(assign),
+            cpp.ret(cpp.call("jsi::Value::undefined")),
+          ]),
+          thisVal,
+        ),
       );
     }
 
