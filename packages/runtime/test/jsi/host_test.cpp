@@ -1243,6 +1243,46 @@ static void aNativeCallsWorkEndsWithIt() {
   CHECK(within(2000, [] { return moduleGeneration() == 0; }));
 }
 
+/// A native call that outlives the JavaScript runtime holds module state,
+/// but reaches no JavaScript: a callback the runtime gave throws
+/// AbortError, and an event its listeners heard is dropped. A runtime
+/// installed after shares the state.
+static void aNativeCallWithNoRuntimeReachesNoJavaScript() {
+  JsThread js;
+  install(js);
+  int initialized = m_t::initialized;
+  int before = m_t::answeredDone;
+
+  js.eval("var heard = []; mods.t.keep(() => Promise.resolve(7)); mods.t.tickEvents().addListener('tick', (n) => heard.push(n));");
+
+  auto call = NativeCall::start();
+  js.destroyRuntime();
+  CHECK(moduleGeneration() != 0);
+
+  {
+    NativeCall::Entry entry(*call);
+    LucentScope scope;
+    CHECK(m_t::tickEvents->listenerCount(0) == 0);
+    m_t::tickEvents->emit<0>(1.0);
+    (void)m_t::callKept();
+  }
+  CHECK(within(2000, [&] { return m_t::answeredDone == before + 1; }));
+  CHECK(m_t::answered == "AbortError: The JavaScript runtime is gone");
+  call->end();
+
+  JsThread next;
+  install(next);
+  CHECK(m_t::initialized == initialized);
+  CHECK(next.string("typeof heard") == "undefined");
+
+  {
+    LucentScope scope;
+    m_t::kept = undefined;
+  }
+  next.destroyRuntime();
+  CHECK(within(2000, [] { return moduleGeneration() == 0; }));
+}
+
 // --- events -------------------------------------------------------------------
 
 /// A listener JavaScript added belongs to its runtime: after a reload,
@@ -2057,6 +2097,7 @@ int main() {
   destroyHooksRunWhenModuleStateEnds();
   aNativeCallStartsModuleStateARuntimeShares();
   aNativeCallsWorkEndsWithIt();
+  aNativeCallWithNoRuntimeReachesNoJavaScript();
   listenersEndWithTheirRuntime();
   observersHearJavaScriptsListeners();
   reloadsStopModuleWork();

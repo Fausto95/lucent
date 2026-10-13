@@ -834,12 +834,15 @@ static void tearingOneRuntimeDownSparesAnother() {
   });
   auto forSecond = watch<double>(*owner, [&] { return compute(meet, std::make_tuple(&gate, 2.0), {.scope = moduleScope(), .pool = pool}); });
 
+  // Checked here, not in the turn: CHECK counts on the calling thread.
   bool posted = false;
+  std::atomic<bool> ranForFirst{false};
   {
     RuntimeEntry entry(9101);
-    posted = owner->post([&] { CHECK(currentRuntime() == 9101 && moduleScope() == first->scope); });
+    posted = owner->post([&] { ranForFirst = currentRuntime() == 9101 && moduleScope() == first->scope; });
   }
-  CHECK(posted && owner->waitIdle(2000));
+  bool idle = owner->waitIdle(2000);
+  CHECK(posted && idle && ranForFirst);
 
   CHECK(settles(forFirst) && forFirst->fulfilled && settles(forSecond) && forSecond->fulfilled);
 

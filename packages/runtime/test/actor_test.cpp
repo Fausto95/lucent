@@ -2,8 +2,9 @@
 // actor, so one actor's long job delays neither another actor nor the main
 // thread; the main thread's entries, which never queue behind module jobs;
 // JavaScript callbacks that lend their actors to the main thread; and nested
-// waits across actors that cannot close a cycle. Fake threads stand in for
-// React Native's JS thread. Built and run by `packages/runtime/test/run.sh`,
+// waits across actors that cannot close a cycle; and module code native
+// code starts with no JavaScript runtime. Fake threads stand in for React
+// Native's JS thread. Built and run by `packages/runtime/test/run.sh`,
 // also under ASan/UBSan and TSan.
 #include <unistd.h>
 
@@ -15,7 +16,9 @@
 #include <string>
 #include <thread>
 
+#include "lucent/entries.h"
 #include "lucent/lucent.h"
+#include "lucent/native_root.h"
 
 using namespace lucent;
 
@@ -417,6 +420,80 @@ static void aCycleAcrossActorsThrows() {
   holder.join();
 }
 
+// --- startup with no JavaScript runtime -------------------------------------------
+
+namespace startup {
+
+Actor* actor = nullptr;
+std::atomic<int> initialized{0};
+std::atomic<bool> initHeldTheActor{false};
+
+/// The generated initializer's shape: each module's top level holding its actor.
+void init() {
+  LucentScope scope(*actor);
+  initHeldTheActor = actor->lock().heldByCurrentThread();
+  initialized++;
+}
+
+double twice(double x) { return Actor::current() == actor && actor->lock().heldByCurrentThread() ? x * 2 : -1; }
+
+Promise<double> later(double x) {
+  co_await delay(1);
+  co_return Actor::current() == actor ? x * 2 : -1;
+}
+
+}  // namespace startup
+
+static std::string text(lucent_string s) { return std::string(s.data, s.length); }
+
+/// Native code calls module code before any JavaScript runtime exists (an
+/// entry point's call, T130): the first call starts module state, running
+/// the initializer holding the actors, on the calling thread. A
+/// synchronous call holds the module's actor there, the main thread
+/// taking it in place, and gives a throw to its caller; an async one's
+/// completion runs on the actor. Each call's hold ends with it.
+static void modulesStartWithNoJavaScriptRuntime() {
+  startup::actor = &Actor::create("startup");
+  CHECK(moduleGeneration() == 0 && currentRuntime() == 0);
+
+  lucent_error error{};
+  double result = 0;
+  bool ok = entries::call(&startup::init, *startup::actor, &error, [&](entries::Kept&) {
+    result = startup::twice(21);
+    CHECK(currentRuntime() != 0 && moduleStateHolds() == 1);
+  });
+  CHECK(ok && result == 42);
+  CHECK(startup::initialized == 1 && startup::initHeldTheActor);
+  CHECK(moduleGeneration() != 0 && moduleStateHolds() == 0 && currentRuntime() == 0);
+
+  // A long job holds the actor: the main thread's call still enters.
+  std::atomic<bool> started{false};
+  busy(*startup::actor, 50, &started);
+  CHECK(within(2000, [&] { return started.load(); }));
+  auto fromMain = onMain([] {
+    lucent_error e{};
+    double r = 0;
+    bool ok = entries::call(&startup::init, *startup::actor, &e, [&](entries::Kept&) { r = startup::twice(1); });
+    return ok ? r : -2;
+  });
+  CHECK(settled(fromMain, "an entry from the main thread") == 2);
+  CHECK(startup::initialized == 1);
+
+  std::promise<double> completed;
+  auto value = completed.get_future();
+  entries::callAsync<double>(
+      &startup::init, *startup::actor, [] { return startup::later(5); },
+      [&](entries::Kept&, const double* v, const lucent_error*) { completed.set_value(v && Actor::current() == startup::actor ? *v : -1); });
+  CHECK(settled(value, "an async entry's completion") == 10);
+  CHECK(within(2000, [] { return moduleStateHolds() == 0; }));
+
+  ok = entries::call(&startup::init, *startup::actor, &error, [](entries::Kept&) {
+    throwError(String::fromLatin1("RangeError"), String::fromLatin1("too far"));
+  });
+  CHECK(!ok && text(error.name) == "RangeError" && text(error.message) == "too far" && error.code.length == 0);
+  CHECK(startup::initialized == 1);
+}
+
 int main() {
   actorsAreDistinct();
   aLongJobDelaysNeitherAnotherActorNorMain();
@@ -425,6 +502,7 @@ int main() {
   aJavaScriptCallbackLendsItsActorToMain();
   reenteringALentActorWaitsForTheBorrower();
   aCycleAcrossActorsThrows();
+  modulesStartWithNoJavaScriptRuntime();
 
   std::printf("actor: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

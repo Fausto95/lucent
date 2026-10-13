@@ -24,6 +24,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 | Number                                                                             | Date       | Decision                                                                    |
 | ---------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
 | [0094](0094-exports-that-would-share-an-entry-point-get-none.md)                   | 2026-10-13 | Exports that would share an entry point get none, with a warning            |
+| [0093](0093-a-callback-with-no-runtime-fails-as-after-a-reload.md)                 | 2026-10-13 | A JavaScript callback with no runtime fails as it does after a reload       |
 | [0092](0092-launch-runs-in-the-apps-launch-and-android-loads-lucent-by-itself.md)  | 2026-10-13 | Launch modules run in the app's launch; Android loads Lucent by itself      |
 | [0091](0091-entry-points-are-c-functions-named-for-their-export.md)                | 2026-10-13 | Entry points are C functions named for their export                         |
 | [0090](0090-module-state-resets-only-when-nothing-native-holds-it.md)              | 2026-10-13 | Module state starts at first use, resets only when nothing native holds it  |
