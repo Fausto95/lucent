@@ -1,0 +1,9 @@
+{
+  "launch": ["refresh"],
+  "ios": {
+    "infoPlist": {
+      "BGTaskSchedulerPermittedIdentifiers": ["dev.lucent.example.refresh"],
+      "UIBackgroundModes": ["fetch"]
+    }
+  }
+}

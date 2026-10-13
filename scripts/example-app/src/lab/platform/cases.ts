@@ -2,6 +2,7 @@
 // runs open this screen after the Tests screen, on the simulator and the
 // emulator.
 import { Linking, Platform } from "react-native";
+import { isRegistered, runAsScheduled, schedule } from "lucent-background-task";
 import { channelReady, startedAtMs } from "lucent-launch";
 import { BUNDLE_STARTED } from "../../bundleStarted";
 import { holdBack } from "../../navigation/useNavigator";
@@ -63,11 +64,31 @@ async function launched(): Promise<string> {
   return "before JavaScript";
 }
 
+/** The background refresh's handler, as the scheduler would run it: to the end, then cut short. */
+async function backgroundRuns(): Promise<string> {
+  return `${await runAsScheduled(-1)}, ${await runAsScheduled(50)}`;
+}
+
 export const platformCases: SdkCase[] = [
   {
     name: "launch: a launch module's state starts before JavaScript",
     run: launched,
     expected: "before JavaScript",
+  },
+  {
+    name: "background task: launch registered the handler in time",
+    run: async () => String(isRegistered()),
+    expected: ios ? "true" : "false",
+  },
+  {
+    name: "background task: the scheduler takes a request, or says why not",
+    run: async () => schedule(),
+    expected: ios ? /^(scheduled|not scheduled: .+)$/ : "none",
+  },
+  {
+    name: "background task: a run completes, and an expiration stops one",
+    run: backgroundRuns,
+    expected: "completed, expired",
   },
   {
     name: "executor: frames reach a channel, uncopied",

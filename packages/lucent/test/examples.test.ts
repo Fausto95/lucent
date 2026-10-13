@@ -58,6 +58,7 @@ const packages = fs
 describe("the example packages", () => {
   it("are the ones listed here", () => {
     expect(packages).toEqual([
+      "lucent-background-task",
       "lucent-camera",
       "lucent-haptics",
       "lucent-http",

@@ -14,6 +14,7 @@
     "bench-nitro": "workspace:*",
     "bench-turbo": "workspace:*",
     "bench-turbo-cxx": "workspace:*",
+    "lucent-background-task": "workspace:*",
     "lucent-haptics": "workspace:*",
     "lucent-launch": "workspace:*",
     "lucent-orbit": "workspace:*",

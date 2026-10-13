@@ -126,8 +126,11 @@ generated from this file.
 - Native code runs a module function without a JavaScript runtime only
   through its entry point. A function gets one only if its parameters and
   result are numbers, booleans, `bigint`s, strings or `Uint8Array`s.
-- Background tasks, services and extensions can't run module code yet
-  ([T130](tasks.md#t130), [T131](tasks.md#t131), [T132](tasks.md#t132)).
+- Android services and workers, and app extensions, can't run module
+  code yet ([T131](tasks.md#t131), [T133](tasks.md#t133)). On iOS, a
+  launch module's `BGTaskScheduler` handler can. Relaunches for background
+  URL sessions and silent pushes aren't checked yet
+  ([T132](tasks.md#t132)).
 - Launch modules start module state, so every module's top level runs at
   launch, not only theirs.
 - An object goes on an executor only if its class does nothing else. It

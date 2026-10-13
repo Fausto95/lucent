@@ -52,6 +52,9 @@ importers:
       bench-turbo-cxx:
         specifier: workspace:*
         version: link:../../benchmarks/bench-turbo-cxx
+      lucent-background-task:
+        specifier: workspace:*
+        version: link:../../examples/lucent-background-task
       lucent-haptics:
         specifier: workspace:*
         version: link:../../examples/lucent-haptics
@@ -164,6 +167,9 @@ importers:
       expo-status-bar:
         specifier: ~58.0.1
         version: 58.0.1(expo@58.0.0-preview.4)(react-native@0.88.0-rc.1(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@6.0.3))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
+      lucent-background-task:
+        specifier: workspace:*
+        version: link:../../examples/lucent-background-task
       lucent-haptics:
         specifier: workspace:*
         version: link:../../examples/lucent-haptics
@@ -306,6 +312,8 @@ importers:
   benchmarks/bench-turbo: {}
 
   benchmarks/bench-turbo-cxx: {}
+
+  examples/lucent-background-task: {}
 
   examples/lucent-camera: {}
 

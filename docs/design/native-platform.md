@@ -858,10 +858,9 @@ thread enter the actor as main-thread entries do.
 
 ### iOS background execution
 
-**Planned** ([T132](../tasks.md#t132)), after [T110](../tasks.md#t110) and
-[T130](../tasks.md#t130). Background tasks, background URL sessions and
-silent pushes run Lucent code with no JavaScript, as `expo-background-task`
-and `expo-notifications` tasks do.
+**In progress** ([T132](../tasks.md#t132), #238). Background tasks,
+background URL sessions and silent pushes run Lucent code with no
+JavaScript, as `expo-background-task` and `expo-notifications` tasks do.
 
 - A launch module registers `BGTaskScheduler` handlers through the SDK
   binding, as ordinary Lucent code, and each runs through the native root.
@@ -873,10 +872,12 @@ and `expo-notifications` tasks do.
   `lucent.json` `ios.infoPlist`. Tests use a debug-build trigger, since the
   simulator never launches background tasks.
 
-**Open:** whether `lucent build` should check the identifiers at all.
-Recognizing a call to `BGTaskScheduler` by name would be a catalog entry,
-so a check would compare identifiers declared in `lucent.json` with
-`Info.plist`.
+[Decision 0096](../decisions/0096-ios-background-tasks-are-package-code-a-launch-module-registers.md)
+keeps `BGTaskScheduler` out of core. A package's launch module registers
+its handlers, and its `lucent.json` lists the `Info.plist` entries, which
+the build checks as it checks any entry. `examples/lucent-background-task`
+is such a package. On the simulator, the Platform screen checks that launch
+registered its handler, and runs the handler with a stand-in task.
 
 ### App extensions and widgets
 

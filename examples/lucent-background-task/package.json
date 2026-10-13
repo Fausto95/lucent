@@ -1,0 +1,16 @@
+{
+  "name": "lucent-background-task",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A background app refresh in Lucent, as expo-background-task's: a launch module registers its handler with BGTaskScheduler while the app launches, and the handler's work stops when the task expires. An example Lucent package.",
+  "files": [
+    "index.ts",
+    "src",
+    "lucent.json"
+  ],
+  "main": "index.ts",
+  "lucent": {
+    "sources": "src",
+    "compatible": "^0.2.0"
+  }
+}
