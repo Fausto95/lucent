@@ -10,35 +10,62 @@ export default function run(mod, print, lucentClass, mods) {
       ? HermesInternal.getInstrumentedStats().js_externalBytes
       : undefined;
   const MB = 1 << 20;
-  let at = external();
   // Other external memory comes and goes meanwhile (strings, the engine's own): a little leeway.
   const SLACK = 64 * 1024;
-  /** Whether the count moved by about `delta` since the last check. */
-  const moved = (delta) => {
-    const now = external();
-    const ok = now === undefined || Math.abs(now - at - delta) <= SLACK;
-    at = now;
-    return ok;
+  /**
+   * Whether `step` moves the count by about `delta`. On a device Hermes
+   * collects concurrently, and a collection that frees other garbage's
+   * external memory meanwhile spoils a try: up to three, `undo` putting back
+   * what the step changed before the next.
+   */
+  const moves = (delta, step, undo) => {
+    for (let tries = 0; tries < 3; tries++) {
+      const before = external();
+      step();
+      const now = external();
+      if (before === undefined || Math.abs(now - before - delta) <= SLACK) return true;
+      if (undo) undo();
+    }
+    return false;
   };
 
   // Made and loaded in module code: counted when it crosses.
-  const img = mod.image(MB);
-  print(img.nativeSize, moved(MB));
+  let img;
+  let ok = moves(MB, () => (img = mod.image(MB)));
+  print(img.nativeSize, ok);
 
   // A call that changes it: counted when the call returns.
-  img.load(4 * MB);
-  print(img.nativeSize, moved(3 * MB));
-  img.clear();
-  print(img.nativeSize, moved(-4 * MB));
+  ok = moves(
+    3 * MB,
+    () => img.load(4 * MB),
+    () => img.load(MB),
+  );
+  print(img.nativeSize, ok);
+  ok = moves(
+    -4 * MB,
+    () => img.clear(),
+    () => img.load(4 * MB),
+  );
+  print(img.nativeSize, ok);
 
   // A size stated as a field, on an object JavaScript makes.
-  const weights = new mod.Weights(2 * MB);
-  print(weights.nativeSize, moved(2 * MB));
+  let weights;
+  ok = moves(2 * MB, () => (weights = new mod.Weights(2 * MB)));
+  print(weights.nativeSize, ok);
 
   // A buffer counts its size until it is closed.
-  const buffer = mod.buffer(3 * MB);
-  print(buffer.byteLength, moved(3 * MB));
-  buffer.close();
-  print(buffer.byteLength, moved(-3 * MB));
+  let buffer;
+  ok = moves(
+    3 * MB,
+    () => (buffer = mod.buffer(3 * MB)),
+    () => buffer.close(),
+  );
+  print(buffer.byteLength, ok);
+  ok = moves(
+    -3 * MB,
+    () => buffer.close(),
+    () => (buffer = mod.buffer(3 * MB)),
+  );
+  print(buffer.byteLength, ok);
 
 }
