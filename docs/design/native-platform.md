@@ -345,8 +345,8 @@ module jobs:
   main thread while it runs (`ParkedActors`). JavaScript that waits for the
   main thread inside a callback can't deadlock it.
 
-A main-thread delegate still waits for the job holding its package.
-[T109](../tasks.md#t109)'s executors remove that wait for most callbacks.
+A main-thread delegate still waits for the job holding its package. One
+put on an executor with `on()` waits for none ([Executors](#executors)).
 
 ### Main-thread state
 

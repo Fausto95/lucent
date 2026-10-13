@@ -65,7 +65,7 @@ each system lets an author do, not how it does it.
 | The main thread                          | By hand                | ✅ `.runOnQueue(.main)`              | ✅ `main()`, checked at compile time           | —                     |
 | Parallel compute with no shared state    | By hand                | By hand                              | ✅ `compute`                                   | —                     |
 | Swift `async` and Kotlin `suspend` APIs  | ✅                     | ✅                                   | ✅ as promises, cancelled by `AbortSignal`     | —                     |
-| Platform callbacks off the module's lock | By hand                | By hand                              | 🟡 `serialQueue`, but callbacks take the actor | [T109](tasks.md#t109) |
+| Platform callbacks off the module's lock | By hand                | By hand                              | ✅ `on(executor(…), …)`: no wait for the actor | —                     |
 | Bounded streams with backpressure        | By hand                | By hand                              | ✅ `Channel`                                   | —                     |
 | Calls from worklet runtimes              | ✅ any runtime         | ✅ `installOnUIRuntime`              | ❌                                             | [T134](tasks.md#t134) |
 | Code that runs with no JS runtime        | By hand                | By hand                              | ❌ module state needs a live runtime           | [T130](tasks.md#t130) |
