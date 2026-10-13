@@ -95,7 +95,7 @@ for t in "${tests[@]}"; do
   fi
 done
 if [[ "$(uname)" == "Darwin" ]]; then
-  bg ${CXX:-clang++} "${flags[@]}" -fobjc-arc "$objs/objc_test.o" "${robjs[@]}" "${cobjs[@]}" "${libs[@]}" -framework Foundation -o "${out}_objc"
+  bg ${CXX:-clang++} "${flags[@]}" -fobjc-arc "$objs/objc_test.o" "${robjs[@]}" "${cobjs[@]}" "${libs[@]}" -framework Foundation -framework CoreVideo -o "${out}_objc"
 fi
 drain
 

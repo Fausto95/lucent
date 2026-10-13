@@ -80,6 +80,12 @@ export async function twice(): Promise<number> {
 }
 ```
 
+## Adopt a frame the platform made
+
+A frame the SDK gives you becomes a `NativeBuffer` without a copy. On iOS, [`adoptPixelBuffer`](/docs/api/lucent-ios/#adoptpixelbuffer) takes a `CVPixelBuffer` plane. On Android, [`adoptHardwareBuffer`](/docs/api/lucent-android/#adopthardwarebuffer) takes a `HardwareBuffer`, and [`adoptByteBuffer`](/docs/api/lucent-android/#adoptbytebuffer) a direct `ByteBuffer`.
+
+The frame stays locked for reading until the buffer's bytes are released. Such a buffer is read-only: `withWrite` and `transferToArrayBuffer()` throw an `InvalidStateError`. Pass `"readwrite"` to lock it for writing too, so that it can move to JavaScript.
+
 ## Hand it to JavaScript
 
 JavaScript gets the buffer as a handle with the same methods, and the same handle each time. Passing it back to the module copies nothing. Its `withRead` lends JavaScript a copy of the bytes, and its `withWrite` copies them back after, so JavaScript never holds memory a worker may be writing.

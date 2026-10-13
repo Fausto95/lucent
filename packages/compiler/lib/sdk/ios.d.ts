@@ -1,6 +1,6 @@
 // lucent:ios — iOS helpers for platform code.
 
-import type { NativeHandle } from "lucent:core";
+import type { NativeBuffer, NativeHandle } from "lucent:core";
 import type { NSError } from "lucent:ios/Foundation";
 import type { UIViewController } from "lucent:ios/UIKit";
 
@@ -77,6 +77,37 @@ export declare function withPixelBytes<R>(
   f: (bytes: Uint8Array, bytesPerRow: number, width: number, height: number) => R,
   plane?: number,
 ): R;
+
+/**
+ * A NativeBuffer of a CVPixelBuffer plane's bytes, uncopied: the pixel
+ * buffer is retained and locked until they're released, then unlocked. A
+ * camera frame can move to a worker, or with `"readwrite"` to JavaScript
+ * (`transferToArrayBuffer()`), without a copy. `withPixelBytes` is the
+ * form that copies.
+ *
+ * The bytes are the plane's `bytesPerRow × height`. A read-only buffer's
+ * writes throw `InvalidStateError`, and so does `transferToArrayBuffer()`,
+ * since an ArrayBuffer is writable.
+ *
+ * ```ts
+ * import { adoptPixelBuffer, type NSObject } from "lucent:ios";
+ *
+ * // A frame's pixels, for JavaScript: no copy on the way.
+ * function forJavaScript(pixelBuffer: NSObject): ArrayBuffer {
+ *   return adoptPixelBuffer(pixelBuffer, 0, "readwrite").transferToArrayBuffer();
+ * }
+ * ```
+ *
+ * @param pixelBuffer A CVPixelBuffer, such as `CMSampleBufferGetImageBuffer(sample)`.
+ * @param plane The plane of a planar format; 0 when left out.
+ * @param access `"read"` (the default) locks it for reading, and
+ * `"readwrite"` for writing too.
+ */
+export declare function adoptPixelBuffer(
+  pixelBuffer: NSObject,
+  plane?: number,
+  access?: "read" | "readwrite",
+): NativeBuffer;
 
 /** Swift's `as? String`: the string an `Any` holds, or null. */
 export declare function asString(value: NSObject | null): string | null;

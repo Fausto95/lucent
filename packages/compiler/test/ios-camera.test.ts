@@ -80,4 +80,36 @@ export async function run(): Promise<string> {
     expect(p.mm).toContain("#include <lucent/platform/ios_pixels.h>");
     expect(p.r.frameworks ?? []).toContain("CoreVideo");
   });
+
+  it("are adopted as NativeBuffers, locked for reading unless asked", () => {
+    const p = setProgram(
+      `import { CAMOutput, type CAMDelegate } from "lucent:ios/Cam";
+import { adoptPixelBuffer, serialQueue, type NSObject } from "lucent:ios";
+let sizes = "";
+class Frames implements CAMDelegate {
+  output_didOutput(output: CAMOutput, pixels: NSObject): void {
+    const read = adoptPixelBuffer(pixels);
+    const chroma = adoptPixelBuffer(pixels, 1);
+    const luma = adoptPixelBuffer(pixels, undefined, "read");
+    const written = adoptPixelBuffer(pixels, 0, "readwrite").transferToArrayBuffer();
+    sizes = \`\${read.byteLength} \${chroma.byteLength} \${luma.byteLength} \${written.byteLength}\`;
+    read.close();
+    luma.close();
+    chroma.close();
+  }
+}
+export async function run(): Promise<string> {
+  new CAMOutput().setDelegate(new Frames(), serialQueue("camera.frames"));
+  return sizes;
+}
+`,
+      set(),
+    );
+
+    expect(p.messages).toEqual([]);
+    expect(p.mm).toContain("lucent::objc::adoptPixelBuffer(");
+    expect(p.mm).toContain('LUCENT_STR("readwrite")');
+    expect(p.mm).toContain("#include <lucent/platform/ios_pixels.h>");
+    expect(p.r.frameworks ?? []).toContain("CoreVideo");
+  });
 });

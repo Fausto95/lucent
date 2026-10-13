@@ -383,7 +383,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           {
             "name": "withWrite",
             "signature": "withWrite<R>(write: (bytes: MutableByteSpan) => R): R;",
-            "doc": "Calls `write` with the bytes, while nothing else borrows them, and returns what it returns."
+            "doc": "Calls `write` with the bytes, while nothing else borrows them, and returns what it returns. A read-only buffer (a frame adopted for reading) throws InvalidStateError."
           },
           {
             "name": "toUint8Array",
@@ -398,7 +398,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           {
             "name": "transferToArrayBuffer",
             "signature": "transferToArrayBuffer(): ArrayBuffer;",
-            "doc": "Moves the bytes, uncopied, into an `ArrayBuffer`. Every reference to this buffer refuses them from now on, and the ArrayBuffer releases them as the buffer would have. Returned to JavaScript, it is the same bytes. A borrowed buffer does not move (an InvalidStateError)."
+            "doc": "Moves the bytes, uncopied, into an `ArrayBuffer`. Every reference to this buffer refuses them from now on, and the ArrayBuffer releases them as the buffer would have. Returned to JavaScript, it is the same bytes. A borrowed buffer does not move (an InvalidStateError), nor does a read-only one, since an ArrayBuffer is writable."
           },
           {
             "name": "close",
@@ -910,6 +910,39 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         ]
       },
       {
+        "name": "adoptPixelBuffer",
+        "kind": "function",
+        "signature": "function adoptPixelBuffer(\n  pixelBuffer: NSObject,\n  plane?: number,\n  access?: \"read\" | \"readwrite\",\n): NativeBuffer;",
+        "doc": [
+          "A NativeBuffer of a CVPixelBuffer plane's bytes, uncopied: the pixel buffer is retained and locked until they're released, then unlocked. A camera frame can move to a worker, or with `\"readwrite\"` to JavaScript (`transferToArrayBuffer()`), without a copy. `withPixelBytes` is the form that copies.",
+          "The bytes are the plane's `bytesPerRow × height`. A read-only buffer's writes throw `InvalidStateError`, and so does `transferToArrayBuffer()`, since an ArrayBuffer is writable."
+        ],
+        "examples": [
+          "import { adoptPixelBuffer, type NSObject } from \"lucent:ios\";\n\n// A frame's pixels, for JavaScript: no copy on the way.\nfunction forJavaScript(pixelBuffer: NSObject): ArrayBuffer {\n  return adoptPixelBuffer(pixelBuffer, 0, \"readwrite\").transferToArrayBuffer();\n}"
+        ],
+        "members": [],
+        "params": [
+          {
+            "name": "pixelBuffer",
+            "type": "NSObject",
+            "optional": false,
+            "doc": "A CVPixelBuffer, such as `CMSampleBufferGetImageBuffer(sample)`."
+          },
+          {
+            "name": "plane",
+            "type": "number",
+            "optional": true,
+            "doc": "The plane of a planar format; 0 when left out."
+          },
+          {
+            "name": "access",
+            "type": "\"read\" | \"readwrite\"",
+            "optional": true,
+            "doc": "`\"read\"` (the default) locks it for reading, and `\"readwrite\"` for writing too."
+          }
+        ]
+      },
+      {
         "name": "asString",
         "kind": "function",
         "signature": "function asString(value: NSObject | null): string | null;",
@@ -1247,6 +1280,33 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "type": "ByteBuffer",
             "optional": false,
             "doc": "A direct ByteBuffer (`ByteBuffer.allocateDirect`), not read-only: a heap or read-only buffer is a TypeError."
+          }
+        ]
+      },
+      {
+        "name": "adoptHardwareBuffer",
+        "kind": "function",
+        "signature": "function adoptHardwareBuffer(\n  buffer: HardwareBuffer,\n  access?: \"read\" | \"readwrite\",\n): NativeBuffer;",
+        "doc": [
+          "A NativeBuffer of a HardwareBuffer's bytes, uncopied, locked for the CPU until they're released, then unlocked. A camera's or a decoder's frame (`Image.getHardwareBuffer()`) can move to a worker, or with `\"readwrite\"` to JavaScript (`transferToArrayBuffer()`), without a copy.",
+          "The bytes are `stride × height` pixels of one plane. A read-only buffer's writes throw `InvalidStateError`, and so does `transferToArrayBuffer()`, since an ArrayBuffer is writable. Needs Android 8 (API 26), as HardwareBuffer does."
+        ],
+        "examples": [
+          "import { adoptHardwareBuffer, available } from \"lucent:android\";\nimport type { Image } from \"lucent:android/android.media\";\n\n// A frame's pixels, for JavaScript: no copy on the way.\nfunction forJavaScript(frame: Image): ArrayBuffer | null {\n  if (!available(\"android\", 28)) return null;\n  const pixels = frame.getHardwareBuffer();\n  return pixels ? adoptHardwareBuffer(pixels, \"readwrite\").transferToArrayBuffer() : null;\n}"
+        ],
+        "members": [],
+        "params": [
+          {
+            "name": "buffer",
+            "type": "HardwareBuffer",
+            "optional": false,
+            "doc": "A HardwareBuffer of one layer and one plane (RGBA_8888, RGB_565, BLOB…), made for the CPU uses asked: otherwise a TypeError."
+          },
+          {
+            "name": "access",
+            "type": "\"read\" | \"readwrite\"",
+            "optional": true,
+            "doc": "`\"read\"` (the default) locks it for reading, and `\"readwrite\"` for writing too."
           }
         ]
       },

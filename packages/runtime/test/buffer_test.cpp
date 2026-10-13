@@ -438,6 +438,45 @@ static void anArrayBufferTakesTheStorageAndItsRelease() {
   owner->shutdown();
 }
 
+/// Bytes no one may write (an immutable NSData's, a pixel buffer locked
+/// for reading): read, handed out, moved and copied as any buffer's, while
+/// a write and a move into an ArrayBuffer are refused; released once.
+static void readOnlyBytesAreNeverWritten() {
+  static const uint8_t frozen[4] = {1, 2, 3, 4};
+  std::atomic<int> destroyed{0};
+  NativeBufferStats before = NativeBufferObject::stats();
+  NativeBuffer buffer = NativeBufferObject::adoptReadOnly(
+      frozen, sizeof frozen, [&](uint8_t* data, size_t size) { destroyed += data == frozen && size == 4; }, nullptr,
+      str("NSData"));
+
+  CHECK(buffer->readOnly() && buffer->isOpen() && buffer->size() == 4);
+  CHECK(buffer->withRead(sum) == 10 && buffer->withRead(where) == frozen);
+  CHECK(thrown([&] { buffer->withWrite([](std::span<uint8_t> b) { b[0] = 9; }); }) ==
+        "InvalidStateError: NativeBuffer (NSData) is read-only: toUint8Array() copies its bytes");
+  CHECK(thrown([&] { buffer->transferToArrayBuffer(); }) ==
+        "InvalidStateError: NativeBuffer (NSData) is read-only, and an ArrayBuffer is writable: toUint8Array() "
+        "copies its bytes");
+  CHECK(frozen[0] == 1 && buffer->isOpen());
+
+  // A handle borrows them for read; a copy is counted.
+  NativeHandle handle = buffer->handle();
+  CHECK(handle->pointer() == reinterpret_cast<uintptr_t>(frozen));
+  handle->release();
+  Bytes copy = buffer->toBytes();
+  CHECK(copy.size() == 4 && copy.at(3) == 4);
+
+  // A move keeps them read-only.
+  NativeBuffer moved = buffer->transfer();
+  CHECK(moved->readOnly() && moved->withRead(where) == frozen);
+  CHECK(thrownName([&] { moved->withWrite([](std::span<uint8_t>) {}); }) == "InvalidStateError");
+
+  NativeBufferStats after = NativeBufferObject::stats();
+  CHECK(after.adopted == before.adopted + 1 && after.copies == before.copies + 1);
+  CHECK(moved->close() && destroyed == 1);
+  buffer = nullptr;
+  CHECK(destroyed == 1);
+}
+
 static void snapshotsCopyAndCount() {
   NativeBuffer buffer = NativeBufferObject::allocate(1024);
   buffer->withWrite([](std::span<uint8_t> bytes) { bytes[3] = 9; });
@@ -831,6 +870,7 @@ int main() {
   aBorrowedBufferDoesNotClose();
   theLastReferenceReleasesOnItsExecutor();
   anArrayBufferTakesTheStorageAndItsRelease();
+  readOnlyBytesAreNeverWritten();
   snapshotsCopyAndCount();
 
   spansReadWhatTheBufferHolds();

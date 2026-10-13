@@ -413,6 +413,8 @@ const LIBRARY: Record<string, LibraryEffect> = {
   // there as executor code: native.ts's requireExecutorCode).
   "lucent:thread.on": { returns: 1 },
   "lucent:android.adoptByteBuffer": ALLOCATES_THROWS,
+  "lucent:android.adoptHardwareBuffer": ALLOCATES_THROWS,
+  "lucent:ios.adoptPixelBuffer": ALLOCATES_THROWS,
   // A handle holds what it points to until released: kept, as an adopted buffer's bytes are.
   "lucent:android.handleOf": { allocates: true, throws: true, keeps: "result" },
   "lucent:ios.retainedHandle": { allocates: true, throws: true, keeps: "result" },

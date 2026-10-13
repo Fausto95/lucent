@@ -18,6 +18,12 @@ import { hostRun, iosProgram, xcode } from "./swift-harness.ts";
  */
 
 const library = {
+  // A stand-in for Android's, which the desktop JVM lacks: its NDK functions are missing too.
+  "android/hardware/HardwareBuffer.java": `package android.hardware;
+public final class HardwareBuffer {
+  public HardwareBuffer() {}
+}
+`,
   "dev/probe/Frames.java": `package dev.probe;
 import java.nio.ByteBuffer;
 public final class Frames {
@@ -55,6 +61,28 @@ export async function run(): Promise<string> {
 
 const fake = fakeAndroid(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-handles-")), {});
 
+const hardware = `import { adoptHardwareBuffer, handleOf } from "lucent:android";
+import { HardwareBuffer } from "lucent:android/android.hardware";
+
+function attempt(f: () => void): string {
+  try {
+    f();
+    return "made";
+  } catch (e) {
+    return \`\${(e as Error).name}: \${(e as Error).message}\`;
+  }
+}
+
+export async function run(): Promise<string> {
+  const pixels = new HardwareBuffer();
+  return [
+    attempt(() => adoptHardwareBuffer(pixels)),
+    attempt(() => adoptHardwareBuffer(pixels, "readwrite")),
+    attempt(() => handleOf(pixels)),
+  ].join(" | ");
+}
+`;
+
 describe.skipIf(!fake || !jdk)("handleOf from lucent:android", () => {
   it("gives a direct ByteBuffer's address, held until it is released", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-handles-"));
@@ -69,6 +97,24 @@ describe.skipIf(!fake || !jdk)("handleOf from lucent:android", () => {
       stdout:
         "true true | true false true 0 | TypeError: handleOf needs a direct ByteBuffer" +
         " (ByteBuffer.allocateDirect), not one over a Java array\n",
+      stderr: "",
+    });
+  }, 300_000);
+
+  it("adopts or hands over a HardwareBuffer only where the NDK has AHardwareBuffer", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-handles-"));
+    const jar = javaJar(path.join(root, "probe.jar"), library);
+    const classpath = classpathFile(path.join(root, "android-classpath.json"), [jar]);
+    const p = android(hardware, { android: { jars: fake!.bind, classpath } });
+
+    expect(p.r.diagnostics.map((d) => d.message)).toEqual([]);
+    expect(p.cpp).toContain("lucent::jni::adoptHardwareBuffer(");
+    expect(p.cpp).toContain('LUCENT_STR("readwrite")');
+    const needs = (what: string) =>
+      `TypeError: ${what} needs Android 8 (API 26), whose NDK gives an AHardwareBuffer`;
+    expect(jvmRun(p.r, p.dir, [jar, ...fake!.run])).toEqual({
+      status: 0,
+      stdout: `${needs("adoptHardwareBuffer")} | ${needs("adoptHardwareBuffer")} | ${needs("handleOf(HardwareBuffer)")}\n`,
       stderr: "",
     });
   }, 300_000);

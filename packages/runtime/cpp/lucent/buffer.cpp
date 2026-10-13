@@ -43,14 +43,23 @@ NativeBuffer NativeBufferObject::allocate(double size, String origin) {
 
   counters.allocated.fetch_add(1, std::memory_order_relaxed);
   trace::instant(trace::Category::Alloc, "buffer.allocate", {.parent = trace::currentId(), .value = static_cast<int64_t>(count)});
-  return NativeBuffer(new NativeBufferObject(data, count, freeAllocated, nullptr, std::move(origin), 0));
+  return NativeBuffer(new NativeBufferObject(data, count, freeAllocated, nullptr, std::move(origin), 0, false));
 }
 
 NativeBuffer NativeBufferObject::adopt(uint8_t* data, size_t size, Destroy destroy, ExecutionContext* destroyOn,
                                        String origin) {
   counters.adopted.fetch_add(1, std::memory_order_relaxed);
   trace::instant(trace::Category::Alloc, "buffer.adopt", {.parent = trace::currentId(), .value = static_cast<int64_t>(size)});
-  return NativeBuffer(new NativeBufferObject(data, size, std::move(destroy), destroyOn, std::move(origin), 0));
+  return NativeBuffer(new NativeBufferObject(data, size, std::move(destroy), destroyOn, std::move(origin), 0, false));
+}
+
+NativeBuffer NativeBufferObject::adoptReadOnly(const uint8_t* data, size_t size, Destroy destroy,
+                                               ExecutionContext* destroyOn, String origin) {
+  counters.adopted.fetch_add(1, std::memory_order_relaxed);
+  trace::instant(trace::Category::Alloc, "buffer.adopt", {.parent = trace::currentId(), .value = static_cast<int64_t>(size)});
+  // Never written through: every write is refused (refuseWrite).
+  return NativeBuffer(new NativeBufferObject(const_cast<uint8_t*>(data), size, std::move(destroy), destroyOn,
+                                             std::move(origin), 0, true));
 }
 
 NativeBuffer NativeBufferObject::fromBytes(const Bytes& bytes, String origin) {
@@ -63,13 +72,14 @@ NativeBuffer NativeBufferObject::fromBytes(const Bytes& bytes, String origin) {
 }
 
 NativeBufferObject::NativeBufferObject(uint8_t* data, size_t size, Destroy destroy, ExecutionContext* destroyOn,
-                                       String origin, uint32_t generation)
+                                       String origin, uint32_t generation, bool readOnly)
     : data_(data),
       size_(size),
       destroy_(std::move(destroy)),
       destroyOn_(destroyOn),
       origin_(std::move(origin)),
-      generation_(generation) {}
+      generation_(generation),
+      readOnly_(readOnly) {}
 
 NativeBufferObject::~NativeBufferObject() {
   // Nothing refers to it any more: nothing borrows it or changes its state.
@@ -137,6 +147,7 @@ NativeBuffer NativeBufferObject::transfer() {
 }
 
 ArrayBuffer NativeBufferObject::transferToArrayBuffer() {
+  if (readOnly_) refuseWrite(", and an ArrayBuffer is writable");
   seize(State::Transferring);
 
   uint8_t* data = data_;
@@ -156,7 +167,7 @@ NativeBuffer NativeBufferObject::beginTransfer() {
   seize(State::Transferring);
 
   NativeBuffer moved(new NativeBufferObject(data_, size_.exchange(0, std::memory_order_acq_rel), std::move(destroy_),
-                                            destroyOn_, origin_, generation_ + 1));
+                                            destroyOn_, origin_, generation_ + 1, readOnly_));
   data_ = nullptr;
   destroy_ = nullptr;
 
@@ -211,9 +222,18 @@ void NativeBufferObject::refuse(uint32_t word) const {
       break;
   }
 
-  String name = origin_.empty() ? String::fromLatin1("NativeBuffer")
-                                : String::fromLatin1("NativeBuffer (") + origin_ + String::fromLatin1(")");
-  throwError(String::fromLatin1("InvalidStateError"), name + String::fromLatin1(" ") + String::fromLatin1(why));
+  throwError(String::fromLatin1("InvalidStateError"), name() + String::fromLatin1(" ") + String::fromLatin1(why));
+}
+
+void NativeBufferObject::refuseWrite(const char* why) const {
+  throwError(String::fromLatin1("InvalidStateError"),
+             name() + String::fromLatin1(" is read-only") + String::fromLatin1(why) +
+                 String::fromLatin1(": toUint8Array() copies its bytes"));
+}
+
+String NativeBufferObject::name() const {
+  return origin_.empty() ? String::fromLatin1("NativeBuffer")
+                         : String::fromLatin1("NativeBuffer (") + origin_ + String::fromLatin1(")");
 }
 
 // --- Borrow ---------------------------------------------------------------------
@@ -234,6 +254,7 @@ NativeBufferObject::Borrow::Borrow(NativeBufferObject& buffer, bool write)
   std::atomic<uint32_t>& word = buffer.word_;
 
   if (write) {
+    if (buffer.readOnly_) buffer.refuseWrite("");
     uint32_t expected = 0;
     if (!word.compare_exchange_strong(expected, kWriter, std::memory_order_acquire)) buffer.refuse(expected);
 

@@ -1,6 +1,7 @@
 // Lucent runtime — Objective-C glue helpers (lucent/platform/ios.h) on the
-// macOS host: blocks, the object cache, NSError out-parameters and sets, checked
-// for what they keep alive (run.sh builds it with ARC, and ASan with SANITIZE=1).
+// macOS host: blocks, the object cache, NSError out-parameters, sets, and
+// pixel buffers adopted as NativeBuffers, checked for what they keep alive
+// (run.sh builds it with ARC, and ASan with SANITIZE=1).
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -9,6 +10,7 @@
 
 #include "lucent/lucent.h"
 #include "lucent/platform/ios.h"
+#include "lucent/platform/ios_pixels.h"
 
 using namespace lucent;
 
@@ -205,6 +207,75 @@ static void setsRoundTrip() {
   }
 }
 
+/// The name of the error `f` throws, or "" if it returns.
+template <class F>
+static std::string thrownName(F f) {
+  try {
+    f();
+  } catch (const Exception& e) {
+    return e.error()->name.toUtf8();
+  }
+  return "";
+}
+
+/// A pixel buffer's plane adopted as a NativeBuffer: its own bytes,
+/// uncopied, locked for reading (a write refused) or, asked, for writing,
+/// then unlocked and released once.
+static void pixelBuffersAreAdoptedInPlace() {
+  CVPixelBufferRef raw = nullptr;
+  CHECK(CVPixelBufferCreate(kCFAllocatorDefault, 4, 2, kCVPixelFormatType_32BGRA, nullptr, &raw) == kCVReturnSuccess);
+  NativeRef pixels;
+  @autoreleasepool {
+    pixels = objc::wrap((__bridge id)raw, "test");
+  }
+  CFRelease(raw);
+  // Counted outside autorelease pools, so that only what holds the buffer counts.
+  const CFIndex held = CFGetRetainCount(raw);
+  NativeBufferStats before = NativeBufferObject::stats();
+
+  NativeBuffer read;
+  @autoreleasepool {
+    read = objc::adoptPixelBuffer(pixels);
+  }
+  CVPixelBufferLockBaseAddress(raw, kCVPixelBufferLock_ReadOnly);
+  const uint8_t* base = static_cast<const uint8_t*>(CVPixelBufferGetBaseAddress(raw));
+  const size_t size = CVPixelBufferGetBytesPerRow(raw) * 2;
+  CVPixelBufferUnlockBaseAddress(raw, kCVPixelBufferLock_ReadOnly);
+  CHECK(read->readOnly() && read->size() == size);
+  CHECK(read->withRead([](std::span<const uint8_t> b) { return b.data(); }) == base);
+  CHECK(thrownName([&] { read->withWrite([](std::span<uint8_t> b) { b[0] = 1; }); }) == "InvalidStateError");
+  CHECK(thrownName([&] { read->transferToArrayBuffer(); }) == "InvalidStateError");
+  CHECK(CFGetRetainCount(raw) == held + 1);
+  CHECK(read->close() && CFGetRetainCount(raw) == held);
+
+  // Asked for writing, it writes in place, and moves into an ArrayBuffer.
+  NativeBuffer written;
+  @autoreleasepool {
+    written = objc::adoptPixelBuffer(pixels, undefined, String::fromLatin1("readwrite"));
+  }
+  CHECK(!written->readOnly());
+  written->withWrite([](std::span<uint8_t> b) { b[0] = 42; });
+  ArrayBuffer moved = written->transferToArrayBuffer();
+  CHECK(moved.data() == base && moved.data()[0] == 42);
+  moved = ArrayBuffer();
+  written = nullptr;
+  CHECK(CFGetRetainCount(raw) == held);
+  // Unlocked: it locks for writing again.
+  CHECK(CVPixelBufferLockBaseAddress(raw, 0) == kCVReturnSuccess);
+  CVPixelBufferUnlockBaseAddress(raw, 0);
+
+  NativeBufferStats after = NativeBufferObject::stats();
+  CHECK(after.adopted == before.adopted + 2 && after.copies == before.copies);
+
+  // No such plane, no pixel buffer, no such access.
+  @autoreleasepool {
+    CHECK(thrownName([&] { objc::adoptPixelBuffer(pixels, 1.0); }) == "RangeError");
+    CHECK(thrownName([&] { objc::adoptPixelBuffer(objc::wrap([NSObject new], "test")); }) == "TypeError");
+    CHECK(thrownName([&] { objc::adoptPixelBuffer(pixels, undefined, String::fromLatin1("write")); }) == "TypeError");
+  }
+  CHECK(CFGetRetainCount(raw) == held);
+}
+
 int main() {
   blocksReleaseWhatTheyHold();
   cachedObjectsAreWeak();
@@ -214,6 +285,7 @@ int main() {
   setsRoundTrip();
   optionalFunctionsBecomeOptionalBlocks();
   outIntegersAreBigInts();
+  pixelBuffersAreAdoptedInPlace();
   std::printf("objc: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;
 }

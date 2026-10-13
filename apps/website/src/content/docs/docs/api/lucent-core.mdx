@@ -373,10 +373,10 @@ export async function sample(): Promise<number> {
 | `static stats(): NativeBufferStats;` | What every buffer has done since the app started. |
 | `readonly byteLength: number;` | How many bytes it holds: 0 once closed or transferred. |
 | `withRead<R>(read: (bytes: ByteSpan) => R): R;` | Calls `read` with the bytes, while no one writes them, and returns what it returns. |
-| `withWrite<R>(write: (bytes: MutableByteSpan) => R): R;` | Calls `write` with the bytes, while nothing else borrows them, and returns what it returns. |
+| `withWrite<R>(write: (bytes: MutableByteSpan) => R): R;` | Calls `write` with the bytes, while nothing else borrows them, and returns what it returns. A read-only buffer (a frame adopted for reading) throws InvalidStateError. |
 | `toUint8Array(): Uint8Array;` | A copy of the bytes, independent of the buffer from then on. |
 | `transfer(): NativeBuffer;` | Moves the bytes, uncopied, to a new buffer: every reference to this one refuses them from now on. |
-| `transferToArrayBuffer(): ArrayBuffer;` | Moves the bytes, uncopied, into an `ArrayBuffer`. Every reference to this buffer refuses them from now on, and the ArrayBuffer releases them as the buffer would have. Returned to JavaScript, it is the same bytes. A borrowed buffer does not move (an InvalidStateError). |
+| `transferToArrayBuffer(): ArrayBuffer;` | Moves the bytes, uncopied, into an `ArrayBuffer`. Every reference to this buffer refuses them from now on, and the ArrayBuffer releases them as the buffer would have. Returned to JavaScript, it is the same bytes. A borrowed buffer does not move (an InvalidStateError), nor does a read-only one, since an ArrayBuffer is writable. |
 | `close(): void;` | Releases the bytes. Closing a closed or transferred buffer does nothing. |
 | `handle(): NativeHandle;` | A handle of the bytes' address, for native code that takes one (a library JavaScript passes the pointer to). It borrows the bytes for read until it is released: reads go on, while writes, `transfer()` and `close()` throw an InvalidStateError. An empty buffer has no address (a RangeError). |
 | `[Symbol.dispose](): void;` |  |

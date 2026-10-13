@@ -36,7 +36,7 @@ each contract as the code implements it today. The design is
 | [C-IR](#c-ir-semantic-ir-and-program-facts)                  | The semantic IR, its verifier, effect summaries, program facts        | v1.3    | `packages/compiler/src/ir/`, `analysis/`                    |
 | [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.9    | `packages/runtime/cpp/lucent/`                              |
 | [C-BIGINT](#c-bigint-the-runtimes-bigint)                    | The runtime's `BigInt` and native integer conversions                 | v1.1    | `lucent/bigint.h`                                           |
-| [C-BUFFER](#c-buffer-native-buffers)                         | Native buffers, borrows, moves, loans, adoptions, native handles      | v1.5    | `lucent/buffer.h`, `handle.h`, `bytes.h`, `jsi/convert.*`   |
+| [C-BUFFER](#c-buffer-native-buffers)                         | Native buffers, borrows, moves, loans, adoptions, native handles      | v1.6    | `lucent/buffer.h`, `handle.h`, `bytes.h`, `jsi/convert.*`   |
 | [C-VIEW](#c-view-components-and-views)                       | Component descriptions, transport, mounts, hosts, toolkit bodies      | v2.5    | `packages/compiler/src/ui/`, `packages/runtime/cpp/rn/`     |
 | [C-BUILD](#c-build-build-records-and-identities)             | Build records, pending actions, SDK locks, build identities           | v1.7    | `packages/lucent/src/cli/`, `compiler/src/emit/identity.ts` |
 | [C-TRACE](#c-trace-correlated-tracing)                       | Correlated runtime and build tracing                                  | v1      | `lucent/trace.h`, `packages/lucent/src/cli/trace.ts`        |
@@ -711,12 +711,13 @@ has `toLongArray`, `fromLongArray` and `unboxLong`.
 **Version: v1.5.** How bytes cross without a copy, every exception to
 the copy rule, and the native memory an object reports to JavaScript's
 collector. v1.5 added the platforms' handle makers and memory pressure
-([T107](../tasks.md#t107)).
+([T107](../tasks.md#t107)), and v1.6 read-only buffers and the frames
+adopted as them ([T108](../tasks.md#t108)).
 
 **Implemented by** `lucent/buffer.h`, `handle.h`, `bytes.h`
 (`ByteStorage`), `jsi/convert.h` and `convert.cpp` (`Borrowed`, the JS
-handles), `jsi/host.cpp` (memory pressure), `platform/android.h` and
-`ios.h`, `compiler/lib/sdk/core.d.ts`, and the compiler's
+handles), `jsi/host.cpp` (memory pressure), `platform/android.h`,
+`ios.h` and `ios_pixels.h`, `compiler/lib/sdk/core.d.ts`, and the compiler's
 `emit/buffers.ts`, `emit/lent-bytes.ts` and `emit/classes.ts`
 (`NativeSized`).
 
@@ -728,7 +729,7 @@ handles), `jsi/host.cpp` (memory pressure), `platform/android.h` and
 - Borrows are synchronous and scoped, and cannot escape. A transfer with
   an active borrow fails, and after one every alias refuses use.
 - JavaScript sees an opaque handle. No writable JavaScript `ArrayBuffer`
-  aliases storage a worker mutates.
+  aliases storage a worker mutates, or bytes no one may write.
 
 ### Runtime API
 
@@ -748,6 +749,7 @@ unborrowed), the storage, an atomic size, `Destroy` with its executor,
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | `allocate(size, origin?)`                         | Zeroed bytes; `RangeError` on a bad size.                                                   |
 | `adopt(data, size, destroy, destroyOn?, origin?)` | Takes native bytes; `destroy` runs on `destroyOn`, which must outlive the buffer.           |
+| `adoptReadOnly(…)`, `readOnly()`                  | As `adopt`, for bytes no one may write: a write borrow and `transferToArrayBuffer` throw.   |
 | `fromBytes(bytes)`, `toBytes()`                   | One counted copy each; `toBytes` under a read borrow.                                       |
 | `withRead(f)`, `withWrite(f)`                     | `f` gets a `std::span` of the bytes. The free forms lend a `ByteSpan` or `MutableByteSpan`. |
 | `close()`                                         | True once; false if closed or transferred; throws while borrowed.                           |
@@ -773,6 +775,7 @@ unborrowed), the storage, an atomic size, `Destroy` with its executor,
 | Returned bytes move  | A returned `ArrayBuffer`, or whole-buffer `Uint8Array`, that nothing else holds gives JavaScript the same bytes, adopted ones included, with their size as external memory pressure.                                                                                                         |
 | Lent arguments       | `Convert<ArrayBuffer>::borrow` and `Convert<Bytes>::borrow` give a `Borrowed<T>` over JavaScript's bytes (`ByteStorage::lend`) for a synchronous export that only reads them (`emit/lent-bytes.ts`). When it goes, storage anything still holds is copied (`keep()`). Loans are not counted. |
 | Android `ByteBuffer` | `jni::adoptByteBuffer` (`adoptByteBuffer` in `lucent:android`) adopts a direct buffer's capacity under a global reference. Heap or read-only buffers throw `TypeError`. Java must leave it alone after.                                                                                      |
+| Frames               | `objc::adoptPixelBuffer` and `jni::adoptHardwareBuffer` (`lucent:ios`, `lucent:android`) adopt one plane, retained or acquired and locked for the CPU until released: read-only (`adoptReadOnly`) for `"read"`, writable for `"readwrite"`. An `NSData` stays a copy (0086).                 |
 | `ArrayBuffer` move   | `transferToArrayBuffer()` hands the storage, `Destroy` and executor to adopted `ByteStorage`, released with the last Lucent or JavaScript holder.                                                                                                                                            |
 | Native handles       | A `NativeHandle` gives other native code the address: a buffer's `handle()`; `objc::retainedHandle` (`retainedHandle` in `lucent:ios`), an object retained +1 and released once; `jni::byteBufferHandle` and `jni::hardwareBufferHandle` (`handleOf` in `lucent:android`).                   |
 
@@ -796,9 +799,6 @@ runs: Hermes has no `ArrayBuffer.prototype.transfer`, and JSI no detach.
 
 - [T100](../tasks.md#t100): typed arrays and `DataView` cross as
   `Uint8Array` does, and type views of a `NativeBuffer` inside borrows.
-- [T108](../tasks.md#t108): adoptions join the exceptions table: an
-  `NSData`'s bytes and a locked `CVPixelBuffer` plane on iOS, a
-  `HardwareBuffer` (API 26+) on Android.
 
 ## C-VIEW: components and views
 

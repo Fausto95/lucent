@@ -1,9 +1,11 @@
-// Lucent runtime — a CVPixelBuffer's bytes, read in place: `withPixelBytes`
-// from lucent:ios (Objective-C++ with ARC, iOS only). Links CoreVideo.
+// Lucent runtime — a CVPixelBuffer's bytes: read under a lock
+// (`withPixelBytes`), or adopted as a NativeBuffer (`adoptPixelBuffer`), from
+// lucent:ios (Objective-C++ with ARC, iOS only). Links CoreVideo.
 #pragma once
 
 #import <CoreVideo/CoreVideo.h>
 
+#include "../buffer.h"
 #include "ios.h"
 
 namespace lucent::objc {
@@ -46,6 +48,56 @@ auto withPixelBytes(const NativeRef& pixels, F&& f, Opt<double> plane = undefine
   // view of the buffer's own memory would outlive the lock.
   Bytes bytes = Bytes::copy(base, size);
   return f(bytes, static_cast<double>(stride), static_cast<double>(width), static_cast<double>(height));
+}
+
+/**
+ * lucent:ios's adoptPixelBuffer(pixelBuffer, plane, access): a plane's
+ * bytes (bytesPerRow × height) as a NativeBuffer, uncopied. The pixel
+ * buffer is retained and its base address locked, for reading unless
+ * `access` is "readwrite", until the NativeBuffer releases the bytes, then
+ * unlocked and released once.
+ */
+inline NativeBuffer adoptPixelBuffer(const NativeRef& pixels, Opt<double> plane = undefined,
+                                     const String& access = String::fromLatin1("read")) {
+  const bool writable = access == String::fromLatin1("readwrite");
+  if (!writable && !(access == String::fromLatin1("read")))
+    throw Exception(makeError(String::fromLatin1("TypeError"),
+                              String::fromLatin1("adoptPixelBuffer's access is \"read\" or \"readwrite\"")));
+
+  id o = unwrap(pixels);
+  if (!o || CFGetTypeID((__bridge CFTypeRef)o) != CVPixelBufferGetTypeID())
+    throw Exception(makeError(String::fromLatin1("TypeError"), String::fromLatin1("adoptPixelBuffer needs a CVPixelBuffer")));
+  CVPixelBufferRef buffer = (__bridge CVPixelBufferRef)o;
+
+  size_t planes = CVPixelBufferGetPlaneCount(buffer);
+  double wanted = plane.has() ? plane.get() : 0;
+  if (!(wanted >= 0) || wanted >= static_cast<double>(planes ? planes : 1) || wanted != static_cast<double>(static_cast<size_t>(wanted)))
+    throwRangeError("adoptPixelBuffer: no such plane");
+  size_t p = static_cast<size_t>(wanted);
+
+  const CVPixelBufferLockFlags flags = writable ? 0 : kCVPixelBufferLock_ReadOnly;
+  if (CVPixelBufferLockBaseAddress(buffer, flags) != kCVReturnSuccess)
+    throw Exception(makeError(String::fromLatin1("Error"), String::fromLatin1("adoptPixelBuffer: the pixel buffer could not be locked")));
+
+  auto* base = static_cast<uint8_t*>(planes ? CVPixelBufferGetBaseAddressOfPlane(buffer, p) : CVPixelBufferGetBaseAddress(buffer));
+  size_t stride = planes ? CVPixelBufferGetBytesPerRowOfPlane(buffer, p) : CVPixelBufferGetBytesPerRow(buffer);
+  size_t height = planes ? CVPixelBufferGetHeightOfPlane(buffer, p) : CVPixelBufferGetHeight(buffer);
+
+  // Held for the bytes: unlocked, then released, once they go, on any thread.
+  CFRetain(buffer);
+  NativeBufferObject::Destroy destroy = [buffer, flags](uint8_t*, size_t) {
+    CVPixelBufferUnlockBaseAddress(buffer, flags);
+    CFRelease(buffer);
+  };
+  try {
+    String origin = String::fromLatin1("CVPixelBuffer");
+    return writable ? NativeBufferObject::adopt(base, stride * height, std::move(destroy), nullptr, std::move(origin))
+                    : NativeBufferObject::adoptReadOnly(base, stride * height, std::move(destroy), nullptr, std::move(origin));
+  } catch (...) {
+    CVPixelBufferUnlockBaseAddress(buffer, flags);
+    CFRelease(buffer);
+    throw;
+  }
 }
 
 }  // namespace lucent::objc

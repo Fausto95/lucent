@@ -3993,6 +3993,24 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
         t,
       };
     }
+    case "lucent:ios.adoptPixelBuffer": {
+      unit.include("lucent/platform/ios_pixels.h");
+      em.ctx.frameworks.add("CoreVideo");
+      const nsObject: LType = {
+        k: "native",
+        platform: "ios",
+        module: "lucent:ios",
+        name: "NSObject",
+      };
+      return {
+        c: cpp.call("lucent::objc::adoptPixelBuffer", [
+          em.exprAs(args[0]!, nsObject),
+          ...(args[1] ? [em.exprAs(args[1], unionOf([T.number, T.undefined]))] : []),
+          ...(args[2] ? [em.exprAs(args[2], T.string)] : []),
+        ]),
+        t: T.buffer,
+      };
+    }
     case "lucent:ios.present": {
       const build = args[0];
       if (
@@ -4096,6 +4114,15 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
       return {
         c: cpp.call("lucent::jni::adoptByteBuffer", [
           em.exprAs(args[0]!, declaredArg(em, args[0]!)),
+        ]),
+        t: T.buffer,
+      };
+    case "lucent:android.adoptHardwareBuffer":
+      unit.include("lucent/platform/android.h");
+      return {
+        c: cpp.call("lucent::jni::adoptHardwareBuffer", [
+          em.exprAs(args[0]!, declaredArg(em, args[0]!)),
+          ...(args[1] ? [em.exprAs(args[1], T.string)] : []),
         ]),
         t: T.buffer,
       };
