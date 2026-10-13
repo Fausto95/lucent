@@ -8,14 +8,16 @@ import android.database.Cursor;
 import android.net.Uri;
 
 /**
- * Starts Lucent's Activity tracking with the process, before any Activity
- * or JavaScript: Android creates the providers the app's manifest declares
- * before its first Activity. It provides no data.
+ * Starts Lucent's Activity tracking with the process, and creates the
+ * app's launch modules, before any Activity or JavaScript: Android creates
+ * the providers the app's manifest declares before Application.onCreate.
+ * It provides no data.
  */
 public final class LucentInitializer extends ContentProvider {
   @Override
   public boolean onCreate() {
     LucentActivities.install((Application) getContext().getApplicationContext());
+    LucentLaunch.start();
     return true;
   }
 

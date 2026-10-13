@@ -1129,6 +1129,20 @@ bool onMainThread() {
 }
 
 }  // namespace lucent
+
+// The app's generated lucent_entries.cpp: starts module state for its launch
+// modules, or does nothing.
+extern "C" void lucent_launch(void);
+
+/// dev.lucent.LucentLaunch.launch(), from LucentInitializer on the main thread
+/// once the app's appmodules has loaded (decision 0095): found by its name.
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_LucentLaunch_launch(JNIEnv*, jclass) {
+  try {
+    lucent_launch();
+  } catch (...) {
+    lucent::reportUncaught(std::current_exception(), "launch");
+  }
+}
 #endif
 
 #endif

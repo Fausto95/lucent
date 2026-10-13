@@ -406,6 +406,23 @@ describe("native package", () => {
     ).toContain('android:name="android.permission.USE_BIOMETRIC"');
   });
 
+  it("has Android load the app's code at launch only when packages list launch modules", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const launch = (out: string) =>
+      fs.readFileSync(path.join(out, "android/src/main/java/dev/lucent/LucentLaunch.java"), "utf8");
+
+    const without = path.join(dir, "without");
+    writeNativePackage(program(dir), without, { native: nativeOf(["lucent-other", {}]) });
+    expect(launch(without)).toContain("static final boolean MODULES = false;");
+
+    const withLaunch = path.join(dir, "with");
+    writeNativePackage(program(dir), withLaunch, {
+      native: nativeOf(["lucent-tasks", { launch: ["tasks"] }]),
+    });
+    expect(launch(withLaunch)).toContain("static final boolean MODULES = true;");
+    expect(launch(withLaunch)).toContain('System.loadLibrary("appmodules");');
+  });
+
   it("records what the packages contribute, and which package each need came from", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
     const src = path.join(dir, "a.lucent.ts");

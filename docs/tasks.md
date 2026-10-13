@@ -898,8 +898,7 @@ runtime.
   #228), and the runtime's native root keeps it (#231). Entry points run
   exports with no JavaScript runtime on the host (#233), and code with no
   runtime fails as after a reload (#234). Launch modules start state at
-  launch on iOS (#235). Loading on Android, launch there, and runs on the
-  simulator and the emulator are left.
+  launch (#235, #236). Runs on the simulator and the emulator are left.
 - **Area:** runtime, compiler.
 - **Needs:** nothing for the decision and the root; [T110](#t110) for
   `launch` on iOS, which runs from the app-delegate subscriber.
@@ -924,22 +923,25 @@ when a JavaScript runtime installs Lucent, and there is no native way in.
       and work an entry point starts belongs to that call's scope, not to
       the last attached runtime (`currentRuntime()`). `native_root.h`:
       module state's generations, holds, and `NativeCall` (#231).
-- [ ] On Android, the code loads without React Native: the native root's
+- [x] On Android, the code loads without React Native: the native root's
       library is loaded before `appmodules`, or built apart from it. Built
       apart, as `liblucent.so`, and launch's timing on each platform, are
       decided
       ([0092](decisions/0092-launch-runs-in-the-apps-launch-and-android-loads-lucent-by-itself.md)).
+      Lucent loads `appmodules` itself instead
+      ([0095](decisions/0095-android-loads-appmodules-itself-for-launch.md),
+      #236).
 - [x] Native entry points: generated C functions that run a module
       function on its actor, for the glue of T131 to T133, and for T114,
       to call. Their ABI is decided
       ([0091](decisions/0091-entry-points-are-c-functions-named-for-their-export.md)).
       `lucent_entries.h` and `entries.h`, for numbers, booleans, `bigint`,
       strings and `Uint8Array` (#233).
-- [ ] `lucent.json` `launch`: modules created at app launch, before the
+- [x] `lucent.json` `launch`: modules created at app launch, before the
       first frame, so they can register what the OS requires by then.
       Packages list them, LUCENT3015 names one that isn't, and iOS's
       `LucentAppDelegate` creates them, `lucent build` naming a bare app's
-      missing call (#235). Android's `LucentInitializer` is left.
+      missing call (#235). Android's `LucentInitializer` does (#236).
 - [x] Without a runtime, a call that needs one (a JavaScript callback, a
       `JSValue`) throws a typed error. An event with no listener is
       dropped. It fails as after a reload, with `AbortError`

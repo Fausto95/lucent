@@ -126,9 +126,8 @@ generated from this file.
 - Native code runs a module function without a JavaScript runtime only
   through its entry point. A function gets one only if its parameters and
   result are numbers, booleans, `bigint`s, strings or `Uint8Array`s.
-- On Android, launch modules aren't created at launch yet, and on both
-  platforms background tasks, services and extensions can't run module
-  code ([T130](tasks.md#t130)).
+- Background tasks, services and extensions can't run module code yet
+  ([T130](tasks.md#t130), [T131](tasks.md#t131), [T132](tasks.md#t132)).
 - Launch modules start module state, so every module's top level runs at
   launch, not only theirs.
 - An object goes on an executor only if its class does nothing else. It
