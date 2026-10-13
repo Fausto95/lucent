@@ -539,9 +539,6 @@ Each exception is explicit:
   writing: its `withRead` and `withWrite` lend it a copy, copied back
   after `withWrite`. `transferToArrayBuffer()` moves the bytes, uncopied.
 
-Android adopts a direct `ByteBuffer` (`adoptByteBuffer`) without a copy;
-iOS copies (`withPixelBytes`) until [T108](tasks.md#t108).
-
 ### Identity and checks
 
 The same instance always maps to the same JavaScript object, which lives
@@ -604,7 +601,7 @@ throws into Lucent keeps its `name`, `message`, a string `code` and its
 `stack`, but not its identity or other fields; a thrown non-Error becomes
 an `Error`. An uncatchable error goes to the platform log and stderr.
 
-### JSValue, NativeBuffer and NativeHandle
+### JSValue
 
 A `JSValue` is a JavaScript value Lucent holds without reading it. It is
 stored, passed on and handed back as the same value: an object keeps its
@@ -615,6 +612,25 @@ throws `TypeError` when it goes back. Comparing (but with `undefined` or
 refused (`LUCENT1002`, `1003`, `2002`), and so is a compute task taking
 one (`LUCENT3012`).
 
+A `NativeBuffer` and a `NativeHandle` cross as opaque objects, the same
+one each time; their rules are under [Interop](#interop).
+
+### Build identity
+
+Each compile gives the app binary and the JavaScript bundle an identity
+(`emit/identity.ts`): the runtime ABI, a program hash per target and an
+API hash per module. Before a module loads, a different ABI, React Native
+release or API is an error with `code: "LUCENT_NATIVE_MISMATCH"`; another
+program with the same APIs warns once ([architecture.md](architecture.md#build-identity)).
+
+## Interop
+
+Lucent shares bytes and addresses with other native code without
+copying them, and tells JavaScript's collector what native memory its
+objects hold.
+
+### Native buffers
+
 A `NativeBuffer` is bytes native code owns, reached through a borrow for
 one call (`buffer.h`): `withRead` lends a `ByteSpan`, and `withWrite` a
 `MutableByteSpan` that needs the buffer to itself. A conflicting borrow,
@@ -623,6 +639,13 @@ escapes its callback is `LUCENT3030`. After `transfer()` moves the bytes,
 the old buffer throws (`LUCENT3031` where the compiler sees it).
 `close()` or `using` releases them; `from` and `toUint8Array()` are the
 only copies, which `stats()` counts.
+
+Platform memory becomes a buffer without a copy where the platform lends
+it: `adoptByteBuffer` in `lucent:android` adopts a direct `ByteBuffer`,
+which Java must leave alone after. iOS copies (`withPixelBytes`) until
+[T108](tasks.md#t108).
+
+### Native handles
 
 A `NativeHandle` is an address held valid until released: `pointer` (a
 bigint, `0n` once released), `released` and `release()`, once, from either
@@ -634,13 +657,23 @@ retains an object (+1) until released; `handleOf` in `lucent:android`
 holds a direct `ByteBuffer` (a heap one is a `TypeError`) or acquires a
 `HardwareBuffer`.
 
-### Build identity
+A reload starts module state again, so a handle or buffer only it held
+is released with its last reference; the old runtime's objects go with
+it. A runtime that gets a new host and keeps its JavaScript, as the e2e
+host's `__lucentReplaceHost` does, finds that a buffer, handle or class
+instance of the old host throws `TypeError` when used.
 
-Each compile gives the app binary and the JavaScript bundle an identity
-(`emit/identity.ts`): the runtime ABI, a program hash per target and an
-API hash per module. Before a module loads, a different ABI, React Native
-release or API is an error with `code: "LUCENT_NATIVE_MISMATCH"`; another
-program with the same APIs warns once ([architecture.md](architecture.md#build-identity)).
+### Memory pressure
+
+A `NativeBuffer`, and an instance of a class implementing `NativeSized`
+from `lucent:core`, report the native memory they hold to JavaScript's
+collector
+([0084](decisions/0084-a-class-states-its-native-size-by-implementing-nativesized.md)).
+`nativeSize`, a field or a getter, is read holding the module's actor:
+when the instance crosses to JavaScript, and after each method or setter
+JavaScript calls on it. A change module code makes alone shows at the
+next crossing. A buffer reports nothing once moved or closed, and a size
+past 32 bits reports as the most Hermes takes.
 
 ## Concurrency
 
@@ -795,11 +828,8 @@ A debug build names each cycle it finds at a teardown, once, in the
 platform log (`refs.h`). It lists the fields that close it, and names the
 last as the one to hold weakly. The next runtime writes each as a
 `console.warn`, and `__lucentDebug.snapshot()` lists them as `cycles`.
-A `NativeBuffer`, and an instance of a class implementing `NativeSized`
-from `lucent:core`, report the native memory they hold to JavaScript's
-collector: when they cross to JavaScript, and after a call from
-JavaScript changes it
-([0084](decisions/0084-a-class-states-its-native-size-by-implementing-nativesized.md)).
+JavaScript's collector sees the native memory a `NativeBuffer` or a
+`NativeSized` instance holds ([memory pressure](#memory-pressure)).
 
 `new WeakRef(target)` holds a class instance, interface value or object,
 freed with its last strong reference: `deref()` then gives `undefined` at

@@ -598,14 +598,13 @@ belongs to the JavaScript runtime it runs for (`RuntimeEntry`,
   promise or a subscription, run on the calling context.
 - `resource.h`: a `Resource` closes once, at `close()`, its scope's
   disposal or its last reference. `handle.h`'s `NativeHandle` is an
-  address valid until `release()`.
+  address valid until `release()`; `platform/ios.h` and `android.h` make
+  them of platform objects. `Object::lucentNativeSize_()` is the native
+  memory the host reports to the collector (`jsi/host.cpp`).
 - `events.h`: `EventEmitter` keeps listeners by event index, and
   `onObserved` reports an event's first listener and its last.
 - `abort.h`: an `AbortSignal` belongs to its context. One from JavaScript
   is mirrored natively and aborted on the JS thread.
-
-> **Planned:** memory pressure for native objects and platform makers of
-> native handles ([T107](tasks.md#t107)).
 
 ### Compute, channels and buffers
 
