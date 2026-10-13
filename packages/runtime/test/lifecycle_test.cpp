@@ -16,6 +16,7 @@
 #include <thread>
 #include <vector>
 
+#include "lucent/delegate_events.h"
 #include "lucent/lifecycle.h"
 #include "lucent/lucent.h"
 #include "lucent/presentation.h"
@@ -632,6 +633,124 @@ static void presentationRaces() {
   CHECK(bad == 0);
 }
 
+// --- app delegate events -----------------------------------------------------
+
+/// Each subscriber answers, in the order they subscribed; one that throws
+/// answers nothing, and the rest still do. Reports come from the main thread.
+static void delegateEventsGatherAnswers() {
+  DelegateEvent<int, bool> event;
+  std::vector<int> heard;
+  auto first = event.subscribe([&](const int& n) {
+    heard.push_back(n);
+    return false;
+  });
+  auto throwing = event.subscribe([&](const int&) -> bool { throw std::runtime_error("listener"); });
+  auto last = event.subscribe([&](const int& n) {
+    heard.push_back(n * 10);
+    return true;
+  });
+
+  std::vector<bool> answers;
+  onMain([&] { answers = event.report(4); });
+  CHECK((heard == std::vector<int>{4, 40}));
+  CHECK((answers == std::vector<bool>{false, true}) && anyHandled(answers));
+  CHECK(thrown([&] { event.report(1); }) == "logic_error: DelegateEvent::report is called on the main thread");
+
+  // Closed, a subscriber hears nothing more; with none, nothing is kept.
+  throwing->close();
+  last->close();
+  onMain([&] { answers = event.report(5); });
+  CHECK((answers == std::vector<bool>{false}) && !anyHandled(answers));
+  first->close();
+  onMain([&] { answers = event.report(6); });
+  CHECK(answers.empty() && event.kept() == 0 && event.subscriptions() == 0);
+}
+
+/// A URL that launched the app before any module subscribed waits for the
+/// first subscriber, which hears it on the main thread; later ones don't.
+static void launchEventsWaitForTheFirstSubscriber() {
+  DelegateEvent<std::string, bool> event(true);
+  onMain([&] {
+    CHECK(event.report("lucent://launch").empty());
+    event.report("lucent://second");
+  });
+  CHECK(event.kept() == 2);
+
+  std::vector<std::string> heard;
+  std::atomic<bool> onTheMainThread{true};
+  auto first = event.subscribe([&](const std::string& url) {
+    onTheMainThread = onTheMainThread && onMainThread();
+    heard.push_back(url);
+    return true;
+  });
+  CHECK(mainCaughtUp());
+  CHECK((heard == std::vector<std::string>{"lucent://launch", "lucent://second"}) && onTheMainThread);
+  CHECK(event.kept() == 0);
+
+  std::vector<std::string> later;
+  auto second = event.subscribe([&](const std::string& url) {
+    later.push_back(url);
+    return false;
+  });
+  CHECK(mainCaughtUp() && later.empty());
+
+  // A scope that ended closes a subscription at once.
+  auto scope = Scope::create(1);
+  CHECK(!scope->dispose());
+  auto ended = event.subscribe([](const std::string&) { return true; }, scope);
+  CHECK(!ended->isOpen() && event.subscriptions() == 2);
+  first->close();
+  second->close();
+}
+
+/// Answers to a fetch merge as Expo merges them: new data if any had some,
+/// else failed if any failed, else no data.
+static void fetchAnswersMerge() {
+  using R = FetchResult;
+  CHECK(mergeFetchResults({}) == R::NoData);
+  CHECK(mergeFetchResults({R::NoData, R::Failed}) == R::Failed);
+  CHECK(mergeFetchResults({R::Failed, R::NewData, R::NoData}) == R::NewData);
+
+  // Done once every subscriber answered; a second answer from one is ignored.
+  std::vector<R> done;
+  auto answers = FetchAnswers::start([&](R merged) { done.push_back(merged); });
+  auto a = answers->reply();
+  auto b = answers->reply();
+  answers->close();
+  a(R::Failed);
+  a(R::NewData);
+  CHECK(done.empty());
+  b(R::NoData);
+  CHECK((done == std::vector<R>{R::Failed}));
+
+  // None subscribed: done at close.
+  std::vector<R> none;
+  FetchAnswers::start([&](R merged) { none.push_back(merged); })->close();
+  CHECK((none == std::vector<R>{R::NoData}));
+
+  // At the deadline, with what came; a late answer does nothing.
+  std::vector<R> late;
+  auto expiring = FetchAnswers::start([&](R merged) { late.push_back(merged); });
+  auto quick = expiring->reply();
+  auto slow = expiring->reply();
+  expiring->close();
+  quick(R::NewData);
+  expiring->expire();
+  slow(R::Failed);
+  CHECK((late == std::vector<R>{R::NewData}));
+
+  // Answers from other threads.
+  std::atomic<int> merged{0};
+  auto threaded = FetchAnswers::start([&](R) { merged++; });
+  std::vector<std::function<void(R)>> replies;
+  for (int i = 0; i < 8; i++) replies.push_back(threaded->reply());
+  threaded->close();
+  std::vector<std::thread> threads;
+  for (auto& r : replies) threads.emplace_back([r] { r(R::NoData); });
+  for (auto& t : threads) t.join();
+  CHECK(merged == 1);
+}
+
 int main() {
   reportsComeFromTheMainThread();
   scenesInActivationOrder();
@@ -654,6 +773,10 @@ int main() {
   noScene();
   showingThrowsOrSettles();
   presentationRaces();
+
+  delegateEventsGatherAnswers();
+  launchEventsWaitForTheFirstSubscriber();
+  fetchAnswersMerge();
 
   std::printf("lifecycle: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

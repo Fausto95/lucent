@@ -68,6 +68,10 @@ Error dismissedError();
 /// The root scope of the calling context: what Lucent code's presentations
 /// and subscriptions belong to.
 std::shared_ptr<Scope> callerScope();
+/// A subscription as the function that ends it, also ended by `signal`.
+Fn<void()> stopper(std::shared_ptr<Resource> subscription, Opt<AbortSignal> signal);
+/// Whether `signal` has aborted already, so nothing subscribes.
+bool abortedAlready(const Opt<AbortSignal>& signal);
 
 }  // namespace detail
 

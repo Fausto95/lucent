@@ -395,10 +395,8 @@ Error detail::dismissedError() {
 
 std::shared_ptr<Scope> detail::callerScope() { return ownedScope(ExecutionContext::currentRef()); }
 
-namespace {
-
 /// A subscription as the function that ends it, also ended by `signal`.
-Fn<void()> stopper(std::shared_ptr<Resource> subscription, Opt<AbortSignal> signal) {
+Fn<void()> detail::stopper(std::shared_ptr<Resource> subscription, Opt<AbortSignal> signal) {
   AbortSignal abort = signal.has() ? signal.get() : nullptr;
   uint64_t listener = 0;
 
@@ -416,7 +414,11 @@ Fn<void()> stopper(std::shared_ptr<Resource> subscription, Opt<AbortSignal> sign
   });
 }
 
-bool abortedAlready(const Opt<AbortSignal>& signal) { return signal.has() && signal.get() && signal.get()->aborted.load(); }
+bool detail::abortedAlready(const Opt<AbortSignal>& signal) {
+  return signal.has() && signal.get() && signal.get()->aborted.load();
+}
+
+namespace {
 
 /// The session's persistent identifier of a connected scene, else "".
 String identifierOf(SceneId id) {
@@ -428,7 +430,7 @@ String identifierOf(SceneId id) {
 
 Fn<void()> onAppEvent(const String& event, Fn<void()> listener, Opt<AbortSignal> signal) {
   AppEvent e = named(appNotifications(), event, "app event").event;
-  if (abortedAlready(signal)) return Fn<void()>([] {});
+  if (detail::abortedAlready(signal)) return Fn<void()>([] {});
 
   // Run on the main thread holding the subscriber's actor once it is free:
   // the main thread never waits for module code.
@@ -436,12 +438,12 @@ Fn<void()> onAppEvent(const String& event, Fn<void()> listener, Opt<AbortSignal>
   auto subscription = Lifecycle::shared().subscribe(
       e, [listener, actor] { enterFromMain(*actor, [listener] { listener(); }); }, detail::callerScope());
 
-  return stopper(std::move(subscription), signal);
+  return detail::stopper(std::move(subscription), signal);
 }
 
 Fn<void()> onSceneEvent(const String& event, Fn<void(String)> listener, Opt<AbortSignal> signal) {
   SceneEvent e = named(sceneNotifications(), event, "scene event").event;
-  if (abortedAlready(signal)) return Fn<void()>([] {});
+  if (detail::abortedAlready(signal)) return Fn<void()>([] {});
 
   Actor* actor = &currentActor();
   auto subscription = Lifecycle::shared().subscribe(
@@ -452,7 +454,7 @@ Fn<void()> onSceneEvent(const String& event, Fn<void(String)> listener, Opt<Abor
       },
       detail::callerScope());
 
-  return stopper(std::move(subscription), signal);
+  return detail::stopper(std::move(subscription), signal);
 }
 
 }  // namespace lucent::objc

@@ -35,7 +35,7 @@ what became of each one that is still linked or was still open.
 | [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                               |
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | in progress (#163, #165, #167, #168 as T72; #216 merged)        |
 | [T109](#t109)            | Executors for platform callbacks                           | in progress (#181, #182, #187, #197 as T74; #206–#210 merged)   |
-| [T110](#t110)            | App-delegate and Activity events                           | ready (decision 0076)                                           |
+| [T110](#t110)            | App-delegate and Activity events                           | in progress (#217 merged)                                       |
 | [T111](#t111)            | The app's own native needs and options                     | ready                                                           |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | ready                                                           |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | ready                                                           |
@@ -494,7 +494,8 @@ receive, through the subscriber
 [0076](decisions/0076-an-app-delegate-and-activity-subscriber.md)
 describes.
 
-- **Status:** ready.
+- **Status:** in progress: iOS's events reach `onAppEvent` typed, through
+  `LucentAppDelegate` (#217); apps don't call it yet.
 - **Area:** iOS and Android hosts, runtime, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V3, V4, V5, V6.
@@ -502,7 +503,7 @@ describes.
   `platform/android_activity.cpp`, `runtime/native`,
   `cli/commands/init.ts`, `app.plugin.js`.
 
-- [ ] iOS, through `onAppEvent`, typed: `openURL` (url, options),
+- [x] iOS, through `onAppEvent`, typed: `openURL` (url, options),
       `userActivity` (type, url, payload), `pushToken` (`Uint8Array`) and
       its failure, `remoteNotification` (payload; the handler answers the
       fetch result through a promise with a deadline, and answers from
@@ -511,7 +512,8 @@ describes.
       calls), `shortcutItem` and `supportedInterfaceOrientations`.
 - [ ] The URL, user activity, shortcut or relaunch reason (location,
       Bluetooth, a notification) that launched the app is kept until the
-      first subscriber takes it.
+      first subscriber takes it. URLs, user activities, shortcuts and the
+      push token are (#217); relaunch reasons are left.
 - [ ] `UNUserNotificationCenter`'s delegate (`willPresent`,
       `didReceive`) shared between modules, as Expo's notifications
       module shares it.

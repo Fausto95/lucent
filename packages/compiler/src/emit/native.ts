@@ -110,6 +110,41 @@ function builtinNamed(
   return module && sym ? { module, name: sym.name } : undefined;
 }
 
+/** A fetch's answer: the promise of "newData", "noData" or "failed". */
+const FETCH_ANSWER: LType = { k: "promise", inner: T.string };
+
+/**
+ * onAppEvent's events from the app delegate (or a scene delegate), which
+ * LucentAppDelegate reports: the runtime function each subscribes with,
+ * and the listener it takes (ios_app_delegate.h).
+ */
+const DELEGATE_EVENTS: Record<string, { fn: string; params: LType[]; ret: LType }> = {
+  openURL: { fn: "onOpenURL", params: [T.string, T.string], ret: T.boolean },
+  userActivity: { fn: "onUserActivity", params: [T.string, T.string, T.string], ret: T.boolean },
+  shortcutItem: { fn: "onShortcutItem", params: [T.string, T.string, T.string], ret: T.boolean },
+  pushToken: { fn: "onPushToken", params: [T.bytes], ret: T.void },
+  pushTokenFailed: { fn: "onPushTokenFailed", params: [T.error], ret: T.void },
+  remoteNotification: { fn: "onRemoteNotification", params: [T.string], ret: FETCH_ANSWER },
+  backgroundFetch: { fn: "onBackgroundFetch", params: [], ret: FETCH_ANSWER },
+  backgroundURLSession: {
+    fn: "onBackgroundURLSession",
+    params: [T.string, { k: "fn", params: [], ret: T.void }],
+    ret: T.boolean,
+  },
+  supportedInterfaceOrientations: {
+    fn: "onSupportedInterfaceOrientations",
+    params: [],
+    ret: T.number,
+  },
+};
+
+/** The event an onAppEvent call names, when its type is a string literal. */
+function eventNamed(em: FnEmitter, arg: ts.Expression): string | undefined {
+  if (ts.isStringLiteralLike(arg)) return arg.text;
+  const t = em.checker.getTypeAtLocation(arg);
+  return t.isStringLiteral() ? t.value : undefined;
+}
+
 /** The built-ins that run a function argument on the main thread, and which argument. */
 const MAIN_CALLBACKS: Record<string, number> = {
   "lucent:thread.main": 0,
@@ -4049,6 +4084,25 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
     }
     case "lucent:ios.onAppEvent":
     case "lucent:ios.onSceneEvent": {
+      // One of the app delegate's: its own runtime function and listener.
+      const delegate =
+        b.name === "onAppEvent" ? DELEGATE_EVENTS[eventNamed(em, args[0]!) ?? ""] : undefined;
+      if (delegate) {
+        unit.include("lucent/platform/ios_app_delegate.h");
+        const listener: LType = { k: "fn", params: delegate.params, ret: delegate.ret };
+        const f = args[1]!;
+        const e =
+          ts.isArrowFunction(f) || ts.isFunctionExpression(f)
+            ? em.closure(f, listener)
+            : em.expr(f);
+        return {
+          c: cpp.call(`lucent::objc::${delegate.fn}`, [
+            em.coerce(e, listener, f),
+            ...signalArg(em, args[2]),
+          ]),
+          t: { k: "fn", params: [], ret: T.void },
+        };
+      }
       unit.include("lucent/platform/ios_ui.h");
       const listener: LType = {
         k: "fn",

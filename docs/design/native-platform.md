@@ -508,20 +508,25 @@ so a request survives the app's Activity being recreated.
 
 ### The app-delegate and Activity subscriber
 
-**Planned** ([0076][d0076], [T110](../tasks.md#t110)). Some events reach
+In progress ([0076][d0076], [T110](../tasks.md#t110)). Some events reach
 only the app delegate or the Activity: opened URLs, user activities, push
 tokens, remote notifications, background URL sessions, back presses.
 Lucent ships one subscriber for them and never replaces the app's delegate.
 
-In an Expo app it is an `ExpoAppDelegateSubscriber` and a
-`ReactActivityLifecycleListener`, declared in an `expo-module.config.json`
-the build writes. In a bare app, `lucent init` adds one forwarding line
-per delegate method, which `lucent doctor` checks.
+On iOS, `LucentAppDelegate` (`platform/LucentAppDelegate.h`, plain
+Objective-C) takes each delegate method's arguments, for the app
+delegate and a scene delegate, and reports them to the modules that
+subscribed with `onAppEvent` (`ios_app_delegate.mm`, `delegate_events.h`).
+Events arrive typed. Remote notification handlers answer the fetch result
+through a promise, with a 25-second deadline, merged across modules as
+Expo merges them. The URL, activity or shortcut that launched the app
+waits for its first subscriber.
 
-Events arrive typed through `onAppEvent` and `onActivityEvent`. Remote
-notification handlers answer the fetch result through a promise with a
-deadline, merged across modules as Expo merges them. The URL or activity
-that launched the app waits for its first subscriber.
+**Planned:** the calls themselves. In an Expo app, an
+`ExpoAppDelegateSubscriber` and a `ReactActivityLifecycleListener`,
+declared in an `expo-module.config.json` the build writes. In a bare app,
+`lucent init` adds one forwarding line per delegate method, which `lucent
+doctor` checks. Android's events through `onActivityEvent`.
 
 ## Bytes and buffers
 

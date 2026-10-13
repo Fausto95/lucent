@@ -204,9 +204,10 @@ if [[ "$(uname)" == "Darwin" ]]; then
   run_binary "$log" "${out}_objc"
 fi
 
-# The UIKit glue compiles against the iOS simulator SDK, where there is one.
+# The UIKit glue and the app delegate's forwarding compile against the iOS
+# simulator SDK, where there is one.
 if [[ "$(uname)" == "Darwin" ]] && xcrun --sdk iphonesimulator --show-sdk-path >/dev/null 2>&1; then
   xcrun --sdk iphonesimulator clang++ -std=c++20 -ffp-contract=off -fobjc-arc -fsyntax-only -target arm64-apple-ios15.1-simulator \
-    -Wall -Wextra -Wno-unused-parameter -Werror -I"$cpp" -x objective-c++ "$cpp/lucent/platform/ios_ui.mm" "$here/ios_ui_check.mm"
-  echo "ios_ui: compiles against the iOS simulator SDK"
+    -Wall -Wextra -Wno-unused-parameter -Werror -I"$cpp" -x objective-c++ "$cpp/lucent/platform/ios_ui.mm" "$cpp/lucent/platform/ios_app_delegate.mm" "$here/ios_ui_check.mm"
+  echo "ios_ui, ios_app_delegate: compile against the iOS simulator SDK"
 fi

@@ -3,6 +3,8 @@
 // it on, so run.sh checks that it compiles, and the example apps' SDK
 // probes run it on the simulator.
 #include "lucent/lucent.h"
+#include "lucent/platform/LucentAppDelegate.h"
+#include "lucent/platform/ios_app_delegate.h"
 #include "lucent/platform/ios_ui.h"
 
 using namespace lucent;
@@ -41,3 +43,13 @@ Fn<void()> followsTheApp(Fn<void()> listener, Opt<AbortSignal> signal) {
 }
 
 Fn<void()> followsScenes(Fn<void(String)> listener) { return objc::onSceneEvent(String::fromLatin1("didActivate"), std::move(listener)); }
+
+// What the app delegate forwards, as module code subscribes to it, and as
+// an app delegate written in Objective-C forwards it.
+Fn<void()> listensForURLs(Fn<bool(String, String)> listener, Opt<AbortSignal> signal) {
+  return objc::onOpenURL(std::move(listener), std::move(signal));
+}
+
+Fn<void()> answersNotifications(Fn<Promise<String>(String)> listener) { return objc::onRemoteNotification(std::move(listener)); }
+
+BOOL forwardsAURL(UIApplication* app, NSURL* url) { return [LucentAppDelegate application:app openURL:url options:@{}]; }

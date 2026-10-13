@@ -713,8 +713,15 @@ disposal cancels it.
 
 Presentations and subscriptions made from module code belong to its
 JavaScript runtime's scope, so a reload ends them.
-[T110](tasks.md#t110) adds the events only the app delegate and the
-Activity receive.
+
+What only the app delegate or a scene delegate receives reaches
+`onAppEvent` through `LucentAppDelegate`, whose class methods the
+delegates call with what UIKit gave them: `openURL`, `userActivity`,
+`shortcutItem`, `pushToken`, `pushTokenFailed`, `remoteNotification`,
+`backgroundFetch`, `backgroundURLSession` and
+`supportedInterfaceOrientations`. Each listener has its event's own
+arguments and answer. [T110](tasks.md#t110) adds the calls to apps, and
+the events only the Activity receives.
 
 ## Pods, Gradle and Swift packages
 

@@ -1151,6 +1151,291 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         ]
       },
       {
+        "name": "FetchResult",
+        "kind": "type",
+        "signature": "type FetchResult = \"newData\" | \"noData\" | \"failed\";",
+        "doc": [
+          "A remote notification's or a background fetch's answer, as UIBackgroundFetchResult names it."
+        ],
+        "examples": [],
+        "members": [],
+        "params": []
+      },
+      {
+        "name": "onAppEvent",
+        "kind": "function",
+        "signature": "function onAppEvent(\n  event: \"openURL\",\n  listener: (url: string, sourceApplication: string) => boolean,\n  signal?: AbortSignal,\n): () => void;",
+        "doc": [
+          "Calls `listener` with each URL the app is asked to open, and the bundle id of the app that asked (`\"\"` when iOS doesn't say). It answers whether it opened the URL.",
+          "The URL comes from the app delegate, or the scene delegate in an app with scenes, which forwards it to Lucent. A URL that launched the app waits for the first listener. `listener` runs on the main thread while iOS waits for its answer."
+        ],
+        "examples": [
+          "import { onAppEvent } from \"lucent:ios\";\n\nfunction watchLinks(open: (path: string) => void): () => void {\n  return onAppEvent(\"openURL\", (url) => {\n    if (!url.startsWith(\"myapp://\")) return false;\n    open(url.slice(\"myapp://\".length));\n    return true;\n  });\n}"
+        ],
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "\"openURL\"",
+            "optional": false,
+            "doc": "`\"openURL\"`."
+          },
+          {
+            "name": "listener",
+            "type": "(url: string, sourceApplication: string) => boolean",
+            "optional": false,
+            "doc": "Called with the URL and the asking app's bundle id."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Stops listening, as the returned function does."
+          }
+        ]
+      },
+      {
+        "name": "onAppEvent",
+        "kind": "function",
+        "signature": "function onAppEvent(\n  event: \"userActivity\",\n  listener: (type: string, webpageURL: string, userInfo: string) => boolean,\n  signal?: AbortSignal,\n): () => void;",
+        "doc": [
+          "Calls `listener` with each user activity the app is asked to continue, such as a universal link or a Spotlight result. It gets the activity's `activityType`, its web page URL (`\"\"` for none) and its `userInfo` as JSON, and answers whether it continued it. One that launched the app waits for the first listener."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "\"userActivity\"",
+            "optional": false,
+            "doc": "`\"userActivity\"`."
+          },
+          {
+            "name": "listener",
+            "type": "(type: string, webpageURL: string, userInfo: string) => boolean",
+            "optional": false,
+            "doc": "Called with the type, the URL and the userInfo's JSON."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Stops listening, as the returned function does."
+          }
+        ]
+      },
+      {
+        "name": "onAppEvent",
+        "kind": "function",
+        "signature": "function onAppEvent(\n  event: \"shortcutItem\",\n  listener: (type: string, title: string, userInfo: string) => boolean,\n  signal?: AbortSignal,\n): () => void;",
+        "doc": [
+          "Calls `listener` with each home screen quick action the person chose: its `type`, its title and its `userInfo` as JSON. It answers whether it handled it. One that launched the app waits for the first listener."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "\"shortcutItem\"",
+            "optional": false,
+            "doc": "`\"shortcutItem\"`."
+          },
+          {
+            "name": "listener",
+            "type": "(type: string, title: string, userInfo: string) => boolean",
+            "optional": false,
+            "doc": "Called with the type, the title and the userInfo's JSON."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Stops listening, as the returned function does."
+          }
+        ]
+      },
+      {
+        "name": "onAppEvent",
+        "kind": "function",
+        "signature": "function onAppEvent(\n  event: \"pushToken\",\n  listener: (token: Uint8Array) => void,\n  signal?: AbortSignal,\n): () => void;",
+        "doc": [
+          "Calls `listener` with the device token for push notifications, once the app registered (`UIApplication.shared.registerForRemoteNotifications()`). A token that came before any listener waits for the first one."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "\"pushToken\"",
+            "optional": false,
+            "doc": "`\"pushToken\"`."
+          },
+          {
+            "name": "listener",
+            "type": "(token: Uint8Array) => void",
+            "optional": false,
+            "doc": "Called with the token's bytes."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Stops listening, as the returned function does."
+          }
+        ]
+      },
+      {
+        "name": "onAppEvent",
+        "kind": "function",
+        "signature": "function onAppEvent(\n  event: \"pushTokenFailed\",\n  listener: (error: Error) => void,\n  signal?: AbortSignal,\n): () => void;",
+        "doc": [
+          "Calls `listener` with the error when registering for push notifications fails, an `Error` whose `code` is the NSError's."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "\"pushTokenFailed\"",
+            "optional": false,
+            "doc": "`\"pushTokenFailed\"`."
+          },
+          {
+            "name": "listener",
+            "type": "(error: Error) => void",
+            "optional": false,
+            "doc": "Called with the error."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Stops listening, as the returned function does."
+          }
+        ]
+      },
+      {
+        "name": "onAppEvent",
+        "kind": "function",
+        "signature": "function onAppEvent(\n  event: \"remoteNotification\",\n  listener: (userInfo: string) => Promise<FetchResult>,\n  signal?: AbortSignal,\n): () => void;",
+        "doc": [
+          "Calls `listener` with each remote notification's `userInfo` as JSON, the app in the foreground or woken for it. It resolves with what it fetched.",
+          "The modules' answers merge as Expo merges them: new data if any had some, else failed if any failed. iOS gets them after 25 seconds at the latest."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "\"remoteNotification\"",
+            "optional": false,
+            "doc": "`\"remoteNotification\"`."
+          },
+          {
+            "name": "listener",
+            "type": "(userInfo: string) => Promise<FetchResult>",
+            "optional": false,
+            "doc": "Called with the userInfo's JSON."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Stops listening, as the returned function does."
+          }
+        ]
+      },
+      {
+        "name": "onAppEvent",
+        "kind": "function",
+        "signature": "function onAppEvent(\n  event: \"backgroundFetch\",\n  listener: () => Promise<FetchResult>,\n  signal?: AbortSignal,\n): () => void;",
+        "doc": [
+          "Calls `listener` when iOS wakes the app for a background fetch. Its answer merges with other modules' as a remote notification's does."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "\"backgroundFetch\"",
+            "optional": false,
+            "doc": "`\"backgroundFetch\"`."
+          },
+          {
+            "name": "listener",
+            "type": "() => Promise<FetchResult>",
+            "optional": false,
+            "doc": "Called for each fetch."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Stops listening, as the returned function does."
+          }
+        ]
+      },
+      {
+        "name": "onAppEvent",
+        "kind": "function",
+        "signature": "function onAppEvent(\n  event: \"backgroundURLSession\",\n  listener: (identifier: string, done: () => void) => boolean,\n  signal?: AbortSignal,\n): () => void;",
+        "doc": [
+          "Calls `listener` when iOS wakes the app for a background URL session's events, with the session's identifier. It answers whether the session is its own, then calls `done` once it handled them. iOS hears once every module that claimed it is done."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "\"backgroundURLSession\"",
+            "optional": false,
+            "doc": "`\"backgroundURLSession\"`."
+          },
+          {
+            "name": "listener",
+            "type": "(identifier: string, done: () => void) => boolean",
+            "optional": false,
+            "doc": "Called with the identifier, and `done`."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Stops listening, as the returned function does."
+          }
+        ]
+      },
+      {
+        "name": "onAppEvent",
+        "kind": "function",
+        "signature": "function onAppEvent(\n  event: \"supportedInterfaceOrientations\",\n  listener: () => number,\n  signal?: AbortSignal,\n): () => void;",
+        "doc": [
+          "Calls `listener` each time iOS asks which orientations the app supports. It answers a `UIInterfaceOrientationMask`, or 0 for no say: iOS gets the orientations every module that has a say allows, of those the app does."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "\"supportedInterfaceOrientations\"",
+            "optional": false,
+            "doc": "`\"supportedInterfaceOrientations\"`."
+          },
+          {
+            "name": "listener",
+            "type": "() => number",
+            "optional": false,
+            "doc": "Answers the orientations it allows."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Stops listening, as the returned function does."
+          }
+        ]
+      },
+      {
         "name": "onSceneEvent",
         "kind": "function",
         "signature": "function onSceneEvent(\n  event: SceneEvent,\n  listener: (scene: string) => void,\n  signal?: AbortSignal,\n): () => void;",

@@ -34,7 +34,7 @@ each contract as the code implements it today. The design is
 | ------------------------------------------------------------ | --------------------------------------------------------------------- | ------- | ----------------------------------------------------------- |
 | [C-BIND](#c-bind-binding-schemas-and-plans)                  | SDK schemas, native identity, provenance, facts, binding plans, usage | v1.5    | `packages/bindgen/src/`                                     |
 | [C-IR](#c-ir-semantic-ir-and-program-facts)                  | The semantic IR, its verifier, effect summaries, program facts        | v1.3    | `packages/compiler/src/ir/`, `analysis/`                    |
-| [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.9    | `packages/runtime/cpp/lucent/`                              |
+| [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.10   | `packages/runtime/cpp/lucent/`                              |
 | [C-BIGINT](#c-bigint-the-runtimes-bigint)                    | The runtime's `BigInt` and native integer conversions                 | v1.1    | `lucent/bigint.h`                                           |
 | [C-BUFFER](#c-buffer-native-buffers)                         | Native buffers, borrows, moves, loans, adoptions, native handles      | v1.6    | `lucent/buffer.h`, `handle.h`, `bytes.h`, `jsi/convert.*`   |
 | [C-VIEW](#c-view-components-and-views)                       | Component descriptions, transport, mounts, hosts, toolkit bodies      | v2.5    | `packages/compiler/src/ui/`, `packages/runtime/cpp/rn/`     |
@@ -446,10 +446,11 @@ takes an `AnalysisInput`: `checker`, `modules`, `platform?`, `native?`,
 **Version: v1.9.** The runtime's model of who owns work and where it runs,
 in namespace `lucent`, with no JSI type but `lucent/jsi`'s `Host`. The text
 at this version also covers `channel.h` and `hooks.h`, which shipped
-before the text named them. v1.9 added `handed.h`.
+before the text named them. v1.9 added `handed.h`, and v1.10
+`delegate_events.h`.
 
 **Implemented by** `packages/runtime/cpp/lucent/`: `scope.h`,
-`execution.h`, `scheduler.h`, `native.h`, `handed.h`, `async.h`, `abort.h`,
+`execution.h`, `scheduler.h`, `native.h`, `handed.h`, `delegate_events.h`, `async.h`, `abort.h`,
 `resource.h`, `callback.h`, `transport.h`, `compute.h`, `channel.h`,
 `lifecycle.h`, `presentation.h`, `hooks.h`, `report.h`, `jsi/host.h`.
 
@@ -661,17 +662,28 @@ scene is a `SceneId`, never a pointer.
 | `presentIn<T>(…)` (`presentation.h`) | An `Operation<T>` on the main thread, settled by a result, the signal, the scope or the scene leaving (`sceneGoneError()`); no scene is `noSceneError()`. |
 | Lucent API                           | `onAppEvent`, `onSceneEvent` (`lucent:ios`); `onActivityEvent` (`lucent:android`: `created` to `destroyed`, `newIntent`).                                 |
 
+`delegate_events.h` holds what only the app delegate or a scene delegate
+receives, which `LucentAppDelegate` (`platform/ios_app_delegate.mm`)
+reports.
+
+| Member                            | Contract                                                                                                                                                                                                          |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DelegateEvent<P, A>(keep)`       | Listeners in subscription order, on the main thread; `report(p)` gives their answers, a throw's left out.                                                                                                         |
+| `keep`                            | A report with no subscriber waits for the first one, which hears it on the main thread: a URL, activity, shortcut or push token.                                                                                  |
+| `mergeFetchResults`, `anyHandled` | Expo's merge: new data if any, else failed if any, else no data; handled if any handled.                                                                                                                          |
+| `FetchAnswers`                    | Each `reply()` answers once; `done` runs once, when all answered after `close()`, or at `expire()` with what came.                                                                                                |
+| Lucent API                        | `onAppEvent` from `lucent:ios` with `openURL`, `userActivity`, `shortcutItem`, `pushToken`, `pushTokenFailed`, `remoteNotification`, `backgroundFetch`, `backgroundURLSession`, `supportedInterfaceOrientations`. |
+
 ### Planned
 
 - [T104](../tasks.md#t104): `setTimeout`, `setInterval` and
   `queueMicrotask` on the calling context, cleared at teardown as
   `onDestroy` hooks run.
-- [T110](../tasks.md#t110): `onAppEvent` gains `openURL`, `userActivity`,
-  `pushToken` and its failure, `remoteNotification`, `backgroundFetch`,
-  `backgroundURLSession`, `shortcutItem` and
-  `supportedInterfaceOrientations`. Android's back, configuration, new
-  intent and user-leave events come through androidx's listeners where
-  module code can reach them, and the subscriber covers the rest
+- [T110](../tasks.md#t110): apps' delegates call `LucentAppDelegate`, an
+  Expo subscriber or `lucent init`'s lines. Android's back,
+  configuration, new intent and user-leave events come through androidx's
+  listeners where module code can reach them, and the subscriber covers
+  the rest
   ([decision 0076](../decisions/0076-an-app-delegate-and-activity-subscriber.md)).
 - [T130](../tasks.md#t130): a native root. Actors start with no `Host`, a
   later `Host` sees the same module state, and generated C entry points
