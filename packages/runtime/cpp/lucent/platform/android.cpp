@@ -385,15 +385,22 @@ const HardwareBuffers& hardwareBuffers() {
   static const HardwareBuffers found = [] {
     HardwareBuffers h;
 #ifdef __ANDROID__
-    void* lib = dlopen("libnativewindow.so", RTLD_NOW);
-    if (lib) {
-      h.fromJava = reinterpret_cast<HardwareBuffers::FromJava>(dlsym(lib, "AHardwareBuffer_fromHardwareBuffer"));
-      h.acquire = reinterpret_cast<HardwareBuffers::Hold>(dlsym(lib, "AHardwareBuffer_acquire"));
-      h.release = reinterpret_cast<HardwareBuffers::Hold>(dlsym(lib, "AHardwareBuffer_release"));
-      h.describe = reinterpret_cast<HardwareBuffers::Describe>(dlsym(lib, "AHardwareBuffer_describe"));
-      h.lock = reinterpret_cast<HardwareBuffers::Lock>(dlsym(lib, "AHardwareBuffer_lock"));
-      h.unlock = reinterpret_cast<HardwareBuffers::Unlock>(dlsym(lib, "AHardwareBuffer_unlock"));
-    }
+    // AHardwareBuffer_fromHardwareBuffer is libandroid's (<android/hardware_buffer_jni.h>), the
+    // rest libnativewindow's, which libandroid depends on: a lookup through libandroid's handle
+    // searches both.
+    void* lib = dlopen("libandroid.so", RTLD_NOW);
+    if (!lib) lib = dlopen("libnativewindow.so", RTLD_NOW);
+    void* window = dlopen("libnativewindow.so", RTLD_NOW);
+    auto find = [&](const char* name) -> void* {
+      void* f = lib ? dlsym(lib, name) : nullptr;
+      return f ? f : window ? dlsym(window, name) : nullptr;
+    };
+    h.fromJava = reinterpret_cast<HardwareBuffers::FromJava>(find("AHardwareBuffer_fromHardwareBuffer"));
+    h.acquire = reinterpret_cast<HardwareBuffers::Hold>(find("AHardwareBuffer_acquire"));
+    h.release = reinterpret_cast<HardwareBuffers::Hold>(find("AHardwareBuffer_release"));
+    h.describe = reinterpret_cast<HardwareBuffers::Describe>(find("AHardwareBuffer_describe"));
+    h.lock = reinterpret_cast<HardwareBuffers::Lock>(find("AHardwareBuffer_lock"));
+    h.unlock = reinterpret_cast<HardwareBuffers::Unlock>(find("AHardwareBuffer_unlock"));
 #endif
     return h;
   }();
