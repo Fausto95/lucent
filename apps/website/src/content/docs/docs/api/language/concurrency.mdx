@@ -50,6 +50,7 @@ Without the `await delay(0)`, a call to `progress()` from JavaScript would wait 
 | A listener of `onAppEvent` or `onSceneEvent` from `lucent:ios` | The main thread, once its package is free | Yes |
 | Any other SDK callback, such as a listener, an Android method returning `void`, or another delegate method | Posted to its package's thread | Yes |
 | A handler of `onActivityEvent` from `lucent:android` | Posted to the context that subscribed: its package's thread, for module code | Yes |
+| A `"backPressed"` handler of `onActivityEvent` | The main thread, while Android waits for its answer | Yes |
 | A compute task | A worker thread | No |
 | A function handed to the platform with `on(executor, f)` | The executor's thread | No |
 | A component's setup, effects and commands, and the callbacks it gives the platform | The main thread, in the main context | No |

@@ -538,8 +538,19 @@ using ActivityHandler = Fn<void(NativeRef, Opt<NativeRef>)>;
 
 /// `onActivityEvent(event, handler)`: runs `handler` on the subscribing
 /// context after each such event of the app's Activities ("created",
-/// "started", "resumed", "paused", "stopped", "destroyed", "newIntent").
+/// "started", "resumed", "paused", "stopped", "destroyed", "newIntent",
+/// and AndroidX's "configurationChanged" and "userLeaveHint").
 /// Returns the function that unsubscribes.
 Fn<void()> onActivityEvent(const String& event, ActivityHandler handler);
+
+/// A back press's handler: the Activity; true if it consumed the press.
+using BackHandler = Fn<bool(NativeRef)>;
+
+/// `onActivityEvent("backPressed", handler)`: runs `handler` on the main
+/// thread, holding the subscriber's actor, while Android waits for whether
+/// a module consumed the press (through AndroidX's OnBackPressedDispatcher,
+/// LucentBack). One that does ends it; with none, the press goes on as if
+/// Lucent were not there. Returns the function that unsubscribes.
+Fn<void()> onBackPressed(BackHandler handler);
 
 }  // namespace lucent::jni

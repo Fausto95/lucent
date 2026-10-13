@@ -43,6 +43,14 @@ export async function run(): Promise<string> {
   const stopIntents = onActivityEvent("newIntent", (activity, intent) => {
     events.push(intent?.getAction() ?? "");
   });
+  // AndroidX's: a configuration change, the person leaving, and a back press, which answers.
+  const stopChanges = onActivityEvent("configurationChanged", (activity) => {
+    events.push(\`\${activity.getResources()?.getConfiguration()?.orientation ?? 0}\`);
+  });
+  const stopLeaving = onActivityEvent("userLeaveHint", () => {
+    events.push("left");
+  });
+  const stopBack = onActivityEvent("backPressed", (activity) => activity.isFinishing());
 
   const name = await main(() => currentActivity()?.getLocalClassName() ?? "none");
 
@@ -55,6 +63,9 @@ export async function run(): Promise<string> {
 
   stopResumed();
   stopIntents();
+  stopChanges();
+  stopLeaving();
+  stopBack();
 
   return \`\${name} \${picked.getResultCode()} \${picked.getResultData()?.getDataString()} \${granted.join()} \${events.length}\`;
 }
@@ -94,6 +105,9 @@ describe.skipIf(!sdkAvailable("android"))("the current Activity, results and lif
     expect(cpp).toContain("lucent::jni::startActivityForResult(");
     expect(cpp).toContain("lucent::jni::requestPermissions(");
     expect(cpp).toContain('lucent::jni::onActivityEvent(LUCENT_STR("resumed")');
+    expect(cpp).toContain('lucent::jni::onActivityEvent(LUCENT_STR("configurationChanged")');
+    expect(cpp).toContain('lucent::jni::onActivityEvent(LUCENT_STR("userLeaveHint")');
+    expect(cpp).toContain("lucent::jni::onBackPressed(");
   });
 
   it("compiles the generated glue and the runtime's Activity support with the NDK", () => {
@@ -127,6 +141,7 @@ describe.skipIf(!sdkAvailable("android"))("the current Activity, results and lif
     const sources = fs.readdirSync(java).map((f) => path.join(java, f));
     expect(sources.map((f) => path.basename(f)).sort()).toEqual([
       "LucentActivities.java",
+      "LucentBack.java",
       "LucentChildren.java",
       "LucentExecutor.java",
       "LucentFlexView.java",
@@ -141,8 +156,10 @@ describe.skipIf(!sdkAvailable("android"))("the current Activity, results and lif
       "NativeProxy.java",
     ]);
 
-    // The package and the components' managers need React Native (the app's build compiles them); the rest only the platform.
+    // The package and the components' managers need React Native, and back presses AndroidX (the
+    // app's build compiles them); the rest only the platform.
     const reactNative = [
+      "LucentBack.java",
       "LucentHostView.java",
       "LucentPackage.java",
       "LucentViewManager.java",

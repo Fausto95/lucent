@@ -708,7 +708,9 @@ The main thread never queues behind module jobs. `main(f)` from
 `lucent:thread` runs `f` there once its actor is free, holding it, and
 resolves with its result; `present()`, `onAppEvent` and `onSceneEvent`
 run the same way. Android's `onActivityEvent` runs its handler in a turn
-of the calling context.
+of the calling context, but a `"backPressed"` handler runs on the main
+thread while Android waits for whether it consumed the press, the first
+that does ending it.
 
 `onAppEvent`'s app-delegate events ("openURL", "userActivity",
 "shortcutItem", "pushToken", "pushTokenFailed", "remoteNotification",

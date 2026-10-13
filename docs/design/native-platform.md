@@ -497,8 +497,10 @@ listens. A reload takes JavaScript's listeners with the runtime.
 - **Android** (`platform/android_activity.cpp`, `LucentActivities.java`).
   `LucentInitializer`, a content provider, installs Activity tracking at
   process start, before any Activity or JavaScript. `onActivityEvent`
-  reports each Activity's lifecycle and new intents, and
-  `currentActivity()` returns the one in front, held weakly.
+  reports each Activity's lifecycle, and through AndroidX's listeners its
+  new intents, configuration changes, leave hints and back presses
+  (`LucentBack.java`, answered on the main thread); `currentActivity()`
+  returns the one in front, held weakly.
 
 Results and presentation are scoped operations that settle once. On iOS,
 `present(build, signal)` shows a view controller from the scene in use

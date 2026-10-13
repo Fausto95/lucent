@@ -1721,9 +1721,9 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "ActivityEvent",
         "kind": "type",
-        "signature": "type ActivityEvent =\n  | \"created\"\n  | \"started\"\n  | \"resumed\"\n  | \"paused\"\n  | \"stopped\"\n  | \"destroyed\"\n  | \"newIntent\";",
+        "signature": "type ActivityEvent =\n  | \"created\"\n  | \"started\"\n  | \"resumed\"\n  | \"paused\"\n  | \"stopped\"\n  | \"destroyed\"\n  | \"newIntent\"\n  | \"configurationChanged\"\n  | \"userLeaveHint\";",
         "doc": [
-          "The lifecycle events of the app's Activities, and a new intent sent to one."
+          "The lifecycle events of the app's Activities, and a new intent sent to one. From AndroidX's listeners also a configuration change, such as a rotation or dark mode, and the person leaving the app with Home."
         ],
         "examples": [],
         "members": [],
@@ -1750,6 +1750,33 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "type": "(activity: Activity, intent: Intent | null) => void",
             "optional": false,
             "doc": "Called with the Activity, and the intent for `\"newIntent\"`."
+          }
+        ]
+      },
+      {
+        "name": "onActivityEvent",
+        "kind": "function",
+        "signature": "function onActivityEvent(\n  event: \"backPressed\",\n  handler: (activity: Activity) => boolean,\n): () => void;",
+        "doc": [
+          "Runs `handler` on each back press, on the main thread while Android waits for its answer: true consumes the press. With no module consuming it, back goes on as it would without Lucent. React Native's own handling, JavaScript's `BackHandler`, comes first.",
+          "Lucent hears it through AndroidX's `OnBackPressedDispatcher`, the one way an app targeting Android 16 does, enabled only while a module listens."
+        ],
+        "examples": [
+          "import { onActivityEvent } from \"lucent:android\";\n\n// Closes the module's panel before the screen goes.\nfunction closeOnBack(isOpen: () => boolean, close: () => void): () => void {\n  return onActivityEvent(\"backPressed\", () => {\n    if (!isOpen()) return false;\n    close();\n    return true;\n  });\n}"
+        ],
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "\"backPressed\"",
+            "optional": false,
+            "doc": "`\"backPressed\"`."
+          },
+          {
+            "name": "handler",
+            "type": "(activity: Activity) => boolean",
+            "optional": false,
+            "doc": "Called with the Activity; true if it consumed the press."
           }
         ]
       }
