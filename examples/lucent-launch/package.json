@@ -1,0 +1,16 @@
+{
+  "name": "lucent-launch",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A launch module, which the app creates at launch before any JavaScript (lucent.json's launch): it records when module state started, and on Android creates a notification channel. An example Lucent package.",
+  "files": [
+    "index.ts",
+    "src",
+    "lucent.json"
+  ],
+  "main": "index.ts",
+  "lucent": {
+    "sources": "src",
+    "compatible": "^0.2.0"
+  }
+}

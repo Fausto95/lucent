@@ -320,8 +320,10 @@ node scripts/device-check.ts android --apk apps/bare-example/android/app/build/o
 booted simulator or a running emulator, and opens its Tests screen. That
 screen runs the one-module e2e cases through the C++ the platform's own
 toolchain built. Then it opens the Platform screen, which checks what
-only the platform gives module code. Frames reach a channel through an
-executor without a copy, and the app opens a deep link to itself. On iOS
+only the platform gives module code. A launch module's state started at
+launch, before JavaScript (the `lucent-launch` example package). Frames
+reach a channel through an executor without a copy, and the app opens a
+deep link to itself. On iOS
 a push registration answers, and on Android a back press and a rotation
 reach the module. Start Metro on port 8081 first: the Debug build loads
 its bundle from it.

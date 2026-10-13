@@ -53,7 +53,8 @@ export async function runCase(c: TestCase): Promise<CaseResult> {
     !error && lines.length === c.expected.length && lines.every((l, i) => l === c.expected[i]);
   const why = pass
     ? undefined
-    : (error ?? `${firstDifference(lines, c.expected)} (${lines.length} lines in ${Date.now() - start} ms)`);
+    : (error ??
+      `${firstDifference(lines, c.expected)} (${lines.length} lines in ${Date.now() - start} ms)`);
 
   return { name: c.name, pass, lines, expected: c.expected, error, why, ms: Date.now() - start };
 }

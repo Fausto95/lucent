@@ -15,6 +15,7 @@
     "bench-turbo": "workspace:*",
     "bench-turbo-cxx": "workspace:*",
     "lucent-haptics": "workspace:*",
+    "lucent-launch": "workspace:*",
     "lucent-orbit": "workspace:*",
     "lucent-secure-store": "workspace:*",
     "react": "19.3.0",

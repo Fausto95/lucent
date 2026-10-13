@@ -2,6 +2,9 @@
 // TypeScript (Examples), and the checks behind them (Lab). Any screen opens
 // from a deep link (<scheme>://examples/crypto, <scheme>://lab/tests) or, on
 // iOS, a launch argument (-lucentTab lab/tests).
+// First: when JavaScript started, before any Lucent module loads.
+// oxlint-disable-next-line import/no-unassigned-import -- evaluated for its timestamp
+import "./src/bundleStarted";
 import { StatusBar } from "react-native";
 import { demos } from "./src/demos/catalog";
 import { DemoScreen } from "./src/demos/DemoScreen";

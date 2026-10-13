@@ -1,0 +1,4 @@
+// When the app's JavaScript started: App.tsx imports this first, before any
+// Lucent module's proxy, so a launch module's state (lucent-launch) can be
+// told apart from state the JavaScript runtime's install started.
+export const BUNDLE_STARTED = Date.now();

@@ -898,7 +898,8 @@ runtime.
   #228), and the runtime's native root keeps it (#231). Entry points run
   exports with no JavaScript runtime on the host (#233), and code with no
   runtime fails as after a reload (#234). Launch modules start state at
-  launch (#235, #236). Runs on the simulator and the emulator are left.
+  launch (#235, #236). The device runs' Platform screen checks a launch
+  module's state on the simulator and the emulator (#237).
 - **Area:** runtime, compiler.
 - **Needs:** nothing for the decision and the root; [T110](#t110) for
   `launch` on iOS, which runs from the app-delegate subscriber.
