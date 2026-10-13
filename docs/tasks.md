@@ -50,7 +50,7 @@ what became of each one that is still linked or was still open.
 | [T125](#t125)            | Android views made after setup keep the Activity's context | ready                                                         |
 | **Execution modes**      |                                                            |                                                               |
 | [T130](#t130)            | A native root: module code with no JavaScript runtime      | in progress (#228, #231 merged; #233–#237)                    |
-| [T131](#t131)            | Android classes the OS instantiates, written in Lucent     | waiting; needs T112, T130; its first step is a decision       |
+| [T131](#t131)            | Android classes the OS instantiates, written in Lucent     | in progress: decided (0097); needs T112 for `CoroutineWorker` |
 | [T132](#t132)            | iOS background execution                                   | in progress (#238)                                            |
 | [T133](#t133)            | iOS app extensions and widgets                             | waiting; needs T130                                           |
 | [T134](#t134)            | Calls from worklet runtimes                                | ready; its first step is a decision                           |
@@ -967,7 +967,8 @@ on host, simulator and emulator.
 `AppWidgetProvider`, `TileService`, `FirebaseMessagingService` or
 `Fragment` is a Lucent class.
 
-- **Status:** waiting; needs T112, T130.
+- **Status:** in progress: decided
+  ([0097](decisions/0097-exported-classes-extending-android-classes-are-os-made.md)).
 - **Area:** Android host, compiler.
 - **Needs:** T130; T112 for `CoroutineWorker`.
 - **Verify:** V1, V4, V5.
@@ -976,10 +977,13 @@ on host, simulator and emulator.
 Today `android.components` declares a service, receiver or provider, but
 its class must be Java or Kotlin the package ships.
 
-- [ ] A decision: how a class is marked as OS-instantiated without a list
+- [x] A decision: how a class is marked as OS-instantiated without a list
       of bases (WorkManager and `FragmentManager` instantiate by name, with
       no manifest entry), which constructors its Java class declares, and
-      how its name stays stable.
+      how its name stays stable. Exporting it marks it, its constructor's
+      parameters are the Java one's, and its name comes from the module's
+      path
+      ([0097](decisions/0097-exported-classes-extending-android-classes-are-os-made.md)).
 - [ ] A Lucent class extending an OS-instantiated base gets a generated
       Java subclass with the constructor the OS calls (no arguments, or
       `Context` and `WorkerParameters` for a `Worker`). It creates its

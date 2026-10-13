@@ -845,16 +845,13 @@ Each callback keeps its platform's rules: `onReceive` returns quickly, and
 `doWork` blocks a background thread for its result. Calls on the main
 thread enter the actor as main-thread entries do.
 
-**Open:**
-
-- How a class is marked as OS-instantiated without a list of bases.
-  Manifest components can name it, but WorkManager and `FragmentManager`
-  instantiate by class name with no manifest entry.
-- Which constructors the generated class declares. Metadata says what the
-  base declares, not which one the OS calls.
-- Stable names. WorkManager stores a worker's class name in its database,
-  so a generated name must survive app updates. Today it derives from the
-  C++ name (`javaSubclassName` in `emit/java.ts`).
+[Decision 0097](../decisions/0097-exported-classes-extending-android-classes-are-os-made.md)
+settles how. An exported class extending an Android class is one the OS
+can make. Its Java class, `dev.lucent.app.<module>.<Class>`, is named from
+the module's path and the class's name, so it lasts across builds. Its one
+constructor takes the Lucent constructor's parameters and passes them to
+the base's, then makes the Lucent instance through the native root, which
+the instance holds while it lives.
 
 ### iOS background execution
 
