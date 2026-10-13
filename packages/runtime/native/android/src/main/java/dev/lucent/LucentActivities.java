@@ -41,6 +41,10 @@ public final class LucentActivities implements Application.ActivityLifecycleCall
   private static volatile WeakReference<Activity> current = new WeakReference<>(null);
   /** Whether native code listens to lifecycle events. */
   private static volatile boolean listening;
+  /** Whether new intents React Native takes are heard (LucentReact), tried once. */
+  private static boolean reactWatched;
+  /** The new intent reported last: one that reaches both React Native and AndroidX is reported once. */
+  private static WeakReference<Intent> lastIntent = new WeakReference<>(null);
 
   /** Requests by id, and the request Activity of each while it runs. */
   private static final Map<Long, Request> requests = new HashMap<>();
@@ -232,6 +236,7 @@ public final class LucentActivities implements Application.ActivityLifecycleCall
     if (!tracked(a)) return;
 
     current = new WeakReference<>(a);
+    reactIntents(a);
     event(STARTED, a, null);
   }
 
@@ -284,7 +289,7 @@ public final class LucentActivities implements Application.ActivityLifecycleCall
       switch (m.getName()) {
         case "accept":
           Activity at = held.get();
-          if (at != null) event(NEW_INTENT, at, (Intent) args[0]);
+          if (at != null) newIntent(at, (Intent) args[0]);
           return null;
         case "equals":
           return proxy == args[0];
@@ -299,6 +304,39 @@ public final class LucentActivities implements Application.ActivityLifecycleCall
       add.invoke(a, Proxy.newProxyInstance(a.getClassLoader(), new Class<?>[] {consumer}, onIntent));
     } catch (ReflectiveOperationException e) {
       // No listener: new intents go unreported for this Activity.
+    }
+  }
+
+  /** A new intent, once: React Native's ReactActivity hands it to React, others to AndroidX's listeners. */
+  private static void newIntent(Activity a, Intent intent) {
+    if (lastIntent.get() == intent) return;
+
+    lastIntent = new WeakReference<>(intent);
+    event(NEW_INTENT, a, intent);
+  }
+
+  /** From LucentReact: a new intent React Native took, which the Activity in front received. */
+  static void reactNewIntent(Intent intent) {
+    Activity at = current.get();
+    if (at != null) newIntent(at, intent);
+  }
+
+  /**
+   * New intents React Native takes: while React runs, a ReactActivity gives
+   * them to React and doesn't call super.onNewIntent, so AndroidX's listeners
+   * never hear them. LucentReact listens to each React context instead, from
+   * the first Activity started (React Native has made its host by then).
+   */
+  private static void reactIntents(Activity a) {
+    if (reactWatched) return;
+
+    reactWatched = true;
+    try {
+      Class.forName("dev.lucent.LucentReact")
+          .getDeclaredMethod("attach", Application.class)
+          .invoke(null, a.getApplication());
+    } catch (ReflectiveOperationException | LinkageError e) {
+      // Not a React Native app: AndroidX's listeners hear its new intents.
     }
   }
 

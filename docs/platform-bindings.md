@@ -701,7 +701,11 @@ Activity or JavaScript.
 - `onActivityEvent(event, handler)` reports `created`, `started`,
   `resumed`, `paused`, `stopped` and `destroyed`, and from AndroidX
   activities' listeners `newIntent`, `configurationChanged` and
-  `userLeaveHint`. Lucent's request Activity is never reported.
+  `userLeaveHint`. Lucent's request Activity is never reported. A
+  `ReactActivity` hands new intents to React without calling
+  `super.onNewIntent`, so `LucentReact.java` hears them from each React
+  context's `ActivityEventListener`, an intent both paths give reported
+  once.
 - `onActivityEvent("backPressed", handler)` hears back presses through
   AndroidX's `OnBackPressedDispatcher` (`LucentBack.java`), with a
   callback enabled only while a module listens. A handler answers whether
