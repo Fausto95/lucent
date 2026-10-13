@@ -32,9 +32,9 @@ facebook::jsi::Value host(
 
   emitter.emit(gauge::Event1{});
 
-  auto command = gauge::parseCommand("measure", folly::dynamic::array(1, folly::dynamic::array("pt")));
+  auto command = gauge::parseCommand("sample", folly::dynamic::array(1, folly::dynamic::array("pt")));
 
-  if (auto* measure = std::get_if<gauge::Command1>(&command)) (void)measure->request_;
+  if (auto* sample = std::get_if<gauge::Command1>(&command)) (void)sample->request_;
 
   lucent::views::MountToken token{1, lucent::views::nextGeneration()};
   (void)token;

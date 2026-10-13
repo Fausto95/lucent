@@ -13,9 +13,9 @@ generated from this file.
 - Views are in preview: their API may change before the view gate closes.
 - A component's props are data. An instance of an exported class can't be
   a prop yet ([T120](tasks.md#t120)).
-- A component takes `style` and its own props only. React Native's other
-  view props, such as `testID`, `accessibilityLabel` and `onLayout`, are
-  dropped ([T121](tasks.md#t121)).
+- A component inside Reanimated's animated views, Gesture Handler's
+  detectors or react-native-screens' screens is untested
+  ([T121](tasks.md#t121)).
 - A component's root is a view. A `UIViewController` root, such as
   `AVPlayerViewController`, isn't supported yet ([T122](tasks.md#t122)).
 - Android pools component views only when the app turns on React Native's

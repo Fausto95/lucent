@@ -447,7 +447,7 @@ export function Meter(props: { value: number }): Label {
     reset: () => {
       label.text = "";
     },
-    measure: (scale: number): number => scale * 2,
+    sample: (scale: number): number => scale * 2,
     load: async (name: string): Promise<string> => name,
   });
   return label;
@@ -457,7 +457,7 @@ export function Meter(props: { value: number }): Label {
     expect(c!.commands).toEqual([
       { name: "reset", params: [], result: { kind: "enqueue" } },
       {
-        name: "measure",
+        name: "sample",
         params: [{ name: "scale", type: { k: "number" }, optional: false }],
         result: { kind: "request", value: { k: "number" } },
       },

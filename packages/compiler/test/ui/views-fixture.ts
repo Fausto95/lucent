@@ -39,7 +39,7 @@ export function Gauge(props: {
     reset: () => {
       label.text = "";
     },
-    measure: (unit: "pt" | "px"): number => 0,
+    sample: (unit: "pt" | "px"): number => 0,
     flush: async (): Promise<void> => {},
   });
   return label;

@@ -6,7 +6,8 @@ import ts from "typescript";
 import { describe, expect, it } from "vite-plus/test";
 import { runtimeDir } from "../../src/index.ts";
 import { componentDeclarations, componentExports, VIEWS_RUNTIME } from "../../src/ui/proxy.ts";
-import { components } from "./views-fixture.ts";
+import { views } from "./fixture.ts";
+import { components, SOURCE } from "./views-fixture.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "../../../..");
 
@@ -37,7 +38,7 @@ describe("component exports", () => {
     );
     expect(text).toContain('{ name: "tags", key: "p4", shape: { a: { n: 0 } } },');
     expect(text).toContain('{ name: "onChange", key: "e0", event: "topLucent0" },');
-    expect(text).toContain('{ name: "measure", request: true, params: [0] },');
+    expect(text).toContain('{ name: "sample", request: true, params: [0] },');
   });
 
   it("say which components take React children", () => {
@@ -46,20 +47,29 @@ describe("component exports", () => {
     expect(text).toMatch(/displayName: "Card",\n\s*children: true,/);
     expect(text.match(/children: true/g)).toHaveLength(1);
     expect(declarationsText()).toContain(
-      "export declare function Card(props: { title: string; children?: ReactNode; style?: StyleProp<ViewStyle> }): ReactNode;",
+      'export declare function Card(props: Omit<ViewProps, "children" | "title"> & { title: string; children?: ReactNode; ref?: Ref<{ measure: (callback: MeasureOnSuccessCallback) => void; measureInWindow: (callback: MeasureInWindowOnSuccessCallback) => void }> }): ReactNode;',
     );
   });
 
-  it("declare React components: props, callbacks, style and a ref to the commands", () => {
+  it("declare React components: props, callbacks, React Native's view props, and a ref to the host and the commands", () => {
     const text = declarationsText();
 
     expect(text).toContain(
-      "export declare function Caption(props: { text: string; detail?: string | null; style?: StyleProp<ViewStyle> }): ReactNode;",
+      'export declare function Caption(props: Omit<ViewProps, "children" | "text" | "detail"> & { text: string; detail?: string | null; ref?: Ref<{ measure: (callback: MeasureOnSuccessCallback) => void; measureInWindow: (callback: MeasureInWindowOnSuccessCallback) => void }> }): ReactNode;',
     );
     expect(text).toContain('"aria-label"?: string;');
     expect(text).toContain("onChange?: (value: number, source?: string) => void;");
     expect(text).toContain(
-      'ref?: Ref<{ reset: () => void; measure: (unit: "pt" | "px") => Promise<number>; flush: () => Promise<void> }>',
+      'reset: () => void; sample: (unit: "pt" | "px", options?: { signal?: AbortSignal }) => Promise<number>; flush: (options?: { signal?: AbortSignal }) => Promise<void> }>',
+    );
+  });
+
+  it("refuse a command named as the host view's ref methods", () => {
+    const { diagnostics } = views({
+      "ui.lucent.tsx": SOURCE.replace("sample: (unit", "measure: (unit"),
+    });
+    expect(diagnostics.map((d) => `${d.code} ${d.message}`)).toContain(
+      "LUCENT3021 `Gauge`'s command `measure` takes the name of the host view's own ref method: rename it",
     );
   });
 
@@ -74,10 +84,10 @@ describe("component exports", () => {
   });
 });
 
-const APP = `import { useRef } from "react";
+const APP = `import { type ComponentRef, useRef } from "react";
 import { Card, Caption, Gauge } from "./ui";
 
-type GaugeRef = { reset(): void; measure(unit: "pt" | "px"): Promise<number>; flush(): Promise<void> };
+type GaugeRef = ComponentRef<typeof Gauge>;
 
 export function App() {
   const gauge = useRef<GaugeRef>(null);
@@ -96,6 +106,9 @@ export function App() {
         onChange={(value, source) => console.log(value.toFixed(1), source?.length)}
         onReset={() => gauge.current?.reset()}
         style={{ height: 80 }}
+        testID="gauge"
+        accessibilityLabel="Speed"
+        onLayout={(e) => console.log(e.nativeEvent.layout.width)}
       />
       <Card title="Trip">
         <Caption text="Inside" />
@@ -107,10 +120,11 @@ export function App() {
   );
 }
 
-export async function measure(gauge: GaugeRef): Promise<number> {
+export async function sample(gauge: GaugeRef): Promise<number> {
   await gauge.flush();
+  gauge.measure((x, y, width) => console.log(x, y, width));
 
-  return gauge.measure("px");
+  return gauge.sample("px", { signal: AbortSignal.timeout(1000) });
 }
 `;
 

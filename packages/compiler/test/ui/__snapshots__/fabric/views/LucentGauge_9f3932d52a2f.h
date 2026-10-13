@@ -58,7 +58,7 @@ void read(const facebook::react::RawValue& raw, Object0_& out);
 bool same(const Object0_& a, const Object0_& b);
 facebook::jsi::Value toJs(facebook::jsi::Runtime& runtime, const Object0_& value);
 
-// measure(unit).unit
+// sample(unit).unit
 struct Enum1_ {
   std::string value{};
 };
@@ -125,7 +125,7 @@ using ComponentDescriptor = facebook::react::ConcreteComponentDescriptor<ShadowN
 struct Command0 {
 };
 
-// measure(unit): a request, answered by id through the host's completion channel
+// sample(unit): a request, answered by id through the host's completion channel
 struct Command1 {
   double request_{};
   Enum1_ unit{};
