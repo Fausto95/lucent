@@ -858,7 +858,9 @@ code; first confirm it with a test.
 background task, a push or an extension, before or without any JavaScript
 runtime.
 
-- **Status:** ready; its first step is a decision.
+- **Status:** in progress: module state's lifetime is decided
+  ([0090](decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md),
+  #228).
 - **Area:** runtime, compiler.
 - **Needs:** nothing for the decision and the root; [T110](#t110) for
   `launch` on iOS, which runs from the app-delegate subscriber.
@@ -870,10 +872,11 @@ Today module state belongs to the process, but a module's top level runs
 when a JavaScript runtime installs Lucent, and there is no native way in.
 [native-platform.md](design/native-platform.md) lists the open questions.
 
-- [ ] A decision: when a module's top level runs and when its state
-      resets once native roots exist. For example, once per process, at
-      first use from JavaScript or from a native entry point, and reset by
-      a reload only when no native root holds it.
+- [x] A decision: when a module's top level runs and when its state
+      resets once native roots exist. At first use from JavaScript, an
+      entry point or launch, and reset only when the last runtime goes
+      while no native root holds it
+      ([0090](decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md)).
 - [ ] A native root: the runtime starts its actors and contexts with no
       `Host`. A JavaScript `Host` that installs later sees the same module
       state: `Host::create` no longer resets state a native root holds,
