@@ -421,6 +421,26 @@ Calls `listener` each time iOS asks which orientations the app supports. It answ
 | `listener` | `() => number` | yes | Answers the orientations it allows. |
 | `signal` | `AbortSignal` | no | Stops listening, as the returned function does. |
 
+### onAppEvent()
+
+```ts title="ios.d.ts"
+function onAppEvent(
+  event: "relaunched",
+  listener: (reason: RelaunchReason, details: string) => void,
+  signal?: AbortSignal,
+): () => void;
+```
+
+Calls `listener` with each reason iOS launched the app for, and its details as JSON. The reasons wait for the first listener. A module that resumes location or Bluetooth work learns from them why the app runs.
+
+The details are `{}` for `"location"`, and for Bluetooth the `restorationIdentifiers` of the managers to make again. For a notification they are its `userInfo`, given once even when both delegates report it.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `event` | `"relaunched"` | yes | `"relaunched"`. |
+| `listener` | `(reason: RelaunchReason, details: string) => void` | yes | Called with the reason and its details' JSON. |
+| `signal` | `AbortSignal` | no | Stops listening, as the returned function does. |
+
 ### onSceneEvent()
 
 ```ts title="ios.d.ts"
@@ -542,3 +562,15 @@ type FetchResult = "newData" | "noData" | "failed";
 ```
 
 A remote notification's or a background fetch's answer, as UIBackgroundFetchResult names it.
+
+### RelaunchReason
+
+```ts title="ios.d.ts"
+type RelaunchReason =
+  | "location"
+  | "bluetoothCentrals"
+  | "bluetoothPeripherals"
+  | "notification";
+```
+
+Why iOS launched the app. It may run in the background for a location event or a Bluetooth accessory. Or the person opened one of its notifications.
