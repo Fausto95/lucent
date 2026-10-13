@@ -64,6 +64,12 @@ export interface EmitResult {
   frameworks?: string[];
   /** Pods whose modules the iOS platform code imports. */
   pods?: string[];
+  /**
+   * The app delegate's events the iOS code subscribes to with onAppEvent
+   * ("openURL", "remoteNotification"…): what the app's delegates must
+   * forward (LucentAppDelegate).
+   */
+  appDelegateEvents?: string[];
   /** The app's Swift packages whose modules the iOS platform code imports (`identity@version`). */
   swiftPackages?: string[];
   /** Java the Android platform code needs (subclasses of SDK classes), keyed by path under src/main/java. */
@@ -616,6 +622,7 @@ export function emitProgram(
     warnings: ctx.warnings,
     frameworks: [...ctx.frameworks].sort(),
     pods: [...ctx.pods].sort(),
+    appDelegateEvents: [...ctx.appDelegateEvents].sort(),
     swiftPackages: [...ctx.swiftPackages].sort(),
     java,
     javaKeep: [...ctx.javaClasses].sort(),

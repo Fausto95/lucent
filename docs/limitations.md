@@ -134,10 +134,9 @@ generated from this file.
 - A delegate that must answer on the main thread waits for the job that
   holds its module's actor. Calls that nest two packages' actors in a
   cycle throw `Lucent: deadlock` rather than hang.
-- On iOS, a build doesn't say when a module needs a delegate call the app
-  lacks. The app adds the remote notification's and the orientations'
-  calls itself ([T110](tasks.md#t110)). On Android,
-  `onActivityEvent("newIntent", …)` carries the URLs.
+- On Android, module code hears an Activity's lifecycle and its new
+  intents only: no back press, configuration change, user-leave hint or
+  key yet ([T110](tasks.md#t110)).
 - The app's own `lucent.json` isn't read: only packages declare Info.plist
   keys, entitlements, pods and Gradle dependencies
   ([T111](tasks.md#t111)). Android permissions of the app's own modules
