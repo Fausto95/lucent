@@ -34,6 +34,7 @@ import {
   type SwiftPackage,
   type SwiftPackageRequirement,
 } from "./package-schema.ts";
+import { osJavaName } from "./os-names.ts";
 import { compareVersions, gradleCompatible, podsCompatible } from "./package-versions.ts";
 import type { LucentPackage } from "./packages.ts";
 
@@ -599,8 +600,15 @@ function components(declared: Declared[]): ResolvedNative["android"]["components
   const out = new Map<string, [ManifestComponent, From][]>();
 
   for (const d of declared)
-    for (const c of d.native.android?.components ?? [])
+    for (const declaredAs of d.native.android?.components ?? []) {
+      // A Lucent class the OS makes: its Java class (decision 0097).
+      const [module, cls] = declaredAs.class?.split("#") ?? [];
+      const c =
+        module !== undefined && cls !== undefined
+          ? { ...declaredAs, name: osJavaName(`${d.name}/${module}`, cls).replace(/\//g, ".") }
+          : declaredAs;
       out.set(c.name, [...(out.get(c.name) ?? []), [c, [d.name]]]);
+    }
 
   return sorted(
     [...out].map(([name, declaredAs]): [string, Agreed<ManifestComponent>] => {

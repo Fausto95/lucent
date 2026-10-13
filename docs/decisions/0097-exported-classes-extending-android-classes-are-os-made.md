@@ -33,6 +33,8 @@ a `Fragment`. Exporting it is the mark, with no list of bases.
 - **Manifest.** `lucent.json`'s `android.components[].class` names the
   Lucent class, as `<module path>#<Class>` within the package, and the
   manifest's `android:name` is then its Java class.
+- **Declaration.** A module's Android file exports such a class without
+  its shared file declaring it, since JavaScript never sees it.
 
 _Why:_ an export is how a module names something for code outside it, and
 WorkManager, `FragmentManager` and the manifest name classes. Recognizing

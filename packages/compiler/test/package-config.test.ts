@@ -552,6 +552,35 @@ describe("entitlements, Swift packages, manifest components and target requireme
       );
   });
 
+  it("names a component's Lucent class by the Java class the OS makes", () => {
+    const { manifest } = resolveNative([
+      pkg("lucent-sync", {
+        android: {
+          components: [{ kind: "service", class: "workers/sync#SyncService", exported: false }],
+        },
+      }),
+    ]);
+    expect(manifest.android.components).toEqual({
+      "dev.lucent.app.lucent_sync.workers.sync.SyncService": {
+        value: {
+          kind: "service",
+          class: "workers/sync#SyncService",
+          exported: false,
+          name: "dev.lucent.app.lucent_sync.workers.sync.SyncService",
+        },
+        from: ["lucent-sync"],
+      },
+    });
+
+    const component = (c: object) => () =>
+      resolveNative([pkg("lucent-a", { android: { components: [{ kind: "service", ...c }] } })]);
+    expect(component({})).toThrow("android.components.0 needs a name or a class, not both");
+    expect(component({ name: "dev.a.S", class: "s#S" })).toThrow("needs a name or a class");
+    expect(component({ class: "SyncService" })).toThrow(
+      'android.components.0.class must be a Lucent class of the package: "<module path>#<Class>"',
+    );
+  });
+
   it("declares a manifest component once, and fails when packages declare it differently", () => {
     const sync = {
       kind: "service",

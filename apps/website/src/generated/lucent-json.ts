@@ -168,7 +168,7 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
   },
   {
     "field": "android.components",
-    "type": "object[]",
+    "type": "unknown[]",
     "required": false,
     "description": "Components for the library's manifest, which Android merges into the app's: services, receivers, activities and providers. A class is declared once; packages that declare it differently fail the build, naming both."
   },
@@ -181,8 +181,14 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
   {
     "field": "android.components[].name",
     "type": "string",
-    "required": true,
-    "description": "Fully qualified class name."
+    "required": false,
+    "description": "Fully qualified class name: Java or Kotlin the package ships. Give it or class."
+  },
+  {
+    "field": "android.components[].class",
+    "type": "string",
+    "required": false,
+    "description": "A Lucent class the OS makes, as \"<module path>#<Class>\" within the package, such as \"workers#SyncWorker\": an exported class extending an Android class. The component is its Java class, dev.lucent.app.<package>.<module path>.<Class>. Give it or name."
   },
   {
     "field": "android.components[].exported",

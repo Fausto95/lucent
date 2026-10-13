@@ -2174,7 +2174,7 @@ function implementedEntries(
  * subclass (one per instance while Java holds it), whose overrides call the
  * methods the Lucent class defines.
  */
-function javaSubclassOf(em: FnEmitter, e: E, info: ClassInfo): cpp.Expr {
+export function javaSubclassOf(em: FnEmitter, e: E, info: ClassInfo): cpp.Expr {
   const entries = implementedEntries(
     em,
     info,
@@ -2195,6 +2195,20 @@ function javaSubclassOf(em: FnEmitter, e: E, info: ClassInfo): cpp.Expr {
       cpp.initList(entries),
     ),
   );
+}
+
+/**
+ * The Java object of a Lucent class instance extending an Android class,
+ * as its SDK base: what calls of the members it inherits go to. Inside its
+ * class's methods, `this`: once made, as the OS made it or as subclassFor
+ * makes it.
+ */
+export function javaSubclassNative(em: FnEmitter, obj: E, info: ClassInfo): E {
+  const self = obj.c.k === "this" ? { ...obj, c: cpp.call("lucent::selfRef", [obj.c]) } : obj;
+  return {
+    c: jni("wrap", jni("env"), javaSubclassOf(em, self, info), cpp.str("this")),
+    t: info.sdkBase!,
+  };
 }
 
 /**

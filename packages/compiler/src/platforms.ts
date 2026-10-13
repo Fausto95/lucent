@@ -7,6 +7,7 @@ import {
   moduleNameOf,
   nodeAt,
   platformOf,
+  sdkModuleOf,
 } from "./program.ts";
 import { type Platform, PLATFORMS } from "./sdk/schema.ts";
 import { elementsOf, toolkitRootType } from "./ui/roots.ts";
@@ -193,6 +194,8 @@ export function conformanceErrors(lp: LucentProgram): Diagnostic[] {
     }
     for (const extra of impl.values()) {
       const decl = extra.valueDeclaration ?? extra.declarations?.[0];
+      // A class the OS makes (decision 0097) is the platform's alone: JavaScript never sees it.
+      if (decl && osClassOf(checker, decl, platformOf(m.file))) continue;
       out.push(
         decl
           ? at(decl, `${implName} exports ${extra.name}, which ${declName} does not declare`)
@@ -205,6 +208,21 @@ export function conformanceErrors(lp: LucentProgram): Diagnostic[] {
     }
   }
   return out;
+}
+
+/** Whether `decl` is a class extending one of `platform`'s SDK classes, which the OS makes. */
+function osClassOf(
+  checker: ts.TypeChecker,
+  decl: ts.Declaration,
+  platform: Platform | undefined,
+): boolean {
+  if (platform !== "android" || !ts.isClassDeclaration(decl)) return false;
+  const base = decl.heritageClauses?.find((h) => h.token === ts.SyntaxKind.ExtendsKeyword)?.types[0]
+    ?.expression;
+  let sym = base && checker.getSymbolAtLocation(base);
+  if (sym && sym.flags & ts.SymbolFlags.Alias) sym = checker.getAliasedSymbol(sym);
+  const sf = sym?.declarations?.[0]?.getSourceFile();
+  return !!sf && sdkModuleOf(sf)?.platform === "android";
 }
 
 function at(

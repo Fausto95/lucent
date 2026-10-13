@@ -823,7 +823,7 @@ instance's method.
 
 ### Android classes the OS instantiates
 
-**Planned** ([T131](../tasks.md#t131)). A `Service`, `BroadcastReceiver`,
+**In progress** ([T131](../tasks.md#t131), #240). A `Service`, `BroadcastReceiver`,
 WorkManager `Worker`, `AppWidgetProvider`, `TileService`,
 `FirebaseMessagingService` or `Fragment` is a Lucent class. Today
 `android.components` declares such a component, but its class must be Java
@@ -852,6 +852,15 @@ the module's path and the class's name, so it lasts across builds. Its one
 constructor takes the Lucent constructor's parameters and passes them to
 the base's, then makes the Lucent instance through the native root, which
 the instance holds while it lives.
+
+A module's Android file exports such a class without its shared file
+declaring it, since JavaScript never sees it. The Java constructor calls
+`NativeProxy.adopt`, which loads `appmodules` if it isn't loaded and finds
+the class's factory, registered by name as `appmodules` loads. The factory
+starts module state, makes the instance holding its module's actor, and
+links it to the object the OS made, which `subclassFor` then gives for the
+instance. So its methods reach the base's members on that object: a
+`Worker`'s `getInputData()`, after its constructor returns.
 
 ### iOS background execution
 

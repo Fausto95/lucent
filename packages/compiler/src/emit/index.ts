@@ -32,7 +32,8 @@ import {
   programHash,
   RUNTIME_ABI,
 } from "./identity.ts";
-import { javaSubclass } from "./java.ts";
+import { javaSubclass, osMade } from "./java.ts";
+import { osConstructorParams, osFactory, settleOsNames } from "./os-classes.ts";
 import { kotlinFiles } from "./kotlin.ts";
 import { Ctx, type Global } from "./context.ts";
 import { initThroughIr, type IrMode, type IrUnit, throughIr } from "./through-ir.ts";
@@ -179,6 +180,8 @@ export function emitProgram(
   for (const info of ctx.reg.classes.values()) ctx.guard(() => ctx.reg.resolveBase(info));
   ctx.guard(() => ctx.reg.resolveImplements());
   ctx.reg.propagateErrors();
+  // The Java names of the classes the OS makes, which must not clash (decision 0097).
+  if (ctx.platform === "android") settleOsNames(ctx, [...ctx.reg.classes.values()]);
   for (const m of lp.modules) {
     for (const s of m.sourceFile.statements) {
       if (here(s)) ctx.guard(() => collect(ctx, m, s, exportsOf.get(m)!, imports.get(m)!, byFile));
@@ -256,10 +259,15 @@ export function emitProgram(
       ctx.nativeUnit(m).add(`subclass ${info.id}`, subclass.native);
       nativeDecls.push(...subclass.decls.map((decl) => ({ owner: info.cppName, decl })));
     }
-    // Classes extending Android SDK classes: a Java subclass.
+    // Classes extending Android SDK classes: a Java subclass, which the OS makes by name for an
+    // exported one, through its factory (decision 0097).
     const sub =
-      ctx.platform === "android" && info.sdkBase ? ctx.guard(() => javaSubclass(info)) : undefined;
+      ctx.platform === "android" && info.sdkBase
+        ? ctx.guard(() => javaSubclass(info, osMade(info) ? osConstructorParams(ctx, info) : []))
+        : undefined;
     if (sub) java.set(sub.path, sub.source);
+    const factory = sub && ctx.guard(() => osFactory(ctx, m, info));
+    if (factory) ctx.nativeUnit(m).add(`os class ${info.id}`, factory);
   }
 
   // Platform modules' declarations alias their implementations: emit each once.

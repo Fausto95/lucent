@@ -1,4 +1,5 @@
 import { cpp } from "@lucent-lang/codegen";
+import { osMade } from "./java.ts";
 import ts from "typescript";
 import { literalConstant } from "../analysis/index.ts";
 import { Codes, fail } from "../diagnostics.ts";
@@ -43,6 +44,7 @@ import { handleDispose, handleMethodCall } from "./extensions.ts";
 import {
   inMainContext,
   collectSequence,
+  javaSubclassNative,
   nativeCall,
   nativeInstanceOf,
   nativeLvalue,
@@ -297,6 +299,9 @@ export function classMember(
   // A member it inherits from the iOS class it extends: its native object's.
   if (!found && info.sdkBase?.platform === "ios")
     return nativeMember(em, subclassNative(obj, info), node);
+  // From the Android class it extends: its Java object's.
+  if (!found && info.sdkBase?.platform === "android")
+    return nativeMember(em, javaSubclassNative(em, obj, info), node);
   if (!found) fail(node, Codes.UnsupportedClassFeature, `unknown member ${name}`);
   const { decl, owner: t } = found;
   if (ts.isGetAccessorDeclaration(decl)) {
@@ -1228,6 +1233,12 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       if (!decl && info.sdkBase?.platform === "ios")
         return (
           nativeCall(em, node, subclassNative(obj, info)) ??
+          fail(node, Codes.UnsupportedCall, `${name} is not a method of ${info.sdkBase.name}`)
+        );
+      // From the Android class it extends: its Java object's.
+      if (!decl && info.sdkBase?.platform === "android")
+        return (
+          nativeCall(em, node, javaSubclassNative(em, obj, info)) ??
           fail(node, Codes.UnsupportedCall, `${name} is not a method of ${info.sdkBase.name}`)
         );
       if (
@@ -2668,19 +2679,37 @@ export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
   fail(node, Codes.UnsupportedOperator, "unsupported instanceof");
 }
 
+/** Whether `call` (a super(…) call) passes its constructor's parameters, unchanged and in order. */
+function passesParameters(call: ts.CallExpression): boolean {
+  let ctor: ts.Node | undefined = call.parent;
+  while (ctor && !ts.isConstructorDeclaration(ctor)) ctor = ctor.parent;
+  if (!ctor || !ts.isConstructorDeclaration(ctor)) return false;
+  const params = ctor.parameters;
+  return (
+    call.arguments.length === params.length &&
+    call.arguments.every(
+      (a, i) =>
+        ts.isIdentifier(a) && ts.isIdentifier(params[i]!.name) && a.text === params[i]!.name.text,
+    )
+  );
+}
+
 export function superCall(em: FnEmitter, node: ts.CallExpression): E {
   const cls = em.opts.cls;
   if (cls?.base)
     fail(node, Codes.UnsupportedClassFeature, "call `super(...)` as a statement of its own");
   // An iOS base: the native object that stands for the instance, made now.
   if (cls?.sdkBase?.platform === "ios") return subclassSuperCall(em, node, cls);
-  // An Android base: its Java object is made where the instance goes to Java.
+  // An Android base: its Java object is made where the instance goes to Java, or, for a class
+  // the OS makes, by the OS, whose constructor passes the base its arguments (decision 0097).
   if (cls?.sdkBase) {
-    if (node.arguments.length)
+    if (node.arguments.length && !(osMade(cls) && passesParameters(node)))
       fail(
         node,
         Codes.UnsupportedClassFeature,
-        `extending ${cls.sdkBase.name}: call super() without arguments`,
+        osMade(cls)
+          ? `${cls.decl.name?.text}: the OS makes it, so super(…) passes the constructor's parameters, unchanged and in order`
+          : `extending ${cls.sdkBase.name}: call super() without arguments`,
       );
     return { c: cpp.id("lucent::undefined"), t: T.undefined };
   }

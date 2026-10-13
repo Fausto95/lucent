@@ -52,9 +52,10 @@ What a Lucent package's platform code needs from the app that installs it, next 
 | `android.assets` | `string[]` |  | Asset directories, packaged into the app's assets. Two files with the same path fail the build, naming both packages. |
 | `android.libraries` | `string[]` |  | Prebuilt .aar or .jar files, api dependencies of the native package's library. lucent:android binds their classes, before the app's Gradle build has run. Two with the same file name fail the build, naming both packages. |
 | `android.nativeLibraries` | `string[]` |  | Directories of prebuilt native libraries by ABI (arm64-v8a/liborbit.so), packaged into the app. Two with the same path fail the build, naming both packages. |
-| `android.components` | `object[]` |  | Components for the library's manifest, which Android merges into the app's: services, receivers, activities and providers. A class is declared once; packages that declare it differently fail the build, naming both. |
+| `android.components` | `unknown[]` |  | Components for the library's manifest, which Android merges into the app's: services, receivers, activities and providers. A class is declared once; packages that declare it differently fail the build, naming both. |
 | `android.components[].kind` | `"activity" or "service" or "receiver" or "provider"` | yes |  |
-| `android.components[].name` | `string` | yes | Fully qualified class name. |
+| `android.components[].name` | `string` |  | Fully qualified class name: Java or Kotlin the package ships. Give it or class. |
+| `android.components[].class` | `string` |  | A Lucent class the OS makes, as "\<module path\>#\<Class\>" within the package, such as "workers#SyncWorker": an exported class extending an Android class. The component is its Java class, dev.lucent.app.\<package\>.\<module path\>.\<Class\>. Give it or name. |
 | `android.components[].exported` | `boolean` |  |  |
 | `android.components[].enabled` | `boolean` |  |  |
 | `android.components[].permission` | `string` |  |  |

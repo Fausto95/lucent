@@ -126,8 +126,11 @@ generated from this file.
 - Native code runs a module function without a JavaScript runtime only
   through its entry point. A function gets one only if its parameters and
   result are numbers, booleans, `bigint`s, strings or `Uint8Array`s.
-- Android services and workers, and app extensions, can't run module
-  code yet ([T131](tasks.md#t131), [T133](tasks.md#t133)). On iOS, a
+- An Android class the OS makes reaches its base's members only once its
+  constructor returns, and `lucent build` doesn't check that a manifest
+  component's `class` names one. A `Fragment` as a component's root isn't
+  supported yet ([T131](tasks.md#t131)).
+- App extensions can't run module code yet ([T133](tasks.md#t133)). On iOS, a
   launch module's `BGTaskScheduler` handler can. Relaunches for background
   URL sessions and silent pushes aren't checked yet
   ([T132](tasks.md#t132)).
