@@ -439,12 +439,15 @@ JavaScript: assign a new value, or export a function that returns it.
 
 The top level holds declarations only (`LUCENT3002`), which initialize in
 source order, a class's statics where it is declared. A module's top
-level is its create hook. It runs when a JavaScript runtime installs
-Lucent while no other runtime is live, and again at a reload whose old
-runtime is gone; a runtime that installs beside a live one shares the
-state. `onDestroy(hook)` from `lucent:core` runs
-before a reload or when the runtime goes, last registered first. Module
-code can't run without a JavaScript runtime yet ([T130](tasks.md#t130)).
+level is its create hook. It runs at the first use of any module, a
+JavaScript runtime's install today, and again at the first use after the
+state ended. The state ends when the last live runtime goes (a reload)
+while nothing native holds it; a runtime that installs while it lasts
+shares it (`native_root.h`,
+[decision 0090](decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md)).
+`onDestroy(hook)` from `lucent:core` runs when the state ends, last
+registered first. No entry point runs module code without a JavaScript
+runtime yet ([T130](tasks.md#t130)).
 
 ## Platform code
 

@@ -863,7 +863,8 @@ runtime.
 
 - **Status:** in progress: module state's lifetime is decided
   ([0090](decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md),
-  #228).
+  #228), and the runtime's native root keeps it (#231). Entry points,
+  launch modules and loading on Android are left.
 - **Area:** runtime, compiler.
 - **Needs:** nothing for the decision and the root; [T110](#t110) for
   `launch` on iOS, which runs from the app-delegate subscriber.
@@ -880,12 +881,13 @@ when a JavaScript runtime installs Lucent, and there is no native way in.
       entry point or launch, and reset only when the last runtime goes
       while no native root holds it
       ([0090](decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md)).
-- [ ] A native root: the runtime starts its actors and contexts with no
+- [x] A native root: the runtime starts its actors and contexts with no
       `Host`. A JavaScript `Host` that installs later sees the same module
       state: `Host::create` no longer resets state a native root holds,
       `onDestroy` hooks registered with no runtime run when the root ends,
       and work an entry point starts belongs to that call's scope, not to
-      the last attached runtime (`currentRuntime()`).
+      the last attached runtime (`currentRuntime()`). `native_root.h`:
+      module state's generations, holds, and `NativeCall` (#231).
 - [ ] On Android, the code loads without React Native: the native root's
       library is loaded before `appmodules`, or built apart from it.
 - [ ] Native entry points: generated C functions that run a module

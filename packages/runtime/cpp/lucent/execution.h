@@ -342,7 +342,16 @@ class RuntimeWork {
 
   /// Not torn down.
   virtual bool live() const = 0;
+
+  /// A JavaScript runtime's (a Host): false for a native call's
+  /// (NativeCall), which is never the default runtime, and is no
+  /// JavaScript runtime to the count of live ones.
+  virtual bool javascript() const { return true; }
 };
+
+/// A runtime id no runtime or native call has had: Hosts and NativeCalls
+/// share one space. Any thread.
+RuntimeId newRuntimeId();
 
 /// Makes `work` the runtime `id`'s (Host::create); it is the default one
 /// until another is attached. Any thread.
@@ -356,7 +365,8 @@ void detachRuntime(RuntimeId id);
 /// is in, else the default.
 RuntimeId currentRuntime();
 
-/// How many attached runtimes are live (not torn down), but `except`.
+/// How many attached JavaScript runtimes are live (not torn down), but
+/// `except`. Native calls are none of them.
 size_t otherRuntimes(RuntimeId except);
 
 /// Runs the calling thread for runtime `id` while it lives.

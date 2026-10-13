@@ -7,10 +7,12 @@
 /**
  * Runs `hook` when this module's state ends: before a JavaScript reload
  * initializes the module again, or when the app's JavaScript runtime goes,
- * as Expo's `OnDestroy` does. Module state is initialized for each runtime:
- * a module's top-level code is its create hook. Stop there what module
- * code started for this state and that a reload would leave running, such
- * as an SDK observer.
+ * as Expo's `OnDestroy` does. A module's top-level code is its create hook.
+ * Stop there what module code started for this state and that a reload
+ * would leave running, such as an SDK observer.
+ *
+ * Module state is the app's, whichever runtime started it. A second React
+ * Native instance shares it, and it ends only when the last one goes.
  *
  * Hooks run in a turn of the module's code, the last registered first,
  * while the module's state is still the one ending. What one throws goes
