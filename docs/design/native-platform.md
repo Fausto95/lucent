@@ -733,12 +733,10 @@ Without a runtime, a call that needs one throws an `InvalidStateError`,
 such as calling a JavaScript callback; an event with no listener is
 dropped.
 
-**Open:** loading the code on Android. Lucent's C++ is an `OBJECT`
-library built into the app's `appmodules`, linked against JSI, React
-Native and fbjni, and its JNI environment comes from fbjni. Running from
-`LucentInitializer` or from a `Worker` in a cold process means loading
-that library before React Native does, or building a JSI-free library of
-its own.
+Loading the code on Android is decided by
+[0092](../decisions/0092-launch-runs-in-the-apps-launch-and-android-loads-lucent-by-itself.md):
+Lucent's C++ becomes `liblucent.so`, which `appmodules` links, and
+`LucentInitializer` and the Java classes the OS starts load it first.
 
 ### Launch-time modules
 
@@ -751,11 +749,10 @@ notification channels and WorkManager setup belong there too.
 Launch code runs on the main thread during startup, holding its actor. It
 must be short, and its time is traced.
 
-**Open:** where launch runs. On iOS, inside `didFinishLaunching` through
-the subscriber ([T110](../tasks.md#t110)), or from load; whether the
-launch notification comes early enough for `BGTaskScheduler` is
-unverified. On Android, from `LucentInitializer` before
-`Application.onCreate`, or from the `Application` itself.
+Launch runs in `LucentAppDelegate`'s
+`application(_:didFinishLaunchingWithOptions:)` on iOS, before the
+delegate returns, and in `LucentInitializer` on Android
+([0092](../decisions/0092-launch-runs-in-the-apps-launch-and-android-loads-lucent-by-itself.md)).
 
 ### Native entry points
 
@@ -771,10 +768,14 @@ A synchronous entry runs on the calling thread holding the actor, as
 entry reports its outcome to a completion the caller passes: a C function
 and a context pointer. Arguments are data and platform objects.
 
-**Open:** which functions get entry points, and how they are named. A name
-the OS stores must stay stable across app updates (see below). How an
-entry reports an error: `callNow` reports it and returns a default result
-today, which doesn't suit a result the OS reads, such as a `Worker`'s.
+[Decision 0091](../decisions/0091-entry-points-are-c-functions-named-for-their-export.md)
+sets the ABI. An exported function whose types cross without JavaScript
+gets `lucent_<module>_<export>`, declared in `lucent_entries.h`. A
+synchronous entry returns whether it succeeded, with its result and its
+error through pointers. An `async` one calls a completion once. Each call
+is a `NativeCall`, and the work it started ends when it returns or
+completes. Numbers, booleans, `bigint`, strings and bytes cross at first;
+[T114](../tasks.md#t114) adds the rest with its Swift and Kotlin APIs.
 
 ### Android classes the OS instantiates
 
@@ -903,8 +904,12 @@ Each becomes a decision record before its task's work starts:
    the three runtime rules above: decided,
    [0090](../decisions/0090-module-state-resets-only-when-nothing-native-holds-it.md).
 2. The entry-point ABI: names, sync and async forms, arguments, errors,
-   scopes, and the API native code sees ([T114](../tasks.md#t114)).
-3. Launch timing on each platform, and loading the code on Android.
+   scopes, and the API native code sees ([T114](../tasks.md#t114)):
+   decided, [0091](../decisions/0091-entry-points-are-c-functions-named-for-their-export.md),
+   but for the Swift and Kotlin APIs.
+3. Launch timing on each platform, and loading the code on Android:
+   decided,
+   [0092](../decisions/0092-launch-runs-in-the-apps-launch-and-android-loads-lucent-by-itself.md).
 4. Marking OS-instantiated Android classes, their constructors and names.
 5. Checking background identifiers by rule.
 6. Extension targets, their module set, their memory budget, and the

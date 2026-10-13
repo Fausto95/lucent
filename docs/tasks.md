@@ -887,10 +887,14 @@ when a JavaScript runtime installs Lucent, and there is no native way in.
       and work an entry point starts belongs to that call's scope, not to
       the last attached runtime (`currentRuntime()`).
 - [ ] On Android, the code loads without React Native: the native root's
-      library is loaded before `appmodules`, or built apart from it.
+      library is loaded before `appmodules`, or built apart from it. Built
+      apart, as `liblucent.so`, and launch's timing on each platform, are
+      decided
+      ([0092](decisions/0092-launch-runs-in-the-apps-launch-and-android-loads-lucent-by-itself.md)).
 - [ ] Native entry points: generated C functions that run a module
       function on its actor, for the glue of T131 to T133, and for T114,
-      to call.
+      to call. Their ABI is decided
+      ([0091](decisions/0091-entry-points-are-c-functions-named-for-their-export.md)).
 - [ ] `lucent.json` `launch`: modules created at app launch, before the
       first frame, so they can register what the OS requires by then.
 - [ ] Without a runtime, a call that needs one (a JavaScript callback, a
