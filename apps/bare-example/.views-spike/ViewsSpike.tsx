@@ -18,7 +18,7 @@ import { isolated, locked, starts } from "./work.lucent";
 
 type GaugeRef = {
   reset(): void;
-  measure(unit: "pt" | "px"): Promise<number>;
+  sample(unit: "pt" | "px"): Promise<number>;
   shown(): Promise<string>;
   host(): Promise<string>;
 };
@@ -180,8 +180,8 @@ export function ViewsSpike() {
       first.current?.reset();
       await sleep(800);
 
-      await request("request measure pt", () => first.current!.measure("pt"));
-      await request("request measure px", () => second.current!.measure("px"));
+      await request("request sample pt", () => first.current!.sample("pt"));
+      await request("request sample px", () => second.current!.sample("px"));
       await sleep(400);
 
       note("command toggle meter, meter2");
@@ -206,7 +206,7 @@ export function ViewsSpike() {
       await request("request host before", () => second.current!.host());
 
       // Asked, then unmounted before the answer can reach JavaScript.
-      const late = second.current!.measure("px").then(
+      const late = second.current!.sample("px").then(
         (v) => `answered ${v}`,
         (e) => `rejected ${String(e)}`,
       );
@@ -217,7 +217,7 @@ export function ViewsSpike() {
       setShown(false);
       note(`request in flight at unmount: ${await late}`);
       await until("unmount", () => second.current === null);
-      await request("request to the unmounted view", () => stale.measure("px"));
+      await request("request to the unmounted view", () => stale.sample("px"));
       await sleep(800);
 
       note("mount second, pulse B again");
@@ -227,7 +227,7 @@ export function ViewsSpike() {
       await sleep(400);
 
       await request("request host after", () => second.current!.host());
-      await request("request measure again px", () => second.current!.measure("px"));
+      await request("request sample again px", () => second.current!.sample("px"));
       await sleep(400);
 
       note("burst");

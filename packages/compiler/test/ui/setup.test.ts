@@ -323,7 +323,9 @@ export function Field(props: { text: string }): UITextField {
 
       const types = result.componentTypes?.get("label") ?? "";
 
-      expect(types).toContain("export declare function Label(props: {");
+      expect(types).toContain(
+        'export declare function Label(props: Omit<ViewProps, "children" | "text" | "onTap"> & {',
+      );
       expect(types).toContain("onTap?: () => void;");
 
       const out = path.join(dir, "native");
