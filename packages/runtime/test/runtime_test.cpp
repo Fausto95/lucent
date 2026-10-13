@@ -1251,6 +1251,81 @@ static void bytes() {
   CHECK(utf8Encode(S("é")).size() == 2);
 }
 
+/// The typed arrays besides Uint8Array: JavaScript's conversions on write,
+/// views at an aligned byte offset, sharing and copying, the methods
+/// %TypedArray% has, and DataView's byte orders.
+static void typedArrays() {
+  CHECK_STR(Int8Array::fromArray(Array<double>{127, 128, -129, 255.9, NAN}).join(), "127,-128,127,-1,0");
+  CHECK_STR(Uint8ClampedArray::fromArray(Array<double>{-5, 0.5, 1.5, 2.5, 254.5, 300, NAN}).join(), "0,0,2,2,254,255,0");
+  CHECK_STR(Int16Array::fromArray(Array<double>{32768, -32769}).join(), "-32768,32767");
+  CHECK_STR(Uint16Array::fromArray(Array<double>{-1, 65536}).join(), "65535,0");
+  CHECK_STR(Int32Array::fromArray(Array<double>{2147483648.0, -1.5}).join(), "-2147483648,-1");
+  CHECK_STR(Uint32Array::fromArray(Array<double>{-1, 4294967296.0}).join(), "4294967295,0");
+  CHECK_STR(Float32Array::fromArray(Array<double>{0.1, 16777217}).join(), "0.10000000149011612,16777216");
+  CHECK_STR(BigInt64Array::fromArray(Array<BigInt>{BigInt::fromUint64(UINT64_MAX), BigInt::fromInt64(-2)}).join(), "-1,-2");
+  CHECK_STR(BigUint64Array::fromArray(Array<BigInt>{BigInt::fromInt64(-1)}).join(), "18446744073709551615");
+
+  // Views over one buffer: at an aligned offset, little-endian as the host is.
+  ArrayBuffer buffer(8.0);
+  Uint8Array bytes = Bytes::over(buffer);
+  Uint16Array words = Uint16Array::over(buffer, 2.0, 2.0);
+  words.set(0, 0x0102);
+  CHECK(bytes.at(2) == 2 && bytes.at(3) == 1);
+  CHECK(words.byteOffset() == 2 && words.byteLength() == 4 && words.length() == 2);
+  CHECK_THROWS(Uint32Array::over(buffer, 2.0), "RangeError");
+  CHECK_THROWS(Uint32Array::over(ArrayBuffer(6.0)), "RangeError");
+  CHECK_THROWS(Float64Array::over(buffer, 0.0, 2.0), "RangeError");
+  CHECK(strictEquals(words.arrayBuffer(), buffer));
+
+  // subarray shares, slice copies; set converts from another kind.
+  Float64Array f = Float64Array::fromArray(Array<double>{1.5, -0.0, NAN, 3});
+  f.subarray(1, 2).set(0, 2);
+  CHECK(f.at(1) == 2);
+  Float64Array copy = f.slice(0, 2);
+  copy.set(0, 9);
+  CHECK(f.at(0) == 1.5);
+  Int8Array narrow(4.0);
+  narrow.setFrom(f);
+  CHECK_STR(narrow.join(), "1,2,0,3");
+  CHECK_THROWS(narrow.setFrom(f, 1.0), "RangeError");
+
+  // %TypedArray%'s methods: NaN is never indexOf, but includes; the default sort is numeric.
+  Float64Array g = Float64Array::fromArray(Array<double>{3, NAN, -0.0, 0, -1, 10});
+  CHECK(g.indexOf(NAN) == -1 && g.includes(NAN) && g.indexOf(0) == 2 && g.lastIndexOf(0) == 3);
+  CHECK_STR(g.toSorted().join(), "-1,0,0,3,10,NaN");
+  CHECK(std::signbit(g.toSorted().at(1)) && !std::signbit(g.toSorted().at(2)));
+  CHECK_STR(g.toReversed().join(), "10,-1,0,0,NaN,3");
+  CHECK(g.atIndex(-1).get() == 10 && !g.atIndex(6).has());
+  CHECK_STR(g.with(-1, 4).join(), "3,NaN,0,0,-1,4");
+  CHECK_THROWS(g.with(6, 4), "RangeError");
+  CHECK_STR(Int16Array::fromArray(Array<double>{1, 2, 3, 4, 5}).copyWithin(0, 3).join(), "4,5,3,4,5");
+  CHECK_STR(Int16Array::fromArray(Array<double>{5, 1, 4}).sort([](double a, double b) { return b - a; }).join(), "5,4,1");
+  CHECK_THROWS(Int16Array(0.0).reduce([](double a, double b) { return a + b; }), "TypeError");
+  CHECK(Int16Array::fromArray(Array<double>{1, 2, 3}).reduce([](double a, double b) { return a + b; }) == 6);
+  CHECK_STR(Float32Array::fromTyped(Int16Array::fromArray(Array<double>{-2, 7})).join(), "-2,7");
+
+  // DataView: big-endian unless asked, bounds checked, values converted.
+  DataView view = DataView::over(buffer, 1.0);
+  view.setUint16(0, 0x0102);
+  CHECK(bytes.at(1) == 1 && bytes.at(2) == 2);
+  view.setUint16(0, 0x0102, true);
+  CHECK(bytes.at(1) == 2 && bytes.at(2) == 1);
+  CHECK(view.getUint16(0, true) == 0x0102 && view.getUint16(0) == 0x0201);
+  DataView whole = DataView::over(buffer);
+  whole.setFloat64(0, -2.5);
+  CHECK(whole.getFloat64(0) == -2.5 && whole.getFloat64(0, true) != -2.5);
+  whole.setBigInt64(0, BigInt::fromInt64(-3), true);
+  CHECK(whole.getBigInt64(0, true) == BigInt::fromInt64(-3) &&
+        whole.getBigUint64(0, true) == BigInt::fromUint64(UINT64_MAX - 2));
+  view.setInt8(0, 200);
+  CHECK(view.getInt8(0) == -56 && view.getUint8(0) == 200);
+  CHECK(view.byteOffset() == 1 && view.byteLength() == 7);
+  CHECK_THROWS(view.getUint32(4), "RangeError");
+  CHECK_THROWS(view.setFloat64(1, 0), "RangeError");
+  CHECK_THROWS(DataView::over(buffer, 9.0), "RangeError");
+  CHECK_THROWS(DataView::over(buffer, 4.0, 5.0), "RangeError");
+}
+
 static void concatenation() {
   CHECK_STR(concat(S("w"), 42.0), "w42");
   CHECK_STR(concat(S("["), -0.0, S("]"), 0.0), "[0]0");
@@ -1456,6 +1531,7 @@ static void nativeRefJson() {
 }
 
 int main() {
+  typedArrays();
   deepRegExps();
   stackExhaustionThrows();
   numbers();
