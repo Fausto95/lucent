@@ -41,6 +41,7 @@ import {
   binaryResult,
   isAbsent,
   type BinaryOp,
+  adoptable,
   type BuiltinName,
   type CaptureSource,
   type Constant,
@@ -257,6 +258,8 @@ export interface LeafHost {
   onStack?(node: ts.ObjectLiteralExpression, type: LType, operands: LeafOperands): Leaf;
   /** `value`, a `from`, as a `to`, where `convert` does not apply (an interface, a function's shape…). */
   convert(value: ValueId, from: LType, to: LType, node: ts.Node): Leaf;
+  /** A function converting a `from` to a `to`, as `convert` does a value. */
+  converter(from: LType, to: LType, node: ts.Node): Leaf;
   /** The place `target` names (a field, an element…), what it takes lowered as operands. */
   place(target: ts.Expression, operands: LeafOperands): LeafPlace;
   /** A part of `value`, a `from`, that destructuring takes: a field, an element, the rest. */
@@ -693,10 +696,26 @@ class Lowerer {
       );
 
     let v = this.expr(value, isVoidish(result) ? undefined : result);
+    const t = this.b.typeOf(v);
 
-    // An async function returning a promise returns what it fulfils with.
-    if (this.input.async && this.b.typeOf(v).k === "promise" && result.k !== "promise")
+    // An async function returning a promise: its own adopts it, once the function has finished.
+    if (this.input.async && t.k === "promise" && result.k !== "promise") {
+      if (adoptable(t.inner, result)) {
+        this.b.adopt(v, span);
+        return;
+      }
+
+      // What it fulfils with converted by the emitter's code (an interface, a class's base).
+      const by = this.host.leaves?.converter(t.inner, result, value);
+      const convert = by && this.b.plan(by.name, by.code, [], by.type, span);
+
+      if (convert !== undefined) {
+        this.b.adopt(v, span, convert);
+        return;
+      }
+
       v = this.awaited(v, value);
+    }
 
     if (isVoidish(result)) {
       this.b.return(undefined, span);
@@ -723,15 +742,21 @@ class Lowerer {
         `\`await\` does not wait for a native ${held.name}: it is not a promise. Wrap the listener or callback that reports its completion in fromCallback (lucent:core) and await that promise`,
       );
 
-    if (t.k !== "promise") {
-      if (held.k === "promise")
-        fail(node, Codes.UnsupportedSyntax, "awaiting an optional promise is not supported");
+    if (t.k !== "promise" && held.k === "promise")
+      fail(node, Codes.UnsupportedSyntax, "awaiting an optional promise is not supported");
 
-      return v;
-    }
+    if (held.k === "union" && held.ms.some((m) => m.k === "promise"))
+      fail(
+        node,
+        Codes.UnsupportedSyntax,
+        "awaiting a value that may or may not be a promise is not supported",
+        "give it one type: a promise, or a value that is not one",
+      );
 
     const span = spanOf(node);
-    const inner = isVoidish(t.inner) ? undefined : t.inner;
+    // Of what is not a promise: that value, a microtask later.
+    const given = t.k === "promise" ? t.inner : t;
+    const inner = isVoidish(given) ? undefined : given;
 
     return this.b.await(v, inner, span) ?? this.b.const(undefined, span);
   }

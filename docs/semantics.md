@@ -255,8 +255,11 @@ reads. A caught value is `unknown`: narrow it with `instanceof` or
 
 In Lucent code `e.stack` is `undefined` unless the error came from
 JavaScript: native code records the site that made an error, not a stack.
-`new Error(message, { cause })` is `LUCENT1003` ([T106](tasks.md#t106)),
-and `AggregateError` `LUCENT2002` ([T103](tasks.md#t103)). The runtime
+`new Error(message, { cause })` is `LUCENT1003` ([T106](tasks.md#t106)).
+`Promise.any` rejects with an `AggregateError`, which `instanceof` tells
+apart. TypeScript types its `errors` as `any[]`: Lucent reads them as
+`Error[]` (`e.errors as Error[]`), and `new AggregateError` is
+`LUCENT1003`. The runtime
 throws `TypeError`, `RangeError` and `SyntaxError` where JavaScript
 would, and `Error`s named `AbortError`, `InvalidStateError`,
 `DataCloneError` and `QuotaExceededError` for the web's exceptions.
@@ -298,21 +301,28 @@ An actor's turn first runs the microtasks a call from JavaScript left.
 They come before a job queued during that call, such as a timer due at
 once.
 
-**Known gaps in the microtask order.** Two forms settle sooner than in
-JavaScript, which reorders interleaved async code
-([T103](tasks.md#t103)); `await delay(0)` yields meanwhile.
+Promise code settles in the microtasks JavaScript's does:
 
-- `await` of a value that isn't a promise (`await 0`) doesn't suspend
-  (`awaited` in `ir/lower.ts`); JavaScript waits one microtask.
-- `return p` of a promise is lowered as `return await p`. When `p` has
-  already settled, JavaScript settles one microtask later than that.
+- `await` of a value that isn't a promise (`await 0`) waits a microtask
+  too (`lucent::later`).
+- `return p` of a promise settles the function's promise from `p` once
+  the function has finished, a thenable job and then `p`'s reaction later
+  (`lucent::adopt`). Its `finally` blocks run first, and its `catch`
+  blocks never see `p`'s rejection. A promise of another type converts
+  what it fulfils with.
+- `then`, `catch` and `finally` run a handler in its promise's reaction,
+  and adopt a promise the handler returns two microtasks later. `finally`
+  passes its promise's outcome on once its handler, and a promise it
+  returns, are done.
 
 `new Promise(executor)` runs the executor at once; `resolve` takes a value
 and `reject` an `Error`, and `resolve(promise)` is `LUCENT2002`.
-`Promise.resolve`, `reject`, `all` (an array of one type, or a tuple) and
-`withResolvers` work. `then`, `catch`, `finally`, `race` and `any` are
-`LUCENT1003`, and `allSettled` fails on its result type (`LUCENT2002`)
-([T103](tasks.md#t103)). Awaiting an optional promise is `LUCENT1001`.
+`Promise.resolve`, `reject` and `withResolvers` work, and so do `all`,
+`race`, `any` and `allSettled`, over an array of one type or a tuple.
+They observe every input at once. `any` rejects with an `AggregateError`
+once every input has, and `allSettled`'s rejected outcomes give the
+`Error` as their `reason`. Awaiting an optional promise, or a value that
+may be a promise, is `LUCENT1001`.
 
 `setTimeout`, `setInterval` and their `clear…` run a function as a turn
 of the calling context after its delay (0 when negative or NaN), and
@@ -979,6 +989,7 @@ both, in the same commit.
 | `error.stack` is a string                                                                          | `undefined` in Lucent unless from JavaScript                                                          | native code records a site, not a stack                      |
 | `new Error(m, { cause })` keeps the cause                                                          | refused (`LUCENT1003`, [T106](tasks.md#t106))                                                         | an error is a name, a message and a code                     |
 | `abort()`'s message depends on the engine                                                          | `AbortError: signal is aborted without reason`                                                        | one message on both platforms                                |
+| `Promise.any`'s `AggregateError` message depends on the engine                                     | `All promises were rejected`                                                                          | one message on both platforms                                |
 | an abort reason can be any value                                                                   | an `Error`; JavaScript's become errors                                                                | Lucent's errors are `Error` objects                          |
 | `resolve(promise)` adopts the promise                                                              | refused (`LUCENT2002`; `LUCENT1007` in `fromCallback`)                                                | a promise settles with a value                               |
 | `await` on an object without `then` gives it                                                       | refused on an SDK object (`LUCENT1010`)                                                               | no completion API is picked by name                          |
@@ -995,8 +1006,6 @@ both, in the same commit.
 | JavaScript                                                  | Lucent today                    | Task                  |
 | ----------------------------------------------------------- | ------------------------------- | --------------------- |
 | a `let` read before its declaration throws `ReferenceError` | it reads as an unassigned field | [T106](tasks.md#t106) |
-| `await` of a plain value waits one microtask                | doesn't suspend                 | [T103](tasks.md#t103) |
-| `return p` in an async function takes three microtasks      | one, as `return await p`        | [T103](tasks.md#t103) |
 
 ## Diagnostics
 

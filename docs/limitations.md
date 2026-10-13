@@ -76,9 +76,9 @@ generated from this file.
   it, and the entry, for as long as the map lives.
 - A union that refers to itself, such as a `Json` type of arrays and
   records, is refused (`LUCENT2002`) ([T102](tasks.md#t102)).
-- `then`, `catch`, `finally`, `Promise.race`, `Promise.any` and
-  `Promise.allSettled` are refused: use `await` and `Promise.all`
-  ([T103](tasks.md#t103)).
+- `new AggregateError` is refused (`LUCENT1003`). Read the `errors` of
+  the one `Promise.any` rejects with as `e.errors as Error[]`, since
+  TypeScript types them `any`.
 - `TextEncoder`, `TextDecoder`, `atob`, `btoa`, `URL` and `crypto` are not
   available. `lucent:core` has `utf8Encode` and `utf8Decode`
   ([T105](tasks.md#t105)).

@@ -164,14 +164,16 @@ lucent::Promise<lucent::Array<double>> m_async::sequence(lucent::Array<double> p
 }
 
 lucent::Promise<lucent::Array<double>> m_async::parallel(lucent::Array<double> p0_) {
-  lucent::checkStack();
-  lucent::Array<lucent::Promise<double>> v2_ = p0_.template map<lucent::Promise<double>>([](double p0_, double p1_, lucent::Array<double> p2_) mutable -> lucent::Promise<double> {
+  try {
     lucent::checkStack();
-    return lucent_app::m_async::r_double_(p0_);
-  });
-  lucent::Promise<lucent::Array<double>> v3_ = lucent::promiseAll(v2_);
-  lucent::Array<double> v4_ = co_await v3_;
-  co_return v4_;
+    lucent::Array<lucent::Promise<double>> v2_ = p0_.template map<lucent::Promise<double>>([](double p0_, double p1_, lucent::Array<double> p2_) mutable -> lucent::Promise<double> {
+      lucent::checkStack();
+      return lucent_app::m_async::r_double_(p0_);
+    });
+    return lucent::adoptedPromise<lucent::Array<double>>(lucent::promiseAll(v2_));
+  } catch (...) {
+    return lucent::Promise<lucent::Array<double>>::rejected(lucent::currentError(std::current_exception()));
+  }
 }
 
 lucent::Promise<lucent::String> m_async::failing(lucent::String p0_) {

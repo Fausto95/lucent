@@ -28,7 +28,7 @@ what became of each one that is still linked or was still open.
 | [T100](#t100)            | Typed arrays and `DataView`                                | done (2026-10-13)                                             |
 | [T101](#t101)            | Keep `null` apart from `undefined` everywhere              | done (2026-10-13)                                             |
 | [T102](#t102)            | Recursive union types, for JSON-shaped values              | in progress (#254)                                            |
-| [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | ready                                                         |
+| [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | done (2026-10-13)                                             |
 | [T104](#t104)            | Timers and `queueMicrotask`                                | done (2026-10-13)                                             |
 | [T105](#t105)            | Web APIs that shared code uses                             | ready                                                         |
 | [T106](#t106)            | Language gaps module code meets                            | ready                                                         |
@@ -231,26 +231,26 @@ call stack size exceeded`). Now it refuses it with LUCENT2002 (#254).
 **Goal:** Promise code from ordinary TypeScript modules compiles, and
 settles in the order JavaScript settles it.
 
-- **Status:** ready.
+- **Status:** done (2026-10-13).
 - **Area:** compiler, runtime.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3.
 - **Where:** `async.h`, `ir/lower.ts`, `emit/builtins.ts`, `lib/sdk`.
 
-Today `then`, `catch` and `finally` give LUCENT1003 ("use await"), and so
-do `Promise.race` and `Promise.any`. `Promise.allSettled` fails on
+Before, `then`, `catch` and `finally` gave LUCENT1003 ("use await"), and
+so did `Promise.race` and `Promise.any`. `Promise.allSettled` failed on
 `PromiseRejectedResult` (LUCENT2002). `await` of a value that isn't a
-promise doesn't suspend (`ir/lower.ts`), and `return p` in an async
-function is lowered as `return await p`, which settles one microtask
-sooner than JavaScript when `p` has already settled.
+promise didn't suspend, and `return p` in an async function was lowered
+as `return await p`. Now `async.h` settles each in JavaScript's
+microtasks, and an async function adopts a promise it returns
+([decision 0101](decisions/0101-async-functions-adopt-returned-promises.md)).
 
-- [ ] `then`, `catch` and `finally`, with JavaScript's microtask order.
-- [ ] `Promise.race`, `Promise.any` (with `AggregateError`) and
+- [x] `then`, `catch` and `finally`, with JavaScript's microtask order.
+- [x] `Promise.race`, `Promise.any` (with `AggregateError`) and
       `Promise.allSettled` (with `PromiseSettledResult`).
-- [ ] `await` of any value suspends for a microtask, and `return p`
-      settles when JavaScript's does, or each is recorded as a deviation
-      with its reason.
-- [ ] e2e: `promise-chains`, `promise-combinators`, `await-order`, which
+- [x] `await` of any value suspends for a microtask, and `return p`
+      settles when JavaScript's does.
+- [x] e2e: `promise-chains`, `promise-combinators`, `await-order`, which
       compare the order of settled callbacks with JavaScript's.
 
 **Done when:** none of them is refused, and the order cases pass natively

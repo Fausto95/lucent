@@ -10,7 +10,7 @@
  */
 import { looseEqualityConverts } from "../lowering/loose-equality.ts";
 import { conversionStep, type Representations } from "../lowering/conversions.ts";
-import { type LType, sameType, T, unionOf } from "../types.ts";
+import { isVoidish, type LType, sameType, T, unionOf } from "../types.ts";
 
 /** A value, dense per function: `values[id].id === id`. */
 export type ValueId = number & { readonly __value: true };
@@ -259,7 +259,12 @@ export type IrOp =
       body: RegionId;
       source: SourceSpan;
     }
-  | { kind: "return"; value?: ValueId; source: SourceSpan }
+  /**
+   * Leaves the function with `value`. `adopt`: an async function returning a
+   * promise, which its own adopts once the function has finished; `convert`,
+   * a function, gives what that promise fulfils with as the function's type.
+   */
+  | { kind: "return"; value?: ValueId; adopt?: true; convert?: ValueId; source: SourceSpan }
   | { kind: "throw"; value: ValueId; source: SourceSpan }
   /** Leaves the loop or block `target`. */
   | { kind: "break"; target: TargetId; source: SourceSpan }
@@ -349,6 +354,20 @@ export const BUILTINS = {
 } as const satisfies Record<string, Signature & { throws: Throws }>;
 
 export type BuiltinName = keyof typeof BUILTINS;
+
+/**
+ * Whether an async function giving `result` adopts a returned promise of
+ * `inner`: one of its own type, of none (it never fulfils), of what
+ * converts to its type, or any, into a function giving nothing.
+ */
+export function adoptable(inner: LType, result: LType): boolean {
+  return (
+    isVoidish(result) ||
+    inner.k === "never" ||
+    sameType(inner, result) ||
+    convertible(inner, result)
+  );
+}
 
 export function isBuiltin(name: string): name is BuiltinName {
   return Object.hasOwn(BUILTINS, name);
@@ -612,7 +631,10 @@ export function operandsOf(op: IrOp): ValueId[] {
         ...(op.enters === undefined ? [] : [op.enters]),
       ];
     case "return":
-      return op.value === undefined ? [] : [op.value];
+      return [
+        ...(op.value === undefined ? [] : [op.value]),
+        ...(op.convert === undefined ? [] : [op.convert]),
+      ];
     case "throw":
       return [op.value];
     case "if":

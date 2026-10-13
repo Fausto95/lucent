@@ -219,6 +219,20 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
         return { c: em.coerce({ c: operand(value), t: from }, to, node), t: to };
       }),
 
+    converter: (from: LType, to: LType, node: ts.Node) =>
+      planned(node, () => {
+        const em = new LeafEmitter(ctx, opts, node, noOperands(node));
+        const fn: LType = { k: "fn", params: [from], ret: to };
+        const lambda = cpp.lambda(
+          [],
+          [cpp.param(ctx.reg.cppType(from), "x")],
+          [cpp.ret(em.coerce({ c: cpp.id("x"), t: from }, to, node))],
+          { ret: ctx.reg.cppType(to) },
+        );
+
+        return { c: cpp.construct(ctx.reg.cppType(fn), [lambda]), t: fn };
+      }),
+
     platformOnly: (node, type) => {
       const em = new LeafEmitter(ctx, opts, node, noOperands(node));
 

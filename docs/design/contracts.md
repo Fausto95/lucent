@@ -33,10 +33,10 @@ each contract as the code implements it today. The design is
 | Contract                                                     | What it covers                                                        | Version | Main code                                                   |
 | ------------------------------------------------------------ | --------------------------------------------------------------------- | ------- | ----------------------------------------------------------- |
 | [C-BIND](#c-bind-binding-schemas-and-plans)                  | SDK schemas, native identity, provenance, facts, binding plans, usage | v1.5    | `packages/bindgen/src/`                                     |
-| [C-IR](#c-ir-semantic-ir-and-program-facts)                  | The semantic IR, its verifier, effect summaries, program facts        | v1.3    | `packages/compiler/src/ir/`, `analysis/`                    |
+| [C-IR](#c-ir-semantic-ir-and-program-facts)                  | The semantic IR, its verifier, effect summaries, program facts        | v1.4    | `packages/compiler/src/ir/`, `analysis/`                    |
 | [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.14   | `packages/runtime/cpp/lucent/`                              |
 | [C-BIGINT](#c-bigint-the-runtimes-bigint)                    | The runtime's `BigInt` and native integer conversions                 | v1.1    | `lucent/bigint.h`                                           |
-| [C-BUFFER](#c-buffer-native-buffers)                         | Native buffers, borrows, moves, loans, adoptions, native handles      | v1.6    | `lucent/buffer.h`, `handle.h`, `bytes.h`, `jsi/convert.*`   |
+| [C-BUFFER](#c-buffer-native-buffers)                         | Native buffers, borrows, moves, loans, adoptions, native handles      | v1.7    | `lucent/buffer.h`, `handle.h`, `bytes.h`, `jsi/convert.*`   |
 | [C-VIEW](#c-view-components-and-views)                       | Component descriptions, transport, mounts, hosts, toolkit bodies      | v3.0    | `packages/compiler/src/ui/`, `packages/runtime/cpp/rn/`     |
 | [C-BUILD](#c-build-build-records-and-identities)             | Build records, pending actions, SDK locks, build identities           | v1.7    | `packages/lucent/src/cli/`, `compiler/src/emit/identity.ts` |
 | [C-TRACE](#c-trace-correlated-tracing)                       | Correlated runtime and build tracing                                  | v1      | `lucent/trace.h`, `packages/lucent/src/cli/trace.ts`        |
@@ -311,7 +311,7 @@ them:
 
 ## C-IR: semantic IR and program facts
 
-**Version: v1.3.** The compiler's semantic intermediate representation,
+**Version: v1.4.** The compiler's semantic intermediate representation,
 and the analysis later stages consume. A value is defined once by an
 operation and referred to by id. Operations run in their region's order,
 so evaluation order is data.
@@ -359,19 +359,20 @@ export type IntKind = "i32" | "u32" | "i64";
 | `try`, `dispose`                                               | Exceptional edges; a `using` disposal, in a finally only.                     |
 | `iterate`                                                      | `for … of`; leaving early closes an iterator.                                 |
 | `return`, `throw`, `break`, `continue`, `yield`, `unreachable` | Terminators. `yield` ends an `if` branch with its result.                     |
+| `return` with `adopt`                                          | An async function's `return p`, through a `convert` function when given.      |
 | `plan`                                                         | An operation the backend writes, on operands computed before it.              |
 | `closure`                                                      | A function value of a nested `IrFunction`; it `enters` a setup's mount.       |
-| `await`, `produce`                                             | An async suspension; a generator's element.                                   |
+| `await`, `produce`                                             | An async suspension, of a promise or any value; a generator's element.        |
 | `never`                                                        | The value of what never completes.                                            |
 
-| Lowering rule | Contract                                                                                                                                                                                                                       |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Plans         | What the IR does not model: a member access, a runtime or SDK method, a construction, a literal. Operands are lowered once each, in source order, before it. A plan runs none of the program's code and decides no order.      |
-| `LeafHost`    | `plan`, `elements`, `onStack`, `convert`, `place`, `part`, `keys`, `link`, `safepoint`, `step`, `absent`, `equals`, `superCall`, `dispose`, `whole`, `platformOnly`. `LeafOperands`: `operand`, `closure`, `ambient`, `thunk`. |
-| Places        | A non-variable place is read before the right side runs (`LeafHost.place`). Optional chains lower link by link.                                                                                                                |
-| Closures      | A capture is a value copied at creation, or the enclosing box of a variable written after capture.                                                                                                                             |
-| Async         | A function with no `await` is no coroutine and returns a settled promise. A coroutine never suspends in a C++ catch handler.                                                                                                   |
-| Targets       | A compute variant has a safepoint per loop iteration. The host decides platform tests (`platformGuard`, `platformClauses`, `runsHere`); only the target's code is lowered.                                                     |
+| Lowering rule | Contract                                                                                                                                                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plans         | What the IR does not model: a member access, a runtime or SDK method, a construction, a literal. Operands are lowered once each, in source order, before it. A plan runs none of the program's code and decides no order.                   |
+| `LeafHost`    | `plan`, `elements`, `onStack`, `convert`, `converter`, `place`, `part`, `keys`, `link`, `safepoint`, `step`, `absent`, `equals`, `superCall`, `dispose`, `whole`, `platformOnly`. `LeafOperands`: `operand`, `closure`, `ambient`, `thunk`. |
+| Places        | A non-variable place is read before the right side runs (`LeafHost.place`). Optional chains lower link by link.                                                                                                                             |
+| Closures      | A capture is a value copied at creation, or the enclosing box of a variable written after capture.                                                                                                                                          |
+| Async         | A function with no `await` is no coroutine and returns a settled promise. A coroutine never suspends in a C++ catch handler. Its promise adopts a returned promise once the function has finished, past its `finally` blocks.               |
+| Targets       | A compute variant has a safepoint per loop iteration. The host decides platform tests (`platformGuard`, `platformClauses`, `runsHere`); only the target's code is lowered.                                                                  |
 
 ### Verifier invariants
 
@@ -438,8 +439,8 @@ takes an `AnalysisInput`: `checker`, `modules`, `platform?`, `native?`,
 
 - [T120](../tasks.md#t120): `mainState` extends to instance members only
   main-thread code touches.
-- [T103](../tasks.md#t103), [T106](../tasks.md#t106): promise chaining,
-  object rest, spread arguments, `for await` and async generators lower.
+- [T106](../tasks.md#t106): object rest, spread arguments, `for await`
+  and async generators lower.
 
 ## C-EXEC: execution identities, scopes and operations
 

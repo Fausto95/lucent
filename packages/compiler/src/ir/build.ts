@@ -361,6 +361,17 @@ export class IrBuilder {
     this.push(value === undefined ? { kind: "return", source } : { kind: "return", value, source });
   }
 
+  /** An async function's `return p`: its promise adopts `p`, through `convert` when given. */
+  adopt(promise: ValueId, source: SourceSpan, convert?: ValueId): void {
+    this.push({
+      kind: "return",
+      value: promise,
+      adopt: true,
+      ...(convert === undefined ? {} : { convert }),
+      source,
+    });
+  }
+
   throw(value: ValueId, source: SourceSpan): void {
     this.push({ kind: "throw", value, source });
   }

@@ -40,6 +40,7 @@
 import { isVoidish, type LType, sameType, T, typeKey } from "../types.ts";
 import { dump } from "./dump.ts";
 import {
+  adoptable,
   binaryResult,
   BUILTINS,
   completes,
@@ -479,16 +480,19 @@ class Checker {
     }
   }
 
-  /** An await, in an async function, of a promise, giving what it fulfils with. */
+  /**
+   * An await, in an async function, of a promise, giving what it fulfils
+   * with, or of another value, giving it.
+   */
   awaits(op: IrOp & { kind: "await" }, where: string): void {
     const t = this.typeOf(op.promise);
+    const given = t && (t.k === "promise" ? t.inner : t);
 
     if (!this.fn.async) this.problemAt(where, "is not in an async function");
 
-    if (t && t.k !== "promise") this.problemAt(where, `awaits a ${typeKey(t)}, not a promise`);
-    else if (t && isVoidish(t.inner) !== (op.result === undefined))
-      this.problemAt(where, "gives a value just when the promise's has one");
-    else if (t && op.result !== undefined) this.expectType(op.result, t.inner, where);
+    if (given && isVoidish(given) !== (op.result === undefined))
+      this.problemAt(where, "gives a value just when what it awaits has one");
+    else if (given && op.result !== undefined) this.expectType(op.result, given, where);
   }
 
   /** A produce, in a generator, of an element of its type. */
@@ -579,7 +583,29 @@ class Checker {
   ret(op: IrOp & { kind: "return" }, where: string): void {
     const result = this.fn.result;
 
-    if (op.value === undefined) {
+    if (op.adopt) {
+      const t = op.value === undefined ? undefined : this.typeOf(op.value);
+
+      const by = op.convert === undefined ? undefined : this.typeOf(op.convert);
+
+      if (!this.fn.async) this.problemAt(where, "adopts a promise outside an async function");
+      else if (t && t.k !== "promise")
+        this.problemAt(where, `adopts a ${typeKey(t)}, not a promise`);
+      else if (t && !by && !adoptable(t.inner, result))
+        this.problemAt(where, `adopts a ${typeKey(t)}, not a promise of ${typeKey(result)}`);
+      else if (
+        t &&
+        by &&
+        (by.k !== "fn" ||
+          by.params.length !== 1 ||
+          !sameType(by.params[0]!, t.inner) ||
+          !sameType(by.ret, result))
+      )
+        this.problemAt(
+          where,
+          `converts by a ${typeKey(by)}, not a ${typeKey(t.inner)} to ${typeKey(result)}`,
+        );
+    } else if (op.value === undefined) {
       if (!isVoidish(result))
         this.problem(`${where} gives nothing from a function giving ${typeKey(result)}`);
     } else if (isVoidish(result)) {

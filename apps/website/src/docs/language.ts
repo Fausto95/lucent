@@ -651,6 +651,12 @@ export const differences: { title: string; rows: Difference[] }[] = [
         cases: ["abort", "listeners"],
       },
       {
+        js: "The `AggregateError` that `Promise.any` rejects with has a message that depends on the engine.",
+        lucent: "`All promises were rejected`, as in V8.",
+        why: "One message on both platforms.",
+        cases: ["promise-combinators"],
+      },
+      {
         js: "An abort reason can be any value.",
         lucent:
           "A reason from JavaScript becomes an error, with `String(reason)` as its message when it isn't an object. `abort()` in Lucent takes an `Error`.",
@@ -733,13 +739,6 @@ export const differences: { title: string; rows: Difference[] }[] = [
  * fix changes, and a gap without one fails the check.
  */
 export const knownGaps: Difference[] = [
-  {
-    js: "`await` of a value that isn't a promise waits for a microtask, and `return p` of a settled promise takes one microtask more than `return await p`.",
-    lucent:
-      "`await` of such a value doesn't wait, and `return p` acts as `return await p`, one microtask sooner when `p` has already settled. Callbacks that depend on that order run in a different order.",
-    why: "The compiled code skips the wait for a plain value, and returns a promise's result directly.",
-    cases: ["async"],
-  },
   {
     js: "A `let` or `const` read before its declaration runs throws a `ReferenceError`.",
     lucent:

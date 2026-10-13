@@ -128,7 +128,9 @@ function dumpOp(op: IrOp, type: (v: ValueId) => string): string {
     case "produce":
       return `produce v${op.value}`;
     case "return":
-      return op.value === undefined ? "return" : `return v${op.value}`;
+      return op.value === undefined
+        ? "return"
+        : `return${op.adopt ? " adopt" : ""} v${op.value}${op.convert === undefined ? "" : ` by v${op.convert}`}`;
     case "throw":
       return `throw v${op.value}`;
     case "if": {

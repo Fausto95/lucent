@@ -255,15 +255,18 @@ lucent::Promise<double> m_conditional_u2d_objects::later(double p0_) {
 }
 
 lucent::Promise<double> m_conditional_u2d_objects::pick(bool p0_) {
-  lucent::checkStack();
-  lucent::Promise<double> v5_{};
-  if (p0_) {
-    v5_ = lucent_app::m_conditional_u2d_objects::later(1.0);
-  } else {
-    v5_ = lucent_app::m_conditional_u2d_objects::later(2.0);
+  try {
+    lucent::checkStack();
+    lucent::Promise<double> v5_{};
+    if (p0_) {
+      v5_ = lucent_app::m_conditional_u2d_objects::later(1.0);
+    } else {
+      v5_ = lucent_app::m_conditional_u2d_objects::later(2.0);
+    }
+    return lucent::adoptedPromise<double>(v5_);
+  } catch (...) {
+    return lucent::Promise<double>::rejected(lucent::currentError(std::current_exception()));
   }
-  double v6_ = co_await v5_;
-  co_return v6_;
 }
 
 void m_conditional_u2d_objects::init() {
