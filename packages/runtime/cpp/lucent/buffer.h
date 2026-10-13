@@ -26,9 +26,11 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <span>
+#include <string>
 #include <type_traits>
 
 #include "bytes.h"
@@ -230,91 +232,133 @@ class NativeBufferObject final : public Object {
   const bool readOnly_;
 };
 
-/// The bytes a borrow lends compiled code, with a Uint8Array's element
-/// semantics: reads out of range are undefined, writes out of range are
-/// ignored, values wrap to 0–255. The compiler keeps a span inside the
-/// callback it was lent to (it cannot be stored, returned or awaited
-/// across), so it never outlives its borrow.
-template <bool Writable>
-class BasicByteSpan {
+/// The bytes a borrow lends compiled code, read as elements of kind K
+/// (typed::Uint8 for withRead's ByteSpan, another for withReadAs) with a
+/// typed array's semantics: reads out of range are undefined, writes out of
+/// range are ignored, values convert as the kind converts them. Elements
+/// are read and written through memcpy, so the bytes need no alignment. The
+/// compiler keeps a span inside the callback it was lent to (it cannot be
+/// stored, returned or awaited across), so it never outlives its borrow.
+template <class K, bool Writable>
+class BasicSpan {
  public:
+  using Kind = K;
   using Byte = std::conditional_t<Writable, uint8_t, const uint8_t>;
+  using E = typename K::E;
+  using V = typename K::V;
+  static constexpr size_t kElement = sizeof(E);
 
   /// No bytes: what a variable holds before a span is assigned to it.
-  BasicByteSpan() = default;
-  explicit BasicByteSpan(std::span<Byte> bytes) : bytes_(bytes) {}
+  BasicSpan() = default;
+  /// Over `bytes`, whose size is a whole number of elements.
+  explicit BasicSpan(std::span<Byte> bytes) : bytes_(bytes) {}
 
-  size_t size() const { return bytes_.size(); }
-  double length() const { return static_cast<double>(bytes_.size()); }
+  size_t size() const { return bytes_.size() / kElement; }
+  double length() const { return static_cast<double>(size()); }
   const uint8_t* data() const { return bytes_.data(); }
 
-  Opt<double> get(double index) const {
+  Opt<V> get(double index) const {
     if (!contains(index)) return undefined;
 
-    return static_cast<double>(bytes_[static_cast<size_t>(index)]);
+    return at(static_cast<size_t>(index));
   }
 
-  double at(size_t i) const { return static_cast<double>(bytes_[i]); }
+  V at(size_t i) const {
+    E e;
+    std::memcpy(&e, bytes_.data() + i * kElement, kElement);
+    return K::load(e);
+  }
 
-  void set(double index, double value) const
+  void set(double index, const V& value) const
     requires Writable
   {
-    if (contains(index)) bytes_[static_cast<size_t>(index)] = Bytes::toUint8(value);
+    if (contains(index)) put(static_cast<size_t>(index), K::store(value));
   }
 
   /// TypedArray.prototype.fill: `start` and `end` count from the end when negative.
-  void fill(double value, double start = 0) const
+  void fill(const V& value, double start = 0) const
     requires Writable
   {
     fill(value, start, length());
   }
 
-  void fill(double value, double start, double end) const
+  void fill(const V& value, double start, double end) const
     requires Writable
   {
-    size_t from = detail::relativeIndex(start, bytes_.size());
-    size_t to = detail::relativeIndex(end, bytes_.size());
+    size_t from = detail::relativeIndex(start, size());
+    size_t to = detail::relativeIndex(end, size());
+    E e = K::store(value);
 
-    if (from < to) std::fill(bytes_.begin() + from, bytes_.begin() + to, Bytes::toUint8(value));
+    for (size_t i = from; i < to; i++) put(i, e);
   }
 
-  /// TypedArray.prototype.set with a Uint8Array.
-  void setFrom(const Bytes& source, double offset = 0) const
+  /// TypedArray.prototype.set with a typed array whose values are of the same kind (numbers or bigints).
+  template <class K2>
+  void setFrom(const TypedArray<K2>& source, double offset = 0) const
+    requires Writable && std::is_same_v<typename K2::V, V>
+  {
+    size_t at = fits(source.size(), offset);
+
+    if constexpr (std::is_same_v<K2, K>)
+      std::memmove(bytes_.data() + at * kElement, source.data(), source.size() * kElement);
+    else
+      for (size_t i = 0; i < source.size(); i++) put(at + i, K::store(source.at(i)));
+  }
+
+  /// TypedArray.prototype.set with an array.
+  void setFrom(const Array<V>& source, double offset = 0) const
     requires Writable
   {
-    if (!(offset >= 0) || static_cast<double>(source.size()) + std::trunc(offset) > length())
-      throwRangeError("offset is out of bounds");
+    size_t at = fits(source.size(), offset);
 
-    std::copy(source.data(), source.data() + source.size(), bytes_.begin() + static_cast<size_t>(offset));
+    for (size_t i = 0; i < source.size(); i++) put(at + i, K::store(source.at(i)));
   }
 
  private:
-  bool contains(double index) const {
-    return index >= 0 && index < length() && std::trunc(index) == index;
+  bool contains(double index) const { return index >= 0 && index < length() && std::trunc(index) == index; }
+
+  void put(size_t i, E e) const
+    requires Writable
+  {
+    std::memcpy(bytes_.data() + i * kElement, &e, kElement);
+  }
+
+  size_t fits(size_t count, double offset) const {
+    if (!(offset >= 0) || static_cast<double>(count) + std::trunc(offset) > length())
+      throwRangeError("offset is out of bounds");
+
+    return static_cast<size_t>(offset);
   }
 
   std::span<Byte> bytes_;
 };
 
-/// The same bytes: two borrows of one buffer lend equal spans.
 template <bool Writable>
-bool strictEquals(const BasicByteSpan<Writable>& a, const BasicByteSpan<Writable>& b) {
+using BasicByteSpan = BasicSpan<typed::Uint8, Writable>;
+using ByteSpan = BasicSpan<typed::Uint8, false>;
+using MutableByteSpan = BasicSpan<typed::Uint8, true>;
+/// What withReadAs and withWriteAs lend: the bytes as K's elements.
+template <class K>
+using TypedSpan = BasicSpan<K, false>;
+template <class K>
+using MutableTypedSpan = BasicSpan<K, true>;
+
+/// The same bytes: two borrows of one buffer lend equal spans.
+template <class K, bool Writable>
+bool strictEquals(const BasicSpan<K, Writable>& a, const BasicSpan<K, Writable>& b) {
   return a.data() == b.data() && a.size() == b.size();
 }
 
-/// Like a Uint8Array's: the bytes joined with commas.
-template <bool Writable>
-String toJsString(const BasicByteSpan<Writable>& b) {
+/// Like a typed array's: the elements joined with commas.
+template <class K, bool Writable>
+String toJsString(const BasicSpan<K, Writable>& b) {
   String out;
   for (size_t i = 0; i < b.size(); i++) {
     if (i > 0) out += String::fromLatin1(",");
-    out += numberToString(b.at(i));
+    out += typed::valueString(b.at(i));
   }
   return out;
 }
-
-using ByteSpan = BasicByteSpan<false>;
-using MutableByteSpan = BasicByteSpan<true>;
 
 /// `buffer.withRead(f)` as compiled: f is lent a ByteSpan.
 template <class F>
@@ -328,17 +372,47 @@ decltype(auto) withWrite(const NativeBuffer& buffer, F&& f) {
   return buffer->withWrite([&](std::span<uint8_t> bytes) -> decltype(auto) { return f(MutableByteSpan(bytes)); });
 }
 
-/// `span[i]` read for a compound assignment: a RangeError out of range, as for a Uint8Array.
-template <bool Writable>
-double elementAt(const BasicByteSpan<Writable>& bytes, double i) {
-  Opt<double> v = bytes.get(i);
-  if (!v.has()) throwRangeError("Uint8Array index out of bounds");
+namespace detail {
+/// A RangeError unless `size` bytes are a whole number of K's elements, as
+/// `new Float32Array(buffer)` checks.
+template <class K>
+void wholeElements(size_t size) {
+  constexpr size_t n = sizeof(typename K::E);
+  if (size % n != 0)
+    throwRangeError((std::string("byte length of ") + K::name + " should be a multiple of " + std::to_string(n)).c_str());
+}
+}  // namespace detail
+
+/// `buffer.withReadAs(Float32Array, f)` as compiled: f is lent a TypedSpan.
+template <class K, class F>
+decltype(auto) withReadAs(const NativeBuffer& buffer, F&& f) {
+  return buffer->withRead([&](std::span<const uint8_t> bytes) -> decltype(auto) {
+    detail::wholeElements<K>(bytes.size());
+    return f(TypedSpan<K>(bytes));
+  });
+}
+
+/// `buffer.withWriteAs(Float32Array, f)` as compiled: f is lent a MutableTypedSpan.
+template <class K, class F>
+decltype(auto) withWriteAs(const NativeBuffer& buffer, F&& f) {
+  return buffer->withWrite([&](std::span<uint8_t> bytes) -> decltype(auto) {
+    detail::wholeElements<K>(bytes.size());
+    return f(MutableTypedSpan<K>(bytes));
+  });
+}
+
+/// `span[i]` read for a compound assignment: a RangeError out of range, as for a typed array.
+template <class K, bool Writable>
+typename K::V elementAt(const BasicSpan<K, Writable>& span, double i) {
+  Opt<typename K::V> v = span.get(i);
+  if (!v.has()) throwRangeError((std::string(K::name) + " index out of bounds").c_str());
 
   return v.get();
 }
 
-inline double setElement(const MutableByteSpan& bytes, double i, double v) {
-  bytes.set(i, v);
+template <class K>
+typename K::V setElement(const MutableTypedSpan<K>& span, double i, const typename K::V& v) {
+  span.set(i, v);
   return v;
 }
 

@@ -25,7 +25,7 @@ what became of each one that is still linked or was still open.
 | Task                     | Title                                                      | State                                                         |
 | ------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------- |
 | **Module parity**        |                                                            |                                                               |
-| [T100](#t100)            | Typed arrays and `DataView`                                | in progress (#249, #251)                                      |
+| [T100](#t100)            | Typed arrays and `DataView`                                | done (2026-10-13)                                             |
 | [T101](#t101)            | Keep `null` apart from `undefined` everywhere              | ready                                                         |
 | [T102](#t102)            | Recursive union types, for JSON-shaped values              | ready                                                         |
 | [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | ready                                                         |
@@ -132,7 +132,7 @@ result.
 and crosses the boundary, so audio, sensor and model modules pass samples
 as Expo modules do.
 
-- **Status:** in progress (#249, #251).
+- **Status:** done (2026-10-13): #249, #251 and #252.
 - **Area:** compiler, runtime.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3, V7.
@@ -141,8 +141,9 @@ as Expo modules do.
 
 The runtime has them all (#249): `lucent/bytes.h`'s `TypedArray<Kind>`,
 `Uint8Array` among them, and `DataView`. The compiler takes them, and the
-boundary carries them (#251). What's left is a typed view of a
-`NativeBuffer`'s bytes.
+boundary carries them (#251). A `NativeBuffer`'s borrows lend its bytes as
+any kind's elements (#252,
+[0099](decisions/0099-a-buffer-is-borrowed-as-typed-elements-through-spans.md)).
 
 - [x] `Int8Array`, `Uint8ClampedArray`, `Int16Array`, `Uint16Array`,
       `Int32Array`, `Uint32Array`, `Float32Array`, `Float64Array`,
@@ -156,8 +157,8 @@ boundary carries them (#251). What's left is a typed view of a
 - [x] The boundary treats them as `Uint8Array`: copied by default, lent to
       a synchronous export that only reads, moved on return when nothing
       else holds the buffer.
-- [ ] A typed view of a `NativeBuffer`'s bytes inside `withRead` and
-      `withWrite`.
+- [x] A typed view of a `NativeBuffer`'s bytes inside `withRead` and
+      `withWrite`: `withReadAs` and `withWriteAs` (case `buffer-views`).
 - [x] e2e: `typed-arrays`, `data-view`; semantics and the website's
       language page list them.
 

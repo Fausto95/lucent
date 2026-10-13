@@ -216,6 +216,8 @@ const CORE: Record<string, string | null> = {
   NativeHandle: "a native handle, which keeps what it points to until its holder releases it",
   ByteSpan: BORROWED,
   MutableByteSpan: BORROWED,
+  TypedSpan: BORROWED,
+  MutableTypedSpan: BORROWED,
   EventEmitter: "an event emitter, whose listeners run on the context that added them",
   EventSubscription: "an event subscription, which belongs to the context that made it",
   JSValue:

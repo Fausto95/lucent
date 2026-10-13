@@ -18,7 +18,20 @@ import { cpp } from "@lucent-lang/codegen";
 import path from "node:path";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
-import { cppIdent, isVoidish, type LType, T, unionOf } from "../types.ts";
+import { isLibFile } from "../program.ts";
+import {
+  cppIdent,
+  isTypedArray,
+  isTypedName,
+  isVoidish,
+  type LType,
+  stripOpt,
+  T,
+  typedElement,
+  type TypedName,
+  typeKey,
+  unionOf,
+} from "../types.ts";
 import { DISPOSE } from "./classes.ts";
 import { factsOf } from "./compute.ts";
 import type { E } from "./context.ts";
@@ -122,6 +135,8 @@ const close: Lowers = (_em, _node, buffer) =>
 const METHODS: Record<string, Lowers> = {
   withRead: (em, node, buffer) => borrow(em, node, buffer, "withRead", T.span),
   withWrite: (em, node, buffer) => borrow(em, node, buffer, "withWrite", T.mutableSpan),
+  withReadAs: (em, node, buffer) => borrowAs(em, node, buffer, "withReadAs", false),
+  withWriteAs: (em, node, buffer) => borrowAs(em, node, buffer, "withWriteAs", true),
   toUint8Array: (_em, _node, buffer) => ({
     c: cpp.call(cpp.arrow(buffer.c, "toBytes")),
     t: T.bytes,
@@ -170,14 +185,32 @@ export function bufferDispose(buffer: E): cpp.Expr {
 // --- spans -----------------------------------------------------------------------
 
 const SPAN_METHODS: Record<string, Lowers> = {
-  fill: (em, node, span) => done(cpp.call(cpp.dot(span.c, "fill"), given(em, node, 0, T.number))),
-  set: (em, node, span) =>
+  fill: (em, node, span) =>
     done(
-      cpp.call(cpp.dot(span.c, "setFrom"), [
-        arg(em, node, 0, T.bytes),
+      cpp.call(cpp.dot(span.c, "fill"), [
+        arg(em, node, 0, typedElement(span.t)),
         ...given(em, node, 1, T.number),
       ]),
     ),
+  set: (em, node, span) => {
+    const source = node.arguments[0]!;
+    const e = typedElement(span.t);
+    const st = stripOpt(em.lt(source));
+    // A typed array or an array of the span's values (a ByteSpan's type takes a Uint8Array alone).
+    const fits =
+      (isTypedArray(st) && typedElement(st).k === e.k) || (st.k === "array" && st.e.k === e.k);
+
+    if (!fits)
+      fail(
+        source,
+        Codes.UnsupportedCall,
+        `set() takes a typed array or an array of ${e.k === "bigint" ? "bigints" : "numbers"}, not ${typeKey(st)}`,
+      );
+
+    return done(
+      cpp.call(cpp.dot(span.c, "setFrom"), [arg(em, node, 0, st), ...given(em, node, 1, T.number)]),
+    );
+  },
 };
 
 export function spanMethod(em: FnEmitter, span: E, name: string, node: ts.CallExpression): E {
@@ -200,7 +233,10 @@ export function spanProperty(span: E, name: string, node: ts.Node): E {
 
 /** `span[i]`: undefined out of range. */
 export function spanElement(span: E, index: cpp.Expr): E {
-  return { c: cpp.call(cpp.dot(span.c, "get"), [index]), t: unionOf([T.number, T.undefined]) };
+  return {
+    c: cpp.call(cpp.dot(span.c, "get"), [index]),
+    t: unionOf([typedElement(span.t), T.undefined]),
+  };
 }
 
 // --- borrows ---------------------------------------------------------------------
@@ -220,6 +256,82 @@ function borrow(
   if (!given || others.length)
     fail(node, Codes.UnsupportedCall, `${method} takes one callback, which it lends the bytes`);
 
+  return lend(em, node, given, `lucent::${method}`, buffer, method, span);
+}
+
+/** `buffer.withReadAs(Float32Array, f)`: a borrow lending `f` the bytes as that typed array's elements. */
+function borrowAs(
+  em: FnEmitter,
+  node: ts.CallExpression,
+  buffer: E,
+  method: "withReadAs" | "withWriteAs",
+  writable: boolean,
+): E {
+  const [type, given, ...others] = node.arguments;
+
+  if (!type || !given || others.length)
+    fail(
+      node,
+      Codes.UnsupportedCall,
+      `${method} takes a typed array's constructor and one callback, which it lends the elements`,
+    );
+
+  const name = viewedArray(em, type, method);
+
+  // A Uint8Array's elements are the bytes: withRead's span.
+  if (name === "Uint8Array")
+    return lend(
+      em,
+      node,
+      given,
+      `lucent::${writable ? "withWrite" : "withRead"}`,
+      buffer,
+      method,
+      writable ? T.mutableSpan : T.span,
+    );
+
+  return lend(
+    em,
+    node,
+    given,
+    `lucent::${method}<lucent::typed::${name.replace(/Array$/, "")}>`,
+    buffer,
+    method,
+    { k: "span", writable, name },
+  );
+}
+
+/** The typed array `type` names: `Float32Array`, as the global constructor. */
+function viewedArray(em: FnEmitter, type: ts.Expression, method: string): TypedName | "Uint8Array" {
+  const decl = ts.isIdentifier(type)
+    ? em.checker.getSymbolAtLocation(type)?.declarations?.[0]
+    : undefined;
+
+  if (
+    !ts.isIdentifier(type) ||
+    !decl ||
+    !isLibFile(decl.getSourceFile()) ||
+    !(type.text === "Uint8Array" || isTypedName(type.text))
+  )
+    fail(
+      type,
+      Codes.UnsupportedCall,
+      `${method} takes a typed array's constructor by its name, such as Float32Array, so the compiler knows the elements`,
+    );
+
+  return type.text;
+}
+
+/** Lends `given` the span `fn(buffer, f)` makes, once its callback is checked. */
+function lend(
+  em: FnEmitter,
+  node: ts.CallExpression,
+  given: ts.Expression,
+  fn: string,
+  buffer: E,
+  method: string,
+  span: LType,
+): E {
   checkBorrow(em, callbackOf(em, given, method), method);
 
   const result = em.lt(node);
@@ -230,7 +342,7 @@ function borrow(
       : em.expr(given);
 
   return {
-    c: cpp.call(`lucent::${method}`, [buffer.c, em.coerce(f, target, given)]),
+    c: cpp.call(fn, [buffer.c, em.coerce(f, target, given)]),
     t: isVoidish(result) ? T.undefined : result,
   };
 }

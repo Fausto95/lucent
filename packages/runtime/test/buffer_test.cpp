@@ -546,6 +546,57 @@ static void spansWriteLikeAUint8Array() {
   CHECK(buffer->toBytes().join() == str("1,1,1,1,5,6"));
 }
 
+static void typedSpansReadAndWriteTheBytesAsTheirKind() {
+  NativeBuffer buffer = NativeBufferObject::allocate(8);
+
+  withWriteAs<typed::Float32>(buffer, [&](MutableTypedSpan<typed::Float32> samples) {
+    CHECK(buffer->writing() && samples.length() == 2);
+
+    samples.set(0, 1.5);
+    samples.set(2, 9);
+    CHECK(setElement(samples, 1, 0.1) == 0.1);
+  });
+
+  // Little-endian, as a Float32Array over the same bytes: 1.5 is 0x3FC00000.
+  CHECK(buffer->toBytes().join() == str("0,0,192,63,205,204,204,61"));
+
+  double read = withReadAs<typed::Float32>(buffer, [](TypedSpan<typed::Float32> samples) {
+    CHECK(!samples.get(2).has() && !samples.get(-1).has());
+    CHECK(toJsString(samples) == str("1.5,0.10000000149011612"));
+    return samples.at(0) + elementAt(samples, 1);
+  });
+
+  CHECK(read == 1.5 + static_cast<double>(0.1f));
+
+  withWriteAs<typed::Int16>(buffer, [](MutableTypedSpan<typed::Int16> words) {
+    words.fill(-1);
+    words.fill(40000, 1, 2);
+    words.setFrom(Array<double>{7, 65536 + 8}, 2);
+    words.setFrom(TypedArray<typed::Uint8>(std::vector<uint8_t>{200}), 0);
+
+    CHECK(thrownName([&] { words.setFrom(Array<double>{1, 2}, 3); }) == "RangeError");
+  });
+
+  CHECK(withReadAs<typed::Int16>(buffer, [](TypedSpan<typed::Int16> words) { return toJsString(words); }) ==
+        str("200,-25536,7,8"));
+
+  withWriteAs<typed::BigInt64>(buffer, [](MutableTypedSpan<typed::BigInt64> big) {
+    CHECK(big.length() == 1);
+    big.set(0, BigInt(-2));
+  });
+
+  CHECK(withReadAs<typed::BigUint64>(buffer, [](TypedSpan<typed::BigUint64> big) { return big.at(0).toString(); }) ==
+        str("18446744073709551614"));
+
+  // Bytes that aren't a whole number of elements: a RangeError, as `new Float32Array(buffer)` throws.
+  NativeBuffer odd = NativeBufferObject::allocate(6);
+
+  CHECK(thrown([&] { withReadAs<typed::Float32>(odd, [](TypedSpan<typed::Float32>) {}); }) ==
+        "RangeError: byte length of Float32Array should be a multiple of 4");
+  CHECK(odd->readers() == 0);
+  CHECK(withReadAs<typed::Int16>(odd, [](TypedSpan<typed::Int16> words) { return words.length(); }) == 3);
+}
+
 static void spansHonourTheBorrows() {
   NativeBuffer buffer = NativeBufferObject::allocate(2);
 
@@ -875,6 +926,7 @@ int main() {
 
   spansReadWhatTheBufferHolds();
   spansWriteLikeAUint8Array();
+  typedSpansReadAndWriteTheBytesAsTheirKind();
   spansHonourTheBorrows();
   boundaryCopiesAreCounted();
 

@@ -153,7 +153,13 @@ export function declarationsOf(file: string, text: string): ModuleDeclarations {
     const members =
       ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node)
         ? node.members.flatMap((m): Member[] => {
-            const signature = text.slice(m.getStart(sf), m.end).trim();
+            // On one line, as a table's cell needs it: a long one the formatter wrapped is joined.
+            const signature = text
+              .slice(m.getStart(sf), m.end)
+              .trim()
+              .replace(/\(\s*\n\s*/g, "(")
+              .replace(/,?\s*\n\s*\)/g, ")")
+              .replace(/\s*\n\s*/g, " ");
             const isPrivate = (ts.canHaveModifiers(m) ? (ts.getModifiers(m) ?? []) : []).some(
               (x) => x.kind === ts.SyntaxKind.PrivateKeyword,
             );
