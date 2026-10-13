@@ -362,6 +362,11 @@ void Actor::runTurn(Job& job) {
 
   LucentScope held(*this, std::adopt_lock);
 
+  // What an entry from another thread left (LucentScope::handOffMicrotasks)
+  // runs first: a job queued before that entry ended (a timer's) is a task,
+  // and microtasks run before the next task, as in JavaScript.
+  drainMicrotasks();
+
   {
     Job local = std::move(job);
     detail::runGuarded(local, "job");

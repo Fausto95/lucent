@@ -29,7 +29,7 @@ what became of each one that is still linked or was still open.
 | [T101](#t101)            | Keep `null` apart from `undefined` everywhere              | done (2026-10-13)                                             |
 | [T102](#t102)            | Recursive union types, for JSON-shaped values              | in progress (#254)                                            |
 | [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | ready                                                         |
-| [T104](#t104)            | Timers and `queueMicrotask`                                | ready                                                         |
+| [T104](#t104)            | Timers and `queueMicrotask`                                | done (2026-10-13)                                             |
 | [T105](#t105)            | Web APIs that shared code uses                             | ready                                                         |
 | [T106](#t106)            | Language gaps module code meets                            | ready                                                         |
 | [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                             |
@@ -263,22 +263,24 @@ and as JavaScript.
 **Goal:** `setTimeout`, `setInterval` and `queueMicrotask` work in module
 code, on the context that calls them.
 
-- **Status:** ready.
+- **Status:** done (2026-10-13).
 - **Area:** runtime, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3.
 - **Where:** `execution.h`, `hooks.h`, `packages/compiler/lib/globals.d.ts`.
 
-Today only `delay(ms, signal)` from `lucent:core` exists; `setTimeout` is
-not declared.
+Before, only `delay(ms, signal)` from `lucent:core` existed. Now the
+runtime's `timers.h` runs them, and `globals.d.ts` declares them.
 
-- [ ] `setTimeout`, `clearTimeout`, `setInterval` and `clearInterval` on
+- [x] `setTimeout`, `clearTimeout`, `setInterval` and `clearInterval` on
       the calling context (a module's actor, the main thread, an
       executor), with HTML's ordering rules where JavaScript states them.
-- [ ] `queueMicrotask` on the calling context's microtask queue.
-- [ ] Timers a module started are cleared at teardown, as `onDestroy`
+- [x] `queueMicrotask` on the calling context's microtask queue.
+- [x] Timers a module started are cleared at teardown, as `onDestroy`
       hooks run.
-- [ ] e2e: `timers`, `microtasks`.
+- [x] e2e: `timers` (microtasks among them); `execution_test.cpp`
+      checks their context and a scope's disposal, and `actor_test.cpp`
+      that a call's microtasks run before a job queued during it.
 
 **Done when:** the cases pass natively and as JavaScript.
 

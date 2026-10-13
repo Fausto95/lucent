@@ -294,6 +294,10 @@ before it returns (`eagerAsync` in `ir/cpp.ts`); what awaits it still
 resumes later. A context's turn runs one job, then its microtasks
 (`execution.h`), and `Promise.all` observes every input at once.
 
+An actor's turn first runs the microtasks a call from JavaScript left.
+They come before a job queued during that call, such as a timer due at
+once.
+
 **Known gaps in the microtask order.** Two forms settle sooner than in
 JavaScript, which reorders interleaved async code
 ([T103](tasks.md#t103)); `await delay(0)` yields meanwhile.
@@ -310,8 +314,14 @@ and `reject` an `Error`, and `resolve(promise)` is `LUCENT2002`.
 `LUCENT1003`, and `allSettled` fails on its result type (`LUCENT2002`)
 ([T103](tasks.md#t103)). Awaiting an optional promise is `LUCENT1001`.
 
-There are no timers ([T104](tasks.md#t104)): `delay(ms, signal?)` waits
-on the calling context. `await` of an SDK object is `LUCENT1010`, since
+`setTimeout`, `setInterval` and their `clear…` run a function as a turn
+of the calling context after its delay (0 when negative or NaN), and
+`queueMicrotask` after the current code, with the context's other
+microtasks (`timers.h`). Timers due together run in the order they were
+started. A module's timers belong to its JavaScript runtime: a reload
+clears them. A timer's id is a number, and extra arguments for the
+function aren't taken. `delay(ms, signal?)` waits as a promise, on the
+calling context. `await` of an SDK object is `LUCENT1010`, since
 Lucent never picks a completion API by a class's name.
 `fromCallback(register, signal?)` adapts a listener into a promise, and
 `subscribe(register, onValue, signal?)` into a stream. Neither knows the

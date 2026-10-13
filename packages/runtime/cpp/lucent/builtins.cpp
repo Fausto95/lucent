@@ -5,6 +5,14 @@
 #include "bytes.h"
 #include "generator.h"
 #include "console.h"
+#include "execution.h"
+#include "report.h"
+#include "scope.h"
+#include "timers.h"
+
+#include <cmath>
+#include <mutex>
+#include <unordered_map>
 
 #if defined(__ANDROID__)
 #include <android/log.h>
@@ -82,6 +90,123 @@ Promise<void> delay(double ms, Opt<AbortSignal> signal) {
 }
 
 Promise<void> delay(double ms) { return delay(ms, Opt<AbortSignal>()); }
+
+namespace {
+
+struct Timer {
+  Fn<void()> fn;
+  ContextRef owner;
+  double ms;
+  bool repeat;
+  std::weak_ptr<Scope> scope;
+  Scope::CleanupId cleanup = 0;
+};
+
+struct Timers {
+  std::mutex m;
+  std::unordered_map<uint64_t, std::shared_ptr<Timer>> live;
+  uint64_t last = 0;
+};
+
+Timers& timers() {
+  static Timers* t = new Timers();
+  return *t;
+}
+
+/// Removes timer `id`, and its cleanup from its scope; what it held goes after the lock.
+std::shared_ptr<Timer> forget(uint64_t id, bool fromScope) {
+  std::shared_ptr<Timer> gone;
+  {
+    std::lock_guard<std::mutex> lock(timers().m);
+    auto it = timers().live.find(id);
+    if (it == timers().live.end()) return nullptr;
+    gone = std::move(it->second);
+    timers().live.erase(it);
+  }
+  if (!fromScope && gone->cleanup)
+    if (auto scope = gone->scope.lock()) scope->remove(gone->cleanup);
+  return gone;
+}
+
+void schedule(uint64_t id, const ContextRef& owner, double ms);
+
+void fire(uint64_t id) {
+  std::shared_ptr<Timer> timer;
+  {
+    std::lock_guard<std::mutex> lock(timers().m);
+    auto it = timers().live.find(id);
+    if (it == timers().live.end()) return;
+    timer = it->second;
+  }
+  // A timeout is done once it runs: clearTimeout in its own function finds nothing.
+  if (!timer->repeat) forget(id, false);
+  try {
+    timer->fn();
+  } catch (...) {
+    reportUncaught(std::current_exception(), timer->repeat ? "setInterval" : "setTimeout");
+  }
+  if (timer->repeat) {
+    bool live;
+    {
+      std::lock_guard<std::mutex> lock(timers().m);
+      live = timers().live.count(id) > 0;
+    }
+    if (live) schedule(id, timer->owner, timer->ms);
+  }
+}
+
+void schedule(uint64_t id, const ContextRef& owner, double ms) {
+  if (!ExecutionContext::of(owner).postDelayed(ms, [id] { fire(id); })) forget(id, false);
+}
+
+}  // namespace
+
+double setTimer(Fn<void()> f, double ms, bool repeat) {
+  if (std::isnan(ms) || ms < 0) ms = 0;
+  ContextRef owner = ExecutionContext::currentRef();
+  std::shared_ptr<Scope> scope = ownedScope(owner);
+  auto timer = std::make_shared<Timer>(Timer{std::move(f), owner, ms, repeat, scope, 0});
+
+  uint64_t id;
+  {
+    std::lock_guard<std::mutex> lock(timers().m);
+    id = ++timers().last;
+    timers().live.emplace(id, timer);
+  }
+  // Its scope's disposal (a reload) clears it.
+  timer->cleanup = scope->onDispose([id] { forget(id, true); });
+  if (timer->cleanup == 0) {
+    forget(id, true);
+    return static_cast<double>(id);
+  }
+  schedule(id, owner, ms);
+  return static_cast<double>(id);
+}
+
+void clearTimer(const Opt<double>& id) {
+  if (!id.has()) return;
+  double v = id.get();
+  if (!(v >= 1) || v != std::trunc(v) || v > 9007199254740991.0) return;
+  forget(static_cast<uint64_t>(v), false);
+}
+
+void queueMicrotask(Fn<void()> f) {
+  ExecutionContext* context = ExecutionContext::current();
+  auto run = [f = std::move(f)] {
+    try {
+      f();
+    } catch (...) {
+      reportUncaught(std::current_exception(), "queueMicrotask");
+    }
+  };
+  if (context) context->enqueueMicrotask(std::move(run));
+  else ExecutionContext::of(nullptr).post(std::move(run));
+}
+
+size_t pendingTimers() {
+  std::lock_guard<std::mutex> lock(timers().m);
+  return timers().live.size();
+}
 
 namespace {
 ConsoleSink& sink() {

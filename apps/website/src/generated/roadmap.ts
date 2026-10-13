@@ -46,8 +46,12 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "JSON-shaped values through recursive union types."
       },
       {
+        "status": "done",
+        "text": "`setTimeout`, `setInterval` and `queueMicrotask`, on the context that calls them."
+      },
+      {
         "status": "next",
-        "text": "Promise chaining and combinators, timers, and web APIs such as `TextEncoder` and `URL`."
+        "text": "Promise chaining and combinators, and web APIs such as `TextEncoder` and `URL`."
       },
       {
         "status": "next",
@@ -285,7 +289,6 @@ export const limitations: { title: string; items: string[] }[] = [
       "A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)). A `WeakMap` value that holds its own key keeps it, and the entry, for as long as the map lives.",
       "A union that refers to itself, such as a `Json` type of arrays and records, is refused (`LUCENT2002`) ([T102](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t102)).",
       "`then`, `catch`, `finally`, `Promise.race`, `Promise.any` and `Promise.allSettled` are refused: use `await` and `Promise.all` ([T103](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t103)).",
-      "There are no `setTimeout`, `setInterval` or `queueMicrotask`: use `delay` from `lucent:core` ([T104](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t104)).",
       "`TextEncoder`, `TextDecoder`, `atob`, `btoa`, `URL` and `crypto` are not available. `lucent:core` has `utf8Encode` and `utf8Decode` ([T105](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t105)).",
       "Refused built-ins give `LUCENT1003` unless noted. They include `normalize()`, `locales` and `options` arguments, an error's `cause`, `JSON.stringify`'s replacer and indent, `flat()`, resizable `ArrayBuffer`s and `new Proxy` ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106) lifts some).",
       "Object rest in destructuring (`LUCENT1004`) is refused, and so are spread arguments into fixed parameters or from tuples (`LUCENT1007`). `for await` gives `LUCENT1009` ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106)).",

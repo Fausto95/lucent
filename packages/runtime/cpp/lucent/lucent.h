@@ -42,5 +42,6 @@
 #include "ops.h"
 #include "scheduler.h"
 #include "stack.h"
+#include "timers.h"
 #include "weak.h"
 #include "jsstring.h"

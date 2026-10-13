@@ -79,8 +79,6 @@ generated from this file.
 - `then`, `catch`, `finally`, `Promise.race`, `Promise.any` and
   `Promise.allSettled` are refused: use `await` and `Promise.all`
   ([T103](tasks.md#t103)).
-- There are no `setTimeout`, `setInterval` or `queueMicrotask`: use
-  `delay` from `lucent:core` ([T104](tasks.md#t104)).
 - `TextEncoder`, `TextDecoder`, `atob`, `btoa`, `URL` and `crypto` are not
   available. `lucent:core` has `utf8Encode` and `utf8Decode`
   ([T105](tasks.md#t105)).

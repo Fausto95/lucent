@@ -44,3 +44,24 @@ declare var AbortController: {
   prototype: AbortController;
   new (): AbortController;
 };
+
+/**
+ * Calls `handler` once, after `timeout` milliseconds (0 when missing,
+ * negative or NaN), as a turn of the context that called it: the module's
+ * actor, the main thread, an executor. Timers due at the same time run in
+ * the order they were started. Returns the id clearTimeout takes. A
+ * module's timers are cleared when its JavaScript runtime goes (a reload).
+ */
+declare function setTimeout(handler: () => void, timeout?: number): number;
+
+/** Stops a timer setTimeout started, if it has not run. Any other id does nothing. */
+declare function clearTimeout(id: number | undefined): void;
+
+/** Calls `handler` every `timeout` milliseconds, as setTimeout does once, until cleared. */
+declare function setInterval(handler: () => void, timeout?: number): number;
+
+/** Stops an interval setInterval started. Any other id does nothing. */
+declare function clearInterval(id: number | undefined): void;
+
+/** Calls `callback` after the current turn's code and the microtasks queued before it. */
+declare function queueMicrotask(callback: () => void): void;
