@@ -45,7 +45,7 @@ each system lets an author do, not how it does it.
 | Structs with typed fields              | ✅                    | ✅ `Record`               | ✅ object types and interfaces            | —                     |
 | Unions and enums                       | ✅ variants, enums    | ✅ `Either`, `Enumerable` | ✅                                        | —                     |
 | `null` apart from `undefined`          | ✅                    | ✅ `ValueOrUndefined`     | ✅ everywhere a value comes from          | —                     |
-| Untyped JSON-shaped data               | ✅ `AnyMap`           | ✅ dictionaries of `Any`  | ❌ a recursive union crashes the compiler | [T102](tasks.md#t102) |
+| Untyped JSON-shaped data               | ✅ `AnyMap`           | ✅ dictionaries of `Any`  | ❌ a recursive union is refused           | [T102](tasks.md#t102) |
 | `ArrayBuffer`, without copying         | ✅ owning or borrowed | ✅ borrowed or copied     | ✅ moves and lends; `NativeBuffer`        | —                     |
 | Typed arrays other than `Uint8Array`   | — (the `ArrayBuffer`) | ✅ every kind             | ✅ every kind, and `DataView`             | —                     |
 | Platform memory as JS bytes            | ✅ `HardwareBuffer`   | ✅ `Data`, `ByteArray`    | ✅ `ByteBuffer`, frames on both platforms | [T108](tasks.md#t108) |

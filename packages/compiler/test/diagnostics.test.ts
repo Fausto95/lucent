@@ -421,6 +421,29 @@ export function f(round: boolean): number {
     });
   });
 
+  describe("recursive union types", () => {
+    // T102: a JSON-shaped alias overflowed the compiler's stack.
+    it("refuses a union that refers to itself with a diagnostic, not a crash", () => {
+      const d =
+        compileSource(`type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+export function depth(v: Json): number {
+  return Array.isArray(v) ? v.length : 0;
+}
+`).diagnostics;
+
+      expect(d.map((x) => x.code)).toEqual(["LUCENT2002"]);
+      expect(d[0]!.message).toContain("`Json` refers to itself");
+    });
+
+    it("still takes object and class types that refer to themselves, and unions through them", () => {
+      expect(
+        codes(
+          "type Tree = { value: number; children: Tree[] };\nexport class Node { next?: Node; }\ntype Doc = string | { kids: Doc[] };\nexport function size(t: Tree, d: Doc): number { return 1 + t.children.length + (typeof d === 'string' ? 0 : d.kids.length); }",
+        ),
+      ).toEqual([]);
+    });
+  });
+
   describe("JSON.parse", () => {
     it("accepts a target type from as or an annotation", () => {
       expect(
