@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { logLine } from "./report.lucent";
-import { type Check, checksSummary, progressLine, type Summary } from "./summary";
+import { type Check, checksSummary, failureLine, progressLine, type Summary } from "./summary";
 import { useRun } from "./useRun";
 
 interface Checks<R> {
@@ -29,6 +29,7 @@ export function useChecks<T, R extends Check>(
       if (token.stopped) return;
 
       out.push(result);
+      if (!result.pass) logLine(failureLine(screen, result));
       logLine(progressLine(screen, out.length, items.length, result));
       setResults([...out]);
     }

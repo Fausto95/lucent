@@ -6,6 +6,8 @@ export interface ProbeResult {
   pass: boolean;
   got: string;
   expected: string;
+  /** Why it failed: what it answered, against what it should. */
+  why?: string;
   ms: number;
 }
 
@@ -22,5 +24,8 @@ export async function runProbe(c: SdkCase): Promise<ProbeResult> {
 
   const pass = typeof c.expected === "string" ? got === c.expected : c.expected.test(got);
 
-  return { name: c.name, pass, got, expected: String(c.expected), ms: Date.now() - start };
+  const expected = String(c.expected);
+  const why = pass ? undefined : `expected ${expected}, got ${JSON.stringify(got)}`;
+
+  return { name: c.name, pass, got, expected, why, ms: Date.now() - start };
 }
