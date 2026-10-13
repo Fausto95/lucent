@@ -59,6 +59,7 @@ describe("the example packages", () => {
   it("are the ones listed here", () => {
     expect(packages).toEqual([
       "lucent-background-task",
+      "lucent-broadcast",
       "lucent-camera",
       "lucent-haptics",
       "lucent-http",

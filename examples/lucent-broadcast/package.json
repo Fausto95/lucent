@@ -1,0 +1,16 @@
+{
+  "name": "lucent-broadcast",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A BroadcastReceiver written in Lucent, which Android makes by its name for each broadcast to it: an exported class extending an Android class, declared in lucent.json's components. An example Lucent package.",
+  "files": [
+    "index.ts",
+    "src",
+    "lucent.json"
+  ],
+  "main": "index.ts",
+  "lucent": {
+    "sources": "src",
+    "compatible": "^0.2.0"
+  }
+}

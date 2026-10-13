@@ -4,6 +4,7 @@
 // emulator.
 import { Linking, Platform } from "react-native";
 import { isRegistered, runAsScheduled, schedule } from "lucent-background-task";
+import { heard, send } from "lucent-broadcast";
 import { channelReady, startedAtMs } from "lucent-launch";
 import { BUNDLE_STARTED } from "../../bundleStarted";
 import { holdBack } from "../../navigation/useNavigator";
@@ -70,6 +71,16 @@ async function backgroundRuns(): Promise<string> {
   return `${await runAsScheduled(-1)}, ${await runAsScheduled(50)}`;
 }
 
+/** A broadcast to the app's own receiver, which Android makes by its name from a Lucent class (T131). */
+async function received(): Promise<string> {
+  send();
+  return poll(
+    10_000,
+    async () => heard(),
+    (got) => got !== "0 ",
+  );
+}
+
 export const platformCases: SdkCase[] = [
   {
     name: "launch: a launch module's state starts before JavaScript",
@@ -90,6 +101,11 @@ export const platformCases: SdkCase[] = [
     name: "background task: a run completes, and an expiration stops one",
     run: backgroundRuns,
     expected: "completed, expired",
+  },
+  {
+    name: "receiver: Android makes a Lucent BroadcastReceiver by its name",
+    run: received,
+    expected: ios ? "none" : "1 dev.lucent.example.PING",
   },
   {
     name: "executor: frames reach a channel, uncopied",

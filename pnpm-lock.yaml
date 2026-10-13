@@ -55,6 +55,9 @@ importers:
       lucent-background-task:
         specifier: workspace:*
         version: link:../../examples/lucent-background-task
+      lucent-broadcast:
+        specifier: workspace:*
+        version: link:../../examples/lucent-broadcast
       lucent-haptics:
         specifier: workspace:*
         version: link:../../examples/lucent-haptics
@@ -170,6 +173,9 @@ importers:
       lucent-background-task:
         specifier: workspace:*
         version: link:../../examples/lucent-background-task
+      lucent-broadcast:
+        specifier: workspace:*
+        version: link:../../examples/lucent-broadcast
       lucent-haptics:
         specifier: workspace:*
         version: link:../../examples/lucent-haptics
@@ -314,6 +320,8 @@ importers:
   benchmarks/bench-turbo-cxx: {}
 
   examples/lucent-background-task: {}
+
+  examples/lucent-broadcast: {}
 
   examples/lucent-camera: {}
 
