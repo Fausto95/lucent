@@ -136,7 +136,8 @@ public final class LucentFragments {
         .beginTransaction()
         .setReorderingAllowed(true)
         .add(container.getId(), f, TAG)
-        .commitNowAllowingStateLoss();
+        // EXPERIMENT: committed on a later turn, not inside React Native's mount.
+        .commitAllowingStateLoss();
   }
 
   /** Takes `fragment` out of its manager, as its mount ends. */
