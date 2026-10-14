@@ -451,8 +451,8 @@ fields; one with parameters, or `async`, is `LUCENT1005`.
 
 **Dates** take local time from the C library's time zone database, and
 `toString()` has no zone name, as in Hermes:
-`Mon Jul 22 2019 15:51:50 GMT-0700`. Not available yet: `atob`, `btoa`,
-`URL` and `crypto` ([T105](tasks.md#t105)).
+`Mon Jul 22 2019 15:51:50 GMT-0700`. Not available yet: `URL` and
+`crypto` ([T105](tasks.md#t105)).
 
 **`TextEncoder` and `TextDecoder`** follow the Encoding standard for
 UTF-8: invalid bytes decode as U+FFFD per maximal subpart, a fatal decoder
@@ -463,7 +463,10 @@ JavaScript engines decode, is `LUCENT1003` when written in the call and a
 `RangeError` when computed. Options are an object literal in the call, and
 `decode` takes one kind of input (a typed array, a `DataView` or an
 `ArrayBuffer`), not a union of them. `lucent:core`'s `utf8Decode` is
-`TextDecoder`'s decode with `ignoreBOM`.
+`TextDecoder`'s decode with `ignoreBOM`. `atob` and `btoa` follow HTML's
+forgiving base64, and throw an `Error` named `InvalidCharacterError` with
+Node's messages: JavaScript's is a `DOMException`, which Lucent doesn't
+have.
 Not planned: `Symbol()`, `Proxy`, `Reflect`, `eval`, `new Function`, `Intl`.
 
 ## Modules

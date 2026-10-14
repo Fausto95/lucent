@@ -1,6 +1,7 @@
 // Lucent runtime — TextEncoder and TextDecoder, by WHATWG's Encoding
 // standard, for UTF-8: the only encoding a TextEncoder has, and the only
-// one Lucent's TextDecoder decodes.
+// one Lucent's TextDecoder decodes. And atob and btoa, by HTML's forgiving
+// base64.
 #pragma once
 
 #include <cstddef>
@@ -84,6 +85,14 @@ using TextDecoder = Ref<TextDecoderObject>;
 /// `new TextDecoder(label, { fatal, ignoreBOM })`: a RangeError for a
 /// label that does not name UTF-8, which is the only encoding Lucent decodes.
 TextDecoder makeTextDecoder(const Opt<String>& label, bool fatal, bool ignoreBOM);
+
+/// `atob(data)`: forgiving base64 (ASCII whitespace ignored, the padding
+/// optional) to a string of bytes, one character each. An
+/// InvalidCharacterError, with Node's messages, where data isn't base64.
+String atob(const String& data);
+/// `btoa(data)`: the base64 of a string of bytes. An InvalidCharacterError
+/// where a character is past U+00FF.
+String btoa(const String& data);
 
 inline String toJsString(const TextEncoder&) { return String::fromLatin1("[object TextEncoder]"); }
 inline String toJsString(const TextDecoder&) { return String::fromLatin1("[object TextDecoder]"); }

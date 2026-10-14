@@ -296,6 +296,8 @@ const LIBRARY: Record<string, LibraryEffect> = {
   isNaN: NONE,
   parseFloat: NONE,
   parseInt: NONE,
+  atob: ALLOCATES_THROWS,
+  btoa: ALLOCATES_THROWS,
 
   // They throw on a fraction or text that is no integer, a radix or bit count
   // out of range, a result too large.
