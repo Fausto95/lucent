@@ -227,7 +227,13 @@ describe("members a module adds to NSObject", () => {
     const view = schema!.types.find((t) => t.name === "KITView");
 
     expect(view).toMatchObject({ extends: "ObjectiveC.NSObject" });
+    // Declared as the class its members name as their owner, which no reference names.
     expect(namesOf("Kit", merged).types).not.toHaveProperty("NSObject");
+    expect(namesOf("Kit", merged).types.NSObject_Kit).toEqual({
+      kind: "class",
+      native: "NSObject",
+    });
+    expect(Object.values(namesOf("Kit", merged).refs)).not.toContain("Kit.NSObject_Kit");
     expect(externalUsrs(merged)).toContain(NSOBJECT);
   });
 
