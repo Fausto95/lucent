@@ -38,6 +38,7 @@
 #include "bigint.h"
 #include "bytes.h"
 #include "core.h"
+#include "stack.h"
 #include "date.h"
 #include "jserror.h"
 #include "jsstring.h"
@@ -188,6 +189,19 @@ template <class T>
   requires detail::CrossesAsIs<T>
 struct Transport<T> {
   static T copy(const T& value, CopyGraph&) { return value; }
+};
+
+/// A recursive alias's type (lucent_app::J_<alias>, which the compiler
+/// generates): copied as the Opt or variant it derives from, which holds it
+/// again. Its own constraint names only itself, so the alias's members can
+/// require it to be transportable while it is being defined.
+template <class T>
+  requires requires { typename T::LucentAliasOf; }
+struct Transport<T> {
+  static T copy(const T& value, CopyGraph& graph) {
+    checkStack();
+    return T(transport(static_cast<const typename T::LucentAliasOf&>(value), graph));
+  }
 };
 
 template <Transportable T>

@@ -83,7 +83,7 @@ export function throughIr(ctx: Ctx, unit: IrUnit, ir: IrMode): CppFunction {
     ...(unit.ambient ? { ambient: unit.ambient } : {}),
   };
   const backend = {
-    cppType: (t: LType) => ctx.reg.cppType(t),
+    cppType: (t: LType, nested?: boolean) => ctx.reg.cppType(t, nested),
     cppRetType: (t: LType) => ctx.reg.cppRetType(t),
     objectType: (t: LType) => objectType(ctx, t),
     site: unit.site,
@@ -123,7 +123,7 @@ export function initializationThroughIr(
   ir: IrMode,
 ): CppFunction {
   const backend = {
-    cppType: (t: LType) => ctx.reg.cppType(t),
+    cppType: (t: LType, nested?: boolean) => ctx.reg.cppType(t, nested),
     cppRetType: (t: LType) => ctx.reg.cppRetType(t),
     objectType: (t: LType) => objectType(ctx, t),
     site,

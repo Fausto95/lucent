@@ -219,6 +219,7 @@ Opt<T> flat(Opt<Opt<T>> read) {
   return Opt<T>(std::move(read));
 }
 
+
 /// An array of integer elements' `a[i]`: the number the element reads as, or undefined.
 template <class T>
   requires std::is_integral_v<T>
@@ -230,6 +231,38 @@ template <class T>
 struct IsOpt : std::false_type {};
 template <class T>
 struct IsOpt<Opt<T>> : std::true_type {};
+
+/// A recursive alias's type (lucent_app::J_<alias>, which the compiler
+/// generates for `type Json = … | Json[]`): an Opt or a variant by
+/// inheritance, held again inside itself. Generic code takes it as that type
+/// (aliasValue), where overloads for Opt and variant would see a class.
+template <class T>
+concept RecursiveAlias = requires { typename T::LucentAliasOf; };
+
+template <class T>
+const auto& aliasValue(const T& v) {
+  if constexpr (RecursiveAlias<T>)
+    return static_cast<const typename T::LucentAliasOf&>(v);
+  else
+    return v;
+}
+
+/// The same read of a recursive alias's collection (its elements are the
+/// alias's J_ type): its value as the Opt or variant the alias is, absent
+/// when the element is.
+template <RecursiveAlias J>
+auto flat(Opt<J> read) {
+  using Base = typename J::LucentAliasOf;
+  if constexpr (IsOpt<Base>::value) {
+    using V = Opt<typename Base::ValueType>;
+    if (!read.has()) return read.isNull() ? V(null) : V(undefined);
+    return static_cast<V>(static_cast<Base&&>(std::move(read.get())));
+  } else {
+    using V = Opt<Base>;
+    if (!read.has()) return read.isNull() ? V(null) : V(undefined);
+    return V(static_cast<Base&&>(std::move(read.get())));
+  }
+}
 
 template <class T>
 struct IsRef : std::false_type {};

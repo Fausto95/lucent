@@ -47,6 +47,7 @@ An array is a reference: assigning it shares it. A tuple is a value, and `===` c
 | Interfaces with methods, or named in a class's `implements` | An instance of a class that declares `implements`, or an object literal of one of properties alone: see [Interfaces](#interfaces). | `interfaces`, `interfaces-structural` |
 | `T \| undefined`, `T \| null`, `x?: T` | An optional value that remembers whether it is `undefined` or `null`. | `narrowed-absent`, `absent-results` |
 | Other unions | A value that knows which member it holds: see [Unions](#unions). | `control-flow`, `conditional-objects` |
+| A union alias that names itself, `type Json = … \| Json[]` | A value of that union at any depth, as JSON is: see [Return data and objects to JavaScript](/docs/guides/share-data-with-javascript/#pass-untyped-data-as-json). | `json-values` |
 | Function types, `(a: A) => R` | A function. A closure shares the variables it captures. | `closures`, `function-values` |
 | `Promise<T>` | A promise. | `async` |
 | `Uint8Array`, `Float32Array` and the other typed arrays; `DataView` | A view of bytes in a shared buffer: see [Typed arrays](/docs/api/language/built-ins/#typed-arrays). | `typed-arrays`, `data-view`, `buffers` |
@@ -66,7 +67,6 @@ An array is a reference: assigning it shares it. A tuple is a value, and `===` c
 | --- | --- | --- |
 | `any`, and `unknown` outside a `catch` clause | [LUCENT2001](/docs/api/diagnostics/#lucent2001) | A concrete type, a union or a generic. |
 | Intersections, `A & B` | [LUCENT2002](/docs/api/diagnostics/#lucent2002) | One object type with every field. |
-| Unions that hold themselves in an array or record, `type Json = … \| Json[]` | `LUCENT2002` | An object type for the nested values, whose field holds the union. |
 | `object`, `symbol` | `LUCENT2002` | A concrete type. |
 | Object types with methods or getters | `LUCENT2002` | A class, or a property whose type is a function. |
 | Function types with overloads or properties, and rest parameters | `LUCENT2002` | One signature, and an array parameter. |

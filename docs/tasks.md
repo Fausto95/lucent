@@ -27,7 +27,7 @@ what became of each one that is still linked or was still open.
 | **Module parity**        |                                                            |                                                               |
 | [T100](#t100)            | Typed arrays and `DataView`                                | done (2026-10-13)                                             |
 | [T101](#t101)            | Keep `null` apart from `undefined` everywhere              | done (2026-10-13)                                             |
-| [T102](#t102)            | Recursive union types, for JSON-shaped values              | in progress (#254)                                            |
+| [T102](#t102)            | Recursive union types, for JSON-shaped values              | done (2026-10-14)                                             |
 | [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | done (2026-10-13)                                             |
 | [T104](#t104)            | Timers and `queueMicrotask`                                | done (2026-10-13)                                             |
 | [T105](#t105)            | Web APIs that shared code uses                             | ready                                                         |
@@ -202,24 +202,26 @@ and returns untyped data, as Nitro's `AnyMap` and Expo's dictionaries do:
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 ```
 
-- **Status:** in progress (#254).
+- **Status:** done (2026-10-14): #254 and #255.
 - **Area:** compiler, runtime.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3.
 - **Where:** `types.ts`, `emit/`, `jsi/convert.h`.
 
 The compiler overflowed its stack on that alias (`RangeError: Maximum
-call stack size exceeded`). Now it refuses it with LUCENT2002 (#254).
+call stack size exceeded`). #254 refused it with LUCENT2002; #255 makes it
+a type of its own, `lucent_app::J_Json`, which the containers inside it
+hold.
 
 - [x] First, a regression test: the alias gives a `LUCENT` diagnostic, not
       a crash (`diagnostics.test.ts`, #254).
-- [ ] A recursive union lowers to a variant that holds its recursive
+- [x] A recursive union lowers to a variant that holds its recursive
       members by reference. `typeof` and `Array.isArray` narrow it.
-- [ ] It crosses both ways at any depth, under the stack check, and
+- [x] It crosses both ways at any depth, under the stack check, and
       `JSON.parse(text) as Json` fills it.
-- [ ] The guide shows platform dictionaries (`NSDictionary`, `Bundle`,
+- [x] The guide shows platform dictionaries (`NSDictionary`, `Bundle`,
       `JSONObject`) reaching it through their JSON serializers.
-- [ ] e2e: `json-values`.
+- [x] e2e: `json-values`.
 
 **Done when:** the alias above compiles, crosses and round-trips through
 `JSON.parse` and `JSON.stringify`, natively and as JavaScript.

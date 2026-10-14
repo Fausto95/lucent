@@ -109,7 +109,8 @@ function asDiagnostic(e: unknown, at: ts.Node): unknown {
 
 /** What the compiler provides: its type representation, and the name Errors record as their site. */
 export interface CppBackend {
-  cppType(t: LType): cpp.Type;
+  /** `nested`: as a container holds it (a recursive alias is its J_ type there). */
+  cppType(t: LType, nested?: boolean): cpp.Type;
   cppRetType(t: LType): cpp.Type;
   /** An object of the object type `t` itself, which a local on the stack holds. */
   objectType?(t: LType): cpp.Type;
@@ -1748,7 +1749,7 @@ const ITERATIONS: Partial<Record<LType["k"], (it: Iteration) => cpp.Stmt[]>> = {
   map: (it) => {
     const t = it.t as LType & { k: "map" };
 
-    return tableLoop(it, entry(it, it.e.backend.cppType(t.key), t.val));
+    return tableLoop(it, entry(it, it.e.backend.cppType(t.key, true), t.val));
   },
 
   dict: (it) =>
@@ -1759,7 +1760,7 @@ const ITERATIONS: Partial<Record<LType["k"], (it: Iteration) => cpp.Stmt[]>> = {
   iter: (it) => {
     const t = it.t as LType & { k: "iter" };
     const [v, close] = [cpp.id(`${it.name}v_`), cpp.id(`${it.name}close_`)];
-    const closer = cpp.type("lucent::IterCloser", it.e.backend.cppType(t.e));
+    const closer = cpp.type("lucent::IterCloser", it.e.backend.cppType(t.e, true));
     const head = [
       cpp.varDecl(cpp.auto, `${it.name}v_`, cpp.call(cpp.arrow(it.coll, "next"))),
       cpp.ifStmt(cpp.not(v), [cpp.exprStmt(cpp.call(cpp.dot(close, "exhausted"))), { k: "break" }]),

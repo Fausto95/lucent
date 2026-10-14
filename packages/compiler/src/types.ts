@@ -44,8 +44,15 @@ export type LType =
    * Opt<T> either way, so object types that differ only there share a
    * struct, whose field then takes both.
    */
-  | { k: "opt"; inner: LType; absent?: "undefined" | "null" }
-  | { k: "union"; ms: LType[] }
+  | { k: "opt"; inner: LType; absent?: "undefined" | "null"; rec?: string }
+  /** `rec`: a union alias that refers to itself (`type Json = … | Json[]`), lucent_app::J_<rec>. */
+  | { k: "union"; ms: LType[]; rec?: string }
+  /**
+   * A recursive alias where it refers to itself, inside its own members:
+   * `body` is the alias's type (an opt or union with `rec` set). No walker
+   * of types descends into `body`, so the type graph stays a tree.
+   */
+  | { k: "rec"; id: string; body: LType }
   | { k: "fn"; params: LType[]; ret: LType }
   | { k: "promise"; inner: LType }
   /** A Uint8Array. */
@@ -208,9 +215,11 @@ function keyWith(t: LType, struct: (id: string) => string): string {
     case "iterResult":
       return `IterResult<${key(t.e)}>`;
     case "opt":
-      return `${key(t.inner)}?`;
+      return t.rec ? `R:${t.rec}` : `${key(t.inner)}?`;
     case "union":
-      return `(${t.ms.map(key).join("|")})`;
+      return t.rec ? `R:${t.rec}` : `(${t.ms.map(key).join("|")})`;
+    case "rec":
+      return `R:${t.id}`;
     case "fn":
       return `(${t.params.map(key).join(",")})=>${key(t.ret)}`;
     case "promise":
@@ -449,7 +458,13 @@ function typeParts(t: LType): readonly LType[] {
 }
 
 export function stripOpt(t: LType): LType {
-  return t.k === "opt" ? t.inner : t;
+  const own = t.k === "rec" ? t.body : t;
+  return own.k === "opt" ? own.inner : own;
+}
+
+/** A recursive alias's type where it refers to itself; any other type as it is. */
+export function resolved(t: LType): LType {
+  return t.k === "rec" ? t.body : t;
 }
 
 export function isVoidish(t: LType): boolean {
@@ -649,6 +664,10 @@ export class TypeRegistry {
    * (whose struct breaks the cycle), is a recursive alias.
    */
   private readonly unionsLowering = new Map<ts.Type, number>();
+  /** Recursive aliases: each one's references to itself, made while lowering it, by its union. */
+  private readonly recRefs = new Map<ts.Type, (LType & { k: "rec" })[]>();
+  /** Recursive aliases' types (an opt or union with `rec`), by id: lucent_app::J_<id> each. */
+  readonly recs = new Map<string, LType>();
   /** Structs lowered but not registered: part of a cycle whose outermost struct is still lowering. */
   private readonly deferred = new Map<ts.Type, PendingStruct>();
   private deferredOrder: ts.Type[] = [];
@@ -965,7 +984,9 @@ export class TypeRegistry {
     if (cached) return cached;
     const result = this.lowerUncached(type, node);
     // Struct results are cached by registerStruct itself.
-    if (result.k !== "struct" && this.inProgress.size === 0) this.byTsType.set(type, result);
+    // Not while a union is lowered: what it holds may refer to it, a reference resolved later.
+    if (result.k !== "struct" && this.inProgress.size === 0 && this.unionsLowering.size === 0)
+      this.byTsType.set(type, result);
     return result;
   }
 
@@ -1028,20 +1049,18 @@ export class TypeRegistry {
     if (type.aliasSymbol?.name === "ArrayBufferLike" && this.libName(type)) return T.arrayBuffer;
     if (type.isUnion()) {
       const started = this.unionsLowering.get(type);
-      if (started === this.inProgress.size)
-        fail(
-          node,
-          Codes.UnsupportedType,
-          `${type.aliasSymbol ? `\`${type.aliasSymbol.name}\`` : "this union"} refers to itself, and a recursive union type has no native representation yet: give the nested values a class or an object type of their own`,
-        );
+      if (started === this.inProgress.size) return this.recRef(type, node);
       // Inside an object type it holds: lowered again, its structs already named.
       const again = started !== undefined;
       if (!again) this.unionsLowering.set(type, this.inProgress.size);
+      let body: LType;
       try {
-        return unionOf(type.types.map((t) => this.lower(t, node)));
+        body = unionOf(type.types.map((t) => this.lower(t, node)));
       } finally {
         if (!again) this.unionsLowering.delete(type);
       }
+      const refs = this.recRefs.get(type);
+      return refs ? this.registerRec(type, body, refs, node) : body;
     }
     // A shared file's JSX element (`View & Composed`): the target platform's toolkit's.
     const elements = type.isIntersection() ? elementsOf(type) : undefined;
@@ -1120,6 +1139,44 @@ export class TypeRegistry {
       return { name: p.name, fn };
     });
     return { k: "emitter", events: list };
+  }
+
+  /** A reference to the union `type` inside itself: it is a recursive alias. */
+  private recRef(type: ts.Type, node: ts.Node): LType {
+    if (!type.aliasSymbol || type.aliasTypeArguments?.length)
+      fail(
+        node,
+        Codes.UnsupportedType,
+        "a union that refers to itself needs a name of its own without type parameters: `type Json = … | Json[]`",
+      );
+    const ref = { k: "rec", id: "", body: T.never } as LType & { k: "rec" };
+    const refs = this.recRefs.get(type) ?? [];
+    refs.push(ref);
+    this.recRefs.set(type, refs);
+    return ref;
+  }
+
+  /** Names a recursive alias's type, and points its references to itself at it. */
+  private registerRec(
+    type: ts.Type,
+    body: LType,
+    refs: (LType & { k: "rec" })[],
+    node: ts.Node,
+  ): LType {
+    this.recRefs.delete(type);
+    if (body.k !== "union" && !(body.k === "opt" && body.inner.k === "union"))
+      fail(
+        node,
+        Codes.UnsupportedType,
+        `${this.checker.typeToString(type)} is not a union of its own`,
+      );
+    const base = cppIdent(type.aliasSymbol!.name);
+    let id = base;
+    for (let n = 2; this.recs.has(id); n++) id = `${base}_${n}`;
+    const own = { ...body, rec: id } as LType;
+    for (const ref of refs) Object.assign(ref, { id, body: own });
+    this.recs.set(id, own);
+    return own;
   }
 
   /** `TypedSpan<Float32Array>`: a span of that typed array's elements; of a Uint8Array's, a ByteSpan. */
@@ -1700,7 +1757,7 @@ export class TypeRegistry {
 
   /** The C++ spelling of a Lucent type. */
   /** The C++ type of a Lucent value. */
-  cppType(t: LType): cpp.Type {
+  cppType(t: LType, nested = false): cpp.Type {
     const lucent = (name: string, ...args: cpp.TemplateArg[]) =>
       cpp.type(`lucent::${name}`, ...args);
     switch (t.k) {
@@ -1720,35 +1777,41 @@ export class TypeRegistry {
       case "null":
         return lucent("Null");
       case "array":
-        return lucent("Array", this.cppType(t.e));
+        return lucent("Array", this.cppType(t.e, true));
       case "tuple":
-        return cpp.type("std::tuple", ...t.es.map((e) => this.cppType(e)));
+        return cpp.type("std::tuple", ...t.es.map((e) => this.cppType(e, true)));
       case "map":
-        return lucent("Map", this.cppType(t.key), this.cppType(t.val));
+        return lucent("Map", this.cppType(t.key, true), this.cppType(t.val, true));
       case "set":
-        return lucent("Set", this.cppType(t.e));
+        return lucent("Set", this.cppType(t.e, true));
       case "dict":
-        return lucent("Dict", this.cppType(t.val));
+        return lucent("Dict", this.cppType(t.val, true));
       case "struct":
         return lucent("Ref", cpp.type(`lucent_app::${this.struct(t.id).cppName}`));
       case "class":
         return lucent("Ref", this.cppClassType(t));
       case "iface":
         return lucent("Ref", this.cppIfaceType(t));
+      // A recursive alias's value is its Opt or variant; held in a container
+      // (an array's element…), lucent_app::J_<id>, which derives from that.
       case "opt":
-        return lucent("Opt", this.cppType(t.inner));
+        if (t.rec && nested) return cpp.type(`lucent_app::J_${t.rec}`);
+        return lucent("Opt", this.cppType(t.inner, nested));
       case "union":
-        return cpp.type("std::variant", ...t.ms.map((m) => this.cppType(m)));
+        if (t.rec && nested) return cpp.type(`lucent_app::J_${t.rec}`);
+        return cpp.type("std::variant", ...t.ms.map((m) => this.cppType(m, nested)));
+      case "rec":
+        return cpp.type(`lucent_app::J_${t.id}`);
       case "fn":
         return lucent(
           "Fn",
           cpp.fnType(
-            this.cppRetType(t.ret),
-            t.params.map((p) => this.cppType(p)),
+            this.cppRetType(t.ret, true),
+            t.params.map((p) => this.cppType(p, true)),
           ),
         );
       case "promise":
-        return lucent("Promise", this.cppRetType(t.inner));
+        return lucent("Promise", this.cppRetType(t.inner, true));
       case "bytes":
         return lucent("Bytes");
       case "typed":
@@ -1766,9 +1829,9 @@ export class TypeRegistry {
       case "regexMatch":
         return lucent("RegExpMatch");
       case "iter":
-        return lucent("Iter", this.cppType(t.e));
+        return lucent("Iter", this.cppType(t.e, true));
       case "iterResult":
-        return lucent("IterResult", this.cppType(t.e));
+        return lucent("IterResult", this.cppType(t.e, true));
       case "abortSignal":
         return lucent("AbortSignal");
       case "abortController":
@@ -1795,7 +1858,7 @@ export class TypeRegistry {
       case "handle":
         return lucent("Handle");
       case "signal":
-        return cpp.type("lucent::ui::Signal", this.cppType(t.inner));
+        return cpp.type("lucent::ui::Signal", this.cppType(t.inner, true));
       case "props":
         return cpp.type(this.componentProps(t.component));
       case "mount":
@@ -1805,22 +1868,22 @@ export class TypeRegistry {
       case "subscription":
         return lucent("EventSubscription");
       case "weak":
-        return lucent("Ref", lucent("WeakRefObject", this.cppType(t.inner)));
+        return lucent("Ref", lucent("WeakRefObject", this.cppType(t.inner, true)));
       case "weakMap":
-        return lucent("WeakMap", this.cppType(t.key), this.cppType(t.val));
+        return lucent("WeakMap", this.cppType(t.key, true), this.cppType(t.val, true));
       case "weakSet":
-        return lucent("WeakSet", this.cppType(t.key));
+        return lucent("WeakSet", this.cppType(t.key, true));
       case "registry":
-        return lucent("FinalizationRegistry", this.cppType(t.held));
+        return lucent("FinalizationRegistry", this.cppType(t.held, true));
       case "channel":
-        return lucent("Channel", this.cppType(t.e));
+        return lucent("Channel", this.cppType(t.e, true));
     }
   }
 
   /** Return-position type: void stays void. */
-  cppRetType(t: LType): cpp.Type {
+  cppRetType(t: LType, nested = false): cpp.Type {
     if (t.k === "void" || t.k === "undefined" || t.k === "never") return cpp.voidType;
-    return this.cppType(t);
+    return this.cppType(t, nested);
   }
 
   /** An EventEmitter's object type, without Ref<>: lucent::EventEmitterObject<listener types…>. */

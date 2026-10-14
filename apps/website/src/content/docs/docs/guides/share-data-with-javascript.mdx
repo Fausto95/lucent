@@ -74,3 +74,33 @@ cart.items.push(tea); // pushes to a copy: the cart still has 1 item
 - An SDK object, such as a `CLLocationManager`, [can't cross](/docs/api/language/boundary/#what-cant-cross). Keep it in module state or in a class you don't export, and return the values JavaScript needs.
 
 [The boundary](/docs/api/language/boundary/#how-each-type-crosses) gives the rule for each type, and [Class instances](/docs/api/language/boundary/#class-instances) what JavaScript sees of one.
+
+## Pass untyped data as JSON
+
+Data with no fixed shape, such as settings or a server's payload, takes a recursive type: one that names itself.
+
+```ts title="settings.lucent.ts"
+export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+
+let stored: Json = {};
+
+export function save(value: Json): void {
+  stored = value;
+}
+
+export function load(): Json {
+  return stored;
+}
+
+export function count(value: Json): number {
+  if (Array.isArray(value)) return value.length;
+  if (value !== null && typeof value === "object") return Object.keys(value).length;
+  return 1;
+}
+```
+
+It crosses at any depth, as a copy, and `typeof` and `Array.isArray` narrow it. `JSON.parse(text) as Json` reads text into it, and `JSON.stringify` writes it.
+
+A platform's dictionaries reach it through their JSON serializers, then `JSON.parse(text) as Json`. On iOS, `NSJSONSerialization` writes an `NSDictionary` as UTF-8 bytes, which `utf8Decode` from [lucent:core](/docs/api/lucent-core/) makes a string.
+
+On Android, a `JSONObject`'s `toString()` gives the text, and a `Bundle`'s values go into a `JSONObject` first.

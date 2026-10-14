@@ -42,7 +42,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "`null` kept apart from `undefined` in every container."
       },
       {
-        "status": "next",
+        "status": "done",
         "text": "JSON-shaped values through recursive union types."
       },
       {
@@ -291,7 +291,6 @@ export const limitations: { title: string; items: string[] }[] = [
     "items": [
       "Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)): break them with `WeakRef`, or key what one side holds in a `WeakMap`.",
       "A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)). A `WeakMap` value that holds its own key keeps it, and the entry, for as long as the map lives.",
-      "A union that refers to itself, such as a `Json` type of arrays and records, is refused (`LUCENT2002`) ([T102](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t102)).",
       "`new AggregateError` is refused (`LUCENT1003`). Read the `errors` of the one `Promise.any` rejects with as `e.errors as Error[]`, since TypeScript types them `any`.",
       "`TextEncoder`, `TextDecoder`, `atob`, `btoa`, `URL` and `crypto` are not available. `lucent:core` has `utf8Encode` and `utf8Decode` ([T105](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t105)).",
       "Refused built-ins give `LUCENT1003` unless noted. They include `normalize()`, `locales` and `options` arguments, an error's `cause`, `JSON.stringify`'s replacer and indent, `flat()`, resizable `ArrayBuffer`s and `new Proxy` ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106) lifts some).",

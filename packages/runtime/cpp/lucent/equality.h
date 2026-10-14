@@ -47,7 +47,8 @@ inline constexpr bool numeric = std::is_arithmetic_v<T> && !std::is_same_v<T, bo
 /// a base class), two tuples of one length (element by element), and two
 /// numeric types (one number).
 template <class A, class B>
-concept Disjoint = !std::is_same_v<A, B> && !detail::holdsOthers<A> && !detail::holdsOthers<B> &&
+concept Disjoint = !std::is_same_v<A, B> && !RecursiveAlias<A> && !RecursiveAlias<B> && !detail::holdsOthers<A> &&
+                   !detail::holdsOthers<B> &&
                    !(IsRef<A>::value && IsRef<B>::value) &&
                    !(detail::TupleArity<A>::value >= 0 && detail::TupleArity<A>::value == detail::TupleArity<B>::value) &&
                    !(detail::numeric<A> && detail::numeric<B>);
@@ -94,14 +95,21 @@ bool strictEquals(Null, const Opt<T>& a) {
   return a.isNull();
 }
 template <class T, class U>
-  requires(!IsOpt<U>::value && !IsAbsent<U>)
+  requires(!IsOpt<U>::value && !IsAbsent<U> && !RecursiveAlias<U>)
 bool strictEquals(const Opt<T>& a, const U& b) {
   return a.has() && strictEquals(a.get(), b);
 }
 template <class T, class U>
-  requires(!IsOpt<U>::value && !IsAbsent<U>)
+  requires(!IsOpt<U>::value && !IsAbsent<U> && !RecursiveAlias<U>)
 bool strictEquals(const U& b, const Opt<T>& a) {
   return a.has() && strictEquals(b, a.get());
+}
+
+/// A recursive alias's type compares as the Opt or variant it is.
+template <class A, class B>
+  requires(RecursiveAlias<A> || RecursiveAlias<B>)
+bool strictEquals(const A& a, const B& b) {
+  return strictEquals(aliasValue(a), aliasValue(b));
 }
 
 /// Unions compare the members they hold, so members of different types
@@ -111,12 +119,12 @@ bool strictEquals(const std::variant<As...>& a, const std::variant<Bs...>& b) {
   return std::visit([](const auto& x, const auto& y) { return strictEquals(x, y); }, a, b);
 }
 template <class... Ts, class U>
-  requires(!IsOpt<U>::value && !IsVariant<U>::value)
+  requires(!IsOpt<U>::value && !IsVariant<U>::value && !RecursiveAlias<U>)
 bool strictEquals(const std::variant<Ts...>& a, const U& b) {
   return std::visit([&](const auto& x) { return strictEquals(x, b); }, a);
 }
 template <class... Ts, class U>
-  requires(!IsOpt<U>::value && !IsVariant<U>::value)
+  requires(!IsOpt<U>::value && !IsVariant<U>::value && !RecursiveAlias<U>)
 bool strictEquals(const U& a, const std::variant<Ts...>& b) {
   return std::visit([&](const auto& y) { return strictEquals(a, y); }, b);
 }
@@ -131,6 +139,10 @@ inline bool looseEqualsNull(Null) { return true; }
 template <class T>
 bool looseEqualsNull(const Opt<T>& a) {
   return !a.has();
+}
+template <RecursiveAlias T>
+bool looseEqualsNull(const T& a) {
+  return looseEqualsNull(aliasValue(a));
 }
 
 /// Loose `==` differs from `===` only for null and undefined in Lucent's
@@ -147,6 +159,10 @@ template <class T>
 bool holdsNaN(const T& v) {
   if constexpr (std::is_floating_point_v<T>) return std::isnan(v);
   return false;
+}
+template <RecursiveAlias T>
+bool holdsNaN(const T& v) {
+  return holdsNaN(aliasValue(v));
 }
 template <class T>
 bool holdsNaN(const Opt<T>& v) {

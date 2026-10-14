@@ -178,6 +178,13 @@ of the union declares is read or called on the union's value. `x as T`
 taking a member out of a union checks it, and another member throws
 `TypeError`, since the variant holds one layout.
 
+A union alias that refers to itself (`type Json = null | … | Json[] |
+{ [key: string]: Json }`) is a type of its own, `lucent_app::J_Json`,
+which the containers inside it hold. It narrows, converts, crosses to
+JavaScript and to compute tasks, and goes through `JSON.parse` and
+`JSON.stringify` as any union does, at any depth: conversions and JSON
+check the stack as a call does. One with type parameters is `LUCENT2002`.
+
 Literal types widen to their base type. A string enum is a string, a
 numeric enum a number, a mixed one a union, and members are constants
 (`LUCENT3002`). Lucent code can't map a value back to its name (`E[0]`,
@@ -187,9 +194,7 @@ reverse mapping. A call typed `never` may stand wherever a value goes.
 `any`, and `unknown` outside `catch`, have no layout (`LUCENT2001`).
 `LUCENT2002` refuses intersections, `symbol`, `object`, `Function`,
 `Intl` types, mixed index signatures, overloaded and constructor function
-types, `SharedArrayBuffer`, and, until [T102](tasks.md#t102), a union that
-holds itself in an array or record (`type Json = … | Json[]`); through an
-object type's field, it compiles.
+types, and `SharedArrayBuffer`.
 
 ## Statements and expressions
 

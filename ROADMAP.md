@@ -89,7 +89,7 @@ Goal: Write a module once in TypeScript, and call it from JavaScript as a native
 - 🚧 Native handles, and memory-pressure hints for objects that hold native memory.
 - ✅ Every typed array and `DataView`, copied, lent and moved as `Uint8Array` is.
 - ✅ `null` kept apart from `undefined` in every container.
-- ⏳ JSON-shaped values through recursive union types.
+- ✅ JSON-shaped values through recursive union types.
 - ✅ `setTimeout`, `setInterval` and `queueMicrotask`, on the context that calls them.
 - ✅ Promise chaining and combinators, settled in JavaScript's microtask order.
 - ⏳ Web APIs such as `TextEncoder` and `URL`.
@@ -184,10 +184,9 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
    makes, and iOS background execution.
 4. [T120](docs/tasks.md#t120) and [T121](docs/tasks.md#t121): object props
    and React Native's view props, which most view modules need.
-5. [T102](docs/tasks.md#t102), after typed arrays, `null` kept apart
-   from `undefined`, promises and timers ([T100](docs/tasks.md#t100),
-   [T101](docs/tasks.md#t101), [T103](docs/tasks.md#t103),
-   [T104](docs/tasks.md#t104), done): JSON values.
+5. [T100](docs/tasks.md#t100) to [T104](docs/tasks.md#t104) (done): typed
+   arrays, `null` kept apart from `undefined`, JSON values, promises and
+   timers.
 6. [T141](docs/tasks.md#t141) (done): Xcode builds, and a package's pods
    in Expo apps.
 

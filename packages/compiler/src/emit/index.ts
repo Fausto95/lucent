@@ -383,6 +383,37 @@ export function emitProgram(
   const bindingsDecls = bindings.generate(mods);
 
   const templateOf = (ps: string[]) => (ps.length ? { template: ps.map(cppIdent) } : {});
+  // Recursive aliases (`type Json = … | Json[]`): a struct deriving from the
+  // Opt or variant its type is, whose members name it again.
+  const recDefs: TypeItem[] = [...ctx.reg.recs.entries()].map(([id, t]) => {
+    const name = `J_${id}`;
+    const base = cpp.printType(ctx.reg.cppType(t));
+    const ctor = (param: cpp.Type, arg: cpp.Expr): cpp.Member => ({
+      k: "method",
+      name,
+      params: [cpp.param(param, "v")],
+      body: [],
+      initializers: [{ name: base, args: [arg] }],
+    });
+    return {
+      name,
+      decls: [],
+      defs: [
+        cpp.struct(
+          name,
+          [
+            // What the runtime's generic code (transport.h) treats it as.
+            { k: "using", name: `LucentAliasOf = ${base}` },
+            { k: "using", name: `${base}::${base.startsWith("std::variant") ? "variant" : "Opt"}` },
+            ctor(cpp.reference(cpp.constType(cpp.type(base))), cpp.id("v")),
+            ctor(cpp.reference(cpp.type(base), true), cpp.call("std::move", [cpp.id("v")])),
+          ],
+          { bases: [{ type: cpp.type(base), public: true }] },
+        ),
+      ],
+      inline: [],
+    };
+  });
   const structDefs: TypeItem[] = [...ctx.reg.structs.values()].map((s) => ({
     name: s.cppName,
     decls: [],
@@ -445,12 +476,20 @@ export function emitProgram(
 
   const app = (body: cpp.Decl[]) => cpp.namespace("lucent_app", body);
   // Each type's definition and inline code in its header (type-headers.ts), in this order.
-  const items = [...structDefs, ...ifaceDefs, ...literalDefs, ...classDefs, ...genericClassDefs];
+  const items = [
+    ...recDefs,
+    ...structDefs,
+    ...ifaceDefs,
+    ...literalDefs,
+    ...classDefs,
+    ...genericClassDefs,
+  ];
   const byName = new Map(items.map((t) => [t.name, t]));
   for (const [owner, decls] of json.decls) byName.get(owner)?.decls.push(...decls);
   for (const [owner, decls] of json.defs) byName.get(owner)?.inline.push(...decls);
   // Each type's forward declaration: what its header and the readers' declarations start with.
   const forward = new Map([
+    ...recDefs.map((r) => [r.name, cpp.struct(r.name, [], { forward: true })] as const),
     ...[...ctx.reg.structs.values()].map(
       (s) => [s.cppName, cpp.struct(s.cppName, [], { forward: true })] as const,
     ),
@@ -1096,7 +1135,15 @@ function jsonReaders(ctx: Ctx): { decls: cpp.Decl[]; defs: cpp.Decl[] } {
   const reg = ctx.reg;
   const structs = new Map<string, LType & { k: "struct" }>();
   const unions = new Map<string, LType & { k: "union" }>();
+  // Recursive aliases: each reads as its type does, then is wrapped (J_<id>).
+  const recs = new Map<string, LType>();
   const visit = (t: LType): void => {
+    if (t.k === "rec") return visit(t.body);
+    if ((t.k === "opt" || t.k === "union") && t.rec) {
+      if (recs.has(t.rec)) return;
+      recs.set(t.rec, t);
+      return visit({ ...t, rec: undefined } as LType);
+    }
     switch (t.k) {
       case "struct":
         if (structs.has(t.id)) return;
@@ -1165,6 +1212,17 @@ function jsonReaders(ctx: Ctx): { decls: cpp.Decl[]; defs: cpp.Decl[] } {
         ),
       ),
       cpp.ret(out),
+    ]);
+  }
+  for (const [id, t] of recs) {
+    const own: LType = { k: "rec", id, body: t };
+    reader(own, [
+      cpp.exprStmt(cpp.call("lucent::checkStack", [])),
+      cpp.ret(
+        cpp.construct(reg.cppType(own), [
+          cpp.call(cpp.scoped(cpp.type("JsonRead", reg.cppType(t)), "read"), [v, p]),
+        ]),
+      ),
     ]);
   }
   for (const u of unions.values()) {

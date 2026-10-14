@@ -887,7 +887,7 @@ export function staticCall(
         e: { k: "tuple", es: [T.string, rt.val] },
       });
       return {
-        c: cpp.call("lucent::dictFromEntries", [entries], [em.reg.cppType(rt.val)]),
+        c: cpp.call("lucent::dictFromEntries", [entries], [em.reg.cppType(rt.val, true)]),
         t: rt,
       };
     }
@@ -993,7 +993,7 @@ export function staticCall(
       if (!a[1]) return { c: em.coerce(base, rt, node), t: rt };
       const cb = callback(em, a[1], [items.e, T.number], rt.e);
       return {
-        c: cpp.call(cpp.dot(base.c, "map"), [cb.c], [em.reg.cppType(rt.e)]),
+        c: cpp.call(cpp.dot(base.c, "map"), [cb.c], [em.reg.cppType(rt.e, true)]),
         t: rt,
       };
     }
@@ -1595,7 +1595,7 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
         return {
           c: cpp.comma(
             cpp.call(cpp.arrow(o, "ret")),
-            cpp.construct(cpp.type("lucent::IterResult", em.reg.cppType(t.e)), [], true),
+            cpp.construct(cpp.type("lucent::IterResult", em.reg.cppType(t.e, true)), [], true),
           ),
           t: { k: "iterResult", e: t.e },
         };
@@ -2132,7 +2132,7 @@ function arrayMethod(
         c: cpp.call(
           cpp.dot(o, "map", true),
           [cb([e, T.number, self], rt.e).c],
-          [em.reg.cppType(rt.e)],
+          [em.reg.cppType(rt.e, true)],
         ),
         t: rt,
       };
@@ -2150,7 +2150,7 @@ function arrayMethod(
         c: cpp.call(
           cpp.dot(o, "flatMap", true),
           [cb([e, T.number, self], mixed ? unionOf([rt.e, rt]) : rt).c],
-          [em.reg.cppType(rt.e)],
+          [em.reg.cppType(rt.e, true)],
         ),
         t: rt,
       };
@@ -2777,7 +2777,7 @@ export function newBuiltin(
         c: cpp.call(
           "std::make_shared",
           [em.exprAs(a[0]!, t.inner)],
-          [cpp.type("lucent::WeakRefObject", em.reg.cppType(t.inner))],
+          [cpp.type("lucent::WeakRefObject", em.reg.cppType(t.inner, true))],
         ),
         t,
       };
@@ -2835,7 +2835,7 @@ export function newBuiltin(
         c: cpp.call(
           "lucent::mapFromEntries",
           [entries],
-          [em.reg.cppType(t.key), em.reg.cppType(t.val)],
+          [em.reg.cppType(t.key, true), em.reg.cppType(t.val, true)],
         ),
         t,
       };
@@ -2865,7 +2865,7 @@ export function newBuiltin(
           return {
             c: cpp.call(cpp.scoped(em.reg.cppType(t), "filled"), [
               cpp.call("lucent::arrayLength", [v.c]),
-              cpp.construct(em.reg.cppType(t.e), [], true),
+              cpp.construct(em.reg.cppType(t.e, true), [], true),
             ]),
             t,
           };

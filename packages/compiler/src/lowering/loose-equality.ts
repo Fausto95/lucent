@@ -10,7 +10,7 @@ import type { LType } from "../types.ts";
 /** How loose equality treats a value of a kind: which primitive it is, or an object, or absent. */
 type Loose = "number" | "string" | "boolean" | "bigint" | "object" | "absent" | "unknown";
 
-const LOOSE: Record<Exclude<LType["k"], "opt" | "union">, Loose> = {
+const LOOSE: Record<Exclude<LType["k"], "opt" | "union" | "rec">, Loose> = {
   number: "number",
   string: "string",
   boolean: "boolean",
@@ -65,10 +65,16 @@ const LOOSE: Record<Exclude<LType["k"], "opt" | "union">, Loose> = {
 /** The kinds `==` converts between, in the order the diagnostic names them. */
 const CONVERTED: readonly Loose[] = ["bigint", "number", "string", "boolean", "object"];
 
-function kinds(t: LType): Loose[] {
-  if (t.k === "opt") return kinds(t.inner);
+function kinds(t: LType, seen = new Set<string>()): Loose[] {
+  // A recursive alias where it holds itself: the kinds of its own members, once.
+  if (t.k === "rec") {
+    if (seen.has(t.id)) return [];
+    seen.add(t.id);
+    return kinds(t.body, seen);
+  }
+  if (t.k === "opt") return kinds(t.inner, seen);
 
-  return t.k === "union" ? t.ms.flatMap(kinds) : [LOOSE[t.k]];
+  return t.k === "union" ? t.ms.flatMap((m) => kinds(m, seen)) : [LOOSE[t.k]];
 }
 
 /**

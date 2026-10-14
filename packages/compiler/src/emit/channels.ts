@@ -49,7 +49,11 @@ export function channelNew(em: FnEmitter, node: ts.NewExpression, t: ChannelT): 
     : cpp.construct(em.reg.cppType(optionalNumber), [cpp.id("lucent::undefined")]);
 
   return {
-    c: cpp.call("lucent::makeChannel", [em.exprAs(policy, T.string), size], [em.reg.cppType(t.e)]),
+    c: cpp.call(
+      "lucent::makeChannel",
+      [em.exprAs(policy, T.string), size],
+      [em.reg.cppType(t.e, true)],
+    ),
     t,
   };
 }

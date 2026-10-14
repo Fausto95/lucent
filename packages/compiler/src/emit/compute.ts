@@ -420,7 +420,16 @@ export function requireTransports(
   const objects = new Map<string, LType & { k: "struct" | "class" }>();
   const unit = em.ctx.nativeUnit(em.opts.module);
 
+  const aliases = new Set<string>();
   const visit = (t: LType, path: string): void => {
+    // A recursive alias: its type's parts, once (transport.h copies it as that type).
+    if (t.k === "rec") {
+      if (!aliases.has(t.id)) {
+        aliases.add(t.id);
+        visit(t.body, path);
+      }
+      return;
+    }
     const parts = PARTS[t.k];
 
     if (!parts) refuse(path, t);

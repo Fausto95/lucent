@@ -422,17 +422,26 @@ export function f(round: boolean): number {
   });
 
   describe("recursive union types", () => {
-    // T102: a JSON-shaped alias overflowed the compiler's stack.
-    it("refuses a union that refers to itself with a diagnostic, not a crash", () => {
-      const d =
-        compileSource(`type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+    // T102: a JSON-shaped alias overflowed the compiler's stack; it is a type of its own now.
+    it("compiles a union that refers to itself", () => {
+      expect(
+        codes(`type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export function depth(v: Json): number {
   return Array.isArray(v) ? v.length : 0;
+}
+`),
+      ).toEqual([]);
+    });
+
+    it("refuses one with type parameters, which has no single native type", () => {
+      const d = compileSource(`type Tree<T> = T | Tree<T>[];
+export function size(t: Tree<number>): number {
+  return Array.isArray(t) ? t.length : 1;
 }
 `).diagnostics;
 
       expect(d.map((x) => x.code)).toEqual(["LUCENT2002"]);
-      expect(d[0]!.message).toContain("`Json` refers to itself");
+      expect(d[0]!.message).toContain("without type parameters");
     });
 
     it("still takes object and class types that refer to themselves, and unions through them", () => {
