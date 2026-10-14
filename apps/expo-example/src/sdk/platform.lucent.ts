@@ -3,22 +3,22 @@
 // Lab's Platform screen, which the device runs open on the simulator and
 // the emulator): frames reaching a channel through an executor, uncopied;
 // a deep link the app opens to itself; a push token, or why there is none
-// (iOS); back presses, key presses and a configuration change (Android).
-// Each probe that
-// doesn't apply to the platform says "none".
+// (iOS); back presses, key presses and a configuration change (Android);
+// a component's React Native view props, read from its native view. Each
+// probe that doesn't apply to the platform says "none".
 import { Channel, delay, NativeBuffer } from "lucent:core";
 import { PLATFORM } from "lucent:platform";
 import { executor, main, on } from "lucent:thread";
 import { onAppEvent } from "lucent:ios";
 import { OperationQueue } from "lucent:ios/Foundation";
-import { UIApplication } from "lucent:ios/UIKit";
+import { UIApplication, UIWindowScene, type UIView } from "lucent:ios/UIKit";
 import { adoptHardwareBuffer, available, currentActivity, onActivityEvent } from "lucent:android";
 import { ComponentActivity } from "lucent:android/androidx.activity";
 import { ActivityInfo } from "lucent:android/android.content.pm";
 import { Color, PixelFormat } from "lucent:android/android.graphics";
 import { ImageReader } from "lucent:android/android.media";
 import { Handler, Looper } from "lucent:android/android.os";
-import { KeyEvent } from "lucent:android/android.view";
+import { KeyEvent, ViewGroup, type View } from "lucent:android/android.view";
 
 /** How many frames a probe makes, and their side in pixels. */
 const FRAMES = 4;
@@ -299,4 +299,43 @@ export async function rotate(): Promise<string> {
   stop();
 
   return "changed";
+}
+
+/**
+ * What the platform's accessibility API reads from the native view React
+ * Native gave `testID` (Android's tag, iOS's accessibilityIdentifier),
+ * which a Lucent component's view gets as any React Native view does: its
+ * label on Android. On iOS the label is a member UIKit adds to NSObject,
+ * which Lucent doesn't bind yet (T112): "found" stands for it. "no view"
+ * when no view has the testID, "no label" when it has no label.
+ */
+export async function labelOf(testID: string): Promise<string> {
+  if (PLATFORM === "android")
+    return main(() => {
+      const root = currentActivity()?.getWindow()?.getDecorView();
+      const views: View[] = root ? [root] : [];
+      while (views.length) {
+        const view = views.pop()!;
+        if (view.getTag()?.toString() === testID)
+          return view.createAccessibilityNodeInfo()?.getContentDescription() ?? "no label";
+        if (view instanceof ViewGroup)
+          for (let i = 0; i < view.getChildCount(); i++) {
+            const child = view.getChildAt(i);
+            if (child) views.push(child);
+          }
+      }
+      return "no view";
+    });
+
+  return main(() => {
+    const views: UIView[] = [];
+    for (const scene of UIApplication.shared.connectedScenes)
+      if (scene instanceof UIWindowScene) for (const window of scene.windows) views.push(window);
+    while (views.length) {
+      const view = views.pop()!;
+      if (view.accessibilityIdentifier === testID) return "found";
+      for (const subview of view.subviews) views.push(subview);
+    }
+    return "no view";
+  });
 }

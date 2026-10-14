@@ -327,7 +327,9 @@ launch, before JavaScript (the `lucent-launch` example package). A
 background task's handler runs, and on Android a broadcast reaches a
 receiver the OS makes from a Lucent class, and a `FragmentManager` makes
 a Lucent `Fragment` again by its name, with its saved state. A component
-whose Android root is a `Fragment` shows its view. Frames
+whose Android root is a `Fragment` shows its view. That component's
+native view has its `testID`, Android's accessibility API reads the label
+its `accessibilityLabel` gives, and its `onLayout` fires. Frames
 reach a channel through an executor without a copy, and the app opens a
 deep link to itself. On iOS
 a push registration answers, and on Android a back press and a rotation

@@ -42,8 +42,9 @@ Each screen runs when it opens and shows its verdict at the top (testID
   background task's handler (`lucent-background-task`); a broadcast to a
   receiver written in Lucent (`lucent-broadcast`, Android); a fragment
   written in Lucent that Android makes again by its name, with its state
-  (`lucent-fragment`, Android), and a component whose root is a fragment;
-  frames
+  (`lucent-fragment`, Android), and a component whose root is a fragment,
+  whose native view takes React Native's `testID`, `accessibilityLabel`
+  and `onLayout`; frames
   through an executor into a channel, uncopied; a deep link the app opens
   to itself; a push token or why there is none (iOS); a back press
   JavaScript lets through, and a rotation (Android); and a WorkManager

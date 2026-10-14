@@ -4,7 +4,8 @@ import { RunPanel } from "../RunPanel";
 import { ProbeRow } from "../sdk/ProbeRow";
 import { runProbe } from "../sdk/runProbe";
 import { useChecks } from "../useChecks";
-import { platformCases } from "./cases";
+import { CARD_ID, CARD_LABEL, platformCases } from "./cases";
+import { cardLaidOut } from "./cardLayout";
 
 /** What only the platform gives module code: executors' frames, deep links, push tokens, back presses. */
 export function PlatformLab() {
@@ -21,8 +22,14 @@ export function PlatformLab() {
         onRun={run}
       />
 
-      {/* A component whose Android root is a Fragment: a case checks it shows (lucent-fragment). */}
-      <Card text="A Fragment, as a component's root" />
+      {/* A component whose Android root is a Fragment: a case checks it shows (lucent-fragment),
+          and others that its view takes React Native's view props. */}
+      <Card
+        text="A Fragment, as a component's root"
+        testID={CARD_ID}
+        accessibilityLabel={CARD_LABEL}
+        onLayout={cardLaidOut}
+      />
 
       {results.map((result) => (
         <ProbeRow key={result.name} result={result} />
