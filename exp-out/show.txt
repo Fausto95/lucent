@@ -1,0 +1,529 @@
+== UIKit.NSObject_UIKit
+// lucent:ios/UIKit
+/**
+ * What UIKit adds to NSObject, which every NSObject has.
+ */
+declare abstract class NSObject_UIKit {
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityActivateBlock] and -[NSObject setAccessibilityActivateBlock:], in UIKit.
+   */
+  accessibilityActivateBlock: (() => boolean) | null;
+  /**
+   * Since iOS 5.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityActivationPoint] and -[NSObject setAccessibilityActivationPoint:], in UIKit.
+   */
+  accessibilityActivationPoint: CGPoint;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityActivationPointBlock] and -[NSObject setAccessibilityActivationPointBlock:], in UIKit.
+   */
+  accessibilityActivationPointBlock: (() => CGPoint) | null;
+  /**
+   * Since iOS 11.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedHint] and -[NSObject setAccessibilityAttributedHint:], in UIKit.
+   */
+  accessibilityAttributedHint: NSAttributedString | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedHintBlock] and -[NSObject setAccessibilityAttributedHintBlock:], in UIKit.
+   */
+  accessibilityAttributedHintBlock: (() => NSAttributedString | null) | null;
+  /**
+   * Since iOS 11.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedLabel] and -[NSObject setAccessibilityAttributedLabel:], in UIKit.
+   */
+  accessibilityAttributedLabel: NSAttributedString | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedLabelBlock] and -[NSObject setAccessibilityAttributedLabelBlock:], in UIKit.
+   */
+  accessibilityAttributedLabelBlock: (() => NSAttributedString | null) | null;
+  /**
+   * Since iOS 13.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedUserInputLabels] and -[NSObject setAccessibilityAttributedUserInputLabels:], in UIKit.
+   */
+  accessibilityAttributedUserInputLabels: NSAttributedString[] | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedUserInputLabelsBlock] and -[NSObject setAccessibilityAttributedUserInputLabelsBlock:], in UIKit.
+   */
+  accessibilityAttributedUserInputLabelsBlock: (() => NSAttributedString[] | null) | null;
+  /**
+   * Since iOS 11.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedValue] and -[NSObject setAccessibilityAttributedValue:], in UIKit.
+   */
+  accessibilityAttributedValue: NSAttributedString | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedValueBlock] and -[NSObject setAccessibilityAttributedValueBlock:], in UIKit.
+   */
+  accessibilityAttributedValueBlock: (() => NSAttributedString | null) | null;
+  /**
+   * Since iOS 11.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityContainerType] and -[NSObject setAccessibilityContainerType:], in UIKit.
+   */
+  accessibilityContainerType: UIAccessibilityContainerType;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityContainerTypeBlock] and -[NSObject setAccessibilityContainerTypeBlock:], in UIKit.
+   */
+  accessibilityContainerTypeBlock: (() => UIAccessibilityContainerType) | null;
+  /**
+   * Since iOS 8.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityCustomActions] and -[NSObject setAccessibilityCustomActions:], in UIKit.
+   */
+  accessibilityCustomActions: UIAccessibilityCustomAction[] | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityCustomActionsBlock] and -[NSObject setAccessibilityCustomActionsBlock:], in UIKit.
+   */
+  accessibilityCustomActionsBlock: (() => UIAccessibilityCustomAction[] | null) | null;
+  /**
+   * Since iOS 10.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityCustomRotors] and -[NSObject setAccessibilityCustomRotors:], in UIKit.
+   */
+  accessibilityCustomRotors: UIAccessibilityCustomRotor[] | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityCustomRotorsBlock] and -[NSObject setAccessibilityCustomRotorsBlock:], in UIKit.
+   */
+  accessibilityCustomRotorsBlock: (() => UIAccessibilityCustomRotor[] | null) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityDecrementBlock] and -[NSObject setAccessibilityDecrementBlock:], in UIKit.
+   */
+  accessibilityDecrementBlock: (() => void) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityDirectTouchOptions] and -[NSObject setAccessibilityDirectTouchOptions:], in UIKit.
+   */
+  accessibilityDirectTouchOptions: UIAccessibility_DirectTouchOptions | 0;
+  /**
+   * Since iOS 11.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityDragSourceDescriptors] and -[NSObject setAccessibilityDragSourceDescriptors:], in UIKit.
+   */
+  accessibilityDragSourceDescriptors: UIAccessibilityLocationDescriptor[] | null;
+  /**
+   * Since iOS 11.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityDropPointDescriptors] and -[NSObject setAccessibilityDropPointDescriptors:], in UIKit.
+   */
+  accessibilityDropPointDescriptors: UIAccessibilityLocationDescriptor[] | null;
+  /**
+   * Since iOS 8.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElements] and -[NSObject setAccessibilityElements:], in UIKit.
+   */
+  accessibilityElements: NSObject[] | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementsBlock] and -[NSObject setAccessibilityElementsBlock:], in UIKit.
+   */
+  accessibilityElementsBlock: (() => ObjCValue[] | null) | null;
+  /**
+   * Since iOS 5.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementsHidden] and -[NSObject setAccessibilityElementsHidden:], in UIKit.
+   */
+  accessibilityElementsHidden: boolean;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementsHiddenBlock] and -[NSObject setAccessibilityElementsHiddenBlock:], in UIKit.
+   */
+  accessibilityElementsHiddenBlock: (() => boolean) | null;
+  /**
+   * Since iOS 18.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityExpandedStatus] and -[NSObject setAccessibilityExpandedStatus:], in UIKit.
+   */
+  accessibilityExpandedStatus: UIAccessibility_ExpandedStatus;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityFrame] and -[NSObject setAccessibilityFrame:], in UIKit.
+   */
+  accessibilityFrame: CGRect;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityFrameBlock] and -[NSObject setAccessibilityFrameBlock:], in UIKit.
+   */
+  accessibilityFrameBlock: (() => CGRect) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityHeaderElementsBlock] and -[NSObject setAccessibilityHeaderElementsBlock:], in UIKit.
+   */
+  accessibilityHeaderElementsBlock: (() => ObjCValue[] | null) | null;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityHint] and -[NSObject setAccessibilityHint:], in UIKit.
+   */
+  accessibilityHint: string | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityHintBlock] and -[NSObject setAccessibilityHintBlock:], in UIKit.
+   */
+  accessibilityHintBlock: (() => string | null) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityIdentifierBlock] and -[NSObject setAccessibilityIdentifierBlock:], in UIKit.
+   */
+  accessibilityIdentifierBlock: (() => string | null) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityIncrementBlock] and -[NSObject setAccessibilityIncrementBlock:], in UIKit.
+   */
+  accessibilityIncrementBlock: (() => void) | null;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityLabel] and -[NSObject setAccessibilityLabel:], in UIKit.
+   */
+  accessibilityLabel: string | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityLabelBlock] and -[NSObject setAccessibilityLabelBlock:], in UIKit.
+   */
+  accessibilityLabelBlock: (() => string | null) | null;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityLanguage] and -[NSObject setAccessibilityLanguage:], in UIKit.
+   */
+  accessibilityLanguage: string | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityLanguageBlock] and -[NSObject setAccessibilityLanguageBlock:], in UIKit.
+   */
+  accessibilityLanguageBlock: (() => string | null) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityMagicTapBlock] and -[NSObject setAccessibilityMagicTapBlock:], in UIKit.
+   */
+  accessibilityMagicTapBlock: (() => boolean) | null;
+  /**
+   * Since iOS 8.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityNavigationStyle] and -[NSObject setAccessibilityNavigationStyle:], in UIKit.
+   */
+  accessibilityNavigationStyle: UIAccessibilityNavigationStyle;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityNavigationStyleBlock] and -[NSObject setAccessibilityNavigationStyleBlock:], in UIKit.
+   */
+  accessibilityNavigationStyleBlock: (() => UIAccessibilityNavigationStyle) | null;
+  /**
+   * Since iOS 18.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityNextTextNavigationElement] and -[NSObject setAccessibilityNextTextNavigationElement:], in UIKit.
+   */
+  accessibilityNextTextNavigationElement: NSObject | null;
+  /**
+   * Since iOS 18.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityNextTextNavigationElementBlock] and -[NSObject setAccessibilityNextTextNavigationElementBlock:], in UIKit.
+   */
+  accessibilityNextTextNavigationElementBlock: (() => ObjCValue | null) | null;
+  /**
+   * Since iOS 7.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityPath] and -[NSObject setAccessibilityPath:], in UIKit.
+   */
+  accessibilityPath: UIBezierPath | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityPathBlock] and -[NSObject setAccessibilityPathBlock:], in UIKit.
+   */
+  accessibilityPathBlock: (() => UIBezierPath | null) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityPerformEscapeBlock] and -[NSObject setAccessibilityPerformEscapeBlock:], in UIKit.
+   */
+  accessibilityPerformEscapeBlock: (() => boolean) | null;
+  /**
+   * Since iOS 18.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityPreviousTextNavigationElement] and -[NSObject setAccessibilityPreviousTextNavigationElement:], in UIKit.
+   */
+  accessibilityPreviousTextNavigationElement: NSObject | null;
+  /**
+   * Since iOS 18.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityPreviousTextNavigationElementBlock] and -[NSObject setAccessibilityPreviousTextNavigationElementBlock:], in UIKit.
+   */
+  accessibilityPreviousTextNavigationElementBlock: (() => ObjCValue | null) | null;
+  /**
+   * Since iOS 13.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityRespondsToUserInteraction] and -[NSObject setAccessibilityRespondsToUserInteraction:], in UIKit.
+   */
+  accessibilityRespondsToUserInteraction: boolean;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityRespondsToUserInteractionBlock] and -[NSObject setAccessibilityRespondsToUserInteractionBlock:], in UIKit.
+   */
+  accessibilityRespondsToUserInteractionBlock: (() => boolean) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityShouldGroupAccessibilityChildrenBlock] and -[NSObject setAccessibilityShouldGroupAccessibilityChildrenBlock:], in UIKit.
+   */
+  accessibilityShouldGroupAccessibilityChildrenBlock: (() => boolean) | null;
+  /**
+   * Since iOS 18.1. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityTextInputResponder] and -[NSObject setAccessibilityTextInputResponder:], in UIKit.
+   */
+  accessibilityTextInputResponder: UITextInput | null;
+  /**
+   * Since iOS 18.1. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityTextInputResponderBlock] and -[NSObject setAccessibilityTextInputResponderBlock:], in UIKit.
+   */
+  accessibilityTextInputResponderBlock: (() => UITextInput | null) | null;
+  /**
+   * Since iOS 13.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityTextualContext] and -[NSObject setAccessibilityTextualContext:], in UIKit.
+   */
+  accessibilityTextualContext: string | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityTextualContextBlock] and -[NSObject setAccessibilityTextualContextBlock:], in UIKit.
+   */
+  accessibilityTextualContextBlock: (() => string | null) | null;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityTraits] and -[NSObject setAccessibilityTraits:], in UIKit.
+   */
+  accessibilityTraits: string;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityTraitsBlock] and -[NSObject setAccessibilityTraitsBlock:], in UIKit.
+   */
+  accessibilityTraitsBlock: (() => string) | null;
+  /**
+   * Since iOS 13.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityUserInputLabels] and -[NSObject setAccessibilityUserInputLabels:], in UIKit.
+   */
+  accessibilityUserInputLabels: string[] | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityUserInputLabelsBlock] and -[NSObject setAccessibilityUserInputLabelsBlock:], in UIKit.
+   */
+  accessibilityUserInputLabelsBlock: (() => string[] | null) | null;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityValue] and -[NSObject setAccessibilityValue:], in UIKit.
+   */
+  accessibilityValue: string | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityValueBlock] and -[NSObject setAccessibilityValueBlock:], in UIKit.
+   */
+  accessibilityValueBlock: (() => string | null) | null;
+  /**
+   * Since iOS 5.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityViewIsModal] and -[NSObject setAccessibilityViewIsModal:], in UIKit.
+   */
+  accessibilityViewIsModal: boolean;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityViewIsModalBlock] and -[NSObject setAccessibilityViewIsModalBlock:], in UIKit.
+   */
+  accessibilityViewIsModalBlock: (() => boolean) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject automationElements] and -[NSObject setAutomationElements:], in UIKit.
+   */
+  automationElements: NSObject[] | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject automationElementsBlock] and -[NSObject setAutomationElementsBlock:], in UIKit.
+   */
+  automationElementsBlock: (() => ObjCValue[] | null) | null;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject isAccessibilityElement] and -[NSObject setIsAccessibilityElement:], in UIKit.
+   */
+  isAccessibilityElement: boolean;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject isAccessibilityElementBlock] and -[NSObject setIsAccessibilityElementBlock:], in UIKit.
+   */
+  isAccessibilityElementBlock: (() => boolean) | null;
+  /**
+   * Since iOS 6.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject shouldGroupAccessibilityChildren] and -[NSObject setShouldGroupAccessibilityChildren:], in UIKit.
+   */
+  shouldGroupAccessibilityChildren: boolean;
+  /**
+   * Since iOS 7.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityActivate], in UIKit.
+   */
+  accessibilityActivate(): boolean;
+  /**
+   * Since iOS 9.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAssistiveTechnologyFocusedIdentifiers], in UIKit.
+   */
+  accessibilityAssistiveTechnologyFocusedIdentifiers(): Set<string> | null;
+  /**
+   * Since iOS 4.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityDecrement], in UIKit.
+   */
+  accessibilityDecrement(): void;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementAtIndex:], in UIKit.
+   */
+  accessibilityElement(index: bigint | number): NSObject | null;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementCount], in UIKit.
+   */
+  accessibilityElementCount(): bigint;
+  /**
+   * Since iOS 4.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementDidBecomeFocused], in UIKit.
+   */
+  accessibilityElementDidBecomeFocused(): void;
+  /**
+   * Since iOS 4.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementDidLoseFocus], in UIKit.
+   */
+  accessibilityElementDidLoseFocus(): void;
+  /**
+   * Since iOS 4.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementIsFocused], in UIKit.
+   */
+  accessibilityElementIsFocused(): boolean;
+  /**
+   * Since iOS 18.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityHitTest:withEvent:], in UIKit.
+   */
+  accessibilityHitTest(point: CGPoint, event: UIEvent | null): NSObject | null;
+  /**
+   * Since iOS 4.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityIncrement], in UIKit.
+   */
+  accessibilityIncrement(): void;
+  /**
+   * Since iOS 5.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityPerformEscape], in UIKit.
+   */
+  accessibilityPerformEscape(): boolean;
+  /**
+   * Since iOS 6.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityPerformMagicTap], in UIKit.
+   */
+  accessibilityPerformMagicTap(): boolean;
+  /**
+   * Since iOS 4.2. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityScroll:], in UIKit.
+   */
+  accessibilityScroll(direction: UIAccessibilityScrollDirection): boolean;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityZoomInAtPoint:], in UIKit.
+   */
+  accessibilityZoomIn(point: CGPoint): boolean;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityZoomOutAtPoint:], in UIKit.
+   */
+  accessibilityZoomOut(point: CGPoint): boolean;
+  /** Native: -[NSObject awakeFromNib], in UIKit. */
+  awakeFromNib(): void;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject indexOfAccessibilityElement:], in UIKit.
+   */
+  index(element: ObjCValue): bigint;
+  /**
+   * Since iOS 8.0.
+   * Native: -[NSObject prepareForInterfaceBuilder], in UIKit.
+   */
+  prepareForInterfaceBuilder(): void;
+}
+== Foundation.NSObject_Foundation
+// lucent:ios/Foundation
+/**
+ * What Foundation adds to NSObject, which every NSObject has.
+ */
+declare abstract class NSObject_Foundation {
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSObject autoContentAccessingProxy], in Foundation.
+   */
+  readonly autoContentAccessingProxy: NSObject;
+  /** Native: -[NSObject attemptRecoveryFromError:optionIndex:], in Foundation. */
+  attemptRecovery(error: Error, recoveryOptionIndex: bigint | number): boolean;
+  /** Native: -[NSObject awakeAfterUsingCoder:], in Foundation. */
+  awakeAfter(coder: NSCoder): NSObject | null;
+  /** Native: -[NSObject dictionaryWithValuesForKeys:], in Foundation. */
+  dictionaryWithValues(keys: string[]): Record<string, NSObject>;
+  /** Native: -[NSObject didChange:valuesAtIndexes:forKey:], in Foundation. */
+  didChange(changeKind: NSKeyValueChange, indexes: NSIndexSet, key: string): void;
+  /** Native: -[NSObject didChangeValueForKey:], in Foundation. */
+  didChangeValue(key: string): void;
+  /** Native: -[NSObject didChangeValueForKey:withSetMutation:usingObjects:], in Foundation. */
+  didChangeValue(key: string, mutationKind: NSKeyValueSetMutationKind, objects: Set<ObjCValue>): void;
+  /** Native: -[NSObject mutableArrayValueForKey:], in Foundation. */
+  mutableArrayValue(key: string): NSMutableArray;
+  /** Native: -[NSObject mutableArrayValueForKeyPath:], in Foundation. */
+  mutableArrayValueForKeyPath(keyPath: string): NSMutableArray;
+  /**
+   * Since iOS 5.0.
+   * Native: -[NSObject mutableOrderedSetValueForKey:], in Foundation.
+   */
+  mutableOrderedSetValue(key: string): NSMutableOrderedSet;
+  /**
+   * Since iOS 5.0.
+   * Native: -[NSObject mutableOrderedSetValueForKeyPath:], in Foundation.
+   */
+  mutableOrderedSetValueForKeyPath(keyPath: string): NSMutableOrderedSet;
+  /** Native: -[NSObject mutableSetValueForKey:], in Foundation. */
+  mutableSetValue(key: string): NSMutableSet;
+  /** Native: -[NSObject mutableSetValueForKeyPath:], in Foundation. */
+  mutableSetValueForKeyPath(keyPath: string): NSMutableSet;
+  /** Native: -[NSObject replacementObjectForCoder:], in Foundation. */
+  replacementObject(coder: NSCoder): NSObject | null;
+  /** Native: -[NSObject replacementObjectForKeyedArchiver:], in Foundation. */
+  replacementObject(archiver: NSKeyedArchiver): NSObject | null;
+  /** Native: -[NSObject setNilValueForKey:], in Foundation. */
+  setNilValueForKey(key: string): void;
+  /**
+   * Since iOS 18.0.
+   * Native: -[NSObject setSharedObservers:], in Foundation.
+   */
+  setSharedObservers(sharedObservers: NSKeyValueSharedObserversSnapshot | null): void;
+  /** Native: -[NSObject setValue:forKey:], in Foundation. */
+  setValue(value: ObjCValue | null, key: string): void;
+  /** Native: -[NSObject setValue:forKeyPath:], in Foundation. */
+  setValueForKeyPath(value: ObjCValue | null, keyPath: string): void;
+  /** Native: -[NSObject setValue:forUndefinedKey:], in Foundation. */
+  setValueForUndefinedKey(value: ObjCValue | null, key: string): void;
+  /** Native: -[NSObject setValuesForKeysWithDictionary:], in Foundation. */
+  setValuesForKeys(keyedValues: Record<string, ObjCValue>): void;
+  /** Native: -[NSObject validateValue:forKey:error:], in Foundation. */
+  validateValue(ioValue: Out<NSObject>, inKey: string): void;
+  /** Native: -[NSObject validateValue:forKeyPath:error:], in Foundation. */
+  validateValueForKeyPath(ioValue: Out<NSObject>, inKeyPath: string): void;
+  /** Native: -[NSObject valueForKey:], in Foundation. */
+  value(key: string): NSObject | null;
+  /** Native: -[NSObject valueForKeyPath:], in Foundation. */
+  valueForKeyPath(keyPath: string): NSObject | null;
+  /** Native: -[NSObject valueForUndefinedKey:], in Foundation. */
+  valueForUndefinedKey(key: string): NSObject | null;
+  /** Native: -[NSObject willChange:valuesAtIndexes:forKey:], in Foundation. */
+  willChange(changeKind: NSKeyValueChange, indexes: NSIndexSet, key: string): void;
+  /** Native: -[NSObject willChangeValueForKey:], in Foundation. */
+  willChangeValue(key: string): void;
+  /** Native: -[NSObject willChangeValueForKey:withSetMutation:usingObjects:], in Foundation. */
+  willChangeValue(key: string, mutationKind: NSKeyValueSetMutationKind, objects: Set<ObjCValue>): void;
+}
+== Foundation.URLSessionDownloadDelegate
+// lucent:ios/Foundation
+/**
+ * Native: Objective-C protocol NSURLSessionDownloadDelegate, in Foundation.
+ * An Objective-C protocol.
+ * Since iOS 7.0.
+ */
+export declare abstract class URLSessionDownloadDelegate {
+  /** Native: -[NSURLSessionDownloadDelegate URLSession:downloadTask:didFinishDownloadingToURL:], in Foundation. */
+  urlSession_downloadTask_didFinishDownloadingTo(session: URLSession, downloadTask: URLSessionDownloadTask, location: NSURL): void;
+  /** Native: -[NSURLSessionDownloadDelegate URLSession:downloadTask:didResumeAtOffset:expectedTotalBytes:], in Foundation. */
+  urlSession_downloadTask_didResumeAtOffset_expectedTotalBytes?(session: URLSession, downloadTask: URLSessionDownloadTask, fileOffset: bigint | number, expectedTotalBytes: bigint | number): void;
+  /** Native: -[NSURLSessionDownloadDelegate URLSession:downloadTask:didWriteData:totalBytesWritten:totalBytesExpectedToWrite:], in Foundation. */
+  urlSession_downloadTask_didWriteData_totalBytesWritten_totalBytesExpectedToWrite?(session: URLSession, downloadTask: URLSessionDownloadTask, bytesWritten: bigint | number, totalBytesWritten: bigint | number, totalBytesExpectedToWrite: bigint | number): void;
+  /** @lucentInherited Foundation.URLSessionDelegate 0 */
+  urlSessionDidFinishEvents_forBackgroundURLSession?(session: URLSession): void;
+  /** @lucentInherited Foundation.URLSessionDelegate 1 */
+  urlSession_didBecomeInvalidWithError?(session: URLSession, error: Error | null): void;
+  /** @lucentInherited Foundation.URLSessionDelegate 2 */
+  urlSession_didReceive_completionHandler?(session: URLSession, challenge: URLAuthenticationChallenge, completionHandler: (arg0: URLSession_AuthChallengeDisposition, arg1: URLCredential | null) => void): void;
+}
+
+export declare interface URLSessionDownloadDelegate extends URLSessionTaskDelegate {}

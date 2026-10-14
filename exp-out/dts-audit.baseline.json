@@ -1,0 +1,51 @@
+{
+  "ios": {
+    "modules": [
+      "UIKit",
+      "Foundation",
+      "AVFoundation",
+      "StoreKit",
+      "CryptoKit"
+    ],
+    "errors": {
+      "AVFoundation|TS2416|override-incompatible|Property 'value' in type 'AVCaptureSlider' is not assignable to the same property in base type 'AVCaptureControl'.": 1,
+      "AVFoundation|TS2416|override-incompatible|Property 'value' in type 'AVMetadataItem' is not assignable to the same property in base type 'NSObject'.": 1,
+      "AVFoundation|TS2430|override-incompatible|Interface 'AVMetadataItem' incorrectly extends interface 'NSObject'.": 1,
+      "Foundation|TS2416|override-incompatible|Property 'index' in type 'NSIndexPath' is not assignable to the same property in base type 'NSObject'.": 1,
+      "Foundation|TS2416|override-incompatible|Property 'index' in type 'NSIndexSet' is not assignable to the same property in base type 'NSObject'.": 3,
+      "Foundation|TS2416|override-incompatible|Property 'index' in type 'NSOrderedCollectionChange' is not assignable to the same property in base type 'NSObject'.": 1,
+      "Foundation|TS2416|override-incompatible|Property 'setValue' in type 'NSDateComponents' is not assignable to the same property in base type 'NSObject'.": 1,
+      "Foundation|TS2416|override-incompatible|Property 'value' in type 'HTTPCookie' is not assignable to the same property in base type 'NSObject'.": 1,
+      "Foundation|TS2416|override-incompatible|Property 'value' in type 'HTTPURLResponse' is not assignable to the same property in base type 'URLResponse'.": 1,
+      "Foundation|TS2416|override-incompatible|Property 'value' in type 'NSDateComponents' is not assignable to the same property in base type 'NSObject'.": 1,
+      "Foundation|TS2416|override-incompatible|Property 'value' in type 'NSMetadataQuery' is not assignable to the same property in base type 'NSObject'.": 1,
+      "Foundation|TS2416|override-incompatible|Property 'value' in type 'NSMetadataQueryAttributeValueTuple' is not assignable to the same property in base type 'NSObject'.": 1,
+      "Foundation|TS2416|override-incompatible|Property 'value' in type 'NSMetadataQueryResultGroup' is not assignable to the same property in base type 'NSObject'.": 1,
+      "Foundation|TS2416|override-incompatible|Property 'value' in type 'NSURLQueryItem' is not assignable to the same property in base type 'NSObject'.": 1,
+      "Foundation|TS2416|override-incompatible|Property 'value' in type 'NSURLRequest' is not assignable to the same property in base type 'NSObject'.": 1,
+      "Foundation|TS2416|override-incompatible|Property 'value' in type 'UnitConverter' is not assignable to the same property in base type 'NSObject'.": 1,
+      "Foundation|TS2430|override-incompatible|Interface 'NSDateComponents' incorrectly extends interface 'NSObject'.": 1,
+      "Foundation|TS2430|override-incompatible|Interface 'NSIndexPath' incorrectly extends interface 'NSObject'.": 1,
+      "Foundation|TS2430|override-incompatible|Interface 'NSIndexSet' incorrectly extends interface 'NSObject'.": 1,
+      "Foundation|TS2430|override-incompatible|Interface 'NSURLQueryItem' incorrectly extends interface 'NSObject'.": 1,
+      "Foundation|TS2430|override-incompatible|Interface 'NSURLRequest' incorrectly extends interface 'NSObject'.": 1,
+      "UIKit|TS2416|override-incompatible|Property 'setValue' in type 'UISlider' is not assignable to the same property in base type 'UIControl'.": 1,
+      "UIKit|TS2416|override-incompatible|Property 'value' in type 'UICollectionViewTransitionLayout' is not assignable to the same property in base type 'UICollectionViewLayout'.": 1,
+      "UIKit|TS2416|override-incompatible|Property 'value' in type 'UISlider' is not assignable to the same property in base type 'UIControl'.": 1,
+      "UIKit|TS2416|override-incompatible|Property 'value' in type 'UIStepper' is not assignable to the same property in base type 'UIControl'.": 1
+    }
+  },
+  "android": {
+    "modules": [
+      "android.os",
+      "android.content",
+      "android.app",
+      "android.view",
+      "android.widget",
+      "android.location",
+      "android.hardware",
+      "android.net"
+    ],
+    "errors": {}
+  }
+}

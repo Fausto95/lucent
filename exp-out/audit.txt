@@ -1,0 +1,15 @@
+note: You are running `vp test` as a Vite+ built-in command. If you meant to run the test npm script, use `vpr test` instead.
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/Users/runner/work/lucent/lucent[39m
+
+ [32m✓[39m packages/compiler/test/dts-audit.test.ts [2m([22m[2m28 tests[22m[2m)[22m[33m 56782[2mms[22m[39m
+     [33m[2m✓[22m[39m accepts a well-formed module [33m 805[2mms[22m[39m
+     [33m[2m✓[22m[39m has no errors [33m 4981[2mms[22m[39m
+     [33m[2m✓[22m[39m has exactly the baseline's errors [33m 18476[2mms[22m[39m
+     [33m[2m✓[22m[39m has exactly the baseline's errors [33m 30804[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m28 passed[39m[22m[90m (28)[39m
+[2m   Start at [22m 10:54:37
+[2m   Duration [22m 59.74s[2m (transform 865ms, setup 20ms, import 1.36s, tests 56.78s, environment 0ms)[22m
+

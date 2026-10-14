@@ -1,0 +1,11 @@
+note: You are running `vp test` as a Vite+ built-in command. If you meant to run the test npm script, use `vpr test` instead.
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/Users/runner/work/lucent/lucent[39m
+
+ [32m✓[39m packages/bindgen/test/ios.test.ts [2m([22m[2m57 tests[22m[2m | [22m[33m56 skipped[39m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m56 skipped[39m[90m (57)[39m
+[2m   Start at [22m 10:53:50
+[2m   Duration [22m 45.48s[2m (transform 88ms, setup 12ms, import 3.38s, tests 3ms, environment 0ms)[22m
+

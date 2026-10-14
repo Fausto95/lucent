@@ -1,0 +1,28 @@
+! lucent:android/androidx.work is untyped: the app has no Android project to resolve it yet. Checked after expo prebuild, or once android/ exists
+
+  error LUCENT2008  class Downloads must declare `implements URLSessionDelegate`
+                    to be used as URLSessionDelegate
+
+    src/download.lucent.ts:60:75
+    59 │ …ession {
+    60 │ …n(URLSessionConfiguration.background(SESSION), new Downloads(), null);
+       │                                                 ^^^^^^^^^^^^^^^
+    61 │ …
+
+  fix  add `implements` to the class, or use a class that declares it in place
+       of the object literal
+  docs lucent explain LUCENT2008
+
+  error LUCENT3006  UIView can only be used on the main thread: call it inside
+                    main(() => …) from lucent:thread
+
+    src/zz.lucent.ts:7:10
+    6 │   if (PLATFORM !== "ios") return "";
+    7 │   return new UIView().accessibilityLabel ?? "none";
+      │          ^^^^^^^^^^^^
+    8 │ }
+
+  fix  wrap the call in main(() => …) from lucent:thread
+  docs lucent explain LUCENT3006
+
+  2 errors · 5 modules · 4 m 20 s
