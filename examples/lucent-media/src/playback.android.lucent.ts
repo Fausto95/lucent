@@ -94,6 +94,7 @@ let recreated = 0;
 
 export async function outliveActivity(): Promise<string> {
   const activity = await main(() => currentActivity()?.hashCode() ?? 0);
+  console.log(`[lucent-media] outliveActivity: Activity ${activity}, made again from ${recreated}`);
   if (!recreated) {
     recreated = activity;
     await main(() => currentActivity()?.recreate());
@@ -102,8 +103,13 @@ export async function outliveActivity(): Promise<string> {
   // The service holds the module's state, so a run after the new Activity's comes straight here.
   for (let waited = 0; waited < 20_000; waited += 100) {
     const now = await main(() => currentActivity()?.hashCode() ?? 0);
-    if (now !== 0 && now !== recreated) return `made again; ${await status()}`;
+    if (now !== 0 && now !== recreated) {
+      const said = `made again; ${await status()}`;
+      console.log(`[lucent-media] outliveActivity: Activity ${now}, ${said}`);
+      return said;
+    }
     await delay(100);
   }
+  console.log("[lucent-media] outliveActivity: no new Activity in 20 s");
   return "not made again";
 }
