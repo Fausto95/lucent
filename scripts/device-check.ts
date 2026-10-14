@@ -723,7 +723,11 @@ async function main(): Promise<boolean> {
   if (target.metro) await waitForMetro(platform);
   const device = platform === "ios" ? ios(target) : android(target);
   device.install();
-  for (const screen of target.screens) if (!(await check(target, device, screen))) return false;
+  for (const [i, screen] of target.screens.entries()) {
+    // EXPERIMENT: each screen in an app started for it.
+    if (platform === "android" && i > 0) sh("adb", ["shell", "am", "force-stop", target.id], true);
+    if (!(await check(target, device, screen))) return false;
+  }
   return true;
 }
 
