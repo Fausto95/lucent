@@ -2,8 +2,9 @@
 // What the view libraries' cases read from a component's native view (the
 // Lab's Libraries screen, T121): the view React Native gave a testID
 // (Android's tag, iOS's accessibilityIdentifier), its alpha, its size and
-// the gesture recognizers on it, and on Android a tap at its middle,
-// dispatched through the Activity's window as the system delivers one.
+// the gesture recognizers on it and its parent, and on Android a tap at its
+// middle, dispatched through the Activity's window as the system delivers
+// one.
 import { PLATFORM } from "lucent:platform";
 import { main } from "lucent:thread";
 import { UIApplication, UIWindowScene, type UIView } from "lucent:ios/UIKit";
@@ -14,8 +15,9 @@ import { MotionEvent, ViewGroup, type View } from "lucent:android/android.view";
 
 /**
  * The native view with `testID`: "alpha <a>, <w>x<h>" (pixels on Android,
- * points on iOS), and on iOS ", <n> recognizers". "no view" when none has
- * the testID.
+ * points on iOS), and on iOS ", <n> recognizers": those on the view and on
+ * its parent, where Gesture Handler 3's detector attaches its own. "no
+ * view" when none has the testID.
  */
 export async function viewFacts(testID: string): Promise<string> {
   if (PLATFORM === "android")
@@ -43,7 +45,9 @@ export async function viewFacts(testID: string): Promise<string> {
       const view = views.pop()!;
       if (view.accessibilityIdentifier === testID) {
         const size = view.bounds.size;
-        const recognizers = view.gestureRecognizers?.length ?? 0;
+        const recognizers =
+          (view.gestureRecognizers?.length ?? 0) +
+          (view.superview?.gestureRecognizers?.length ?? 0);
         return `alpha ${view.alpha.toFixed(1)}, ${Math.round(size.width)}x${Math.round(size.height)}, ${recognizers} recognizers`;
       }
       for (const subview of view.subviews) views.push(subview);
