@@ -807,13 +807,14 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
         (l) =>
           (l.includes("Unable to find viewState") ||
             l.includes("LUCENT_PROGRESS") ||
-            l.includes("onHost")) &&
+            l.includes("onHost") ||
+            /\s[EWF] [^:]*(Fabric|Mount|Surface|ReactNative[^J]|SoftException|Fragment)[^:]*:/.test(
+              l,
+            ) ||
+            /Exception|Caught/.test(l)) &&
           !/:\s+(at |\.\.\. \d+ more)/.test(l),
       )
-      .map(
-        (l) =>
-          `${l.split(/\s+/)[1]} ${l.replace(/^.*?(Unable|LUCENT_PROGRESS|ReactHost)/, "$1").slice(0, 90)}`,
-      );
+      .map((l) => `${l.split(/\s+/)[1]} ${l.replace(/^.*?\s[VDIWEF]\s+/, "").slice(0, 110)}`);
     if (process.env.GITHUB_ACTIONS)
       console.log(
         `::warning title=Missing view states (${screen.id})::${[
