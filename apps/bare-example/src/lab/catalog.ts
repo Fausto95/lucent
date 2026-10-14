@@ -2,6 +2,7 @@
 import type { ComponentType } from "react";
 import { BenchLab } from "./bench/BenchLab";
 import { CompareLab } from "./compare/CompareLab";
+import { LibrariesLab } from "./libraries/LibrariesLab";
 import { MediaLab } from "./media/MediaLab";
 import { PlatformLab } from "./platform/PlatformLab";
 import { SdkLab } from "./sdk/SdkLab";
@@ -40,6 +41,12 @@ export const lab: readonly LabEntry[] = [
     title: "Media service",
     summary: "A foreground service written in Lucent, which outlives the Activity that started it.",
     Screen: MediaLab,
+  },
+  {
+    id: "libraries",
+    title: "View libraries",
+    summary: "A Lucent component animated by Reanimated, under Gesture Handler, in a native stack.",
+    Screen: LibrariesLab,
   },
   {
     id: "bench",

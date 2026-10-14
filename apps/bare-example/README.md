@@ -53,6 +53,9 @@ Each screen runs when it opens and shows its verdict at the top (testID
 - **Media service**: a media3 `MediaSessionService` written in Lucent
   (`lucent-media`, Android) plays in the foreground, then Android makes
   the Activity again, and the service plays on.
+- **View libraries**: a Lucent component that Reanimated animates through
+  its ref, under a Gesture Handler detector that gets its touches, and in a
+  react-native-screens stack's screen.
 - **Benchmark**: compute kernels in Lucent against the same TypeScript in
   Hermes.
 - **Compare**: NitroBenchmarks, Lucent next to Turbo and Nitro modules.

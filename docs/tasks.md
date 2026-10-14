@@ -43,7 +43,7 @@ what became of each one that is still linked or was still open.
 | [T115](#t115)            | Native configuration packages can't declare yet            | ready                                                   |
 | **View parity**          |                                                            |                                                         |
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
-| [T121](#t121)            | React Native's view props, refs and view libraries         | in progress (#244, #268); library cases left            |
+| [T121](#t121)            | React Native's view props, refs and view libraries         | in progress (#244, #268, #270, #271); iOS label left    |
 | [T122](#t122)            | UIKit components with a view-controller root               | ready                                                   |
 | [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | ready                                                   |
 | [T124](#t124)            | A component's ref as a module function's argument          | ready                                                   |
@@ -789,8 +789,10 @@ takes, as Expo views do, and works inside the view libraries apps use.
 - **Status:** in progress: view props pass through, the ref measures the
   host, and requests take a signal (#244). The device runs find a
   component's native view by its `testID`, read its label on Android, and
-  hear its `onLayout` (#268). The view libraries' cases are left, and the
-  label on iOS, which needs NSObject's UIKit members (T112).
+  hear its `onLayout` (#268). The ref is the host view's own (#270), and
+  the device runs' Libraries screen puts a component inside Reanimated,
+  Gesture Handler and react-native-screens (#271). The label on iOS is
+  left, which needs NSObject's UIKit members (T112).
 - **Area:** views.
 - **Needs:** nothing.
 - **Verify:** V1, V5.
@@ -815,9 +817,11 @@ unmount.
       #270).
 - [x] A caller can cancel a pending command's request with an
       `AbortSignal`, passed as `{ signal }` after its arguments (#244).
-- [ ] A component inside Reanimated's animated views, Gesture Handler's
+- [x] A component inside Reanimated's animated views, Gesture Handler's
       detectors and react-native-screens' screens mounts, animates and
-      receives touches.
+      receives touches: the device runs' Libraries screen (#271), on iOS
+      with the detector's recognizers on the component's own view (the
+      Fabric view's contentView), since nothing taps there.
 - [x] Tests: `testID` reaches the native view and `onLayout` fires, on
       the simulator and emulator, and Android's accessibility API reads a
       label: the Platform screen's `Card` (#268).

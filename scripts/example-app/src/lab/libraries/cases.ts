@@ -1,0 +1,94 @@
+// A Lucent component inside the view libraries apps use (T121): animated by
+// Reanimated, under a Gesture Handler detector, in a react-native-screens
+// stack's screen. The device runs open this screen after the Media screen,
+// on the simulator and the emulator. The cases read the component's native
+// view by its testID (sdk/libraries.lucent.ts).
+import { Platform } from "react-native";
+import { tapView, viewFacts } from "../../sdk/libraries.lucent";
+import type { SdkCase } from "../sdk/types";
+import { tapsHeard } from "./taps";
+
+const ios = Platform.OS === "ios";
+
+/** The testIDs of the screen's three cards. */
+export const ANIMATED_ID = "lucent-animated";
+export const TAPPED_ID = "lucent-tapped";
+export const SCREEN_ID = "lucent-in-screen";
+
+/** What `read` gives once `done` says so, or what it gave last after `ms`. */
+async function poll<T>(
+  ms: number,
+  read: () => Promise<T>,
+  done: (value: T) => boolean,
+): Promise<T> {
+  const until = Date.now() + ms;
+  let value = await read();
+  while (!done(value) && Date.now() < until) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    value = await read();
+  }
+  return value;
+}
+
+/** Whether a native view's facts say it is laid out, at a size: "laid out", else the facts. */
+const laidOut = (facts: string) => (/ [1-9]\d*x[1-9]\d*/.test(facts) ? "laid out" : facts);
+
+/** A tap on the card under the detector (Android): what the gesture's callback heard. */
+async function tapped(): Promise<string> {
+  const before = tapsHeard();
+  const tap = await tapView(TAPPED_ID);
+  if (tap !== "tapped") return tap;
+  const heard = await poll(
+    5000,
+    async () => tapsHeard(),
+    (n) => n > before,
+  );
+  return heard > before ? "heard" : "not heard";
+}
+
+/**
+ * The detector's recognizers on the card's view or its content, the
+ * component's own view, where Gesture Handler attaches them to a Fabric
+ * view (iOS, where nothing taps).
+ */
+async function recognized(): Promise<string> {
+  const facts = await poll(
+    5000,
+    () => viewFacts(TAPPED_ID),
+    (got) => / [1-9]\d* recognizers/.test(got),
+  );
+  return / [1-9]\d* recognizers/.test(facts) ? "attached" : facts;
+}
+
+export const libraryCases: SdkCase[] = [
+  {
+    name: "reanimated: animates a component's own style, through its ref",
+    // From 0.3 to 1 as the screen mounts: the native view's alpha says where Reanimated left it.
+    run: async () => {
+      const facts = await poll(
+        5000,
+        () => viewFacts(ANIMATED_ID),
+        (got) => got.startsWith("alpha 1.0"),
+      );
+      return facts.split(",")[0]!;
+    },
+    expected: "alpha 1.0",
+  },
+  {
+    name: "gesture handler: a detector over a component gets its touches",
+    run: ios ? recognized : tapped,
+    expected: ios ? "attached" : "heard",
+  },
+  {
+    name: "screens: a component in a native stack's screen mounts and lays out",
+    run: async () =>
+      laidOut(
+        await poll(
+          5000,
+          () => viewFacts(SCREEN_ID),
+          (got) => laidOut(got) === "laid out",
+        ),
+      ),
+    expected: "laid out",
+  },
+];
