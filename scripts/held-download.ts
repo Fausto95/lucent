@@ -43,6 +43,8 @@ const server = http.createServer((req, res) => {
   }
   if (url.startsWith("/release")) {
     released = true;
+    // A copy: finishing one takes it out of the set.
+    // oxlint-disable-next-line unicorn/no-useless-spread
     for (const r of [...held]) finish(r);
     res.end("released\n");
     return;
