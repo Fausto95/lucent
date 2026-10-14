@@ -14,9 +14,7 @@ export declare function status(): Promise<string>;
 
 /**
  * Has Android make the current Activity again, once: what started the
- * service goes, and the service plays on. The first call recreates the
- * Activity and never settles, since its screen goes with it. A later one
- * says whether the Activity is a new one, with the service's status
- * ("none" on iOS).
+ * service goes, and the service plays on. Waits for the new Activity, and
+ * says whether there is one, with the service's status ("none" on iOS).
  */
 export declare function outliveActivity(): Promise<string>;

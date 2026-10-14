@@ -51,8 +51,7 @@ Each screen runs when it opens and shows its verdict at the top (testID
   (Android).
 - **Media service**: a media3 `MediaSessionService` written in Lucent
   (`lucent-media`, Android) plays in the foreground, then Android makes
-  the Activity again, and the screen, opened again with it, checks that
-  the service played on.
+  the Activity again, and the service plays on.
 - **Benchmark**: compute kernels in Lucent against the same TypeScript in
   Hermes.
 - **Compare**: NitroBenchmarks, Lucent next to Turbo and Nitro modules.

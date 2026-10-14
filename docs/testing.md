@@ -333,8 +333,8 @@ deep link to itself. On iOS
 a push registration answers, and on Android a back press and a rotation
 reach the module. Last, the Media screen starts a foreground
 `MediaSessionService` written in Lucent (`lucent-media`), has Android make
-the Activity again, and checks, once the screen opens again with the new
-Activity, that the service plays on.
+the Activity again, and checks that the service plays on with the new
+Activity.
 
 The bare example's Debug build loads its bundle from Metro: start Metro
 on port 8081 first. The Expo example (`--example expo`) is built as an
