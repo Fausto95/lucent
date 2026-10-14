@@ -85,7 +85,9 @@ React Native's Gradle build runs on JDK 17 to 21. Set `JAVA_HOME` to one of thos
 this Gradle build read the app's autolinking config before .lucent/native existed, so the app would not link Lucent: build again
 ```
 
-The first Gradle build after `lucent clean`, or after a change to what the Android library needs, configured the app before Lucent wrote it. Run the same Gradle build again. Running `npx lucent build` before Gradle avoids it ([Builds](/docs/architecture/builds/#a-gradle-build-can-ask-for-another)).
+The first Gradle build after `lucent clean`, or after a change to what the Android library needs, configured the app before Lucent wrote it. So did the first one after `expo prebuild` without an iOS build, in an app with components ("…registered Lucent's components…").
+
+Run the same Gradle build again. Running `npx lucent build` before Gradle avoids it ([Builds](/docs/architecture/builds/#a-gradle-build-can-ask-for-another)).
 
 ```text title="lucent build" nocopy
 Gradle could not resolve them (retried when the build files or the lockfile change, or with lucent build --force):

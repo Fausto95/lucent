@@ -58,23 +58,21 @@ export function Card(props: CardProps): Fragment {
   return card;
 }
 
-/** A view's size, and its parents' up to the component's: where a size went missing. */
-function sizes(view: View): string {
-  const out: string[] = [];
-  let at: View | null = view;
-  for (let i = 0; at && i < 3; i++) {
-    out.push(`${at.getWidth()}x${at.getHeight()}`);
-    const parent = at.getParent();
-    at = parent instanceof View ? parent : null;
-  }
-  return out.join(" in ");
-}
-
 export async function cardShown(): Promise<string> {
   return main(() => {
     const view = shownView;
     if (!view) return "no view";
     if (!view.isAttachedToWindow()) return "not in a window";
-    return view.getWidth() > 0 && view.getHeight() > 0 ? "shown" : `not laid out: ${sizes(view)}`;
+    if (view.getWidth() > 0 && view.getHeight() > 0) return "shown";
+
+    // Its size and its parents' up to the component's: where a size went missing.
+    const sizes: string[] = [];
+    let at: View | null = view;
+    for (let i = 0; at && i < 3; i++) {
+      sizes.push(`${at.getWidth()}x${at.getHeight()}`);
+      const parent = at.getParent();
+      at = parent instanceof View ? parent : null;
+    }
+    return `not laid out: ${sizes.join(" in ")}`;
   });
 }
