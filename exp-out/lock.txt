@@ -1,0 +1,2 @@
+! lucent:android/androidx.work is untyped: the app has no Android project to resolve it yet. Checked after expo prebuild, or once android/ exists
+✗ 1 error in the project: lucent check shows them; the lock records a project that checks

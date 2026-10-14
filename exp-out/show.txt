@@ -1,0 +1,2059 @@
+== Foundation.URLSession
+// lucent:ios/Foundation
+/**
+ * Native: Objective-C class NSURLSession, in Foundation.
+ * Since iOS 7.0.
+ */
+export declare class URLSession extends NSObject {
+  private readonly __lucent_URLSession: never;
+  /** Native: +[NSURLSession sessionWithConfiguration:], in Foundation. */
+  constructor(configuration: URLSessionConfiguration);
+  /** Native: +[NSURLSession sessionWithConfiguration:delegate:delegateQueue:], in Foundation. */
+  constructor(configuration: URLSessionConfiguration, delegate: URLSessionDelegate | null, queue: OperationQueue | null);
+  /** Native: -[NSURLSession init], in Foundation. */
+  constructor();
+  /** Native: -[NSURLSession configuration], in Foundation. */
+  readonly configuration: URLSessionConfiguration;
+  /** Native: -[NSURLSession delegate], in Foundation. */
+  readonly delegate: URLSessionDelegate | null;
+  /** Native: -[NSURLSession delegateQueue], in Foundation. */
+  readonly delegateQueue: OperationQueue;
+  /** Native: -[NSURLSession sessionDescription] and -[NSURLSession setSessionDescription:], in Foundation. */
+  sessionDescription: string | null;
+  /** Native: +[NSURLSession sharedSession], in Foundation. */
+  static readonly shared: URLSession;
+  /**
+   * Since iOS 15.0. Lucent cannot use this yet: tuples of collections or closures cannot cross to Swift yet.
+   * Native: Swift NSURLSession.bytes(for:delegate:), in Foundation.
+   */
+  bytes(request: NSURLRequest, delegate?: URLSessionTaskDelegate | null, signal?: AbortSignal): Promise<[AsyncSequence<number>, URLResponse]>;
+  /**
+   * Since iOS 15.0. Lucent cannot use this yet: tuples of collections or closures cannot cross to Swift yet.
+   * Native: Swift NSURLSession.bytes(from:delegate:), in Foundation.
+   */
+  bytes(url: NSURL, delegate?: URLSessionTaskDelegate | null, signal?: AbortSignal): Promise<[AsyncSequence<number>, URLResponse]>;
+  /**
+   * Since iOS 15.0.
+   * Native: Swift NSURLSession.data(for:delegate:), in Foundation.
+   */
+  data(request: NSURLRequest, delegate?: URLSessionTaskDelegate | null, signal?: AbortSignal): Promise<[Uint8Array, URLResponse]>;
+  /**
+   * Since iOS 13.0.
+   * Native: Swift NSURLSession.data(for:), in Foundation.
+   */
+  data(request: NSURLRequest, signal?: AbortSignal): Promise<[Uint8Array, URLResponse]>;
+  /**
+   * Since iOS 15.0.
+   * Native: Swift NSURLSession.data(from:delegate:), in Foundation.
+   */
+  data(url: NSURL, delegate?: URLSessionTaskDelegate | null, signal?: AbortSignal): Promise<[Uint8Array, URLResponse]>;
+  /**
+   * Since iOS 13.0.
+   * Native: Swift NSURLSession.data(from:), in Foundation.
+   */
+  data(url: NSURL, signal?: AbortSignal): Promise<[Uint8Array, URLResponse]>;
+  /** Native: -[NSURLSession dataTaskWithRequest:], in Foundation. */
+  dataTask(request: NSURLRequest): URLSessionDataTask;
+  /** Native: -[NSURLSession dataTaskWithRequest:completionHandler:], in Foundation. */
+  dataTask(request: NSURLRequest, completionHandler: (arg0: Uint8Array | null, arg1: URLResponse | null, arg2: Error | null) => void): URLSessionDataTask;
+  /** Native: -[NSURLSession dataTaskWithURL:], in Foundation. */
+  dataTask(url: NSURL): URLSessionDataTask;
+  /** Native: -[NSURLSession dataTaskWithURL:completionHandler:], in Foundation. */
+  dataTask(url: NSURL, completionHandler: (arg0: Uint8Array | null, arg1: URLResponse | null, arg2: Error | null) => void): URLSessionDataTask;
+  /**
+   * Since iOS 13.0.
+   * Native: Swift NSURLSession.dataTaskPublisher(for:), in Foundation.
+   */
+  dataTaskPublisher(request: NSURLRequest): URLSession_DataTaskPublisher;
+  /**
+   * Since iOS 13.0.
+   * Native: Swift NSURLSession.dataTaskPublisher(for:), in Foundation.
+   */
+  dataTaskPublisher(url: NSURL): URLSession_DataTaskPublisher;
+  /**
+   * Since iOS 15.0.
+   * Native: Swift NSURLSession.download(resumeFrom:delegate:), in Foundation.
+   */
+  download(resumeData: Uint8Array, delegate?: URLSessionTaskDelegate | null, signal?: AbortSignal): Promise<[NSURL, URLResponse]>;
+  /**
+   * Since iOS 15.0.
+   * Native: Swift NSURLSession.download(for:delegate:), in Foundation.
+   */
+  download(request: NSURLRequest, delegate?: URLSessionTaskDelegate | null, signal?: AbortSignal): Promise<[NSURL, URLResponse]>;
+  /**
+   * Since iOS 15.0.
+   * Native: Swift NSURLSession.download(from:delegate:), in Foundation.
+   */
+  download(url: NSURL, delegate?: URLSessionTaskDelegate | null, signal?: AbortSignal): Promise<[NSURL, URLResponse]>;
+  /** Native: -[NSURLSession downloadTaskWithRequest:], in Foundation. */
+  downloadTask(request: NSURLRequest): URLSessionDownloadTask;
+  /** Native: -[NSURLSession downloadTaskWithRequest:completionHandler:], in Foundation. */
+  downloadTask(request: NSURLRequest, completionHandler: (arg0: NSURL | null, arg1: URLResponse | null, arg2: Error | null) => void): URLSessionDownloadTask;
+  /** Native: -[NSURLSession downloadTaskWithResumeData:], in Foundation. */
+  downloadTask(resumeData: Uint8Array): URLSessionDownloadTask;
+  /** Native: -[NSURLSession downloadTaskWithResumeData:completionHandler:], in Foundation. */
+  downloadTask(resumeData: Uint8Array, completionHandler: (arg0: NSURL | null, arg1: URLResponse | null, arg2: Error | null) => void): URLSessionDownloadTask;
+  /** Native: -[NSURLSession downloadTaskWithURL:], in Foundation. */
+  downloadTask(url: NSURL): URLSessionDownloadTask;
+  /** Native: -[NSURLSession downloadTaskWithURL:completionHandler:], in Foundation. */
+  downloadTask(url: NSURL, completionHandler: (arg0: NSURL | null, arg1: URLResponse | null, arg2: Error | null) => void): URLSessionDownloadTask;
+  /** Native: -[NSURLSession finishTasksAndInvalidate], in Foundation. */
+  finishTasksAndInvalidate(): void;
+  /** Native: -[NSURLSession flushWithCompletionHandler:], in Foundation. */
+  flush(completionHandler: () => void): void;
+  /** Native: -[NSURLSession flushWithCompletionHandler:], in Foundation; without its completion handler, a Promise it settles. */
+  flush(): Promise<void>;
+  /**
+   * Since iOS 9.0.
+   * Native: -[NSURLSession getAllTasksWithCompletionHandler:], in Foundation.
+   */
+  getAllTasks(completionHandler: (arg0: URLSessionTask[]) => void): void;
+  /**
+   * Since iOS 9.0.
+   * Native: -[NSURLSession getAllTasksWithCompletionHandler:], in Foundation; without its completion handler, a Promise it settles.
+   */
+  allTasks(): Promise<void>;
+  /** Native: -[NSURLSession getTasksWithCompletionHandler:], in Foundation. */
+  getTasksWithCompletionHandler(completionHandler: (arg0: URLSessionDataTask[], arg1: URLSessionUploadTask[], arg2: URLSessionDownloadTask[]) => void): void;
+  /** Native: -[NSURLSession getTasksWithCompletionHandler:], in Foundation; without its completion handler, a Promise it settles. */
+  tasks(): Promise<void>;
+  /** Native: -[NSURLSession invalidateAndCancel], in Foundation. */
+  invalidateAndCancel(): void;
+  /** Native: +[NSURLSession new], in Foundation. */
+  static new(): URLSession;
+  /** Native: -[NSURLSession resetWithCompletionHandler:], in Foundation. */
+  reset(completionHandler: () => void): void;
+  /** Native: -[NSURLSession resetWithCompletionHandler:], in Foundation; without its completion handler, a Promise it settles. */
+  reset(): Promise<void>;
+  /**
+   * Since iOS 9.0.
+   * Native: -[NSURLSession streamTaskWithHostName:port:], in Foundation.
+   */
+  streamTask(hostname: string, port: bigint | number): URLSessionStreamTask;
+  /**
+   * Since iOS 9.0.
+   * Native: -[NSURLSession streamTaskWithNetService:], in Foundation.
+   */
+  streamTask(service: NetService): URLSessionStreamTask;
+  /**
+   * Since iOS 15.0.
+   * Native: Swift NSURLSession.upload(for:from:delegate:), in Foundation.
+   */
+  upload(request: NSURLRequest, bodyData: Uint8Array, delegate?: URLSessionTaskDelegate | null, signal?: AbortSignal): Promise<[Uint8Array, URLResponse]>;
+  /**
+   * Since iOS 13.0.
+   * Native: Swift NSURLSession.upload(for:from:), in Foundation.
+   */
+  upload(request: NSURLRequest, bodyData: Uint8Array, signal?: AbortSignal): Promise<[Uint8Array, URLResponse]>;
+  /**
+   * Since iOS 15.0.
+   * Native: Swift NSURLSession.upload(for:fromFile:delegate:), in Foundation.
+   */
+  upload(request: NSURLRequest, fileURL: NSURL, delegate?: URLSessionTaskDelegate | null, signal?: AbortSignal): Promise<[Uint8Array, URLResponse]>;
+  /**
+   * Since iOS 13.0.
+   * Native: Swift NSURLSession.upload(for:fromFile:), in Foundation.
+   */
+  upload(request: NSURLRequest, fileURL: NSURL, signal?: AbortSignal): Promise<[Uint8Array, URLResponse]>;
+  /** Native: -[NSURLSession uploadTaskWithRequest:fromData:], in Foundation. */
+  uploadTask(request: NSURLRequest, bodyData: Uint8Array): URLSessionUploadTask;
+  /** Native: -[NSURLSession uploadTaskWithRequest:fromData:completionHandler:], in Foundation. */
+  uploadTask(request: NSURLRequest, bodyData: Uint8Array | null, completionHandler: (arg0: Uint8Array | null, arg1: URLResponse | null, arg2: Error | null) => void): URLSessionUploadTask;
+  /** Native: -[NSURLSession uploadTaskWithRequest:fromFile:], in Foundation. */
+  uploadTask(request: NSURLRequest, fileURL: NSURL): URLSessionUploadTask;
+  /** Native: -[NSURLSession uploadTaskWithRequest:fromFile:completionHandler:], in Foundation. */
+  uploadTask(request: NSURLRequest, fileURL: NSURL, completionHandler: (arg0: Uint8Array | null, arg1: URLResponse | null, arg2: Error | null) => void): URLSessionUploadTask;
+  /**
+   * Since iOS 17.0.
+   * Native: -[NSURLSession uploadTaskWithResumeData:], in Foundation.
+   */
+  uploadTask(resumeData: Uint8Array): URLSessionUploadTask;
+  /**
+   * Since iOS 17.0.
+   * Native: -[NSURLSession uploadTaskWithResumeData:completionHandler:], in Foundation.
+   */
+  uploadTask(resumeData: Uint8Array, completionHandler: (arg0: Uint8Array | null, arg1: URLResponse | null, arg2: Error | null) => void): URLSessionUploadTask;
+  /** Native: -[NSURLSession uploadTaskWithStreamedRequest:], in Foundation. */
+  uploadTask(request: NSURLRequest): URLSessionUploadTask;
+  /**
+   * Since iOS 13.0.
+   * Native: -[NSURLSession webSocketTaskWithRequest:], in Foundation.
+   */
+  webSocketTask(request: NSURLRequest): URLSessionWebSocketTask;
+  /**
+   * Since iOS 13.0.
+   * Native: -[NSURLSession webSocketTaskWithURL:], in Foundation.
+   */
+  webSocketTask(url: NSURL): URLSessionWebSocketTask;
+  /**
+   * Since iOS 13.0.
+   * Native: -[NSURLSession webSocketTaskWithURL:protocols:], in Foundation.
+   */
+  webSocketTask(url: NSURL, protocols: string[]): URLSessionWebSocketTask;
+}
+== Foundation.URLSessionConfiguration
+// lucent:ios/Foundation
+/**
+ * Native: Objective-C class NSURLSessionConfiguration, in Foundation.
+ * Since iOS 7.0.
+ */
+export declare class URLSessionConfiguration extends NSObject {
+  private readonly __lucent_URLSessionConfiguration: never;
+  /** Native: -[NSURLSessionConfiguration init], in Foundation. */
+  constructor();
+  /** Native: -[NSURLSessionConfiguration allowsCellularAccess] and -[NSURLSessionConfiguration setAllowsCellularAccess:], in Foundation. */
+  allowsCellularAccess: boolean;
+  /**
+   * Since iOS 13.0.
+   * Native: -[NSURLSessionConfiguration allowsConstrainedNetworkAccess] and -[NSURLSessionConfiguration setAllowsConstrainedNetworkAccess:], in Foundation.
+   */
+  allowsConstrainedNetworkAccess: boolean;
+  /**
+   * Since iOS 13.0.
+   * Native: -[NSURLSessionConfiguration allowsExpensiveNetworkAccess] and -[NSURLSessionConfiguration setAllowsExpensiveNetworkAccess:], in Foundation.
+   */
+  allowsExpensiveNetworkAccess: boolean;
+  /**
+   * Since iOS 26.1.
+   * Native: -[NSURLSessionConfiguration allowsUltraConstrainedNetworkAccess] and -[NSURLSessionConfiguration setAllowsUltraConstrainedNetworkAccess:], in Foundation.
+   */
+  allowsUltraConstrainedNetworkAccess: boolean;
+  /** Native: -[NSURLSessionConfiguration connectionProxyDictionary] and -[NSURLSessionConfiguration setConnectionProxyDictionary:], in Foundation. */
+  connectionProxyDictionary: Record<string, NSObject> | null;
+  /** Native: +[NSURLSessionConfiguration defaultSessionConfiguration], in Foundation. */
+  static readonly default: URLSessionConfiguration;
+  /**
+   * Since iOS 26.0.
+   * Native: -[NSURLSessionConfiguration enablesEarlyData] and -[NSURLSessionConfiguration setEnablesEarlyData:], in Foundation.
+   */
+  enablesEarlyData: boolean;
+  /** Native: +[NSURLSessionConfiguration ephemeralSessionConfiguration], in Foundation. */
+  static readonly ephemeral: URLSessionConfiguration;
+  /** Native: -[NSURLSessionConfiguration HTTPAdditionalHeaders] and -[NSURLSessionConfiguration setHTTPAdditionalHeaders:], in Foundation. */
+  httpAdditionalHeaders: Record<string, NSObject> | null;
+  /** Native: -[NSURLSessionConfiguration HTTPCookieAcceptPolicy] and -[NSURLSessionConfiguration setHTTPCookieAcceptPolicy:], in Foundation. */
+  httpCookieAcceptPolicy: HTTPCookie_AcceptPolicy;
+  /** Native: -[NSURLSessionConfiguration HTTPCookieStorage] and -[NSURLSessionConfiguration setHTTPCookieStorage:], in Foundation. */
+  httpCookieStorage: HTTPCookieStorage | null;
+  /** Native: -[NSURLSessionConfiguration HTTPMaximumConnectionsPerHost] and -[NSURLSessionConfiguration setHTTPMaximumConnectionsPerHost:], in Foundation. */
+  httpMaximumConnectionsPerHost: bigint;
+  /** Native: -[NSURLSessionConfiguration HTTPShouldSetCookies] and -[NSURLSessionConfiguration setHTTPShouldSetCookies:], in Foundation. */
+  httpShouldSetCookies: boolean;
+  /** Native: -[NSURLSessionConfiguration HTTPShouldUsePipelining] and -[NSURLSessionConfiguration setHTTPShouldUsePipelining:], in Foundation. */
+  httpShouldUsePipelining: boolean;
+  /** Native: -[NSURLSessionConfiguration identifier], in Foundation. */
+  readonly identifier: string | null;
+  /** Native: -[NSURLSessionConfiguration isDiscretionary] and -[NSURLSessionConfiguration setDiscretionary:], in Foundation. */
+  isDiscretionary: boolean;
+  /**
+   * Since iOS 11.0.
+   * Native: -[NSURLSessionConfiguration multipathServiceType] and -[NSURLSessionConfiguration setMultipathServiceType:], in Foundation.
+   */
+  multipathServiceType: URLSessionConfiguration_MultipathServiceType;
+  /** Native: -[NSURLSessionConfiguration networkServiceType] and -[NSURLSessionConfiguration setNetworkServiceType:], in Foundation. */
+  networkServiceType: NSURLRequest_NetworkServiceType;
+  /** Native: -[NSURLSessionConfiguration requestCachePolicy] and -[NSURLSessionConfiguration setRequestCachePolicy:], in Foundation. */
+  requestCachePolicy: NSURLRequest_CachePolicy;
+  /**
+   * Since iOS 16.0.
+   * Native: -[NSURLSessionConfiguration requiresDNSSECValidation] and -[NSURLSessionConfiguration setRequiresDNSSECValidation:], in Foundation.
+   */
+  requiresDNSSECValidation: boolean;
+  /** Native: -[NSURLSessionConfiguration sessionSendsLaunchEvents] and -[NSURLSessionConfiguration setSessionSendsLaunchEvents:], in Foundation. */
+  sessionSendsLaunchEvents: boolean;
+  /**
+   * Since iOS 8.0.
+   * Native: -[NSURLSessionConfiguration sharedContainerIdentifier] and -[NSURLSessionConfiguration setSharedContainerIdentifier:], in Foundation.
+   */
+  sharedContainerIdentifier: string | null;
+  /**
+   * Since iOS 9.0.
+   * Native: -[NSURLSessionConfiguration shouldUseExtendedBackgroundIdleMode] and -[NSURLSessionConfiguration setShouldUseExtendedBackgroundIdleMode:], in Foundation.
+   */
+  shouldUseExtendedBackgroundIdleMode: boolean;
+  /** Native: -[NSURLSessionConfiguration timeoutIntervalForRequest] and -[NSURLSessionConfiguration setTimeoutIntervalForRequest:], in Foundation. */
+  timeoutIntervalForRequest: number;
+  /** Native: -[NSURLSessionConfiguration timeoutIntervalForResource] and -[NSURLSessionConfiguration setTimeoutIntervalForResource:], in Foundation. */
+  timeoutIntervalForResource: number;
+  /** Native: -[NSURLSessionConfiguration TLSMaximumSupportedProtocol] and -[NSURLSessionConfiguration setTLSMaximumSupportedProtocol:], in Foundation. */
+  tlsMaximumSupportedProtocol: SSLProtocol;
+  /**
+   * Since iOS 13.0.
+   * Native: -[NSURLSessionConfiguration TLSMaximumSupportedProtocolVersion] and -[NSURLSessionConfiguration setTLSMaximumSupportedProtocolVersion:], in Foundation.
+   */
+  tlsMaximumSupportedProtocolVersion: tls_protocol_version_t;
+  /** Native: -[NSURLSessionConfiguration TLSMinimumSupportedProtocol] and -[NSURLSessionConfiguration setTLSMinimumSupportedProtocol:], in Foundation. */
+  tlsMinimumSupportedProtocol: SSLProtocol;
+  /**
+   * Since iOS 13.0.
+   * Native: -[NSURLSessionConfiguration TLSMinimumSupportedProtocolVersion] and -[NSURLSessionConfiguration setTLSMinimumSupportedProtocolVersion:], in Foundation.
+   */
+  tlsMinimumSupportedProtocolVersion: tls_protocol_version_t;
+  /** Native: -[NSURLSessionConfiguration URLCache] and -[NSURLSessionConfiguration setURLCache:], in Foundation. */
+  urlCache: URLCache | null;
+  /** Native: -[NSURLSessionConfiguration URLCredentialStorage] and -[NSURLSessionConfiguration setURLCredentialStorage:], in Foundation. */
+  urlCredentialStorage: URLCredentialStorage | null;
+  /**
+   * Since iOS 18.4.
+   * Native: -[NSURLSessionConfiguration usesClassicLoadingMode] and -[NSURLSessionConfiguration setUsesClassicLoadingMode:], in Foundation.
+   */
+  usesClassicLoadingMode: boolean;
+  /**
+   * Since iOS 11.0.
+   * Native: -[NSURLSessionConfiguration waitsForConnectivity] and -[NSURLSessionConfiguration setWaitsForConnectivity:], in Foundation.
+   */
+  waitsForConnectivity: boolean;
+  /**
+   * Since iOS 8.0.
+   * Native: +[NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:], in Foundation.
+   */
+  static background(identifier: string): URLSessionConfiguration;
+  /** Native: +[NSURLSessionConfiguration backgroundSessionConfiguration:], in Foundation. */
+  static backgroundSessionConfiguration(identifier: string): URLSessionConfiguration;
+  /** Native: +[NSURLSessionConfiguration new], in Foundation. */
+  static new(): URLSessionConfiguration;
+}
+
+export declare interface URLSessionConfiguration extends NSCopying {}
+== Foundation.URLSessionDownloadDelegate
+// lucent:ios/Foundation
+/**
+ * Native: Objective-C protocol NSURLSessionDownloadDelegate, in Foundation.
+ * An Objective-C protocol.
+ * Since iOS 7.0.
+ */
+export declare abstract class URLSessionDownloadDelegate {
+  /** Native: -[NSURLSessionDownloadDelegate URLSession:downloadTask:didFinishDownloadingToURL:], in Foundation. */
+  urlSession_downloadTask_didFinishDownloadingTo(session: URLSession, downloadTask: URLSessionDownloadTask, location: NSURL): void;
+  /** Native: -[NSURLSessionDownloadDelegate URLSession:downloadTask:didResumeAtOffset:expectedTotalBytes:], in Foundation. */
+  urlSession_downloadTask_didResumeAtOffset_expectedTotalBytes?(session: URLSession, downloadTask: URLSessionDownloadTask, fileOffset: bigint | number, expectedTotalBytes: bigint | number): void;
+  /** Native: -[NSURLSessionDownloadDelegate URLSession:downloadTask:didWriteData:totalBytesWritten:totalBytesExpectedToWrite:], in Foundation. */
+  urlSession_downloadTask_didWriteData_totalBytesWritten_totalBytesExpectedToWrite?(session: URLSession, downloadTask: URLSessionDownloadTask, bytesWritten: bigint | number, totalBytesWritten: bigint | number, totalBytesExpectedToWrite: bigint | number): void;
+  /** @lucentInherited Foundation.URLSessionDelegate 0 */
+  urlSessionDidFinishEvents_forBackgroundURLSession(session: URLSession): void;
+  /** @lucentInherited Foundation.URLSessionDelegate 1 */
+  urlSession_didBecomeInvalidWithError(session: URLSession, error: Error | null): void;
+  /** @lucentInherited Foundation.URLSessionDelegate 2 */
+  urlSession_didReceive_completionHandler(session: URLSession, challenge: URLAuthenticationChallenge, completionHandler: (arg0: URLSession_AuthChallengeDisposition, arg1: URLCredential | null) => void): void;
+}
+
+export declare interface URLSessionDownloadDelegate extends URLSessionTaskDelegate {}
+== Foundation.URLSessionTaskDelegate
+// lucent:ios/Foundation
+/**
+ * Native: Objective-C protocol NSURLSessionTaskDelegate, in Foundation.
+ * An Objective-C protocol.
+ * Since iOS 7.0.
+ */
+export declare abstract class URLSessionTaskDelegate {
+  /**
+   * Since iOS 16.0.
+   * Native: -[NSURLSessionTaskDelegate URLSession:didCreateTask:], in Foundation.
+   */
+  urlSession_didCreateTask?(session: URLSession, task: URLSessionTask): void;
+  /**
+   * Since iOS 11.0.
+   * Native: -[NSURLSessionTaskDelegate URLSession:taskIsWaitingForConnectivity:], in Foundation.
+   */
+  urlSession_taskIsWaitingForConnectivity?(session: URLSession, task: URLSessionTask): void;
+  /** Native: -[NSURLSessionTaskDelegate URLSession:task:didCompleteWithError:], in Foundation. */
+  urlSession_task_didCompleteWithError?(session: URLSession, task: URLSessionTask, error: Error | null): void;
+  /**
+   * Since iOS 10.0.
+   * Native: -[NSURLSessionTaskDelegate URLSession:task:didFinishCollectingMetrics:], in Foundation.
+   */
+  urlSession_task_didFinishCollecting?(session: URLSession, task: URLSessionTask, metrics: URLSessionTaskMetrics): void;
+  /**
+   * Since iOS 17.0.
+   * Native: -[NSURLSessionTaskDelegate URLSession:task:didReceiveInformationalResponse:], in Foundation.
+   */
+  urlSession_task_didReceiveInformationalResponse?(session: URLSession, task: URLSessionTask, response: HTTPURLResponse): void;
+  /** Native: -[NSURLSessionTaskDelegate URLSession:task:didReceiveChallenge:completionHandler:], in Foundation. */
+  urlSession_task_didReceive_completionHandler?(session: URLSession, task: URLSessionTask, challenge: URLAuthenticationChallenge, completionHandler: (arg0: URLSession_AuthChallengeDisposition, arg1: URLCredential | null) => void): void;
+  /** Native: -[NSURLSessionTaskDelegate URLSession:task:didSendBodyData:totalBytesSent:totalBytesExpectedToSend:], in Foundation. */
+  urlSession_task_didSendBodyData_totalBytesSent_totalBytesExpectedToSend?(session: URLSession, task: URLSessionTask, bytesSent: bigint | number, totalBytesSent: bigint | number, totalBytesExpectedToSend: bigint | number): void;
+  /** Native: -[NSURLSessionTaskDelegate URLSession:task:needNewBodyStream:], in Foundation. */
+  urlSession_task_needNewBodyStream?(session: URLSession, task: URLSessionTask, completionHandler: (arg0: InputStream | null) => void): void;
+  /**
+   * Since iOS 17.0.
+   * Native: -[NSURLSessionTaskDelegate URLSession:task:needNewBodyStreamFromOffset:completionHandler:], in Foundation.
+   */
+  urlSession_task_needNewBodyStreamFrom_completionHandler?(session: URLSession, task: URLSessionTask, offset: bigint | number, completionHandler: (arg0: InputStream | null) => void): void;
+  /**
+   * Since iOS 11.0.
+   * Native: -[NSURLSessionTaskDelegate URLSession:task:willBeginDelayedRequest:completionHandler:], in Foundation.
+   */
+  urlSession_task_willBeginDelayedRequest_completionHandler?(session: URLSession, task: URLSessionTask, request: NSURLRequest, completionHandler: (arg0: URLSession_DelayedRequestDisposition, arg1: NSURLRequest | null) => void): void;
+  /** Native: -[NSURLSessionTaskDelegate URLSession:task:willPerformHTTPRedirection:newRequest:completionHandler:], in Foundation. */
+  urlSession_task_willPerformHTTPRedirection_newRequest_completionHandler?(session: URLSession, task: URLSessionTask, response: HTTPURLResponse, request: NSURLRequest, completionHandler: (arg0: NSURLRequest | null) => void): void;
+}
+
+export declare interface URLSessionTaskDelegate extends URLSessionDelegate {}
+== Foundation.URLSessionDelegate
+// lucent:ios/Foundation
+/**
+ * Native: Objective-C protocol NSURLSessionDelegate, in Foundation.
+ * An Objective-C protocol.
+ * Since iOS 7.0.
+ */
+export declare abstract class URLSessionDelegate {
+  /** Native: -[NSURLSessionDelegate URLSessionDidFinishEventsForBackgroundURLSession:], in Foundation. */
+  urlSessionDidFinishEvents_forBackgroundURLSession?(session: URLSession): void;
+  /** Native: -[NSURLSessionDelegate URLSession:didBecomeInvalidWithError:], in Foundation. */
+  urlSession_didBecomeInvalidWithError?(session: URLSession, error: Error | null): void;
+  /** Native: -[NSURLSessionDelegate URLSession:didReceiveChallenge:completionHandler:], in Foundation. */
+  urlSession_didReceive_completionHandler?(session: URLSession, challenge: URLAuthenticationChallenge, completionHandler: (arg0: URLSession_AuthChallengeDisposition, arg1: URLCredential | null) => void): void;
+}
+== Foundation.URLSessionDownloadTask
+// lucent:ios/Foundation
+/**
+ * Native: Objective-C class NSURLSessionDownloadTask, in Foundation.
+ * Since iOS 7.0.
+ */
+export declare class URLSessionDownloadTask extends URLSessionTask {
+  private readonly __lucent_URLSessionDownloadTask: never;
+  /** Native: -[NSURLSessionDownloadTask init], in Foundation. */
+  constructor();
+  /** Native: -[NSURLSessionDownloadTask cancelByProducingResumeData:], in Foundation. */
+  cancel(completionHandler: (arg0: Uint8Array | null) => void): void;
+  /** Native: -[NSURLSessionDownloadTask cancelByProducingResumeData:], in Foundation; without its completion handler, a Promise it settles. */
+  cancelByProducingResumeData(): Promise<Uint8Array | null>;
+  /** Native: +[NSURLSessionDownloadTask new], in Foundation. */
+  static new(): URLSessionDownloadTask;
+  /** @lucentInherited Foundation.URLSessionTask 0 */
+  cancel(): void;
+}
+== Foundation.URLSessionTask
+// lucent:ios/Foundation
+/**
+ * Native: Objective-C class NSURLSessionTask, in Foundation.
+ * Since iOS 7.0.
+ */
+export declare class URLSessionTask extends NSObject {
+  private readonly __lucent_URLSessionTask: never;
+  /** Native: -[NSURLSessionTask init], in Foundation. */
+  constructor();
+  /**
+   * Since iOS 11.0.
+   * Native: -[NSURLSessionTask countOfBytesClientExpectsToReceive] and -[NSURLSessionTask setCountOfBytesClientExpectsToReceive:], in Foundation.
+   */
+  countOfBytesClientExpectsToReceive: bigint;
+  /**
+   * Since iOS 11.0.
+   * Native: -[NSURLSessionTask countOfBytesClientExpectsToSend] and -[NSURLSessionTask setCountOfBytesClientExpectsToSend:], in Foundation.
+   */
+  countOfBytesClientExpectsToSend: bigint;
+  /** Native: -[NSURLSessionTask countOfBytesExpectedToReceive], in Foundation. */
+  readonly countOfBytesExpectedToReceive: bigint;
+  /** Native: -[NSURLSessionTask countOfBytesExpectedToSend], in Foundation. */
+  readonly countOfBytesExpectedToSend: bigint;
+  /** Native: -[NSURLSessionTask countOfBytesReceived], in Foundation. */
+  readonly countOfBytesReceived: bigint;
+  /** Native: -[NSURLSessionTask countOfBytesSent], in Foundation. */
+  readonly countOfBytesSent: bigint;
+  /** Native: -[NSURLSessionTask currentRequest], in Foundation. */
+  readonly currentRequest: NSURLRequest | null;
+  /**
+   * Since iOS 15.0.
+   * Native: -[NSURLSessionTask delegate] and -[NSURLSessionTask setDelegate:], in Foundation.
+   */
+  delegate: URLSessionTaskDelegate | null;
+  /**
+   * Since iOS 11.0.
+   * Native: -[NSURLSessionTask earliestBeginDate] and -[NSURLSessionTask setEarliestBeginDate:], in Foundation.
+   */
+  earliestBeginDate: Date | null;
+  /** Native: -[NSURLSessionTask error], in Foundation. */
+  readonly error: Error | null;
+  /** Native: -[NSURLSessionTask originalRequest], in Foundation. */
+  readonly originalRequest: NSURLRequest | null;
+  /**
+   * Since iOS 14.5.
+   * Native: -[NSURLSessionTask prefersIncrementalDelivery] and -[NSURLSessionTask setPrefersIncrementalDelivery:], in Foundation.
+   */
+  prefersIncrementalDelivery: boolean;
+  /**
+   * Since iOS 8.0.
+   * Native: -[NSURLSessionTask priority] and -[NSURLSessionTask setPriority:], in Foundation.
+   */
+  priority: number;
+  /**
+   * Since iOS 11.0.
+   * Native: -[NSURLSessionTask progress], in Foundation.
+   */
+  readonly progress: Progress;
+  /** Native: -[NSURLSessionTask response], in Foundation. */
+  readonly response: URLResponse | null;
+  /** Native: -[NSURLSessionTask state], in Foundation. */
+  readonly state: URLSessionTask_State;
+  /** Native: -[NSURLSessionTask taskDescription] and -[NSURLSessionTask setTaskDescription:], in Foundation. */
+  taskDescription: string | null;
+  /** Native: -[NSURLSessionTask taskIdentifier], in Foundation. */
+  readonly taskIdentifier: bigint;
+  /** Native: -[NSURLSessionTask cancel], in Foundation. */
+  cancel(): void;
+  /** Native: +[NSURLSessionTask new], in Foundation. */
+  static new(): URLSessionTask;
+  /** Native: -[NSURLSessionTask resume], in Foundation. */
+  resume(): void;
+  /** Native: -[NSURLSessionTask suspend], in Foundation. */
+  suspend(): void;
+}
+
+export declare interface URLSessionTask extends NSCopying, ProgressReporting {}
+== Foundation.NSURL
+// lucent:ios/Foundation
+/**
+ * Native: Objective-C class NSURL, in Foundation.
+ */
+export declare class NSURL extends NSObject {
+  private readonly __lucent_NSURL: never;
+  /**
+   * Since iOS 8.0.
+   * Native: +[NSURL URLByResolvingAliasFileAtURL:options:error:], in Foundation.
+   */
+  constructor(url: NSURL, options: NSURL_BookmarkResolutionOptions | 0);
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL initByResolvingBookmarkData:options:relativeToURL:bookmarkDataIsStale:error:], in Foundation.
+   */
+  constructor(bookmarkData: Uint8Array, options: NSURL_BookmarkResolutionOptions | 0, relativeURL: NSURL | null, isStale: Out<boolean> | null);
+  /**
+   * Since iOS 9.0.
+   * Native: -[NSURL initFileURLWithPath:isDirectory:relativeToURL:], in Foundation.
+   */
+  constructor(path: string, isDir: boolean, baseURL: NSURL | null);
+  /**
+   * Since iOS 2.0.
+   * Native: -[NSURL initWithScheme:host:path:], in Foundation.
+   */
+  constructor(scheme: string, host: string | null, path: string);
+  /** Native: -[NSURL absoluteString], in Foundation. */
+  readonly absoluteString: string | null;
+  /** Native: -[NSURL absoluteURL], in Foundation. */
+  readonly absoluteURL: NSURL | null;
+  /** Native: -[NSURL baseURL], in Foundation. */
+  readonly baseURL: NSURL | null;
+  /**
+   * Since iOS 9.0.
+   * Native: -[NSURL dataRepresentation], in Foundation.
+   */
+  readonly dataRepresentation: Uint8Array;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL URLByDeletingLastPathComponent], in Foundation.
+   */
+  readonly deletingLastPathComponent: NSURL | null;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL URLByDeletingPathExtension], in Foundation.
+   */
+  readonly deletingPathExtension: NSURL | null;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL filePathURL], in Foundation.
+   */
+  readonly filePathURL: NSURL | null;
+  /** Native: -[NSURL fragment], in Foundation. */
+  readonly fragment: string | null;
+  /**
+   * Since iOS 9.0.
+   * Native: -[NSURL hasDirectoryPath], in Foundation.
+   */
+  readonly hasDirectoryPath: boolean;
+  /** Native: -[NSURL host], in Foundation. */
+  readonly host: string | null;
+  /** Native: -[NSURL isFileURL], in Foundation. */
+  readonly isFileURL: boolean;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL lastPathComponent], in Foundation.
+   */
+  readonly lastPathComponent: string | null;
+  /**
+   * Since iOS 2.0.
+   * Native: -[NSURL parameterString], in Foundation.
+   */
+  readonly parameterString: string | null;
+  /** Native: -[NSURL password], in Foundation. */
+  readonly password: string | null;
+  /** Native: -[NSURL path], in Foundation. */
+  readonly path: string | null;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL pathComponents], in Foundation.
+   */
+  readonly pathComponents: string[] | null;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL pathExtension], in Foundation.
+   */
+  readonly pathExtension: string | null;
+  /** Native: -[NSURL port], in Foundation. */
+  readonly port: NSNumber | null;
+  /** Native: -[NSURL query], in Foundation. */
+  readonly query: string | null;
+  /** Native: -[NSURL relativePath], in Foundation. */
+  readonly relativePath: string | null;
+  /** Native: -[NSURL relativeString], in Foundation. */
+  readonly relativeString: string;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL URLByResolvingSymlinksInPath], in Foundation.
+   */
+  readonly resolvingSymlinksInPath: NSURL | null;
+  /** Native: -[NSURL resourceSpecifier], in Foundation. */
+  readonly resourceSpecifier: string | null;
+  /** Native: -[NSURL scheme], in Foundation. */
+  readonly scheme: string | null;
+  /** Native: -[NSURL standardizedURL], in Foundation. */
+  readonly standardized: NSURL | null;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL URLByStandardizingPath], in Foundation.
+   */
+  readonly standardizingPath: NSURL | null;
+  /** Native: -[NSURL user], in Foundation. */
+  readonly user: string | null;
+  /**
+   * Since iOS 9.0.
+   * Native: +[NSURL absoluteURLWithDataRepresentation:relativeToURL:], in Foundation.
+   */
+  static absoluteURL(data: Uint8Array, baseURL: NSURL | null): NSURL;
+  /**
+   * Since iOS 9.0.
+   * Native: +[NSURL initAbsoluteURLWithDataRepresentation:relativeToURL:], in Foundation.
+   */
+  static absoluteURLWithDataRepresentationRelativeTo(data: Uint8Array, baseURL: NSURL | null): NSURL;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL URLByAppendingPathComponent:], in Foundation.
+   */
+  appendingPathComponent(pathComponent: string): NSURL | null;
+  /**
+   * Since iOS 5.0.
+   * Native: -[NSURL URLByAppendingPathComponent:isDirectory:], in Foundation.
+   */
+  appendingPathComponent(pathComponent: string, isDirectory: boolean): NSURL | null;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL URLByAppendingPathExtension:], in Foundation.
+   */
+  appendingPathExtension(pathExtension: string): NSURL | null;
+  /**
+   * Since iOS 4.0.
+   * Native: +[NSURL bookmarkDataWithContentsOfURL:error:], in Foundation.
+   */
+  static bookmarkData(bookmarkFileURL: NSURL): Uint8Array;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL bookmarkDataWithOptions:includingResourceValuesForKeys:relativeToURL:error:], in Foundation.
+   */
+  bookmarkData(options: NSURL_BookmarkCreationOptions | 0, keys: string[] | null, relativeURL: NSURL | null): Uint8Array;
+  /**
+   * Since iOS 8.0.
+   * Native: -[NSURL checkPromisedItemIsReachableAndReturnError:], in Foundation.
+   */
+  checkPromisedItemIsReachableAndReturnError(error: Out<Error> | null): boolean;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL checkResourceIsReachableAndReturnError:], in Foundation.
+   */
+  checkResourceIsReachableAndReturnError(error: Out<Error> | null): boolean;
+  /**
+   * Since iOS 9.0.
+   * Native: +[NSURL initWithDataRepresentation:relativeToURL:], in Foundation.
+   */
+  static dataRepresentationRelativeTo(data: Uint8Array, baseURL: NSURL | null): NSURL;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL fileReferenceURL], in Foundation.
+   */
+  fileReferenceURL(): NSURL | null;
+  /** Native: +[NSURL fileURLWithPath:], in Foundation. */
+  static fileURL(path: string): NSURL;
+  /**
+   * Since iOS 2.0.
+   * Native: +[NSURL fileURLWithPath:isDirectory:], in Foundation.
+   */
+  static fileURL(path: string, isDir: boolean): NSURL;
+  /**
+   * Since iOS 9.0.
+   * Native: +[NSURL fileURLWithPath:isDirectory:relativeToURL:], in Foundation.
+   */
+  static fileURL(path: string, isDir: boolean, baseURL: NSURL | null): NSURL;
+  /**
+   * Since iOS 9.0.
+   * Native: +[NSURL fileURLWithPath:relativeToURL:], in Foundation.
+   */
+  static fileURL(path: string, baseURL: NSURL | null): NSURL;
+  /**
+   * Since iOS 4.0.
+   * Native: +[NSURL fileURLWithPathComponents:], in Foundation.
+   */
+  static fileURL(components: string[]): NSURL | null;
+  /** Native: +[NSURL initFileURLWithPath:], in Foundation. */
+  static fileURLWithPath(path: string): NSURL;
+  /**
+   * Since iOS 2.0.
+   * Native: +[NSURL initFileURLWithPath:isDirectory:], in Foundation.
+   */
+  static fileURLWithPathIsDirectory(path: string, isDir: boolean): NSURL;
+  /**
+   * Since iOS 9.0.
+   * Native: +[NSURL initFileURLWithPath:relativeToURL:], in Foundation.
+   */
+  static fileURLWithPathRelativeTo(path: string, baseURL: NSURL | null): NSURL;
+  /**
+   * Since iOS 8.0.
+   * Native: -[NSURL getPromisedItemResourceValue:forKey:error:], in Foundation.
+   */
+  getPromisedItemResourceValue(value: Out<NSObject>, key: string): void;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL getResourceValue:forKey:error:], in Foundation.
+   */
+  getResourceValue(value: Out<NSObject>, key: string): void;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL isFileReferenceURL], in Foundation.
+   */
+  isFileReferenceURL(): boolean;
+  /**
+   * Since iOS 8.0.
+   * Native: -[NSURL promisedItemResourceValuesForKeys:error:], in Foundation.
+   */
+  promisedItemResourceValues(keys: string[]): Record<string, NSObject>;
+  /**
+   * Since iOS 7.0.
+   * Native: -[NSURL removeAllCachedResourceValues], in Foundation.
+   */
+  removeAllCachedResourceValues(): void;
+  /**
+   * Since iOS 7.0.
+   * Native: -[NSURL removeCachedResourceValueForKey:], in Foundation.
+   */
+  removeCachedResourceValue(key: string): void;
+  /**
+   * Since iOS 4.0.
+   * Native: +[NSURL resourceValuesForKeys:fromBookmarkData:], in Foundation.
+   */
+  static resourceValues(keys: string[], bookmarkData: Uint8Array): Record<string, NSObject> | null;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL resourceValuesForKeys:error:], in Foundation.
+   */
+  resourceValues(keys: string[]): Record<string, NSObject>;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL setResourceValue:forKey:error:], in Foundation.
+   */
+  setResourceValue(value: ObjCValue | null, key: string): void;
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSURL setResourceValues:error:], in Foundation.
+   */
+  setResourceValues(keyedValues: Record<string, ObjCValue>): void;
+  /**
+   * Since iOS 8.0.
+   * Native: -[NSURL startAccessingSecurityScopedResource], in Foundation.
+   */
+  startAccessingSecurityScopedResource(): boolean;
+  /**
+   * Since iOS 8.0.
+   * Native: -[NSURL stopAccessingSecurityScopedResource], in Foundation.
+   */
+  stopAccessingSecurityScopedResource(): void;
+  /** Native: +[NSURL initWithString:], in Foundation. */
+  static string(URLString: string): NSURL | null;
+  /**
+   * Since iOS 17.0.
+   * Native: +[NSURL initWithString:encodingInvalidCharacters:], in Foundation.
+   */
+  static stringEncodingInvalidCharacters(URLString: string, encodingInvalidCharacters: boolean): NSURL | null;
+  /** Native: +[NSURL initWithString:relativeToURL:], in Foundation. */
+  static stringRelativeTo(URLString: string, baseURL: NSURL | null): NSURL | null;
+  /**
+   * Since iOS 4.0.
+   * Native: +[NSURL writeBookmarkData:toURL:options:error:], in Foundation.
+   */
+  static writeBookmarkData(bookmarkData: Uint8Array, bookmarkFileURL: NSURL, options: bigint | number): void;
+  /** @lucentInherited Foundation.NSCoding 0 */
+  encode_with(coder: NSCoder): void;
+}
+
+export declare interface NSURL extends NSCopying, NSItemProviderReading, NSItemProviderWriting, NSSecureCoding {}
+== UIKit.UIView
+// lucent:ios/UIKit
+/**
+ * Native: Objective-C class UIView, in UIKit.
+ * Main thread only: use it inside `main(() => …)` from lucent:thread.
+ * Since iOS 2.0.
+ */
+export declare class UIView extends UIResponder {
+  private readonly __lucent_UIView: never;
+  /** Native: -[UIView init], in UIKit. */
+  constructor();
+  /** Native: -[UIView initWithCoder:], in UIKit. */
+  constructor(coder: NSCoder);
+  /** Native: -[UIView initWithFrame:], in UIKit. */
+  constructor(frame: CGRect);
+  /**
+   * Since iOS 11.0.
+   * Native: -[UIView accessibilityIgnoresInvertColors] and -[UIView setAccessibilityIgnoresInvertColors:], in UIKit.
+   */
+  accessibilityIgnoresInvertColors: boolean;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView alignmentRectInsets], in UIKit.
+   */
+  readonly alignmentRectInsets: UIEdgeInsets;
+  /** Native: -[UIView alpha] and -[UIView setAlpha:], in UIKit. */
+  alpha: number;
+  /**
+   * Since iOS 16.0.
+   * Native: -[UIView anchorPoint] and -[UIView setAnchorPoint:], in UIKit.
+   */
+  anchorPoint: CGPoint;
+  /**
+   * Since iOS 15.0.
+   * Native: -[UIView appliedContentSizeCategoryLimitsDescription], in UIKit.
+   */
+  readonly appliedContentSizeCategoryLimitsDescription: string;
+  /** Native: +[UIView areAnimationsEnabled], in UIKit. */
+  static readonly areAnimationsEnabled: boolean;
+  /** Native: -[UIView autoresizesSubviews] and -[UIView setAutoresizesSubviews:], in UIKit. */
+  autoresizesSubviews: boolean;
+  /** Native: -[UIView autoresizingMask] and -[UIView setAutoresizingMask:], in UIKit. */
+  autoresizingMask: UIView_AutoresizingMask | 0;
+  /** Native: -[UIView backgroundColor] and -[UIView setBackgroundColor:], in UIKit. */
+  backgroundColor: UIColor | null;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView bottomAnchor], in UIKit.
+   */
+  readonly bottomAnchor: NSLayoutYAxisAnchor;
+  /** Native: -[UIView bounds] and -[UIView setBounds:], in UIKit. */
+  bounds: CGRect;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView canBecomeFocused], in UIKit.
+   */
+  readonly canBecomeFocused: boolean;
+  /** Native: -[UIView center] and -[UIView setCenter:], in UIKit. */
+  center: CGPoint;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView centerXAnchor], in UIKit.
+   */
+  readonly centerXAnchor: NSLayoutXAxisAnchor;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView centerYAnchor], in UIKit.
+   */
+  readonly centerYAnchor: NSLayoutYAxisAnchor;
+  /** Native: -[UIView clearsContextBeforeDrawing] and -[UIView setClearsContextBeforeDrawing:], in UIKit. */
+  clearsContextBeforeDrawing: boolean;
+  /** Native: -[UIView clipsToBounds] and -[UIView setClipsToBounds:], in UIKit. */
+  clipsToBounds: boolean;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView constraints], in UIKit.
+   */
+  readonly constraints: NSLayoutConstraint[];
+  /** Native: -[UIView contentMode] and -[UIView setContentMode:], in UIKit. */
+  contentMode: UIView_ContentMode;
+  /**
+   * Since iOS 4.0.
+   * Native: -[UIView contentScaleFactor] and -[UIView setContentScaleFactor:], in UIKit.
+   */
+  contentScaleFactor: number;
+  /**
+   * Since iOS 26.0.
+   * Native: Swift UIView.cornerConfiguration, in UIKit.
+   */
+  cornerConfiguration: UICornerConfiguration;
+  /**
+   * Since iOS 11.0.
+   * Native: -[UIView directionalLayoutMargins] and -[UIView setDirectionalLayoutMargins:], in UIKit.
+   */
+  directionalLayoutMargins: NSDirectionalEdgeInsets;
+  /**
+   * Since iOS 10.0.
+   * Native: -[UIView effectiveUserInterfaceLayoutDirection], in UIKit.
+   */
+  readonly effectiveUserInterfaceLayoutDirection: UIUserInterfaceLayoutDirection;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView firstBaselineAnchor], in UIKit.
+   */
+  readonly firstBaselineAnchor: NSLayoutYAxisAnchor;
+  /**
+   * Since iOS 15.0.
+   * Native: -[UIView focusEffect] and -[UIView setFocusEffect:], in UIKit.
+   */
+  focusEffect: UIFocusEffect | null;
+  /**
+   * Since iOS 14.0.
+   * Native: -[UIView focusGroupIdentifier] and -[UIView setFocusGroupIdentifier:], in UIKit.
+   */
+  focusGroupIdentifier: string | null;
+  /**
+   * Since iOS 15.0.
+   * Native: -[UIView focusGroupPriority] and -[UIView setFocusGroupPriority:], in UIKit.
+   */
+  focusGroupPriority: string;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView viewForFirstBaselineLayout], in UIKit.
+   */
+  readonly forFirstBaselineLayout: UIView;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView viewForLastBaselineLayout], in UIKit.
+   */
+  readonly forLastBaselineLayout: UIView;
+  /** Native: -[UIView frame] and -[UIView setFrame:], in UIKit. */
+  frame: CGRect;
+  /**
+   * Since iOS 3.2.
+   * Native: -[UIView gestureRecognizers] and -[UIView setGestureRecognizers:], in UIKit.
+   */
+  gestureRecognizers: UIGestureRecognizer[] | null;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView hasAmbiguousLayout], in UIKit.
+   */
+  readonly hasAmbiguousLayout: boolean;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView heightAnchor], in UIKit.
+   */
+  readonly heightAnchor: NSLayoutDimension;
+  /**
+   * Since iOS 17.0.
+   * Native: -[UIView hoverStyle] and -[UIView setHoverStyle:], in UIKit.
+   */
+  hoverStyle: UIHoverStyle | null;
+  /**
+   * Since iOS 9.0.
+   * Native: +[UIView inheritedAnimationDuration], in UIKit.
+   */
+  static readonly inheritedAnimationDuration: number;
+  /**
+   * Since iOS 11.0.
+   * Native: -[UIView insetsLayoutMarginsFromSafeArea] and -[UIView setInsetsLayoutMarginsFromSafeArea:], in UIKit.
+   */
+  insetsLayoutMarginsFromSafeArea: boolean;
+  /**
+   * Since iOS 11.0.
+   * Native: -[UIView interactions] and -[UIView setInteractions:], in UIKit.
+   */
+  interactions: UIInteraction[];
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView intrinsicContentSize], in UIKit.
+   */
+  readonly intrinsicContentSize: CGSize;
+  /** Native: -[UIView isExclusiveTouch] and -[UIView setExclusiveTouch:], in UIKit. */
+  isExclusiveTouch: boolean;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView isFocused], in UIKit.
+   */
+  readonly isFocused: boolean;
+  /** Native: -[UIView isHidden] and -[UIView setHidden:], in UIKit. */
+  isHidden: boolean;
+  /** Native: -[UIView isMultipleTouchEnabled] and -[UIView setMultipleTouchEnabled:], in UIKit. */
+  isMultipleTouchEnabled: boolean;
+  /** Native: -[UIView isOpaque] and -[UIView setOpaque:], in UIKit. */
+  isOpaque: boolean;
+  /** Native: -[UIView isUserInteractionEnabled] and -[UIView setUserInteractionEnabled:], in UIKit. */
+  isUserInteractionEnabled: boolean;
+  /**
+   * Since iOS 15.0.
+   * Native: -[UIView keyboardLayoutGuide], in UIKit.
+   */
+  readonly keyboardLayoutGuide: UIKeyboardLayoutGuide;
+  /**
+   * Since iOS 13.0.
+   * Native: -[UIView largeContentImage] and -[UIView setLargeContentImage:], in UIKit.
+   */
+  largeContentImage: UIImage | null;
+  /**
+   * Since iOS 13.0.
+   * Native: -[UIView largeContentImageInsets] and -[UIView setLargeContentImageInsets:], in UIKit.
+   */
+  largeContentImageInsets: UIEdgeInsets;
+  /**
+   * Since iOS 13.0.
+   * Native: -[UIView largeContentTitle] and -[UIView setLargeContentTitle:], in UIKit.
+   */
+  largeContentTitle: string | null;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView lastBaselineAnchor], in UIKit.
+   */
+  readonly lastBaselineAnchor: NSLayoutYAxisAnchor;
+  /** Native: -[UIView layer], in UIKit. */
+  readonly layer: CALayer;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView layoutGuides], in UIKit.
+   */
+  readonly layoutGuides: UILayoutGuide[];
+  /**
+   * Since iOS 8.0.
+   * Native: -[UIView layoutMargins] and -[UIView setLayoutMargins:], in UIKit.
+   */
+  layoutMargins: UIEdgeInsets;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView layoutMarginsGuide], in UIKit.
+   */
+  readonly layoutMarginsGuide: UILayoutGuide;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView leadingAnchor], in UIKit.
+   */
+  readonly leadingAnchor: NSLayoutXAxisAnchor;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView leftAnchor], in UIKit.
+   */
+  readonly leftAnchor: NSLayoutXAxisAnchor;
+  /**
+   * Since iOS 8.0.
+   * Native: -[UIView maskView] and -[UIView setMaskView:], in UIKit.
+   */
+  mask: UIView | null;
+  /**
+   * Since iOS 15.0.
+   * Native: -[UIView maximumContentSizeCategory] and -[UIView setMaximumContentSizeCategory:], in UIKit.
+   */
+  maximumContentSizeCategory: string | null;
+  /**
+   * Since iOS 15.0.
+   * Native: -[UIView minimumContentSizeCategory] and -[UIView setMinimumContentSizeCategory:], in UIKit.
+   */
+  minimumContentSizeCategory: string | null;
+  /**
+   * Since iOS 7.0.
+   * Native: -[UIView motionEffects] and -[UIView setMotionEffects:], in UIKit.
+   */
+  motionEffects: UIMotionEffect[];
+  /**
+   * Since iOS 13.0.
+   * Native: -[UIView overrideUserInterfaceStyle] and -[UIView setOverrideUserInterfaceStyle:], in UIKit.
+   */
+  overrideUserInterfaceStyle: UIUserInterfaceStyle;
+  /**
+   * Since iOS 8.0.
+   * Native: -[UIView preservesSuperviewLayoutMargins] and -[UIView setPreservesSuperviewLayoutMargins:], in UIKit.
+   */
+  preservesSuperviewLayoutMargins: boolean;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView readableContentGuide], in UIKit.
+   */
+  readonly readableContentGuide: UILayoutGuide;
+  /**
+   * Since iOS 6.0.
+   * Native: +[UIView requiresConstraintBasedLayout], in UIKit.
+   */
+  static readonly requiresConstraintBasedLayout: boolean;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView restorationIdentifier] and -[UIView setRestorationIdentifier:], in UIKit.
+   */
+  restorationIdentifier: string | null;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView rightAnchor], in UIKit.
+   */
+  readonly rightAnchor: NSLayoutXAxisAnchor;
+  /**
+   * Since iOS 11.0.
+   * Native: -[UIView safeAreaInsets], in UIKit.
+   */
+  readonly safeAreaInsets: UIEdgeInsets;
+  /**
+   * Since iOS 11.0.
+   * Native: -[UIView safeAreaLayoutGuide], in UIKit.
+   */
+  readonly safeAreaLayoutGuide: UILayoutGuide;
+  /**
+   * Since iOS 13.0.
+   * Native: -[UIView scalesLargeContentImage] and -[UIView setScalesLargeContentImage:], in UIKit.
+   */
+  scalesLargeContentImage: boolean;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView semanticContentAttribute] and -[UIView setSemanticContentAttribute:], in UIKit.
+   */
+  semanticContentAttribute: UISemanticContentAttribute;
+  /**
+   * Since iOS 13.0.
+   * Native: -[UIView showsLargeContentViewer] and -[UIView setShowsLargeContentViewer:], in UIKit.
+   */
+  showsLargeContentViewer: boolean;
+  /** Native: -[UIView subviews], in UIKit. */
+  readonly subviews: UIView[];
+  /** Native: -[UIView superview], in UIKit. */
+  readonly superview: UIView | null;
+  /** Native: -[UIView tag] and -[UIView setTag:], in UIKit. */
+  tag: bigint;
+  /**
+   * Since iOS 7.0.
+   * Native: -[UIView tintAdjustmentMode] and -[UIView setTintAdjustmentMode:], in UIKit.
+   */
+  tintAdjustmentMode: UIView_TintAdjustmentMode;
+  /**
+   * Since iOS 7.0.
+   * Native: -[UIView tintColor] and -[UIView setTintColor:], in UIKit.
+   */
+  tintColor: UIColor | null;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView topAnchor], in UIKit.
+   */
+  readonly topAnchor: NSLayoutYAxisAnchor;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView trailingAnchor], in UIKit.
+   */
+  readonly trailingAnchor: NSLayoutXAxisAnchor;
+  /**
+   * Since iOS 17.0.
+   * Native: Swift UIView.traitOverrides, in UIKit.
+   */
+  traitOverrides: UITraitOverrides;
+  /** Native: -[UIView transform] and -[UIView setTransform:], in UIKit. */
+  transform: CGAffineTransform;
+  /**
+   * Since iOS 13.0.
+   * Native: -[UIView transform3D] and -[UIView setTransform3D:], in UIKit.
+   */
+  transform3D: CATransform3D;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView translatesAutoresizingMaskIntoConstraints] and -[UIView setTranslatesAutoresizingMaskIntoConstraints:], in UIKit.
+   */
+  translatesAutoresizingMaskIntoConstraints: boolean;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView widthAnchor], in UIKit.
+   */
+  readonly widthAnchor: NSLayoutDimension;
+  /** Native: -[UIView window], in UIKit. */
+  readonly window: UIWindow | null;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView addConstraint:], in UIKit.
+   */
+  addConstraint(constraint: NSLayoutConstraint): void;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView addConstraints:], in UIKit.
+   */
+  addConstraints(constraints: NSLayoutConstraint[]): void;
+  /**
+   * Since iOS 3.2.
+   * Native: -[UIView addGestureRecognizer:], in UIKit.
+   */
+  addGestureRecognizer(gestureRecognizer: UIGestureRecognizer): void;
+  /**
+   * Since iOS 11.0.
+   * Native: -[UIView addInteraction:], in UIKit.
+   */
+  addInteraction(interaction: UIInteraction): void;
+  /**
+   * Since iOS 7.0.
+   * Native: +[UIView addKeyframeWithRelativeStartTime:relativeDuration:animations:], in UIKit.
+   */
+  static addKeyframe(frameStartTime: number, frameDuration: number, animations: () => void): void;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView addLayoutGuide:], in UIKit.
+   */
+  addLayoutGuide(layoutGuide: UILayoutGuide): void;
+  /**
+   * Since iOS 7.0.
+   * Native: -[UIView addMotionEffect:], in UIKit.
+   */
+  addMotionEffect(effect: UIMotionEffect): void;
+  /** Native: -[UIView addSubview:], in UIKit. */
+  addSubview(view: UIView): void;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView alignmentRectForFrame:], in UIKit.
+   */
+  alignmentRect(frame: CGRect): CGRect;
+  /**
+   * Since iOS 4.0.
+   * Native: +[UIView animateWithDuration:animations:], in UIKit.
+   */
+  static animate(duration: number, animations: () => void): void;
+  /**
+   * Since iOS 4.0.
+   * Native: +[UIView animateWithDuration:animations:completion:], in UIKit.
+   */
+  static animate(duration: number, animations: () => void, completion: ((arg0: boolean) => void) | null): void;
+  /**
+   * Since iOS 4.0.
+   * Native: +[UIView animateWithDuration:delay:options:animations:completion:], in UIKit.
+   */
+  static animate(duration: number, delay: number, options: UIView_AnimationOptions | 0, animations: () => void, completion: ((arg0: boolean) => void) | null): void;
+  /**
+   * Since iOS 7.0.
+   * Native: +[UIView animateWithDuration:delay:usingSpringWithDamping:initialSpringVelocity:options:animations:completion:], in UIKit.
+   */
+  static animate(duration: number, delay: number, dampingRatio: number, velocity: number, options: UIView_AnimationOptions | 0, animations: () => void, completion: ((arg0: boolean) => void) | null): void;
+  /**
+   * Since iOS 7.0.
+   * Native: +[UIView animateKeyframesWithDuration:delay:options:animations:completion:], in UIKit.
+   */
+  static animateKeyframes(duration: number, delay: number, options: UIView_KeyframeAnimationOptions | 0, animations: () => void, completion: ((arg0: boolean) => void) | null): void;
+  /**
+   * Since iOS 7.0.
+   * Native: +[UIView animateKeyframesWithDuration:delay:options:animations:completion:], in UIKit; without its completion handler, a Promise it settles.
+   */
+  static animateKeyframes(duration: number, delay: number, options: UIView_KeyframeAnimationOptions | 0, animations: () => void): Promise<boolean>;
+  /** Native: -[UIView bringSubviewToFront:], in UIKit. */
+  bringSubviewToFront(view: UIView): void;
+  /** Native: +[UIView commitAnimations], in UIKit. */
+  static commitAnimations(): void;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView constraintsAffectingLayoutForAxis:], in UIKit.
+   */
+  constraintsAffectingLayout(axis: NSLayoutConstraint_Axis): NSLayoutConstraint[];
+  /**
+   * Since iOS 11.0.
+   * Native: Swift UIView.contains(_:), in UIKit.
+   */
+  contains(environment: UIFocusEnvironment): boolean;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView contentCompressionResistancePriorityForAxis:], in UIKit.
+   */
+  contentCompressionResistancePriority(axis: NSLayoutConstraint_Axis): string;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView contentHuggingPriorityForAxis:], in UIKit.
+   */
+  contentHuggingPriority(axis: NSLayoutConstraint_Axis): string;
+  /** Native: -[UIView convertPoint:toView:], in UIKit. */
+  convert(point: CGPoint, view: UIView | null): CGPoint;
+  /** Native: -[UIView convertRect:toView:], in UIKit. */
+  convert(rect: CGRect, view: UIView | null): CGRect;
+  /** Native: -[UIView convertPoint:fromView:], in UIKit. */
+  convertFrom(point: CGPoint, view: UIView | null): CGPoint;
+  /** Native: -[UIView convertRect:fromView:], in UIKit. */
+  convertRectFromView(rect: CGRect, view: UIView | null): CGRect;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView decodeRestorableStateWithCoder:], in UIKit.
+   */
+  decodeRestorableState(coder: NSCoder): void;
+  /** Native: -[UIView didAddSubview:], in UIKit. */
+  didAddSubview(subview: UIView): void;
+  /** Native: -[UIView didMoveToSuperview], in UIKit. */
+  didMoveToSuperview(): void;
+  /** Native: -[UIView didMoveToWindow], in UIKit. */
+  didMoveToWindow(): void;
+  /**
+   * Since iOS 26.0.
+   * Native: Swift UIView.directionalEdgeInsets(for:), in UIKit.
+   */
+  directionalEdgeInsets(region: UIView_LayoutRegion): NSDirectionalEdgeInsets;
+  /** Native: -[UIView drawRect:], in UIKit. */
+  draw(rect: CGRect): void;
+  /** Native: -[UIView drawRect:forViewPrintFormatter:], in UIKit. */
+  draw(rect: CGRect, formatter: UIViewPrintFormatter): void;
+  /**
+   * Since iOS 7.0.
+   * Native: -[UIView drawViewHierarchyInRect:afterScreenUpdates:], in UIKit.
+   */
+  drawHierarchy(rect: CGRect, afterUpdates: boolean): boolean;
+  /**
+   * Since iOS 26.0.
+   * Native: Swift UIView.edgeInsets(for:), in UIKit.
+   */
+  edgeInsets(region: UIView_LayoutRegion): UIEdgeInsets;
+  /**
+   * Since iOS 26.0.
+   * Native: -[UIView effectiveRadiusForCorner:], in UIKit.
+   */
+  effectiveRadius(corner: UIRectCorner | 0): number;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView encodeRestorableStateWithCoder:], in UIKit.
+   */
+  encodeRestorableState(coder: NSCoder): void;
+  /** Native: -[UIView endEditing:], in UIKit. */
+  endEditing(force: boolean): boolean;
+  /** Native: -[UIView exchangeSubviewAtIndex:withSubviewAtIndex:], in UIKit. */
+  exchangeSubview(index1: bigint | number, index2: bigint | number): void;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView exerciseAmbiguityInLayout], in UIKit.
+   */
+  exerciseAmbiguityInLayout(): void;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView viewForBaselineLayout], in UIKit.
+   */
+  forBaselineLayout(): UIView;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView frameForAlignmentRect:], in UIKit.
+   */
+  frameForAlignmentRect(alignmentRect: CGRect): CGRect;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView gestureRecognizerShouldBegin:], in UIKit.
+   */
+  gestureRecognizerShouldBegin(gestureRecognizer: UIGestureRecognizer): boolean;
+  /** Native: -[UIView hitTest:withEvent:], in UIKit. */
+  hitTest(point: CGPoint, event: UIEvent | null): UIView | null;
+  /** Native: -[UIView insertSubview:atIndex:], in UIKit. */
+  insertSubview(view: UIView, index: bigint | number): void;
+  /** Native: -[UIView insertSubview:belowSubview:], in UIKit. */
+  insertSubview(view: UIView, siblingSubview: UIView): void;
+  /** Native: -[UIView insertSubview:aboveSubview:], in UIKit. */
+  insertSubviewAboveSubview(view: UIView, siblingSubview: UIView): void;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView invalidateIntrinsicContentSize], in UIKit.
+   */
+  invalidateIntrinsicContentSize(): void;
+  /** Native: -[UIView isDescendantOfView:], in UIKit. */
+  isDescendant(view: UIView): boolean;
+  /**
+   * Since iOS 26.0.
+   * Native: Swift UIView.layoutGuide(for:), in UIKit.
+   */
+  layoutGuide(region: UIView_LayoutRegion): UILayoutGuide;
+  /** Native: -[UIView layoutIfNeeded], in UIKit. */
+  layoutIfNeeded(): void;
+  /**
+   * Since iOS 8.0.
+   * Native: -[UIView layoutMarginsDidChange], in UIKit.
+   */
+  layoutMarginsDidChange(): void;
+  /** Native: -[UIView layoutSubviews], in UIKit. */
+  layoutSubviews(): void;
+  /**
+   * Since iOS 13.0.
+   * Native: +[UIView modifyAnimationsWithRepeatCount:autoreverses:animations:], in UIKit.
+   */
+  static modifyAnimations(count: number, autoreverses: boolean, animations: () => void): void;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView needsUpdateConstraints], in UIKit.
+   */
+  needsUpdateConstraints(): boolean;
+  /**
+   * Since iOS 7.0.
+   * Native: +[UIView performSystemAnimation:onViews:options:animations:completion:], in UIKit.
+   */
+  static perform(animation: UIView_SystemAnimation, views: UIView[], options: UIView_AnimationOptions | 0, parallelAnimations: (() => void) | null, completion: ((arg0: boolean) => void) | null): void;
+  /**
+   * Since iOS 7.0.
+   * Native: +[UIView performWithoutAnimation:], in UIKit.
+   */
+  static performWithoutAnimation(actionsWithoutAnimation: () => void): void;
+  /** Native: -[UIView pointInside:withEvent:], in UIKit. */
+  point(point: CGPoint, event: UIEvent | null): boolean;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView removeConstraint:], in UIKit.
+   */
+  removeConstraint(constraint: NSLayoutConstraint): void;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView removeConstraints:], in UIKit.
+   */
+  removeConstraints(constraints: NSLayoutConstraint[]): void;
+  /** Native: -[UIView removeFromSuperview], in UIKit. */
+  removeFromSuperview(): void;
+  /**
+   * Since iOS 3.2.
+   * Native: -[UIView removeGestureRecognizer:], in UIKit.
+   */
+  removeGestureRecognizer(gestureRecognizer: UIGestureRecognizer): void;
+  /**
+   * Since iOS 11.0.
+   * Native: -[UIView removeInteraction:], in UIKit.
+   */
+  removeInteraction(interaction: UIInteraction): void;
+  /**
+   * Since iOS 9.0.
+   * Native: -[UIView removeLayoutGuide:], in UIKit.
+   */
+  removeLayoutGuide(layoutGuide: UILayoutGuide): void;
+  /**
+   * Since iOS 7.0.
+   * Native: -[UIView removeMotionEffect:], in UIKit.
+   */
+  removeMotionEffect(effect: UIMotionEffect): void;
+  /**
+   * Since iOS 7.0.
+   * Native: -[UIView resizableSnapshotViewFromRect:afterScreenUpdates:withCapInsets:], in UIKit.
+   */
+  resizableSnapshotView(rect: CGRect, afterUpdates: boolean, capInsets: UIEdgeInsets): UIView | null;
+  /**
+   * Since iOS 11.0.
+   * Native: -[UIView safeAreaInsetsDidChange], in UIKit.
+   */
+  safeAreaInsetsDidChange(): void;
+  /** Native: -[UIView sendSubviewToBack:], in UIKit. */
+  sendSubviewToBack(view: UIView): void;
+  /** Native: +[UIView setAnimationBeginsFromCurrentState:], in UIKit. */
+  static setAnimationBeginsFromCurrentState(fromCurrentState: boolean): void;
+  /** Native: +[UIView setAnimationCurve:], in UIKit. */
+  static setAnimationCurve(curve: UIView_AnimationCurve): void;
+  /** Native: +[UIView setAnimationDelay:], in UIKit. */
+  static setAnimationDelay(delay: number): void;
+  /** Native: +[UIView setAnimationDelegate:], in UIKit. */
+  static setAnimationDelegate(delegate: ObjCValue | null): void;
+  /** Native: +[UIView setAnimationDuration:], in UIKit. */
+  static setAnimationDuration(duration: number): void;
+  /** Native: +[UIView setAnimationRepeatAutoreverses:], in UIKit. */
+  static setAnimationRepeatAutoreverses(repeatAutoreverses: boolean): void;
+  /** Native: +[UIView setAnimationRepeatCount:], in UIKit. */
+  static setAnimationRepeatCount(repeatCount: number): void;
+  /** Native: +[UIView setAnimationStartDate:], in UIKit. */
+  static setAnimationStart(startDate: Date): void;
+  /** Native: +[UIView setAnimationTransition:forView:cache:], in UIKit. */
+  static setAnimationTransition(transition: UIView_AnimationTransition, view: UIView, cache: boolean): void;
+  /** Native: +[UIView setAnimationsEnabled:], in UIKit. */
+  static setAnimationsEnabled(enabled: boolean): void;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView setContentCompressionResistancePriority:forAxis:], in UIKit.
+   */
+  setContentCompressionResistancePriority(priority: string, axis: NSLayoutConstraint_Axis): void;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView setContentHuggingPriority:forAxis:], in UIKit.
+   */
+  setContentHuggingPriority(priority: string, axis: NSLayoutConstraint_Axis): void;
+  /** Native: -[UIView setNeedsDisplay], in UIKit. */
+  setNeedsDisplay(): void;
+  /** Native: -[UIView setNeedsDisplayInRect:], in UIKit. */
+  setNeedsDisplay(rect: CGRect): void;
+  /** Native: -[UIView setNeedsLayout], in UIKit. */
+  setNeedsLayout(): void;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView setNeedsUpdateConstraints], in UIKit.
+   */
+  setNeedsUpdateConstraints(): void;
+  /**
+   * Since iOS 26.0.
+   * Native: -[UIView setNeedsUpdateProperties], in UIKit.
+   */
+  setNeedsUpdateProperties(): void;
+  /** Native: -[UIView sizeThatFits:], in UIKit. */
+  sizeThatFits(size: CGSize): CGSize;
+  /** Native: -[UIView sizeToFit], in UIKit. */
+  sizeToFit(): void;
+  /**
+   * Since iOS 7.0.
+   * Native: -[UIView snapshotViewAfterScreenUpdates:], in UIKit.
+   */
+  snapshotView(afterUpdates: boolean): UIView | null;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView systemLayoutSizeFittingSize:], in UIKit.
+   */
+  systemLayoutSizeFitting(targetSize: CGSize): CGSize;
+  /**
+   * Since iOS 8.0.
+   * Native: -[UIView systemLayoutSizeFittingSize:withHorizontalFittingPriority:verticalFittingPriority:], in UIKit.
+   */
+  systemLayoutSizeFitting(targetSize: CGSize, horizontalFittingPriority: string, verticalFittingPriority: string): CGSize;
+  /**
+   * Since iOS 7.0.
+   * Native: -[UIView tintColorDidChange], in UIKit.
+   */
+  tintColorDidChange(): void;
+  /**
+   * Since iOS 4.0.
+   * Native: +[UIView transitionFromView:toView:duration:options:completion:], in UIKit.
+   */
+  static transition(fromView: UIView, toView: UIView, duration: number, options: UIView_AnimationOptions | 0, completion: ((arg0: boolean) => void) | null): void;
+  /**
+   * Since iOS 4.0.
+   * Native: +[UIView transitionWithView:duration:options:animations:completion:], in UIKit.
+   */
+  static transition(view: UIView, duration: number, options: UIView_AnimationOptions | 0, animations: (() => void) | null, completion: ((arg0: boolean) => void) | null): void;
+  /**
+   * Since iOS 17.0.
+   * Native: Swift UIView.unregisterForTraitChanges(_:), in UIKit.
+   */
+  unregisterForTraitChanges(registration: UITraitChangeRegistration): void;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView updateConstraints], in UIKit.
+   */
+  updateConstraints(): void;
+  /**
+   * Since iOS 6.0.
+   * Native: -[UIView updateConstraintsIfNeeded], in UIKit.
+   */
+  updateConstraintsIfNeeded(): void;
+  /**
+   * Since iOS 26.0.
+   * Native: -[UIView updateProperties], in UIKit.
+   */
+  updateProperties(): void;
+  /**
+   * Since iOS 26.0.
+   * Native: -[UIView updatePropertiesIfNeeded], in UIKit.
+   */
+  updatePropertiesIfNeeded(): void;
+  /**
+   * Since iOS 17.0.
+   * Native: -[UIView updateTraitsIfNeeded], in UIKit.
+   */
+  updateTraitsIfNeeded(): void;
+  /**
+   * Since iOS 9.0.
+   * Native: +[UIView userInterfaceLayoutDirectionForSemanticContentAttribute:], in UIKit.
+   */
+  static userInterfaceLayoutDirection(attribute: UISemanticContentAttribute): UIUserInterfaceLayoutDirection;
+  /**
+   * Since iOS 10.0.
+   * Native: +[UIView userInterfaceLayoutDirectionForSemanticContentAttribute:relativeToLayoutDirection:], in UIKit.
+   */
+  static userInterfaceLayoutDirection(semanticContentAttribute: UISemanticContentAttribute, layoutDirection: UIUserInterfaceLayoutDirection): UIUserInterfaceLayoutDirection;
+  /** Native: -[UIView viewPrintFormatter], in UIKit. */
+  viewPrintFormatter(): UIViewPrintFormatter;
+  /** Native: -[UIView viewWithTag:], in UIKit. */
+  viewWithTag(tag: bigint | number): UIView | null;
+  /** Native: -[UIView willMoveToSuperview:], in UIKit. */
+  willMove(newSuperview: UIView | null): void;
+  /** Native: -[UIView willMoveToWindow:], in UIKit. */
+  willMove(newWindow: UIWindow | null): void;
+  /** Native: -[UIView willRemoveSubview:], in UIKit. */
+  willRemoveSubview(subview: UIView): void;
+  /** @lucentInherited UIKit.UIFocusEnvironment 1 */
+  didUpdateFocus_in_with(context: UIFocusUpdateContext, coordinator: UIFocusAnimationCoordinator): void;
+  /** @lucentInherited UIKit.UIFocusEnvironment 2 */
+  setNeedsFocusUpdate(): void;
+  /** @lucentInherited UIKit.UIFocusEnvironment 3 */
+  shouldUpdateFocus_in(context: UIFocusUpdateContext): boolean;
+  /** @lucentInherited UIKit.UIFocusEnvironment 4 */
+  updateFocusIfNeeded(): void;
+}
+
+export declare interface UIView extends NSCoding, CALayerDelegate, UIAccessibilityIdentification, UIAppearance, UIAppearanceContainer, UIDynamicItem, UIFocusItem, UIFocusItemContainer, UILargeContentViewerItem, UITraitEnvironment {}
+== UIKit.NSObject_UIKit
+// lucent:ios/UIKit
+/**
+ * What UIKit adds to NSObject, which every NSObject has.
+ */
+declare abstract class NSObject_UIKit {
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityActivateBlock] and -[NSObject setAccessibilityActivateBlock:], in UIKit.
+   */
+  accessibilityActivateBlock: (() => boolean) | null;
+  /**
+   * Since iOS 5.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityActivationPoint] and -[NSObject setAccessibilityActivationPoint:], in UIKit.
+   */
+  accessibilityActivationPoint: CGPoint;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityActivationPointBlock] and -[NSObject setAccessibilityActivationPointBlock:], in UIKit.
+   */
+  accessibilityActivationPointBlock: (() => CGPoint) | null;
+  /**
+   * Since iOS 11.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedHint] and -[NSObject setAccessibilityAttributedHint:], in UIKit.
+   */
+  accessibilityAttributedHint: NSAttributedString | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedHintBlock] and -[NSObject setAccessibilityAttributedHintBlock:], in UIKit.
+   */
+  accessibilityAttributedHintBlock: (() => NSAttributedString | null) | null;
+  /**
+   * Since iOS 11.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedLabel] and -[NSObject setAccessibilityAttributedLabel:], in UIKit.
+   */
+  accessibilityAttributedLabel: NSAttributedString | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedLabelBlock] and -[NSObject setAccessibilityAttributedLabelBlock:], in UIKit.
+   */
+  accessibilityAttributedLabelBlock: (() => NSAttributedString | null) | null;
+  /**
+   * Since iOS 13.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedUserInputLabels] and -[NSObject setAccessibilityAttributedUserInputLabels:], in UIKit.
+   */
+  accessibilityAttributedUserInputLabels: NSAttributedString[] | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedUserInputLabelsBlock] and -[NSObject setAccessibilityAttributedUserInputLabelsBlock:], in UIKit.
+   */
+  accessibilityAttributedUserInputLabelsBlock: (() => NSAttributedString[] | null) | null;
+  /**
+   * Since iOS 11.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedValue] and -[NSObject setAccessibilityAttributedValue:], in UIKit.
+   */
+  accessibilityAttributedValue: NSAttributedString | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAttributedValueBlock] and -[NSObject setAccessibilityAttributedValueBlock:], in UIKit.
+   */
+  accessibilityAttributedValueBlock: (() => NSAttributedString | null) | null;
+  /**
+   * Since iOS 11.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityContainerType] and -[NSObject setAccessibilityContainerType:], in UIKit.
+   */
+  accessibilityContainerType: UIAccessibilityContainerType;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityContainerTypeBlock] and -[NSObject setAccessibilityContainerTypeBlock:], in UIKit.
+   */
+  accessibilityContainerTypeBlock: (() => UIAccessibilityContainerType) | null;
+  /**
+   * Since iOS 8.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityCustomActions] and -[NSObject setAccessibilityCustomActions:], in UIKit.
+   */
+  accessibilityCustomActions: UIAccessibilityCustomAction[] | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityCustomActionsBlock] and -[NSObject setAccessibilityCustomActionsBlock:], in UIKit.
+   */
+  accessibilityCustomActionsBlock: (() => UIAccessibilityCustomAction[] | null) | null;
+  /**
+   * Since iOS 10.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityCustomRotors] and -[NSObject setAccessibilityCustomRotors:], in UIKit.
+   */
+  accessibilityCustomRotors: UIAccessibilityCustomRotor[] | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityCustomRotorsBlock] and -[NSObject setAccessibilityCustomRotorsBlock:], in UIKit.
+   */
+  accessibilityCustomRotorsBlock: (() => UIAccessibilityCustomRotor[] | null) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityDecrementBlock] and -[NSObject setAccessibilityDecrementBlock:], in UIKit.
+   */
+  accessibilityDecrementBlock: (() => void) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityDirectTouchOptions] and -[NSObject setAccessibilityDirectTouchOptions:], in UIKit.
+   */
+  accessibilityDirectTouchOptions: UIAccessibility_DirectTouchOptions | 0;
+  /**
+   * Since iOS 11.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityDragSourceDescriptors] and -[NSObject setAccessibilityDragSourceDescriptors:], in UIKit.
+   */
+  accessibilityDragSourceDescriptors: UIAccessibilityLocationDescriptor[] | null;
+  /**
+   * Since iOS 11.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityDropPointDescriptors] and -[NSObject setAccessibilityDropPointDescriptors:], in UIKit.
+   */
+  accessibilityDropPointDescriptors: UIAccessibilityLocationDescriptor[] | null;
+  /**
+   * Since iOS 8.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElements] and -[NSObject setAccessibilityElements:], in UIKit.
+   */
+  accessibilityElements: NSObject[] | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementsBlock] and -[NSObject setAccessibilityElementsBlock:], in UIKit.
+   */
+  accessibilityElementsBlock: (() => ObjCValue[] | null) | null;
+  /**
+   * Since iOS 5.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementsHidden] and -[NSObject setAccessibilityElementsHidden:], in UIKit.
+   */
+  accessibilityElementsHidden: boolean;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementsHiddenBlock] and -[NSObject setAccessibilityElementsHiddenBlock:], in UIKit.
+   */
+  accessibilityElementsHiddenBlock: (() => boolean) | null;
+  /**
+   * Since iOS 18.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityExpandedStatus] and -[NSObject setAccessibilityExpandedStatus:], in UIKit.
+   */
+  accessibilityExpandedStatus: UIAccessibility_ExpandedStatus;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityFrame] and -[NSObject setAccessibilityFrame:], in UIKit.
+   */
+  accessibilityFrame: CGRect;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityFrameBlock] and -[NSObject setAccessibilityFrameBlock:], in UIKit.
+   */
+  accessibilityFrameBlock: (() => CGRect) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityHeaderElementsBlock] and -[NSObject setAccessibilityHeaderElementsBlock:], in UIKit.
+   */
+  accessibilityHeaderElementsBlock: (() => ObjCValue[] | null) | null;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityHint] and -[NSObject setAccessibilityHint:], in UIKit.
+   */
+  accessibilityHint: string | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityHintBlock] and -[NSObject setAccessibilityHintBlock:], in UIKit.
+   */
+  accessibilityHintBlock: (() => string | null) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityIdentifierBlock] and -[NSObject setAccessibilityIdentifierBlock:], in UIKit.
+   */
+  accessibilityIdentifierBlock: (() => string | null) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityIncrementBlock] and -[NSObject setAccessibilityIncrementBlock:], in UIKit.
+   */
+  accessibilityIncrementBlock: (() => void) | null;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityLabel] and -[NSObject setAccessibilityLabel:], in UIKit.
+   */
+  accessibilityLabel: string | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityLabelBlock] and -[NSObject setAccessibilityLabelBlock:], in UIKit.
+   */
+  accessibilityLabelBlock: (() => string | null) | null;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityLanguage] and -[NSObject setAccessibilityLanguage:], in UIKit.
+   */
+  accessibilityLanguage: string | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityLanguageBlock] and -[NSObject setAccessibilityLanguageBlock:], in UIKit.
+   */
+  accessibilityLanguageBlock: (() => string | null) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityMagicTapBlock] and -[NSObject setAccessibilityMagicTapBlock:], in UIKit.
+   */
+  accessibilityMagicTapBlock: (() => boolean) | null;
+  /**
+   * Since iOS 8.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityNavigationStyle] and -[NSObject setAccessibilityNavigationStyle:], in UIKit.
+   */
+  accessibilityNavigationStyle: UIAccessibilityNavigationStyle;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityNavigationStyleBlock] and -[NSObject setAccessibilityNavigationStyleBlock:], in UIKit.
+   */
+  accessibilityNavigationStyleBlock: (() => UIAccessibilityNavigationStyle) | null;
+  /**
+   * Since iOS 18.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityNextTextNavigationElement] and -[NSObject setAccessibilityNextTextNavigationElement:], in UIKit.
+   */
+  accessibilityNextTextNavigationElement: NSObject | null;
+  /**
+   * Since iOS 18.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityNextTextNavigationElementBlock] and -[NSObject setAccessibilityNextTextNavigationElementBlock:], in UIKit.
+   */
+  accessibilityNextTextNavigationElementBlock: (() => ObjCValue | null) | null;
+  /**
+   * Since iOS 7.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityPath] and -[NSObject setAccessibilityPath:], in UIKit.
+   */
+  accessibilityPath: UIBezierPath | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityPathBlock] and -[NSObject setAccessibilityPathBlock:], in UIKit.
+   */
+  accessibilityPathBlock: (() => UIBezierPath | null) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityPerformEscapeBlock] and -[NSObject setAccessibilityPerformEscapeBlock:], in UIKit.
+   */
+  accessibilityPerformEscapeBlock: (() => boolean) | null;
+  /**
+   * Since iOS 18.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityPreviousTextNavigationElement] and -[NSObject setAccessibilityPreviousTextNavigationElement:], in UIKit.
+   */
+  accessibilityPreviousTextNavigationElement: NSObject | null;
+  /**
+   * Since iOS 18.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityPreviousTextNavigationElementBlock] and -[NSObject setAccessibilityPreviousTextNavigationElementBlock:], in UIKit.
+   */
+  accessibilityPreviousTextNavigationElementBlock: (() => ObjCValue | null) | null;
+  /**
+   * Since iOS 13.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityRespondsToUserInteraction] and -[NSObject setAccessibilityRespondsToUserInteraction:], in UIKit.
+   */
+  accessibilityRespondsToUserInteraction: boolean;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityRespondsToUserInteractionBlock] and -[NSObject setAccessibilityRespondsToUserInteractionBlock:], in UIKit.
+   */
+  accessibilityRespondsToUserInteractionBlock: (() => boolean) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityShouldGroupAccessibilityChildrenBlock] and -[NSObject setAccessibilityShouldGroupAccessibilityChildrenBlock:], in UIKit.
+   */
+  accessibilityShouldGroupAccessibilityChildrenBlock: (() => boolean) | null;
+  /**
+   * Since iOS 18.1. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityTextInputResponder] and -[NSObject setAccessibilityTextInputResponder:], in UIKit.
+   */
+  accessibilityTextInputResponder: UITextInput | null;
+  /**
+   * Since iOS 18.1. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityTextInputResponderBlock] and -[NSObject setAccessibilityTextInputResponderBlock:], in UIKit.
+   */
+  accessibilityTextInputResponderBlock: (() => UITextInput | null) | null;
+  /**
+   * Since iOS 13.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityTextualContext] and -[NSObject setAccessibilityTextualContext:], in UIKit.
+   */
+  accessibilityTextualContext: string | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityTextualContextBlock] and -[NSObject setAccessibilityTextualContextBlock:], in UIKit.
+   */
+  accessibilityTextualContextBlock: (() => string | null) | null;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityTraits] and -[NSObject setAccessibilityTraits:], in UIKit.
+   */
+  accessibilityTraits: string;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityTraitsBlock] and -[NSObject setAccessibilityTraitsBlock:], in UIKit.
+   */
+  accessibilityTraitsBlock: (() => string) | null;
+  /**
+   * Since iOS 13.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityUserInputLabels] and -[NSObject setAccessibilityUserInputLabels:], in UIKit.
+   */
+  accessibilityUserInputLabels: string[] | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityUserInputLabelsBlock] and -[NSObject setAccessibilityUserInputLabelsBlock:], in UIKit.
+   */
+  accessibilityUserInputLabelsBlock: (() => string[] | null) | null;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityValue] and -[NSObject setAccessibilityValue:], in UIKit.
+   */
+  accessibilityValue: string | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityValueBlock] and -[NSObject setAccessibilityValueBlock:], in UIKit.
+   */
+  accessibilityValueBlock: (() => string | null) | null;
+  /**
+   * Since iOS 5.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityViewIsModal] and -[NSObject setAccessibilityViewIsModal:], in UIKit.
+   */
+  accessibilityViewIsModal: boolean;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityViewIsModalBlock] and -[NSObject setAccessibilityViewIsModalBlock:], in UIKit.
+   */
+  accessibilityViewIsModalBlock: (() => boolean) | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject automationElements] and -[NSObject setAutomationElements:], in UIKit.
+   */
+  automationElements: NSObject[] | null;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject automationElementsBlock] and -[NSObject setAutomationElementsBlock:], in UIKit.
+   */
+  automationElementsBlock: (() => ObjCValue[] | null) | null;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject isAccessibilityElement] and -[NSObject setIsAccessibilityElement:], in UIKit.
+   */
+  isAccessibilityElement: boolean;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject isAccessibilityElementBlock] and -[NSObject setIsAccessibilityElementBlock:], in UIKit.
+   */
+  isAccessibilityElementBlock: (() => boolean) | null;
+  /**
+   * Since iOS 6.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject shouldGroupAccessibilityChildren] and -[NSObject setShouldGroupAccessibilityChildren:], in UIKit.
+   */
+  shouldGroupAccessibilityChildren: boolean;
+  /**
+   * Since iOS 7.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityActivate], in UIKit.
+   */
+  accessibilityActivate(): boolean;
+  /**
+   * Since iOS 9.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityAssistiveTechnologyFocusedIdentifiers], in UIKit.
+   */
+  accessibilityAssistiveTechnologyFocusedIdentifiers(): Set<string> | null;
+  /**
+   * Since iOS 4.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityDecrement], in UIKit.
+   */
+  accessibilityDecrement(): void;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementAtIndex:], in UIKit.
+   */
+  accessibilityElement(index: bigint | number): NSObject | null;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementCount], in UIKit.
+   */
+  accessibilityElementCount(): bigint;
+  /**
+   * Since iOS 4.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementDidBecomeFocused], in UIKit.
+   */
+  accessibilityElementDidBecomeFocused(): void;
+  /**
+   * Since iOS 4.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementDidLoseFocus], in UIKit.
+   */
+  accessibilityElementDidLoseFocus(): void;
+  /**
+   * Since iOS 4.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityElementIsFocused], in UIKit.
+   */
+  accessibilityElementIsFocused(): boolean;
+  /**
+   * Since iOS 18.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityHitTest:withEvent:], in UIKit.
+   */
+  accessibilityHitTest(point: CGPoint, event: UIEvent | null): NSObject | null;
+  /**
+   * Since iOS 4.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityIncrement], in UIKit.
+   */
+  accessibilityIncrement(): void;
+  /**
+   * Since iOS 5.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityPerformEscape], in UIKit.
+   */
+  accessibilityPerformEscape(): boolean;
+  /**
+   * Since iOS 6.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityPerformMagicTap], in UIKit.
+   */
+  accessibilityPerformMagicTap(): boolean;
+  /**
+   * Since iOS 4.2. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityScroll:], in UIKit.
+   */
+  accessibilityScroll(direction: UIAccessibilityScrollDirection): boolean;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityZoomInAtPoint:], in UIKit.
+   */
+  accessibilityZoomIn(point: CGPoint): boolean;
+  /**
+   * Since iOS 17.0. Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject accessibilityZoomOutAtPoint:], in UIKit.
+   */
+  accessibilityZoomOut(point: CGPoint): boolean;
+  /** Native: -[NSObject awakeFromNib], in UIKit. */
+  awakeFromNib(): void;
+  /**
+   * Main thread only: call it inside `main(() => …)`.
+   * Native: -[NSObject indexOfAccessibilityElement:], in UIKit.
+   */
+  index(element: ObjCValue): bigint;
+  /**
+   * Since iOS 8.0.
+   * Native: -[NSObject prepareForInterfaceBuilder], in UIKit.
+   */
+  prepareForInterfaceBuilder(): void;
+}
+== Foundation.NSObject_Foundation
+// lucent:ios/Foundation
+/**
+ * What Foundation adds to NSObject, which every NSObject has.
+ */
+declare abstract class NSObject_Foundation {
+  /**
+   * Since iOS 4.0.
+   * Native: -[NSObject autoContentAccessingProxy], in Foundation.
+   */
+  readonly autoContentAccessingProxy: NSObject;
+  /** Native: -[NSObject attemptRecoveryFromError:optionIndex:], in Foundation. */
+  attemptRecovery(error: Error, recoveryOptionIndex: bigint | number): boolean;
+  /** Native: -[NSObject awakeAfterUsingCoder:], in Foundation. */
+  awakeAfter(coder: NSCoder): NSObject | null;
+  /** Native: -[NSObject dictionaryWithValuesForKeys:], in Foundation. */
+  dictionaryWithValues(keys: string[]): Record<string, NSObject>;
+  /** Native: -[NSObject didChange:valuesAtIndexes:forKey:], in Foundation. */
+  didChange(changeKind: NSKeyValueChange, indexes: NSIndexSet, key: string): void;
+  /** Native: -[NSObject didChangeValueForKey:], in Foundation. */
+  didChangeValue(key: string): void;
+  /** Native: -[NSObject didChangeValueForKey:withSetMutation:usingObjects:], in Foundation. */
+  didChangeValue(key: string, mutationKind: NSKeyValueSetMutationKind, objects: Set<ObjCValue>): void;
+  /** Native: -[NSObject mutableArrayValueForKey:], in Foundation. */
+  mutableArrayValue(key: string): NSMutableArray;
+  /** Native: -[NSObject mutableArrayValueForKeyPath:], in Foundation. */
+  mutableArrayValueForKeyPath(keyPath: string): NSMutableArray;
+  /**
+   * Since iOS 5.0.
+   * Native: -[NSObject mutableOrderedSetValueForKey:], in Foundation.
+   */
+  mutableOrderedSetValue(key: string): NSMutableOrderedSet;
+  /**
+   * Since iOS 5.0.
+   * Native: -[NSObject mutableOrderedSetValueForKeyPath:], in Foundation.
+   */
+  mutableOrderedSetValueForKeyPath(keyPath: string): NSMutableOrderedSet;
+  /** Native: -[NSObject mutableSetValueForKey:], in Foundation. */
+  mutableSetValue(key: string): NSMutableSet;
+  /** Native: -[NSObject mutableSetValueForKeyPath:], in Foundation. */
+  mutableSetValueForKeyPath(keyPath: string): NSMutableSet;
+  /** Native: -[NSObject replacementObjectForCoder:], in Foundation. */
+  replacementObject(coder: NSCoder): NSObject | null;
+  /** Native: -[NSObject replacementObjectForKeyedArchiver:], in Foundation. */
+  replacementObject(archiver: NSKeyedArchiver): NSObject | null;
+  /** Native: -[NSObject setNilValueForKey:], in Foundation. */
+  setNilValueForKey(key: string): void;
+  /**
+   * Since iOS 18.0.
+   * Native: -[NSObject setSharedObservers:], in Foundation.
+   */
+  setSharedObservers(sharedObservers: NSKeyValueSharedObserversSnapshot | null): void;
+  /** Native: -[NSObject setValue:forKey:], in Foundation. */
+  setValue(value: ObjCValue | null, key: string): void;
+  /** Native: -[NSObject setValue:forKeyPath:], in Foundation. */
+  setValueForKeyPath(value: ObjCValue | null, keyPath: string): void;
+  /** Native: -[NSObject setValue:forUndefinedKey:], in Foundation. */
+  setValueForUndefinedKey(value: ObjCValue | null, key: string): void;
+  /** Native: -[NSObject setValuesForKeysWithDictionary:], in Foundation. */
+  setValuesForKeys(keyedValues: Record<string, ObjCValue>): void;
+  /** Native: -[NSObject validateValue:forKey:error:], in Foundation. */
+  validateValue(ioValue: Out<NSObject>, inKey: string): void;
+  /** Native: -[NSObject validateValue:forKeyPath:error:], in Foundation. */
+  validateValueForKeyPath(ioValue: Out<NSObject>, inKeyPath: string): void;
+  /** Native: -[NSObject valueForKey:], in Foundation. */
+  value(key: string): NSObject | null;
+  /** Native: -[NSObject valueForKeyPath:], in Foundation. */
+  valueForKeyPath(keyPath: string): NSObject | null;
+  /** Native: -[NSObject valueForUndefinedKey:], in Foundation. */
+  valueForUndefinedKey(key: string): NSObject | null;
+  /** Native: -[NSObject willChange:valuesAtIndexes:forKey:], in Foundation. */
+  willChange(changeKind: NSKeyValueChange, indexes: NSIndexSet, key: string): void;
+  /** Native: -[NSObject willChangeValueForKey:], in Foundation. */
+  willChangeValue(key: string): void;
+  /** Native: -[NSObject willChangeValueForKey:withSetMutation:usingObjects:], in Foundation. */
+  willChangeValue(key: string, mutationKind: NSKeyValueSetMutationKind, objects: Set<ObjCValue>): void;
+}

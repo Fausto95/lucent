@@ -1,0 +1,20 @@
+! lucent:android/androidx.work is untyped: the app has no Android project to resolve it yet. Checked after expo prebuild, or once android/ exists
+
+  error LUCENT9001  TS2720: Class 'Downloads' incorrectly implements class
+                    'URLSessionDownloadDelegate'. Did you mean to extend
+                    'URLSessionDownloadDelegate' and inherit its members as a
+                    subclass?   Type 'Downloads' is missing the following
+                    properties from type 'URLSessionDownloadDelegate':
+                    urlSession_didBecomeInvalidWithError,
+                    urlSession_didReceive_completionHandler
+
+    src/download.lucent.ts:30:7
+    29 │ /** The session's delegate: it hears each download, then the end of th…
+    30 │ class Downloads implements URLSessionDownloadDelegate {
+       │       ^^^^^^^^^
+    31 │   urlSession_downloadTask_didFinishDownloadingTo(
+
+  fix  fix the type error; your editor shows the same message
+  docs lucent explain LUCENT9001
+
+  1 error · 5 modules · 3 m 54 s
