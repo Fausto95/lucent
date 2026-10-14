@@ -423,6 +423,7 @@ class Channel<T> {
   constructor(policy: ChannelPolicy, capacity?: number);
   send(value: T): boolean;
   receive(): Promise<T | undefined>;
+  [Symbol.asyncIterator](): AsyncIterator<T>;
   subscribe(onValue: (value: T) => void): EventSubscription;
   close(): boolean;
   readonly closed: boolean;
@@ -457,6 +458,7 @@ export async function scanAll(rows: number[][]): Promise<number> {
 | `constructor(policy: ChannelPolicy, capacity?: number);` |  |
 | `send(value: T): boolean;` | Sends a copy of `value` (a `NativeBuffer` moves), without waiting. False if refused: the channel is closed, or lossless and full; the value is then left as it was. |
 | `receive(): Promise<T \| undefined>;` | The next value: at once if one waits, else when one is sent; `undefined` once the channel is closed and every value was received. |
+| `[Symbol.asyncIterator](): AsyncIterator<T>;` | `for await (const value of channel)`: each value it receives, until `receive()` gives `undefined`, once it is closed and every value was received. Leaving the loop early leaves the channel as it is. |
 | `subscribe(onValue: (value: T) => void): EventSubscription;` | Calls `onValue` with each value as it comes, one at a time, where this code runs. The next is received once `onValue` returns, so the policy still decides what waits meanwhile. It goes on until the channel is closed and every value was received, or until the subscription is removed. After that, values wait for the next receive. What `onValue` throws is reported, and the next value comes. |
 | `close(): boolean;` | Refuses sends from now on; what waits can still be received. False if it was closed already. |
 | `readonly closed: boolean;` | Whether it is closed. |

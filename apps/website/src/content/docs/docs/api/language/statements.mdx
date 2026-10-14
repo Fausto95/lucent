@@ -39,7 +39,7 @@ export function firstTagged(items: Item[], tag: string): string | undefined {
 | Statement | Rules | e2e case |
 | --- | --- | --- |
 | `if`, `while`, `do…while`, `for` | As in JavaScript. A `let` in a `for` gets a new binding on each iteration. | `control-flow`, `closures` |
-| `for…of` | Over arrays, strings (by code point), `Map`s (their entries), `Set`s, `Uint8Array`s, generators and `Iterable<T>`s. `for await` fails with [LUCENT1009](/docs/api/diagnostics/#lucent1009). | `control`, `iterable-spread` |
+| `for…of` | Over arrays, strings (by code point), `Map`s (their entries), `Set`s, `Uint8Array`s, generators and `Iterable<T>`s. `for await` goes over a `Channel` and over iterables, awaiting each element. | `control`, `iterable-spread`, `for-await` |
 | `for…in` | Over a record's keys, or an array's indexes as strings. Over an object type it fails with [LUCENT1009](/docs/api/diagnostics/#lucent1009): its layout doesn't record which optional fields are set. | `control`, `object-keys` |
 | `switch` | With fall-through, and `default` anywhere. A clause can't use a `let` or `const` that another clause declares (`LUCENT1001`): wrap each clause in a block. | `switch-returns` |
 | Labels | On any statement. `break label` leaves it, and `continue label` continues a labeled loop. | `control-flow` |

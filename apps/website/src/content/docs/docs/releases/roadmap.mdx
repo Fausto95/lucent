@@ -138,7 +138,7 @@ Build and ship Lucent modules and packages like any React Native library.
 - `new AggregateError` is refused (`LUCENT1003`). Read the `errors` of the one `Promise.any` rejects with as `e.errors as Error[]`, since TypeScript types them `any`.
 - `TextEncoder`, `TextDecoder`, `atob`, `btoa`, `URL` and `crypto` are not available. `lucent:core` has `utf8Encode` and `utf8Decode` ([T105](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t105)).
 - Refused built-ins give `LUCENT1003` unless noted. They include `normalize()`, `locales` and `options` arguments, a cause that isn't an `Error`, a replacer function for `JSON.stringify`, resizable `ArrayBuffer`s and `new Proxy` ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106) lifts some).
-- Spread into an SDK call is refused (`LUCENT1001`), and so is `for…of` over a tuple (`LUCENT1009`). `for await` gives `LUCENT1009` ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106)).
+- Spread into an SDK call is refused (`LUCENT1001`), and so is `for…of` over a tuple (`LUCENT1009`). Async generators give `LUCENT2002` ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106)).
 - Decorators give `LUCENT1005`, and default exports `LUCENT3003`.
 - A class can't extend `EventEmitter` (`LUCENT1005`): hold one in a field instead ([T113](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t113)).
 - On object types, `Object.keys`, `values` and `entries` are refused, and so are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`).

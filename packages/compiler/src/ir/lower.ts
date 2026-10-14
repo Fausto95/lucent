@@ -280,6 +280,11 @@ export interface LeafHost {
   ): Leaf;
   /** A compute task's check for cancellation. */
   safepoint(): Leaf;
+  /**
+   * What `for await` waits for each time on `value`, a channel: its next
+   * value, a promise of it, or of undefined once it is closed and drained.
+   */
+  received(value: ValueId, from: LType, node: ts.Node): Leaf;
   /** `value`, a `bigint | number`, one up (`+`) or down: the kind it holds, stepped. */
   step(value: ValueId, from: LType, sign: "+" | "-", node: ts.Node): Leaf;
   /** `value == null` for a `from` that holds a type parameter, which its instantiation may make absent. */
@@ -1315,7 +1320,7 @@ class Lowerer {
 
   /** `for (x of xs)`: the body for each element, bound to a new variable (or assigned). */
   forOf(s: ts.ForOfStatement, labels: readonly string[]): void {
-    if (s.awaitModifier) fail(s, Codes.UnsupportedLoop, "`for await` is not supported");
+    if (s.awaitModifier) return this.forAwait(s, labels);
 
     const iterable = this.expr(s.expression);
     const t = this.b.typeOf(iterable);
@@ -1336,11 +1341,15 @@ class Lowerer {
     this.each(s, labels, this.planOf(keys, [object], spanOf(s.expression)));
   }
 
-  /** The body of a `for … of` or `for … in` for each element of `iterable`. */
+  /**
+   * The body of a `for … of` or `for … in` for each element of `iterable`;
+   * of a `for await` over one, each element awaited first.
+   */
   each(
     s: ts.ForOfStatement | ts.ForInStatement,
     labels: readonly string[],
     iterable: ValueId,
+    awaitEach = false,
   ): void {
     const t = this.b.typeOf(iterable);
     const element = elementOf(t);
@@ -1349,26 +1358,77 @@ class Lowerer {
 
     this.b.iterate(spanOf(s), iterable, element, (target, value) =>
       this.within({ target, kind: "loop", labels }, () => {
-        const init = s.initializer;
+        this.safepoint(s);
+        this.eachBody(s, awaitEach ? this.awaited(value, s.expression) : value);
+      }),
+    );
+  }
 
+  /** A loop's iteration with `value`: the loop's variable or target given it, then the body. */
+  eachBody(s: ts.ForOfStatement | ts.ForInStatement, value: ValueId): void {
+    const init = s.initializer;
+
+    if (ts.isVariableDeclarationList(init)) {
+      const scoped = init.flags & ts.NodeFlags.BlockScoped;
+
+      if (scoped !== ts.NodeFlags.Let && scoped !== ts.NodeFlags.Const) this.varDeclarations(init);
+
+      this.bind(init.declarations[0]!.name, value);
+    } else if (ts.isArrayLiteralExpression(init) || ts.isObjectLiteralExpression(init)) {
+      this.assignPattern(init, value);
+    } else {
+      const target = this.target(init);
+
+      target.write(this.coerce(value, target.type, init), spanOf(init));
+    }
+
+    this.nested(s.statement);
+  }
+
+  /**
+   * `for await (x of xs)`: each value a channel receives until it is closed
+   * and drained (`receive()` gives undefined), or each element of an
+   * iterable, awaited: a promise's value, or another value a microtask on.
+   */
+  forAwait(s: ts.ForOfStatement, labels: readonly string[]): void {
+    if (!this.input.async)
+      fail(s, Codes.UnsupportedSyntax, "`for await` outside an async function");
+
+    const source = this.expr(s.expression);
+    const t = this.b.typeOf(source);
+
+    if (t.k !== "channel") {
+      if (!elementOf(t))
+        fail(
+          s.expression,
+          Codes.UnsupportedLoop,
+          `\`for await\` goes over a Channel or an iterable, not ${typeKey(t)}`,
+        );
+      return this.each(s, labels, source, true);
+    }
+
+    const host = this.host.leaves;
+    if (!host) this.unsupported(s, "for await");
+
+    const span = spanOf(s);
+    const element = t.e;
+    const received = unionOf([element, T.undefined]);
+
+    this.b.loop(span, (loop) =>
+      this.within({ target: loop, kind: "loop", labels }, () => {
         this.safepoint(s);
 
-        if (ts.isVariableDeclarationList(init)) {
-          const scoped = init.flags & ts.NodeFlags.BlockScoped;
+        const next = this.planOf(host.received(source, t, s.expression), [source], span);
+        const value = this.b.await(next, received, span)!;
+        const ended = this.b.binary("===", value, this.b.const(undefined, span), span);
 
-          if (scoped !== ts.NodeFlags.Let && scoped !== ts.NodeFlags.Const)
-            this.varDeclarations(init);
-
-          this.bind(init.declarations[0]!.name, value);
-        } else if (ts.isArrayLiteralExpression(init) || ts.isObjectLiteralExpression(init)) {
-          this.assignPattern(init, value);
-        } else {
-          const target = this.target(init);
-
-          target.write(this.coerce(value, target.type, init), spanOf(init));
-        }
-
-        this.nested(s.statement);
+        this.b.if(
+          ended,
+          span,
+          () => this.b.break(loop, span),
+          () => {},
+        );
+        this.eachBody(s, this.coerce(value, element, s.expression));
       }),
     );
   }
