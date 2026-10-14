@@ -48,8 +48,9 @@ async function tapped(): Promise<string> {
 }
 
 /**
- * The detector's recognizers on the card's view or the detector's own, its
- * parent, where Gesture Handler 3 attaches them (iOS, where nothing taps).
+ * The detector's recognizers on the card's view or its content, the
+ * component's own view, where Gesture Handler attaches them to a Fabric
+ * view (iOS, where nothing taps).
  */
 async function recognized(): Promise<string> {
   const facts = await poll(
