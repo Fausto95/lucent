@@ -2191,6 +2191,28 @@ function arrayMethod(
         t: rt,
       };
     }
+    case "flat": {
+      // The result's type is TypeScript's FlatArray for the depth given.
+      const rt = em.lt(node);
+      if (rt.k !== "array") fail(node, Codes.UnsupportedBuiltin, "flat");
+      return {
+        c: cpp.call(
+          "lucent::flat",
+          [o, n(0, cpp.num("1.0")) ?? cpp.num("1.0")],
+          [em.reg.cppType(rt.e, true)],
+        ),
+        t: rt,
+      };
+    }
+    case "copyWithin":
+      return {
+        c: cpp.call(cpp.dot(o, "copyWithin"), [
+          n(0, cpp.num("0.0")) ?? cpp.num("0.0"),
+          n(1, cpp.num("0.0")) ?? cpp.num("0.0"),
+          ...argList(n(2, END)),
+        ]),
+        t: at,
+      };
     case "flatMap": {
       const rt = em.lt(node);
       if (rt.k !== "array") fail(node, Codes.UnsupportedBuiltin, "flatMap");
