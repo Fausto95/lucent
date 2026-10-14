@@ -314,6 +314,15 @@ describe.skipIf(!javac)("Android extractor", () => {
     expect(m("drawn")).toBeUndefined();
   });
 
+  it("types an enum's constants as never null", () => {
+    const speed = cls("com.example.widgets", "Speed");
+    expect(speed.properties?.find((p) => p.name === "FAST")).toMatchObject({
+      type: T("com.example.widgets.Speed"),
+      static: true,
+      readonly: true,
+    });
+  });
+
   it("renames overloads that TypeScript cannot tell apart", () => {
     const sets = widget().methods!.filter(
       (x) => x.java === "setValue" || x.name.startsWith("setValue"),

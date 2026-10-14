@@ -749,7 +749,10 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
       try {
         type = typeOf(
           new SigReader(f.signature ?? f.descriptor).type(),
-          nonNull(f.annotations) || !!(f.access & ACC.STATIC && kotlin?.nonNullFields.has(f.name)),
+          // An enum's constant is never null (`TimeUnit.MINUTES`), whatever its annotations say.
+          nonNull(f.annotations) ||
+            !!(f.access & ACC.ENUM) ||
+            !!(f.access & ACC.STATIC && kotlin?.nonNullFields.has(f.name)),
           f.access & ACC.STATIC ? [] : classParams,
           declared?.type,
         );
