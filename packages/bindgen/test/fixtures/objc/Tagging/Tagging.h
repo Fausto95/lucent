@@ -8,6 +8,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, copy, nullable) NSString *tagLabel;
 @property(nonatomic) BOOL isTagged;
 - (BOOL)tagActivate;
+- (nullable NSString *)tagValueForKey:(NSString *)key;
 @end
 
 @interface TAGItem : NSObject

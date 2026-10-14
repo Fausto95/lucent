@@ -1398,9 +1398,13 @@ export function buildIosSchema(
         }
       } else {
         // A method named as one of the class's properties keeps its labels; the
-        // property keeps the name (UIView's frame, frameForAlignmentRect).
+        // property keeps the name (UIView's frame, frameForAlignmentRect). So does
+        // each one a module adds to another module's class: that class's subclasses,
+        // in modules this one doesn't see, may name a member alike (Foundation's
+        // value(forKey:), valueForKey, beside UISlider's value).
         const taken = new Set(props.map((x) => `${!!x.static}:${x.name}`));
-        for (const x of methods) if (taken.has(`${!!x.static}:${x.name}`)) x.name = withLabels(x);
+        for (const x of methods)
+          if (cls.extensionOf || taken.has(`${!!x.static}:${x.name}`)) x.name = withLabels(x);
         disambiguate(methods);
       }
       // Kept for the module-wide pass, which may label a method again.
