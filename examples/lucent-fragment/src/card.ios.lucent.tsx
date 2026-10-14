@@ -1,8 +1,8 @@
 // iOS has no fragments: the card is a label.
-import { UILabel } from "lucent:ios/UIKit";
+import { UILabel, type UIView } from "lucent:ios/UIKit";
 import type { CardProps } from "./card.lucent";
 
-export function Card(props: CardProps): UILabel {
+export function Card(props: CardProps): UIView {
   return <UILabel text={props.text} />;
 }
 
