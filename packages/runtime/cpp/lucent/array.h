@@ -433,6 +433,23 @@ class Array {
     for (size_t i = a; i < b; i++) (*d_)[i] = static_cast<Elem>(v);
     return *this;
   }
+  Array& copyWithin(double target, double start) {
+    return copyWithin(target, start, static_cast<double>(length()));
+  }
+  /// The elements from `start` to `end` copied to `target` on, as far as the
+  /// array goes; from the last when the ranges overlap that way.
+  Array& copyWithin(double target, double start, double end) {
+    size_t n = d_->size();
+    size_t to = detail::relativeIndex(target, n);
+    size_t a = detail::relativeIndex(start, n), b = detail::relativeIndex(end, n);
+    size_t count = b > a ? std::min(b - a, n - to) : 0;
+    if (a < to && to < a + count) {
+      for (size_t i = count; i-- > 0;) (*d_)[to + i] = (*d_)[a + i];
+    } else {
+      for (size_t i = 0; i < count; i++) (*d_)[to + i] = (*d_)[a + i];
+    }
+    return *this;
+  }
 
   const void* identity() const { return d_.get(); }
 
@@ -539,6 +556,55 @@ template <class T>
 struct IsJsArray<Array<T>> : std::true_type {};
 template <class... Ts>
 struct IsJsArray<std::tuple<Ts...>> : std::true_type {};
+
+namespace detail {
+/// A flattened element, as the result's element type holds it. TypeScript
+/// typed the result for the depth given, so an element no level of it holds
+/// (an array left at a depth the type flattens) never comes.
+template <class U, class X>
+U flatElement(const X& x) {
+  if constexpr (std::is_same_v<U, X>) return x;
+  else if constexpr (std::is_constructible_v<U, const X&>) return U(x);
+  else throwTypeError("Array.prototype.flat: an element its result's type doesn't hold");
+}
+
+template <class U, class X>
+void flatInto(Array<U>& out, const X& x, double depth);
+template <class U, class E>
+void flatInto(Array<U>& out, const Array<E>& x, double depth);
+template <class U, class... Ts>
+void flatInto(Array<U>& out, const std::variant<Ts...>& x, double depth);
+
+template <class U, class X>
+void flatInto(Array<U>& out, const X& x, double) {
+  out.push(flatElement<U>(x));
+}
+/// An array's elements, a level less deep, while depth is left.
+template <class U, class E>
+void flatInto(Array<U>& out, const Array<E>& x, double depth) {
+  if (depth < 1) {
+    out.push(flatElement<U>(x));
+    return;
+  }
+  for (const auto& e : x.items()) flatInto(out, static_cast<E>(e), depth - 1);
+}
+template <class U, class... Ts>
+void flatInto(Array<U>& out, const std::variant<Ts...>& x, double depth) {
+  std::visit([&](const auto& v) { flatInto(out, v, depth); }, x);
+}
+}  // namespace detail
+
+/// Array.prototype.flat: the elements of the arrays among `a`'s, `depth`
+/// levels down (Infinity: all), as an array of `U`. Lucent arrays have no
+/// holes, which flat would leave out.
+template <class U, class T>
+Array<U> flat(const Array<T>& a, double depth) {
+  checkStack();
+  double d = std::isnan(depth) ? 0 : std::trunc(depth);
+  Array<U> out;
+  for (const auto& e : a.items()) detail::flatInto(out, static_cast<T>(e), d);
+  return out;
+}
 
 template <RecursiveAlias T>
 String toJsString(const T& v) {
