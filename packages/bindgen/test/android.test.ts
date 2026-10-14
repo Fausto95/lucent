@@ -307,6 +307,11 @@ describe.skipIf(!javac)("Android extractor", () => {
       returns: T("T?", ["T"]),
       descriptor: "(Ljava/lang/Class;)Lcom/example/base/Shape;",
     });
+    expect(m("draw")).toMatchObject({
+      params: [{ type: T("Class<out com.example.base.Shape>") }],
+      descriptor: "(Ljava/lang/Class;)V",
+    });
+    expect(m("drawn")).toBeUndefined();
   });
 
   it("renames overloads that TypeScript cannot tell apart", () => {

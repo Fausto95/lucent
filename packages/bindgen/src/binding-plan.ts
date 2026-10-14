@@ -1014,7 +1014,11 @@ function kindConversion(t: SchemaType, place: Place, ctx: Context): ConversionPl
     case "sequence":
       return { op: "sequence", type: t, of: [inner(t.of, { element: true })] };
     case "classOf":
-      return { op: "retain-object", type: t, detail: `Class<${t.param}>` };
+      return {
+        op: "retain-object",
+        type: t,
+        detail: t.bound ? `Class<? extends ${t.bound.name}>` : `Class<${t.param}>`,
+      };
     case "tparam":
       return { op: "retain-object", type: t, detail: `type parameter ${t.name}` };
     case "fn":

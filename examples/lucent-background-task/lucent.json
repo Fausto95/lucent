@@ -5,5 +5,10 @@
       "BGTaskSchedulerPermittedIdentifiers": ["dev.lucent.example.refresh"],
       "UIBackgroundModes": ["fetch"]
     }
+  },
+  "android": {
+    "dependencies": {
+      "androidx.work:work-runtime": "2.10.0"
+    }
   }
 }

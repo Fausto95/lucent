@@ -90,7 +90,8 @@ class Unsupported extends Error {}
 
 type JType =
   | { k: "prim"; d: string }
-  | { k: "class"; name: string; args: JType[] }
+  /** `upper`: a type argument `? extends` it (`+` in a signature). */
+  | { k: "class"; name: string; args: JType[]; upper?: boolean }
   | { k: "var"; name: string }
   | { k: "array"; of: JType }
   | { k: "wildcard" };
@@ -131,7 +132,11 @@ class SigReader {
       return { k: "var", name };
     }
     if (c === "*") return { k: "wildcard" };
-    if (c === "+" || c === "-") return this.type();
+    if (c === "+") {
+      const bound = this.type();
+      return bound.k === "class" ? { ...bound, upper: true } : bound;
+    }
+    if (c === "-") return this.type();
     if (c !== "L") throw new Error(`signature: unexpected ${c} in ${this.s}`);
     let name = "";
     let args: JType[] = [];
@@ -554,12 +559,15 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
      * A JVM type as a schema type. `kt`, the Kotlin type at the same place,
      * says whether it is nullable where Java does not (a platform type is
      * unknown to Kotlin too), down to type arguments and array elements.
+     * `parameter`: a member's own parameter, where a `Class<? extends X>`
+     * takes a class (results and type arguments don't give one yet).
      */
     const typeOf = (
       t: JType,
       javaNonNull: boolean,
       tparams: readonly string[],
       kt?: KotlinType,
+      parameter = false,
     ): SchemaType => {
       const nonNull = kt && !kt.platform ? !kt.nullable : javaNonNull;
       const nullable = (x: SchemaType): SchemaType => (nonNull ? x : { ...x, nullable: true });
@@ -586,6 +594,11 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
             const arg = t.args[0];
             if (arg?.k === "var" && tparams.includes(arg.name))
               return nullable({ k: "classOf", param: arg.name, nullable: false });
+            // Class<? extends X>: any class extending X, such as a Worker's for WorkManager.
+            if (parameter && arg?.k === "class" && arg.upper && !arg.args.length) {
+              const bound = typeOf({ ...arg, upper: false }, true, tparams);
+              if (bound.k === "ref") return nullable({ k: "classOf", bound, nullable: false });
+            }
             throw new Unsupported("java.lang.Class");
           }
 
@@ -886,7 +899,7 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
 
           const type = kp?.facts?.suspendFunction
             ? suspendFunction(t, kp.type, scope)
-            : (value ?? typeOf(t, nonNull(m.paramAnnotations[i]), scope, kp?.type));
+            : (value ?? typeOf(t, nonNull(m.paramAnnotations[i]), scope, kp?.type, true));
           return { name: kp?.name ?? `arg${i}`, type, ...(kp?.facts ? { kotlin: kp.facts } : {}) };
         });
 
