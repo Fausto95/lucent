@@ -160,7 +160,7 @@ Other `Object` functions, such as `assign`, `freeze` and `is`, aren't available.
 
 | Function                | Notes                                                                                                                    |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `JSON.stringify(value)` | Any value. Keys follow the declared type's order, and a bigint throws a `TypeError`. A replacer or an indent is refused. |
+| `JSON.stringify(value, keys?, space?)` | Any value. Keys follow the declared type's order, and a bigint throws a `TypeError`. A list of keys and a space work as in JavaScript; a replacer function is refused. |
 | `JSON.parse(text) as T` | Builds a value of type `T`, checked against it ([Statements](/docs/api/language/statements/)). A reviver is refused.     |
 
 ## RegExp

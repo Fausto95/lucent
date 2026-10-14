@@ -1586,7 +1586,30 @@ static void nativeRefJson() {
   CHECK(json::stringify(Opt<NativeRef>(null)).toUtf8() == "null");
 }
 
+/// JSON.stringify's property list and gap, re-writing compact text as
+/// JavaScript writes it (each expectation is node's).
+static void jsonFormat() {
+  auto f = [](const char* compact, Opt<Array<String>> keys, const String& gap) {
+    std::u16string in;
+    for (const char* c = compact; *c; c++) in.push_back(static_cast<unsigned char>(*c));
+    return String::fromUtf16(json::format(in, keys, gap)).toUtf8();
+  };
+  const char* v = R"({"b":[1,{"a":"x,}\"y","c":[]}],"a":{},"c":"q"})";
+  Opt<Array<String>> none = undefined;
+  CHECK(f(v, none, json::gapOf(2.0)) ==
+        "{\n  \"b\": [\n    1,\n    {\n      \"a\": \"x,}\\\"y\",\n      \"c\": []\n    }\n  ],\n  \"a\": {},\n  \"c\": \"q\"\n}");
+  CHECK(f(v, json::keysOf(Array<String>{String::fromLatin1("c"), String::fromLatin1("a"), String::fromLatin1("c")}), String()) ==
+        R"({"c":"q","a":{}})");
+  CHECK(f(v, json::keysOf(Array<String>{String::fromLatin1("b"), String::fromLatin1("a")}), json::gapOf(String::fromLatin1("\t"))) ==
+        "{\n\t\"b\": [\n\t\t1,\n\t\t{\n\t\t\t\"a\": \"x,}\\\"y\"\n\t\t}\n\t],\n\t\"a\": {}\n}");
+  CHECK(json::gapOf(20.0).length() == 10 && json::gapOf(0.5).length() == 0);
+  CHECK(json::gapOf(String::fromLatin1("abcdefghijkl")).toUtf8() == "abcdefghij");
+  CHECK(f("[]", none, json::gapOf(4.0)) == "[]");
+  CHECK(f("\"s\"", none, json::gapOf(4.0)) == "\"s\"");
+}
+
 int main() {
+  jsonFormat();
   typedArrays();
   deepRegExps();
   stackExhaustionThrows();

@@ -1,6 +1,10 @@
 #include "json_parse.h"
 
+#include <cmath>
+#include <vector>
+
 #include "jserror.h"
+#include "json.h"
 #include "number.h"
 
 namespace lucent {
@@ -239,5 +243,144 @@ void jsonShapeError(const std::string& path, const char* expected, const char* g
   std::string where = path.empty() ? "" : " at " + path;
   throwTypeError(("JSON.parse: expected " + std::string(expected) + where + ", got " + got).c_str());
 }
+
+namespace json {
+
+String gapOf(double space) {
+  if (std::isnan(space) || space < 1) return String();
+  int n = space >= 10 ? 10 : static_cast<int>(space);
+  return String::fromLatin1(std::string(static_cast<size_t>(n), ' '));
+}
+
+String gapOf(const String& space) {
+  if (space.length() <= 10) return space;
+  std::u16string units;
+  for (size_t i = 0; i < 10; i++) units.push_back(space.unit(i));
+  return String::fromUtf16(units);
+}
+
+Opt<Array<String>> keysOf(const Array<String>& keys) {
+  Array<String> once;
+  for (const auto& k : keys.items()) {
+    bool seen = false;
+    for (const auto& o : once.items()) seen = seen || o == k;
+    if (!seen) once.push(k);
+  }
+  return once;
+}
+
+namespace {
+
+/// Re-writes compact JSON, as JSON.stringify's SerializeJSONObject and
+/// SerializeJSONArray do with a property list and a gap.
+class Formatter {
+ public:
+  Formatter(const std::u16string& s, const Opt<Array<String>>& keys, const String& gap) : s_(s) {
+    for (size_t i = 0; i < gap.length(); i++) gap_.push_back(gap.unit(i));
+    if (keys.has()) {
+      filtered_ = true;
+      // Each key as the writer quotes it, to compare with the text's.
+      for (const auto& k : keys.get().items()) {
+        JsonWriter w;
+        w.quote(k);
+        keys_.push_back(std::move(w.out));
+      }
+    }
+  }
+
+  std::u16string value(const std::u16string& indent) {
+    switch (s_[i_]) {
+      case u'{':
+        return object(indent);
+      case u'[':
+        return array(indent);
+      case u'"':
+        return string();
+      default: {
+        size_t start = i_;
+        while (i_ < s_.size() && s_[i_] != u',' && s_[i_] != u']' && s_[i_] != u'}') i_++;
+        return s_.substr(start, i_ - start);
+      }
+    }
+  }
+
+ private:
+  std::u16string string() {
+    size_t start = i_++;
+    while (s_[i_] != u'"') i_ += s_[i_] == u'\\' ? 2 : 1;
+    i_++;
+    return s_.substr(start, i_ - start);
+  }
+
+  std::u16string object(const std::u16string& stepback) {
+    std::u16string indent = stepback + gap_;
+    std::vector<std::pair<std::u16string, std::u16string>> members;
+    i_++;
+    while (s_[i_] != u'}') {
+      std::u16string key = string();
+      i_++;  // ':'
+      std::u16string v = value(indent);
+      members.emplace_back(std::move(key), std::move(v));
+      if (s_[i_] == u',') i_++;
+    }
+    i_++;
+
+    std::vector<std::u16string> parts;
+    auto member = [&](const std::pair<std::u16string, std::u16string>& m) {
+      parts.push_back(m.first + (gap_.empty() ? u":" : u": ") + m.second);
+    };
+    if (!filtered_)
+      for (const auto& m : members) member(m);
+    else
+      // The list's order, each key the object has.
+      for (const auto& k : keys_)
+        for (const auto& m : members)
+          if (m.first == k) {
+            member(m);
+            break;
+          }
+    return wrap(u'{', u'}', parts, stepback, indent);
+  }
+
+  std::u16string array(const std::u16string& stepback) {
+    std::u16string indent = stepback + gap_;
+    std::vector<std::u16string> parts;
+    i_++;
+    while (s_[i_] != u']') {
+      parts.push_back(value(indent));
+      if (s_[i_] == u',') i_++;
+    }
+    i_++;
+    return wrap(u'[', u']', parts, stepback, indent);
+  }
+
+  std::u16string wrap(char16_t open, char16_t close, const std::vector<std::u16string>& parts,
+                      const std::u16string& stepback, const std::u16string& indent) {
+    std::u16string out(1, open);
+    if (parts.empty()) return out + close;
+    for (size_t k = 0; k < parts.size(); k++) {
+      if (k) out.push_back(u',');
+      if (!gap_.empty()) out += u"\n" + indent;
+      out += parts[k];
+    }
+    if (!gap_.empty()) out += u"\n" + stepback;
+    out.push_back(close);
+    return out;
+  }
+
+  const std::u16string& s_;
+  size_t i_ = 0;
+  std::u16string gap_;
+  bool filtered_ = false;
+  std::vector<std::u16string> keys_;
+};
+
+}  // namespace
+
+std::u16string format(const std::u16string& compact, const Opt<Array<String>>& keys, const String& gap) {
+  return Formatter(compact, keys, gap).value(u"");
+}
+
+}  // namespace json
 
 }  // namespace lucent
