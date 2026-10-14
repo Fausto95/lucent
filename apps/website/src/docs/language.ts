@@ -787,12 +787,4 @@ export const differences: { title: string; rows: Difference[] }[] = [
  * Lucent should refuse it or match JavaScript; each row names the cases a
  * fix changes, and a gap without one fails the check.
  */
-export const knownGaps: Difference[] = [
-  {
-    js: "A `let` or `const` read before its declaration runs throws a `ReferenceError`.",
-    lucent:
-      "It reads as a field not yet assigned: a value type's default, such as `0`, and for an object a `TypeError` when it's used.",
-    why: "Native variables exist from the start, and the read isn't refused yet.",
-    cases: ["unassigned-fields", "module-initialization"],
-  },
-];
+export const knownGaps: Difference[] = [];

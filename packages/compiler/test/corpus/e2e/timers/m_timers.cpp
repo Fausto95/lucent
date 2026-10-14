@@ -113,9 +113,9 @@ lucent::Promise<lucent::String> m_timers::ticks() {
   lucent::checkStack();
   lucent::Fn<void(lucent::Fn<void(lucent::String)>, lucent::Fn<void(lucent::Error)>)> v0_ = lucent::Fn<void(lucent::Fn<void(lucent::String)>, lucent::Fn<void(lucent::Error)>)>([](lucent::Fn<void(lucent::String)> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> void {
     lucent::checkStack();
+    lucent::Box<double> r_id_ = lucent::Box<double>(lucent::tdz, "id");
     lucent::Box<double> n{};
     *n = 0.0;
-    lucent::Box<double> r_id_{};
     lucent::Fn<void()> v3_ = lucent::Fn<void()>(lucent::closure("timers.lucent.ts:36", "n,id,resolve", [](std::decay_t<decltype(n)>& n, std::decay_t<decltype(r_id_)>& r_id_, std::decay_t<decltype(p0_)>& resolve) -> void {
       lucent::checkStack();
       double v0_ = *n;
@@ -135,7 +135,7 @@ lucent::Promise<lucent::String> m_timers::ticks() {
         (void)lucent::setTimer(v9_, 25.0, false);
       }
     }, n, r_id_, p0_));
-    *r_id_ = lucent::setTimer(v3_, 5.0, true);
+    r_id_.init(lucent::setTimer(v3_, 5.0, true));
   });
   return ({
     lucent::Promise<lucent::String> p_;
@@ -156,9 +156,9 @@ lucent::Promise<lucent::String> m_timers::clears() {
   lucent::checkStack();
   lucent::Fn<void(lucent::Fn<void(lucent::String)>, lucent::Fn<void(lucent::Error)>)> v0_ = lucent::Fn<void(lucent::Fn<void(lucent::String)>, lucent::Fn<void(lucent::Error)>)>([](lucent::Fn<void(lucent::String)> p0_, lucent::Fn<void(lucent::Error)> p1_) mutable -> void {
     lucent::checkStack();
+    lucent::Box<double> once = lucent::Box<double>(lucent::tdz, "once");
     lucent::Box<double> ran{};
     *ran = 0.0;
-    lucent::Box<double> once{};
     lucent::Fn<void()> v3_ = lucent::Fn<void()>([ran = ran, once = once]() mutable -> void {
       lucent::checkStack();
       double v0_ = *ran;
@@ -166,7 +166,7 @@ lucent::Promise<lucent::String> m_timers::clears() {
       double v3_ = *once;
       lucent::clearTimer(lucent::Opt<double>(v3_));
     });
-    *once = lucent::setTimer(v3_, 0.0, false);
+    once.init(lucent::setTimer(v3_, 0.0, false));
     lucent::clearTimer(lucent::Opt<double>(lucent::undefined));
     lucent::clearTimer(lucent::Opt<double>(lucent::undefined));
     lucent::Fn<void()> v10_ = lucent::Fn<void()>(lucent::closure("timers.lucent.ts:57", "once,resolve,ran", [](std::decay_t<decltype(once)>& once, std::decay_t<decltype(p0_)>& resolve, std::decay_t<decltype(ran)>& ran) -> void {

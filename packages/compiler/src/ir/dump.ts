@@ -92,11 +92,11 @@ function dumpOp(op: IrOp, type: (v: ValueId) => string): string {
     case "convert":
       return def(op.result, `convert v${op.input}`);
     case "local":
-      return `local p${op.place} ${op.name}: ${typeKey(op.type)}${op.boxed ? " boxed" : ""}`;
+      return `local p${op.place} ${op.name}: ${typeKey(op.type)}${op.boxed ? " boxed" : ""}${op.tdz ? " tdz" : ""}`;
     case "load":
       return def(op.result, `load p${op.place}`);
     case "store":
-      return `store p${op.place} = v${op.value}`;
+      return `${op.init ? "init" : "store"} p${op.place} = v${op.value}`;
     case "renew":
       return `renew p${op.place}`;
     case "call": {

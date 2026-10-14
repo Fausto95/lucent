@@ -203,9 +203,19 @@ declarations, parameters, `for…of` and assignments, with defaults, array
 rest and object rest. An object's rest is a new object of the rest's type,
 with the fields that type names, as spread copies them; a record's is a new
 record without the keys the pattern names. Computed keys, the rest of a
-class instance and destructuring in `catch` are `LUCENT1004`. A `let` or `const` read before
-its declaration runs reads as an unassigned field does, where JavaScript
-throws `ReferenceError`: a known gap.
+class instance and destructuring in `catch` are `LUCENT1004`.
+
+A `let` or `const` used before its declaration runs throws
+`ReferenceError` (`Cannot access 'x' before initialization`), as in
+JavaScript. Only code made before the declaration can do that: a function
+declared in its block, or a closure written above it. A local such a
+closure captures lives in a box made where its block starts, in its dead
+zone until the declaration runs (`lucent::Box`, `tdz`). A module variable
+gets a flag when the module's initialization, between where such code is
+made and the declaration, calls something that reaches that code; each
+use outside a compute task checks it (`lucent::declared`). In an import
+cycle, any call the cycle's modules make while they start counts. Other
+variables have no check, since nothing can use them early.
 
 `if`, the loops, `switch` with fallthrough, labels,
 `try`/`catch`/`finally` (with `return` and `break` inside) and `throw`
@@ -1061,9 +1071,9 @@ both, in the same commit.
 
 ### Known gaps
 
-| JavaScript                                                  | Lucent today                    | Task                  |
-| ----------------------------------------------------------- | ------------------------------- | --------------------- |
-| a `let` read before its declaration throws `ReferenceError` | it reads as an unassigned field | [T106](tasks.md#t106) |
+None: code that compiles does what JavaScript does, or differs as the
+tables above say. A gap found goes here, with its task, and on the
+website's list (`apps/website/src/docs/language.ts`).
 
 ## Diagnostics
 

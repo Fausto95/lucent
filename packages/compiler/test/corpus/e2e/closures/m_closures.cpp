@@ -149,8 +149,8 @@ double m_closures::recurse(double p0_) {
 
 double m_closures::memo(double p0_) {
   lucent::checkStack();
-  lucent::Map<double, double> cache = lucent::Map<double, double>();
   lucent::Box<lucent::Fn<double(double)>> fib{};
+  lucent::Map<double, double> cache = lucent::Map<double, double>();
   lucent::Fn<double(double)> v3_ = lucent::Fn<double(double)>(lucent::closure("closures.lucent.ts:34", "cache,fib", [](std::decay_t<decltype(cache)>& cache, std::decay_t<decltype(fib)>& fib, double p0_) -> double {
     lucent::checkStack();
     bool v2_ = p0_ < 2.0;
@@ -172,7 +172,7 @@ double m_closures::memo(double p0_) {
     (void)cache.set(p0_, v);
     return v;
   }, cache, fib));
-  *fib = std::move(v3_);
+  fib.init(std::move(v3_));
   lucent::Fn<double(double)> v4_ = *fib;
   return v4_(p0_);
 }

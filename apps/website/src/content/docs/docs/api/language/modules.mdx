@@ -163,10 +163,7 @@ Every module of the app initializes when JavaScript first imports one of them, b
 1. A module initializes after the modules it imports. In a cycle of imports, a module may initialize before one it imports.
 2. Within a module, its top-level declarations initialize in source order, as in JavaScript. A class's static fields initialize where the class is declared (case `module-initialization`).
 3. A variable whose initializer calls a function runs that function then.
-
-:::caution
-An earlier initializer can call a function that reads a later variable. That read gets the variable's default, such as `0`, where JavaScript throws a `ReferenceError` ([known gap](/docs/api/language/differences/#known-gaps)).
-:::
+4. A function that an earlier initializer calls can't use a later variable yet: it throws a `ReferenceError`, as in JavaScript (case `temporal-dead-zone`).
 
 ## What a reload does
 

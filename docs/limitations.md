@@ -101,14 +101,9 @@ generated from this file.
 - `new Array(n)` needs a whole `.fill(v)`, even when each index is then
   assigned. `Array.from({ length: n })` needs a map function when elements
   can't be `undefined`. Writing past an array's end throws `RangeError`.
-- A few language features differ from JavaScript without a diagnostic.
-  The website lists them under
-  [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps),
-  generated from `apps/website/src/docs/language.ts`.
 - A field or variable of an object type read before it is assigned throws
   `TypeError`, where JavaScript reads `undefined`. One of a value type
-  reads its default. A `let` read before its declaration runs reads as
-  unassigned, not `ReferenceError`.
+  reads its default.
 - Compute tasks are named top-level functions, and safepoints are only in
   module functions' task variants.
 - The JavaScript reference of `compute` differs from native in three

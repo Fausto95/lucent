@@ -1017,6 +1017,35 @@ static void unassignedStorage() {
   CHECK(assigned(2.0, "count") == 2.0);
 }
 
+/// A `let` or `const` code may use before its declaration runs throws
+/// ReferenceError until then: a local's box, and a module variable's flag.
+static void temporalDeadZone() {
+  Box<double> early(tdz, "count");
+  Box<double> copy = early;  // a closure's capture shares the box
+  CHECK_THROWS(*copy, "ReferenceError");
+  CHECK_THROWS(*copy = 1, "ReferenceError");
+  try {
+    (void)*early;
+  } catch (const Exception& e) {
+    CHECK_STR(e.error()->message, "Cannot access 'count' before initialization");
+  }
+  early.init(2);
+  CHECK(*copy == 2);
+  *copy = 3;
+  CHECK(*early == 3);
+
+  Box<double> plain(4);
+  CHECK(*plain == 4);
+
+  bool declared = false;
+  String label;
+  CHECK_THROWS(lucent::declared(declared, "label", label), "ReferenceError");
+  initialize(declared, label, S("ready"));
+  CHECK_STR(lucent::declared(declared, "label", label), "ready");
+  lucent::declared(declared, "label", label) = S("set");
+  CHECK_STR(label, "set");
+}
+
 static void errors() {
   try {
     throwError(S("TypeError"), S("bad"));
@@ -1683,6 +1712,7 @@ int main() {
   mixedStrictEquals();
   errors();
   unassignedStorage();
+  temporalDeadZone();
   async();
   promiseCombinators();
   timersPostedWhileWaiting();

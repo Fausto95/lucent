@@ -18,7 +18,6 @@ import ts from "typescript";
 import {
   enclosingFunction,
   type FunctionLike,
-  freeVariables,
   isWriteTarget,
   parameterSymbol,
   symbolOf,
@@ -95,6 +94,12 @@ export type IrGlobal =
       mutable: boolean;
       /** A constant's literal, which code reads instead of its storage. */
       literal?: ts.Expression;
+      /**
+       * The C++ name of the flag that says its declaration has run, when
+       * code may use it before then: such a use throws ReferenceError, and
+       * a constant is read from storage, not as its literal.
+       */
+      tdz?: string;
     };
 
 /** What lowering needs from the compiler: types and the module's declarations. */
@@ -128,6 +133,12 @@ export interface LowerHost {
   derives?(sub: LType, base: LType): boolean;
   /** Whether closures share the variable `symbol` in a box: some code writes it after they capture it. */
   isBoxed?(symbol: ts.Symbol): boolean;
+  /** Whether a closure made before the `let` or `const` `symbol`'s declaration captures it: a box from its block's start. */
+  isPredeclared?(symbol: ts.Symbol): boolean;
+  /** Whether such a closure may read it before its declaration runs: the box is in its temporal dead zone. */
+  isEarly?(symbol: ts.Symbol): boolean;
+  /** Where the nested function declaration `f` is defined: a position in its block, by its first use. */
+  definedAt?(f: ts.FunctionDeclaration): number;
   /** A nested function's signature, `target` the function type it becomes when it has one. */
   signatureOf?(
     node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
@@ -497,7 +508,14 @@ class Lowerer {
   /** The places closures share in a box. */
   private readonly boxed = new Set<PlaceId>();
   /** Nested function declarations defined where they are written: they capture a later variable. */
-  private readonly deferred = new Set<ts.FunctionDeclaration>();
+  /** The `let` and `const` variables hoist() boxed, by symbol (declareEarly). */
+  private readonly early = new Map<ts.Symbol, PlaceId>();
+  /** Of their boxes, those in their temporal dead zone until declared. */
+  private readonly deadBoxes = new Set<PlaceId>();
+  /** The block's function declarations not defined yet (defineBefore). */
+  private readonly pendingFunctions = new Set<ts.FunctionDeclaration>();
+  /** The captures of early variables, which a closure may read before their declaration runs. */
+  private readonly deadCaptures = new Set<PlaceId>();
   private closures = 0;
 
   constructor(input: LowerInput, host: LowerHost, parent?: Lowerer) {
@@ -580,8 +598,8 @@ class Lowerer {
       if ("variable" in into) {
         const g = into.variable;
 
-        // Initializing stores into the module's constants too.
-        this.b.store(this.b.modulePlace(g.id, g.name, g.type, true), v, span);
+        // Initializing stores into the module's constants too, and ends a dead zone.
+        this.b.store(this.b.modulePlace(g.id, g.name, g.type, true, g.tdz), v, span, !!g.tdz);
       } else {
         if (!host) this.unsupported(this.input.decl, "initializing fields");
 
@@ -864,6 +882,7 @@ class Lowerer {
         return;
       }
 
+      this.defineBefore(s);
       this.statement(s);
     }
   }
@@ -964,21 +983,18 @@ class Lowerer {
   }
 
   /**
-   * Nested function declarations, which JavaScript hoists: each is a boxed
-   * local from the start of its block, defined there; one that captures a
-   * variable the block declares is defined where it is written, the
-   * variable being in its temporal dead zone before that anyway.
+   * What JavaScript makes at a block's start. Its nested function
+   * declarations, which JavaScript hoists: each a boxed local from here,
+   * defined before the statement of its first use (`definedAt`), holding
+   * the boxes of the variables it captures. The `let` and `const` variables
+   * that closures made before their declarations capture: boxed locals from
+   * here, and those the closures may use that early in their temporal dead
+   * zone (a use throws ReferenceError) until their declaration runs.
    */
   hoist(list: readonly ts.Statement[]): void {
     const fns = list
       .filter(ts.isFunctionDeclaration)
       .filter((f) => this.host.runsHere?.(f) !== false);
-
-    if (!fns.length) return;
-
-    const declared = new Set(
-      list.filter(ts.isVariableStatement).flatMap((v) => this.declaredBy(v)),
-    );
 
     for (const f of fns) {
       if (!f.name) this.unsupported(f, "a function declaration without a name");
@@ -987,11 +1003,86 @@ class Lowerer {
       const type = this.signature(f).type;
 
       this.declareLocal(sym, f.name.text, type, f, true);
-
-      if (freeVariables(this.host.checker, f).some((v) => declared.has(v))) this.deferred.add(f);
     }
 
-    for (const f of fns) if (!this.deferred.has(f)) this.define(f);
+    for (const v of list.filter(ts.isVariableStatement)) {
+      const scoped = v.declarationList.flags & ts.NodeFlags.BlockScoped;
+
+      if (scoped !== ts.NodeFlags.Let && scoped !== ts.NodeFlags.Const) continue;
+
+      if (this.host.runsHere?.(v) === false) continue;
+
+      for (const sym of this.declaredBy(v))
+        if (this.host.isPredeclared?.(sym))
+          this.declareEarly(sym, this.host.isEarly?.(sym) === true);
+    }
+
+    for (const f of fns) {
+      if (this.host.definedAt) this.pendingFunctions.add(f);
+      else this.define(f);
+    }
+  }
+
+  /** Defines the block's function declarations that `s` (a statement of the block) or one before it uses first. */
+  defineBefore(s: ts.Statement): void {
+    for (const f of this.pendingFunctions)
+      if (f.parent === s.parent && this.host.definedAt!(f) < s.getEnd()) {
+        this.pendingFunctions.delete(f);
+        this.define(f);
+      }
+  }
+
+  /** A `let` or `const` an earlier closure captures: a box, in its temporal dead zone when `dead`. */
+  declareEarly(sym: ts.Symbol, dead: boolean): void {
+    const decl = sym.valueDeclaration;
+    const name = decl && (decl as ts.NamedDeclaration).name;
+
+    if (!name || !ts.isIdentifier(name)) return;
+
+    const declared = this.declaredType(sym, name);
+    const type = declared.k === "never" ? T.undefined : declared;
+    const place = this.b.local(
+      name.text,
+      type,
+      spanOf(decl),
+      true,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      dead,
+    );
+
+    this.locals.set(sym, place);
+    this.localTypes.set(place, type);
+    this.boxed.add(place);
+    this.early.set(sym, place);
+
+    if (dead) this.deadBoxes.add(place);
+  }
+
+  /**
+   * The declaration of an early `let` or `const`: its value ends the box's
+   * temporal dead zone. Without one (`let x;`), it is undefined.
+   */
+  declareValue(sym: ts.Symbol, value: ValueId | undefined, node: ts.Node): boolean {
+    const place = this.early.get(sym);
+
+    if (place === undefined) return false;
+
+    const type = this.localTypes.get(place)!;
+    const span = spanOf(node);
+    const given = value ?? this.b.const(undefined, span);
+
+    if (value === undefined && !isVoidish(type) && type.k !== "opt")
+      fail(
+        node,
+        Codes.UnsupportedSyntax,
+        "give it a value where it is declared: a function made before the declaration uses it",
+      );
+
+    this.b.store(place, this.coerce(given, type, node), span, true);
+    return true;
   }
 
   /** The variables a statement declares, destructured ones included. */
@@ -1012,11 +1103,6 @@ class Lowerer {
 
     for (const d of s.declarationList.declarations) visit(d.name);
     return out;
-  }
-
-  /** A nested function declaration's statement: where one that captures a later variable is defined. */
-  defineDeferred(f: ts.FunctionDeclaration): void {
-    if (this.deferred.has(f)) this.define(f);
   }
 
   /** Stores the closure of a nested function declaration into its hoisted local. */
@@ -1146,6 +1232,15 @@ class Lowerer {
       }
 
       const sym = this.symbol(d.name);
+
+      if (this.early.has(sym)) {
+        const type = this.localTypes.get(this.early.get(sym)!)!;
+        const value = d.initializer && this.expr(d.initializer, type);
+
+        this.declareValue(sym, value, d);
+        continue;
+      }
+
       const declared = this.declaredType(sym, d.name);
       const type = declared.k === "never" ? T.undefined : declared;
       const boxed = this.host.isBoxed?.(sym) === true;
@@ -1180,6 +1275,9 @@ class Lowerer {
   bind(name: ts.BindingName, value: ValueId): void {
     if (ts.isIdentifier(name)) {
       const sym = this.symbol(name);
+
+      if (this.declareValue(sym, value, name)) return;
+
       const declared = this.declaredType(sym, name);
       const type = declared.k === "never" ? T.undefined : declared;
       const place = this.declareLocal(sym, name.text, type, name);
@@ -2013,7 +2111,19 @@ class Lowerer {
 
     if (g?.kind !== "var") this.unsupported(id, `the name ${id.text}`);
 
-    return { place: this.b.modulePlace(g.id, g.name, g.type, g.mutable), type: g.type };
+    return {
+      place: this.b.modulePlace(g.id, g.name, g.type, g.mutable, this.dead(g)),
+      type: g.type,
+    };
+  }
+
+  /**
+   * The flag of the module variable `g`'s temporal dead zone, which this
+   * function checks: a compute task's code never runs while the module
+   * starts.
+   */
+  dead(g: IrGlobal & { kind: "var" }): string | undefined {
+    return this.input.task ? undefined : g.tdz;
   }
 
   /** A local; boxed when closures share it (`always`, a nested function declaration). */
@@ -2117,6 +2227,10 @@ class Lowerer {
     // Captured: a copy of what the enclosing function holds, or its box.
     const parent = this.parent!;
     const boxed = "place" in outer && parent.boxed.has(outer.place);
+    // A closure may run before the variable's declaration: reading it may throw.
+    const dead =
+      "place" in outer &&
+      (parent.deadBoxes.has(outer.place) || parent.deadCaptures.has(outer.place));
     const type = "value" in outer ? parent.b.typeOf(outer.value) : outer.type;
     const names = new Set(
       [...this.captured.keys()].map((k) => (typeof k === "string" ? k : k.name)),
@@ -2129,9 +2243,12 @@ class Lowerer {
       type,
       boxed,
       shadowed ? temporary(sym.name, String(names.size)) : undefined,
+      dead,
     );
 
     if (boxed) this.boxed.add(place);
+
+    if (dead) this.deadCaptures.add(place);
 
     this.captured.set(sym, { place, outer });
     return { place, type };
@@ -2339,7 +2456,7 @@ class Lowerer {
 
     // A literal constant is read as its literal, not from module storage; a
     // constant whose value is code (the host's platform test) is the backend's.
-    if (g?.kind === "var" && g.literal)
+    if (g?.kind === "var" && g.literal && !this.dead(g))
       return isLiteral(g.literal)
         ? this.coerce(this.b.const(literalValue(g.literal), spanOf(id)), g.type, id)
         : this.leaf(id);
@@ -2965,8 +3082,8 @@ const STATEMENTS: Partial<Record<ts.SyntaxKind, StatementLowering>> = {
     else lw.b.return(lw.coerce(lw.b.const(undefined, spanOf(s)), lw.result, s), spanOf(s));
   },
 
-  [ts.SyntaxKind.FunctionDeclaration]: (s: ts.FunctionDeclaration, lw: Lowerer) =>
-    lw.defineDeferred(s),
+  // Defined where its block starts (hoist).
+  [ts.SyntaxKind.FunctionDeclaration]: () => {},
 
   [ts.SyntaxKind.ThrowStatement]: (s: ts.ThrowStatement, lw: Lowerer) => {
     const v = lw.expr(s.expression);
