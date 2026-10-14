@@ -31,8 +31,14 @@ const app = path.resolve(root, process.argv[2] ?? "apps/bare-example");
 const hermes = process.env.HERMES_DIR ?? path.join(os.homedir(), "hermes");
 const work = path.join(os.tmpdir(), "lucent-app-check", path.basename(app));
 
-/** Long enough for any one step (a runtime compile, a Metro bundle): a hung step fails the check. */
+/** Long enough for any one step (a Metro bundle): a hung step fails the check. */
 const STEP_TIMEOUT = 600_000;
+/**
+ * Long enough for any one compile on a CI machine with a cold cache: the
+ * generated lucent_bindings.cpp, near a megabyte, took over ten minutes
+ * there beside the other compiles (a nightly run's app check).
+ */
+const COMPILE_TIMEOUT = 1_800_000;
 
 function sh(cmd: string, args: string[], cwd = root, env: NodeJS.ProcessEnv = {}): string {
   const r = runToExit(cmd, args, {
@@ -88,6 +94,7 @@ const flags = [
   `-I${hermes}/public`,
 ];
 const rs = runtimeSources(cpp);
+// The largest first: the bindings would otherwise start last, and finish alone.
 const sources = [
   ...fs
     .readdirSync(generated)
@@ -96,7 +103,7 @@ const sources = [
   ...rs.cxx,
   ...rs.c,
   path.join(root, "packages/runtime/test/jsi/harness.cpp"),
-];
+].sort((a, b) => fs.statSync(b).size - fs.statSync(a).size);
 // The app's modules and the runtime, side by side.
 const objs = await Promise.all(
   pool(
@@ -107,7 +114,7 @@ const objs = await Promise.all(
       if (s.endsWith(".c")) await run(process.env.CC ?? "clang", [...cFlags, "-c", s, "-o", o]);
       else
         await run(process.env.CXX ?? "clang++", [...flags, "-c", s, "-o", o], {
-          timeout: STEP_TIMEOUT,
+          timeout: COMPILE_TIMEOUT,
         });
       return o;
     },
