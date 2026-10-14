@@ -948,7 +948,6 @@ The view gate closes these gaps ([parity.md](../parity.md#views)):
 
 | Gap                                                                                              | Task                     |
 | ------------------------------------------------------------------------------------------------ | ------------------------ |
-| Views inside Reanimated, Gesture Handler and react-native-screens, and view props on devices     | [T121](../tasks.md#t121) |
 | A `UIViewController` root, such as `AVPlayerViewController`                                      | [T122](../tasks.md#t122) |
 | Instance props in SwiftUI and Compose bodies; helpers with toolkit values, children and bindings | [T123](../tasks.md#t123) |
 | A component's ref passed to a module function                                                    | [T124](../tasks.md#t124) |

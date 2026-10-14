@@ -192,12 +192,12 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "Recycling, keyed lists and Yoga layout, and views that update while JavaScript is blocked."
       },
       {
-        "status": "next",
+        "status": "done",
         "text": "Instances of exported classes as props, such as a video player."
       },
       {
-        "status": "next",
-        "text": "React Native's own view props, such as `testID` and `onLayout`."
+        "status": "done",
+        "text": "React Native's own view props, such as `testID` and `onLayout`, inside Reanimated, Gesture Handler and react-native-screens."
       },
       {
         "status": "later",
@@ -294,7 +294,7 @@ export const limitations: { title: string; items: string[] }[] = [
     "title": "Language, runtime and bindings",
     "items": [
       "Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)): break them with `WeakRef`, or key what one side holds in a `WeakMap`.",
-      "Members a module adds to another module's class aren't bound: UIKit's `NSObject` members, such as `accessibilityLabel`, aren't on `UIView` ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)).",
+      "Members a module adds to another module's class are bound only for `NSObject`'s Objective-C categories, instance members only. UIKit's `row` on `NSIndexPath` isn't bound, nor are Swift extensions' members ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)).",
       "A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)). A `WeakMap` value that holds its own key keeps it, and the entry, for as long as the map lives.",
       "`new AggregateError` is refused (`LUCENT1003`). Read the `errors` of the one `Promise.any` rejects with as `e.errors as Error[]`, since TypeScript types them `any`.",
       "`TextEncoder`, `TextDecoder`, `atob`, `btoa`, `URL` and `crypto` are not available. `lucent:core` has `utf8Encode` and `utf8Decode` ([T105](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t105)).",

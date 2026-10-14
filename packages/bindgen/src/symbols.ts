@@ -37,6 +37,11 @@ export interface SymbolGraphSymbol {
     isUnconditionallyUnavailable?: boolean;
     obsoleted?: unknown;
   }[];
+  /**
+   * Lucent's own mark, never the tool's: a class of another module this
+   * graph's module adds members to (withRootExtensions), and that module.
+   */
+  extensionOf?: string;
 }
 
 export interface SymbolGraph {
