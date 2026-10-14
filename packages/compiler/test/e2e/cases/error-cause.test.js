@@ -1,0 +1,15 @@
+print(mod.wrapped());
+print(mod.noCause());
+print(mod.subclasses());
+print(mod.chain());
+print(mod.asError());
+print(mod.optionalCause(true));
+print(mod.optionalCause(false));
+const e = mod.toJavaScript();
+print(`${e.message} <- ${e.cause instanceof Error} ${e.cause.name}: ${e.cause.message}`);
+print(mod.fromJavaScript(new Error("js outer", { cause: new RangeError("js inner") })));
+print(mod.fromJavaScript(new Error("js alone")));
+print(mod.fromJavaScript(new Error("js text", { cause: "only text" })));
+const cyclic = new Error("cyclic");
+cyclic.cause = cyclic;
+print(mod.fromJavaScript(cyclic));

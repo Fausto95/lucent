@@ -498,7 +498,22 @@ jsi::Value Convert<NativeBuffer>::toJs(jsi::Runtime& rt, Host& h, const NativeBu
   return h.wrap(rt, b, kBufferPrototype, bufferPrototype);
 }
 
-Error Convert<Error>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path&) {
+namespace {
+/// `v` as a Lucent Error, its causes too, as far as `depth` more: a chain
+/// JavaScript made may be a cycle.
+Error errorFromJsValue(jsi::Runtime& rt, const jsi::Value& v, int depth);
+
+/// The cause of the JavaScript error `o`, an Error, or empty: Lucent keeps an Error's only.
+Error causeFromJsAt(jsi::Runtime& rt, const jsi::Object& o, int depth) {
+  if (depth <= 0) return Error();
+  jsi::Value cause = o.getProperty(rt, "cause");
+  if (!cause.isObject()) return Error();
+  jsi::Function errorCtor = rt.global().getPropertyAsFunction(rt, "Error");
+  if (!cause.getObject(rt).instanceOf(rt, errorCtor)) return Error();
+  return errorFromJsValue(rt, cause, depth - 1);
+}
+
+Error errorFromJsValue(jsi::Runtime& rt, const jsi::Value& v, int depth) {
   if (auto own = std::dynamic_pointer_cast<ErrorObject>(instanceOf(rt, v))) return own;
   Error e = makeError(String::fromLatin1("Error"), String());
   if (v.isObject()) {
@@ -511,10 +526,21 @@ Error Convert<Error>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path&)
     if (message.isString()) e->message = stringFromJs(rt, message.getString(rt));
     if (code.isString()) e->code = stringFromJs(rt, code.getString(rt));
     if (stack.isString()) e->stack = stringFromJs(rt, stack.getString(rt));
+    e->cause = causeFromJsAt(rt, o, depth);
   } else {
     e->message = stringFromJs(rt, v.toString(rt));
   }
   return e;
+}
+
+/// How many causes deep a JavaScript error's chain is read.
+constexpr int kCauseDepth = 16;
+}  // namespace
+
+Error causeFromJs(jsi::Runtime& rt, const jsi::Object& error) { return causeFromJsAt(rt, error, kCauseDepth); }
+
+Error Convert<Error>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path&) {
+  return errorFromJsValue(rt, v, kCauseDepth);
 }
 
 namespace {

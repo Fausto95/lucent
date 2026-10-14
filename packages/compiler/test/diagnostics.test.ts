@@ -1027,6 +1027,27 @@ export function size(t: Tree<number>): number {
         "new on an Error class without a constructor of its own",
         'class Plain extends Error {}\nexport function f(e: Error): Error { return new Plain("x", { cause: e }); }',
       ],
+      [
+        "a cause from a parameter that may be undefined",
+        "export function f(m: string, e?: Error): Error { return new Error(m, { cause: e }); }",
+      ],
+    ])("accepts %s", (_, src) => {
+      expect(codes(src)).toEqual([]);
+    });
+
+    it.each([
+      [
+        "a cause that isn't an Error",
+        'export function f(): Error { return new Error("x", { cause: "text" }); }',
+      ],
+      [
+        "options held in a variable",
+        'export function f(o: { cause: Error }): Error { return new Error("x", o); }',
+      ],
+      [
+        "options with more than a cause",
+        'export function f(e: Error): Error { return new Error("x", { cause: e, extra: 1 } as ErrorOptions); }',
+      ],
     ])("rejects %s", (_, src) => {
       expect(codes(src)).toContain("LUCENT1003");
     });

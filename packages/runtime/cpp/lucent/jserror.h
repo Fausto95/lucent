@@ -28,8 +28,27 @@ struct ErrorObject : Object {
   /// Throwable), which `nativeError` from lucent:ios and lucent:android
   /// gives back; empty for Lucent's and JavaScript's errors.
   std::shared_ptr<const void> native;
+  /// What caused it (`new Error(message, { cause })`): empty for none.
+  std::shared_ptr<ErrorObject> cause;
 };
 using Error = Ref<ErrorObject>;
+
+/// `e` with `cause` as its cause (`new Error(message, { cause })`); none
+/// when `cause` is empty.
+template <class E>
+E withCause(E e, const Error& cause) {
+  if (e) e->cause = cause;
+  return e;
+}
+
+/// An optional cause as an error, empty when it is undefined or null.
+inline Error causeOrNone(const Opt<Error>& cause) { return cause.has() ? cause.get() : Error(); }
+
+/// `e.cause`: undefined when it has none.
+inline Opt<Error> causeOf(const Error& e) {
+  if (e && e->cause) return Error(e->cause);
+  return undefined;
+}
 
 /// What a `using` declaration throws when disposing fails while an error is
 /// pending: JavaScript's SuppressedError, with both.
