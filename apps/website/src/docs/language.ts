@@ -652,6 +652,13 @@ export const differences: { title: string; rows: Difference[] }[] = [
         cases: ["base64"],
       },
       {
+        js: "`crypto.getRandomValues` throws a `QuotaExceededError` `DOMException` past 65536 bytes, and a `TypeMismatchError` for an array of floats.",
+        lucent:
+          "Throws an `Error` named `QuotaExceededError`, with Node's message. An array of floats is [LUCENT1003](/docs/api/diagnostics/#lucent1003).",
+        why: "Lucent has no `DOMException`, and knows each array's type when it compiles.",
+        cases: ["random-values"],
+      },
+      {
         js: "`error.stack` is a string.",
         lucent:
           "`undefined` in Lucent code, unless the error came from JavaScript. JavaScript receives a `stack` whose first frame is the Lucent one.",

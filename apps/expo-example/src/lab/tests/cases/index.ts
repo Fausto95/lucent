@@ -185,6 +185,8 @@ import * as promiseCombinatorsModule from "../lucent/promise-combinators.lucent"
 import promiseCombinatorsRun from "./promise-combinators";
 import * as promiseFieldsModule from "../lucent/promise-fields.lucent";
 import promiseFieldsRun from "./promise-fields";
+import * as randomValuesModule from "../lucent/random-values.lucent";
+import randomValuesRun from "./random-values";
 import * as recursionLimitModule from "../lucent/recursion-limit.lucent";
 import recursionLimitRun from "./recursion-limit";
 import * as recursiveShapesModule from "../lucent/recursive-shapes.lucent";
@@ -323,6 +325,7 @@ export const cases: TestCase[] = [
   { name: "promise-chains", module: promiseChainsModule, run: promiseChainsRun, expected: ["sync a1:1 b1:10 b2:11 b3:12 a2:2 b4:12 = 2,12","caught boom, finally, then 7, second again -> 8","f-handler t1 g-inner t2 t3 f-done:f t4 g-done:g t5"] },
   { name: "promise-combinators", module: promiseCombinatorsModule, run: promiseCombinatorsRun, expected: ["t1 t2 fast@1 boom@1 mixed:7 a@1 t3 mid@2 text@2 b@2 t4 slow@3 won:fast late@3 lost:boom listed:a t5 t6","t1 empty:true t2 x@1 e2@1 mixed:true t3 y@2 e1@2 m@2 t4 z@3 t5 any:y AggregateError(All promises were rejected):e1,e2:2","t1 empty:0 t2 good@1 t3 one@2 t4 bad@3 t5 pair:one,2 list:ok:good,no:bad"] },
   { name: "promise-fields", module: promiseFieldsModule, run: promiseFieldsRun, expected: ["a,b,c {\"pending\":{},\"log\":[\"a\",\"b\",\"c\"]}","true 27 2 {\"point\":{},\"total\":{},\"loads\":2}","{\"label\":\"box\",\"ready\":{}} [{},{}]","js true"] },
+  { name: "random-values", module: randomValuesModule, run: randomValuesRun, expected: ["the same array: true","bytes vary: true","words vary: true (16)","bigints vary: true (8)","outside the view: 0","the most: 65536","QuotaExceededError: The requested length exceeds 65,536 bytes","200 of 200 shaped as version 4, 200 different"] },
   { name: "recursion-limit", module: recursionLimitModule, run: recursionLimitRun, expected: ["RangeError true true","RangeError true true true","RangeError true true","RangeError true true","500500","RangeError true true"] },
   { name: "recursive-shapes", module: recursiveShapesModule, run: recursiveShapesRun, expected: ["4","{\"value\":2,\"children\":[{\"value\":3,\"children\":[]},{\"value\":4,\"children\":[{\"value\":5,\"children\":[]}]}]}","3","1/a/2","1/2/3","7","root,a"] },
   { name: "reduce-operands", module: reduceOperandsModule, run: reduceOperandsRun, expected: ["16","mmirr=13","[\"a\",\"C\",\"B\",\"A\"]"] },

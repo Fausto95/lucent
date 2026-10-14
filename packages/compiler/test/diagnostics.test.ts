@@ -1121,6 +1121,30 @@ export function size(t: Tree<number>): number {
     });
   });
 
+  describe("crypto", () => {
+    it("fills arrays of integers, and makes UUIDs", () => {
+      expect(
+        codes(
+          "export function f(): string { const a = crypto.getRandomValues(new BigInt64Array(2)); return `${a[0]} ${crypto.randomUUID()}`; }",
+        ),
+      ).toEqual([]);
+    });
+
+    it("rejects an array of floats, which the standard refuses", () => {
+      expect(
+        codes(
+          "export function f(): number { return crypto.getRandomValues(new Float64Array(2))[0]!; }",
+        ),
+      ).toContain("LUCENT1003");
+    });
+
+    it("has no crypto.subtle", () => {
+      expect(codes("export function f(): void { crypto.subtle.digest(); }")).toContain(
+        "LUCENT9001",
+      );
+    });
+  });
+
   it("rejects Array.isArray of an Iterable, which no longer knows its kind", () => {
     const src =
       "function g(x: Iterable<number>): boolean { return Array.isArray(x); }\nexport function f(): boolean { return g([1]); }";

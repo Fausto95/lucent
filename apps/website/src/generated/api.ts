@@ -2117,6 +2117,28 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "params": []
       },
       {
+        "name": "Crypto",
+        "kind": "interface",
+        "signature": "interface Crypto {\n  getRandomValues<T extends ArrayBufferView | null>(array: T): T;\n  randomUUID(): `${string}-${string}-${string}-${string}-${string}`;\n}",
+        "doc": [
+          "The platform's secure random generator (`arc4random_buf` on iOS, `getrandom` on Android). `subtle` is not available in Lucent code."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "getRandomValues",
+            "signature": "getRandomValues<T extends ArrayBufferView | null>(array: T): T;",
+            "doc": "Fills an array of integers with random values, at most 65536 bytes, and returns it."
+          },
+          {
+            "name": "randomUUID",
+            "signature": "randomUUID(): `${string}-${string}-${string}-${string}-${string}`;",
+            "doc": "A random version 4 UUID, in lowercase."
+          }
+        ],
+        "params": []
+      },
+      {
         "name": "TextEncoderEncodeIntoResult",
         "kind": "interface",
         "signature": "interface TextEncoderEncodeIntoResult {\n  read: number;\n  written: number;\n}",

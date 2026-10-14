@@ -298,6 +298,8 @@ const LIBRARY: Record<string, LibraryEffect> = {
   parseInt: NONE,
   atob: ALLOCATES_THROWS,
   btoa: ALLOCATES_THROWS,
+  // getRandomValues fills its argument, which no effect here says: it is not listed.
+  "Crypto.randomUUID": ALLOCATES,
 
   // They throw on a fraction or text that is no integer, a radix or bit count
   // out of range, a result too large.

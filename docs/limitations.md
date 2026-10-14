@@ -81,7 +81,7 @@ generated from this file.
 - `new AggregateError` is refused (`LUCENT1003`). Read the `errors` of
   the one `Promise.any` rejects with as `e.errors as Error[]`, since
   TypeScript types them `any`.
-- `URL` and `crypto` are not available ([T105](tasks.md#t105)). `TextDecoder` decodes UTF-8 only: another
+- `URL` is not available ([T105](tasks.md#t105)), nor is `crypto.subtle`. `TextDecoder` decodes UTF-8 only: another
   encoding's label is `LUCENT1003`, or a `RangeError` when computed. Its
   options are written in the call.
 - Refused built-ins give `LUCENT1003` unless noted. They include

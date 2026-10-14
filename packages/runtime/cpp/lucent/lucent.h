@@ -22,6 +22,7 @@
 #include "conversions.h"
 #include "core.h"
 #include "date.h"
+#include "entropy.h"
 #include "equality.h"
 #include "events.h"
 #include "extension.h"
