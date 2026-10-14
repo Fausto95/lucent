@@ -675,7 +675,10 @@ function report(summary: string[], details: { app: string[]; metro: string[] }):
     fs.appendFileSync(step, `${md.join("\n").replace(/```(?=.)/g, "'''")}\n`);
   }
   if (process.env.GITHUB_ACTIONS) {
-    const text = summary.join("\n").slice(0, 3500);
+    // The annotation is what a reader without the job's log sees: the app's last lines too.
+    const tail = details.app.slice(-12);
+    const lines = tail.length ? [...summary, "The app's last lines:", ...tail] : summary;
+    const text = lines.join("\n").slice(0, 3500);
     const escaped = text.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
     console.log(`::error title=Device run failed::${escaped}`);
   }
