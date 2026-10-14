@@ -276,6 +276,21 @@ export function lines(chunks: Uint8Array[]): string[] {
 
 Base64, as HTML defines it: `atob` ignores ASCII whitespace, and the `=` padding is optional. Both throw an `Error` named `InvalidCharacterError`, with Node's messages, where JavaScript throws a `DOMException` of that name. `btoa` takes characters up to U+00FF: encode text with `TextEncoder` first.
 
+## URL and URLSearchParams
+
+The URL standard's, parsed by Ada as Node parses them. Every part of a URL reads and writes as a string, and `URL.canParse` and `URL.parse` test without throwing.
+
+A URL's `searchParams` is the same object each time, and a change to either shows in the other. `new URLSearchParams()` takes a string, a `Record<string, string>` (an object literal is one), `[name, value]` pairs or another `URLSearchParams`.
+
+```ts title="search.lucent.ts"
+export function searchUrl(query: string, page: number): string {
+  const url = new URL("https://example.com/search");
+  url.searchParams.set("q", query);
+  url.searchParams.set("page", `${page}`);
+  return url.href; // https://example.com/search?q=lucent+lang&page=2
+}
+```
+
 ## crypto
 
 `crypto.getRandomValues(array)` fills an array of integers from the platform's secure generator, at most 65536 bytes, and returns it. `crypto.randomUUID()` gives a version 4 UUID. An array of floats fails to compile, and `crypto.subtle` isn't declared.

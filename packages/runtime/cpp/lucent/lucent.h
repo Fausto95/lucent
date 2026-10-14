@@ -45,5 +45,6 @@
 #include "stack.h"
 #include "text.h"
 #include "timers.h"
+#include "url.h"
 #include "weak.h"
 #include "jsstring.h"

@@ -144,3 +144,60 @@ declare var TextDecoder: {
   prototype: TextDecoder;
   new (label?: string, options?: TextDecoderOptions): TextDecoder;
 };
+
+/**
+ * A URL, parsed as the URL standard says (by Ada, the parser Node uses).
+ * Each part reads and writes as a string; `searchParams` is the same
+ * object each time, and a change to either shows in the other.
+ */
+interface URL {
+  hash: string;
+  host: string;
+  hostname: string;
+  href: string;
+  toString(): string;
+  readonly origin: string;
+  password: string;
+  pathname: string;
+  port: string;
+  protocol: string;
+  search: string;
+  readonly searchParams: URLSearchParams;
+  username: string;
+  toJSON(): string;
+}
+
+declare var URL: {
+  prototype: URL;
+  /** Throws a TypeError ("Invalid URL") where `url` doesn't parse, against `base` when given. */
+  new (url: string | URL, base?: string | URL): URL;
+  canParse(url: string | URL, base?: string | URL): boolean;
+  /** The URL, or null where it doesn't parse. */
+  parse(url: string | URL, base?: string | URL): URL | null;
+};
+
+/** A query's name and value pairs, in order, as `application/x-www-form-urlencoded` writes them. */
+interface URLSearchParams {
+  readonly size: number;
+  append(name: string, value: string): void;
+  /** Every pair of `name`, or of `name` and `value`. */
+  delete(name: string, value?: string): void;
+  get(name: string): string | null;
+  getAll(name: string): string[];
+  has(name: string, value?: string): boolean;
+  set(name: string, value: string): void;
+  sort(): void;
+  toString(): string;
+  /** In Lucent code, without `thisArg`. */
+  forEach(callbackfn: (value: string, key: string, parent: URLSearchParams) => void): void;
+  [Symbol.iterator](): IterableIterator<[string, string]>;
+  entries(): IterableIterator<[string, string]>;
+  keys(): IterableIterator<string>;
+  values(): IterableIterator<string>;
+}
+
+declare var URLSearchParams: {
+  prototype: URLSearchParams;
+  /** A string (a leading `?` left out), a record, [name, value] pairs, or another URLSearchParams. */
+  new (init?: string[][] | Record<string, string> | string | URLSearchParams): URLSearchParams;
+};

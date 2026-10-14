@@ -42,7 +42,7 @@ import { type E, elementOrUndefined, type Lvalue } from "./context.ts";
 import { coreCall, isCoreSymbol } from "./core.ts";
 import { type FnEmitter, substitute } from "./function.ts";
 import { signalMethod } from "./setups.ts";
-import { webMethod, webNew, webProperty } from "./web.ts";
+import { urlStatic, webMethod, webNew, webProperty } from "./web.ts";
 import { type IfaceMember, membersOf } from "./interfaces.ts";
 import { numberExpr, stringExpr } from "./literals.ts";
 import { handleDispose, handleMethodCall } from "./extensions.ts";
@@ -67,7 +67,12 @@ type FnT = LType & { k: "fn" };
 const fn = (params: LType[], ret: LType): FnT => ({ k: "fn", params, ret });
 
 /** Emits a callback argument as a Fn with exactly `params`. */
-function callback(em: FnEmitter, arg: ts.Expression | undefined, params: LType[], ret?: LType): E {
+export function callback(
+  em: FnEmitter,
+  arg: ts.Expression | undefined,
+  params: LType[],
+  ret?: LType,
+): E {
   if (!arg) fail(undefined, Codes.UnsupportedCall, "missing callback");
   const sig = em.checker.getTypeAtLocation(arg).getCallSignatures()[0];
   if (!sig) fail(arg, Codes.UnsupportedCall, "expected a function");
@@ -1105,6 +1110,7 @@ export function staticCall(
     };
   }
   if (isLibGlobal(em, obj, "crypto")) return cryptoCall(em, node, name);
+  if (isLibGlobal(em, obj, "URL")) return urlStatic(em, node, name);
   if (isLibGlobal(em, obj, "Date") && name === "now") return num(cpp.call("lucent::dateNow"));
   if (isLibGlobal(em, obj, "JSON")) {
     if (name === "stringify") {
@@ -2835,6 +2841,8 @@ const LIB_CONSTRUCTORS: Record<string, LType["k"]> = {
   AbortController: "abortController",
   TextEncoder: "web",
   TextDecoder: "web",
+  URL: "web",
+  URLSearchParams: "web",
   WeakRef: "weak",
   WeakMap: "weakMap",
   WeakSet: "weakSet",

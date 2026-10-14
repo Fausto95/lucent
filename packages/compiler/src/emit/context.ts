@@ -127,6 +127,8 @@ export class Ctx {
   readonly swiftShims = new Map<string, SwiftShim>();
   /** Whether the program collects Swift AsyncSequences: the shims file defines lucent_swift_collect. */
   swiftSequences = false;
+  /** Whether the program makes a URL or URLSearchParams: the native package carries Ada (web.ts). */
+  urls = false;
   /** Lucent classes conforming to Swift-only protocols. */
   readonly swiftProxies: SwiftProxy[] = [];
   /** The Kotlin shims the Android glue calls, per SDK module, by name. */

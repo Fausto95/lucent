@@ -12,7 +12,13 @@ export function runtimeSources(cppDir: string): { cxx: string[]; c: string[] } {
       .filter((f) => f.endsWith(ext))
       .map((f) => path.join(cppDir, dir, f));
   return {
-    cxx: [...list("lucent", ".cpp"), ...list("lucent/jsi", ".cpp")],
+    // URL (lucent/url) and the URL standard's parser it is built on (Ada).
+    cxx: [
+      ...list("lucent", ".cpp"),
+      ...list("lucent/jsi", ".cpp"),
+      ...list("lucent/url", ".cpp"),
+      ...list("third_party/ada", ".cpp"),
+    ],
     c: list("third_party/quickjs", ".c"),
   };
 }

@@ -74,6 +74,9 @@ export function prebuiltCoreSources(cppDir: string): string[] {
       .readdirSync(path.join(cppDir, "third_party/quickjs"))
       .filter((f) => f.endsWith(".c"))
       .map((f) => path.join(cppDir, "third_party/quickjs", f)),
+    // URL and the URL standard's parser: an app links their objects only when its code makes a URL.
+    path.join(cppDir, "lucent/url/url.cpp"),
+    path.join(cppDir, "third_party/ada/lucent_ada.cpp"),
   ];
   return candidates
     .filter((f) => !appHeaders(f, new Set()))
