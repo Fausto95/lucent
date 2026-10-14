@@ -659,7 +659,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "Channel",
         "kind": "class",
-        "signature": "class Channel<T> {\n  constructor(policy: ChannelPolicy, capacity?: number);\n  send(value: T): boolean;\n  receive(): Promise<T | undefined>;\n  subscribe(onValue: (value: T) => void): EventSubscription;\n  close(): boolean;\n  readonly closed: boolean;\n  stats(): ChannelStats;\n}",
+        "signature": "class Channel<T> {\n  constructor(policy: ChannelPolicy, capacity?: number);\n  send(value: T): boolean;\n  receive(): Promise<T | undefined>;\n  [Symbol.asyncIterator](): AsyncIterator<T>;\n  subscribe(onValue: (value: T) => void): EventSubscription;\n  close(): boolean;\n  readonly closed: boolean;\n  stats(): ChannelStats;\n}",
         "doc": [
           "Values from a producer to a consumer, which may run on different threads. A compute task sends results as it goes, and module code receives them. A send never waits for the consumer; when the consumer falls behind, the channel's policy decides what waits.",
           "A value is copied when it is sent, as a compute task's input is, so the consumer has its own; a `NativeBuffer` moves instead. A value the channel drops, or that is never received, is released: a `NativeBuffer` is closed."
@@ -682,6 +682,11 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "name": "receive",
             "signature": "receive(): Promise<T | undefined>;",
             "doc": "The next value: at once if one waits, else when one is sent; `undefined` once the channel is closed and every value was received."
+          },
+          {
+            "name": "[Symbol.asyncIterator]",
+            "signature": "[Symbol.asyncIterator](): AsyncIterator<T>;",
+            "doc": "`for await (const value of channel)`: each value it receives, until `receive()` gives `undefined`, once it is closed and every value was received. Leaving the loop early leaves the channel as it is."
           },
           {
             "name": "subscribe",

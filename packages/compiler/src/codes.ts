@@ -236,15 +236,16 @@ export const Explanations: Record<Code, Explanation> = {
   },
   LUCENT1009: {
     title: "Loop over a value that is not iterable",
-    summary: "A loop over a value that is not iterable in Lucent, or `for await`.",
+    summary:
+      "A loop over a value that is not iterable in Lucent: an object type, or a tuple in `for…of`.",
     details:
-      "`for…of` works on arrays, strings, maps, sets, typed arrays and generators, and `for…in` on records and arrays. An object type records neither which optional fields are set nor their order. Async iteration (`for await`) is not supported: await each promise in an ordinary loop.",
-    fix: "loop over an array (`Object.keys`, `Array.from`), or await inside a plain loop",
+      "`for…of` works on arrays, strings, maps, sets, typed arrays and generators, and `for await` on those and channels. `for…in` works on records and arrays. An object type records neither which optional fields are set nor their order.",
+    fix: "loop over an array (`Object.keys`, `Array.from`), or make the value a record",
     wrong: ex(
-      "export async function total(xs: Promise<number>[]): Promise<number> {\n  let sum = 0;\n  for await (const x of xs) sum += x;\n  return sum;\n}\n",
+      "type Totals = { a: number; b: number };\nexport function sum(t: Totals): number {\n  let s = 0;\n  for (const k in t) s += k.length;\n  return s;\n}\n",
     ),
     right: ex(
-      "export async function total(xs: Promise<number>[]): Promise<number> {\n  let sum = 0;\n  for (const x of xs) sum += await x;\n  return sum;\n}\n",
+      "export function sum(t: Record<string, number>): number {\n  let s = 0;\n  for (const k in t) s += k.length;\n  return s;\n}\n",
     ),
   },
   LUCENT1010: {

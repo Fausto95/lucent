@@ -776,6 +776,20 @@ class Channel {
     return true;
   }
 
+  // Not an async generator, which Hermes doesn't compile: JS dev mode and lucent bench run this file there.
+  [Symbol.asyncIterator]() {
+    const next = () =>
+      this.receive().then((value) =>
+        value === undefined ? { value: undefined, done: true } : { value, done: false },
+      );
+    return {
+      next,
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+    };
+  }
+
   get closed() {
     return this.#closed;
   }

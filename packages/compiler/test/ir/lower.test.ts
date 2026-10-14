@@ -377,9 +377,9 @@ describe("compiling through the IR", () => {
         "  return 0;",
         "}",
         "export function g(): void { throw 1; }",
-        "export async function h(xs: number[]): Promise<number> {",
-        "  for await (const x of xs) return x;",
-        "  return 0;",
+        "export function h(o: { a: number }): string {",
+        "  for (const k in o) return k;",
+        '  return "";',
         "}",
         "export function k(): number { var x = 1; return x; }",
         "",
@@ -390,7 +390,10 @@ describe("compiling through the IR", () => {
     expect(found).toEqual([
       ["LUCENT1001", "wrap a using declaration in a case clause in a block"],
       ["LUCENT1006", "only Error values can be thrown; use `throw new Error(...)`"],
-      ["LUCENT1009", "`for await` is not supported"],
+      [
+        "LUCENT1009",
+        "for…in over an object type is not supported: Lucent objects do not record which optional fields are set or the order JavaScript made them in; use a Record<string, T>, or list the fields",
+      ],
       ["LUCENT1001", "use `let` or `const` instead of `var`"],
     ]);
   });

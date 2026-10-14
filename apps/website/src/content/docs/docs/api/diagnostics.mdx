@@ -33,7 +33,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT1006`](#lucent1006) | Throwing a value that is not an `Error`. |
 | [`LUCENT1007`](#lucent1007) | A call Lucent cannot compile: a callback reporting a promise, a borrow's unseen callback, or a platform class with no constructor binding. |
 | [`LUCENT1008`](#lucent1008) | An assignment to something that cannot be assigned, such as an unknown field or a function. |
-| [`LUCENT1009`](#lucent1009) | A loop over a value that is not iterable in Lucent, or `for await`. |
+| [`LUCENT1009`](#lucent1009) | A loop over a value that is not iterable in Lucent: an object type, or a tuple in `for…of`. |
 | [`LUCENT1010`](#lucent1010) | `await` on a platform SDK object, such as a Play services Task or a Java future: it is not a promise. |
 | [`LUCENT2001`](#lucent2001) | `any`, or `unknown` outside a `catch` clause: every value needs a native type. |
 | [`LUCENT2002`](#lucent2002) | A type with no native representation: intersections, `symbol`, `object`, `Intl`, an index signature mixed with properties, a function type's rest parameter or an async generator. |
@@ -339,18 +339,19 @@ export function now(): number {
 
 **Loop over a value that is not iterable**
 
-`for…of` works on arrays, strings, maps, sets, typed arrays and generators, and `for…in` on records and arrays. An object type records neither which optional fields are set nor their order. Async iteration (`for await`) is not supported: await each promise in an ordinary loop.
+`for…of` works on arrays, strings, maps, sets, typed arrays and generators, and `for await` on those and channels. `for…in` works on records and arrays. An object type records neither which optional fields are set nor their order.
 
-**Fix:** loop over an array (`Object.keys`, `Array.from`), or await inside a plain loop.
+**Fix:** loop over an array (`Object.keys`, `Array.from`), or make the value a record.
 
 <Tabs>
 <TabItem label="✗ example.lucent.ts">
 
 ```ts title="example.lucent.ts (wrong)"
-export async function total(xs: Promise<number>[]): Promise<number> {
-  let sum = 0;
-  for await (const x of xs) sum += x;
-  return sum;
+type Totals = { a: number; b: number };
+export function sum(t: Totals): number {
+  let s = 0;
+  for (const k in t) s += k.length;
+  return s;
 }
 ```
 
@@ -358,10 +359,10 @@ export async function total(xs: Promise<number>[]): Promise<number> {
 <TabItem label="✓ example.lucent.ts">
 
 ```ts title="example.lucent.ts (right)"
-export async function total(xs: Promise<number>[]): Promise<number> {
-  let sum = 0;
-  for (const x of xs) sum += await x;
-  return sum;
+export function sum(t: Record<string, number>): number {
+  let s = 0;
+  for (const k in t) s += k.length;
+  return s;
 }
 ```
 
