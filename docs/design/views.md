@@ -41,7 +41,8 @@ in the target platform's code, is a view (`ui/roots.ts`). A view is an object of
 a class deriving from the platform's root view class (`UIView`,
 `android.view.View`), or a toolkit's element. Ancestry in the installed SDK
 decides, never a list of classes. The root class is the nearest class common to
-every returned value ([Bodies](#bodies)).
+every returned value ([Bodies](#bodies)). On Android a `Fragment` is a root too
+(androidx's), which the host contains ([Android](#android)).
 
 A component is a function declaration, or an `export const` holding an arrow or
 a function expression, taking one props object or none. It is described for its
@@ -840,6 +841,24 @@ and tag, which together name one view across reloads
 The host mounts at attach, because React Native can make a view before its props
 are committed; a command may come first. The setup runs inside a
 `HostViewEntry`, which gives `viewContext()` the shell's context.
+
+A component whose setup returns a `Fragment` gives its host the fragment and no
+view (`fragment()` on `Mounted`). The shell holds a container, a `FrameLayout`
+with an id no other view in the window has (React Native's views have their
+tags as ids), and `LucentFragments` adds the fragment to the Activity's
+`FragmentManager` over it, once the shell is in a window, with
+`commitNowAllowingStateLoss`. The container lays itself out when a view inside
+asks, since React Native's views never pass the request on. A component in a
+Modal, another window, shows no fragment. The fragment's view sizes the component as any
+content does. When the mount ends, or a setup run again returns another, the
+fragment leaves the manager. Android saves an Activity's fragments when it
+recreates the Activity, and their containers go with the old views: as the
+Activity is created again, `LucentActivities` drops the restored ones the host
+had tagged, before their views are made, and their components mount new ones
+([0104](../decisions/0104-a-components-android-root-may-be-a-fragment.md)).
+`LucentFragments` is in `src/fragment/java`, built only for a program with such
+a component, against the app's androidx.fragment, and by every deferred Android
+build, which can't know.
 
 ## The JavaScript proxy
 

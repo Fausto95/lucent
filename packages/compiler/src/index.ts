@@ -414,6 +414,7 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
       out.javaKeep = result.javaKeep;
       out.kotlin = result.kotlin;
       out.compose = result.compose;
+      out.fragments = result.fragments;
       out.androidPermissions = result.androidPermissions;
     }
   }

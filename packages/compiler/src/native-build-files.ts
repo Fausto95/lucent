@@ -185,6 +185,9 @@ export const COROUTINES = "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3";
 /** The Compose libraries components' content uses, at the versions of one Compose release. */
 export const COMPOSE_BOM = "androidx.compose:compose-bom:2026.03.00";
 
+/** What the runtime's host of Fragment roots compiles against: what it calls is in every release since. */
+export const FRAGMENT = "androidx.fragment:fragment:1.3.6";
+
 /** What any Compose content depends on. */
 const COMPOSE_BASE = [
   "androidx.compose.runtime:runtime",
@@ -261,15 +264,18 @@ buildscript {
  * version asked for (Gradle picks one), their libraries (api: the app's
  * compile classpath sees them), and their sources, resources, assets and
  * native libraries; the Kotlin shims the program calls (`shims`),
- * compiled with kotlinx-coroutines; and components' Compose content
+ * compiled with kotlinx-coroutines; components' Compose content
  * (`compose`: its Kotlin sources, none without), with the Compose
- * compiler, the libraries it uses, and the runtime's host of it.
+ * compiler, the libraries it uses, and the runtime's host of it; and the
+ * runtime's host of Fragment roots (`fragments`), against the app's
+ * androidx.fragment.
  */
 export function libraryBuildGradle(
   template: string,
   native: NativeInputs | undefined,
   shims = false,
   composeContent: ComposeContent = [],
+  fragments = false,
 ): string {
   const compose = composeContent === "unknown" || composeContent.length > 0;
   const android = native?.manifest.android;
@@ -317,6 +323,19 @@ export function libraryBuildGradle(
         ].join("\n"),
       );
 
+  if (fragments)
+    text = text.replace(
+      /^dependencies \{$/m,
+      [
+        "android {",
+        "  // The runtime's host of components whose root is a Fragment.",
+        '  sourceSets.main.java.srcDirs += "src/fragment/java"',
+        "}",
+        "",
+        "dependencies {",
+      ].join("\n"),
+    );
+
   const srcDirs = (
     [
       ["java", android?.nativeSources ?? []],
@@ -343,6 +362,8 @@ export function libraryBuildGradle(
         .map((v) => `  api(${JSON.stringify(`${artifact}:${v}`)})`),
     ),
     ...(shims ? [`  implementation(${JSON.stringify(COROUTINES)})`] : []),
+    // The app's own: React Native's AppCompat brings it.
+    ...(fragments ? [`  compileOnly(${JSON.stringify(FRAGMENT)})`] : []),
     ...(compose
       ? [
           `  implementation(platform(${JSON.stringify(COMPOSE_BOM)}))`,

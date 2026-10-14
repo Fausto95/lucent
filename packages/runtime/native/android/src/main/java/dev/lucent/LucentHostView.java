@@ -177,6 +177,14 @@ public final class LucentHostView extends FrameLayout {
   }
 
   @Override
+  protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+    super.onLayout(changed, left, top, right, bottom);
+
+    if (changed && LucentViews.traced())
+      LucentViews.trace(getId() + " shell laid out " + (right - left) + "x" + (bottom - top) + " px");
+  }
+
+  @Override
   public void requestLayout() {
     super.requestLayout();
 

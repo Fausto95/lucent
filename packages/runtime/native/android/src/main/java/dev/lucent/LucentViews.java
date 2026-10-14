@@ -41,4 +41,10 @@ final class LucentViews {
 
   /** Reports what went wrong in a view's Java side, as the rest of Lucent reports errors. */
   static native void report(String message);
+
+  /** Whether components' sizing is traced (the debug.lucent.sizing property): trace() logs. */
+  static native boolean traced();
+
+  /** One LUCENT_SIZING line, from the views' Java side. */
+  static native void trace(String line);
 }

@@ -28,6 +28,13 @@ export const SLOT_VIEWS: Record<Platform, { readonly module: string; readonly na
   android: { module: "android.view", name: "ViewGroup" },
 };
 
+/**
+ * The class a component may return in place of a view, which the host
+ * contains: Android's `Fragment` (T131), committed to the Activity's
+ * FragmentManager over a container in the component's shell.
+ */
+export const ROOT_FRAGMENT = { module: "androidx.fragment.app", name: "Fragment" } as const;
+
 /** Whether a class is one of a platform's classes (its root view class, its slot's), and whose. */
 export type RootOf = (decl: ts.ClassDeclaration) => Platform | undefined;
 
@@ -52,13 +59,32 @@ export function toolkitOf(root: { module: string; name: string }): ToolkitName |
 
 const sdkRootView = sdkClassOf(ROOT_VIEWS);
 
-/** The platform root view classes of the discovered SDKs, and the toolkits' root views. */
+/** AndroidX's Fragment, from the app's classpath. */
+const sdkFragment: RootOf = (decl) => {
+  const sdk = sdkModuleOf(decl.getSourceFile());
+
+  return sdk?.platform === "android" &&
+    sdk.module === ROOT_FRAGMENT.module &&
+    decl.name?.text === ROOT_FRAGMENT.name
+    ? "android"
+    : undefined;
+};
+
+/**
+ * The platform root view classes of the discovered SDKs, the toolkits'
+ * root views, and Android's Fragment.
+ */
 export const sdkRoot: RootOf = (decl) => {
   const builtin = builtinSdkModuleOf(decl.getSourceFile());
   const toolkit = builtin && toolkitOf({ module: builtin, name: decl.name?.text ?? "" });
 
-  return toolkit ? TOOLKITS[toolkit].platform : sdkRootView(decl);
+  return toolkit ? TOOLKITS[toolkit].platform : (sdkRootView(decl) ?? sdkFragment(decl));
 };
+
+/** Whether a component's root class is a Fragment, which the host contains. */
+export function isFragmentRoot(checker: ts.TypeChecker, root: ts.ClassDeclaration): boolean {
+  return ancestors(checker, root).some((c) => !!sdkFragment(c));
+}
 
 /** The platform slot classes of the discovered SDKs. */
 export const sdkSlot: RootOf = sdkClassOf(SLOT_VIEWS);

@@ -125,6 +125,25 @@ const hostedController = (mount: cpp.Expr): cpp.Member[] => {
   ];
 };
 
+/**
+ * What an Android component whose root is a Fragment gives its host (T131):
+ * the fragment, which the host commits over a container its shell holds,
+ * and no view of its own.
+ */
+const hostedFragment = (mount: cpp.Expr): cpp.Member[] => [
+  cpp.method(
+    "fragment",
+    cpp.type("lucent::NativeRef"),
+    [],
+    [cpp.ret(cpp.call(cpp.arrow(mount, "view")))],
+    { const: true, override: true },
+  ),
+  cpp.method("view", cpp.type("lucent::NativeRef"), [], [cpp.ret(cpp.initList([]))], {
+    const: true,
+    override: true,
+  }),
+];
+
 /** The component's `LucentMounted`: its Mount, as `platform`'s host drives it. */
 function mountedStruct(s: Setup, platform: keyof typeof VIEWS): cpp.Decl {
   const c = s.component;
@@ -243,7 +262,9 @@ function mountedStruct(s: Setup, platform: keyof typeof VIEWS): cpp.Decl {
       },
       ...(platform === "ios" && s.toolkit === "swiftui"
         ? hostedController(mount)
-        : [VIEWS[platform](mount)]),
+        : platform === "android" && s.fragment
+          ? hostedFragment(mount)
+          : [VIEWS[platform](mount)]),
       {
         k: "comment",
         text: "A later commit: the mount applies what changed; setup never runs again.",

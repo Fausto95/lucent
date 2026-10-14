@@ -112,9 +112,12 @@ An exported function of a `.lucent.tsx` module is a component when every value i
 | --- | --- | --- |
 | A `UIView`, or an instance of a subclass | iOS | That view. |
 | An Android `View`, or an instance of a subclass | Android | That view. |
+| An androidx `Fragment`, or an instance of a subclass | Android | The fragment's view: the host adds the fragment to the Activity's `FragmentManager`, over a container in the component. |
 | JSX of SwiftUI views | iOS | A `UIHostingController` Lucent makes for each mount. |
 | JSX of Compose elements | Android | A `ComposeView` Lucent makes for each mount. |
 | JSX of UIKit or Android views | iOS, Android | The view of the tag it returns: for a `Flex`, the container view Lucent lays out. |
+
+A component's fragment leaves its manager when React unmounts the component. When Android recreates the Activity, it restores the Activity's fragments: the host drops a component's restored fragment, and the component makes a new one. Make a Lucent `Fragment` in a module function, not in the component's setup, as [lucent-fragment](https://github.com/Fausto95/lucent/tree/main/examples/lucent-fragment)'s `Card` does: its methods run in module code.
 
 [SwiftUI and Compose in JSX](/docs/api/views/swiftui-and-compose/) and [UIKit and Android views in JSX](/docs/api/views/platform-views/) give the JSX rules. A component also follows these rules, and breaking one fails with [LUCENT3020](/docs/api/diagnostics/#lucent3020):
 

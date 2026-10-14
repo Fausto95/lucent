@@ -198,17 +198,18 @@ function listFiles(dir: string): string[] {
 /**
  * The Android library's build.gradle while Android's code is built later,
  * by the app's Gradle build (after expo prebuild): configured for Kotlin
- * shims, and, when the program has components, for their Compose content,
- * which only that build can tell Android needs. The Gradle build
- * configures the library before it builds Android, and a library
- * configured so builds whatever Android turns out to need.
+ * shims and the host of Fragment roots, and, when the program has
+ * components, for their Compose content, which only that build can tell
+ * Android needs. The Gradle build configures the library before it builds
+ * Android, and a library configured so builds whatever Android turns out
+ * to need (Compose content only when it knew of components).
  */
 export function deferredLibraryGradle(
   native: NativeInputs | undefined,
   components: boolean,
 ): string {
   const template = fs.readFileSync(path.join(runtimeDir(), "native/android/build.gradle"), "utf8");
-  return libraryBuildGradle(template, native, true, components ? "unknown" : []);
+  return libraryBuildGradle(template, native, true, components ? "unknown" : [], true);
 }
 
 /**
@@ -363,6 +364,7 @@ export function writeNativePackage(
                 .filter(([f]) => f.startsWith("dev/lucent/compose/"))
                 .map(([, t]) => t)
             : [],
+          !!result.fragments,
         ),
   );
 

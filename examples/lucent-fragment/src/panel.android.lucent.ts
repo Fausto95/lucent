@@ -57,10 +57,12 @@ export async function showAndRestore(): Promise<string> {
     if (!(activity instanceof FragmentActivity) || !(decor instanceof ViewGroup))
       return "no FragmentActivity";
 
-    // A container over the Activity's content, for the time the probe runs.
+    // A container in the Activity's window, for the time the probe runs. The manager finds it by
+    // its id, the first view in the window with it, and React Native's views have their tags as
+    // ids, which generateViewId's may equal: first among the window's views, it is that view.
     const frame = new FrameLayout(activity);
     frame.setId(View.generateViewId());
-    decor.addView(frame);
+    decor.addView(frame, 0);
 
     const before = { made, views };
     restored = "";

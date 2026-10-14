@@ -120,8 +120,14 @@ generated from this file.
   result are numbers, booleans, `bigint`s, strings or `Uint8Array`s.
 - An Android class the OS makes reaches its base's members only once its
   constructor returns, and `lucent build` doesn't check that a manifest
-  component's `class` names one. A `Fragment` as a component's root isn't
-  supported yet ([T131](tasks.md#t131)).
+  component's `class` names one.
+- A component whose Android root is a `Fragment` shows nothing in a
+  `Modal`: the Activity's `FragmentManager` puts fragments in its own
+  window only.
+- After `expo prebuild` without an iOS build (on Linux, or before
+  `pod install`), an app with components builds twice on Android.
+  Prebuild lists components from the iOS build, and the first Gradle
+  build reads that list before it writes it.
 - App extensions can't run module code yet ([T133](tasks.md#t133)). On iOS, a
   launch module's `BGTaskScheduler` handler can. Relaunches for background
   URL sessions and silent pushes aren't checked yet

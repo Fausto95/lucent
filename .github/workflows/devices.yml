@@ -267,13 +267,18 @@ jobs:
         with:
           key: android-expo
       # Prebuild writes android/; the Gradle build resolves the app's Android dependencies and
-      # compiles Lucent's modules (its lucentBuild task).
+      # compiles Lucent's modules (its lucentBuild task). Prebuild describes the components only
+      # from another platform's build, which this Linux runner has none of: the first Gradle build
+      # registers them, and asks to build again, since it read the autolinking config before.
       - name: Prebuild
         working-directory: apps/expo-example
         run: pnpm exec expo prebuild --platform android --no-install
       - name: Build
         working-directory: apps/expo-example/android
-        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --build-cache --parallel
+        run: |
+          set -o pipefail
+          build() { ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --build-cache --parallel; }
+          build 2>&1 | tee first-build.log || { grep -q "build again" first-build.log && build; }
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

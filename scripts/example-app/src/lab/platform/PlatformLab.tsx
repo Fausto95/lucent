@@ -1,3 +1,4 @@
+import { Card } from "lucent-fragment";
 import { Stack } from "../../ui/Stack";
 import { RunPanel } from "../RunPanel";
 import { ProbeRow } from "../sdk/ProbeRow";
@@ -19,6 +20,9 @@ export function PlatformLab() {
         progress={`${results.length}/${platformCases.length} run · ${passed} passed`}
         onRun={run}
       />
+
+      {/* A component whose Android root is a Fragment: a case checks it shows (lucent-fragment). */}
+      <Card text="A Fragment, as a component's root" />
 
       {results.map((result) => (
         <ProbeRow key={result.name} result={result} />

@@ -56,6 +56,8 @@ struct HostState {
   HostSizing sizing;
   /// The mount's slot (dev.lucent.LucentSlotView), for a component taking React children.
   NativeRef slot;
+  /// The Fragment the shell shows (dev.lucent.LucentFragments), for a component whose root is one.
+  NativeRef fragment;
   /// Where the slot is, as the shadow tree lays the children out (LucentViewSlots.h).
   HostSlot place;
 };
@@ -133,13 +135,55 @@ jmethodID shellMethod(const char* name, const char* signature) {
   return jni::method(jni::findClass("dev/lucent/LucentHostView"), name, signature);
 }
 
-/** Shows the mount's view in the host's shell: a setup run again may have returned another. */
+/** The runtime's host of Fragment roots, built only for a program with one. */
+jclass fragmentsClass() {
+  static jclass cls = jni::findClass("dev/lucent/LucentFragments");
+  return cls;
+}
+
+/** Takes the fragment `host`'s shell shows out of its manager. */
+void removeFragment(HostState& host) {
+  NativeRef shown = std::move(host.fragment);
+
+  if (!shown) return;
+
+  JNIEnv* env = jni::env();
+  jni::LocalFrame frame(env);
+  static jmethodID remove = jni::staticMethod(fragmentsClass(), "remove", "(Ljava/lang/Object;)V");
+
+  env->CallStaticVoidMethod(fragmentsClass(), remove, jni::unwrap(shown));
+  jni::check(env);
+}
+
+/**
+ * Shows the mount's view in the host's shell: a setup run again may have
+ * returned another. A fragment the mount returned instead goes over a
+ * container the shell holds, through the Activity's FragmentManager.
+ */
 void show(HostState& host) {
   JNIEnv* env = jni::env();
   jni::LocalFrame frame(env);
   jobject view = env->NewLocalRef(host.view);
 
   if (!view) return;
+
+  NativeRef fragment = host.mounted ? host.mounted->fragment() : NativeRef();
+
+  if (fragment) {
+    if (host.fragment && env->IsSameObject(jni::unwrap(host.fragment), jni::unwrap(fragment))) return;
+
+    removeFragment(host);
+
+    static jmethodID showFragment =
+        jni::staticMethod(fragmentsClass(), "show", "(Ldev/lucent/LucentHostView;Ljava/lang/Object;)V");
+
+    env->CallStaticVoidMethod(fragmentsClass(), showFragment, view, jni::unwrap(fragment));
+    jni::check(env);
+    host.fragment = std::move(fragment);
+    return;
+  }
+
+  removeFragment(host);
 
   static jmethodID setContent = shellMethod("setContent", "(Landroid/view/View;)V");
 
@@ -384,6 +428,8 @@ void drop(JNIEnv* env, jclass, jlong handle) {
   host->slot = NativeRef();
   // Its teardown runs the mount's code: nothing to measure any more.
   host->sizing.stop();
+  // A fragment the shell showed leaves its manager before the mount's code ends.
+  guarded("a component's fragment", [&] { removeFragment(*host); });
 
   auto mounted = std::move(host->mounted);
 
@@ -394,6 +440,11 @@ void drop(JNIEnv* env, jclass, jlong handle) {
 
 void report(JNIEnv* env, jclass, jstring message) {
   logError(jni::fromJString(env, message, "message").toUtf8().c_str());
+}
+
+/** One LUCENT_SIZING line from the views' Java side, when sizing is traced. */
+void trace(JNIEnv* env, jclass, jstring line) {
+  traceSizing("%s", jni::fromJString(env, line, "line").toUtf8().c_str());
 }
 
 // What Java calls, on the main thread: nothing may unwind into the JVM
@@ -432,6 +483,12 @@ void reportNative(JNIEnv* env, jclass cls, jstring message) {
   jni::reported(env, "a view's report", [&] { report(env, cls, message); });
 }
 
+jboolean tracedNative(JNIEnv*, jclass) { return sizingTraced() ? JNI_TRUE : JNI_FALSE; }
+
+void traceNative(JNIEnv* env, jclass cls, jstring line) {
+  jni::reported(env, "a view's trace", [&] { trace(env, cls, line); });
+}
+
 }  // namespace
 
 void installAndroidHost() {
@@ -452,6 +509,8 @@ void installAndroidHost() {
          reinterpret_cast<void*>(commandNative)},
         {const_cast<char*>("drop"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(dropNative)},
         {const_cast<char*>("report"), const_cast<char*>("(Ljava/lang/String;)V"), reinterpret_cast<void*>(reportNative)},
+        {const_cast<char*>("traced"), const_cast<char*>("()Z"), reinterpret_cast<void*>(tracedNative)},
+        {const_cast<char*>("trace"), const_cast<char*>("(Ljava/lang/String;)V"), reinterpret_cast<void*>(traceNative)},
     };
 
     env->RegisterNatives(jni::findClass("dev/lucent/LucentViews"), natives, std::size(natives));

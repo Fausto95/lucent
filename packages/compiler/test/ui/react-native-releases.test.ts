@@ -108,18 +108,46 @@ export function PlayerView(props: { player: Player; next?: Player | null; queue:
 `,
 };
 
-/** PLAYERS compiled for Android against stand-ins: its directory and generated sources, or undefined without a JDK. */
-function playersForAndroid(): { dir: string; files: string[] } | undefined {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-players-"));
-  const android = fakeAndroid(dir, ANDROID_VIEWS);
+/** A component whose Android root is a Fragment (T131), which the host commits over a container. */
+const CARD = {
+  "card.lucent.ts": `import type { Fragment } from "lucent:android/androidx.fragment.app";
+
+export declare function Card(props: { text: string }): Fragment;
+`,
+  "card.android.lucent.tsx": `import { Fragment } from "lucent:android/androidx.fragment.app";
+
+function cardFragment(): Fragment {
+  return new Fragment();
+}
+
+export function Card(_props: { text: string }): Fragment {
+  return cardFragment();
+}
+`,
+};
+
+/** The Fragment stand-in CARD needs. */
+const FRAGMENT = {
+  "androidx/fragment/app/Fragment.java": `package androidx.fragment.app;
+public class Fragment { public Fragment() {} }
+`,
+};
+
+/** `program` compiled for Android against stand-ins: its directory and generated sources, or undefined without a JDK. */
+function forAndroid(
+  program: Record<string, string>,
+  standIns: Record<string, string> = {},
+): { dir: string; files: string[] } | undefined {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-components-"));
+  const android = fakeAndroid(dir, { ...ANDROID_VIEWS, ...standIns });
 
   if (!android) return undefined;
 
   fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
-  for (const [name, text] of Object.entries(PLAYERS)) fs.writeFileSync(path.join(dir, name), text);
+  for (const [name, text] of Object.entries(program)) fs.writeFileSync(path.join(dir, name), text);
 
   const result = compile(
-    Object.keys(PLAYERS).map((f) => path.join(dir, f)),
+    Object.keys(program).map((f) => path.join(dir, f)),
     { platforms: ["android"], sdk: { android: { jars: android.bind } } },
   );
 
@@ -163,31 +191,31 @@ describe("Lucent's React Native C++ against each assembled release", () => {
     900_000,
   );
 
-  it.skipIf(!withJni.length)(
-    `compiles a component taking instances, with its mount and host, as Android builds it (${withJni.map((r) => r.version).join(", ")})`,
-    () => {
-      const players = playersForAndroid();
+  for (const [what, program, standIns] of [
+    ["a component taking instances", PLAYERS, {}],
+    ["a component whose Android root is a Fragment", CARD, FRAGMENT],
+  ] as const)
+    it.skipIf(!withJni.length)(
+      `compiles ${what}, with its mount and host, as Android builds it (${withJni.map((r) => r.version).join(", ")})`,
+      () => {
+        const built = forAndroid(program, standIns);
 
-      if (!players) return;
+        if (!built) return;
 
-      const errors = Object.fromEntries(
-        withJni
-          .map(
-            (r) =>
-              [
-                r.version,
-                compileErrors(
-                  lucentAndroid(hostToolchains(r).android!),
-                  players.dir,
-                  players.files,
-                ),
-              ] as const,
-          )
-          .filter(([, e]) => e),
-      );
+        const errors = Object.fromEntries(
+          withJni
+            .map(
+              (r) =>
+                [
+                  r.version,
+                  compileErrors(lucentAndroid(hostToolchains(r).android!), built.dir, built.files),
+                ] as const,
+            )
+            .filter(([, e]) => e),
+        );
 
-      expect(errors).toEqual({});
-    },
-    900_000,
-  );
+        expect(errors).toEqual({});
+      },
+      900_000,
+    );
 });

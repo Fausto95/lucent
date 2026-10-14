@@ -63,6 +63,9 @@ public abstract class LucentViewManager extends SimpleViewManager<LucentHostView
 
   @Override
   public Object updateState(LucentHostView view, ReactStylesDiffMap props, StateWrapper state) {
+    if (LucentViews.traced())
+      LucentViews.trace(view.getId() + " state reaches the shell" + (view.host == 0 ? ", hostless" : ""));
+
     if (view.host != 0 && state != null) LucentViews.state(view.host, state);
 
     return null;

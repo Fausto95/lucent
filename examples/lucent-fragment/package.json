@@ -2,7 +2,7 @@
   "name": "lucent-fragment",
   "version": "0.1.0",
   "private": true,
-  "description": "A Fragment written in Lucent, which Android's FragmentManager makes again by its name when it restores it: an exported class extending an Android class. An example Lucent package.",
+  "description": "A Fragment written in Lucent, which Android's FragmentManager makes again by its name when it restores it, and a component whose Android root is a Fragment. An example Lucent package.",
   "files": [
     "index.ts",
     "src",
