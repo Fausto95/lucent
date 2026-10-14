@@ -150,8 +150,12 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "Android services, receivers, workers and Fragments written as Lucent classes."
       },
       {
-        "status": "later",
-        "text": "iOS background tasks, background downloads and silent pushes."
+        "status": "done",
+        "text": "iOS background tasks, registered by a package's launch module."
+      },
+      {
+        "status": "next",
+        "text": "Background downloads and silent pushes that start the app."
       },
       {
         "status": "later",

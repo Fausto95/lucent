@@ -64,7 +64,8 @@ Lucent code runs wherever the platform calls it, on the thread it needs, with or
 | in progress | Executors, so platform callbacks run on a queue of their own. |
 | next | Module code that runs with no JavaScript runtime. |
 | done | Android services, receivers, workers and Fragments written as Lucent classes. |
-| later | iOS background tasks, background downloads and silent pushes. |
+| done | iOS background tasks, registered by a package's launch module. |
+| next | Background downloads and silent pushes that start the app. |
 | later | iOS app extensions and widgets, with SwiftUI bodies. |
 | later | App Intents, Live Activities and Android widget bodies. |
 | later | Calls from worklet runtimes. |

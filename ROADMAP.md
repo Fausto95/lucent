@@ -123,7 +123,8 @@ Goal: Lucent code runs wherever the platform calls it, on the thread it needs, w
 - 🚧 Executors, so platform callbacks run on a queue of their own.
 - ⏳ Module code that runs with no JavaScript runtime.
 - ✅ Android services, receivers, workers and Fragments written as Lucent classes.
-- 🔭 iOS background tasks, background downloads and silent pushes.
+- ✅ iOS background tasks, registered by a package's launch module.
+- ⏳ Background downloads and silent pushes that start the app.
 - 🔭 iOS app extensions and widgets, with SwiftUI bodies.
 - 🔭 App Intents, Live Activities and Android widget bodies.
 - 🔭 Calls from worklet runtimes.
@@ -167,7 +168,7 @@ other four.
 | -------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------- | ----- |
 | Module parity        | The values, objects, events, threads, app events and configuration a Nitro or Expo module has  | [T100–T115](docs/tasks.md#t100) | open  |
 | View parity          | Props of any type, React Native's view props, controller roots, objects in toolkit bodies      | [T120–T125](docs/tasks.md#t120) | open  |
-| Execution modes      | Code that runs with no JavaScript, in background tasks, services, extensions and worklets      | [T130–T136](docs/tasks.md#t130) | open  |
+| Execution modes      | Code that runs with no JavaScript, in background tasks, services, extensions and worklets      | [T130–T137](docs/tasks.md#t130) | open  |
 | Distribution         | Fresh apps on each supported release build and run; packages build like any library            | [T140–T145](docs/tasks.md#t140) | open  |
 | Production candidate | Ports prove each row, stress and budgets pass, CI runs what it claims, the docs cover each row | [T150–T157](docs/tasks.md#t150) | open  |
 
@@ -179,9 +180,10 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
    nightly; it closes after three green nights in a row.
 2. [T110](docs/tasks.md#t110) (done): app-delegate and Activity events,
    whose device runs pass in both example apps.
-3. [T131](docs/tasks.md#t131) (done) and [T132](docs/tasks.md#t132), on
+3. [T131](docs/tasks.md#t131) and [T132](docs/tasks.md#t132) (done), on
    the native root ([T130](docs/tasks.md#t130), done): Android classes the
-   OS makes, and iOS background execution.
+   OS makes, and iOS background tasks. Relaunches for background sessions
+   and pushes are [T137](docs/tasks.md#t137).
 4. [T120](docs/tasks.md#t120) and [T121](docs/tasks.md#t121): object props
    and React Native's view props, which most view modules need.
 5. [T100](docs/tasks.md#t100) to [T104](docs/tasks.md#t104) (done): typed

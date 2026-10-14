@@ -69,7 +69,7 @@ each system lets an author do, not how it does it.
 | Bounded streams with backpressure        | By hand                | By hand                              | ✅ `Channel`                                   | —                     |
 | Calls from worklet runtimes              | ✅ any runtime         | ✅ `installOnUIRuntime`              | ❌                                             | [T134](tasks.md#t134) |
 | Code that runs with no JS runtime        | By hand                | By hand                              | ❌ module state needs a live runtime           | [T130](tasks.md#t130) |
-| iOS background tasks                     | By hand                | ✅ `expo-background-task`            | ❌                                             | [T132](tasks.md#t132) |
+| iOS background tasks                     | By hand                | ✅ `expo-background-task`            | ✅ from a package's launch module              | —                     |
 | Android WorkManager, services, receivers | By hand (Kotlin)       | ✅ task consumers, Kotlin            | ✅ Lucent classes the OS makes                 | —                     |
 | Background JS tasks                      | —                      | ✅ `expo-task-manager`               | ❌ (Lucent code runs natively instead)         | [T135](tasks.md#t135) |
 | iOS app extensions and widgets           | By hand                | ✅ `expo-widgets` (iOS)              | ❌                                             | [T133](tasks.md#t133) |
