@@ -270,13 +270,25 @@ export async function rotate(): Promise<string> {
     const orientation = await main(
       () => currentActivity()?.getResources()?.getConfiguration()?.orientation ?? 0,
     );
+    if (after !== before) {
+      stop();
+      return "no change heard: Android made the Activity again";
+    }
+    // Whether the Activity's own listeners hear the turn back, which Lucent's should be among.
+    let heard = 0;
+    await main(() => {
+      const activity = currentActivity();
+      if (activity instanceof ComponentActivity)
+        activity.addOnConfigurationChangedListener(() => {
+          heard += 1;
+        });
+    });
     await main(() =>
       currentActivity()?.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED),
     );
+    await until(() => heard > 0, 5000);
     stop();
-    return after !== before
-      ? "no change heard: Android made the Activity again"
-      : `no change heard, orientation ${orientation}`;
+    return `no change heard, orientation ${orientation}; a listener added now ${heard ? `heard the turn back${changes ? ", and so did Lucent's" : ""}` : "heard nothing"}`;
   }
 
   await main(() =>
