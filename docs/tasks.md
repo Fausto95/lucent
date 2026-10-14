@@ -1024,6 +1024,11 @@ its class must be Java or Kotlin the package ships.
       and the manifest's `android:name` is the generated class.
       `foregroundServiceType`, intent filters and permissions work as
       today (#240).
+- [x] An override runs while its caller waits, whatever it returns, and
+      `super.name(…)` calls the base's implementation, as a `Fragment`'s
+      or a `Service`'s lifecycle requires
+      ([0103](decisions/0103-android-overrides-run-while-the-caller-waits.md),
+      #262).
 - [ ] A `Fragment` shown through a `FragmentActivity`'s manager, and a
       `Fragment` as a component's Android root (the counterpart of
       [T122](#t122)). When the OS recreates it, a new Lucent instance is

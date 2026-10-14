@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                             | Date       | Decision                                                                    |
 | ---------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| [0103](0103-android-overrides-run-while-the-caller-waits.md)                       | 2026-10-14 | An Android override runs while its caller waits, and super calls the base's |
 | [0102](0102-pod-install-binds-the-pods-prebuild-could-not.md)                      | 2026-10-14 | pod install binds the pods prebuild could not                               |
 | [0101](0101-async-functions-adopt-returned-promises.md)                            | 2026-10-13 | An async function adopts a returned promise after it finishes               |
 | [0099](0099-a-buffer-is-borrowed-as-typed-elements-through-spans.md)               | 2026-10-13 | A buffer is borrowed as typed elements through spans, not typed arrays      |
