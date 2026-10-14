@@ -81,6 +81,13 @@ export function lastProgress(log: string, screen = "tests"): Progress | undefine
   return found;
 }
 
+/** The screen whose run's progress or verdict the app logged last, if any. */
+export function lastScreen(log: string): string | undefined {
+  let found: string | undefined;
+  for (const m of log.matchAll(/LUCENT_(?:PROGRESS|SUMMARY) (\S+) /g)) found = m[1];
+  return found;
+}
+
 /** Why each failed check of `screen` failed, as the screen logged it: `closures: line 3 …`. */
 export function failures(log: string, screen = "tests"): string[] {
   const line = new RegExp(`LUCENT_FAILURE ${escaped(screen)} ([^\\n]*)`, "g");
@@ -717,6 +724,10 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
   // Opened again when a Debug build couldn't load its bundle: on the emulator, Metro's reverse
   // of tcp:8081 isn't always in place when the app first asks.
   let reopened = 0;
+  // The screen the app went on to, once, after its run of this one had started: Android made the
+  // Activity again (a case may ask it to), and the app showed the screen of the link that
+  // launched it, where this run went with the old Activity's tree. Opened again from there.
+  let wentTo: string | undefined;
   console.log(
     `Opened ${target.id} (${screen.id}); waiting up to ${TIMEOUT_MS / 60000} minutes for its verdict.`,
   );
@@ -740,6 +751,14 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
       moved = Date.now();
     }
     progress = now;
+    const last = lastScreen(lucent);
+    if (progress && !wentTo && last !== undefined && last !== screen.id) {
+      wentTo = last;
+      console.log(`The app went on to its ${last} screen: opening ${screen.id} again.`);
+      device.open(screen);
+      moved = Date.now();
+      continue;
+    }
     if (!progress && target.metro && reopened < REOPENS && device.unloaded?.()) {
       reopened += 1;
       console.log(
@@ -792,6 +811,7 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
             `Opened again ${reopened} time${reopened === 1 ? "" : "s"}, after it couldn't load its bundle`,
           ]
         : []),
+      ...(wentTo ? [`Opened again once, after the app went on to its ${wentTo} screen`] : []),
     ],
     jsErrors: jsErrorLines(log),
     metroUp: target.metro && (await metroUp()),
