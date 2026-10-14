@@ -389,6 +389,7 @@ describe("parseTarget", () => {
         { id: "tests", launchArgs: ["-lucentTab", "lab/tests"] },
         { id: "platform", launchArgs: ["-lucentTab", "lab/platform"] },
         { id: "media", launchArgs: ["-lucentTab", "lab/media"] },
+        { id: "libraries", launchArgs: ["-lucentTab", "lab/libraries"] },
       ],
       metro: true,
     });
@@ -398,6 +399,7 @@ describe("parseTarget", () => {
         { id: "tests", url: "lucentbare://lab/tests" },
         { id: "platform", url: "lucentbare://lab/platform" },
         { id: "media", url: "lucentbare://lab/media" },
+        { id: "libraries", url: "lucentbare://lab/libraries" },
       ],
       metro: true,
     });
@@ -415,6 +417,7 @@ describe("parseTarget", () => {
         { id: "tests", launchArgs: ["-lucentTab", "lab/tests"] },
         { id: "platform", launchArgs: ["-lucentTab", "lab/platform"] },
         { id: "media", launchArgs: ["-lucentTab", "lab/media"] },
+        { id: "libraries", launchArgs: ["-lucentTab", "lab/libraries"] },
       ],
       metro: false,
     });
@@ -425,6 +428,7 @@ describe("parseTarget", () => {
           { id: "tests", url: "lucentexpo://lab/tests" },
           { id: "platform", url: "lucentexpo://lab/platform" },
           { id: "media", url: "lucentexpo://lab/media" },
+          { id: "libraries", url: "lucentexpo://lab/libraries" },
         ],
       },
     );
