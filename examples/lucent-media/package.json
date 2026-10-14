@@ -1,0 +1,17 @@
+{
+  "name": "lucent-media",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A media3 MediaSessionService written in Lucent, playing in the foreground: Android makes it by its name, and it outlives the Activity that started it. An example Lucent package.",
+  "files": [
+    "index.ts",
+    "src",
+    "android",
+    "lucent.json"
+  ],
+  "main": "index.ts",
+  "lucent": {
+    "sources": "src",
+    "compatible": "^0.2.0"
+  }
+}

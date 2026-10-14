@@ -67,6 +67,9 @@ importers:
       lucent-launch:
         specifier: workspace:*
         version: link:../../examples/lucent-launch
+      lucent-media:
+        specifier: workspace:*
+        version: link:../../examples/lucent-media
       lucent-orbit:
         specifier: workspace:*
         version: link:../../examples/lucent-orbit
@@ -188,6 +191,9 @@ importers:
       lucent-launch:
         specifier: workspace:*
         version: link:../../examples/lucent-launch
+      lucent-media:
+        specifier: workspace:*
+        version: link:../../examples/lucent-media
       lucent-orbit:
         specifier: workspace:*
         version: link:../../examples/lucent-orbit
@@ -340,6 +346,8 @@ importers:
   examples/lucent-kv-storage: {}
 
   examples/lucent-launch: {}
+
+  examples/lucent-media: {}
 
   examples/lucent-orbit: {}
 

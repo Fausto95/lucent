@@ -331,7 +331,10 @@ whose Android root is a `Fragment` shows its view. Frames
 reach a channel through an executor without a copy, and the app opens a
 deep link to itself. On iOS
 a push registration answers, and on Android a back press and a rotation
-reach the module.
+reach the module. Last, the Media screen starts a foreground
+`MediaSessionService` written in Lucent (`lucent-media`), has Android make
+the Activity again, and checks, once the screen opens again with the new
+Activity, that the service plays on.
 
 The bare example's Debug build loads its bundle from Metro: start Metro
 on port 8081 first. The Expo example (`--example expo`) is built as an

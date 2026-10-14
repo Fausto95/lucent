@@ -365,7 +365,7 @@ describe("diagnose", () => {
 });
 
 describe("parseTarget", () => {
-  it("is the bare example's Tests and Platform screens without --id", () => {
+  it("is the bare example's screens without --id", () => {
     expect(parseTarget(["ios", "--app", "BareExample.app"])).toEqual({
       platform: "ios",
       artifact: "BareExample.app",
@@ -374,6 +374,7 @@ describe("parseTarget", () => {
       screens: [
         { id: "tests", launchArgs: ["-lucentTab", "lab/tests"] },
         { id: "platform", launchArgs: ["-lucentTab", "lab/platform"] },
+        { id: "media", launchArgs: ["-lucentTab", "lab/media"] },
       ],
       metro: true,
     });
@@ -382,12 +383,13 @@ describe("parseTarget", () => {
       screens: [
         { id: "tests", url: "lucentbare://lab/tests" },
         { id: "platform", url: "lucentbare://lab/platform" },
+        { id: "media", url: "lucentbare://lab/media" },
       ],
       metro: true,
     });
   });
 
-  it("is the Expo example's Tests and Platform screens with --example expo", () => {
+  it("is the Expo example's screens with --example expo", () => {
     expect(
       parseTarget(["ios", "--app", "LucentExpoExample.app", "--example", "expo", "--no-metro"]),
     ).toEqual({
@@ -398,6 +400,7 @@ describe("parseTarget", () => {
       screens: [
         { id: "tests", launchArgs: ["-lucentTab", "lab/tests"] },
         { id: "platform", launchArgs: ["-lucentTab", "lab/platform"] },
+        { id: "media", launchArgs: ["-lucentTab", "lab/media"] },
       ],
       metro: false,
     });
@@ -407,6 +410,7 @@ describe("parseTarget", () => {
         screens: [
           { id: "tests", url: "lucentexpo://lab/tests" },
           { id: "platform", url: "lucentexpo://lab/platform" },
+          { id: "media", url: "lucentexpo://lab/media" },
         ],
       },
     );
