@@ -1,7 +1,7 @@
 // A card whose Android root is a Fragment (card.android.lucent.tsx): the
 // host commits it to the Activity's FragmentManager over a container in
 // the component's view. iOS shows a label (card.ios.lucent.tsx).
-import type { Fragment } from "lucent:android/androidx.fragment.app";
+import type { View } from "lucent:android/android.view";
 import type { UIView } from "lucent:ios/UIKit";
 
 export type CardProps = {
@@ -9,7 +9,7 @@ export type CardProps = {
   text: string;
 };
 
-export declare function Card(props: CardProps): UIView | Fragment;
+export declare function Card(props: CardProps): UIView | View;
 
 /**
  * Whether a card's fragment shows its view in the component, laid out:

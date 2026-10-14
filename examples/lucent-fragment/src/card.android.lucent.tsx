@@ -11,8 +11,8 @@ import { Bundle } from "lucent:android/android.os";
 import { type LayoutInflater, type View, ViewGroup } from "lucent:android/android.view";
 import { TextView } from "lucent:android/android.widget";
 import { Fragment } from "lucent:android/androidx.fragment.app";
+import { currentActivity } from "lucent:android";
 import { main } from "lucent:thread";
-import { effect } from "lucent:ui";
 import type { CardProps } from "./card.lucent";
 
 /** The argument holding the card's text. */
@@ -52,27 +52,35 @@ function retitle(card: Fragment, text: string): void {
   if (view instanceof TextView) view.setText(text);
 }
 
-export function Card(props: CardProps): Fragment {
-  const card = cardFragment();
-  effect(() => retitle(card, props.text));
-  return card;
+// EXPERIMENT: a plain TextView root, to see whether the flake needs a fragment.
+export function Card(props: CardProps): View {
+  return <TextView text={props.text} />;
 }
 
 export async function cardShown(): Promise<string> {
   return main(() => {
-    const view = shownView;
-    if (!view) return "no view";
-    if (!view.isAttachedToWindow()) return "not in a window";
-    if (view.getWidth() > 0 && view.getHeight() > 0) return "shown";
-
-    // Its size and its parents' up to the component's: where a size went missing.
-    const sizes: string[] = [];
-    let at: View | null = view;
-    for (let i = 0; at && i < 3; i++) {
-      sizes.push(`${at.getWidth()}x${at.getHeight()}`);
-      const parent = at.getParent();
-      at = parent instanceof ViewGroup ? parent : null;
+    // EXPERIMENT: the card's TextView, found by its text in the window.
+    const root = currentActivity()?.getWindow()?.getDecorView();
+    const views: View[] = root ? [root] : [];
+    let view: View | null = null;
+    while (views.length && !view) {
+      const at = views.pop()!;
+      if (at instanceof TextView && at.getText() === "A Fragment, as a component's root") view = at;
+      if (at instanceof ViewGroup)
+        for (let i = 0; i < at.getChildCount(); i++) {
+          const child = at.getChildAt(i);
+          if (child) views.push(child);
+        }
     }
-    return `not laid out: ${sizes.join(" in ")}, visibility ${view.getVisibility()}, measured ${view.getMeasuredWidth()}x${view.getMeasuredHeight()}, layout requested ${view.isLayoutRequested()}`;
+    if (!view) return "no view";
+    if (view.getWidth() > 0 && view.getHeight() > 0) return "shown";
+    const sizes: string[] = [];
+    let up: View | null = view;
+    for (let i = 0; up && i < 3; i++) {
+      sizes.push(`${up.getWidth()}x${up.getHeight()}`);
+      const parent = up.getParent();
+      up = parent instanceof ViewGroup ? parent : null;
+    }
+    return `not laid out: ${sizes.join(" in ")}`;
   });
 }
