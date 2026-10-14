@@ -70,7 +70,7 @@ each system lets an author do, not how it does it.
 | Calls from worklet runtimes              | ✅ any runtime         | ✅ `installOnUIRuntime`              | ❌                                             | [T134](tasks.md#t134) |
 | Code that runs with no JS runtime        | By hand                | By hand                              | ❌ module state needs a live runtime           | [T130](tasks.md#t130) |
 | iOS background tasks                     | By hand                | ✅ `expo-background-task`            | ❌                                             | [T132](tasks.md#t132) |
-| Android WorkManager, services, receivers | By hand (Kotlin)       | ✅ task consumers, Kotlin            | ❌ the class must be Java or Kotlin            | [T131](tasks.md#t131) |
+| Android WorkManager, services, receivers | By hand (Kotlin)       | ✅ task consumers, Kotlin            | ✅ Lucent classes the OS makes                 | —                     |
 | Background JS tasks                      | —                      | ✅ `expo-task-manager`               | ❌ (Lucent code runs natively instead)         | [T135](tasks.md#t135) |
 | iOS app extensions and widgets           | By hand                | ✅ `expo-widgets` (iOS)              | ❌                                             | [T133](tasks.md#t133) |
 | App Intents and Live Activities          | By hand                | 🟡 Live Activities in `expo-widgets` | ❌                                             | [T136](tasks.md#t136) |
@@ -89,7 +89,7 @@ is written in TypeScript against the SDK, so each row is a task.
 | Activity results and permission requests       | —     | ✅                         | ✅                                        | —                     |
 | Back press, configuration changes              | —     | ✅ Activity listeners      | 🟡 androidx listeners, untested           | [T110](tasks.md#t110) |
 | Info.plist keys, entitlements, permissions     | —     | ✅ config plugins          | ✅ `lucent.json`, Expo plugin             | —                     |
-| Manifest components (services, receivers)      | —     | ✅ config plugins          | 🟡 Java or Kotlin classes only            | [T131](tasks.md#t131) |
+| Manifest components (services, receivers)      | —     | ✅ config plugins          | ✅ Lucent, Java or Kotlin classes         | —                     |
 | Options the app sets (API keys)                | —     | ✅ config plugin options   | ❌                                        | [T111](tasks.md#t111) |
 | Privacy manifests, `<queries>`, Gradle plugins | —     | ✅ config plugins          | ❌                                        | [T115](tasks.md#t115) |
 
@@ -107,7 +107,7 @@ is written in TypeScript against the SDK, so each row is a task.
 | React children inside the native view | ❌                      | ✅ subviews; Android `GroupView` | ✅ slots                               | —                     |
 | Sizing from native content            | Not stated              | ✅ shadow node proxy             | ✅ `invalidateSize`                    | —                     |
 | View recycling                        | ✅ opt in               | ❌                               | ✅ (Android: when the app turns it on) | —                     |
-| A view controller as the root         | By hand                 | By hand                          | ❌                                     | [T122](tasks.md#t122) |
+| A view controller as the root         | By hand                 | By hand                          | 🟡 Android's `Fragment` only           | [T122](tasks.md#t122) |
 | A view passed to a module function    | ✅ `hybridRef`          | ✅ by view tag                   | ❌                                     | [T124](tasks.md#t124) |
 | Native objects in SwiftUI and Compose | —                       | ✅                               | ❌                                     | [T123](tasks.md#t123) |
 
