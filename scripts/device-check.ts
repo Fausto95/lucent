@@ -512,7 +512,7 @@ interface Device {
   unloaded?(): boolean;
   /** Before opening the app again: Metro made reachable again, the app stopped, its log cleared. */
   reset?(): void;
-  /** Ends the app, as iOS ends one it suspended. */
+  /** Ends the app as iOS ends one it suspended, which it may start again: not as a person quits it. */
   end?(): void;
   /** Starts the app with no screen to open, then puts another app in front of it. */
   background?(): void;
@@ -555,7 +555,16 @@ function ios(target: Target): Device {
   const reports = path.join(process.env.HOME ?? "", "Library/Logs/DiagnosticReports");
   return {
     install: () => sh("xcrun", ["simctl", "install", sim.udid, target.artifact]),
-    end: () => sh("xcrun", ["simctl", "terminate", sim.udid, target.id], true),
+    // A simulator's apps are this Mac's processes: SIGKILL ends one as iOS does under memory
+    // pressure. iOS starts no app again for a push once a person quit it (`simctl terminate`, maybe).
+    end: () => {
+      const r = spawnSync("xcrun", ["simctl", "spawn", sim.udid, "launchctl", "list"], {
+        encoding: "utf8",
+      });
+      const pid = r.status === 0 ? iosAppPid(r.stdout, target.id) : undefined;
+      if (pid) process.kill(pid, "SIGKILL");
+      else sh("xcrun", ["simctl", "terminate", sim.udid, target.id], true);
+    },
     background: () => {
       sh("xcrun", ["simctl", "launch", "--terminate-running-process", sim.udid, target.id]);
       spawnSync("sleep", ["15"]);
