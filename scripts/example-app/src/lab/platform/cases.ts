@@ -26,7 +26,7 @@ const ios = Platform.OS === "ios";
  * The download the iOS device runs hold open (scripts/held-download.ts): they
  * end the app before it finishes, and iOS starts the app again for its events.
  */
-export const HELD_DOWNLOAD = "http://localhost:8099/download";
+export const HELD_DOWNLOAD = "https://raw.githubusercontent.com/Fausto95/lucent/main/README.md";
 
 /** The screen's card's testID and accessibilityLabel, which cases read from its native view. */
 export const CARD_ID = "lucent-card";
