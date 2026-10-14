@@ -443,8 +443,13 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
     const k = s.kind.identifier;
     const name = s.pathComponents.join("_");
     const cls = objcClass(usr);
-    // A class this module only extends (NSObject) is no type of its own: references name the other.
-    if (s.extensionOf) continue;
+    // A class this module only extends (NSObject): what the module adds to it is a class of its
+    // own (NSObject_UIKit), which members name as their owner; references still name the other.
+    if (s.extensionOf) {
+      if (k === "swift.class" && cls)
+        types[`${name}_${module}`] = { kind: "class", native: cls[2]! };
+      continue;
+    }
     if ((k === "swift.class" || k === "swift.protocol") && cls) {
       refs[usr] = `${module}.${name}`;
       types[name] = { kind: k === "swift.class" ? "class" : "protocol", native: cls[2]! };
