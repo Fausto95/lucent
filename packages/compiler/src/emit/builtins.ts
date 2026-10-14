@@ -2734,6 +2734,10 @@ export function globalCall(
       return num(cpp.call("lucent::parseFloat", [argAs(em, node, 0, T.string)]));
     case "isNaN":
       return bool(cpp.call("std::isnan", [argAs(em, node, 0, T.number)]));
+    // Base64 (text.h).
+    case "atob":
+    case "btoa":
+      return str(cpp.call(`lucent::${name}`, [argAs(em, node, 0, T.string)]));
     case "isFinite":
       return bool(cpp.call("std::isfinite", [argAs(em, node, 0, T.number)]));
     case "String":

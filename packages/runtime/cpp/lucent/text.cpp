@@ -30,7 +30,87 @@ constexpr std::array<std::string_view, 6> kUtf8Labels = {
     "unicode-1-1-utf-8", "unicode11utf8", "unicode20utf8", "utf-8", "utf8", "x-unicode20utf8",
 };
 
+constexpr char kBase64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+/// A base64 digit's value; -1 for ASCII whitespace, -2 for `=`, -3 for anything else.
+int base64Digit(char16_t c) {
+  if (c >= 'A' && c <= 'Z') return c - 'A';
+  if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+  if (c >= '0' && c <= '9') return c - '0' + 52;
+  if (c == '+') return 62;
+  if (c == '/') return 63;
+  if (c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r') return -1;
+  if (c == '=') return -2;
+  return -3;
+}
+
+[[noreturn]] void invalidCharacter(const char* message) {
+  throwError(String::fromLatin1("InvalidCharacterError"), String::fromLatin1(message));
+}
+
 }  // namespace
+
+String atob(const String& data) {
+  // Checked as Node checks it, so the errors say what Node's do: `=` only at
+  // the end, at most two, and none where the digits don't fill whole quads.
+  size_t digits = 0;
+  size_t equals = 0;
+  const size_t n = data.length();
+  for (size_t i = 0; i < n; i++) {
+    const int d = base64Digit(data.unit(i));
+    if (d == -3) invalidCharacter("Invalid character");
+    if (d == -1) continue;
+    digits++;
+    if (d == -2) {
+      if (++equals > 2) invalidCharacter("Invalid character");
+    } else if (equals) {
+      invalidCharacter("Invalid character");
+    }
+  }
+  size_t rest = digits % 4;
+  if (rest == 0) {
+    rest = (digits - equals) % 4;
+  } else if (equals) {
+    invalidCharacter("Invalid character");
+  }
+  if (rest == 1) invalidCharacter("The string to be decoded is not correctly encoded.");
+
+  std::string out;
+  out.reserve((digits - equals) * 3 / 4);
+  uint32_t bits = 0;
+  int held = 0;
+  for (size_t i = 0; i < n; i++) {
+    const int d = base64Digit(data.unit(i));
+    if (d < 0) continue;
+    bits = (bits << 6) | static_cast<uint32_t>(d);
+    held += 6;
+    if (held >= 8) {
+      held -= 8;
+      out.push_back(static_cast<char>((bits >> held) & 0xFF));
+    }
+  }
+  return String::fromLatin1(out);
+}
+
+String btoa(const String& data) {
+  const size_t n = data.length();
+  for (size_t i = 0; i < n; i++)
+    if (data.unit(i) > 0xFF) invalidCharacter("Invalid character");
+
+  std::string out;
+  out.reserve((n + 2) / 3 * 4);
+  for (size_t i = 0; i < n; i += 3) {
+    const uint32_t a = data.unit(i);
+    const uint32_t b = i + 1 < n ? data.unit(i + 1) : 0;
+    const uint32_t c = i + 2 < n ? data.unit(i + 2) : 0;
+    const uint32_t v = (a << 16) | (b << 8) | c;
+    out.push_back(kBase64[(v >> 18) & 63]);
+    out.push_back(kBase64[(v >> 12) & 63]);
+    out.push_back(i + 1 < n ? kBase64[(v >> 6) & 63] : '=');
+    out.push_back(i + 2 < n ? kBase64[v & 63] : '=');
+  }
+  return String::fromLatin1(out);
+}
 
 bool Utf8Decoder::decode(const uint8_t* bytes, size_t n, bool end, bool fatal, std::u16string& out) {
   // The Encoding standard's UTF-8 decoder: an error is one U+FFFD for the

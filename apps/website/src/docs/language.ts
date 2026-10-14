@@ -645,6 +645,13 @@ export const differences: { title: string; rows: Difference[] }[] = [
     title: "Errors and cancellation",
     rows: [
       {
+        js: "`atob` and `btoa` throw a `DOMException` named `InvalidCharacterError`.",
+        lucent:
+          "Throw an `Error` of that name, with Node's message. `e.name` reads the same, and `DOMException` isn't declared.",
+        why: "Lucent has no `DOMException`.",
+        cases: ["base64"],
+      },
+      {
         js: "`error.stack` is a string.",
         lucent:
           "`undefined` in Lucent code, unless the error came from JavaScript. JavaScript receives a `stack` whose first frame is the Lucent one.",

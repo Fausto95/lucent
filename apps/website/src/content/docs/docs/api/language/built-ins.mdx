@@ -272,6 +272,10 @@ export function lines(chunks: Uint8Array[]): string[] {
 }
 ```
 
+## atob and btoa
+
+Base64, as HTML defines it: `atob` ignores ASCII whitespace, and the `=` padding is optional. Both throw an `Error` named `InvalidCharacterError`, with Node's messages, where JavaScript throws a `DOMException` of that name. `btoa` takes characters up to U+00FF: encode text with `TextEncoder` first.
+
 ## lucent:core
 
 What JavaScript's built-ins lack has a native implementation in `lucent:core`. [lucent:core](/docs/api/lucent-core/) lists its functions, classes and types.

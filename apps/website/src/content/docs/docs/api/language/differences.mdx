@@ -77,6 +77,7 @@ Each e2e case is a module in `packages/compiler/test/e2e/cases/`, run natively a
 
 | JavaScript | Lucent | Why | e2e case |
 | --- | --- | --- | --- |
+| `atob` and `btoa` throw a `DOMException` named `InvalidCharacterError`. | Throw an `Error` of that name, with Node's message. `e.name` reads the same, and `DOMException` isn't declared. | Lucent has no `DOMException`. | `base64` |
 | `error.stack` is a string. | `undefined` in Lucent code, unless the error came from JavaScript. JavaScript receives a `stack` whose first frame is the Lucent one. | Native code records the site where it made an error, not a stack. | `errors` |
 | `new Error(message, { cause })` keeps any value as the cause. | Keeps a cause that is an `Error`, and JavaScript gets it with the error. Another is refused ([LUCENT1003](/docs/api/diagnostics/#lucent1003)), and left out when JavaScript's error crosses to Lucent. | A Lucent error's cause is an error, as a caught value is. | `errors`, `error-cause` |
 | `abort()` without a reason gives an `AbortError` whose message depends on the engine. | `AbortError: signal is aborted without reason`, as in React Native and browsers. | One message on both platforms. Node says `This operation was aborted`. | `abort`, `listeners` |

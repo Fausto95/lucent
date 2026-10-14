@@ -66,6 +66,20 @@ declare function clearInterval(id: number | undefined): void;
 /** Calls `callback` after the current turn's code and the microtasks queued before it. */
 declare function queueMicrotask(callback: () => void): void;
 
+/**
+ * Decodes base64 into a string of bytes, a character each (U+0000 to
+ * U+00FF): ASCII whitespace is ignored, and the `=` padding is optional.
+ * Throws an Error named `InvalidCharacterError` where `data` isn't base64.
+ */
+declare function atob(data: string): string;
+
+/**
+ * The base64 of a string of bytes. Throws an Error named
+ * `InvalidCharacterError` where a character is past U+00FF: encode text
+ * with TextEncoder first.
+ */
+declare function btoa(data: string): string;
+
 /** What `encodeInto` did: the UTF-16 code units it read, and the bytes it wrote. */
 interface TextEncoderEncodeIntoResult {
   read: number;

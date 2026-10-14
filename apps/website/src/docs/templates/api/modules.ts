@@ -168,7 +168,7 @@ export function vibrate(): void {
     intro: [
       {
         kind: "p",
-        text: "The global variables `console`, `AbortController`, `AbortSignal`, `TextEncoder` and `TextDecoder`, and the timer functions `setTimeout`, `setInterval` and `queueMicrotask`, have these types. The JavaScript built-ins a module can use are on [Built-ins](/docs/api/language/built-ins/).",
+        text: "The global variables `console`, `AbortController`, `AbortSignal`, `TextEncoder` and `TextDecoder`, the timer functions `setTimeout`, `setInterval` and `queueMicrotask`, and `atob` and `btoa`, have these types. The JavaScript built-ins a module can use are on [Built-ins](/docs/api/language/built-ins/).",
       },
     ],
   },
