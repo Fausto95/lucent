@@ -10,6 +10,7 @@ import {
   iosAppPid,
   jsErrorLines,
   lastProgress,
+  lastScreen,
   lastVerdict,
   parseTarget,
   pickSimulator,
@@ -80,6 +81,19 @@ describe("pickSimulator", () => {
 
   it("finds none without an iPhone", () => {
     expect(pickSimulator({ devices: {} })).toBeUndefined();
+  });
+});
+
+describe("lastScreen", () => {
+  it("names the screen the app logged progress or a verdict for last", () => {
+    const log = [
+      "LUCENT_SUMMARY platform 14/14 passed",
+      "LUCENT_PROGRESS media 1/2 media service: it plays ok 120ms",
+      "LUCENT_PROGRESS tests 0/105 started",
+    ].join("\n");
+    expect(lastScreen(log)).toBe("tests");
+    expect(lastScreen(log.split("\n").slice(0, 2).join("\n"))).toBe("media");
+    expect(lastScreen("nothing yet")).toBeUndefined();
   });
 });
 
