@@ -942,7 +942,11 @@ describe.skipIf(!xcode)("iOS extractor, a category on NSObject", () => {
       ["isTagged", "setIsTagged:"],
       ["tagLabel", "setTagLabel:"],
     ]);
-    expect(added.methods?.map((m) => m.selector)).toEqual(["tagActivate"]);
+    // Its methods keep their labels: a subclass elsewhere may name a member tagValue.
+    expect(added.methods?.map((m) => [m.name, m.selector]).sort()).toEqual([
+      ["tagActivate", "tagActivate"],
+      ["tagValueForKey", "tagValueForKey:"],
+    ]);
     expect(type("TAGItem")).toMatchObject({ native: "TAGItem" });
   });
 });

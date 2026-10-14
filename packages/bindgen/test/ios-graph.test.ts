@@ -184,6 +184,19 @@ describe("members a module adds to NSObject", () => {
         declarationFragments: [{ kind: "text", spelling: "func kitActivate() -> " }, BOOL],
         functionSignature: { parameters: [], returns: [BOOL] },
       }),
+      sym("swift.method", `${NSOBJECT}(im)kitValueForKey:`, ["NSObject", "kitValue(forKey:)"], {
+        names: { title: "kitValue(forKey:)" },
+        declarationFragments: [
+          { kind: "text", spelling: "func kitValue(forKey key: " },
+          STRING,
+          { kind: "text", spelling: ") -> " },
+          STRING,
+        ],
+        functionSignature: {
+          parameters: [{ name: "key", declarationFragments: [STRING] }],
+          returns: [STRING],
+        },
+      }),
       // A Swift extension's member, which no message reaches.
       sym("swift.method", "s:So8NSObjectC3KitE5kitGoyyF", ["NSObject", "kitGo()"], {
         names: { title: "kitGo()" },
@@ -193,6 +206,7 @@ describe("members a module adds to NSObject", () => {
     relationships: [
       { kind: "memberOf", source: `${NSOBJECT}(py)kitLabel`, target: NSOBJECT },
       { kind: "memberOf", source: `${NSOBJECT}(im)kitActivate`, target: NSOBJECT },
+      { kind: "memberOf", source: `${NSOBJECT}(im)kitValueForKey:`, target: NSOBJECT },
       { kind: "memberOf", source: "s:So8NSObjectC3KitE5kitGoyyF", target: NSOBJECT },
     ],
   };
@@ -218,8 +232,10 @@ describe("members a module adds to NSObject", () => {
     expect(added.properties?.map((p) => [p.name, p.setter])).toEqual([
       ["kitLabel", "setKitLabel:"],
     ]);
+    // Its methods keep their labels: a subclass elsewhere may name a member kitValue.
     expect(added.methods?.map((m) => [m.name, m.selector])).toEqual([
       ["kitActivate", "kitActivate"],
+      ["kitValueForKey", "kitValueForKey:"],
     ]);
   });
 

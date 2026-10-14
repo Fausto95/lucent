@@ -9,7 +9,10 @@ graph for ObjectiveC (`UIKit@ObjectiveC.symbols.json`). bindgen gives the
 module a class for it, named for both (`NSObject_UIKit`), whose
 `extensionOf` is `ObjectiveC.NSObject` and whose `native` is `NSObject`.
 It has the category's instance members and no constructor. Its members
-are the Objective-C ones: a Swift extension's aren't sent as messages.
+are the Objective-C ones: a Swift extension's aren't sent as messages. Its
+methods keep their Swift labels (`value(forKey:)` is `valueForKey`), since
+a subclass in a module bindgen doesn't read may name a member alike, as
+`UISlider`'s `value` property.
 
 The module's declarations declare that class without exporting it, and
 augment lucent:ios's `NSObject` to extend it
@@ -23,7 +26,9 @@ only through `NSObject`. The members are the module's, so the module's
 schema and declarations hold them: a program has them when it imports the
 module, as Swift does. A class of the module's own keeps the compiler's
 lookup of a member's class as it is, which finds the schema class by the
-declaration's class. An augmentation can't add statics, so a category's
+declaration's class. TypeScript requires a subclass's members to match
+NSObject's: Foundation's `value(forKey:)` named `value` made `UISlider`
+and `NSURLQueryItem` invalid, and such an object no longer an `NSObject`. An augmentation can't add statics, so a category's
 class methods, and categories on other modules' classes, are left for
 later ([T112](../tasks.md#t112)).
 _Changed:_ [limitations.md](../limitations.md),
