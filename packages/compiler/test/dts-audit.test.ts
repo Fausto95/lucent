@@ -263,6 +263,54 @@ describe("declaration audit fixtures", () => {
     );
   });
 
+  it("keeps a protocol's optional requirement optional where a protocol adopting it declares it again", () => {
+    // Foundation's shape: NSURLSessionDownloadDelegate adopts NSURLSessionTaskDelegate and, through
+    // it, NSURLSessionDelegate, whose URLSessionDidFinishEventsForBackgroundURLSession: is optional.
+    const requirement = (name: string, optional: boolean) => ({
+      name,
+      params: [{ name: "session", type: "FXSession" }],
+      returns: "void",
+      selector: `${name}:`,
+      ...(optional ? { optional: true } : {}),
+    });
+    const schema = typed({
+      platform: "ios",
+      module: "Fixture",
+      types: [
+        { kind: "class", name: "FXSession", native: "FXSession" },
+        {
+          kind: "class",
+          name: "FXSessionDelegate",
+          native: "FXSessionDelegate",
+          interface: true,
+          methods: [requirement("finishedEvents", true)],
+        },
+        {
+          kind: "class",
+          name: "FXTaskDelegate",
+          native: "FXTaskDelegate",
+          interface: true,
+          implements: ["FXSessionDelegate"],
+          methods: [requirement("completed", true)],
+        },
+        {
+          kind: "class",
+          name: "FXDownloadDelegate",
+          native: "FXDownloadDelegate",
+          interface: true,
+          implements: ["FXTaskDelegate", "FXSessionDelegate"],
+          methods: [requirement("downloaded", false)],
+        },
+      ],
+    });
+
+    expect(audit(schema).errors).toEqual([]);
+    expect(sdkDts(schema)).toMatch(
+      /class FXDownloadDelegate \{[^}]*@lucentInherited Fixture\.FXSessionDelegate 0[^}]*finishedEvents\?\(session: FXSession\): void;/,
+    );
+    expect(sdkDts(schema)).toMatch(/class FXDownloadDelegate \{[^}]*\n  downloaded\(session/);
+  });
+
   it("names repeated parameters and shadowed type parameters apart", () => {
     const schema = typed({
       platform: "ios",
