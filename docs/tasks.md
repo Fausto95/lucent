@@ -56,7 +56,7 @@ what became of each one that is still linked or was still open.
 | [T134](#t134)            | Calls from worklet runtimes                                | ready; its first step is a decision                     |
 | [T135](#t135)            | JavaScript tasks from background entry points              | blocked: a decision on whether Lucent offers it         |
 | [T136](#t136)            | App Intents, Live Activities and Android widget bodies     | waiting; needs T133                                     |
-| [T137](#t137)            | Relaunches for background URL sessions and silent pushes   | ready                                                   |
+| [T137](#t137)            | Relaunches for background URL sessions and silent pushes   | in progress (#273)                                      |
 | **Distribution**         |                                                            |                                                         |
 | [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190, #191, #194, #195, #200, #204 merged) |
 | [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | done (2026-10-14)                                       |
@@ -1248,7 +1248,9 @@ read, so Lucent has to generate them.
 code in a process iOS started for them, with no JavaScript, as
 `expo-notifications`' background tasks do.
 
-- **Status:** ready; split from [T132](#t132) (2026-10-14).
+- **Status:** in progress: `lucent-background-task` hears silent pushes,
+  and the iOS device runs push to the ended app (#273). Split from
+  [T132](#t132) (2026-10-14).
 - **Area:** iOS host, runtime.
 - **Needs:** T110, T132.
 - **Verify:** V1, V4, V5.
