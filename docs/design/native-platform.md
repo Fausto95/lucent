@@ -664,9 +664,10 @@ platform's body in a `PLATFORM` branch ([0013][d0013]).
 - **Children** go into one `slot()`, and `invalidateSize()` re-measures
   native content. Views keep updating while JavaScript is blocked.
 
-React Native's view props reach the host view, and the ref has the host's
-`measure` and `measureInWindow`; a request takes a signal
-([T121](../tasks.md#t121), #244). A prop may be an instance of an
+React Native's view props reach the host view, and the ref is the host
+view's own, with the commands on it; a request takes a signal
+([T121](../tasks.md#t121), #244,
+[0105](../decisions/0105-a-components-ref-is-its-host-views-own.md)). A prop may be an instance of an
 exported class, which the view holds while it shows it
 ([T120](../tasks.md#t120), #247). **Planned:** the view libraries' cases
 ([T121](../tasks.md#t121)), view-controller roots

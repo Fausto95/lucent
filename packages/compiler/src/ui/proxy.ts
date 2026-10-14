@@ -169,9 +169,9 @@ function encodes(t: ViewType): boolean {
  * The React-facing declarations of `components`: each a function component
  * taking its props, the events as callbacks, its React children if it
  * takes any, React Native's view props (`ViewProps`: `style`, `testID`,
- * `onLayout`…), and a `ref` to its commands (a request answers a promise,
- * and takes a signal after its arguments) beside the host view's
- * `measure` and `measureInWindow`.
+ * `onLayout`…), and a `ref` to its host view (`HostInstance`, decision
+ * 0105) with its commands (a request answers a promise, and takes a signal
+ * after its arguments).
  */
 export function componentDeclarations(components: readonly ComponentDescription[]): js.Unit {
   const classes = instanceTypes(components);
@@ -184,7 +184,7 @@ export function componentDeclarations(components: readonly ComponentDescription[
       { k: "importType", names: ["ReactNode", "Ref"], from: "react" },
       {
         k: "importType",
-        names: ["MeasureInWindowOnSuccessCallback", "MeasureOnSuccessCallback", "ViewProps"],
+        names: ["HostInstance", "ViewProps"],
         from: "react-native",
       },
       ...[...classes]
@@ -205,21 +205,6 @@ export function componentDeclarations(components: readonly ComponentDescription[
   };
 }
 
-/** The host view's ref methods, which every component's ref has beside its commands. */
-const HOST_REF: js.PropertySignature[] = [
-  {
-    name: "measure",
-    type: js.fn([js.param("callback", js.ref("MeasureOnSuccessCallback"))], js.keyword("void")),
-  },
-  {
-    name: "measureInWindow",
-    type: js.fn(
-      [js.param("callback", js.ref("MeasureInWindowOnSuccessCallback"))],
-      js.keyword("void"),
-    ),
-  },
-];
-
 function propsType(c: ComponentDescription): js.Type {
   // React Native's view props, but those the component's own take the names of.
   const own = ["children", ...c.props.map((p) => p.name), ...c.events.map((e) => e.name)];
@@ -238,7 +223,12 @@ function propsType(c: ComponentDescription): js.Type {
       {
         name: "ref",
         optional: true,
-        type: js.ref("Ref", js.object([...HOST_REF, ...c.commands.map(command)])),
+        type: js.ref(
+          "Ref",
+          c.commands.length
+            ? js.intersection([js.ref("HostInstance"), js.object(c.commands.map(command))])
+            : js.ref("HostInstance"),
+        ),
       },
     ]),
   ]);
