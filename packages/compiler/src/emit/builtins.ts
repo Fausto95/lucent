@@ -817,12 +817,27 @@ export function staticCall(
   if (isLibGlobal(em, obj, "Math")) {
     if (!MATH_FUNCTIONS.has(name))
       fail(node, Codes.UnsupportedBuiltin, `Math.${name} is not supported`);
-    if ((name === "min" || name === "max") && a.length === 1 && ts.isSpreadElement(a[0]!)) {
+    if (
+      (name === "min" || name === "max") &&
+      a.length === 1 &&
+      ts.isSpreadElement(a[0]!) &&
+      !em.spreadsTuple(a[0]!)
+    ) {
       const all = em.exprAs(a[0]!.expression, { k: "array", e: T.number });
       return num(cpp.call(`lucent::math::${name}Of`, [all]));
     }
-    if (a.some(ts.isSpreadElement))
+    // A tuple spread is an argument per element.
+    const spread = a.some((x) => ts.isSpreadElement(x) && !em.spreadsTuple(x));
+    if (spread || (name === "imul" && a.some(ts.isSpreadElement)))
       fail(node, Codes.UnsupportedBuiltin, `spread is only supported as Math.${name}(...array)`);
+    if (a.some(ts.isSpreadElement)) {
+      const given = a.flatMap((x) =>
+        (em.tupleSpread(x) ?? [{ e: em.expr(x, T.number), node: x }]).map((g) =>
+          em.coerce(g.e, T.number, g.node),
+        ),
+      );
+      return num(cpp.call(`lucent::math::${name}`, given));
+    }
     if (name === "imul" && a.length === 2) {
       const x = em.expr(a[0]!);
       const y = em.expr(a[1]!);
@@ -2028,6 +2043,21 @@ function arrayMethod(
   const self: LType = at;
   switch (name) {
     case "push": {
+      // A tuple spread is an item per element.
+      if (
+        a.some((x) => em.spreadsTuple(x)) &&
+        a.every((x) => !ts.isSpreadElement(x) || em.spreadsTuple(x))
+      )
+        return num(
+          cpp.call(
+            cpp.dot(o, "push"),
+            a.flatMap((x) =>
+              (em.tupleSpread(x) ?? [{ e: em.expr(x, e), node: x }]).map((g) =>
+                em.coerce(g.e, e, g.node),
+              ),
+            ),
+          ),
+        );
       if (a.length === 1 && ts.isSpreadElement(a[0]!))
         return num(
           cpp.statementExpr(

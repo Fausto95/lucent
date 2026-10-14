@@ -88,7 +88,7 @@ Cases: `bigint-arith`, `bigint-unions`.
 - Template literals work, and so does spread in array literals, over any iterable: `[...map]`, `[...set]`, `[...text]`, `[...generator()]` (case `iterable-spread`).
 - An object literal holds fields, spread objects and properties whose value is a function, `name: (…) => …`. A method fails with [LUCENT2002](/docs/api/diagnostics/#lucent2002), and a getter or setter with `LUCENT1001`: use a class.
 - A computed key, `{ [key]: value }`, works in a record literal only. Reading an object type's field by a computed key, `obj[key]`, fails with `LUCENT1001`: use a `Record` or a `Map`.
-- A spread argument works into a rest parameter, `sum(...xs)`, and in `Math.min(...xs)`, `Math.max(...xs)` and `xs.push(...ys)`. Spreading into fixed parameters fails with [LUCENT1007](/docs/api/diagnostics/#lucent1007), and into other built-ins with `LUCENT1001` or `LUCENT1003`. Pass the elements one by one instead.
+- A spread argument works into a rest parameter, `sum(...xs)`, and in `Math.min(...xs)`, `Math.max(...xs)` and `xs.push(...ys)`. A tuple spreads into fixed parameters too, an argument per element: `add(...pair)`. Spreading into other built-ins fails with `LUCENT1001` or `LUCENT1003`: pass the elements one by one instead.
 - `eval` fails with [LUCENT1003](/docs/api/diagnostics/#lucent1003), `new Function` with `LUCENT2002`, and tagged templates with `LUCENT1001`.
 
 ## Functions
