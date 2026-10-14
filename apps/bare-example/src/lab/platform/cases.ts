@@ -6,6 +6,7 @@
 import { Linking, Platform } from "react-native";
 import {
   download,
+  downloadProgress,
   isRegistered,
   runAsScheduled,
   schedule,
@@ -123,9 +124,18 @@ export const platformCases: SdkCase[] = [
     expected: "completed, expired",
   },
   {
-    name: "background download: a download starts in iOS's background session",
-    run: async () => download(HELD_DOWNLOAD),
-    expected: ios ? "started" : "none",
+    name: "background download: a download starts in iOS's background session, and receives",
+    run: async () => {
+      const started = download(HELD_DOWNLOAD);
+      if (started !== "started") return started;
+      // The held download sends its first bytes at once, then holds the rest.
+      return poll(
+        20_000,
+        async () => downloadProgress(),
+        (got) => /^received [1-9]|^failed/.test(got),
+      );
+    },
+    expected: ios ? /^received [1-9]\d* bytes$/ : "none",
   },
   {
     name: "receiver: Android makes a Lucent BroadcastReceiver by its name",
