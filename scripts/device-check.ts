@@ -666,7 +666,7 @@ function metroTail(): string[] {
 /** Prints and keeps the summary: last in the output, in the step summary, as an annotation. */
 function report(
   summary: string[],
-  details: { app: string[]; metro: string[]; sizing?: string[] },
+  details: { app: string[]; metro: string[]; sizing?: string[]; react?: string[] },
 ): void {
   fs.mkdirSync(outDir(), { recursive: true });
   fs.writeFileSync(path.join(outDir(), "summary.txt"), `${summary.join("\n")}\n`);
@@ -690,10 +690,12 @@ function report(
     // The annotation is what a reader without the job's log sees: the app's last lines too.
     const tail = details.app.slice(-12);
     const sizing = details.sizing?.slice(-12) ?? [];
+    const react = details.react?.slice(-6) ?? [];
     // Sizing first: the annotation is cut at 3500 characters, and the app's lines are long.
     const lines = [
       ...summary,
       ...(sizing.length ? ["Sizing, last:", ...sizing] : []),
+      ...(react.length ? ["React Native's warnings and errors, last:", ...react] : []),
       ...(tail.length ? ["The app's last lines:", ...tail] : []),
     ];
     const text = lines.join("\n").slice(0, 3500);
@@ -828,7 +830,13 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
     .split("\n")
     .filter((l) => l.includes("LUCENT_SIZING"))
     .map((l) => l.slice(l.indexOf("LUCENT_SIZING")));
-  report(diagnose(facts), { app, metro, sizing });
+  // React Native's own complaints (a mount item that threw, a soft exception), among the app's lines.
+  const react = appLines(log, 400, 240, target).filter((l) =>
+    /\s[WE] (ReactNative|FabricUIManager|SurfaceMountingManager|MountItemDispatcher|unknown:ReactNative)\b/.test(
+      l,
+    ),
+  );
+  report(diagnose(facts), { app, metro, sizing, react });
   return false;
 }
 
