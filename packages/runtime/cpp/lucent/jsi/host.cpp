@@ -792,6 +792,8 @@ jsi::Value Host::errorToJs(jsi::Runtime& rt, const Error& e) {
       std::string frames = here.isString() ? here.getString(rt).utf8(rt) : "";
       defineOwn(rt, o, "stack", jsi::String::createFromUtf8(rt, stackWithSite(errorToString(e).toUtf8(), e->site, frames)));
     }
+    // Its cause, its own property as an Error's is: set when it was made, so given once.
+    if (e->cause && !hasOwn(rt, o, "cause")) defineOwn(rt, o, "cause", errorToJs(rt, e->cause));
     return instance;
   }
 
@@ -804,6 +806,8 @@ jsi::Value Host::errorToJs(jsi::Runtime& rt, const Error& e) {
                         .getObject(rt);
   if (name != ctor) err.setProperty(rt, "name", jsi::String::createFromUtf8(rt, name));
   if (e->code.has()) err.setProperty(rt, "code", jsi::String::createFromUtf8(rt, e->code.get().toUtf8()));
+  // Its cause, which Lucent makes acyclic: one is given when the error is made.
+  if (e->cause) defineOwn(rt, err, "cause", errorToJs(rt, e->cause));
   if (e->stack.has()) {
     // An error that came from JavaScript keeps its original stack.
     err.setProperty(rt, "stack", jsi::String::createFromUtf8(rt, e->stack.get().toUtf8()));
@@ -832,6 +836,7 @@ Error Host::errorFromJs(jsi::Runtime& rt, const jsi::JSError& e) {
     if (code.isString()) out->code = String::fromUtf8(code.getString(rt).utf8(rt));
     jsi::Value message = o.getProperty(rt, "message");
     if (message.isString()) out->message = String::fromUtf8(message.getString(rt).utf8(rt));
+    out->cause = causeFromJs(rt, o);
   }
   return out;
 }
