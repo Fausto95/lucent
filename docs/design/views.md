@@ -854,7 +854,8 @@ Activity is created again, `LucentActivities` drops the restored ones the host
 had tagged, before their views are made, and their components mount new ones
 ([0104](../decisions/0104-a-components-android-root-may-be-a-fragment.md)).
 `LucentFragments` is in `src/fragment/java`, built only for a program with such
-a component, against the app's androidx.fragment.
+a component, against the app's androidx.fragment, and by every deferred Android
+build, which can't know.
 
 ## The JavaScript proxy
 
