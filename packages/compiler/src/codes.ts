@@ -213,15 +213,15 @@ export const Explanations: Record<Code, Explanation> = {
   LUCENT1007: {
     title: "Call Lucent cannot compile",
     summary:
-      "A call Lucent cannot compile: spread arguments to anything but a built-in such as `push`, or a platform class without a constructor binding.",
+      "A call Lucent cannot compile: a callback reporting a promise, a borrow's unseen callback, or a platform class with no constructor binding.",
     details:
-      "Native calls pass a fixed number of arguments of known types. Spreading an array or a tuple into ordinary parameters has no native form. Neither does a platform API called as a promise where it has none, or a platform class without an initializer.",
-    fix: "pass the arguments one by one",
+      "A callback API's report is a value, which JavaScript would adopt if it were a promise: native code can't. A borrow lends bytes to the callback it is given, which must be written there to be checked. A platform class without an initializer has no native constructor to call.",
+    fix: "await the promise and report its value, write the callback in the call, or make the object the way the SDK does",
     wrong: ex(
-      "function add(a: number, b: number): number {\n  return a + b;\n}\nexport function sum(pair: [number, number]): number {\n  return add(...pair);\n}\n",
+      'import { fromCallback } from "lucent:core";\nexport function later(p: Promise<number>): Promise<Promise<number>> {\n  return fromCallback<Promise<number>>((resolve) => resolve(p));\n}\n',
     ),
     right: ex(
-      "function add(a: number, b: number): number {\n  return a + b;\n}\nexport function sum(pair: [number, number]): number {\n  return add(pair[0], pair[1]);\n}\n",
+      'import { fromCallback } from "lucent:core";\nexport function later(p: Promise<number>): Promise<number> {\n  return fromCallback<number>((resolve) => {\n    void p.then(resolve);\n  });\n}\n',
     ),
   },
   LUCENT1008: {

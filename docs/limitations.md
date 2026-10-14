@@ -88,9 +88,9 @@ generated from this file.
   `normalize()`, `locales` and `options` arguments, an error's `cause`,
   `JSON.stringify`'s replacer and indent, `flat()`, resizable
   `ArrayBuffer`s and `new Proxy` ([T106](tasks.md#t106) lifts some).
-- Spread arguments into fixed parameters or from tuples are refused
-  (`LUCENT1007`).
-  `for await` gives `LUCENT1009` ([T106](tasks.md#t106)).
+- Spread into an SDK call is refused (`LUCENT1001`), and so is `for…of`
+  over a tuple (`LUCENT1009`). `for await` gives `LUCENT1009`
+  ([T106](tasks.md#t106)).
 - Decorators give `LUCENT1005`, and default exports `LUCENT3003`.
 - A class can't extend `EventEmitter` (`LUCENT1005`): hold one in a field
   instead ([T113](tasks.md#t113)).

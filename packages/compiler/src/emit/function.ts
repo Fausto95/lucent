@@ -808,6 +808,31 @@ export class FnEmitter {
         return { c: cpp.call(cpp.dot(v, "toArray")), e: typedElement(t) };
       case "iter":
         return { c: cpp.call("lucent::iterToArray", [v]), e: t.e };
+      case "tuple": {
+        if (!t.es.length) break;
+
+        // Its elements in order, as an array of their union.
+        const of = unionOf(t.es);
+        const tuple = this.ctx.fresh("tuple");
+        const items = this.ctx.fresh("items");
+        const parts: cpp.Stmt[] = [
+          cpp.varDecl(cpp.auto, tuple, v),
+          cpp.varDecl(this.reg.cppType({ k: "array", e: of }), items),
+          ...t.es.map((et, i) =>
+            cpp.exprStmt(
+              cpp.call(cpp.dot(cpp.id(items), "push"), [
+                this.coerce(
+                  { c: cpp.call("std::get", [cpp.id(tuple)], [cpp.num(i)]), t: et },
+                  of,
+                  node,
+                ),
+              ]),
+            ),
+          ),
+        ];
+
+        return { c: cpp.statementExpr(parts, cpp.id(items)), e: of };
+      }
     }
 
     fail(node, Codes.UnsupportedLoop, `${typeKey(e.t)} is not iterable`);
@@ -2306,25 +2331,55 @@ export class FnEmitter {
     const out: cpp.Expr[] = [];
     const fixed = rest ? params.length - 1 : params.length;
     const undef = cpp.id("lucent::undefined");
+    // A tuple spread is an argument per element: `f(...pair)` is `f(pair[0], pair[1])`.
+    const given = args.flatMap(
+      (a): (ts.Expression | { e: E; node: ts.Node })[] => this.tupleSpread(a) ?? [a],
+    );
     for (let i = 0; i < fixed; i++) {
       const p = params[i]!;
-      const a = args[i];
-      if (a && ts.isSpreadElement(a))
+      const a = given[i];
+      // TypeScript spreads only tuples into parameters that aren't a rest.
+      if (a && "kind" in a && ts.isSpreadElement(a))
         fail(
           a,
           Codes.UnsupportedCall,
-          "spread arguments are only supported by built-ins that take any number of arguments",
+          "only a tuple spreads into parameters that aren't a rest parameter",
         );
-      if (a) out.push(this.exprAs(a, p));
+      if (a) out.push("kind" in a ? this.exprAs(a, p) : this.coerce(a.e, p, a.node));
       else if (p.k === "opt") out.push(cpp.construct(this.reg.cppType(p), [undef]));
       else if (p.k === "undefined") out.push(undef);
       else fail(node, Codes.UnsupportedCall, "missing argument");
     }
     if (rest) {
       // The rest parameter: an array of what is left, spread iterables appended.
-      out.push(this.gathered(args.slice(fixed), rest as LType & { k: "array" }));
+      out.push(this.gathered(given.slice(fixed), rest as LType & { k: "array" }));
     }
     return out;
+  }
+
+  /** Whether `a` spreads a tuple (`...pair`), by its type alone. */
+  spreadsTuple(a: ts.Expression): boolean {
+    return ts.isSpreadElement(a) && this.lt(a.expression).k === "tuple";
+  }
+
+  /**
+   * A spread argument of a tuple type, as its elements, each read from the
+   * tuple, which is a value the call's operands hold; undefined for any
+   * other argument.
+   */
+  tupleSpread(a: ts.Expression): { e: E; node: ts.Node }[] | undefined {
+    if (!ts.isSpreadElement(a) || !this.spreadsTuple(a)) return undefined;
+
+    const t = this.lt(a.expression) as LType & { k: "tuple" };
+
+    const tuple = this.expr(a.expression);
+    if (!isPure(tuple.c))
+      fail(a, Codes.UnsupportedCall, "spread a tuple held in a variable into the parameters");
+
+    return t.es.map((et, i) => ({
+      e: { c: cpp.call("std::get", [tuple.c], [cpp.num(i)]), t: et },
+      node: a,
+    }));
   }
 
   private callUserFunction(
@@ -2456,7 +2511,10 @@ export class FnEmitter {
   }
 
   /** An array of type `t` holding `elements` in order, each spread one's items appended. */
-  private gathered(elements: readonly ts.Expression[], t: LType & { k: "array" }): cpp.Expr {
+  private gathered(
+    elements: readonly (ts.Expression | { e: E; node: ts.Node })[],
+    t: LType & { k: "array" },
+  ): cpp.Expr {
     const elemT = t.e;
     const tmpName = this.ctx.fresh("arr");
     const tmp = cpp.id(tmpName);
@@ -2464,12 +2522,46 @@ export class FnEmitter {
     const push = (x: cpp.Expr) => cpp.exprStmt(cpp.call(cpp.dot(tmp, "push"), [x]));
     const parts: cpp.Stmt[] = [cpp.varDecl(this.reg.cppType(t), tmpName)];
     for (const el of elements) {
+      // An element of a tuple spread into the arguments (args).
+      if (!("kind" in el)) {
+        parts.push(push(this.coerce(el.e, elemT, el.node)));
+        continue;
+      }
+
       if (!ts.isSpreadElement(el)) {
         parts.push(push(this.exprAs(el, elemT)));
         continue;
       }
 
-      const items = this.iterableItems(this.expr(el.expression), el.expression);
+      const spread = this.expr(el.expression);
+      const st = stripOpt(spread.t);
+
+      // A tuple's elements in order, each converted to the array's element type.
+      if (st.k === "tuple") {
+        const tuple = this.ctx.fresh("tuple");
+
+        parts.push(
+          cpp.varDecl(
+            cpp.auto,
+            tuple,
+            spread.t.k === "opt" ? this.coerce(spread, st, el) : spread.c,
+          ),
+        );
+        st.es.forEach((et, i) =>
+          parts.push(
+            push(
+              this.coerce(
+                { c: cpp.call("std::get", [cpp.id(tuple)], [cpp.num(i)]), t: et },
+                elemT,
+                el,
+              ),
+            ),
+          ),
+        );
+        continue;
+      }
+
+      const items = this.iterableItems(spread, el.expression);
 
       if (sameType(items.e, elemT)) {
         parts.push(append(items.c));
