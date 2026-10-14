@@ -657,6 +657,13 @@ export const differences: { title: string; rows: Difference[] }[] = [
         cases: ["abort", "listeners"],
       },
       {
+        js: "`for await` over a channel takes a value from its async iterator, a few microtasks after the value comes.",
+        lucent:
+          "Each value a microtask after `receive()` gives it, so other promise callbacks interleave with the loop in another order.",
+        why: "The loop awaits `receive()` itself, with no async generator between them.",
+        cases: ["for-await"],
+      },
+      {
         js: "The `AggregateError` that `Promise.any` rejects with has a message that depends on the engine.",
         lucent: "`All promises were rejected`, as in V8.",
         why: "One message on both platforms.",

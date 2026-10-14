@@ -776,6 +776,14 @@ class Channel {
     return true;
   }
 
+  async *[Symbol.asyncIterator]() {
+    for (;;) {
+      const value = await this.receive();
+      if (value === undefined) return;
+      yield value;
+    }
+  }
+
   get closed() {
     return this.#closed;
   }

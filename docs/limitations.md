@@ -89,7 +89,7 @@ generated from this file.
   `Error`, a replacer function for `JSON.stringify`, resizable
   `ArrayBuffer`s and `new Proxy` ([T106](tasks.md#t106) lifts some).
 - Spread into an SDK call is refused (`LUCENT1001`), and so is `for…of`
-  over a tuple (`LUCENT1009`). `for await` gives `LUCENT1009`
+  over a tuple (`LUCENT1009`). Async generators give `LUCENT2002`
   ([T106](tasks.md#t106)).
 - Decorators give `LUCENT1005`, and default exports `LUCENT3003`.
 - A class can't extend `EventEmitter` (`LUCENT1005`): hold one in a field

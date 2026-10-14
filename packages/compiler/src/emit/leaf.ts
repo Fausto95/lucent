@@ -20,7 +20,7 @@ import {
   type Thunk,
 } from "../ir/lower.ts";
 import { numberExpr } from "../lowering/literals.ts";
-import { type LType, stripOpt, T, typeKey } from "../types.ts";
+import { type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
 import { disposeCall, methodCall } from "./builtins.ts";
 import { safepoint } from "./compute.ts";
 import { type Ctx, type E, elementOrUndefined, intCppType } from "./context.ts";
@@ -293,6 +293,16 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
       }),
 
     safepoint: () => ({ name: "safepoint", code: safepoint(), type: T.void }),
+
+    received: (value, from, node) =>
+      planned(node, () => {
+        const t = stripOpt(from) as LType & { k: "channel" };
+
+        return {
+          c: cpp.call(cpp.arrow(operand(value), "receive")),
+          t: { k: "promise", inner: unionOf([t.e, T.undefined]) },
+        };
+      }),
 
     whole: (node) => ts.isCallExpression(node) && isEventCall(ctx, node),
 

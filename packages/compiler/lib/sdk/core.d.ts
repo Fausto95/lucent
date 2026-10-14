@@ -632,6 +632,13 @@ export declare class Channel<T> {
   receive(): Promise<T | undefined>;
 
   /**
+   * `for await (const value of channel)`: each value it receives, until
+   * `receive()` gives `undefined`, once it is closed and every value was
+   * received. Leaving the loop early leaves the channel as it is.
+   */
+  [Symbol.asyncIterator](): AsyncIterator<T>;
+
+  /**
    * Calls `onValue` with each value as it comes, one at a time, where this
    * code runs. The next is received once `onValue` returns, so the policy
    * still decides what waits meanwhile. It goes on until the channel is

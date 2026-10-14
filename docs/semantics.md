@@ -212,7 +212,11 @@ throws `ReferenceError`: a known gap.
 work. `for (let …)` gives each iteration its own binding, even when the
 body assigns it. `for…of` iterates arrays, strings, maps, sets, byte
 views, generators and `Iterable<T>`; `for…in` iterates records and arrays.
-`for await` is `LUCENT1009` ([T106](tasks.md#t106)). `debugger`, tagged
+`for await` goes over a `Channel` (each value until it is closed and
+drained) and over iterables (each element awaited); async generators are
+`LUCENT2002` ([T106](tasks.md#t106)). Over a channel, each value comes a
+microtask or two sooner than JavaScript's async iterator gives it, so
+other work interleaves in another order. `debugger`, tagged
 templates (`String.raw`), `new.target`, `arguments` and `this` outside
 class members are `LUCENT1001`.
 
@@ -1039,7 +1043,7 @@ types, `3xxx` modules and where code runs, `9xxx` passed through.
 | `LUCENT1006` | `UnsupportedThrow`            | throwing a value that isn't an `Error`                                                   |
 | `LUCENT1007` | `UnsupportedCall`             | a call with no native form, such as spread into parameters                               |
 | `LUCENT1008` | `UnsupportedAssignmentTarget` | assigning a function, an import, a tuple element or an unknown field                     |
-| `LUCENT1009` | `UnsupportedLoop`             | a loop over a value Lucent can't iterate, or `for await`                                 |
+| `LUCENT1009` | `UnsupportedLoop`             | a loop over a value Lucent can't iterate                                                 |
 | `LUCENT1010` | `AwaitNative`                 | `await` on a platform SDK object, which isn't a promise                                  |
 | `LUCENT2001` | `AnyType`                     | `any`, or `unknown` outside `catch`                                                      |
 | `LUCENT2002` | `UnsupportedType`             | a type with no native representation                                                     |
