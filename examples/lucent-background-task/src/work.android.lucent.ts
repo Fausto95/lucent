@@ -25,6 +25,7 @@ const NAME = "dev.lucent.example.refresh";
 let runs = 0;
 
 export class Refresh extends Worker {
+  // oxlint-disable-next-line no-useless-constructor -- the constructor WorkManager calls, which the Java class declares
   constructor(context: Context, params: WorkerParameters) {
     super(context, params);
   }
@@ -56,7 +57,11 @@ export async function workInBackground(ms: number): Promise<string> {
   if (!moved) return "not moved to the background";
 
   scheduleWork();
-  for (let waited = 0; runs === before && waited < ms; waited += 250) await delay(250);
+  // A run of the worker counts while this waits.
+  for (let waited = 0; waited < ms; waited += 250) {
+    if (runs !== before) break;
+    await delay(250);
+  }
 
   return runs > before ? "ran in the background" : `no run in ${ms} ms`;
 }
