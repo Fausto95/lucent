@@ -1,0 +1,12 @@
+print(mod.sending());
+print(mod.throwing());
+print(mod.returning());
+print(mod.delegating());
+print(mod.delegatedThrow());
+print(mod.iterating());
+print(mod.arrayThrow());
+print(mod.inClass());
+print(mod.nested());
+print(mod.inExpressions());
+print(mod.asIterable());
+print(mod.returnInFinally());

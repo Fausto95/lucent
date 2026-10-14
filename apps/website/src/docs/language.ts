@@ -252,9 +252,17 @@ export const features: Feature[] = [
   },
   {
     feature: "Functions, closures, rest parameters, `async`/`await` and generators",
-    status: "Yes, async generators too. A function type can't have a rest parameter.",
+    status:
+      "Yes, async generators too, and a generator's `yield` value, `return v` and `throw()`. A function type can't have a rest parameter.",
     page: STATEMENTS,
-    cases: ["closures", "rest-parameters", "async", "generators", "async-generators"],
+    cases: [
+      "closures",
+      "rest-parameters",
+      "async",
+      "generators",
+      "generator-values",
+      "async-generators",
+    ],
     accepted: [
       "export function sum(...xs: number[]): number {\n  let total = 0;\n  for (const x of xs) total += x;\n  return total;\n}",
     ],
@@ -691,6 +699,13 @@ export const differences: { title: string; rows: Difference[] }[] = [
           "Each value a microtask after `receive()` gives it, so other promise callbacks interleave with the loop in another order.",
         why: "The loop awaits `receive()` itself, with no async iterator between them.",
         cases: ["for-await"],
+      },
+      {
+        js: "A generator's `yield` gives `undefined` after a `next()` without a value, and so does `next()` once the generator's result was reported.",
+        lucent:
+          'Where `TNext` or `TReturn` leaves `undefined` out, Lucent gives the type\'s default: `0`, `""`, `false` or empty. An object throws a `TypeError`.',
+        why: "The value has the declared type, as an unassigned field does, and that type has no `undefined`.",
+        cases: ["generator-values"],
       },
       {
         js: "An async generator's `yield` awaits its value before its `next()` promise settles.",

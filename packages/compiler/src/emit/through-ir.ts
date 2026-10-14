@@ -45,6 +45,8 @@ export interface IrUnit {
   async: boolean;
   /** Of a generator, what it gives its caller each time. */
   generator?: LType;
+  /** Of a generator, what next(v) sends, which its `yield` gives. */
+  sent?: LType;
   generic: boolean;
   /** How the emitter's leaves see the code (its class, how `this` is spelled). */
   opts: FnOptions;
@@ -74,6 +76,7 @@ export function throughIr(ctx: Ctx, unit: IrUnit, ir: IrMode): CppFunction {
     ),
     result: unit.result,
     ...(unit.generator ? { generator: unit.generator } : {}),
+    ...(unit.sent ? { sent: unit.sent } : {}),
     async: unit.async,
     generic: unit.generic,
     ...(known ? { effects: ir.facts.effects(known) } : {}),

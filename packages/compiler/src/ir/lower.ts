@@ -404,6 +404,8 @@ export interface LowerInput {
   async: boolean;
   /** Of a generator, what it gives its caller each time. */
   generator?: LType;
+  /** Of a generator, what next(v) sends, which its `yield` gives. */
+  sent?: LType;
   generic: boolean;
   /** A compute task's variant: each loop iteration checks for cancellation. */
   task?: boolean;
@@ -529,6 +531,7 @@ class Lowerer {
       spanOf(input.span ?? input.decl),
       input.async,
       input.generator,
+      input.sent,
     );
   }
 
@@ -727,11 +730,14 @@ class Lowerer {
   returns(value: ts.Expression, span: SourceSpan): void {
     const result = this.result;
 
-    if (this.input.generator)
+    // A generator returns a value only when its type says what (Generator<T, TReturn>).
+    if (this.input.generator && isVoidish(result))
       fail(
         value.parent,
         Codes.UnsupportedSyntax,
-        "generators cannot return a value; use `return;`",
+        this.input.async
+          ? "async generators cannot return a value; use `return;`"
+          : "give the generator's type the value it returns (Generator<T, TReturn>), or use `return;`",
       );
 
     let v = this.expr(value, isVoidish(result) ? undefined : result);
@@ -805,6 +811,21 @@ class Lowerer {
    * element of `xs` in turn (closing the generator closes an iterator `xs`).
    */
   yieldStatement(y: ts.YieldExpression): void {
+    this.yields(y, false);
+  }
+
+  /**
+   * `yield x` as a value: what next(v) sends (the generator's TNext,
+   * undefined without one); `yield* xs`, what `xs` returned.
+   */
+  yieldValue(y: ts.YieldExpression): ValueId {
+    if (this.input.async)
+      fail(y, Codes.UnsupportedSyntax, "an async generator's `yield` has no value here");
+
+    return this.yields(y, true)!;
+  }
+
+  yields(y: ts.YieldExpression, value: boolean): ValueId | undefined {
     const element = this.input.generator;
     const span = spanOf(y);
 
@@ -812,21 +833,55 @@ class Lowerer {
 
     if (!y.asteriskToken) {
       const v = y.expression ? this.expr(y.expression, element) : this.b.const(undefined, span);
+      const given = this.coerce(v, element, y);
 
-      this.b.produce(this.coerce(v, element, y), span);
-      return;
+      if (!value) {
+        this.b.produce(given, span);
+        return undefined;
+      }
+
+      return this.b.produce(given, span, this.input.sent ?? T.undefined);
     }
 
     const source = this.expr(y.expression!);
     const t = this.b.typeOf(source);
     const whole = t.k === "opt" ? this.coerce(source, t.inner, y.expression!) : source;
-    const each = elementOf(this.b.typeOf(whole));
+    const wt = this.b.typeOf(whole);
+    const each = elementOf(wt);
 
     if (!each) fail(y.expression!, Codes.UnsupportedLoop, `${typeKey(t)} is not iterable`);
+
+    // An iterator of the generator's elements takes its requests until done: what next(v)
+    // sends, throw() and return() reach it, and the value of `yield*` is what it returned.
+    if (DELEGATES.has(wt.k) && sameType(each, element) && !this.input.async) {
+      const takes = wt.k === "iter" ? wt.n : undefined;
+
+      if (takes && !(this.input.sent && sameType(this.input.sent, takes)))
+        fail(
+          y.expression!,
+          Codes.UnsupportedSyntax,
+          "`yield*` into a generator that takes values of another type than this one's",
+        );
+
+      const returned = wt.k === "iter" ? wt.r : undefined;
+      const result = this.b.delegate(whole, span, value ? (returned ?? T.undefined) : undefined);
+
+      return result;
+    }
+
+    if (wt.k === "iter" && (wt.r || wt.n))
+      fail(
+        y.expression!,
+        Codes.UnsupportedSyntax,
+        "`yield*` into a generator of other elements than this one's",
+      );
 
     this.b.iterate(span, whole, each, (_target, el) =>
       this.b.produce(this.coerce(el, element, y), span),
     );
+
+    // Of an array, a string or another iterable: what its iterator returned, undefined.
+    return value ? this.b.const(undefined, span) : undefined;
   }
 
   unsupported(node: ts.Node, what: string): never {
@@ -2284,10 +2339,16 @@ class Lowerer {
       id,
       params: sig.params,
       defaulted: sig.defaulted,
-      // An async function's body returns what its promise fulfils with; a generator's, nothing.
-      result: sig.async && ret.k === "promise" ? ret.inner : sig.generator ? T.void : ret,
+      // An async function's body returns what its promise fulfils with; a generator's, its result.
+      result:
+        sig.async && ret.k === "promise"
+          ? ret.inner
+          : sig.generator
+            ? (ret.k === "iter" && ret.r) || T.void
+            : ret,
       async: sig.async,
       ...(sig.generator && (ret.k === "iter" || ret.k === "asyncIter") ? { generator: ret.e } : {}),
+      ...(sig.generator && ret.k === "iter" && ret.n ? { sent: ret.n } : {}),
       generic: false,
     };
     const effects = this.host.effectsOf?.(node);
@@ -3288,11 +3349,16 @@ const EXPRESSIONS: Partial<Record<ts.SyntaxKind, ExpressionLowering>> = {
   [ts.SyntaxKind.AwaitExpression]: (n: ts.AwaitExpression, lw) =>
     lw.awaited(lw.expr(n.expression), n),
 
+  [ts.SyntaxKind.YieldExpression]: (n: ts.YieldExpression, lw) => lw.yieldValue(n),
+
   [ts.SyntaxKind.FunctionExpression]: (n: ts.FunctionExpression, lw, hint?: LType) =>
     lw.closure(n, hint),
 
   [ts.SyntaxKind.NewExpression]: (n: ts.NewExpression, lw, hint?: LType) => lw.newExpr(n, hint),
 };
+
+/** What `yield*` hands a generator's requests to: the iterables with an iterator object. */
+const DELEGATES = new Set<LType["k"]>(["iter", "array", "set", "map", "string", "bytes", "typed"]);
 
 /** Binary forms that are not an operator on two values: assignment, comma, logic. */
 const BINARY_FORMS: Partial<

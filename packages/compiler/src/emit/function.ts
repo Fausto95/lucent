@@ -949,7 +949,7 @@ export class FnEmitter {
         fail(
           node,
           Codes.UnsupportedSyntax,
-          "`yield` can only be used as a statement; its value is not supported",
+          "a `yield` inside this expression is not supported; give its value a variable first",
         );
       // A toolkit's body: the JSX its component returns.
       case ts.SyntaxKind.JsxElement:

@@ -78,6 +78,8 @@ export type Expr =
   /** A GNU statement expression, `({ …; value; })`. */
   | { k: "statementExpr"; body: Stmt[]; value: Expr }
   | { k: "coAwait"; operand: Expr }
+  /** `co_yield value` as an expression: what the coroutine is resumed with. */
+  | { k: "coYieldValue"; value: Expr }
   | { k: "sizeof"; of: Type | Expr }
   /** An Objective-C message send, `[receiver selector:arg …]`; the receiver may be a class name. */
   | { k: "send"; receiver: Expr; selector: string; args: Expr[] }

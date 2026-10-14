@@ -239,6 +239,34 @@ export function property(em: FnEmitter, obj: E, name: string, node: ts.Node): E 
       break;
     case "iterResult":
       if (name === "done") return bool(cpp.dot(o, "done"));
+      if (name === "value" && t.r) {
+        // A value it yields, or once done, what it returned. Reported once: JavaScript's
+        // value after that is undefined, which the type leaves out; it reads as the result
+        // type's default, as an unassigned field does (an object throws TypeError).
+        const value = unionOf([t.e, t.r]);
+        const r = cpp.id("r_");
+        const of = (c: cpp.Expr, from: LType) => em.coerce({ c, t: from }, value);
+        return {
+          c: cpp.call(
+            cpp.lambda(
+              [],
+              [cpp.param(cpp.reference(cpp.constType(cpp.auto)), "r_")],
+              [
+                cpp.ret(
+                  cpp.conditional(
+                    cpp.not(cpp.dot(r, "done")),
+                    of(cpp.dot(r, "value"), unionOf([t.e, T.undefined])),
+                    of(assignedRead(cpp.dot(r, "returned"), t.r, "a done generator's value"), t.r),
+                  ),
+                ),
+              ],
+              { ret: em.reg.cppType(value) },
+            ),
+            [o],
+          ),
+          t: value,
+        };
+      }
       if (name === "value") return { c: cpp.dot(o, "value"), t: unionOf([t.e, T.undefined]) };
       break;
     case "abortSignal":
@@ -1664,18 +1692,42 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
         name,
         node,
       );
-    case "iter":
-      if (name === "next" && a.length === 0)
-        return { c: cpp.call("lucent::iterNext", [o]), t: { k: "iterResult", e: t.e } };
-      if (name === "return" && a.length === 0)
+    case "iter": {
+      const result: LType = t.r ? { k: "iterResult", e: t.e, r: t.r } : { k: "iterResult", e: t.e };
+      const gen = !!(t.r || t.n);
+      // next(v): what the generator's `yield` gives; one that takes no value (TNext undefined or
+      // any) can't use it, so it goes nowhere once evaluated.
+      if (name === "next" && a.length <= 1) {
+        const sent = a[0] && t.n ? [em.exprAs(a[0], t.n)] : [];
+        const step = gen
+          ? cpp.call("lucent::genNext", [o, ...sent])
+          : cpp.call("lucent::iterNext", [o]);
+        return { c: a[0] && !t.n ? cpp.comma(em.expr(a[0]).c, step) : step, t: result };
+      }
+      if (name === "return" && t.r && a.length === 1)
+        return { c: cpp.call("lucent::genReturn", [o, em.exprAs(a[0]!, t.r)]), t: result };
+      // TypeScript has return() take the value it gives: undefined, without a result type.
+      if (name === "return" && (a.length === 0 || (a.length === 1 && isVoidish(em.lt(a[0]!)))))
         return {
           c: cpp.comma(
             cpp.call(cpp.arrow(o, "ret")),
-            cpp.construct(cpp.type("lucent::IterResult", em.reg.cppType(t.e, true)), [], true),
+            cpp.construct(em.reg.cppType(result), [], true),
           ),
-          t: { k: "iterResult", e: t.e },
+          t: result,
         };
+      // throw(e): Lucent throws, and catches, Errors.
+      if (name === "throw" && a.length === 1) {
+        const thrown = em.lt(a[0]!);
+        if (thrown.k !== "error" && !(thrown.k === "class" && em.reg.cls(thrown.id).isError))
+          fail(a[0]!, Codes.UnsupportedBuiltin, "a generator's throw() takes an Error");
+        const error = em.exprAs(a[0]!, T.error);
+        return {
+          c: cpp.call(gen ? "lucent::genThrow" : "lucent::iterThrow", [o, error]),
+          t: result,
+        };
+      }
       fail(node, Codes.UnsupportedBuiltin, `iterator.${name}() is not supported`);
+    }
     case "asyncIter":
       // next() and return(), each a promise of a result; throw() and next(value) are not supported.
       // TypeScript has return() take the value it gives: undefined, which Lucent's gives.

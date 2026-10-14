@@ -57,6 +57,9 @@ export function conversionStep(
 
   if (from.k === "never" || to.k === "void" || to.k === "never") return SAME;
 
+  // A generator of values or a result is an iterator of its elements (a C++ upcast).
+  if (from.k === "iter" && to.k === "iter" && !to.r && !to.n && sameType(from.e, to.e)) return SAME;
+
   if (to.k === "undefined" && (from.k === "void" || from.k === "undefined"))
     return { kind: "undefined" };
 

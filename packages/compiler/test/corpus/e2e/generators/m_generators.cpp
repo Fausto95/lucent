@@ -124,21 +124,7 @@ lucent::Iter<lucent::String> C_Tree::walk(lucent::Opt<double> p0_) {
         lucent::Ref<lucent_app::C_Tree> c = std::move(v11_);
         double v15_ = depth + 1.0;
         lucent::Iter<lucent::String> v16_ = c->walk(lucent::Opt<double>(v15_));
-        {
-          auto coll1_ = v16_;
-          lucent::IterCloser<lucent::String> coll1_close_(coll1_);
-          for (;;) {
-            auto coll1_v_ = coll1_->next();
-            if (!coll1_v_) {
-              coll1_close_.exhausted();
-              break;
-            }
-            lucent::String v17_ = std::move(*coll1_v_);
-            {
-              co_yield v17_;
-            }
-          }
-        }
+        co_yield lucent::yieldFrom(v16_);
       }
     }
   }

@@ -496,10 +496,23 @@ class Checker {
     else if (given && op.result !== undefined) this.expectType(op.result, given, where);
   }
 
-  /** A produce, in a generator, of an element of its type. */
+  /** A produce, in a generator, of an element of its type; its value is what next(v) sends. */
   produces(op: IrOp & { kind: "produce" }, where: string): void {
     if (!this.fn.generator) this.problemAt(where, "is not in a generator");
     else this.expectType(op.value, this.fn.generator, where);
+
+    if (op.result !== undefined) this.expectType(op.result, this.fn.sent ?? T.undefined, where);
+  }
+
+  /** A delegate, in a generator, to an iterator of its elements; its value, what that returned. */
+  delegates(op: IrOp & { kind: "delegate" }, where: string): void {
+    const t = this.typeOf(op.value);
+
+    if (!this.fn.generator || this.fn.async) this.problemAt(where, "is not in a generator");
+    else if (!t || !sameType(elementOf(t) ?? T.never, this.fn.generator))
+      this.problemAt(where, "delegates to what isn't an iterable of the generator's elements");
+    else if (op.result !== undefined)
+      this.expectType(op.result, (t.k === "iter" && t.r) || T.undefined, where);
   }
 
   /** A closure: its function is valid, and each capture gets a value of its type or a box. */
@@ -877,6 +890,8 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
   await: (op, c, where) => c.awaits(op, where),
 
   produce: (op, c, where) => c.produces(op, where),
+
+  delegate: (op, c, where) => c.delegates(op, where),
 };
 
 function safeDump(fn: IrFunction): string {

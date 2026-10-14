@@ -99,37 +99,8 @@ namespace m_generators {
 
 template <class T>
 lucent::Iter<T> concat(lucent::Iter<T> p0_, lucent::Iter<T> p1_) {
-  lucent::checkStack();
-  {
-    auto coll0_ = p0_;
-    lucent::IterCloser<T> coll0_close_(coll0_);
-    for (;;) {
-      auto coll0_v_ = coll0_->next();
-      if (!coll0_v_) {
-        coll0_close_.exhausted();
-        break;
-      }
-      T v2_ = std::move(*coll0_v_);
-      {
-        co_yield v2_;
-      }
-    }
-  }
-  {
-    auto coll1_ = p1_;
-    lucent::IterCloser<T> coll1_close_(coll1_);
-    for (;;) {
-      auto coll1_v_ = coll1_->next();
-      if (!coll1_v_) {
-        coll1_close_.exhausted();
-        break;
-      }
-      T v3_ = std::move(*coll1_v_);
-      {
-        co_yield v3_;
-      }
-    }
-  }
+  co_yield lucent::yieldFrom(p0_);
+  co_yield lucent::yieldFrom(p1_);
   co_return;
 }
 

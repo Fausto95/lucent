@@ -126,7 +126,11 @@ function dumpOp(op: IrOp, type: (v: ValueId) => string): string {
       return op.result === undefined ? text : def(op.result, text);
     }
     case "produce":
-      return `produce v${op.value}`;
+    case "delegate": {
+      const text = `${op.kind} v${op.value}`;
+
+      return op.result === undefined ? text : def(op.result, text);
+    }
     case "return":
       return op.value === undefined
         ? "return"

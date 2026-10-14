@@ -121,11 +121,12 @@ Cases: `bigint-arith`, `bigint-unions`.
 
 ## Generators
 
-- Generator functions, generator methods and generator function expressions work, with `yield`, `yield*` and `return;`.
+- Generator functions, generator methods and generator function expressions work, with `yield`, `yield*` and `return`.
 - A generator is lazy, as in JavaScript: calling one runs nothing, and its body starts at the first `next()` (case `generator-bodies`).
 - `for…of`, spread and `Array.from` consume a generator. An `Iterable<T>` parameter takes generators, arrays, sets, maps, strings and `Uint8Array`s (case `generators`).
 - Leaving a `for…of` early runs the generator's `finally` blocks.
-- Using the value of `yield` (`next(x)`) and returning a value from a generator fail with `LUCENT1001`. A generator can't be returned to JavaScript ([LUCENT2006](/docs/api/diagnostics/#lucent2006)): return an array.
+- A `Generator<T, TReturn, TNext>`'s `yield` gives what `next(x)` sends, and `return v` gives the step that ends it its value. `throw(e)` throws `e` where the generator waits. `yield*` passes `next(x)`, `throw()` and `return()` on, and gives what its iterator returned (case `generator-values`).
+- A generator can't be returned to JavaScript ([LUCENT2006](/docs/api/diagnostics/#lucent2006)): return an array.
 
 ## Regular expressions
 

@@ -66,17 +66,26 @@ export class IrBuilder {
   private readonly source: SourceSpan;
   private readonly async: boolean;
   private readonly generator?: LType;
+  private readonly sent?: LType;
   /** The name the Errors the function makes record as their site. */
   site?: string;
   /** Code it computes from outside its own span (`IrFunction.elsewhere`). */
   readonly elsewhere: SourceSpan[] = [];
 
-  constructor(id: FunctionId, result: LType, source: SourceSpan, async = false, generator?: LType) {
+  constructor(
+    id: FunctionId,
+    result: LType,
+    source: SourceSpan,
+    async = false,
+    generator?: LType,
+    sent?: LType,
+  ) {
     this.id = id;
     this.result = result;
     this.source = source;
     this.async = async;
     this.generator = generator;
+    this.sent = sent;
     this.body = { id: 0 as RegionId, ops: [] };
     this.cursor = this.body;
     this.regions.push(this.body);
@@ -248,8 +257,22 @@ export class IrBuilder {
   }
 
   /** Gives the generator's caller `value`. */
-  produce(value: ValueId, source: SourceSpan): void {
-    this.push({ kind: "produce", value, source });
+  /** `yield value`; given the type of what next(v) sends, its value. */
+  produce(value: ValueId, source: SourceSpan): void;
+  produce(value: ValueId, source: SourceSpan, sent: LType): ValueId;
+  produce(value: ValueId, source: SourceSpan, sent?: LType): ValueId | undefined {
+    const result = sent && this.value(sent, source);
+
+    this.push({ kind: "produce", value, ...(result === undefined ? {} : { result }), source });
+    return result;
+  }
+
+  /** `yield* value`; given the type of what it returns, its value. */
+  delegate(value: ValueId, source: SourceSpan, returned?: LType): ValueId | undefined {
+    const result = returned && this.value(returned, source);
+
+    this.push({ kind: "delegate", value, ...(result === undefined ? {} : { result }), source });
+    return result;
   }
 
   unreachable(source: SourceSpan): void {
@@ -579,6 +602,7 @@ export class IrBuilder {
       captures: [...this.captures],
       async: this.async,
       ...(this.generator ? { generator: this.generator } : {}),
+      ...(this.sent ? { sent: this.sent } : {}),
       ...(this.site ? { site: this.site } : {}),
       ...(this.elsewhere.length ? { elsewhere: [...this.elsewhere] } : {}),
     };

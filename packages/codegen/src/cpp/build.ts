@@ -151,6 +151,7 @@ export const statementExpr = (body: Stmt[], value: Expr): Expr =>
     value,
   });
 export const coAwait = (operand: Expr): Expr => node({ k: "coAwait", operand });
+export const coYieldValue = (value: Expr): Expr => node({ k: "coYieldValue", value });
 export const send = (receiver: Expr | string, selector: string, args: Expr[] = []): Expr =>
   node({
     k: "send",

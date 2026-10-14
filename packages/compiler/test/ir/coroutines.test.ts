@@ -108,13 +108,15 @@ describe("coroutines in the IR", () => {
     expect(adder).toContain("return [](auto n) -> lucent::Promise<double> {");
   });
 
-  it("yields each element, and each of another iterable with yield*", () => {
+  it("yields each element, and hands its requests to another iterable's iterator with yield*", () => {
     const out = cppOf(module(SAMPLE));
     const header = compile([module(SAMPLE)]).files.get("m_sample.h")!;
 
     expect(header).toContain("lucent::Iter<double> count();");
 
-    expect(inOrder(body(out, "count"), "co_yield 1.0;", "for (size_t", "co_yield v")).toBe(true);
+    expect(
+      inOrder(body(out, "count"), "co_yield 1.0;", "co_yield lucent::yieldFrom(lucent::iterOf("),
+    ).toBe(true);
   });
 
   it("compiles the async, async-throws, generators and using cases without a diagnostic", () => {
