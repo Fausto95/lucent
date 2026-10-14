@@ -8,6 +8,7 @@
 // state while it lives: the Activity that started it can go and come back.
 import { appContext, currentActivity } from "lucent:android";
 import { Intent } from "lucent:android/android.content";
+import { Uri } from "lucent:android/android.net";
 import { MediaItem, Player } from "lucent:android/androidx.media3.common";
 import { ExoPlayer_Builder } from "lucent:android/androidx.media3.exoplayer";
 import {
@@ -92,18 +93,32 @@ export async function start(): Promise<string> {
 /** The Activity outliveActivity() recreated, by its identity, or 0 before. */
 let recreated = 0;
 
-export async function outliveActivity(): Promise<string> {
+/** Whether the new Activity was asked to open `reopen`. */
+let reopened = false;
+
+export async function outliveActivity(reopen?: string): Promise<string> {
   const activity = await main(() => currentActivity()?.hashCode() ?? 0);
   if (!recreated) {
     recreated = activity;
     await main(() => currentActivity()?.recreate());
   }
 
-  // React Native keeps the screen for the new Activity, and this run goes on; were it made
-  // again with the Activity, the new screen's run answers instead.
   for (let waited = 0; waited < 20_000; waited += 100) {
     const now = await main(() => currentActivity()?.hashCode() ?? 0);
-    if (now !== 0 && now !== recreated) return `made again; ${await status()}`;
+    if (now !== 0 && now !== recreated) {
+      // The new Activity starts from the intent that launched the old one, and an app that routes
+      // from it may show another screen: it opens `reopen`, once, to come back to this one.
+      if (reopen && !reopened) {
+        reopened = true;
+        await main(() => {
+          const current = currentActivity();
+          const intent = new Intent(Intent.ACTION_VIEW, Uri.parse(reopen));
+          intent.setPackage(current?.getPackageName() ?? null);
+          current?.startActivity(intent);
+        });
+      }
+      return `made again; ${await status()}`;
+    }
     await delay(100);
   }
   return "not made again";
