@@ -1,0 +1,16 @@
+{
+  "name": "lucent-fragment",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Fragment written in Lucent, which Android's FragmentManager makes again by its name when it restores it: an exported class extending an Android class. An example Lucent package.",
+  "files": [
+    "index.ts",
+    "src",
+    "lucent.json"
+  ],
+  "main": "index.ts",
+  "lucent": {
+    "sources": "src",
+    "compatible": "^0.2.0"
+  }
+}
