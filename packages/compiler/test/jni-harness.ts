@@ -262,8 +262,18 @@ export function jvmRun(
   const run = spawnSync(exe, [jars.join(":")], { encoding: "utf8", timeout: 60_000 });
   // The JVM's notice of JAVA_TOOL_OPTIONS (a proxy's settings, on some machines) is not the program's.
   const stderr = run.stderr.replace(/^Picked up JAVA_TOOL_OPTIONS: .*\n/m, "");
-  // Nor is -Xcheck:jni's warning that a signal handler it installed changed, which it prints on
-  // CI's Macs now and then (Lucent installs none).
-  const stdout = run.stdout.replace(/^Warning: SIG[A-Z]+ handler modified!\n/gm, "");
-  return { status: run.status, stdout, stderr };
+  return { status: run.status, stdout: withoutSignalWarnings(run.stdout), stderr };
+}
+
+/**
+ * `stdout` without -Xcheck:jni's warnings that a signal handler it installed
+ * changed, which it prints on CI's Macs now and then (Lucent installs none):
+ * the warning, and the table of handlers it may print after it (`Signal
+ * Handlers:`, then indented lines).
+ */
+export function withoutSignalWarnings(stdout: string): string {
+  return stdout.replace(
+    /^Warning: SIG[A-Z0-9]+ handler[^\n]*(?:\n|$)(?:(?:Signal Handlers:.*|Running in non-interactive shell.*|[ \t]+.*|)(?:\n|$))*/gm,
+    "",
+  );
 }
