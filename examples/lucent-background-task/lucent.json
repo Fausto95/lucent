@@ -1,5 +1,5 @@
 {
-  "launch": ["refresh", "push"],
+  "launch": ["refresh", "push", "download"],
   "ios": {
     "infoPlist": {
       "BGTaskSchedulerPermittedIdentifiers": ["dev.lucent.example.refresh"],
