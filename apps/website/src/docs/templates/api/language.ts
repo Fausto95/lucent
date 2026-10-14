@@ -62,7 +62,7 @@ const intro: Block[] = [
     items: [
       "Code that type-checks and stays inside the subset behaves as the same code does in JavaScript, except for the cases in [Differences](/docs/api/language/differences/).",
       "Code outside the subset fails to compile with a `LUCENT` diagnostic that points at the source, never with invalid C++. [Diagnostics](/docs/api/diagnostics/) lists every code.",
-      "Where Lucent can't match JavaScript, it throws or refuses the code. The [known gaps](/docs/api/language/differences/#known-gaps) are the few exceptions that compile and differ, each tested around by an e2e case.",
+      "Where Lucent can't match JavaScript, it throws or refuses the code. The [known gaps](/docs/api/language/differences/#known-gaps) list any exception that compiles and differs, each tested around by an e2e case.",
     ],
   },
   {

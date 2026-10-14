@@ -46,6 +46,7 @@ import {
   completes,
   constantType,
   convertible,
+  deadPlaces,
   elementOf,
   type EffectSummary,
   type FunctionId,
@@ -662,11 +663,13 @@ class Checker {
     const claims: EffectSummary = this.fn.effects;
     const ops = this.fn.regions.flatMap((r) => r.ops);
     const module = new Set(this.fn.modulePlaces.filter((p) => p.mutable).map((p) => p.place));
+    const dead = deadPlaces(this.fn);
     const mayThrow = ops.find(
       (op) =>
         op.kind === "throw" ||
         (op.kind === "call" && op.effects.throws !== "no") ||
-        throwsRangeError(op, this.fn.values),
+        throwsRangeError(op, this.fn.values) ||
+        ((op.kind === "load" || (op.kind === "store" && !op.init)) && dead.has(op.place)),
     );
 
     if (mayThrow && claims.throws === "no")

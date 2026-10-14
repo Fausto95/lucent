@@ -41,6 +41,7 @@ import {
   type Ctx,
   type E,
   elementOrUndefined,
+  type Global,
   type IntKind,
   intCppType,
   type ParamInfo,
@@ -1005,6 +1006,22 @@ export class FnEmitter {
     }
   }
 
+  /**
+   * The flag of the module variable `g`'s temporal dead zone, which this
+   * code checks: a compute task's never runs while the module starts.
+   */
+  dead(g: Extract<Global, { kind: "var" }>): string | undefined {
+    return this.opts.task ? undefined : g.early;
+  }
+
+  /** The module variable `g`'s storage; checked where code may use it before its declaration runs. */
+  moduleVariable(g: Extract<Global, { kind: "var" }>): cpp.Expr {
+    const flag = this.dead(g);
+    return flag
+      ? cpp.call("lucent::declared", [cpp.id(flag), cpp.str(g.decl.name.getText()), cpp.id(g.cpp)])
+      : cpp.id(g.cpp);
+  }
+
   /** Applies the checker's narrowing at `node` to a value read. */
   narrowed(node: ts.Node, e: E): E {
     if (isOptionalChain(node)) return e;
@@ -1107,9 +1124,10 @@ export class FnEmitter {
       // must not read the storage a reload of JavaScript assigns again.
       if (g.kind === "var")
         return this.narrowed(id, {
-          c: g.literal
-            ? this.exprAs(g.literal, g.type)
-            : assignedRead(cpp.id(g.cpp), g.type, g.decl.name.getText()),
+          c:
+            g.literal && !this.dead(g)
+              ? this.exprAs(g.literal, g.type)
+              : assignedRead(this.moduleVariable(g), g.type, g.decl.name.getText()),
           t: g.type,
         });
       if (g.kind === "function") {
@@ -1327,7 +1345,7 @@ export class FnEmitter {
       if (local)
         return place(local.boxed ? cpp.deref(cpp.id(local.cpp)) : cpp.id(local.cpp), local.type);
       const g = this.ctx.globals.get(sym);
-      if (g && g.kind === "var") return place(cpp.id(g.cpp), g.type);
+      if (g && g.kind === "var") return place(this.moduleVariable(g), g.type);
       fail(target, Codes.UnsupportedAssignmentTarget, `cannot assign to ${target.text}`);
     }
     if (ts.isPropertyAccessExpression(target)) {

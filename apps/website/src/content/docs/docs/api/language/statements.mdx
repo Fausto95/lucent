@@ -33,6 +33,7 @@ export function firstTagged(items: Item[], tag: string): string | undefined {
 - Destructuring works in declarations, parameters, `for…of` and assignments, with defaults, nested patterns and array rest (`[first, ...others]`).
 - Object rest (`{ id, ...rest }`) gives a new object with the fields of the rest's type. A record's rest is a new record without the keys the pattern names. Computed keys fail with [LUCENT1004](/docs/api/diagnostics/#lucent1004), and so do array rest elements in a destructuring assignment.
 - A function declared inside a function is hoisted, as in JavaScript. A class or an enum declared inside a function fails with `LUCENT1001`: declare it at the top level.
+- Code that uses a `let` or `const` before its declaration runs throws a `ReferenceError`, as in JavaScript: a hoisted function called too early, say (case `temporal-dead-zone`).
 
 ## Control flow
 

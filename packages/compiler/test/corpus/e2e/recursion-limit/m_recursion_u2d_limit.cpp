@@ -133,7 +133,7 @@ lucent::String m_recursion_u2d_limit::throughClosure() {
     double v4_ = v1_(v3_);
     return v4_ + 1.0;
   }, f));
-  *f = std::move(v0_);
+  f.init(std::move(v0_));
   {
     std::exception_ptr ex5_;
     try {
@@ -204,7 +204,7 @@ double m_recursion_u2d_limit::bounded() {
     }
     return v9_;
   }, sum));
-  *sum = std::move(v0_);
+  sum.init(std::move(v0_));
   lucent::Fn<double(double)> v1_ = *sum;
   return v1_(1000.0);
 }

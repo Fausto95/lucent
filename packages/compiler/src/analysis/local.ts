@@ -189,6 +189,8 @@ export interface Program {
   resolve(symbol: ts.Symbol): ts.Symbol;
   /** The classes whose instances go on an executor, with the `on()` calls that make them. */
   readonly executorClasses: ReadonlyMap<ts.ClassLikeDeclaration, readonly ts.CallExpression[]>;
+  /** Whether code may use the variable `symbol` before its declaration runs, which throws. */
+  dead?(symbol: ts.Symbol): boolean;
 }
 
 /** The flags of types whose values cannot be objects or functions. */
@@ -837,6 +839,7 @@ export class Collector {
 
     if (moduleVar) {
       this.readModule(moduleVar, id);
+      this.deadZone(sym, id);
       return this.carries(id) ? [sym] : [];
     }
 
@@ -873,6 +876,19 @@ export class Collector {
     const captured = declared && declared !== this.unit && within(this.unit, declared);
 
     if (captured && !this.facts.captured.has(sym)) this.facts.captured.set(sym, node);
+
+    if (captured) this.deadZone(sym, node);
+  }
+
+  /** A use of a variable code may reach before its declaration runs: it throws ReferenceError there. */
+  private deadZone(sym: ts.Symbol, node: ts.Node): void {
+    if (this.p.dead?.(sym))
+      this.own(
+        "throws",
+        "yes",
+        node,
+        `uses ${code(sym.name)}, which can be before its declaration runs`,
+      );
   }
 
   private closure(f: ts.Node): Value[] {
@@ -1206,6 +1222,7 @@ export class Collector {
     if (moduleVar) {
       const text = `assigns module state ${code(moduleVar.name)}`;
 
+      this.deadZone(sym, id);
       this.facts.own.entry(this.facts.own.writes.vars, moduleVar.key, this.cause(at, text));
       this.flow(values, sym, "bind", at, `is assigned to ${code(moduleVar.name)}`);
       return;

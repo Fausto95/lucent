@@ -40,6 +40,7 @@ import { type MainState, mainStateOf } from "./main-state.ts";
 import { type Escape, solve, type Solved } from "./solve.ts";
 import { type AnalysedModule, findUnits, type Unit } from "./units.ts";
 import { executorClasses } from "./executors.ts";
+import { CaptureAnalysis } from "./scopes.ts";
 import { type MemberRace, viewMemberRaces } from "./view-members.ts";
 
 export type { Cause, Step, Summary } from "./facts.ts";
@@ -160,6 +161,7 @@ class Facts implements ProgramFacts {
   constructor(input: AnalysisInput) {
     const checker = input.checker;
     const units = findUnits(checker, input.modules, input.platform);
+    let capture: CaptureAnalysis | undefined;
     const p: Program = {
       checker,
       units,
@@ -172,6 +174,11 @@ class Facts implements ProgramFacts {
         checker,
         input.modules.map((m) => m.sourceFile),
       ),
+      dead: (s) =>
+        (capture ??= CaptureAnalysis.of(
+          checker,
+          input.modules.map((m) => m.sourceFile),
+        )).isDead(s),
     };
 
     this.checker = checker;

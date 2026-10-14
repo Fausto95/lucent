@@ -35,6 +35,7 @@ import {
   isTerminator,
   placeOf,
   throwsRangeError,
+  deadPlaces,
   type RegionId,
   type SourceSpan,
   type TargetId,
@@ -179,6 +180,7 @@ export class IrBuilder {
     spelled?: string,
     elements?: IntKind,
     onStack = false,
+    tdz = false,
   ): PlaceId {
     const place = this.place(type);
 
@@ -198,15 +200,23 @@ export class IrBuilder {
       ...(int ? { int } : {}),
       ...(elements ? { elements } : {}),
       ...(onStack ? { onStack } : {}),
+      ...(tdz ? { tdz } : {}),
       source,
     });
     return place;
   }
 
   /** A variable of an enclosing function this closure uses, declared at entry. */
-  capture(name: string, type: LType, boxed: boolean, spelled?: string): PlaceId {
+  capture(name: string, type: LType, boxed: boolean, spelled?: string, tdz = false): PlaceId {
     const place = this.place(type);
-    this.captures.push({ place, name, type, boxed, ...(spelled ? { spelled } : {}) });
+    this.captures.push({
+      place,
+      name,
+      type,
+      boxed,
+      ...(spelled ? { spelled } : {}),
+      ...(tdz ? { tdz } : {}),
+    });
     return place;
   }
 
@@ -254,13 +264,13 @@ export class IrBuilder {
   }
 
   /** A module variable, declared with the function rather than in its body. */
-  modulePlace(symbol: string, name: string, type: LType, mutable: boolean): PlaceId {
+  modulePlace(symbol: string, name: string, type: LType, mutable: boolean, tdz?: string): PlaceId {
     const known = this.modulePlaces.find((p) => p.symbol === symbol);
 
     if (known) return known.place;
 
     const place = this.place(type);
-    this.modulePlaces.push({ place, symbol, name, type, mutable });
+    this.modulePlaces.push({ place, symbol, name, type, mutable, ...(tdz ? { tdz } : {}) });
     return place;
   }
 
@@ -292,8 +302,8 @@ export class IrBuilder {
     return result;
   }
 
-  store(place: PlaceId, value: ValueId, source: SourceSpan): void {
-    this.push({ kind: "store", place, value, source });
+  store(place: PlaceId, value: ValueId, source: SourceSpan, init = false): void {
+    this.push({ kind: "store", place, value, ...(init ? { init } : {}), source });
   }
 
   /** A box of its own for the boxed local `place`, holding its value (see the `renew` operation). */
@@ -667,9 +677,10 @@ const PURE = new Set<IrOp["kind"]>([
  * suspend.
  */
 export function conservativeEffects(
-  fn: Pick<IrFunction, "regions" | "values" | "modulePlaces" | "async">,
+  fn: Pick<IrFunction, "regions" | "values" | "modulePlaces" | "captures" | "async">,
 ): EffectSummary {
   const module = new Set(fn.modulePlaces.filter((p) => p.mutable).map((p) => p.place));
+  const dead = deadPlaces(fn);
   const allocates = (op: IrOp) =>
     (op.kind === "unary" || op.kind === "binary") && fn.values[op.result]?.type.k === "string";
   const pure = (op: IrOp) => {
@@ -679,7 +690,7 @@ export function conservativeEffects(
       PURE.has(op.kind) &&
       !allocates(op) &&
       !throwsRangeError(op, fn.values) &&
-      (place === undefined || !module.has(place))
+      (place === undefined || (!module.has(place) && !dead.has(place)))
     );
   };
 

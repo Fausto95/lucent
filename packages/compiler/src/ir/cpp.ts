@@ -253,7 +253,12 @@ class Emitter {
     this.coroutine = (fn.async && !this.eager) || fn.generator !== undefined;
 
     for (const p of fn.modulePlaces) {
-      this.places.set(p.place, cpp.id(p.symbol));
+      // A variable code may use before its declaration runs checks that it has.
+      const place = p.tdz
+        ? cpp.call("lucent::declared", [cpp.id(p.tdz), cpp.str(p.name), cpp.id(p.symbol)])
+        : cpp.id(p.symbol);
+
+      this.places.set(p.place, place);
       this.modulePlaces.set(p.place, p);
     }
 
@@ -526,6 +531,11 @@ class Emitter {
 
   place(p: number): cpp.Expr {
     return this.places.get(p)!;
+  }
+
+  /** The module variable `p` is, if it is one. */
+  modulePlace(p: number): IrModulePlace | undefined {
+    return this.modulePlaces.get(p);
   }
 
   /** A read of the place `p`: a module variable's checks that it was assigned. */
@@ -1223,6 +1233,15 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
     // Declared where it is first stored, as `T x = v;` (or `lucent::Box<T> x(v);`).
     if (next?.kind === "store" && next.place === op.place) return;
 
+    // Before its declaration runs: in its temporal dead zone, which names it.
+    if (op.tdz) {
+      e.emit(
+        op,
+        cpp.varDecl(type, name, cpp.construct(type, [cpp.id("lucent::tdz"), cpp.str(op.name)])),
+      );
+      return;
+    }
+
     e.emit(op, cpp.varDecl(type, name, undefined, { style: "brace" }));
   },
 
@@ -1274,6 +1293,21 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
 
     if (int) {
       e.emit(op, cpp.exprStmt(cpp.assign(e.place(op.place), e.stored(op.value, int))));
+      return;
+    }
+
+    // An early variable's declaration: it leaves its temporal dead zone.
+    if (op.init) {
+      const module = e.modulePlace(op.place);
+      const init = module?.tdz
+        ? cpp.call("lucent::initialize", [
+            cpp.id(module.tdz),
+            cpp.id(module.symbol),
+            e.taken(op.value),
+          ])
+        : cpp.call(cpp.dot(e.box(op.place), "init"), [e.taken(op.value)]);
+
+      e.emit(op, cpp.exprStmt(init));
       return;
     }
 
@@ -1806,6 +1840,7 @@ const INERT = new Set<IrOp["kind"]>([
 const READING_FUNCTIONS = new Set([
   "std::get",
   "lucent::assigned",
+  "lucent::declared",
   "lucent::toJsString",
   "lucent::truthy",
   "lucent::typeOf",

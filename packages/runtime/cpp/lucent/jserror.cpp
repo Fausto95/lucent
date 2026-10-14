@@ -33,6 +33,10 @@ void throwUnassigned(const char* what) {
   throwTypeError((std::string(what) + " was read before it was initialized").c_str());
 }
 
+void throwBeforeInitialization(const char* name) {
+  throwError(String::fromLatin1("ReferenceError"), String::fromUtf8(std::string("Cannot access '") + name + "' before initialization"));
+}
+
 void throwRangeError(const char* message) {
   throwError(String::fromLatin1("RangeError"), String::fromUtf8(message));
 }

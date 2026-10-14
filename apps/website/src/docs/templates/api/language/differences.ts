@@ -26,7 +26,7 @@ const row = (d: Difference): string[] => [
 export const blocks: Block[] = [
   {
     kind: "p",
-    text: "A module that type-checks, and uses only what the Language pages list, behaves as the same code does in JavaScript. Each difference in the sections below is deliberate, and its row says why. The [known gaps](/docs/api/language/differences/#known-gaps) at the end aren't: Lucent should refuse that code or match JavaScript.",
+    text: "A module that type-checks, and uses only what the Language pages list, behaves as the same code does in JavaScript. Each difference in the sections below is deliberate, and its row says why. Any [known gaps](/docs/api/language/differences/#known-gaps) at the end aren't: Lucent should refuse that code or match JavaScript.",
   },
   {
     kind: "p",
@@ -37,9 +37,18 @@ export const blocks: Block[] = [
     { kind: "table", head, rows: s.rows.map(row) },
   ]),
   { kind: "h2", text: "Known gaps" },
-  {
-    kind: "p",
-    text: "This code compiles, but doesn't do what JavaScript does. Lucent should refuse it or match JavaScript; until it does, avoid it ([roadmap](/docs/releases/roadmap/#known-limitations)). Each gap names the e2e cases that test the code around it.",
-  },
-  { kind: "table", head, rows: knownGaps.map(row) },
+  ...(knownGaps.length
+    ? ([
+        {
+          kind: "p",
+          text: "This code compiles, but doesn't do what JavaScript does. Lucent should refuse it or match JavaScript; until it does, avoid it ([roadmap](/docs/releases/roadmap/#known-limitations)). Each gap names the e2e cases that test the code around it.",
+        },
+        { kind: "table", head, rows: knownGaps.map(row) },
+      ] satisfies Block[])
+    : ([
+        {
+          kind: "p",
+          text: "None known: code that compiles does what JavaScript does, or differs as the tables above say.",
+        },
+      ] satisfies Block[])),
 ];

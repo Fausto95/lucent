@@ -173,6 +173,7 @@ function irHost(ctx: Ctx, facts: ProgramFacts, opts: FnOptions): LowerHost {
           type: d.type,
           mutable: !d.isConst,
           ...(d.literal ? { literal: d.literal } : {}),
+          ...(d.early ? { tdz: d.early } : {}),
         };
 
       return undefined;
@@ -207,6 +208,9 @@ function irHost(ctx: Ctx, facts: ProgramFacts, opts: FnOptions): LowerHost {
       return !liftedStatement(ctx, s) && !helperStatement(ctx.checker, s);
     },
     isBoxed: (sym) => ctx.capture.isBoxed(sym),
+    isPredeclared: (sym) => ctx.capture.isPredeclared(sym),
+    isEarly: (sym) => ctx.capture.isEarly(sym),
+    definedAt: (f) => ctx.capture.definedAt(f),
     isError: (t) => t.k === "class" && ctx.reg.cls(t.id).isError,
     derives: (sub, base) =>
       sub.k === "class" && base.k === "class" && ctx.reg.derives(sub.id, base.id),

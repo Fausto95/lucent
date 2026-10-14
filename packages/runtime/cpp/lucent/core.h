@@ -335,18 +335,58 @@ using JSValue = Ref<JSValueObject>;
 
 [[noreturn]] void throwOpaque(const char* what);
 
+/// `ReferenceError: Cannot access 'name' before initialization`.
+[[noreturn]] void throwBeforeInitialization(const char* name);
+
+/// Box's constructor for a variable in its temporal dead zone.
+struct TdzTag {};
+inline constexpr TdzTag tdz{};
+
 /// Boxes a local that a closure captures and later mutates, so the closure and
-/// the enclosing function share one variable, as in JavaScript.
+/// the enclosing function share one variable, as in JavaScript. A `let` or
+/// `const` that a closure made before its declaration holds is boxed in its
+/// temporal dead zone: using it before init() throws ReferenceError.
 template <class T>
 class Box {
  public:
-  Box() : p_(std::make_shared<T>()) {}
-  explicit Box(T v) : p_(std::make_shared<T>(std::move(v))) {}
-  T& operator*() const { return *p_; }
-  T* operator->() const { return p_.get(); }
+  Box() : p_(std::make_shared<Cell>()) {}
+  explicit Box(T v) : p_(std::make_shared<Cell>(std::move(v))) {}
+  Box(TdzTag, const char* name) : p_(std::make_shared<Cell>()) { p_->pending = name; }
+  T& operator*() const {
+    if (p_->pending) [[unlikely]]
+      throwBeforeInitialization(p_->pending);
+    return p_->value;
+  }
+  T* operator->() const { return &**this; }
+  /// The declaration runs: the variable holds `v`, and may be used.
+  void init(T v) const {
+    p_->value = std::move(v);
+    p_->pending = nullptr;
+  }
 
  private:
-  std::shared_ptr<T> p_;
+  struct Cell {
+    T value{};
+    /// Its name while in its temporal dead zone.
+    const char* pending = nullptr;
+    Cell() = default;
+    explicit Cell(T v) : value(std::move(v)) {}
+  };
+  std::shared_ptr<Cell> p_;
 };
+
+/// A use of a module variable code may reach before its declaration runs:
+/// ReferenceError until `init()` has run it (`initialize`).
+template <class T>
+T& declared(bool done, const char* name, T& variable) {
+  if (!done) [[unlikely]] throwBeforeInitialization(name);
+  return variable;
+}
+/// Such a variable's declaration: its value, and the end of its dead zone.
+template <class T, class V>
+void initialize(bool& done, T& variable, V&& value) {
+  variable = std::forward<V>(value);
+  done = true;
+}
 
 }  // namespace lucent

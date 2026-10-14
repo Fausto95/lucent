@@ -92,6 +92,12 @@ export type Global =
       isConst: boolean;
       /** A constant's literal, which code reads instead of the storage `init()` assigns. */
       literal?: ts.Expression;
+      /**
+       * Code may use it before its declaration runs (CaptureAnalysis's
+       * `earlyModule`): the C++ name of the flag `init()` sets where it does,
+       * which every use outside a compute task checks (`lucent::ready`).
+       */
+      early?: string;
     }
   | { kind: "class"; cpp: string; module: LucentModule; info: ClassInfo };
 
@@ -179,7 +185,7 @@ export class Ctx {
     this.modules = modules;
     const files = new Set(modules.map((m) => m.sourceFile));
     this.reg = new TypeRegistry(checker, (sf) => files.has(sf));
-    this.capture = new CaptureAnalysis(
+    this.capture = CaptureAnalysis.of(
       checker,
       modules.map((m) => m.sourceFile),
     );

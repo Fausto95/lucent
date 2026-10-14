@@ -8,7 +8,7 @@ import type { CppFunction } from "../ir/cpp.ts";
 import { LUCENT_EXTENSION, lucentPackageOf } from "../packages.ts";
 import { holdsPlatformTest, PLATFORM_NAMES, platformScopes } from "../platforms.ts";
 import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
-import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
+import { type ClassInfo, cppIdent, type LType, T, temporary, typeKey, unionOf } from "../types.ts";
 import { actorDecls, actorsOf } from "./actors.ts";
 import { BindingsEmitter, type ModuleExports } from "./bindings.ts";
 import { ENTRIES_HEADER, ENTRIES_UNIT, entriesHeader, entriesOf, entriesUnit } from "./entries.ts";
@@ -218,6 +218,8 @@ export function emitProgram(
     for (const s of m.declaration ? declarationValues(m.declaration) : [])
       ctx.guard(() => collect(ctx, m, s, exportsOf.get(m)!, imports.get(m)!, byFile));
   }
+  // Main-thread state starts on the main thread, after the rest: it has no dead zone.
+  for (const [sym, g] of ctx.globals) if (g.kind === "var" && mainState.has(sym)) delete g.early;
   // Calls from other modules resolve to the declarations; route them to the
   // platform implementation.
   for (const m of lp.modules) {
@@ -337,7 +339,7 @@ export function emitProgram(
     );
     const mains = vars.filter((g) => mainState.has(lp.checker.getSymbolAtLocation(g.decl.name)!));
 
-    for (const g of vars)
+    for (const g of vars) {
       decls.unshift({
         k: "var",
         inline: true,
@@ -345,6 +347,16 @@ export function emitProgram(
           style: "brace",
         }),
       });
+      // Whether its declaration has run.
+      if (g.early)
+        decls.unshift({
+          k: "var",
+          inline: true,
+          stmt: cpp.varDecl(cpp.type("bool"), g.early.split("::").pop()!, undefined, {
+            style: "brace",
+          }),
+        });
+    }
 
     decls.push(cpp.fn("init", cpp.voidType, []));
 
@@ -372,6 +384,7 @@ export function emitProgram(
                 name: g.decl.name.getText(),
                 type: g.type,
                 mutable: true,
+                ...(g.early ? { tdz: g.early } : {}),
               },
             },
           },
@@ -386,6 +399,10 @@ export function emitProgram(
       )
       .map((s) => s.init);
     const body = [
+      // A reload starts the module again: its variables are in their dead zone until declared.
+      ...vars
+        .filter((g) => g.early)
+        .map((g) => cpp.exprStmt(cpp.assign(cpp.id(g.early!), cpp.bool(false)))),
       ...(ctx.guard(() => initThroughIr(ctx, m, initializers, ir).body) ?? []),
       ...(ctx.guard(() => mainInitialization(ctx, m, mains)) ?? []),
     ];
@@ -879,6 +896,9 @@ function collect(
         type,
         isConst: !!(list.flags & ts.NodeFlags.Const),
         ...(literal ? { literal } : {}),
+        ...(ctx.capture.isEarlyModule(sym)
+          ? { early: `lucent_app::${m.ns}::${temporary(d.name.text, "tdz")}` }
+          : {}),
       };
       ctx.globals.set(sym, g);
       if (isExported(s)) exp.consts.push(g as Extract<Global, { kind: "var" }>);

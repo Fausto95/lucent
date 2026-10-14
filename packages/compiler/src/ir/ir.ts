@@ -80,6 +80,12 @@ export interface IrModulePlace {
   name: string;
   type: LType;
   mutable: boolean;
+  /**
+   * The C++ name of the flag its declaration sets, when code may use it
+   * first: a load or store throws ReferenceError until then, and an `init`
+   * store sets it.
+   */
+  tdz?: string;
 }
 
 /**
@@ -95,6 +101,8 @@ export interface IrCapture {
   boxed: boolean;
   /** Its name in the backend's own code, which names it (`self`, a method's `this`). */
   spelled?: string;
+  /** An early variable's box, which the closure may read before its declaration runs (it throws). */
+  tdz?: boolean;
 }
 
 export interface IrFunction {
@@ -189,10 +197,17 @@ export type IrOp =
       elements?: IntKind;
       /** An object held on the stack: the local is the object itself. */
       onStack?: boolean;
+      /**
+       * Boxed from its block's start, before its declaration runs: a
+       * closure made earlier holds it, and using it before the
+       * declaration's `store` (`init`) throws ReferenceError.
+       */
+      tdz?: boolean;
       source: SourceSpan;
     }
   | { kind: "load"; result: ValueId; place: PlaceId; source: SourceSpan }
-  | { kind: "store"; place: PlaceId; value: ValueId; source: SourceSpan }
+  /** `init`: the declaration of a `tdz` local, which ends its temporal dead zone. */
+  | { kind: "store"; place: PlaceId; value: ValueId; init?: boolean; source: SourceSpan }
   /**
    * Gives the boxed local `place` a box of its own, holding the value its
    * box holds: closures made before keep the old box (a `for (let …)`'s
@@ -789,4 +804,16 @@ const TERMINATORS = new Set<IrOp["kind"]>([
 /** Operations that end their region: nothing may follow them. */
 export function isTerminator(op: IrOp): boolean {
   return TERMINATORS.has(op.kind);
+}
+
+/**
+ * The places `fn` may use in their temporal dead zone, where a use throws
+ * ReferenceError: module variables and captured locals code may use before
+ * their declaration runs.
+ */
+export function deadPlaces(fn: Pick<IrFunction, "modulePlaces" | "captures">): Set<PlaceId> {
+  return new Set([
+    ...fn.modulePlaces.filter((p) => p.tdz).map((p) => p.place),
+    ...fn.captures.filter((c) => c.tdz).map((c) => c.place),
+  ]);
 }
