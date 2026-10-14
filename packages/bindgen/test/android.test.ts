@@ -307,6 +307,20 @@ describe.skipIf(!javac)("Android extractor", () => {
       returns: T("T?", ["T"]),
       descriptor: "(Ljava/lang/Class;)Lcom/example/base/Shape;",
     });
+    expect(m("draw")).toMatchObject({
+      params: [{ type: T("Class<out com.example.base.Shape>") }],
+      descriptor: "(Ljava/lang/Class;)V",
+    });
+    expect(m("drawn")).toBeUndefined();
+  });
+
+  it("types an enum's constants as never null", () => {
+    const speed = cls("com.example.widgets", "Speed");
+    expect(speed.properties?.find((p) => p.name === "FAST")).toMatchObject({
+      type: T("com.example.widgets.Speed"),
+      static: true,
+      readonly: true,
+    });
   });
 
   it("renames overloads that TypeScript cannot tell apart", () => {

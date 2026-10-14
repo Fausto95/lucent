@@ -112,8 +112,10 @@ export async function parse(text: string): Promise<number | null> {
 | `long[]`, `boolean[]` | `bigint[]`, `boolean[]`, copied both ways. |
 | Arrays of objects, strings and arrays | Arrays copied element by element: `File[]` is `File[]`, and `int[][]` is `number[][]`. A `null` element where the type says none throws a `TypeError`. |
 | A `Class<T>` parameter | The class itself: `getSystemService(Vibrator)` returns a `Vibrator \| null`. |
+| A `Class<? extends X>` parameter | A class extending `X`: an exported Lucent class too, whose Java class the OS can make, as WorkManager makes a `Worker`. |
 | A generic class, such as `List<E>` | A generic class: `List<String>.get(0)` returns a `string \| null`. A reference without type arguments takes `unknown` for each. |
 | A `static final` constant | Its value's literal type: `View.GONE` is `8`, and a `long` constant is an exact `bigint`. |
+| A Java `enum` | A class whose constants are static fields, never `null`: `TimeUnit.MINUTES`. |
 | `java.util.List`, `Set` and `Map` | The Java objects, read and changed through their methods. |
 | An interface with one abstract method | The interface, or a function: `manager.requestLocationUpdates(provider, 1000n, 0, (location) => …)`. |
 | `java.lang.Object` | The class every Java class extends. |

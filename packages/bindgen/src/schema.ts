@@ -576,7 +576,11 @@ export type SchemaType =
   | { k: "record"; of: SchemaType; nullable: boolean; cf?: boolean }
   /** A C out-parameter (`CFTypeRef *`). */
   | { k: "out"; of: SchemaType; nullable: boolean }
-  | { k: "classOf"; param: string; nullable: boolean }
+  /**
+   * Java's `Class<T>` of a type parameter (`param`), or `Class<? extends X>`
+   * (`bound`): a class, which Lucent code passes by its name.
+   */
+  | { k: "classOf"; param?: string; bound?: SchemaType & { k: "ref" }; nullable: boolean }
   /** A block (iOS): `escaping` when it outlives the call, `main` when it runs on the main thread. */
   | {
       k: "fn";
@@ -687,6 +691,14 @@ export function parseSchemaType(
     if (toks[p] === "<") {
       p++;
       if (name === "Class") {
+        // Class<out X>: any class extending X.
+        if (toks[p] === "out" && toks[p + 1] !== ">") {
+          p++;
+          const bound = type();
+          expect(">");
+          if (bound.k !== "ref") throw new Error(`schema type ${s}: Class<out …> takes a class`);
+          return { k: "classOf", bound, nullable: false };
+        }
         const param = toks[p++]!;
         expect(">");
         return { k: "classOf", param, nullable: false };
@@ -802,7 +814,7 @@ export function formatSchemaType(t: SchemaType): string {
     case "sequence":
       return `AsyncSequence<${formatSchemaType(t.of)}>${q}`;
     case "classOf":
-      return `Class<${t.param}>${q}`;
+      return t.bound ? `Class<out ${formatSchemaType(t.bound)}>${q}` : `Class<${t.param}>${q}`;
     case "tparam":
       return `${t.name}${q}`;
     case "ref": {

@@ -39,6 +39,10 @@ public final class Os {
     return job.work() + ", again " + job.work() + ", " + job.compare(job) + ", " + job.describe()
         + " started " + job.getStarted();
   }
+  // What WorkManager does with a worker's class: a Class<? extends ListenableWorker>.
+  public static String makeOf(Class<? extends Job> cls, String label) throws Exception {
+    return cls.getConstructor(String.class).newInstance(label).work();
+  }
   public static String fail(String name) {
     try {
       Class.forName(name).getConstructor(String.class).newInstance("bad");
@@ -92,7 +96,9 @@ export async function run(): Promise<string> {
   const first = Os.make("dev.lucent.app.m.Echo", "first") ?? "";
   const second = Os.make("dev.lucent.app.m.Echo", "second") ?? "";
   const failed = Os.fail("dev.lucent.app.m.Echo") ?? "";
-  return \`\${first} | \${second} | \${failed} | made \${made}\`;
+  // The class itself, where Java takes a Class<? extends Job>.
+  const third = Os.makeOf(Echo, "third") ?? "";
+  return \`\${first} | \${second} | \${failed} | \${third} | made \${made}\`;
 }
 `;
 
@@ -120,7 +126,7 @@ describe.skipIf(!android || !jdk)("Android classes the OS makes", () => {
     expect(jvmRun(r, dir, android!.run)).toEqual({
       status: 0,
       stdout:
-        "first #1, again first #1, same, job first, described started 21 | second #2, again second #2, same, job second, described started 21 | no bad jobs | made 2\n",
+        "first #1, again first #1, same, job first, described started 21 | second #2, again second #2, same, job second, described started 21 | no bad jobs | third #3 | made 3\n",
       stderr: "",
     });
   }, 300_000);

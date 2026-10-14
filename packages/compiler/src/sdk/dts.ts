@@ -141,7 +141,14 @@ function emitDts(
           if (t.of.k === "prim" && t.of.name === "byte" && !t.list) return ts.ref("Uint8Array");
           return ts.array(tsType(t.of, out));
         case "classOf":
-          return ts.object([{ name: "prototype", type: ts.ref(t.param), readonly: true }]);
+          // The class itself: its prototype is a T, or for Class<? extends X> an X.
+          return ts.object([
+            {
+              name: "prototype",
+              type: t.bound ? tsType(t.bound, true) : ts.ref(t.param ?? "unknown"),
+              readonly: true,
+            },
+          ]);
         case "error":
           return ts.ref("Error");
         case "fn":
