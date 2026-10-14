@@ -297,7 +297,15 @@ export interface LeafHost {
 }
 
 /** A part destructuring takes: a field by name, an element by index, the elements from an index on. */
-export type PartOf = { name: string } | { index: number } | { rest: number };
+/**
+ * A part of a destructured value: a field, an element, an array's rest from
+ * an index, or an object's rest: its fields but those the pattern names.
+ */
+export type PartOf =
+  | { name: string }
+  | { index: number }
+  | { rest: number }
+  | { restOf: readonly string[] };
 
 /** A place a leaf names: reading it, and writing a value (an operand after the place's own). */
 export interface LeafPlace {
@@ -1168,11 +1176,17 @@ class Lowerer {
     }
 
     if (ts.isObjectBindingPattern(name)) {
+      // The keys the pattern names, which an object rest leaves out.
+      const taken: string[] = [];
+
       for (const el of name.elements) {
         const key = el.propertyName ?? el.name;
 
-        if (el.dotDotDotToken)
-          fail(el, Codes.UnsupportedDestructuring, "object rest in destructuring is not supported");
+        // Last in its pattern, as TypeScript requires: the fields no other element named.
+        if (el.dotDotDotToken) {
+          this.bind(el.name, this.part(value, { restOf: taken }, el));
+          continue;
+        }
 
         if (!ts.isIdentifier(key) && !ts.isStringLiteral(key))
           fail(
@@ -1181,6 +1195,7 @@ class Lowerer {
             "computed keys in destructuring are not supported",
           );
 
+        taken.push(key.text);
         const part = this.part(value, { name: key.text }, el);
 
         this.bind(el.name, el.initializer ? this.withDefault(part, el.initializer, el) : part);
@@ -1265,8 +1280,12 @@ class Lowerer {
 
     if (!ts.isObjectLiteralExpression(pattern)) this.unsupported(pattern, "this assignment target");
 
+    // The keys the pattern names, which an object rest leaves out.
+    const taken: string[] = [];
+
     for (const p of pattern.properties) {
       if (ts.isShorthandPropertyAssignment(p)) {
+        taken.push(p.name.text);
         const part = () => this.part(value, { name: p.name.text }, p);
         const init = p.objectAssignmentInitializer;
         const t = this.target(p.name);
@@ -1280,8 +1299,12 @@ class Lowerer {
       ) {
         const key = p.name.text;
 
+        taken.push(key);
         assign(p.initializer, () => this.part(value, { name: key }, p));
-      } else
+      } else if (ts.isSpreadAssignment(p))
+        // `({ a, ...rest } = v)`: the fields no other property named, last as TypeScript requires.
+        assign(p.expression, () => this.part(value, { restOf: [...taken] }, p));
+      else
         fail(
           p,
           Codes.UnsupportedDestructuring,

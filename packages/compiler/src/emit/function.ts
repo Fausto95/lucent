@@ -2503,6 +2503,75 @@ export class FnEmitter {
   }
 
   /**
+   * An object's rest in destructuring (`const { a, ...rest } = v`): a new
+   * object of the rest's type with each of its fields from `v`, or a copy
+   * of a record without the keys the pattern names. Like spread, an object
+   * has only the fields of its type, and an unset optional field stays
+   * unset.
+   */
+  objectRest(v: E, taken: readonly string[], target: LType, node: ts.Node): E {
+    const from = stripOpt(v.t);
+    const to = stripOpt(target);
+
+    if (from.k === "dict" && to.k === "dict") {
+      const tmpName = this.ctx.fresh("rest");
+      const tmp = cpp.id(tmpName);
+
+      return {
+        c: cpp.statementExpr(
+          [
+            cpp.varDecl(this.reg.cppType(to), tmpName),
+            cpp.exprStmt(cpp.call("lucent::assignEntries", [tmp, this.coerce(v, to, node)])),
+            ...taken.map((k) => cpp.exprStmt(cpp.call(cpp.dot(tmp, "remove"), [stringExpr(k)]))),
+          ],
+          tmp,
+        ),
+        t: to,
+      };
+    }
+
+    if (from.k !== "struct" || to.k !== "struct")
+      fail(
+        node,
+        Codes.UnsupportedDestructuring,
+        `the rest of a ${this.checker.typeToString(this.checker.getTypeAtLocation(node.parent))} can't be destructured: only plain objects and records have one`,
+      );
+
+    const info = this.reg.struct(to.id);
+    const srcFields = this.reg.struct(from.id).fields;
+    const tmpName = this.ctx.fresh("rest");
+    const tmp = cpp.id(tmpName);
+    const srcName = this.ctx.fresh("src");
+    const src = cpp.id(srcName);
+    const parts: cpp.Stmt[] = [
+      // Destructuring undefined or null throws, as the checked unwrap does.
+      cpp.varDecl(cpp.auto, srcName, v.t.k === "opt" ? this.coerce(v, from, node) : v.c),
+      cpp.varDecl(
+        cpp.auto,
+        tmpName,
+        cpp.call("std::make_shared", [], [cpp.type(`lucent_app::${info.cppName}`)]),
+      ),
+    ];
+
+    for (const f of info.fields) {
+      const sf = srcFields.find((x) => x.name === f.name);
+      if (!sf) continue;
+
+      const read = cpp.arrow(src, cppIdent(f.name));
+      parts.push(
+        cpp.exprStmt(
+          cpp.assign(
+            cpp.arrow(tmp, cppIdent(f.name)),
+            this.coerce({ c: read, t: sf.type }, f.type, node),
+          ),
+        ),
+      );
+    }
+
+    return { c: cpp.statementExpr(parts, tmp), t: to };
+  }
+
+  /**
    * An object literal of the object type `t` as the object itself, a C++
    * value a local on the stack holds (stack-objects.ts), not a reference.
    */

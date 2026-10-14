@@ -234,14 +234,14 @@ export const features: Feature[] = [
   {
     feature: "Control flow, destructuring and operators",
     status:
-      "Yes, with limits: `delete` and `in` on records only, `instanceof` on some types, no object rest, and loose `==` only where JavaScript doesn't convert.",
+      "Yes, with limits: `delete` and `in` on records only, `instanceof` on some types, no computed keys in destructuring, and loose `==` only where JavaScript doesn't convert.",
     page: STATEMENTS,
-    cases: ["control-flow", "control", "mixed-equality"],
+    cases: ["control-flow", "control", "mixed-equality", "object-rest"],
     refused: [
       {
         code: "LUCENT1004",
         sample:
-          "type P = { a: number; b: number };\nexport function first(p: P): number {\n  const { a, ...rest } = p;\n  return a;\n}",
+          'type P = { a: number; b: number };\nexport function pick(p: P, key: "a" | "b"): number {\n  const { [key]: value } = p;\n  return value;\n}',
       },
       {
         code: "LUCENT1002",
