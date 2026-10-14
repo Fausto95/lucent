@@ -270,6 +270,40 @@ void jsonField(JsonWriter& w, bool& first, const char* name, const T& v) {
 }
 
 namespace json {
+/// JSON.stringify's `space`: as many spaces as a number says, at most ten,
+/// or a string's first ten units; nothing for another value.
+String gapOf(double space);
+String gapOf(const String& space);
+inline String gapOf(Undefined) { return String(); }
+inline String gapOf(Null) { return String(); }
+template <class T>
+String gapOf(const Opt<T>& space) {
+  return space.has() ? gapOf(space.get()) : String();
+}
+
+/// JSON.stringify's property list (an array replacer): its keys once each,
+/// in order; none for undefined or null.
+inline Opt<Array<String>> keysOf(Undefined) { return undefined; }
+inline Opt<Array<String>> keysOf(Null) { return undefined; }
+Opt<Array<String>> keysOf(const Array<String>& keys);
+/// Numbers in the list name keys as their strings do (`[1]` is `["1"]`).
+template <class T>
+Opt<Array<String>> keysOf(const Array<T>& keys) {
+  Array<String> named;
+  for (const auto& k : keys.items()) named.push(toJsString(k));
+  return keysOf(named);
+}
+template <class T>
+Opt<Array<String>> keysOf(const Opt<Array<T>>& keys) {
+  return keys.has() ? keysOf(keys.get()) : Opt<Array<String>>(undefined);
+}
+
+/// Compact JSON text as JSON.stringify writes it with a property list and a
+/// gap: each object's members only those `keys` names, in its order (all of
+/// them without), and members and elements on lines of their own, indented
+/// by `gap` a level (none when it is empty).
+std::u16string format(const std::u16string& compact, const Opt<Array<String>>& keys, const String& gap);
+
 template <class T>
 Opt<String> stringifyOpt(const T& v) {
   JsonWriter w;
@@ -281,6 +315,19 @@ String stringify(const T& v) {
   JsonWriter w;
   if (!jsonValue(w, v)) return String::fromLatin1("undefined");
   return String::fromUtf16(w.out);
+}
+/// JSON.stringify(v, keys, space).
+template <class T>
+Opt<String> stringifyOpt(const T& v, const Opt<Array<String>>& keys, const String& gap) {
+  JsonWriter w;
+  if (!jsonValue(w, v)) return undefined;
+  if (!keys.has() && gap.length() == 0) return String::fromUtf16(w.out);
+  return String::fromUtf16(format(w.out, keys, gap));
+}
+template <class T>
+String stringify(const T& v, const Opt<Array<String>>& keys, const String& gap) {
+  Opt<String> s = stringifyOpt(v, keys, gap);
+  return s.has() ? s.get() : String::fromLatin1("undefined");
 }
 }  // namespace json
 

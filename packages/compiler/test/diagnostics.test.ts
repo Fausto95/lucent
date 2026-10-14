@@ -1009,6 +1009,24 @@ export function size(t: Tree<number>): number {
     });
   });
 
+  describe("JSON.stringify's replacer", () => {
+    it("takes a list of keys and a space", () => {
+      expect(
+        codes(
+          'export function f(v: { a: number }, k: string[]): string { return JSON.stringify(v, k, 2) + JSON.stringify(v, ["a", 1], "  "); }',
+        ),
+      ).toEqual([]);
+    });
+
+    it("refuses a function, which sees each value as any", () => {
+      expect(
+        codes(
+          "export function f(v: { a: number }): string { return JSON.stringify(v, (_k, x) => x); }",
+        ),
+      ).toContain("LUCENT1003");
+    });
+  });
+
   describe("an error's cause", () => {
     it.each([
       [

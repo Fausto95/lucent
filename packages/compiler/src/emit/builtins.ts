@@ -1080,15 +1080,13 @@ export function staticCall(
   if (isLibGlobal(em, obj, "JSON")) {
     if (name === "stringify") {
       const v = em.expr(a[0]!);
-      if (a.length > 1)
-        fail(
-          node,
-          Codes.UnsupportedBuiltin,
-          "JSON.stringify replacer/indent arguments are not supported",
-        );
       if (reachesJsValue(em, v.t))
         fail(node, Codes.UnsupportedBuiltin, jsValueOpaque("write as JSON"));
-      return str(cpp.call("lucent::json::stringify", [v.c]));
+      if (a.length < 2) return str(cpp.call("lucent::json::stringify", [v.c]));
+      // The replacer, then the space, as the source has them.
+      const keys = jsonKeys(em, a[1]!);
+      const gap = a[2] ? jsonGap(em, a[2]) : cpp.construct(cpp.type("lucent::String"), []);
+      return str(cpp.call("lucent::json::stringify", [v.c, keys, gap]));
     }
     fail(
       node,
@@ -3036,6 +3034,51 @@ export function newBuiltin(
     }
   }
   fail(node, Codes.UnsupportedBuiltin, `new ${name || callee.getText()}() is not supported`);
+}
+
+/**
+ * JSON.stringify's replacer, as the property list the runtime takes: an
+ * array of keys, or none (undefined, null). A function replacer sees each
+ * value as `any`, which has no native form.
+ */
+function jsonKeys(em: FnEmitter, replacer: ts.Expression): cpp.Expr {
+  const fnReplacer = em.checker.getTypeAtLocation(replacer).getCallSignatures().length > 0;
+  if (fnReplacer)
+    fail(
+      replacer,
+      Codes.UnsupportedBuiltin,
+      "JSON.stringify's replacer function sees each value as `any`, which has no native form: pick the keys with an array, or build the value to write first",
+    );
+
+  const r = em.expr(replacer);
+  const t = stripOpt(r.t);
+  // Strings and numbers, which name keys as their strings do.
+  const named = (e: LType): boolean =>
+    e.k === "string" || e.k === "number" || (e.k === "union" && e.ms.every(named));
+  const keys = t.k === "array" && named(t.e);
+  const none = t.k === "undefined" || t.k === "null";
+
+  if (!keys && !none)
+    fail(
+      replacer,
+      Codes.UnsupportedBuiltin,
+      `JSON.stringify's replacer is an array of keys (strings and numbers), not ${typeKey(r.t)}`,
+    );
+  return cpp.call("lucent::json::keysOf", [r.c]);
+}
+
+/** JSON.stringify's space, as the gap the runtime indents with. */
+function jsonGap(em: FnEmitter, space: ts.Expression): cpp.Expr {
+  const s = em.expr(space);
+  const t = stripOpt(s.t);
+
+  if (t.k !== "number" && t.k !== "string" && t.k !== "undefined" && t.k !== "null")
+    fail(
+      space,
+      Codes.UnsupportedBuiltin,
+      `JSON.stringify's space is a number or a string, not ${typeKey(s.t)}`,
+    );
+  return cpp.call("lucent::json::gapOf", [s.c]);
 }
 
 /** An error's message: undefined is the message left out, "". */
