@@ -101,9 +101,6 @@ generated from this file.
 - `new Array(n)` needs a whole `.fill(v)`, even when each index is then
   assigned. `Array.from({ length: n })` needs a map function when elements
   can't be `undefined`. Writing past an array's end throws `RangeError`.
-- A declaration file of platform files can't declare a class
-  (`export declare class`) ([T106](tasks.md#t106)). A shared class with
-  `PLATFORM` branches is the way today.
 - A few language features differ from JavaScript without a diagnostic.
   The website lists them under
   [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps),

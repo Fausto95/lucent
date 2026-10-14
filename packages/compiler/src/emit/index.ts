@@ -189,6 +189,22 @@ export function emitProgram(
       }
     }
   }
+  // A platform module's declared classes are its platform file's (platforms.ts checks they match).
+  for (const m of lp.modules) {
+    if (!m.declaration) continue;
+    const exported = (sf: ts.SourceFile) => {
+      const sym = lp.checker.getSymbolAtLocation(sf);
+      return sym ? lp.checker.getExportsOfModule(sym) : [];
+    };
+    const impl = new Map(exported(m.sourceFile).map((s) => [s.name, s.valueDeclaration]));
+    for (const d of exported(m.declaration)) {
+      const declared = d.valueDeclaration;
+      const own = impl.get(d.name);
+      const info = own && ts.isClassDeclaration(own) ? ctx.reg.classForDecl(own) : undefined;
+      if (declared && ts.isClassDeclaration(declared) && info)
+        ctx.reg.declaredClasses.set(declared, info);
+    }
+  }
   for (const info of ctx.reg.classes.values()) ctx.guard(() => ctx.reg.resolveBase(info));
   ctx.guard(() => ctx.reg.resolveImplements());
   ctx.reg.propagateErrors();

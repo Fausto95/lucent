@@ -4,10 +4,14 @@ A `BroadcastReceiver` written in Lucent, which Android makes by its name
 for each broadcast to it. iOS has no broadcast receivers.
 
 ```ts
-import { heard, send } from "lucent-broadcast";
+import { heard, Pinger, send } from "lucent-broadcast";
 
 send(); // a broadcast to the receiver
 heard(); // "1 dev.lucent.example.PING", once it arrives
+
+const pinger = new Pinger("lab"); // a class each platform file writes
+pinger.ping(); // true on Android, false on iOS
+pinger.sent; // 1
 ```
 
 ## Files
@@ -16,8 +20,9 @@ heard(); // "1 dev.lucent.example.PING", once it arrives
   extending `BroadcastReceiver`, so the OS makes it by its Java name,
   `dev.lucent.app.lucent_broadcast.ping.Ping`.
 - `src/ping.ios.lucent.ts`: iOS's side, which has nothing to receive.
-- `src/ping.lucent.ts`: what JavaScript sees on both platforms. It doesn't
-  declare `Ping`, which only the OS makes.
+- `src/ping.lucent.ts`: what JavaScript sees on both platforms: the
+  functions, and `Pinger`, an `export declare class` each platform file
+  writes. It doesn't declare `Ping`, which only the OS makes.
 - `lucent.json`: the manifest's receiver, named by its Lucent class,
   `ping#Ping`.
 - `index.ts`: re-exports the module; Metro bundles its proxy.
@@ -28,6 +33,9 @@ heard(); // "1 dev.lucent.example.PING", once it arrives
   the Lucent side through the native root, holding the module's actor.
 - A manifest component that names a Lucent class instead of Java the
   package ships.
+- A class declared once and written per platform: the declaration file's
+  `export declare class Pinger`, which each platform file's `Pinger`
+  matches member for member.
 
 <!-- evidence: from evidence.json, written by scripts/example-evidence.ts -->
 

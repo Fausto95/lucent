@@ -546,8 +546,11 @@ standard way to write platform code.
 The alternative, for halves that share nothing, is
 `<name>.ios.lucent.ts` and `<name>.android.lucent.ts` implementing what
 `<name>.lucent.ts` declares (`LUCENT3005` when they differ). The
-declaration file holds declarations, types, imports and shared constants
-and enums, but no class yet ([T106](tasks.md#t106)). The rules are in
+declaration file holds declarations (`export declare function`, `export
+declare class`), types, imports and shared constants and enums. A
+declared class is each platform file's class of its name, which has the
+declared members in the same forms (field, accessor, method) and no other
+public ones; shared code and JavaScript use it as declared. The rules are in
 [platform-bindings.md](platform-bindings.md); a web platform is
 [T144](tasks.md#t144).
 

@@ -64,7 +64,11 @@ export function planModules(files: string[]): ModulePlan {
   return { shared, platformModules: platformModules.filter((pm) => pm.declaration), diagnostics };
 }
 
-/** A platform module's shared file holds only declarations: `export declare function`, constants, enums, types and imports. */
+/**
+ * A platform module's shared file holds only declarations: `export
+ * declare function`s and `export declare class`es, constants, enums, types
+ * and imports.
+ */
 export function declarationErrors(lp: LucentProgram, declaration: string): Diagnostic[] {
   const sf = lp.program.getSourceFile(path.resolve(declaration));
   if (!sf) return [];
@@ -84,13 +88,14 @@ export function declarationErrors(lp: LucentProgram, declaration: string): Diagn
       ts.isInterfaceDeclaration(s) ||
       (ts.isEnumDeclaration(s) && !declared) ||
       constant ||
-      (ts.isFunctionDeclaration(s) && declared && !s.body)
+      (ts.isFunctionDeclaration(s) && declared && !s.body) ||
+      (ts.isClassDeclaration(s) && declared)
     )
       continue;
     out.push(
       at(
         s,
-        `${path.basename(declaration)} declares a platform module (it has ${PLATFORMS.map((p) => `.${p}`).join("/")} implementations), so it may only contain \`export declare function\`s, constants, enums, types and imports; move other shared code to another module`,
+        `${path.basename(declaration)} declares a platform module (it has ${PLATFORMS.map((p) => `.${p}`).join("/")} implementations), so it may only contain \`export declare function\`s, \`export declare class\`es, constants, enums, types and imports; move other shared code to another module`,
       ),
     );
   }
@@ -178,6 +183,10 @@ export function conformanceErrors(lp: LucentProgram): Diagnostic[] {
       const decl = i.valueDeclaration ?? i.declarations?.[0];
       const declared = d.valueDeclaration ?? d.declarations?.[0];
       if (!decl || !declared) continue;
+      if (ts.isClassDeclaration(declared)) {
+        out.push(...classConformance(checker, d, declared, i, decl, declName, implName));
+        continue;
+      }
       const implType = checker.getTypeOfSymbolAtLocation(i, decl);
       const declType = checker.getTypeOfSymbolAtLocation(d, declared);
       if (
@@ -207,6 +216,123 @@ export function conformanceErrors(lp: LucentProgram): Diagnostic[] {
       );
     }
   }
+  return out;
+}
+
+/**
+ * A platform file's class that a declaration file declares: a class, whose
+ * constructor and statics fit the declared ones, whose instances fit the
+ * declared instance type, and which has no public member the declaration
+ * doesn't name (JavaScript sees the declared class, on every platform).
+ */
+function classConformance(
+  checker: ts.TypeChecker,
+  d: ts.Symbol,
+  declared: ts.ClassDeclaration,
+  i: ts.Symbol,
+  decl: ts.Declaration,
+  declName: string,
+  implName: string,
+): Diagnostic[] {
+  if (!ts.isClassDeclaration(decl))
+    return [at(decl, `${d.name} in ${implName} is not a class, as ${declName} declares it`)];
+
+  const out: Diagnostic[] = [];
+  const implType = checker.getTypeOfSymbolAtLocation(i, decl);
+  const declType = checker.getTypeOfSymbolAtLocation(d, declared);
+  const instance = (t: ts.Type) => t.getConstructSignatures()[0]?.getReturnType();
+  const implInstance = instance(implType);
+  const declInstance = instance(declType);
+
+  if (
+    !checker.isTypeAssignableTo(implType, declType) ||
+    !implInstance ||
+    !declInstance ||
+    !checker.isTypeAssignableTo(implInstance, declInstance)
+  )
+    out.push(
+      at(
+        decl,
+        `${d.name} in ${implName} does not match the class ${declName} declares: its constructor, statics and members must take and give what the declared ones do`,
+      ),
+    );
+
+  // What JavaScript sees of either: public members, named.
+  const modifiers = (m: ts.Node) => (ts.canHaveModifiers(m) ? (ts.getModifiers(m) ?? []) : []);
+  const visible = (members: ts.NodeArray<ts.ClassElement>, statics: boolean) =>
+    new Map(
+      members
+        .filter(
+          (m) =>
+            !ts.isConstructorDeclaration(m) &&
+            !!m.name &&
+            !ts.isPrivateIdentifier(m.name) &&
+            !modifiers(m).some(
+              (x) =>
+                x.kind === ts.SyntaxKind.PrivateKeyword ||
+                x.kind === ts.SyntaxKind.ProtectedKeyword,
+            ) &&
+            modifiers(m).some((x) => x.kind === ts.SyntaxKind.StaticKeyword) === statics,
+        )
+        .map((m) => [m.name!.getText(), m] as const),
+    );
+  for (const statics of [false, true]) {
+    const named = visible(declared.members, statics);
+    for (const [name, m] of visible(decl.members, statics))
+      if (!named.has(name))
+        out.push(
+          at(
+            m,
+            `${implName}'s ${d.name} has ${statics ? "the static member" : "the member"} ${name}, which ${declName} does not declare: JavaScript sees the declared class`,
+          ),
+        );
+  }
+  // Code that uses the declared class reads a field, calls a method or an accessor as the
+  // declaration says: the platform's class has each member in the same form.
+  const form = (m: ts.Node) =>
+    ts.isMethodDeclaration(m)
+      ? "a method"
+      : ts.isGetAccessorDeclaration(m) || ts.isSetAccessorDeclaration(m)
+        ? "an accessor"
+        : "a field";
+  for (const statics of [false, true]) {
+    const own = visible(decl.members, statics);
+    for (const [name, m] of visible(declared.members, statics)) {
+      const theirs = own.get(name);
+      if (theirs && form(theirs) !== form(m))
+        out.push(
+          at(
+            theirs,
+            `${d.name}.${name} is ${form(m)} in ${declName} and ${form(theirs)} in ${implName}: write it the same way`,
+          ),
+        );
+    }
+  }
+  // Parameter properties are members too.
+  const ctor = decl.members.find(ts.isConstructorDeclaration);
+  const declaredNames = visible(declared.members, false);
+  for (const p of ctor?.parameters ?? [])
+    if (
+      ts.isIdentifier(p.name) &&
+      ts
+        .getModifiers(p)
+        ?.some(
+          (x) => x.kind === ts.SyntaxKind.PublicKeyword || x.kind === ts.SyntaxKind.ReadonlyKeyword,
+        ) &&
+      !ts
+        .getModifiers(p)
+        ?.some(
+          (x) =>
+            x.kind === ts.SyntaxKind.PrivateKeyword || x.kind === ts.SyntaxKind.ProtectedKeyword,
+        ) &&
+      !declaredNames.has(p.name.text)
+    )
+      out.push(
+        at(
+          p,
+          `${implName}'s ${d.name} has the member ${p.name.text}, which ${declName} does not declare: JavaScript sees the declared class`,
+        ),
+      );
   return out;
 }
 

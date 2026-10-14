@@ -32,3 +32,19 @@ export function send(): void {
 export function heard(): string {
   return `${received} ${lastAction}`;
 }
+
+export class Pinger {
+  private count = 0;
+
+  constructor(readonly label: string) {}
+
+  ping(): boolean {
+    send();
+    this.count++;
+    return true;
+  }
+
+  get sent(): number {
+    return this.count;
+  }
+}

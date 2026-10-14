@@ -3,7 +3,7 @@
 // screen after the Tests screen, on the simulator and the emulator.
 import { Linking, Platform } from "react-native";
 import { isRegistered, runAsScheduled, schedule, workInBackground } from "lucent-background-task";
-import { heard, send } from "lucent-broadcast";
+import { heard, Pinger, send } from "lucent-broadcast";
 import { cardShown, showAndRestore } from "lucent-fragment";
 import { channelReady, startedAtMs } from "lucent-launch";
 import { BUNDLE_STARTED } from "../../bundleStarted";
@@ -111,6 +111,16 @@ export const platformCases: SdkCase[] = [
     name: "receiver: Android makes a Lucent BroadcastReceiver by its name",
     run: received,
     expected: ios ? "none" : "1 dev.lucent.example.PING",
+  },
+  {
+    name: "platform class: a class each platform file writes, as its declaration says",
+    run: async () => {
+      const pinger = new Pinger("lab");
+      pinger.ping();
+      pinger.ping();
+      return `${pinger.label} ${pinger.sent} ${pinger.ping()}`;
+    },
+    expected: ios ? "lab 2 false" : "lab 2 true",
   },
   {
     name: "fragment: Android makes a Lucent Fragment again by its name, with its state",
