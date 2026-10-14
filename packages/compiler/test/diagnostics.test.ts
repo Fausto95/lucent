@@ -701,10 +701,18 @@ export function size(t: Tree<number>): number {
       expect(codes("export function* f(): Generator<number> { yield 1; }")).toContain("LUCENT2006");
     });
 
-    it("rejects using the value of yield", () => {
+    it("rejects using the value of an async generator's yield", () => {
       expect(
         codes(
-          "function* g(): Generator<number, void, number> { const x = yield 1; }\nexport function f(): number { g(); return 1; }",
+          "async function* g(): AsyncGenerator<number, void, number> { const x = yield 1; }\nexport function f(): number { g(); return 1; }",
+        ),
+      ).toContain("LUCENT1001");
+    });
+
+    it("rejects returning a value from a generator whose type has no result", () => {
+      expect(
+        codes(
+          "function* g(): Generator<number> { yield 1; return 2; }\nexport function f(): number { g(); return 1; }",
         ),
       ).toContain("LUCENT1001");
     });

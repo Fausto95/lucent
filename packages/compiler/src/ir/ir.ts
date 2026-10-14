@@ -124,8 +124,13 @@ export interface IrFunction {
   elsewhere?: SourceSpan[];
   /** An async function: it gives a promise of its result, and may `await`. */
   async: boolean;
-  /** A generator: what it gives its caller, one element at a time (`produce`); its result is void. */
+  /**
+   * A generator: what it gives its caller, one element at a time
+   * (`produce`); its result is what it returns (void, for most).
+   */
   generator?: LType;
+  /** A generator's: what next(v) sends, which its `yield` gives. */
+  sent?: LType;
   /** The name the Errors it makes record as where they were made (a closure's own). */
   site?: string;
 }
@@ -323,7 +328,14 @@ export type IrOp =
    */
   | { kind: "await"; result?: ValueId; promise: ValueId; source: SourceSpan }
   /** In a generator: gives its caller the next element, `value`, and suspends until it asks again. */
-  | { kind: "produce"; value: ValueId; source: SourceSpan }
+  /** `yield value`: its `result`, when the code uses it, is what next(v) sends (the function's `sent`). */
+  | { kind: "produce"; value: ValueId; result?: ValueId; source: SourceSpan }
+  /**
+   * `yield* value`, `value` an iterator of the generator's elements: it
+   * takes the generator's requests until it is done; `result` is what it
+   * returned.
+   */
+  | { kind: "delegate"; value: ValueId; result?: ValueId; source: SourceSpan }
   /** A point TypeScript proved no path reaches (a body ending after an exhaustive switch). */
   | { kind: "unreachable"; source: SourceSpan }
   /**
@@ -658,6 +670,7 @@ export function operandsOf(op: IrOp): ValueId[] {
       return [op.iterable];
     case "dispose":
     case "produce":
+    case "delegate":
       return [op.value];
     case "await":
       return [op.promise];

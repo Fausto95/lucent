@@ -140,9 +140,10 @@ export function apiSurface(
         return t.ms.forEach(describe);
       case "tuple":
         return t.es.forEach(describe);
+      case "iter":
+        return [t.e, t.r, t.n].forEach((p) => p && describe(p));
       case "array":
       case "set":
-      case "iter":
       case "asyncIter":
         return describe(t.e);
       case "dict":

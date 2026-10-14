@@ -1282,6 +1282,109 @@ static Iter<double> failingGen() {
   throwError(S("Error"), S("boom"));
 }
 
+/// Echoes what next(v) sends, and returns how many it got.
+static Gen<String, double, String> echo(std::string* log) {
+  double got = 0;
+  for (;;) {
+    String v = co_yield S("ready");
+    if (v.toUtf8() == "stop") break;
+    *log += v.toUtf8() + " ";
+    got++;
+  }
+  co_return got;
+}
+
+/// Catches what throw() brings where it waits.
+static Gen<double, String, Undefined> catcher() {
+  Error caught;
+  try {
+    co_yield 1;
+  } catch (const Exception& e) {
+    caught = e.error();
+  }
+  if (!caught) co_return S("none");
+  co_yield 2;
+  co_return caught->message;
+}
+
+/// yield* hands next(v) and throw() on, and gives what the delegate returned.
+static Gen<String, double, String> outer(std::string* log) {
+  double n = co_yield yieldFrom(echo(log));
+  *log += "inner gave " + std::to_string(static_cast<int>(n)) + " ";
+  // An operand that is a braced temporary makes GCC 13 fail (an internal error): generated
+  // code names its operands.
+  Array<String> letters{S("a"), S("b")};
+  co_yield yieldFrom(iterOf(letters));
+  co_return n + 1;
+}
+
+static Gen<double, String, Undefined> outerCatching() {
+  String r = co_yield yieldFrom(catcher());
+  co_return r;
+}
+
+static void generatorValues() {
+  std::string log;
+  Gen<String, double, String> e = echo(&log);
+  CHECK_STR(genNext(e).value.value(), "ready");  // the first value sent goes nowhere
+  CHECK_STR(genNext(e, S("x")).value.value(), "ready");
+  CHECK_STR(genNext(e, S("y")).value.value(), "ready");
+  auto end = genNext(e, S("stop"));
+  CHECK(end.done && end.returns && end.returned == 2);
+  CHECK(log == "x y ");
+  auto after = genNext(e);  // reported once
+  CHECK(after.done && !after.returns);
+
+  Gen<double, String, Undefined> c = catcher();
+  CHECK(genNext(c).value.value() == 1);
+  auto caught = genThrow(c, makeError(S("boom")));
+  CHECK(!caught.done && caught.value.value() == 2);
+  auto finished = genNext(c);
+  CHECK(finished.done && finished.returned.toUtf8() == "boom");
+  // Done, or not started: throw() throws.
+  CHECK_THROWS(genThrow(c, makeError(S("again"))), "Error");
+  CHECK_THROWS(genThrow(catcher(), makeError(S("early"))), "Error");
+
+  // return(v): done with v, and what it reports after is undefined.
+  Gen<String, double, String> r = echo(&log);
+  genNext(r);
+  auto returned = genReturn(r, 7);
+  CHECK(returned.done && returned.returned == 7);
+  CHECK(genNext(r).done);
+  auto unstarted = genReturn(echo(&log), 3);
+  CHECK(unstarted.done && unstarted.returned == 3);
+
+  log.clear();
+  Gen<String, double, String> o = outer(&log);
+  CHECK_STR(genNext(o).value.value(), "ready");
+  CHECK_STR(genNext(o, S("p")).value.value(), "ready");
+  CHECK_STR(genNext(o, S("stop")).value.value(), "a");
+  CHECK(log == "p inner gave 1 ");
+  CHECK_STR(genNext(o).value.value(), "b");
+  auto outerEnd = genNext(o);
+  CHECK(outerEnd.done && outerEnd.returned == 2);
+
+  Gen<double, String, Undefined> oc = outerCatching();
+  CHECK(genNext(oc).value.value() == 1);
+  CHECK(genThrow(oc, makeError(S("passed on"))).value.value() == 2);
+  auto ocEnd = genNext(oc);
+  CHECK(ocEnd.done && ocEnd.returned.toUtf8() == "passed on");
+
+  // An array's iterator has no throw(): yield* closes it, and throws TypeError.
+  Iter<String> plain = [](std::string* l) -> Iter<String> {
+    Array<String> letters{S("a"), S("b")};
+    try {
+      co_yield yieldFrom(iterOf(letters));
+    } catch (const Exception& e) {
+      *l += e.error()->name.toUtf8();
+    }
+  }(&log);
+  log.clear();
+  CHECK_STR(*plain->next(), "a");
+  CHECK(!plain->throwIn(makeError(S("x"))));
+  CHECK(log == "TypeError");
+}
+
 static void generators() {
   std::string log;
   Iter<double> g = counter(3, &log);
@@ -1719,6 +1822,7 @@ int main() {
   abortSignals();
   dates();
   generators();
+  generatorValues();
   bytes();
   std::printf("%d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

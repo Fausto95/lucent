@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                             | Date       | Decision                                                                    |
 | ---------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| [0108](0108-a-generator-with-values-is-a-gen-and-yield-star-hands-it-requests.md)  | 2026-10-15 | A generator with values is a Gen, and yield\* hands it requests             |
 | [0107](0107-url-is-ada-carried-only-by-programs-that-make-one.md)                  | 2026-10-14 | URL is Ada, carried only by programs that make one                          |
 | [0106](0106-members-a-module-adds-to-nsobject-are-every-objects.md)                | 2026-10-14 | Members a module adds to NSObject are every object's                        |
 | [0105](0105-a-components-ref-is-its-host-views-own.md)                             | 2026-10-14 | A component's ref is its host view's own, with its commands on it           |

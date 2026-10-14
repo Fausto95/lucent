@@ -382,7 +382,8 @@ export function emitClass(
     const asyncM = isAsync(node);
     const isCtor = ts.isConstructorDeclaration(node);
     const gen = ts.isMethodDeclaration(node) && !!node.asteriskToken;
-    let ret: LType = isCtor || gen ? T.void : fnType.ret;
+    let ret: LType =
+      isCtor || gen ? (gen && fnType.ret.k === "iter" && fnType.ret.r) || T.void : fnType.ret;
     if (asyncM) ret = ret.k === "promise" ? ret.inner : ret;
     const opts: FnOptions = {
       module,
@@ -431,6 +432,7 @@ export function emitClass(
           ...(gen && (fnType.ret.k === "iter" || fnType.ret.k === "asyncIter")
             ? { generator: fnType.ret.e }
             : {}),
+          ...(gen && fnType.ret.k === "iter" && fnType.ret.n ? { sent: fnType.ret.n } : {}),
           generic: ts.isMethodDeclaration(node) && !!node.typeParameters?.length,
           opts,
           site: functionName(node.body ?? node),

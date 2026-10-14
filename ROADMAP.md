@@ -193,8 +193,7 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
    in Expo apps.
 7. [T106](docs/tasks.md#t106) and [T105](docs/tasks.md#t105) (done): the
    language gaps module code meets most, and the web APIs shared code
-   uses. T106's last larger gap, a generator's `yield` value and
-   `return v`, is next.
+   uses.
 
 ## Recording work
 

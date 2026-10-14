@@ -91,8 +91,13 @@ generated from this file.
   `ArrayBuffer`s and `new Proxy` ([T106](tasks.md#t106) lifts some).
 - Spread into an SDK call is refused (`LUCENT1001`), and so is `for…of`
   over a tuple (`LUCENT1009`). An async generator's `yield*` takes an
-  iterable, not another async generator, and its `throw()` and
-  `next(value)` are refused (`LUCENT1003`).
+  iterable, not another async generator; its `throw()` and `next(value)`
+  are refused (`LUCENT1003`), and so are its `yield`'s value and
+  `return v` (`LUCENT1001`). A generator's `yield*` into another that takes
+  values of another type, or yields other elements, is `LUCENT1001`.
+- Where `TNext` leaves out `undefined`, a generator's `next()` without a
+  value gives its `yield` the type's default. An object throws
+  `TypeError`. A step's value after the result was reported is the same.
 - Decorators give `LUCENT1005`, and default exports `LUCENT3003`.
 - A class can't extend `EventEmitter` (`LUCENT1005`): hold one in a field
   instead ([T113](tasks.md#t113)).

@@ -65,8 +65,13 @@ export type LType =
   | { k: "date" }
   | { k: "regexp" }
   | { k: "regexMatch" }
-  | { k: "iter"; e: LType }
-  | { k: "iterResult"; e: LType }
+  /**
+   * An iterator (lucent::Iter). A generator's whose `yield` gives what
+   * next(v) sends (`n`), or that returns a value (`r`), is a lucent::Gen.
+   */
+  | { k: "iter"; e: LType; r?: LType; n?: LType }
+  /** `{ value, done }`; of a generator that returns a value (`r`), a lucent::GenResult. */
+  | { k: "iterResult"; e: LType; r?: LType }
   /** An async generator's iterator, or an AsyncIterable (lucent::AsyncIter): next() gives promises. */
   | { k: "asyncIter"; e: LType }
   | { k: "abortSignal" }
@@ -224,11 +229,13 @@ function keyWith(t: LType, struct: (id: string) => string): string {
     case "iface":
       return t.args.length ? `I:${t.id}<${t.args.map(key).join(",")}>` : `I:${t.id}`;
     case "iter":
-      return `Iter<${key(t.e)}>`;
+      return t.r || t.n
+        ? `Gen<${key(t.e)},${t.r ? key(t.r) : "-"},${t.n ? key(t.n) : "-"}>`
+        : `Iter<${key(t.e)}>`;
     case "asyncIter":
       return `AsyncIter<${key(t.e)}>`;
     case "iterResult":
-      return `IterResult<${key(t.e)}>`;
+      return t.r ? `GenResult<${key(t.e)},${key(t.r)}>` : `IterResult<${key(t.e)}>`;
     case "opt":
       return t.rec ? `R:${t.rec}` : `${key(t.inner)}?`;
     case "union":
@@ -379,11 +386,17 @@ export function substitute(t: LType, map: Map<string, LType>): LType {
     case "iface":
       return { k: "iface", id: t.id, args: t.args.map((a) => substitute(a, map)) };
     case "iter":
-      return { k: "iter", e: substitute(t.e, map) };
+      return iterType(
+        substitute(t.e, map),
+        t.r && substitute(t.r, map),
+        t.n && substitute(t.n, map),
+      );
     case "asyncIter":
       return { k: "asyncIter", e: substitute(t.e, map) };
     case "iterResult":
-      return { k: "iterResult", e: substitute(t.e, map) };
+      return t.r
+        ? { k: "iterResult", e: substitute(t.e, map), r: substitute(t.r, map) }
+        : { k: "iterResult", e: substitute(t.e, map) };
     default:
       return t;
   }
@@ -438,14 +451,35 @@ export function unionShapeBreak(
   return undefined;
 }
 
+/** An iterator of `e`s; a generator's, when its `yield` gives an `n` or it returns an `r`. */
+export function iterType(e: LType, r?: LType, n?: LType): LType & { k: "iter" } {
+  return { k: "iter", e, ...(r ? { r } : {}), ...(n ? { n } : {}) };
+}
+
+/**
+ * Whether a generator's TReturn or TNext means something: not `any`,
+ * `unknown`, `void`, `undefined` or `never`, which leave it out.
+ */
+function meaningful(t: ts.Type): boolean {
+  const none =
+    ts.TypeFlags.Any |
+    ts.TypeFlags.Unknown |
+    ts.TypeFlags.Void |
+    ts.TypeFlags.Undefined |
+    ts.TypeFlags.Never;
+  return !(t.flags & none);
+}
+
 /** The types a type is made of, one level down. */
 function typeParts(t: LType): readonly LType[] {
   switch (t.k) {
+    case "iter":
+      return [t.e, ...(t.r ? [t.r] : []), ...(t.n ? [t.n] : [])];
+    case "iterResult":
+      return [t.e, ...(t.r ? [t.r] : [])];
     case "array":
     case "set":
-    case "iter":
     case "asyncIter":
-    case "iterResult":
       return [t.e];
     case "map":
     case "weakMap":
@@ -1066,13 +1100,17 @@ export class TypeRegistry {
     // An enum without members (another SDK module's, declared by name only): numbers.
     if (f & ts.TypeFlags.Enum) return T.number;
     // IteratorResult<T, TReturn> is a lib alias for a union whose return half
-    // carries TReturn (often any); only the yielded type matters here.
+    // carries TReturn: a generator's result type, or nothing (any, void).
     if (
       type.aliasSymbol?.name === "IteratorResult" &&
       type.aliasTypeArguments?.[0] &&
       this.libName(type)
     ) {
-      return { k: "iterResult", e: this.lower(type.aliasTypeArguments[0], node) };
+      const e = this.lower(type.aliasTypeArguments[0], node);
+      const returned = type.aliasTypeArguments[1];
+      return returned && meaningful(returned)
+        ? { k: "iterResult", e, r: this.lower(returned, node) }
+        : { k: "iterResult", e };
     }
     // A Uint8Array's `buffer`: Lucent has no SharedArrayBuffer, so it is an ArrayBuffer.
     if (type.aliasSymbol?.name === "ArrayBufferLike" && this.libName(type)) return T.arrayBuffer;
@@ -1341,8 +1379,16 @@ export class TypeRegistry {
         case "RegExpMatchArray":
         case "RegExpExecArray":
           return T.regexMatch;
-        // Iterables: generators, built-in iterators and Iterable<T> parameters.
-        case "Generator":
+        // A generator whose yield gives a value (TNext) or that returns one (TReturn).
+        case "Generator": {
+          const [returned, sent] = [args[1], args[2]];
+          return iterType(
+            this.lower(args[0]!, node),
+            returned && meaningful(returned) ? this.lower(returned, node) : undefined,
+            sent && meaningful(sent) ? this.lower(sent, node) : undefined,
+          );
+        }
+        // Iterables: built-in iterators and Iterable<T> parameters.
         case "Iterable":
         case "IterableIterator":
         case "Iterator":
@@ -1705,11 +1751,13 @@ export class TypeRegistry {
         case "fn":
           return { k: "fn", params: t.params.map(fix), ret: fix(t.ret) };
         case "iter":
-          return { k: "iter", e: fix(t.e) };
+          return iterType(fix(t.e), t.r && fix(t.r), t.n && fix(t.n));
         case "asyncIter":
           return { k: "asyncIter", e: fix(t.e) };
         case "iterResult":
-          return { k: "iterResult", e: fix(t.e) };
+          return t.r
+            ? { k: "iterResult", e: fix(t.e), r: fix(t.r) }
+            : { k: "iterResult", e: fix(t.e) };
         case "class":
           return { ...t, args: t.args.map(fix) };
         case "iface":
@@ -1873,11 +1921,20 @@ export class TypeRegistry {
       case "regexMatch":
         return lucent("RegExpMatch");
       case "iter":
-        return lucent("Iter", this.cppType(t.e, true));
+        return t.r || t.n
+          ? lucent(
+              "Gen",
+              this.cppType(t.e, true),
+              t.r ? this.cppType(t.r, true) : lucent("Undefined"),
+              t.n ? this.cppType(t.n, true) : lucent("Undefined"),
+            )
+          : lucent("Iter", this.cppType(t.e, true));
       case "asyncIter":
         return lucent("AsyncIter", this.cppType(t.e, true));
       case "iterResult":
-        return lucent("IterResult", this.cppType(t.e, true));
+        return t.r
+          ? lucent("GenResult", this.cppType(t.e, true), this.cppType(t.r, true))
+          : lucent("IterResult", this.cppType(t.e, true));
       case "abortSignal":
         return lucent("AbortSignal");
       case "abortController":

@@ -16,7 +16,7 @@ import { BIGINT_OPERATORS } from "../lowering/bigint.ts";
 import { bigintExpr, numberExpr, stringExpr } from "../lowering/literals.ts";
 import { sourcePath } from "../lowering/source.ts";
 import { assignedRead } from "../lowering/unassigned.ts";
-import { cppIdent, isVoidish, type LType, sameType, T, typeKey } from "../types.ts";
+import { cppIdent, isVoidish, iterType, type LType, sameType, T, typeKey } from "../types.ts";
 import {
   type BinaryOp,
   type BuiltinName,
@@ -172,7 +172,8 @@ function returnType(fn: IrFunction, b: CppBackend): cpp.Type {
 
   if (fn.async) return cpp.type("lucent::Promise", b.cppRetType(fn.result));
 
-  if (fn.generator) return b.cppType({ k: "iter", e: fn.generator });
+  if (fn.generator)
+    return b.cppType(iterType(fn.generator, isVoidish(fn.result) ? undefined : fn.result, fn.sent));
 
   return b.cppRetType(fn.result);
 }
@@ -837,6 +838,15 @@ class Emitter {
   }
 
   /** `v`'s value, computed by `c` at this point: a named temporary, or nothing when unused. */
+  /** `v`, the value of `c`, which must run where `op` is (a suspension): a variable, used later. */
+  declare(op: IrOp, v: ValueId, c: cpp.Expr): void {
+    const name = `v${v}_`;
+
+    this.emit(op, cpp.varDecl(this.valueType(v), name, c));
+    this.exprs.set(v, cpp.id(name));
+    this.temporaries.set(v, this.current!);
+  }
+
   define(op: IrOp, v: ValueId, c: cpp.Expr, effect = false): void {
     // Spelled where its one use is.
     if (this.inlined.has(v)) {
@@ -1483,7 +1493,38 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
 
   produce: (op, e) => {
     e.suspending();
-    e.emit(op, { k: "coYield", value: e.value(op.value) });
+
+    const value = e.value(op.value);
+
+    if (op.result === undefined || !e.used(op.result)) {
+      e.emit(op, { k: "coYield", value });
+      return;
+    }
+
+    // What next(v) sends; an object a next() without a value leaves unassigned throws TypeError.
+    const sent = assignedRead(
+      cpp.coYieldValue(value),
+      e.typeOf(op.result),
+      "the value next() sends",
+    );
+
+    e.declare(op, op.result, sent);
+  },
+
+  // `yield* value`: the generator hands its requests to the iterator until it is done.
+  delegate: (op, e) => {
+    e.suspending();
+
+    // An iterator itself (a generator keeps what it returns, and the values it takes); another
+    // iterable's iterator.
+    const inner =
+      e.typeOf(op.value).k === "iter"
+        ? e.value(op.value)
+        : cpp.call("lucent::iterOf", [e.value(op.value)]);
+    const from = cpp.coYieldValue(cpp.call("lucent::yieldFrom", [inner]));
+
+    if (op.result === undefined || !e.used(op.result)) e.emit(op, cpp.exprStmt(from));
+    else e.declare(op, op.result, from);
   },
 
   // No code using it runs: it is spelled as the constant its C++ type holds.
@@ -1891,6 +1932,7 @@ function readsOnly(code: unknown): boolean {
         "assign",
         "statementExpr",
         "coAwait",
+        "coYieldValue",
         "lambda",
         "new",
         "postfix",

@@ -148,6 +148,7 @@ function precedence(e: Expr): number {
     case "binary":
       return BINARY[e.op]!;
     case "assign":
+    case "coYieldValue":
       return PREC.assign;
     case "conditional":
       return PREC.conditional;
@@ -248,6 +249,8 @@ function bare(e: Expr, indent: string): string {
       return `new ${printType(e.type)}(${e.args.map((a) => item(a, indent)).join(", ")})`;
     case "coAwait":
       return `co_await ${expr(e.operand, PREC.unary, indent)}`;
+    case "coYieldValue":
+      return `co_yield ${expr(e.value, PREC.assign, indent)}`;
     case "sizeof":
       return isType(e.of as TemplateArg)
         ? `sizeof(${printType(e.of as Type)})`

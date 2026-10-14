@@ -31,7 +31,7 @@ what became of each one that is still linked or was still open.
 | [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | done (2026-10-13)                                       |
 | [T104](#t104)            | Timers and `queueMicrotask`                                | done (2026-10-13)                                       |
 | [T105](#t105)            | Web APIs that shared code uses                             | done (2026-10-14)                                       |
-| [T106](#t106)            | Language gaps module code meets                            | in progress (#278–#284, #291–#293)                      |
+| [T106](#t106)            | Language gaps module code meets                            | done (2026-10-15)                                       |
 | [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                       |
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | done (2026-10-13)                                       |
 | [T109](#t109)            | Executors for platform callbacks                           | done (2026-10-13)                                       |
@@ -322,11 +322,11 @@ makes random values, without per-platform calls.
 
 **Goal:** Lift the refusals that ordinary module code meets most.
 
-- **Status:** in progress: object rest (#278), spread from tuples (#279),
-  an error's cause (#280), `JSON.stringify`'s keys and space (#281),
-  `flat` and `copyWithin` (#282), ES2025's set methods (#283), `for await`
-  (#284), async generators (#291), platform files' classes (#292), the
-  temporal dead zone (#293).
+- **Status:** done (2026-10-15): object rest (#278), spread from tuples
+  (#279), an error's cause (#280), `JSON.stringify`'s keys and space
+  (#281), `flat` and `copyWithin` (#282), ES2025's set methods (#283),
+  `for await` (#284), async generators (#291), platform files' classes
+  (#292), the temporal dead zone (#293), generators' values (#294).
 - **Area:** compiler, runtime.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3.
@@ -352,8 +352,9 @@ makes random values, without per-platform calls.
 - [x] Async generators, and `for await…of` over them (#291): an
       `AsyncIter<T>` coroutine that awaits and yields, queuing the requests
       made while it runs; a loop left early awaits its `return()`.
-- [ ] `yield` as a value, a generator's `return v` (LUCENT1001) and an
-      iterator's `throw()` (LUCENT1003).
+- [x] `yield` as a value, a generator's `return v` and `throw()` (#294): a
+      `Generator<T, TReturn, TNext>` is a `lucent::Gen`, and `yield*` hands
+      its requests to the iterator it delegates to.
 - [x] A `let` or `const` used before its declaration runs throws
       `ReferenceError` (#293): a local that a closure made before it
       captures is a box in its dead zone until declared; a module
@@ -364,7 +365,9 @@ makes random values, without per-platform calls.
       (#292): shared code and JavaScript use the platform's class; a
       target without the platform's file gets a class whose every member
       throws.
-- [ ] An e2e case for each.
+- [x] An e2e case for each. Platform files' classes, whose code needs a
+      platform, run in `platform-classes.test.ts` on the JVM host and on
+      the example apps' Platform screen.
 
 **Done when:** each item passes natively and as JavaScript, and the website
 lists none of them as refused.

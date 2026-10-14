@@ -992,8 +992,14 @@ function functionThroughIr(
   const ret = g.type.ret;
   const generator =
     g.decl.asteriskToken && (ret.k === "iter" || ret.k === "asyncIter") ? ret.e : undefined;
-  // An async function's body returns what its promise fulfils with; a generator's, nothing.
-  const result = g.async && ret.k === "promise" ? ret.inner : generator ? T.void : ret;
+  // An async function's body returns what its promise fulfils with; a generator's, its result.
+  const result =
+    g.async && ret.k === "promise"
+      ? ret.inner
+      : generator
+        ? (ret.k === "iter" && ret.r) || T.void
+        : ret;
+  const sent = generator && ret.k === "iter" ? ret.n : undefined;
   const unit: IrUnit = {
     decl: g.decl,
     id: g.cpp,
@@ -1001,6 +1007,7 @@ function functionThroughIr(
     result,
     async: g.async,
     ...(generator ? { generator } : {}),
+    ...(sent ? { sent } : {}),
     generic: g.generic,
     opts: { module: g.module, async: g.async },
     site: g.decl.name!.text,

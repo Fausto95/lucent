@@ -302,13 +302,27 @@ Expo's base config has and React Native's lacks.
 ## Generators and iterables
 
 Generator functions, methods and expressions work with `yield`, `yield*`
-and `return;`, lazily: a body runs on the first `next()`. `for…of`,
+and `return`, lazily: a body runs on the first `next()`. `for…of`,
 spread and `Array.from` take generators, arrays, sets, maps, strings,
 byte views and `Iterable<T>` parameters. Leaving a `for…of` early runs
 the generator's `finally` blocks.
 
-The value of `yield` and returning a value are `LUCENT1001`, and an
-iterator's `throw()` `LUCENT1003` ([T106](tasks.md#t106) lifts these).
+A `Generator<T, TReturn, TNext>` is a `lucent::Gen<T, R, N>` (one without
+a `TReturn` or `TNext`, an `Iter<T>`;
+[decision 0108](decisions/0108-a-generator-with-values-is-a-gen-and-yield-star-hands-it-requests.md)). Its `yield` gives what `next(v)`
+sends, its `return v` is the value of the step that ends it (reported
+once), and `throw(e)` throws `e` where it waits: before it starts, or once
+it is done, the call throws. `return(v)` runs its `finally` blocks, which
+may yield first. `yield*` hands the generator's `next(v)`, `throw()` and
+`return()` to its iterator until it is done, and gives what that
+returned; an iterator without `throw()` (an array's) is closed, and the
+error is a `TypeError`. `throw()` takes an `Error` (`LUCENT1003`).
+Without `undefined` in `TNext`, a `next()` without a value gives the type's
+default, as an unassigned field does (an object throws `TypeError`); the
+same goes for a step's value after the result was reported, without
+`undefined` in `TReturn`. A `yield` inside an expression the compiler
+doesn't lower itself (an object literal's member) is `LUCENT1001`: give
+its value a variable.
 
 An async generator (`async function*`, an `async *` method) awaits and
 yields. Like JavaScript's, it starts at its first `next()`, runs in that
@@ -1052,22 +1066,23 @@ both, in the same commit.
 
 ### Errors, cancellation, classes and variables
 
-| JavaScript                                                                                         | Lucent                                                                                                | Why                                                          |
-| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `error.stack` is a string                                                                          | `undefined` in Lucent unless from JavaScript                                                          | native code records a site, not a stack                      |
-| `new Error(m, { cause })` keeps any cause                                                          | an `Error` only; another is refused (`LUCENT1003`), or left out when JavaScript's error crosses       | an error's cause is an error, as a caught value is           |
-| `abort()`'s message depends on the engine                                                          | `AbortError: signal is aborted without reason`                                                        | one message on both platforms                                |
-| `Promise.any`'s `AggregateError` message depends on the engine                                     | `All promises were rejected`                                                                          | one message on both platforms                                |
-| an abort reason can be any value                                                                   | an `Error`; JavaScript's become errors                                                                | Lucent's errors are `Error` objects                          |
-| `resolve(promise)` adopts the promise                                                              | refused (`LUCENT2002`; `LUCENT1007` in `fromCallback`)                                                | a promise settles with a value                               |
-| `await` on an object without `then` gives it                                                       | refused on an SDK object (`LUCENT1010`)                                                               | no completion API is picked by name                          |
-| an error object reaches JavaScript as itself                                                       | an exported error class's instance does; other errors are new, without their identity or extra fields | only an exported class keeps identity                        |
-| JavaScript can throw any value                                                                     | a non-`Error` from a callback becomes an `Error` with `String(value)` as its message                  | Lucent catches errors only                                   |
-| an error's `name` and `message` take any value; `Object.prototype.toString` gives `[object Error]` | from JavaScript, strings only (`TypeError` otherwise); `[object Object]` for a Lucent error class     | native strings; the instance only inherits `Error.prototype` |
-| an uncatchable error reaches the host's handler                                                    | the platform log and stderr                                                                           | native code has no JavaScript handler                        |
-| a field read before it's assigned is `undefined`                                                   | a value type's default; an object throws `TypeError`                                                  | a field holds a native value from the start                  |
-| any object with the right members fits an interface                                                | `implements`, or a literal of a data-only interface                                                   | an interface with methods is a base class                    |
-| assigning an inherited static gives a subclass its own                                             | from JavaScript it writes the base's field                                                            | a static is one native variable                              |
+| JavaScript                                                                                                    | Lucent                                                                                                | Why                                                          |
+| ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `error.stack` is a string                                                                                     | `undefined` in Lucent unless from JavaScript                                                          | native code records a site, not a stack                      |
+| `new Error(m, { cause })` keeps any cause                                                                     | an `Error` only; another is refused (`LUCENT1003`), or left out when JavaScript's error crosses       | an error's cause is an error, as a caught value is           |
+| `abort()`'s message depends on the engine                                                                     | `AbortError: signal is aborted without reason`                                                        | one message on both platforms                                |
+| `Promise.any`'s `AggregateError` message depends on the engine                                                | `All promises were rejected`                                                                          | one message on both platforms                                |
+| an abort reason can be any value                                                                              | an `Error`; JavaScript's become errors                                                                | Lucent's errors are `Error` objects                          |
+| `resolve(promise)` adopts the promise                                                                         | refused (`LUCENT2002`; `LUCENT1007` in `fromCallback`)                                                | a promise settles with a value                               |
+| `await` on an object without `then` gives it                                                                  | refused on an SDK object (`LUCENT1010`)                                                               | no completion API is picked by name                          |
+| an error object reaches JavaScript as itself                                                                  | an exported error class's instance does; other errors are new, without their identity or extra fields | only an exported class keeps identity                        |
+| JavaScript can throw any value                                                                                | a non-`Error` from a callback becomes an `Error` with `String(value)` as its message                  | Lucent catches errors only                                   |
+| an error's `name` and `message` take any value; `Object.prototype.toString` gives `[object Error]`            | from JavaScript, strings only (`TypeError` otherwise); `[object Object]` for a Lucent error class     | native strings; the instance only inherits `Error.prototype` |
+| a generator's `yield` gives `undefined` after a `next()` without a value, and so does a step after its result | without `undefined` in `TNext` or `TReturn`, the type's default; an object throws `TypeError`         | the value is the declared type, as an unassigned field's is  |
+| an uncatchable error reaches the host's handler                                                               | the platform log and stderr                                                                           | native code has no JavaScript handler                        |
+| a field read before it's assigned is `undefined`                                                              | a value type's default; an object throws `TypeError`                                                  | a field holds a native value from the start                  |
+| any object with the right members fits an interface                                                           | `implements`, or a literal of a data-only interface                                                   | an interface with methods is a base class                    |
+| assigning an inherited static gives a subclass its own                                                        | from JavaScript it writes the base's field                                                            | a static is one native variable                              |
 
 ### Known gaps
 

@@ -91,6 +91,8 @@ import * as functionValuesModule from "../lucent/function-values.lucent";
 import functionValuesRun from "./function-values";
 import * as generatorBodiesModule from "../lucent/generator-bodies.lucent";
 import generatorBodiesRun from "./generator-bodies";
+import * as generatorValuesModule from "../lucent/generator-values.lucent";
+import generatorValuesRun from "./generator-values";
 import * as generatorsModule from "../lucent/generators.lucent";
 import generatorsRun from "./generators";
 import * as genericInstantiationsModule from "../lucent/generic-instantiations.lucent";
@@ -284,6 +286,7 @@ export const cases: TestCase[] = [
   { name: "for-await", module: forAwaitModule, run: forAwaitRun, expected: ["1,2,3","b c","6 xy","1=one 2=two","at two, closed false"] },
   { name: "function-values", module: functionValuesModule, run: functionValuesRun, expected: ["false true false","true false true","false true","true false","4 6 true true 1"] },
   { name: "generator-bodies", module: generatorBodiesModule, run: generatorBodiesRun, expected: ["failed generator [called,started] | done 0 [called] | done 0 [called,worked]"] },
+  { name: "generator-values", module: generatorValuesModule, run: generatorValuesRun, expected: ["ready,ready,ready,2 true,true","1,10 false,caught boom true,threw again,unstarted TypeError","1,early true,true,never started true","ready,ready,inner gave 1,x,y,10","1,10,inner: caught in","1,2","1 true","5 true 5","a+b true collected","first second 24","1,2,3 3 6","99 false early true"] },
   { name: "generators", module: generatorsModule, run: generatorsRun, expected: ["0,1,2,3,4 | 1,4,7 | 0,1,1,2,3,5,8,13,21,34 | 1,2,3,4 | hel","created, start, got 1 false, after 1, got 2 false, end, done true, still done true","1, 2, cleanup, after loop","1,boom","root -a --a1 -b","60 40","6 9 6 3","6 9 0"] },
   { name: "generic-instantiations", module: genericInstantiationsModule, run: genericInstantiationsRun, expected: ["1,undefined undefined,2 sub 3,undefined 5,6 7 undefined","1 2 3 4 5 6 7,8 9,10 11 4","true undefined [{},{\"v\":2}]"] },
   { name: "generics", module: genericsModule, run: genericsRun, expected: ["a 1 1 3 x true [[1,\"#1\"],[2,\"#2\"]] a:apple+avocado b:banana"] },
