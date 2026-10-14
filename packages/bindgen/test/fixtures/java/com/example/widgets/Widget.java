@@ -29,6 +29,9 @@ public class Widget implements Shape {
   public static @NonNull Widget create(long[] sizes, int count) { return new Widget(); }
   public <T> T get(@NonNull Class<T> type) { return null; }
   public <T extends Shape> T shape(@NonNull Class<T> type) { return null; }
+  // Any class extending Shape, as WorkManager takes a Worker's; a result of one isn't bound.
+  public void draw(@NonNull Class<? extends Shape> type) {}
+  public Class<? extends Shape> drawn() { return null; }
   public java.util.List<String> names() { return null; }
   @Deprecated public void old() {}
   public void touch(@NonNull Shape s, @Nullable Widget other) {}
