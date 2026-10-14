@@ -6,6 +6,7 @@
 // once the events have arrived (urlSessionDidFinishEvents), which lets iOS
 // suspend the app again. Each step is logged as a LUCENT_DOWNLOAD line,
 // which the device runs look for after ending the app mid-download.
+import { errorCode } from "lucent:core";
 import { PLATFORM } from "lucent:platform";
 import { onAppEvent } from "lucent:ios";
 import {
@@ -62,7 +63,7 @@ class Downloads implements URLSessionDelegate, URLSessionDownloadDelegate {
   ): void {
     if (!error) return;
     failed++;
-    console.log(`LUCENT_DOWNLOAD failed: ${error.message}`);
+    console.log(`LUCENT_DOWNLOAD failed: ${error.message} (${errorCode(error) ?? "no code"})`);
   }
 
   urlSessionDidFinishEvents_forBackgroundURLSession(_session: URLSession): void {
@@ -119,7 +120,7 @@ export function downloadProgress(): string {
   if (!started) return "none";
 
   const failure = started.error;
-  if (failure) return `failed: ${failure.message}`;
+  if (failure) return `failed: ${failure.message} (${errorCode(failure) ?? "no code"})`;
   return `received ${started.countOfBytesReceived} bytes`;
 }
 
