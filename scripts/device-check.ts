@@ -803,11 +803,30 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
     const missing = device
       .log()
       .split("\n")
-      .filter((l) => l.includes("MissingViewState") && !/:\s+(at |\.\.\. \d+ more)/.test(l))
-      .map((l) => l.replace(/^.*?Unable/, "Unable"));
+      .filter(
+        (l) =>
+          (l.includes("Unable to find viewState") ||
+            l.includes("LUCENT_PROGRESS") ||
+            l.includes("onHost")) &&
+          !/:\s+(at |\.\.\. \d+ more)/.test(l),
+      )
+      .map(
+        (l) =>
+          `${l.split(/\s+/)[1]} ${l.replace(/^.*?(Unable|LUCENT_PROGRESS|ReactHost)/, "$1").slice(0, 90)}`,
+      );
     if (process.env.GITHUB_ACTIONS)
       console.log(
-        `::warning title=Missing view states (${screen.id})::${[`${missing.length} lines`, ...missing.slice(0, 20)].join("%0A")}`,
+        `::warning title=Missing view states (${screen.id})::${[
+          `${missing.length} lines`,
+          ...missing
+            .slice(
+              Math.max(
+                0,
+                missing.findIndex((l) => l.includes(`LUCENT_PROGRESS ${screen.id} 0/`)),
+              ),
+            )
+            .slice(0, 40),
+        ].join("%0A")}`,
       );
     return true;
   }
