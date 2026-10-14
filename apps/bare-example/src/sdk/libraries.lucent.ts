@@ -82,11 +82,12 @@ export async function tapView(testID: string): Promise<string> {
     const x = rect.exactCenterX();
     const y = rect.exactCenterY();
 
+    // Java's obtain() says nothing of null: it never gives one.
     const at = SystemClock.uptimeMillis();
-    const down = MotionEvent.obtain(at, at, MotionEvent.ACTION_DOWN, x, y, 0);
+    const down = MotionEvent.obtain(at, at, MotionEvent.ACTION_DOWN, x, y, 0)!;
     root.dispatchTouchEvent(down);
     down.recycle();
-    const up = MotionEvent.obtain(at, at + 50n, MotionEvent.ACTION_UP, x, y, 0);
+    const up = MotionEvent.obtain(at, at + 50n, MotionEvent.ACTION_UP, x, y, 0)!;
     root.dispatchTouchEvent(up);
     up.recycle();
     return "tapped";
