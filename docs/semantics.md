@@ -389,7 +389,7 @@ it refuses an argument Lucent can't honor, such as a locale.
 | `BigInt`      | `asIntN`, `asUintN`; `toString(radix)`, `valueOf`                                          |
 | `String`      | `fromCharCode`, `fromCodePoint`; every method but `normalize` and the HTML ones (`anchor`) |
 | `Array`       | `from` (an iterable or `{ length }`), `of`, `isArray`                                      |
-| arrays        | every method but `flat`, `copyWithin` and `toLocaleString`; `unshift` takes one item       |
+| arrays        | every method but `toLocaleString`; `unshift` takes one item                                |
 | `Map`         | every method; `Map.groupBy`                                                                |
 | `Set`         | every method but `entries`                                                                 |
 | `Object`      | `keys`, `values`, `entries` (records), `fromEntries`, `groupBy`                            |
@@ -420,8 +420,9 @@ and `options` arguments, and `normalize()`, are refused: Lucent has no
 arrays of the contents at the call, where JavaScript returns live
 iterators. Typed arrays convert what is written as JavaScript does, and
 views of one buffer share its bytes, little-endian on every device.
-Resizable buffers are refused. Arrays' `flat` and `copyWithin` are
-[T106](tasks.md#t106).
+Resizable buffers are refused. An array's `flat` gives a new array, whose
+type TypeScript gives for the depth: an element of the depth TypeScript
+flattens is one, wherever it is.
 
 **Regular expressions** take every ECMAScript feature and flag
 (`dgimsuvy`), compiled by QuickJS's libregexp, with `lastIndex`, `match`,

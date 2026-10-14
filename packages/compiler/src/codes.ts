@@ -160,14 +160,10 @@ export const Explanations: Record<Code, Explanation> = {
     summary:
       "A built-in function, method or argument Lucent does not implement, such as `Symbol()`, `eval`, `normalize()`, a locale argument or an unknown `Math`, `Number` or string method.",
     details:
-      "Every built-in a module calls runs as native code from the Lucent runtime. The ones the language reference lists behave as in JavaScript, apart from the differences it gives reasons for. The rest are reported rather than approximated, as are arguments Lucent cannot honor exactly (a locale, an error's `cause`).",
+      "Every built-in a module calls runs as native code from the Lucent runtime. The ones the language reference lists behave as in JavaScript, apart from the differences it gives reasons for. The rest are reported rather than approximated, as are arguments Lucent cannot honor exactly (a locale, a cause that isn't an `Error`).",
     fix: "use a built-in Lucent implements, or write the helper in the module",
-    wrong: ex(
-      "export function rotate(xs: number[]): number[] {\n  return xs.copyWithin(0, 1);\n}\n",
-    ),
-    right: ex(
-      "export function rotate(xs: number[]): number[] {\n  return [...xs.slice(1), ...xs.slice(0, 1)];\n}\n",
-    ),
+    wrong: ex("export function listed(xs: number[]): string {\n  return xs.toLocaleString();\n}\n"),
+    right: ex('export function listed(xs: number[]): string {\n  return xs.join(",");\n}\n'),
   },
   LUCENT1004: {
     title: "Unsupported destructuring",

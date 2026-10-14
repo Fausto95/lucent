@@ -86,7 +86,7 @@ generated from this file.
   ([T105](tasks.md#t105)).
 - Refused built-ins give `LUCENT1003` unless noted. They include
   `normalize()`, `locales` and `options` arguments, a cause that isn't an
-  `Error`, a replacer function for `JSON.stringify`, `flat()`, resizable
+  `Error`, a replacer function for `JSON.stringify`, resizable
   `ArrayBuffer`s and `new Proxy` ([T106](tasks.md#t106) lifts some).
 - Spread into an SDK call is refused (`LUCENT1001`), and so is `for…of`
   over a tuple (`LUCENT1009`). `for await` gives `LUCENT1009`

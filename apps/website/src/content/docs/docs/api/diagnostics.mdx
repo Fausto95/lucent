@@ -142,7 +142,7 @@ export function clear(tags: { name?: string }): { name?: string } {
 
 **Built-in without a native implementation**
 
-Every built-in a module calls runs as native code from the Lucent runtime. The ones the language reference lists behave as in JavaScript, apart from the differences it gives reasons for. The rest are reported rather than approximated, as are arguments Lucent cannot honor exactly (a locale, an error's `cause`).
+Every built-in a module calls runs as native code from the Lucent runtime. The ones the language reference lists behave as in JavaScript, apart from the differences it gives reasons for. The rest are reported rather than approximated, as are arguments Lucent cannot honor exactly (a locale, a cause that isn't an `Error`).
 
 **Fix:** use a built-in Lucent implements, or write the helper in the module.
 
@@ -150,8 +150,8 @@ Every built-in a module calls runs as native code from the Lucent runtime. The o
 <TabItem label="✗ example.lucent.ts">
 
 ```ts title="example.lucent.ts (wrong)"
-export function rotate(xs: number[]): number[] {
-  return xs.copyWithin(0, 1);
+export function listed(xs: number[]): string {
+  return xs.toLocaleString();
 }
 ```
 
@@ -159,8 +159,8 @@ export function rotate(xs: number[]): number[] {
 <TabItem label="✓ example.lucent.ts">
 
 ```ts title="example.lucent.ts (right)"
-export function rotate(xs: number[]): number[] {
-  return [...xs.slice(1), ...xs.slice(0, 1)];
+export function listed(xs: number[]): string {
+  return xs.join(",");
 }
 ```
 

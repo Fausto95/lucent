@@ -104,13 +104,14 @@ The operators on bigints are on [Statements](/docs/api/language/statements/#bigi
 | `indexOf`, `lastIndexOf`, `includes`                                              | With `fromIndex` too, as in JavaScript. Elements can't be functions ([LUCENT1002](/docs/api/diagnostics/#lucent1002)).                                                                               |
 | `at`, `find`, `findIndex`, `findLast`, `findLastIndex`, `filter`, `some`, `every` |                                                                                                                                                                                                      |
 | `forEach`, `map`, `flatMap`, `reduce`, `reduceRight`                              |                                                                                                                                                                                                      |
+| `flat(depth?)`, `copyWithin(target, start, end?)`                                 | As in JavaScript: `flat` gives a new array, `copyWithin` changes this one.                                                                                                                            |
 | `sort(compare?)`                                                                  | Stable. Without a comparator it compares elements as strings, as JavaScript does.                                                                                                                    |
 | `keys`, `values`, `entries`                                                       | Each returns an array, which `for…of` and spread read like JavaScript's iterator.                                                                                                                    |
 | `Array.from(items, map?)`                                                         | From an iterable, or from `{ length: n }`. With a function, a fractional or negative `n` throws a `RangeError`.                                                                                      |
 | `Array.of`, `Array.isArray`                                                       | `Array.isArray(x)` is `false` when `x`'s type is a union holding an array: test `x instanceof Array` instead.                                                                                        |
 | `new Array(n)`, `new Array(a, b)`                                                 | `new Array(n)` holds `n` default values, such as `0` or `""`, unless the element type includes `undefined`. A fractional or negative `n` doesn't throw: it's truncated to a 32-bit unsigned integer. |
 
-`flat` and `copyWithin` aren't available. Writing past the end of an array throws a `RangeError`, since a Lucent array has no holes.
+Writing past the end of an array throws a `RangeError`, since a Lucent array has no holes.
 
 ## Map and Set
 
@@ -262,7 +263,6 @@ What JavaScript's built-ins lack has a native implementation in `lucent:core`. [
 | JavaScript                                         | Fails with               | Use instead                                                                                  |
 | -------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
 | `TextEncoder`, `TextDecoder`                       | LUCENT9001: not declared | `utf8Encode` and `utf8Decode` from `lucent:core`                                             |
-| `xs.flat()`                                        | LUCENT1003               | `xs.flatMap((x) => x)`                                                                       |
 | `Object.assign(a, b)`                              | LUCENT1003               | `{ ...a, ...b }`                                                                             |
 | `Object.hasOwn(r, k)`                              | LUCENT1003               | `k in r`                                                                                     |
 | `Intl`, `toLocaleString()`                         | LUCENT2002, LUCENT1003   | `toFixed`, `padStart`, `toISOString` and the `Date` getters                                  |
