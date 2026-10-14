@@ -418,6 +418,8 @@ const START_MS = seconds("DEVICE_CHECK_START_S", 480);
 /** Between two finished cases (a case gives up after a minute). */
 const STALL_MS = seconds("DEVICE_CHECK_STALL_S", 180);
 const POLL_MS = 10_000;
+/** How many times a Debug build that couldn't load its bundle is opened again. */
+const REOPENS = 2;
 
 const outDir = () => path.resolve(process.env.DEVICE_CHECK_OUT ?? "device-check");
 
@@ -471,7 +473,17 @@ interface Device {
   screen(file: string): string[] | undefined;
   /** What else says why: crash reports (`crash`), the device's state (`notes`). */
   evidence(): { crash: string[]; notes: string[] };
+  /**
+   * Whether a Debug build's app gave up on its bundle, which it couldn't
+   * load from Metro (Android: "Unable to load script"), since it opened.
+   */
+  unloaded?(): boolean;
+  /** Before opening the app again: Metro made reachable again, the app stopped, its log cleared. */
+  reset?(): void;
 }
+
+/** A Debug build's app gave up on loading its bundle: React Native's red box says so. */
+export const UNLOADED = /Unable to load script/;
 
 function ios(target: Target): Device {
   const list = JSON.parse(sh("xcrun", ["simctl", "list", "devices", "available", "--json"]));
@@ -591,6 +603,12 @@ function android(target: Target): Device {
         ]);
     },
     lucent: () => sh("adb", ["logcat", "-d", "-s", "Lucent:*"], true),
+    unloaded: () => UNLOADED.test(sh("adb", ["logcat", "-d", "-b", "main"], true)),
+    reset: () => {
+      sh("adb", ["reverse", "tcp:8081", "tcp:8081"], true);
+      sh("adb", ["shell", "am", "force-stop", target.id], true);
+      sh("adb", ["logcat", "-b", "all", "-c"], true);
+    },
     log: () => sh("adb", ["logcat", "-d", "-b", "main,system,crash", "-v", "threadtime"], true),
     running: () => {
       const r = spawnSync("adb", ["shell", "pidof", target.id], { encoding: "utf8" });
@@ -676,7 +694,10 @@ async function main(): Promise<boolean> {
 async function check(target: Target, device: Device, screen: Screen): Promise<boolean> {
   const { platform } = target;
   device.open(screen);
-  const opened = Date.now();
+  let opened = Date.now();
+  // Opened again when a Debug build couldn't load its bundle: on the emulator, Metro's reverse
+  // of tcp:8081 isn't always in place when the app first asks.
+  let reopened = 0;
   console.log(
     `Opened ${target.id} (${screen.id}); waiting up to ${TIMEOUT_MS / 60000} minutes for its verdict.`,
   );
@@ -700,6 +721,17 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
       moved = Date.now();
     }
     progress = now;
+    if (!progress && target.metro && reopened < REOPENS && device.unloaded?.()) {
+      reopened += 1;
+      console.log(
+        `The app couldn't load its bundle from Metro: opening it again (${reopened}/${REOPENS}).`,
+      );
+      device.reset?.();
+      device.open(screen);
+      opened = Date.now();
+      moved = opened;
+      continue;
+    }
     // An app that quit stays quit: two polls in a row, past its first seconds.
     gone = Date.now() - opened > 30_000 && device.running() === false ? gone + 1 : 0;
     if (gone >= 2) {
@@ -734,7 +766,14 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
     progress,
     running: device.running(),
     crash: [...evidence.crash, ...crashLines(log)],
-    notes: evidence.notes,
+    notes: [
+      ...evidence.notes,
+      ...(reopened
+        ? [
+            `Opened again ${reopened} time${reopened === 1 ? "" : "s"}, after it couldn't load its bundle`,
+          ]
+        : []),
+    ],
     jsErrors: jsErrorLines(log),
     metroUp: target.metro && (await metroUp()),
     metro: target.metro,

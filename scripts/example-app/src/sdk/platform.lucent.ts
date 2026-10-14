@@ -245,7 +245,12 @@ export async function pressKey(): Promise<string> {
   return heard.join(", ") || "nothing heard";
 }
 
-/** Turns the Activity to landscape and back: its configuration changes, which module code hears. */
+/**
+ * Turns the Activity to landscape and back: its configuration changes,
+ * which module code hears. When it hears none, it says whether the
+ * Activity turned, and whether Android made it again instead (its
+ * manifest's configChanges lacking orientation).
+ */
 export async function rotate(): Promise<string> {
   if (PLATFORM !== "android") return "none";
 
@@ -254,11 +259,25 @@ export async function rotate(): Promise<string> {
     changes += 1;
   });
 
+  const before = await main(() => currentActivity()?.hashCode() ?? 0);
   await main(() =>
     currentActivity()?.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE),
   );
   await until(() => changes > 0, 5000);
   const turned = changes;
+  if (!turned) {
+    const after = await main(() => currentActivity()?.hashCode() ?? 0);
+    const orientation = await main(
+      () => currentActivity()?.getResources()?.getConfiguration()?.orientation ?? 0,
+    );
+    await main(() =>
+      currentActivity()?.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED),
+    );
+    stop();
+    return after !== before
+      ? "no change heard: Android made the Activity again"
+      : `no change heard, orientation ${orientation}`;
+  }
 
   await main(() =>
     currentActivity()?.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED),
@@ -266,5 +285,5 @@ export async function rotate(): Promise<string> {
   await until(() => changes > turned, 5000);
   stop();
 
-  return turned > 0 ? "changed" : "no change";
+  return "changed";
 }
