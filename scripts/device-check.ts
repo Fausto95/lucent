@@ -9,11 +9,11 @@
  * apps, scripts/window-app.ts), opened as its launcher opens it:
  *   1. installs the build (a Debug build's bundle comes from Metro, which
  *      the caller started on port 8081);
- *   2. opens each screen in turn: on Android with the deep link
- *      <scheme>://lab/<screen> (lucentbare, lucentexpo), on iOS with the
- *      launch argument `-lucentTab lab/<screen>` (the simulator asks to
- *      confirm a link that `simctl openurl` opens, and nobody is there to
- *      confirm it);
+ *   2. opens each screen in turn, in an app started for it: on Android
+ *      with the deep link <scheme>://lab/<screen> (lucentbare, lucentexpo),
+ *      on iOS with the launch argument `-lucentTab lab/<screen>` (the
+ *      simulator asks to confirm a link that `simctl openurl` opens, and
+ *      nobody is there to confirm it);
  *   3. follows the lines the screen logs, LUCENT_PROGRESS after each check
  *      and LUCENT_SUMMARY with its verdict (`LUCENT_SUMMARY tests 70/70
  *      passed`), before opening the next.
@@ -475,7 +475,11 @@ async function waitForMetro(platform: string): Promise<void> {
 
 interface Device {
   install(): void;
-  open(screen: Screen): void;
+  /**
+   * Opens `screen`: in an app started for it, unless `running` (a screen
+   * opened again in the app as it is).
+   */
+  open(screen: Screen, running?: boolean): void;
   /** The Lucent lines of the device log since the app opened (LUCENT_PROGRESS, LUCENT_SUMMARY). */
   lucent(): string;
   /** The app's whole log, crash buffers included. */
@@ -585,8 +589,13 @@ function android(target: Target): Device {
       sh("adb", ["shell", "setprop", "debug.lucent.sizing", "1"], true);
       sh("adb", ["logcat", "-b", "all", "-c"], true);
     },
-    open: (screen) => {
+    open: (screen, running = false) => {
       const { url } = screen;
+      // An app started for each screen, as iOS's are: a deep link that navigated the running app
+      // (React Native 0.88's bare Debug build) made it lose views it had mounted, which stopped
+      // taking their updates ("Unable to find viewState"), a component sized by its content among
+      // them.
+      if (!running) sh("adb", ["shell", "am", "force-stop", target.id], true);
       // A deep link opens a screen, in the app already running too; without one, the launcher's
       // intent opens the app.
       const out = url
@@ -766,7 +775,8 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
     if (progress && !wentTo && last !== undefined && last !== screen.id) {
       wentTo = last;
       console.log(`The app went on to its ${last} screen: opening ${screen.id} again.`);
-      device.open(screen);
+      // In the app as it is: what the screen's run left behind (a service, module state) stays.
+      device.open(screen, true);
       moved = Date.now();
       continue;
     }
