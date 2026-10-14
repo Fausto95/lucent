@@ -23,6 +23,11 @@ public abstract class Job {
   public String getLabel() { return label; }
   public abstract String work();
   public String compare(Job other) { return "base"; }
+  // What a subclass's override calls through super, as a Fragment's onCreate must.
+  private int started;
+  public void start(int n) { started += n; }
+  public int getStarted() { return started; }
+  public String describe() { return "job " + label; }
 }
 `,
   // What WorkManager does with a worker's class name.
@@ -30,7 +35,9 @@ public abstract class Job {
 public final class Os {
   public static String make(String name, String label) throws Exception {
     Job job = (Job) Class.forName(name).getConstructor(String.class).newInstance(label);
-    return job.work() + ", again " + job.work() + ", " + job.compare(job);
+    job.start(2);
+    return job.work() + ", again " + job.work() + ", " + job.compare(job) + ", " + job.describe()
+        + " started " + job.getStarted();
   }
   public static String fail(String name) {
     try {
@@ -69,6 +76,16 @@ export class Echo extends Job {
   compare(other: Job): string {
     return other.getLabel() === this.getLabel() ? "same" : "other";
   }
+
+  // The base's implementation, through super: not this override again.
+  start(n: number): void {
+    super.start(n * 10);
+    super.start(1);
+  }
+
+  describe(): string {
+    return \`\${super.describe()}, described\`;
+  }
 }
 
 export async function run(): Promise<string> {
@@ -103,10 +120,19 @@ describe.skipIf(!android || !jdk)("Android classes the OS makes", () => {
     expect(jvmRun(r, dir, android!.run)).toEqual({
       status: 0,
       stdout:
-        "first #1, again first #1, same | second #2, again second #2, same | no bad jobs | made 2\n",
+        "first #1, again first #1, same, job first, described started 21 | second #2, again second #2, same, job second, described started 21 | no bad jobs | made 2\n",
       stderr: "",
     });
   }, 300_000);
+
+  it("call only methods of the class they extend through super", () => {
+    const { shown } = build(
+      module.replace("super.start(1);", "super.start(1);\n    void super.getLabel;"),
+    );
+    expect(shown).toEqual([
+      "LUCENT1005 29: super.getLabel: only methods of Job are called through super",
+    ]);
+  });
 
   it("pass the constructor's parameters to the base, unchanged", () => {
     const { shown } = build(module.replace("super(label);", 'super("x");'));

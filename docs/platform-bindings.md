@@ -611,16 +611,22 @@ the main thread.
 `dev.lucent.generated.<Name>`, is made when an instance first goes to
 Java. It overrides each method the Lucent class defines, and each abstract
 one, through `NativeProxy.dispatch`, and its handle is released when Java
-collects it.
+collects it. An override runs while the caller waits, holding the module's
+actor, whatever it returns, as an Objective-C one does. `super.name(…)`
+calls the base's implementation through JNI's `CallNonvirtual…Method` on
+the class the Lucent class extends, as Java's `super` call does. An
+exported class is `dev.lucent.app.<module>.<Class>`, which the OS makes
+([0097](decisions/0097-exported-classes-extending-android-classes-are-os-made.md),
+[0103](decisions/0103-android-overrides-run-while-the-caller-waits.md)).
 
 | Refused on iOS                                      | Refused on Android                                         |
 | --------------------------------------------------- | ---------------------------------------------------------- |
 | Swift classes (subclass them in Swift)              | A base without a public constructor taking no arguments    |
-| Extending a Lucent class that extends an iOS class  | `super(…)` with arguments, and `super.name(…)`             |
-| A field named like a base property (set it instead) | Overriding a method whose JVM name Java cannot write       |
-| Overriding a base property with accessors           | Overriding a Kotlin class's suspend or value-class members |
-| Overriding a Swift member                           | Interfaces (implement them)                                |
-| Generic classes; protocols (implement them)         |                                                            |
+| Extending a Lucent class that extends an iOS class  | `super(…)` with arguments, but an exported class's own     |
+| A field named like a base property (set it instead) | `super.name` but called, and `super.name(…)` via Kotlin    |
+| Overriding a base property with accessors           | Overriding a method whose JVM name Java cannot write       |
+| Overriding a Swift member                           | Overriding a Kotlin class's suspend or value-class members |
+| Generic classes; protocols (implement them)         | Interfaces (implement them)                                |
 
 ## Swift shims
 

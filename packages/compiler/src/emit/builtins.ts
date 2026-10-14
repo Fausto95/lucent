@@ -504,6 +504,24 @@ export function superMember(
       fail(node, Codes.UnsupportedCall, `super.${name} is not a method of ${cls.sdkBase.name}`)
     );
   }
+  // The Android class it extends: its implementation, on the Java object the class's `this` is.
+  if (cls?.sdkBase?.platform === "android") {
+    if (!call)
+      fail(
+        node,
+        Codes.UnsupportedClassFeature,
+        `super.${name}: only methods of ${cls.sdkBase.name} are called through super`,
+      );
+    const self = javaSubclassNative(
+      em,
+      { c: cpp.self, t: { k: "class", id: cls.id, args: [] } },
+      cls,
+    );
+    return (
+      nativeCall(em, call, self, cls) ??
+      fail(node, Codes.UnsupportedCall, `super.${name} is not a method of ${cls.sdkBase.name}`)
+    );
+  }
   if (!cls?.base)
     fail(node, Codes.UnsupportedClassFeature, "`super` members are only available in subclasses");
   const found = classMemberDecl(em, { k: "class", id: cls.base.id, args: cls.base.args }, name);
