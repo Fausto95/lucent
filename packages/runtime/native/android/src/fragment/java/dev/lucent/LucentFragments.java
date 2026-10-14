@@ -33,10 +33,51 @@ public final class LucentFragments {
 
   private LucentFragments() {}
 
+  /**
+   * The container a fragment's view goes in. It lays itself out when a view
+   * inside asks, since React Native's views never pass such a request on
+   * (the fragment's view, added once the shell is in a window, would stay
+   * 0×0), and has the shell measure its content again.
+   */
+  private static final class Container extends FrameLayout {
+    private final LucentHostView shell;
+    private boolean posted;
+    private final Runnable relayout =
+        () -> {
+          posted = false;
+          measure(
+              MeasureSpec.makeMeasureSpec(getWidth(), MeasureSpec.EXACTLY),
+              MeasureSpec.makeMeasureSpec(getHeight(), MeasureSpec.EXACTLY));
+          layout(getLeft(), getTop(), getRight(), getBottom());
+          // Its size may have changed: the shell's layout tells the C++ host, which measures it.
+          getShell().requestLayout();
+        };
+
+    Container(LucentHostView shell) {
+      super(shell.getContext());
+      this.shell = shell;
+    }
+
+    private LucentHostView getShell() {
+      return shell;
+    }
+
+    @Override
+    public void requestLayout() {
+      super.requestLayout();
+
+      // Called while constructing, before the field is set.
+      if (relayout != null && !posted) {
+        posted = true;
+        post(relayout);
+      }
+    }
+  }
+
   /** Shows `fragment` in `shell`: added to the manager now if the shell is in a window, else once it is. */
   static void show(LucentHostView shell, Object fragment) {
     Fragment f = (Fragment) fragment;
-    FrameLayout container = new FrameLayout(shell.getContext());
+    FrameLayout container = new Container(shell);
 
     container.setId(View.generateViewId());
     shell.setContent(container);

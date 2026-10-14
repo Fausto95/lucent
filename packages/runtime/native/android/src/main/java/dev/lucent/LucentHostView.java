@@ -117,14 +117,10 @@ public final class LucentHostView extends FrameLayout {
 
     float[] size = {content.getMeasuredWidth() / density, content.getMeasuredHeight() / density};
 
-    // Back to the size it is laid out at: the next layout pass may keep it. Laid out there too,
-    // which clears the layout requests forceLayoutTree left: a view inside that asks for a
-    // layout later (a fragment's, added once the shell is in a window) stops at the first view
-    // with one still pending, and would never reach the shell.
+    // Back to the size it is laid out at: the next layout pass may keep it.
     content.measure(
         MeasureSpec.makeMeasureSpec(content.getWidth(), MeasureSpec.EXACTLY),
         MeasureSpec.makeMeasureSpec(content.getHeight(), MeasureSpec.EXACTLY));
-    content.layout(content.getLeft(), content.getTop(), content.getRight(), content.getBottom());
 
     return size;
   }
