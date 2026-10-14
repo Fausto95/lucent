@@ -306,7 +306,7 @@ or "Lucent cannot assign this yet: …").
 | Swift tuples                                                                                                 | tuples, labels as names                       | copied                                   |
 | `id`, `Any`, `AnyObject`, `AnyHashable`, `CFTypeRef`                                                         | `NSObject` (results), `ObjCValue` (arguments) | retained                                 |
 | A class, protocol or interface                                                                               | its declared class                            | `lucent::NativeRef`                      |
-| Java `Class<T>`                                                                                              | the class itself                              | retained                                 |
+| Java `Class<T>`, and a parameter's `Class<? extends X>`                                                      | the class itself (a Lucent one, exported)     | retained                                 |
 
 Platform objects are `lucent::NativeRef`s: a retained Objective-C object,
 released on the main thread, or a JNI global reference. `===` compares
@@ -872,7 +872,7 @@ Each is a diagnostic with its reason, and coverage counts it.
 | Swift shims     | Async initializers; async or throwing property requirements; initializer and static requirements                        |
 | Swift shims     | Async sequences other than results                                                                                      |
 | JNI             | Assigning Java fields; arrays of a type parameter's values; Kotlin functions taking or giving functions                 |
-| JNI             | Wildcard types, `Class` other than `Class<T>`, nullable array elements                                                  |
+| JNI             | Wildcard types, `Class` other than `Class<T>` or a parameter's `Class<? extends X>`, nullable array elements            |
 | Implementations | A `char` argument, or a result that is not a number, boolean, string or object, in a method Java calls                  |
 | Kotlin shims    | Generic members bounded by a projected type (`T : List<out R>`)                                                         |
 | Promise forms   | Completion handlers with several results; completion-handler promises on Android                                        |

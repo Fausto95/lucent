@@ -1047,8 +1047,10 @@ its class must be Java or Kotlin the package ships.
       #264).
 - [ ] Tests on the desktop JVM host (`test/fake-android.ts`): an
       OS-style instantiation (`os-classes.test.ts`, #240). On the emulator: a periodic `Worker` that
-      runs with the app in the background, and a foreground
-      `MediaSessionService` that survives the Activity's recreation.
+      runs with the app in the background (`lucent-background-task`'s
+      `Refresh`, which a `Class<? extends ListenableWorker>` parameter
+      takes, #265), and a foreground `MediaSessionService` that survives
+      the Activity's recreation.
 
 **Done when:** both emulator fixtures run in CI.
 

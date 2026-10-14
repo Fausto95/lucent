@@ -55,7 +55,7 @@ import { type E, type Lvalue } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
 import { compareVersions } from "../package-versions.ts";
 import { bigintExpr, numberExpr, stringExpr } from "./literals.ts";
-import { javaSubclassName, sdkInstanceMethods } from "./java.ts";
+import { javaSubclassName, osClassName, osMade, sdkInstanceMethods } from "./java.ts";
 import { inMainSubclass, subclassNative } from "./objc-subclass.ts";
 import { kotlinShim, type KotlinUse, suspending, type Suspending } from "./kotlin.ts";
 import { callbackEntry, setupOf } from "./setups.ts";
@@ -97,6 +97,14 @@ function sdkClassNamed(em: FnEmitter, expr: ts.Expression): SdkClassRef | undefi
   if (!ts.isIdentifier(expr) && !ts.isPropertyAccessExpression(expr)) return undefined;
   const decl = resolved(em, expr)?.valueDeclaration;
   return decl && ts.isClassDeclaration(decl) ? classOfDecl(decl) : undefined;
+}
+
+/** The Lucent class `expr` names, if it names one. */
+function lucentClassNamed(em: FnEmitter, expr: ts.Expression): ClassInfo | undefined {
+  if (!ts.isIdentifier(expr) && !ts.isPropertyAccessExpression(expr)) return undefined;
+  const decl = resolved(em, expr)?.valueDeclaration;
+  if (!decl || !ts.isClassDeclaration(decl)) return undefined;
+  return [...em.reg.classes.values()].find((c) => c.decl === decl);
 }
 
 function builtinNamed(
@@ -1469,6 +1477,18 @@ function jniOf(em: FnEmitter, arg: ts.Expression, t: SdkType, value: E): cpp.Exp
       return jni("toArrayOpt", env, value.c, each);
     }
     case "classOf": {
+      // Class<? extends X> takes a Lucent class extending X too: its Java class, which the OS
+      // makes by name (decision 0097), as WorkManager makes a Worker.
+      const own = t.bound && lucentClassNamed(em, arg);
+      if (own) {
+        if (!osMade(own))
+          fail(
+            arg,
+            Codes.UnsupportedCall,
+            `${own.decl.name?.text}: export it, so its Java class is one the OS can make by name`,
+          );
+        return cpp.call("LUCENT_JNI_CLASS", [javaClass(em, osClassName(own))]);
+      }
       const named = sdkClassNamed(em, arg);
       if (!named)
         fail(arg, Codes.UnsupportedSyntax, "pass the class itself (for example `Vibrator`)");

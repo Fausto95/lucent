@@ -3,7 +3,7 @@
 // runs open this screen after the Tests screen, on the simulator and the
 // emulator.
 import { Linking, Platform } from "react-native";
-import { isRegistered, runAsScheduled, schedule } from "lucent-background-task";
+import { isRegistered, runAsScheduled, schedule, workInBackground } from "lucent-background-task";
 import { heard, send } from "lucent-broadcast";
 import { cardShown, showAndRestore } from "lucent-fragment";
 import { channelReady, startedAtMs } from "lucent-launch";
@@ -140,4 +140,10 @@ export const platformCases: SdkCase[] = [
     expected: ios ? "none" : "down 142, up 142",
   },
   { name: "configuration: a rotation", run: Probe.rotate, expected: ios ? "none" : "changed" },
+  // Last: it leaves the app in the background, where React Native's timers stop.
+  {
+    name: "background work: WorkManager runs a Lucent Worker with the app in the background",
+    run: () => workInBackground(60_000),
+    expected: ios ? "none" : "ran in the background",
+  },
 ];

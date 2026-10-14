@@ -3,8 +3,8 @@
 // finishes launching, as the scheduler requires, and the scheduler runs it
 // later, in a process it may have launched for it. The task's expiration
 // aborts the work's signal, and the handler reports how it ended. Android
-// runs such work through WorkManager, whose Worker is a class the OS makes
-// (T131).
+// runs such work through WorkManager, whose Worker is a Lucent class the
+// OS makes (work.android.lucent.ts).
 import { PLATFORM } from "lucent:platform";
 import { type BGTask, BGAppRefreshTaskRequest, BGTaskScheduler } from "lucent:ios/BackgroundTasks";
 import { delay } from "lucent:core";
