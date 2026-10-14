@@ -148,6 +148,8 @@ export declare class Box {
       "TextDecoderOptions",
       "TextDecodeOptions",
       "TextDecoder",
+      "URL",
+      "URLSearchParams",
     ]);
     for (const file of ["platform", "thread", "ios", "android", "ui", "compose"])
       expect(read(`sdk/${file}.d.ts`).declarations.length).toBeGreaterThan(0);

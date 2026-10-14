@@ -92,6 +92,7 @@ A primitive is held by value: `double`, `bool` or `String`. Everything else is a
 - `BigInt` converts to native integers exactly (`toInt64`, `toUint64`) or wrapping (`wrapToInt64`). SDK glue passes a native API `toNativeInteger<I>`, whose `RangeError` names the parameter.
 - `Map` and `Set` iterate in insertion order, and `Dict` in `Object.keys` order: integer-like keys ascending, then the rest in insertion order. `Bytes` is a view over a shared buffer: `subarray` shares it and `slice` copies.
 - `Date` takes local time from the C library (`localtime_r`), and `RegExp` compiles patterns once with QuickJS's `libregexp` (`cpp/third_party/quickjs`).
+- `URL` parses with Ada, the parser Node uses (`cpp/third_party/ada`). A native package carries it only when the program makes a URL.
 - A Lucent `throw` throws a `lucent::Exception` holding an `ErrorObject`: its name, message, `code`, and the site where Lucent code made it.
 
 Numbers and bigints are checked against Node: `test/number/corpus.ts` and `test/bigint/corpus.ts` write seeded corpora of its answers, which the C++ tests compare line by line.

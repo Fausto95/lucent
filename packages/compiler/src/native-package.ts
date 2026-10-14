@@ -274,9 +274,24 @@ export function writeNativePackage(
       want.set(path.join(to, path.relative(from, f)), fs.readFileSync(f));
     }
   };
-  copyTree(path.join(rt, "cpp/lucent"), path.join(outDir, "cpp/lucent"), () => true);
+  // The URL standard's parser (third_party/ada, and lucent/url on it) only for a program that makes
+  // a URL: half a megabyte of code, which a build from source would compile and link for nothing.
+  const urls = !!result.urls;
+  const urlFile = (f: string) => {
+    const relative = path.relative(path.join(rt, "cpp"), f).split(path.sep).join("/");
+    return relative.startsWith("lucent/url/") || relative.startsWith("third_party/ada/");
+  };
+  copyTree(
+    path.join(rt, "cpp/lucent"),
+    path.join(outDir, "cpp/lucent"),
+    (f) => urls || !urlFile(f),
+  );
   copyTree(path.join(rt, "cpp/rn"), path.join(outDir, "cpp/rn"), () => true);
-  copyTree(path.join(rt, "cpp/third_party"), path.join(outDir, "cpp/third_party"), () => true);
+  copyTree(
+    path.join(rt, "cpp/third_party"),
+    path.join(outDir, "cpp/third_party"),
+    (f) => urls || !urlFile(f),
+  );
   copyTree(path.join(rt, "native"), outDir, () => true);
   // The runtime's core, prebuilt for this runtime when the package has it: the podspec and
   // CMake link it instead of compiling those sources (prebuilt-runtime.ts).

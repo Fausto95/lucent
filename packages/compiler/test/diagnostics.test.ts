@@ -1121,6 +1121,38 @@ export function size(t: Tree<number>): number {
     });
   });
 
+  describe("URL and URLSearchParams", () => {
+    it.each([
+      [
+        "a URL against a base that may be left out",
+        "export function f(u: string, base?: string): string { return new URL(u, base).href; }",
+      ],
+      [
+        "a URL's parts written, and its searchParams changed",
+        'export function f(): string { const u = new URL("https://a.b/"); u.pathname = "x"; u.searchParams.set("k", "v"); return `${u}`; }',
+      ],
+      [
+        "search params from a literal, pairs and a string",
+        'export function f(pairs: [string, string][]): string { return `${new URLSearchParams({ a: "1" })}${new URLSearchParams(pairs)}${new URLSearchParams("?q")}`; }',
+      ],
+    ])("accepts %s", (_, src) => {
+      expect(codes(src)).toEqual([]);
+    });
+
+    it.each([
+      [
+        "search params from an object type, whose optional fields it can't tell",
+        "export function f(o: { a: string; b?: string }): string { return new URLSearchParams(o).toString(); }",
+      ],
+      [
+        "an input of more than one kind",
+        "export function f(u: string | URL): string { return new URL(u).href; }",
+      ],
+    ])("rejects %s", (_, src) => {
+      expect(codes(src)).toContain("LUCENT1003");
+    });
+  });
+
   describe("crypto", () => {
     it("fills arrays of integers, and makes UUIDs", () => {
       expect(

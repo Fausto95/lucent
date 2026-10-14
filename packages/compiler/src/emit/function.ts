@@ -27,6 +27,7 @@ import {
 } from "../types.ts";
 import { containsAwait, type FunctionLike, symbolOf } from "../analysis/scopes.ts";
 import * as builtins from "./builtins.ts";
+import { webLvalue } from "./web.ts";
 import { spanElement } from "./buffers.ts";
 import { constructorOf, DISPOSE, isSymbolDispose } from "./classes.ts";
 import { TASK, taskVariant } from "./compute.ts";
@@ -785,6 +786,10 @@ export class FnEmitter {
       case "bytes":
       case "typed":
         return iterOf(typedElement(t));
+      case "web":
+        // A URLSearchParams' [name, value] pairs, read by index as they change.
+        if (t.name === "URLSearchParams") return iterOf({ k: "tuple", es: [T.string, T.string] });
+        break;
     }
     fail(node, Codes.UnsupportedLoop, `${typeKey(e.t)} is not iterable`);
   }
@@ -808,6 +813,12 @@ export class FnEmitter {
         return { c: cpp.call(cpp.dot(v, "toArray")), e: typedElement(t) };
       case "iter":
         return { c: cpp.call("lucent::iterToArray", [v]), e: t.e };
+      case "web":
+        if (t.name !== "URLSearchParams") break;
+        return {
+          c: cpp.call("lucent::iterToArray", [cpp.call("lucent::iterOf", [v])]),
+          e: { k: "tuple", es: [T.string, T.string] },
+        };
       case "tuple": {
         if (!t.es.length) break;
 
@@ -1342,6 +1353,10 @@ export class FnEmitter {
       if (ot.k === "iface") return builtins.ifaceMemberLvalue(this, obj, ot, name, target);
       if (ot.k === "regexp" && name === "lastIndex")
         return place(cpp.arrow(obj.c, "lastIndex"), T.number);
+      if (ot.k === "web") {
+        const lv = webLvalue({ c: obj.c, t: ot }, name);
+        if (lv) return lv;
+      }
       if (ot.k === "array" && name === "length") {
         return {
           get: cpp.call(cpp.dot(obj.c, "length")),

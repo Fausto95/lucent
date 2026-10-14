@@ -69,7 +69,7 @@ export type LType =
   | { k: "iterResult"; e: LType }
   | { k: "abortSignal" }
   | { k: "abortController" }
-  /** An object of a web API the runtime implements (text.h): lucent::<name>, a reference. */
+  /** An object of a web API the runtime implements (text.h, url.h): lucent::<name>, a reference. */
   | { k: "web"; name: WebName }
   /** lucent:core's NativeBuffer: a handle to bytes native code owns. */
   | { k: "buffer" }
@@ -112,7 +112,7 @@ export type LType =
   | { k: "channel"; e: LType };
 
 /** The web API classes the runtime implements, beyond the ECMAScript library's. */
-export const WEB_NAMES = ["TextEncoder", "TextDecoder"] as const;
+export const WEB_NAMES = ["TextEncoder", "TextDecoder", "URL", "URLSearchParams"] as const;
 
 export type WebName = (typeof WEB_NAMES)[number];
 

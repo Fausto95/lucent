@@ -85,6 +85,8 @@ export interface EmitResult {
   compose?: boolean;
   /** A component's Android root is a Fragment: the runtime's host of fragments is built. */
   fragments?: boolean;
+  /** The program makes a URL or URLSearchParams: the native package carries Ada (lucent/url). */
+  urls?: boolean;
   /** Android permissions the SDK methods the program calls require (declared in the library's manifest). */
   androidPermissions?: string[];
   /** The components the modules export (`.lucent.tsx` functions returning views): not module functions. */
@@ -706,6 +708,7 @@ export function emitProgram(
     kotlin,
     compose: compose.length > 0,
     fragments: [...ctx.setups.values()].some((s) => s.fragment),
+    urls: ctx.urls,
     androidPermissions: [...ctx.androidPermissions].sort(),
   };
 }

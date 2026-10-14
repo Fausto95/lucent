@@ -36,6 +36,8 @@ describe("the prebuilt runtime", () => {
     const core = prebuiltCoreSources(cpp);
     expect(core).toContain("lucent/bigint.cpp");
     expect(core).toContain("third_party/quickjs/libregexp.c");
+    expect(core).toContain("lucent/url/url.cpp");
+    expect(core).toContain("third_party/ada/lucent_ada.cpp");
     // JSI's (the app's React Native decides its ABI), and fbjni's on Android.
     expect(core).not.toContain("lucent/jsi/host.cpp");
     expect(core).not.toContain("lucent/jsstring.cpp");

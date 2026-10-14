@@ -451,8 +451,7 @@ fields; one with parameters, or `async`, is `LUCENT1005`.
 
 **Dates** take local time from the C library's time zone database, and
 `toString()` has no zone name, as in Hermes:
-`Mon Jul 22 2019 15:51:50 GMT-0700`. Not available yet: `URL`
-([T105](tasks.md#t105)).
+`Mon Jul 22 2019 15:51:50 GMT-0700`.
 
 **`TextEncoder` and `TextDecoder`** follow the Encoding standard for
 UTF-8: invalid bytes decode as U+FFFD per maximal subpart, a fatal decoder
@@ -472,6 +471,15 @@ bytes, past which it throws an `Error` named `QuotaExceededError`; an array
 of floats is `LUCENT1003`, where JavaScript throws `TypeMismatchError`.
 `crypto.randomUUID` gives a version 4 UUID. `crypto.subtle` is not
 declared.
+
+**`URL` and `URLSearchParams`** follow the URL standard, parsed by Ada,
+as Node parses them ([decision 0107](decisions/0107-url-is-ada-carried-only-by-programs-that-make-one.md)).
+A URL's `searchParams` is the same object each time, and a change to
+either shows in the other; it doesn't keep its URL alive. An iterator of
+the pairs reads them as they are when it gets to each. `new
+URLSearchParams(init)` takes a string, a `Record<string, string>` (an
+object literal is one), `[name, value]` pairs or another
+`URLSearchParams`; `forEach` takes no `thisArg`.
 Not planned: `Symbol()`, `Proxy`, `Reflect`, `eval`, `new Function`, `Intl`.
 
 ## Modules

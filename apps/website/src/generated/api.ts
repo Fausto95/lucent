@@ -2257,6 +2257,170 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           }
         ],
         "params": []
+      },
+      {
+        "name": "URL",
+        "kind": "interface",
+        "signature": "interface URL {\n  hash: string;\n  host: string;\n  hostname: string;\n  href: string;\n  toString(): string;\n  readonly origin: string;\n  password: string;\n  pathname: string;\n  port: string;\n  protocol: string;\n  search: string;\n  readonly searchParams: URLSearchParams;\n  username: string;\n  toJSON(): string;\n}",
+        "doc": [
+          "A URL, parsed as the URL standard says (by Ada, the parser Node uses). Each part reads and writes as a string; `searchParams` is the same object each time, and a change to either shows in the other."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "hash",
+            "signature": "hash: string;",
+            "doc": ""
+          },
+          {
+            "name": "host",
+            "signature": "host: string;",
+            "doc": ""
+          },
+          {
+            "name": "hostname",
+            "signature": "hostname: string;",
+            "doc": ""
+          },
+          {
+            "name": "href",
+            "signature": "href: string;",
+            "doc": ""
+          },
+          {
+            "name": "toString",
+            "signature": "toString(): string;",
+            "doc": ""
+          },
+          {
+            "name": "origin",
+            "signature": "readonly origin: string;",
+            "doc": ""
+          },
+          {
+            "name": "password",
+            "signature": "password: string;",
+            "doc": ""
+          },
+          {
+            "name": "pathname",
+            "signature": "pathname: string;",
+            "doc": ""
+          },
+          {
+            "name": "port",
+            "signature": "port: string;",
+            "doc": ""
+          },
+          {
+            "name": "protocol",
+            "signature": "protocol: string;",
+            "doc": ""
+          },
+          {
+            "name": "search",
+            "signature": "search: string;",
+            "doc": ""
+          },
+          {
+            "name": "searchParams",
+            "signature": "readonly searchParams: URLSearchParams;",
+            "doc": ""
+          },
+          {
+            "name": "username",
+            "signature": "username: string;",
+            "doc": ""
+          },
+          {
+            "name": "toJSON",
+            "signature": "toJSON(): string;",
+            "doc": ""
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "URLSearchParams",
+        "kind": "interface",
+        "signature": "interface URLSearchParams {\n  readonly size: number;\n  append(name: string, value: string): void;\n  delete(name: string, value?: string): void;\n  get(name: string): string | null;\n  getAll(name: string): string[];\n  has(name: string, value?: string): boolean;\n  set(name: string, value: string): void;\n  sort(): void;\n  toString(): string;\n  forEach(callbackfn: (value: string, key: string, parent: URLSearchParams) => void): void;\n  [Symbol.iterator](): IterableIterator<[string, string]>;\n  entries(): IterableIterator<[string, string]>;\n  keys(): IterableIterator<string>;\n  values(): IterableIterator<string>;\n}",
+        "doc": [
+          "A query's name and value pairs, in order, as `application/x-www-form-urlencoded` writes them."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "size",
+            "signature": "readonly size: number;",
+            "doc": ""
+          },
+          {
+            "name": "append",
+            "signature": "append(name: string, value: string): void;",
+            "doc": ""
+          },
+          {
+            "name": "delete",
+            "signature": "delete(name: string, value?: string): void;",
+            "doc": "Every pair of `name`, or of `name` and `value`."
+          },
+          {
+            "name": "get",
+            "signature": "get(name: string): string | null;",
+            "doc": ""
+          },
+          {
+            "name": "getAll",
+            "signature": "getAll(name: string): string[];",
+            "doc": ""
+          },
+          {
+            "name": "has",
+            "signature": "has(name: string, value?: string): boolean;",
+            "doc": ""
+          },
+          {
+            "name": "set",
+            "signature": "set(name: string, value: string): void;",
+            "doc": ""
+          },
+          {
+            "name": "sort",
+            "signature": "sort(): void;",
+            "doc": ""
+          },
+          {
+            "name": "toString",
+            "signature": "toString(): string;",
+            "doc": ""
+          },
+          {
+            "name": "forEach",
+            "signature": "forEach(callbackfn: (value: string, key: string, parent: URLSearchParams) => void): void;",
+            "doc": "In Lucent code, without `thisArg`."
+          },
+          {
+            "name": "[Symbol.iterator]",
+            "signature": "[Symbol.iterator](): IterableIterator<[string, string]>;",
+            "doc": ""
+          },
+          {
+            "name": "entries",
+            "signature": "entries(): IterableIterator<[string, string]>;",
+            "doc": ""
+          },
+          {
+            "name": "keys",
+            "signature": "keys(): IterableIterator<string>;",
+            "doc": ""
+          },
+          {
+            "name": "values",
+            "signature": "values(): IterableIterator<string>;",
+            "doc": ""
+          }
+        ],
+        "params": []
       }
     ]
   },

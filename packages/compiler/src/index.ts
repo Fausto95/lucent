@@ -397,6 +397,8 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
     if (result.ok) components.push({ target, components: result.components ?? [] });
     for (const [name, content] of result.files) out.files.set(`${target}/${name}`, content);
     for (const [name, proxy] of result.proxies) out.proxies.set(name, proxy);
+    // Ada is in the native package once any target's code makes a URL.
+    if (result.urls) out.urls = true;
     if (result.identity) {
       const identity = (out.identity ??= { ...result.identity, programs: {}, apis: {} });
 

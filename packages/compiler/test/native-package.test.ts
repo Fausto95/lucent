@@ -69,15 +69,27 @@ describe("native package", () => {
     );
   });
 
-  it("ships every runtime source file", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
-    const src = path.join(dir, "sample.lucent.ts");
-    fs.writeFileSync(src, "export function one(): number { return 1; }");
-    const out = path.join(dir, "native");
-    writeNativePackage(compile([src]), out);
-    for (const sub of ["cpp/lucent", "cpp/rn", "cpp/third_party"]) {
-      expect(files(path.join(out, sub)).sort()).toEqual(files(path.join(runtimeDir(), sub)).sort());
-    }
+  it("ships every runtime source file, the URL parser only to a program that makes a URL", () => {
+    const shipped = (code: string) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+      const src = path.join(dir, "sample.lucent.ts");
+      fs.writeFileSync(src, code);
+      const out = path.join(dir, "native");
+      writeNativePackage(compile([src]), out);
+      return (sub: string) => files(path.join(out, sub)).sort();
+    };
+    const runtime = (sub: string) => files(path.join(runtimeDir(), sub)).sort();
+    const url = (f: string) => /^(url|ada)\//.test(f.split(path.sep).join("/"));
+
+    const plain = shipped("export function one(): number { return 1; }");
+    for (const sub of ["cpp/lucent", "cpp/rn", "cpp/third_party"])
+      expect(plain(sub)).toEqual(runtime(sub).filter((f) => !url(f)));
+    expect(runtime("cpp/lucent").some(url)).toBe(true);
+    expect(runtime("cpp/third_party").some(url)).toBe(true);
+
+    const urls = shipped('export function host(): string { return new URL("https://a.b/").host; }');
+    for (const sub of ["cpp/lucent", "cpp/rn", "cpp/third_party"])
+      expect(urls(sub)).toEqual(runtime(sub));
   });
 
   it("maps the project's directory to . in both platforms' builds", () => {

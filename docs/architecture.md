@@ -373,7 +373,7 @@ through the app's `react-native.config.js`.
 
 | Path                                     | What it is                                                   |
 | ---------------------------------------- | ------------------------------------------------------------ |
-| `cpp/lucent/`, `cpp/third_party/`        | The runtime, Dragonbox and QuickJS's `libregexp`             |
+| `cpp/lucent/`, `cpp/third_party/`        | The runtime, Dragonbox, QuickJS's `libregexp` and Ada        |
 | `cpp/rn/`                                | The TurboModule and the view hosts                           |
 | `cpp/generated/`                         | The program (see [Generated files](#generated-files))        |
 | `LucentNative.podspec`, `ios/`           | The iOS pod and its registration                             |
@@ -509,7 +509,8 @@ and resolves each Lucent `.tsx` file's JSX runtime to its toolkit.
 ## The runtime
 
 `packages/runtime/cpp/lucent` is C++20 with no dependency beyond the
-standard library and the vendored Dragonbox and `libregexp`. Only
+standard library and the vendored Dragonbox, `libregexp` and Ada (the URL
+standard's parser, which only `url/url.cpp` includes). Only
 `lucent/jsi/` knows JSI. `lucent/platform/` is the Objective-C++ and JNI
 glue, and `cpp/rn/` the TurboModule and view hosts.
 
