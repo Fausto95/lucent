@@ -391,7 +391,7 @@ it refuses an argument Lucent can't honor, such as a locale.
 | `Array`       | `from` (an iterable or `{ length }`), `of`, `isArray`                                      |
 | arrays        | every method but `toLocaleString`; `unshift` takes one item                                |
 | `Map`         | every method; `Map.groupBy`                                                                |
-| `Set`         | every method but `entries`                                                                 |
+| `Set`         | every method but `entries`, ES2025's taking a `Set` or a `Map` as the other                |
 | `Object`      | `keys`, `values`, `entries` (records), `fromEntries`, `groupBy`                            |
 | typed arrays  | every `%TypedArray%` method but `toLocaleString`; `from` (no map function), `of`           |
 | `DataView`    | every getter and setter, both byte orders                                                  |

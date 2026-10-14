@@ -302,6 +302,158 @@ bool strictEquals(const Set<T>& a, const Set<T>& b) {
   return a.identity() == b.identity();
 }
 
+// --- ES2025's set methods ----------------------------------------------------------------
+// Each takes a set-like other (a Set, or a Map by its keys) and reads it as the
+// spec does: through its size, its keys and has, the smaller side iterated
+// where the result doesn't depend on which.
+
+namespace detail {
+template <class U>
+double likeSize(const Set<U>& s) {
+  return s.size();
+}
+template <class K, class V>
+double likeSize(const Map<K, V>& m) {
+  return m.size();
+}
+template <class U>
+Array<U> likeKeys(const Set<U>& s) {
+  return s.values();
+}
+template <class K, class V>
+Array<K> likeKeys(const Map<K, V>& m) {
+  return m.keys();
+}
+
+template <class V>
+struct IsVariant : std::false_type {};
+template <class... Ts>
+struct IsVariant<std::variant<Ts...>> : std::true_type {};
+
+/// Whether a set (or a map's keys) holds `v`, a value of another type than
+/// its elements perhaps: a union's member, or one of the union it holds.
+template <class S, class V, class Has>
+bool holds(const Has& has, const V& v) {
+  if constexpr (std::is_same_v<S, V>) return has(v);
+  else if constexpr (IsVariant<V>::value) return std::visit([&](const auto& x) { return holds<S>(has, x); }, v);
+  else if constexpr (std::is_constructible_v<S, const V&>) return has(S(v));
+  else return false;
+}
+template <class U, class V>
+bool likeHas(const Set<U>& s, const V& v) {
+  return holds<U>([&](const U& x) { return s.has(x); }, v);
+}
+template <class K, class W, class V>
+bool likeHas(const Map<K, W>& m, const V& v) {
+  return holds<K>([&](const K& x) { return m.has(x); }, v);
+}
+
+/// `v` as the result's element type, which TypeScript made hold it.
+template <class R, class V>
+R setElement(const V& v) {
+  if constexpr (std::is_same_v<R, V>) return v;
+  else if constexpr (std::is_constructible_v<R, const V&>) return R(v);
+  else if constexpr (IsVariant<V>::value) return std::visit([](const auto& x) { return setElement<R>(x); }, v);
+  else throwTypeError("a set's element its result's type doesn't hold");
+}
+template <class R, class V>
+void removeFrom(Set<R>& s, const V& v) {
+  holds<R>([&](const R& x) { return s.remove(x); }, v);
+}
+}  // namespace detail
+
+template <class R, class T, class O>
+Set<R> setUnion(const Set<T>& a, const O& other) {
+  // Locals: a range-for keeps its range alive, not the array the range is of.
+  const auto vals = a.values();
+  const auto keys = detail::likeKeys(other);
+  Set<R> out;
+  for (const auto& v : vals.items()) out.add(detail::setElement<R>(static_cast<T>(v)));
+  for (const auto& k : keys.items()) out.add(detail::setElement<R>(k));
+  return out;
+}
+
+template <class R, class T, class O>
+Set<R> setIntersection(const Set<T>& a, const O& other) {
+  // Locals: a range-for keeps its range alive, not the array the range is of.
+  const auto vals = a.values();
+  const auto keys = detail::likeKeys(other);
+  Set<R> out;
+  if (a.size() <= detail::likeSize(other)) {
+    for (const auto& v : vals.items())
+      if (detail::likeHas(other, static_cast<T>(v))) out.add(detail::setElement<R>(static_cast<T>(v)));
+  } else {
+    // The other's order, as JavaScript iterates the smaller side.
+    for (const auto& k : keys.items())
+      if (detail::likeHas(a, k)) out.add(detail::setElement<R>(k));
+  }
+  return out;
+}
+
+template <class T, class O>
+Set<T> setDifference(const Set<T>& a, const O& other) {
+  // Locals: a range-for keeps its range alive, not the array the range is of.
+  const auto vals = a.values();
+  const auto keys = detail::likeKeys(other);
+  Set<T> out(a.values());
+  if (a.size() <= detail::likeSize(other)) {
+    for (const auto& v : vals.items())
+      if (detail::likeHas(other, static_cast<T>(v))) out.remove(static_cast<T>(v));
+  } else {
+    for (const auto& k : keys.items()) detail::removeFrom(out, k);
+  }
+  return out;
+}
+
+template <class R, class T, class O>
+Set<R> setSymmetricDifference(const Set<T>& a, const O& other) {
+  // Locals: a range-for keeps its range alive, not the array the range is of.
+  const auto vals = a.values();
+  const auto keys = detail::likeKeys(other);
+  Set<R> out;
+  for (const auto& v : vals.items()) out.add(detail::setElement<R>(static_cast<T>(v)));
+  for (const auto& k : keys.items()) {
+    if (detail::likeHas(a, k)) detail::removeFrom(out, k);
+    else out.add(detail::setElement<R>(k));
+  }
+  return out;
+}
+
+template <class T, class O>
+bool setIsSubsetOf(const Set<T>& a, const O& other) {
+  // Locals: a range-for keeps its range alive, not the array the range is of.
+  const auto vals = a.values();
+  if (a.size() > detail::likeSize(other)) return false;
+  for (const auto& v : vals.items())
+    if (!detail::likeHas(other, static_cast<T>(v))) return false;
+  return true;
+}
+
+template <class T, class O>
+bool setIsSupersetOf(const Set<T>& a, const O& other) {
+  // Locals: a range-for keeps its range alive, not the array the range is of.
+  const auto keys = detail::likeKeys(other);
+  if (a.size() < detail::likeSize(other)) return false;
+  for (const auto& k : keys.items())
+    if (!detail::likeHas(a, k)) return false;
+  return true;
+}
+
+template <class T, class O>
+bool setIsDisjointFrom(const Set<T>& a, const O& other) {
+  // Locals: a range-for keeps its range alive, not the array the range is of.
+  const auto vals = a.values();
+  const auto keys = detail::likeKeys(other);
+  if (a.size() <= detail::likeSize(other)) {
+    for (const auto& v : vals.items())
+      if (detail::likeHas(other, static_cast<T>(v))) return false;
+  } else {
+    for (const auto& k : keys.items())
+      if (detail::likeHas(a, k)) return false;
+  }
+  return true;
+}
+
 template <class T>
 struct IsMap : std::false_type {};
 template <class K, class V>

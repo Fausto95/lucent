@@ -57,19 +57,19 @@ void install_m_array_u2d_flat(jsi::Runtime& rt, Host& host, jsi::Object& exports
   });
   defineFunction(rt, exports, "flatNewArray", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("flatNewArray", "packages/compiler/test/e2e/cases/array-flat.lucent.ts", 23), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("flatNewArray", "packages/compiler/test/e2e/cases/array-flat.lucent.ts", 26), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_array_u2d_flat::flatNewArray());
     });
   });
   defineFunction(rt, exports, "copyWithin", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("copyWithin", "packages/compiler/test/e2e/cases/array-flat.lucent.ts", 31), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("copyWithin", "packages/compiler/test/e2e/cases/array-flat.lucent.ts", 34), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_array_u2d_flat::copyWithin());
     });
   });
   defineFunction(rt, exports, "flatDepth", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("flatDepth", "packages/compiler/test/e2e/cases/array-flat.lucent.ts", 41), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("flatDepth", "packages/compiler/test/e2e/cases/array-flat.lucent.ts", 44), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"flatDepth", "argument 'depth'"});
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_array_u2d_flat::flatDepth(std::move(a0)));
     });
