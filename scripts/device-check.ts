@@ -846,12 +846,16 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
   const react = appLines(log, 400, 240, target).filter(
     (l) =>
       /\s[WEF] [^\s:]+\s*:/.test(l) &&
+      // A stack trace's frames: the message above them says what happened.
+      !/:\s+(at |\.\.\. \d+ more)/.test(l) &&
       !/\s[WEF] (ReactNativeJS|unknown:ReconnectingWebSocket|Lucent)\s*:/.test(l) &&
       !/\s(MediaSessionService|AudioMediaPlayerWrapper|ActivityManager|ActivityTaskManager)\s*:/.test(
         l,
       ),
   );
-  report(diagnose(facts), { app, metro, sizing, react, lucent });
+  // Each message once, where it last appeared.
+  const messages = new Map(react.map((l) => [l.replace(/^.*?\s[WEF]\s/, ""), l]));
+  report(diagnose(facts), { app, metro, sizing, react: [...messages.values()], lucent });
   return false;
 }
 
