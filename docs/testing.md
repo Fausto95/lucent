@@ -334,7 +334,8 @@ a push registration answers, and on Android a back press and a rotation
 reach the module. Last, the Media screen starts a foreground
 `MediaSessionService` written in Lucent (`lucent-media`), has Android make
 the Activity again, and checks that the service plays on with the new
-Activity.
+Activity. An app may show the screen of the link that launched it in the
+new Activity: `device-check.ts` then opens the Media screen again, once.
 
 The bare example's Debug build loads its bundle from Metro: start Metro
 on port 8081 first. The Expo example (`--example expo`) is built as an
