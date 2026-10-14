@@ -16,6 +16,7 @@ import {
   pickSimulator,
   pushFetches,
   pushHeard,
+  downloadLines,
   screenText,
 } from "./device-check.ts";
 
@@ -127,6 +128,22 @@ describe("pushFetches", () => {
       "LUCENT_PUSH fetched 1 in this process",
     ]);
     expect(pushFetches("LUCENT_PROGRESS platform 1/19 ok")).toEqual([]);
+  });
+});
+
+describe("downloadLines", () => {
+  it("lists what the background session's launch module logged, in order", () => {
+    const log = [
+      "BareExample[1:2] [Lucent] LUCENT_DOWNLOAD relaunched for dev.lucent.example.downloads",
+      "BareExample[1:2] [Lucent] something else",
+      "BareExample[1:2] [Lucent] LUCENT_DOWNLOAD finished CFNetworkDownload_1.tmp",
+      "BareExample[1:2] [Lucent] LUCENT_DOWNLOAD events delivered: 1 finished, 0 failed",
+    ].join("\n");
+    expect(downloadLines(log)).toEqual([
+      "LUCENT_DOWNLOAD relaunched for dev.lucent.example.downloads",
+      "LUCENT_DOWNLOAD finished CFNetworkDownload_1.tmp",
+      "LUCENT_DOWNLOAD events delivered: 1 finished, 0 failed",
+    ]);
   });
 });
 
@@ -426,6 +443,7 @@ describe("parseTarget", () => {
       ],
       metro: true,
       push: true,
+      download: true,
     });
     expect(parseTarget(["android", "--apk", "app-debug.apk"])).toMatchObject({
       id: "com.bareexample",
@@ -437,6 +455,7 @@ describe("parseTarget", () => {
       ],
       metro: true,
       push: false,
+      download: false,
     });
   });
 
@@ -456,6 +475,7 @@ describe("parseTarget", () => {
       ],
       metro: false,
       push: true,
+      download: true,
     });
     expect(parseTarget(["android", "--apk", "app-release.apk", "--example", "expo"])).toMatchObject(
       {
@@ -497,6 +517,7 @@ describe("parseTarget", () => {
       screens: [{ id: "tests", launchArgs: [] }],
       metro: false,
       push: false,
+      download: false,
     });
     expect(parseTarget(["ios", "--app", "build/LucentWindow.app", "--id", "x.y"]).process).toBe(
       "LucentWindow",

@@ -417,6 +417,12 @@ of `didReceiveRemoteNotification`, with no `userInfo` (FB7625283), so what
 the run sees there is the module's `backgroundFetch` handler, logging
 `LUCENT_PUSH fetched`, in the process iOS started for the push.
 
+The Platform screen also starts a download in a background URL session,
+which `scripts/held-download.ts` holds open. Last, the run ends the app and
+lets the download finish. iOS starts the app for the session's events, and
+the launch module that makes the session again logs `LUCENT_DOWNLOAD events
+delivered`.
+
 Each screen opens in an app started for it, on Android as on iOS. A deep
 link that navigated the running app (React Native 0.88's bare Debug build)
 made it lose views it had mounted: they stopped taking updates ("Unable to
