@@ -31,7 +31,7 @@ what became of each one that is still linked or was still open.
 | [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | done (2026-10-13)                                       |
 | [T104](#t104)            | Timers and `queueMicrotask`                                | done (2026-10-13)                                       |
 | [T105](#t105)            | Web APIs that shared code uses                             | ready                                                   |
-| [T106](#t106)            | Language gaps module code meets                            | in progress (#278, #279)                                |
+| [T106](#t106)            | Language gaps module code meets                            | in progress (#278–#280)                                 |
 | [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                       |
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | done (2026-10-13)                                       |
 | [T109](#t109)            | Executors for platform callbacks                           | done (2026-10-13)                                       |
@@ -322,7 +322,8 @@ code uses `utf8Encode` from `lucent:core` or the platform's own APIs.
 
 **Goal:** Lift the refusals that ordinary module code meets most.
 
-- **Status:** in progress: object rest (#278), spread from tuples (#279).
+- **Status:** in progress: object rest (#278), spread from tuples (#279),
+  an error's cause (#280).
 - **Area:** compiler, runtime.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3.
@@ -334,8 +335,8 @@ code uses `utf8Encode` from `lucent:core` or the platform's own APIs.
       parameters, array literals and built-ins (#279). Spreading arrays
       into rest parameters worked already; TypeScript spreads nothing else
       into fixed parameters.
-- [ ] `new Error(message, { cause })` and an error's `cause`, which crosses
-      to JavaScript.
+- [x] `new Error(message, { cause })` and an error's `cause`, which crosses
+      to JavaScript and back: an `Error`, as a caught value is (#280).
 - [ ] `JSON.stringify` with a replacer and an indent.
 - [ ] `Array.prototype.flat` and `copyWithin`.
 - [ ] The ES2025 `Set` methods (`union`, `intersection`, `difference`,

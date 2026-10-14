@@ -271,6 +271,9 @@ export function property(em: FnEmitter, obj: E, name: string, node: ts.Node): E 
         return { c: cpp.call("lucent::aggregateErrors", [o]), t: { k: "array", e: T.error } };
       if (name === "stack")
         return { c: cpp.arrow(o, "stack"), t: unionOf([T.string, T.undefined]) };
+      // Its declaration types it unknown: an Error here, the only cause Lucent makes or keeps.
+      if (name === "cause")
+        return { c: cpp.call("lucent::causeOf", [o]), t: unionOf([T.error, T.undefined]) };
       break;
   }
   fail(node, Codes.UnsupportedBuiltin, `.${name} is not supported on ${typeKey(t)}`);
@@ -312,6 +315,11 @@ export function classMember(
 ): E {
   const info = em.reg.cls(t0.id);
   if (info.isError && (name === "message" || name === "name")) return str(cpp.arrow(obj.c, name));
+  if (info.isError && name === "cause" && !classMemberDecl(em, t0, name))
+    return {
+      c: cpp.call("lucent::causeOf", [cpp.call("lucent::Error", [obj.c])]),
+      t: unionOf([T.error, T.undefined]),
+    };
   const found = classMemberDecl(em, t0, name);
   // A member it inherits from the iOS class it extends: its native object's.
   if (!found && info.sdkBase?.platform === "ios")
@@ -3019,14 +3027,12 @@ export function newBuiltin(
     }
     case "error": {
       if (!isErrorName(name) || !isLibGlobal(em, callee, name)) break;
-      refuseCause(em, a[1]);
-      return {
-        c: withSite(
-          cpp.call("lucent::makeError", [stringExpr(name), errorMessage(em, a[0])]),
-          node,
-        ),
-        t,
-      };
+      const made = withSite(
+        cpp.call("lucent::makeError", [stringExpr(name), errorMessage(em, a[0])]),
+        node,
+      );
+      const cause = causeOf(em, a[1]);
+      return { c: cause ? cpp.call("lucent::withCause", [made, cause]) : made, t };
     }
   }
   fail(node, Codes.UnsupportedBuiltin, `new ${name || callee.getText()}() is not supported`);
@@ -3038,17 +3044,48 @@ function errorMessage(em: FnEmitter, message: ts.Expression | undefined): cpp.Ex
 }
 
 /**
- * Refuses an Error constructor's options, which carry the cause, unless
- * they are undefined (no cause): a name, which has nothing to evaluate.
+ * The cause an Error constructor's options give (`{ cause: e }`), as a
+ * `lucent::Error`, empty when undefined; undefined when there are no
+ * options, or they name no cause. A cause is an Error, as what a `catch`
+ * binds is: another value is refused.
  */
-export function refuseCause(em: FnEmitter, options: ts.Expression | undefined): void {
-  if (!options || (ts.isIdentifier(options) && isVoidish(em.lt(options)))) return;
+export function causeOf(em: FnEmitter, options: ts.Expression | undefined): cpp.Expr | undefined {
+  if (!options || (ts.isIdentifier(options) && isVoidish(em.lt(options)))) return undefined;
 
-  fail(
-    options,
-    Codes.UnsupportedBuiltin,
-    "an error's cause (new Error(message, { cause })) is not supported: Lucent errors carry a name, a message and a code; put what the cause says in the message, or keep it in a field of an Error class",
-  );
+  if (!ts.isObjectLiteralExpression(options))
+    fail(
+      options,
+      Codes.UnsupportedBuiltin,
+      "an Error's options are written in the call: new Error(message, { cause })",
+    );
+
+  let cause: ts.Expression | undefined;
+  for (const p of options.properties) {
+    if (
+      ts.isPropertyAssignment(p) &&
+      (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) &&
+      p.name.text === "cause"
+    )
+      cause = p.initializer;
+    else if (ts.isShorthandPropertyAssignment(p) && p.name.text === "cause") cause = p.name;
+    else fail(p, Codes.UnsupportedBuiltin, "an Error's options carry its cause, and nothing else");
+  }
+  if (!cause) return undefined;
+
+  const v = em.expr(cause);
+  const t = stripOpt(v.t);
+  const isError = t.k === "error" || (t.k === "class" && em.reg.cls(t.id).isError);
+
+  if (!isError)
+    fail(
+      cause,
+      Codes.UnsupportedBuiltin,
+      `an Error's cause is an Error, not ${em.checker.typeToString(em.checker.getTypeAtLocation(cause))}: put what it says in the message, or keep it in a field of an Error class`,
+    );
+
+  return v.t.k === "opt"
+    ? cpp.call("lucent::causeOrNone", [em.coerce(v, unionOf([T.error, T.undefined]), cause)])
+    : em.coerce(v, T.error, cause);
 }
 
 // --- instanceof / super ----------------------------------------------------------------------
@@ -3205,10 +3242,14 @@ export function superCall(em: FnEmitter, node: ts.CallExpression): E {
   }
   if (!cls || !cls.isError)
     fail(node, Codes.UnsupportedClassFeature, "`super(...)` is only supported in subclasses");
-  refuseCause(em, node.arguments[1]);
   const msg = errorMessage(em, node.arguments[0]);
+  const cause = causeOf(em, node.arguments[1]);
+  const set = cpp.assign(cpp.arrow(cpp.self, "message"), msg);
   return {
-    c: cpp.comma(cpp.assign(cpp.arrow(cpp.self, "message"), msg), cpp.id("lucent::undefined")),
+    c: cpp.comma(
+      cause ? cpp.comma(set, cpp.assign(cpp.arrow(cpp.self, "cause"), cause)) : set,
+      cpp.id("lucent::undefined"),
+    ),
     t: T.undefined,
   };
 }

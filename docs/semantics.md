@@ -264,7 +264,11 @@ reads. A caught value is `unknown`: narrow it with `instanceof` or
 
 In Lucent code `e.stack` is `undefined` unless the error came from
 JavaScript: native code records the site that made an error, not a stack.
-`new Error(message, { cause })` is `LUCENT1003` ([T106](tasks.md#t106)).
+`new Error(message, { cause })` keeps a cause that is an `Error`, which
+`e.cause` reads (narrow it with `instanceof Error` or `as Error`), and
+JavaScript gets with the error. Another cause is `LUCENT1003`, and so are
+options held in a variable or typed `ErrorOptions`: write them in the call.
+An error from JavaScript keeps its cause when that is an `Error`.
 `Promise.any` rejects with an `AggregateError`, which `instanceof` tells
 apart. TypeScript types its `errors` as `any[]`: Lucent reads them as
 `Error[]` (`e.errors as Error[]`), and `new AggregateError` is
@@ -996,7 +1000,7 @@ both, in the same commit.
 | JavaScript                                                                                         | Lucent                                                                                                | Why                                                          |
 | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `error.stack` is a string                                                                          | `undefined` in Lucent unless from JavaScript                                                          | native code records a site, not a stack                      |
-| `new Error(m, { cause })` keeps the cause                                                          | refused (`LUCENT1003`, [T106](tasks.md#t106))                                                         | an error is a name, a message and a code                     |
+| `new Error(m, { cause })` keeps any cause                                                          | an `Error` only; another is refused (`LUCENT1003`), or left out when JavaScript's error crosses       | an error's cause is an error, as a caught value is           |
 | `abort()`'s message depends on the engine                                                          | `AbortError: signal is aborted without reason`                                                        | one message on both platforms                                |
 | `Promise.any`'s `AggregateError` message depends on the engine                                     | `All promises were rejected`                                                                          | one message on both platforms                                |
 | an abort reason can be any value                                                                   | an `Error`; JavaScript's become errors                                                                | Lucent's errors are `Error` objects                          |

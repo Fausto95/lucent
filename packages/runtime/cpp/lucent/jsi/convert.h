@@ -601,6 +601,10 @@ struct Convert<NativeHandle> {
 
 // --- errors ------------------------------------------------------------------------------
 
+/// The cause of the JavaScript error `error`, as a Lucent Error, its causes
+/// too, so far down: empty when it has none, or one that isn't an Error.
+Error causeFromJs(jsi::Runtime& rt, const jsi::Object& error);
+
 template <>
 struct Convert<Error> {
   static Error fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);

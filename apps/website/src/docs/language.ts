@@ -637,16 +637,16 @@ export const differences: { title: string; rows: Difference[] }[] = [
         cases: ["errors"],
       },
       {
-        js: "`new Error(message, { cause })` keeps the cause.",
+        js: "`new Error(message, { cause })` keeps any value as the cause.",
         lucent:
-          "Refused ([LUCENT1003](/docs/api/diagnostics/#lucent1003)): put what the cause says in the message, or in a field of an error class.",
-        why: "A Lucent error carries a name, a message and a code.",
-        cases: ["errors"],
+          "Keeps a cause that is an `Error`, and JavaScript gets it with the error. Another is refused ([LUCENT1003](/docs/api/diagnostics/#lucent1003)), and left out when JavaScript's error crosses to Lucent.",
+        why: "A Lucent error's cause is an error, as a caught value is.",
+        cases: ["errors", "error-cause"],
         refused: [
           {
             code: "LUCENT1003",
             sample:
-              'export function wrap(): Error {\n  return new Error("failed", { cause: new Error("inner") });\n}',
+              'export function wrap(): Error {\n  return new Error("failed", { cause: "the disk is full" });\n}',
           },
         ],
       },

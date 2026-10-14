@@ -2436,7 +2436,6 @@ export class FnEmitter {
       const ownCtor = this.reg
         .chain(t)
         .some((c) => c.info.members.some(ts.isConstructorDeclaration));
-      if (!ownCtor && this.reg.cls(t.id).isError) builtins.refuseCause(this, node.arguments?.[1]);
       const rest =
         params.length && params[params.length - 1]!.rest
           ? paramTypes[paramTypes.length - 1]
@@ -2447,7 +2446,13 @@ export class FnEmitter {
         node,
         rest,
       );
-      return { c: cpp.call(cpp.scoped(this.reg.cppClassType(t), "create"), args), t };
+      // After the message, as the source has it.
+      const cause =
+        !ownCtor && this.reg.cls(t.id).isError
+          ? builtins.causeOf(this, node.arguments?.[1])
+          : undefined;
+      const made = cpp.call(cpp.scoped(this.reg.cppClassType(t), "create"), args);
+      return { c: cause ? cpp.call("lucent::withCause", [made, cause]) : made, t };
     }
     return builtins.newBuiltin(this, node, callee, t);
   }
