@@ -436,8 +436,10 @@ unions that JSON kinds or a string-literal discriminant tell apart. A
 mismatch throws `TypeError` naming the path (`expected a number at
 .items[2].price, got a string`); revivers and class targets are refused.
 
-`JSON.stringify` takes no replacer or indent ([T106](tasks.md#t106)), and
-throws `TypeError` on a bigint. A class instance writes every field
+`JSON.stringify` takes a space and a replacer that lists keys (strings
+or numbers), as JavaScript does: only those keys, in the list's order, in
+every object. A replacer function is `LUCENT1003`, since it sees each value
+as `any`. It throws `TypeError` on a bigint. A class instance writes every field
 JavaScript creates on it, `private` ones too, base fields first, never `#`
 fields, statics or accessors. A `toJSON()` method's value replaces the
 fields; one with parameters, or `async`, is `LUCENT1005`.
