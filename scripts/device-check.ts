@@ -574,6 +574,8 @@ function android(target: Target): Device {
   return {
     install: () => {
       sh("adb", ["install", "-r", target.artifact]);
+      // Components' sizing logs its steps (LUCENT_SIZING), which a failed run's annotation carries.
+      sh("adb", ["shell", "setprop", "debug.lucent.sizing", "1"], true);
       sh("adb", ["logcat", "-b", "all", "-c"], true);
     },
     open: (screen) => {
@@ -655,7 +657,10 @@ function metroTail(): string[] {
 }
 
 /** Prints and keeps the summary: last in the output, in the step summary, as an annotation. */
-function report(summary: string[], details: { app: string[]; metro: string[] }): void {
+function report(
+  summary: string[],
+  details: { app: string[]; metro: string[]; sizing?: string[] },
+): void {
   fs.mkdirSync(outDir(), { recursive: true });
   fs.writeFileSync(path.join(outDir(), "summary.txt"), `${summary.join("\n")}\n`);
   const step = process.env.GITHUB_STEP_SUMMARY;
@@ -677,7 +682,13 @@ function report(summary: string[], details: { app: string[]; metro: string[] }):
   if (process.env.GITHUB_ACTIONS) {
     // The annotation is what a reader without the job's log sees: the app's last lines too.
     const tail = details.app.slice(-12);
-    const lines = tail.length ? [...summary, "The app's last lines:", ...tail] : summary;
+    const sizing = details.sizing?.slice(-12) ?? [];
+    // Sizing first: the annotation is cut at 3500 characters, and the app's lines are long.
+    const lines = [
+      ...summary,
+      ...(sizing.length ? ["Sizing, last:", ...sizing] : []),
+      ...(tail.length ? ["The app's last lines:", ...tail] : []),
+    ];
     const text = lines.join("\n").slice(0, 3500);
     const escaped = text.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
     console.log(`::error title=Device run failed::${escaped}`);
@@ -792,7 +803,12 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
   console.log(`--- The app's own lines in the device log (the last ${app.length}):`);
   console.log(app.join("\n"));
   if (metro.length) console.log(`--- The end of Metro's log:\n${metro.join("\n")}`);
-  report(diagnose(facts), { app, metro });
+  const sizing = device
+    .lucent()
+    .split("\n")
+    .filter((l) => l.includes("LUCENT_SIZING"))
+    .map((l) => l.slice(l.indexOf("LUCENT_SIZING")));
+  report(diagnose(facts), { app, metro, sizing });
   return false;
 }
 
