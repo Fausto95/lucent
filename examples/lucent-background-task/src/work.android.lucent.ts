@@ -37,8 +37,7 @@ export class Refresh extends Worker {
 
 export function scheduleWork(): string {
   // The class itself, where WorkManager takes a Class<? extends ListenableWorker>.
-  // A Java field: nullable to TypeScript, though an enum constant never is.
-  const request = new PeriodicWorkRequest_Builder(Refresh, 15, TimeUnit.MINUTES!).build();
+  const request = new PeriodicWorkRequest_Builder(Refresh, 15, TimeUnit.MINUTES).build();
   WorkManager.getInstance(appContext()).enqueueUniquePeriodicWork(
     NAME,
     ExistingPeriodicWorkPolicy.KEEP,
