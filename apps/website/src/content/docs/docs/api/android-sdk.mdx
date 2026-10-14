@@ -164,7 +164,8 @@ A Lucent class can extend a Java class, abstract or not, that has a constructor 
 
 - Lucent generates a Java subclass. The methods the Lucent class defines override the base's, and the others keep the SDK's code.
 - An instance goes wherever the base is taken.
-- An override that returns nothing is queued on its package's thread. One that returns a value runs while Java waits, holding the lock, as an interface method does.
+- An override runs while Java waits, holding the lock, whatever it returns: what calls it finds it done. `super.onCreate(saved)` calls the base's own, and `this` reaches the base's other members.
+- An exported class is one the OS can make by its name, such as a `BroadcastReceiver` a manifest declares or a `Fragment` a `FragmentManager` restores. Its constructor takes a base constructor's parameters and passes them to `super(…)` unchanged.
 
 [Subclass an SDK class](/docs/guides/subclass-an-sdk-class/) shows a whole subclass.
 

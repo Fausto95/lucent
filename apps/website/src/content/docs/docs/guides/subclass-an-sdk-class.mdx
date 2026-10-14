@@ -122,8 +122,8 @@ A Lucent class can extend an Objective-C or a Java class. Lucent generates a sub
 
 ## On Android
 
-- The base needs a public constructor without arguments, and yours calls `super()` with none. So `View`, which takes a `Context`, can't be extended.
+- The base needs a public constructor without arguments, and yours calls `super()` with none. So `View`, which takes a `Context`, can't be extended, except by an exported class the OS makes.
 - An abstract method you leave out throws `AbstractMethodError` when Java calls it.
-- The subclass only overrides: calling the base's own methods, through `super` or `this`, fails with `LUCENT1005`.
+- A method named like one of the base's overrides it, and runs while Java waits. `super.onCreate(saved)` calls the base's own, as a `Fragment` requires.
 
 [iOS SDK bindings](/docs/api/ios-sdk/#subclasses) and [Android SDK bindings](/docs/api/android-sdk/#subclasses) give the full rules. [Present a view controller](/docs/guides/present-a-view-controller/) shows what `present()` does with the screen.

@@ -1649,6 +1649,7 @@ function proxyEntry(
   capture: cpp.Capture,
   call: (args: cpp.Expr[]) => cpp.Expr,
   executor?: cpp.Expr,
+  override = false,
 ): cpp.Expr {
   const params = m.params.map((p) => parseSdkType(p.type, module, m.typeParams ?? []));
   const n = Math.min(fn.params.length, params.length);
@@ -1693,10 +1694,12 @@ function proxyEntry(
     params: params.slice(0, n),
     unboxed: params.slice(0, n).map((p, i) => unboxedSlot(p, slots.params[i])),
     box,
-    // On an executor, one that answers nothing runs at once there, else in a turn of it (enterOrPost).
+    // On an executor, one that answers nothing runs at once there, else in a turn of it
+    // (enterOrPost). An override runs while the caller waits, as iOS's do.
     queued:
-      plan.delivery === "queued" ||
+      (plan.delivery === "queued" && !override) ||
       (!!executor && !suspend && ret.k === "prim" && ret.name === "void"),
+    void: !suspend && ret.k === "prim" && ret.name === "void",
     // A suspend function's continuation comes after what it declares.
     ...(suspend ? { continuation: params.length } : {}),
     what,
@@ -1744,6 +1747,8 @@ function proxyMethod(
     unboxed?: ({ native: string; underlying: string } | undefined)[];
     box: (result: cpp.Expr) => cpp.Expr;
     queued: boolean;
+    /** Whether it answers nothing: run now (an override), it returns null. */
+    void?: boolean;
     /** A suspend function's: the index of its continuation among the arguments. */
     continuation?: number;
     what: string;
@@ -1812,19 +1817,27 @@ function proxyMethod(
             ),
             cpp.ret(cpp.nullptr),
           ]
-        : [
-            ...convert,
-            cpp.ret(
-              entry.now(
-                cpp.lambda(
-                  ["&"],
-                  [],
-                  [cpp.varDecl(cpp.auto, "r_", made), cpp.ret(m.box(cpp.id("r_")))],
-                  { ret: jobject },
+        : m.void
+          ? [
+              ...convert,
+              cpp.exprStmt(
+                entry.now(cpp.lambda(["&"], [], [cpp.exprStmt(cpp.cast("c", cpp.voidType, made))])),
+              ),
+              cpp.ret(cpp.nullptr),
+            ]
+          : [
+              ...convert,
+              cpp.ret(
+                entry.now(
+                  cpp.lambda(
+                    ["&"],
+                    [],
+                    [cpp.varDecl(cpp.auto, "r_", made), cpp.ret(m.box(cpp.id("r_")))],
+                    { ret: jobject },
+                  ),
                 ),
               ),
-            ),
-          ];
+            ];
   const method = cpp.lambda(
     [m.capture, ...(m.executor ? ["x_"] : [])],
     [
@@ -2135,6 +2148,7 @@ function implementedEntries(
   info: ClassInfo,
   methods: { module: string; owner: string; method: SdkMethodSchema }[],
   executor?: cpp.Expr,
+  overrides = false,
 ): cpp.Expr[] {
   const entries: cpp.Expr[] = [];
   const self = cpp.id("s_");
@@ -2162,6 +2176,7 @@ function implementedEntries(
         { name: "s_", init: cpp.id("o_") },
         (a) => cpp.call(cpp.arrow(self, cppIdent(method.name)), a),
         executor,
+        overrides,
       ),
     );
   }
@@ -2172,7 +2187,9 @@ function implementedEntries(
 /**
  * An instance of a Lucent class extending an SDK class: its generated Java
  * subclass (one per instance while Java holds it), whose overrides call the
- * methods the Lucent class defines.
+ * methods the Lucent class defines, each while the caller waits: what
+ * calls an override expects it done when it returns (a Fragment's
+ * onCreate, which must call super.onCreate before).
  */
 export function javaSubclassOf(em: FnEmitter, e: E, info: ClassInfo): cpp.Expr {
   const entries = implementedEntries(
@@ -2183,6 +2200,8 @@ export function javaSubclassOf(em: FnEmitter, e: E, info: ClassInfo): cpp.Expr {
       owner: cls.name,
       method,
     })),
+    undefined,
+    true,
   );
   const o = cpp.id("o_");
   return cpp.statementExpr(
@@ -3338,15 +3357,17 @@ function property(
 }
 
 /**
- * A method call on an SDK object (`obj` set) or class. `superOf`: the
- * generated Objective-C subclass whose `super` implementation to call
- * (`super.viewDidLoad()` in a Lucent class overriding it).
+ * A method call on an SDK object (`obj` set) or class. `superOf`, for
+ * `super.viewDidLoad()` in a Lucent class overriding it: on iOS the
+ * generated Objective-C subclass whose `super` implementation to call; on
+ * Android the Lucent class, whose SDK base's implementation is called
+ * without dispatch to the override.
  */
 export function nativeCall(
   em: FnEmitter,
   node: ts.CallExpression,
   obj: E | undefined,
-  superOf?: string,
+  superOf?: string | ClassInfo,
 ): E | undefined {
   const decl = em.checker.getResolvedSignature(node)?.declaration;
   if (!decl || !ts.isMethodDeclaration(decl)) return undefined;
@@ -3378,8 +3399,16 @@ export function nativeCall(
   noteIncludes(em, ref);
   if (promise) return iosPromiseCall(em, node, ref, method, obj, plan);
   return ref.platform === "ios"
-    ? iosCall(em, node, ref, method, obj, plan, superOf)
-    : androidCall(em, node, ref, method, obj, plan);
+    ? iosCall(em, node, ref, method, obj, plan, typeof superOf === "string" ? superOf : undefined)
+    : androidCall(
+        em,
+        node,
+        ref,
+        method,
+        obj,
+        plan,
+        typeof superOf === "object" ? superOf : undefined,
+      );
 }
 
 /**
@@ -3834,6 +3863,12 @@ function accessorOf(
   return cls.methods?.find((m) => (m.java ?? m.name) === name && m.params.length === arity);
 }
 
+/**
+ * A call of an Android method: virtual, or with `superOf` (`super.onCreate(…)`
+ * in a Lucent class extending an Android class) the implementation its SDK
+ * base has, through JNI's nonvirtual call on that base, as Java's `super`
+ * call is: the override, which calls back into the Lucent class, is skipped.
+ */
 function androidCall(
   em: FnEmitter,
   node: ts.CallExpression,
@@ -3841,6 +3876,7 @@ function androidCall(
   m: SdkMethodSchema,
   obj: E | undefined,
   plan: BindingPlan,
+  superOf?: ClassInfo,
 ): E {
   const tps = m.typeParams ?? [];
   notePermissions(em, m);
@@ -3848,6 +3884,11 @@ function androidCall(
 
   const what = `${ref.cls.name}.${m.name}()`;
   const given = givenParams(em, what, m.params, argsOf(node));
+  // The base whose implementation `super` calls: the class the Lucent class extends, where the
+  // method is looked up as Java resolves it, the nearest implementation at or above it.
+  const base = superOf && androidSuperBase(node, superOf, what);
+  if (base && throughKotlin(plan, given))
+    fail(node, Codes.UnsupportedCall, `super.${m.name}() can't be called through Kotlin: ${what}`);
   if (throughKotlin(plan, given)) {
     const ret = parseSdkType(m.returns, ref.module, tps);
     return kotlinCall(em, { node, ref, member: m, role: "call", obj, given, returns: ret, what });
@@ -3868,16 +3909,28 @@ function androidCall(
   const recv = obj ? jni("unwrap", cpp.id("recv_")) : cpp.id("cls_");
   return jniCall(em, {
     node,
-    cls: ref.cls,
+    cls: base ?? ref.cls,
     lookup: obj ? "method" : "staticMethod",
     name: m.java ?? m.name,
     desc,
-    access: (id) => envCall(`Call${obj ? "" : "Static"}${kind}Method`, recv, id, ...a),
+    access: (id) =>
+      base
+        ? envCall(`CallNonvirtual${kind}Method`, recv, cpp.id("cls_"), id, ...a)
+        : envCall(`Call${obj ? "" : "Static"}${kind}Method`, recv, id, ...a),
     ret,
     lt: declaredLt(em, "android", ret, node),
     what: `${ref.cls.name}.${m.name}()`,
     pre: obj ? [cpp.varDecl(cpp.auto, "recv_", obj.c)] : [],
   });
+}
+
+/** The SDK class a Lucent class extending an Android class extends: where its `super` calls go. */
+function androidSuperBase(node: ts.Node, info: ClassInfo, what: string): SdkClassSchema {
+  const base = info.sdkBase;
+  const cls = base && findSdkType("android", base.module, base.name);
+  if (cls?.kind !== "class")
+    fail(node, Codes.UnsupportedCall, `super calls need the Android class it extends: ${what}`);
+  return cls;
 }
 
 /** The type the called declaration gives an argument: what the runtime takes. */

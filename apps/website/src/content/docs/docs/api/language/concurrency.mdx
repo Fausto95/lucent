@@ -46,7 +46,7 @@ Without the `await delay(0)`, a call to `progress()` from JavaScript would wait 
 | The function passed to `main(f)` | The main thread, once its package is free | Yes |
 | An SDK callback the platform waits for: it returns a value, fills an out-parameter, throws in Swift, or runs during the SDK call | The thread the platform calls it on (on the main thread, it waits only for the code holding its package then) | Yes |
 | An iOS block or requirement Swift runs on the main thread, such as a UIKit delegate's method, even one returning `void`. An `async` requirement is posted instead: see [Blocks](/docs/api/ios-sdk/#blocks-and-completion-handlers) and [Protocols](/docs/api/ios-sdk/#protocols). | The main thread, at once | Yes |
-| An iOS override, in a Lucent class that extends an SDK class | The thread the platform calls it on | Yes |
+| An override, in a Lucent class that extends an SDK class, on either platform | The thread the platform calls it on, while it waits | Yes |
 | A listener of `onAppEvent` or `onSceneEvent` from `lucent:ios` | The main thread, once its package is free | Yes |
 | Any other SDK callback, such as a listener, an Android method returning `void`, or another delegate method | Posted to its package's thread | Yes |
 | A handler of `onActivityEvent` from `lucent:android` | Posted to the context that subscribed: its package's thread, for module code | Yes |

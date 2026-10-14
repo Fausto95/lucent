@@ -452,17 +452,18 @@ it names.
 
 ### Call directions
 
-| Call                               | Where it runs                                                         | Values                            |
-| ---------------------------------- | --------------------------------------------------------------------- | --------------------------------- |
-| JavaScript → synchronous export    | JS thread, holding the actor's lock                                   | Validated; copied or lent         |
-| JavaScript → async export          | The actor's thread; the result is posted to JavaScript                | Copied at the call                |
-| JavaScript → component command     | Queued to the mount on the main thread; a request answers a promise   | Copied                            |
-| Platform → callback with no result | A turn of the actor (`postCallback`)                                  | Retained or copied by the binding |
-| Platform → callback that answers   | The calling thread, holding the actor (`callNow`); on main, see above | Retained or copied by the binding |
-| Platform → `on(exec, f)` callback  | The executor's queue, entered directly; no actor                      | Constants, channels and executors |
-| Module code → `main(f)`            | The main thread once the actor is free, holding it                    | Shared with the module            |
-| Module or view code → `compute`    | A worker; the result settles on the caller's context                  | Copied, or moved for buffers      |
-| Lucent → JavaScript callback       | At once inside a synchronous call from JavaScript; posted otherwise   | Copied                            |
+| Call                               | Where it runs                                                          | Values                            |
+| ---------------------------------- | ---------------------------------------------------------------------- | --------------------------------- |
+| JavaScript → synchronous export    | JS thread, holding the actor's lock                                    | Validated; copied or lent         |
+| JavaScript → async export          | The actor's thread; the result is posted to JavaScript                 | Copied at the call                |
+| JavaScript → component command     | Queued to the mount on the main thread; a request answers a promise    | Copied                            |
+| Platform → callback with no result | A turn of the actor (`postCallback`)                                   | Retained or copied by the binding |
+| Platform → a class's override      | The calling thread, holding the actor (`callNow`), whatever it returns | Retained or copied by the binding |
+| Platform → callback that answers   | The calling thread, holding the actor (`callNow`); on main, see above  | Retained or copied by the binding |
+| Platform → `on(exec, f)` callback  | The executor's queue, entered directly; no actor                       | Constants, channels and executors |
+| Module code → `main(f)`            | The main thread once the actor is free, holding it                     | Shared with the module            |
+| Module or view code → `compute`    | A worker; the result settles on the caller's context                   | Copied, or moved for buffers      |
+| Lucent → JavaScript callback       | At once inside a synchronous call from JavaScript; posted otherwise    | Copied                            |
 
 ### Several runtimes
 
