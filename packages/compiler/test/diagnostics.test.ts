@@ -681,7 +681,7 @@ export function size(t: Tree<number>): number {
   describe("lowering outside a function body", () => {
     it("reports an exported class's unsupported member once instead of throwing", () => {
       const source =
-        "export class G {\n  async *g(): AsyncGenerator<number> {\n    yield 1;\n  }\n}\n";
+        "export class G {\n  g(p: { a: number } & { b: number }): number {\n    return p.a;\n  }\n}\n";
       expect(() => compileSource(source)).not.toThrow();
       expect(codes(source)).toEqual(["LUCENT2002"]);
     });
@@ -1118,6 +1118,31 @@ export function size(t: Tree<number>): number {
       expect(codes("export function f(): TextDecoder { return new TextDecoder(); }")).toContain(
         "LUCENT2006",
       );
+    });
+  });
+
+  describe("async generators", () => {
+    it("compile as functions, closures and methods, and for await goes over them", () => {
+      expect(
+        codes(
+          'async function* g(): AsyncGenerator<number> {\n  yield 1;\n}\nclass C {\n  async *m(): AsyncGenerator<string> {\n    yield "a";\n  }\n}\nexport async function f(): Promise<number> {\n  let n = 0;\n  for await (const x of g()) n += x;\n  for await (const s of new C().m()) n += s.length;\n  return n;\n}\n',
+        ),
+      ).toEqual([]);
+    });
+
+    it.each([
+      [
+        "throw()",
+        "LUCENT1003",
+        'async function* g(): AsyncGenerator<number> {\n  yield 1;\n}\nexport async function f(): Promise<void> {\n  await g().throw(new Error("x"));\n}\n',
+      ],
+      [
+        "yield* of another async generator",
+        "LUCENT1009",
+        "async function* g(): AsyncGenerator<number> {\n  yield 1;\n}\nasync function* h(): AsyncGenerator<number> {\n  yield* g();\n}\nexport async function f(): Promise<number> {\n  let n = 0;\n  for await (const x of h()) n += x;\n  return n;\n}\n",
+      ],
+    ])("refuse %s", (_, code, src) => {
+      expect(codes(src)).toContain(code);
     });
   });
 

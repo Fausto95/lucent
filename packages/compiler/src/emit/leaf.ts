@@ -304,6 +304,23 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
         };
       }),
 
+    asyncStep: (value, from, step, node) =>
+      planned(node, () => {
+        const t = stripOpt(from) as LType & { k: "asyncIter" };
+
+        return {
+          c: cpp.call(cpp.arrow(operand(value), step === "next" ? "next" : "ret")),
+          t: { k: "promise", inner: { k: "iterResult", e: t.e } },
+        };
+      }),
+
+    resultPart: (value, element, part, node) =>
+      planned(node, () =>
+        part === "done"
+          ? { c: cpp.dot(operand(value), "done"), t: T.boolean }
+          : { c: cpp.call(cpp.dot(cpp.dot(operand(value), "value"), "get")), t: element },
+      ),
+
     whole: (node) => ts.isCallExpression(node) && isEventCall(ctx, node),
 
     step: (value, from, sign, node) =>

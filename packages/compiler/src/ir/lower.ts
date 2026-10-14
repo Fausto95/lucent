@@ -285,6 +285,14 @@ export interface LeafHost {
    * value, a promise of it, or of undefined once it is closed and drained.
    */
   received(value: ValueId, from: LType, node: ts.Node): Leaf;
+  /**
+   * On `value`, an async iterator (`from`): its next() (a promise of an
+   * iterator result), or its return(), which `for await` awaits as it
+   * leaves early.
+   */
+  asyncStep(value: ValueId, from: LType, step: "next" | "return", node: ts.Node): Leaf;
+  /** Of `value`, an iterator result of `element`s: whether it is done, or its value (present when not done). */
+  resultPart(value: ValueId, element: LType, part: "done" | "value", node: ts.Node): Leaf;
   /** `value`, a `bigint | number`, one up (`+`) or down: the kind it holds, stepped. */
   step(value: ValueId, from: LType, sign: "+" | "-", node: ts.Node): Leaf;
   /** `value == null` for a `from` that holds a type parameter, which its instantiation may make absent. */
@@ -1397,6 +1405,8 @@ class Lowerer {
     const source = this.expr(s.expression);
     const t = this.b.typeOf(source);
 
+    if (t.k === "asyncIter") return this.forAwaitIterator(s, labels, source, t);
+
     if (t.k !== "channel") {
       if (!elementOf(t))
         fail(
@@ -1430,6 +1440,88 @@ class Lowerer {
         );
         this.eachBody(s, this.coerce(value, element, s.expression));
       }),
+    );
+  }
+
+  /**
+   * `for await` over an async iterator (an async generator's): each turn
+   * awaits its next() and binds the value, until a result is done. Left
+   * early (`break`, `return`, a throw), it awaits the iterator's return(),
+   * which runs a generator's finally blocks, as JavaScript does.
+   */
+  forAwaitIterator(
+    s: ts.ForOfStatement,
+    labels: readonly string[],
+    source: ValueId,
+    t: LType & { k: "asyncIter" },
+  ): void {
+    const host = this.host.leaves;
+    if (!host) this.unsupported(s, "for await");
+
+    const span = spanOf(s);
+    const element = t.e;
+    const result: LType = { k: "iterResult", e: element };
+
+    // A block of its own: its flag is the loop's.
+    this.b.block(span, () => this.closedLoop(s, labels, source, t, element, result, span));
+  }
+
+  /** forAwaitIterator's loop, and its iterator's return() when the loop is left early. */
+  closedLoop(
+    s: ts.ForOfStatement,
+    labels: readonly string[],
+    source: ValueId,
+    t: LType & { k: "asyncIter" },
+    element: LType,
+    result: LType,
+    span: SourceSpan,
+  ): void {
+    const host = this.host.leaves!;
+    const done = this.b.local("done", T.boolean, span);
+
+    this.b.store(done, this.b.const(false, span), span);
+    this.b.try(
+      span,
+      () =>
+        this.b.loop(span, (loop) =>
+          this.within({ target: loop, kind: "loop", labels }, () => {
+            this.safepoint(s);
+
+            const next = this.planOf(
+              host.asyncStep(source, t, "next", s.expression),
+              [source],
+              span,
+            );
+            const step = this.b.await(next, result, span)!;
+            const ended = this.planOf(host.resultPart(step, element, "done", s), [step], span);
+
+            this.b.if(
+              ended,
+              span,
+              () => {
+                this.b.store(done, this.b.const(true, span), span);
+                this.b.break(loop, span);
+              },
+              () => {},
+            );
+            this.eachBody(s, this.planOf(host.resultPart(step, element, "value", s), [step], span));
+          }),
+        ),
+      undefined,
+      () => {
+        const finished = this.b.load(done, span);
+
+        this.b.if(
+          finished,
+          span,
+          () => {},
+          () => {
+            const closing = this.planOf(host.asyncStep(source, t, "return", s), [source], span);
+
+            this.b.await(closing, result, span);
+          },
+        );
+      },
     );
   }
 
@@ -2058,12 +2150,16 @@ class Lowerer {
     const sig = this.signature(node, target);
 
     const ret = sig.type.ret;
+    const yields = sig.async ? "asyncIter" : "iter";
 
-    if (sig.async && sig.generator)
-      fail(node, Codes.UnsupportedType, "async generators are not supported");
-
-    if (sig.generator && ret.k !== "iter")
-      fail(node, Codes.UnsupportedSyntax, "annotate generators with Generator<T> or Iterable<T>");
+    if (sig.generator && ret.k !== yields)
+      fail(
+        node,
+        Codes.UnsupportedSyntax,
+        sig.async
+          ? "annotate async generators with AsyncGenerator<T> or AsyncIterable<T>"
+          : "annotate generators with Generator<T> or Iterable<T>",
+      );
 
     const id = `${this.input.id}$${++this.closures}`;
     const input: LowerInput = {
@@ -2074,7 +2170,7 @@ class Lowerer {
       // An async function's body returns what its promise fulfils with; a generator's, nothing.
       result: sig.async && ret.k === "promise" ? ret.inner : sig.generator ? T.void : ret,
       async: sig.async,
-      ...(sig.generator && ret.k === "iter" ? { generator: ret.e } : {}),
+      ...(sig.generator && (ret.k === "iter" || ret.k === "asyncIter") ? { generator: ret.e } : {}),
       generic: false,
     };
     const effects = this.host.effectsOf?.(node);

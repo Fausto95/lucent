@@ -13,6 +13,7 @@
 #include "abort.h"
 #include "array.h"
 #include "async.h"
+#include "async_generator.h"
 #include "bigint.h"
 #include "buffer.h"
 #include "bytes.h"

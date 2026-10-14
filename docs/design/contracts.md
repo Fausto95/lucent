@@ -439,8 +439,8 @@ takes an `AnalysisInput`: `checker`, `modules`, `platform?`, `native?`,
 
 - [T120](../tasks.md#t120): `mainState` extends to instance members only
   main-thread code touches.
-- [T106](../tasks.md#t106): async generators
-  and async generators lower.
+- [T106](../tasks.md#t106): a generator's `yield` value, its `return v`
+  and `throw()`.
 
 ## C-EXEC: execution identities, scopes and operations
 

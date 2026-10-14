@@ -31,7 +31,7 @@ what became of each one that is still linked or was still open.
 | [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | done (2026-10-13)                                       |
 | [T104](#t104)            | Timers and `queueMicrotask`                                | done (2026-10-13)                                       |
 | [T105](#t105)            | Web APIs that shared code uses                             | done (2026-10-14)                                       |
-| [T106](#t106)            | Language gaps module code meets                            | in progress (#278–#284)                                 |
+| [T106](#t106)            | Language gaps module code meets                            | in progress (#278–#284, #291)                           |
 | [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                       |
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | done (2026-10-13)                                       |
 | [T109](#t109)            | Executors for platform callbacks                           | done (2026-10-13)                                       |
@@ -325,7 +325,7 @@ makes random values, without per-platform calls.
 - **Status:** in progress: object rest (#278), spread from tuples (#279),
   an error's cause (#280), `JSON.stringify`'s keys and space (#281),
   `flat` and `copyWithin` (#282), ES2025's set methods (#283), `for await`
-  (#284).
+  (#284), async generators (#291).
 - **Area:** compiler, runtime.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3.
@@ -348,7 +348,9 @@ makes random values, without per-platform calls.
       `isDisjointFrom`), with a `Set` or a `Map` as the other (#283).
 - [x] `for await…of` over a `Channel` and over iterables, each element
       awaited (#284).
-- [ ] Async generators, and `for await…of` over them.
+- [x] Async generators, and `for await…of` over them (#291): an
+      `AsyncIter<T>` coroutine that awaits and yields, queuing the requests
+      made while it runs; a loop left early awaits its `return()`.
 - [ ] `yield` as a value, a generator's `return v` (LUCENT1001) and an
       iterator's `throw()` (LUCENT1003).
 - [ ] A `let` or `const` read before its declaration runs throws

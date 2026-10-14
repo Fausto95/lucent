@@ -687,7 +687,6 @@ export class FnEmitter {
     }
     const isAsync = !!ts.getModifiers(node)?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword);
     const isGen = !ts.isArrowFunction(node) && !!node.asteriskToken;
-    if (isAsync && isGen) fail(node, Codes.UnsupportedType, "async generators are not supported");
     const ret = isAsync
       ? fnType.ret.k === "promise"
         ? fnType.ret.inner
@@ -1128,9 +1127,10 @@ export class FnEmitter {
         const params = g.params.map((p, i) => cpp.param(this.reg.cppType(p.cppType), `a${i}`));
         const args = g.params.map((_, i) => cpp.id(`a${i}`));
         const inner = fnType.ret.k === "promise" ? fnType.ret.inner : fnType.ret;
-        const ret = g.async
-          ? cpp.type("lucent::Promise", this.reg.cppRetType(inner))
-          : this.reg.cppRetType(fnType.ret);
+        const ret =
+          g.async && fnType.ret.k !== "asyncIter"
+            ? cpp.type("lucent::Promise", this.reg.cppRetType(inner))
+            : this.reg.cppRetType(fnType.ret);
         const t: LType = { k: "fn", params: g.params.map((p) => p.cppType), ret: fnType.ret };
         const forward = cpp.lambda([], params, [cpp.ret(cpp.call(g.cpp, args))], { ret });
         return { c: cpp.construct(this.reg.cppType(t), [forward]), t };
@@ -2425,9 +2425,11 @@ export class FnEmitter {
     const args = this.args(node.arguments, paramTypes, node, restParam);
     const variant = this.opts.task ? taskVariant(this.ctx, g) : undefined;
     if (variant) callee = variant;
-    const rt = g.async
-      ? ({ k: "promise", inner: ret.k === "promise" ? ret.inner : ret } as LType)
-      : ret;
+    // An async generator gives its iterator, not a promise.
+    const rt =
+      g.async && ret.k !== "asyncIter"
+        ? ({ k: "promise", inner: ret.k === "promise" ? ret.inner : ret } as LType)
+        : ret;
     const all = variant ? [...args, cpp.id(TASK)] : args;
     return { c: cpp.call(callee, all), t: isVoidish(rt) ? T.undefined : rt };
   }

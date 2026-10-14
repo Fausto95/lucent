@@ -152,7 +152,11 @@ export function toCpp(fn: IrFunction, backend: CppBackend, env: VerifyEnv = {}):
  * resumes later, as JavaScript's await of a settled promise does.
  */
 function eagerAsync(fn: IrFunction): boolean {
-  return fn.async && !fn.regions.some((r) => r.ops.some((op) => op.kind === "await"));
+  return (
+    fn.async &&
+    fn.generator === undefined &&
+    !fn.regions.some((r) => r.ops.some((op) => op.kind === "await"))
+  );
 }
 
 /**
@@ -164,6 +168,8 @@ const STACK_CHECK: cpp.Stmt = cpp.exprStmt(cpp.call("lucent::checkStack"));
 
 /** What a function's C++ returns: its result, a promise of it, or a generator's iterator. */
 function returnType(fn: IrFunction, b: CppBackend): cpp.Type {
+  if (fn.async && fn.generator) return b.cppType({ k: "asyncIter", e: fn.generator });
+
   if (fn.async) return cpp.type("lucent::Promise", b.cppRetType(fn.result));
 
   if (fn.generator) return b.cppType({ k: "iter", e: fn.generator });
