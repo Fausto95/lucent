@@ -675,7 +675,7 @@ exported class, which the view holds while it shows it
 
 ## Execution modes
 
-**Planned** ([T130](../tasks.md#t130) to [T136](../tasks.md#t136), and
+**Planned** ([T130](../tasks.md#t130) to [T137](../tasks.md#t137), and
 [T114](../tasks.md#t114) for native code that calls Lucent). The gate's
 goal: Lucent code runs wherever the platform calls it, on the
 thread it needs, with or without JavaScript. Nitro and Expo authors write
@@ -872,9 +872,10 @@ instance. So its methods reach the base's members on that object: a
 
 ### iOS background execution
 
-**In progress** ([T132](../tasks.md#t132), #238). Background tasks,
-background URL sessions and silent pushes run Lucent code with no
-JavaScript, as `expo-background-task` and `expo-notifications` tasks do.
+**Done** ([T132](../tasks.md#t132), #238), but for relaunches
+([T137](../tasks.md#t137)). Background tasks, background URL sessions and
+silent pushes run Lucent code with no JavaScript, as
+`expo-background-task` and `expo-notifications` tasks do.
 
 - A launch module registers `BGTaskScheduler` handlers through the SDK
   binding, as ordinary Lucent code, and each runs through the native root.
@@ -969,8 +970,11 @@ Each becomes a decision record before its task's work starts:
 3. Launch timing on each platform, and loading the code on Android:
    decided,
    [0092](../decisions/0092-launch-runs-in-the-apps-launch-and-android-loads-lucent-by-itself.md).
-4. Marking OS-instantiated Android classes, their constructors and names.
-5. Checking background identifiers by rule.
+4. Marking OS-instantiated Android classes, their constructors and names:
+   decided,
+   [0097](../decisions/0097-exported-classes-extending-android-classes-are-os-made.md).
+5. Checking background identifiers by rule: decided,
+   [0096](../decisions/0096-ios-background-tasks-are-package-code-a-launch-module-registers.md).
 6. Extension targets, their module set, their memory budget, and the
    runtime's own extension-unsafe calls.
 7. Installing on worklet runtimes, which runtime owns an entry's work, and
