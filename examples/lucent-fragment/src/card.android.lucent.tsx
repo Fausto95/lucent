@@ -73,6 +73,6 @@ export async function cardShown(): Promise<string> {
       const parent = at.getParent();
       at = parent instanceof ViewGroup ? parent : null;
     }
-    return `not laid out: ${sizes.join(" in ")}`;
+    return `not laid out: ${sizes.join(" in ")}, visibility ${view.getVisibility()}, measured ${view.getMeasuredWidth()}x${view.getMeasuredHeight()}, layout requested ${view.isLayoutRequested()}`;
   });
 }
