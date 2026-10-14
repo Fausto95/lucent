@@ -31,7 +31,8 @@ export class Playback extends MediaSessionService {
 
   onCreate(): void {
     super.onCreate();
-    const player = new ExoPlayer_Builder(this).build();
+    // Java's build() says nothing of null: it never gives one.
+    const player = new ExoPlayer_Builder(this).build()!;
     player.setMediaItem(MediaItem.fromUri(SILENCE));
     player.setRepeatMode(Player.REPEAT_MODE_ALL);
     player.prepare();
@@ -50,7 +51,7 @@ export class Playback extends MediaSessionService {
   onDestroy(): void {
     const session = this.session;
     if (session) {
-      session.getPlayer().release();
+      session.getPlayer()?.release();
       session.release();
     }
     this.session = null;
