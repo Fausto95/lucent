@@ -224,15 +224,11 @@ function aborted(signal, where) {
 }
 
 /**
- * The ref's methods: each sends its command to the mounted native view;
- * and the host view's measure and measureInWindow, as any host view's ref
- * has them.
+ * The component's commands, which its ref (the host view's own) gains:
+ * each sends its command to the mounted native view.
  */
 function commandsOf(config, host, mount, native, ReactNative) {
-  const out = {
-    measure: (callback) => host.current && host.current.measure(callback),
-    measureInWindow: (callback) => host.current && host.current.measureInWindow(callback),
-  };
+  const out = {};
 
   for (const command of config.commands) {
     const where = `${config.displayName}.${command.name}()`;
@@ -295,6 +291,13 @@ function abandon(config, mount) {
   mount.clear();
 }
 
+/** `instance`, the host view, with `commands` on it; null while there is none. */
+function withCommands(instance, commands) {
+  if (instance !== null) Object.assign(instance, commands);
+
+  return instance;
+}
+
 /**
  * The React component a proxy exports for a Lucent component.
  * @param config the component's description, which the compiler generates
@@ -326,9 +329,16 @@ function lucentComponent(config, React, ReactNative) {
     // The ids of this mount's unanswered requests.
     const [requests] = React.useState(() => new Set());
 
-    React.useImperativeHandle(ref, () => commandsOf(config, host, requests, native, ReactNative), [
-      requests,
-    ]);
+    // The ref is the host view's own, as a React Native view's is, with the
+    // component's commands on it, as TextInput's ref has clear() (decision
+    // 0105): what finds a view by its ref (findNodeHandle, measureLayout,
+    // Reanimated, Gesture Handler) finds this one. React attaches the host
+    // view before it sets the parent's handle.
+    React.useImperativeHandle(
+      ref,
+      () => withCommands(host.current, commandsOf(config, host, requests, native, ReactNative)),
+      [requests],
+    );
     React.useEffect(() => () => abandon(config, requests), [requests]);
 
     return React.createElement(
