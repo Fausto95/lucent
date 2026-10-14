@@ -439,7 +439,7 @@ takes an `AnalysisInput`: `checker`, `modules`, `platform?`, `native?`,
 
 - [T120](../tasks.md#t120): `mainState` extends to instance members only
   main-thread code touches.
-- [T106](../tasks.md#t106): object rest, spread arguments, `for await`
+- [T106](../tasks.md#t106): spread arguments, `for await`
   and async generators lower.
 
 ## C-EXEC: execution identities, scopes and operations

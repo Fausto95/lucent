@@ -28,7 +28,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT1001`](#lucent1001) | Syntax outside the subset, such as `var`, getters or setters in object literals, or `await using`. |
 | [`LUCENT1002`](#lucent1002) | An operator the subset doesn't support: `delete`, `instanceof` with a generic class, or `in` on a class, a union or an object type. A loose `==` that JavaScript converts for, or comparing two functions, is refused too. |
 | [`LUCENT1003`](#lucent1003) | A built-in function, method or argument Lucent does not implement, such as `Symbol()`, `eval`, `normalize()`, a locale argument or an unknown `Math`, `Number` or string method. |
-| [`LUCENT1004`](#lucent1004) | A destructuring form outside the subset: object rest, computed keys, or a pattern without an initializer. |
+| [`LUCENT1004`](#lucent1004) | A destructuring form outside the subset: computed keys, a class instance's rest, or a pattern without an initializer. |
 | [`LUCENT1005`](#lucent1005) | A class feature outside the subset: extending a built-in other than `Error`, an override with another native signature, a static block or a decorator. |
 | [`LUCENT1006`](#lucent1006) | Throwing a value that is not an `Error`. |
 | [`LUCENT1007`](#lucent1007) | A call Lucent cannot compile: spread arguments to anything but a built-in such as `push`, or a platform class without a constructor binding. |
@@ -171,18 +171,18 @@ export function rotate(xs: number[]): number[] {
 
 **Unsupported destructuring**
 
-Object rest (`{ a, ...rest }`) would need a new object type, made of the remaining fields at run time. Computed keys would need a dynamic lookup. Neither has a fixed native layout.
+Computed keys (`{ [key]: value }`) would need a dynamic lookup, which no fixed native layout has. An object rest (`{ a, ...rest }`) copies the fields its type names into a new object. A record's rest is a new record, and a class instance has none.
 
-**Fix:** name the fields you need, or pass the whole object.
+**Fix:** name the fields you need, or read the one the key names with a condition.
 
 <Tabs>
 <TabItem label="✗ example.lucent.ts">
 
 ```ts title="example.lucent.ts (wrong)"
-type User = { id: number; name: string; email: string };
-export function contact(u: User): { name: string; email: string } {
-  const { id, ...rest } = u;
-  return rest;
+type Size = { width: number; height: number };
+export function side(s: Size, key: "width" | "height"): number {
+  const { [key]: value } = s;
+  return value;
 }
 ```
 
@@ -190,10 +190,9 @@ export function contact(u: User): { name: string; email: string } {
 <TabItem label="✓ example.lucent.ts">
 
 ```ts title="example.lucent.ts (right)"
-type User = { id: number; name: string; email: string };
-export function contact(u: User): { name: string; email: string } {
-  const { name, email } = u;
-  return { name, email };
+type Size = { width: number; height: number };
+export function side(s: Size, key: "width" | "height"): number {
+  return key === "width" ? s.width : s.height;
 }
 ```
 

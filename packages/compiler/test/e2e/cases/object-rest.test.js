@@ -1,0 +1,10 @@
+print(mod.fromObject());
+print(mod.unsetOptional());
+print(mod.renamedAndDefaulted());
+print(mod.fromParameter({ a: 1, b: "two", c: true }));
+print(mod.fromRecord());
+print(mod.inAssignment());
+print(mod.aNewObject());
+print(mod.inForOf());
+print(mod.fromLocal());
+print(mod.everything());

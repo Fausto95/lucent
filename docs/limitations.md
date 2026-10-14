@@ -88,8 +88,8 @@ generated from this file.
   `normalize()`, `locales` and `options` arguments, an error's `cause`,
   `JSON.stringify`'s replacer and indent, `flat()`, resizable
   `ArrayBuffer`s and `new Proxy` ([T106](tasks.md#t106) lifts some).
-- Object rest in destructuring (`LUCENT1004`) is refused, and so are
-  spread arguments into fixed parameters or from tuples (`LUCENT1007`).
+- Spread arguments into fixed parameters or from tuples are refused
+  (`LUCENT1007`).
   `for await` gives `LUCENT1009` ([T106](tasks.md#t106)).
 - Decorators give `LUCENT1005`, and default exports `LUCENT3003`.
 - A class can't extend `EventEmitter` (`LUCENT1005`): hold one in a field

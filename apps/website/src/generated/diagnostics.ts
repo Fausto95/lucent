@@ -43,14 +43,14 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT1004",
     "title": "Unsupported destructuring",
-    "summary": "A destructuring form outside the subset: object rest, computed keys, or a pattern without an initializer.",
-    "details": "Object rest (`{ a, ...rest }`) would need a new object type, made of the remaining fields at run time. Computed keys would need a dynamic lookup. Neither has a fixed native layout.",
-    "fix": "name the fields you need, or pass the whole object",
+    "summary": "A destructuring form outside the subset: computed keys, a class instance's rest, or a pattern without an initializer.",
+    "details": "Computed keys (`{ [key]: value }`) would need a dynamic lookup, which no fixed native layout has. An object rest (`{ a, ...rest }`) copies the fields its type names into a new object. A record's rest is a new record, and a class instance has none.",
+    "fix": "name the fields you need, or read the one the key names with a condition",
     "wrong": {
-      "example.lucent.ts": "type User = { id: number; name: string; email: string };\nexport function contact(u: User): { name: string; email: string } {\n  const { id, ...rest } = u;\n  return rest;\n}\n"
+      "example.lucent.ts": "type Size = { width: number; height: number };\nexport function side(s: Size, key: \"width\" | \"height\"): number {\n  const { [key]: value } = s;\n  return value;\n}\n"
     },
     "right": {
-      "example.lucent.ts": "type User = { id: number; name: string; email: string };\nexport function contact(u: User): { name: string; email: string } {\n  const { name, email } = u;\n  return { name, email };\n}\n"
+      "example.lucent.ts": "type Size = { width: number; height: number };\nexport function side(s: Size, key: \"width\" | \"height\"): number {\n  return key === \"width\" ? s.width : s.height;\n}\n"
     }
   },
   {

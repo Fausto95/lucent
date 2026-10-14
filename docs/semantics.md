@@ -199,9 +199,11 @@ types, and `SharedArrayBuffer`.
 ## Statements and expressions
 
 `let` and `const` work; `var` is `LUCENT1001`. Destructuring works in
-declarations, parameters, `for…of` and assignments, with defaults and
-array rest. Object rest ([T106](tasks.md#t106)), computed keys and
-destructuring in `catch` are `LUCENT1004`. A `let` or `const` read before
+declarations, parameters, `for…of` and assignments, with defaults, array
+rest and object rest. An object's rest is a new object of the rest's type,
+with the fields that type names, as spread copies them; a record's is a new
+record without the keys the pattern names. Computed keys, the rest of a
+class instance and destructuring in `catch` are `LUCENT1004`. A `let` or `const` read before
 its declaration runs reads as an unassigned field does, where JavaScript
 throws `ReferenceError`: a known gap.
 
@@ -1023,7 +1025,7 @@ types, `3xxx` modules and where code runs, `9xxx` passed through.
 | `LUCENT1001` | `UnsupportedSyntax`           | syntax outside the subset: `var`, literal accessors, `await using`, tagged templates     |
 | `LUCENT1002` | `UnsupportedOperator`         | `delete`, `in` or `instanceof` where unsupported; a converting `==`; comparing functions |
 | `LUCENT1003` | `UnsupportedBuiltin`          | a built-in, method or argument Lucent doesn't implement exactly                          |
-| `LUCENT1004` | `UnsupportedDestructuring`    | object rest, computed keys, or another pattern outside the subset                        |
+| `LUCENT1004` | `UnsupportedDestructuring`    | computed keys, a class instance's rest, or another pattern outside the subset            |
 | `LUCENT1005` | `UnsupportedClassFeature`     | extending a built-in, a changed override signature, static blocks, decorators            |
 | `LUCENT1006` | `UnsupportedThrow`            | throwing a value that isn't an `Error`                                                   |
 | `LUCENT1007` | `UnsupportedCall`             | a call with no native form, such as spread into parameters                               |

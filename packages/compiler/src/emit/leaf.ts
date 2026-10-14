@@ -247,6 +247,17 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
 
         if ("name" in which) return em.member(v, which.name, node);
 
+        if ("restOf" in which) {
+          // The rest's own type, which TypeScript gives the fields left over.
+          const at = ts.isBindingElement(node)
+            ? node.name
+            : ts.isSpreadAssignment(node)
+              ? node.expression
+              : node;
+
+          return em.objectRest(v, which.restOf, em.lt(at), node);
+        }
+
         if ("rest" in which) {
           if (t.k !== "array") throw new IrUnsupported(node, `the rest of a ${typeKey(from)}`);
 
