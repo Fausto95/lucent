@@ -279,10 +279,15 @@ export async function buildProject(
     }
   }
 
-  // The library's build file as the Gradle build running this one (if any) configured it.
+  // The library's build file as the Gradle build running this one (if any) configured it, and
+  // the autolinking config it read, whose component descriptors the app registers.
   const libraryGradle = path.join(outDir, "android/build.gradle");
   const configured = fs.existsSync(libraryGradle)
     ? fs.readFileSync(libraryGradle, "utf8")
+    : undefined;
+  const autolinkingFile = path.join(outDir, "react-native.config.js");
+  const linked = fs.existsSync(autolinkingFile)
+    ? componentDescriptors(fs.readFileSync(autolinkingFile, "utf8"))
     : undefined;
   let platforms = options.platforms;
   let deferAndroid = false;
@@ -728,6 +733,21 @@ export async function buildProject(
   // What autolinking reads changed (components' descriptors): Gradle reads it again.
   if (written.has("react-native.config.js")) staleAutolinking(root);
 
+  // The Gradle build running this one read the components it registers before this build
+  // described them (after expo prebuild, which describes none without another platform's
+  // build): the app it builds would have the components' views but not their descriptors.
+  if (
+    process.env.LUCENT_GRADLE_CLASSPATH &&
+    linked !== undefined &&
+    written.has("react-native.config.js") &&
+    componentDescriptors(fs.readFileSync(autolinkingFile, "utf8")) !== linked
+  ) {
+    const detail = `this Gradle build read the app's autolinking config before ${path.relative(root, autolinkingFile)} registered Lucent's components, so the app would not register them: build again`;
+
+    graph.record("generate", "generate", "failed", { detail, ms: Date.now() - tWrite });
+    return outcome({ fatal: detail });
+  }
+
   // The Gradle build running this one configured the library with its old build file,
   // unless that was one a deferred build writes, which builds what this one needs: any of them
   // when it knew of components, all but Compose content otherwise (expo prebuild compiled none).
@@ -905,4 +925,9 @@ export function nextText(next: Next): string {
     : next.reload
       ? "reload the app"
       : "nothing to do: the native package did not change";
+}
+
+/** The component descriptors a native package's react-native.config.js has autolinking register. */
+function componentDescriptors(config: string): string {
+  return /componentDescriptors: \[[^\]]*\]/.exec(config)?.[0] ?? "";
 }

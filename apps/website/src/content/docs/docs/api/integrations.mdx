@@ -142,7 +142,7 @@ Outside Gradle, `lucent build` runs `lucentClasspath` itself, through an init sc
 It runs Gradle when `.lucent/android-classpath.json` is missing, or when the Gradle files, the JS lockfile or the packages' Gradle dependencies changed. A failed resolution is retried when those change, or with `lucent build --force`.
 
 :::note
-A Gradle build whose `lucentBuild` creates `.lucent/native`, or changes the native package's `android/build.gradle`, stops and asks you to build again. Gradle read the old files before the task ran, and the next build reads the new ones: see [Builds](/docs/architecture/builds/#a-gradle-build-can-ask-for-another).
+A Gradle build whose `lucentBuild` creates `.lucent/native`, changes the native package's `android/build.gradle`, or registers components the app didn't list, stops and asks you to build again. Gradle read the old files before the task ran, and the next build reads the new ones: see [Builds](/docs/architecture/builds/#a-gradle-build-can-ask-for-another).
 :::
 
 ### Kotlin build scripts
