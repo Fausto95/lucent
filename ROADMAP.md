@@ -191,6 +191,9 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
    timers.
 6. [T141](docs/tasks.md#t141) (done): Xcode builds, and a package's pods
    in Expo apps.
+7. [T106](docs/tasks.md#t106), then [T105](docs/tasks.md#t105): the
+   language gaps module code meets most, then the web APIs shared code
+   uses.
 
 ## Recording work
 
