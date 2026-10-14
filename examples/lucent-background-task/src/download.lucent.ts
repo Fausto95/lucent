@@ -12,6 +12,7 @@ import {
   NSURL,
   URLSession,
   URLSessionConfiguration,
+  type URLSessionDelegate,
   type URLSessionDownloadDelegate,
   type URLSessionDownloadTask,
   type URLSessionTask,
@@ -26,8 +27,11 @@ let failed = 0;
 let delivered: (() => void) | null = null;
 let session: URLSession | null = null;
 
-/** The session's delegate: it hears each download, then the end of the events iOS held. */
-class Downloads implements URLSessionDownloadDelegate {
+/**
+ * The session's delegate: it hears each download, then the end of the events
+ * iOS held. The session takes a URLSessionDelegate, which it names too.
+ */
+class Downloads implements URLSessionDelegate, URLSessionDownloadDelegate {
   urlSession_downloadTask_didFinishDownloadingTo(
     _session: URLSession,
     _task: URLSessionDownloadTask,
