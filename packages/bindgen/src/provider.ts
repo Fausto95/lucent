@@ -21,6 +21,7 @@ import {
   namesOf,
   type NamesIndex,
   symbolGraphArgs,
+  withRootExtensions,
 } from "./ios.ts";
 import {
   contentHash,
@@ -823,8 +824,14 @@ function headerIndex(r: Resolved): Record<string, string> {
   return index;
 }
 
+/** A module's graph, with the members it adds to NSObject (withRootExtensions). */
 function readGraph(dir: string, module: string): SymbolGraph | undefined {
-  return readCached(path.join(dir, `${module}.symbols.json`)) as SymbolGraph | undefined;
+  const g = readCached(path.join(dir, `${module}.symbols.json`)) as SymbolGraph | undefined;
+  const objc = path.join(dir, `${module}@ObjectiveC.symbols.json`);
+
+  return (
+    g && withRootExtensions(g, fs.existsSync(objc) ? (readCached(objc) as SymbolGraph) : undefined)
+  );
 }
 
 const graphErrors = new Map<string, string>();

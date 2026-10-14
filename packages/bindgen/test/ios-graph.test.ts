@@ -3,7 +3,7 @@
  * swift-symbolgraph-extract writes), so they are read on any machine.
  */
 import { describe, expect, it } from "vite-plus/test";
-import { buildIosSchemas } from "../src/ios.ts";
+import { buildIosSchemas, externalUsrs, namesOf, withRootExtensions } from "../src/ios.ts";
 import type { SymbolGraph, SymbolGraphSymbol } from "../src/symbols.ts";
 
 const ios17 = [{ domain: "iOS", introduced: { major: 17 } }];
@@ -154,5 +154,106 @@ describe("Swift async sequences in symbol graphs", () => {
     });
     // The sequence type itself is the sequence, not a class of its own.
     expect(schema!.types.map((t) => t.name)).not.toContain("Transaction_Transactions");
+  });
+});
+
+describe("members a module adds to NSObject", () => {
+  // Where swift-symbolgraph-extract puts a category on another module's class: the module's
+  // extension graph for that module (Kit@ObjectiveC.symbols.json), members of NSObject's USR.
+  const STRING = { kind: "typeIdentifier", spelling: "String", preciseIdentifier: "s:SS" };
+  const BOOL = { kind: "typeIdentifier", spelling: "Bool", preciseIdentifier: "s:Sb" };
+  const NSOBJECT = "c:objc(cs)NSObject";
+  const kit: SymbolGraph = {
+    symbols: [sym("swift.class", "c:objc(cs)KITView", ["KITView"])],
+    relationships: [{ kind: "inheritsFrom", source: "c:objc(cs)KITView", target: NSOBJECT }],
+  };
+  const objc: SymbolGraph = {
+    symbols: [
+      sym("swift.property", `${NSOBJECT}(py)kitLabel`, ["NSObject", "kitLabel"], {
+        declarationFragments: [
+          { kind: "keyword", spelling: "var" },
+          { kind: "text", spelling: " " },
+          { kind: "identifier", spelling: "kitLabel" },
+          { kind: "text", spelling: ": " },
+          STRING,
+          { kind: "text", spelling: "? { get set }" },
+        ],
+      }),
+      sym("swift.method", `${NSOBJECT}(im)kitActivate`, ["NSObject", "kitActivate()"], {
+        names: { title: "kitActivate()" },
+        declarationFragments: [{ kind: "text", spelling: "func kitActivate() -> " }, BOOL],
+        functionSignature: { parameters: [], returns: [BOOL] },
+      }),
+      sym("swift.method", `${NSOBJECT}(im)kitValueForKey:`, ["NSObject", "kitValue(forKey:)"], {
+        names: { title: "kitValue(forKey:)" },
+        declarationFragments: [
+          { kind: "text", spelling: "func kitValue(forKey key: " },
+          STRING,
+          { kind: "text", spelling: ") -> " },
+          STRING,
+        ],
+        functionSignature: {
+          parameters: [{ name: "key", declarationFragments: [STRING] }],
+          returns: [STRING],
+        },
+      }),
+      // A Swift extension's member, which no message reaches.
+      sym("swift.method", "s:So8NSObjectC3KitE5kitGoyyF", ["NSObject", "kitGo()"], {
+        names: { title: "kitGo()" },
+        functionSignature: { parameters: [], returns: [] },
+      }),
+    ],
+    relationships: [
+      { kind: "memberOf", source: `${NSOBJECT}(py)kitLabel`, target: NSOBJECT },
+      { kind: "memberOf", source: `${NSOBJECT}(im)kitActivate`, target: NSOBJECT },
+      { kind: "memberOf", source: `${NSOBJECT}(im)kitValueForKey:`, target: NSOBJECT },
+      { kind: "memberOf", source: "s:So8NSObjectC3KitE5kitGoyyF", target: NSOBJECT },
+    ],
+  };
+  const merged = withRootExtensions(kit, objc);
+  const root: SymbolGraph = {
+    symbols: [sym("swift.class", NSOBJECT, ["NSObject"])],
+    relationships: [],
+  };
+  const [, schema] = buildIosSchemas(
+    new Map([
+      ["ObjectiveC", root],
+      ["Kit", merged],
+    ]),
+    () => new Map(),
+  );
+
+  it("are a class of the module's own, an extension of NSObject's, with no constructor", () => {
+    const added = schema!.types.find((t) => t.name === "NSObject_Kit");
+    if (added?.kind !== "class") throw new Error("no NSObject_Kit");
+
+    expect(added).toMatchObject({ native: "NSObject", extensionOf: "ObjectiveC.NSObject" });
+    expect(added.constructors ?? []).toEqual([]);
+    expect(added.properties?.map((p) => [p.name, p.setter])).toEqual([
+      ["kitLabel", "setKitLabel:"],
+    ]);
+    // Its methods keep their labels: a subclass elsewhere may name a member kitValue.
+    expect(added.methods?.map((m) => [m.name, m.selector])).toEqual([
+      ["kitActivate", "kitActivate"],
+      ["kitValueForKey", "kitValueForKey:"],
+    ]);
+  });
+
+  it("leave NSObject another module's: Kit's classes still extend it", () => {
+    const view = schema!.types.find((t) => t.name === "KITView");
+
+    expect(view).toMatchObject({ extends: "ObjectiveC.NSObject" });
+    // Declared as the class its members name as their owner, which no reference names.
+    expect(namesOf("Kit", merged).types).not.toHaveProperty("NSObject");
+    expect(namesOf("Kit", merged).types.NSObject_Kit).toEqual({
+      kind: "class",
+      native: "NSObject",
+    });
+    expect(Object.values(namesOf("Kit", merged).refs)).not.toContain("Kit.NSObject_Kit");
+    expect(externalUsrs(merged)).toContain(NSOBJECT);
+  });
+
+  it("are nothing without the extension graph", () => {
+    expect(withRootExtensions(kit, undefined)).toBe(kit);
   });
 });

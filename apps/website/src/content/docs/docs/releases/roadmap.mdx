@@ -80,8 +80,8 @@ Native views from Lucent components, rendered by React Native's Fabric.
 | done | SwiftUI and Jetpack Compose bodies written as JSX, from your SDKs' declarations. |
 | done | Typed props, events, commands that answer, React children and sizing to content. |
 | done | Recycling, keyed lists and Yoga layout, and views that update while JavaScript is blocked. |
-| next | Instances of exported classes as props, such as a video player. |
-| next | React Native's own view props, such as `testID` and `onLayout`. |
+| done | Instances of exported classes as props, such as a video player. |
+| done | React Native's own view props, such as `testID` and `onLayout`, inside Reanimated, Gesture Handler and react-native-screens. |
 | later | View controllers as component roots, such as `AVPlayerViewController`. |
 | later | A component's ref passed to a module function, as view capture needs. |
 
@@ -133,7 +133,7 @@ Build and ship Lucent modules and packages like any React Native library.
 ### Language, runtime and bindings
 
 - Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)): break them with `WeakRef`, or key what one side holds in a `WeakMap`.
-- Members a module adds to another module's class aren't bound: UIKit's `NSObject` members, such as `accessibilityLabel`, aren't on `UIView` ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)).
+- Members a module adds to another module's class are bound only for `NSObject`'s Objective-C categories, instance members only. UIKit's `row` on `NSIndexPath` isn't bound, nor are Swift extensions' members ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)).
 - A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)). A `WeakMap` value that holds its own key keeps it, and the entry, for as long as the map lives.
 - `new AggregateError` is refused (`LUCENT1003`). Read the `errors` of the one `Promise.any` rejects with as `e.errors as Error[]`, since TypeScript types them `any`.
 - `TextEncoder`, `TextDecoder`, `atob`, `btoa`, `URL` and `crypto` are not available. `lucent:core` has `utf8Encode` and `utf8Decode` ([T105](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t105)).

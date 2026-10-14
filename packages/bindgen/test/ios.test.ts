@@ -927,6 +927,30 @@ describe.skipIf(!xcode)("iOS extractor, Swift modules", () => {
   });
 });
 
+describe.skipIf(!xcode)("iOS extractor, a category on NSObject", () => {
+  const modules = xcode ? extractIos({ modules: ["Tagging"], includePaths: [fixtures] }) : [];
+  const type = (name: string) =>
+    modules.find((m) => m.module === "Tagging")?.types.find((t) => t.name === name);
+
+  it("is a class of the module's own, which extends NSObject's and makes nothing", () => {
+    const added = type("NSObject_Tagging");
+    if (added?.kind !== "class") throw new Error("no NSObject_Tagging");
+
+    expect(added).toMatchObject({ native: "NSObject", extensionOf: "ObjectiveC.NSObject" });
+    expect(added.constructors ?? []).toEqual([]);
+    expect(added.properties?.map((p) => [p.name, p.setter]).sort()).toEqual([
+      ["isTagged", "setIsTagged:"],
+      ["tagLabel", "setTagLabel:"],
+    ]);
+    // Its methods keep their labels: a subclass elsewhere may name a member tagValue.
+    expect(added.methods?.map((m) => [m.name, m.selector]).sort()).toEqual([
+      ["tagActivate", "tagActivate"],
+      ["tagValueForKey", "tagValueForKey:"],
+    ]);
+    expect(type("TAGItem")).toMatchObject({ native: "TAGItem" });
+  });
+});
+
 describe.skipIf(!xcode)("iOS extractor, requirements Lucent classes implement", () => {
   const dir = xcode ? swiftModule("Orbit") : "";
   const modules = xcode ? extractIos({ modules: ["Orbit"], includePaths: [dir] }) : [];

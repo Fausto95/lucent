@@ -136,6 +136,7 @@ A type of a module your code doesn't import has its name only. Import its module
 - An SDK object is a reference, and `===` compares identity.
 - SDK objects can't cross to JavaScript (`LUCENT2006`): return plain values. [The boundary](/docs/api/language/boundary/) lists what crosses.
 - Assigning an object to a `weak` property, such as a `delegate`, keeps the object alive while the property holds it.
+- What a module adds to every object in an `NSObject` category is every object's once you import the module: UIKit's `accessibilityLabel`, say. Its methods keep their labels: Foundation's `value(forKey:)` is `valueForKey`. What a module adds to other classes isn't bound yet.
 
 ## Out parameters
 

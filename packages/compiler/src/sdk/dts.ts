@@ -227,7 +227,10 @@ function emitDts(
         },
         ts.blank,
       );
-    else body.push(...classDts(schema, type, tsType, use, options), ts.blank);
+    else if (type.extensionOf) {
+      const added = extensionDts(schema, type, classDts(schema, type, tsType, use, options));
+      if (added.length) body.push(...added, ts.blank);
+    } else body.push(...classDts(schema, type, tsType, use, options), ts.blank);
   }
   const refused = refusalDoc(schema);
   const since = (v: number | string | undefined) =>
@@ -786,6 +789,48 @@ function classDts(
     out.push({ k: "interface", name: cls.name, typeParams, extends: supers, members: [] });
   if (jsx?.decl) out.push(jsx.decl);
   return out;
+}
+
+/**
+ * What a module adds to another module's class (`extensionOf`: UIKit's
+ * `NSObject (UIAccessibility)`): a class of the module's own, not exported
+ * (`NSObject_UIKit`), which that class's interface extends where it is
+ * declared (NSObject's in lucent:ios), so every object of it has the
+ * members. Instance members only, which an interface takes; the class's
+ * brand is its own.
+ */
+function extensionDts(schema: SdkModuleSchema, cls: SdkClassSchema, made: ts.Decl[]): ts.Decl[] {
+  const decl = made.find((d) => d.k === "class");
+  if (decl?.k !== "class") return [];
+
+  const members = decl.members.filter(
+    (m) =>
+      m.k !== "constructor" &&
+      !("static" in m && m.static) &&
+      !(m.k === "property" && (m.name.startsWith("__lucent_") || m.name.startsWith("~jsx"))),
+  );
+  if (!members.length) return [];
+
+  const at = cls.extensionOf!.lastIndexOf(".");
+  const [module, name] = [cls.extensionOf!.slice(0, at), cls.extensionOf!.slice(at + 1)];
+
+  return [
+    {
+      k: "class",
+      name: cls.name,
+      abstract: true,
+      local: true,
+      doc: [`What ${schema.module} adds to ${name}, which every ${name} has.`],
+      typeParams: [],
+      members,
+    },
+    {
+      k: "moduleAugmentation",
+      // NSObject is lucent:ios's own; another module's class is its module's.
+      name: module === "ObjectiveC" ? "lucent:ios" : `lucent:${schema.platform}/${module}`,
+      decls: [{ k: "interface", name, extends: [ts.ref(cls.name)], members: [] }],
+    },
+  ];
 }
 
 /**
