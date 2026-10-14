@@ -150,7 +150,19 @@ jobs:
           key: android
       - name: Generate the native package, for Android
         working-directory: apps/bare-example
-        run: pnpm lucent --platforms android
+        run: pnpm lucent --platforms android || true
+      - name: Debug WorkManager declarations
+        run: |
+          f=$(grep -rl "class PeriodicWorkRequest_Builder" ~/.cache/lucent/declarations | head -1)
+          a=$(head -c 2500 "$f" | tr '\n' '|')
+          echo "::warning title=head::$a"
+          for c in "class ListenableWorker" "class Worker " "class PeriodicWorkRequest_Builder" "class WorkRequest_Builder"; do
+            b=$(grep -n -A25 "$c" "$f" | head -40 | cut -c1-200 | tr '\n' '|' | cut -c1-3500)
+            echo "::warning title=$c::$b"
+          done
+          t=$(grep -rl "class TimeUnit" ~/.cache/lucent/declarations | head -1)
+          b=$(grep -n -B2 -A12 "class TimeUnit" "$t" | cut -c1-200 | tr '\n' '|' | cut -c1-3000)
+          echo "::warning title=TimeUnit::$b"
       - name: Build
         working-directory: apps/bare-example/android
         run: ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --build-cache --parallel
