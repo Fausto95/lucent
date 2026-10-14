@@ -1,8 +1,9 @@
 /**
- * Runs an example app's Tests and Platform screens on a booted-here iOS
- * simulator or a running Android emulator, and passes when every check of
- * both passed: every end-to-end case, then what only the platform gives
- * (frames through an executor, a deep link, a push token, back presses).
+ * Runs an example app's Tests, Platform and Media screens on a booted-here
+ * iOS simulator or a running Android emulator, and passes when every check
+ * of each passed: every end-to-end case, what only the platform gives
+ * (frames through an executor, a deep link, a push token, back presses),
+ * then a foreground service that outlives its Activity's recreation.
  * The bare example by default, the Expo example with --example expo. With
  * --id, it runs another app's Tests screen the same way (the window's fresh
  * apps, scripts/window-app.ts), opened as its launcher opens it:
@@ -335,8 +336,12 @@ export interface Screen {
   url?: string;
 }
 
-/** An example's screens a run checks, in order: every end-to-end case, then the platform's. */
-const EXAMPLE_SCREENS = ["tests", "platform"];
+/**
+ * An example's screens a run checks, in order: every end-to-end case, the
+ * platform's, then a foreground service's, which has Android make the
+ * Activity again.
+ */
+const EXAMPLE_SCREENS = ["tests", "platform", "media"];
 
 /** The app a run checks, and how it is opened. */
 export interface Target {

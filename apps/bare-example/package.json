@@ -19,6 +19,7 @@
     "lucent-fragment": "workspace:*",
     "lucent-haptics": "workspace:*",
     "lucent-launch": "workspace:*",
+    "lucent-media": "workspace:*",
     "lucent-orbit": "workspace:*",
     "lucent-secure-store": "workspace:*",
     "react": "19.3.0",

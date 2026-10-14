@@ -1050,7 +1050,8 @@ its class must be Java or Kotlin the package ships.
       runs with the app in the background (`lucent-background-task`'s
       `Refresh`, which a `Class<? extends ListenableWorker>` parameter
       takes, #265), and a foreground `MediaSessionService` that survives
-      the Activity's recreation.
+      the Activity's recreation (`lucent-media`'s `Playback`, which the
+      device runs' Media screen starts, #266).
 
 **Done when:** both emulator fixtures run in CI.
 

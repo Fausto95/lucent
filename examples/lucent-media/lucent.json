@@ -1,0 +1,22 @@
+{
+  "android": {
+    "dependencies": {
+      "androidx.media3:media3-exoplayer": "1.5.1",
+      "androidx.media3:media3-session": "1.5.1"
+    },
+    "permissions": [
+      "android.permission.FOREGROUND_SERVICE",
+      "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+    ],
+    "assets": ["android/assets"],
+    "components": [
+      {
+        "kind": "service",
+        "class": "playback#Playback",
+        "exported": true,
+        "foregroundServiceType": "mediaPlayback",
+        "intentFilters": [{ "actions": ["androidx.media3.session.MediaSessionService"] }]
+      }
+    ]
+  }
+}
