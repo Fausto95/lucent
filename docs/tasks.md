@@ -51,11 +51,12 @@ what became of each one that is still linked or was still open.
 | **Execution modes**      |                                                            |                                                         |
 | [T130](#t130)            | A native root: module code with no JavaScript runtime      | done (2026-10-13)                                       |
 | [T131](#t131)            | Android classes the OS instantiates, written in Lucent     | done (2026-10-14)                                       |
-| [T132](#t132)            | iOS background execution                                   | in progress (#238 merged); relaunches left              |
+| [T132](#t132)            | iOS background execution                                   | done (2026-10-14); relaunches are T137                  |
 | [T133](#t133)            | iOS app extensions and widgets                             | waiting; needs T130                                     |
 | [T134](#t134)            | Calls from worklet runtimes                                | ready; its first step is a decision                     |
 | [T135](#t135)            | JavaScript tasks from background entry points              | blocked: a decision on whether Lucent offers it         |
 | [T136](#t136)            | App Intents, Live Activities and Android widget bodies     | waiting; needs T133                                     |
+| [T137](#t137)            | Relaunches for background URL sessions and silent pushes   | ready                                                   |
 | **Distribution**         |                                                            |                                                         |
 | [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190, #191, #194, #195, #200, #204 merged) |
 | [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | done (2026-10-14)                                       |
@@ -83,7 +84,7 @@ Needs lists; the production candidate needs the other four.
 | -------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Module parity        | T100–T115 | A module offers the values, objects, events, threads, app events and native configuration a Nitro or Expo module offers              |
 | View parity          | T120–T125 | A component takes props of any type and React Native's view props, has a controller root, and shows native objects in toolkit bodies |
-| Execution modes      | T130–T136 | Lucent code runs with no JavaScript, in background tasks, services, extensions, widgets and worklet runtimes                         |
+| Execution modes      | T130–T137 | Lucent code runs with no JavaScript, in background tasks, services, extensions, widgets and worklet runtimes                         |
 | Distribution         | T140–T145 | Fresh apps on each supported release build and run, and packages build like any library, with C++, their own Kotlin and the web      |
 | Production candidate | T150–T157 | Ports prove each row, stress and budgets pass, CI runs what it claims, the docs cover every row, and the integration run is green    |
 
@@ -1065,11 +1066,12 @@ its class must be Java or Kotlin the package ships.
 Lucent code, with no JavaScript, as `expo-background-task` and
 `expo-notifications` tasks do.
 
-- **Status:** in progress: decided
+- **Status:** done (2026-10-14): decided
   ([0096](decisions/0096-ios-background-tasks-are-package-code-a-launch-module-registers.md)),
   and a package's launch module registers a handler that ends its own
   work (#238), which the simulator's device run checks (2026-10-13).
-  Relaunches for background URL sessions and silent pushes are left.
+  Relaunches for background URL sessions and silent pushes moved to
+  [T137](#t137).
 - **Area:** iOS host, runtime, tooling.
 - **Needs:** T110, T130.
 - **Verify:** V1, V4, V5.
@@ -1080,8 +1082,8 @@ Lucent code, with no JavaScript, as `expo-background-task` and
       native root. `examples/lucent-background-task` (#238).
 - [x] The task's expiration aborts an `AbortSignal` the handler holds, and
       the handler reports completion (#238).
-- [ ] `backgroundURLSession` and `remoteNotification` (T110) relaunch the
-      process into the native root when it isn't running.
+- Moved to [T137](#t137): `backgroundURLSession` and `remoteNotification`
+  (T110) relaunch the process into the native root when it isn't running.
 - [x] `UIBackgroundModes` and `BGTaskSchedulerPermittedIdentifiers` come
       from `lucent.json` `ios.infoPlist`. Whether the build checks them is
       a decision: recognizing `BGTaskScheduler` calls by name would be a
@@ -1205,6 +1207,38 @@ read, so Lucent has to generate them.
       the simulator; a widget update on the emulator.
 
 **Done when:** the three fixtures run in CI.
+
+<a id="t137"></a>
+
+### T137: Relaunches for background URL sessions and silent pushes
+
+**Goal:** A background URL session's events and a silent push reach Lucent
+code in a process iOS started for them, with no JavaScript, as
+`expo-notifications`' background tasks do.
+
+- **Status:** ready; split from [T132](#t132) (2026-10-14).
+- **Area:** iOS host, runtime.
+- **Needs:** T110, T132.
+- **Verify:** V1, V4, V5.
+- **Where:** `platform/ios_app_delegate.mm`, `runtime/native`.
+
+The app delegate's `backgroundURLSession` and `remoteNotification` events
+exist (T110). A launch module that subscribes to them runs before the app
+finishes launching, so a relaunched process may already deliver them.
+Nothing checks it yet.
+
+- [ ] A launch module's `backgroundURLSession` subscriber, in a process
+      iOS started for the session, makes the session again by its
+      identifier and calls the completion handler once its events arrive.
+- [ ] A launch module's `remoteNotification` subscriber gets a
+      `content-available` push in a process iOS started for it, and
+      reports its fetch result.
+- [ ] Tests: the simulator delivers a background push (`xcrun simctl
+push`) to the app after it ended, and the device run checks that the
+      handler ran.
+
+**Done when:** a silent push starts the ended app on the simulator in CI,
+and its Lucent handler runs.
 
 ## Distribution
 
@@ -1704,7 +1738,7 @@ still open on 2026-10-12. Done tasks not listed here are in
 | <a id="t55"></a>T55   | Native recycled and virtualized lists                   | Dropped with T51                                                                |
 | <a id="t56"></a>T56   | Native gestures and frame-driven animation              | Dropped with T51; interop with gesture and animation libraries is [T121](#t121) |
 | <a id="t59"></a>T59   | Media pipelines, high-rate streams and executors        | [T108](#t108), [T109](#t109), [T150](#t150)'s `lucent-frames`                   |
-| <a id="t60"></a>T60   | Headless, background and other native targets           | [T130](#t130) to [T136](#t136)                                                  |
+| <a id="t60"></a>T60   | Headless, background and other native targets           | [T130](#t130) to [T137](#t137)                                                  |
 | <a id="t61"></a>T61   | The editor, doctor, SDK and debugging workflows         | Done (#98, #99, #102, #103, #104)                                               |
 | <a id="t62"></a>T62   | The distribution and supported-version matrix           | [T140](#t140), [T141](#t141), [T145](#t145)                                     |
 | <a id="t63"></a>T63   | The no-catalog audit                                    | [T152](#t152)                                                                   |
