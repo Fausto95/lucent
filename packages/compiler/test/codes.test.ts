@@ -111,9 +111,9 @@ describe("summaries name constructs that report their code", () => {
       "export function f(sum: (...xs: number[]) => number): number {\n  return sum(1, 2, 3);\n}\n",
     ],
     [
-      "LUCENT2002",
-      "an async generator",
-      "async function* g(): AsyncGenerator<number> {\n  yield 1;\n}\nexport function f(): number {\n  void g;\n  return 1;\n}\n",
+      "LUCENT2006",
+      "an async generator JavaScript would call",
+      "export async function* g(): AsyncGenerator<number> {\n  yield 1;\n}\n",
     ],
     [
       "LUCENT3003",
@@ -152,12 +152,6 @@ describe("fixes fit the construct reported", () => {
       "a rest parameter in a function type",
       "export function f(sum: (...xs: number[]) => number): number {\n  return sum(1, 2);\n}\n",
       "array",
-    ],
-    [
-      "LUCENT2002",
-      "an async generator",
-      "export class G {\n  async *g(): AsyncGenerator<number> {\n    yield 1;\n  }\n}\n",
-      "generator",
     ],
   ])("%s: %s", (code, _construct, source, fix) => {
     const r = compileExample({ "sample.lucent.ts": source });

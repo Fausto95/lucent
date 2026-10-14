@@ -954,7 +954,8 @@ function functionThroughIr(
   ir: IrMode,
 ): CppFunction {
   const ret = g.type.ret;
-  const generator = g.decl.asteriskToken && ret.k === "iter" ? ret.e : undefined;
+  const generator =
+    g.decl.asteriskToken && (ret.k === "iter" || ret.k === "asyncIter") ? ret.e : undefined;
   // An async function's body returns what its promise fulfils with; a generator's, nothing.
   const result = g.async && ret.k === "promise" ? ret.inner : generator ? T.void : ret;
   const unit: IrUnit = {

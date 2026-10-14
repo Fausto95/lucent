@@ -44,6 +44,7 @@ const LOOSE: Record<Exclude<LType["k"], "opt" | "union" | "rec">, Loose> = {
   abortSignal: "object",
   abortController: "object",
   web: "object",
+  asyncIter: "object",
   native: "object",
   buffer: "object",
   span: "object",

@@ -14,6 +14,7 @@ const REFERENCES = new Set<LType["k"]>([
   "abortSignal",
   "abortController",
   "web",
+  "asyncIter",
 ]);
 
 /**

@@ -213,10 +213,11 @@ work. `for (let …)` gives each iteration its own binding, even when the
 body assigns it. `for…of` iterates arrays, strings, maps, sets, byte
 views, generators and `Iterable<T>`; `for…in` iterates records and arrays.
 `for await` goes over a `Channel` (each value until it is closed and
-drained) and over iterables (each element awaited); async generators are
-`LUCENT2002` ([T106](tasks.md#t106)). Over a channel, each value comes a
-microtask or two sooner than JavaScript's async iterator gives it, so
-other work interleaves in another order. `debugger`, tagged
+drained), async generators and other async iterators, and iterables (each
+element awaited). Over a channel, each value comes a microtask or two
+sooner than JavaScript's async iterator gives it, so other work
+interleaves in another order. Leaving a loop over an async iterator
+early awaits its `return()`, which runs a generator's `finally` blocks. `debugger`, tagged
 templates (`String.raw`), `new.target`, `arguments` and `this` outside
 class members are `LUCENT1001`.
 
@@ -296,9 +297,16 @@ spread and `Array.from` take generators, arrays, sets, maps, strings,
 byte views and `Iterable<T>` parameters. Leaving a `for…of` early runs
 the generator's `finally` blocks.
 
-The value of `yield` and returning a value are `LUCENT1001`, an
-iterator's `throw()` `LUCENT1003`, and async generators `LUCENT2002`
-([T106](tasks.md#t106) lifts these). A class can't define `[Symbol.iterator]`: write
+The value of `yield` and returning a value are `LUCENT1001`, and an
+iterator's `throw()` `LUCENT1003` ([T106](tasks.md#t106) lifts these).
+
+An async generator (`async function*`, an `async *` method) awaits and
+yields. Like JavaScript's, it starts at its first `next()`, runs in that
+call up to its first `await` or `yield`, and queues the calls made while
+it runs, which settle in order. `return()` runs its `finally` blocks from
+the `yield` it waits at. Its `yield` settles the request with its value
+at once, where JavaScript's awaits the value first, so each value comes a
+microtask sooner. `yield*` takes an iterable, not an async iterator. A class can't define `[Symbol.iterator]`: write
 a generator method. Generators don't cross to JavaScript (`LUCENT2006`).
 
 ## Async functions and microtasks

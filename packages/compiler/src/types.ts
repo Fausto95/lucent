@@ -67,6 +67,8 @@ export type LType =
   | { k: "regexMatch" }
   | { k: "iter"; e: LType }
   | { k: "iterResult"; e: LType }
+  /** An async generator's iterator, or an AsyncIterable (lucent::AsyncIter): next() gives promises. */
+  | { k: "asyncIter"; e: LType }
   | { k: "abortSignal" }
   | { k: "abortController" }
   /** An object of a web API the runtime implements (text.h, url.h): lucent::<name>, a reference. */
@@ -223,6 +225,8 @@ function keyWith(t: LType, struct: (id: string) => string): string {
       return t.args.length ? `I:${t.id}<${t.args.map(key).join(",")}>` : `I:${t.id}`;
     case "iter":
       return `Iter<${key(t.e)}>`;
+    case "asyncIter":
+      return `AsyncIter<${key(t.e)}>`;
     case "iterResult":
       return `IterResult<${key(t.e)}>`;
     case "opt":
@@ -376,6 +380,8 @@ export function substitute(t: LType, map: Map<string, LType>): LType {
       return { k: "iface", id: t.id, args: t.args.map((a) => substitute(a, map)) };
     case "iter":
       return { k: "iter", e: substitute(t.e, map) };
+    case "asyncIter":
+      return { k: "asyncIter", e: substitute(t.e, map) };
     case "iterResult":
       return { k: "iterResult", e: substitute(t.e, map) };
     default:
@@ -438,6 +444,7 @@ function typeParts(t: LType): readonly LType[] {
     case "array":
     case "set":
     case "iter":
+    case "asyncIter":
     case "iterResult":
       return [t.e];
     case "map":
@@ -1337,6 +1344,13 @@ export class TypeRegistry {
         case "StringIterator":
         case "RegExpStringIterator":
           return { k: "iter", e: this.lower(args[0]!, node) };
+        // Async generators and the async iterables they make.
+        case "AsyncGenerator":
+        case "AsyncIterable":
+        case "AsyncIterableIterator":
+        case "AsyncIterator":
+        case "AsyncIteratorObject":
+          return { k: "asyncIter", e: this.lower(args[0]!, node) };
         case "IteratorResult":
         case "IteratorYieldResult":
         case "IteratorReturnResult":
@@ -1681,6 +1695,8 @@ export class TypeRegistry {
           return { k: "fn", params: t.params.map(fix), ret: fix(t.ret) };
         case "iter":
           return { k: "iter", e: fix(t.e) };
+        case "asyncIter":
+          return { k: "asyncIter", e: fix(t.e) };
         case "iterResult":
           return { k: "iterResult", e: fix(t.e) };
         case "class":
@@ -1847,6 +1863,8 @@ export class TypeRegistry {
         return lucent("RegExpMatch");
       case "iter":
         return lucent("Iter", this.cppType(t.e, true));
+      case "asyncIter":
+        return lucent("AsyncIter", this.cppType(t.e, true));
       case "iterResult":
         return lucent("IterResult", this.cppType(t.e, true));
       case "abortSignal":

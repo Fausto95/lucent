@@ -123,6 +123,12 @@ export class BindingsEmitter {
         return this.use(t.e, node);
       case "iterResult":
         fail(node, Codes.BoundaryType, "iterator results cannot cross the JavaScript boundary");
+      case "asyncIter":
+        fail(
+          node,
+          Codes.BoundaryType,
+          "an async iterator cannot cross the JavaScript boundary: collect its values, or send them through a Channel",
+        );
       case "regexMatch":
         fail(
           node,

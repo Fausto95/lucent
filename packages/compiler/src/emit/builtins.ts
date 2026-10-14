@@ -1429,11 +1429,13 @@ function callMethodDecl(
     node,
     rest,
   );
-  const ret = isAsync
-    ? ft.ret.k === "promise"
-      ? ft.ret
-      : ({ k: "promise", inner: ft.ret } as LType)
-    : ft.ret;
+  // An async generator method gives its iterator, not a promise.
+  const ret =
+    isAsync && ft.ret.k !== "asyncIter"
+      ? ft.ret.k === "promise"
+        ? ft.ret
+        : ({ k: "promise", inner: ft.ret } as LType)
+      : ft.ret;
   return { c: cpp.call(target, as), t: isVoidish(ret) ? T.undefined : ret };
 }
 
@@ -1674,6 +1676,18 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
           t: { k: "iterResult", e: t.e },
         };
       fail(node, Codes.UnsupportedBuiltin, `iterator.${name}() is not supported`);
+    case "asyncIter":
+      // next() and return(), each a promise of a result; throw() and next(value) are not supported.
+      // TypeScript has return() take the value it gives: undefined, which Lucent's gives.
+      if (
+        (name === "next" && a.length === 0) ||
+        (name === "return" && (a.length === 0 || (a.length === 1 && isVoidish(em.lt(a[0]!)))))
+      )
+        return {
+          c: cpp.call(cpp.arrow(o, name === "next" ? "next" : "ret")),
+          t: { k: "promise", inner: { k: "iterResult", e: t.e } },
+        };
+      fail(node, Codes.UnsupportedBuiltin, `an async iterator's ${name}() is not supported`);
     case "date": {
       if (
         name === "toString" ||

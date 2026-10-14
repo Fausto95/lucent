@@ -252,17 +252,17 @@ export const features: Feature[] = [
   },
   {
     feature: "Functions, closures, rest parameters, `async`/`await` and generators",
-    status:
-      "Yes. A function type can't have a rest parameter, and async generators fail (`LUCENT2002`).",
+    status: "Yes, async generators too. A function type can't have a rest parameter.",
     page: STATEMENTS,
-    cases: ["closures", "rest-parameters", "async", "generators"],
+    cases: ["closures", "rest-parameters", "async", "generators", "async-generators"],
     accepted: [
       "export function sum(...xs: number[]): number {\n  let total = 0;\n  for (const x of xs) total += x;\n  return total;\n}",
     ],
     refused: [
       {
         code: "LUCENT2002",
-        sample: "export async function* ticks(): AsyncGenerator<number> {\n  yield 1;\n}",
+        sample:
+          "export function total(sum: (...xs: number[]) => number): number {\n  return sum(1, 2, 3);\n}",
       },
     ],
   },
@@ -691,6 +691,13 @@ export const differences: { title: string; rows: Difference[] }[] = [
           "Each value a microtask after `receive()` gives it, so other promise callbacks interleave with the loop in another order.",
         why: "The loop awaits `receive()` itself, with no async iterator between them.",
         cases: ["for-await"],
+      },
+      {
+        js: "An async generator's `yield` awaits its value before its `next()` promise settles.",
+        lucent:
+          "The promise settles with the value at once, a microtask sooner, so other promise callbacks interleave in another order.",
+        why: "A Lucent value is never a promise to adopt: there is nothing to await.",
+        cases: ["async-generators"],
       },
       {
         js: "The `AggregateError` that `Promise.any` rejects with has a message that depends on the engine.",

@@ -143,6 +143,7 @@ export function apiSurface(
       case "array":
       case "set":
       case "iter":
+      case "asyncIter":
         return describe(t.e);
       case "dict":
         return describe(t.val);

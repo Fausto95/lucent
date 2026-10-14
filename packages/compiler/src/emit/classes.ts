@@ -295,9 +295,10 @@ export function emitClass(
     };
     const map = owner ? argMap(ctx, owner.t) : new Map<string, LType>();
     const em = new FnEmitter(ctx, { module, async: false });
-    const ret = isAsync(node)
-      ? ({ k: "promise", inner: fn.ret.k === "promise" ? fn.ret.inner : fn.ret } as LType)
-      : fn.ret;
+    const ret =
+      isAsync(node) && fn.ret.k !== "asyncIter"
+        ? ({ k: "promise", inner: fn.ret.k === "promise" ? fn.ret.inner : fn.ret } as LType)
+        : fn.ret;
     return `${reg.cppRet(substitute(ret, map))}(${em
       .paramInfos(node, fn)
       .map((p) => reg.cpp(substitute(p.cppType, map)))
@@ -392,7 +393,9 @@ export function emitClass(
           params,
           result: ret,
           async: asyncM,
-          ...(gen && fnType.ret.k === "iter" ? { generator: fnType.ret.e } : {}),
+          ...(gen && (fnType.ret.k === "iter" || fnType.ret.k === "asyncIter")
+            ? { generator: fnType.ret.e }
+            : {}),
           generic: ts.isMethodDeclaration(node) && !!node.typeParameters?.length,
           opts,
           site: functionName(node.body ?? node),
@@ -414,10 +417,10 @@ export function emitClass(
     }
 
     const decls = params.map((p, i) => cpp.param(reg.cppType(p.cppType), `p${i}_`));
-    const retType = asyncM
-      ? cpp.type("lucent::Promise", reg.cppRetType(ret))
-      : gen
-        ? reg.cppType(fnType.ret)
+    const retType = gen
+      ? reg.cppType(fnType.ret)
+      : asyncM
+        ? cpp.type("lucent::Promise", reg.cppRetType(ret))
         : reg.cppRetType(ret);
 
     define(cppName, retType, decls, [cpp.exprStmt(cpp.call("lucent::unreachable"))], flags);

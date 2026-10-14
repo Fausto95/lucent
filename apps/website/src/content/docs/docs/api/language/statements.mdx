@@ -1,7 +1,7 @@
 ---
 title: "Which statements and expressions does Lucent support?"
 sidebar_label: Statements
-description: "JavaScript's statements, operators, functions, classes, async code and generators, run in JavaScript's order; `var`, decorators and async generators fail to compile."
+description: "JavaScript's statements, operators, functions, classes, async code and generators, run in JavaScript's order; `var` and decorators fail to compile."
 kind: reference
 ---
 
@@ -112,7 +112,8 @@ Cases: `bigint-arith`, `bigint-unions`.
 ## Async
 
 - `async` functions, methods and arrow functions work, with `await`. `new Promise`, `Promise.all`, `Promise.resolve` and `Promise.reject` are in [Built-ins](/docs/api/language/built-ins/) (cases `async`, `async-throws`).
-- Async generators fail with [LUCENT2002](/docs/api/diagnostics/#lucent2002), and awaiting a value typed as a promise or `undefined` fails with `LUCENT1001`.
+- Async generators (`async function*`, `async *` methods) await and yield, and `for await` goes over them. A loop left early awaits the generator's `return()`, which runs its `finally` blocks (case `async-generators`).
+- Awaiting a value typed as a promise or `undefined` fails with `LUCENT1001`.
 - `await` on an SDK object fails with [LUCENT1010](/docs/api/diagnostics/#lucent1010): wrap its listener in [fromCallback()](/docs/api/lucent-core/#fromcallback).
 - An `AbortSignal` cancels async work: see [Globals](/docs/api/globals/) and [Cancel work](/docs/guides/cancel-work/).
 - Where async code runs, and how its awaits interleave, is in [Concurrency](/docs/api/language/concurrency/).
