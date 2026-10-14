@@ -13,6 +13,7 @@ const REFERENCES = new Set<LType["k"]>([
   "regexMatch",
   "abortSignal",
   "abortController",
+  "web",
 ]);
 
 /**

@@ -1608,7 +1608,54 @@ static void jsonFormat() {
   CHECK(f("\"s\"", none, json::gapOf(4.0)) == "\"s\"");
 }
 
+/// TextDecoder's UTF-8 decoding, whole and streamed one byte at a time,
+/// and TextEncoder's encodeInto at each size of its destination.
+static void textCodec() {
+  auto units = [](const String& s) {
+    std::string out;
+    for (size_t i = 0; i < s.length(); i++) {
+      char b[8];
+      std::snprintf(b, sizeof b, "%s%x", i ? " " : "", static_cast<unsigned>(s.unit(i)));
+      out += b;
+    }
+    return out;
+  };
+  const std::vector<uint8_t> bad = {0xE2, 0x82, 0x41, 0xED, 0xA0, 0x80, 0xF0, 0x9F, 0x98, 0x80, 0xF0, 0x90, 0x80};
+  CHECK(units(utf8DecodeBytes(bad.data(), bad.size())) == "fffd 41 fffd fffd fffd d83d de00 fffd");
+
+  // Byte by byte, a stream decodes the same.
+  auto decoder = makeTextDecoder(String::fromLatin1("utf-8"), false, false);
+  std::string streamed;
+  for (uint8_t b : bad) streamed += units(decoder->decode(&b, 1, true)) + "|";
+  streamed += units(decoder->decode(false));
+  CHECK(streamed == "||fffd 41||fffd fffd|fffd||||d83d de00||||fffd");
+
+  // A BOM split over chunks is dropped once, and a fatal decoder throws.
+  const uint8_t bom[] = {0xEF, 0xBB, 0xBF, 0xEF, 0xBB, 0xBF};
+  CHECK(units(decoder->decode(bom, 2, true)) == "");
+  CHECK(units(decoder->decode(bom + 2, 4, false)) == "feff");
+  auto fatal = makeTextDecoder(undefined, true, false);
+  CHECK_THROWS(fatal->decode(bad.data(), 2, false), "TypeError");
+  CHECK(units(fatal->decode(bad.data(), 2, true)) == "");
+  CHECK_THROWS(makeTextDecoder(String::fromLatin1("latin1"), false, false), "RangeError");
+  CHECK(!makeTextDecoder(String::fromLatin1(" UTF8\n"), true, true)->decode(nullptr, 0, false).length());
+
+  // "aé😀": 1, 2 and 4 bytes; a lone surrogate is U+FFFD, 3.
+  const char16_t text[] = u"a\u00e9\U0001F600\xD800";
+  const String source = String::fromUtf16(text, 5);
+  TextEncoderObject encoder;
+  std::string counts;
+  for (size_t size : {0, 1, 2, 3, 6, 7, 9, 10}) {
+    Bytes into(static_cast<double>(size));
+    double read = 0, written = 0;
+    encoder.encodeInto(source, into, read, written);
+    counts += std::to_string(static_cast<int>(read)) + "/" + std::to_string(static_cast<int>(written)) + " ";
+  }
+  CHECK(counts == "0/0 1/1 1/1 2/3 2/3 4/7 4/7 5/10 ");
+}
+
 int main() {
+  textCodec();
   jsonFormat();
   typedArrays();
   deepRegExps();

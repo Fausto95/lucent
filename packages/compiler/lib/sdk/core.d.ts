@@ -61,7 +61,8 @@ export declare function errorCode(e: Error): string | undefined;
 export declare function utf8Encode(s: string): Uint8Array;
 
 /**
- * Decodes UTF-8 bytes, like `new TextDecoder().decode(bytes)`, replacing invalid sequences.
+ * Decodes UTF-8 bytes as `new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes)` does:
+ * a BOM stays, and each invalid sequence is U+FFFD.
  *
  * @param bytes The UTF-8 bytes to decode.
  */

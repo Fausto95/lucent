@@ -42,6 +42,7 @@ import { type E, elementOrUndefined, type Lvalue } from "./context.ts";
 import { coreCall, isCoreSymbol } from "./core.ts";
 import { type FnEmitter, substitute } from "./function.ts";
 import { signalMethod } from "./setups.ts";
+import { webMethod, webNew, webProperty } from "./web.ts";
 import { type IfaceMember, membersOf } from "./interfaces.ts";
 import { numberExpr, stringExpr } from "./literals.ts";
 import { handleDispose, handleMethodCall } from "./extensions.ts";
@@ -247,6 +248,11 @@ export function property(em: FnEmitter, obj: E, name: string, node: ts.Node): E 
     case "abortController":
       if (name === "signal") return { c: cpp.arrow(o, "signal"), t: T.abortSignal };
       break;
+    case "web": {
+      const member = webProperty(obj, name);
+      if (member) return member;
+      break;
+    }
     case "buffer":
       return bufferProperty(obj, name, node);
     case "nativeHandle":
@@ -1704,6 +1710,11 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
         };
       }
       break;
+    case "web": {
+      const call = webMethod(em, obj, name, node);
+      if (call) return call;
+      break;
+    }
     case "fn":
       if (name === "call" || name === "apply" || name === "bind")
         fail(node, Codes.UnsupportedBuiltin, `Function.prototype.${name} is not supported`);
@@ -2795,6 +2806,8 @@ const BIGINT_FROM: Partial<Record<LType["k"], (v: cpp.Expr) => cpp.Expr>> = {
 /** The kind each library constructor makes (the errors are added by name). */
 const LIB_CONSTRUCTORS: Record<string, LType["k"]> = {
   AbortController: "abortController",
+  TextEncoder: "web",
+  TextDecoder: "web",
   WeakRef: "weak",
   WeakMap: "weakMap",
   WeakSet: "weakSet",
@@ -2866,6 +2879,8 @@ export function newBuiltin(
         c: cpp.call("std::make_shared", [], [cpp.type("lucent::AbortControllerObject")]),
         t,
       };
+    case "web":
+      return webNew(em, node, t);
     case "emitter":
       return emitterNew(em, node, t);
     case "channel":

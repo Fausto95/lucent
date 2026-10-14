@@ -8,6 +8,7 @@
 #include "execution.h"
 #include "report.h"
 #include "scope.h"
+#include "text.h"
 #include "timers.h"
 
 #include <cmath>
@@ -65,9 +66,7 @@ Bytes utf8Encode(const String& s) {
   return Bytes::copy(reinterpret_cast<const uint8_t*>(u.data()), u.size());
 }
 
-String utf8Decode(const Bytes& b) {
-  return String::fromUtf8(std::string_view(reinterpret_cast<const char*>(b.data()), b.size()));
-}
+String utf8Decode(const Bytes& b) { return utf8DecodeBytes(b.data(), b.size()); }
 
 Promise<void> delay(double ms, Opt<AbortSignal> signal) {
   ContextRef owner = ExecutionContext::currentRef();

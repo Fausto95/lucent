@@ -65,3 +65,55 @@ declare function clearInterval(id: number | undefined): void;
 
 /** Calls `callback` after the current turn's code and the microtasks queued before it. */
 declare function queueMicrotask(callback: () => void): void;
+
+/** What `encodeInto` did: the UTF-16 code units it read, and the bytes it wrote. */
+interface TextEncoderEncodeIntoResult {
+  read: number;
+  written: number;
+}
+
+/** Encodes strings as UTF-8, a lone surrogate as U+FFFD. */
+interface TextEncoder {
+  /** Always "utf-8". */
+  readonly encoding: string;
+  encode(input?: string): Uint8Array<ArrayBuffer>;
+  /** Writes the whole characters of `source` that fit in `destination`, from its start. */
+  encodeInto(source: string, destination: Uint8Array): TextEncoderEncodeIntoResult;
+}
+
+declare var TextEncoder: {
+  prototype: TextEncoder;
+  new (): TextEncoder;
+};
+
+/** `fatal`: throw a TypeError on bytes that are not UTF-8, rather than decode them as U+FFFD. `ignoreBOM`: keep a leading byte order mark. */
+interface TextDecoderOptions {
+  fatal?: boolean;
+  ignoreBOM?: boolean;
+}
+
+/** `stream`: more input follows, so a character the input ends inside of waits for it. */
+interface TextDecodeOptions {
+  stream?: boolean;
+}
+
+/**
+ * Decodes UTF-8 bytes, as the Encoding standard does. In Lucent code the
+ * label names UTF-8 ("utf-8", "utf8", …), the only encoding Lucent
+ * decodes, and the options are written in the call.
+ */
+interface TextDecoder {
+  /** Always "utf-8". */
+  readonly encoding: string;
+  readonly fatal: boolean;
+  readonly ignoreBOM: boolean;
+  decode(
+    input?: ArrayBufferLike | ArrayBufferView<ArrayBufferLike>,
+    options?: TextDecodeOptions,
+  ): string;
+}
+
+declare var TextDecoder: {
+  prototype: TextDecoder;
+  new (label?: string, options?: TextDecoderOptions): TextDecoder;
+};
