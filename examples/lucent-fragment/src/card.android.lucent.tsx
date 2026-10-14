@@ -8,7 +8,7 @@
 // and an effect sets it as the prop changes. Exported and extending
 // Fragment, the class is one the OS can make by its name (decision 0097).
 import { Bundle } from "lucent:android/android.os";
-import { type LayoutInflater, View, type ViewGroup } from "lucent:android/android.view";
+import { type LayoutInflater, type View, ViewGroup } from "lucent:android/android.view";
 import { TextView } from "lucent:android/android.widget";
 import { Fragment } from "lucent:android/androidx.fragment.app";
 import { main } from "lucent:thread";
@@ -71,7 +71,7 @@ export async function cardShown(): Promise<string> {
     for (let i = 0; at && i < 3; i++) {
       sizes.push(`${at.getWidth()}x${at.getHeight()}`);
       const parent = at.getParent();
-      at = parent instanceof View ? parent : null;
+      at = parent instanceof ViewGroup ? parent : null;
     }
     return `not laid out: ${sizes.join(" in ")}`;
   });
