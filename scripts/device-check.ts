@@ -799,6 +799,16 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
 
   if (verdict?.ok) {
     console.log(verdict.line);
+    // EXPERIMENT: React Native's missing view states, from a run that passed.
+    const missing = device
+      .log()
+      .split("\n")
+      .filter((l) => l.includes("MissingViewState") && !/:\s+(at |\.\.\. \d+ more)/.test(l))
+      .map((l) => l.replace(/^.*?Unable/, "Unable"));
+    if (process.env.GITHUB_ACTIONS)
+      console.log(
+        `::warning title=Missing view states (${screen.id})::${[`${missing.length} lines`, ...missing.slice(0, 20)].join("%0A")}`,
+      );
     return true;
   }
 
