@@ -213,7 +213,7 @@ function decl(d: Decl): string[] {
       return [
         ...doc,
         ...body(
-          `export declare ${d.abstract ? "abstract " : ""}class ${d.name}${typeParams(d.typeParams)}${ext}`,
+          `${d.local ? "" : "export "}declare ${d.abstract ? "abstract " : ""}class ${d.name}${typeParams(d.typeParams)}${ext}`,
           d.members.flatMap(member),
         ),
       ];
@@ -244,6 +244,8 @@ function decl(d: Decl): string[] {
       return ["export {};"];
     case "moduleWildcard":
       return [`declare module ${JSON.stringify(d.name)};`];
+    case "moduleAugmentation":
+      return body(`declare module ${JSON.stringify(d.name)}`, d.decls.flatMap(inNamespace));
     case "stmt":
       return [stmt(d.stmt)];
     case "blank":

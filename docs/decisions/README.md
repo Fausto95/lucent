@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                             | Date       | Decision                                                                    |
 | ---------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| [0106](0106-members-a-module-adds-to-nsobject-are-every-objects.md)                | 2026-10-14 | Members a module adds to NSObject are every object's                        |
 | [0105](0105-a-components-ref-is-its-host-views-own.md)                             | 2026-10-14 | A component's ref is its host view's own, with its commands on it           |
 | [0104](0104-a-components-android-root-may-be-a-fragment.md)                        | 2026-10-14 | A component's Android root may be a Fragment, which its host contains       |
 | [0103](0103-android-overrides-run-while-the-caller-waits.md)                       | 2026-10-14 | An Android override runs while its caller waits, and super calls the base's |

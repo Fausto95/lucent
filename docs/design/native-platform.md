@@ -669,8 +669,9 @@ view's own, with the commands on it; a request takes a signal
 ([T121](../tasks.md#t121), #244,
 [0105](../decisions/0105-a-components-ref-is-its-host-views-own.md)). A prop may be an instance of an
 exported class, which the view holds while it shows it
-([T120](../tasks.md#t120), #247). **Planned:** the view libraries' cases
-([T121](../tasks.md#t121)), view-controller roots
+([T120](../tasks.md#t120), #247). A component works inside Reanimated,
+Gesture Handler and react-native-screens, which the device runs check
+([T121](../tasks.md#t121), #271). **Planned:** view-controller roots
 ([T122](../tasks.md#t122)) and objects in toolkit bodies
 ([T123](../tasks.md#t123)).
 

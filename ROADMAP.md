@@ -137,8 +137,8 @@ Goal: Native views from Lucent components, rendered by React Native's Fabric.
 - ✅ SwiftUI and Jetpack Compose bodies written as JSX, from your SDKs' declarations.
 - ✅ Typed props, events, commands that answer, React children and sizing to content.
 - ✅ Recycling, keyed lists and Yoga layout, and views that update while JavaScript is blocked.
-- ⏳ Instances of exported classes as props, such as a video player.
-- ⏳ React Native's own view props, such as `testID` and `onLayout`.
+- ✅ Instances of exported classes as props, such as a video player.
+- ✅ React Native's own view props, such as `testID` and `onLayout`, inside Reanimated, Gesture Handler and react-native-screens.
 - 🔭 View controllers as component roots, such as `AVPlayerViewController`.
 - 🔭 A component's ref passed to a module function, as view capture needs.
 
@@ -184,8 +184,8 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
    the native root ([T130](docs/tasks.md#t130), done): Android classes the
    OS makes, and iOS background tasks. Relaunches for background sessions
    and pushes are [T137](docs/tasks.md#t137).
-4. [T120](docs/tasks.md#t120) and [T121](docs/tasks.md#t121): object props
-   and React Native's view props, which most view modules need.
+4. [T120](docs/tasks.md#t120) and [T121](docs/tasks.md#t121) (done): object
+   props and React Native's view props, which most view modules need.
 5. [T100](docs/tasks.md#t100) to [T104](docs/tasks.md#t104) (done): typed
    arrays, `null` kept apart from `undefined`, JSON values, promises and
    timers.

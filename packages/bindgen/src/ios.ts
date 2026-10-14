@@ -115,9 +115,14 @@ export function symbolGraph(module: string, opts: IosOptions, sdk: string): Symb
   try {
     const r = spawnSync(opts.xcrun ?? "xcrun", args, { encoding: "utf8", maxBuffer: 64 << 20 });
     if (r.status !== 0) throw new Error(`swift-symbolgraph-extract ${module}: ${r.stderr}`);
-    return JSON.parse(
-      fs.readFileSync(path.join(dir, `${module}.symbols.json`), "utf8"),
-    ) as SymbolGraph;
+    const read = (file: string) =>
+      JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")) as SymbolGraph;
+    const objc = `${module}@ObjectiveC.symbols.json`;
+
+    return withRootExtensions(
+      read(`${module}.symbols.json`),
+      fs.existsSync(path.join(dir, objc)) ? read(objc) : undefined,
+    );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -438,6 +443,8 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
     const k = s.kind.identifier;
     const name = s.pathComponents.join("_");
     const cls = objcClass(usr);
+    // A class this module only extends (NSObject) is no type of its own: references name the other.
+    if (s.extensionOf) continue;
     if ((k === "swift.class" || k === "swift.protocol") && cls) {
       refs[usr] = `${module}.${name}`;
       types[name] = { kind: k === "swift.class" ? "class" : "protocol", native: cls[2]! };
@@ -564,7 +571,10 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
 
 /** USRs a graph refers to but does not declare: types of other modules. */
 export function externalUsrs(g: SymbolGraph): Set<string> {
-  const declared = new Set(g.symbols.map((s) => s.identifier.precise));
+  // NSObject, which this module only extends (withRootExtensions), is still another module's.
+  const declared = new Set(
+    g.symbols.filter((s) => !s.extensionOf).map((s) => s.identifier.precise),
+  );
   const out = new Set<string>();
   const visit = (frags: Fragment[] | undefined) => {
     for (const f of frags ?? []) {
@@ -880,6 +890,48 @@ function inheritedConformances(
   return out;
 }
 
+/** The root class, which lucent:ios declares and every Objective-C class extends. */
+export const ROOT_CLASS = "c:objc(cs)NSObject";
+
+/**
+ * `g` with the members its module adds to NSObject, from the module's
+ * extension graph for ObjectiveC (`<module>@ObjectiveC.symbols.json`,
+ * where swift-symbolgraph-extract puts a category on another module's
+ * class): UIKit's `NSObject (UIAccessibility)`, Foundation's key-value
+ * coding. NSObject comes as a class of its own marked as ObjectiveC's,
+ * whose schema is an extension (`extensionOf`).
+ */
+export function withRootExtensions(g: SymbolGraph, objc: SymbolGraph | undefined): SymbolGraph {
+  if (!objc) return g;
+
+  const added = objc.relationships.filter(
+    (r) =>
+      (r.kind === "memberOf" || r.kind === "requirementOf" || r.kind === "optionalRequirementOf") &&
+      r.target === ROOT_CLASS &&
+      // Objective-C's members: a Swift extension's (Foundation's observe) aren't sent as messages.
+      r.source.startsWith("c:objc"),
+  );
+  if (!added.length || g.symbols.some((s) => s.identifier.precise === ROOT_CLASS)) return g;
+
+  const members = new Set(added.map((r) => r.source));
+
+  return {
+    ...g,
+    symbols: [
+      ...g.symbols,
+      {
+        kind: { identifier: "swift.class" },
+        identifier: { precise: ROOT_CLASS },
+        pathComponents: ["NSObject"],
+        names: { title: "NSObject" },
+        extensionOf: "ObjectiveC",
+      },
+      ...objc.symbols.filter((s) => members.has(s.identifier.precise)),
+    ],
+    relationships: [...g.relationships, ...added],
+  };
+}
+
 /**
  * One module's schema from its graph and the names of every module it
  * refers to (its own included).
@@ -1158,7 +1210,10 @@ export function buildIosSchema(
       const k = s.kind.identifier;
       const m = objcClass(s.identifier.precise);
       if (!m || (k !== "swift.class" && k !== "swift.protocol") || unavailable(s)) continue;
-      const name = s.pathComponents.join("_");
+      // What the module adds to another module's class is named apart from that class.
+      const name = s.extensionOf
+        ? `${s.pathComponents.join("_")}_${module}`
+        : s.pathComponents.join("_");
       const self = `${module}.${name}`;
       const cls: SdkClassSchema = {
         kind: "class",
@@ -1167,6 +1222,7 @@ export function buildIosSchema(
         symbol: graphSymbol(s.identifier.precise),
       };
       objcClasses.set(s.identifier.precise, cls);
+      if (s.extensionOf) cls.extensionOf = `${s.extensionOf}.${m[2]}`;
       if (k === "swift.protocol") cls.interface = true;
       const classFacts = mainActorFacts(declText(s));
       if (classFacts) cls.facts = classFacts;
@@ -1350,7 +1406,9 @@ export function buildIosSchema(
       }
       // Objective-C initializers are inherited (NSObject's init at the root)
       // unless the class makes init unavailable; factory initializers aside.
-      if (!ctors.some((c) => !c.factory) && !initUnavailable && k === "swift.class") {
+      // An extension makes nothing: its class is another module's.
+      if (cls.extensionOf) ctors.length = 0;
+      else if (!ctors.some((c) => !c.factory) && !initUnavailable && k === "swift.class") {
         if (cls.extends) cls.inheritsInit = true;
         else ctors.push({ params: [], selector: "init" });
       }

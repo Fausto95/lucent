@@ -123,14 +123,14 @@ export const platformCases: SdkCase[] = [
     expected: ios ? "none" : "shown",
   },
   {
-    name: "view props: the native view has the testID, and Android's accessibility API reads its label",
+    name: "view props: the native view has the testID, and the accessibility API reads its label",
     run: () =>
       poll(
         10_000,
         () => Probe.labelOf(CARD_ID),
         (got) => got !== "no view",
       ),
-    expected: ios ? "found" : CARD_LABEL,
+    expected: CARD_LABEL,
   },
   {
     name: "view props: onLayout fires with the component's size",

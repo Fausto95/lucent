@@ -133,6 +133,8 @@ export type Decl =
       k: "class";
       name: string;
       abstract?: boolean;
+      /** Not exported: the module's own. */
+      local?: boolean;
       /** A documentation comment, one line of text each. */
       doc?: string[];
       typeParams?: TypeParam[];
@@ -171,6 +173,11 @@ export type Decl =
   | { k: "exportNothing" }
   /** `declare module "lucent:android/*";`: any import of these is untyped. */
   | { k: "moduleWildcard"; name: string }
+  /**
+   * `declare module "lucent:ios" { … }`: declarations another module merges
+   * into its own (an interface adding members to its class).
+   */
+  | { k: "moduleAugmentation"; name: string; decls: Decl[] }
   | { k: "stmt"; stmt: Stmt }
   | { k: "blank" };
 
