@@ -17,7 +17,10 @@ export function flatStrings(): string {
 
 export function flatKeepsUndefined(): string {
   const xs: (number | undefined)[][] = [[1, undefined], [3]];
-  return xs.flat().map((x) => String(x)).join(",");
+  return xs
+    .flat()
+    .map((x) => String(x))
+    .join(",");
 }
 
 export function flatNewArray(): string {

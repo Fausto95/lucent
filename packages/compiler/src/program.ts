@@ -290,8 +290,9 @@ export function compilerOptions(): ts.CompilerOptions {
     target: ts.ScriptTarget.ES2024,
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
-    // esnext.disposable: Symbol.dispose, for `using` declarations.
-    lib: ["lib.es2024.d.ts", "lib.esnext.disposable.d.ts"],
+    // esnext.disposable: Symbol.dispose, for `using` declarations; esnext.collection: ES2025's
+    // set methods (union, intersection…).
+    lib: ["lib.es2024.d.ts", "lib.esnext.disposable.d.ts", "lib.esnext.collection.d.ts"],
     // TypeScript's own: no @typescript/lib-* replacement looked for from the working directory.
     libReplacement: false,
     types: [],
