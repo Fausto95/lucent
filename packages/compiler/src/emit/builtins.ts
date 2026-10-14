@@ -2459,6 +2459,29 @@ function setMethod(
     case "values":
     case "keys":
       return { c: cpp.call(cpp.dot(o, "values"), []), t: { k: "array", e } };
+    case "union":
+    case "intersection":
+    case "difference":
+    case "symmetricDifference":
+    case "isSubsetOf":
+    case "isSupersetOf":
+    case "isDisjointFrom": {
+      // ES2025's: the other is set-like, a Set or a Map by its keys.
+      const other = em.expr(a[0]!);
+      const ot = other.t;
+      if (ot.k !== "set" && ot.k !== "map")
+        fail(
+          a[0]!,
+          Codes.UnsupportedBuiltin,
+          `Set.prototype.${name} takes a Set or a Map, not ${typeKey(ot)}`,
+        );
+      const fn = `lucent::set${name[0]!.toUpperCase()}${name.slice(1)}`;
+      if (name.startsWith("is")) return bool(cpp.call(fn, [o, other.c]));
+      if (name === "difference") return { c: cpp.call(fn, [o, other.c]), t: obj.t };
+      const rt = em.lt(node);
+      if (rt.k !== "set") fail(node, Codes.UnsupportedBuiltin, `Set.prototype.${name}`);
+      return { c: cpp.call(fn, [o, other.c], [em.reg.cppType(rt.e, true)]), t: rt };
+    }
   }
   fail(node, Codes.UnsupportedBuiltin, `Set.prototype.${name} is not supported`);
 }

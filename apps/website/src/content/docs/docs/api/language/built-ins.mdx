@@ -123,6 +123,8 @@ Writing past the end of an array throws a `RangeError`, since a Lucent array has
 | `new Set()`, `new Set(items)`                             | `items` is an array, a set or a string.                                                |
 | `size`, `add`, `has`, `delete`, `clear`, `forEach`        |                                                                                        |
 | `keys`, `values`                                          | Each returns an array. A set has no `entries`.                                         |
+| `union`, `intersection`, `difference`, `symmetricDifference` | ES2025's: a new set. The other is a `Set`, or a `Map` by its keys.                  |
+| `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`            | ES2025's, with a `Set` or a `Map`.                                                     |
 | `Map.groupBy(items, key)`                                 | From any iterable: each item under the key `key(item, index)` gives, by SameValueZero. |
 
 `for…of` reads a map's entries, and a set's values, in insertion order.

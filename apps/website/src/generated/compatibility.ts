@@ -26,6 +26,7 @@ export const requirements = {
   "typescript": "~5.9.3",
   "lib": [
     "lib.es2024.d.ts",
-    "lib.esnext.disposable.d.ts"
+    "lib.esnext.disposable.d.ts",
+    "lib.esnext.collection.d.ts"
   ]
 } as const;
