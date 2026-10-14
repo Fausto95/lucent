@@ -47,30 +47,37 @@ describe("component exports", () => {
     expect(text).toMatch(/displayName: "Card",\n\s*children: true,/);
     expect(text.match(/children: true/g)).toHaveLength(1);
     expect(declarationsText()).toContain(
-      'export declare function Card(props: Omit<ViewProps, "children" | "title"> & { title: string; children?: ReactNode; ref?: Ref<{ measure: (callback: MeasureOnSuccessCallback) => void; measureInWindow: (callback: MeasureInWindowOnSuccessCallback) => void }> }): ReactNode;',
+      'export declare function Card(props: Omit<ViewProps, "children" | "title"> & { title: string; children?: ReactNode; ref?: Ref<HostInstance> }): ReactNode;',
     );
   });
 
-  it("declare React components: props, callbacks, React Native's view props, and a ref to the host and the commands", () => {
+  it("declare React components: props, callbacks, React Native's view props, and a ref to the host view with the commands", () => {
     const text = declarationsText();
 
     expect(text).toContain(
-      'export declare function Caption(props: Omit<ViewProps, "children" | "text" | "detail"> & { text: string; detail?: string | null; ref?: Ref<{ measure: (callback: MeasureOnSuccessCallback) => void; measureInWindow: (callback: MeasureInWindowOnSuccessCallback) => void }> }): ReactNode;',
+      'export declare function Caption(props: Omit<ViewProps, "children" | "text" | "detail"> & { text: string; detail?: string | null; ref?: Ref<HostInstance> }): ReactNode;',
     );
     expect(text).toContain('"aria-label"?: string;');
     expect(text).toContain("onChange?: (value: number, source?: string) => void;");
     expect(text).toContain(
-      'reset: () => void; sample: (unit: "pt" | "px", options?: { signal?: AbortSignal }) => Promise<number>; flush: (options?: { signal?: AbortSignal }) => Promise<void> }>',
+      'ref?: Ref<HostInstance & { reset: () => void; sample: (unit: "pt" | "px", options?: { signal?: AbortSignal }) => Promise<number>; flush: (options?: { signal?: AbortSignal }) => Promise<void> }>',
     );
   });
 
-  it("refuse a command named as the host view's ref methods", () => {
+  it("refuse a command named as a member the host view's ref has, but focus and blur", () => {
+    for (const taken of ["measure", "measureLayout", "children", "__nativeTag"]) {
+      const { diagnostics } = views({
+        "ui.lucent.tsx": SOURCE.replace("sample: (unit", `${taken}: (unit`),
+      });
+      expect(diagnostics.map((d) => `${d.code} ${d.message}`)).toContain(
+        `LUCENT3021 \`Gauge\`'s command \`${taken}\` takes the name of a member the host view's ref has: rename it`,
+      );
+    }
+
     const { diagnostics } = views({
-      "ui.lucent.tsx": SOURCE.replace("sample: (unit", "measure: (unit"),
+      "ui.lucent.tsx": SOURCE.replace("sample: (unit", "focus: (unit"),
     });
-    expect(diagnostics.map((d) => `${d.code} ${d.message}`)).toContain(
-      "LUCENT3021 `Gauge`'s command `measure` takes the name of the host view's own ref method: rename it",
-    );
+    expect(diagnostics).toEqual([]);
   });
 
   it("match the reviewed output", async () => {
@@ -85,6 +92,7 @@ describe("component exports", () => {
 });
 
 const APP = `import { type ComponentRef, useRef } from "react";
+import { findNodeHandle } from "react-native";
 import { Card, Caption, Gauge } from "./ui";
 
 type GaugeRef = ComponentRef<typeof Gauge>;
@@ -123,6 +131,8 @@ export function App() {
 export async function sample(gauge: GaugeRef): Promise<number> {
   await gauge.flush();
   gauge.measure((x, y, width) => console.log(x, y, width));
+  // The host view's own ref, which what finds views by their refs takes.
+  console.log(findNodeHandle(gauge), gauge.getBoundingClientRect().width);
 
   return gauge.sample("px", { signal: AbortSignal.timeout(1000) });
 }

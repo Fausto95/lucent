@@ -150,8 +150,61 @@ export function describeProps(
 }
 
 /** The commands of component `name` from the object it exposes, of type `exposed`. */
-/** The ref methods every component's ref has, from its host view (views.js), which a command can't be. */
-export const HOST_REF_METHODS = new Set(["measure", "measureInWindow"]);
+/**
+ * What a component's ref, its host view's own (views.js, decision 0105),
+ * has already, which a command can't be named: React Native's
+ * `ReactNativeElement` and the DOM node members it inherits. `focus` and
+ * `blur` may be: the host's send the view the native command of their
+ * name, which is the component's.
+ */
+export const HOST_REF_METHODS = new Set([
+  "childElementCount",
+  "childNodes",
+  "children",
+  "clientHeight",
+  "clientLeft",
+  "clientTop",
+  "clientWidth",
+  "compareDocumentPosition",
+  "contains",
+  "firstChild",
+  "firstElementChild",
+  "getBoundingClientRect",
+  "getRootNode",
+  "hasChildNodes",
+  "hasPointerCapture",
+  "id",
+  "isConnected",
+  "lastChild",
+  "lastElementChild",
+  "measure",
+  "measureInWindow",
+  "measureLayout",
+  "nextElementSibling",
+  "nextSibling",
+  "nodeName",
+  "nodeType",
+  "nodeValue",
+  "offsetHeight",
+  "offsetLeft",
+  "offsetParent",
+  "offsetTop",
+  "offsetWidth",
+  "ownerDocument",
+  "parentElement",
+  "parentNode",
+  "previousElementSibling",
+  "previousSibling",
+  "releasePointerCapture",
+  "scrollHeight",
+  "scrollLeft",
+  "scrollTop",
+  "scrollWidth",
+  "setNativeProps",
+  "setPointerCapture",
+  "tagName",
+  "textContent",
+]);
 
 export function describeCommands(
   checker: ts.TypeChecker,
@@ -174,10 +227,10 @@ export function describeCommands(
       continue;
     }
 
-    // The ref has the host view's own, as every host view's does.
-    if (HOST_REF_METHODS.has(command)) {
+    // The ref is the host view's own, which has these, and React Native's internals (`__…`).
+    if (HOST_REF_METHODS.has(command) || command.startsWith("__")) {
       report(
-        `\`${name}\`'s command \`${command}\` takes the name of the host view's own ref method: rename it`,
+        `\`${name}\`'s command \`${command}\` takes the name of a member the host view's ref has: rename it`,
       );
       continue;
     }

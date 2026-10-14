@@ -64,9 +64,18 @@ function setup(native: object | null = {}, config: ComponentConfig = GAUGE) {
     }),
     useRef: <T>(init: T) => hook(() => ({ current: init })),
     useState: <T>(init: () => T) => [hook(init), () => {}],
-    useImperativeHandle: (ref: Ref<unknown> | undefined, make: () => unknown) => {
+    // As React sets a handle: a function ref is called, an object's current set; null as it lets go.
+    useImperativeHandle: (
+      ref: Ref<unknown> | ((v: unknown) => void) | undefined,
+      make: () => unknown,
+    ) => {
       hook(() => {
-        hooks!.effects.push(() => ref && (ref.current = make()));
+        const set = (value: unknown) =>
+          typeof ref === "function" ? ref(value) : ref && (ref.current = value);
+        hooks!.effects.push(() => {
+          set(make());
+          return () => set(null);
+        });
       });
     },
     useEffect: (effect: () => (() => void) | void) => {
@@ -125,6 +134,7 @@ function setup(native: object | null = {}, config: ComponentConfig = GAUGE) {
     };
 
     const element = render(props);
+    // React attaches the host view before the handles and effects of its parent.
     (element.props.ref as Ref<unknown>).current = view;
     for (const effect of instance.effects.splice(0)) cleanups.push(effect());
 
@@ -370,25 +380,25 @@ describe("a component's commands", () => {
     return { ref, props: { ...required, ...props, ref } };
   };
 
-  it("measure the host view, as any host view's ref does", () => {
+  it("are on the host view's own ref, as TextInput's clear() is", () => {
     const { mount } = setup();
     const { ref, props } = refOf({});
-    const { view } = mount(props);
-    const calls: string[] = [];
-    Object.assign(view, {
-      measure: (cb: (...a: number[]) => void) => (calls.push("measure"), cb(0, 0, 10, 20, 5, 6)),
-      measureInWindow: (cb: (...a: number[]) => void) => (calls.push("window"), cb(5, 6, 10, 20)),
-    });
+    const { view, unmount } = mount(props);
 
-    const got: number[][] = [];
-    ref.current!.measure!((...a: number[]) => got.push(a));
-    ref.current!.measureInWindow!((...a: number[]) => got.push(a));
+    // What finds a view by its ref (findNodeHandle, measure, a library) finds the host view.
+    expect(ref.current).toBe(view);
+    expect(Object.keys(view).sort()).toEqual(["flush", "reset", "sample", "tag"]);
 
-    expect(calls).toEqual(["measure", "window"]);
-    expect(got).toEqual([
-      [0, 0, 10, 20, 5, 6],
-      [5, 6, 10, 20],
-    ]);
+    unmount();
+    expect(ref.current).toBeNull();
+  });
+
+  it("reach a function ref, which gets null as React lets go", () => {
+    const { mount } = setup();
+    const got: unknown[] = [];
+    const { view, unmount } = mount({ ...required, ref: (v: unknown) => void got.push(v) });
+    unmount();
+    expect(got).toEqual([view, null]);
   });
 
   it("reject a request whose signal aborts (its reason, or an AbortError), and ignore its late answer", async () => {
@@ -483,18 +493,12 @@ describe("a component's commands", () => {
     await expect(measured).rejects.toMatchObject({ name: "AbortError" });
   });
 
-  it("refuse commands while the view is not mounted (an InvalidStateError), before and after", async () => {
+  it("refuse commands once the view is not mounted (an InvalidStateError)", async () => {
     const { mount, dispatched } = setup();
     const { ref, props } = refOf({});
-    const { element, unmount } = mount(props);
+    const { unmount } = mount(props);
+    // The host view, which keeps its commands after React let go of it.
     const handle = ref.current!;
-    const host = element.props.ref as Ref<unknown>;
-
-    // Before the native view is attached (or once React let go of it).
-    const view = host.current;
-    host.current = null;
-    expect(() => handle.reset!()).toThrow("Gauge.reset(): the view is not mounted");
-    host.current = view;
 
     unmount();
 

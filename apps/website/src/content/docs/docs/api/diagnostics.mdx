@@ -1475,6 +1475,8 @@ export function Title(props: { title: string }) {
 
 Props, event arguments and command arguments and results are plain data: numbers, strings, booleans, string literal unions, arrays and plain objects, possibly null. A function prop is an event named `on…`, whose call from the view posts its arguments to JavaScript, so it returns nothing. `key`, `ref`, `children` and `style` belong to React and the host.
 
+The ref is the host view's own, so a command can't take the name of a member it has, such as `measure`. `focus` and `blur` may be commands.
+
 A prop may also be an instance of an exported class, alone, possibly null, or in an array. The view holds it while it shows it. Its class takes no type arguments, no event or command takes an instance, and a SwiftUI or Compose body takes none yet.
 
 **Fix:** pass plain data, make events return nothing, and name them onSomething.

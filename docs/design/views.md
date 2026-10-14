@@ -7,7 +7,7 @@ until the view gate closes ([parity.md](../parity.md#views)).
 A component is an exported function of a `.lucent.tsx` module that returns a
 native view. Its setup is compiled to C++ and runs on the main thread, once per
 mount. React sees an ordinary component: its props, its events as callback
-props, and a ref whose methods are the commands setup exposes.
+props, and a ref to its host view, which has the commands setup exposes.
 
 [C-VIEW](contracts.md#c-view-components-and-views) states the contract; this
 page records how the code keeps it, and [Limits](#limits) its gaps. Compiler
@@ -495,7 +495,7 @@ their signals, all in one transaction. A missing required prop is a `TypeError`
 
 ### Reserved names and style
 
-`key` and `ref` are React's, and the ref is the commands object. `children` is
+`key` and `ref` are React's, and the ref is the host view's own. `children` is
 allowed only typed `Children`, and `style` is the host's. A function prop is an
 event, named `on` and a capital letter; one named otherwise is LUCENT3021, which
 suggests the name.
@@ -581,6 +581,16 @@ LUCENT3021 refuses a method (`reset() {}`), and `expose` nested, inside a
 statement, twice, given no literal, or outside a component. The functions a
 literal names are checked with setup, since they run on the main thread.
 Parameters and results are plain data, as props are.
+
+The ref is the host view React Native gives the native view, a
+`HostInstance`, and the commands are assigned to it, as `TextInput`'s ref
+has `clear()`
+([0105](../decisions/0105-a-components-ref-is-its-host-views-own.md)): what
+finds a view by its ref (`findNodeHandle`, Reanimated, Gesture Handler)
+finds this one. LUCENT3021 refuses a command named as a member the host view
+has (`measure`, `measureLayout`, `setNativeProps`, the DOM node's, `__…`).
+`focus` and `blur` may be commands: the host's send the native view the
+command of their name.
 
 | The command returns | Kind      | The ref's method returns |
 | ------------------- | --------- | ------------------------ |
@@ -866,7 +876,8 @@ Each module's proxy exports its components as data (`ui/proxy.ts`). The views
 runtime, `js/_lucent/views.js`, makes each a React component with the app's
 React and React Native, which the proxy passes in. It gets the host component
 from `NativeComponentRegistry.get`, sends commands through
-`codegenNativeCommands`, and makes the ref with `useImperativeHandle`.
+`codegenNativeCommands`, and gives the ref the host view with the commands
+assigned to it, through `useImperativeHandle`.
 
 | What React gives the component        | What reaches the native view                         |
 | ------------------------------------- | ---------------------------------------------------- |
@@ -875,8 +886,8 @@ from `NativeComponentRegistry.get`, sends commands through
 | A declared event's callback           | `e<slot>`, an adapter spreading the payload's `args` |
 | `children`, declared `Children`       | React Native's children of the host view             |
 | `children`, not declared              | Nothing, and one `console.error`                     |
-| `ref`                                 | Nothing: React's ref is the commands object          |
-| Anything else (`testID`, `onLayout`…) | Dropped ([T121](../tasks.md#t121))                   |
+| `ref`                                 | Nothing: React's ref is the host view, with commands |
+| Anything else (`testID`, `onLayout`…) | As it is, as to a `View`                             |
 
 Only props React was given count, so a prop named like an inherited member
 (`toString`) reads as given or not. A command's extra arguments are dropped, and

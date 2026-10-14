@@ -809,6 +809,10 @@ unmount.
 - [x] The ref has the host's `measure` and `measureInWindow` beside the
       component's commands; a command with either name is a diagnostic
       (LUCENT3021, #244).
+- [x] The ref is the host view's own, with the commands on it, so what
+      finds a view by its ref finds a component's
+      ([0105](decisions/0105-a-components-ref-is-its-host-views-own.md),
+      #270).
 - [x] A caller can cancel a pending command's request with an
       `AbortSignal`, passed as `{ signal }` after its arguments (#244).
 - [ ] A component inside Reanimated's animated views, Gesture Handler's
