@@ -695,15 +695,16 @@ function report(
   if (process.env.GITHUB_ACTIONS) {
     // The annotation is what a reader without the job's log sees: the app's last lines too.
     const tail = details.app.slice(-12);
-    const sizing = details.sizing?.slice(-16) ?? [];
-    const react = details.react?.slice(-8) ?? [];
-    const lucent = details.lucent?.slice(-8) ?? [];
-    // Sizing first: the annotation is cut at 3500 characters, and the app's lines are long.
+    const sizing = details.sizing?.slice(-12) ?? [];
+    // The first of the app's warnings: what went wrong first says most.
+    const react = details.react?.slice(0, 12) ?? [];
+    const lucent = details.lucent?.slice(-4) ?? [];
+    // The short and telling first: the annotation is cut at 3500 characters.
     const lines = [
       ...summary,
-      ...(lucent.length ? ["Lucent's lines, last:", ...lucent] : []),
+      ...(react.length ? ["The app's warnings and errors, first:", ...react] : []),
       ...(sizing.length ? ["Sizing, last:", ...sizing] : []),
-      ...(react.length ? ["The app's warnings and errors, last:", ...react] : []),
+      ...(lucent.length ? ["Lucent's lines, last:", ...lucent] : []),
       ...(tail.length ? ["The app's last lines:", ...tail] : []),
     ];
     const text = lines.join("\n").slice(0, 3500);
@@ -853,8 +854,13 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
         l,
       ),
   );
-  // Each message once, where it last appeared.
-  const messages = new Map(react.map((l) => [l.replace(/^.*?\s[WEF]\s/, ""), l]));
+  // Each message once, where it first appeared, its time kept and its exception's class left out.
+  const messages = new Map<string, string>();
+  for (const l of react) {
+    const message = l.replace(/^.*?\s[WEF]\s/, "").replace(/\b[\w.]+(Exception|Error): /, "");
+    if (!messages.has(message))
+      messages.set(message, `${l.split(/\s+/)[1]} ${message}`.slice(0, 200));
+  }
   report(diagnose(facts), { app, metro, sizing, react: [...messages.values()], lucent });
   return false;
 }
