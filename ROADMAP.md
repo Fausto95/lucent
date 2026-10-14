@@ -122,7 +122,7 @@ Goal: Lucent code runs wherever the platform calls it, on the thread it needs, w
 - ✅ Channels that carry values between threads, bounded, with a drop policy.
 - 🚧 Executors, so platform callbacks run on a queue of their own.
 - ⏳ Module code that runs with no JavaScript runtime.
-- 🔭 Android services, receivers, workers and widgets written as Lucent classes.
+- ✅ Android services, receivers, workers and Fragments written as Lucent classes.
 - 🔭 iOS background tasks, background downloads and silent pushes.
 - 🔭 iOS app extensions and widgets, with SwiftUI bodies.
 - 🔭 App Intents, Live Activities and Android widget bodies.
@@ -179,9 +179,9 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
    nightly; it closes after three green nights in a row.
 2. [T110](docs/tasks.md#t110) (done): app-delegate and Activity events,
    whose device runs pass in both example apps.
-3. [T131](docs/tasks.md#t131) and [T132](docs/tasks.md#t132), on the
-   native root ([T130](docs/tasks.md#t130), done): Android classes the OS
-   makes, and iOS background execution.
+3. [T131](docs/tasks.md#t131) (done) and [T132](docs/tasks.md#t132), on
+   the native root ([T130](docs/tasks.md#t130), done): Android classes the
+   OS makes, and iOS background execution.
 4. [T120](docs/tasks.md#t120) and [T121](docs/tasks.md#t121): object props
    and React Native's view props, which most view modules need.
 5. [T100](docs/tasks.md#t100) to [T104](docs/tasks.md#t104) (done): typed

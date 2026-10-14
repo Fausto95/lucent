@@ -331,7 +331,17 @@ whose Android root is a `Fragment` shows its view. Frames
 reach a channel through an executor without a copy, and the app opens a
 deep link to itself. On iOS
 a push registration answers, and on Android a back press and a rotation
-reach the module.
+reach the module. Last, the Media screen starts a foreground
+`MediaSessionService` written in Lucent (`lucent-media`), has Android make
+the Activity again, and checks that the service plays on with the new
+Activity. An app may show the screen of the link that launched it in the
+new Activity: `device-check.ts` then opens the Media screen again, once.
+
+Each screen opens in an app started for it, on Android as on iOS. A deep
+link that navigated the running app (React Native 0.88's bare Debug build)
+made it lose views it had mounted: they stopped taking updates ("Unable to
+find viewState"), and a component sized by its content among them stayed 0
+high.
 
 The bare example's Debug build loads its bundle from Metro: start Metro
 on port 8081 first. The Expo example (`--example expo`) is built as an

@@ -1,18 +1,19 @@
 /**
- * Runs an example app's Tests and Platform screens on a booted-here iOS
- * simulator or a running Android emulator, and passes when every check of
- * both passed: every end-to-end case, then what only the platform gives
- * (frames through an executor, a deep link, a push token, back presses).
+ * Runs an example app's Tests, Platform and Media screens on a booted-here
+ * iOS simulator or a running Android emulator, and passes when every check
+ * of each passed: every end-to-end case, what only the platform gives
+ * (frames through an executor, a deep link, a push token, back presses),
+ * then a foreground service that outlives its Activity's recreation.
  * The bare example by default, the Expo example with --example expo. With
  * --id, it runs another app's Tests screen the same way (the window's fresh
  * apps, scripts/window-app.ts), opened as its launcher opens it:
  *   1. installs the build (a Debug build's bundle comes from Metro, which
  *      the caller started on port 8081);
- *   2. opens each screen in turn: on Android with the deep link
- *      <scheme>://lab/<screen> (lucentbare, lucentexpo), on iOS with the
- *      launch argument `-lucentTab lab/<screen>` (the simulator asks to
- *      confirm a link that `simctl openurl` opens, and nobody is there to
- *      confirm it);
+ *   2. opens each screen in turn, in an app started for it: on Android
+ *      with the deep link <scheme>://lab/<screen> (lucentbare, lucentexpo),
+ *      on iOS with the launch argument `-lucentTab lab/<screen>` (the
+ *      simulator asks to confirm a link that `simctl openurl` opens, and
+ *      nobody is there to confirm it);
  *   3. follows the lines the screen logs, LUCENT_PROGRESS after each check
  *      and LUCENT_SUMMARY with its verdict (`LUCENT_SUMMARY tests 70/70
  *      passed`), before opening the next.
@@ -77,6 +78,13 @@ export function lastProgress(log: string, screen = "tests"): Progress | undefine
     const c = m[3]!.trim().match(/^(.*) (ok|FAILED)(?: \d+ms)?$/);
     found = c ? { done, total, name: c[1], pass: c[2] === "ok" } : { done, total };
   }
+  return found;
+}
+
+/** The screen whose run's progress or verdict the app logged last, if any. */
+export function lastScreen(log: string): string | undefined {
+  let found: string | undefined;
+  for (const m of log.matchAll(/LUCENT_(?:PROGRESS|SUMMARY) (\S+) /g)) found = m[1];
   return found;
 }
 
@@ -335,8 +343,12 @@ export interface Screen {
   url?: string;
 }
 
-/** An example's screens a run checks, in order: every end-to-end case, then the platform's. */
-const EXAMPLE_SCREENS = ["tests", "platform"];
+/**
+ * An example's screens a run checks, in order: every end-to-end case, the
+ * platform's, then a foreground service's, which has Android make the
+ * Activity again.
+ */
+const EXAMPLE_SCREENS = ["tests", "platform", "media"];
 
 /** The app a run checks, and how it is opened. */
 export interface Target {
@@ -463,7 +475,11 @@ async function waitForMetro(platform: string): Promise<void> {
 
 interface Device {
   install(): void;
-  open(screen: Screen): void;
+  /**
+   * Opens `screen`: in an app started for it, unless `running` (a screen
+   * opened again in the app as it is).
+   */
+  open(screen: Screen, running?: boolean): void;
   /** The Lucent lines of the device log since the app opened (LUCENT_PROGRESS, LUCENT_SUMMARY). */
   lucent(): string;
   /** The app's whole log, crash buffers included. */
@@ -569,10 +585,17 @@ function android(target: Target): Device {
   return {
     install: () => {
       sh("adb", ["install", "-r", target.artifact]);
+      // Components' sizing logs its steps (LUCENT_SIZING), which a failed run's annotation carries.
+      sh("adb", ["shell", "setprop", "debug.lucent.sizing", "1"], true);
       sh("adb", ["logcat", "-b", "all", "-c"], true);
     },
-    open: (screen) => {
+    open: (screen, running = false) => {
       const { url } = screen;
+      // An app started for each screen, as iOS's are: a deep link that navigated the running app
+      // (React Native 0.88's bare Debug build) made it lose views it had mounted, which stopped
+      // taking their updates ("Unable to find viewState"), a component sized by its content among
+      // them.
+      if (!running) sh("adb", ["shell", "am", "force-stop", target.id], true);
       // A deep link opens a screen, in the app already running too; without one, the launcher's
       // intent opens the app.
       const out = url
@@ -650,7 +673,16 @@ function metroTail(): string[] {
 }
 
 /** Prints and keeps the summary: last in the output, in the step summary, as an annotation. */
-function report(summary: string[], details: { app: string[]; metro: string[] }): void {
+function report(
+  summary: string[],
+  details: {
+    app: string[];
+    metro: string[];
+    sizing?: string[];
+    react?: string[];
+    lucent?: string[];
+  },
+): void {
   fs.mkdirSync(outDir(), { recursive: true });
   fs.writeFileSync(path.join(outDir(), "summary.txt"), `${summary.join("\n")}\n`);
   const step = process.env.GITHUB_STEP_SUMMARY;
@@ -670,7 +702,21 @@ function report(summary: string[], details: { app: string[]; metro: string[] }):
     fs.appendFileSync(step, `${md.join("\n").replace(/```(?=.)/g, "'''")}\n`);
   }
   if (process.env.GITHUB_ACTIONS) {
-    const text = summary.join("\n").slice(0, 3500);
+    // The annotation is what a reader without the job's log sees: the app's last lines too.
+    const tail = details.app.slice(-12);
+    const sizing = details.sizing?.slice(-12) ?? [];
+    // The first of the app's warnings: what went wrong first says most.
+    const react = details.react?.slice(0, 12) ?? [];
+    const lucent = details.lucent?.slice(-4) ?? [];
+    // The short and telling first: the annotation is cut at 3500 characters.
+    const lines = [
+      ...summary,
+      ...(react.length ? ["The app's warnings and errors, first:", ...react] : []),
+      ...(sizing.length ? ["Sizing, last:", ...sizing] : []),
+      ...(lucent.length ? ["Lucent's lines, last:", ...lucent] : []),
+      ...(tail.length ? ["The app's last lines:", ...tail] : []),
+    ];
+    const text = lines.join("\n").slice(0, 3500);
     const escaped = text.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
     console.log(`::error title=Device run failed::${escaped}`);
   }
@@ -698,6 +744,10 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
   // Opened again when a Debug build couldn't load its bundle: on the emulator, Metro's reverse
   // of tcp:8081 isn't always in place when the app first asks.
   let reopened = 0;
+  // The screen the app went on to, once, after its run of this one had started: Android made the
+  // Activity again (a case may ask it to), and the app showed the screen of the link that
+  // launched it, where this run went with the old Activity's tree. Opened again from there.
+  let wentTo: string | undefined;
   console.log(
     `Opened ${target.id} (${screen.id}); waiting up to ${TIMEOUT_MS / 60000} minutes for its verdict.`,
   );
@@ -721,6 +771,15 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
       moved = Date.now();
     }
     progress = now;
+    const last = lastScreen(lucent);
+    if (progress && !wentTo && last !== undefined && last !== screen.id) {
+      wentTo = last;
+      console.log(`The app went on to its ${last} screen: opening ${screen.id} again.`);
+      // In the app as it is: what the screen's run left behind (a service, module state) stays.
+      device.open(screen, true);
+      moved = Date.now();
+      continue;
+    }
     if (!progress && target.metro && reopened < REOPENS && device.unloaded?.()) {
       reopened += 1;
       console.log(
@@ -773,6 +832,7 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
             `Opened again ${reopened} time${reopened === 1 ? "" : "s"}, after it couldn't load its bundle`,
           ]
         : []),
+      ...(wentTo ? [`Opened again once, after the app went on to its ${wentTo} screen`] : []),
     ],
     jsErrors: jsErrorLines(log),
     metroUp: target.metro && (await metroUp()),
@@ -784,7 +844,34 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
   console.log(`--- The app's own lines in the device log (the last ${app.length}):`);
   console.log(app.join("\n"));
   if (metro.length) console.log(`--- The end of Metro's log:\n${metro.join("\n")}`);
-  report(diagnose(facts), { app, metro });
+  const tagged = device.lucent().split("\n");
+  const sizing = tagged
+    .filter((l) => l.includes("LUCENT_SIZING"))
+    .map((l) => l.slice(l.indexOf("LUCENT_SIZING")));
+  // The rest of what Lucent logged (the screens' progress, modules' console output, errors).
+  const lucent = tagged
+    .filter((l) => l.trim() && !l.includes("LUCENT_SIZING") && !l.startsWith("-----"))
+    .map((l) => (l.length > 200 ? `${l.slice(0, 199)}…` : l));
+  // The app's warnings and errors but its JavaScript's (a mount batch skipped, a soft exception, a
+  // fragment manager's complaint), and what its dev support says of Metro.
+  const react = appLines(log, 400, 240, target).filter(
+    (l) =>
+      /\s[WEF] [^\s:]+\s*:/.test(l) &&
+      // A stack trace's frames: the message above them says what happened.
+      !/:\s+(at |\.\.\. \d+ more)/.test(l) &&
+      !/\s[WEF] (ReactNativeJS|unknown:ReconnectingWebSocket|Lucent)\s*:/.test(l) &&
+      !/\s(MediaSessionService|AudioMediaPlayerWrapper|ActivityManager|ActivityTaskManager)\s*:/.test(
+        l,
+      ),
+  );
+  // Each message once, where it first appeared, its time kept and its exception's class left out.
+  const messages = new Map<string, string>();
+  for (const l of react) {
+    const message = l.replace(/^.*?\s[WEF]\s/, "").replace(/\b[\w.]+(Exception|Error): /, "");
+    if (!messages.has(message))
+      messages.set(message, `${l.split(/\s+/)[1]} ${message}`.slice(0, 200));
+  }
+  report(diagnose(facts), { app, metro, sizing, react: [...messages.values()], lucent });
   return false;
 }
 

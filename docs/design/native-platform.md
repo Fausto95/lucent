@@ -832,11 +832,10 @@ instance's method.
 
 ### Android classes the OS instantiates
 
-**In progress** ([T131](../tasks.md#t131), #240). A `Service`, `BroadcastReceiver`,
+**Done** ([T131](../tasks.md#t131), #240 to #266). A `Service`, `BroadcastReceiver`,
 WorkManager `Worker`, `AppWidgetProvider`, `TileService`,
-`FirebaseMessagingService` or `Fragment` is a Lucent class. Today
-`android.components` declares such a component, but its class must be Java
-or Kotlin the package ships.
+`FirebaseMessagingService` or `Fragment` is a Lucent class, which
+`android.components` declares as it does a Java or Kotlin one.
 
 - The Lucent class extends the SDK base. Its generated Java subclass has
   the constructor the OS calls: none, or `Context` and `WorkerParameters`

@@ -10,6 +10,7 @@ import {
   iosAppPid,
   jsErrorLines,
   lastProgress,
+  lastScreen,
   lastVerdict,
   parseTarget,
   pickSimulator,
@@ -80,6 +81,19 @@ describe("pickSimulator", () => {
 
   it("finds none without an iPhone", () => {
     expect(pickSimulator({ devices: {} })).toBeUndefined();
+  });
+});
+
+describe("lastScreen", () => {
+  it("names the screen the app logged progress or a verdict for last", () => {
+    const log = [
+      "LUCENT_SUMMARY platform 14/14 passed",
+      "LUCENT_PROGRESS media 1/2 media service: it plays ok 120ms",
+      "LUCENT_PROGRESS tests 0/105 started",
+    ].join("\n");
+    expect(lastScreen(log)).toBe("tests");
+    expect(lastScreen(log.split("\n").slice(0, 2).join("\n"))).toBe("media");
+    expect(lastScreen("nothing yet")).toBeUndefined();
   });
 });
 
@@ -365,7 +379,7 @@ describe("diagnose", () => {
 });
 
 describe("parseTarget", () => {
-  it("is the bare example's Tests and Platform screens without --id", () => {
+  it("is the bare example's screens without --id", () => {
     expect(parseTarget(["ios", "--app", "BareExample.app"])).toEqual({
       platform: "ios",
       artifact: "BareExample.app",
@@ -374,6 +388,7 @@ describe("parseTarget", () => {
       screens: [
         { id: "tests", launchArgs: ["-lucentTab", "lab/tests"] },
         { id: "platform", launchArgs: ["-lucentTab", "lab/platform"] },
+        { id: "media", launchArgs: ["-lucentTab", "lab/media"] },
       ],
       metro: true,
     });
@@ -382,12 +397,13 @@ describe("parseTarget", () => {
       screens: [
         { id: "tests", url: "lucentbare://lab/tests" },
         { id: "platform", url: "lucentbare://lab/platform" },
+        { id: "media", url: "lucentbare://lab/media" },
       ],
       metro: true,
     });
   });
 
-  it("is the Expo example's Tests and Platform screens with --example expo", () => {
+  it("is the Expo example's screens with --example expo", () => {
     expect(
       parseTarget(["ios", "--app", "LucentExpoExample.app", "--example", "expo", "--no-metro"]),
     ).toEqual({
@@ -398,6 +414,7 @@ describe("parseTarget", () => {
       screens: [
         { id: "tests", launchArgs: ["-lucentTab", "lab/tests"] },
         { id: "platform", launchArgs: ["-lucentTab", "lab/platform"] },
+        { id: "media", launchArgs: ["-lucentTab", "lab/media"] },
       ],
       metro: false,
     });
@@ -407,6 +424,7 @@ describe("parseTarget", () => {
         screens: [
           { id: "tests", url: "lucentexpo://lab/tests" },
           { id: "platform", url: "lucentexpo://lab/platform" },
+          { id: "media", url: "lucentexpo://lab/media" },
         ],
       },
     );

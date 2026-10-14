@@ -42,10 +42,16 @@ Each screen runs when it opens and shows its verdict at the top (testID
   background task's handler (`lucent-background-task`); a broadcast to a
   receiver written in Lucent (`lucent-broadcast`, Android); a fragment
   written in Lucent that Android makes again by its name, with its state
-  (`lucent-fragment`, Android); frames
+  (`lucent-fragment`, Android), and a component whose root is a fragment;
+  frames
   through an executor into a channel, uncopied; a deep link the app opens
   to itself; a push token or why there is none (iOS); a back press
-  JavaScript lets through, and a rotation (Android).
+  JavaScript lets through, and a rotation (Android); and a WorkManager
+  `Worker` written in Lucent running with the app in the background
+  (Android).
+- **Media service**: a media3 `MediaSessionService` written in Lucent
+  (`lucent-media`, Android) plays in the foreground, then Android makes
+  the Activity again, and the service plays on.
 - **Benchmark**: compute kernels in Lucent against the same TypeScript in
   Hermes.
 - **Compare**: NitroBenchmarks, Lucent next to Turbo and Nitro modules.
