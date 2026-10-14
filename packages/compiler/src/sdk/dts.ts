@@ -705,13 +705,19 @@ function classDts(
     ];
 
     // Overloads share their optionality: as the class's own of this name; one an
-    // interface declares only for its supertypes is optional unless one requires it.
+    // interface declares only for its supertypes is optional unless one requires it, and
+    // a protocol's optional requirement stays optional (URLSessionDelegate's, which
+    // URLSessionDownloadDelegate declares again).
     const sameName = members.filter(
       (x) => x.k === "method" && x.name === m.name && !!x.static === !!m.static,
     );
     const optional = sameName.length
       ? sameName.some((x) => x.k === "method" && x.optional)
-      : schema.platform === "android" && !!cls.interface && !m.static && !requiredAbove.has(m.name);
+      : !!m.optional ||
+        (schema.platform === "android" &&
+          !!cls.interface &&
+          !m.static &&
+          !requiredAbove.has(m.name));
 
     members.push({
       k: "method",
