@@ -41,6 +41,7 @@ export class Playback extends MediaSessionService {
     this.addSession(session);
     this.session = session;
     made++;
+    // oxlint-disable-next-line typescript/no-this-alias -- the module keeps the service it plays in
     current = this;
   }
 
