@@ -97,9 +97,14 @@ export async function outliveActivity(): Promise<string> {
   if (!recreated) {
     recreated = activity;
     await main(() => currentActivity()?.recreate());
-    // The screen goes with its Activity: the new one's run answers.
-    await delay(600_000);
-    return "not made again";
   }
-  return activity !== recreated ? `made again; ${await status()}` : "not made again";
+
+  // React Native keeps the screen for the new Activity, and this run goes on; were it made
+  // again with the Activity, the new screen's run answers instead.
+  for (let waited = 0; waited < 20_000; waited += 100) {
+    const now = await main(() => currentActivity()?.hashCode() ?? 0);
+    if (now !== 0 && now !== recreated) return `made again; ${await status()}`;
+    await delay(100);
+  }
+  return "not made again";
 }
