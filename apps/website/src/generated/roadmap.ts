@@ -304,7 +304,6 @@ export const limitations: { title: string; items: string[] }[] = [
       "A class can't extend `EventEmitter` (`LUCENT1005`): hold one in a field instead ([T113](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t113)).",
       "On object types, `Object.keys`, `values` and `entries` are refused, and so are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`).",
       "`new Array(n)` needs a whole `.fill(v)`, even when each index is then assigned. `Array.from({ length: n })` needs a map function when elements can't be `undefined`. Writing past an array's end throws `RangeError`.",
-      "A declaration file of platform files can't declare a class (`export declare class`) ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106)). A shared class with `PLATFORM` branches is the way today.",
       "A few language features differ from JavaScript without a diagnostic. The website lists them under [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps), generated from `apps/website/src/docs/language.ts`.",
       "A field or variable of an object type read before it is assigned throws `TypeError`, where JavaScript reads `undefined`. One of a value type reads its default. A `let` read before its declaration runs reads as unassigned, not `ReferenceError`.",
       "Compute tasks are named top-level functions, and safepoints are only in module functions' task variants.",

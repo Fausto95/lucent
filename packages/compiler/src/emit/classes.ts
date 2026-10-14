@@ -22,6 +22,7 @@ import { type FnOptions, FnEmitter } from "./function.ts";
 import { initializationThroughIr, type IrMode, throughIr } from "./through-ir.ts";
 import { ifaceOverrides, ifacesOf, virtualMembers } from "./interfaces.ts";
 import { subclassImplicitSuper } from "./objc-subclass.ts";
+import { PLATFORM_NAMES } from "../platforms.ts";
 import { factsOf } from "./compute.ts";
 import { mayRefer, type RefField, refsDefinition, refsMethod, siteOf } from "./refs.ts";
 
@@ -200,6 +201,21 @@ export function emitClass(
 
   const generic = info.typeParams.length > 0;
   const template = generic ? info.typeParams.map(cppIdent) : undefined;
+  // A platform module's declared class, on a target without its platform file (the host): every
+  // member throws, as a declared function's stub does; so does its construction.
+  const stub =
+    module.stub && !!ts.getModifiers(decl)?.some((m) => m.kind === ts.SyntaxKind.DeclareKeyword);
+  const unavailable = (member: string) =>
+    cpp.call("lucent::makeError", [
+      stringExpr("Error"),
+      stringExpr(
+        `${module.name}.${decl.name?.text ?? ""}${member} is not available on ${ctx.platform ? PLATFORM_NAMES[ctx.platform] : "this platform"}`,
+      ),
+    ]);
+  const throwing = (member: string): cpp.Stmt => ({
+    k: "throw",
+    value: cpp.construct(cpp.type("lucent::Exception"), [unavailable(member)]),
+  });
   const selfType = cpp.type(info.cppName, ...info.typeParams.map((p) => cpp.type(cppIdent(p))));
   const baseT: (LType & { k: "class" }) | undefined = info.base
     ? { k: "class", id: info.base.id, args: info.base.args }
@@ -379,6 +395,25 @@ export function emitClass(
       ...(staticMember ? { static: true } : {}),
       ...(staticMember || isCtor ? {} : dispatch(node, cppName)),
     };
+    if (stub) {
+      const decls = params.map((p, i) => cpp.param(reg.cppType(p.cppType), `p${i}_`));
+      const member = isCtor ? "" : `.${memberName(node as ts.ClassElement)}`;
+      // A declared method gives a promise, which rejects: it can't be `async`, as a declaration.
+      if (fnType.ret.k === "promise" && !gen) {
+        const promise = cpp.type("lucent::Promise", reg.cppRetType(fnType.ret.inner));
+        define(
+          cppName,
+          promise,
+          decls,
+          [cpp.ret(cpp.call(cpp.scoped(promise, "rejected"), [unavailable(member)]))],
+          flags,
+        );
+      } else {
+        const retType = gen ? reg.cppType(fnType.ret) : reg.cppRetType(ret);
+        define(cppName, retType, decls, [throwing(member)], flags);
+      }
+      return { decls, params };
+    }
     // Coroutines outlive the call: keep the object alive in the frame.
     const keepSelf =
       (asyncM || gen) && !staticMember
@@ -524,6 +559,7 @@ export function emitClass(
       }
     : undefined;
   if (ctor) ctorDecls = emitMethod(ctor, "construct", false, superCtor).decls;
+  else if (stub) define("construct", cpp.voidType, [], [throwing("")]);
   else ctx.guard(implicitConstructor);
   if (!info.abstract) {
     // Abstract classes are only constructed through subclasses.
@@ -560,7 +596,7 @@ export function emitClass(
 
   for (const m of info.members) {
     if (ts.isMethodDeclaration(m)) {
-      if (!m.body) {
+      if (!m.body && !stub) {
         if (ts.getModifiers(m)?.some((x) => x.kind === ts.SyntaxKind.AbstractKeyword)) {
           const name = cppIdent(memberName(m));
           const d = dispatch(m, name);

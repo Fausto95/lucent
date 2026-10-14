@@ -994,9 +994,18 @@ export class TypeRegistry {
   }
 
   classForDecl(decl: ts.ClassDeclaration): ClassInfo | undefined {
+    const declared = this.declaredClasses.get(decl);
+    if (declared) return declared;
     for (const c of this.classes.values()) if (c.decl === decl) return c;
     return undefined;
   }
+
+  /**
+   * The classes a platform module's declaration file declares (`export
+   * declare class`), each its platform file's class: code that names the
+   * declared class uses the platform's.
+   */
+  readonly declaredClasses = new Map<ts.ClassDeclaration, ClassInfo>();
 
   /** Lowers a TypeScript type at `node` (used for error locations). */
   lower(type: ts.Type, node: ts.Node): LType {
@@ -1433,8 +1442,10 @@ export class TypeRegistry {
     const sym = type.getSymbol();
     if (sym && sym.flags & ts.SymbolFlags.Class) {
       const decl = sym.declarations?.find(ts.isClassDeclaration);
-      if (decl && this.isLucentFile(decl.getSourceFile())) {
-        const info = this.classForDecl(decl);
+      // A platform module's declared class is its platform file's, from its declaration file.
+      const declared = decl && this.declaredClasses.get(decl);
+      if (decl && (declared || this.isLucentFile(decl.getSourceFile()))) {
+        const info = declared ?? this.classForDecl(decl);
         if (info) {
           // Class references also carry the polymorphic `this` type as a last argument.
           const args = (type as ts.TypeReference).target

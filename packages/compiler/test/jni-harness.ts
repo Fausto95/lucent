@@ -226,7 +226,10 @@ export function jvmRun(
       extra: ["-DLUCENT_JNI_HOST"],
     },
     { source: path.join(host, "jni_host.cpp"), extra: [] },
-    { source: path.join(out, "android/m_m.cpp"), extra: [] },
+    // Every module's unit: m's, and those of the modules it uses.
+    ...[...r.files.keys()]
+      .filter((f) => /^android\/m_[^/]*\.cpp$/.test(f))
+      .map((f) => ({ source: path.join(out, f), extra: [] })),
     // The modules' initializer, which the native root starts state with.
     { source: path.join(out, "android/lucent_entries.cpp"), extra: [] },
     { source: path.join(out, "android/main.cpp"), extra: [] },

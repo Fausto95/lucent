@@ -204,9 +204,10 @@ export async function tap(strength: Strength): Promise<void> {
 </Tabs>
 
 - The files pair up by name and directory: `haptics.ios.lucent.ts` and `haptics.android.lucent.ts` sit next to `haptics.lucent.ts`. A platform file without its declaration file fails with [LUCENT3005](/docs/api/diagnostics/#lucent3005).
-- A module may have one platform's file only. The other platform's build then gets stubs: each export throws, or rejects, `<module>.<name> is not available on Android` (or iOS).
-- The declaration file holds `export declare function`s, types, interfaces and imports, and `const`s and enums that the platform files share (`LUCENT3005` otherwise). A platform file imports those from the declaration file, and doesn't export them again. Put other shared code in another module that all three import.
-- Each platform file exports exactly the declared functions, with types assignable to the declared ones. A missing, extra or mismatched export fails with `LUCENT3005`.
+- A module may have one platform's file only. The other platform's build then gets stubs: each export throws, or rejects, `<module>.<name> is not available on Android` (or iOS). A declared class's construction and members throw, or reject, the same way.
+- The declaration file holds `export declare function`s and `export declare class`es, types, interfaces and imports, and `const`s and enums that the platform files share (`LUCENT3005` otherwise). A platform file imports those from the declaration file, and doesn't export them again. Put other shared code in another module that all three import.
+- Each platform file exports exactly the declared functions and classes, with types assignable to the declared ones. A missing, extra or mismatched export fails with `LUCENT3005`.
+- A platform file's class has the declared members in the same forms (field, accessor or method), and no other public members. Private, protected and `#` members are its own.
 - An `.ios.lucent.ts` file may import `lucent:ios` and `lucent:ios/<Module>`, and an `.android.lucent.ts` file `lucent:android` and `lucent:android/<package>`. Both may also import what any module may, such as `lucent:core`, `lucent:thread`, `lucent:ext/<name>` and other modules. The other platform's modules fail with `LUCENT3004`.
 - Other modules and JavaScript import the declaration file, `./haptics.lucent`, and each call goes to the platform's implementation.
 - In the host build, each export throws, or rejects, `<module>.<name> is not available on this platform`.
