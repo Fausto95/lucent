@@ -23,11 +23,12 @@ export function LibrariesLab() {
 
   const opacity = useSharedValue(0.3);
   useEffect(() => {
-    opacity.value = withTiming(1, { duration: 300 });
+    opacity.set(withTiming(1, { duration: 300 }));
   }, [opacity]);
-  const faded = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const faded = useAnimatedStyle(() => ({ opacity: opacity.get() }));
 
   // The legacy API's detector attaches to its child's native view, which it finds by the ref.
+  // oxlint-disable-next-line react/capitalized-calls -- Gesture Handler's builder, not a component
   const tap = Gesture.Tap()
     .runOnJS(true)
     .onEnd(() => tapHeard());
