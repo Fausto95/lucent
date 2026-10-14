@@ -56,47 +56,51 @@ function utf8Encode(s) {
 }
 
 function utf8Decode(bytes) {
+  // The Encoding standard's UTF-8 decoder, as TextDecoder's with ignoreBOM.
   let out = "";
-  let i = 0;
-  const n = bytes.length;
-  const cont = (k) => (i + k < n && (bytes[i + k] & 0xc0) === 0x80 ? bytes[i + k] & 63 : -1);
-  while (i < n) {
-    const c = bytes[i];
-    let cp = 0xfffd;
-    let len = 1;
-    if (c < 0x80) cp = c;
-    else if ((c & 0xe0) === 0xc0) {
-      const a = cont(1);
-      if (a >= 0 && c >= 0xc2) {
-        cp = ((c & 31) << 6) | a;
-        len = 2;
-      }
-    } else if ((c & 0xf0) === 0xe0) {
-      const a = cont(1),
-        b = cont(2);
-      if (a >= 0 && b >= 0) {
-        const v = ((c & 15) << 12) | (a << 6) | b;
-        if (v >= 0x800) {
-          cp = v;
-          len = 3;
-        }
-      }
-    } else if ((c & 0xf8) === 0xf0) {
-      const a = cont(1),
-        b = cont(2),
-        d = cont(3);
-      if (a >= 0 && b >= 0 && d >= 0) {
-        const v = ((c & 7) << 18) | (a << 12) | (b << 6) | d;
-        if (v >= 0x10000 && v <= 0x10ffff) {
-          cp = v;
-          len = 4;
-        }
-      }
+  let cp = 0;
+  let needed = 0;
+  let seen = 0;
+  let lower = 0x80;
+  let upper = 0xbf;
+  for (let i = 0; i < bytes.length;) {
+    const b = bytes[i];
+    if (needed === 0) {
+      i++;
+      if (b < 0x80) out += String.fromCharCode(b);
+      else if (b >= 0xc2 && b <= 0xdf) {
+        needed = 1;
+        cp = b & 0x1f;
+      } else if (b >= 0xe0 && b <= 0xef) {
+        if (b === 0xe0) lower = 0xa0;
+        if (b === 0xed) upper = 0x9f;
+        needed = 2;
+        cp = b & 0xf;
+      } else if (b >= 0xf0 && b <= 0xf4) {
+        if (b === 0xf0) lower = 0x90;
+        if (b === 0xf4) upper = 0x8f;
+        needed = 3;
+        cp = b & 7;
+      } else out += "\ufffd";
+      continue;
     }
+    if (b < lower || b > upper) {
+      // The byte is read again, as a sequence's start.
+      cp = needed = seen = 0;
+      lower = 0x80;
+      upper = 0xbf;
+      out += "\ufffd";
+      continue;
+    }
+    i++;
+    lower = 0x80;
+    upper = 0xbf;
+    cp = (cp << 6) | (b & 0x3f);
+    if (++seen !== needed) continue;
     out += String.fromCodePoint(cp);
-    i += len;
+    cp = needed = seen = 0;
   }
-  return out;
+  return needed ? out + "\ufffd" : out;
 }
 
 // Module state never ends in a JavaScript run: no reload to run the hooks.

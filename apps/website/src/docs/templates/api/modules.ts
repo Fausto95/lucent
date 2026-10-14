@@ -162,13 +162,13 @@ export function vibrate(): void {
     frontmatter: {
       title: "Globals",
       description:
-        "What modules use without importing: `console`, `AbortController` and `AbortSignal`, beside the JavaScript built-ins.",
+        "What modules use without importing: `console`, `AbortController`, `AbortSignal`, `TextEncoder` and `TextDecoder`, beside the JavaScript built-ins.",
       kind: "reference",
     },
     intro: [
       {
         kind: "p",
-        text: "The global variables `console`, `AbortController` and `AbortSignal`, and the timer functions `setTimeout`, `setInterval` and `queueMicrotask`, have these types. The JavaScript built-ins a module can use are on [Built-ins](/docs/api/language/built-ins/).",
+        text: "The global variables `console`, `AbortController`, `AbortSignal`, `TextEncoder` and `TextDecoder`, and the timer functions `setTimeout`, `setInterval` and `queueMicrotask`, have these types. The JavaScript built-ins a module can use are on [Built-ins](/docs/api/language/built-ins/).",
       },
     ],
   },

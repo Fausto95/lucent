@@ -54,8 +54,8 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "Promise chaining and combinators, settled in JavaScript's microtask order."
       },
       {
-        "status": "next",
-        "text": "Web APIs such as `TextEncoder` and `URL`."
+        "status": "in progress",
+        "text": "Web APIs: `TextEncoder` and `TextDecoder`; `URL`, base64 and `crypto` next."
       },
       {
         "status": "next",
@@ -297,7 +297,7 @@ export const limitations: { title: string; items: string[] }[] = [
       "Members a module adds to another module's class are bound only for `NSObject`'s Objective-C categories, instance members only. UIKit's `row` on `NSIndexPath` isn't bound, nor are Swift extensions' members ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)).",
       "A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)). A `WeakMap` value that holds its own key keeps it, and the entry, for as long as the map lives.",
       "`new AggregateError` is refused (`LUCENT1003`). Read the `errors` of the one `Promise.any` rejects with as `e.errors as Error[]`, since TypeScript types them `any`.",
-      "`TextEncoder`, `TextDecoder`, `atob`, `btoa`, `URL` and `crypto` are not available. `lucent:core` has `utf8Encode` and `utf8Decode` ([T105](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t105)).",
+      "`atob`, `btoa`, `URL` and `crypto` are not available ([T105](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t105)). `TextDecoder` decodes UTF-8 only: another encoding's label is `LUCENT1003`, or a `RangeError` when computed. Its options are written in the call.",
       "Refused built-ins give `LUCENT1003` unless noted. They include `normalize()`, `locales` and `options` arguments, a cause that isn't an `Error`, a replacer function for `JSON.stringify`, resizable `ArrayBuffer`s and `new Proxy` ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106) lifts some).",
       "Spread into an SDK call is refused (`LUCENT1001`), and so is `for…of` over a tuple (`LUCENT1009`). Async generators give `LUCENT2002` ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106)).",
       "Decorators give `LUCENT1005`, and default exports `LUCENT3003`.",

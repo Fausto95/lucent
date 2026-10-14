@@ -55,6 +55,7 @@ Each e2e case is a module in `packages/compiler/test/e2e/cases/`, run natively a
 | `JSON.parse` returns whatever the text holds. | The text must match the target type. A mismatch throws a `TypeError` naming the path: `JSON.parse: expected a number at .items[2].price, got a string`. | The value is built in its type's native layout. | `json` |
 | `JSON.stringify` of parsed data keeps the text's key order. | Keys follow the declared type's order. | An object type's fields have one order, the declared one. | `json` |
 | `date.toString()` names the time zone in some engines. | Gives `Mon Jul 22 2019 15:51:50 GMT-0700`, as Hermes does. The `toLocale…` methods are refused. | Lucent follows React Native's engine, and has no `Intl` for locale formats. | `dates` |
+| `new TextDecoder(label)` decodes the encoding the label names: UTF-16, Latin-1 and others. | Decodes UTF-8 only. Another encoding's label is [LUCENT1003](/docs/api/diagnostics/#lucent1003) when written in the call, and a `RangeError` when computed. | UTF-8 is what code shared between platforms reads. Decode another encoding with the platform's API. | `text-encoding` |
 
 ## The boundary
 

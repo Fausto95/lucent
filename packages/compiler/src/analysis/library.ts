@@ -395,6 +395,12 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "PromiseConstructor.withResolvers": { allocates: true, schedules: true },
 
   "AbortController.new": ALLOCATES,
+  "TextEncoder.new": ALLOCATES,
+  "TextEncoder.encode": ALLOCATES,
+  // encodeInto writes into its argument, which no effect here says: it is not listed.
+  "TextDecoder.new": ALLOCATES_THROWS,
+  // A streaming decode keeps what the input ended inside of.
+  "TextDecoder.decode": { mutates: true, allocates: true, throws: true },
   "WeakRefConstructor.new": ALLOCATES,
   "WeakRef.deref": NONE,
   // A key's entry, and its value, go with the key; the collection holds the value.

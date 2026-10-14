@@ -1071,6 +1071,56 @@ export function size(t: Tree<number>): number {
     });
   });
 
+  describe("TextEncoder and TextDecoder", () => {
+    it.each([
+      [
+        "a label of UTF-8, and options written in the call",
+        'export function f(b: Uint8Array, last: boolean): string { return new TextDecoder(" UTF8", { fatal: true }).decode(b, { stream: !last }); }',
+      ],
+      [
+        "a computed label, which the runtime checks",
+        "export function f(label: string, b: Uint8Array): string { return new TextDecoder(label).decode(b); }",
+      ],
+      [
+        "an input that may be undefined",
+        "export function f(b?: ArrayBuffer): string { return new TextDecoder().decode(b); }",
+      ],
+      [
+        "encodeInto's counts, destructured",
+        'export function f(into: Uint8Array): number { const { read, written } = new TextEncoder().encodeInto("é", into); return read + written; }',
+      ],
+    ])("accepts %s", (_, src) => {
+      expect(codes(src)).toEqual([]);
+    });
+
+    it.each([
+      [
+        "a label of an encoding other than UTF-8",
+        'export function f(b: Uint8Array): string { return new TextDecoder("utf-16le").decode(b); }',
+      ],
+      [
+        "options held in a variable",
+        "export function f(b: Uint8Array, o: { fatal: boolean }): string { return new TextDecoder(undefined, o).decode(b); }",
+      ],
+      [
+        "decode's options held in a variable",
+        "export function f(b: Uint8Array, o: { stream: boolean }): string { return new TextDecoder().decode(b, o); }",
+      ],
+      [
+        "an input of more than one kind",
+        "export function f(b: Uint8Array | ArrayBuffer): string { return new TextDecoder().decode(b); }",
+      ],
+    ])("rejects %s", (_, src) => {
+      expect(codes(src)).toContain("LUCENT1003");
+    });
+
+    it("keeps a decoder on the Lucent side of the boundary", () => {
+      expect(codes("export function f(): TextDecoder { return new TextDecoder(); }")).toContain(
+        "LUCENT2006",
+      );
+    });
+  });
+
   it("rejects Array.isArray of an Iterable, which no longer knows its kind", () => {
     const src =
       "function g(x: Iterable<number>): boolean { return Array.isArray(x); }\nexport function f(): boolean { return g([1]); }";

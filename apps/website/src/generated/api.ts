@@ -118,7 +118,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "kind": "function",
         "signature": "function utf8Decode(bytes: Uint8Array): string;",
         "doc": [
-          "Decodes UTF-8 bytes, like `new TextDecoder().decode(bytes)`, replacing invalid sequences."
+          "Decodes UTF-8 bytes as `new TextDecoder(\"utf-8\", { ignoreBOM: true }).decode(bytes)` does: a BOM stays, and each invalid sequence is U+FFFD."
         ],
         "examples": [],
         "members": [],
@@ -2112,6 +2112,126 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "name": "abort",
             "signature": "abort(reason?: any): void;",
             "doc": "In Lucent code, `reason` must be an Error."
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "TextEncoderEncodeIntoResult",
+        "kind": "interface",
+        "signature": "interface TextEncoderEncodeIntoResult {\n  read: number;\n  written: number;\n}",
+        "doc": [
+          "What `encodeInto` did: the UTF-16 code units it read, and the bytes it wrote."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "read",
+            "signature": "read: number;",
+            "doc": ""
+          },
+          {
+            "name": "written",
+            "signature": "written: number;",
+            "doc": ""
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "TextEncoder",
+        "kind": "interface",
+        "signature": "interface TextEncoder {\n  readonly encoding: string;\n  encode(input?: string): Uint8Array<ArrayBuffer>;\n  encodeInto(source: string, destination: Uint8Array): TextEncoderEncodeIntoResult;\n}",
+        "doc": [
+          "Encodes strings as UTF-8, a lone surrogate as U+FFFD."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "encoding",
+            "signature": "readonly encoding: string;",
+            "doc": "Always \"utf-8\"."
+          },
+          {
+            "name": "encode",
+            "signature": "encode(input?: string): Uint8Array<ArrayBuffer>;",
+            "doc": ""
+          },
+          {
+            "name": "encodeInto",
+            "signature": "encodeInto(source: string, destination: Uint8Array): TextEncoderEncodeIntoResult;",
+            "doc": "Writes the whole characters of `source` that fit in `destination`, from its start."
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "TextDecoderOptions",
+        "kind": "interface",
+        "signature": "interface TextDecoderOptions {\n  fatal?: boolean;\n  ignoreBOM?: boolean;\n}",
+        "doc": [
+          "`fatal`: throw a TypeError on bytes that are not UTF-8, rather than decode them as U+FFFD. `ignoreBOM`: keep a leading byte order mark."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "fatal",
+            "signature": "fatal?: boolean;",
+            "doc": ""
+          },
+          {
+            "name": "ignoreBOM",
+            "signature": "ignoreBOM?: boolean;",
+            "doc": ""
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "TextDecodeOptions",
+        "kind": "interface",
+        "signature": "interface TextDecodeOptions {\n  stream?: boolean;\n}",
+        "doc": [
+          "`stream`: more input follows, so a character the input ends inside of waits for it."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "stream",
+            "signature": "stream?: boolean;",
+            "doc": ""
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "TextDecoder",
+        "kind": "interface",
+        "signature": "interface TextDecoder {\n  readonly encoding: string;\n  readonly fatal: boolean;\n  readonly ignoreBOM: boolean;\n  decode(\n    input?: ArrayBufferLike | ArrayBufferView<ArrayBufferLike>,\n    options?: TextDecodeOptions,\n  ): string;\n}",
+        "doc": [
+          "Decodes UTF-8 bytes, as the Encoding standard does. In Lucent code the label names UTF-8 (\"utf-8\", \"utf8\", …), the only encoding Lucent decodes, and the options are written in the call."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "encoding",
+            "signature": "readonly encoding: string;",
+            "doc": "Always \"utf-8\"."
+          },
+          {
+            "name": "fatal",
+            "signature": "readonly fatal: boolean;",
+            "doc": ""
+          },
+          {
+            "name": "ignoreBOM",
+            "signature": "readonly ignoreBOM: boolean;",
+            "doc": ""
+          },
+          {
+            "name": "decode",
+            "signature": "decode(input?: ArrayBufferLike | ArrayBufferView<ArrayBufferLike>, options?: TextDecodeOptions): string;",
+            "doc": ""
           }
         ],
         "params": []

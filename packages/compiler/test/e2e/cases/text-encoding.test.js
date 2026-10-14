@@ -1,0 +1,36 @@
+print(mod.encoded());
+print(mod.encodedInto([0, 1, 2, 3, 6, 7, 9, 10, 12]));
+// Valid text, and each way bytes are not UTF-8.
+print(mod.decoded([0x61, 0xc3, 0xa9, 0xe2, 0x82, 0xac, 0xf0, 0x9f, 0x98, 0x80]));
+print(mod.decoded([0xe2, 0x82, 0x41, 0xed, 0xa0, 0x80, 0xf0, 0x90, 0x80]));
+print(mod.decoded([0xc0, 0x80, 0xc1, 0xbf, 0xf5, 0x80, 0xff, 0xfe, 0x80]));
+print(
+  mod.decoded([0xe0, 0x80, 0x80, 0xe0, 0xa0, 0x80, 0xf4, 0x90, 0x80, 0x80, 0xf4, 0x8f, 0xbf, 0xbf]),
+);
+print(mod.decoded([0xef, 0xbb, 0xbf, 0x41]));
+print(mod.decoded([]));
+print(mod.boms());
+print(mod.streamed([[0xe2], [0x82], [0xac, 0x41]]));
+print(
+  mod.streamed([
+    [0xef, 0xbb],
+    [0xbf, 0xef, 0xbb, 0xbf],
+  ]),
+);
+print(mod.streamed([[0xf0, 0x9f], [0x98]]));
+print(mod.streamed([[0xe2, 0x41], [0x80]]));
+print(mod.fatal([0x41, 0xc3, 0xa9], false));
+print(mod.fatal([0x41, 0xc3], false));
+print(mod.fatal([0x41, 0xc3], true));
+print(mod.fatal([0x41, 0xff, 0x42], true));
+print(mod.views());
+for (const label of ["utf-8", "UTF8", " unicode-1-1-utf-8\t", "x-unicode20utf8", "nope"])
+  print(mod.labels(label));
+// Lucent decodes UTF-8 only (docs/semantics.md): an encoding JavaScript
+// decodes is a RangeError natively. As plain JavaScript, the lines print
+// what the native host does.
+const native = globalThis.__lucentHost !== undefined;
+for (const label of ["utf-16le", "latin1"])
+  print(native ? mod.labels(label) : `RangeError: The "${label}" encoding is not supported`);
+print(mod.options(true));
+print(mod.options(false));

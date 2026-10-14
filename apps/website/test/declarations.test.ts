@@ -138,7 +138,16 @@ export declare class Box {
     expect(names("sdk/core.d.ts")).toEqual(
       expect.arrayContaining(["delay", "fromCallback", "subscribe", "compute", "NativeBuffer"]),
     );
-    expect(names("globals.d.ts")).toEqual(["Console", "AbortSignal", "AbortController"]);
+    expect(names("globals.d.ts")).toEqual([
+      "Console",
+      "AbortSignal",
+      "AbortController",
+      "TextEncoderEncodeIntoResult",
+      "TextEncoder",
+      "TextDecoderOptions",
+      "TextDecodeOptions",
+      "TextDecoder",
+    ]);
     for (const file of ["platform", "thread", "ios", "android", "ui", "compose"])
       expect(read(`sdk/${file}.d.ts`).declarations.length).toBeGreaterThan(0);
     expect(read("sdk/ui.d.ts").experimental).toBe(true);

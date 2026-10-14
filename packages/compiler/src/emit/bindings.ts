@@ -168,6 +168,12 @@ export class BindingsEmitter {
           Codes.BoundaryType,
           "an AbortController cannot cross the JavaScript boundary; pass its signal instead",
         );
+      case "web":
+        fail(
+          node,
+          Codes.BoundaryType,
+          `a ${t.name} cannot cross the JavaScript boundary: pass the strings or bytes, and make one on each side`,
+        );
       case "weak":
         fail(
           node,
