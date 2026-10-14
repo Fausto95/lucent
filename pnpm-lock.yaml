@@ -58,6 +58,9 @@ importers:
       lucent-broadcast:
         specifier: workspace:*
         version: link:../../examples/lucent-broadcast
+      lucent-fragment:
+        specifier: workspace:*
+        version: link:../../examples/lucent-fragment
       lucent-haptics:
         specifier: workspace:*
         version: link:../../examples/lucent-haptics
@@ -176,6 +179,9 @@ importers:
       lucent-broadcast:
         specifier: workspace:*
         version: link:../../examples/lucent-broadcast
+      lucent-fragment:
+        specifier: workspace:*
+        version: link:../../examples/lucent-fragment
       lucent-haptics:
         specifier: workspace:*
         version: link:../../examples/lucent-haptics
@@ -324,6 +330,8 @@ importers:
   examples/lucent-broadcast: {}
 
   examples/lucent-camera: {}
+
+  examples/lucent-fragment: {}
 
   examples/lucent-haptics: {}
 

@@ -999,7 +999,9 @@ on host, simulator and emulator.
   and an exported class extending an Android class is one the OS makes,
   on the desktop JVM host (#240). The device runs' Platform screen sends a
   broadcast to a Lucent `BroadcastReceiver` (`examples/lucent-broadcast`,
-  #243). Fragments and the emulator fixtures are left.
+  #243), and a `FragmentManager` makes a Lucent `Fragment` again by its
+  name (`examples/lucent-fragment`, #263). A `Fragment` as a component's
+  root and the emulator fixtures are left.
 - **Area:** Android host, compiler.
 - **Needs:** T130; T112 for `CoroutineWorker`.
 - **Verify:** V1, V4, V5.
@@ -1031,10 +1033,13 @@ its class must be Java or Kotlin the package ships.
       or a `Service`'s lifecycle requires
       ([0103](decisions/0103-android-overrides-run-while-the-caller-waits.md),
       #262).
-- [ ] A `Fragment` shown through a `FragmentActivity`'s manager, and a
-      `Fragment` as a component's Android root (the counterpart of
-      [T122](#t122)). When the OS recreates it, a new Lucent instance is
-      made and the module is told.
+- [x] A `Fragment` shown through a `FragmentActivity`'s manager. When
+      the OS recreates it, a new Lucent instance is made, and its
+      `onCreate` gets the state it saved. The device runs' Platform screen
+      saves and restores a back stack entry holding one, which makes it
+      again by its name (`examples/lucent-fragment`, #263).
+- [ ] A `Fragment` as a component's Android root (the counterpart of
+      [T122](#t122)).
 - [ ] Tests on the desktop JVM host (`test/fake-android.ts`): an
       OS-style instantiation (`os-classes.test.ts`, #240). On the emulator: a periodic `Worker` that
       runs with the app in the background, and a foreground
