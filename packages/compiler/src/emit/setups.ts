@@ -30,7 +30,7 @@ import type { Platform } from "../sdk/schema.ts";
 import type { ComponentDescription } from "../ui/contract.ts";
 import { fabricNames } from "../ui/fabric.ts";
 import { assignFieldRepr, assignRepr, fieldToLucent, toLucent } from "./view-values.ts";
-import { type FunctionLike, returnShape, sdkRoot, toolkitOf } from "../ui/roots.ts";
+import { type FunctionLike, isFragmentRoot, returnShape, sdkRoot, toolkitOf } from "../ui/roots.ts";
 import { type BodySetup, bodyOf, isJsx } from "../ui/toolkit-body.ts";
 import type { ToolkitName } from "../ui/toolkits.ts";
 import type { Ctx, E } from "./context.ts";
@@ -76,6 +76,8 @@ export interface Setup {
   readonly root: LType;
   /** The declarative toolkit its root view is of: it draws with a body (toolkit.ts). */
   readonly toolkit?: ToolkitName;
+  /** Its Android root is a Fragment, which the host commits over a container it holds (T131). */
+  readonly fragment?: boolean;
 }
 
 /** The C++ name of the parameter holding the command table. */
@@ -157,6 +159,9 @@ export function planSetup(
   const propsSymbol = param && checker.getSymbolAtLocation(param.name);
   const described = ctx.platform && component.platforms[ctx.platform]?.root;
   const toolkit = described && toolkitOf(described);
+  const shape =
+    ctx.platform === "android" ? returnShape(checker, fn, "android", sdkRoot) : undefined;
+  const fragment = shape?.kind === "view" && isFragmentRoot(checker, shape.root);
 
   if (propsSymbol) wholeProps(checker, fn, propsSymbol, component.export);
 
@@ -171,6 +176,7 @@ export function planSetup(
     commands,
     root,
     ...(toolkit ? { toolkit } : {}),
+    ...(fragment ? { fragment } : {}),
   };
 
   ctx.setups.set(fn, setup);

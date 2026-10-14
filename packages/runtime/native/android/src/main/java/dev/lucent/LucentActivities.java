@@ -222,10 +222,33 @@ public final class LucentActivities implements Application.ActivityLifecycleCall
     if (listening) onEvent(kind, a, intent);
   }
 
+  /** Whether the program may have components whose root is a Fragment: until LucentFragments is found missing. */
+  private static boolean fragmentRoots = true;
+
+  /**
+   * The Fragment roots of components Android restored with an Activity it
+   * made again (dev.lucent.LucentFragments, built when a component has
+   * one): their containers went with the old views, so they go before the
+   * Activity's fragments are created, and their components mount new ones.
+   */
+  private static void dropRestoredFragments(Activity a, Bundle saved) {
+    if (saved == null || !fragmentRoots) return;
+
+    try {
+      Class.forName("dev.lucent.LucentFragments").getMethod("dropRestored", Activity.class).invoke(null, a);
+    } catch (ClassNotFoundException e) {
+      fragmentRoots = false;
+    } catch (ReflectiveOperationException | LinkageError e) {
+      fragmentRoots = false;
+      Log.w("Lucent", "restored component fragments were kept", e);
+    }
+  }
+
   @Override
   public void onActivityCreated(Activity a, Bundle saved) {
     if (!tracked(a)) return;
 
+    dropRestoredFragments(a, saved);
     current = new WeakReference<>(a);
     newIntents(a);
     listenTo(a, "addOnConfigurationChangedListener", "androidx.core.util.Consumer", CONFIGURATION_CHANGED);

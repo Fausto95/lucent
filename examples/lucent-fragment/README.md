@@ -1,12 +1,15 @@
 # lucent-fragment
 
 A `Fragment` written in Lucent, which Android's `FragmentManager` makes
-again by its name when it restores it. iOS has no fragments.
+again by its name when it restores it, and a component whose Android root
+is a `Fragment`. iOS has no fragments.
 
-```ts
-import { showAndRestore } from "lucent-fragment";
+```tsx
+import { Card, showAndRestore } from "lucent-fragment";
 
 await showAndRestore(); // "made 2, views 2, restored kept"
+
+<Card text="A Fragment, as a component's root" />;
 ```
 
 ## Files
@@ -19,10 +22,16 @@ await showAndRestore(); // "made 2, views 2, restored kept"
   then saves and restores its back stack entry, as Android does when it
   recreates the Activity.
 - `src/panel.ios.lucent.ts`: iOS's side, which has nothing to show.
+- `src/card.android.lucent.tsx`: the `Card` component, whose setup
+  returns a `CardFragment` a module function makes. The host adds it to
+  the Activity's `FragmentManager` over a container in the component. Its
+  text is in its arguments, which an effect sets as the prop changes.
+- `src/card.ios.lucent.tsx`: iOS's `Card`, a label.
+- `src/card.lucent.ts`: what both platforms' `Card` takes.
 - `src/panel.lucent.ts`: what JavaScript sees on both platforms. It
   doesn't declare `Panel`, which only Android makes.
 - `lucent.json`: the `androidx.fragment` dependency.
-- `index.ts`: re-exports the module; Metro bundles its proxy.
+- `index.ts`: re-exports the modules, and the component as React sees it.
 
 ## What it shows
 
@@ -31,6 +40,7 @@ await showAndRestore(); // "made 2, views 2, restored kept"
   makes the Lucent side through the native root.
 - Lifecycle methods that call the base's through `super`, and run while
   Android waits for them.
+- A component whose Android root is a `Fragment`, which the host contains.
 
 <!-- evidence: from evidence.json, written by scripts/example-evidence.ts -->
 

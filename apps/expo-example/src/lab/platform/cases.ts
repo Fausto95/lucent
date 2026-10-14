@@ -5,7 +5,7 @@
 import { Linking, Platform } from "react-native";
 import { isRegistered, runAsScheduled, schedule } from "lucent-background-task";
 import { heard, send } from "lucent-broadcast";
-import { showAndRestore } from "lucent-fragment";
+import { cardShown, showAndRestore } from "lucent-fragment";
 import { channelReady, startedAtMs } from "lucent-launch";
 import { BUNDLE_STARTED } from "../../bundleStarted";
 import { holdBack } from "../../navigation/useNavigator";
@@ -112,6 +112,11 @@ export const platformCases: SdkCase[] = [
     name: "fragment: Android makes a Lucent Fragment again by its name, with its state",
     run: showAndRestore,
     expected: ios ? "none" : "made 2, views 2, restored kept",
+  },
+  {
+    name: "fragment root: a component's Fragment shows its view in the component",
+    run: () => poll(10_000, cardShown, (got) => got === "shown" || got === "none"),
+    expected: ios ? "none" : "shown",
   },
   {
     name: "executor: frames reach a channel, uncopied",

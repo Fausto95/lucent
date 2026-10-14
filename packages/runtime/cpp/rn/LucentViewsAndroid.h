@@ -45,8 +45,13 @@ class Mounted {
  public:
   virtual ~Mounted() = default;
 
-  /// The view the component's setup returned (empty if setup failed).
+  /// The view the component's setup returned (empty if setup failed, or
+  /// if it returned a fragment).
   virtual NativeRef view() const = 0;
+
+  /// The androidx Fragment the component's setup returned in place of a
+  /// view, which the host commits over a container in its shell; else empty.
+  virtual NativeRef fragment() const { return {}; }
 
   /// Applies a later commit's props (the component's own Props type).
   virtual void update(const facebook::react::Props& props, const facebook::react::Props& previous) = 0;

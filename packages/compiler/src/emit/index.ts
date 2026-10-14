@@ -83,6 +83,8 @@ export interface EmitResult {
   kotlin?: Map<string, string>;
   /** Components' content is Compose (Kotlin the Compose compiler builds). */
   compose?: boolean;
+  /** A component's Android root is a Fragment: the runtime's host of fragments is built. */
+  fragments?: boolean;
   /** Android permissions the SDK methods the program calls require (declared in the library's manifest). */
   androidPermissions?: string[];
   /** The components the modules export (`.lucent.tsx` functions returning views): not module functions. */
@@ -664,6 +666,7 @@ export function emitProgram(
     javaKeep: [...ctx.javaClasses].sort(),
     kotlin,
     compose: compose.length > 0,
+    fragments: [...ctx.setups.values()].some((s) => s.fragment),
     androidPermissions: [...ctx.androidPermissions].sort(),
   };
 }
