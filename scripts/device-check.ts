@@ -696,14 +696,14 @@ function report(
     // The annotation is what a reader without the job's log sees: the app's last lines too.
     const tail = details.app.slice(-12);
     const sizing = details.sizing?.slice(-16) ?? [];
-    const react = details.react?.slice(-6) ?? [];
+    const react = details.react?.slice(-8) ?? [];
     const lucent = details.lucent?.slice(-8) ?? [];
     // Sizing first: the annotation is cut at 3500 characters, and the app's lines are long.
     const lines = [
       ...summary,
       ...(lucent.length ? ["Lucent's lines, last:", ...lucent] : []),
       ...(sizing.length ? ["Sizing, last:", ...sizing] : []),
-      ...(react.length ? ["React Native's warnings and errors, last:", ...react] : []),
+      ...(react.length ? ["The app's warnings and errors, last:", ...react] : []),
       ...(tail.length ? ["The app's last lines:", ...tail] : []),
     ];
     const text = lines.join("\n").slice(0, 3500);
@@ -841,11 +841,15 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
   const lucent = tagged
     .filter((l) => l.trim() && !l.includes("LUCENT_SIZING") && !l.startsWith("-----"))
     .map((l) => (l.length > 200 ? `${l.slice(0, 199)}…` : l));
-  // React Native's own complaints (a mount item that threw, a soft exception), among the app's lines.
-  const react = appLines(log, 400, 240, target).filter((l) =>
-    /\s[WE] (ReactNative|FabricUIManager|SurfaceMountingManager|MountItemDispatcher|unknown:ReactNative)\b/.test(
-      l,
-    ),
+  // The app's warnings and errors but its JavaScript's (a mount batch skipped, a soft exception, a
+  // fragment manager's complaint), and what its dev support says of Metro.
+  const react = appLines(log, 400, 240, target).filter(
+    (l) =>
+      /\s[WEF] [^\s:]+\s*:/.test(l) &&
+      !/\s[WEF] (ReactNativeJS|unknown:ReconnectingWebSocket|Lucent)\s*:/.test(l) &&
+      !/\s(MediaSessionService|AudioMediaPlayerWrapper|ActivityManager|ActivityTaskManager)\s*:/.test(
+        l,
+      ),
   );
   report(diagnose(facts), { app, metro, sizing, react, lucent });
   return false;
