@@ -102,8 +102,8 @@ describe("summaries name constructs that report their code", () => {
     ],
     [
       "LUCENT1007",
-      "spread arguments to a fixed number of parameters",
-      "function add(a: number, b: number): number {\n  return a + b;\n}\nexport function f(): number {\n  const t: [number, number] = [1, 2];\n  return add(...t);\n}\n",
+      "a callback that reports a promise",
+      'import { fromCallback } from "lucent:core";\nexport function f(p: Promise<number>): Promise<Promise<number>> {\n  return fromCallback<Promise<number>>((resolve) => resolve(p));\n}\n',
     ],
     [
       "LUCENT2002",

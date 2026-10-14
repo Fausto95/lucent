@@ -31,7 +31,7 @@ what became of each one that is still linked or was still open.
 | [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | done (2026-10-13)                                       |
 | [T104](#t104)            | Timers and `queueMicrotask`                                | done (2026-10-13)                                       |
 | [T105](#t105)            | Web APIs that shared code uses                             | ready                                                   |
-| [T106](#t106)            | Language gaps module code meets                            | in progress (#278)                                      |
+| [T106](#t106)            | Language gaps module code meets                            | in progress (#278, #279)                                |
 | [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                       |
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | done (2026-10-13)                                       |
 | [T109](#t109)            | Executors for platform callbacks                           | done (2026-10-13)                                       |
@@ -322,7 +322,7 @@ code uses `utf8Encode` from `lucent:core` or the platform's own APIs.
 
 **Goal:** Lift the refusals that ordinary module code meets most.
 
-- **Status:** in progress: object rest (#278).
+- **Status:** in progress: object rest (#278), spread from tuples (#279).
 - **Area:** compiler, runtime.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3.
@@ -330,8 +330,10 @@ code uses `utf8Encode` from `lucent:core` or the platform's own APIs.
 
 - [x] Object rest in destructuring, from objects and records, in
       declarations, parameters, `for…of` and assignments (#278).
-- [ ] Spread arguments into fixed parameters, and from tuples
-      (LUCENT1007). Spreading into rest parameters works already.
+- [x] Spread arguments from tuples, into fixed parameters, rest
+      parameters, array literals and built-ins (#279). Spreading arrays
+      into rest parameters worked already; TypeScript spreads nothing else
+      into fixed parameters.
 - [ ] `new Error(message, { cause })` and an error's `cause`, which crosses
       to JavaScript.
 - [ ] `JSON.stringify` with a replacer and an indent.

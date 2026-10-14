@@ -230,8 +230,10 @@ use. Loose `==` works between values of one kind and against `null` or
 
 Spread works into built-ins that take any number of arguments
 (`push(...xs)`, `Math.min(...xs)`) and into array literals from any
-iterable, and into a function's rest parameter. Into fixed parameters,
-or from a tuple, it is `LUCENT1007` ([T106](tasks.md#t106)). An object literal spreads objects, skipping
+iterable, and into a function's rest parameter. A tuple spreads too, an
+argument per element, into fixed parameters as well (`add(...pair)`), as
+TypeScript allows. Into an SDK call, spread is `LUCENT1001`, and `for…of`
+over a tuple is `LUCENT1009`. An object literal spreads objects, skipping
 optional fields left unset, so `{ ...defaults, ...overrides }` keeps the
 defaults; `undefined` and `null` spread as nothing. A record literal
 spreads records only (`LUCENT1001`).

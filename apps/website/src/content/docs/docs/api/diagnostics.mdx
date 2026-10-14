@@ -31,7 +31,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT1004`](#lucent1004) | A destructuring form outside the subset: computed keys, a class instance's rest, or a pattern without an initializer. |
 | [`LUCENT1005`](#lucent1005) | A class feature outside the subset: extending a built-in other than `Error`, an override with another native signature, a static block or a decorator. |
 | [`LUCENT1006`](#lucent1006) | Throwing a value that is not an `Error`. |
-| [`LUCENT1007`](#lucent1007) | A call Lucent cannot compile: spread arguments to anything but a built-in such as `push`, or a platform class without a constructor binding. |
+| [`LUCENT1007`](#lucent1007) | A call Lucent cannot compile: a callback reporting a promise, a borrow's unseen callback, or a platform class with no constructor binding. |
 | [`LUCENT1008`](#lucent1008) | An assignment to something that cannot be assigned, such as an unknown field or a function. |
 | [`LUCENT1009`](#lucent1009) | A loop over a value that is not iterable in Lucent, or `for await`. |
 | [`LUCENT1010`](#lucent1010) | `await` on a platform SDK object, such as a Play services Task or a Java future: it is not a promise. |
@@ -269,19 +269,17 @@ export function port(text: string): number {
 
 **Call Lucent cannot compile**
 
-Native calls pass a fixed number of arguments of known types. Spreading an array or a tuple into ordinary parameters has no native form. Neither does a platform API called as a promise where it has none, or a platform class without an initializer.
+A callback API's report is a value, which JavaScript would adopt if it were a promise: native code can't. A borrow lends bytes to the callback it is given, which must be written there to be checked. A platform class without an initializer has no native constructor to call.
 
-**Fix:** pass the arguments one by one.
+**Fix:** await the promise and report its value, write the callback in the call, or make the object the way the SDK does.
 
 <Tabs>
 <TabItem label="✗ example.lucent.ts">
 
 ```ts title="example.lucent.ts (wrong)"
-function add(a: number, b: number): number {
-  return a + b;
-}
-export function sum(pair: [number, number]): number {
-  return add(...pair);
+import { fromCallback } from "lucent:core";
+export function later(p: Promise<number>): Promise<Promise<number>> {
+  return fromCallback<Promise<number>>((resolve) => resolve(p));
 }
 ```
 
@@ -289,11 +287,11 @@ export function sum(pair: [number, number]): number {
 <TabItem label="✓ example.lucent.ts">
 
 ```ts title="example.lucent.ts (right)"
-function add(a: number, b: number): number {
-  return a + b;
-}
-export function sum(pair: [number, number]): number {
-  return add(pair[0], pair[1]);
+import { fromCallback } from "lucent:core";
+export function later(p: Promise<number>): Promise<number> {
+  return fromCallback<number>((resolve) => {
+    void p.then(resolve);
+  });
 }
 ```
 
