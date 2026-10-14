@@ -341,8 +341,8 @@ new Activity: `device-check.ts` then opens the Media screen again, once.
 Last, the Libraries screen puts a Lucent component inside the view
 libraries apps use. Reanimated animates its own style through its ref, a
 Gesture Handler detector over it gets a tap (Android; on iOS, where nothing
-taps, its recognizers are on the component's view), and it lays out in a
-react-native-screens stack's screen.
+taps, its recognizers are on the detector, the component's view's parent),
+and it lays out in a react-native-screens stack's screen.
 
 Each screen opens in an app started for it, on Android as on iOS. A deep
 link that navigated the running app (React Native 0.88's bare Debug build)

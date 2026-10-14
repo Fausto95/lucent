@@ -820,8 +820,8 @@ unmount.
 - [x] A component inside Reanimated's animated views, Gesture Handler's
       detectors and react-native-screens' screens mounts, animates and
       receives touches: the device runs' Libraries screen (#271), on iOS
-      with the detector's recognizers on the component's view, since
-      nothing taps there.
+      with the detector's recognizers over the component's view (on the
+      detector, its parent), since nothing taps there.
 - [x] Tests: `testID` reaches the native view and `onLayout` fires, on
       the simulator and emulator, and Android's accessibility API reads a
       label: the Platform screen's `Card` (#268).
