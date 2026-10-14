@@ -666,7 +666,13 @@ function metroTail(): string[] {
 /** Prints and keeps the summary: last in the output, in the step summary, as an annotation. */
 function report(
   summary: string[],
-  details: { app: string[]; metro: string[]; sizing?: string[]; react?: string[] },
+  details: {
+    app: string[];
+    metro: string[];
+    sizing?: string[];
+    react?: string[];
+    lucent?: string[];
+  },
 ): void {
   fs.mkdirSync(outDir(), { recursive: true });
   fs.writeFileSync(path.join(outDir(), "summary.txt"), `${summary.join("\n")}\n`);
@@ -689,11 +695,13 @@ function report(
   if (process.env.GITHUB_ACTIONS) {
     // The annotation is what a reader without the job's log sees: the app's last lines too.
     const tail = details.app.slice(-12);
-    const sizing = details.sizing?.slice(-12) ?? [];
+    const sizing = details.sizing?.slice(-16) ?? [];
     const react = details.react?.slice(-6) ?? [];
+    const lucent = details.lucent?.slice(-8) ?? [];
     // Sizing first: the annotation is cut at 3500 characters, and the app's lines are long.
     const lines = [
       ...summary,
+      ...(lucent.length ? ["Lucent's lines, last:", ...lucent] : []),
       ...(sizing.length ? ["Sizing, last:", ...sizing] : []),
       ...(react.length ? ["React Native's warnings and errors, last:", ...react] : []),
       ...(tail.length ? ["The app's last lines:", ...tail] : []),
@@ -825,18 +833,21 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
   console.log(`--- The app's own lines in the device log (the last ${app.length}):`);
   console.log(app.join("\n"));
   if (metro.length) console.log(`--- The end of Metro's log:\n${metro.join("\n")}`);
-  const sizing = device
-    .lucent()
-    .split("\n")
+  const tagged = device.lucent().split("\n");
+  const sizing = tagged
     .filter((l) => l.includes("LUCENT_SIZING"))
     .map((l) => l.slice(l.indexOf("LUCENT_SIZING")));
+  // The rest of what Lucent logged (the screens' progress, modules' console output, errors).
+  const lucent = tagged
+    .filter((l) => l.trim() && !l.includes("LUCENT_SIZING") && !l.startsWith("-----"))
+    .map((l) => (l.length > 200 ? `${l.slice(0, 199)}…` : l));
   // React Native's own complaints (a mount item that threw, a soft exception), among the app's lines.
   const react = appLines(log, 400, 240, target).filter((l) =>
     /\s[WE] (ReactNative|FabricUIManager|SurfaceMountingManager|MountItemDispatcher|unknown:ReactNative)\b/.test(
       l,
     ),
   );
-  report(diagnose(facts), { app, metro, sizing, react });
+  report(diagnose(facts), { app, metro, sizing, react, lucent });
   return false;
 }
 
