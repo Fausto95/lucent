@@ -415,20 +415,23 @@ jobs:
         if: always()
         run: ccache --show-stats
 
-  # The compiled modules on the platforms themselves: the bare example's Tests screen (every
-  # end-to-end case through the compiled C++) on the iOS simulator and the Android emulator.
-  # Nightly and on a manual run only, until they run reliably; they don't gate the CI check.
+  # The compiled modules on the platforms themselves: each example app's Tests screen (every
+  # end-to-end case through the compiled C++) and Platform screen on the iOS simulator and the
+  # Android emulator. Nightly and on a manual run only, until they run reliably; they don't gate
+  # the CI check.
   devices:
-    name: Device run (${{ matrix.platform }})
+    name: Device run (${{ matrix.platform }}${{ matrix.app == 'expo' && ', Expo' || '' }})
     needs: changes
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
         platform: [ios, android]
+        app: [bare, expo]
     uses: ./.github/workflows/devices.yml
     with:
       platform: ${{ matrix.platform }}
+      app: ${{ matrix.app }}
 
   # Fresh bare and Expo apps on each release of the window, with the packed package, built for
   # the iOS simulator and Android. Nightly and on a manual run only, as the device runs are; they

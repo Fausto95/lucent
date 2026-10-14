@@ -245,7 +245,12 @@ export async function pressKey(): Promise<string> {
   return heard.join(", ") || "nothing heard";
 }
 
-/** Turns the Activity to landscape and back: its configuration changes, which module code hears. */
+/**
+ * Turns the Activity to landscape and back: its configuration changes,
+ * which module code hears. When it hears none, it says whether the
+ * Activity turned, and whether Android made it again instead (its
+ * manifest's configChanges lacking orientation).
+ */
 export async function rotate(): Promise<string> {
   if (PLATFORM !== "android") return "none";
 
@@ -254,11 +259,37 @@ export async function rotate(): Promise<string> {
     changes += 1;
   });
 
+  const before = await main(() => currentActivity()?.hashCode() ?? 0);
   await main(() =>
     currentActivity()?.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE),
   );
   await until(() => changes > 0, 5000);
   const turned = changes;
+  if (!turned) {
+    const after = await main(() => currentActivity()?.hashCode() ?? 0);
+    const orientation = await main(
+      () => currentActivity()?.getResources()?.getConfiguration()?.orientation ?? 0,
+    );
+    if (after !== before) {
+      stop();
+      return "no change heard: Android made the Activity again";
+    }
+    // Whether the Activity's own listeners hear the turn back, which Lucent's should be among.
+    let heard = 0;
+    await main(() => {
+      const activity = currentActivity();
+      if (activity instanceof ComponentActivity)
+        activity.addOnConfigurationChangedListener(() => {
+          heard += 1;
+        });
+    });
+    await main(() =>
+      currentActivity()?.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED),
+    );
+    await until(() => heard > 0, 5000);
+    stop();
+    return `no change heard, orientation ${orientation}; a listener added now ${heard ? `heard the turn back${changes ? ", and so did Lucent's" : ""}` : "heard nothing"}`;
+  }
 
   await main(() =>
     currentActivity()?.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED),
@@ -266,5 +297,5 @@ export async function rotate(): Promise<string> {
   await until(() => changes > turned, 5000);
   stop();
 
-  return turned > 0 ? "changed" : "no change";
+  return "changed";
 }

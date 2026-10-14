@@ -25,7 +25,10 @@ xcrun simctl launch booted dev.lucent.expoexample -lucentTab lab/sdk
 ```
 
 The routes, and the `LUCENT_SUMMARY` line each Lab screen logs when it
-finishes, are the bare example's: see its README.
+finishes, are the bare example's: see its README. CI's device runs build
+this app for Release, after `expo prebuild` and `pod install`, and run its
+Tests and Platform screens on the simulator and the emulator
+(`node scripts/device-check.ts ios --app <.app> --example expo --no-metro`).
 
 ## Run it
 

@@ -105,8 +105,8 @@ Goal: Call the iOS and Android SDKs, and the libraries an app links, directly fr
 - ✅ OS version checks and main-thread-only APIs, checked at compile time.
 - ✅ Pods, Gradle dependencies, Swift packages and C libraries.
 - ✅ The current Activity and scene, activity results, permission requests and app lifecycle events.
+- ✅ Opened URLs, push tokens, notifications and back presses, from the app delegate and Activity.
 - 🚧 Platform memory as JavaScript bytes without a copy, done for Android's `ByteBuffer`.
-- ⏳ Opened URLs, push tokens, notifications and back presses, from the app delegate and Activity.
 - ⏳ Native needs declared by the app's own modules, not only by packages.
 - ⏳ Privacy manifests, Android `<queries>` and Gradle plugins, declared by packages.
 - 🔭 C++ libraries, and a package's own Kotlin and Java, typed in Lucent.
@@ -177,8 +177,8 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
 
 1. [T140](docs/tasks.md#t140): the window's fresh apps now build and run
    nightly; it closes after three green nights in a row.
-2. [T110](docs/tasks.md#t110): app-delegate and Activity events, whose
-   device runs pass in the bare example; the Expo example's run is left.
+2. [T110](docs/tasks.md#t110) (done): app-delegate and Activity events,
+   whose device runs pass in both example apps.
 3. [T131](docs/tasks.md#t131) and [T132](docs/tasks.md#t132), on the
    native root ([T130](docs/tasks.md#t130), done): Android classes the OS
    makes, and iOS background execution.

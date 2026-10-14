@@ -35,7 +35,7 @@ what became of each one that is still linked or was still open.
 | [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                             |
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | done (2026-10-13)                                             |
 | [T109](#t109)            | Executors for platform callbacks                           | done (2026-10-13)                                             |
-| [T110](#t110)            | App-delegate and Activity events                           | in progress (#217–#227 merged); Expo device run left          |
+| [T110](#t110)            | App-delegate and Activity events                           | done (2026-10-14)                                             |
 | [T111](#t111)            | The app's own native needs and options                     | ready                                                         |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | ready                                                         |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | ready                                                         |
@@ -503,7 +503,7 @@ receive, through the subscriber
 [0076](decisions/0076-an-app-delegate-and-activity-subscriber.md)
 describes.
 
-- **Status:** in progress: iOS's events reach `onAppEvent` typed, through
+- **Status:** done (2026-10-14): iOS's events reach `onAppEvent` typed, through
   `LucentAppDelegate` (#217), which `lucent init` has a bare app's
   delegates call, `lucent doctor` checks and `lucent build` names when
   missing (#218, #220), and an Expo app's `AppDelegate` calls through
@@ -511,7 +511,8 @@ describes.
   delegate (#223, #224), Android's Activity events, keys and main
   Activity attributes (#221, #222, #226, #227) are in. The device runs'
   Platform screen checks them, and passes on the simulator and the
-  emulator (#225, 2026-10-13). The Expo example's device run is left.
+  emulator in both example apps (#225, 2026-10-13; the Expo example's,
+  #261, 2026-10-14).
 - **Area:** iOS and Android hosts, runtime, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V3, V4, V5, V6.
@@ -570,15 +571,16 @@ describes.
       plugin writes them
       ([0089](decisions/0089-main-activity-attributes-are-named-or-written-as-plist-entries-are.md),
       #227).
-- [ ] Tests: `lifecycle_test.cpp` merges answers. The example apps open a
+- [x] Tests: `lifecycle_test.cpp` merges answers. The example apps open a
       deep link and read a push token in their device-check runs on the
       simulator and emulator (a fake registration exercises the token
       path). The bare example's Platform screen, which the device runs
       open after the Tests screen, opens a deep link to the app, registers
       for a push token (an unsigned simulator build answers why it has
       none), and presses back and rotates on Android (#225), and passes
-      on the simulator and the emulator (2026-10-13). The Expo example's
-      device run is left.
+      on the simulator and the emulator (2026-10-13). So does the Expo
+      example's, a Release build made by `expo prebuild` and `pod install`
+      as an Expo app's is (#261, 2026-10-14).
 
 **Done when:** both example apps receive each event in their device-check
 runs.

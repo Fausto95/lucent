@@ -1,22 +1,25 @@
 /**
- * Runs the bare example's Tests and Platform screens on a booted-here iOS
+ * Runs an example app's Tests and Platform screens on a booted-here iOS
  * simulator or a running Android emulator, and passes when every check of
  * both passed: every end-to-end case, then what only the platform gives
  * (frames through an executor, a deep link, a push token, back presses).
- * With --id, it runs another app's Tests screen the same way (the window's
- * fresh apps, scripts/window-app.ts), opened as its launcher opens it:
- *   1. installs the Debug build (its bundle comes from Metro, which the
- *      caller started on port 8081);
+ * The bare example by default, the Expo example with --example expo. With
+ * --id, it runs another app's Tests screen the same way (the window's fresh
+ * apps, scripts/window-app.ts), opened as its launcher opens it:
+ *   1. installs the build (a Debug build's bundle comes from Metro, which
+ *      the caller started on port 8081);
  *   2. opens each screen in turn: on Android with the deep link
- *      lucentbare://lab/<screen>, on iOS with the launch argument
- *      `-lucentTab lab/<screen>` (the simulator asks to confirm a link that
- *      `simctl openurl` opens, and nobody is there to confirm it);
+ *      <scheme>://lab/<screen> (lucentbare, lucentexpo), on iOS with the
+ *      launch argument `-lucentTab lab/<screen>` (the simulator asks to
+ *      confirm a link that `simctl openurl` opens, and nobody is there to
+ *      confirm it);
  *   3. follows the lines the screen logs, LUCENT_PROGRESS after each check
  *      and LUCENT_SUMMARY with its verdict (`LUCENT_SUMMARY tests 70/70
  *      passed`), before opening the next.
  *
  *   node scripts/device-check.ts ios --app <BareExample.app>
  *   node scripts/device-check.ts android --apk <app-debug.apk>
+ *   node scripts/device-check.ts ios --app <LucentExpoExample.app> --example expo --no-metro
  *   node scripts/device-check.ts ios --app <.app> --id <bundle id> --process <name> [--no-metro]
  *   node scripts/device-check.ts android --apk <.apk> --id <package> [--no-metro]
  *
@@ -117,8 +120,8 @@ export function appLines(
   width = 240,
   // iOS lines name the process; Android's, the package.
   app: { id: string; process: string } = {
-    id: BARE_EXAMPLE.package,
-    process: BARE_EXAMPLE.process,
+    id: EXAMPLES.bare.package,
+    process: EXAMPLES.bare.process,
   },
 ): string[] {
   const own = appLine(app);
@@ -300,12 +303,27 @@ export function pickSimulator(list: {
   return undefined;
 }
 
-/** The bare example: its iOS bundle identifier, its Android package, its process. */
-const BARE_EXAMPLE = {
-  id: "org.reactjs.native.example.BareExample",
-  package: "com.bareexample",
-  process: "BareExample",
-};
+/**
+ * The example apps: their iOS bundle identifier, Android package, process
+ * (the iOS executable: Expo's prebuild names it after app.json's name) and
+ * URL scheme.
+ */
+export const EXAMPLES = {
+  bare: {
+    id: "org.reactjs.native.example.BareExample",
+    package: "com.bareexample",
+    process: "BareExample",
+    scheme: "lucentbare",
+  },
+  expo: {
+    id: "dev.lucent.expoexample",
+    package: "dev.lucent.expoexample",
+    process: "LucentExpoExample",
+    scheme: "lucentexpo",
+  },
+} as const;
+
+export type Example = keyof typeof EXAMPLES;
 
 /** A Lab screen a run opens, and how. */
 export interface Screen {
@@ -317,8 +335,8 @@ export interface Screen {
   url?: string;
 }
 
-/** The bare example's screens a run checks, in order: every end-to-end case, then the platform's. */
-const BARE_SCREENS = ["tests", "platform"];
+/** An example's screens a run checks, in order: every end-to-end case, then the platform's. */
+const EXAMPLE_SCREENS = ["tests", "platform"];
 
 /** The app a run checks, and how it is opened. */
 export interface Target {
@@ -336,9 +354,9 @@ export interface Target {
 }
 
 /**
- * The run's target from the command line. Without --id, the bare example's
- * Tests and Platform screens; with --id, that app's Tests screen, opened as
- * its launcher opens it.
+ * The run's target from the command line. Without --id, an example's Tests
+ * and Platform screens (--example, the bare one by default); with --id, that
+ * app's Tests screen, opened as its launcher opens it.
  */
 export function parseTarget(argv: string[]): Target {
   const { values, positionals } = parseArgs({
@@ -347,6 +365,7 @@ export function parseTarget(argv: string[]): Target {
     options: {
       app: { type: "string" },
       apk: { type: "string" },
+      example: { type: "string" },
       id: { type: "string" },
       process: { type: "string" },
       "no-metro": { type: "boolean" },
@@ -355,22 +374,29 @@ export function parseTarget(argv: string[]): Target {
   const [platform] = positionals;
   const artifact =
     platform === "ios" ? values.app : platform === "android" ? values.apk : undefined;
-  if ((platform !== "ios" && platform !== "android") || !artifact)
+  const example = values.example ?? "bare";
+  if (
+    (platform !== "ios" && platform !== "android") ||
+    !artifact ||
+    !Object.hasOwn(EXAMPLES, example) ||
+    (values.id && values.example)
+  )
     throw new Error(
-      "usage: device-check.ts ios --app <.app> | android --apk <.apk> [--id <bundle id or package> --process <name>] [--no-metro]",
+      "usage: device-check.ts ios --app <.app> | android --apk <.apk> [--example bare|expo | --id <bundle id or package> --process <name>] [--no-metro]",
     );
   const metro = !values["no-metro"];
   if (!values.id) {
-    const screens = BARE_SCREENS.map((id) =>
+    const app = EXAMPLES[example as Example];
+    const screens = EXAMPLE_SCREENS.map((id) =>
       platform === "ios"
         ? { id, launchArgs: ["-lucentTab", `lab/${id}`] }
-        : { id, launchArgs: [], url: `lucentbare://lab/${id}` },
+        : { id, launchArgs: [], url: `${app.scheme}://lab/${id}` },
     );
     return {
       platform,
       artifact,
-      id: platform === "ios" ? BARE_EXAMPLE.id : BARE_EXAMPLE.package,
-      process: BARE_EXAMPLE.process,
+      id: platform === "ios" ? app.id : app.package,
+      process: app.process,
       screens,
       metro,
     };
@@ -392,6 +418,8 @@ const START_MS = seconds("DEVICE_CHECK_START_S", 480);
 /** Between two finished cases (a case gives up after a minute). */
 const STALL_MS = seconds("DEVICE_CHECK_STALL_S", 180);
 const POLL_MS = 10_000;
+/** How many times a Debug build that couldn't load its bundle is opened again. */
+const REOPENS = 2;
 
 const outDir = () => path.resolve(process.env.DEVICE_CHECK_OUT ?? "device-check");
 
@@ -445,7 +473,17 @@ interface Device {
   screen(file: string): string[] | undefined;
   /** What else says why: crash reports (`crash`), the device's state (`notes`). */
   evidence(): { crash: string[]; notes: string[] };
+  /**
+   * Whether a Debug build's app gave up on its bundle, which it couldn't
+   * load from Metro (Android: "Unable to load script"), since it opened.
+   */
+  unloaded?(): boolean;
+  /** Before opening the app again: Metro made reachable again, the app stopped, its log cleared. */
+  reset?(): void;
 }
+
+/** A Debug build's app gave up on loading its bundle: React Native's red box says so. */
+export const UNLOADED = /Unable to load script/;
 
 function ios(target: Target): Device {
   const list = JSON.parse(sh("xcrun", ["simctl", "list", "devices", "available", "--json"]));
@@ -565,6 +603,12 @@ function android(target: Target): Device {
         ]);
     },
     lucent: () => sh("adb", ["logcat", "-d", "-s", "Lucent:*"], true),
+    unloaded: () => UNLOADED.test(sh("adb", ["logcat", "-d", "-b", "main"], true)),
+    reset: () => {
+      sh("adb", ["reverse", "tcp:8081", "tcp:8081"], true);
+      sh("adb", ["shell", "am", "force-stop", target.id], true);
+      sh("adb", ["logcat", "-b", "all", "-c"], true);
+    },
     log: () => sh("adb", ["logcat", "-d", "-b", "main,system,crash", "-v", "threadtime"], true),
     running: () => {
       const r = spawnSync("adb", ["shell", "pidof", target.id], { encoding: "utf8" });
@@ -650,7 +694,10 @@ async function main(): Promise<boolean> {
 async function check(target: Target, device: Device, screen: Screen): Promise<boolean> {
   const { platform } = target;
   device.open(screen);
-  const opened = Date.now();
+  let opened = Date.now();
+  // Opened again when a Debug build couldn't load its bundle: on the emulator, Metro's reverse
+  // of tcp:8081 isn't always in place when the app first asks.
+  let reopened = 0;
   console.log(
     `Opened ${target.id} (${screen.id}); waiting up to ${TIMEOUT_MS / 60000} minutes for its verdict.`,
   );
@@ -674,6 +721,17 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
       moved = Date.now();
     }
     progress = now;
+    if (!progress && target.metro && reopened < REOPENS && device.unloaded?.()) {
+      reopened += 1;
+      console.log(
+        `The app couldn't load its bundle from Metro: opening it again (${reopened}/${REOPENS}).`,
+      );
+      device.reset?.();
+      device.open(screen);
+      opened = Date.now();
+      moved = opened;
+      continue;
+    }
     // An app that quit stays quit: two polls in a row, past its first seconds.
     gone = Date.now() - opened > 30_000 && device.running() === false ? gone + 1 : 0;
     if (gone >= 2) {
@@ -708,7 +766,14 @@ async function check(target: Target, device: Device, screen: Screen): Promise<bo
     progress,
     running: device.running(),
     crash: [...evidence.crash, ...crashLines(log)],
-    notes: evidence.notes,
+    notes: [
+      ...evidence.notes,
+      ...(reopened
+        ? [
+            `Opened again ${reopened} time${reopened === 1 ? "" : "s"}, after it couldn't load its bundle`,
+          ]
+        : []),
+    ],
     jsErrors: jsErrorLines(log),
     metroUp: target.metro && (await metroUp()),
     metro: target.metro,

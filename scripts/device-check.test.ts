@@ -387,6 +387,38 @@ describe("parseTarget", () => {
     });
   });
 
+  it("is the Expo example's Tests and Platform screens with --example expo", () => {
+    expect(
+      parseTarget(["ios", "--app", "LucentExpoExample.app", "--example", "expo", "--no-metro"]),
+    ).toEqual({
+      platform: "ios",
+      artifact: "LucentExpoExample.app",
+      id: "dev.lucent.expoexample",
+      process: "LucentExpoExample",
+      screens: [
+        { id: "tests", launchArgs: ["-lucentTab", "lab/tests"] },
+        { id: "platform", launchArgs: ["-lucentTab", "lab/platform"] },
+      ],
+      metro: false,
+    });
+    expect(parseTarget(["android", "--apk", "app-release.apk", "--example", "expo"])).toMatchObject(
+      {
+        id: "dev.lucent.expoexample",
+        screens: [
+          { id: "tests", url: "lucentexpo://lab/tests" },
+          { id: "platform", url: "lucentexpo://lab/platform" },
+        ],
+      },
+    );
+  });
+
+  it("refuses an example it doesn't know, and an example with --id", () => {
+    expect(() => parseTarget(["ios", "--app", "a.app", "--example", "web"])).toThrow(/usage/);
+    expect(() =>
+      parseTarget(["ios", "--app", "a.app", "--example", "expo", "--id", "x.y"]),
+    ).toThrow(/usage/);
+  });
+
   it("opens another app as its launcher does, with its bundle in a Release build", () => {
     expect(
       parseTarget([
