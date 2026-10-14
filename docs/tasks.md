@@ -43,7 +43,7 @@ what became of each one that is still linked or was still open.
 | [T115](#t115)            | Native configuration packages can't declare yet            | ready                                                   |
 | **View parity**          |                                                            |                                                         |
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
-| [T121](#t121)            | React Native's view props, refs and view libraries         | in progress (#244)                                      |
+| [T121](#t121)            | React Native's view props, refs and view libraries         | in progress (#244, #268); library cases left            |
 | [T122](#t122)            | UIKit components with a view-controller root               | ready                                                   |
 | [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | ready                                                   |
 | [T124](#t124)            | A component's ref as a module function's argument          | ready                                                   |
@@ -783,8 +783,9 @@ instance prop.
 takes, as Expo views do, and works inside the view libraries apps use.
 
 - **Status:** in progress: view props pass through, the ref measures the
-  host, and requests take a signal (#244). The view libraries' cases and
-  the device tests are left.
+  host, and requests take a signal (#244). The device runs read a
+  component's `testID` and label from its native view, and hear its
+  `onLayout` (#268). The view libraries' cases are left.
 - **Area:** views.
 - **Needs:** nothing.
 - **Verify:** V1, V5.
@@ -808,9 +809,9 @@ unmount.
 - [ ] A component inside Reanimated's animated views, Gesture Handler's
       detectors and react-native-screens' screens mounts, animates and
       receives touches.
-- [ ] Tests: `testID` reaches the native view, `onLayout` fires, and the
+- [x] Tests: `testID` reaches the native view, `onLayout` fires, and the
       platform's accessibility API reads a label, on the simulator and
-      emulator.
+      emulator: the Platform screen's `Card` (#268).
 
 **Done when:** a component accepts every documented React Native view prop,
 and the library cases pass on the simulator and emulator.
