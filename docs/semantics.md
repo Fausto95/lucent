@@ -451,8 +451,8 @@ fields; one with parameters, or `async`, is `LUCENT1005`.
 
 **Dates** take local time from the C library's time zone database, and
 `toString()` has no zone name, as in Hermes:
-`Mon Jul 22 2019 15:51:50 GMT-0700`. Not available yet: `URL` and
-`crypto` ([T105](tasks.md#t105)).
+`Mon Jul 22 2019 15:51:50 GMT-0700`. Not available yet: `URL`
+([T105](tasks.md#t105)).
 
 **`TextEncoder` and `TextDecoder`** follow the Encoding standard for
 UTF-8: invalid bytes decode as U+FFFD per maximal subpart, a fatal decoder
@@ -466,7 +466,12 @@ JavaScript engines decode, is `LUCENT1003` when written in the call and a
 `TextDecoder`'s decode with `ignoreBOM`. `atob` and `btoa` follow HTML's
 forgiving base64, and throw an `Error` named `InvalidCharacterError` with
 Node's messages: JavaScript's is a `DOMException`, which Lucent doesn't
-have.
+have. `crypto.getRandomValues` fills an array of integers from the
+platform's secure generator (`arc4random_buf`, `getrandom`), at most 65536
+bytes, past which it throws an `Error` named `QuotaExceededError`; an array
+of floats is `LUCENT1003`, where JavaScript throws `TypeMismatchError`.
+`crypto.randomUUID` gives a version 4 UUID. `crypto.subtle` is not
+declared.
 Not planned: `Symbol()`, `Proxy`, `Reflect`, `eval`, `new Function`, `Intl`.
 
 ## Modules

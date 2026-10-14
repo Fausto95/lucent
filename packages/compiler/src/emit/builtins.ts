@@ -815,6 +815,28 @@ const MATH_FUNCTIONS = new Set([
   "max",
 ]);
 
+/** The typed arrays crypto.getRandomValues fills: those of integers. */
+const RANDOM_FILLED = new Set<string>(TYPED_NAMES.filter((n) => !n.startsWith("Float")));
+
+/** `crypto.getRandomValues(array)` and `crypto.randomUUID()` (entropy.h); `crypto.subtle` is not available. */
+function cryptoCall(em: FnEmitter, node: ts.CallExpression, name: string): E {
+  const a = node.arguments;
+
+  if (name === "randomUUID" && !a.length) return str(cpp.call("lucent::randomUUID", []));
+  if (name !== "getRandomValues" || a.length !== 1)
+    fail(node, Codes.UnsupportedBuiltin, `crypto.${name} is not supported`);
+
+  const v = em.expr(a[0]!);
+  const integers = v.t.k === "bytes" || (v.t.k === "typed" && RANDOM_FILLED.has(v.t.name));
+  if (!integers)
+    fail(
+      a[0]!,
+      Codes.UnsupportedBuiltin,
+      `crypto.getRandomValues fills an array of integers (a Uint8Array, Int32Array, BigInt64Array…), not ${typeKey(v.t)}`,
+    );
+  return { c: cpp.call("lucent::getRandomValues", [v.c]), t: v.t };
+}
+
 /** The Object functions that list an object's fields. */
 const OBJECT_LISTINGS = new Set(["keys", "values", "entries"]);
 
@@ -1082,6 +1104,7 @@ export function staticCall(
       t: T.undefined,
     };
   }
+  if (isLibGlobal(em, obj, "crypto")) return cryptoCall(em, node, name);
   if (isLibGlobal(em, obj, "Date") && name === "now") return num(cpp.call("lucent::dateNow"));
   if (isLibGlobal(em, obj, "JSON")) {
     if (name === "stringify") {

@@ -142,6 +142,7 @@ export declare class Box {
       "Console",
       "AbortSignal",
       "AbortController",
+      "Crypto",
       "TextEncoderEncodeIntoResult",
       "TextEncoder",
       "TextDecoderOptions",

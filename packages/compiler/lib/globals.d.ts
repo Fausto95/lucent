@@ -80,6 +80,19 @@ declare function atob(data: string): string;
  */
 declare function btoa(data: string): string;
 
+/**
+ * The platform's secure random generator (`arc4random_buf` on iOS,
+ * `getrandom` on Android). `subtle` is not available in Lucent code.
+ */
+interface Crypto {
+  /** Fills an array of integers with random values, at most 65536 bytes, and returns it. */
+  getRandomValues<T extends ArrayBufferView | null>(array: T): T;
+  /** A random version 4 UUID, in lowercase. */
+  randomUUID(): `${string}-${string}-${string}-${string}-${string}`;
+}
+
+declare var crypto: Crypto;
+
 /** What `encodeInto` did: the UTF-16 code units it read, and the bytes it wrote. */
 interface TextEncoderEncodeIntoResult {
   read: number;

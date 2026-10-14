@@ -92,7 +92,7 @@ Goal: Write a module once in TypeScript, and call it from JavaScript as a native
 - ✅ JSON-shaped values through recursive union types.
 - ✅ `setTimeout`, `setInterval` and `queueMicrotask`, on the context that calls them.
 - ✅ Promise chaining and combinators, settled in JavaScript's microtask order.
-- 🚧 Web APIs: `TextEncoder`, `TextDecoder`, `atob` and `btoa`; `URL` and `crypto` next.
+- 🚧 Web APIs: `TextEncoder`, `TextDecoder`, `atob`, `btoa` and `crypto`'s random values; `URL` next.
 - ⏳ Classes that extend `EventEmitter`, so native objects have their own listeners.
 
 ### Platform APIs
@@ -193,8 +193,8 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
    in Expo apps.
 7. [T106](docs/tasks.md#t106) and [T105](docs/tasks.md#t105): the
    language gaps module code meets most, and the web APIs shared code
-   uses. `TextEncoder`, `TextDecoder` and base64 are in; `URL` and
-   `crypto` are next. T106's larger gaps (async generators, the temporal
+   uses. `TextEncoder`, `TextDecoder`, base64 and random values are in;
+   `URL` is next. T106's larger gaps (async generators, the temporal
    dead zone, classes in platform files) follow them.
 
 ## Recording work
