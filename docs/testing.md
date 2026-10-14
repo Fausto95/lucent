@@ -350,6 +350,12 @@ push`, `content-available: 1`), which iOS starts it for. The handler
 `lucent-background-task`'s launch module subscribes logs `LUCENT_PUSH` with
 the push's marker ([T137](tasks.md#t137)).
 
+The Platform screen also starts a download in a background URL session,
+which `scripts/held-download.ts` holds open. Last, the run ends the app and
+lets the download finish. iOS starts the app for the session's events, and
+the launch module that makes the session again logs `LUCENT_DOWNLOAD events
+delivered`.
+
 Each screen opens in an app started for it, on Android as on iOS. A deep
 link that navigated the running app (React Native 0.88's bare Debug build)
 made it lose views it had mounted: they stopped taking updates ("Unable to
