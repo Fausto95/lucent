@@ -8,6 +8,6 @@ export async function status(): Promise<string> {
   return "none";
 }
 
-export async function outliveActivity(): Promise<string> {
+export async function outliveActivity(_reopen?: string): Promise<string> {
   return "none";
 }

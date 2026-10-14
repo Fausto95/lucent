@@ -16,5 +16,7 @@ export declare function status(): Promise<string>;
  * Has Android make the current Activity again, once: what started the
  * service goes, and the service plays on. Waits for the new Activity, and
  * says whether there is one, with the service's status ("none" on iOS).
+ * The new Activity starts from the intent that launched the old one:
+ * `reopen`, a URL to the app, has it open the screen the caller is on.
  */
-export declare function outliveActivity(): Promise<string>;
+export declare function outliveActivity(reopen?: string): Promise<string>;
