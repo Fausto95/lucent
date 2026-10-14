@@ -120,8 +120,7 @@ generated from this file.
   result are numbers, booleans, `bigint`s, strings or `Uint8Array`s.
 - An Android class the OS makes reaches its base's members only once its
   constructor returns, and `lucent build` doesn't check that a manifest
-  component's `class` names one. A `Fragment` as a component's root isn't
-  supported yet ([T131](tasks.md#t131)).
+  component's `class` names one.
 - App extensions can't run module code yet ([T133](tasks.md#t133)). On iOS, a
   launch module's `BGTaskScheduler` handler can. Relaunches for background
   URL sessions and silent pushes aren't checked yet

@@ -1000,8 +1000,8 @@ on host, simulator and emulator.
   on the desktop JVM host (#240). The device runs' Platform screen sends a
   broadcast to a Lucent `BroadcastReceiver` (`examples/lucent-broadcast`,
   #243), and a `FragmentManager` makes a Lucent `Fragment` again by its
-  name (`examples/lucent-fragment`, #263). A `Fragment` as a component's
-  root and the emulator fixtures are left.
+  name (`examples/lucent-fragment`, #263). A component's Android root may
+  be a `Fragment` (#264). The emulator fixtures are left.
 - **Area:** Android host, compiler.
 - **Needs:** T130; T112 for `CoroutineWorker`.
 - **Verify:** V1, V4, V5.
@@ -1038,8 +1038,13 @@ its class must be Java or Kotlin the package ships.
       `onCreate` gets the state it saved. The device runs' Platform screen
       saves and restores a back stack entry holding one, which makes it
       again by its name (`examples/lucent-fragment`, #263).
-- [ ] A `Fragment` as a component's Android root (the counterpart of
-      [T122](#t122)).
+- [x] A `Fragment` as a component's Android root (the counterpart of
+      [T122](#t122)): the host adds it to the Activity's `FragmentManager`
+      over a container its view holds, and drops the ones Android restores
+      with a recreated Activity. The Platform screen shows one
+      (`lucent-fragment`'s `Card`)
+      ([0104](decisions/0104-a-components-android-root-may-be-a-fragment.md),
+      #264).
 - [ ] Tests on the desktop JVM host (`test/fake-android.ts`): an
       OS-style instantiation (`os-classes.test.ts`, #240). On the emulator: a periodic `Worker` that
       runs with the app in the background, and a foreground

@@ -208,7 +208,7 @@ export function deferredLibraryGradle(
   components: boolean,
 ): string {
   const template = fs.readFileSync(path.join(runtimeDir(), "native/android/build.gradle"), "utf8");
-  return libraryBuildGradle(template, native, true, components ? "unknown" : []);
+  return libraryBuildGradle(template, native, true, components ? "unknown" : [], components);
 }
 
 /**
@@ -363,6 +363,7 @@ export function writeNativePackage(
                 .filter(([f]) => f.startsWith("dev/lucent/compose/"))
                 .map(([, t]) => t)
             : [],
+          !!result.fragments,
         ),
   );
 
