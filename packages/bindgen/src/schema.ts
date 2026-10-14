@@ -455,6 +455,13 @@ export interface SdkClassSchema {
   native: string;
   /** Superclass, as a type reference. */
   extends?: string;
+  /**
+   * The class of another module this one adds members to, as a type
+   * reference (`ObjectiveC.NSObject`): an Objective-C category's, which
+   * every instance of that class has. It is named for both
+   * (`NSObject_UIKit`), and `native` is the class's.
+   */
+  extensionOf?: string;
   /** Implemented interfaces (Java), as type references. */
   implements?: string[];
   /** A Java interface, or an Objective-C protocol. */

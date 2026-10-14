@@ -981,9 +981,7 @@ struct Mount {
 
 ### Planned
 
-- [T121](../tasks.md#t121): components inside view libraries, and view
-  props checked on devices. [T122](../tasks.md#t122): an
-  iOS root may be a `UIViewController`. [T123](../tasks.md#t123): toolkit
+- [T122](../tasks.md#t122): an iOS root may be a `UIViewController`. [T123](../tasks.md#t123): toolkit
   bodies take instance props. [T144](../tasks.md#t144): views on the web
   are a diagnostic.
 

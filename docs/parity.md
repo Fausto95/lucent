@@ -100,8 +100,8 @@ is written in TypeScript against the SDK, so each row is a task.
 | UIKit and Android views               | ✅ Fabric, generated    | ✅ `View`                        | ✅ in preview                          | —                     |
 | SwiftUI and Jetpack Compose           | —                       | ✅ through `expo-ui`             | ✅ JSX from the SDKs' declarations     | —                     |
 | Typed props                           | ✅ any Nitro type       | ✅                               | ✅ data types                          | —                     |
-| Native objects as props               | ✅ Hybrid Objects       | ✅ shared objects                | ❌                                     | [T120](tasks.md#t120) |
-| React Native's view props on the view | Not stated              | ✅ the view is an `RCTView`      | ❌ `style` only                        | [T121](tasks.md#t121) |
+| Native objects as props               | ✅ Hybrid Objects       | ✅ shared objects                | ✅ instances of exported classes       | [T120](tasks.md#t120) |
+| React Native's view props on the view | Not stated              | ✅ the view is an `RCTView`      | ✅ checked on devices                  | [T121](tasks.md#t121) |
 | Events with payloads                  | 🟡 `callback()` wrapper | ✅                               | ✅ discrete, continuous, coalesced     | —                     |
 | Methods on the view's ref             | ✅ `hybridRef`          | ✅ `AsyncFunction`               | ✅ `expose`, with answers              | —                     |
 | React children inside the native view | ❌                      | ✅ subviews; Android `GroupView` | ✅ slots                               | —                     |

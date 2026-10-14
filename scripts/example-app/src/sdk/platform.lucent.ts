@@ -304,9 +304,8 @@ export async function rotate(): Promise<string> {
  * What the platform's accessibility API reads from the native view React
  * Native gave `testID` (Android's tag, iOS's accessibilityIdentifier),
  * which a Lucent component's view gets as any React Native view does: its
- * label on Android. On iOS the label is a member UIKit adds to NSObject,
- * which Lucent doesn't bind yet (T112): "found" stands for it. "no view"
- * when no view has the testID, "no label" when it has no label.
+ * label, on iOS a member UIKit adds to every NSObject. "no view" when no
+ * view has the testID, "no label" when it has no label.
  */
 export async function labelOf(testID: string): Promise<string> {
   if (PLATFORM === "android")
@@ -332,7 +331,7 @@ export async function labelOf(testID: string): Promise<string> {
       if (scene instanceof UIWindowScene) for (const window of scene.windows) views.push(window);
     while (views.length) {
       const view = views.pop()!;
-      if (view.accessibilityIdentifier === testID) return "found";
+      if (view.accessibilityIdentifier === testID) return view.accessibilityLabel ?? "no label";
       for (const subview of view.subviews) views.push(subview);
     }
     return "no view";

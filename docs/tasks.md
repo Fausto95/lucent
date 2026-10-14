@@ -37,13 +37,13 @@ what became of each one that is still linked or was still open.
 | [T109](#t109)            | Executors for platform callbacks                           | done (2026-10-13)                                       |
 | [T110](#t110)            | App-delegate and Activity events                           | done (2026-10-14)                                       |
 | [T111](#t111)            | The app's own native needs and options                     | ready                                                   |
-| [T112](#t112)            | SDK shapes Lucent still refuses                            | ready                                                   |
+| [T112](#t112)            | SDK shapes Lucent still refuses                            | in progress                                             |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | ready                                                   |
 | [T114](#t114)            | Native code that calls Lucent modules                      | waiting; needs T130                                     |
 | [T115](#t115)            | Native configuration packages can't declare yet            | ready                                                   |
 | **View parity**          |                                                            |                                                         |
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
-| [T121](#t121)            | React Native's view props, refs and view libraries         | in progress (#244, #268, #270, #271); iOS label left    |
+| [T121](#t121)            | React Native's view props, refs and view libraries         | done (2026-10-14)                                       |
 | [T122](#t122)            | UIKit components with a view-controller root               | ready                                                   |
 | [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | ready                                                   |
 | [T124](#t124)            | A component's ref as a module function's argument          | ready                                                   |
@@ -627,7 +627,7 @@ an app sets a package's option.
 **Goal:** Bind the native shapes that common libraries use and Lucent
 still refuses.
 
-- **Status:** ready.
+- **Status:** in progress: the members a module adds to `NSObject` (#272).
 - **Area:** bindings, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V4.
@@ -650,10 +650,14 @@ still refuses.
       (`CoroutineWorker.doWork` in T131 needs it). Implementing an
       interface's `suspend` member works already.
 - [ ] Overriding Objective-C properties in a Lucent subclass.
-- [ ] Members a module adds to another module's class: Objective-C
-      categories and Swift extensions, which symbol graphs put in
-      `<module>@<other>.symbols.json` (UIKit's `accessibilityLabel` on
-      `NSObject`, which [T121](#t121)'s iOS label check needs).
+- [x] The instance members a module's Objective-C categories add to
+      `NSObject`, from `<module>@ObjectiveC.symbols.json`: UIKit's
+      `accessibilityLabel` is every object's
+      ([0106](decisions/0106-members-a-module-adds-to-nsobject-are-every-objects.md),
+      #272).
+- [ ] Members a module adds to another module's other classes (UIKit's
+      `row` and `section` on `NSIndexPath`), the class methods categories
+      add, and Swift extensions' members.
 - [ ] `config/sdk-coverage.json` updated with the new counts.
 
 **Done when:** each item has a binding test on its platform, and the
@@ -786,13 +790,14 @@ instance prop.
 **Goal:** A Lucent component takes the view props every React Native view
 takes, as Expo views do, and works inside the view libraries apps use.
 
-- **Status:** in progress: view props pass through, the ref measures the
+- **Status:** done (2026-10-14): view props pass through, the ref measures the
   host, and requests take a signal (#244). The device runs find a
   component's native view by its `testID`, read its label on Android, and
   hear its `onLayout` (#268). The ref is the host view's own (#270), and
   the device runs' Libraries screen puts a component inside Reanimated,
-  Gesture Handler and react-native-screens (#271). The label on iOS is
-  left, which needs NSObject's UIKit members (T112).
+  Gesture Handler and react-native-screens (#271). iOS's accessibility
+  API reads the label through the members UIKit adds to `NSObject`
+  (#272).
 - **Area:** views.
 - **Needs:** nothing.
 - **Verify:** V1, V5.
@@ -825,8 +830,8 @@ unmount.
 - [x] Tests: `testID` reaches the native view and `onLayout` fires, on
       the simulator and emulator, and Android's accessibility API reads a
       label: the Platform screen's `Card` (#268).
-- [ ] Tests: iOS's accessibility API reads the label, once Lucent binds
-      the members UIKit adds to `NSObject` ([T112](#t112)).
+- [x] Tests: iOS's accessibility API reads the label, a member UIKit adds
+      to `NSObject` ([T112](#t112), #272).
 
 **Done when:** a component accepts every documented React Native view prop,
 and the library cases pass on the simulator and emulator.
