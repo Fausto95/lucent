@@ -1,9 +1,11 @@
 // A foreground service written in Lucent (T131): lucent-media's media3
 // MediaSessionService. The device runs open this screen after the
 // Platform screen. Its second case has Android make the Activity again,
-// which React Native shows the same screen in.
+// whose screen React Native keeps, or shows again from the app's launch
+// link (Expo): the case has the new Activity open this screen's.
 import { Platform } from "react-native";
 import { outliveActivity, start } from "lucent-media";
+import { SCHEME } from "../platform/scheme";
 import type { SdkCase } from "../sdk/types";
 
 const ios = Platform.OS === "ios";
@@ -19,7 +21,8 @@ export const mediaCases: SdkCase[] = [
   },
   {
     name: "media service: it plays on when Android makes the Activity again",
-    run: outliveActivity,
+    // The new Activity starts from the deep link that launched the app: back to this screen.
+    run: () => outliveActivity(`${SCHEME}://lab/media`),
     expected: ios ? "none" : `made again; ${PLAYING}`,
   },
 ];
