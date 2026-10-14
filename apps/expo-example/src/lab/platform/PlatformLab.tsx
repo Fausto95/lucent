@@ -23,7 +23,7 @@ export function PlatformLab() {
       />
 
       {/* A component whose Android root is a Fragment: a case checks it shows (lucent-fragment). */}
-      <Card text="A Fragment, as a component's root" />
+      <Card text="A Fragment, as a component's root" style={{ height: 40 }} />
 
       {results.map((result) => (
         <ProbeRow key={result.name} result={result} />
