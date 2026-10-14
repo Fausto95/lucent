@@ -146,8 +146,8 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "Module code that runs with no JavaScript runtime."
       },
       {
-        "status": "later",
-        "text": "Android services, receivers, workers and widgets written as Lucent classes."
+        "status": "done",
+        "text": "Android services, receivers, workers and Fragments written as Lucent classes."
       },
       {
         "status": "later",
