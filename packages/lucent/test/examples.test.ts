@@ -61,6 +61,7 @@ describe("the example packages", () => {
       "lucent-background-task",
       "lucent-broadcast",
       "lucent-camera",
+      "lucent-fragment",
       "lucent-haptics",
       "lucent-http",
       "lucent-kv-storage",

@@ -1,0 +1,5 @@
+{
+  "android": {
+    "dependencies": { "androidx.fragment:fragment": "1.8.5" }
+  }
+}

@@ -28,6 +28,7 @@
     "expo-status-bar": "~58.0.1",
     "lucent-background-task": "workspace:*",
     "lucent-broadcast": "workspace:*",
+    "lucent-fragment": "workspace:*",
     "lucent-haptics": "workspace:*",
     "lucent-launch": "workspace:*",
     "lucent-orbit": "workspace:*",

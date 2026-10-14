@@ -1,9 +1,10 @@
-// What only the platform gives module code (T108–T110, T130): the device
+// What only the platform gives module code (T108–T110, T130, T131): the device
 // runs open this screen after the Tests screen, on the simulator and the
 // emulator.
 import { Linking, Platform } from "react-native";
 import { isRegistered, runAsScheduled, schedule } from "lucent-background-task";
 import { heard, send } from "lucent-broadcast";
+import { showAndRestore } from "lucent-fragment";
 import { channelReady, startedAtMs } from "lucent-launch";
 import { BUNDLE_STARTED } from "../../bundleStarted";
 import { holdBack } from "../../navigation/useNavigator";
@@ -105,6 +106,11 @@ export const platformCases: SdkCase[] = [
     name: "receiver: Android makes a Lucent BroadcastReceiver by its name",
     run: received,
     expected: ios ? "none" : "1 dev.lucent.example.PING",
+  },
+  {
+    name: "fragment: Android makes a Lucent Fragment again by its name, with its state",
+    run: showAndRestore,
+    expected: ios ? "none" : "made 2, views 2, restored kept",
   },
   {
     name: "executor: frames reach a channel, uncopied",
