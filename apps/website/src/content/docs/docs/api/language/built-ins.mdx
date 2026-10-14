@@ -12,7 +12,7 @@ A row's notes say where a member behaves differently from JavaScript. [Differenc
 ## Example
 
 ```ts title="scores.lucent.ts"
-import { delay, utf8Encode } from "lucent:core";
+import { delay } from "lucent:core";
 
 export function ranked(scores: number[]): number[] {
   return scores.toSorted((a, b) => b - a); // a sorted copy
@@ -20,7 +20,7 @@ export function ranked(scores: number[]): number[] {
 
 export function summary(scores: number[]): Uint8Array {
   const best = scores.length > 0 ? Math.max(...scores) : 0;
-  return utf8Encode(`${scores.length} scores, best ${best.toFixed(1)}`);
+  return new TextEncoder().encode(`${scores.length} scores, best ${best.toFixed(1)}`);
 }
 
 export async function poll(ready: () => Promise<boolean>, signal: AbortSignal): Promise<number> {
@@ -33,7 +33,7 @@ export async function poll(ready: () => Promise<boolean>, signal: AbortSignal): 
 }
 ```
 
-`toSorted()` leaves `scores` as it was, `utf8Encode` stands in for `TextEncoder`, and `delay` waits as a promise. [Not available](/docs/api/language/built-ins/#not-available) lists the other replacements.
+`toSorted()` leaves `scores` as it was, `TextEncoder` writes UTF-8, and `delay` waits as a promise. [Not available](/docs/api/language/built-ins/#not-available) lists the other replacements.
 
 ## Math
 
@@ -256,6 +256,22 @@ A function value is called, passed and stored. Its `call`, `apply` and `bind` me
 
 [Globals](/docs/api/globals/) lists their members. `console.log` writes each argument as `String(value)` would, and a bigint with its `n`.
 
+## TextEncoder and TextDecoder
+
+UTF-8, as the Encoding standard defines it: `encode`, `encodeInto`, and `decode` with `fatal`, `ignoreBOM` and `stream`. A `TextDecoder` decodes UTF-8 only, so a label must name it (`"utf-8"`, `"utf8"` and the standard's other names).
+
+Write the options as an object literal in the call. `decode` takes a typed array, a `DataView` or an `ArrayBuffer`.
+
+```ts title="decode.lucent.ts"
+export function lines(chunks: Uint8Array[]): string[] {
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  let text = "";
+  for (const chunk of chunks) text += decoder.decode(chunk, { stream: true });
+  text += decoder.decode(); // throws a TypeError if the last chunk ended mid-character
+  return text.split("\n");
+}
+```
+
 ## lucent:core
 
 What JavaScript's built-ins lack has a native implementation in `lucent:core`. [lucent:core](/docs/api/lucent-core/) lists its functions, classes and types.
@@ -264,7 +280,6 @@ What JavaScript's built-ins lack has a native implementation in `lucent:core`. [
 
 | JavaScript                                         | Fails with               | Use instead                                                                                  |
 | -------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
-| `TextEncoder`, `TextDecoder`                       | LUCENT9001: not declared | `utf8Encode` and `utf8Decode` from `lucent:core`                                             |
 | `Object.assign(a, b)`                              | LUCENT1003               | `{ ...a, ...b }`                                                                             |
 | `Object.hasOwn(r, k)`                              | LUCENT1003               | `k in r`                                                                                     |
 | `Intl`, `toLocaleString()`                         | LUCENT2002, LUCENT1003   | `toFixed`, `padStart`, `toISOString` and the `Date` getters                                  |

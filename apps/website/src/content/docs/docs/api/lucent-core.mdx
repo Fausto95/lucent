@@ -107,7 +107,7 @@ The UTF-8 bytes of a string, like `new TextEncoder().encode(s)`.
 function utf8Decode(bytes: Uint8Array): string;
 ```
 
-Decodes UTF-8 bytes, like `new TextDecoder().decode(bytes)`, replacing invalid sequences.
+Decodes UTF-8 bytes as `new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes)` does: a BOM stays, and each invalid sequence is U+FFFD.
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |

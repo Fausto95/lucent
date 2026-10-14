@@ -306,7 +306,15 @@ export const features: Feature[] = [
     status:
       "Most members, as JavaScript defines them. `Proxy`, `Reflect`, `Intl`, `normalize` and locale arguments are refused.",
     page: BUILT_INS,
-    cases: ["strings", "collections", "numbers", "dates", "es2023-arrays", "es2024-builtins"],
+    cases: [
+      "strings",
+      "collections",
+      "numbers",
+      "dates",
+      "es2023-arrays",
+      "es2024-builtins",
+      "text-encoding",
+    ],
     refused: [
       {
         code: "LUCENT1003",
@@ -543,6 +551,13 @@ export const differences: { title: string; rows: Difference[] }[] = [
           "Gives `Mon Jul 22 2019 15:51:50 GMT-0700`, as Hermes does. The `toLocale…` methods are refused.",
         why: "Lucent follows React Native's engine, and has no `Intl` for locale formats.",
         cases: ["dates"],
+      },
+      {
+        js: "`new TextDecoder(label)` decodes the encoding the label names: UTF-16, Latin-1 and others.",
+        lucent:
+          "Decodes UTF-8 only. Another encoding's label is [LUCENT1003](/docs/api/diagnostics/#lucent1003) when written in the call, and a `RangeError` when computed.",
+        why: "UTF-8 is what code shared between platforms reads. Decode another encoding with the platform's API.",
+        cases: ["text-encoding"],
       },
     ],
   },

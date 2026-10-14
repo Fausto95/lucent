@@ -81,9 +81,10 @@ generated from this file.
 - `new AggregateError` is refused (`LUCENT1003`). Read the `errors` of
   the one `Promise.any` rejects with as `e.errors as Error[]`, since
   TypeScript types them `any`.
-- `TextEncoder`, `TextDecoder`, `atob`, `btoa`, `URL` and `crypto` are not
-  available. `lucent:core` has `utf8Encode` and `utf8Decode`
-  ([T105](tasks.md#t105)).
+- `atob`, `btoa`, `URL` and `crypto` are not available
+  ([T105](tasks.md#t105)). `TextDecoder` decodes UTF-8 only: another
+  encoding's label is `LUCENT1003`, or a `RangeError` when computed. Its
+  options are written in the call.
 - Refused built-ins give `LUCENT1003` unless noted. They include
   `normalize()`, `locales` and `options` arguments, a cause that isn't an
   `Error`, a replacer function for `JSON.stringify`, resizable

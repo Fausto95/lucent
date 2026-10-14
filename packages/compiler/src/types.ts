@@ -69,6 +69,8 @@ export type LType =
   | { k: "iterResult"; e: LType }
   | { k: "abortSignal" }
   | { k: "abortController" }
+  /** An object of a web API the runtime implements (text.h): lucent::<name>, a reference. */
+  | { k: "web"; name: WebName }
   /** lucent:core's NativeBuffer: a handle to bytes native code owns. */
   | { k: "buffer" }
   /** lucent:core's NativeHandle (lucent::NativeHandle): an address for other native code, held until released. */
@@ -108,6 +110,15 @@ export type LType =
   | { k: "registry"; held: LType }
   /** lucent:core's `Channel<T>` (lucent::Channel): copies of `e` values, to a consumer. */
   | { k: "channel"; e: LType };
+
+/** The web API classes the runtime implements, beyond the ECMAScript library's. */
+export const WEB_NAMES = ["TextEncoder", "TextDecoder"] as const;
+
+export type WebName = (typeof WEB_NAMES)[number];
+
+export function isWebName(name: string): name is WebName {
+  return (WEB_NAMES as readonly string[]).includes(name);
+}
 
 /** The error constructors Lucent makes; an error is named after its constructor. */
 const ERROR_NAMES = ["Error", "TypeError", "RangeError", "SyntaxError"] as const;
@@ -226,6 +237,8 @@ function keyWith(t: LType, struct: (id: string) => string): string {
       return `Promise<${key(t.inner)}>`;
     case "tparam":
       return `T:${t.name}`;
+    case "web":
+      return t.name;
     case "native":
       return `N:${t.platform}:${t.module}.${t.name}`;
     case "span":
@@ -1286,6 +1299,7 @@ export class TypeRegistry {
     // Promise.any's AggregateError is an Error, its `errors` read as Error[] (emit/builtins.ts).
     if (lib && (isErrorName(lib) || lib === "AggregateError")) return T.error;
     if (lib && isTypedName(lib)) return { k: "typed", name: lib };
+    if (lib && isWebName(lib)) return { k: "web", name: lib };
     if (lib) {
       const args = c.getTypeArguments(type as ts.TypeReference);
       switch (lib) {
@@ -1388,6 +1402,9 @@ export class TypeRegistry {
             fulfilled ? field("value", this.lower(args[0]!, node)) : field("reason", T.error),
           ]);
         }
+        case "TextEncoderEncodeIntoResult":
+          // What TextEncoder's encodeInto counts into (emit/web.ts): an object of two numbers.
+          return this.registerStruct(type, c.getPropertiesOfType(type), node);
         case "AbortSignal":
           return T.abortSignal;
         case "AbortController":
@@ -1836,6 +1853,8 @@ export class TypeRegistry {
         return lucent("AbortSignal");
       case "abortController":
         return lucent("AbortController");
+      case "web":
+        return lucent(t.name);
       case "buffer":
         return lucent("NativeBuffer");
       case "nativeHandle":

@@ -30,7 +30,7 @@ what became of each one that is still linked or was still open.
 | [T102](#t102)            | Recursive union types, for JSON-shaped values              | done (2026-10-14)                                       |
 | [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | done (2026-10-13)                                       |
 | [T104](#t104)            | Timers and `queueMicrotask`                                | done (2026-10-13)                                       |
-| [T105](#t105)            | Web APIs that shared code uses                             | ready                                                   |
+| [T105](#t105)            | Web APIs that shared code uses                             | in progress (#286)                                      |
 | [T106](#t106)            | Language gaps module code meets                            | in progress (#278–#284)                                 |
 | [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                       |
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | done (2026-10-13)                                       |
@@ -294,17 +294,19 @@ runtime's `timers.h` runs them, and `globals.d.ts` declares them.
 **Goal:** Code shared between platforms encodes text, base64 and URLs, and
 makes random values, without per-platform calls.
 
-- **Status:** ready.
+- **Status:** in progress (#286).
 - **Area:** runtime, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3.
 - **Where:** `runtime/cpp/lucent`, `runtime/cpp/third_party`,
   `packages/compiler/lib/globals.d.ts`.
 
-Today `TextEncoder`, `atob`, `URL` and `crypto` are not declared; module
-code uses `utf8Encode` from `lucent:core` or the platform's own APIs.
+Today `atob`, `URL` and `crypto` are not declared; module code uses the
+platform's own APIs.
 
-- [ ] `TextEncoder` and `TextDecoder` (UTF-8, `fatal`, `ignoreBOM`).
+- [x] `TextEncoder` and `TextDecoder` (UTF-8, `fatal`, `ignoreBOM`,
+      `stream`), by the Encoding standard (`runtime/cpp/lucent/text.h`,
+      `emit/web.ts`). Another encoding's label is refused.
 - [ ] `atob` and `btoa`.
 - [ ] `URL` and `URLSearchParams`, by WHATWG's parser (a vendored parser
       in `third_party`, with its license).

@@ -725,7 +725,8 @@ inline bool strictEquals(const DataView& a, const DataView& b) { return a.identi
 
 inline String toJsString(const DataView&) { return String::fromLatin1("[object DataView]"); }
 
-/// TextEncoder().encode / TextDecoder().decode for UTF-8.
+/// lucent:core's utf8Encode and utf8Decode: TextEncoder's encode, and
+/// TextDecoder's decode with ignoreBOM (text.h).
 Bytes utf8Encode(const String& s);
 String utf8Decode(const Bytes& b);
 
