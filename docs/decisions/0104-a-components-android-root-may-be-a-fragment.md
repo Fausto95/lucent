@@ -33,6 +33,9 @@ fragment's container up by its id, and finds none: dropping the fragment
 keeps the Activity from failing, as `react-native-screens` asks apps to do
 by passing no state to `super.onCreate`. The runtime's host of fragments
 is built only for a program with such a component, and compiles against
-androidx.fragment as the app has it, through React Native's AppCompat.
+androidx.fragment as the app has it, through React Native's AppCompat. A
+deferred Android build (after `expo prebuild`, which compiled no
+platform) builds it always, since it can't know whether a component has
+one.
 _Changed:_ [views.md](../design/views.md#android) and
 [limitations.md](../limitations.md).

@@ -10,7 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { compile, libraryBuildGradle, runtimeDir } from "../../src/index.ts";
+import { compile, deferredLibraryGradle, libraryBuildGradle, runtimeDir } from "../../src/index.ts";
 import { fakeAndroid } from "../fake-android.ts";
 
 const STAND_INS = {
@@ -130,5 +130,14 @@ describe.skipIf(!result)("a component whose Android root is a Fragment", () => {
     expect(gradle).toContain('sourceSets.main.java.srcDirs += "src/fragment/java"');
     expect(gradle).toContain('compileOnly("androidx.fragment:fragment:1.3.6")');
     expect(libraryBuildGradle(template, undefined)).not.toContain("src/fragment/java");
+  });
+
+  it("is built by a deferred Android build, which can't know whether a component has one", () => {
+    // After expo prebuild, which compiled no platform, the first Gradle build configures the
+    // library before it builds Android.
+    for (const components of [false, true])
+      expect(deferredLibraryGradle(undefined, components)).toContain(
+        'sourceSets.main.java.srcDirs += "src/fragment/java"',
+      );
   });
 });

@@ -729,12 +729,16 @@ export async function buildProject(
   if (written.has("react-native.config.js")) staleAutolinking(root);
 
   // The Gradle build running this one configured the library with its old build file,
-  // unless that was the one a deferred build writes, which builds any of them.
+  // unless that was one a deferred build writes, which builds what this one needs: any of them
+  // when it knew of components, all but Compose content otherwise (expo prebuild compiled none).
+  const coveredByDeferred =
+    configured === deferredLibraryGradle(native, true) ||
+    (configured === deferredLibraryGradle(native, false) && !result.compose);
   if (
     process.env.LUCENT_GRADLE_CLASSPATH &&
     configured !== undefined &&
     fs.readFileSync(libraryGradle, "utf8") !== configured &&
-    configured !== deferredLibraryGradle(native, !!result.components?.length)
+    !coveredByDeferred
   ) {
     const detail = `this Gradle build configured the Lucent Android library before its build.gradle changed (${path.relative(root, libraryGradle)}: Kotlin shims, packages' Android needs), so it would build it as it was: build again`;
 
