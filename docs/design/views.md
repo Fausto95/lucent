@@ -844,9 +844,12 @@ are committed; a command may come first. The setup runs inside a
 
 A component whose setup returns a `Fragment` gives its host the fragment and no
 view (`fragment()` on `Mounted`). The shell holds a container, a `FrameLayout`
-with an id of its own, and `LucentFragments` adds the fragment to the
-Activity's `FragmentManager` over it, once the shell is in a window, with
-`commitNowAllowingStateLoss`. The fragment's view sizes the component as any
+with an id no other view in the window has (React Native's views have their
+tags as ids), and `LucentFragments` adds the fragment to the Activity's
+`FragmentManager` over it, once the shell is in a window, with
+`commitNowAllowingStateLoss`. The container lays itself out when a view inside
+asks, since React Native's views never pass the request on. A component in a
+Modal, another window, shows no fragment. The fragment's view sizes the component as any
 content does. When the mount ends, or a setup run again returns another, the
 fragment leaves the manager. Android saves an Activity's fragments when it
 recreates the Activity, and their containers go with the old views: as the

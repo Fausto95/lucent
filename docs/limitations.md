@@ -121,6 +121,9 @@ generated from this file.
 - An Android class the OS makes reaches its base's members only once its
   constructor returns, and `lucent build` doesn't check that a manifest
   component's `class` names one.
+- A component whose Android root is a `Fragment` shows nothing in a
+  `Modal`: the Activity's `FragmentManager` puts fragments in its own
+  window only.
 - After `expo prebuild` without an iOS build (on Linux, or before
   `pod install`), an app with components builds twice on Android.
   Prebuild lists components from the iOS build, and the first Gradle

@@ -13,6 +13,7 @@ import androidx.fragment.app.FragmentTransaction;
 import com.facebook.react.bridge.ReactContext;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The host of components whose Android root is a Fragment (T131): the
@@ -100,6 +101,9 @@ public final class LucentFragments {
         });
   }
 
+  /** Container ids past React Native's view tags and the app's resources (0x7f…). */
+  private static final AtomicInteger ids = new AtomicInteger(0x3e000000);
+
   private static void add(FrameLayout container, Fragment f) {
     if (f.isAdded() || dropped.remove(f) != null) return;
 
@@ -114,6 +118,19 @@ public final class LucentFragments {
     FragmentManager manager = activity.getSupportFragmentManager();
 
     if (manager.isDestroyed()) return;
+
+    // The manager finds the container in the Activity's window, which a Modal's dialog is not.
+    if (container.getRootView() != activity.getWindow().getDecorView()) {
+      LucentViews.report(
+          "[lucent] a component's Fragment shows in its Activity's window only, not in a Modal's");
+      return;
+    }
+
+    // It finds it by its id, the first view in the window with it. React Native's views have
+    // their tags as ids, which generateViewId's may equal: the fragment's view would go in one of
+    // them, which React Native lays out, never the fragment's.
+    while (activity.findViewById(container.getId()) != container)
+      container.setId(ids.incrementAndGet());
 
     manager
         .beginTransaction()
