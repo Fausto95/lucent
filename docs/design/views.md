@@ -490,16 +490,18 @@ it, is LUCENT3022 where the view uses it.
 A use of a member holding an array, a collection, a library object or a
 plain object counts as a write, since it may change what it holds. One
 holding an instance is a use of that instance's members, checked in turn.
+The React types import the class from `lucent:module/<module>`, which
+`lucent build` writes as the module's own exports.
 
 In a SwiftUI or Compose body the instance stays in C++
 ([0121](../decisions/0121-an-instance-prop-stays-in-cpp-in-a-toolkit-body.md)).
 The body shows what the setup computes from it, a member's value or a
 method's result, as value slots read on the main thread when the prop
 changes. Setup functions call its methods; the body calling one itself is
-LUCENT3024, and so is a list of instances, which a setup function maps to
-plain data.
-The React types import the class from `lucent:module/<module>`, which
-`lucent build` writes as the module's own exports.
+LUCENT3024. A list of instances is a list slot whose items stay in C++
+([0122](../decisions/0122-a-toolkit-bodys-list-may-show-instances.md)):
+its records hold what the setup computes for each, and an action given an
+item finds it again by its key.
 
 ### Missing, null and unchanged
 
@@ -962,8 +964,9 @@ no reference to it reaches an actor's thread.
 A SwiftUI or Compose body is Swift or Kotlin, but what the setup computes for it
 is setup code to these checks: each value it shows that reads the setup's names,
 what a helper view computes where it is used, and what a callback passes to the
-function it calls (`bodySlots` in `analysis/local.ts`). The toolkit's own names
-and the body's (a list's item, a composition value) are left out.
+function it calls (`bodySlots` in `analysis/local.ts`). A list's item and a
+callback's argument count as the setup's names; the toolkit's and the body's own
+(a composition value, a toolkit's scope) are left out.
 
 When UIKit or Android calls module code on the main thread (an override, a
 callback module code registered), that code needs its actor. The main thread
@@ -991,12 +994,12 @@ across a call into Lucent or React code.
 
 The view gate closes these gaps ([parity.md](../parity.md#views)):
 
-| Gap                                                                                               | Task                     |
-| ------------------------------------------------------------------------------------------------- | ------------------------ |
-| An `AVPlayerViewController` spike, run on the simulator                                           | [T122](../tasks.md#t122) |
-| Lists of instances in SwiftUI and Compose bodies; helpers with toolkit values, children, bindings | [T123](../tasks.md#t123) |
-| A component's view in module code, run on the simulator and the emulator                          | [T124](../tasks.md#t124) |
-| Views made after setup on Android keep the hosting view's themed context, run on the emulator     | [T125](../tasks.md#t125) |
+| Gap                                                                                              | Task                     |
+| ------------------------------------------------------------------------------------------------ | ------------------------ |
+| An `AVPlayerViewController` spike, run on the simulator                                          | [T122](../tasks.md#t122) |
+| A body callback's values computed as it runs; helpers with toolkit values, children and bindings | [T123](../tasks.md#t123) |
+| A component's view in module code, run on the simulator and the emulator                         | [T124](../tasks.md#t124) |
+| Views made after setup on Android keep the hosting view's themed context, run on the emulator    | [T125](../tasks.md#t125) |
 
 Accepted, with no task ([limitations.md](../limitations.md#views)):
 

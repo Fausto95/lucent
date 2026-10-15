@@ -11,9 +11,7 @@ generated from this file.
 ## Views
 
 - Views are in preview: their API may change before the view gate closes.
-- A SwiftUI or Compose body doesn't show a list of instances yet: a
-  setup function maps it to plain data ([T123](tasks.md#t123)). An
-  instance can't be an event's argument or a command's.
+- An instance can't be an event's argument or a command's.
 - The check of an instance's members follows them through its class, the
   classes around it and the interfaces they implement. A use through
   another structural type, or a spread, isn't seen.

@@ -484,8 +484,9 @@ export class Crossings {
   private reads(
     e: ts.Expression,
     own: (symbol: ts.Symbol, decl: ts.Node | undefined) => "setup" | "other" | undefined,
+    plain = true,
   ): "setup" | "other" | "none" | undefined {
-    if (!this.plain(this.checker.getTypeAtLocation(e))) return undefined;
+    if (plain && !this.plain(this.checker.getTypeAtLocation(e))) return undefined;
 
     let setup = false;
     let other = false;
@@ -518,6 +519,11 @@ export class Crossings {
    */
   private computed(e: ts.Expression, items: ReadonlySet<ts.Symbol>): boolean {
     return this.reads(e, this.setupReads(items)) === "setup";
+  }
+
+  /** Whether `e` reads the setup's names alone, whatever its type (a list's instances). */
+  private readsSetup(e: ts.Expression): boolean {
+    return this.reads(e, this.setupReads(new Set()), false) === "setup";
   }
 
   /** What a name is to the setup's code: its own (and `items`), the body's or a toolkit's, or neither. */
@@ -603,14 +609,13 @@ export class Crossings {
       ? this.checker.getTypeArguments(sourceType as ts.TypeReference)[0]
       : undefined;
 
-    // A list of instances (T123): its items cross as plain data, which the setup maps them to.
-    if (element && this.lucentInstanceType(element))
-      bodyFail(
-        source,
-        `a ${title} list shows plain data, not instances, for now: show what a setup function maps \`${source.getText()}\` to (\`const rows = () => ${source.getText()}.map((x) => ({ … }))\`)`,
-      );
+    // A list of instances (T123): each stays in C++, which computes what its item shows.
+    const instances = !!element && this.lucentInstanceType(element);
 
-    if (!this.computed(source, new Set()) || !this.checker.isArrayType(sourceType))
+    if (
+      !(instances ? this.readsSetup(source) : this.computed(source, new Set())) ||
+      !this.checker.isArrayType(sourceType)
+    )
       bodyFail(
         source,
         `a ${title} list shows an array the setup computes (a signal, a prop, what a setup function returns): \`${source.getText()}\` is not one`,

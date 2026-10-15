@@ -218,7 +218,9 @@ Setup runs on the main thread without the lock module code takes. So it may use 
 
 Using a member that holds an array or an object counts as writing it, since it may change what it holds.
 
-A SwiftUI or Compose body shows what the setup computes from an instance: `props.track.title`, or what a method returns. Its callbacks call setup functions, which call the instance's methods. A list of instances isn't shown yet: a setup function maps it to plain data.
+A SwiftUI or Compose body shows what the setup computes from an instance: `props.track.title`, or what a method returns. Its callbacks call setup functions, which call the instance's methods.
+
+A list shows instances as it shows plain items. Each item's values are computed from its instance, and a callback can pass the item to a setup function.
 
 ## Events
 

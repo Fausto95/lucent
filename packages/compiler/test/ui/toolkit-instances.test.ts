@@ -1,13 +1,15 @@
 /**
- * Instance props in SwiftUI and Compose bodies (T123, decision 0121): the
- * instance stays in C++. The body shows what the setup computes from it
- * (a member's value, a method's result), read on the main thread when
- * its prop changes, and setup functions call its methods. The members a
+ * Instance props in SwiftUI and Compose bodies (T123, decisions 0121 and
+ * 0122): the instance stays in C++. The body shows what the setup
+ * computes from it (a member's value, a method's result), read on the
+ * main thread when its prop changes, and setup functions call its
+ * methods. A list of instances shows what the setup computes for each. The members a
  * body's values use are checked as setup code's are (decision 0098).
  * Compose bodies, built against stand-ins for android.jar where the
  * Android SDK is missing; SwiftUI's take the same path.
  */
 import { describe, expect, it } from "vite-plus/test";
+import { glueErrors, jdk } from "../jni-harness.ts";
 import { build, composeBuilds, diagnostics, generated } from "./toolkit-build.ts";
 
 const PLAYER = `export class Player {
@@ -47,6 +49,7 @@ export type Props = {
 export declare function Screen(props: Props): View;
 `,
     "screen.android.lucent.tsx": `import { BasicText, Column, LazyColumn, Modifier } from "lucent:compose";
+import type { Player } from "./player.lucent";
 import type { Props } from "./screen.lucent";
 
 export function Screen(props: Props) {
@@ -101,27 +104,57 @@ describe.skipIf(!composeBuilds())("an instance prop in a Compose body", () => {
     );
   });
 
-  it("shows a list of instances as the plain data the setup maps them to", () => {
-    const list = (items: string, key: string, text: string) =>
-      build(
-        component(`  const rows = () => props.players.map((p) => ({ title: p.title }));
+  it("shows a list of instances: each item's values computed from its instance, its actions given it", () => {
+    const built = build(
+      component(`  const pick = (p: Player) => {
+    props.onPicked?.(p.label());
+  };
 
   return (
     <LazyColumn>
       {(list) => (
-        <list.items items={${items}} key={${key}}>
-          {(_, item) => <BasicText text={${text}} />}
+        <list.items items={props.players} key={(p) => p.title}>
+          {(_, p) => <BasicText text={p.label()} modifier={Modifier.clickable(() => pick(p))} />}
         </list.items>
       )}
     </LazyColumn>
   );`),
-        "android",
-      ).result;
+      "android",
+    );
 
-    expect(diagnostics(list("rows()", "(r) => r.title", "item.title"))).toEqual([]);
-    expect(diagnostics(list("props.players", "(p) => p.title", "item.title"))).toEqual([
-      "LUCENT3024 a Compose list shows plain data, not instances, for now: show what a setup function maps `props.players` to (`const rows = () => props.players.map((x) => ({ … }))`)",
-    ]);
+    expect(diagnostics(built.result)).toEqual([]);
+
+    const glue = generated(built.result, /^android\/m_screen\.cpp$/);
+
+    // The items stay in C++, found again by their keys for the actions.
+    expect(glue).toContain("lucent::ui::Items<lucent::String, lucent::Ref<lucent_app::C_Player>>");
+    expect(glue).toMatch(/return p0_->label\(\);/);
+    expect(generated(built.result, /^dev\/lucent\/compose\/.*\.kt$/)).toContain(
+      "Modifier.clickable { lucent.pick1(lucent_item.key) }",
+    );
+    // The glue compiles on the host, against the JDK's jni.h.
+    expect(jdk ? glueErrors(built.result, built.dir, "android/m_screen.cpp") : "").toBe("");
+  });
+
+  it("checks the members a list's item uses", () => {
+    const { result } = build(
+      component(`  return (
+    <LazyColumn>
+      {(list) => (
+        <list.items items={props.players} key={(p) => p.title}>
+          {(_, p) => <BasicText text={\`\${p.count()}\`} />}
+        </list.items>
+      )}
+    </LazyColumn>
+  );`),
+      "android",
+    );
+
+    expect(diagnostics(result)).toContainEqual(
+      expect.stringMatching(
+        /^LUCENT3022 `Screen` cannot run on the main thread: it calls `p\.count` .*, which writes `Player\.counted`/,
+      ),
+    );
   });
 
   it("refuses the body calling a method itself: setup functions do", () => {

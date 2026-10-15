@@ -916,7 +916,7 @@ export class Collector {
       const symbol = ts.isIdentifier(n) && !named ? declaredSymbol(this.checker, n) : undefined;
       const decl = symbol?.declarations?.[0];
 
-      if (symbol && helper?.props === symbol) reads = true;
+      if (symbol && (helper?.props === symbol || this.bodyItem(decl))) reads = true;
       else if (
         decl &&
         (toolkitOfDeclaration(decl) ||
@@ -932,6 +932,21 @@ export class Collector {
     visit(e);
 
     return setup && reads;
+  }
+
+  /**
+   * Whether `decl` is a parameter of a function in a body that the setup
+   * gives a value of its own: a list's item (what the setup computes for it
+   * reads it), a callback's argument. Not a toolkit's scope (`row` in
+   * `(row) => …`), whose type is the toolkit's.
+   */
+  private bodyItem(decl: ts.Node | undefined): boolean {
+    if (!decl || !ts.isParameter(decl) || !isToolkitBody(this.checker, decl)) return false;
+
+    const type = this.checker.getNonNullableType(this.checker.getTypeAtLocation(decl));
+    const declared = (type.aliasSymbol ?? type.getSymbol())?.declarations?.[0];
+
+    return !toolkitOfDeclaration(declared);
   }
 
   /** Syntax the analyses do not model: anything may happen. */
