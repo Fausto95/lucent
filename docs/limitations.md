@@ -74,9 +74,8 @@ generated from this file.
 - A Lucent class implementing a Swift protocol can't implement its
   subscript requirements (`LUCENT1005`): write the conforming type in
   Swift.
-- A module's Objective-C categories on another module's class are bound,
-  but not their class properties. Nor are a Swift extension's members
-  ([T112](tasks.md#t112)).
+- A module's Swift extensions of another module's Swift types (not its
+  Objective-C classes) are not bound ([T112](tasks.md#t112)).
 - A `WeakMap` value that holds its own key keeps it, and the entry, for
   as long as the map lives. An SDK object's entry outlives its key until
   the table next doubles, its value with it. A `FinalizationRegistry`

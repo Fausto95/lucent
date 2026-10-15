@@ -237,7 +237,7 @@ function decl(d: Decl): string[] {
     case "const":
       return [
         ...docLines(d.doc),
-        `${d.local ? "" : "export "}declare const ${d.name}: ${printType(d.type)};`,
+        `${d.local ? "" : "export "}declare ${d.mutable ? "let" : "const"} ${d.name}: ${printType(d.type)};`,
       ];
     case "namespace":
       return body(`export declare namespace ${d.name}`, d.decls.flatMap(inNamespace));
@@ -268,7 +268,10 @@ function inNamespace(d: Decl): string[] {
     case "namespace":
       return at(body(`namespace ${d.name}`, d.decls.flatMap(inNamespace)));
     case "const":
-      return at([...docLines(d.doc), `const ${d.name}: ${printType(d.type)};`]);
+      return at([
+        ...docLines(d.doc),
+        `${d.mutable ? "let" : "const"} ${d.name}: ${printType(d.type)};`,
+      ]);
     case "function":
       return at([
         ...docLines(d.doc),

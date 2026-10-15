@@ -207,7 +207,7 @@ describe("members a module adds to NSObject", () => {
           returns: [STRING],
         },
       }),
-      // A Swift extension's member, which no message reaches.
+      // A Swift extension's member, called through a shim.
       sym("swift.method", "s:So8NSObjectC3KitE5kitGoyyF", ["NSObject", "kitGo()"], {
         names: { title: "kitGo()" },
         functionSignature: { parameters: [], returns: [] },
@@ -243,9 +243,10 @@ describe("members a module adds to NSObject", () => {
       ["kitLabel", "setKitLabel:"],
     ]);
     // Its methods keep their labels: a subclass elsewhere may name a member kitValue.
-    expect(added.methods?.map((m) => [m.name, m.selector])).toEqual([
+    expect(added.methods?.map((m) => [m.name, m.selector ?? m.swift?.name])).toEqual([
       ["kitActivate", "kitActivate"],
       ["kitValueForKey", "kitValueForKey:"],
+      ["kitGo", "kitGo()"],
     ]);
   });
 
@@ -380,6 +381,120 @@ describe("members a module adds to another module's class", () => {
       symbols: [...kit.symbols, sym("swift.class", PATH, ["NSIndexPath"])],
     };
     expect(withExtensions(declares, new Map([["Foundation", foundation]]))).toBe(declares);
+  });
+});
+
+describe("a Swift extension of another module's class", () => {
+  // SwiftUI's `extension UIColor`: in its extension graph for UIKit, members of UIKit's class
+  // with Swift USRs, called through shims.
+  const INT = { kind: "typeIdentifier", spelling: "Int", preciseIdentifier: "s:Si" };
+  const PATH = "c:objc(cs)NSIndexPath";
+  const PATH_TYPE = { kind: "typeIdentifier", spelling: "NSIndexPath", preciseIdentifier: PATH };
+  const text = (spelling: string) => ({ kind: "text", spelling });
+  const param = (name: string) => ({
+    name,
+    declarationFragments: [{ kind: "internalParam", spelling: name }, text(": "), INT],
+  });
+  const SHIFTED = "s:So11NSIndexPathC3KitE7shifted2byABSi_tF";
+  const INIT = "s:So11NSIndexPathC3KitE4item5groupABSi_Sitcfc";
+  const INIT_BARE = "s:So11NSIndexPathC3KitEyABSicfc";
+  const DEPTH = "s:So11NSIndexPathC3KitE5depthSivp";
+  const ZERO = "s:So11NSIndexPathC3KitE4zeroABvpZ";
+  const foundation: SymbolGraph = {
+    symbols: [
+      sym("swift.method", SHIFTED, ["NSIndexPath", "shifted(by:)"], {
+        names: { title: "shifted(by:)" },
+        declarationFragments: [
+          { kind: "keyword", spelling: "func" },
+          text(" shifted(by rows: "),
+          INT,
+          text(") -> "),
+          PATH_TYPE,
+        ],
+        functionSignature: { parameters: [param("rows")], returns: [PATH_TYPE] },
+      }),
+      sym("swift.init", INIT, ["NSIndexPath", "init(item:group:)"], {
+        names: { title: "init(item:group:)" },
+        declarationFragments: [
+          { kind: "keyword", spelling: "convenience" },
+          text(" "),
+          { kind: "keyword", spelling: "init" },
+          text("(item: "),
+          INT,
+          text(", group: "),
+          INT,
+          text(")"),
+        ],
+        functionSignature: { parameters: [param("item"), param("group")] },
+      }),
+      sym("swift.init", INIT_BARE, ["NSIndexPath", "init(_:)"], {
+        names: { title: "init(_:)" },
+        declarationFragments: [
+          { kind: "keyword", spelling: "convenience" },
+          text(" "),
+          { kind: "keyword", spelling: "init" },
+          text("(_ depth: "),
+          INT,
+          text(")"),
+        ],
+        functionSignature: { parameters: [param("depth")] },
+      }),
+      sym("swift.property", DEPTH, ["NSIndexPath", "depth"], {
+        declarationFragments: [
+          { kind: "keyword", spelling: "var" },
+          text(" depth: "),
+          INT,
+          text(" { get }"),
+        ],
+      }),
+      sym("swift.type.property", ZERO, ["NSIndexPath", "zero"], {
+        declarationFragments: [
+          { kind: "keyword", spelling: "static" },
+          text(" "),
+          { kind: "keyword", spelling: "var" },
+          text(" zero: "),
+          PATH_TYPE,
+          text(" { get }"),
+        ],
+      }),
+    ],
+    relationships: [SHIFTED, INIT, INIT_BARE, DEPTH, ZERO].map((u) => ({
+      kind: "memberOf",
+      source: u,
+      target: PATH,
+    })),
+  };
+  const kit: SymbolGraph = { symbols: [], relationships: [] };
+  const own: SymbolGraph = {
+    symbols: [sym("swift.class", PATH, ["NSIndexPath"])],
+    relationships: [],
+  };
+  const [, schema] = buildIosSchemas(
+    new Map([
+      ["Foundation", own],
+      ["Kit", withExtensions(kit, new Map([["Foundation", foundation]]))],
+    ]),
+    () => new Map(),
+  );
+
+  it("is the class of the module's own, its members called through shims", () => {
+    const added = schema!.types.find((t) => t.name === "NSIndexPath_Kit");
+    if (added?.kind !== "class") throw new Error("no NSIndexPath_Kit");
+    const path = { k: "ref", module: "Foundation", name: "NSIndexPath", nullable: false };
+
+    expect(added.extensionOf).toBe("Foundation.NSIndexPath");
+    expect(added.constructors ?? []).toEqual([]);
+    // Labelled as the Objective-C methods an extension adds; initializers are class methods.
+    expect(added.methods?.map((m) => [m.name, !!m.static, m.swift?.name, m.returns])).toEqual([
+      ["shiftedBy", false, "shifted(by:)", path],
+      ["withItemGroup", true, "init(item:group:)", path],
+      ["withNSInteger", true, "init(_:)", path],
+    ]);
+    expect(added.properties?.map((p) => [p.name, !!p.static, p.swift?.name])).toEqual([
+      ["depth", false, "depth"],
+      ["zero", true, "zero"],
+    ]);
+    expect(schema!.skipped ?? []).toEqual([]);
   });
 });
 

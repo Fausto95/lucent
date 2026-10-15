@@ -18,6 +18,7 @@ import { sdkModuleOf } from "../program.ts";
 import { classParamsUsed, substitute } from "../sdk/dts.ts";
 import { SWIFT_SCALARS, swiftConversion, takenReason } from "../sdk/plans.ts";
 import {
+  findSdkModule,
   findSdkType,
   formatSchemaType,
   loadSdkModule,
@@ -90,7 +91,7 @@ export interface SwiftShim {
    * The owner's Swift name (`Shapes.Point`), and whether its values are
    * boxed; a protocol's (`any Shapes.Store`) gives the protocol's name.
    */
-  owner?: { name: string; boxed: boolean; protocol?: string };
+  owner?: { name: string; boxed: boolean; protocol?: string; module?: string };
   /** A protocol's associated types, which its member's declared types name. */
   associated?: string[];
   /** A protocol's member: its parameters and result as declared. */
@@ -249,7 +250,23 @@ function optionalNumber(em: FnEmitter, code: cpp.Expr, t: SdkType, lt: LType, wh
 
 /** A class's name in Swift: a Swift type's own, an Objective-C class's Swift name. */
 function swiftClassName(module: string, cls: SdkClassSchema): string {
-  return cls.swift ? cls.native : `${module}.${cls.name.replace(/_/g, ".")}`;
+  if (cls.swift) return cls.native;
+  // What a module adds to another module's class (`extension UIColor` in SwiftUI): that class.
+  const extended = extendedClass(cls);
+  if (extended) return `${extended.module}.${extended.cls.name.replace(/_/g, ".")}`;
+  return `${module}.${cls.name.replace(/_/g, ".")}`;
+}
+
+/** The other module's class an extension class (`extensionOf`) adds members to. */
+function extendedClass(cls: SdkClassSchema): { module: string; cls: SdkClassSchema } | undefined {
+  if (!cls.extensionOf) return undefined;
+  const at = cls.extensionOf.lastIndexOf(".");
+  const module = cls.extensionOf.slice(0, at);
+  const native = cls.extensionOf.slice(at + 1);
+  const found = findSdkModule("ios", module)?.types.find(
+    (t): t is SdkClassSchema => t.kind === "class" && t.native === native && !t.extensionOf,
+  );
+  return { module, cls: found ?? { ...cls, name: native, extensionOf: undefined } };
 }
 
 /**
@@ -900,6 +917,8 @@ function register(em: FnEmitter, use: SwiftUse): SwiftShim {
       : `${swiftClassName(use.module, use.owner)}${args}`,
     boxed: use.owner.swift?.kind === "struct" || use.owner.swift?.kind === "enum",
     ...(use.owner.interface ? { protocol: swiftClassName(use.module, use.owner) } : {}),
+    // The module declaring the class, when another adds the member.
+    ...(use.owner.extensionOf ? { module: extendedClass(use.owner)!.module } : {}),
   };
   const key = [
     use.module,
@@ -1872,7 +1891,11 @@ export function shimsFile(
     ...proxies.types,
     ...[...unions.values()].flatMap((e) => e.cases.flatMap((c) => c.params.map((p) => p.type))),
   ];
-  for (const m of [...all.map((s) => s.module), ...types.flatMap(modulesOf)]) modules.add(m);
+  for (const m of [
+    ...all.flatMap((s) => [s.module, ...(s.owner?.module ? [s.owner.module] : [])]),
+    ...types.flatMap(modulesOf),
+  ])
+    modules.add(m);
   // The Swift of the app's Lucent packages is LucentNative's, as these shims are.
   modules.delete(OWN_SWIFT_MODULE);
   const sequences = opts.sequences || all.some((s) => s.ret.k === "sequence");

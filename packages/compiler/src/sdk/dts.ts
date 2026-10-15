@@ -807,10 +807,11 @@ function classDts(
  * of the module's own, not exported (`NSIndexPath_UIKit`), which that
  * class's interface extends where it is declared (NSObject's in lucent:ios,
  * NSIndexPath's in lucent:ios/Foundation), so every object of it has the
- * instance members. The class methods merge into that class as a
- * namespace's constants of their type, so a call resolves to this class's
- * declaration (`NSIndexPath.indexPathForRow(…)`). The class's brand is its
- * own.
+ * instance members. The class methods and properties merge into that class
+ * as a namespace's constants of their type (a `let` for a property that
+ * can be set), so a use resolves to this class's declaration
+ * (`NSIndexPath.indexPathForRow(…)`; a property's through its `typeof`:
+ * extensionProperty). The class's brand is its own.
  */
 function extensionDts(schema: SdkModuleSchema, cls: SdkClassSchema, made: ts.Decl[]): ts.Decl[] {
   const decl = made.find((d) => d.k === "class");
@@ -820,20 +821,16 @@ function extensionDts(schema: SdkModuleSchema, cls: SdkClassSchema, made: ts.Dec
   const members = decl.members.filter(
     (m) =>
       m.k !== "constructor" &&
-      (!isStatic(m) || m.k === "method") &&
       !(m.k === "property" && (m.name.startsWith("__lucent_") || m.name.startsWith("~jsx"))),
   );
   if (!members.length) return [];
 
   const at = cls.extensionOf!.lastIndexOf(".");
   const [module, name] = [cls.extensionOf!.slice(0, at), cls.extensionOf!.slice(at + 1)];
-  const classMethods = [
-    ...new Set(
-      members
-        .filter((m) => m.k === "method" && isStatic(m))
-        .map((m) => (m as { name: string }).name),
-    ),
-  ];
+  // Each class member once (a method's overloads share its name), and whether code may set it.
+  const classMembers = new Map<string, boolean>();
+  for (const m of members)
+    if (isStatic(m) && "name" in m) classMembers.set(m.name, m.k === "property" && !m.readonly);
 
   return [
     {
@@ -851,15 +848,16 @@ function extensionDts(schema: SdkModuleSchema, cls: SdkClassSchema, made: ts.Dec
       name: module === "ObjectiveC" ? "lucent:ios" : `lucent:${schema.platform}/${module}`,
       decls: [
         { k: "interface", name, extends: [ts.ref(cls.name)], members: [] },
-        ...(classMethods.length
+        ...(classMembers.size
           ? [
               {
                 k: "namespace" as const,
                 name,
-                decls: classMethods.map((m) => ({
+                decls: [...classMembers].map(([m, mutable]) => ({
                   k: "const" as const,
                   name: m,
                   type: { k: "typeof" as const, name: `${cls.name}.${m}` },
+                  ...(mutable ? { mutable } : {}),
                 })),
               },
             ]

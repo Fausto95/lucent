@@ -361,10 +361,13 @@ export function addSwiftDeclarations(ctx: SwiftContext): void {
       (m) => isSwiftUsr(m.identifier.precise) || isSynthesized(m.identifier.precise, module),
     );
     if (!members.length) continue;
+    // What a module adds to another module's class (`extension UIColor` in SwiftUI): `Self` is
+    // that class.
+    const self = cls.extensionOf ?? `${module}.${cls.name}`;
     const bound = memberSchemas(
       members,
       {
-        self: `${module}.${cls.name}`,
+        self,
         typeParams: cls.typeParams ?? [],
         facts: cls.facts,
         since: cls.since,
@@ -379,6 +382,17 @@ export function addSwiftDeclarations(ctx: SwiftContext): void {
     const has = (list: { name: string }[] | undefined, n: string) =>
       !!list?.some((x) => x.name === n);
     const methods = withoutPropertyNames(bound.methods, cls.properties ?? [], bound.symbols, skip);
+    if (cls.extensionOf) {
+      // Labelled, as its Objective-C methods are: the class's subclasses, in modules this one
+      // doesn't see, may name a member alike. Its initializers are class methods giving the
+      // class's objects, since a constructor is declared only where its class is.
+      for (const m of methods) m.name = withSwiftLabels(m.name, m.swift?.name);
+      methods.push(...factoriesOfExtension(bound.ctors, self));
+      for (const m of methods) if (!objc.has(m.name)) (cls.methods ??= []).push(m);
+      for (const p of bound.props)
+        if (!has(cls.properties, p.name)) (cls.properties ??= []).push(p);
+      continue;
+    }
     for (const m of methods) if (!objc.has(m.name)) (cls.methods ??= []).push(m);
     for (const p of bound.props) if (!has(cls.properties, p.name)) (cls.properties ??= []).push(p);
     if (bound.ctors.length && !cls.constructors?.length) {
@@ -796,7 +810,6 @@ export function factoriesOfSameTyped(
   const groups = new Map<string, SdkCallable[]>();
   for (const c of ctors) groups.set(key(c), [...(groups.get(key(c)) ?? []), c]);
 
-  const capitalized = (w: string) => w.charAt(0).toUpperCase() + w.slice(1);
   const byLabels = (c: SdkCallable) =>
     `with${splitName(c.swift?.name ?? "init()")
       .labels.filter((l) => l !== "_")
@@ -843,6 +856,44 @@ export function factoriesOfSameTyped(
 
   return { ctors: ctors.filter((c) => !turned.has(c)), factories };
 }
+
+const capitalized = (w: string) => w.charAt(0).toUpperCase() + w.slice(1);
+
+/** A name with its Swift labels appended (`blend(with:fraction:)` → `blendWithFraction`). */
+function withSwiftLabels(name: string, title: string | undefined): string {
+  return (
+    name +
+    splitName(title ?? name)
+      .labels.filter((l) => l !== "_")
+      .map(capitalized)
+      .join("")
+  );
+}
+
+/**
+ * The initializers a module adds to another module's class, as class
+ * methods giving its objects: named after their labels (`withRed`), or
+ * their parameters' types without any (`init(_ color: Color)` is
+ * `withColor`).
+ */
+export function factoriesOfExtension(ctors: SdkCallable[], self: string): SdkMethodSchema[] {
+  const out: SdkMethodSchema[] = [];
+  for (const c of ctors) {
+    const labels = splitName(c.swift?.name ?? "init()").labels.filter((l) => l !== "_");
+    const name = labels.length
+      ? `with${labels.map(capitalized).join("")}`
+      : c.params.length
+        ? `with${c.params.map((p) => capitalized(typeWord(p.type))).join("")}`
+        : "make";
+    if (out.some((f) => f.name === name)) continue;
+    out.push({ ...c, name, static: true, returns: parseSchemaType(self) });
+  }
+  return out;
+}
+
+/** A type as a word of a name: a class by its own name (`SwiftUI.Color` is `Color`). */
+const typeWord = (t: SchemaType) =>
+  (t.k === "ref" ? t.name : formatSchemaType({ ...t, nullable: false })).replace(/\W/g, "");
 
 /** A schema type as TypeScript sees it: numbers of every width alike. */
 function typeKind(t: string): string {
