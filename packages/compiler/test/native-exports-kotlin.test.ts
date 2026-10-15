@@ -88,6 +88,24 @@ export async function later(n: number): Promise<string> {
   await Promise.resolve();
   return "later " + n;
 }
+
+let busy = false;
+let turns = 0;
+
+/** Throws when another call is running: calls from several threads take turns. */
+export function take(spins: number): number {
+  if (busy) throw new Error("overlapped");
+  busy = true;
+  let x = 0;
+  for (let i = 0; i < spins; i++) x += i % 7;
+  busy = false;
+  turns++;
+  return x;
+}
+
+export function taken(): number {
+  return turns;
+}
 `;
 
 /** Kotlin calling the module, as an app's or a library's would. */
@@ -101,8 +119,11 @@ import dev.lucent.app.counters.greet
 import dev.lucent.app.counters.later
 import dev.lucent.app.counters.sum
 import dev.lucent.app.counters.tags
+import dev.lucent.app.counters.take
+import dev.lucent.app.counters.taken
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.startCoroutine
@@ -136,6 +157,22 @@ object Probe {
       lines += "threw " + e.name + ": " + e.message
     }
     lines += "await " + await { later(4.0) } + ", " + await { c.settle() }
+    // Threads call at once: each call holds the module's actor.
+    val overlapped = AtomicInteger()
+    val threads = (1..8).map {
+      Thread {
+        repeat(25) {
+          try {
+            take(20000.0)
+          } catch (e: LucentException) {
+            overlapped.incrementAndGet()
+          }
+        }
+      }
+    }
+    threads.forEach { it.start() }
+    threads.forEach { it.join() }
+    lines += "turns " + taken() + ", " + overlapped.get() + " overlapped"
     c.close()
     try {
       c.increment(1.0)
@@ -214,6 +251,7 @@ describe.skipIf(!tc || !fake || !jdk)("the Kotlin API of a module's exports", ()
         "labelled 21.0 x 21.0",
         "threw RangeError: no name",
         "await later 4, settled at 10",
+        "turns 200.0, 0 overlapped",
         "closed TypeError",
         "holds 0",
         "",
