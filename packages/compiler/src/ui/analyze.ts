@@ -55,7 +55,6 @@ import {
   SLOT_VIEWS,
   sdkRoot,
   sdkSlot,
-  toolkitOf,
 } from "./roots.ts";
 import { setupSlot } from "./slot.ts";
 import { type InstanceClass, ViewTypes } from "./values.ts";
@@ -585,14 +584,6 @@ function describeComponent(
   );
 
   props.problems.forEach(report);
-
-  // A toolkit body's values cross into Swift and Kotlin as data (T123).
-  if (toolkitOf(classIdentity(checker, c.root)))
-    for (const p of props.props.filter((x) => holdsInstance(x.type)))
-      report({
-        message: `\`${c.name}\`'s prop \`${p.name}\` holds an instance: a SwiftUI or Compose body takes plain data only, for now`,
-        node: c.props && checker.getTypeAtLocation(c.props).getProperty(p.name)?.valueDeclaration,
-      });
 
   if (!props.problems.length)
     diagnostics.push(...declarationMismatch(checker, types, env, c, props));
