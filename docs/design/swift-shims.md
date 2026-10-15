@@ -233,9 +233,11 @@ holding `any Store<String>`. That needs the runtime's parameterized
 protocol types, so the shim is `@available(iOS 16.0, *)`. Members of such
 protocols are not called ([T112](../tasks.md#t112)).
 
-Refused: initializer and static requirements (Swift would call them
-without an object), async or throwing property requirements, and generic
-Lucent classes. For an initializer requirement, write the conforming type
+An async or throwing property requirement is the Lucent class's getter,
+which returns a promise for an async one: the proxy declares
+`get async throws` and calls it as a method requirement. Refused:
+initializer and static requirements (Swift would call them without an
+object), and generic Lucent classes. For an initializer requirement, write the conforming type
 in Swift of the package's own.
 
 ## Build

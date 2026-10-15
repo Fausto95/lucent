@@ -293,6 +293,17 @@ function member(m: Member, indent: string): string[] {
       return [`${indent}deinit {`, ...block(m.body, indent + INDENT), `${indent}}`];
     case "property": {
       const head = `${indent}${mods(m.modifiers)}var ${m.name}: ${printType(m.type)} {`;
+      // A getter that awaits or throws says so: `get async throws { … }`.
+      if (m.effects?.length && !m.set) {
+        const inner = indent + INDENT;
+        return [
+          head,
+          `${inner}get ${m.effects.join(" ")} {`,
+          ...block(m.get, inner + INDENT),
+          `${inner}}`,
+          `${indent}}`,
+        ];
+      }
       if (!m.set) return [head, ...block(m.get, indent + INDENT), `${indent}}`];
 
       const inner = indent + INDENT;
