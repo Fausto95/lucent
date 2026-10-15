@@ -74,6 +74,7 @@ import {
   helperArgs,
   helperAt,
   type HelperUse,
+  toolkitValueProp,
   type ViewHelper,
 } from "../ui/view-helpers.ts";
 import type { E } from "./context.ts";
@@ -777,6 +778,11 @@ class BodyWriter {
 
     if (helper && ts.isCallExpression(e)) return this.used(e, helper);
 
+    // A toolkit value the helper is given (T123): its property.
+    const given = this.frame ? toolkitValueProp(this.checker, e, this.frame.helper) : undefined;
+
+    if (given) return swift.name(given.name);
+
     if (ts.isCallExpression(e) && isUiForm(this.checker, e, "range")) return this.range(e);
 
     if (ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e)) return this.element(e);
@@ -830,6 +836,15 @@ class BodyWriter {
 
     if (ts.isBinaryExpression(e) && compared)
       return swift.binary(this.value(e.left), compared, this.value(e.right));
+
+    // A helper's optional toolkit value, defaulted (`props.font ?? Font.body`): Swift's `??`.
+    if (
+      ts.isBinaryExpression(e) &&
+      e.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken &&
+      this.frame &&
+      toolkitValueProp(this.checker, skipParentheses(e.left), this.frame.helper)
+    )
+      return swift.binary(this.value(e.left), "??", this.value(e.right));
 
     if (this.crossings && (ts.isPropertyAccessExpression(e) || ts.isCallExpression(e)))
       this.crossings.setupMember(e);
@@ -897,9 +912,14 @@ class BodyWriter {
 
     const args = helperArgs(node, helper);
     const callbacks = new Set(helper.callbacks.map((c) => c.name));
+    const toolkitValues = new Set(helper.toolkitValues.map((v) => v.name));
 
     for (const [name, arg] of args)
-      if (!callbacks.has(name) && !this.crossings!.givesValue(arg, this.frame?.helper))
+      if (
+        !callbacks.has(name) &&
+        !toolkitValues.has(name) &&
+        !this.crossings!.givesValue(arg, this.frame?.helper)
+      )
         bodyFail(
           arg,
           `\`${helper.name}\`'s \`${name}\` is plain data the setup computes (its props, signals, values, a list's item) or a literal`,
@@ -921,6 +941,12 @@ class BodyWriter {
           label: c.name,
           value: arg ? this.callback(arg, arity) : closure(padded([], arity), []),
         };
+      }),
+      // A toolkit value, written where its user draws (T123).
+      ...helper.toolkitValues.map((v) => {
+        const arg = args.get(v.name);
+
+        return { label: v.name, value: arg ? this.value(arg) : swift.nil };
       }),
     ]);
   }
@@ -2694,6 +2720,17 @@ function helperStruct(values: SwiftValues, view: HelperView): swift.Decl {
           swift.type("Void"),
         ),
       })),
+      ...view.helper.toolkitValues.map((v): swift.Member => {
+        // SwiftUI's type, as lucent:swiftui names it (`Edge_Set` is `Edge.Set`).
+        const type = swift.type(v.type.join(".").replaceAll("_", "."));
+
+        return {
+          k: "let",
+          modifiers: [],
+          name: v.name,
+          type: v.optional ? swift.optional(type) : type,
+        };
+      }),
       ...environmentProperties(view.environment),
       {
         k: "property",

@@ -5,26 +5,41 @@
  * Each is written once per component in the toolkit's language (a Swift
  * `View`, a Kotlin `@Composable` function), never in C++.
  *
- * A helper takes one props object, read as `props.name`: plain data and
- * callbacks. What it computes from its props is computed by the setup
- * where it is used (ui/toolkit-body.ts, a use's values), with JavaScript's
- * semantics; its callbacks are what its user gives it. It reads nothing of
- * its setup's but its props. What a helper cannot be fails with
- * LUCENT3024.
+ * A helper takes one props object, read as `props.name`: plain data,
+ * callbacks and the toolkit's values. What it computes from its props is
+ * computed by the setup where it is used (ui/toolkit-body.ts, a use's
+ * values), with JavaScript's semantics; its callbacks are what its user
+ * gives it, and a toolkit's value (a `Color`, a `Modifier`) is what its
+ * user writes, given to it as it is (T123). It reads nothing of its
+ * setup's but its props. What a helper cannot be fails with LUCENT3024.
  */
 import ts from "typescript";
 import { cacheOf } from "../checker-caches.ts";
-import { platformOf } from "../program.ts";
+import { builtinSdkModuleOf, platformOf } from "../program.ts";
 import { compositionStatements } from "./composition.ts";
 import { type FunctionLike, toolkitRootType } from "./roots.ts";
 import { bodyFail, jsxRoot, jsxToolkitOf, skipParentheses, symbolOf } from "./toolkit-body.ts";
-import { TOOLKITS, type ToolkitName, toolkitOfPlatform } from "./toolkits.ts";
+import { TOOLKITS, type ToolkitName, toolkitOfModule, toolkitOfPlatform } from "./toolkits.ts";
 import { ViewTypes } from "./values.ts";
 
 /** A callback prop: what it is given (numbers, booleans, strings), in order. */
 export interface HelperCallback {
   readonly name: string;
   readonly params: readonly ("number" | "boolean" | "string")[];
+  readonly optional: boolean;
+}
+
+/**
+ * A prop holding a value of the helper's toolkit (a `Color`, a `Font`, a
+ * `Modifier`): its user writes it, in Swift or Kotlin, and the helper's
+ * view takes it as a parameter of the toolkit's type.
+ */
+export interface HelperToolkitValue {
+  readonly name: string;
+  /** The type's path in the toolkit (`Color`, `Alignment.Horizontal`). */
+  readonly type: readonly string[];
+  /** Its declaration in the toolkit's module. */
+  readonly decl: ts.Declaration;
   readonly optional: boolean;
 }
 
@@ -40,6 +55,8 @@ export interface ViewHelper {
   readonly statements: readonly ts.Statement[];
   /** Its callback props, in their declaration's order. */
   readonly callbacks: readonly HelperCallback[];
+  /** Its props holding the toolkit's values, in their declaration's order. */
+  readonly toolkitValues: readonly HelperToolkitValue[];
 }
 
 /** What a helper's props give where it is used: each prop's value or callback, in the user's code. */
@@ -164,6 +181,8 @@ function check(checker: ts.TypeChecker, fn: FunctionLike, at: ts.Node): ViewHelp
 
   captures(checker, fn, props, what);
 
+  const given = param ? propsOf(checker, param, what, toolkit) : undefined;
+
   return {
     fn,
     name,
@@ -171,7 +190,8 @@ function check(checker: ts.TypeChecker, fn: FunctionLike, at: ts.Node): ViewHelp
     ...(props ? { props } : {}),
     jsx,
     statements,
-    callbacks: param ? propsOf(checker, param, what) : [],
+    callbacks: given?.callbacks ?? [],
+    toolkitValues: given?.toolkitValues ?? [],
   };
 }
 
@@ -281,15 +301,21 @@ function named(id: ts.Identifier): boolean {
   );
 }
 
-/** A helper's props: each plain data or a callback of scalars returning nothing; the callbacks. */
+/**
+ * A helper's props: each plain data, a callback of scalars returning
+ * nothing, or a value of its toolkit's; the callbacks and the toolkit's
+ * values.
+ */
 function propsOf(
   checker: ts.TypeChecker,
   param: ts.ParameterDeclaration,
   what: string,
-): HelperCallback[] {
+  toolkit: ToolkitName,
+): { callbacks: HelperCallback[]; toolkitValues: HelperToolkitValue[] } {
   const types = new ViewTypes(checker, () => undefined);
   const type = checker.getTypeAtLocation(param);
   const callbacks: HelperCallback[] = [];
+  const toolkitValues: HelperToolkitValue[] = [];
 
   for (const p of type.getProperties()) {
     const t = checker.getTypeOfSymbolAtLocation(p, param);
@@ -309,14 +335,61 @@ function propsOf(
       }
     }
 
+    const value = toolkitValueType(present, toolkit);
+
+    if (value) {
+      toolkitValues.push({ name: p.name, ...value, optional: optional || present !== t });
+      continue;
+    }
+
     if (!("ok" in types.value(present, "value", present !== t)))
       bodyFail(
         param,
-        `${what} takes plain data and callbacks: \`${p.name}\` is \`${checker.typeToString(t)}\``,
+        `${what} takes plain data, callbacks and ${TOOLKITS[toolkit].title}'s values: \`${p.name}\` is \`${checker.typeToString(t)}\``,
       );
   }
 
-  return callbacks;
+  return { callbacks, toolkitValues };
+}
+
+/**
+ * A value type of `toolkit`'s module, by its path (`Color`; a namespace's
+ * `Alignment.Horizontal`): an interface of no type parameters, of a
+ * concrete type (`Color`, a SwiftUI view too, but not `View`, which a
+ * helper would take as content).
+ */
+function toolkitValueType(
+  t: ts.Type,
+  toolkit: ToolkitName,
+): { type: string[]; decl: ts.Declaration } | undefined {
+  // The interface, which a value of its statics may share a name with (`Color`).
+  const decl = (t.aliasSymbol ?? t.getSymbol())?.declarations?.find(ts.isInterfaceDeclaration);
+
+  if (!decl || decl.typeParameters?.length) return undefined;
+  if (toolkitOfModule(builtinSdkModuleOf(decl.getSourceFile())) !== toolkit) return undefined;
+
+  if (decl.name.text === TOOLKITS[toolkit].element) return undefined;
+
+  const path = [decl.name.text];
+
+  for (let n: ts.Node | undefined = decl.parent; n && !ts.isSourceFile(n); n = n.parent)
+    if (ts.isModuleDeclaration(n) && ts.isIdentifier(n.name)) path.unshift(n.name.text);
+
+  return { type: path, decl };
+}
+
+/** The toolkit value `e` reads, when it is `props.name` of `helper` holding one. */
+export function toolkitValueProp(
+  checker: ts.TypeChecker,
+  e: ts.Expression,
+  helper: ViewHelper | undefined,
+): HelperToolkitValue | undefined {
+  if (!helper?.props || !ts.isPropertyAccessExpression(e) || !ts.isIdentifier(e.expression))
+    return undefined;
+
+  if (symbolOf(checker, e.expression) !== helper.props) return undefined;
+
+  return helper.toolkitValues.find((v) => v.name === e.name.text);
 }
 
 function scalar(t: ts.Type): "number" | "boolean" | "string" | undefined {
