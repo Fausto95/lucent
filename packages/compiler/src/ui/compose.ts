@@ -49,6 +49,7 @@ import type { ViewField, ViewType } from "./contract.ts";
 import {
   type ActionSlot,
   crossingOf,
+  crosses,
   isBind,
   type ListSlot,
   type BodySetup,
@@ -224,7 +225,7 @@ function kotlinType(t: ScalarType): kt.Type {
 
 function actionType(a: ActionSlot): kt.Type {
   return kt.fn(
-    a.params.map((p) => kotlinType(crossingOf(p))),
+    a.params.filter(crosses).map((p) => kotlinType(crossingOf(p))),
     kt.type("Unit"),
   );
 }
@@ -1468,10 +1469,15 @@ class BodyWriter {
 
     // Called by a callback: the Lucent function runs. A list's item crosses as its key.
     const slot = this.crossings.action(callee, c.arguments);
-    const args = c.arguments.map((a, i) =>
-      this.crossings.itemOf(a)
-        ? kt.member(kt.name(ITEM), "key")
-        : convert(this.expr(a, where), slot.params[i]?.k === "number" ? "Double" : undefined),
+    // What the setup computes for the call, it computes when the action runs.
+    const args = c.arguments.flatMap((a, i) =>
+      slot.params[i]?.k === "computed"
+        ? []
+        : [
+            this.crossings.itemOf(a)
+              ? kt.member(kt.name(ITEM), "key")
+              : convert(this.expr(a, where), slot.params[i]?.k === "number" ? "Double" : undefined),
+          ],
     );
 
     return {

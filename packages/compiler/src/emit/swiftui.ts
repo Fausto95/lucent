@@ -1810,8 +1810,17 @@ class BodyWriter {
       id,
       args.filter((a): a is ts.Expression => !("k" in a)),
     );
-    const values = args.map((a) =>
-      "k" in a ? a : crossings.itemOf(a) ? swift.member(swift.name("item"), "id") : this.value(a),
+    // What the setup computes for the call, it computes when the action runs.
+    const values = args.flatMap((a, i) =>
+      slot.params[i]?.k === "computed"
+        ? []
+        : [
+            "k" in a
+              ? a
+              : crossings.itemOf(a)
+                ? swift.member(swift.name("item"), "id")
+                : this.value(a),
+          ],
     );
     const given = values.length ? [{ value: swift.arrayLiteral(values) }] : [];
 

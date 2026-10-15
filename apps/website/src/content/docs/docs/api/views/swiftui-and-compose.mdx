@@ -253,7 +253,7 @@ The body and its setup meet in four ways, the same on both toolkits. The body ho
 | `bind(signal)` | A binding | The view shows the signal's value, and a change the user makes sets the signal. |
 
 - A number, boolean or string crosses as it is. An object crosses as a Swift struct or a Kotlin data class, its fields in the order its type declares them.
-- A callback gives a setup function its own parameters, literals and values setup computes: numbers, booleans and strings.
+- A callback gives a setup function its own parameters and literals: numbers, booleans and strings. What Lucent code computes for the call, such as `props.title` or `tapped()`, is computed when the callback runs, as in JavaScript, and may be any value.
 - `bind` takes a signal of a number, boolean or string. It's written only where a view takes a binding, and never in a list's item.
 - A change of setup state, or an event sent to JavaScript, goes in a setup function a callback calls. The body changing a signal fails with LUCENT3024.
 

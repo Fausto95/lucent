@@ -89,7 +89,11 @@ describe.skipIf(!composeBuilds())("a Compose body", () => {
     expect(kotlin).toMatch(
       /Modifier\.toggleable\(value = lucent\.on\d+\.value\) \{ value -> lucent\.turned\d+\(value\) \}/,
     );
-    expect(kotlin).toMatch(/lucent\.pick\d+\(lucent\.title\d+\.value, 2\.0\)/);
+    // What the setup computes for the call (`props.title`), it computes when the action runs.
+    expect(kotlin).toMatch(/Modifier\.clickable \{ lucent\.pick\d+\(2\.0\) \}/);
+    expect(generated(built.result, /^android\/m_form\.cpp$/)).toMatch(
+      /\(double p0\) mutable \{\s+(#line \d+\s+)?auto value0 = arg0\(\);\s+(#line \d+\s+)?f\(value0, p0\);/,
+    );
     expect(compiles ? kotlinErrors(built) : "").toBe("");
     expect(compiles ? androidGlueErrors(built) : "").toBe("");
   }, 600_000);

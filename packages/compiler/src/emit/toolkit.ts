@@ -32,6 +32,7 @@ import {
   bodyOf,
   type Crossings,
   crossingOf,
+  crosses,
   inSetupCode,
   jsxRoot,
   jsxToolkitOf,
@@ -345,13 +346,17 @@ function itemsType(em: FnEmitter, list: ListSlot): cpp.Type {
 function actionFn(em: FnEmitter, a: ActionSlot, items: ReadonlyMap<ListSlot, string>): cpp.Expr {
   const crossing: LType = {
     k: "fn",
-    params: a.params.map((p) => scalarType(crossingOf(p))),
+    params: a.params.filter(crosses).map((p) => scalarType(crossingOf(p))),
     ret: T.void,
   };
 
   // A bound signal's change: the signal is set, in its mount.
   if (a.writes) {
-    const value = cpp.param(em.reg.cppType(scalarType(crossingOf(a.params[0]!))), "value");
+    const first = a.params[0]!;
+
+    if (!crosses(first)) throw new Error("a bound signal's change is given its value");
+
+    const value = cpp.param(em.reg.cppType(scalarType(crossingOf(first))), "value");
     const write = cpp.lambda(
       [{ name: "signal", init: em.expr(a.source).c }],
       [value],
@@ -362,15 +367,34 @@ function actionFn(em: FnEmitter, a: ActionSlot, items: ReadonlyMap<ListSlot, str
     return cpp.construct(em.reg.cppType(crossing), [enterMount(em, a.source, write)]);
   }
 
-  if (!a.params.some((p) => p.k === "item")) return em.exprAs(a.source, crossing);
+  if (!a.params.some((p) => p.k === "item" || p.k === "computed"))
+    return em.exprAs(a.source, crossing);
 
   const f = em.expr(a.source);
-  const params = a.params.map((p, i) =>
-    cpp.param(em.reg.cppType(scalarType(crossingOf(p))), `p${i}`),
+  const takes = f.t.k === "fn" ? f.t.params : [];
+  // What the setup computes for the call, when it runs: a thunk each, of the parameter's type.
+  const thunks = a.params.map((p, i) =>
+    p.k === "computed"
+      ? em.thunk(p.source, { site: p.source, ...(takes[i] ? { type: takes[i] } : {}) })
+      : undefined,
+  );
+  const crossed = a.params.filter(crosses);
+  const params = crossed.map((p, j) =>
+    cpp.param(em.reg.cppType(scalarType(crossingOf(p))), `p${j}`),
   );
   const body: cpp.Stmt[] = [];
+  // Computed in order, once the items are found: C++ leaves a call's arguments unordered.
+  const computing: cpp.Stmt[] = [];
+  let next = 0;
   const args = a.params.map((p, i) => {
-    if (p.k !== "item") return cpp.id(`p${i}`);
+    if (p.k === "computed") {
+      computing.push(cpp.varDecl(cpp.auto, `value${i}`, cpp.call(cpp.id(`arg${i}`))));
+      return cpp.id(`value${i}`);
+    }
+
+    const given = cpp.id(`p${next++}`);
+
+    if (p.k !== "item") return given;
 
     const found = `found${i}`;
 
@@ -378,7 +402,7 @@ function actionFn(em: FnEmitter, a: ActionSlot, items: ReadonlyMap<ListSlot, str
       cpp.varDecl(
         cpp.auto,
         found,
-        cpp.call(cpp.arrow(cpp.id(items.get(p.list)!), "find"), [cpp.id(`p${i}`)]),
+        cpp.call(cpp.arrow(cpp.id(items.get(p.list)!), "find"), [given]),
       ),
       cpp.ifStmt(cpp.not(cpp.call(cpp.dot(cpp.id(found), "has"))), [cpp.ret()]),
     );
@@ -388,13 +412,20 @@ function actionFn(em: FnEmitter, a: ActionSlot, items: ReadonlyMap<ListSlot, str
 
   const lists = [...new Set(a.params.flatMap((p) => (p.k === "item" ? [p.list] : [])))];
   const lambda = cpp.lambda(
-    [{ name: "f", init: f.c }, ...lists.map((l) => items.get(l)!)],
+    [
+      { name: "f", init: f.c },
+      ...lists.map((l) => items.get(l)!),
+      ...thunks.flatMap((t, i) => (t ? [{ name: `arg${i}`, init: t.c }] : [])),
+    ],
     params,
-    [...body, cpp.exprStmt(cpp.call(cpp.id("f"), args))],
+    [...body, ...computing, cpp.exprStmt(cpp.call(cpp.id("f"), args))],
     { mutable: true },
   );
 
-  return cpp.construct(em.reg.cppType(crossing), [lambda]);
+  // What it computes runs in its mount, as the setup's code does.
+  return cpp.construct(em.reg.cppType(crossing), [
+    computing.length ? enterMount(em, a.source, lambda) : lambda,
+  ]);
 }
 
 /**

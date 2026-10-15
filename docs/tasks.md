@@ -45,7 +45,7 @@ what became of each one that is still linked or was still open.
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
 | [T121](#t121)            | React Native's view props, refs and view libraries         | done (2026-10-14)                                       |
 | [T122](#t122)            | UIKit components with a view-controller root               | in progress (#324, #325)                                |
-| [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | in progress (#328, #335 merged, #336)                   |
+| [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | in progress (#328, #335 merged, #336, #337)             |
 | [T124](#t124)            | A component's ref as a module function's argument          | in progress (#326 merged)                               |
 | [T125](#t125)            | Android views made after setup keep the Activity's context | in progress (#327)                                      |
 | **Execution modes**      |                                                            |                                                         |
@@ -1011,7 +1011,7 @@ counterpart, a `Fragment` root, is in [T131](#t131).
 **Goal:** Toolkit bodies take what UIKit and Android bodies take: instance
 props, and helper functions with children and bindings.
 
-- **Status:** in progress (#328, #335, #336).
+- **Status:** in progress (#328, #335, #336, #337).
 - **Area:** views, compiler.
 - **Needs:** T120.
 - **Verify:** V1, V4, V5.
@@ -1024,8 +1024,8 @@ props, and helper functions with children and bindings.
 - [x] An instance prop reaches a SwiftUI or Compose body, observed on the
       main thread (#335, decision 0121): the body shows what the setup
       computes from it. A list of instances too (#336, decision 0122).
-- [ ] A value a body's callback passes is computed when the callback runs,
-      as JavaScript does, not when what it reads changes.
+- [x] A value a body's callback passes is computed when the callback runs,
+      as JavaScript does, not when what it reads changes (#337).
 - [ ] Helper view functions take toolkit values, children and bindings.
 - [ ] Tests on the simulator and emulator.
 
