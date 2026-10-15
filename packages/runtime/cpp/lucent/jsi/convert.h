@@ -1168,6 +1168,8 @@ struct Convert<Ref<EventEmitterObject<Fns...>>> {
     return T{Convert<std::tuple_element_t<I, T>>::fromJs(rt, arg(args, count, I + 1), Path::argument("EventEmitter.emit", I + 1))...};
   }
 
+ public:
+  /// An emitter's methods on `proto`: its own, or a prototype of a class extending EventEmitter.
   static void proto(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
     define(rt, host, proto, "addListener", 2, [](jsi::Runtime& rt, Host& host, const jsi::Value& self, const jsi::Value* args, size_t count) {
       auto e = fromJs(rt, self, Path{"EventEmitter.addListener", "this"});
@@ -1225,5 +1227,12 @@ struct Convert<Ref<EventEmitterObject<Fns...>>> {
     });
   }
 };
+
+/// A class extending EventEmitter: its instances' prototype has an emitter's methods, which
+/// find the emitter the instance is.
+template <class Emitter>
+void defineEmitterPrototype(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
+  Convert<Ref<Emitter>>::proto(rt, host, proto);
+}
 
 }  // namespace lucent::js

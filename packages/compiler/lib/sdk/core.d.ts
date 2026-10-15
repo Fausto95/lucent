@@ -169,6 +169,12 @@ export interface EventSubscription {
  * An EventEmitter crosses to JavaScript as the same object each time,
  * with the same methods.
  *
+ * A class can extend it, as Expo's shared objects do. Each instance of
+ * `class Player extends EventEmitter<PlayerEvents>` sends those events, in
+ * Lucent and in JavaScript, and has the class's fields and methods. Its
+ * constructor calls `super()` without arguments, and it declares no
+ * member named like an EventEmitter's.
+ *
  * A JavaScript listener is a callback Lucent holds. During a synchronous
  * call from JavaScript it runs at once. From anywhere else it is posted to
  * the JS thread, with copies of its arguments.

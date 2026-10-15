@@ -182,7 +182,7 @@ export const Explanations: Record<Code, Explanation> = {
   LUCENT1005: {
     title: "Unsupported class feature",
     summary:
-      "A class feature outside the subset: extending a built-in other than `Error`, an override with another native signature, a static block or a decorator.",
+      "A class feature outside the subset: extending a built-in other than `Error` and `EventEmitter`, an override with another native signature, a static block or a decorator.",
     details:
       "Classes compile to C++ classes, so a subclass of `Map` or `Array` would inherit the runtime's container internals. An override whose parameters or result differ from the base method's can't share its native slot. A decorator runs when the class is defined and may replace the class or member it decorates, which a compiled class can't be.",
     fix: "hold the built-in in a field instead of extending it, and keep overrides' signatures the same as the base method's. Initialize statics in their declarations, and call decorators yourself",

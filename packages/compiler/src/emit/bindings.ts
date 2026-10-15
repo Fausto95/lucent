@@ -67,6 +67,8 @@ export class BindingsEmitter {
         this.classes.add(t.id);
         for (const m of publicMembers(this.ctx, info))
           for (const ty of m.types) this.use(ty, m.node);
+        // Extending EventEmitter: JavaScript adds listeners, and emits.
+        if (info.emitter) this.use(info.emitter, node);
         // A base-typed value may hold any subclass, and a subclass's prototype
         // extends its base's.
         if (info.base) this.use({ k: "class", id: info.base.id, args: [] }, node);
@@ -263,7 +265,9 @@ export class BindingsEmitter {
     const key = `C:${id}`;
     if (this.flows.has(key)) return;
     this.flows.add(key);
-    for (const m of publicMembers(this.ctx, this.reg.cls(id))) this.memberFlow(m);
+    const info = this.reg.cls(id);
+    for (const m of publicMembers(this.ctx, info)) this.memberFlow(m);
+    if (info.emitter) this.flow(info.emitter, true, info.decl);
   }
 
   /** JavaScript calls a method, or reads (and writes, if writable) a property. */
@@ -673,6 +677,18 @@ export class BindingsEmitter {
       // An Error subclass's instances are Errors; members it declares come after.
       ...(info.isError && !info.base
         ? [cpp.exprStmt(cpp.call("defineErrorPrototype", [rt, cpp.id("host"), proto]))]
+        : []),
+      // Extending EventEmitter: an emitter's addListener, emit, listenerCount and removeAllListeners.
+      ...(info.emitter
+        ? [
+            cpp.exprStmt(
+              cpp.call(
+                "defineEmitterPrototype",
+                [rt, cpp.id("host"), proto],
+                [this.reg.cppEmitterType(info.emitter)],
+              ),
+            ),
+          ]
         : []),
       ...publicMembers(this.ctx, info).map((m) =>
         this.defineMember(

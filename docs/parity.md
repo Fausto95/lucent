@@ -26,7 +26,7 @@ each system lets an author do, not how it does it.
 | Memory pressure hint to the GC      | ✅ `memorySize`         | ✅ `getAdditionalMemoryPressure` | ✅ `NativeSized`, `NativeBuffer`                       | —                     |
 | Objects shared across packages      | ✅                      | ✅ `SharedRef`                   | ✅ between Lucent packages                             | —                     |
 | Events to JS                        | Callbacks only          | ✅ `Events`, `sendEvent`         | ✅ `EventEmitter`                                      | —                     |
-| Events on a native object           | Callbacks only          | ✅ a `SharedObject` emits        | 🟡 an `EventEmitter` field, not a subclass             | [T113](tasks.md#t113) |
+| Events on a native object           | Callbacks only          | ✅ a `SharedObject` emits        | ✅ a class that extends `EventEmitter`                 | [T113](tasks.md#t113) |
 | Knowing when JS starts listening    | —                       | ✅ `OnStartObserving`            | ✅ `onObserved`                                        | —                     |
 | Module create and destroy hooks     | Constructor, `dispose`  | ✅ `OnCreate`, `OnDestroy`       | ✅ top-level code, `onDestroy`                         | —                     |
 | A module of the app itself (inline) | ✅ in the app's project | 🟡 inline modules (experimental) | 🟡 sources yes; native needs only from packages        | [T111](tasks.md#t111) |

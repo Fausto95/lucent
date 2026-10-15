@@ -99,8 +99,6 @@ generated from this file.
   value gives its `yield` the type's default. An object throws
   `TypeError`. A step's value after the result was reported is the same.
 - Decorators give `LUCENT1005`, and default exports `LUCENT3003`.
-- A class can't extend `EventEmitter` (`LUCENT1005`): hold one in a field
-  instead ([T113](tasks.md#t113)).
 - On object types, `Object.keys`, `values` and `entries` are refused, and
   so are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`).
 - `new Array(n)` needs a whole `.fill(v)`, even when each index is then
