@@ -412,11 +412,13 @@ describe("native package", () => {
     expect(podspec.match(/s\.dependency "WidgetsPod"/g)).toHaveLength(1);
   });
 
-  it("builds the Swift shims into the pod when the program calls Swift-only members", () => {
+  it("builds Swift into the pod when it has any: the Swift shims, or the exports' Swift API", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
     const src = path.join(dir, "sample.lucent.ts");
-    fs.writeFileSync(src, "export function one(): number { return 1; }");
+    // No entry, so no Swift API: an object crosses no entry.
+    fs.writeFileSync(src, "export function one(o: { a: number }): number { return o.a; }");
     const plain = compile([src]);
+    expect(plain.files.has("LucentExports.swift")).toBe(false);
     writeNativePackage(plain, path.join(dir, "plain"));
     const podspec = (out: string) =>
       fs.readFileSync(path.join(dir, out, "LucentNative.podspec"), "utf8");
@@ -425,14 +427,28 @@ describe("native package", () => {
     writeNativePackage({ ...plain, files }, path.join(dir, "shims"));
     expect(podspec("shims")).toMatch(/s\.source_files\s*=.*\bswift\b/);
     expect(podspec("shims")).toMatch(/s\.swift_version\s*=\s*"5\.\d+"/);
-    // Its C++ headers stay out of the module Swift sees (it has no C++ interop): its one
-    // public header is what the app's delegates call, for plain and Swift pods alike.
-    for (const out of ["plain", "shims"])
-      expect(podspec(out)).toMatch(
-        /s\.public_header_files\s*=\s*"cpp\/lucent\/platform\/LucentAppDelegate\.h"/,
+    expect(fs.existsSync(path.join(dir, "shims/cpp/generated/ios/LucentShims.swift"))).toBe(true);
+
+    fs.writeFileSync(src, "export function one(): number { return 1; }");
+    const api = compile([src]);
+    writeNativePackage(api, path.join(dir, "api"));
+    expect(podspec("api")).toMatch(/s\.swift_version\s*=\s*"5\.\d+"/);
+    expect(fs.existsSync(path.join(dir, "api/cpp/generated/LucentExports.swift"))).toBe(true);
+
+    // Its C++ headers stay out of the module Swift sees (it has no C++ interop): its public
+    // headers are C, what the app's delegates call and the entries, for plain and Swift pods.
+    for (const out of ["plain", "shims", "api"])
+      expect(podspec(out)).toContain(
+        's.public_header_files = ["cpp/lucent/platform/LucentAppDelegate.h", "cpp/lucent/entry_types.h", "cpp/generated/lucent_entries.h"]',
       );
     expect(podspec("plain")).toContain('"DEFINES_MODULE" => "YES"');
-    expect(fs.existsSync(path.join(dir, "shims/cpp/generated/ios/LucentShims.swift"))).toBe(true);
+
+    // A program compiled for each platform has iOS's entries in generated/ios/.
+    const perTarget = new Map([...api.files].map(([k, v]) => [`ios/${k}`, v]));
+    writeNativePackage({ ...api, files: perTarget }, path.join(dir, "targets"));
+    expect(podspec("targets")).toContain(
+      '"cpp/lucent/entry_types.h", "cpp/generated/ios/lucent_entries.h"]',
+    );
   });
 
   it("builds the Kotlin shims into the Android library when the program calls through them", () => {

@@ -327,7 +327,8 @@ export const limitations: { title: string; items: string[] }[] = [
       "An Android app with product flavors binds the libraries of its first debug variant by name. A library only another flavor depends on can't be bound.",
       "Typed extensions are C only: C++ headers, callbacks and cancellation are not supported yet ([T142](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t142)).",
       "A package's Kotlin and Java sources are compiled but not typed in Lucent. Its Swift sources are, as `lucent:ios/LucentNative` ([T143](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t143)).",
-      "Tracing records allocations for native buffers only, and its buffer uses one mutex: fine for debugging, not for continuous production use."
+      "Tracing records allocations for native buffers only, and its buffer uses one mutex: fine for debugging, not for continuous production use.",
+      "Swift calling a module's exports gets a record as a `Dictionary`, which keeps no key order ([T114](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t114))."
     ]
   }
 ];

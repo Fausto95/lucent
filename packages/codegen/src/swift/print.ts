@@ -236,6 +236,8 @@ function stmt(s: Stmt, indent: string): string[] {
       return [`${indent}if case ${s.pattern} = ${e(s.value)} {`, ...inner(s.body), `${indent}}`];
     case "guard":
       return [`${indent}guard ${e(s.test)} else {`, ...inner(s.orElse), `${indent}}`];
+    case "defer":
+      return [`${indent}defer {`, ...inner(s.body), `${indent}}`];
     case "do":
       return [
         `${indent}do {`,
@@ -290,7 +292,7 @@ function member(m: Member, indent: string): string[] {
       ];
     case "init":
       return [
-        `${indent}${mods(m.modifiers)}init(${params(m.params)}) {`,
+        `${indent}${mods(m.modifiers)}init(${params(m.params)})${m.effects?.length ? ` ${m.effects.join(" ")}` : ""} {`,
         ...block(m.body, indent + INDENT),
         `${indent}}`,
       ];
@@ -325,9 +327,29 @@ function member(m: Member, indent: string): string[] {
     }
     case "typealias":
       return [`${indent}typealias ${m.name} = ${printType(m.type)}`];
+    case "type":
+      return typeDecl(m.decl, indent);
     case "func":
       return func({ ...m, k: "func" }, indent);
   }
+}
+
+/** A class, struct or enum at `indent`: its stored properties together, then a blank line before each other member. */
+function typeDecl(d: Decl & { k: "class" | "struct" | "enum" }, indent: string): string[] {
+  const tps = d.k === "class" && d.typeParams?.length ? `<${d.typeParams.join(", ")}>` : "";
+  const inherits = [
+    ...(d.k === "class" && d.superclass ? [d.superclass] : []),
+    ...(d.k !== "enum" ? (d.protocols ?? []) : []),
+  ];
+  const sup = inherits.length ? `: ${inherits.map(printType).join(", ")}` : "";
+  const body = d.members.flatMap((m, i) => [
+    ...(i &&
+    (m.k === "init" || m.k === "deinit" || m.k === "func" || m.k === "property" || m.k === "type")
+      ? [""]
+      : []),
+    ...member(m, indent + INDENT),
+  ]);
+  return [`${indent}${mods(d.modifiers)}${d.k} ${d.name}${tps}${sup} {`, ...body, `${indent}}`];
 }
 
 function decl(d: Decl): string[] {
@@ -341,22 +363,9 @@ function decl(d: Decl): string[] {
     case "func":
       return func(d, "");
     case "class":
-    case "struct": {
-      const tps = d.k === "class" && d.typeParams?.length ? `<${d.typeParams.join(", ")}>` : "";
-      const inherits = [
-        ...(d.k === "class" && d.superclass ? [d.superclass] : []),
-        ...(d.protocols ?? []),
-      ];
-      const sup = inherits.length ? `: ${inherits.map(printType).join(", ")}` : "";
-      // Stored properties together, then a blank line before each function or initializer.
-      const body = d.members.flatMap((m, i) => [
-        ...(i && (m.k === "init" || m.k === "deinit" || m.k === "func" || m.k === "property")
-          ? [""]
-          : []),
-        ...member(m, INDENT),
-      ]);
-      return [`${mods(d.modifiers)}${d.k} ${d.name}${tps}${sup} {`, ...body, "}"];
-    }
+    case "struct":
+    case "enum":
+      return typeDecl(d, "");
   }
 }
 

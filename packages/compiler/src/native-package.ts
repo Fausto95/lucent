@@ -371,6 +371,10 @@ export function writeNativePackage(
         native?.ios.deploymentTarget?.value,
         options.app?.deploymentTarget,
       ]),
+      // A program compiled for each platform writes iOS's entries in generated/ios/.
+      entriesHeader: result.files.has("ios/lucent_entries.h")
+        ? "cpp/generated/ios/lucent_entries.h"
+        : "cpp/generated/lucent_entries.h",
     }),
   );
 

@@ -87,6 +87,13 @@ extern "C" bool lucent_macro_names_Signal_HUGE(lucent_object self, lucent_error*
 #pragma pop_macro("howmany")
 #pragma pop_macro("HUGE")
 
+// The Swift API's (decision 0116): the wrapper an instance an entry gives is of.
+extern "C" const char* lucent_classof(lucent_object object) {
+  lucent::Object* o = object ? object->instance.get() : nullptr;
+  if (dynamic_cast<lucent_app::C_Signal*>(o)) return "macro-names.Signal";
+  return "";
+}
+
 // The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
 // Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
 #if __has_include(<jni.h>)

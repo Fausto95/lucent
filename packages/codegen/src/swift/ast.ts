@@ -78,6 +78,8 @@ export type Stmt =
   /** `if case let .circle(center, radius) = value { … }`: the pattern as written. */
   | { k: "ifCase"; pattern: string; value: Expr; body: Stmt[] }
   | { k: "guard"; test: Expr; orElse: Stmt[] }
+  /** `defer { … }`: run as the scope exits. */
+  | { k: "defer"; body: Stmt[] }
   | { k: "do"; body: Stmt[]; catchBody: Stmt[] }
   /** A local function: `func opened<S: P>(_ s: S) -> T { … }`. */
   | { k: "func"; decl: Decl & { k: "func" } }
@@ -97,7 +99,8 @@ export interface Param {
 
 export type Member =
   | { k: "var" | "let"; modifiers: string[]; name: string; type: Type; init?: Expr }
-  | { k: "init"; modifiers: string[]; params: Param[]; body: Stmt[] }
+  /** `effects`: `throws`. */
+  | { k: "init"; modifiers: string[]; params: Param[]; body: Stmt[]; effects?: string[] }
   | { k: "deinit"; body: Stmt[] }
   /**
    * A computed property: its getter's body alone, or a getter and a setter
@@ -113,6 +116,8 @@ export type Member =
       effects?: string[];
     }
   | { k: "typealias"; name: string; type: Type }
+  /** A nested type: a class in an enum's namespace. */
+  | { k: "type"; decl: Decl & { k: "class" | "struct" | "enum" } }
   | (Omit<Decl & { k: "func" }, "k"> & { k: "func" });
 
 export type Decl =
@@ -148,6 +153,8 @@ export type Decl =
       protocols?: Type[];
       members: Member[];
     }
+  /** A caseless enum: a namespace of static members and nested types. */
+  | { k: "enum"; name: string; modifiers: string[]; members: Member[] }
   | { k: "comment"; text: string }
   /**
    * Declarations written out as Swift source, for the fixed helpers a

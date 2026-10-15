@@ -60,6 +60,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT3014`](#lucent3014) | A Lucent package whose `lucent.compatible` range in package.json leaves out the Lucent that compiles it. |
 | [`LUCENT3015`](#lucent3015) | A Lucent package's lucent.json lists a module in `launch` that the package doesn't have. |
 | [`LUCENT3016`](#lucent3016) (warning) | Two exported functions whose native entry points, `lucent_<module>_<export>`, come out with the same name. |
+| [`LUCENT3017`](#lucent3017) (warning) | Two modules whose Swift names come out the same, or a module whose Swift name is one of the Swift API's own. |
 | [`LUCENT3020`](#lucent3020) | An exported `.lucent.tsx` function that returns a view but cannot be a component, or Lucent code calling a component. |
 | [`LUCENT3021`](#lucent3021) | A component prop, event or ref command whose type views cannot carry, or whose name React or the host keeps. |
 | [`LUCENT3022`](#lucent3022) | A component's setup, or a function it creates, using module state, code the compiler cannot follow, or native code unfit for the main thread. |
@@ -1388,6 +1389,53 @@ export function c(): number {
 
 ```ts title="a.lucent.ts (right)"
 export function bc(): number {
+  return 2;
+}
+```
+
+</TabItem>
+</Tabs>
+
+### LUCENT3017
+
+**Modules with one Swift name** (a warning)
+
+Swift calls a module's exports through a `public enum` in the `LucentNative` module, named from its path in upper camel case (`lucent-sync/workers` is `LucentSyncWorkers`). Since `a_b` and `aB` both come out as `AB`, neither gets a Swift API, so a name never moves between them. A module named for one of the API's own types, such as `LucentError`, gets none either; its C entry points and Kotlin API stay.
+
+**Fix:** rename one of the modules, if Swift calls it.
+
+<Tabs>
+<TabItem label="✗ a_b.lucent.ts">
+
+```ts title="a_b.lucent.ts (wrong)"
+export function c(): number {
+  return 1;
+}
+```
+
+</TabItem>
+<TabItem label="✗ aB.lucent.ts">
+
+```ts title="aB.lucent.ts (wrong)"
+export function d(): number {
+  return 2;
+}
+```
+
+</TabItem>
+<TabItem label="✓ a_b.lucent.ts">
+
+```ts title="a_b.lucent.ts (right)"
+export function c(): number {
+  return 1;
+}
+```
+
+</TabItem>
+<TabItem label="✓ other.lucent.ts">
+
+```ts title="other.lucent.ts (right)"
+export function d(): number {
   return 2;
 }
 ```

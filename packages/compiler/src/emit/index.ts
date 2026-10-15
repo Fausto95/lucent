@@ -35,6 +35,7 @@ import {
 import { javaSubclass, osMade } from "./java.ts";
 import { osConstructorParams, osFactory, settleOsNames } from "./os-classes.ts";
 import { kotlinExports } from "./kotlin-exports.ts";
+import { SWIFT_EXPORTS, swiftExports } from "./swift-exports.ts";
 import { kotlinFiles } from "./kotlin.ts";
 import { Ctx, type Global } from "./context.ts";
 import { initThroughIr, type IrMode, type IrUnit, throughIr } from "./through-ir.ts";
@@ -648,7 +649,22 @@ export function emitProgram(
   // Native entry points, and the modules' initializer they share with the bindings: JSI-free.
   const entries = ctx.guard(() => entriesOf(ctx, mods)) ?? [];
   const launched = new Set(currentCompile()?.launch ?? []);
-  files.set(ENTRIES_HEADER, entriesHeader(entries));
+  // For iOS (a shared program's code is iOS's too), the Swift API that calls them (decision 0116).
+  const swiftApi =
+    ctx.platform === "ios" || ctx.platform === undefined ? swiftExports(entries) : undefined;
+  for (const clash of swiftApi?.clashes ?? []) {
+    const m = lp.modules.find((x) => x.name === clash.modules.at(-1));
+    if (m)
+      ctx.warn(
+        m.sourceFile,
+        Codes.SwiftNameClash,
+        clash.modules.length > 1
+          ? `modules ${clash.modules.join(" and ")} would have the same Swift name, ${clash.name}: neither gets a Swift API`
+          : `module ${clash.modules[0]} would have the Swift name ${clash.name}, which Lucent's Swift API uses: it gets none`,
+      );
+  }
+  if (swiftApi?.file) files.set(SWIFT_EXPORTS, swiftApi.file);
+  files.set(ENTRIES_HEADER, entriesHeader(entries, swiftApi?.header));
   const moduleHeaders = lp.modules.length
     ? lp.modules.map((m) => cpp.include(`${m.ns}.h`))
     : [cpp.include(INDEX_HEADER)];
@@ -682,7 +698,9 @@ export function emitProgram(
       entries,
       declared,
       lp.modules.map((m) => m.name).filter((name) => launched.has(name)),
-    ) + (exportsApi ? `\n${exportsApi.jni}` : ""),
+    ) +
+      (swiftApi?.cpp ? `\n${swiftApi.cpp}` : "") +
+      (exportsApi ? `\n${exportsApi.jni}` : ""),
   );
   files.set(
     "lucent_bindings.cpp",

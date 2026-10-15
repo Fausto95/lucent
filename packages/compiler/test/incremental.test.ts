@@ -29,6 +29,7 @@ describe("generated files for incremental native builds", () => {
   it("gives each module a header that includes only what it imports", () => {
     const files = build({ a, b, c });
     expect([...files.keys()].sort()).toEqual([
+      "LucentExports.swift",
       "lucent_app.h",
       "lucent_bindings.cpp",
       "lucent_entries.cpp",
@@ -63,8 +64,9 @@ describe("generated files for incremental native builds", () => {
       dir,
     );
     const changed = [...before.keys()].filter((k) => before.get(k) !== after.get(k)).sort();
-    // The new export has an entry point.
+    // The new export has an entry point, and Swift calls it.
     expect(changed).toEqual([
+      "LucentExports.swift",
       "lucent_bindings.cpp",
       "lucent_entries.cpp",
       "lucent_entries.h",
