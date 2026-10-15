@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import type { ResolvedNative } from "@lucent-lang/compiler";
 import { missingGradlePlugins } from "../src/cli/project.ts";
+import { runLucent } from "./run-to-exit.ts";
 
 /*
  * The Gradle plugins Lucent packages need (lucent.json's
@@ -91,4 +92,30 @@ describe("the Gradle plugins a bare app's build lacks", () => {
     const root = bareApp({ "build.gradle": PROJECT, "app/build.gradle": "" });
     expect(missingGradlePlugins(root, { android: {} } as ResolvedNative)).toEqual([]);
   });
+});
+
+describe("lucent build", () => {
+  it("names them, but not in prebuild, where the Expo config plugin adds them next", () => {
+    const root = bareApp({ "build.gradle": PROJECT, "app/build.gradle": "" });
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app" }));
+    fs.writeFileSync(
+      path.join(root, "lucent.json"),
+      JSON.stringify({
+        android: { gradlePlugins: { [SERVICES]: "com.google.gms:google-services:4.4.2" } },
+      }),
+    );
+    fs.writeFileSync(path.join(root, "a.lucent.ts"), "export const one = 1;\n");
+    const build = (env: NodeJS.ProcessEnv = {}) => {
+      const r = runLucent(["build", "--platforms", "host", "--root", root], {
+        env: { ...process.env, NO_COLOR: "1", ...env },
+      });
+      expect(r.status).toBe(0);
+      return r.stdout + r.stderr;
+    };
+
+    expect(build()).toContain(`app needs the Gradle plugin ${SERVICES} applied in`);
+    expect(build({ LUCENT_PREBUILD: "1", LUCENT_NO_GRADLE: "1" })).not.toContain(
+      "needs the Gradle plugin",
+    );
+  }, 300_000);
 });

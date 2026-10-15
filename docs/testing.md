@@ -304,6 +304,15 @@ React Native's template (0.85 to 0.87), Expo from `create-expo-app`'s
 `App.tsx` that checks them. Then it runs `lucent doctor` and `lucent
 build`, and the platform's Release build for the simulator or Android.
 
+The app depends on a local Lucent package, `lucent-window-kit`, whose
+`lucent.json` declares a pod and a piece of each kind of native
+configuration: a privacy manifest, `<queries>`, a feature, meta-data an
+option fills (the app's own `lucent.json` sets it) and Google's Gradle
+plugin. A bare app adds the Gradle lines `lucent build` names, as its
+developer would; an Expo app's config plugin adds them. After the build,
+the check finds each piece in the merged manifest, the plugin's
+resources or the app's privacy bundle.
+
 `--check` runs that build with `device-check.ts`: on the simulator it
 boots, or on the emulator already running. The app calls the scaffolded
 modules, mounts the scaffolded component and a probe that answers

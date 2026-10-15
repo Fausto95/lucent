@@ -85,6 +85,41 @@ export function appIdentity(
 /** The pod a Lucent package of the app declares (packageFiles), which binds once installed. */
 export const PACKAGE_POD = "LucentWindowKit";
 
+/** The meta-data the package puts on the app's `<application>`, whose value is an option's. */
+export const META_DATA = "dev.lucent.window.KEY";
+
+/** What the app's own lucent.json sets the package's option to. */
+export const OPTION_VALUE = "set-by-the-app";
+
+/** The Gradle plugin the package needs, and the artifact that has it. */
+export const GRADLE_PLUGIN = [
+  "com.google.gms.google-services",
+  "com.google.gms:google-services:4.4.2",
+] as const;
+
+/**
+ * The package's lucent.json: a pod, and a piece of each kind of native
+ * configuration (T115) the app's build takes with no step of its own, or,
+ * in a bare app, the one `lucent build` names: a privacy manifest, the apps
+ * it queries, a feature it doesn't require, meta-data its option fills,
+ * and a Gradle plugin.
+ */
+export function packageConfiguration(): object {
+  return {
+    options: { key: { description: "the key the window check reads", default: "the default" } },
+    ios: {
+      pods: { [PACKAGE_POD]: "~> 1.0" },
+      privacy: { accessedAPIs: { NSPrivacyAccessedAPICategoryUserDefaults: ["CA92.1"] } },
+    },
+    android: {
+      queries: { packages: ["com.android.chrome"] },
+      features: { "android.hardware.camera": false },
+      metaData: { [META_DATA]: "{{key}}" },
+      gradlePlugins: { [GRADLE_PLUGIN[0]]: GRADLE_PLUGIN[1] },
+    },
+  };
+}
+
 /**
  * A Lucent package the app depends on, as one from npm would be, whose
  * lucent.json declares a pod: an Objective-C class whose module its iOS
@@ -99,7 +134,9 @@ export function packageFiles(): Record<string, string> {
       null,
       2,
     )}\n`,
-    "packages/lucent-window-kit/lucent.json": `${JSON.stringify({ ios: { pods: { [PACKAGE_POD]: "~> 1.0" } } }, null, 2)}\n`,
+    "packages/lucent-window-kit/lucent.json": `${JSON.stringify(packageConfiguration(), null, 2)}\n`,
+    // The app's own lucent.json sets the package's option.
+    "lucent.json": `${JSON.stringify({ packages: { "lucent-window-kit": { key: OPTION_VALUE } } }, null, 2)}\n`,
     "packages/lucent-window-kit/src/kit.lucent.ts": `// What the package's pod answers on iOS, through the module its Objective-C class is in.
 import { PLATFORM } from "lucent:platform";
 import { LWKAnswer } from "lucent:ios/${PACKAGE_POD}";
@@ -138,6 +175,138 @@ end
 @end
 `,
   };
+}
+
+/**
+ * The google-services.json Google's Gradle plugin reads, for the app's
+ * package: a project of no service, so the plugin only writes its
+ * resources.
+ */
+export function googleServices(packageName: string): string {
+  const client = {
+    client_info: {
+      mobilesdk_app_id: "1:000000000000:android:0000000000000000",
+      android_client_info: { package_name: packageName },
+    },
+    oauth_client: [],
+    api_key: [{ current_key: "lucent-window-check" }],
+    services: { appinvite_service: { other_platform_oauth_client: [] } },
+  };
+  return `${JSON.stringify(
+    {
+      project_info: {
+        project_number: "000000000000",
+        project_id: "lucent-window",
+        storage_bucket: "lucent-window.appspot.com",
+      },
+      client: [client],
+      configuration_version: "1",
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+/**
+ * The lines `lucent build` named a bare app's Gradle files lack (its
+ * output), added as the app's developer adds them: a classpath line in the
+ * project's buildscript dependencies, an apply line at the end of the
+ * app's build. The files it changed, from the app.
+ */
+export function addNamedGradleLines(dir: string, output: string): string[] {
+  const changed = new Set<string>();
+  const edit = (file: string, change: (text: string) => string) => {
+    const at = path.join(dir, file);
+    fs.writeFileSync(at, change(fs.readFileSync(at, "utf8")));
+    changed.add(file);
+  };
+
+  for (const [, file, line] of output.matchAll(
+    / on the buildscript classpath in (\S+): (classpath\("[^"]+"\))/g,
+  ))
+    edit(file!, (text) => {
+      const block = /buildscript\s*\{[\s\S]*?\bdependencies\s*\{[^\n]*\n/.exec(text);
+      if (!block) throw new Error(`${file} has no buildscript dependencies`);
+      const at = block.index + block[0].length;
+      return `${text.slice(0, at)}        ${line}\n${text.slice(at)}`;
+    });
+  for (const [, file, line] of output.matchAll(
+    / applied in (\S+): (apply plugin: "[^"]+"|apply\(plugin = "[^"]+"\))/g,
+  ))
+    edit(file!, (text) => `${text.replace(/\n*$/, "\n")}${line}\n`);
+
+  return [...changed];
+}
+
+/**
+ * What the Android build lacks of the package's configuration: its merged
+ * manifest's queries, feature and meta-data (the app's option), and the
+ * resources Google's plugin writes. Empty when it has them all.
+ */
+export function androidConfigurationGaps(manifest: string, resources: string): string[] {
+  const gaps: string[] = [];
+  if (!/<queries>[\s\S]*?android:name="com\.android\.chrome"[\s\S]*?<\/queries>/.test(manifest))
+    gaps.push("the merged manifest queries no com.android.chrome");
+  if (
+    !/<uses-feature\s+android:name="android\.hardware\.camera"\s+android:required="false"/.test(
+      manifest,
+    )
+  )
+    gaps.push("the merged manifest has no android.hardware.camera feature, not required");
+  const metaData = [...manifest.matchAll(/<meta-data\b[^>]*>/g)].map((m) => m[0]);
+  if (
+    !metaData.some(
+      (tag) =>
+        tag.includes(`android:name="${META_DATA}"`) &&
+        tag.includes(`android:value="${OPTION_VALUE}"`),
+    )
+  )
+    gaps.push(`the merged manifest has no ${META_DATA} meta-data of ${OPTION_VALUE}`);
+  if (!resources.includes('name="google_app_id"'))
+    gaps.push(`${GRADLE_PLUGIN[0]} wrote no google_app_id: the app's build does not apply it`);
+  return gaps;
+}
+
+/** Each file under `dir` whose path from it matches `pattern`. */
+function filesUnder(dir: string, pattern: RegExp): string[] {
+  if (!fs.existsSync(dir)) return [];
+  return (fs.readdirSync(dir, { recursive: true }) as string[])
+    .filter((f) => pattern.test(f.split(path.sep).join("/")))
+    .map((f) => path.join(dir, f));
+}
+
+/** Fails the run for configuration the Release build lacks (androidConfigurationGaps, the iOS privacy manifest). */
+function checkConfiguration(dir: string, app: AppKind, platform: Platform): void {
+  if (platform === "ios") {
+    const bundle = filesUnder(
+      appIdentity(app, dir).ios,
+      /(^|\/)LucentNative_privacy\.bundle\/PrivacyInfo\.xcprivacy$/,
+    );
+    const text = bundle[0] && fs.readFileSync(bundle[0], "utf8");
+    if (!text?.includes("NSPrivacyAccessedAPICategoryUserDefaults"))
+      throw new Error(
+        "the app has no LucentNative_privacy.bundle with the package's privacy manifest",
+      );
+    console.log(
+      `• the package's privacy manifest is in the app (${path.relative(dir, bundle[0]!)})`,
+    );
+    return;
+  }
+
+  const build = path.join(dir, "android/app/build");
+  const manifest = filesUnder(
+    path.join(build, "intermediates"),
+    /merged_manifests?\/release\/(.*\/)?AndroidManifest\.xml$/,
+  )[0];
+  // Where Google's plugin writes its values.xml depends on its version.
+  const resources = filesUnder(path.join(build, "generated/res"), /(^|\/)values\.xml$/).map((f) =>
+    fs.readFileSync(f, "utf8"),
+  );
+  if (!manifest) throw new Error(`no merged release manifest under ${build}/intermediates`);
+  const gaps = androidConfigurationGaps(fs.readFileSync(manifest, "utf8"), resources.join("\n"));
+  if (gaps.length)
+    throw new Error(`the Android build lacks the package's configuration:\n${gaps.join("\n")}`);
+  console.log("• the package's queries, feature, meta-data and Gradle plugin are in the build");
 }
 
 /** The Podfile with the package's pod installed from its path, in the app's target. */
@@ -447,13 +616,28 @@ function buildNative(dir: string, app: AppKind, platform: Platform): void {
       ios,
     );
   } else {
-    sh("npx", ["lucent", "build", "--platforms", "android"], dir);
+    fs.writeFileSync(
+      path.join(dir, "android/app/google-services.json"),
+      googleServices(appIdentity(app, dir).androidId),
+    );
+    const out = sh("npx", ["lucent", "build", "--platforms", "android"], dir, { NO_COLOR: "1" });
+    console.log(out.trimEnd());
+    // A bare app adds the Gradle lines lucent build names; an Expo app's config plugin did.
+    const added = app === "bare" ? addNamedGradleLines(dir, out) : [];
+    if (app === "expo" && / on the buildscript classpath in | applied in android\//.test(out))
+      throw new Error("lucent build names Gradle lines the Expo config plugin should have added");
+    if (app === "bare" && !added.length)
+      throw new Error("lucent build named no Gradle line for the package's plugin");
+    if (added.length)
+      console.log(`• added the Gradle lines lucent build named to ${added.join(", ")}`);
     sh(
       "./gradlew",
       ["assembleRelease", "-PreactNativeArchitectures=x86_64", "--no-daemon"],
       path.join(dir, "android"),
     );
   }
+
+  checkConfiguration(dir, app, platform);
 }
 
 if (import.meta.main) {

@@ -796,9 +796,12 @@ export async function buildProject(
     status: "ok",
     detail: path.relative(root, outDir) || ".",
   });
-  for (const n of missingAppEntries(root, native.manifest)) notify(n);
-  for (const n of missingMainActivity(root, native.manifest)) notify(n);
-  for (const n of missingGradlePlugins(root, native.manifest)) notify(n);
+  // The Expo config plugin's build, in prebuild: the plugin writes these into the app's files next.
+  if (process.env.LUCENT_PREBUILD !== "1") {
+    for (const n of missingAppEntries(root, native.manifest)) notify(n);
+    for (const n of missingMainActivity(root, native.manifest)) notify(n);
+    for (const n of missingGradlePlugins(root, native.manifest)) notify(n);
+  }
   for (const n of missingDelegateForwards(
     root,
     result.appDelegateEvents ?? [],

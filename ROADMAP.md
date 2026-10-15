@@ -108,7 +108,7 @@ Goal: Call the iOS and Android SDKs, and the libraries an app links, directly fr
 - ✅ Opened URLs, push tokens, notifications and back presses, from the app delegate and Activity.
 - 🚧 Platform memory as JavaScript bytes without a copy, done for Android's `ByteBuffer`.
 - ✅ Native needs declared by the app's own modules, and options a package leaves to the app.
-- 🚧 Privacy manifests, Android `<queries>` and Gradle plugins, declared by packages; a fixture app build is next.
+- 🚧 Privacy manifests, Android `<queries>` and Gradle plugins, declared by packages; the nightly fresh apps build them next.
 - 🔭 C++ libraries, and a package's own Kotlin and Java, typed in Lucent.
 - 🔭 Swift, Kotlin and C++ that call Lucent modules.
 
