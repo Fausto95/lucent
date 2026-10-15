@@ -6,6 +6,7 @@
 
 #include "android.h"
 #include "../entries.h"
+#include "../view.h"
 
 #ifdef __ANDROID__
 #include <dlfcn.h>
@@ -1065,11 +1066,21 @@ HostViewEntry::HostViewEntry(jobject view) : outer_(hostingView) { hostingView =
 HostViewEntry::~HostViewEntry() { hostingView = outer_; }
 
 Opt<NativeRef> hostContext() {
-  if (!hostingView) return Opt<NativeRef>(null);
-
   JNIEnv* e = env();
-  static jmethodID getContext = method(findClass("android/view/View"), "getContext", "()Landroid/content/Context;");
-  jobject context = e->CallObjectMethod(hostingView, getContext);
+  jobject view = hostingView;
+  // Kept while the call runs: the mount's content may drop its root.
+  NativeRef root;
+
+  // Outside its host's calls (a callback its setup made, run later), a
+  // mount's code makes views for the root its setup returned (T125).
+  if (!view) {
+    if (auto content = ui::activeContent().lock()) root = content->root();
+    if (!root || !e->IsInstanceOf(unwrap(root), LUCENT_JNI_CLASS("android/view/View"))) return Opt<NativeRef>(null);
+    view = unwrap(root);
+  }
+
+  static jmethodID getContext = method(LUCENT_JNI_CLASS("android/view/View"), "getContext", "()Landroid/content/Context;");
+  jobject context = e->CallObjectMethod(view, getContext);
 
   check(e);
   return wrapOpt(e, context);

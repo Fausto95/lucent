@@ -344,6 +344,8 @@ jlong update(JNIEnv* env, jclass, jlong handle, jobject view, jstring name, jint
     // The commit, whole, to the mount: setup does not run again.
     guarded("a component's update", [&] {
       ui::ContentEntry entry(host->sizing.content());
+      // What the update makes takes the shell's context, as setup's did (T125).
+      jni::HostViewEntry hosting(view);
 
       host->mounted->update(*host->committed, *previous);
     });
@@ -429,6 +431,8 @@ void command(JNIEnv* env, jclass, jlong handle, jstring name, jobject args) {
 
   guarded("a component's command", [&] {
     ui::ContentEntry entry(host->sizing.content());
+    jni::LocalFrame frame(env);
+    jni::HostViewEntry hosting(env->NewLocalRef(host->view));
 
     host->mounted->command(sent, arguments, requester);
   });

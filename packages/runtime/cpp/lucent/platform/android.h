@@ -564,9 +564,11 @@ Promise<T> launch(Opt<AbortSignal> signal, const char* what, const std::function
 /// `appContext()` from lucent:android: the Application.
 NativeRef appContext();
 
-/// The context of the view hosting the mount whose setup runs now on this
-/// thread (the Activity's, as React Native themes its views), or null
-/// outside any setup.
+/// The context of the view hosting the mount whose code its host runs now
+/// on this thread (the Activity's, as React Native themes its views): in a
+/// HostViewEntry, the hosting view's; else, in the mount's content
+/// (ui::ContentEntry, as a callback its setup made runs), its root view's.
+/// Null outside any mount, or for a root that is not a view (a Fragment).
 Opt<NativeRef> hostContext();
 
 /// Installs the view tree a debug build's snapshot shows (android_debug.cpp): the host's to call.
@@ -579,9 +581,9 @@ inline NativeRef viewContext() {
 }
 
 /**
- * While one lives, `view` (a local reference) hosts the mount whose setup
+ * While one lives, `view` (a local reference) hosts the mount whose code
  * runs on this thread, and hostContext() is its context: the Android host
- * of components holds one around each setup. Nests.
+ * of components holds one around each setup, update and command. Nests.
  */
 class HostViewEntry {
  public:

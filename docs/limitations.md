@@ -32,8 +32,8 @@ generated from this file.
   and on Android when it asks for no layout. Locale isn't an input of a
   measurement.
 - Android's component shell doesn't draw React Native's borders. Views
-  made after setup get `appContext()`, not the hosting view's themed
-  context ([T125](tasks.md#t125)).
+  made after setup take the hosting view's themed context on a desktop
+  JVM, not yet run on the emulator ([T125](tasks.md#t125)).
 - A slot inside a native scroll view doesn't scroll with it. Transforms
   between the host and a slot are ignored, and `removeClippedSubviews`
   doesn't apply to slots.

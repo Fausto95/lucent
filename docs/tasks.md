@@ -46,8 +46,8 @@ what became of each one that is still linked or was still open.
 | [T121](#t121)            | React Native's view props, refs and view libraries         | done (2026-10-14)                                       |
 | [T122](#t122)            | UIKit components with a view-controller root               | in progress (#324, #325)                                |
 | [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | ready                                                   |
-| [T124](#t124)            | A component's ref as a module function's argument          | in progress (#326)                                      |
-| [T125](#t125)            | Android views made after setup keep the Activity's context | ready                                                   |
+| [T124](#t124)            | A component's ref as a module function's argument          | in progress (#326 merged)                               |
+| [T125](#t125)            | Android views made after setup keep the Activity's context | in progress (#327)                                      |
 | **Execution modes**      |                                                            |                                                         |
 | [T130](#t130)            | A native root: module code with no JavaScript runtime      | done (2026-10-13)                                       |
 | [T131](#t131)            | Android classes the OS instantiates, written in Lucent     | done (2026-10-14)                                       |
@@ -1061,21 +1061,26 @@ APIs need.
 **Goal:** A native-JSX view made on a later commit (a list item, a branch
 shown later) gets the same themed context as the views made at setup.
 
-- **Status:** ready.
+- **Status:** in progress (#327): runs on a desktop JVM; the emulator
+  check remains.
 - **Area:** views, Android host.
 - **Needs:** nothing.
 - **Verify:** V1, V4, V5.
 - **Where:** `rn/LucentViewsAndroid.cpp`, `platform/android.h`,
   `emit/native.ts`.
 
-Only setup runs inside a `HostViewEntry` (`LucentViewsAndroid.cpp`), so
-views made during an update or a command fall back to `appContext()`, lose
-the Activity's theme, and one list can mix contexts. Found by reading the
-code; first confirm it with a test.
+Only setup ran inside a `HostViewEntry` (`LucentViewsAndroid.cpp`), so
+views made during an update or a command fell back to `appContext()`, lost
+the Activity's theme, and one list could mix contexts. Found by reading the
+code; confirmed by a test first.
 
-- [ ] A failing test: a list item added after setup has the Activity's
+- [x] A failing test (`runtime/test/jni/jni_test.cpp`, on a desktop JVM):
+      code a mount runs in its content, outside its host's calls, gets no
+      context. It now gets its root view's.
+- [x] Updates and commands run inside the view's entry, as setup does;
+      callbacks the setup made take the root view's context.
+- [ ] On the emulator: a list item added after setup has the Activity's
       themed context.
-- [ ] Updates and commands run inside the view's entry, as setup does.
 
 **Done when:** the test passes on the emulator.
 
