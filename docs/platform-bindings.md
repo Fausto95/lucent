@@ -604,7 +604,10 @@ initializer the call resolves to, and the implicit constructor with the
 one without arguments. Methods named like the base's override them, run
 while the caller waits (before `super(…)` returns, the base's run).
 `super.name(…)` calls the base's implementation, and the subclass adopts
-the class's Objective-C protocols.
+the class's Objective-C protocols. Accessors override the base's
+properties the same way, an iOS class declaring its properties as
+accessors; `super.name` reads and writes the base's
+([0112](decisions/0112-an-ios-classs-properties-are-accessors-a-subclass-overrides.md)).
 
 The native object holds the Lucent object, and each Lucent reference holds
 the native object (an aliasing reference), so neither outlives the other
@@ -628,7 +631,7 @@ exported class is `dev.lucent.app.<module>.<Class>`, which the OS makes
 | Swift classes (subclass them in Swift)              | A base without a public constructor taking no arguments                          |
 | Extending a Lucent class that extends an iOS class  | `super(…)` with arguments, but an exported class's own                           |
 | A field named like a base property (set it instead) | `super.name` but called, and `super.name(…)` via Kotlin                          |
-| Overriding a base property with accessors           | Overriding a method whose JVM name Java cannot write                             |
+| A setter for a read-only property                   | Overriding a method whose JVM name Java cannot write                             |
 | Overriding a Swift member                           | Overriding a Kotlin class's members that take value classes or suspend functions |
 | Generic classes; protocols (implement them)         | Interfaces (implement them)                                                      |
 

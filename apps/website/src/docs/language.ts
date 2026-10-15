@@ -793,6 +793,13 @@ export const differences: { title: string; rows: Difference[] }[] = [
         why: "A static field is one native variable, on the class that declares it.",
         cases: ["exported-statics"],
       },
+      {
+        js: "A getter alone overriding a getter and setter leaves the subclass with no setter, so assigning the property throws a `TypeError`.",
+        lucent:
+          "A subclass of an iOS class keeps its base's setter: assigning through the base's type writes the base's property. TypeScript makes the property read-only through the subclass's type.",
+        why: "The subclass is an Objective-C class, which inherits its base's setter.",
+        cases: [],
+      },
     ],
   },
 ];

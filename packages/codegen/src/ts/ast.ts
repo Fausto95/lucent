@@ -107,6 +107,11 @@ export type Member =
       optional?: boolean;
       /** What it takes when written, where that is more than `type`: a get and a set accessor. */
       set?: Type;
+      /**
+       * Declared as a get accessor (and a set accessor unless read-only), as a
+       * class whose subclasses may override it with accessors declares it.
+       */
+      accessor?: boolean;
       doc?: Doc;
     }
   | { k: "constructor"; params: Param[]; protected?: boolean; private?: boolean; doc?: Doc }

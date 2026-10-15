@@ -3259,7 +3259,12 @@ function outValue(em: FnEmitter, obj: E, node: ts.Node): E {
 const NS_OBJECT: LType = { k: "native", platform: "ios", module: "lucent:ios", name: "NSObject" };
 
 /** `obj.member` on an SDK object. */
-export function nativeMember(em: FnEmitter, obj: E, node: ts.Node): E {
+/**
+ * A property read on an SDK object. `superOf`, for `super.name` in a Lucent
+ * class overriding the property's getter: the generated Objective-C
+ * subclass, whose `lucentSuper_` getter calls the base's.
+ */
+export function nativeMember(em: FnEmitter, obj: E, node: ts.Node, superOf?: string): E {
   const name = ts.isPropertyAccessExpression(node) ? node.name : node;
   if (
     obj.t.k === "native" &&
@@ -3275,7 +3280,7 @@ export function nativeMember(em: FnEmitter, obj: E, node: ts.Node): E {
   if (!ref || !decl || !isSdkPropertyDecl(decl))
     fail(node, Codes.UnsupportedSyntax, "methods of platform objects must be called directly");
   const found = schemaProperty(ref, decl)!;
-  return readProperty(em, node, found.ref, found.property, obj);
+  return readProperty(em, node, found.ref, found.property, obj, superOf);
 }
 
 /** A property read: it calls the getter, so it needs the getter's permissions. */
@@ -3285,9 +3290,10 @@ function readProperty(
   ref: SdkClassRef,
   prop: SdkPropertySchema,
   obj: E | undefined,
+  superOf?: string,
 ): E {
   notePermissions(em, accessorOf(ref.cls, prop, "get"));
-  return property(em, node, ref, prop, obj);
+  return property(em, node, ref, prop, obj, superOf);
 }
 
 function property(
@@ -3296,6 +3302,7 @@ function property(
   ref: SdkClassRef,
   prop: SdkPropertySchema,
   obj: E | undefined,
+  superOf?: string,
 ): E {
   // Compile-time constants need no call, and exist on every API level; a long's are exact.
   if (prop.value !== undefined && isBigIntType(parseSdkType(prop.type, ref.module)))
@@ -3324,7 +3331,10 @@ function property(
         lt,
         what,
       );
-    const read = send(objcReceiver(ref, obj), prop.selector ?? prop.name, []);
+    const getter = prop.selector ?? prop.name;
+    const read = superOf
+      ? send(subclassReceiver(superOf, obj!), superSelector(getter), [])
+      : send(objcReceiver(ref, obj), getter, []);
     return fromObjc(em, read, t, lt, what);
   }
   const getter = accessorOf(ref.cls, prop, "get");
@@ -3559,17 +3569,27 @@ function cfReceiver(ref: SdkClassRef, obj: E): cpp.Expr {
   return cpp.cast("bridge", cpp.type(ref.cls.native), cpp.call("lucent::objc::unwrap", [obj.c]));
 }
 
+/** A Lucent subclass's object as its generated Objective-C class, for its `lucentSuper_` methods. */
+function subclassReceiver(subclass: string, obj: E): cpp.Expr {
+  return cpp.cast("c", objcPointer(subclass), cpp.call("lucent::objc::unwrap", [obj.c]));
+}
+
 function objcReceiver(ref: SdkClassRef, obj: E | undefined): cpp.Expr {
   if (!obj) return cpp.id(ref.cls.native);
   const type = ref.cls.interface ? cpp.protocol(ref.cls.native) : objcPointer(ref.cls.native);
   return cpp.cast("c", type, cpp.call("lucent::objc::unwrap", [obj.c]));
 }
 
-/** `obj.prop = v` / `Class.prop = v` on a writable SDK property. */
+/**
+ * `obj.prop = v` / `Class.prop = v` on a writable SDK property. `superOf`,
+ * for `super.prop = v` in a Lucent class overriding the property: the
+ * generated subclass, whose `lucentSuper_` accessors are the base's.
+ */
 export function nativeLvalue(
   em: FnEmitter,
   target: ts.PropertyAccessExpression,
   obj: E | undefined,
+  superOf?: { get?: string; set?: string },
 ): Lvalue | undefined {
   // `out.value = x`: what an inout pointer passes in.
   if (
@@ -3592,8 +3612,8 @@ export function nativeLvalue(
   if (!found || !!found.property.static !== !obj) return undefined;
   const { ref, property: prop } = found;
   const type = em.lt(target);
-  const set = propertySetter(em, target, ref, prop, obj, type);
-  const read = property(em, target, ref, prop, obj).c;
+  const set = propertySetter(em, target, ref, prop, obj, type, superOf?.set);
+  const read = property(em, target, ref, prop, obj, superOf?.get).c;
   const getter = accessorOf(ref.cls, prop, "get");
 
   // Only a use that reads the place (`+=`, `++`) calls the getter and needs its permissions.
@@ -3625,6 +3645,7 @@ export function propertySetter(
   prop: SdkPropertySchema,
   obj: E | undefined,
   type: LType,
+  superOf?: string,
 ): (value: cpp.Expr) => cpp.Expr {
   const plan = requirePlan(site, ref, prop, "set");
   requireAvailableUse(em, site, ref, prop, obj);
@@ -3661,11 +3682,11 @@ export function propertySetter(
           ],
           v,
         );
+      // The base's setter, for `super.prop = v` in a subclass overriding it.
+      const receiver = superOf ? subclassReceiver(superOf, obj!) : objcReceiver(ref, obj);
+      const setter = superOf ? superSelector(prop.setter!) : prop.setter!;
       if (!prop.weak)
-        return cpp.statementExpr(
-          [held, cpp.exprStmt(send(objcReceiver(ref, obj), prop.setter!, [conv]))],
-          v,
-        );
+        return cpp.statementExpr([held, cpp.exprStmt(send(receiver, setter, [conv]))], v);
       // A weak property: its owner keeps the value alive, as long as it holds it.
       const [r, o] = [cpp.id("r_"), cpp.id("o_")];
       const keep = cpp.call("objc_setAssociatedObject", [
@@ -3677,10 +3698,10 @@ export function propertySetter(
       return cpp.statementExpr(
         [
           held,
-          cpp.varDecl(cpp.auto, "r_", objcReceiver(ref, obj)),
+          cpp.varDecl(cpp.auto, "r_", receiver),
           cpp.varDecl(cpp.type("id"), "o_", conv),
           cpp.exprStmt(keep),
-          cpp.exprStmt(send(r, prop.setter!, [o])),
+          cpp.exprStmt(send(r, setter, [o])),
         ],
         v,
       );

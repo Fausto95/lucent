@@ -72,7 +72,9 @@ export async function run(): Promise<string> {
 
     expect(p.messages).toEqual([]);
     const dts = p.types.get("ios/Kit.d.ts") ?? [...p.types.values()].join("\n");
-    expect(dts).toMatch(/\ndeclare abstract class NSObject_Kit \{[^]*?kitLabel: string \| null;/);
+    expect(dts).toMatch(
+      /\ndeclare abstract class NSObject_Kit \{[^]*?get kitLabel\(\): string \| null;/,
+    );
     expect(dts).toMatch(
       /declare module "lucent:ios" \{\s+interface NSObject extends NSObject_Kit \{\}\s+\}/,
     );

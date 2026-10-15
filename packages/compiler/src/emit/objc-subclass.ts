@@ -24,7 +24,7 @@ import {
   type SdkPropertySchema,
   type SdkType,
 } from "../sdk/schema.ts";
-import { type ClassInfo, T } from "../types.ts";
+import { type ClassInfo, cppIdent, T } from "../types.ts";
 import { memberName, parameterProperties } from "./classes.ts";
 import type { Ctx, E } from "./context.ts";
 import { forward, requirementMethods } from "./delegates.ts";
@@ -160,14 +160,40 @@ export function subclassImplicitSuper(info: ClassInfo): cpp.Stmt {
 /**
  * `super.name(…)` / `super.name`: the base's implementation of a method
  * the class overrides (through the subclass's `lucentSuper_` method), or
- * the inherited member itself.
+ * the inherited member itself. `getter` and `setter` say whether the class
+ * overrides the property's (`super.name` read and written).
  */
-export function subclassSuper(info: ClassInfo, name: string): { overridden: boolean; self: E } {
+export function subclassSuper(
+  info: ClassInfo,
+  name: string,
+): { overridden: boolean; getter: boolean; setter: boolean; self: E } {
   const chain = baseChain(info);
   const self = subclassNative({ c: cpp.self, t: { k: "class", id: info.id, args: [] } }, info);
   const found = inherited(chain, name);
+  const property = !!found?.property;
 
-  return { overridden: !!found?.method && !!ownMethod(info, name), self };
+  return {
+    overridden: !!found?.method && !!ownMethod(info, name),
+    getter: property && !!ownAccessor(info, name, ts.SyntaxKind.GetAccessor),
+    setter: property && !!ownAccessor(info, name, ts.SyntaxKind.SetAccessor),
+    self,
+  };
+}
+
+function ownAccessor(
+  info: ClassInfo,
+  name: string,
+  kind: ts.SyntaxKind.GetAccessor | ts.SyntaxKind.SetAccessor,
+): ts.AccessorDeclaration | undefined {
+  return info.members.find(
+    (m): m is ts.AccessorDeclaration =>
+      m.kind === kind &&
+      !!(m as ts.AccessorDeclaration).body &&
+      !ts
+        .getModifiers(m as ts.AccessorDeclaration)
+        ?.some((x) => x.kind === ts.SyntaxKind.StaticKeyword) &&
+      memberName(m) === name,
+  );
 }
 
 function ownMethod(info: ClassInfo, name: string): ts.MethodDeclaration | undefined {
@@ -219,17 +245,42 @@ export function iosSubclass(
     ),
     ...parameterProperties(ctor),
   ];
+  // Accessors overriding the base's properties: an Objective-C getter and setter each.
+  const accessors: {
+    impl: ts.AccessorDeclaration;
+    ref: SdkClassRef;
+    property: SdkPropertySchema;
+  }[] = [];
   for (const f of fields) {
     const field = memberName(f as ts.ClassElement);
     const found = inherited(chain, field);
-    if (found)
+    if (!found) continue;
+    if (ts.isPropertyDeclaration(f) || ts.isParameter(f))
       fail(
         f,
         Codes.UnsupportedClassFeature,
-        ts.isPropertyDeclaration(f) || ts.isParameter(f)
-          ? `${name}.${field}: ${found.ref.cls.name} has a property of that name; set it (this.${field} = …) instead of declaring a field`
-          : `${name}.${field}: overriding ${found.ref.cls.name}'s properties is not supported yet`,
+        `${name}.${field}: ${found.ref.cls.name} has a property of that name; set it (this.${field} = …) instead of declaring a field`,
       );
+    const impl = f as ts.AccessorDeclaration;
+    if (!found.property)
+      fail(
+        f,
+        Codes.UnsupportedClassFeature,
+        `${name}.${field}: ${found.ref.cls.name}.${field} is a method`,
+      );
+    if (found.property.swift || found.property.cFunctions)
+      fail(
+        f,
+        Codes.UnsupportedClassFeature,
+        `${name}.${field}: ${found.ref.cls.name}'s ${found.property.swift ? "Swift" : "C"} properties cannot be overridden`,
+      );
+    if (ts.isSetAccessorDeclaration(impl) && !found.property.setter)
+      fail(
+        f,
+        Codes.UnsupportedClassFeature,
+        `${name}.${field}: ${found.ref.cls.name}.${field} is read-only: it has no setter to override`,
+      );
+    if (impl.body) accessors.push({ impl, ref: found.ref, property: found.property });
   }
 
   // Overrides: the base's methods the class defines, and the base's own implementation for super.
@@ -250,6 +301,36 @@ export function iosSubclass(
 
     const base = superMethod(found.ref, found.method);
     const override = forward(em, info, found.ref, found.method, m, true);
+    // Called by the base's initializer, before super(…) returns: the base's own.
+    const early = cpp.ifStmt(cpp.unary("!", cpp.arrow(cpp.id("self"), "self_")), [
+      ...base.body,
+      ...(base.body[0]!.k === "expr" ? [cpp.ret()] : []),
+    ]);
+    overrides.push({ ...override, body: [early, ...override.body] });
+    supers.push({
+      ...base,
+      parts: base.parts.map((p, i) => (i ? p : { ...p, name: superSelector(p.name) })),
+    });
+  }
+
+  for (const { impl, ref, property } of accessors) {
+    const getter = ts.isGetAccessorDeclaration(impl);
+    const method: SdkMethodSchema = getter
+      ? {
+          name: property.name,
+          params: [],
+          returns: property.type,
+          selector: property.selector ?? property.name,
+        }
+      : {
+          name: property.name,
+          params: [{ name: "value", type: property.type }],
+          returns: { k: "prim", name: "void", nullable: false },
+          selector: property.setter!,
+        };
+    const target = `${getter ? "get" : "set"}_${cppIdent(property.name)}`;
+    const override = forward(em, info, ref, method, impl, true, target);
+    const base = superMethod(ref, method);
     // Called by the base's initializer, before super(…) returns: the base's own.
     const early = cpp.ifStmt(cpp.unary("!", cpp.arrow(cpp.id("self"), "self_")), [
       ...base.body,

@@ -185,12 +185,14 @@ A Lucent class can extend an Objective-C class: `class Greeting extends UIViewCo
 
 - `super(…)` calls the base initializer its arguments match. A class without a constructor uses the base's initializer without arguments.
 - A method named like an instance method of the base overrides it, and runs while the caller waits. `super.name(…)` calls the base's.
+- A getter or setter named like a base property overrides it the same way, and `super.name` reads and writes the base's. A getter alone keeps the base's setter.
 - An instance goes wherever the base, or a protocol the class implements, is taken.
 - A class extending a main-thread class, such as `UIView` or `UIViewController`, is made and used only in code the main thread runs (`LUCENT3006`).
 
 These fail to compile with `LUCENT1005`:
 
-- A field, getter or setter named like a property of the base: set the property in the constructor instead.
+- A field named like a property of the base: set the property in the constructor instead.
+- A setter for a read-only property of the base, or a getter or setter for a Swift one.
 - A class without a constructor whose base has no initializer without arguments: declare a constructor that calls `super(…)`.
 - A `super(…)` that calls an Objective-C factory initializer, such as `+widgetWithLabel:`, which makes its own object: call another initializer of the base.
 - A method that overrides a Swift member of the base.

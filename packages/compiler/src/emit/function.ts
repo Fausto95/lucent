@@ -1356,6 +1356,12 @@ export class FnEmitter {
         const staticLv = builtins.staticMemberLvalue(this, target);
         if (staticLv) return staticLv;
       }
+      // `super.prop = v` in a class extending an iOS class: the base's setter where the class
+      // overrides it.
+      if (target.expression.kind === ts.SyntaxKind.SuperKeyword) {
+        const lv = builtins.superLvalue(this, target);
+        if (lv) return lv;
+      }
       const obj = this.receiver(target.expression);
       const ot = stripOpt(obj.t);
       if (ot.k === "native") {

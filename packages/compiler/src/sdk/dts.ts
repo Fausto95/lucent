@@ -644,6 +644,8 @@ function classDts(
       ...(set && ts.printType(set) !== ts.printType(type) ? { set } : {}),
       ...(p.static ? { static: true } : {}),
       ...(p.readonly ? { readonly: true } : {}),
+      // An iOS class's are accessors, which a Lucent subclass's accessors may override.
+      ...(schema.platform === "ios" && !cls.interface && !p.static ? { accessor: true } : {}),
       ...memberDoc(p, { property: p }),
     });
   }
@@ -745,6 +747,8 @@ function classDts(
       name: p.name,
       type: settled(p, oneOf(p.oneOf, inh.type, true)),
       ...(p.readonly ? { readonly: true } : {}),
+      // As the superclass declares it: an iOS class's are accessors.
+      ...(schema.platform === "ios" && !cls.interface && !p.static ? { accessor: true } : {}),
       doc: doc.filter(Boolean).join(" "),
     });
   }

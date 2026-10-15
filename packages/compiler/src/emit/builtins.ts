@@ -543,8 +543,9 @@ export function superMember(
   // The iOS class it extends: its implementation of a method the class
   // overrides, or the inherited member on the native object.
   if (cls?.sdkBase?.platform === "ios") {
-    const { overridden, self } = subclassSuper(cls, name);
-    if (!call) return nativeMember(em, self, node);
+    const { overridden, getter, self } = subclassSuper(cls, name);
+    // A property the class overrides: the base's getter.
+    if (!call) return nativeMember(em, self, node, getter ? subclassName(cls) : undefined);
 
     return (
       nativeCall(em, call, self, overridden ? subclassName(cls) : undefined) ??
@@ -588,6 +589,25 @@ export function superMember(
   if (ts.isPropertyDeclaration(d) || ts.isParameter(d))
     return { c: member(cppIdent(name)), t: memberType(em, found.owner, d) };
   fail(node, Codes.UnsupportedClassFeature, `super.${name} cannot be used as a value`);
+}
+
+/**
+ * `super.name = v` in a class extending an iOS class: the property on the
+ * native object, through the base's getter and setter where the class
+ * overrides them. Undefined elsewhere.
+ */
+export function superLvalue(
+  em: FnEmitter,
+  target: ts.PropertyAccessExpression,
+): Lvalue | undefined {
+  const cls = em.opts.cls;
+  if (cls?.sdkBase?.platform !== "ios") return undefined;
+  const { getter, setter, self } = subclassSuper(cls, target.name.text);
+  const sub = subclassName(cls);
+  return nativeLvalue(em, target, self, {
+    ...(getter ? { get: sub } : {}),
+    ...(setter ? { set: sub } : {}),
+  });
 }
 
 function staticClass(em: FnEmitter, id: ts.Expression) {
