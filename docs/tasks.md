@@ -659,7 +659,8 @@ still refuses.
 
 - **Status:** in progress: the members a module adds to `NSObject` (#272),
   weak references to SDK objects (#303), categories on other modules'
-  classes (#304), overriding Kotlin suspend members (#305).
+  classes (#304), overriding Kotlin suspend members (#305), overriding
+  Objective-C properties (#306).
 - **Area:** bindings, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V4.
@@ -685,7 +686,11 @@ still refuses.
       (`CoroutineWorker.doWork` in T131 needs it) (#305): the Java
       subclass's override passes the continuation on, as a proxy does,
       run on the desktop JNI host with Kotlin's standard library.
-- [ ] Overriding Objective-C properties in a Lucent subclass.
+- [x] Overriding Objective-C properties in a Lucent subclass
+      ([0112](decisions/0112-an-ios-classs-properties-are-accessors-a-subclass-overrides.md),
+      #306): an iOS class's declarations make its properties accessors,
+      which the subclass's override; `super.name` reads and writes the
+      base's.
 - [x] The instance members a module's Objective-C categories add to
       `NSObject`, from `<module>@ObjectiveC.symbols.json`: UIKit's
       `accessibilityLabel` is every object's

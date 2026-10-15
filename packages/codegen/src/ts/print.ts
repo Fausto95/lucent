@@ -160,12 +160,13 @@ function member(m: Member): string[] {
     case "property": {
       const mods = `${m.private ? "private " : ""}${m.static ? "static " : ""}${m.readonly ? "readonly " : ""}`;
       const name = m.computed ? `[${m.name}]` : propertyName(m.name);
-      if (m.set) {
+      if (m.set || m.accessor) {
         const at = `${INDENT}${m.private ? "private " : ""}${m.static ? "static " : ""}`;
+        const set = m.set ?? (m.readonly ? undefined : m.type);
         return [
           ...doc,
           `${at}get ${name}(): ${printType(m.type)};`,
-          `${at}set ${name}(value: ${printType(m.set)});`,
+          ...(set ? [`${at}set ${name}(value: ${printType(set)});`] : []),
         ];
       }
 

@@ -267,7 +267,8 @@ describe("SDK declarations", () => {
     expect(d).toContain("  loader_didLoad(loader: WDGLoader, data: Uint8Array): void;");
     expect(d).toContain("  loaderShouldRetry?(loader: WDGLoader): boolean;");
     expect(d).toContain("export declare interface WDGLoader extends WDGLoaderDelegate {}");
-    expect(d).toContain("  delegate: WDGLoaderDelegate | null;");
+    expect(d).toContain("  get delegate(): WDGLoaderDelegate | null;");
+    expect(d).toContain("  set delegate(value: WDGLoaderDelegate | null);");
   });
 
   it("re-exports the implementation modules it uses, as module maps' export * does", () => {
@@ -520,7 +521,7 @@ describe("SDK declarations", () => {
       }),
     );
 
-    expect(d).toContain("  edges: KITEdges | 0;");
+    expect(d).toContain("  get edges(): KITEdges | 0;");
   });
 
   it("documents what the binding plans refuse, as declared", () => {
@@ -555,7 +556,7 @@ describe("SDK declarations", () => {
     expect(d).toContain("  fill(g: string[][]): void;");
     // A property without a setter selector: read, never written.
     expect(d).toContain(
-      "  /**\n   * Lucent cannot assign this yet: it has no setter.\n   * Native: -[KITView tag], in Kit.\n   */\n  tag: bigint;",
+      "  /**\n   * Lucent cannot assign this yet: it has no setter.\n   * Native: -[KITView tag], in Kit.\n   */\n  get tag(): bigint;",
     );
   });
 
@@ -736,7 +737,8 @@ describe("SDK declarations", () => {
     );
     expect(d).toContain("  area(signal?: AbortSignal): Promise<number>;");
     // A getter takes no signal.
-    expect(d).toContain("  readonly ready: Promise<boolean>;");
+    expect(d).toContain("  get ready(): Promise<boolean>;");
+    expect(d).not.toContain("  set ready(");
     expect(d).toContain("export declare function render(signal?: AbortSignal): Promise<void>;");
     // Default arguments: optional, or left out; the signal after them.
     expect(d).toContain(

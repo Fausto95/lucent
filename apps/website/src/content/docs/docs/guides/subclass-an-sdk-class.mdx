@@ -117,7 +117,7 @@ A Lucent class can extend an Objective-C or a Java class. Lucent generates a sub
 - A class without a constructor uses the base's initializer without arguments, and drops any arguments `new` passes: declare a constructor to pass them.
 - A method named like one of the base's overrides it. `super.viewDidLoad()` calls UIKit's own.
 - A subclass of `UIViewController`, `UIView` or another main-thread class is made and used only in code the main thread runs, such as the function `present()` calls ([LUCENT3006](/docs/api/diagnostics/#lucent3006)). Its own methods run there, so they call UIKit without `main()`.
-- A property, such as `preferredStatusBarStyle`, can't be overridden: TypeScript refuses an accessor in its place (`LUCENT9001`, TS2611).
+- A getter or setter named like one of the base's properties overrides it, as `get preferredStatusBarStyle()` does. `super.title` reads and writes the base's.
 - A Lucent class can't extend a Swift class, override a Swift member, or be generic (`LUCENT1005`).
 
 ## On Android

@@ -120,8 +120,10 @@ export function forward(
   info: ClassInfo,
   p: SdkClassRef,
   m: SdkMethodSchema,
-  impl: ts.MethodDeclaration,
+  impl: ts.MethodDeclaration | ts.AccessorDeclaration,
   sync = false,
+  /** The C++ member it calls, when not the method's name: an accessor's (`get_intrinsicContentSize`). */
+  target = cppIdent(m.name),
 ): cpp.ObjcMethod {
   const params: SdkType[] = m.params.map((x) => parseSdkType(x.type, p.module));
   const ret = parseSdkType(m.returns, p.module);
@@ -151,7 +153,7 @@ export function forward(
   const after = outs.map((i) =>
     cpp.exprStmt(cpp.call("lucent::objc::writeOut", [cpp.id(`o${i}_`), cpp.id(names[i]!)])),
   );
-  const call = cpp.call(cpp.arrow(cpp.id("s_"), cppIdent(m.name)), args);
+  const call = cpp.call(cpp.arrow(cpp.id("s_"), target), args);
   const selector = m.selector ?? m.name;
   const labels = selector.split(":").slice(0, -1);
   const parts = labels.length

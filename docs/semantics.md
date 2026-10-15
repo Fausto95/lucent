@@ -1095,6 +1095,7 @@ both, in the same commit.
 | a field read before it's assigned is `undefined`                                                              | a value type's default; an object throws `TypeError`                                                  | a field holds a native value from the start                  |
 | any object with the right members fits an interface                                                           | `implements`, or a literal of a data-only interface                                                   | an interface with methods is a base class                    |
 | assigning an inherited static gives a subclass its own                                                        | from JavaScript it writes the base's field                                                            | a static is one native variable                              |
+| a getter alone overriding an accessor pair leaves no setter                                                   | an iOS base's setter stays, written through the base's type                                           | the subclass is Objective-C's, which inherits it             |
 
 ### Known gaps
 
