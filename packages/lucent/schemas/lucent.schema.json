@@ -403,6 +403,91 @@
           "type": "integer",
           "minimum": 1,
           "description": "The lowest Android API level the package runs on. The library requires the highest any package needs, and never less than the app's minSdkVersion. Android's manifest merger fails an app below it."
+        },
+        "queries": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "packages": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Apps the code looks for by package name."
+            },
+            "intents": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["action"],
+                "properties": {
+                  "action": {
+                    "type": "string"
+                  },
+                  "categories": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "data": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "scheme": {
+                          "type": "string"
+                        },
+                        "host": {
+                          "type": "string"
+                        },
+                        "port": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "pathPrefix": {
+                          "type": "string"
+                        },
+                        "pathPattern": {
+                          "type": "string"
+                        },
+                        "mimeType": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "description": "Intents the code asks which apps handle: one action each, with its categories and data."
+            },
+            "providers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Content providers the code reads, by authority."
+            }
+          },
+          "description": "The other apps the code sees, as Android 11's package visibility needs: `<queries>` in the library's manifest, which Android merges into the app's. What any package lists joins."
+        },
+        "features": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "description": "Hardware or software features the code uses: name → whether the app requires it, as `<uses-feature>`. A feature any package requires is required; the app's own value wins."
+        },
+        "metaData": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "`<meta-data>` on the app's `<application>`: name → value, such as an SDK's API key. Packages must agree on a name's value, and the app's own value wins. A value can be an option's ({{name}})."
         }
       }
     },
@@ -594,7 +679,7 @@
       "propertyNames": {
         "pattern": "^[A-Za-z][\\w-]*$"
       },
-      "description": "A package's options, which the app's lucent.json sets: option name → what it means, and a default. {{name}} in an ios.infoPlist value, an entitlement or an android.components field is the option's value. A whole {{name}} of a boolean is the boolean. An option without a default that the app doesn't set fails the build, saying how to set it."
+      "description": "A package's options, which the app's lucent.json sets: option name → what it means, and a default. {{name}} in an ios.infoPlist value, an entitlement, an android.components field or an android.metaData value is the option's value. A whole {{name}} of a boolean is the boolean. An option without a default that the app doesn't set fails the build, saying how to set it."
     },
     "packages": {
       "type": "object",

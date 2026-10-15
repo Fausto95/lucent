@@ -796,6 +796,50 @@ describe("native package", () => {
     );
   });
 
+  it("declares the queries, features and application meta-data packages need", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const out = path.join(dir, "native");
+
+    writeNativePackage(program(dir), out, {
+      native: nativeOf([
+        "lucent-maps",
+        {
+          android: {
+            queries: {
+              packages: ["com.google.android.apps.maps"],
+              intents: [{ action: "android.intent.action.VIEW", data: [{ scheme: "geo" }] }],
+              providers: ["com.example.provider"],
+            },
+            features: { "android.hardware.location.gps": false },
+            metaData: { "com.google.android.geo.API_KEY": "AIza-test" },
+          },
+        },
+      ]),
+    });
+
+    const manifest = fs.readFileSync(
+      path.join(out, "android/src/main/AndroidManifest.xml"),
+      "utf8",
+    );
+    expect(manifest).toContain(
+      [
+        '  <uses-feature android:name="android.hardware.location.gps" android:required="false" />',
+        "  <queries>",
+        '    <package android:name="com.google.android.apps.maps" />',
+        "    <intent>",
+        '      <action android:name="android.intent.action.VIEW" />',
+        '      <data android:scheme="geo" />',
+        "    </intent>",
+        '    <provider android:authorities="com.example.provider" />',
+        "  </queries>",
+        "  <application>",
+      ].join("\n"),
+    );
+    expect(manifest).toContain(
+      '    <meta-data android:name="com.google.android.geo.API_KEY" android:value="AIza-test" />\n  </application>',
+    );
+  });
+
   it("declares the runtime's Activity tracking and request Activity in every app", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
     const out = path.join(dir, "native");

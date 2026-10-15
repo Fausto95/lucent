@@ -48,6 +48,9 @@ const read = {
     "components",
     "mainActivity",
     "minSdk",
+    "queries",
+    "features",
+    "metaData",
   ],
 } as const satisfies {
   [P in "ios" | "android"]: readonly (keyof NonNullable<PackageNative[P]>)[];
