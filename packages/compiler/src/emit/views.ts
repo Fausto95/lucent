@@ -93,13 +93,24 @@ const VIEWS: Record<"ios" | "android", (mount: cpp.Expr) => cpp.Member> = {
 };
 
 /**
- * What an iOS SwiftUI component's LucentMounted gives its host: the hosting
- * controller its setup returns, which the host contains, and its view.
+ * What an iOS component's LucentMounted gives its host when its setup
+ * returns a controller: a SwiftUI body's hosting controller, or a UIKit
+ * view controller (`plain`, T122), which the host contains, and its view.
+ * A UIKit one sizes by its style or its preferred content size, with no
+ * safe area of its own: a hosting controller does both itself.
  */
-const hostedController = (mount: cpp.Expr): cpp.Member[] => {
+const hostedController = (mount: cpp.Expr, plain = false): cpp.Member[] => {
   const controller = cpp.pointer(cpp.type("UIViewController"));
 
   return [
+    ...(plain
+      ? [
+          cpp.method("plainController", cpp.type("bool"), [], [cpp.ret(cpp.bool(true))], {
+            const: true,
+            override: true,
+          }),
+        ]
+      : []),
     cpp.method(
       "controller",
       controller,
@@ -260,8 +271,8 @@ function mountedStruct(s: Setup, platform: keyof typeof VIEWS): cpp.Decl {
         override: true,
         body: [cpp.exprStmt(cpp.call(cpp.arrow(mount, "dispose")))],
       },
-      ...(platform === "ios" && s.toolkit === "swiftui"
-        ? hostedController(mount)
+      ...(platform === "ios" && (s.toolkit === "swiftui" || s.controller)
+        ? hostedController(mount, !!s.controller)
         : platform === "android" && s.fragment
           ? hostedFragment(mount)
           : [VIEWS[platform](mount)]),

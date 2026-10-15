@@ -671,7 +671,10 @@ view's own, with the commands on it; a request takes a signal
 exported class, which the view holds while it shows it
 ([T120](../tasks.md#t120), #247). A component works inside Reanimated,
 Gesture Handler and react-native-screens, which the device runs check
-([T121](../tasks.md#t121), #271). **Planned:** view-controller roots
+([T121](../tasks.md#t121), #271). A component's iOS root may be a UIKit
+view controller, which its host contains
+([0118](../decisions/0118-a-components-ios-root-may-be-a-view-controller.md),
+#324). **Planned:** commands that present from it
 ([T122](../tasks.md#t122)) and objects in toolkit bodies
 ([T123](../tasks.md#t123)).
 

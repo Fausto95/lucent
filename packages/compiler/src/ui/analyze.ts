@@ -342,6 +342,13 @@ function candidate(
       `\`${e.name}\` returns a view (\`${shape.view}\`) or another value (\`${shape.other}\`): a component returns its view on every path; split it into a component and a function`,
     );
 
+  if (shape.kind === "mixed") {
+    const [[a, aClass], [b, bClass]] = shape.roots;
+    return report(
+      `\`${e.name}\` returns ${a} (\`${aClass}\`) or ${b} (\`${bClass}\`): a component's root is one kind on every path`,
+    );
+  }
+
   if (ts.isVariableStatement(e.statement) && e.statement.declarationList.declarations.length > 1)
     return report(
       `\`${e.name}\` is declared with other names in one statement: declare a component in its own \`export const\``,

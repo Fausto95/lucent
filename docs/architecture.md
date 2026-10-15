@@ -778,8 +778,7 @@ described, not exported as a function.
 model, toolkit bodies, props, events, commands, children, sizing and the
 Fabric integration.
 
-> **Planned:** class instances as props ([T120](tasks.md#t120)), React
-> Native's view props ([T121](tasks.md#t121)), view-controller roots
+> **Planned:** commands that present from a view-controller root
 > ([T122](tasks.md#t122)) and native objects in toolkit bodies
 > ([T123](tasks.md#t123)).
 

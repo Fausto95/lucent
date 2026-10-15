@@ -42,7 +42,9 @@ a class deriving from the platform's root view class (`UIView`,
 `android.view.View`), or a toolkit's element. Ancestry in the installed SDK
 decides, never a list of classes. The root class is the nearest class common to
 every returned value ([Bodies](#bodies)). On Android a `Fragment` is a root too
-(androidx's), which the host contains ([Android](#android)).
+(androidx's), and on iOS a `UIViewController` (UIKit's), which the host contains
+([iOS](#ios), [Android](#android)). A setup returns one kind of root on every
+path.
 
 A component is a function declaration, or an `export const` holding an arrow or
 a function expression, taking one props object or none. It is described for its
@@ -829,6 +831,15 @@ there is one, before its view enters a window. It stays that child until the
 host is under another view controller or the mount ends. The host's direction
 becomes its layout direction trait, which SwiftUI reads.
 
+A component whose setup returns a UIKit view controller, such as
+`AVPlayerViewController`, is contained the same way (`plainController()` on
+`Mounted`). Its style or flex sizes it, or its `preferredContentSize` when it has
+one, which the host observes, since UIKit tells the parent, the screen's
+controller. It has no safe area, as a hosting controller has none: what the
+window's safe area covers of the content goes back out of it as negative
+`additionalSafeAreaInsets`
+([0118](../decisions/0118-a-components-ios-root-may-be-a-view-controller.md)).
+
 ### Android
 
 Each component's `LucentViewManager`, listed for `LucentPackage`, makes
@@ -948,7 +959,7 @@ The view gate closes these gaps ([parity.md](../parity.md#views)):
 
 | Gap                                                                                              | Task                     |
 | ------------------------------------------------------------------------------------------------ | ------------------------ |
-| A `UIViewController` root, such as `AVPlayerViewController`                                      | [T122](../tasks.md#t122) |
+| Commands that present from a `UIViewController` root, and the modals it shows                    | [T122](../tasks.md#t122) |
 | Instance props in SwiftUI and Compose bodies; helpers with toolkit values, children and bindings | [T123](../tasks.md#t123) |
 | A component's ref passed to a module function                                                    | [T124](../tasks.md#t124) |
 | Views made after setup on Android get `appContext()`, not the hosting view's themed context      | [T125](../tasks.md#t125) |

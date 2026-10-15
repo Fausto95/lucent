@@ -14,6 +14,7 @@
 #include <lucent/report.h>
 #include <lucent/view.h>
 
+#include <algorithm>
 #include <cmath>
 #include <exception>
 #include <utility>
@@ -73,7 +74,12 @@ void inMainContext(const char* where, F&& work) {
   LucentChildren *_children;
   /// Where the slot is, as the shadow tree lays the children out (LucentViewSlots.h).
   lucent::views::HostSlot _place;
+  /// The mount's UIKit view controller whose preferred content size the host follows.
+  UIViewController *_followed;
 }
+
+/** What the host's observation of a controller's preferredContentSize is told with. */
+static void *LucentPreferredSizeContext = &LucentPreferredSizeContext;
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
@@ -176,6 +182,8 @@ void inMainContext(const char* where, F&& work) {
 
   // The content may have moved the slot within the host.
   [_children.slot setNeedsLayout];
+  // And the content within the host, under its safe area.
+  [self removeSafeArea];
 }
 
 - (std::shared_ptr<const facebook::react::EventEmitter>)lucentEventEmitter
@@ -260,9 +268,23 @@ void inMainContext(const char* where, F&& work) {
   }
 }
 
-/** The mount's view's size within `constraints` (sizeThatFits:), or nothing without one. */
+/**
+ * The mount's view's size within `constraints` (sizeThatFits:), or nothing
+ * without one. A UIKit view controller's is its preferred content size, if
+ * it has one: else its style or flex sizes it.
+ */
 - (std::optional<lucent::sizing::Size>)lucentMeasure:(lucent::sizing::Constraints)constraints
 {
+  if (_mounted && _mounted->plainController()) {
+    CGSize preferred = _mounted->controller().preferredContentSize;
+
+    if (preferred.width <= 0 && preferred.height <= 0) return std::nullopt;
+
+    return lucent::sizing::Size{
+        std::min(static_cast<float>(preferred.width), constraints.maxWidth),
+        std::min(static_cast<float>(preferred.height), constraints.maxHeight)};
+  }
+
   UIView *content = _mounted ? _mounted->view() : nil;
 
   if (!content) return std::nullopt;
@@ -318,7 +340,46 @@ void inMainContext(const char* where, F&& work) {
 
     _mounted = [self lucentMount:*props host:host];
   });
+  [self followPreferredSize];
   [_children mountedContent:_mounted ? _mounted->view() : nil];
+}
+
+/**
+ * A UIKit view controller tells its parent when its preferred content size
+ * changes, and its parent is the screen's, not the host: the host observes
+ * it, and measures the content again.
+ */
+- (void)followPreferredSize
+{
+  UIViewController *controller = _mounted && _mounted->plainController() ? _mounted->controller() : nil;
+
+  if (controller == _followed) return;
+
+  [self stopFollowingPreferredSize];
+
+  if (!controller) return;
+
+  [controller addObserver:self forKeyPath:@"preferredContentSize" options:0 context:LucentPreferredSizeContext];
+  _followed = controller;
+}
+
+- (void)stopFollowingPreferredSize
+{
+  [_followed removeObserver:self forKeyPath:@"preferredContentSize" context:LucentPreferredSizeContext];
+  _followed = nil;
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary<NSKeyValueChangeKey, id> *)change
+                       context:(void *)context
+{
+  if (context != LucentPreferredSizeContext) {
+    [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+    return;
+  }
+
+  if (object == _followed) _sizing.contentChanged();
 }
 
 /**
@@ -336,6 +397,41 @@ void inMainContext(const char* where, F&& work) {
 
   self.contentView = view;
   [self applyLayoutDirection];
+  [self removeSafeArea];
+}
+
+// The window's safe area reaches a UIKit controller's view through the host: what it covers of
+// the content goes back out of the controller's, as a SwiftUI body's has none (safeAreaRegions).
+- (void)safeAreaInsetsDidChange
+{
+  [super safeAreaInsetsDidChange];
+
+  [self removeSafeArea];
+}
+
+/**
+ * A UIKit view controller's safe area insets, taken back out of its own:
+ * its view's insets are what the host's cover of it, from where it is in
+ * the host, plus the controller's additional insets.
+ */
+- (void)removeSafeArea
+{
+  UIViewController *controller = _mounted && _mounted->plainController() ? _mounted->controller() : nil;
+  UIView *content = controller ? controller.viewIfLoaded : nil;
+
+  if (!content || content.superview != self) return;
+
+  UIEdgeInsets host = self.safeAreaInsets;
+  CGRect frame = content.frame;
+  CGRect bounds = self.bounds;
+  UIEdgeInsets covered = UIEdgeInsetsMake(
+      std::max<CGFloat>(0, host.top - CGRectGetMinY(frame)),
+      std::max<CGFloat>(0, host.left - CGRectGetMinX(frame)),
+      std::max<CGFloat>(0, host.bottom - (CGRectGetMaxY(bounds) - CGRectGetMaxY(frame))),
+      std::max<CGFloat>(0, host.right - (CGRectGetMaxX(bounds) - CGRectGetMaxX(frame))));
+  UIEdgeInsets back = UIEdgeInsetsMake(-covered.top, -covered.left, -covered.bottom, -covered.right);
+
+  if (!UIEdgeInsetsEqualToEdgeInsets(controller.additionalSafeAreaInsets, back)) controller.additionalSafeAreaInsets = back;
 }
 
 // A view controller above the host now: contained before the content goes
@@ -466,6 +562,7 @@ void inMainContext(const char* where, F&& work) {
   _token = lucent::views::MountToken{};
   [_children endMount];
   // Its teardown runs the mount's code: nothing to measure any more.
+  [self stopFollowingPreferredSize];
   _sizing.stop();
 
   auto mounted = std::move(_mounted);
@@ -481,6 +578,7 @@ void inMainContext(const char* where, F&& work) {
 
 - (void)dealloc
 {
+  [self stopFollowingPreferredSize];
   _sizing.stop();
 
   if (_mounted) {

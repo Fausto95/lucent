@@ -113,16 +113,20 @@ An exported function of a `.lucent.tsx` module is a component when every value i
 | A `UIView`, or an instance of a subclass | iOS | That view. |
 | An Android `View`, or an instance of a subclass | Android | That view. |
 | An androidx `Fragment`, or an instance of a subclass | Android | The fragment's view: the host adds the fragment to the Activity's `FragmentManager`, over a container in the component. |
+| A `UIViewController`, or an instance of a subclass | iOS | The controller's view: the host adds the controller as a child of the nearest view controller above the component. |
 | JSX of SwiftUI views | iOS | A `UIHostingController` Lucent makes for each mount. |
 | JSX of Compose elements | Android | A `ComposeView` Lucent makes for each mount. |
 | JSX of UIKit or Android views | iOS, Android | The view of the tag it returns: for a `Flex`, the container view Lucent lays out. |
 
 A component's fragment leaves its manager when React unmounts the component. When Android recreates the Activity, it restores the Activity's fragments: the host drops a component's restored fragment, and the component makes a new one. Make a Lucent `Fragment` in a module function, not in the component's setup, as [lucent-fragment](https://github.com/Fausto95/lucent/tree/main/examples/lucent-fragment)'s `Card` does: its methods run in module code.
 
+A component's view controller, such as `AVPlayerViewController`, takes the component's size from its style, or its `preferredContentSize` when it has one. It gets no safe area insets, as React Native's views get none.
+
 [SwiftUI and Compose in JSX](/docs/api/views/swiftui-and-compose/) and [UIKit and Android views in JSX](/docs/api/views/platform-views/) give the JSX rules. A component also follows these rules, and breaking one fails with [LUCENT3020](/docs/api/diagnostics/#lucent3020):
 
 - It's an `export function`, or an `export const` of an arrow or function expression that declares no other name.
 - It returns its view on every path, and synchronously. A promise of a view fails, and so does a view on some paths and another value on others.
+- It returns one kind of root: a view on some paths and a view controller or fragment on others fails.
 - It takes one props object, or nothing. Destructuring the props fails: setup runs once, so read `props.name` where you use the value.
 - It has no type parameters.
 - Lucent code doesn't call it or use it as a value: only React mounts it.
