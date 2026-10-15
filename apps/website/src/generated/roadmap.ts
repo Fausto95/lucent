@@ -219,7 +219,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "done",
-        "text": "Lucent packages on npm, with `lucent.json` for their native needs."
+        "text": "Lucent packages on npm, with `lucent.json` for their native needs, and an app's own for its modules' and the options packages leave it."
       },
       {
         "status": "done",
