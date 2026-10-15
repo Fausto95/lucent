@@ -874,7 +874,7 @@ Each is a diagnostic with its reason, and coverage counts it.
 | Swift shims     | Optional C structs, in collections too; `Set`s                                                                          |
 | Swift shims     | Closures taking or giving anything but numbers, booleans, strings and Objective-C objects                               |
 | Swift shims     | Subscripts, parameter packs, `inout` parameters, failable and generic initializers, operators                           |
-| Swift shims     | Members of protocols with associated types; statics of generic types no extension fixes                                 |
+| Swift shims     | Members of protocols with associated types; statics of generic types neither an extension nor a call fixes              |
 | Swift shims     | Initializer and static requirements                                                                                     |
 | Swift shims     | Async sequences other than results                                                                                      |
 | JNI             | Assigning Java fields; arrays of a type parameter's values; Kotlin functions taking or giving functions                 |

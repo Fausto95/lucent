@@ -522,6 +522,12 @@ function elementType(c: { rhs: string; rhsPrecise?: string }, r: Resolver): Sche
   }
 }
 
+/** Whether `types` name each of `params`: what a call's type arguments then fix. */
+function namesEvery(params: readonly string[], types: SchemaType[]): boolean {
+  const text = types.map((t) => formatSchemaType(t)).join(" ");
+  return params.every((p) => new RegExp(`\\b${p}\\b`).test(text));
+}
+
 /** A member's `async`, `throws` and `mutating`, from its declaration's own keywords (not its closures'). */
 export function effects(frags: Fragment[]): { async: boolean; throws: boolean; mutating: boolean } {
   let depth = 0;
@@ -583,8 +589,10 @@ function memberSchemas(
     const fixedByExtension = isStatic
       ? ownerArgs(m, owner.typeParams, ctx.resolver({ self: owner.self }))
       : undefined;
-    if (owner.typeParams.length && isStatic && !fixedByExtension) {
-      skip(m, "Swift: static member of a generic type");
+    // Otherwise its call fixes them, where its signature names each (`Box.of(1)` is Box<Int>'s).
+    const inferred = owner.typeParams.length > 0 && isStatic && !fixedByExtension;
+    if (inferred && k === "swift.type.property") {
+      skip(m, "Swift: static property of a generic type");
       continue;
     }
     const facts = mainActorFacts(head);
@@ -676,6 +684,8 @@ function memberSchemas(
         symbol,
         ...available,
       };
+      if (inferred && !namesEvery(owner.typeParams, [...params.map((p) => p.type), method.returns]))
+        throw new Unsupported("Swift: static member of a generic type its signature doesn't fix");
       if (k === "swift.type.method") method.static = true;
       if (own.length) method.typeParams = own;
       Object.assign(method, thread);

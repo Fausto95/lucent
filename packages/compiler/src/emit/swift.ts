@@ -15,7 +15,7 @@ import { cpp, swift } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { sdkModuleOf } from "../program.ts";
-import { substitute } from "../sdk/dts.ts";
+import { classParamsUsed, substitute } from "../sdk/dts.ts";
 import { SWIFT_SCALARS, swiftConversion, takenReason } from "../sdk/plans.ts";
 import {
   findSdkType,
@@ -587,27 +587,47 @@ function specialize(em: FnEmitter, use: SwiftUse): SwiftUse {
       : ts.isPropertyAccessExpression(n)
         ? n.expression
         : n;
-  // A static's come from its extension; an instance member's, from its receiver.
+  // A static's come from its extension, or from its call, whose signature names each (the
+  // declarations give it the class's as its own first: classParamsUsed); an instance
+  // member's, from its receiver.
   const fixed = use.static ? use.member.ownerArgs : undefined;
   fixed?.forEach((t, i) => bound.set(ownerParams[i]!, t));
+  const signatureArgs = () => {
+    const sig = checker.getResolvedSignature(node as ts.CallExpression);
+    const args = sig ? checker.getTypeArgumentsForResolvedSignature(sig) : undefined;
+    const used = classParamsUsed(ownerParams, [...use.params, use.ret]).filter(
+      (p) => !own.includes(p),
+    );
+    return ownerParams.map((p) => args?.[used.indexOf(p)]);
+  };
   const ownerArgs = fixed
     ? fixed
-    : ownerParams.length
-      ? bind(
-          ownerParams,
-          checker.getTypeArguments(
-            checker.getTypeAtLocation(
-              use.role === "init" ? node : receiver(node),
-            ) as ts.TypeReference,
-          ),
-        )
-      : undefined;
+    : use.static && ownerParams.length && ts.isCallExpression(node)
+      ? bind(ownerParams, signatureArgs() as ts.Type[])
+      : ownerParams.length
+        ? bind(
+            ownerParams,
+            checker.getTypeArguments(
+              checker.getTypeAtLocation(
+                use.role === "init" ? node : receiver(node),
+              ) as ts.TypeReference,
+            ),
+          )
+        : undefined;
+  // The member's own come after the class's a static's declaration takes.
+  const before =
+    use.static && !fixed
+      ? classParamsUsed(ownerParams, [...use.params, use.ret]).filter((p) => !own.includes(p))
+          .length
+      : 0;
   const typeArgs = own.length
     ? bind(
         own,
-        checker.getTypeArgumentsForResolvedSignature(
-          checker.getResolvedSignature(node as ts.CallExpression)!,
-        ),
+        checker
+          .getTypeArgumentsForResolvedSignature(
+            checker.getResolvedSignature(node as ts.CallExpression)!,
+          )
+          ?.slice(before),
       )
     : undefined;
   const ret =

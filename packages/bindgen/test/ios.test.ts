@@ -907,14 +907,18 @@ describe.skipIf(!xcode)("iOS extractor, Swift modules", () => {
     expect(mod().skipped).toContain("Uses.init(tag:): Swift: generic initializer");
   });
 
-  it("leaves out what TypeScript cannot declare: packs, and statics of generic types", () => {
+  it("leaves out what TypeScript cannot declare: packs", () => {
     expect(mod().skipped).toEqual(
       expect.arrayContaining([
-        "Box.empty(): Swift: static member of a generic type",
         "Box.each(_:): Swift: parameter packs",
         "Shapes.broken(): refers to Shapes.Broken, which is not declared",
       ]),
     );
+    // A static of a generic type whose signature names the type's parameters: its call fixes them.
+    expect(mod().skipped!.filter((s) => s.startsWith("Box.empty()"))).toEqual([]);
+    expect(swiftType("Box")).toMatchObject({
+      methods: expect.arrayContaining([expect.objectContaining({ name: "empty", static: true })]),
+    });
     expect(swiftType("Uses")).toMatchObject({
       methods: [{ name: "boxed", returns: S("Box<Point>") }],
     });

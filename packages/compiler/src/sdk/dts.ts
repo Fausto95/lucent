@@ -1451,7 +1451,10 @@ function declaredInterfaces(schema: SdkModuleSchema, cls: SdkClassSchema): strin
 }
 
 /** Which of `classParams` the (written or parsed) types mention. */
-function classParamsUsed(classParams: readonly string[], types: (string | SdkType)[]): string[] {
+export function classParamsUsed(
+  classParams: readonly string[],
+  types: (string | SdkType)[],
+): string[] {
   if (!classParams.length) return [];
 
   const used = new Set<string>();

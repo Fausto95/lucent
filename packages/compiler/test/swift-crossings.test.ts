@@ -747,3 +747,64 @@ export async function run(): Promise<string> {
     );
   });
 });
+
+describe("statics of generic Swift types", () => {
+  const T = { k: "tparam", name: "T", nullable: false };
+  const U = { k: "tparam", name: "U", nullable: false };
+  const set = () =>
+    schemaSet([
+      {
+        module: "Gauges",
+        frameworks: [],
+        types: [
+          {
+            kind: "class",
+            name: "Box",
+            native: "Gauges.Box",
+            swift: { kind: "struct" },
+            typeParams: ["T"],
+            methods: [
+              {
+                name: "of",
+                static: true,
+                params: [{ name: "value", type: T }],
+                returns: { k: "ref", module: "Gauges", name: "Box", nullable: false, args: [T] },
+                swift: { name: "of(_:)" },
+              },
+              {
+                name: "pair",
+                static: true,
+                typeParams: ["U"],
+                params: [
+                  { name: "a", type: T },
+                  { name: "b", type: U },
+                ],
+                returns: "string",
+                swift: { name: "pair(_:_:)" },
+              },
+            ],
+            properties: [{ name: "value", type: T, readonly: true, swift: { name: "value" } }],
+          },
+        ],
+      },
+    ]);
+
+  it("are called on the type their call's arguments fix", () => {
+    const p = setProgram(
+      `import { Box } from "lucent:ios/Gauges";
+export async function run(): Promise<string> {
+  const b = Box.of(3);
+  return \`\${b.value} \${Box.pair("x", true)}\`;
+}
+`,
+      set(),
+    );
+
+    expect(p.messages).toEqual([]);
+    expect(p.shims).toContain("let v: Gauges.Box<Double> = Gauges.Box<Double>.of(a0)");
+    // The method's own come after the class's.
+    expect(p.shims).toContain(
+      "let v: String = Gauges.Box<String>.pair(lucentObject(a0) as! String, a1)",
+    );
+  });
+});
