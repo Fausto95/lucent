@@ -2,6 +2,7 @@
 #include "lucent_entries.h"
 #include "m_main_.h"
 #include "m_shapes.h"
+#include "lucent_app_C_Vec.h"
 #include <lucent/entries.h>
 
 namespace lucent_app {
@@ -19,10 +20,18 @@ void initModules() {
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
 
+#pragma push_macro("grown")
+#undef grown
+#pragma push_macro("plus")
+#undef plus
 #pragma push_macro("throughNamespace")
 #undef throughNamespace
 #pragma push_macro("vectorsMade")
 #undef vectorsMade
+#pragma push_macro("x")
+#undef x
+#pragma push_macro("y")
+#undef y
 
 extern "C" bool lucent_main_vectorsMade(lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
@@ -38,5 +47,63 @@ extern "C" bool lucent_main_throughNamespace(lucent_error* error, lucent_string*
   });
 }
 
+extern "C" bool lucent_main_grown(lucent_object arg0, lucent_error* error, lucent_object* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_main_::grown(lucent::entries::instanceIn<lucent_app::C_Vec>(arg0, "Vec"));
+    if (result) *result = lucent::entries::instanceOut(lucent_app::actor_0())(kept, value);
+  });
+}
+
+extern "C" bool lucent_shapes_Vec_new(double arg0, double arg1, lucent_error* error, lucent_object* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::C_Vec::create(lucent::entries::in(arg0), lucent::entries::in(arg1));
+    if (result) *result = lucent::entries::instanceOut(lucent_app::actor_0())(kept, value);
+  });
+}
+
+extern "C" bool lucent_shapes_Vec_get_x(lucent_object self, lucent_error* error, double* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto self_ = lucent::entries::instanceIn<lucent_app::C_Vec>(self, "Vec");
+    auto value = self_->x;
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_shapes_Vec_set_x(lucent_object self, double arg0, lucent_error* error) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    (void)kept;
+    auto self_ = lucent::entries::instanceIn<lucent_app::C_Vec>(self, "Vec");
+    self_->x = lucent::entries::in(arg0);
+  });
+}
+
+extern "C" bool lucent_shapes_Vec_get_y(lucent_object self, lucent_error* error, double* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto self_ = lucent::entries::instanceIn<lucent_app::C_Vec>(self, "Vec");
+    auto value = self_->y;
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_shapes_Vec_set_y(lucent_object self, double arg0, lucent_error* error) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    (void)kept;
+    auto self_ = lucent::entries::instanceIn<lucent_app::C_Vec>(self, "Vec");
+    self_->y = lucent::entries::in(arg0);
+  });
+}
+
+extern "C" bool lucent_shapes_Vec_plus(lucent_object self, lucent_object arg0, lucent_error* error, lucent_object* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto self_ = lucent::entries::instanceIn<lucent_app::C_Vec>(self, "Vec");
+    auto value = self_->plus(lucent::entries::instanceIn<lucent_app::C_Vec>(arg0, "Vec"));
+    if (result) *result = lucent::entries::instanceOut(lucent_app::actor_0())(kept, value);
+  });
+}
+
+#pragma pop_macro("y")
+#pragma pop_macro("x")
 #pragma pop_macro("vectorsMade")
 #pragma pop_macro("throughNamespace")
+#pragma pop_macro("plus")
+#pragma pop_macro("grown")

@@ -13,6 +13,27 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// native-sizes.image(bytes)
+bool lucent_native_sizes_image(double arg0, lucent_error* error, lucent_object* result);
+
+/// native-sizes.Image()
+bool lucent_native_sizes_Image_new(lucent_error* error, lucent_object* result);
+
+/// native-sizes.Image.nativeSize()
+bool lucent_native_sizes_Image_get_nativeSize(lucent_object self, lucent_error* error, double* result);
+
+/// native-sizes.Image.load(bytes)
+bool lucent_native_sizes_Image_load(lucent_object self, double arg0, lucent_error* error);
+
+/// native-sizes.Image.clear()
+bool lucent_native_sizes_Image_clear(lucent_object self, lucent_error* error);
+
+/// native-sizes.Weights(nativeSize)
+bool lucent_native_sizes_Weights_new(double arg0, lucent_error* error, lucent_object* result);
+
+/// native-sizes.Weights.nativeSize()
+bool lucent_native_sizes_Weights_get_nativeSize(lucent_object self, lucent_error* error, double* result);
+
 #ifdef __cplusplus
 }
 #endif

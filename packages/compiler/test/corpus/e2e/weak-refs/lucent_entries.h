@@ -22,6 +22,33 @@ bool lucent_weak_refs_trees(lucent_error* error, lucent_string* result);
 /// weak-refs.identities()
 bool lucent_weak_refs_identities(lucent_error* error, lucent_string* result);
 
+/// weak-refs.Tracker(name)
+bool lucent_weak_refs_Tracker_new(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// weak-refs.Tracker.name()
+bool lucent_weak_refs_Tracker_get_name(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// weak-refs.Tracker.seen()
+bool lucent_weak_refs_Tracker_get_seen(lucent_object self, lucent_error* error, lucent_value* result);
+
+/// weak-refs.TreeNode(name)
+bool lucent_weak_refs_TreeNode_new(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// weak-refs.TreeNode.name()
+bool lucent_weak_refs_TreeNode_get_name(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// weak-refs.TreeNode.children()
+bool lucent_weak_refs_TreeNode_get_children(lucent_object self, lucent_error* error, lucent_value* result);
+
+/// weak-refs.TreeNode.add(child)
+bool lucent_weak_refs_TreeNode_add(lucent_object self, lucent_object arg0, lucent_error* error, lucent_object* result);
+
+/// weak-refs.TreeNode.parent()
+bool lucent_weak_refs_TreeNode_get_parent(lucent_object self, lucent_error* error, lucent_value* result);
+
+/// weak-refs.TreeNode.path()
+bool lucent_weak_refs_TreeNode_path(lucent_object self, lucent_error* error, lucent_string* result);
+
 #ifdef __cplusplus
 }
 #endif

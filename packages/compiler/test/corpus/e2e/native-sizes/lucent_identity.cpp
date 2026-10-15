@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"native-sizes", "502294
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "daaebc5aa0135e89", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "150617e069d6d901", kModuleIdentities, 1};
   return identity;
 }
 

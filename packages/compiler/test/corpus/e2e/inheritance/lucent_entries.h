@@ -19,8 +19,251 @@ bool lucent_inheritance_shapes(lucent_error* error, lucent_string* result);
 /// inheritance.zoo()
 bool lucent_inheritance_zoo(lucent_error* error, lucent_string* result);
 
+/// inheritance.tricks(d)
+bool lucent_inheritance_tricks(lucent_object arg0, lucent_error* error, lucent_string* result);
+
+/// inheritance.narrow(a)
+bool lucent_inheritance_narrow(lucent_object arg0, lucent_error* error, lucent_string* result);
+
 /// inheritance.counted()
 bool lucent_inheritance_counted(lucent_error* error, double* result);
+
+/// inheritance.makePuppy()
+bool lucent_inheritance_makePuppy(lucent_error* error, lucent_object* result);
+
+/// inheritance.Animal(name)
+bool lucent_inheritance_Animal_new(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// inheritance.Animal.name()
+bool lucent_inheritance_Animal_get_name(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Animal.name()
+bool lucent_inheritance_Animal_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
+
+/// inheritance.Animal.speak()
+bool lucent_inheritance_Animal_speak(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Animal.describe()
+bool lucent_inheritance_Animal_describe(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Animal.kind()
+bool lucent_inheritance_Animal_kind(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Animal.legs()
+bool lucent_inheritance_Animal_get_legs(lucent_object self, lucent_error* error, double* result);
+
+/// inheritance.Animal.count()
+bool lucent_inheritance_Animal_get_count(lucent_error* error, double* result);
+
+/// inheritance.Animal.count()
+bool lucent_inheritance_Animal_set_count(double arg0, lucent_error* error);
+
+/// inheritance.Animal.named(name)
+bool lucent_inheritance_Animal_named(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// inheritance.Dog(name, breed)
+bool lucent_inheritance_Dog_new(lucent_string arg0, lucent_string arg1, lucent_error* error, lucent_object* result);
+
+/// inheritance.Dog.tricks()
+bool lucent_inheritance_Dog_get_tricks(lucent_object self, lucent_error* error, lucent_value* result);
+
+/// inheritance.Dog.tricks()
+bool lucent_inheritance_Dog_set_tricks(lucent_object self, lucent_value arg0, lucent_error* error);
+
+/// inheritance.Dog.kind()
+bool lucent_inheritance_Dog_kind(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Dog.learn(trick)
+bool lucent_inheritance_Dog_learn(lucent_object self, lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// inheritance.Dog.name()
+bool lucent_inheritance_Dog_get_name(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Dog.name()
+bool lucent_inheritance_Dog_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
+
+/// inheritance.Dog.speak()
+bool lucent_inheritance_Dog_speak(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Dog.describe()
+bool lucent_inheritance_Dog_describe(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Dog.legs()
+bool lucent_inheritance_Dog_get_legs(lucent_object self, lucent_error* error, double* result);
+
+/// inheritance.Dog.count()
+bool lucent_inheritance_Dog_get_count(lucent_error* error, double* result);
+
+/// inheritance.Dog.count()
+bool lucent_inheritance_Dog_set_count(double arg0, lucent_error* error);
+
+/// inheritance.Dog.named(name)
+bool lucent_inheritance_Dog_named(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// inheritance.Puppy(name, breed)
+bool lucent_inheritance_Puppy_new(lucent_string arg0, lucent_string arg1, lucent_error* error, lucent_object* result);
+
+/// inheritance.Puppy.speak()
+bool lucent_inheritance_Puppy_speak(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Puppy.kind()
+bool lucent_inheritance_Puppy_kind(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Puppy.tricks()
+bool lucent_inheritance_Puppy_get_tricks(lucent_object self, lucent_error* error, lucent_value* result);
+
+/// inheritance.Puppy.tricks()
+bool lucent_inheritance_Puppy_set_tricks(lucent_object self, lucent_value arg0, lucent_error* error);
+
+/// inheritance.Puppy.learn(trick)
+bool lucent_inheritance_Puppy_learn(lucent_object self, lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// inheritance.Puppy.name()
+bool lucent_inheritance_Puppy_get_name(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Puppy.name()
+bool lucent_inheritance_Puppy_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
+
+/// inheritance.Puppy.describe()
+bool lucent_inheritance_Puppy_describe(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Puppy.legs()
+bool lucent_inheritance_Puppy_get_legs(lucent_object self, lucent_error* error, double* result);
+
+/// inheritance.Puppy.count()
+bool lucent_inheritance_Puppy_get_count(lucent_error* error, double* result);
+
+/// inheritance.Puppy.count()
+bool lucent_inheritance_Puppy_set_count(double arg0, lucent_error* error);
+
+/// inheritance.Puppy.named(name)
+bool lucent_inheritance_Puppy_named(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// inheritance.Bird(name)
+bool lucent_inheritance_Bird_new(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// inheritance.Bird.song()
+bool lucent_inheritance_Bird_get_song(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Bird.song()
+bool lucent_inheritance_Bird_set_song(lucent_object self, lucent_string arg0, lucent_error* error);
+
+/// inheritance.Bird.legs()
+bool lucent_inheritance_Bird_get_legs(lucent_object self, lucent_error* error, double* result);
+
+/// inheritance.Bird.name()
+bool lucent_inheritance_Bird_get_name(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Bird.name()
+bool lucent_inheritance_Bird_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
+
+/// inheritance.Bird.speak()
+bool lucent_inheritance_Bird_speak(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Bird.describe()
+bool lucent_inheritance_Bird_describe(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Bird.kind()
+bool lucent_inheritance_Bird_kind(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Bird.count()
+bool lucent_inheritance_Bird_get_count(lucent_error* error, double* result);
+
+/// inheritance.Bird.count()
+bool lucent_inheritance_Bird_set_count(double arg0, lucent_error* error);
+
+/// inheritance.Bird.named(name)
+bool lucent_inheritance_Bird_named(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// inheritance.Cat(name)
+bool lucent_inheritance_Cat_new(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// inheritance.Cat.speak()
+bool lucent_inheritance_Cat_speak(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Cat.name()
+bool lucent_inheritance_Cat_get_name(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Cat.name()
+bool lucent_inheritance_Cat_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
+
+/// inheritance.Cat.describe()
+bool lucent_inheritance_Cat_describe(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Cat.kind()
+bool lucent_inheritance_Cat_kind(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Cat.legs()
+bool lucent_inheritance_Cat_get_legs(lucent_object self, lucent_error* error, double* result);
+
+/// inheritance.Cat.count()
+bool lucent_inheritance_Cat_get_count(lucent_error* error, double* result);
+
+/// inheritance.Cat.count()
+bool lucent_inheritance_Cat_set_count(double arg0, lucent_error* error);
+
+/// inheritance.Cat.named(name)
+bool lucent_inheritance_Cat_named(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// inheritance.Kitten(name)
+bool lucent_inheritance_Kitten_new(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// inheritance.Kitten.speak()
+bool lucent_inheritance_Kitten_speak(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Kitten.name()
+bool lucent_inheritance_Kitten_get_name(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Kitten.name()
+bool lucent_inheritance_Kitten_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
+
+/// inheritance.Kitten.describe()
+bool lucent_inheritance_Kitten_describe(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Kitten.kind()
+bool lucent_inheritance_Kitten_kind(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Kitten.legs()
+bool lucent_inheritance_Kitten_get_legs(lucent_object self, lucent_error* error, double* result);
+
+/// inheritance.Kitten.count()
+bool lucent_inheritance_Kitten_get_count(lucent_error* error, double* result);
+
+/// inheritance.Kitten.count()
+bool lucent_inheritance_Kitten_set_count(double arg0, lucent_error* error);
+
+/// inheritance.Kitten.named(name)
+bool lucent_inheritance_Kitten_named(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// inheritance.Lion(name)
+bool lucent_inheritance_Lion_new(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// inheritance.Lion.name()
+bool lucent_inheritance_Lion_get_name(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Lion.name()
+bool lucent_inheritance_Lion_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
+
+/// inheritance.Lion.speak()
+bool lucent_inheritance_Lion_speak(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Lion.describe()
+bool lucent_inheritance_Lion_describe(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Lion.kind()
+bool lucent_inheritance_Lion_kind(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// inheritance.Lion.legs()
+bool lucent_inheritance_Lion_get_legs(lucent_object self, lucent_error* error, double* result);
+
+/// inheritance.Lion.count()
+bool lucent_inheritance_Lion_get_count(lucent_error* error, double* result);
+
+/// inheritance.Lion.count()
+bool lucent_inheritance_Lion_set_count(double arg0, lucent_error* error);
+
+/// inheritance.Lion.named(name)
+bool lucent_inheritance_Lion_named(lucent_string arg0, lucent_error* error, lucent_object* result);
 
 #ifdef __cplusplus
 }

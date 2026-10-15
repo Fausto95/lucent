@@ -9,13 +9,14 @@
  * file reaches JSI.
  */
 import { cpp } from "@lucent-lang/codegen";
-import type ts from "typescript";
+import ts from "typescript";
 import { Codes } from "../codes.ts";
-import { cppIdent, isVoidish, type LType } from "../types.ts";
+import { type ClassInfo, cppIdent, isVoidish, type LType } from "../types.ts";
 import { actorName } from "./actors.ts";
+import { type ModuleExports, publicMembers, staticMembers } from "./bindings.ts";
+import { constructorOf } from "./classes.ts";
+import type { Ctx, ParamInfo } from "./context.ts";
 import { identifiers, withoutMacros } from "./macros.ts";
-import type { ModuleExports } from "./bindings.ts";
-import type { Ctx } from "./context.ts";
 
 export const ENTRIES_HEADER = "lucent_entries.h";
 export const ENTRIES_UNIT = "lucent_entries.cpp";
@@ -52,15 +53,37 @@ const VALUE_KINDS: Partial<Record<LType["k"], string>> = {
 };
 
 /**
+ * An exported class native code can hold instances of (decision 0116): not
+ * generic, not an Error, and not one extending an SDK class (a platform
+ * object).
+ */
+function entryClass(ctx: Ctx, t: LType): ClassInfo | undefined {
+  if (t.k !== "class" || t.args.length) return undefined;
+  const info = ctx.reg.cls(t.id);
+  return info.exported && !info.typeParams.length && !info.isError && !info.sdkBase
+    ? info
+    : undefined;
+}
+
+/** The actor a class's module runs its code on, as C++. */
+const actorOf = (ctx: Ctx, info: ClassInfo) => cpp.printExpr(ctx.actorAt(info.decl));
+
+/**
  * The converters for a value of type `t` held in a lucent_value (decision
- * 0116): optionals, arrays and records of what crosses, and platform
- * objects. None for another type.
+ * 0116): optionals, arrays and records of what crosses, platform objects
+ * and instances. None for another type.
  */
 function valueConverters(ctx: Ctx, t: LType): { in: string; out: string } | undefined {
   const e = "lucent::entries::";
   const kind = VALUE_KINDS[t.k];
   if (kind) return { in: `${e}${kind}In`, out: `${e}${kind}Out` };
   const of = (inner: LType) => cpp.printType(ctx.reg.cppType(inner, true));
+  const cls = entryClass(ctx, t);
+  if (cls)
+    return {
+      in: `${e}instanceValueIn<lucent_app::${cls.cppName}>(${JSON.stringify(cls.decl.name!.text)})`,
+      out: `${e}instanceValueOut(${actorOf(ctx, cls)})`,
+    };
   switch (t.k) {
     case "opt": {
       const inner = t.rec ? undefined : valueConverters(ctx, t.inner);
@@ -88,7 +111,7 @@ function valueConverters(ctx: Ctx, t: LType): { in: string; out: string } | unde
   }
 }
 
-/** How `t` crosses an entry: as its own C type (0091), or a lucent_value. */
+/** How `t` crosses an entry: as its own C type (0091), a lucent_object, or a lucent_value. */
 function crossingOf(ctx: Ctx, t: LType): Crossing | undefined {
   const scalar = SCALARS[t.k];
   if (scalar)
@@ -96,6 +119,14 @@ function crossingOf(ctx: Ctx, t: LType): Crossing | undefined {
       ...scalar,
       in: "lucent::entries::in($)",
       out: "lucent::entries::out(kept, $)",
+    };
+  const cls = entryClass(ctx, t);
+  if (cls)
+    return {
+      c: "lucent_object",
+      cpp: cpp.printType(ctx.reg.cppType(t)),
+      in: `lucent::entries::instanceIn<lucent_app::${cls.cppName}>($, ${JSON.stringify(cls.decl.name!.text)})`,
+      out: `lucent::entries::instanceOut(${actorOf(ctx, cls)})(kept, $)`,
     };
   const value = valueConverters(ctx, t);
   return value
@@ -122,11 +153,223 @@ export function entryName(module: string, name: string): string {
   return `lucent_${module.replace(/[^A-Za-z0-9]/g, "_")}_${name.replace(/[^A-Za-z0-9]/g, "_")}`;
 }
 
+/** What an entry runs: one function, method, constructor or property of a module. */
+interface EntrySpec {
+  name: string;
+  /** `module.export`, `module.Class.member`: what LUCENT3016 names. */
+  of: string;
+  doc: string;
+  node: ts.Node;
+  actor: string;
+  /** The class whose instance it takes first, as `lucent_object self`. */
+  self?: ClassInfo;
+  params: LType[];
+  /** What it settles with; nothing for a setter. */
+  ret?: LType;
+  async: boolean;
+  /** The C++ call, from the converted arguments (and `self_`, the instance). */
+  call: (args: string[]) => string;
+}
+
+/** The entry of `spec`, or none when a type doesn't cross. */
+function entryOf(ctx: Ctx, spec: EntrySpec): (Entry & { of: string; node: ts.Node }) | undefined {
+  // Named by position: a parameter's own name could be a macro (NAN) or one of the entry's
+  // locals.
+  const params = spec.params.map((t, i) => ({ name: `arg${i}`, crossing: crossingOf(ctx, t) }));
+  if (params.some((p) => !p.crossing)) return undefined;
+  const nothing = !spec.ret || isVoidish(spec.ret);
+  const result = nothing ? undefined : crossingOf(ctx, spec.ret!);
+  if (!nothing && !result) return undefined;
+
+  const { name, doc, of, node, actor } = spec;
+  const self = spec.self
+    ? {
+        c: "lucent_object self",
+        take: `    auto self_ = lucent::entries::instanceIn<lucent_app::${spec.self.cppName}>(self, ${JSON.stringify(spec.self.decl.name!.text)});`,
+      }
+    : undefined;
+  const cParams = [...(self ? [self.c] : []), ...params.map((p) => `${p.crossing!.c} ${p.name}`)];
+  const call = spec.call(params.map((p) => p.crossing!.in.replace("$", p.name)));
+
+  if (!spec.async) {
+    const signature = `bool ${name}(${[...cParams, "lucent_error* error", ...(result ? [`${result.c}* result`] : [])].join(", ")})`;
+    const body = result
+      ? [
+          `    auto value = ${call};`,
+          `    if (result) *result = ${result.out.replace("$", "value")};`,
+        ]
+      : [`    ${call};`];
+    return {
+      name,
+      doc,
+      of,
+      node,
+      declaration: `${signature};`,
+      definition: [
+        `extern "C" ${signature} {`,
+        `  return lucent::entries::call(&lucent_app::initModules, ${actor}, error, [&](lucent::entries::Kept& kept) {`,
+        ...(result ? [] : ["    (void)kept;"]),
+        ...(self ? [self.take] : []),
+        ...body,
+        `  });`,
+        `}`,
+      ].join("\n"),
+    };
+  }
+
+  const done = result
+    ? `void (*done)(void* context, const ${result.c}* result, const lucent_error* error)`
+    : `void (*done)(void* context, const lucent_error* error)`;
+  const signature = `void ${name}(${[...cParams, done, "void* context"].join(", ")})`;
+  const settle = result
+    ? [
+        `      [done, context](lucent::entries::Kept& kept, const ${result.cpp}* value, const lucent_error* error) {`,
+        `        if (!value) return done(context, nullptr, error);`,
+        `        ${result.c} out{};`,
+        `        try {`,
+        `          out = ${result.out.replace("$", "*value")};`,
+        `        } catch (...) {`,
+        `          lucent_error failed = lucent::entries::errorOf(kept, lucent::entries::caught(std::current_exception()));`,
+        `          return done(context, nullptr, &failed);`,
+        `        }`,
+        `        done(context, &out, nullptr);`,
+        `      });`,
+      ]
+    : [
+        `      [done, context](lucent::entries::Kept&, const lucent_error* error) { done(context, error); });`,
+      ];
+  return {
+    name,
+    doc,
+    of,
+    node,
+    declaration: `${signature};`,
+    definition: [
+      `extern "C" ${signature} {`,
+      `  lucent::entries::callAsync<${result ? result.cpp : "void"}>(`,
+      `      &lucent_app::initModules, ${actor},`,
+      self
+        ? `      [&] {\n  ${self.take}\n        return ${call};\n      },`
+        : `      [&] { return ${call}; },`,
+      ...settle,
+      `}`,
+    ].join("\n"),
+  };
+}
+
+/** Whether a function-like declaration takes only required parameters, and declares no type parameters. */
+const plainParams = (params: readonly ParamInfo[], decl: ts.SignatureDeclaration) =>
+  !decl.typeParameters?.length && !params.some((p) => p.optional || p.rest);
+
+/**
+ * The entries of an exported class (decision 0116): its constructor
+ * (`_new`), each public method, each property's getter (`_get_`) and setter
+ * (`_set_`), its own and its ancestors', taking the instance first; and its
+ * statics, without one. A member whose types don't cross gets none.
+ */
+function classEntries(ctx: Ctx, module: string, info: ClassInfo): EntrySpec[] {
+  const out: EntrySpec[] = [];
+  const cls = info.decl.name!.text;
+  const actor = actorOf(ctx, info);
+  const t: LType & { k: "class" } = { k: "class", id: info.id, args: [] };
+  const named = (member: string) => entryName(module, `${cls}_${member}`);
+  const spec = (
+    member: string,
+    entry: string,
+    node: ts.Node,
+    rest: Omit<EntrySpec, "name" | "of" | "doc" | "node" | "actor">,
+    params: string[] = [],
+  ): EntrySpec => ({
+    name: named(entry),
+    of: `${module}.${cls}.${member}`,
+    doc: `${module}.${cls}${member === "constructor" ? "" : `.${member}`}(${params.join(", ")})`,
+    node,
+    actor,
+    ...rest,
+  });
+
+  const ctor = info.members.find(ts.isConstructorDeclaration);
+  const ctorParams = constructorOf(ctx, t);
+  if (!info.abstract && !ctorParams.some((p) => p.optional || p.rest))
+    out.push(
+      spec(
+        "constructor",
+        "new",
+        ctor ?? info.decl,
+        {
+          params: ctorParams.map((p) => p.cppType),
+          ret: t,
+          async: false,
+          call: (args) => `lucent_app::${info.cppName}::create(${args.join(", ")})`,
+        },
+        ctorParams.map((p) => p.name),
+      ),
+    );
+
+  // Its own members and its ancestors', nearest first.
+  const seen = new Set<string>();
+  const members = ctx.reg
+    .chain(t)
+    .flatMap((link) => publicMembers(ctx, link.info))
+    .filter((m) => !seen.has(m.name) && !!seen.add(m.name));
+  const statics = staticMembers(ctx, info);
+  for (const [m, isStatic] of [
+    ...members.map((m) => [m, false] as const),
+    ...statics.map((m) => [m, true] as const),
+  ]) {
+    const owner = isStatic ? `lucent_app::${ctx.reg.cls(m.owner!.id).cppName}::` : "self_->";
+    const self = isStatic ? {} : { self: info };
+    const place = cppIdent(m.name);
+    if (m.kind === "method") {
+      const decl = m.node as ts.MethodDeclaration;
+      if (!plainParams(m.params!, decl) || decl.asteriskToken) continue;
+      out.push(
+        spec(
+          m.name,
+          m.name,
+          decl,
+          {
+            ...self,
+            params: m.params!.map((p) => p.cppType),
+            ret: m.ret!,
+            async: !!m.async,
+            call: (args) => `${owner}${place}(${args.join(", ")})`,
+          },
+          m.params!.map((p) => p.name),
+        ),
+      );
+      continue;
+    }
+    const type = m.types[0]!;
+    const get = m.kind === "accessor" ? `${owner}get_${place}()` : `${owner}${place}`;
+    out.push(
+      spec(m.name, `get_${m.name}`, m.node, {
+        ...self,
+        params: [],
+        ret: type,
+        async: false,
+        call: () => get,
+      }),
+    );
+    if (m.writable)
+      out.push(
+        spec(m.name, `set_${m.name}`, m.node, {
+          ...self,
+          params: [type],
+          async: false,
+          call: ([v]) =>
+            m.kind === "accessor" ? `${owner}set_${place}(${v})` : `${owner}${place} = ${v}`,
+        }),
+      );
+  }
+  return out;
+}
+
 /**
  * The entries of `mods`' exported functions whose parameters and result
- * cross: required parameters only, and no generator. Exports whose names
- * come out the same get none, and LUCENT3016 warns, naming them
- * (decision 0094).
+ * cross (required parameters only, and no generator), and of their exported
+ * classes (decision 0116). Exports whose names come out the same get none,
+ * and LUCENT3016 warns, naming them (decision 0094).
  */
 export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
   const out: (Entry & { of: string; node: ts.Node })[] = [];
@@ -138,96 +381,28 @@ export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
     for (const f of [...m.functions, ...(m.native ?? [])]) {
       if (f.generic || f.decl.asteriskToken) continue;
       if (f.params.some((p) => p.optional || p.rest)) continue;
-
-      // Named by position: a parameter's own name could be a macro (NAN)
-      // or one of the entry's locals.
-      const params = f.params.map((p, i) => ({
-        name: `arg${i}`,
-        crossing: crossingOf(ctx, p.type),
-      }));
-      if (params.some((p) => !p.crossing)) continue;
-
-      const ret = f.async
-        ? f.type.ret.k === "promise"
-          ? f.type.ret.inner
-          : f.type.ret
-        : f.type.ret;
-      const nothing = isVoidish(ret);
-      const result = nothing ? undefined : crossingOf(ctx, ret);
-      if (!nothing && !result) continue;
-
       const exportName = f.decl.name!.text;
-      const name = entryName(m.module.name, exportName);
       const of = `${m.module.name}.${exportName}`;
-      const doc = `${of}(${f.params.map((p) => p.name).join(", ")})`;
-      const node = f.decl.name!;
-
-      const cParams = params.map((p) => `${p.crossing!.c} ${p.name}`);
-      const args = params.map((p) => p.crossing!.in.replace("$", p.name)).join(", ");
-      const fn = `lucent_app::${m.module.ns}::${cppIdent(exportName)}`;
-
-      if (!f.async) {
-        const signature = `bool ${name}(${[...cParams, "lucent_error* error", ...(result ? [`${result.c}* result`] : [])].join(", ")})`;
-        const body = result
-          ? [
-              `    auto value = ${fn}(${args});`,
-              `    if (result) *result = ${result.out.replace("$", "value")};`,
-            ]
-          : [`    ${fn}(${args});`];
-        out.push({
-          name,
-          doc,
-          of,
-          node,
-          declaration: `${signature};`,
-          definition: [
-            `extern "C" ${signature} {`,
-            `  return lucent::entries::call(&lucent_app::initModules, ${actorExpr}, error, [&](lucent::entries::Kept& kept) {`,
-            ...(result ? [] : ["    (void)kept;"]),
-            ...body,
-            `  });`,
-            `}`,
-          ].join("\n"),
-        });
-        continue;
-      }
-
-      const done = result
-        ? `void (*done)(void* context, const ${result.c}* result, const lucent_error* error)`
-        : `void (*done)(void* context, const lucent_error* error)`;
-      const signature = `void ${name}(${[...cParams, done, "void* context"].join(", ")})`;
-      const settle = result
-        ? [
-            `      [done, context](lucent::entries::Kept& kept, const ${result.cpp}* value, const lucent_error* error) {`,
-            `        if (!value) return done(context, nullptr, error);`,
-            `        ${result.c} out{};`,
-            `        try {`,
-            `          out = ${result.out.replace("$", "*value")};`,
-            `        } catch (...) {`,
-            `          lucent_error failed = lucent::entries::errorOf(kept, lucent::entries::caught(std::current_exception()));`,
-            `          return done(context, nullptr, &failed);`,
-            `        }`,
-            `        done(context, &out, nullptr);`,
-            `      });`,
-          ]
-        : [
-            `      [done, context](lucent::entries::Kept&, const lucent_error* error) { done(context, error); });`,
-          ];
-      out.push({
-        name,
-        doc,
+      const entry = entryOf(ctx, {
+        name: entryName(m.module.name, exportName),
         of,
-        node,
-        declaration: `${signature};`,
-        definition: [
-          `extern "C" ${signature} {`,
-          `  lucent::entries::callAsync<${result ? result.cpp : "void"}>(`,
-          `      &lucent_app::initModules, ${actorExpr},`,
-          `      [&] { return ${fn}(${args}); },`,
-          ...settle,
-          `}`,
-        ].join("\n"),
+        doc: `${of}(${f.params.map((p) => p.name).join(", ")})`,
+        node: f.decl.name!,
+        actor: actorExpr,
+        params: f.params.map((p) => p.type),
+        ret: f.async && f.type.ret.k === "promise" ? f.type.ret.inner : f.type.ret,
+        async: f.async,
+        call: (args) => `lucent_app::${m.module.ns}::${cppIdent(exportName)}(${args.join(", ")})`,
       });
+      if (entry) out.push(entry);
+    }
+
+    for (const info of m.classes) {
+      if (!entryClass(ctx, { k: "class", id: info.id, args: [] })) continue;
+      for (const spec of classEntries(ctx, m.module.name, info)) {
+        const entry = ctx.guard(() => entryOf(ctx, spec));
+        if (entry) out.push(entry);
+      }
     }
   }
 

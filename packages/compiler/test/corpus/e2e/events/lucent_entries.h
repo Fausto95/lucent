@@ -28,6 +28,12 @@ bool lucent_events_inLucent(lucent_error* error, lucent_string* result);
 /// events.channelJson()
 bool lucent_events_channelJson(lucent_error* error, lucent_string* result);
 
+/// events.Channel()
+bool lucent_events_Channel_new(lucent_error* error, lucent_object* result);
+
+/// events.Channel.name()
+bool lucent_events_Channel_get_name(lucent_object self, lucent_error* error, lucent_string* result);
+
 #ifdef __cplusplus
 }
 #endif

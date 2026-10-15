@@ -16,6 +16,15 @@ void lucent_launch(void);
 /// rest-parameters.internal()
 bool lucent_rest_parameters_internal(lucent_error* error, lucent_string* result);
 
+/// rest-parameters.Path.parts()
+bool lucent_rest_parameters_Path_get_parts(lucent_object self, lucent_error* error, lucent_value* result);
+
+/// rest-parameters.Logger()
+bool lucent_rest_parameters_Logger_new(lucent_error* error, lucent_object* result);
+
+/// rest-parameters.LoudLogger()
+bool lucent_rest_parameters_LoudLogger_new(lucent_error* error, lucent_object* result);
+
 #ifdef __cplusplus
 }
 #endif

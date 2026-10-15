@@ -31,6 +31,9 @@ bool lucent_bigint_values_sum(lucent_value arg0, lucent_error* error, int64_t* r
 /// bigint-values.maybe(x)
 bool lucent_bigint_values_maybe(lucent_value arg0, lucent_error* error, lucent_value* result);
 
+/// bigint-values.openAccount(id)
+bool lucent_bigint_values_openAccount(int64_t arg0, lucent_error* error, lucent_object* result);
+
 /// bigint-values.factorialLater(n)
 void lucent_bigint_values_factorialLater(int64_t arg0, void (*done)(void* context, const int64_t* result, const lucent_error* error), void* context);
 
@@ -42,6 +45,27 @@ void lucent_bigint_values_failLater(lucent_string arg0, void (*done)(void* conte
 
 /// bigint-values.records(xs)
 bool lucent_bigint_values_records(lucent_value arg0, lucent_error* error, lucent_value* result);
+
+/// bigint-values.Account(id)
+bool lucent_bigint_values_Account_new(int64_t arg0, lucent_error* error, lucent_object* result);
+
+/// bigint-values.Account.id()
+bool lucent_bigint_values_Account_get_id(lucent_object self, lucent_error* error, int64_t* result);
+
+/// bigint-values.Account.balance()
+bool lucent_bigint_values_Account_get_balance(lucent_object self, lucent_error* error, int64_t* result);
+
+/// bigint-values.Account.balance()
+bool lucent_bigint_values_Account_set_balance(lucent_object self, int64_t arg0, lucent_error* error);
+
+/// bigint-values.Account.history()
+bool lucent_bigint_values_Account_get_history(lucent_object self, lucent_error* error, lucent_value* result);
+
+/// bigint-values.Account.deposit(amount)
+bool lucent_bigint_values_Account_deposit(lucent_object self, int64_t arg0, lucent_error* error, int64_t* result);
+
+/// bigint-values.Account.doubled()
+bool lucent_bigint_values_Account_get_doubled(lucent_object self, lucent_error* error, int64_t* result);
 
 #ifdef __cplusplus
 }

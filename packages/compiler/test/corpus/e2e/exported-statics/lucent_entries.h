@@ -16,6 +16,81 @@ void lucent_launch(void);
 /// exported-statics.read()
 bool lucent_exported_statics_read(lucent_error* error, lucent_string* result);
 
+/// exported-statics.Registry()
+bool lucent_exported_statics_Registry_new(lucent_error* error, lucent_object* result);
+
+/// exported-statics.Registry.seen()
+bool lucent_exported_statics_Registry_get_seen(lucent_object self, lucent_error* error, double* result);
+
+/// exported-statics.Registry.count()
+bool lucent_exported_statics_Registry_get_count(lucent_error* error, double* result);
+
+/// exported-statics.Registry.count()
+bool lucent_exported_statics_Registry_set_count(double arg0, lucent_error* error);
+
+/// exported-statics.Registry.label()
+bool lucent_exported_statics_Registry_get_label(lucent_error* error, lucent_string* result);
+
+/// exported-statics.Registry.label()
+bool lucent_exported_statics_Registry_set_label(lucent_string arg0, lucent_error* error);
+
+/// exported-statics.Registry.limit()
+bool lucent_exported_statics_Registry_get_limit(lucent_error* error, double* result);
+
+/// exported-statics.Registry.names()
+bool lucent_exported_statics_Registry_get_names(lucent_error* error, lucent_value* result);
+
+/// exported-statics.Registry.names()
+bool lucent_exported_statics_Registry_set_names(lucent_value arg0, lucent_error* error);
+
+/// exported-statics.Registry.add(name)
+bool lucent_exported_statics_Registry_add(lucent_string arg0, lucent_error* error, double* result);
+
+/// exported-statics.Registry.summary()
+bool lucent_exported_statics_Registry_summary(lucent_error* error, lucent_string* result);
+
+/// exported-statics.Scoped()
+bool lucent_exported_statics_Scoped_new(lucent_error* error, lucent_object* result);
+
+/// exported-statics.Scoped.seen()
+bool lucent_exported_statics_Scoped_get_seen(lucent_object self, lucent_error* error, double* result);
+
+/// exported-statics.Scoped.scope()
+bool lucent_exported_statics_Scoped_get_scope(lucent_error* error, lucent_string* result);
+
+/// exported-statics.Scoped.scope()
+bool lucent_exported_statics_Scoped_set_scope(lucent_string arg0, lucent_error* error);
+
+/// exported-statics.Scoped.where()
+bool lucent_exported_statics_Scoped_where(lucent_error* error, lucent_string* result);
+
+/// exported-statics.Scoped.count()
+bool lucent_exported_statics_Scoped_get_count(lucent_error* error, double* result);
+
+/// exported-statics.Scoped.count()
+bool lucent_exported_statics_Scoped_set_count(double arg0, lucent_error* error);
+
+/// exported-statics.Scoped.label()
+bool lucent_exported_statics_Scoped_get_label(lucent_error* error, lucent_string* result);
+
+/// exported-statics.Scoped.label()
+bool lucent_exported_statics_Scoped_set_label(lucent_string arg0, lucent_error* error);
+
+/// exported-statics.Scoped.limit()
+bool lucent_exported_statics_Scoped_get_limit(lucent_error* error, double* result);
+
+/// exported-statics.Scoped.names()
+bool lucent_exported_statics_Scoped_get_names(lucent_error* error, lucent_value* result);
+
+/// exported-statics.Scoped.names()
+bool lucent_exported_statics_Scoped_set_names(lucent_value arg0, lucent_error* error);
+
+/// exported-statics.Scoped.add(name)
+bool lucent_exported_statics_Scoped_add(lucent_string arg0, lucent_error* error, double* result);
+
+/// exported-statics.Scoped.summary()
+bool lucent_exported_statics_Scoped_summary(lucent_error* error, lucent_string* result);
+
 #ifdef __cplusplus
 }
 #endif

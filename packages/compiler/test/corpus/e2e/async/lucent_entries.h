@@ -49,6 +49,18 @@ void lucent_async_eagerOrder(void (*done)(void* context, const lucent_string* re
 /// async.promiseOfNothing()
 void lucent_async_promiseOfNothing(void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context);
 
+/// async.Loader()
+bool lucent_async_Loader_new(lucent_error* error, lucent_object* result);
+
+/// async.Loader.loads()
+bool lucent_async_Loader_get_loads(lucent_object self, lucent_error* error, double* result);
+
+/// async.Loader.loads()
+bool lucent_async_Loader_set_loads(lucent_object self, double arg0, lucent_error* error);
+
+/// async.Loader.load(key)
+void lucent_async_Loader_load(lucent_object self, lucent_string arg0, void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context);
+
 #ifdef __cplusplus
 }
 #endif

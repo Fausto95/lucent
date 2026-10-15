@@ -823,7 +823,7 @@ as C types of their own. Optionals, arrays, records and platform objects
 cross as a `lucent_value`, a kind and its value (#316). A platform file
 exports what takes or gives a platform object for native code alone
 ([0117](../decisions/0117-a-platform-file-exports-what-takes-platform-objects-for-native-code-alone.md)).
-[T114](../tasks.md#t114) adds instances, and the Swift and Kotlin APIs.
+[T114](../tasks.md#t114) adds the Swift and Kotlin APIs.
 
 `entries.h` holds the C types and the two calls a generated entry makes,
 `entries::call` and `callAsync`. `lucent_entries.cpp` defines the entries
@@ -832,8 +832,14 @@ and a native call both start state with. Neither reaches JSI, so the
 runtime ABI is 3. Entries take their parameters by position (`arg0`), as
 a parameter's own name could be a macro. Two exports whose names come out
 the same get none, and LUCENT3016 warns
-([0094](../decisions/0094-exports-that-would-share-an-entry-point-get-none.md)). No entry exists yet for a Lucent
-instance's method.
+([0094](../decisions/0094-exports-that-would-share-an-entry-point-get-none.md)).
+
+An exported class has entries too (#317): `lucent_<module>_<Class>_new`
+for its constructor, one per public method, `_get_<name>` and
+`_set_<name>` per property, its ancestors' included, each taking the
+instance first as `lucent_object self`; and its statics, without one. An
+instance an entry gives is a `lucent_object` its caller owns: it holds
+module state until `lucent_release` lets it go, holding the class's actor.
 
 ### Android classes the OS instantiates
 

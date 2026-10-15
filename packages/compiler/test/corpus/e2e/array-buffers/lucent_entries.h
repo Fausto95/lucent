@@ -22,6 +22,12 @@ bool lucent_array_buffers_checks(lucent_error* error, lucent_string* result);
 /// array-buffers.digest(n)
 void lucent_array_buffers_digest(double arg0, void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context);
 
+/// array-buffers.Store()
+bool lucent_array_buffers_Store_new(lucent_error* error, lucent_object* result);
+
+/// array-buffers.Store.kinds()
+bool lucent_array_buffers_Store_kinds(lucent_object self, lucent_error* error, lucent_string* result);
+
 #ifdef __cplusplus
 }
 #endif
