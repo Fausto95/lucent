@@ -5,6 +5,7 @@
 #if defined(__ANDROID__) || defined(LUCENT_JNI_HOST)
 
 #include "android.h"
+#include "../entries.h"
 
 #ifdef __ANDROID__
 #include <dlfcn.h>
@@ -1128,6 +1129,19 @@ bool available(double api) {
 #endif
 
 }  // namespace lucent::jni
+
+namespace lucent::entries {
+
+// A native entry's platform objects (decision 0116): a jobject the caller still owns, held
+// through a global ref of its own; one given, kept until the caller is done with it.
+NativeRef nativeIn(void* object) {
+  JNIEnv* e = jni::env();
+  return jni::wrap(e, e->NewLocalRef(static_cast<jobject>(object)), "a native entry's argument");
+}
+
+void* nativeOut(Kept& k, const NativeRef& r) { return k.keep(r); }
+
+}  // namespace lucent::entries
 
 #ifdef __ANDROID__
 namespace lucent {

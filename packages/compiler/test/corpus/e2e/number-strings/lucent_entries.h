@@ -13,6 +13,15 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// number-strings.strings(values)
+bool lucent_number_strings_strings(lucent_value arg0, lucent_error* error, lucent_value* result);
+
+/// number-strings.forms(values)
+bool lucent_number_strings_forms(lucent_value arg0, lucent_error* error, lucent_value* result);
+
+/// number-strings.log(values)
+bool lucent_number_strings_log(lucent_value arg0, lucent_error* error);
+
 #ifdef __cplusplus
 }
 #endif

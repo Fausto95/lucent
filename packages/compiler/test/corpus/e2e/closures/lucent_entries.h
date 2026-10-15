@@ -13,6 +13,9 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// closures.makeAdders()
+bool lucent_closures_makeAdders(lucent_error* error, lucent_value* result);
+
 /// closures.counter()
 bool lucent_closures_counter(lucent_error* error, double* result);
 

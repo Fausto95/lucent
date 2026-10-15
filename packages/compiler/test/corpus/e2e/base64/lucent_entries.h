@@ -13,6 +13,12 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// base64.decoded(inputs)
+bool lucent_base64_decoded(lucent_value arg0, lucent_error* error, lucent_string* result);
+
+/// base64.encoded(inputs)
+bool lucent_base64_encoded(lucent_value arg0, lucent_error* error, lucent_string* result);
+
 /// base64.roundTrip(text)
 bool lucent_base64_roundTrip(lucent_string arg0, lucent_error* error, lucent_string* result);
 

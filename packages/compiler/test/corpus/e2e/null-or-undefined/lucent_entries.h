@@ -13,6 +13,15 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// null-or-undefined.label(name)
+bool lucent_null_or_undefined_label(lucent_value arg0, lucent_error* error, lucent_string* result);
+
+/// null-or-undefined.orNull(name)
+bool lucent_null_or_undefined_orNull(lucent_value arg0, lucent_error* error, lucent_string* result);
+
+/// null-or-undefined.both(name)
+bool lucent_null_or_undefined_both(lucent_value arg0, lucent_error* error, lucent_string* result);
+
 #ifdef __cplusplus
 }
 #endif

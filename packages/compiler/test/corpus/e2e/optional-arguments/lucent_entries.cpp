@@ -16,3 +16,15 @@ void initModules() {
 
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
+
+#pragma push_macro("nanArguments")
+#undef nanArguments
+
+extern "C" bool lucent_optional_arguments_nanArguments(double arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_optional_u2d_arguments::nanArguments(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+#pragma pop_macro("nanArguments")

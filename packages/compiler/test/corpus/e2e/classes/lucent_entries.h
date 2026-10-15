@@ -13,6 +13,9 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// classes.useStack(xs)
+bool lucent_classes_useStack(lucent_value arg0, lucent_error* error, lucent_string* result);
+
 /// classes.relayed()
 bool lucent_classes_relayed(lucent_error* error, lucent_string* result);
 

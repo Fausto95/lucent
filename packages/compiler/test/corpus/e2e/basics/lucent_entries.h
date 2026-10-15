@@ -13,6 +13,9 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// basics.hashMany(inputs)
+void lucent_basics_hashMany(lucent_value arg0, void (*done)(void* context, const lucent_value* result, const lucent_error* error), void* context);
+
 /// basics.clamp(v, lo, hi)
 bool lucent_basics_clamp(double arg0, double arg1, double arg2, lucent_error* error, double* result);
 

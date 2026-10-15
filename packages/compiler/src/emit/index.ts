@@ -862,7 +862,11 @@ function collect(
       generic: !!s.typeParameters?.length,
     };
     ctx.globals.set(sym, g);
-    if (isExported(s)) exp.functions.push(g as Extract<Global, { kind: "function" }>);
+    // One a platform file exports for native code alone (0117) is no JavaScript export.
+    if (isExported(s))
+      (undeclared(checker, m, s.name.text) ? (exp.native ??= []) : exp.functions).push(
+        g as Extract<Global, { kind: "function" }>,
+      );
     return;
   }
   if (ts.isVariableStatement(s)) {

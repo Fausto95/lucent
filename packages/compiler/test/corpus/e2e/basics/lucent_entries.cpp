@@ -21,6 +21,25 @@ extern "C" void lucent_launch(void) {}
 #undef clamp
 #pragma push_macro("describe")
 #undef describe
+#pragma push_macro("hashMany")
+#undef hashMany
+
+extern "C" void lucent_basics_hashMany(lucent_value arg0, void (*done)(void* context, const lucent_value* result, const lucent_error* error), void* context) {
+  lucent::entries::callAsync<lucent::Array<double>>(
+      &lucent_app::initModules, lucent_app::actor_0(),
+      [&] { return lucent_app::m_basics::hashMany(lucent::entries::arrayIn<lucent::String>(lucent::entries::stringIn)(arg0)); },
+      [done, context](lucent::entries::Kept& kept, const lucent::Array<double>* value, const lucent_error* error) {
+        if (!value) return done(context, nullptr, error);
+        lucent_value out{};
+        try {
+          out = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, *value);
+        } catch (...) {
+          lucent_error failed = lucent::entries::errorOf(kept, lucent::entries::caught(std::current_exception()));
+          return done(context, nullptr, &failed);
+        }
+        done(context, &out, nullptr);
+      });
+}
 
 extern "C" bool lucent_basics_clamp(double arg0, double arg1, double arg2, lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
@@ -36,5 +55,6 @@ extern "C" bool lucent_basics_describe(double arg0, lucent_error* error, lucent_
   });
 }
 
+#pragma pop_macro("hashMany")
 #pragma pop_macro("describe")
 #pragma pop_macro("clamp")

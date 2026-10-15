@@ -17,8 +17,26 @@ void initModules() {
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
 
+#pragma push_macro("decoded")
+#undef decoded
+#pragma push_macro("encoded")
+#undef encoded
 #pragma push_macro("roundTrip")
 #undef roundTrip
+
+extern "C" bool lucent_base64_decoded(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_base64::decoded(lucent::entries::arrayIn<lucent::String>(lucent::entries::stringIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_base64_encoded(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_base64::encoded(lucent::entries::arrayIn<lucent::String>(lucent::entries::stringIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
 
 extern "C" bool lucent_base64_roundTrip(lucent_string arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
@@ -28,3 +46,5 @@ extern "C" bool lucent_base64_roundTrip(lucent_string arg0, lucent_error* error,
 }
 
 #pragma pop_macro("roundTrip")
+#pragma pop_macro("encoded")
+#pragma pop_macro("decoded")

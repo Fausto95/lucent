@@ -16,3 +16,38 @@ void initModules() {
 
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
+
+#pragma push_macro("chars")
+#undef chars
+#pragma push_macro("counted")
+#undef counted
+#pragma push_macro("entries")
+#undef entries
+#pragma push_macro("unique")
+#undef unique
+
+extern "C" bool lucent_iterable_spread_unique(lucent_value arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_iterable_u2d_spread::unique(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_iterable_spread_chars(lucent_string arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_iterable_u2d_spread::chars(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_iterable_spread_counted(double arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_iterable_u2d_spread::counted(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, value);
+  });
+}
+
+#pragma pop_macro("unique")
+#pragma pop_macro("entries")
+#pragma pop_macro("counted")
+#pragma pop_macro("chars")

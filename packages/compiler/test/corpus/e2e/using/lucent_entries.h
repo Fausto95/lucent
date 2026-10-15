@@ -13,6 +13,33 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// using.scoped()
+bool lucent_using_scoped(lucent_error* error, lucent_value* result);
+
+/// using.early(stop)
+bool lucent_using_early(bool arg0, lucent_error* error, lucent_value* result);
+
+/// using.throwing()
+bool lucent_using_throwing(lucent_error* error, lucent_value* result);
+
+/// using.loop()
+bool lucent_using_loop(lucent_error* error, lucent_value* result);
+
+/// using.nullable(open)
+bool lucent_using_nullable(bool arg0, lucent_error* error, lucent_value* result);
+
+/// using.disposeThrows()
+bool lucent_using_disposeThrows(lucent_error* error, lucent_value* result);
+
+/// using.suppressed()
+bool lucent_using_suppressed(lucent_error* error, lucent_value* result);
+
+/// using.inAsync()
+void lucent_using_inAsync(void (*done)(void* context, const lucent_value* result, const lucent_error* error), void* context);
+
+/// using.explicit()
+bool lucent_using_explicit(lucent_error* error, lucent_value* result);
+
 #ifdef __cplusplus
 }
 #endif

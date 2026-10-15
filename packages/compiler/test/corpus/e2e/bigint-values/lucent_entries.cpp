@@ -17,12 +17,70 @@ void initModules() {
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
 
+#pragma push_macro("defaultSorted")
+#undef defaultSorted
 #pragma push_macro("factorialLater")
 #undef factorialLater
 #pragma push_macro("failLater")
 #undef failLater
+#pragma push_macro("keys")
+#undef keys
+#pragma push_macro("maybe")
+#undef maybe
 #pragma push_macro("out")
 #undef out
+#pragma push_macro("records")
+#undef records
+#pragma push_macro("search")
+#undef search
+#pragma push_macro("sorted")
+#undef sorted
+#pragma push_macro("sum")
+#undef sum
+#pragma push_macro("sumLater")
+#undef sumLater
+
+extern "C" bool lucent_bigint_values_keys(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_values::keys(lucent::entries::arrayIn<lucent::BigInt>(lucent::entries::bigintIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_values_sorted(lucent_value arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_values::sorted(lucent::entries::arrayIn<lucent::BigInt>(lucent::entries::bigintIn)(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::bigintOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_values_defaultSorted(lucent_value arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_values::defaultSorted(lucent::entries::arrayIn<lucent::BigInt>(lucent::entries::bigintIn)(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::bigintOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_values_search(lucent_value arg0, int64_t arg1, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_values::search(lucent::entries::arrayIn<lucent::BigInt>(lucent::entries::bigintIn)(arg0), lucent::entries::in(arg1));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_values_sum(lucent_value arg0, lucent_error* error, int64_t* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_values::sum(lucent::entries::arrayIn<lucent::BigInt>(lucent::entries::bigintIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_values_maybe(lucent_value arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_values::maybe(lucent::entries::optionalIn<lucent::BigInt>(lucent::entries::bigintIn, false)(arg0));
+    if (result) *result = lucent::entries::optionalOut(lucent::entries::bigintOut)(kept, value);
+  });
+}
 
 extern "C" void lucent_bigint_values_factorialLater(int64_t arg0, void (*done)(void* context, const int64_t* result, const lucent_error* error), void* context) {
   lucent::entries::callAsync<lucent::BigInt>(
@@ -31,6 +89,23 @@ extern "C" void lucent_bigint_values_factorialLater(int64_t arg0, void (*done)(v
       [done, context](lucent::entries::Kept& kept, const lucent::BigInt* value, const lucent_error* error) {
         if (!value) return done(context, nullptr, error);
         int64_t out{};
+        try {
+          out = lucent::entries::out(kept, *value);
+        } catch (...) {
+          lucent_error failed = lucent::entries::errorOf(kept, lucent::entries::caught(std::current_exception()));
+          return done(context, nullptr, &failed);
+        }
+        done(context, &out, nullptr);
+      });
+}
+
+extern "C" void lucent_bigint_values_sumLater(lucent_value arg0, void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context) {
+  lucent::entries::callAsync<lucent::String>(
+      &lucent_app::initModules, lucent_app::actor_0(),
+      [&] { return lucent_app::m_bigint_u2d_values::sumLater(lucent::entries::arrayIn<lucent::BigInt>(lucent::entries::bigintIn)(arg0)); },
+      [done, context](lucent::entries::Kept& kept, const lucent::String* value, const lucent_error* error) {
+        if (!value) return done(context, nullptr, error);
+        lucent_string out{};
         try {
           out = lucent::entries::out(kept, *value);
         } catch (...) {
@@ -58,6 +133,21 @@ extern "C" void lucent_bigint_values_failLater(lucent_string arg0, void (*done)(
       });
 }
 
+extern "C" bool lucent_bigint_values_records(lucent_value arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_values::records(lucent::entries::recordIn<lucent::BigInt>(lucent::entries::bigintIn)(arg0));
+    if (result) *result = lucent::entries::recordOut(lucent::entries::bigintOut)(kept, value);
+  });
+}
+
+#pragma pop_macro("sumLater")
+#pragma pop_macro("sum")
+#pragma pop_macro("sorted")
+#pragma pop_macro("search")
+#pragma pop_macro("records")
 #pragma pop_macro("out")
+#pragma pop_macro("maybe")
+#pragma pop_macro("keys")
 #pragma pop_macro("failLater")
 #pragma pop_macro("factorialLater")
+#pragma pop_macro("defaultSorted")

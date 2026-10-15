@@ -17,16 +17,34 @@ void initModules() {
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
 
+#pragma push_macro("arrays")
+#undef arrays
 #pragma push_macro("madeRecords")
 #undef madeRecords
 #pragma push_macro("maps")
 #undef maps
 #pragma push_macro("nulls")
 #undef nulls
+#pragma push_macro("records")
+#undef records
+
+extern "C" bool lucent_optional_elements_arrays(lucent_value arg0, double arg1, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_optional_u2d_elements::arrays(lucent::entries::arrayIn<lucent::Opt<double>>(lucent::entries::optionalIn<double>(lucent::entries::numberIn, false))(arg0), lucent::entries::in(arg1));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
 
 extern "C" bool lucent_optional_elements_maps(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_optional_u2d_elements::maps();
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_optional_elements_records(lucent_value arg0, lucent_string arg1, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_optional_u2d_elements::records(lucent::entries::recordIn<lucent::Opt<double>>(lucent::entries::optionalIn<double>(lucent::entries::numberIn, false))(arg0), lucent::entries::in(arg1));
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
@@ -45,6 +63,8 @@ extern "C" bool lucent_optional_elements_nulls(lucent_error* error, lucent_strin
   });
 }
 
+#pragma pop_macro("records")
 #pragma pop_macro("nulls")
 #pragma pop_macro("maps")
 #pragma pop_macro("madeRecords")
+#pragma pop_macro("arrays")

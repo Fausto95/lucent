@@ -13,6 +13,15 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// iterable-spread.unique(xs)
+bool lucent_iterable_spread_unique(lucent_value arg0, lucent_error* error, lucent_value* result);
+
+/// iterable-spread.chars(s)
+bool lucent_iterable_spread_chars(lucent_string arg0, lucent_error* error, lucent_value* result);
+
+/// iterable-spread.counted(n)
+bool lucent_iterable_spread_counted(double arg0, lucent_error* error, lucent_value* result);
+
 #ifdef __cplusplus
 }
 #endif

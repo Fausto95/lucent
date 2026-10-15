@@ -19,10 +19,18 @@ extern "C" void lucent_launch(void) {}
 
 #pragma push_macro("builder")
 #undef builder
+#pragma push_macro("collate")
+#undef collate
 #pragma push_macro("compare")
 #undef compare
 #pragma push_macro("countChars")
 #undef countChars
+#pragma push_macro("dollarPatterns")
+#undef dollarPatterns
+#pragma push_macro("localeCase")
+#undef localeCase
+#pragma push_macro("manip")
+#undef manip
 #pragma push_macro("out")
 #undef out
 #pragma push_macro("pad")
@@ -33,8 +41,12 @@ extern "C" void lucent_launch(void) {}
 #undef splitLimits
 #pragma push_macro("stats")
 #undef stats
+#pragma push_macro("templates")
+#undef templates
 #pragma push_macro("unicode")
 #undef unicode
+#pragma push_macro("unicodeCase")
+#undef unicodeCase
 
 extern "C" bool lucent_strings_stats(lucent_string arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
@@ -71,6 +83,13 @@ extern "C" bool lucent_strings_builder(double arg0, lucent_error* error, lucent_
   });
 }
 
+extern "C" bool lucent_strings_manip(lucent_string arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_strings::manip(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
 extern "C" bool lucent_strings_compare(lucent_string arg0, lucent_string arg1, lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_strings::compare(lucent::entries::in(arg0), lucent::entries::in(arg1));
@@ -85,6 +104,41 @@ extern "C" bool lucent_strings_unicode(lucent_error* error, lucent_string* resul
   });
 }
 
+extern "C" bool lucent_strings_unicodeCase(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_strings::unicodeCase(lucent::entries::arrayIn<lucent::String>(lucent::entries::stringIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_strings_collate(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_strings::collate(lucent::entries::arrayIn<lucent::String>(lucent::entries::stringIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_strings_templates(lucent_value arg0, double arg1, bool arg2, lucent_string arg3, lucent_value arg4, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_strings::templates(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0), lucent::entries::in(arg1), lucent::entries::in(arg2), lucent::entries::in(arg3), lucent::entries::optionalIn<lucent::String>(lucent::entries::stringIn, false)(arg4));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_strings_dollarPatterns(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_strings::dollarPatterns();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_strings_localeCase(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_strings::localeCase(lucent::entries::arrayIn<lucent::String>(lucent::entries::stringIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
 extern "C" bool lucent_strings_splitLimits(double arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_strings::splitLimits(lucent::entries::in(arg0));
@@ -92,12 +146,18 @@ extern "C" bool lucent_strings_splitLimits(double arg0, lucent_error* error, luc
   });
 }
 
+#pragma pop_macro("unicodeCase")
 #pragma pop_macro("unicode")
+#pragma pop_macro("templates")
 #pragma pop_macro("stats")
 #pragma pop_macro("splitLimits")
 #pragma pop_macro("reverseWords")
 #pragma pop_macro("pad")
 #pragma pop_macro("out")
+#pragma pop_macro("manip")
+#pragma pop_macro("localeCase")
+#pragma pop_macro("dollarPatterns")
 #pragma pop_macro("countChars")
 #pragma pop_macro("compare")
+#pragma pop_macro("collate")
 #pragma pop_macro("builder")

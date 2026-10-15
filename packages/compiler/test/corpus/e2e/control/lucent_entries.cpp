@@ -21,8 +21,12 @@ extern "C" void lucent_launch(void) {}
 #undef catches
 #pragma push_macro("classify")
 #undef classify
+#pragma push_macro("earlyReturnInLoop")
+#undef earlyReturnInLoop
 #pragma push_macro("finallyOrder")
 #undef finallyOrder
+#pragma push_macro("forIn")
+#undef forIn
 #pragma push_macro("labeled")
 #undef labeled
 #pragma push_macro("logic")
@@ -31,6 +35,10 @@ extern "C" void lucent_launch(void) {}
 #undef nestedFinally
 #pragma push_macro("out")
 #undef out
+#pragma push_macro("ternaries")
+#undef ternaries
+#pragma push_macro("whileLoops")
+#undef whileLoops
 
 extern "C" bool lucent_control_classify(double arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
@@ -67,6 +75,20 @@ extern "C" bool lucent_control_catches(lucent_string arg0, lucent_error* error, 
   });
 }
 
+extern "C" bool lucent_control_whileLoops(double arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_control::whileLoops(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_control_ternaries(lucent_value arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_control::ternaries(lucent::entries::arrayIn<lucent::Opt<double>>(lucent::entries::optionalIn<double>(lucent::entries::numberIn, false))(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
 extern "C" bool lucent_control_logic(lucent_string arg0, double arg1, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_control::logic(lucent::entries::in(arg0), lucent::entries::in(arg1));
@@ -74,10 +96,28 @@ extern "C" bool lucent_control_logic(lucent_string arg0, double arg1, lucent_err
   });
 }
 
+extern "C" bool lucent_control_forIn(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_control::forIn(lucent::entries::recordIn<double>(lucent::entries::numberIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_control_earlyReturnInLoop(lucent_value arg0, double arg1, lucent_error* error, double* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_control::earlyReturnInLoop(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0), lucent::entries::in(arg1));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+#pragma pop_macro("whileLoops")
+#pragma pop_macro("ternaries")
 #pragma pop_macro("out")
 #pragma pop_macro("nestedFinally")
 #pragma pop_macro("logic")
 #pragma pop_macro("labeled")
+#pragma pop_macro("forIn")
 #pragma pop_macro("finallyOrder")
+#pragma pop_macro("earlyReturnInLoop")
 #pragma pop_macro("classify")
 #pragma pop_macro("catches")

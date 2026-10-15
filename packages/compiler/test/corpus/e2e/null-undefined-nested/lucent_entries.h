@@ -13,6 +13,21 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// null-undefined-nested.elements(xs)
+bool lucent_null_undefined_nested_elements(lucent_value arg0, lucent_error* error, lucent_string* result);
+
+/// null-undefined-nested.nullable(xs)
+bool lucent_null_undefined_nested_nullable(lucent_value arg0, lucent_error* error, lucent_string* result);
+
+/// null-undefined-nested.nested(rows)
+bool lucent_null_undefined_nested_nested(lucent_value arg0, lucent_error* error, lucent_string* result);
+
+/// null-undefined-nested.record(r)
+bool lucent_null_undefined_nested_record(lucent_value arg0, lucent_error* error, lucent_string* result);
+
+/// null-undefined-nested.both(xs)
+bool lucent_null_undefined_nested_both(lucent_value arg0, lucent_error* error, lucent_string* result);
+
 #ifdef __cplusplus
 }
 #endif

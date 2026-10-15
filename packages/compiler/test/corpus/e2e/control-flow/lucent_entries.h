@@ -64,6 +64,9 @@ bool lucent_control_flow_increments(lucent_error* error, lucent_string* result);
 /// control-flow.bits(x, y)
 bool lucent_control_flow_bits(double arg0, double arg1, lucent_error* error, lucent_string* result);
 
+/// control-flow.optionals(x)
+bool lucent_control_flow_optionals(lucent_value arg0, lucent_error* error, lucent_string* result);
+
 /// control-flow.truthy(s, n)
 bool lucent_control_flow_truthy(lucent_string arg0, double arg1, lucent_error* error, lucent_string* result);
 

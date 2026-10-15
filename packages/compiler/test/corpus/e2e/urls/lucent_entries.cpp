@@ -23,12 +23,21 @@ extern "C" void lucent_launch(void) {}
 #undef out
 #pragma push_macro("params")
 #undef params
+#pragma push_macro("parts")
+#undef parts
 #pragma push_macro("statics")
 #undef statics
 #pragma push_macro("value")
 #undef value
 #pragma push_macro("written")
 #undef written
+
+extern "C" bool lucent_urls_parts(lucent_value arg0, lucent_value arg1, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_urls::parts(lucent::entries::arrayIn<lucent::String>(lucent::entries::stringIn)(arg0), lucent::entries::optionalIn<lucent::String>(lucent::entries::stringIn, false)(arg1));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
 
 extern "C" bool lucent_urls_written(lucent_string arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
@@ -61,6 +70,7 @@ extern "C" bool lucent_urls_statics(lucent_error* error, lucent_string* result) 
 #pragma pop_macro("written")
 #pragma pop_macro("value")
 #pragma pop_macro("statics")
+#pragma pop_macro("parts")
 #pragma pop_macro("params")
 #pragma pop_macro("out")
 #pragma pop_macro("linked")

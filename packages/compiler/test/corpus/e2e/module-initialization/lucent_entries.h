@@ -25,6 +25,9 @@ bool lucent_module_initialization_afterValue(lucent_error* error, double* result
 /// module-initialization.setCached(n)
 bool lucent_module_initialization_setCached(double arg0, lucent_error* error);
 
+/// module-initialization.cached()
+bool lucent_module_initialization_cached(lucent_error* error, lucent_value* result);
+
 /// module-initialization.touch()
 bool lucent_module_initialization_touch(lucent_error* error, double* result);
 

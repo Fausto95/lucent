@@ -16,8 +16,20 @@ void lucent_launch(void);
 /// text-encoding.encoded()
 bool lucent_text_encoding_encoded(lucent_error* error, lucent_string* result);
 
+/// text-encoding.encodedInto(sizes)
+bool lucent_text_encoding_encodedInto(lucent_value arg0, lucent_error* error, lucent_string* result);
+
+/// text-encoding.decoded(bytes)
+bool lucent_text_encoding_decoded(lucent_value arg0, lucent_error* error, lucent_string* result);
+
 /// text-encoding.boms()
 bool lucent_text_encoding_boms(lucent_error* error, lucent_string* result);
+
+/// text-encoding.streamed(chunks)
+bool lucent_text_encoding_streamed(lucent_value arg0, lucent_error* error, lucent_string* result);
+
+/// text-encoding.fatal(bytes, stream)
+bool lucent_text_encoding_fatal(lucent_value arg0, bool arg1, lucent_error* error, lucent_string* result);
 
 /// text-encoding.views()
 bool lucent_text_encoding_views(lucent_error* error, lucent_string* result);

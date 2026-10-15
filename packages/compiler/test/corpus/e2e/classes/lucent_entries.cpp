@@ -27,8 +27,17 @@ extern "C" void lucent_launch(void) {}
 #undef out
 #pragma push_macro("relayed")
 #undef relayed
+#pragma push_macro("useStack")
+#undef useStack
 #pragma push_macro("value")
 #undef value
+
+extern "C" bool lucent_classes_useStack(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_classes::useStack(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
 
 extern "C" bool lucent_classes_relayed(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
@@ -59,6 +68,7 @@ extern "C" bool lucent_classes_described(lucent_error* error, lucent_string* res
 }
 
 #pragma pop_macro("value")
+#pragma pop_macro("useStack")
 #pragma pop_macro("relayed")
 #pragma pop_macro("out")
 #pragma pop_macro("locations")

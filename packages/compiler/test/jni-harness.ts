@@ -176,6 +176,8 @@ export function jvmRun(
   dir: string,
   classpath: string[],
   tc?: KotlinToolchain,
+  /** The program's own main(), in place of the one that calls run(): the JVM's classpath is its argv[1]. */
+  programMain: string = main,
 ): { status: number | null; stdout: string; stderr: string } {
   const out = writeOut(r, dir);
 
@@ -217,7 +219,7 @@ export function jvmRun(
     jars.push(jar);
   }
 
-  fs.writeFileSync(path.join(out, "android/main.cpp"), main);
+  fs.writeFileSync(path.join(out, "android/main.cpp"), programMain);
 
   const flags = glueFlags(out);
   const jobs = [

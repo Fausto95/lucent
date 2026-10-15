@@ -31,6 +31,12 @@ bool lucent_temporary_names_pushes(lucent_error* error, double* result);
 /// temporary-names.keysOf()
 bool lucent_temporary_names_keysOf(lucent_error* error, lucent_string* result);
 
+/// temporary-names.copies()
+bool lucent_temporary_names_copies(lucent_error* error, lucent_value* result);
+
+/// temporary-names.keyed(r)
+bool lucent_temporary_names_keyed(lucent_value arg0, lucent_error* error, lucent_string* result);
+
 #ifdef __cplusplus
 }
 #endif

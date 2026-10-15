@@ -13,6 +13,9 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// object-keys.inRecord(r, k)
+bool lucent_object_keys_inRecord(lucent_value arg0, lucent_string arg1, lucent_error* error, bool* result);
+
 /// object-keys.literalKeys()
 bool lucent_object_keys_literalKeys(lucent_error* error, lucent_string* result);
 

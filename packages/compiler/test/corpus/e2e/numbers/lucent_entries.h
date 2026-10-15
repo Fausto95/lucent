@@ -13,11 +13,32 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// numbers.format(values)
+bool lucent_numbers_format(lucent_value arg0, lucent_error* error, lucent_value* result);
+
+/// numbers.bits(a, b)
+bool lucent_numbers_bits(double arg0, double arg1, lucent_error* error, lucent_value* result);
+
+/// numbers.parse(values)
+bool lucent_numbers_parse(lucent_value arg0, lucent_error* error, lucent_value* result);
+
+/// numbers.parseInts(values)
+bool lucent_numbers_parseInts(lucent_value arg0, lucent_error* error, lucent_value* result);
+
 /// numbers.special()
 bool lucent_numbers_special(lucent_error* error, lucent_string* result);
 
+/// numbers.mathFns(x)
+bool lucent_numbers_mathFns(double arg0, lucent_error* error, lucent_value* result);
+
 /// numbers.precision(v)
 bool lucent_numbers_precision(double arg0, lucent_error* error, lucent_string* result);
+
+/// numbers.checks(v)
+bool lucent_numbers_checks(double arg0, lucent_error* error, lucent_value* result);
+
+/// numbers.sum(xs)
+bool lucent_numbers_sum(lucent_value arg0, lucent_error* error, double* result);
 
 /// numbers.fib(n)
 bool lucent_numbers_fib(double arg0, lucent_error* error, double* result);

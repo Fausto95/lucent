@@ -13,6 +13,9 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// urls.parts(inputs, base)
+bool lucent_urls_parts(lucent_value arg0, lucent_value arg1, lucent_error* error, lucent_string* result);
+
 /// urls.written(href)
 bool lucent_urls_written(lucent_string arg0, lucent_error* error, lucent_string* result);
 

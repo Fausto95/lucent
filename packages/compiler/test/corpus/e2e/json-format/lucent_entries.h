@@ -28,6 +28,9 @@ bool lucent_json_format_spaces(lucent_error* error, lucent_string* result);
 /// json-format.records()
 bool lucent_json_format_records(lucent_error* error, lucent_string* result);
 
+/// json-format.fromParameters(keys, space)
+bool lucent_json_format_fromParameters(lucent_value arg0, lucent_value arg1, lucent_error* error, lucent_string* result);
+
 /// json-format.scalars()
 bool lucent_json_format_scalars(lucent_error* error, lucent_string* result);
 

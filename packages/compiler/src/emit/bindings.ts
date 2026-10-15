@@ -14,6 +14,12 @@ import { traceSite } from "./trace-site.ts";
 export interface ModuleExports {
   module: LucentModule;
   functions: Extract<Global, { kind: "function" }>[];
+  /**
+   * A platform file's exports its declaration file leaves out, which take or
+   * give platform objects: native code calls them, JavaScript never sees them
+   * (decision 0117).
+   */
+  native?: Extract<Global, { kind: "function" }>[];
   classes: ClassInfo[];
   consts: Extract<Global, { kind: "var" }>[];
   enums: { name: string; members: { name: string; value: string | number }[] }[];

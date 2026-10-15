@@ -11,6 +11,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { compile, runtimeDir } from "../src/index.ts";
+import { fakeAndroid } from "./fake-android.ts";
+import { jdk, jvmRun } from "./jni-harness.ts";
 import { compileAll } from "./parallel-build.ts";
 import { hostRuntime } from "./swift-harness.ts";
 import { hostLibs } from "../../runtime/test/sources.ts";
@@ -118,6 +120,127 @@ int main() {
 
   lucent_math_count(&error, &calls);
   std::printf("count %lld, holds %d\\n", (long long)calls, (int)lucent::moduleStateHolds());
+  return 0;
+}
+`;
+
+// Optionals, arrays and records (decision 0116): lucent_values.
+const lists = `export function total(xs: number[]): number {
+  let sum = 0;
+  for (const x of xs) sum += x;
+  return sum;
+}
+
+export function names(r: Record<string, number>): string[] {
+  const out: string[] = [];
+  for (const k of Object.keys(r)) out.push(k + "=" + r[k]);
+  return out;
+}
+
+export function maybe(n: number | null): string | null {
+  return n === null ? null : "n=" + n;
+}
+
+export function lengths(rows: (string | null)[][]): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  rows.forEach((row, i) => {
+    out["row" + i] = row.every((x) => x !== null);
+  });
+  return out;
+}
+
+export async function tags(n: number): Promise<string[]> {
+  await Promise.resolve();
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) out.push("t" + i);
+  return out;
+}
+`;
+
+const listsMain = `#include <atomic>
+#include <chrono>
+#include <cstdio>
+#include <string>
+#include <thread>
+
+#include "lucent_entries.h"
+
+static std::string text(lucent_string s) { return std::string(s.data, s.length); }
+static lucent_value number(double d) {
+  lucent_value v{LUCENT_NUMBER, {}};
+  v.as.number = d;
+  return v;
+}
+static lucent_value string(const char* s) {
+  lucent_value v{LUCENT_STRING, {}};
+  v.as.string = lucent_string{s, std::char_traits<char>::length(s)};
+  return v;
+}
+static lucent_value array(const lucent_value* items, size_t n) {
+  lucent_value v{LUCENT_ARRAY, {}};
+  v.as.array = lucent_array{items, n};
+  return v;
+}
+static std::string show(const lucent_value& v) {
+  switch (v.kind) {
+    case LUCENT_NULL: return "null";
+    case LUCENT_BOOLEAN: return v.as.boolean ? "true" : "false";
+    case LUCENT_NUMBER: return std::to_string((int)v.as.number);
+    case LUCENT_STRING: return text(v.as.string);
+    case LUCENT_ARRAY: {
+      std::string out = "[";
+      for (size_t i = 0; i < v.as.array.length; i++) out += (i ? " " : "") + show(v.as.array.items[i]);
+      return out + "]";
+    }
+    case LUCENT_RECORD: {
+      std::string out = "{";
+      for (size_t i = 0; i < v.as.record.length; i++)
+        out += (i ? " " : "") + text(v.as.record.keys[i]) + ":" + show(v.as.record.values[i]);
+      return out + "}";
+    }
+    default: return "?";
+  }
+}
+
+static std::atomic<int> settled{0};
+static std::string tagged;
+
+int main() {
+  lucent_error error{};
+  const lucent_value xs[] = {number(1), number(2), number(3)};
+  double sum = 0;
+  lucent_lists_total(array(xs, 3), &error, &sum);
+  std::printf("total %g\\n", sum);
+
+  const lucent_value wrong[] = {number(1), string("two")};
+  bool ok = lucent_lists_total(array(wrong, 2), &error, &sum);
+  std::printf("wrong %d %s: %s\\n", ok, text(error.name).c_str(), text(error.message).c_str());
+
+  const lucent_string keys[] = {{"b", 1}, {"a", 1}};
+  const lucent_value values[] = {number(2), number(1)};
+  lucent_value record{LUCENT_RECORD, {}};
+  record.as.record = lucent_record{keys, values, 2};
+  lucent_value out{};
+  lucent_lists_names(record, &error, &out);
+  std::printf("names %s\\n", show(out).c_str());
+
+  lucent_lists_maybe(lucent_value{LUCENT_NULL, {}}, &error, &out);
+  std::printf("maybe %s", show(out).c_str());
+  lucent_lists_maybe(number(4), &error, &out);
+  std::printf(" %s\\n", show(out).c_str());
+
+  const lucent_value full[] = {string("a"), string("b")};
+  const lucent_value holed[] = {string("a"), lucent_value{LUCENT_NULL, {}}};
+  const lucent_value rows[] = {array(full, 2), array(holed, 2)};
+  lucent_lists_lengths(array(rows, 2), &error, &out);
+  std::printf("lengths %s\\n", show(out).c_str());
+
+  lucent_lists_tags(3, [](void*, const lucent_value* result, const lucent_error*) {
+    tagged = result ? show(*result) : "error";
+    settled++;
+  }, nullptr);
+  for (int i = 0; i < 400 && settled < 1; i++) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  std::printf("tags %s\\n", tagged.c_str());
   return 0;
 }
 `;
@@ -265,6 +388,38 @@ describe.skipIf(!clangxx)("native entry points", () => {
     expect(ran.status).toBe(0);
   }, 300_000);
 
+  it("pass optionals, arrays and records as lucent_values, checking their kinds", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-entries-"));
+    fs.writeFileSync(path.join(dir, "lists.lucent.ts"), lists);
+    const r = compile([path.join(dir, "lists.lucent.ts")], { platforms: ["host"] });
+    expect(r.diagnostics.map((d) => d.message)).toEqual([]);
+
+    const header = r.files.get("lucent_entries.h")!;
+    expect(header).toContain(
+      "bool lucent_lists_total(lucent_value arg0, lucent_error* error, double* result);",
+    );
+    expect(header).toContain(
+      "bool lucent_lists_maybe(lucent_value arg0, lucent_error* error, lucent_value* result);",
+    );
+    expect(header).toContain(
+      "void lucent_lists_tags(double arg0, void (*done)(void* context, const lucent_value* result, const lucent_error* error), void* context);",
+    );
+
+    const ran = run(dir, r.files, listsMain);
+    expect(ran.stdout).toBe(
+      [
+        "total 6",
+        "wrong 0 TypeError: A native entry was given a string where it takes a number",
+        "names [b=2 a=1]",
+        "maybe null n=4",
+        "lengths {row0:true row1:false}",
+        "tags [t0 t1 t2]",
+        "",
+      ].join("\n"),
+    );
+    expect(ran.status).toBe(0);
+  }, 300_000);
+
   it("start module state at launch for a package's launch modules, and hold it", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-launch-"));
     fs.writeFileSync(
@@ -322,4 +477,96 @@ describe.skipIf(!clangxx)("native entry points", () => {
       `LUCENT3015 lucent.json's launch lists "task", but lucent-tasks has no module lucent-tasks/task`,
     ]);
   });
+});
+
+/** Platform objects (decision 0116): a jobject in a lucent_value, on the desktop JNI host. */
+const objects = `import { Build } from "lucent:android/android.os";
+
+export function version(): number {
+  return 1;
+}
+
+export function label(b: Build | null): string {
+  return b === null ? "none" : "a Build";
+}
+
+export function echo(b: Build): Build {
+  return b;
+}
+
+export function count(bs: Build[]): number {
+  return bs.length;
+}
+`;
+
+const objectsMain = `#include <cstdio>
+#include <string>
+
+#include "jni_host.h"
+#include "lucent_entries.h"
+#include <lucent/platform/android.h>
+
+static std::string text(lucent_string s) { return std::string(s.data, s.length); }
+static lucent_value object(void* o) {
+  lucent_value v{LUCENT_PLATFORM_OBJECT, {}};
+  v.as.object = o;
+  return v;
+}
+
+int main(int, char** argv) {
+  lucentStartJvm(argv[1]);
+  JNIEnv* env = lucent::jni::env();
+  jclass build = env->FindClass("android/os/Build");
+  jobject made = env->NewObject(build, env->GetMethodID(build, "<init>", "()V"));
+
+  lucent_error error{};
+  lucent_string label{};
+  lucent_m_label(object(made), &error, &label);
+  std::printf("label %s", text(label).c_str());
+  lucent_m_label(lucent_value{LUCENT_NULL, {}}, &error, &label);
+  std::printf(" %s\\n", text(label).c_str());
+
+  lucent_value back{};
+  lucent_m_echo(object(made), &error, &back);
+  std::printf("echo %d\\n", back.kind == LUCENT_PLATFORM_OBJECT && env->IsSameObject(static_cast<jobject>(back.as.object), made));
+
+  const lucent_value both[] = {object(made), object(made)};
+  lucent_value list{LUCENT_ARRAY, {}};
+  list.as.array = lucent_array{both, 2};
+  double n = 0;
+  lucent_m_count(list, &error, &n);
+  std::printf("count %g\\n", n);
+  return 0;
+}
+`;
+
+const android = fakeAndroid(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-entries-android-")), {
+  "android/os/Build.java": `package android.os;
+public class Build {
+  public static final String MODEL = "stand-in";
+}
+`,
+});
+
+describe.skipIf(!android || !jdk)("native entry points, on Android", () => {
+  it("pass platform objects as jobjects in lucent_values", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-entries-android-"));
+    // Its declaration file leaves out what takes or gives a platform object (0117).
+    fs.writeFileSync(path.join(dir, "m.lucent.ts"), "export declare function version(): number;\n");
+    fs.writeFileSync(path.join(dir, "m.android.lucent.ts"), objects);
+    const r = compile([path.join(dir, "m.lucent.ts"), path.join(dir, "m.android.lucent.ts")], {
+      platforms: ["android"],
+      sdk: { android: { jars: android!.bind } },
+    });
+    expect(r.diagnostics.map((d) => d.message)).toEqual([]);
+    expect(r.files.get("android/lucent_entries.h")).toContain(
+      "bool lucent_m_echo(lucent_value arg0, lucent_error* error, lucent_value* result);",
+    );
+
+    expect(jvmRun(r, dir, android!.run, undefined, objectsMain)).toEqual({
+      status: 0,
+      stdout: "label a Build none\necho 1\ncount 2\n",
+      stderr: "",
+    });
+  }, 300_000);
 });

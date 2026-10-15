@@ -205,6 +205,8 @@ export function conformanceErrors(lp: LucentProgram): Diagnostic[] {
       const decl = extra.valueDeclaration ?? extra.declarations?.[0];
       // A class the OS makes (decision 0097) is the platform's alone: JavaScript never sees it.
       if (decl && osClassOf(checker, decl, platformOf(m.file))) continue;
+      // So is a function that takes or gives a platform object: native code calls it (0117).
+      if (decl && nativeOnlyFunction(checker, decl)) continue;
       out.push(
         decl
           ? at(decl, `${implName} exports ${extra.name}, which ${declName} does not declare`)
@@ -349,6 +351,34 @@ function osClassOf(
   if (sym && sym.flags & ts.SymbolFlags.Alias) sym = checker.getAliasedSymbol(sym);
   const sf = sym?.declarations?.[0]?.getSourceFile();
   return !!sf && sdkModuleOf(sf)?.platform === "android";
+}
+
+/**
+ * Whether `decl` is a function whose parameters or result name a platform
+ * object (decision 0117): a platform file exports it for native code
+ * alone, since such a value never crosses to JavaScript.
+ */
+export function nativeOnlyFunction(checker: ts.TypeChecker, decl: ts.Declaration): boolean {
+  if (!ts.isFunctionDeclaration(decl)) return false;
+  const sig = checker.getSignatureFromDeclaration(decl);
+  if (!sig) return false;
+  const seen = new Set<ts.Type>();
+  const names = (t: ts.Type): boolean => {
+    if (seen.has(t)) return false;
+    seen.add(t);
+    if (t.isUnion()) return t.types.some(names);
+    const sf = t.getSymbol()?.declarations?.[0]?.getSourceFile();
+    if (sf && sdkModuleOf(sf)) return true;
+    const reference =
+      t.flags & ts.TypeFlags.Object && (t as ts.ObjectType).objectFlags & ts.ObjectFlags.Reference;
+    const args = reference ? checker.getTypeArguments(t as ts.TypeReference) : [];
+    const value = checker.getIndexInfoOfType(t, ts.IndexKind.String)?.type;
+    return args.some(names) || (!!value && names(value));
+  };
+  return [
+    ...sig.parameters.map((p) => checker.getTypeOfSymbolAtLocation(p, decl)),
+    sig.getReturnType(),
+  ].some(names);
 }
 
 function at(

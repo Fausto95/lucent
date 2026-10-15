@@ -16,3 +16,35 @@ void initModules() {
 
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
+
+#pragma push_macro("both")
+#undef both
+#pragma push_macro("label")
+#undef label
+#pragma push_macro("orNull")
+#undef orNull
+
+extern "C" bool lucent_null_or_undefined_label(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_null_u2d_or_u2d_undefined::label(lucent::entries::optionalIn<lucent::String>(lucent::entries::stringIn, false)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_null_or_undefined_orNull(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_null_u2d_or_u2d_undefined::orNull(lucent::entries::optionalIn<lucent::String>(lucent::entries::stringIn, true)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_null_or_undefined_both(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_null_u2d_or_u2d_undefined::both(lucent::entries::optionalIn<lucent::String>(lucent::entries::stringIn, true)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+#pragma pop_macro("orNull")
+#pragma pop_macro("label")
+#pragma pop_macro("both")

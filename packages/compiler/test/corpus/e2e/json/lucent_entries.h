@@ -34,6 +34,9 @@ bool lucent_json_mixed(lucent_error* error, lucent_string* result);
 /// json.lastKeyWins()
 bool lucent_json_lastKeyWins(lucent_error* error, double* result);
 
+/// json.invalid(texts)
+bool lucent_json_invalid(lucent_value arg0, lucent_error* error, lucent_string* result);
+
 #ifdef __cplusplus
 }
 #endif

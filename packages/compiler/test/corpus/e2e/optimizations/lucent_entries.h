@@ -34,6 +34,9 @@ bool lucent_optimizations_pastExact(lucent_error* error, lucent_string* result);
 /// optimizations.sometimesFractional(n)
 bool lucent_optimizations_sometimesFractional(double arg0, lucent_error* error, double* result);
 
+/// optimizations.toInt32(xs)
+bool lucent_optimizations_toInt32(lucent_value arg0, lucent_error* error, lucent_string* result);
+
 /// optimizations.crc(n)
 bool lucent_optimizations_crc(double arg0, lucent_error* error, double* result);
 
@@ -51,6 +54,12 @@ bool lucent_optimizations_stackObjects(double arg0, lucent_error* error, lucent_
 
 /// optimizations.heapObjects(n)
 bool lucent_optimizations_heapObjects(double arg0, lucent_error* error, lucent_string* result);
+
+/// optimizations.directCallbacks(xs, bias)
+bool lucent_optimizations_directCallbacks(lucent_value arg0, double arg1, lucent_error* error, lucent_string* result);
+
+/// optimizations.keptCallbacks(xs)
+bool lucent_optimizations_keptCallbacks(lucent_value arg0, lucent_error* error, lucent_string* result);
 
 /// optimizations.mutatingCallbacks()
 bool lucent_optimizations_mutatingCallbacks(lucent_error* error, lucent_string* result);

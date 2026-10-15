@@ -31,12 +31,16 @@ extern "C" void lucent_launch(void) {}
 #undef orderCheck
 #pragma push_macro("out")
 #undef out
+#pragma push_macro("parallel")
+#undef parallel
 #pragma push_macro("promiseOfNothing")
 #undef promiseOfNothing
 #pragma push_macro("r_double_")
 #undef r_double_
 #pragma push_macro("recovers")
 #undef recovers
+#pragma push_macro("sequence")
+#undef sequence
 #pragma push_macro("tupleRejectsEarly")
 #undef tupleRejectsEarly
 #pragma push_macro("value")
@@ -51,6 +55,40 @@ extern "C" void lucent_async_double(double arg0, void (*done)(void* context, con
         double out{};
         try {
           out = lucent::entries::out(kept, *value);
+        } catch (...) {
+          lucent_error failed = lucent::entries::errorOf(kept, lucent::entries::caught(std::current_exception()));
+          return done(context, nullptr, &failed);
+        }
+        done(context, &out, nullptr);
+      });
+}
+
+extern "C" void lucent_async_sequence(lucent_value arg0, void (*done)(void* context, const lucent_value* result, const lucent_error* error), void* context) {
+  lucent::entries::callAsync<lucent::Array<double>>(
+      &lucent_app::initModules, lucent_app::actor_0(),
+      [&] { return lucent_app::m_async::sequence(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0)); },
+      [done, context](lucent::entries::Kept& kept, const lucent::Array<double>* value, const lucent_error* error) {
+        if (!value) return done(context, nullptr, error);
+        lucent_value out{};
+        try {
+          out = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, *value);
+        } catch (...) {
+          lucent_error failed = lucent::entries::errorOf(kept, lucent::entries::caught(std::current_exception()));
+          return done(context, nullptr, &failed);
+        }
+        done(context, &out, nullptr);
+      });
+}
+
+extern "C" void lucent_async_parallel(lucent_value arg0, void (*done)(void* context, const lucent_value* result, const lucent_error* error), void* context) {
+  lucent::entries::callAsync<lucent::Array<double>>(
+      &lucent_app::initModules, lucent_app::actor_0(),
+      [&] { return lucent_app::m_async::parallel(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0)); },
+      [done, context](lucent::entries::Kept& kept, const lucent::Array<double>* value, const lucent_error* error) {
+        if (!value) return done(context, nullptr, error);
+        lucent_value out{};
+        try {
+          out = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, *value);
         } catch (...) {
           lucent_error failed = lucent::entries::errorOf(kept, lucent::entries::caught(std::current_exception()));
           return done(context, nullptr, &failed);
@@ -214,9 +252,11 @@ extern "C" void lucent_async_promiseOfNothing(void (*done)(void* context, const 
 
 #pragma pop_macro("value")
 #pragma pop_macro("tupleRejectsEarly")
+#pragma pop_macro("sequence")
 #pragma pop_macro("recovers")
 #pragma pop_macro("r_double_")
 #pragma pop_macro("promiseOfNothing")
+#pragma pop_macro("parallel")
 #pragma pop_macro("out")
 #pragma pop_macro("orderCheck")
 #pragma pop_macro("noAwait")

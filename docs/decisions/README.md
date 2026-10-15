@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                                    | Date       | Decision                                                                                             |
 | ----------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------- |
+| [0117](0117-a-platform-file-exports-what-takes-platform-objects-for-native-code-alone.md) | 2026-10-15 | A platform file exports what takes or gives platform objects for native code alone                   |
 | [0116](0116-native-code-calls-a-modules-exports-through-generated-swift-and-kotlin.md)    | 2026-10-15 | Native code calls a module's exports through generated Swift and Kotlin                              |
 | [0115](0115-a-swift-extension-of-another-modules-class-is-bound-as-its-categories-are.md) | 2026-10-15 | A Swift extension of another module's class is bound as its categories are                           |
 | [0114](0114-a-protocols-member-is-called-on-its-value-opened.md)                          | 2026-10-15 | A protocol's member is called on its value opened as the type conforming                             |

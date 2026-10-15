@@ -17,10 +17,14 @@ void initModules() {
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
 
+#pragma push_macro("copies")
+#undef copies
 #pragma push_macro("finals")
 #undef finals
 #pragma push_macro("iterators")
 #undef iterators
+#pragma push_macro("keyed")
+#undef keyed
 #pragma push_macro("keysOf")
 #undef keysOf
 #pragma push_macro("loops")
@@ -74,10 +78,26 @@ extern "C" bool lucent_temporary_names_keysOf(lucent_error* error, lucent_string
   });
 }
 
+extern "C" bool lucent_temporary_names_copies(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_temporary_u2d_names::copies();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_temporary_names_keyed(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_temporary_u2d_names::keyed(lucent::entries::recordIn<double>(lucent::entries::numberIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
 #pragma pop_macro("pushes")
 #pragma pop_macro("out")
 #pragma pop_macro("objects")
 #pragma pop_macro("loops")
 #pragma pop_macro("keysOf")
+#pragma pop_macro("keyed")
 #pragma pop_macro("iterators")
 #pragma pop_macro("finals")
+#pragma pop_macro("copies")

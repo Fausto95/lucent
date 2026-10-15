@@ -13,8 +13,14 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// optional-elements.arrays(xs, i)
+bool lucent_optional_elements_arrays(lucent_value arg0, double arg1, lucent_error* error, lucent_string* result);
+
 /// optional-elements.maps()
 bool lucent_optional_elements_maps(lucent_error* error, lucent_string* result);
+
+/// optional-elements.records(r, k)
+bool lucent_optional_elements_records(lucent_value arg0, lucent_string arg1, lucent_error* error, lucent_string* result);
 
 /// optional-elements.madeRecords()
 bool lucent_optional_elements_madeRecords(lucent_error* error, lucent_string* result);

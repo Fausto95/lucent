@@ -819,8 +819,11 @@ synchronous entry returns whether it succeeded, with its result and its
 error through pointers. An `async` one calls a completion once. Each call
 is a `NativeCall`, and the work it started ends when it returns or
 completes. Numbers, booleans, `bigint`, strings and `Uint8Array` cross
-at first;
-[T114](../tasks.md#t114) adds the rest with its Swift and Kotlin APIs.
+as C types of their own. Optionals, arrays, records and platform objects
+cross as a `lucent_value`, a kind and its value (#316). A platform file
+exports what takes or gives a platform object for native code alone
+([0117](../decisions/0117-a-platform-file-exports-what-takes-platform-objects-for-native-code-alone.md)).
+[T114](../tasks.md#t114) adds instances, and the Swift and Kotlin APIs.
 
 `entries.h` holds the C types and the two calls a generated entry makes,
 `entries::call` and `callAsync`. `lucent_entries.cpp` defines the entries

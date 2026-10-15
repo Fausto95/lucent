@@ -16,6 +16,9 @@ void lucent_launch(void);
 /// reduce-operands.order()
 bool lucent_reduce_operands_order(lucent_error* error, lucent_string* result);
 
+/// reduce-operands.initialArray(xs)
+bool lucent_reduce_operands_initialArray(lucent_value arg0, lucent_error* error, lucent_value* result);
+
 #ifdef __cplusplus
 }
 #endif

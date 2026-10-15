@@ -13,6 +13,9 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// objects.maybe(v)
+bool lucent_objects_maybe(lucent_value arg0, lucent_error* error, lucent_string* result);
+
 #ifdef __cplusplus
 }
 #endif

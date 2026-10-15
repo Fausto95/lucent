@@ -13,6 +13,9 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// optional-arguments.nanArguments(nan)
+bool lucent_optional_arguments_nanArguments(double arg0, lucent_error* error, lucent_value* result);
+
 #ifdef __cplusplus
 }
 #endif
