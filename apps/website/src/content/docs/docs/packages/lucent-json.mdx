@@ -82,6 +82,10 @@ What a Lucent package's platform code needs from the app that installs it, next 
 | `android.mainActivity.launchMode` | `"standard" or "singleTop" or "singleTask" or "singleInstance" or "singleInstancePerTask"` |  | android:launchMode. Packages that ask for different ones fail the build. |
 | `android.minSdk` | `integer` |  | The lowest Android API level the package runs on. The library requires the highest any package needs, and never less than the app's minSdkVersion. Android's manifest merger fails an app below it. |
 | `launch` | `string[]` |  | Modules to create at app launch, before the first frame, for what the OS requires by then, such as BGTaskScheduler handlers. Each is a path under the package's sources, without .lucent.ts: "tasks" for tasks.lucent.ts. Creating one starts module state, every module's top level, and holds it for the app's process, so a reload keeps it. On iOS, LucentAppDelegate's application(\_:didFinishLaunchingWithOptions:) creates them; a bare app's lucent build names the call its AppDelegate lacks. |
+| `options` | `{ [name]: object }` |  | A package's options, which the app's lucent.json sets: option name → what it means, and a default. \{\{name\}\} in an ios.infoPlist value, an entitlement or an android.components field is the option's value. A whole \{\{name\}\} of a boolean is the boolean. An option without a default that the app doesn't set fails the build, saying how to set it. |
+| `options.<name>.description` | `string` | yes | What the option is, for the message when the app must set it. |
+| `options.<name>.default` | `string or boolean` |  | Its value when the app sets none. Without one, the app must set it. |
+| `packages` | `{ [name]: { [name]: string or boolean } }` |  | The app's own lucent.json: the options it sets, by package: package name → option name → a string or a boolean. Setting an option a package doesn't declare, or one of a package the app doesn't depend on, fails the build. |
 
 ## The app's own lucent.json
 
@@ -90,5 +94,34 @@ An app's root can have a `lucent.json` too, with the same fields, for its own mo
 Where the app gives a value of its own, the app's wins. That holds for an `Info.plist` key or entitlement, a pod's or Gradle artifact's version, a manifest component and the main Activity's launch mode. An array still joins the packages' values.
 
 Its `launch` and its components' `class` name the app's modules as they are named, without a package. The pods and Gradle dependencies it lists can be imported from `lucent:ios/*` and `lucent:android/*`, as an app's own can.
+
+## Options the app sets
+
+A package can leave a value to the app, such as an API key or a usage string. Its `options` declares each one, with what it means and, when there is one, a default. `{{name}}` in an `Info.plist` value, an entitlement or a manifest component's field is the option's value.
+
+```json title="lucent.json"
+{
+  "options": {
+    "apiKey": { "description": "the Maps API key" },
+    "usage": { "description": "why the app uses location", "default": "Show where you are" }
+  },
+  "ios": {
+    "infoPlist": {
+      "GMSApiKey": "{{apiKey}}",
+      "NSLocationWhenInUseUsageDescription": "{{usage}}"
+    }
+  }
+}
+```
+
+The app's own `lucent.json` sets them under `packages`, by package. An option without a default that the app doesn't set fails the build, which says how to set it.
+
+```json title="lucent.json"
+{
+  "packages": {
+    "lucent-maps": { "apiKey": "AIza…" }
+  }
+}
+```
 
 This table is generated from the schema at `https://lucent-lang.dev/schemas/lucent.schema.json`, which the package also ships, at `node_modules/@lucent-lang/lucent/schemas/lucent.schema.json`. Point your editor's JSON schema setting at it for `lucent.json` files: the file itself doesn't take a `$schema` field. The `extensions` field has its own page, [Native extensions](/docs/packages/native-extensions/).

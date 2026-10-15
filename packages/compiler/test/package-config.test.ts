@@ -949,3 +949,97 @@ describe("a Lucent package built on its own", () => {
     });
   });
 });
+
+describe("packages' options", () => {
+  function app(native: unknown): LucentPackage {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-app-"));
+    fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "my-app" }));
+    fs.writeFileSync(path.join(dir, "lucent.json"), JSON.stringify(native));
+    return appPackage(dir)!;
+  }
+
+  const maps = (extra: object = {}) =>
+    pkg("lucent-maps", {
+      options: {
+        apiKey: { description: "the Maps API key" },
+        usage: { description: "why the app uses location", default: "Show where you are" },
+        background: { description: "whether it tracks in the background", default: false },
+      },
+      ios: {
+        infoPlist: {
+          GMSApiKey: "{{apiKey}}",
+          NSLocationWhenInUseUsageDescription: "{{usage}} on the map",
+          LucentMapsBackground: "{{background}}",
+        },
+      },
+      android: {
+        components: [
+          {
+            kind: "service",
+            name: "com.example.maps.Tracker",
+            metaData: { "com.google.android.geo.API_KEY": "{{apiKey}}" },
+          },
+        ],
+      },
+      ...extra,
+    });
+
+  it("fills `{{name}}` with the app's value, or the option's default", () => {
+    const { manifest } = resolveNative([
+      maps(),
+      app({ packages: { "lucent-maps": { apiKey: "AIza-test", background: true } } }),
+    ]);
+
+    expect(manifest.ios.infoPlist).toEqual({
+      GMSApiKey: { value: "AIza-test", from: ["lucent-maps"] },
+      // A whole reference to a boolean is the boolean.
+      LucentMapsBackground: { value: true, from: ["lucent-maps"] },
+      NSLocationWhenInUseUsageDescription: {
+        value: "Show where you are on the map",
+        from: ["lucent-maps"],
+      },
+    });
+    expect(manifest.android.components["com.example.maps.Tracker"]?.value.metaData).toEqual({
+      "com.google.android.geo.API_KEY": "AIza-test",
+    });
+  });
+
+  it("fails for one the app must set, saying how", () => {
+    expect(() => resolveNative([maps(), app({})])).toThrow(
+      `lucent-maps needs the option apiKey (the Maps API key): set it in the app's lucent.json, as "packages": { "lucent-maps": { "apiKey": … } }`,
+    );
+    expect(() => resolveNative([maps()])).toThrow("lucent-maps needs the option apiKey");
+  });
+
+  it("fails for one no package declares, or a reference to none", () => {
+    expect(() =>
+      resolveNative([maps(), app({ packages: { "lucent-maps": { apiKey: "k", zoom: "2" } } })]),
+    ).toThrow(
+      "my-app/lucent.json: packages.lucent-maps.zoom: lucent-maps has no option zoom (its options: apiKey, usage, background)",
+    );
+    expect(() =>
+      resolveNative([maps(), app({ packages: { "lucent-other": { a: "b" } } })]),
+    ).toThrow(
+      "my-app/lucent.json: packages.lucent-other sets options of lucent-other, which the app doesn't depend on",
+    );
+    expect(() =>
+      resolveNative([pkg("lucent-a", { ios: { infoPlist: { Key: "{{missing}}" } } })]),
+    ).toThrow(
+      "lucent-a/lucent.json: ios.infoPlist.Key uses {{missing}}, which options doesn't declare",
+    );
+  });
+
+  it("is declared by packages and set by the app only", () => {
+    expect(() => resolveNative([app({ options: { a: { description: "a" } } })])).toThrow(
+      "my-app/lucent.json: options: a package declares options, which the app sets",
+    );
+    expect(() => resolveNative([pkg("lucent-a", { packages: { b: { c: "d" } } })])).toThrow(
+      "lucent-a/lucent.json: packages: the app's lucent.json sets packages' options",
+    );
+    expect(() =>
+      resolveNative([pkg("lucent-a", { options: { "1st": { description: "x" } } })]),
+    ).toThrow(
+      `lucent-a/lucent.json: options has "1st": an option's name is a letter, then letters, digits, _ or -`,
+    );
+  });
+});

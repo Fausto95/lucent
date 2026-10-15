@@ -27,6 +27,7 @@ import {
   type ExtensionDeclaration,
   type MainActivityAttributes,
   type ManifestComponent,
+  type OptionValue,
   type PackageNative,
   type PlistValue,
   readPackageNative,
@@ -53,7 +54,9 @@ export {
   type IntentFilter,
   type MainActivityAttributes,
   type ManifestComponent,
+  type OptionValue,
   type PackageNative,
+  type PackageOption,
   type PlistValue,
   type SwiftPackage,
   type SwiftPackageRequirement,
@@ -295,13 +298,31 @@ export function resolveNative(
   });
   const app = [...found.values()].find((p) => p.app);
   const own = app && declare(app);
+  // The options packages declare, given the values the app sets.
+  for (const p of found.values()) {
+    const n = (p === app ? own!.native : readPackageNative(p)) ?? {};
+    if (p.app && n.options)
+      throw new Error(
+        `${p.name}/lucent.json: options: a package declares options, which the app sets`,
+      );
+    if (!p.app && n.packages)
+      throw new Error(
+        `${p.name}/lucent.json: packages: the app's lucent.json sets packages' options`,
+      );
+  }
+  const set = own?.native.packages ?? {};
+  for (const name of Object.keys(set))
+    if (![...found.values()].some((p) => !p.app && p.name === name))
+      throw new Error(
+        `${own!.name}/lucent.json: packages.${name} sets options of ${name}, which the app doesn't depend on`,
+      );
   // What the app declares wins over a package's: its value of a key, or its declaration of a
   // component, replaces theirs.
   const declared: Declared[] = [...found.values()]
     .filter((p) => !p.app)
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
     .map((p) => {
-      const d = declare(p);
+      const d = withOptions(declare(p), set[p.name] ?? {}, own?.name);
       return own ? { ...d, native: withoutOverridden(d.native, own.native) } : d;
     });
   if (own) declared.push(own);
@@ -610,6 +631,78 @@ function swiftPackages(declared: Declared[]): ResolvedNative["ios"]["swiftPackag
       ];
     }),
   );
+}
+
+/** `{{name}}`: an option's value. */
+const OPTION_REFERENCE = /\{\{([^{}]*)\}\}/g;
+
+/**
+ * A package's needs with its options' values in them: the app's, or the
+ * option's default. `{{name}}` in an Info.plist value, an entitlement or a
+ * manifest component's field is the value; a whole `{{name}}` of a boolean
+ * is the boolean. An option the app doesn't set and that has no default
+ * fails, saying how to set it, and so does one the app sets that the
+ * package doesn't declare.
+ */
+function withOptions(d: Declared, given: Record<string, OptionValue>, app?: string): Declared {
+  const declared = d.native.options ?? {};
+  const unknown = Object.keys(given).find((name) => !(name in declared));
+  if (unknown)
+    throw new Error(
+      `${app}/lucent.json: packages.${d.name}.${unknown}: ${d.name} has no option ${unknown}${
+        Object.keys(declared).length ? ` (its options: ${Object.keys(declared).join(", ")})` : ""
+      }`,
+    );
+
+  const value = (name: string, at: string): OptionValue => {
+    const option = declared[name];
+    if (!option)
+      throw new Error(
+        `${d.name}/lucent.json: ${at} uses {{${name}}}, which options doesn't declare`,
+      );
+    const v = given[name] ?? option.default;
+    if (v === undefined)
+      throw new Error(
+        `${d.name} needs the option ${name} (${option.description}): set it in the app's lucent.json, as "packages": { "${d.name}": { "${name}": … } }`,
+      );
+    return v;
+  };
+
+  const fill = (v: unknown, at: string): unknown => {
+    if (typeof v === "string") {
+      const whole = /^\{\{([^{}]*)\}\}$/.exec(v);
+      if (whole) return value(whole[1]!, at);
+      return v.replace(OPTION_REFERENCE, (_, name: string) => String(value(name, at)));
+    }
+    if (Array.isArray(v)) return v.map((x, i) => fill(x, `${at}.${i}`));
+    if (v && typeof v === "object")
+      return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fill(x, `${at}.${k}`)]));
+    return v;
+  };
+
+  const n = d.native;
+  const native: PackageNative = {
+    ...n,
+    ...(n.ios && {
+      ios: {
+        ...n.ios,
+        ...(n.ios.infoPlist && {
+          infoPlist: fill(n.ios.infoPlist, "ios.infoPlist") as Record<string, PlistValue>,
+        }),
+        ...(n.ios.entitlements && {
+          entitlements: fill(n.ios.entitlements, "ios.entitlements") as Record<string, PlistValue>,
+        }),
+      },
+    }),
+    ...(n.android?.components && {
+      android: {
+        ...n.android,
+        components: fill(n.android.components, "android.components") as ManifestComponent[],
+      },
+    }),
+  };
+
+  return { ...d, native };
 }
 
 /**
