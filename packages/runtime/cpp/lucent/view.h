@@ -113,6 +113,20 @@ class Content : public std::enable_shared_from_this<Content> {
   size_t listen(std::function<void()> listener);
   void unlisten(size_t id);
 
+  /// What the mount owns and shows once its setup ran (T122): its scope,
+  /// which what its code presents belongs to, so its end dismisses it; and
+  /// the view or view controller the setup returned, presented from.
+  void own(const std::shared_ptr<Scope>& scope, NativeRef root) {
+    scope_ = scope;
+    root_ = std::move(root);
+  }
+
+  /// The mount's scope while it lasts (null before setup ran, and once the mount has gone).
+  std::shared_ptr<Scope> scope() const { return scope_.lock(); }
+
+  /// The setup's root, while the host keeps the content (empty before setup ran).
+  const NativeRef& root() const { return root_; }
+
  private:
   friend class ContentEntry;
 
@@ -120,6 +134,8 @@ class Content : public std::enable_shared_from_this<Content> {
   static void flush();
 
   std::function<void()> changed_;
+  std::weak_ptr<Scope> scope_;
+  NativeRef root_;
   std::vector<std::pair<size_t, std::function<void()>>> listeners_;
   size_t nextListener_ = 0;
   bool marked_ = false;
@@ -129,6 +145,10 @@ class Content : public std::enable_shared_from_this<Content> {
 /// The content of the mount whose code runs now on the main thread (empty
 /// outside any, and off the main thread).
 std::weak_ptr<Content> activeContent();
+
+/// A mount's setup has run (Mount::create): the active content is its
+/// mount's, owning `scope` and showing `root` (Content::own). Nothing outside any.
+void ownContent(const std::shared_ptr<Scope>& scope, NativeRef root);
 
 /**
  * While one lives, `content`'s mount runs (on the main thread, in the main

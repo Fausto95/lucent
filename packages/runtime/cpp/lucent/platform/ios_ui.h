@@ -52,7 +52,8 @@ UIScene* sceneOf(SceneId id);
 namespace detail {
 
 /**
- * Presents `viewController` from the top view controller of `scene`'s key
+ * Presents `viewController` from `from` (a component's view controller,
+ * presenterOf), else from the top view controller of `scene`'s key
  * window, and returns what dismisses it: at once if it is shown, else once
  * UIKit has shown it (some view controllers appear later than the call).
  * `dismissed` runs once if, before that, the person dismisses it (a sheet
@@ -60,7 +61,27 @@ namespace detail {
  * already shown, another presentation is under way, or UIKit throws.
  * Main thread.
  */
-std::function<void()> show(SceneId scene, UIViewController* viewController, bool animated, std::function<void()> dismissed);
+std::function<void()> show(SceneId scene, UIViewController* viewController, bool animated, std::function<void()> dismissed,
+                           UIViewController* from = nil);
+
+/**
+ * Where Lucent code presents from now: while a component's code runs on
+ * the main thread (its setup, a commit, a command, a function its setup
+ * made, up to its first await), its mount's scope and its setup's root
+ * (T122); elsewhere, nothing.
+ */
+struct Presenter {
+  std::shared_ptr<Scope> scope;
+  NativeRef root;
+};
+Presenter presenterNow();
+
+/**
+ * The view controller to present from for a component's root: the root,
+ * if it is a view controller in a window with nothing presented over it
+ * yet; else nil, for the scene's top view controller. Main thread.
+ */
+UIViewController* presenterOf(const NativeRef& root);
 
 /// What cancels a presentation the person dismissed: an AbortError.
 Error dismissedError();
@@ -83,14 +104,20 @@ bool abortedAlready(const Opt<AbortSignal>& signal);
  * shown, and wires the view controller's own outcome (a delegate, a
  * completion handler) to the operation; it may settle it at once, and then
  * nothing is shown. The person dismissing it, or its release, cancels the
- * operation with an AbortError; so does its scene disconnecting.
+ * operation with an AbortError; so does its scene disconnecting. `from`, a
+ * component's root, is what it presents from when it can (presenterOf).
  */
 template <class T>
 std::shared_ptr<Operation<T>> presentOperation(const std::shared_ptr<Scope>& scope, Opt<AbortSignal> signal,
                                                const std::function<UIViewController*(const std::shared_ptr<Operation<T>>&)>& build,
-                                               bool animated = true) {
-  std::optional<PresentationContext> context = presentationContext();
-  SceneId scene = context ? context->id : 0;
+                                               bool animated = true, const NativeRef& from = {}) {
+  UIViewController* presenter = detail::presenterOf(from);
+  SceneId scene = presenter ? sceneIdOf(presenter.viewIfLoaded.window.windowScene) : 0;
+
+  if (!presenter) {
+    std::optional<PresentationContext> context = presentationContext();
+    scene = context ? context->id : 0;
+  }
 
   return presentIn<T>(Lifecycle::shared(), scene, scope, signal, [&](const std::shared_ptr<Operation<T>>& op) -> std::function<void()> {
     UIViewController* viewController = build(op);
@@ -98,9 +125,12 @@ std::shared_ptr<Operation<T>> presentOperation(const std::shared_ptr<Scope>& sco
     if (!viewController) returnedNil("present's view controller");
 
     std::weak_ptr<Operation<T>> weak = op;
-    return detail::show(scene, viewController, animated, [weak] {
-      if (auto op = weak.lock()) op->cancel(detail::dismissedError());
-    });
+    return detail::show(
+        scene, viewController, animated,
+        [weak] {
+          if (auto op = weak.lock()) op->cancel(detail::dismissedError());
+        },
+        presenter);
   });
 }
 
@@ -125,16 +155,19 @@ using Resolve = typename detail::ResolveOf<T>::type;
  * take it without waiting (enterFromMain), presents the view controller
  * `build` returns (presentOperation) under the calling context's root
  * scope, and settles the promise, which belongs to the calling context,
- * with the outcome.
+ * with the outcome. A component's code presents from its view controller,
+ * under its mount's scope, so the mount's end dismisses it (presenterNow).
  */
 template <class T>
 Promise<T> present(Fn<NativeRef(Resolve<T>, Fn<void(Error)>)> build, Opt<AbortSignal> signal = {}) {
   Promise<T> promise;
-  std::shared_ptr<Scope> scope = detail::callerScope();
+  detail::Presenter presenter = detail::presenterNow();
+  std::shared_ptr<Scope> scope = presenter.scope ? presenter.scope : detail::callerScope();
+  NativeRef from = presenter.root;
   Actor& actor = currentActor();
 
-  postToMain([actor = &actor, promise, build = std::move(build), signal, scope]() mutable {
-    enterFromMain(*actor, [promise, build = std::move(build), signal, scope]() mutable {
+  postToMain([actor = &actor, promise, build = std::move(build), signal, scope, from]() mutable {
+    enterFromMain(*actor, [promise, build = std::move(build), signal, scope, from]() mutable {
       std::shared_ptr<Operation<T>> op;
       try {
         op = presentOperation<T>(scope, signal, [&](const std::shared_ptr<Operation<T>>& op) -> UIViewController* {
@@ -160,7 +193,7 @@ Promise<T> present(Fn<NativeRef(Resolve<T>, Fn<void(Error)>)> build, Opt<AbortSi
             throw Exception(makeError(String::fromLatin1("TypeError"), String::fromLatin1("present's function must return a UIViewController")));
 
           return (UIViewController*)made;
-        });
+        }, true, from);
       } catch (...) {
         promise.reject(currentError(std::current_exception()));
         return;

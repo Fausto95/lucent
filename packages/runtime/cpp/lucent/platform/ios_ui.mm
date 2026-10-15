@@ -2,6 +2,8 @@
 // shared Lifecycle, the presentation context, and showing view controllers.
 #include "ios_ui.h"
 
+#include "../view.h"
+
 #import <objc/runtime.h>
 
 #include <array>
@@ -321,7 +323,25 @@ UIScene* sceneOf(SceneId id) {
   return [scenesById() objectForKey:@(id)];
 }
 
-std::function<void()> detail::show(SceneId scene, UIViewController* viewController, bool animated, std::function<void()> dismissed) {
+detail::Presenter detail::presenterNow() {
+  auto content = ui::activeContent().lock();
+
+  return content ? Presenter{content->scope(), content->root()} : Presenter{};
+}
+
+UIViewController* detail::presenterOf(const NativeRef& root) {
+  id made = unwrap(root);
+
+  if (![made isKindOfClass:[UIViewController class]]) return nil;
+
+  UIViewController* controller = made;
+
+  // Under a presentation of its own context, or out of a window: the scene's top presents.
+  return controller.viewIfLoaded.window && !controller.presentedViewController ? controller : nil;
+}
+
+std::function<void()> detail::show(SceneId scene, UIViewController* viewController, bool animated, std::function<void()> dismissed,
+                                   UIViewController* from) {
   requireMain("Presenting");
 
   std::optional<PresentationContext> context = contextOf(scene);
@@ -333,7 +353,7 @@ std::function<void()> detail::show(SceneId scene, UIViewController* viewControll
 
   // UIKit logs, rather than throws, when it refuses to present during
   // another presentation or dismissal: refuse first.
-  UIViewController* top = context->top;
+  UIViewController* top = from ?: context->top;
   if (top.presentedViewController || top.isBeingPresented || top.isBeingDismissed) refuse("Another presentation is under way");
 
   anchorPopover(viewController, top);

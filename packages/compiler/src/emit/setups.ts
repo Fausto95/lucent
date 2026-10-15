@@ -893,6 +893,10 @@ export function mountUnit(
           },
         ],
       },
+      // What the mount's code presents belongs to its scope, from its root (T122).
+      cpp.ifStmt(cpp.not(at("disposed")), [
+        cpp.exprStmt(cpp.call("lucent::ui::ownContent", [at("scope"), at("view")])),
+      ]),
       // Live, for a debug build's snapshot: its component, its setup's source and its view now.
       cpp.ifStmt(cpp.not(at("disposed")), [
         cpp.exprStmt(

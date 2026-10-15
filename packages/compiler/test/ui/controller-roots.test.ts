@@ -101,6 +101,9 @@ describe("a component whose iOS root is a UIKit view controller", () => {
       /UIViewController\s*\*\s*controller\(\) const override \{\s*return \(__bridge UIViewController\s*\*\)mount_->view\(\)\.get\(\);/,
     );
     expect(view).toMatch(/UIView\s*\*\s*view\(\) const override \{\s*return controller\(\)\.view;/);
+    // What its code presents comes from the controller, and goes with the mount (decision 0119).
+    const mount = [...r.files].find(([f]) => /views\/.*_mount\.cpp$/.test(f))?.[1] ?? "";
+    expect(mount).toContain("lucent::ui::ownContent(state->scope, state->view);");
   });
 
   it("refuses a setup returning a view on one path and a view controller on another", () => {

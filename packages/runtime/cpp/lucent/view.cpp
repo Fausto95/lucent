@@ -109,6 +109,10 @@ void Content::flush() {
 
 std::weak_ptr<Content> activeContent() { return onMainExecutor() ? entries().active : std::weak_ptr<Content>(); }
 
+void ownContent(const std::shared_ptr<Scope>& scope, NativeRef root) {
+  if (auto content = activeContent().lock()) content->own(scope, std::move(root));
+}
+
 ContentEntry::ContentEntry(const std::weak_ptr<Content>& content) {
   if (!onMainExecutor()) return;
 

@@ -44,7 +44,7 @@ what became of each one that is still linked or was still open.
 | **View parity**          |                                                            |                                                         |
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
 | [T121](#t121)            | React Native's view props, refs and view libraries         | done (2026-10-14)                                       |
-| [T122](#t122)            | UIKit components with a view-controller root               | in progress (#324)                                      |
+| [T122](#t122)            | UIKit components with a view-controller root               | in progress (#324, #325)                                |
 | [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | ready                                                   |
 | [T124](#t124)            | A component's ref as a module function's argument          | ready                                                   |
 | [T125](#t125)            | Android views made after setup keep the Activity's context | ready                                                   |
@@ -979,7 +979,8 @@ and the library cases pass on the simulator and emulator.
 **Goal:** A component's iOS branch returns a `UIViewController`, such as
 `AVPlayerViewController`, contained the way the SwiftUI host is.
 
-- **Status:** in progress: the root, its containment and sizing (#324).
+- **Status:** in progress: the root, its containment and sizing (#324),
+  and what its code presents (#325); the spike is what's left.
 - **Area:** views, iOS host.
 - **Needs:** nothing.
 - **Verify:** V1, V4, V5.
@@ -992,8 +993,10 @@ and the library cases pass on the simulator and emulator.
       #324). A setup mixing it with a view is refused.
 - [x] Sizing: style or flex only, or the `preferredContentSize`, whose
       changes the host observes and measures again (#324).
-- [ ] Commands present from the contained controller. A modal it shows
-      outlives a commit and is dismissed on dispose.
+- [x] Commands present from the contained controller. A modal it shows
+      outlives a commit and is dismissed on dispose (#325): what `present`
+      shows from the mount's code, before its first `await`, belongs to
+      the mount's scope, from its root when that's a view controller.
 - [ ] A spike: `AVPlayerViewController` with a Lucent `AVPlayer` enters
       and leaves fullscreen and picture in picture, survives a recycle,
       and reports its delegate's events as component events.
