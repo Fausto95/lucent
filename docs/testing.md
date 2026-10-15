@@ -234,11 +234,16 @@ Slow unit tests run a program's platform code without a device:
 | `ui/mount-harness.ts`               | A component mounted on Mac Catalyst, against React Native's prebuilt renderer and Hermes                                                       | arm64 macOS, Xcode, the bare example's Pods |
 | `jni-harness.ts`                    | Android glue, the JNI runtime and the host runtime in one executable that starts a JVM on the app's jars and calls `run()` under `-Xcheck:jni` | A JDK with `libjvm`                         |
 | `fake-android.ts`                   | An `android.jar` for hosts without one: the JDK's `java.*` and stand-ins for the classes a test uses                                           | A JDK with `jmods`                          |
+| `ui/mini-swiftui.ts`                | SwiftUI bodies where Xcode is missing: a miniature SwiftUI's symbol graph as its schema, the generated Swift type-checked against it           | `swiftc`, `swift-symbolgraph-extract`       |
 | `android-harness.ts`                | Android glue compiled with the NDK's clang++; Kotlin with `kotlinc`                                                                            | The NDK, `kotlinc`                          |
 
 The JNI host has no Android OS: the main thread is the host runtime's,
 and `android.os.Build` and `android.util.Log` are stand-ins
 (`test/jni-host/java`). A view's Android glue is only compiled there.
+Without Xcode, `ui/mini-swiftui.ts` builds SwiftUI bodies against
+`ui/mini-swiftui/`, a miniature SwiftUI and UIKit the host's Swift
+toolchain builds: it declares what tests use in SwiftUI's shapes, so its
+tests check the writer, not SwiftUI.
 Without the Android SDK, `ui/toolkit-build.ts` builds Compose bodies
 against stand-ins for `View` and `Context`, as Compose's API comes from
 `lib/sdk`'s schemas: their diagnostics and generated code are checked,
