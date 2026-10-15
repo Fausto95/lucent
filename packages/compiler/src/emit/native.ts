@@ -787,7 +787,7 @@ export function ifPresent(v: cpp.Expr, f: (x: cpp.Expr) => cpp.Expr): cpp.Expr {
  * do, and the plan refuses those it cannot be given; `use` is the member
  * the block is passed to, for messages.
  */
-function objcBlock(
+export function objcBlock(
   em: FnEmitter,
   node: ts.Node,
   f: cpp.Expr,
@@ -1018,6 +1018,11 @@ export function toObjc(
   if (struct || t.k === "tuple") {
     const declared = em.checker.getContextualType(arg);
     const lt = declared ? em.reg.lower(declared, arg) : em.lt(arg);
+    // An optional tuple (to a Swift shim): its array, nil for none.
+    if (t.k === "tuple" && t.nullable)
+      return ifPresent(em.exprAs(arg, lt), (x) =>
+        toObjcExpr({ ...t, nullable: false }, x, owned, what),
+      );
     return toObjcExpr(t, em.exprAs(arg, lt), owned, what);
   }
   if (!t.nullable)
@@ -1186,12 +1191,26 @@ export function fromObjc(
         );
         return cpp.call(read, [cpp.send(cpp.id("a_"), "objectAtIndex:", [cpp.num(i)])]);
       });
+      const made = (o: cpp.Expr) =>
+        cpp.statementExpr(
+          [cpp.varDecl(objcPointer("NSArray"), "a_", cpp.cast("c", objcPointer("NSArray"), o))],
+          cpp.construct(em.reg.cppType(tuple), items),
+        );
+      if (!t.nullable) return { c: made(code), t: tuple };
+      // An optional one: null for nil.
+      const opt = unionOf([tuple, T.null]);
+      const optType = em.reg.cppType(opt);
+      const o = cpp.id("o_");
       return {
         c: cpp.statementExpr(
-          [cpp.varDecl(objcPointer("NSArray"), "a_", cpp.cast("c", objcPointer("NSArray"), code))],
-          cpp.construct(em.reg.cppType(tuple), items),
+          [cpp.varDecl(cpp.type("id"), "o_", code)],
+          cpp.conditional(
+            o,
+            cpp.construct(optType, [made(o)]),
+            cpp.construct(optType, [cpp.id("lucent::null")]),
+          ),
         ),
-        t: tuple,
+        t: opt,
       };
     }
     default:
@@ -3050,9 +3069,15 @@ export function declaredLt(em: FnEmitter, platform: Platform, t: SdkType, node: 
       return opt({ k: "native", platform, module: t.module, name: t.name });
     default: {
       const sig = ts.isCallExpression(node) ? em.checker.getResolvedSignature(node) : undefined;
+      // A property's declared type, not the one a read narrows (`null` after `x.f = null`).
+      const sym = ts.isPropertyAccessExpression(node)
+        ? em.checker.getSymbolAtLocation(node.name)
+        : undefined;
       const ret = sig
         ? em.checker.getReturnTypeOfSignature(sig)
-        : em.checker.getTypeAtLocation(node);
+        : sym
+          ? em.checker.getTypeOfSymbol(sym)
+          : em.checker.getTypeAtLocation(node);
       return em.reg.lower(ret, node);
     }
   }
@@ -3613,14 +3638,13 @@ export function nativeLvalue(
   const { ref, property: prop } = found;
   const type = em.lt(target);
   const set = propertySetter(em, target, ref, prop, obj, type, superOf?.set);
-  const read = property(em, target, ref, prop, obj, superOf?.get).c;
   const getter = accessorOf(ref.cls, prop, "get");
 
   // Only a use that reads the place (`+=`, `++`) calls the getter and needs its permissions.
   const place: Lvalue = {
     get get() {
       notePermissions(em, getter);
-      return read;
+      return property(em, target, ref, prop, obj, superOf?.get).c;
     },
     set,
     type,
@@ -3653,7 +3677,8 @@ export function propertySetter(
   if (prop.swift) {
     const what = `${ref.cls.name}.${prop.name}`;
     const use = swiftUse(site, ref, prop, "set", [t], VOID, what, !obj);
-    return (v) => swiftSet(em, use, obj, v);
+    // A function is converted as the property's type declares it: the value may be null.
+    return (v) => swiftSet(em, use, obj, v, { lt: declaredLt(em, ref.platform, t, site), plan });
   }
   if (ref.platform === "ios") {
     // Gives the value assigned, as JavaScript's assignment does.

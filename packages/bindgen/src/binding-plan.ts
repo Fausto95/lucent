@@ -1267,7 +1267,8 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
           "closures taking or giving values other than numbers, booleans, strings and Objective-C objects",
         );
 
-      return t.nullable ? not("optional closures") : undefined;
+      // An optional one crosses as an optional block, nil for none.
+      return undefined;
     }
 
     case "tuple":
@@ -1275,7 +1276,8 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
       if (t.of.some((x) => isStruct(x, ctx))) return not("tuples of C structs");
       if (t.of.some((x) => !TUPLE_ITEMS.has(x.k))) return not("tuples of collections or closures");
 
-      return t.nullable ? not("optional tuples") : undefined;
+      // An optional one crosses as an optional array, nil for none.
+      return undefined;
 
     case "array":
     case "record":
