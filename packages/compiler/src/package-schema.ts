@@ -246,6 +246,12 @@ export interface PackageNative {
     features?: Record<string, boolean>;
     /** `<meta-data>` on the app's `<application>`: name → value (an SDK's API key). */
     metaData?: Record<string, string>;
+    /**
+     * Gradle plugins the app's build applies: plugin id → the artifact on
+     * the build's classpath that has it (`"com.google.gms.google-services":
+     * "com.google.gms:google-services:4.4.2"`).
+     */
+    gradlePlugins?: Record<string, string>;
   };
   /** Extension name (`lucent:ext/<name>`) → the extension. */
   extensions?: Record<string, ExtensionDeclaration>;
@@ -299,6 +305,12 @@ const plistValue: Check = (v, at) =>
     : `${at} must be a string, a boolean or an array of strings`;
 
 const boolean: Check = (v, at) => (typeof v === "boolean" ? undefined : `${at} must be a boolean`);
+
+/** `group:artifact:version`, as a Gradle dependency names an artifact. */
+const gradleArtifact: Check = (v, at) =>
+  typeof v === "string" && /^[^\s:]+:[^\s:]+:[^\s:]+$/.test(v)
+    ? undefined
+    : `${at} must be an artifact, as group:artifact:version`;
 
 const version: Check = (v, at) =>
   typeof v === "string" && /^\d+(\.\d+){0,2}$/.test(v)
@@ -500,6 +512,7 @@ export const PACKAGE_FIELDS = {
     queries,
     features: recordOf(boolean),
     metaData: recordOf(string),
+    gradlePlugins: recordOf(gradleArtifact),
   },
 } satisfies {
   [P in Platform]: {

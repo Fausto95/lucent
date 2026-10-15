@@ -100,12 +100,12 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "Platform memory as JavaScript bytes without a copy, done for Android's `ByteBuffer`."
       },
       {
-        "status": "next",
-        "text": "Native needs declared by the app's own modules, not only by packages."
+        "status": "done",
+        "text": "Native needs declared by the app's own modules, and options a package leaves to the app."
       },
       {
-        "status": "next",
-        "text": "Privacy manifests, Android `<queries>` and Gradle plugins, declared by packages."
+        "status": "in progress",
+        "text": "Privacy manifests, Android `<queries>` and Gradle plugins, declared by packages; a fixture app build is next."
       },
       {
         "status": "later",

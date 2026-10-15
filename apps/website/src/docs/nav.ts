@@ -168,6 +168,7 @@ export const docsSections: DocSection[] = [
           "packages/add-native-dependencies",
           "packages/declare-permissions-and-entitlements",
           "packages/declare-android-components",
+          "packages/apply-gradle-plugins",
         ],
       },
       {

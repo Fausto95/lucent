@@ -52,6 +52,7 @@ const read = {
     "queries",
     "features",
     "metaData",
+    "gradlePlugins",
   ],
 } as const satisfies {
   [P in "ios" | "android"]: readonly (keyof NonNullable<PackageNative[P]>)[];
@@ -150,6 +151,7 @@ describe("lucent.json schema", () => {
           { kind: "provider", name: "dev.orbit.Files", authorities: "dev.orbit.files" },
         ],
         minSdk: 26,
+        gradlePlugins: { "com.google.gms.google-services": "com.google.gms:google-services:4.4.2" },
       },
     };
     expect(await validate(orbit)).toEqual([]);

@@ -149,6 +149,8 @@ export interface ResolvedNative {
     features?: Record<string, Agreed<boolean>>;
     /** The `<application>`'s `<meta-data>`: name → its one value, and who asked. */
     metaData?: Record<string, Agreed<string>>;
+    /** Gradle plugin id → the one artifact that has it, and who asked. */
+    gradlePlugins?: Record<string, Agreed<string>>;
   };
   /** Extension name → the package declaring it, its header and its declaration. */
   extensions: Record<string, ResolvedExtension>;
@@ -281,6 +283,40 @@ function plist(
         : first;
 
       return [key, { value, from: values.flatMap(([, from]) => from) }];
+    }),
+  );
+}
+
+/**
+ * The Gradle plugins packages apply: each id's artifact at the highest
+ * version any asks for (the build's classpath has one), and every package
+ * that asks. Throws for an id two packages find in different artifacts.
+ */
+function gradlePlugins(declared: Declared[]): Record<string, Agreed<string>> {
+  const out = new Map<string, [string, From][]>();
+
+  for (const d of declared)
+    for (const [id, artifact] of Object.entries(d.native.android?.gradlePlugins ?? {}))
+      out.set(id, [...(out.get(id) ?? []), [artifact, [d.name]]]);
+
+  const name = (a: string) => a.slice(0, a.lastIndexOf(":"));
+  const version = (a: string) => a.slice(a.lastIndexOf(":") + 1);
+
+  return sorted(
+    [...out].map(([id, asked]): [string, Agreed<string>] => {
+      const conflict = firstConflict(asked, (a, b) => name(a) === name(b));
+
+      if (conflict) {
+        const [[a, fromA], [b, fromB]] = conflict;
+        throw new Error(
+          `Gradle plugin ${id}: ${fromA[0]} wants ${JSON.stringify(a)}, ${fromB[0]} wants ${JSON.stringify(b)}`,
+        );
+      }
+
+      const top = asked.reduce((a, b) =>
+        compareVersions(version(b[0]), version(a[0])) > 0 ? b : a,
+      );
+      return [id, { value: top[0], from: asked.flatMap(([, from]) => from) }];
     }),
   );
 }
@@ -487,6 +523,7 @@ export function resolveNative(
           Agreed<string>
         >,
       ),
+      ...nonEmpty("gradlePlugins", gradlePlugins(declared)),
       ...highest(
         declared,
         "minSdk",
@@ -807,6 +844,7 @@ function withoutOverridden(pkg: PackageNative, app: PackageNative): PackageNativ
     dependencies: without(pkg.android.dependencies, app.android?.dependencies),
     features: without(pkg.android.features, app.android?.features),
     metaData: without(pkg.android.metaData, app.android?.metaData),
+    gradlePlugins: without(pkg.android.gradlePlugins, app.android?.gradlePlugins),
     components: pkg.android.components?.filter((c) => !appComponents.has(c.name)),
     mainActivity: pkg.android.mainActivity && {
       ...pkg.android.mainActivity,

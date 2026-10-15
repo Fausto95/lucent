@@ -105,6 +105,7 @@ What a Lucent package's platform code needs from the app that installs it, next 
 | `android.queries.providers` | `string[]` |  | Content providers the code reads, by authority. |
 | `android.features` | `{ [name]: boolean }` |  | Hardware or software features the code uses: name → whether the app requires it, as `<uses-feature>`. A feature any package requires is required; the app's own value wins. |
 | `android.metaData` | `{ [name]: string }` |  | `<meta-data>` on the app's `<application>`: name → value, such as an SDK's API key. Packages must agree on a name's value, and the app's own value wins. A value can be an option's (\{\{name\}\}). |
+| `android.gradlePlugins` | `{ [name]: string }` |  | Gradle plugins the app's build applies: plugin id → the artifact that has it, as group:artifact:version. The Expo config plugin adds both to the app's build files. Packages naming one artifact get its highest version. |
 | `launch` | `string[]` |  | Modules to create at app launch, before the first frame, for what the OS requires by then, such as BGTaskScheduler handlers. Each is a path under the package's sources, without .lucent.ts: "tasks" for tasks.lucent.ts. Creating one starts module state, every module's top level, and holds it for the app's process, so a reload keeps it. On iOS, LucentAppDelegate's application(\_:didFinishLaunchingWithOptions:) creates them; a bare app's lucent build names the call its AppDelegate lacks. |
 | `options` | `{ [name]: object }` |  | A package's options, which the app's lucent.json sets: option name → what it means, and a default. \{\{name\}\} in an ios.infoPlist value, an entitlement, an android.components field or an android.metaData value is the option's value. A whole \{\{name\}\} of a boolean is the boolean. An option without a default that the app doesn't set fails the build, saying how to set it. |
 | `options.<name>.description` | `string` | yes | What the option is, for the message when the app must set it. |
@@ -115,7 +116,7 @@ What a Lucent package's platform code needs from the app that installs it, next 
 
 An app's root can have a `lucent.json` too, with the same fields, for its own modules' needs. The build merges it with the packages', and names the app by its package.json's name.
 
-Where the app gives a value of its own, the app's wins. That holds for an `Info.plist` key or entitlement, a pod's or Gradle artifact's version, a manifest component and the main Activity's launch mode. An array still joins the packages' values.
+Where the app gives a value of its own, the app's wins. That holds for an `Info.plist` key or entitlement, a manifest component and the main Activity's launch mode. It holds for a pod's or Gradle artifact's version and a Gradle plugin's artifact, while an array joins the packages' values.
 
 Its `launch` and its components' `class` name the app's modules as they are named, without a package. The pods and Gradle dependencies it lists can be imported from `lucent:ios/*` and `lucent:android/*`, as an app's own can.
 

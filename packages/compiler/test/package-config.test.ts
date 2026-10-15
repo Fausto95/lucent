@@ -1131,6 +1131,68 @@ describe("queries, features and the application's meta-data", () => {
   });
 });
 
+describe("Gradle plugins", () => {
+  const services = (version: string) => ({
+    android: {
+      gradlePlugins: {
+        "com.google.gms.google-services": `com.google.gms:google-services:${version}`,
+      },
+    },
+  });
+
+  it("take an artifact's highest version, from every package that asks", () => {
+    const { manifest } = resolveNative([
+      pkg("lucent-a", services("4.4.2")),
+      pkg("lucent-b", services("4.10.0")),
+      pkg("lucent-c", { android: { permissions: [] } }),
+    ]);
+    expect(manifest.android.gradlePlugins).toEqual({
+      "com.google.gms.google-services": {
+        value: "com.google.gms:google-services:4.10.0",
+        from: ["lucent-a", "lucent-b"],
+      },
+    });
+    expect(
+      resolveNative([pkg("lucent-c", { android: { permissions: [] } })]).manifest.android,
+    ).not.toHaveProperty("gradlePlugins");
+  });
+
+  it("fail when packages find one plugin in different artifacts", () => {
+    expect(() =>
+      resolveNative([
+        pkg("lucent-a", services("4.4.2")),
+        pkg("lucent-b", {
+          android: {
+            gradlePlugins: { "com.google.gms.google-services": "com.example:services:1.0.0" },
+          },
+        }),
+      ]),
+    ).toThrow(
+      'Gradle plugin com.google.gms.google-services: lucent-a wants "com.google.gms:google-services:4.4.2", lucent-b wants "com.example:services:1.0.0"',
+    );
+    expect(() =>
+      resolveNative([
+        pkg("lucent-a", {
+          android: { gradlePlugins: { "com.google.gms.google-services": "google-services" } },
+        }),
+      ]),
+    ).toThrow("must be an artifact, as group:artifact:version");
+  });
+
+  it("take the app's artifact", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-app-"));
+    fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "my-app" }));
+    fs.writeFileSync(path.join(dir, "lucent.json"), JSON.stringify(services("4.3.15")));
+    const { manifest } = resolveNative([pkg("lucent-a", services("4.4.2")), appPackage(dir)!]);
+    expect(manifest.android.gradlePlugins).toEqual({
+      "com.google.gms.google-services": {
+        value: "com.google.gms:google-services:4.3.15",
+        from: ["my-app"],
+      },
+    });
+  });
+});
+
 describe("privacy manifests", () => {
   it("merge: tracking if any tracks, each domain and reason, a data type's use joined", () => {
     const { manifest } = resolveNative([

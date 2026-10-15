@@ -528,6 +528,82 @@ export function missingMainActivity(root: string, native: ResolvedNative): Notic
   return out;
 }
 
+/** The first of `names` (under android/) that exists, as a path from the app and its text. */
+function gradleFile(root: string, ...names: string[]): { file: string; text: string } | undefined {
+  for (const name of names) {
+    const file = path.join("android", name);
+    if (fs.existsSync(path.join(root, file)))
+      return { file, text: fs.readFileSync(path.join(root, file), "utf8") };
+  }
+  return undefined;
+}
+
+/**
+ * The names a build file can give the Gradle plugin `id` in `alias(…)`:
+ * each `[plugins]` entry of the version catalog that has it, as
+ * `libs.plugins.google.services`.
+ */
+function catalogAliases(catalog: string, id: string): string[] {
+  const plugins = /^\[plugins\][^\n]*\n([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(catalog)?.[1] ?? "";
+  return [...plugins.matchAll(/^\s*([\w.-]+)\s*=\s*(?:\{[^}]*\bid\s*=\s*"([^"]+)"|"([^":]+):)/gm)]
+    .filter((m) => (m[2] ?? m[3]) === id)
+    .map((m) => `libs.plugins.${m[1]!.replace(/[-_]/g, ".")}`);
+}
+
+/** Whether a build file applies the Gradle plugin `id`: `apply plugin:`, `id(…)` or the catalog's `alias(…)`. */
+function appliesPlugin(text: string, id: string, aliases: string[]): boolean {
+  const quoted = `["']${id.replaceAll(".", "\\.")}["']`;
+  return (
+    new RegExp(`apply\\s*\\(?\\s*plugin\\s*[:=]\\s*${quoted}|\\bid\\s*\\(?\\s*${quoted}`).test(
+      text,
+    ) ||
+    aliases.some((a) =>
+      new RegExp(`\\balias\\s*\\(\\s*${a.replaceAll(".", "\\.")}\\s*\\)`).test(text),
+    )
+  );
+}
+
+/**
+ * The Gradle plugins Lucent packages need that the app's build lacks: the
+ * app's build.gradle applies each, and the project's build has its
+ * artifact (on the buildscript classpath, or by its id with a version in
+ * the plugins block or the version catalog). Named, as the build files
+ * are the app's.
+ */
+export function missingGradlePlugins(root: string, native: ResolvedNative): Notice[] {
+  const plugins = Object.entries(native.android.gradlePlugins ?? {});
+  const app = gradleFile(root, "app/build.gradle", "app/build.gradle.kts");
+  if (!plugins.length || !app) return [];
+
+  const kotlin = app.file.endsWith(".kts");
+  const project = [
+    gradleFile(root, "build.gradle", "build.gradle.kts"),
+    gradleFile(root, "settings.gradle", "settings.gradle.kts"),
+    gradleFile(root, "gradle/libs.versions.toml"),
+  ].flatMap((f) => (f ? [f] : []));
+  const catalog = project.find((f) => f.file.endsWith(".toml"))?.text ?? "";
+  const classpath = project.find((f) => /build\.gradle(\.kts)?$/.test(f.file))?.file;
+
+  const out: Notice[] = [];
+  const warn = (text: string) =>
+    out.push({ level: "warn", text: `${text} (the Expo config plugin adds it)` });
+  const who = (from: string[]) => `${from.join(" and ")} ${from.length === 1 ? "needs" : "need"}`;
+
+  for (const [id, { value, from }] of plugins) {
+    const artifact = value.split(":").slice(0, 2).join(":");
+    if (classpath && !project.some((f) => f.text.includes(artifact) || f.text.includes(id)))
+      warn(
+        `${who(from)} ${value} on the buildscript classpath in ${classpath}: classpath(${JSON.stringify(value)})`,
+      );
+    if (!appliesPlugin(app.text, id, catalogAliases(catalog, id)))
+      warn(
+        `${who(from)} the Gradle plugin ${id} applied in ${app.file}: ${kotlin ? `apply(plugin = ${JSON.stringify(id)})` : `apply plugin: ${JSON.stringify(id)}`}`,
+      );
+  }
+
+  return out;
+}
+
 /**
  * The entries of an XML property list: strings, booleans and arrays of
  * strings by value, any other value as present (null).

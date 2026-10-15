@@ -122,6 +122,48 @@ function applyGradleTask(text, language = "groovy") {
   return lines.join("\n");
 }
 
+/** `group:artifact` of a `group:artifact:version`: what a build file names whatever version it has. */
+const artifactOf = (coordinate) => coordinate.split(":").slice(0, 2).join(":");
+
+/**
+ * The project's build.gradle with each artifact Lucent packages' Gradle
+ * plugins need on its buildscript classpath, as `classpath("…")`. One it
+ * names already, at any version, stays as the app has it. Undefined when
+ * nothing changes, and when it has no `buildscript { dependencies { … } }`.
+ */
+function withGradleClasspaths(text, artifacts) {
+  const missing = artifacts.filter((a) => !text.includes(artifactOf(a)));
+  if (!missing.length) return undefined;
+  const block = /buildscript\s*\{[\s\S]*?\bdependencies\s*\{[^\n]*\n/.exec(text);
+  if (!block) return undefined;
+  const at = block.index + block[0].length;
+  const lines = missing.map((a) => `        classpath(${JSON.stringify(a)})\n`).join("");
+  return text.slice(0, at) + lines + text.slice(at);
+}
+
+/** Whether a build file applies the Gradle plugin `id`, in either way it can. */
+const appliesPlugin = (text, id) => {
+  const quoted = `["']${id.replace(/[.]/g, "\\.")}["']`;
+  return new RegExp(`apply\\s*\\(?\\s*plugin\\s*[:=]\\s*${quoted}|\\bid\\s*\\(?\\s*${quoted}`).test(
+    text,
+  );
+};
+
+/**
+ * The app's build.gradle applying each Gradle plugin Lucent packages need,
+ * at its end (Google services reads what the rest set up). Undefined when
+ * it applies them all.
+ */
+function withGradlePlugins(text, ids, language = "groovy") {
+  const missing = ids.filter((id) => !appliesPlugin(text, id));
+  if (!missing.length) return undefined;
+  const line = (id) =>
+    language === "kt"
+      ? `apply(plugin = ${JSON.stringify(id)})`
+      : `apply plugin: ${JSON.stringify(id)}`;
+  return `${text.replace(/\n*$/, "\n")}${missing.map(line).join("\n")}\n`;
+}
+
 /** The Podfile line that loads Lucent's CocoaPods hook (cocoapods/lucent.rb), as Expo's own lines find a package. */
 const POD_HOOK_REQUIRE = `require File.join(File.dirname(\`node --print "require.resolve('@lucent-lang/lucent/package.json')"\`), "cocoapods/lucent")`;
 
@@ -226,13 +268,33 @@ function withLucent(config) {
     withEntitlementsPlist,
     withInfoPlist,
     withPodfile,
+    withProjectBuildGradle,
   } = require("expo/config-plugins");
-  // Gradle builds run lucent build first, like `lucent init` sets up in bare apps.
+  // Gradle builds run lucent build first, like `lucent init` sets up in bare apps; the app's
+  // build applies the Gradle plugins packages need.
   config = withAppBuildGradle(config, (c) => {
-    c.modResults.contents =
+    if (!c.modRequest.introspect) buildOnce(c.modRequest.projectRoot);
+    const { android } = resolvedNative(c.modRequest.projectRoot);
+    const withTask =
       applyGradleTask(c.modResults.contents, c.modResults.language) ?? c.modResults.contents;
+    c.modResults.contents =
+      withGradlePlugins(
+        withTask,
+        Object.keys(android?.gradlePlugins ?? {}),
+        c.modResults.language,
+      ) ?? withTask;
     return c;
   });
+  // The artifacts those plugins are in, on the project's buildscript classpath.
+  if (withProjectBuildGradle)
+    config = withProjectBuildGradle(config, (c) => {
+      if (!c.modRequest.introspect) buildOnce(c.modRequest.projectRoot);
+      const { android } = resolvedNative(c.modRequest.projectRoot);
+      const artifacts = Object.values(android?.gradlePlugins ?? {}).map((p) => p.value);
+      c.modResults.contents =
+        withGradleClasspaths(c.modResults.contents, artifacts) ?? c.modResults.contents;
+      return c;
+    });
   // Keys the app sets itself win.
   // `expo config --type introspect` evaluates these mods to show the config: it reads what the
   // last build resolved, and builds nothing.
@@ -294,3 +356,6 @@ module.exports.linkNativePackage = linkNativePackage;
 module.exports.withPackageEntries = withPackageEntries;
 module.exports.withMainActivity = withMainActivity;
 module.exports.withPodHook = withPodHook;
+module.exports.withGradleClasspaths = withGradleClasspaths;
+module.exports.withGradlePlugins = withGradlePlugins;
+module.exports.appliesPlugin = appliesPlugin;
