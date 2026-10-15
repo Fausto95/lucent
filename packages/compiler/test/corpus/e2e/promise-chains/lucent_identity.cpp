@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"promise-chains", "b48e
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "dd0437e171b05459", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "ae4714e50574ade0", kModuleIdentities, 1};
   return identity;
 }
 

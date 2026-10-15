@@ -3,7 +3,13 @@
 // JavaScript runtime (lucent/entries.h says how).
 #pragma once
 
-#include <lucent/entries.h>
+#if __has_include("../lucent/entry_types.h")
+#include "../lucent/entry_types.h"
+#elif __has_include("../../lucent/entry_types.h")
+#include "../../lucent/entry_types.h"
+#else
+#include <lucent/entry_types.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -117,6 +123,10 @@ bool lucent_classes_Labelled_get_total(lucent_object self, lucent_error* error, 
 
 /// classes.Sized.text()
 bool lucent_classes_Sized_get_text(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// The exported class with a Swift API an instance is of, its own or its
+/// nearest ancestor's (`module.Class`; empty for none): the Swift API's wrappers.
+const char* lucent_classof(lucent_object object);
 
 #ifdef __cplusplus
 }

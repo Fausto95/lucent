@@ -43,6 +43,7 @@ export const Codes = {
   IncompatiblePackage: "LUCENT3014",
   UnknownLaunchModule: "LUCENT3015",
   EntryNameClash: "LUCENT3016",
+  SwiftNameClash: "LUCENT3017",
   ComponentExport: "LUCENT3020",
   ComponentContract: "LUCENT3021",
   ComponentMainThread: "LUCENT3022",
@@ -623,6 +624,23 @@ export const Explanations: Record<Code, Explanation> = {
     right: {
       "a_b.lucent.ts": "export function c(): number {\n  return 1;\n}\n",
       "a.lucent.ts": "export function bc(): number {\n  return 2;\n}\n",
+    },
+  },
+  LUCENT3017: {
+    title: "Modules with one Swift name",
+    summary:
+      "Two modules whose Swift names come out the same, or a module whose Swift name is one of the Swift API's own.",
+    details:
+      "Swift calls a module's exports through a `public enum` in the `LucentNative` module, named from its path in upper camel case (`lucent-sync/workers` is `LucentSyncWorkers`). Since `a_b` and `aB` both come out as `AB`, neither gets a Swift API, so a name never moves between them. A module named for one of the API's own types, such as `LucentError`, gets none either; its C entry points and Kotlin API stay.",
+    fix: "rename one of the modules, if Swift calls it",
+    severity: "warning",
+    wrong: {
+      "a_b.lucent.ts": "export function c(): number {\n  return 1;\n}\n",
+      "aB.lucent.ts": "export function d(): number {\n  return 2;\n}\n",
+    },
+    right: {
+      "a_b.lucent.ts": "export function c(): number {\n  return 1;\n}\n",
+      "other.lucent.ts": "export function d(): number {\n  return 2;\n}\n",
     },
   },
   LUCENT3020: {

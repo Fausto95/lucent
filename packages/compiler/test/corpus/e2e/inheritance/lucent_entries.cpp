@@ -706,6 +706,19 @@ extern "C" bool lucent_inheritance_Lion_named(lucent_string arg0, lucent_error* 
 #pragma pop_macro("counted")
 #pragma pop_macro("count")
 
+// The Swift API's (decision 0116): the wrapper an instance an entry gives is of.
+extern "C" const char* lucent_classof(lucent_object object) {
+  lucent::Object* o = object ? object->instance.get() : nullptr;
+  if (dynamic_cast<lucent_app::C_Puppy*>(o)) return "inheritance.Puppy";
+  if (dynamic_cast<lucent_app::C_Kitten*>(o)) return "inheritance.Kitten";
+  if (dynamic_cast<lucent_app::C_Dog*>(o)) return "inheritance.Dog";
+  if (dynamic_cast<lucent_app::C_Bird*>(o)) return "inheritance.Bird";
+  if (dynamic_cast<lucent_app::C_Cat*>(o)) return "inheritance.Cat";
+  if (dynamic_cast<lucent_app::C_Lion*>(o)) return "inheritance.Lion";
+  if (dynamic_cast<lucent_app::C_Animal*>(o)) return "inheritance.Animal";
+  return "";
+}
+
 // The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
 // Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
 #if __has_include(<jni.h>)

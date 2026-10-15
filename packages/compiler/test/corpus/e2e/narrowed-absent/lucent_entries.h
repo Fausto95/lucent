@@ -3,7 +3,13 @@
 // JavaScript runtime (lucent/entries.h says how).
 #pragma once
 
-#include <lucent/entries.h>
+#if __has_include("../lucent/entry_types.h")
+#include "../lucent/entry_types.h"
+#elif __has_include("../../lucent/entry_types.h")
+#include "../../lucent/entry_types.h"
+#else
+#include <lucent/entry_types.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {

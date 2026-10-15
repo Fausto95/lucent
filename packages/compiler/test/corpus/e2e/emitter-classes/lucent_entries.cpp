@@ -198,6 +198,14 @@ extern "C" bool lucent_emitter_classes_LoudPlayer_ticking(lucent_object self, lu
 #pragma pop_macro("inLucent")
 #pragma pop_macro("heldPlayer")
 
+// The Swift API's (decision 0116): the wrapper an instance an entry gives is of.
+extern "C" const char* lucent_classof(lucent_object object) {
+  lucent::Object* o = object ? object->instance.get() : nullptr;
+  if (dynamic_cast<lucent_app::C_LoudPlayer*>(o)) return "emitter-classes.LoudPlayer";
+  if (dynamic_cast<lucent_app::C_Player*>(o)) return "emitter-classes.Player";
+  return "";
+}
+
 // The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
 // Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
 #if __has_include(<jni.h>)

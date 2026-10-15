@@ -638,6 +638,71 @@ describe("Swift declarations", () => {
       ].join("\n"),
     );
   });
+
+  it("print enums holding nested classes, throwing initializers and defer", () => {
+    const counter: swift.Decl & { k: "class" } = {
+      k: "class",
+      name: "Counter",
+      modifiers: ["public", "final"],
+      superclass: swift.type("Base"),
+      members: [
+        {
+          k: "init",
+          modifiers: ["public", "convenience"],
+          params: [{ name: "start", type: swift.type("Double") }],
+          effects: ["throws"],
+          body: [
+            swift.letStmt("arena", call(name("Arena"), [])),
+            { k: "defer", body: [swift.exprStmt(call(member(name("arena"), "free"), []))] },
+            swift.exprStmt(
+              call(member(name("self"), "init"), [{ label: "start", value: name("start") }]),
+            ),
+          ],
+        },
+      ],
+    };
+    expect(
+      swift.printUnit({
+        decls: [
+          {
+            k: "enum",
+            name: "Counters",
+            modifiers: ["public"],
+            members: [
+              {
+                k: "func",
+                modifiers: ["public", "static"],
+                name: "zero",
+                params: [],
+                ret: swift.type("Double"),
+                body: [swift.ret(swift.num(0))],
+              },
+              { k: "type", decl: counter },
+            ],
+          },
+        ],
+      }),
+    ).toBe(
+      [
+        "public enum Counters {",
+        "  public static func zero() -> Double {",
+        "    return 0",
+        "  }",
+        "",
+        "  public final class Counter: Base {",
+        "    public convenience init(start: Double) throws {",
+        "      let arena = Arena()",
+        "      defer {",
+        "        arena.free()",
+        "      }",
+        "      self.init(start: start)",
+        "    }",
+        "  }",
+        "}",
+        "",
+      ].join("\n"),
+    );
+  });
 });
 
 describe("Swift addition", () => {

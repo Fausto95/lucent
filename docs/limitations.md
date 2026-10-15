@@ -171,11 +171,16 @@ generated from this file.
   ([T143](tasks.md#t143)).
 - Tracing records allocations for native buffers only, and its buffer uses
   one mutex: fine for debugging, not for continuous production use.
+- Swift calling a module's exports gets a record as a `Dictionary`, which
+  keeps no key order ([T114](tasks.md#t114)).
 
 ## Not verified yet
 
 - Nothing has run on a physical iPhone or Android phone. Tests run on
   hosts, the iOS simulator and the Android emulator.
+- The Swift and Kotlin APIs native code calls modules through have run on
+  hosts, with Linux's Swift and the desktop JNI host. An app's build of
+  them, on the simulator and the emulator, is next ([T114](tasks.md#t114)).
 - Fresh apps on the window's releases (React Native 0.85 to 0.87, Expo
   SDK 56 and 57) build and run a short check nightly, on the simulator and
   the emulator. The full Tests screen runs only in the example apps, which

@@ -32,7 +32,7 @@ each system lets an author do, not how it does it.
 | A module of the app itself (inline) | ✅ in the app's project | 🟡 inline modules (experimental) | 🟡 sources yes; native needs only from packages        | [T111](tasks.md#t111) |
 | Web implementation                  | —                       | ✅ `registerWebModule`           | ❌                                                     | [T144](tasks.md#t144) |
 | Generated TS for the JS side        | ✅                      | 🟡 macOS and Swift only          | ✅ always                                              | —                     |
-| Native code calling the module      | ✅ through the specs    | ✅ through the module registry   | ❌                                                     | [T114](tasks.md#t114) |
+| Native code calling the module      | ✅ through the specs    | ✅ through the module registry   | 🟡 C entries, Swift and Kotlin APIs, run on hosts      | [T114](tasks.md#t114) |
 | Tests without a device              | —                       | ✅ Jest mocks                    | ✅ JS `lucent:core`, JS dev mode                       | —                     |
 
 ## Values that cross

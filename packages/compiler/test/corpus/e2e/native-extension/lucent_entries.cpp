@@ -113,6 +113,13 @@ extern "C" bool lucent_extension_Filter_close(lucent_object self, lucent_error* 
 #pragma pop_macro("close")
 #pragma pop_macro("apply")
 
+// The Swift API's (decision 0116): the wrapper an instance an entry gives is of.
+extern "C" const char* lucent_classof(lucent_object object) {
+  lucent::Object* o = object ? object->instance.get() : nullptr;
+  if (dynamic_cast<lucent_app::C_Filter*>(o)) return "extension.Filter";
+  return "";
+}
+
 // The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
 // Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
 #if __has_include(<jni.h>)

@@ -36,6 +36,8 @@ export interface PodspecInputs {
   localSwiftPackages?: [string, string[]][];
   /** The lowest iOS version the packages run on, if they need one. */
   deploymentTarget?: string;
+  /** Where the iOS entries' header is, a public header (the template's: cpp/generated/lucent_entries.h). */
+  entriesHeader?: string;
 }
 
 /** The source files CocoaPods compiles in a package's source directory. */
@@ -87,7 +89,15 @@ export function podspec(template: string, inputs: PodspecInputs): string {
       );
   }
 
-  // Swift shims (Swift-only iOS APIs) or packages' Swift make it a Swift pod, only when there are any.
+  // A program compiled for each platform has its entries in generated/ios/.
+  if (inputs.entriesHeader && inputs.entriesHeader !== "cpp/generated/lucent_entries.h")
+    text = text.replace(
+      /^(\s*s\.public_header_files\s*=.*)"cpp\/generated\/lucent_entries\.h"/m,
+      (_, head: string) => `${head}${JSON.stringify(inputs.entriesHeader)}`,
+    );
+
+  // Swift shims (Swift-only iOS APIs), the exports' Swift API or packages' Swift make it a Swift
+  // pod, only when there are any.
   // The module CocoaPods makes for it holds the one public header (the
   // template's public_header_files), so Swift imports it without C++ interop.
   if (inputs.swift)

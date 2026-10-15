@@ -41,10 +41,12 @@ Pod::Spec.new do |s|
   # runtime's Android glue is guarded by __ANDROID__.
   s.source_files = ["cpp/**/*.{h,cpp,inc,c,mm}", "ios/**/*.{h,mm}"]
   s.exclude_files = ["cpp/generated/android/**", "cpp/generated/host/**"]
-  # The one header the app sees, in the module `import LucentNative` gives
-  # Swift: what the app's delegates forward to Lucent modules. The rest are
+  # The headers the app sees, in the module `import LucentNative` gives
+  # Swift: what the app's delegates forward to Lucent modules, and the C
+  # entry points (lucent_entries.h, where lucent build writes it) with the
+  # types they pass, which the exports' Swift API calls. All C: the rest are
   # the pod's own, so the module carries no C++.
-  s.public_header_files = "cpp/lucent/platform/LucentAppDelegate.h"
+  s.public_header_files = ["cpp/lucent/platform/LucentAppDelegate.h", "cpp/lucent/entry_types.h", "cpp/generated/lucent_entries.h"]
   # The runtime's core, prebuilt when the package has it (lucent build copies it for the
   # runtime it was built from): its sources are linked from the xcframework instead of
   # compiled. LUCENT_RUNTIME_FROM_SOURCE=1 at pod install compiles them.

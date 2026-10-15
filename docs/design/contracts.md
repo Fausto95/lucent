@@ -34,7 +34,7 @@ each contract as the code implements it today. The design is
 | ------------------------------------------------------------ | --------------------------------------------------------------------- | ------- | ----------------------------------------------------------- |
 | [C-BIND](#c-bind-binding-schemas-and-plans)                  | SDK schemas, native identity, provenance, facts, binding plans, usage | v1.5    | `packages/bindgen/src/`                                     |
 | [C-IR](#c-ir-semantic-ir-and-program-facts)                  | The semantic IR, its verifier, effect summaries, program facts        | v1.4    | `packages/compiler/src/ir/`, `analysis/`                    |
-| [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.14   | `packages/runtime/cpp/lucent/`                              |
+| [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.15   | `packages/runtime/cpp/lucent/`                              |
 | [C-BIGINT](#c-bigint-the-runtimes-bigint)                    | The runtime's `BigInt` and native integer conversions                 | v1.1    | `lucent/bigint.h`                                           |
 | [C-BUFFER](#c-buffer-native-buffers)                         | Native buffers, borrows, moves, loans, adoptions, native handles      | v1.7    | `lucent/buffer.h`, `handle.h`, `bytes.h`, `jsi/convert.*`   |
 | [C-VIEW](#c-view-components-and-views)                       | Component descriptions, transport, mounts, hosts, toolkit bodies      | v3.0    | `packages/compiler/src/ui/`, `packages/runtime/cpp/rn/`     |
@@ -445,16 +445,17 @@ takes an `AnalysisInput`: `checker`, `modules`, `platform?`, `native?`,
 
 ## C-EXEC: execution identities, scopes and operations
 
-**Version: v1.14.** The runtime's model of who owns work and where it runs,
+**Version: v1.15.** The runtime's model of who owns work and where it runs,
 in namespace `lucent`, with no JSI type but `lucent/jsi`'s `Host`. The text
 at this version also covers `channel.h` and `hooks.h`, which shipped
 before the text named them. v1.9 added `handed.h`, v1.10
 `delegate_events.h`, v1.11 the kept `relaunched` event and the
 notification delegate's events, v1.12 `native_root.h`, v1.13
-`entries.h`, and v1.14 its `launch`.
+`entries.h`, v1.14 its `launch`, and v1.15 `entry_types.h`, the C types
+it passes, which Swift imports.
 
 **Implemented by** `packages/runtime/cpp/lucent/`: `scope.h`,
-`execution.h`, `scheduler.h`, `native.h`, `native_root.h`, `entries.h`, `handed.h`, `delegate_events.h`, `async.h`, `abort.h`,
+`execution.h`, `scheduler.h`, `native.h`, `native_root.h`, `entries.h`, `entry_types.h`, `handed.h`, `delegate_events.h`, `async.h`, `abort.h`,
 `resource.h`, `callback.h`, `transport.h`, `compute.h`, `channel.h`,
 `lifecycle.h`, `presentation.h`, `hooks.h`, `report.h`, `jsi/host.h`.
 

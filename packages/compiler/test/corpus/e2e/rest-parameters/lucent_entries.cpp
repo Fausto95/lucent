@@ -57,6 +57,15 @@ extern "C" bool lucent_rest_parameters_LoudLogger_new(lucent_error* error, lucen
 #pragma pop_macro("parts")
 #pragma pop_macro("internal")
 
+// The Swift API's (decision 0116): the wrapper an instance an entry gives is of.
+extern "C" const char* lucent_classof(lucent_object object) {
+  lucent::Object* o = object ? object->instance.get() : nullptr;
+  if (dynamic_cast<lucent_app::C_LoudLogger*>(o)) return "rest-parameters.LoudLogger";
+  if (dynamic_cast<lucent_app::C_Path*>(o)) return "rest-parameters.Path";
+  if (dynamic_cast<lucent_app::C_Logger*>(o)) return "rest-parameters.Logger";
+  return "";
+}
+
 // The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
 // Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
 #if __has_include(<jni.h>)

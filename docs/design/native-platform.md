@@ -825,8 +825,8 @@ exports what takes or gives a platform object for native code alone
 ([0117](../decisions/0117-a-platform-file-exports-what-takes-platform-objects-for-native-code-alone.md)).
 [T114](../tasks.md#t114) adds the Swift and Kotlin APIs.
 
-`entries.h` holds the C types and the two calls a generated entry makes,
-`entries::call` and `callAsync`. `lucent_entries.cpp` defines the entries
+`entry_types.h` holds the C types, in C alone, and `entries.h` the two
+calls a generated entry makes, `entries::call` and `callAsync`. `lucent_entries.cpp` defines the entries
 and the modules' initializer, `lucent_app::initModules`, which a `Host`
 and a native call both start state with. Neither reaches JSI, so the
 runtime ABI is 3. Entries take their parameters by position (`arg0`), as
@@ -853,6 +853,21 @@ what Java passes (`lucent::jni::EntryArgs`) and what the entries give
 Android; `lucent_entries_register_natives` registers them where it can't.
 The glue sits in the entries unit behind `__has_include(<jni.h>)`, since a
 shared program's unit is iOS's too.
+
+Swift calls them through `LucentExports.swift`, which the pod compiles
+into its module, `LucentNative` (`emit/swift-exports.ts`, #319). Each
+module is a `public enum` named from its path in upper camel case, with
+its functions as static methods that `throw`, `async throws` for async
+ones. Each exported class is a nested wrapper class extending
+`LucentInstance`, or its base's wrapper, `final` unless one extends it:
+its constructor a throwing `convenience init`, a property a `get throws`
+property with a `set<Name>(_:)` method, since a Swift setter can't throw.
+A wrapper releases its `lucent_object` when it goes, and an instance an
+entry gives is wrapped as the nearest class with a wrapper it is of
+(`lucent_classof`). A throw is `LucentError`. The pod's public headers
+are `lucent_entries.h` and `entry_types.h`, both C, so the module's Swift
+sees the entries without C++ interop. Two modules whose Swift names come
+out the same get none, and LUCENT3017 warns.
 
 ### Android classes the OS instantiates
 

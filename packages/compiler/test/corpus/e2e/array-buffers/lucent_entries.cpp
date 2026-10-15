@@ -84,6 +84,13 @@ extern "C" bool lucent_array_buffers_Store_kinds(lucent_object self, lucent_erro
 #pragma pop_macro("digest")
 #pragma pop_macro("checks")
 
+// The Swift API's (decision 0116): the wrapper an instance an entry gives is of.
+extern "C" const char* lucent_classof(lucent_object object) {
+  lucent::Object* o = object ? object->instance.get() : nullptr;
+  if (dynamic_cast<lucent_app::C_Store*>(o)) return "array-buffers.Store";
+  return "";
+}
+
 // The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
 // Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
 #if __has_include(<jni.h>)
