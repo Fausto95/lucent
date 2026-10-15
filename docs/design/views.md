@@ -146,6 +146,16 @@ shows nothing, and requests are rejected. A prop of the wrong type is logged and
 read as missing, as React Native's props fall back to their defaults. A later
 commit lacking a required prop is reported, and the rest of it applies.
 
+### A component's view in module code
+
+A module function takes a component's view as lucent:ui's `ComponentView`:
+JavaScript passes the component's ref. The views runtime records the host view's
+tag on the ref, and the binding takes the mount that tag has then
+(`lucent/component_view.h`). Each host records its mount's root as setup
+returns it and forgets it as the mount ends, so `viewOf` (lucent:ios,
+lucent:android) gives the root inside `main()`, and an `InvalidStateError` once
+the mount has gone ([0120](../decisions/0120-a-components-ref-crosses-to-module-code-as-a-component-view.md)).
+
 ## Bodies
 
 What setup returns decides how the component draws; the rest of this page holds
@@ -966,7 +976,7 @@ The view gate closes these gaps ([parity.md](../parity.md#views)):
 | ------------------------------------------------------------------------------------------------ | ------------------------ |
 | An `AVPlayerViewController` spike, run on the simulator                                          | [T122](../tasks.md#t122) |
 | Instance props in SwiftUI and Compose bodies; helpers with toolkit values, children and bindings | [T123](../tasks.md#t123) |
-| A component's ref passed to a module function                                                    | [T124](../tasks.md#t124) |
+| A component's view in module code, run on the simulator and the emulator                         | [T124](../tasks.md#t124) |
 | Views made after setup on Android get `appContext()`, not the hosting view's themed context      | [T125](../tasks.md#t125) |
 
 Accepted, with no task ([limitations.md](../limitations.md#views)):

@@ -16,6 +16,7 @@
 #include <react/renderer/core/RawProps.h>
 #include <react/utils/ContextContainer.h>
 
+#include <lucent/component_view.h>
 #include <lucent/platform/android.h>
 #include <lucent/report.h>
 #include <lucent/view.h>
@@ -248,6 +249,26 @@ NativeRef makeSlot(const HostState& host) {
   return slot ? jni::wrap(env, slot, "the slot of a component's children") : NativeRef();
 }
 
+/**
+ * Where viewOf finds the mount's root, for a module function given the
+ * component's ref (T124): its view, or the shell for a Fragment root.
+ */
+void recordRoot(const HostState& host) {
+  if (!host.mounted) return;
+
+  NativeRef root = host.mounted->view();
+
+  if (!root) {
+    JNIEnv* env = jni::env();
+    jni::LocalFrame frame(env);
+    jobject shell = env->NewLocalRef(host.view);
+
+    if (shell) root = jni::wrap(env, shell, "a component's shell");
+  }
+
+  ui::recordMount({static_cast<double>(host.tag), host.token.generation}, std::move(root));
+}
+
 /** A commit reached the screen (or JavaScript sent the view a command): the component sets up. */
 void mount(const std::shared_ptr<HostState>& host) {
   if (host->mounted || !host->committed || !host->component) return;
@@ -284,6 +305,7 @@ void mount(const std::shared_ptr<HostState>& host) {
 
   host->applied = host->committed;
   show(*host);
+  recordRoot(*host);
   // Measured once the shell shows the content.
   host->sizing.measure();
 }
@@ -424,6 +446,7 @@ void drop(JNIEnv* env, jclass, jlong handle) {
   delete held;
 
   // A recycled shell's next occupant gets a mount (and token, and slot) of its own.
+  ui::forgetMount({static_cast<double>(host->tag), host->token.generation});
   host->token = MountToken{};
   host->slot = NativeRef();
   // Its teardown runs the mount's code: nothing to measure any more.

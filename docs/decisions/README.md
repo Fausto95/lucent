@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                                    | Date       | Decision                                                                                             |
 | ----------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------- |
+| [0120](0120-a-components-ref-crosses-to-module-code-as-a-component-view.md)               | 2026-10-15 | A component's ref crosses to module code as a ComponentView                                          |
 | [0119](0119-what-a-components-code-presents-belongs-to-its-mount.md)                      | 2026-10-15 | What a component's code presents belongs to its mount                                                |
 | [0118](0118-a-components-ios-root-may-be-a-view-controller.md)                            | 2026-10-15 | A component's iOS root may be a view controller, which its host contains                             |
 | [0117](0117-a-platform-file-exports-what-takes-platform-objects-for-native-code-alone.md) | 2026-10-15 | A platform file exports what takes or gives platform objects for native code alone                   |

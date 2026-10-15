@@ -9,6 +9,7 @@
 #import <React/RCTUtils.h>
 #import <react/utils/FollyConvert.h>
 
+#include <lucent/component_view.h>
 #include <lucent/execution.h>
 #include <lucent/platform/ios.h>
 #include <lucent/report.h>
@@ -341,6 +342,10 @@ static void *LucentPreferredSizeContext = &LucentPreferredSizeContext;
     _mounted = [self lucentMount:*props host:host];
   });
   [self followPreferredSize];
+  // Where viewOf finds the mount's root, for a module function given the component's ref (T124).
+  if (_mounted)
+    lucent::ui::recordMount(
+        {static_cast<double>(_token.tag), _token.generation}, lucent::objc::wrap(_mounted->view(), "a component's view"));
   [_children mountedContent:_mounted ? _mounted->view() : nil];
 }
 
@@ -559,6 +564,7 @@ static void *LucentPreferredSizeContext = &LucentPreferredSizeContext;
 
   if (contained) [controller removeFromParentViewController];
 
+  lucent::ui::forgetMount({static_cast<double>(_token.tag), _token.generation});
   _token = lucent::views::MountToken{};
   [_children endMount];
   // Its teardown runs the mount's code: nothing to measure any more.
@@ -579,6 +585,7 @@ static void *LucentPreferredSizeContext = &LucentPreferredSizeContext;
 - (void)dealloc
 {
   [self stopFollowingPreferredSize];
+  lucent::ui::forgetMount({static_cast<double>(_token.tag), _token.generation});
   _sizing.stop();
 
   if (_mounted) {

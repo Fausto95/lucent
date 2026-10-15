@@ -19,6 +19,7 @@
 #include "bytes.h"
 #include "callback.h"
 #include "channel.h"
+#include "component_view.h"
 #include "console.h"
 #include "conversions.h"
 #include "core.h"

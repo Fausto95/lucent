@@ -291,9 +291,20 @@ function abandon(config, mount) {
   mount.clear();
 }
 
-/** `instance`, the host view, with `commands` on it; null while there is none. */
-function withCommands(instance, commands) {
-  if (instance !== null) Object.assign(instance, commands);
+/**
+ * `instance`, the host view, with `commands` on it, and its view's tag
+ * where a module function taking the component's view reads it (lucent:ui's
+ * ComponentView, decision 0120); null while there is none.
+ */
+function withCommands(instance, commands, ReactNative) {
+  if (instance === null) return instance;
+
+  Object.assign(instance, commands);
+
+  // React Native's element (its DOM API's), its older host component's, or as it finds one.
+  const tag = instance.__nativeTag ?? instance._nativeTag ?? ReactNative.findNodeHandle?.(instance);
+  if (typeof tag === "number")
+    Object.defineProperty(instance, "__lucentView", { value: tag, configurable: true });
 
   return instance;
 }
@@ -336,7 +347,12 @@ function lucentComponent(config, React, ReactNative) {
     // view before it sets the parent's handle.
     React.useImperativeHandle(
       ref,
-      () => withCommands(host.current, commandsOf(config, host, requests, native, ReactNative)),
+      () =>
+        withCommands(
+          host.current,
+          commandsOf(config, host, requests, native, ReactNative),
+          ReactNative,
+        ),
       [requests],
     );
     React.useEffect(() => () => abandon(config, requests), [requests]);

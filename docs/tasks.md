@@ -46,7 +46,7 @@ what became of each one that is still linked or was still open.
 | [T121](#t121)            | React Native's view props, refs and view libraries         | done (2026-10-14)                                       |
 | [T122](#t122)            | UIKit components with a view-controller root               | in progress (#324, #325)                                |
 | [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | ready                                                   |
-| [T124](#t124)            | A component's ref as a module function's argument          | ready                                                   |
+| [T124](#t124)            | A component's ref as a module function's argument          | in progress (#326)                                      |
 | [T125](#t125)            | Android views made after setup keep the Activity's context | ready                                                   |
 | **Execution modes**      |                                                            |                                                         |
 | [T130](#t130)            | A native root: module code with no JavaScript runtime      | done (2026-10-13)                                       |
@@ -1032,16 +1032,23 @@ props, and helper functions with children and bindings.
 gets the native view on the main thread, as view-capture and map-camera
 APIs need.
 
-- **Status:** ready.
+- **Status:** in progress: lucent:ui's `ComponentView` and the platforms'
+  `viewOf` (#326); the capture test on devices is what's left.
 - **Area:** views, runtime, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V5.
 - **Where:** `ui/contract.ts`, `runtime/js/views.js`, `emit/bindings.ts`,
   `rn/`.
 
-- [ ] A parameter typed as a component's view reads the mount behind the
-      ref. Its native view is reachable only inside `main()`.
-- [ ] A ref of an unmounted view, or of another runtime, is a typed error.
+- [x] A parameter typed as a component's view reads the mount behind the
+      ref. Its native view is reachable only inside `main()` (#326,
+      [0120](decisions/0120-a-components-ref-crosses-to-module-code-as-a-component-view.md)):
+      lucent:ui's `ComponentView`, read with lucent:ios's and
+      lucent:android's `viewOf`.
+- [x] A ref of an unmounted view, or of another runtime, is a typed error
+      (#326): `viewOf` throws an `InvalidStateError` once the mount the
+      ref named has ended, a reload's included; a value that isn't a
+      component's ref is a TypeError.
 - [ ] Tests: a module captures a component's view as an image on the
       simulator and emulator.
 

@@ -1709,6 +1709,24 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "doc": "Dismisses it and rejects with an `AbortError`."
           }
         ]
+      },
+      {
+        "name": "viewOf",
+        "kind": "function",
+        "signature": "function viewOf(view: ComponentView): UIView;",
+        "doc": [
+          "The view the setup of a module function's component returned, or its view controller's view. JavaScript gives the function the component's ref, `ref.current`. Call it inside `main()`: it throws an `InvalidStateError` once the component unmounts."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "view",
+            "type": "ComponentView",
+            "optional": false,
+            "doc": "The component's ref, as the module function was given it."
+          }
+        ]
       }
     ]
   },
@@ -2019,6 +2037,24 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "type": "(activity: Activity, key: KeyEvent) => boolean",
             "optional": false,
             "doc": "Called with the Activity and the key event; true if it consumed it."
+          }
+        ]
+      },
+      {
+        "name": "viewOf",
+        "kind": "function",
+        "signature": "function viewOf(view: ComponentView): View;",
+        "doc": [
+          "The view the setup of a module function's component returned, or the component's shell for a Fragment. JavaScript gives the function the component's ref, `ref.current`. Call it inside `main()`: it throws an `InvalidStateError` once the component unmounts."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "view",
+            "type": "ComponentView",
+            "optional": false,
+            "doc": "The component's ref, as the module function was given it."
           }
         ]
       }
@@ -2956,6 +2992,17 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "signature": "type Coalesced<F extends (...args: never[]) => void> = F;",
         "doc": [
           "Marks an event prop's callback type as continuous, and coalesced. While the view's latest event waiting for JavaScript is one of this type, a new one replaces it, so JavaScript hears the latest value. It suits events whose latest value is all that counts, such as a scroll position."
+        ],
+        "examples": [],
+        "members": [],
+        "params": []
+      },
+      {
+        "name": "ComponentView",
+        "kind": "class",
+        "signature": "class ComponentView {\n  private constructor();\n}",
+        "doc": [
+          "A component's view, as JavaScript passes it to a module function: the component's ref (`ref.current`). The function reads the view with `viewOf` from `lucent:ios` or `lucent:android`, inside `main()`, while the component the ref named is mounted. It names that mount: once the component unmounts, `viewOf` throws an `InvalidStateError`."
         ],
         "examples": [],
         "members": [],

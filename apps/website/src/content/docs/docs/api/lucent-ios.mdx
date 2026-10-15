@@ -527,6 +527,18 @@ A component's code calling it before its first `await` presents from the compone
 | `build` | `(resolve: (value: T) => void, reject: (reason: Error) => void) => UIViewController` | yes | Makes the view controller, on the main thread. |
 | `signal` | `AbortSignal` | no | Dismisses it and rejects with an `AbortError`. |
 
+### viewOf()
+
+```ts title="ios.d.ts"
+function viewOf(view: ComponentView): UIView;
+```
+
+The view the setup of a module function's component returned, or its view controller's view. JavaScript gives the function the component's ref, `ref.current`. Call it inside `main()`: it throws an `InvalidStateError` once the component unmounts.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `view` | `ComponentView` | yes | The component's ref, as the module function was given it. |
+
 ## Classes
 
 ### NSObject

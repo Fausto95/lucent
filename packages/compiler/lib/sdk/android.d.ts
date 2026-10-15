@@ -3,9 +3,10 @@ import type { Activity, Instrumentation_ActivityResult } from "lucent:android/an
 import type { Context, Intent } from "lucent:android/android.content";
 import type { Throwable } from "lucent:android/java.lang";
 import type { HardwareBuffer } from "lucent:android/android.hardware";
-import type { KeyEvent } from "lucent:android/android.view";
+import type { KeyEvent, View } from "lucent:android/android.view";
 import type { ByteBuffer } from "lucent:android/java.nio";
 import type { NativeBuffer, NativeHandle } from "lucent:core";
+import type { ComponentView } from "lucent:ui";
 
 /** The application Context. */
 export declare function appContext(): Context;
@@ -259,3 +260,13 @@ export declare function onActivityEvent(
   event: "keyDown" | "keyUp",
   handler: (activity: Activity, key: KeyEvent) => boolean,
 ): () => void;
+
+/**
+ * The view the setup of a module function's component returned, or the
+ * component's shell for a Fragment. JavaScript gives the function the
+ * component's ref, `ref.current`. Call it inside `main()`: it throws an
+ * `InvalidStateError` once the component unmounts.
+ *
+ * @param view The component's ref, as the module function was given it.
+ */
+export declare function viewOf(view: ComponentView): View;

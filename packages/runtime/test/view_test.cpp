@@ -315,6 +315,57 @@ static void contentsOwnTheirMountsScopeAndRoot() {
   });
 }
 
+/// What viewOf reads (T124): a host's mounts' roots by tag. A component's
+/// view names a mount, so the tag's next mount isn't it; one taken before
+/// its view mounted names the tag's first; and it is read on the main
+/// thread alone.
+static void componentViewsNameTheirMount() {
+  static int first = 0;
+  static int next = 0;
+  const NativeRef firstRoot(&first, [](void*) {}, nullptr);
+  const NativeRef nextRoot(&next, [](void*) {}, nullptr);
+  auto rejects = [](const ui::ComponentView& view) {
+    try {
+      ui::viewOf(view);
+    } catch (const Exception& e) {
+      return toJsString(e.error()).toUtf8();
+    }
+    return std::string("no error");
+  };
+
+  // Taken before its view mounted: no mount yet.
+  CHECK(!ui::mountAt(7));
+  ui::ComponentView early{ui::MountId{7, 0}};
+
+  onUi([&] {
+    ui::recordMount({7, 1}, firstRoot);
+
+    auto named = ui::mountAt(7);
+    CHECK(named && named->generation == 1);
+    ui::ComponentView view{*named};
+
+    CHECK(ui::viewOf(view).get() == &first);
+    CHECK(ui::viewOf(early).get() == &first);
+
+    // The tag's next mount (a reload's): the view named the first.
+    ui::forgetMount({7, 1});
+    CHECK(rejects(view) == "InvalidStateError: The component's view is not mounted");
+    ui::recordMount({7, 2}, nextRoot);
+    CHECK(rejects(view) == "InvalidStateError: The component's view is not mounted");
+    CHECK(ui::viewOf(ui::ComponentView{*ui::mountAt(7)}).get() == &next);
+
+    // An older mount's end doesn't forget the newer one.
+    ui::forgetMount({7, 1});
+    CHECK(ui::mountAt(7)->generation == 2);
+  });
+
+  // Off the main thread: refused.
+  CHECK(rejects(ui::ComponentView{ui::MountId{7, 2}}).find("main thread") != std::string::npos);
+
+  onUi([] { ui::forgetMount({7, 2}); });
+  CHECK(!ui::mountAt(7));
+}
+
 /// A debug build's snapshot: each live mount (its component, its source,
 /// its view's tree as the platform walks it) and what the runtime owns.
 /// Without a platform walker, a view has no tree.
@@ -353,6 +404,7 @@ int main() {
   invalidationsOutsideAnEntryWaitForTheTurn();
   entriesBelongToTheMainThread();
   contentsOwnTheirMountsScopeAndRoot();
+  componentViewsNameTheirMount();
   snapshotsLiveMounts();
 
   std::printf("view: %d checks, %d failures\n", checks, failures);

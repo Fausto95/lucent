@@ -84,6 +84,8 @@ export type LType =
   | { k: "nativeHandle" }
   /** lucent:thread's Executor (lucent::ExecutorContext): a serial context of its own, for platform callbacks. */
   | { k: "executor" }
+  /** lucent:ui's ComponentView (lucent::ui::ComponentView): the mount a component's ref names (T124). */
+  | { k: "componentView" }
   /**
    * The bytes a NativeBuffer borrow lends: a ByteSpan, or MutableByteSpan
    * when writable; with `name`, the TypedSpan or MutableTypedSpan that
@@ -191,6 +193,7 @@ export const T = {
   buffer: { k: "buffer" } as LType,
   nativeHandle: { k: "nativeHandle" } as LType,
   executor: { k: "executor" } as LType,
+  componentView: { k: "componentView" } as LType,
   span: { k: "span", writable: false } as LType,
   mutableSpan: { k: "span", writable: true } as LType,
   subscription: { k: "subscription" } as LType,
@@ -1319,6 +1322,8 @@ export class TypeRegistry {
     const declaredIn = decl && builtinSdkModuleOf(decl.getSourceFile());
     // lucent:thread's Executor: Lucent's own, which becomes a platform object only where it is handed over.
     if (declaredIn === "lucent:thread" && sdkSym?.name === "Executor") return T.executor;
+    // lucent:ui's ComponentView: a component's ref as a module function gets it, Lucent's own.
+    if (declaredIn === "lucent:ui" && sdkSym?.name === "ComponentView") return T.componentView;
     const toolkitValue = !!decl && ts.isInterfaceDeclaration(decl) && !!toolkitOfModule(declaredIn);
     const builtin = decl && (ts.isClassDeclaration(decl) || toolkitValue) ? declaredIn : undefined;
     if (builtin && sdkSym)
@@ -1973,6 +1978,8 @@ export class TypeRegistry {
         return lucent("NativeHandle");
       case "executor":
         return cpp.type("std::shared_ptr", lucent("ExecutorContext"));
+      case "componentView":
+        return cpp.type("lucent::ui::ComponentView");
       case "jsvalue":
         return lucent("JSValue");
       case "span":

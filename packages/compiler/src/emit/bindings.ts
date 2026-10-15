@@ -182,6 +182,14 @@ export class BindingsEmitter {
           Codes.BoundaryType,
           "an AbortController cannot cross the JavaScript boundary; pass its signal instead",
         );
+      case "componentView":
+        if (out)
+          fail(
+            node,
+            Codes.BoundaryType,
+            "a ComponentView can only be passed from JavaScript to Lucent, as a component's ref: JavaScript has the ref already",
+          );
+        return;
       case "web":
         fail(
           node,
@@ -1415,6 +1423,7 @@ const DESCRIPTIONS: Partial<Record<LType["k"], string>> = {
   date: "a Date",
   regexp: "a RegExp",
   abortSignal: "an AbortSignal",
+  componentView: "a component's ref",
   buffer: "a NativeBuffer",
   emitter: "an EventEmitter",
   subscription: "an EventSubscription",

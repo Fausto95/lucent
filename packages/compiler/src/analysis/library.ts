@@ -518,6 +518,9 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "lucent:android.available": NONE,
   "lucent:android.errorOf": ALLOCATES,
   "lucent:ios.available": NONE,
+  // A component's view, while its mount lasts (an InvalidStateError after).
+  "lucent:ios.viewOf": { throws: true },
+  "lucent:android.viewOf": { throws: true },
   // lucent:ui (a component's setup, on the main thread): effect and
   // onDispose keep their argument for later, there.
   "lucent:ui.effect": { allocates: true, calls: "later" },

@@ -285,6 +285,18 @@ Lucent wraps the Activities' window callbacks while a module listens, so the app
 | `event` | `"keyDown" \| "keyUp"` | yes | `"keyDown"` or `"keyUp"`. |
 | `handler` | `(activity: Activity, key: KeyEvent) => boolean` | yes | Called with the Activity and the key event; true if it consumed it. |
 
+### viewOf()
+
+```ts title="android.d.ts"
+function viewOf(view: ComponentView): View;
+```
+
+The view the setup of a module function's component returned, or the component's shell for a Fragment. JavaScript gives the function the component's ref, `ref.current`. Call it inside `main()`: it throws an `InvalidStateError` once the component unmounts.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `view` | `ComponentView` | yes | The component's ref, as the module function was given it. |
+
 ## Types
 
 ### ActivityEvent
