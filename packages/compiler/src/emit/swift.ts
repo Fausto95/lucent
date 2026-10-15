@@ -10,7 +10,7 @@
  * to Lucent are retained; arguments are borrowed.
  */
 import { createHash } from "node:crypto";
-import { OWN_SWIFT_MODULE } from "@lucent-lang/bindgen";
+import { type BindingPlan, OWN_SWIFT_MODULE } from "@lucent-lang/bindgen";
 import { cpp, swift } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
@@ -41,6 +41,7 @@ import {
   linkModule,
   noteFramework,
   numberToNative,
+  objcBlock,
   primArgLt,
   primLt,
   toObjc,
@@ -336,6 +337,8 @@ export function swiftSet(
   generic: SwiftUse,
   receiver: E | undefined,
   value: cpp.Expr,
+  /** The value's Lucent type, and the setter's plan: a function becomes a block. */
+  given?: { lt: LType; plan: Pick<BindingPlan, "display" | "symbol" | "artifact"> },
 ): cpp.Expr {
   const use = specialize(em, generic);
   const t = use.params[0]!;
@@ -343,6 +346,12 @@ export function swiftSet(
 
   const v = cpp.id("v_");
   const converted = (() => {
+    // A closure: the block it crosses as, nil for none.
+    if (t.k === "fn" && given) {
+      const block = (x: cpp.Expr) =>
+        objcBlock(em, use.node, x, given.lt, { ...t, nullable: false }, given.plan);
+      return t.nullable ? ifPresent(v, block) : block(v);
+    }
     switch (crossing(t)) {
       case "scalar":
         return numberToNative(t, cType(t), v, use.what);

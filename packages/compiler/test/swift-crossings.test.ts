@@ -187,6 +187,117 @@ export async function run(): Promise<string> {
   });
 });
 
+describe("optional closures and tuples through Swift shims", () => {
+  const fn = (nullable: boolean) => ({
+    k: "fn",
+    params: [{ k: "prim", name: "double", nullable: false }],
+    ret: { k: "prim", name: "void", nullable: false },
+    nullable,
+  });
+  const pair = (nullable: boolean) => ({
+    k: "tuple",
+    of: [
+      { k: "prim", name: "double", nullable: false },
+      { k: "string", nullable: false },
+    ],
+    nullable,
+  });
+  const set = () =>
+    schemaSet([
+      {
+        module: "Gauges",
+        frameworks: [],
+        types: [
+          {
+            kind: "class",
+            name: "Meter",
+            native: "Gauges.Meter",
+            swift: { kind: "class" },
+            constructors: [{ params: [], swift: { name: "init()" } }],
+            methods: [
+              {
+                name: "observe",
+                params: [{ name: "handler", type: fn(true) }],
+                returns: "void",
+                swift: { name: "observe(_:)" },
+              },
+              { name: "current", params: [], returns: fn(true), swift: { name: "current()" } },
+              { name: "peak", params: [], returns: pair(true), swift: { name: "peak()" } },
+              {
+                name: "mark",
+                params: [{ name: "at", type: pair(true) }],
+                returns: "void",
+                swift: { name: "mark(_:)" },
+              },
+            ],
+            properties: [
+              { name: "onChange", type: fn(true), swift: { name: "onChange" } },
+              { name: "onReset", type: fn(false), swift: { name: "onReset" } },
+            ],
+          },
+        ],
+      },
+    ]);
+
+  it("pass a closure, or none, as an optional block", () => {
+    const p = setProgram(
+      `import { Meter } from "lucent:ios/Gauges";
+export async function run(): Promise<string> {
+  const m = new Meter();
+  m.observe((x: number) => {});
+  m.observe(null);
+  m.onChange = (x: number) => {};
+  m.onReset = (x: number) => {};
+  m.onChange = null;
+  const f = m.onChange;
+  const g = m.current();
+  if (g) g(2);
+  return \`\${f === null}\`;
+}
+`,
+      set(),
+    );
+
+    expect(p.messages).toEqual([]);
+    // The shim takes an optional object, the block Swift calls as a closure.
+    expect(p.shims).toContain(
+      "observe(a0.map { unsafeBitCast(lucentObject($0), to: (@convention(block) (Double) -> Void).self) })",
+    );
+    expect(p.shims).toContain(
+      "return v.map { lucentRetained(unsafeBitCast($0 as @convention(block) (Double) -> Void, to: AnyObject.self)) }",
+    );
+    expect(p.shims).toContain(".onChange = a0.map {");
+    // The glue makes a block of a function, and passes nil for null.
+    expect(p.mm).toContain("lucent::objc::block<void (^)(double)>");
+    expect(p.mm).toMatch(/id a0_ = nil;/);
+  });
+
+  it("pass a tuple, or none, as an optional array, and read one back", () => {
+    const p = setProgram(
+      `import { Meter } from "lucent:ios/Gauges";
+export async function run(): Promise<string> {
+  const m = new Meter();
+  m.mark([1, "a"]);
+  m.mark(null);
+  const peak = m.peak();
+  return peak === null ? "none" : \`\${peak[0]} \${peak[1]}\`;
+}
+`,
+      set(),
+    );
+
+    expect(p.messages).toEqual([]);
+    expect(p.shims).toContain("mark(a0.map { ((lucentObject($0) as! [AnyObject])[0] as! Double");
+    expect(p.shims).toContain("return v.map { lucentRetained([($0.0 as NSNumber) as AnyObject");
+    // Null for nil, and the array's elements otherwise.
+    expect(p.mm).toMatch(/o_ \? lucent::Opt<std::tuple<double, lucent::String>>\(/);
+    expect(p.mm).toContain(": lucent::Opt<std::tuple<double, lucent::String>>(lucent::null)");
+    expect(p.mm).toMatch(
+      /lucent::objc::ifPresent\(lucent::Opt<std::tuple<double, lucent::String>>/,
+    );
+  });
+});
+
 describe("Swift requirements a Lucent class implements", () => {
   it("take and give optional numbers and Objective-C enums", () => {
     const set = schemaSet([

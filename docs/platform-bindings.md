@@ -868,11 +868,10 @@ Each is a diagnostic with its reason, and coverage counts it.
 
 | Where           | Refused                                                                                                                 |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Both platforms  | A `WeakRef` to an SDK object, or a `WeakMap` keyed by one                                                               |
 | Objective-C     | Nested collections read from Objective-C; blocks, errors, out-pointers and classes as collection elements               |
 | Objective-C     | Blocks except as arguments; blocks taking blocks, read from native code; three levels of blocks                         |
 | Objective-C     | Selectors, class objects, metatypes, raw, read-only and buffer pointers, zones, compositions other than with `NSObject` |
-| Swift shims     | Optional closures and tuples; optionals, C structs and Objective-C enums in collections; optional enums; `Set`s         |
+| Swift shims     | Optionals, C structs and Objective-C enums in collections; tuples of optionals or C structs; optional enums; `Set`s     |
 | Swift shims     | Closures taking or giving anything but numbers, booleans, strings and Objective-C objects                               |
 | Swift shims     | Subscripts, parameter packs, `inout` parameters, failable and generic initializers, operators                           |
 | Swift shims     | Members of protocols with associated types; statics of generic types no extension fixes                                 |

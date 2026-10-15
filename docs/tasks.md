@@ -660,7 +660,8 @@ still refuses.
 - **Status:** in progress: the members a module adds to `NSObject` (#272),
   weak references to SDK objects (#303), categories on other modules'
   classes (#304), overriding Kotlin suspend members (#305), overriding
-  Objective-C properties (#306).
+  Objective-C properties (#306), optional closures and tuples through
+  Swift (#307).
 - **Area:** bindings, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V4.
@@ -673,8 +674,11 @@ still refuses.
       ([0110](decisions/0110-a-platform-object-is-held-weakly-through-the-platforms-weak-reference.md),
       #303): through ARC's weak references and JNI's weak global ones,
       run on the desktop JNI host and the macOS runtime test.
-- [ ] Optional closures and tuples; optionals, C structs and Objective-C
-      enums inside collections.
+- [x] Optional closures and tuples through Swift shims (#307): an
+      optional block or array, nil for null; a Swift property takes a
+      closure as a block.
+- [ ] Optionals, C structs and Objective-C enums inside collections, and
+      tuples holding optionals or C structs.
 - [ ] The largest skipped buckets in `config/sdk-coverage.json`:
       Objective-C enums crossing to Swift, subscripts, static members of
       generic types, and optional numbers and booleans.
