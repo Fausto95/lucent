@@ -866,21 +866,21 @@ reason. Swift's Hashable, Equatable and Codable plumbing is counted apart.
 Each is a diagnostic with its reason, and coverage counts it.
 [T112](tasks.md#t112) tracks the ones common libraries use.
 
-| Where           | Refused                                                                                                                 |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Objective-C     | Nested collections read from Objective-C; blocks, errors, out-pointers and classes as collection elements               |
-| Objective-C     | Blocks except as arguments; blocks taking blocks, read from native code; three levels of blocks                         |
-| Objective-C     | Selectors, class objects, metatypes, raw, read-only and buffer pointers, zones, compositions other than with `NSObject` |
-| Swift shims     | Optional C structs, in collections too; `Set`s                                                                          |
-| Swift shims     | Closures taking or giving anything but numbers, booleans, strings and Objective-C objects                               |
-| Swift shims     | Parameter packs, `inout` parameters, failable and generic initializers, operators                                       |
-| Swift shims     | Members of protocols with associated types; statics of generic types neither an extension nor a call fixes              |
-| Swift shims     | Initializer, static and subscript requirements                                                                          |
-| Swift shims     | Async sequences other than results                                                                                      |
-| JNI             | Assigning Java fields; arrays of a type parameter's values; Kotlin functions taking or giving functions                 |
-| JNI             | Wildcard types, `Class` other than `Class<T>` or a parameter's `Class<? extends X>`, nullable array elements            |
-| Implementations | A `char` argument, or a result that is not a number, boolean, string or object, in a method Java calls                  |
-| Kotlin shims    | Generic members bounded by a projected type (`T : List<out R>`)                                                         |
-| Promise forms   | Completion handlers with several results; completion-handler promises on Android                                        |
-| Subclasses      | See [Subclassing](#subclassing)                                                                                         |
-| C extensions    | Callbacks, variadic functions, C++ ([T142](tasks.md#t142))                                                              |
+| Where           | Refused                                                                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Objective-C     | Nested collections read from Objective-C; blocks, errors, out-pointers and classes as collection elements                                        |
+| Objective-C     | Blocks except as arguments; blocks taking blocks, read from native code; three levels of blocks                                                  |
+| Objective-C     | Selectors, class objects, metatypes, raw, read-only and buffer pointers, zones, compositions other than with `NSObject`                          |
+| Swift shims     | Optional C structs, in collections too; `Set`s                                                                                                   |
+| Swift shims     | Closures taking or giving anything but numbers, booleans, strings and Objective-C objects                                                        |
+| Swift shims     | Parameter packs, `inout` parameters, failable and generic initializers, operators                                                                |
+| Swift shims     | Static members of protocols with associated types, and closures over those types; statics of generic types neither an extension nor a call fixes |
+| Swift shims     | Initializer, static and subscript requirements                                                                                                   |
+| Swift shims     | Async sequences other than results                                                                                                               |
+| JNI             | Assigning Java fields; arrays of a type parameter's values; Kotlin functions taking or giving functions                                          |
+| JNI             | Wildcard types, `Class` other than `Class<T>` or a parameter's `Class<? extends X>`, nullable array elements                                     |
+| Implementations | A `char` argument, or a result that is not a number, boolean, string or object, in a method Java calls                                           |
+| Kotlin shims    | Generic members bounded by a projected type (`T : List<out R>`)                                                                                  |
+| Promise forms   | Completion handlers with several results; completion-handler promises on Android                                                                 |
+| Subclasses      | See [Subclassing](#subclassing)                                                                                                                  |
+| C extensions    | Callbacks, variadic functions, C++ ([T142](tasks.md#t142))                                                                                       |

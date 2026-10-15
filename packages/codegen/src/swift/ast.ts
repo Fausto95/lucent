@@ -79,6 +79,8 @@ export type Stmt =
   | { k: "ifCase"; pattern: string; value: Expr; body: Stmt[] }
   | { k: "guard"; test: Expr; orElse: Stmt[] }
   | { k: "do"; body: Stmt[]; catchBody: Stmt[] }
+  /** A local function: `func opened<S: P>(_ s: S) -> T { … }`. */
+  | { k: "func"; decl: Decl & { k: "func" } }
   /** Patterns as written: `.circle(let center, let radius)`, `default`. */
   | { k: "switch"; on: Expr; cases: { patterns: string[]; body: Stmt[] }[] };
 
@@ -120,6 +122,8 @@ export type Decl =
       attributes?: string[];
       modifiers: string[];
       name: string;
+      /** Generic parameters as written, constraints included (`S: Gauges.Store`). */
+      typeParams?: string[];
       params: Param[];
       ret?: Type;
       /** `async`, `throws`. */

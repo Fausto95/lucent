@@ -944,3 +944,160 @@ export async function run(): Promise<string> {
     );
   });
 });
+
+describe("members of Swift protocols, on the value opened", () => {
+  const Item = { k: "tparam", name: "Item", nullable: false };
+  const Self = { k: "tparam", name: "Self", nullable: false };
+  const string = { k: "string", nullable: false };
+  const set = () =>
+    schemaSet([
+      {
+        module: "Gauges",
+        frameworks: [],
+        types: [
+          {
+            kind: "class",
+            name: "Store",
+            native: "Gauges.Store",
+            interface: true,
+            typeParams: ["Item"],
+            swift: { kind: "protocol", associatedTypes: true },
+            methods: [
+              { name: "get", params: [], returns: Item, abstract: true, swift: { name: "get()" } },
+              {
+                name: "put",
+                params: [{ name: "item", type: Item }],
+                returns: "void",
+                abstract: true,
+                swift: { name: "put(_:)", mutating: true },
+              },
+              {
+                name: "all",
+                params: [],
+                returns: { k: "array", of: Item, nullable: false },
+                abstract: true,
+                swift: { name: "all()" },
+              },
+              {
+                name: "merged",
+                params: [{ name: "other", type: Self }],
+                returns: Self,
+                abstract: true,
+                swift: { name: "merged(with:)" },
+              },
+              {
+                name: "fetch",
+                params: [],
+                returns: Item,
+                abstract: true,
+                swift: { name: "fetch()", async: true, throws: true },
+              },
+            ],
+            properties: [
+              { name: "count", type: "NSInteger", readonly: true, swift: { name: "count" } },
+              { name: "label", type: "string", swift: { name: "label" } },
+            ],
+          },
+          {
+            kind: "class",
+            name: "Counter",
+            native: "Gauges.Counter",
+            interface: true,
+            swift: { kind: "protocol" },
+            methods: [
+              {
+                name: "bump",
+                params: [],
+                returns: "void",
+                abstract: true,
+                swift: { name: "bump()", mutating: true },
+              },
+            ],
+            properties: [
+              { name: "total", type: "double", readonly: true, swift: { name: "total" } },
+            ],
+          },
+          {
+            kind: "class",
+            name: "Shelf",
+            native: "Gauges.Shelf",
+            swift: { kind: "struct" },
+            implements: [
+              { k: "ref", module: "Gauges", name: "Store", nullable: false, args: [string] },
+              { k: "ref", module: "Gauges", name: "Counter", nullable: false },
+            ],
+            constructors: [{ params: [], swift: { name: "init()" } }],
+          },
+          {
+            kind: "class",
+            name: "Meter",
+            native: "Gauges.Meter",
+            swift: { kind: "class" },
+            constructors: [{ params: [], swift: { name: "init()" } }],
+            methods: [
+              {
+                name: "read",
+                params: [{ name: "c", type: "Gauges.Counter" }],
+                returns: "double",
+                swift: { name: "read(_:)" },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+  it("cast to and from the associated types the receiver's type arguments fix", () => {
+    const p = setProgram(
+      `import { Shelf, type Store } from "lucent:ios/Gauges";
+async function use(s: Store<string>): Promise<string> {
+  s.put("a");
+  s.label = "x";
+  const m = s.merged(s);
+  return \`\${s.get()} \${s.all().length} \${s.count} \${s.label} \${m.get()} \${await s.fetch()}\`;
+}
+export async function run(): Promise<string> {
+  return await use(new Shelf());
+}
+`,
+      set(),
+    );
+
+    expect(p.messages).toEqual([]);
+    // Opened from a variable, through a function of its own.
+    expect(p.shims).toContain("let o_ = lucentUnboxed(object_) as! any Gauges.Store");
+    expect(p.shims).toContain("func opened_<S: Gauges.Store>(_ s: S) -> String {");
+    expect(p.shims).toContain("return r as! String");
+    expect(p.shims).toContain("return r as! [String]");
+    // A mutating member's value is written back to its box.
+    expect(p.shims).toContain("s.put((lucentObject(a0) as! String) as! S.Item)");
+    expect(p.shims).toContain("box_.anyValue = s");
+    // `Self` is the opened type, and comes back boxed as it.
+    expect(p.shims).toContain("s.merged(with: lucentUnboxed(lucentObject(a0)) as! S)");
+    expect(p.shims).toContain("return lucentBoxed(r)");
+    expect(p.shims).toContain("func opened_<S: Gauges.Store>(_ s: S) async throws -> String {");
+    expect(p.shims).toContain("protocol LucentBoxed: AnyObject {");
+  });
+
+  it("mutate a protocol's value through its box, and read a box as the protocol's value", () => {
+    const p = setProgram(
+      `import { Meter, Shelf, type Counter } from "lucent:ios/Gauges";
+function bump(c: Counter): number {
+  c.bump();
+  return c.total;
+}
+export async function run(): Promise<string> {
+  const s = new Shelf();
+  return \`\${bump(s)} \${new Meter().read(s)}\`;
+}
+`,
+      set(),
+    );
+
+    expect(p.messages).toEqual([]);
+    expect(p.shims).toContain("func opened_<S: Gauges.Counter>(_ s: S) {");
+    // What doesn't mutate is called on the existential.
+    expect(p.shims).toContain("(lucentUnboxed(lucentObject(self_)) as! any Gauges.Counter).total");
+    expect(p.shims).toContain("lucentUnboxed(lucentObject(a0)) as! any Gauges.Counter");
+  });
+});

@@ -75,6 +75,8 @@ export interface SwiftUse {
   /** Set by specialize(): the owner's type arguments and the member's. */
   ownerArgs?: SdkType[];
   typeArgs?: SdkType[];
+  /** Set by specialize() for a protocol's member: its parameters and result as declared. */
+  declared?: { params: SdkType[]; ret: SdkType };
   /** The iOS version its shim needs: its owner's, its own, the Swift runtime's (swiftRuntimeSince). */
   since?: string;
 }
@@ -84,8 +86,15 @@ export interface SwiftShim {
   symbol: string;
   module: string;
   role: SwiftUse["role"];
-  /** The owner's Swift name (`Shapes.Point`), and whether its values are boxed. */
-  owner?: { name: string; boxed: boolean };
+  /**
+   * The owner's Swift name (`Shapes.Point`), and whether its values are
+   * boxed; a protocol's (`any Shapes.Store`) gives the protocol's name.
+   */
+  owner?: { name: string; boxed: boolean; protocol?: string };
+  /** A protocol's associated types, which its member's declared types name. */
+  associated?: string[];
+  /** A protocol's member: its parameters and result as declared. */
+  declared?: { params: SdkType[]; ret: SdkType };
   static: boolean;
   member: SwiftMember;
   params: SdkType[];
@@ -301,8 +310,12 @@ export function swiftCall(
     params: generic.params.slice(0, given),
     labels: generic.labels.slice(0, given),
   });
-  use.params.forEach((t, i) => requireCrossing(t, args[i]!, "in"));
-  if (!isVoid(use.ret)) requireCrossing(use.ret, use.node, "out");
+  // A protocol's `Self` crosses as an object, which the shim casts to the type it opened.
+  const isSelf = (t: SdkType | undefined) => t?.k === "tparam" && t.name === "Self";
+  use.params.forEach((t, i) => {
+    if (!isSelf(use.declared?.params[i])) requireCrossing(t, args[i]!, "in");
+  });
+  if (!isVoid(use.ret) && !isSelf(use.declared?.ret)) requireCrossing(use.ret, use.node, "out");
 
   const member = { display: use.what };
   const values = use.params.map((t, i): cpp.Expr => {
@@ -632,12 +645,23 @@ function specialize(em: FnEmitter, use: SwiftUse): SwiftUse {
     : undefined;
   const ret =
     use.role === "init" && use.ret.k === "ref" ? { ...use.ret, args: ownerArgs } : use.ret;
+  // A protocol's `Self` crosses as one of its values.
+  const protocol = use.owner?.interface ? use.owner : undefined;
+  if (protocol)
+    bound.set("Self", {
+      k: "ref",
+      module: use.module,
+      name: protocol.name,
+      nullable: false,
+      ...(ownerArgs?.length ? { args: ownerArgs } : {}),
+    });
   return {
     ...use,
     params: use.params.map((p) => substitute(p, bound)),
     ret: substitute(ret, bound),
     ...(ownerArgs ? { ownerArgs } : {}),
     ...(typeArgs ? { typeArgs } : {}),
+    ...(protocol ? { declared: { params: use.params, ret: use.ret } } : {}),
   };
 }
 
@@ -867,10 +891,15 @@ function register(em: FnEmitter, use: SwiftUse): SwiftShim {
   const args = use.ownerArgs?.length
     ? `<${use.ownerArgs.map((a) => swift.printType(swiftType(a))).join(", ")}>`
     : "";
+  // A protocol's members are called on its existential; one with associated types is opened,
+  // and its existential names none of them.
+  const associated = use.owner?.interface && use.owner.swift?.associatedTypes;
   const owner = use.owner && {
-    // A protocol's members are called on its existential.
-    name: `${use.owner.interface ? "any " : ""}${swiftClassName(use.module, use.owner)}${args}`,
+    name: use.owner.interface
+      ? `any ${swiftClassName(use.module, use.owner)}${associated ? "" : args}`
+      : `${swiftClassName(use.module, use.owner)}${args}`,
     boxed: use.owner.swift?.kind === "struct" || use.owner.swift?.kind === "enum",
+    ...(use.owner.interface ? { protocol: swiftClassName(use.module, use.owner) } : {}),
   };
   const key = [
     use.module,
@@ -879,6 +908,7 @@ function register(em: FnEmitter, use: SwiftUse): SwiftShim {
     use.static ? "static" : "",
     use.member.name,
     use.member.subscript ?? "",
+    ...(use.ownerArgs ?? []).map((a) => formatSchemaType(a)),
     // Overloads Swift names alike (`subscript(_:)` of an Int and of a String).
     ...use.params.map((a) => formatSchemaType(a)),
     ...(use.typeArgs ?? []).map((a) => formatSchemaType(a)),
@@ -905,6 +935,8 @@ function register(em: FnEmitter, use: SwiftUse): SwiftShim {
       ...(use.mainActor ? { mainActor: true } : {}),
       ...(use.typeArgs || use.ownerArgs ? { generic: true } : {}),
       ...(use.since ? { since: use.since } : {}),
+      ...(associated && use.owner?.typeParams?.length ? { associated: use.owner.typeParams } : {}),
+      ...(use.declared ? { declared: use.declared } : {}),
     };
     em.ctx.swiftShims.set(symbol, shim);
   }
@@ -986,6 +1018,9 @@ function bareSwiftType(t: SdkType): swift.Type {
         t.params.map(swiftType),
         t.ret.k === "prim" && t.ret.name === "void" ? swift.type("Void") : swiftType(t.ret),
       );
+    // An opened value's type, or one of its associated types (`S.Item`).
+    case "tparam":
+      return swift.type(t.name);
     case "ref": {
       const info = sdkTypeInfo("ios", t.module, t.name);
       // C structs by their C name: the Clang module declaring them may not be their schema's.
@@ -1103,6 +1138,8 @@ export function fromObject(t: SdkType, o: swift.Expr): swift.Expr {
         return each(cast(swift.type("Data")), "withUnsafeBytes", load);
       }
       if (isBoxed(t)) return swift.member(cast(swift.type("LucentBox", swiftType(t))), "value");
+      // A protocol's value may be a box holding a struct that conforms.
+      if (isProtocol(t)) return swift.cast(call1("lucentUnboxed", o), "as!", swiftType(t));
       // A Foundation object Swift takes as the value type it bridges to (NSURL as URL).
       const value = sdkTypeInfo("ios", t.module, t.name)?.value;
       return cast(value ? swift.type(value) : swiftType(t));
@@ -1230,6 +1267,73 @@ export function swiftLabels(name: string): (string | undefined)[] {
 
 export const baseName = (name: string) => name.replace(/\(.*$/, "");
 
+/**
+ * A protocol member's call on the value opened as the type conforming
+ * (`func opened_<S: P>(_ s: S)`), when its declaration names an associated
+ * type or `Self`, or it mutates the value: arguments are cast to the
+ * associated types, results from them to the types the receiver's type
+ * arguments fix, and a mutated value is written back to the box it came in.
+ */
+function openedCall(s: SwiftShim) {
+  const names = s.associated ?? [];
+  const declared = s.declared ?? { params: s.params, ret: s.ret };
+  const mutates = !!s.member.mutating || s.role === "set" || s.member.subscript === "set";
+  if (!names.length && !mutates) return undefined;
+  const isSelf = (t: SdkType) => t.k === "tparam" && t.name === "Self";
+  const mentions = (t: SdkType) =>
+    [...names, "Self"].some((x) => new RegExp(`\\b${x}\\b`).test(formatSchemaType(t)));
+  const openedTypes = new Map<string, SdkType>([
+    ...names.map((x): [string, SdkType] => [x, { k: "tparam", name: `S.${x}`, nullable: false }]),
+    ["Self", { k: "tparam", name: "S", nullable: false }],
+  ]);
+  const as = (v: swift.Expr, t: SdkType) => swift.cast(v, "as!", swiftType(t));
+  return {
+    self: declared.params.map(isSelf),
+    args: (args: swift.Expr[]) =>
+      args.map((a, i) =>
+        mentions(declared.params[i]!) ? as(a, substitute(declared.params[i]!, openedTypes)) : a,
+      ),
+    declare: (
+      inner: swift.Expr,
+      effects: (e: swift.Expr) => swift.Expr,
+      returns: boolean,
+      async: boolean,
+      throws: boolean,
+    ): swift.Stmt => {
+      // `Self` comes back as an object: the instance, or a box of the value.
+      const self = returns && isSelf(declared.ret);
+      const result = (r: swift.Expr) =>
+        self ? call1("lucentBoxed", r) : mentions(declared.ret) ? as(r, s.ret) : r;
+      const ret = !returns ? undefined : self ? swift.type("AnyObject") : swiftType(s.ret);
+      const writeBack: swift.Stmt = {
+        k: "ifLet",
+        name: "box_",
+        value: swift.cast(n("object_"), "as?", swift.type("LucentBoxed")),
+        body: [swift.exprStmt(swift.assign(swift.member(n("box_"), "anyValue"), n("s")))],
+      };
+      const body: swift.Stmt[] = [
+        ...(mutates ? [{ k: "var" as const, name: "s", init: n("s") }] : []),
+        returns ? swift.letStmt("r", effects(inner)) : swift.exprStmt(effects(inner)),
+        ...(mutates ? [writeBack] : []),
+        ...(returns ? [swift.ret(result(n("r")))] : []),
+      ];
+      return {
+        k: "func",
+        decl: {
+          k: "func",
+          modifiers: [],
+          name: "opened_",
+          typeParams: [`S: ${s.owner!.protocol!}`],
+          params: [{ external: "_", name: "s", type: swift.type("S") }],
+          effects: [...(async ? ["async"] : []), ...(throws ? ["throws"] : [])],
+          ...(ret ? { ret } : {}),
+          body,
+        },
+      };
+    },
+  };
+}
+
 function shimFunction(s: SwiftShim): swift.Decl {
   const params: swift.Param[] = [];
   if (hasSelf(s)) params.push({ external: "_", name: "self_", type: raw });
@@ -1244,8 +1348,22 @@ function shimFunction(s: SwiftShim): swift.Decl {
     return n(name);
   };
   const later = (name: string, value: swift.Expr) => (async ? bound(name, value) : value);
+  // A protocol's member that has associated types, mutates or sets is called on the value
+  // opened as the type conforming, in a function of its own: Swift opens a variable it is
+  // passed, and a mutated value is written back to its box.
+  const opened = owner?.protocol && hasSelf(s) ? openedCall(s) : undefined;
   const receiver = () => {
     const type = swift.type(owner!.name);
+    // A protocol's value may be a box holding a struct that conforms.
+    if (owner!.protocol) {
+      if (!opened)
+        return later(
+          "o_",
+          swift.cast(call1("lucentUnboxed", call1("lucentObject", n("self_"))), "as!", type),
+        );
+      const object = bound("object_", call1("lucentObject", n("self_")));
+      return bound("o_", swift.cast(call1("lucentUnboxed", object), "as!", type));
+    }
     const o = later(
       "o_",
       swift.cast(
@@ -1261,17 +1379,20 @@ function shimFunction(s: SwiftShim): swift.Decl {
   // A protocol with associated types is opened from a variable: Swift does
   // not open a cast (`x as! any P`) it is passed.
   const args = s.params.map((t, i) =>
-    isScalar(t) || ((swiftEnum(t) || objcEnum(t)) && !t.nullable)
-      ? paramValue(t, `a${i}`)
-      : isOpened(t)
-        ? bound(`v${i}`, paramValue(t, `a${i}`))
-        : later(`v${i}`, paramValue(t, `a${i}`)),
+    // `Self`: the value as Swift has it, cast to the opened type.
+    opened?.self[i]
+      ? later(`v${i}`, call1("lucentUnboxed", call1("lucentObject", n(`a${i}`))))
+      : isScalar(t) || ((swiftEnum(t) || objcEnum(t)) && !t.nullable)
+        ? paramValue(t, `a${i}`)
+        : isOpened(t)
+          ? bound(`v${i}`, paramValue(t, `a${i}`))
+          : later(`v${i}`, paramValue(t, `a${i}`)),
   );
-  const labelled = s.labels.map((label, i) => ({
-    ...(label ? { label } : {}),
-    value: args[i]!,
-  }));
-  const target: swift.Expr = (() => {
+  const call = (self: swift.Expr, args: swift.Expr[]): swift.Expr => {
+    const labelled = s.labels.map((label, i) => ({
+      ...(label ? { label } : {}),
+      value: args[i]!,
+    }));
     switch (s.role) {
       case "init":
         return swift.call(self, labelled);
@@ -1289,14 +1410,21 @@ function shimFunction(s: SwiftShim): swift.Decl {
         if (s.member.subscript === "get") return swift.subscript(self, labelled);
         return swift.call(swift.member(self, baseName(s.member.name)), labelled);
     }
-  })();
-  const awaited = async ? swift.awaitExpr(target) : target;
-  const effect = throws ? swift.tryExpr(awaited) : awaited;
+  };
+  const effects = (e: swift.Expr) => {
+    const awaited = async ? swift.awaitExpr(e) : e;
+    return throws ? swift.tryExpr(awaited) : awaited;
+  };
   const returns = !returnsNothing(s);
+  const local: swift.Stmt[] = opened
+    ? [opened.declare(call(n("s"), opened.args(args)), effects, returns, async, throws)]
+    : [];
+  const target = opened ? call1("opened_", self) : call(self, args);
+  const effect = effects(target);
   // A specialization spells out its result's type: a type parameter only
-  // the result has is inferred from it.
+  // the result has is inferred from it; an opened call's function gives it.
   const resultType =
-    !s.generic || !returns
+    !s.generic || !returns || opened
       ? undefined
       : s.role === "init"
         ? swift.type(owner!.name)
@@ -1361,9 +1489,12 @@ function shimFunction(s: SwiftShim): swift.Decl {
           { value: error },
         ]),
       );
-    const body = returns
-      ? [swift.letStmt("v", effect, resultType), done(out(n("v")), swift.nil)]
-      : [swift.exprStmt(effect), done(undefined, swift.nil)];
+    const body = [
+      ...local,
+      ...(returns
+        ? [swift.letStmt("v", effect, resultType), done(out(n("v")), swift.nil)]
+        : [swift.exprStmt(effect), done(undefined, swift.nil)]),
+    ];
     const task = swift.closure(
       [],
       attempt(body, (error) => [done(result && none(result), error)]),
@@ -1389,15 +1520,45 @@ function shimFunction(s: SwiftShim): swift.Decl {
         ? swift.optional(raw)
         : raw
       : shimType(s.ret, throws);
-  const body: swift.Stmt[] = returns
-    ? [swift.letStmt("v", effect, resultType), swift.ret(out(n("v")))]
-    : [swift.exprStmt(effect)];
+  const body: swift.Stmt[] = [
+    ...local,
+    ...(returns
+      ? [swift.letStmt("v", effect, resultType), swift.ret(out(n("v")))]
+      : [swift.exprStmt(effect)]),
+  ];
   const failed = (error: swift.Expr) => [
     swift.exprStmt(swift.assign(swift.member(n("error_"), "pointee"), error)),
     ...(ret ? [swift.ret(none(ret))] : []),
   ];
   return decl(ret, [...prelude, ...attempt(body, failed)], s.mainActor ? ["@MainActor"] : []);
 }
+
+/**
+ * What protocols' values need: a box's value whatever its type, read as
+ * the protocol's value and written back when a member mutates it, and a
+ * value boxed as its own type.
+ */
+const BOX_HELPERS: swift.Decl = {
+  k: "verbatim",
+  text: `protocol LucentBoxed: AnyObject {
+  var anyValue: Any { get set }
+}
+
+extension LucentBox: LucentBoxed {
+  var anyValue: Any {
+    get { value }
+    set { value = newValue as! Value }
+  }
+}
+
+func lucentUnboxed(_ o: AnyObject) -> Any {
+  (o as? LucentBoxed)?.anyValue ?? o
+}
+
+func lucentBoxed<T>(_ v: T) -> AnyObject {
+  T.self is AnyClass ? v as AnyObject : LucentBox(v) as AnyObject
+}`,
+};
 
 /** What async shims need: their tasks as objects, which the glue cancels through SWIFT_CANCEL. */
 function taskHelpers(): swift.Decl[] {
@@ -1715,16 +1876,23 @@ export function shimsFile(
   // The Swift of the app's Lucent packages is LucentNative's, as these shims are.
   modules.delete(OWN_SWIFT_MODULE);
   const sequences = opts.sequences || all.some((s) => s.ret.k === "sequence");
+  const unionDecls = [...unions.values()]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .flatMap(unionFunctions);
+  const code = [...unionDecls, ...all.map(shimFunction), ...proxies.decls];
+  // Protocols' values' boxes, where the code reads one.
+  const boxes = /\b(lucentUnboxed|lucentBoxed|LucentBoxed)\b/.test(
+    swift.printUnit({ decls: code }),
+  );
   return swift.printUnit({
     banner: "Generated by Lucent. Do not edit.",
     decls: [
       ...[...modules].sort().map((module): swift.Decl => ({ k: "import", module })),
       ...helpers(),
+      ...(boxes ? [BOX_HELPERS] : []),
       ...(all.some((x) => x.member.async) || sequences ? taskHelpers() : []),
       ...(sequences ? sequenceHelpers() : []),
-      ...[...unions.values()].sort((a, b) => a.name.localeCompare(b.name)).flatMap(unionFunctions),
-      ...all.map(shimFunction),
-      ...proxies.decls,
+      ...code,
     ],
   });
 }

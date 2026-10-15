@@ -840,6 +840,25 @@ describe("binding plans: Swift rules", () => {
         swift: { kind: "protocol", associatedTypes: true, primaryAssociatedTypes: ["Item"] },
         methods: [
           { name: "count", params: [], returns: T("NSInteger"), swift: { name: "count()" } },
+          {
+            name: "add",
+            params: [{ name: "item", type: T("Item", ["Item"]) }],
+            returns: T("Self", ["Self"]),
+            swift: { name: "add(_:)", mutating: true },
+          },
+          {
+            name: "each",
+            params: [{ name: "f", type: T("(Item) => void", ["Item"]) }],
+            returns: T("void"),
+            swift: { name: "each(_:)" },
+          },
+          {
+            name: "empty",
+            static: true,
+            params: [],
+            returns: T("Self", ["Self"]),
+            swift: { name: "empty()" },
+          },
         ],
       },
       {
@@ -918,9 +937,18 @@ describe("binding plans: Swift rules", () => {
     expect(
       unsupportedReason(planBinding(pen, pen.constructors![1]!, shapes, types)),
     ).toBeUndefined();
-    expect(planBinding(container, method(container, "count"), shapes, types).refused).toEqual({
+    // An instance member is called on the value opened; its associated types are cast to.
+    expect(
+      planBinding(container, method(container, "count"), shapes, types).refused,
+    ).toBeUndefined();
+    expect(planBinding(container, method(container, "add"), shapes, types).refused).toBeUndefined();
+    expect(planBinding(container, method(container, "each"), shapes, types).refused).toEqual({
       rule: "associated-types",
-      reason: "members of protocols with associated types cannot be called yet",
+      reason: "closures taking or giving a protocol's associated types cannot cross to Swift yet",
+    });
+    expect(planBinding(container, method(container, "empty"), shapes, types).refused).toEqual({
+      rule: "associated-types",
+      reason: "static members and initializers of protocols with associated types cannot be called",
     });
     expect(
       planBinding(drawable, method(drawable, "make"), shapes, types, "implement").refused,
