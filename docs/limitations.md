@@ -71,9 +71,8 @@ generated from this file.
 - Reference cycles are not collected (see
   [Not planned](../ROADMAP.md#not-planned)): break them with `WeakRef`, or
   key what one side holds in a `WeakMap`.
-- Members a module adds to another module's class are bound only for
-  `NSObject`'s Objective-C categories, instance members only. UIKit's `row`
-  on `NSIndexPath` isn't bound, nor are Swift extensions' members
+- A module's Objective-C categories on another module's class are bound,
+  but not their class properties. Nor are a Swift extension's members
   ([T112](tasks.md#t112)).
 - A `WeakMap` value that holds its own key keeps it, and the entry, for
   as long as the map lives. An SDK object's entry outlives its key until

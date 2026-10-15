@@ -79,3 +79,111 @@ export async function run(): Promise<string> {
     expect(dts).not.toMatch(/export declare (abstract )?class NSObject/);
   });
 });
+
+/**
+ * A category on another module's class (UIKit's `NSIndexPath
+ * (UIKitAdditions)`, whose `row` and `section` table views use): the class
+ * of Kit's own extends Foundation's, so an index path from anywhere has them.
+ */
+const FOUNDATION = {
+  module: "Foundation",
+  header: "Foundation/Foundation.h",
+  types: [
+    {
+      kind: "class",
+      name: "NSIndexPath",
+      native: "NSIndexPath",
+      constructors: [{ params: [], selector: "init" }],
+      properties: [{ name: "length", type: "int", readonly: true }],
+    },
+  ],
+};
+
+const TABLES = {
+  module: "Tables",
+  header: "Tables/Tables.h",
+  types: [
+    {
+      kind: "class",
+      name: "TBLView",
+      native: "TBLView",
+      constructors: [{ params: [], selector: "init" }],
+      methods: [
+        {
+          name: "selectedPath",
+          params: [],
+          returns: "Foundation.NSIndexPath",
+          selector: "selectedPath",
+        },
+      ],
+    },
+    {
+      kind: "class",
+      name: "NSIndexPath_Tables",
+      native: "NSIndexPath",
+      extensionOf: "Foundation.NSIndexPath",
+      properties: [
+        { name: "row", type: "int", readonly: true },
+        { name: "section", type: "int", readonly: true },
+      ],
+      methods: [
+        {
+          name: "indexPathForRowInSection",
+          static: true,
+          params: [
+            { name: "row", type: "int" },
+            { name: "section", type: "int" },
+          ],
+          returns: "Foundation.NSIndexPath",
+          selector: "indexPathForRow:inSection:",
+        },
+      ],
+    },
+  ],
+};
+
+describe("members a module adds to another module's class", () => {
+  it("are every object's of that class, sent to it as one", () => {
+    const p = setProgram(
+      `import { NSIndexPath } from "lucent:ios/Foundation";
+import { TBLView } from "lucent:ios/Tables";
+function describe(path: NSIndexPath): string {
+  return \`\${path.section}:\${path.row} of \${path.length}\`;
+}
+export async function run(): Promise<string> {
+  return describe(new TBLView().selectedPath());
+}
+`,
+      schemaSet([FOUNDATION, TABLES]),
+    );
+
+    expect(p.messages).toEqual([]);
+    expect(p.mm).toMatch(/\[\(+NSIndexPath\s*\*\)[^\]]*section\]/);
+    expect(p.mm).toMatch(/\[\(+NSIndexPath\s*\*\)[^\]]*row\]/);
+    expect(p.mm).toContain("Tables/Tables.h");
+    const dts = [...p.types.values()].join("\n");
+    expect(dts).toMatch(
+      /declare module "lucent:ios\/Foundation" \{\s+interface NSIndexPath extends NSIndexPath_Tables \{\}/,
+    );
+  });
+
+  it("take its class methods, sent to that class", () => {
+    const p = setProgram(
+      `import { NSIndexPath } from "lucent:ios/Foundation";
+import "lucent:ios/Tables";
+export async function run(): Promise<string> {
+  const path = NSIndexPath.indexPathForRowInSection(2, 1);
+  return \`\${path.section}:\${path.row}\`;
+}
+`,
+      schemaSet([FOUNDATION, TABLES]),
+    );
+
+    expect(p.messages).toEqual([]);
+    expect(p.mm).toMatch(/\[NSIndexPath indexPathForRow:[^\]]*inSection:/);
+    const dts = [...p.types.values()].join("\n");
+    expect(dts).toMatch(
+      /namespace NSIndexPath \{\s+const indexPathForRowInSection: typeof NSIndexPath_Tables\.indexPathForRowInSection;/,
+    );
+  });
+});

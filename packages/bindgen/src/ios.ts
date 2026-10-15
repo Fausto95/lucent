@@ -115,13 +115,11 @@ export function symbolGraph(module: string, opts: IosOptions, sdk: string): Symb
   try {
     const r = spawnSync(opts.xcrun ?? "xcrun", args, { encoding: "utf8", maxBuffer: 64 << 20 });
     if (r.status !== 0) throw new Error(`swift-symbolgraph-extract ${module}: ${r.stderr}`);
-    const read = (file: string) =>
-      JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")) as SymbolGraph;
-    const objc = `${module}@ObjectiveC.symbols.json`;
+    const read = (file: string) => JSON.parse(fs.readFileSync(file, "utf8")) as SymbolGraph;
 
-    return withRootExtensions(
-      read(`${module}.symbols.json`),
-      fs.existsSync(path.join(dir, objc)) ? read(objc) : undefined,
+    return withExtensions(
+      read(path.join(dir, `${module}.symbols.json`)),
+      extensionGraphs(dir, module, read),
     );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -900,41 +898,91 @@ export const ROOT_CLASS = "c:objc(cs)NSObject";
 
 /**
  * `g` with the members its module adds to NSObject, from the module's
- * extension graph for ObjectiveC (`<module>@ObjectiveC.symbols.json`,
- * where swift-symbolgraph-extract puts a category on another module's
- * class): UIKit's `NSObject (UIAccessibility)`, Foundation's key-value
- * coding. NSObject comes as a class of its own marked as ObjectiveC's,
- * whose schema is an extension (`extensionOf`).
+ * extension graph for ObjectiveC (`<module>@ObjectiveC.symbols.json`):
+ * UIKit's `NSObject (UIAccessibility)`, Foundation's key-value coding.
  */
 export function withRootExtensions(g: SymbolGraph, objc: SymbolGraph | undefined): SymbolGraph {
-  if (!objc) return g;
+  return withExtensions(g, objc ? new Map([["ObjectiveC", objc]]) : new Map());
+}
 
-  const added = objc.relationships.filter(
-    (r) =>
-      (r.kind === "memberOf" || r.kind === "requirementOf" || r.kind === "optionalRequirementOf") &&
-      r.target === ROOT_CLASS &&
-      // Objective-C's members: a Swift extension's (Foundation's observe) aren't sent as messages.
-      r.source.startsWith("c:objc"),
-  );
-  if (!added.length || g.symbols.some((s) => s.identifier.precise === ROOT_CLASS)) return g;
+/**
+ * `g` with the members its module's Objective-C categories add to other
+ * modules' classes, from its extension graphs (`<module>@<Other>.symbols.json`,
+ * where swift-symbolgraph-extract puts a category on another module's
+ * class), by that module: UIKit's `NSObject (UIAccessibility)` and
+ * `NSIndexPath (UIKitAdditions)`. Each class comes as a class of its own
+ * marked as its module's, whose schema is an extension (`extensionOf`).
+ * A Swift extension's members (Foundation's observe) are left out: no
+ * message reaches them.
+ */
+export function withExtensions(
+  g: SymbolGraph,
+  extensions: ReadonlyMap<string, SymbolGraph>,
+): SymbolGraph {
+  const declared = new Set(g.symbols.map((s) => s.identifier.precise));
+  const symbols: SymbolGraphSymbol[] = [];
+  const relationships: SymbolGraph["relationships"] = [];
 
-  const members = new Set(added.map((r) => r.source));
+  for (const [other, extension] of extensions) {
+    const added = extension.relationships.filter(
+      (r) =>
+        (r.kind === "memberOf" ||
+          r.kind === "requirementOf" ||
+          r.kind === "optionalRequirementOf") &&
+        r.target.startsWith("c:objc(cs)") &&
+        !declared.has(r.target) &&
+        r.source.startsWith("c:objc"),
+    );
+    if (!added.length) continue;
 
+    const members = new Set(added.map((r) => r.source));
+    for (const target of new Set(added.map((r) => r.target))) {
+      const name = target.slice("c:objc(cs)".length);
+      declared.add(target);
+      symbols.push({
+        kind: { identifier: "swift.class" },
+        identifier: { precise: target },
+        pathComponents: [name],
+        names: { title: name },
+        extensionOf: other,
+      });
+    }
+    symbols.push(...extension.symbols.filter((s) => members.has(s.identifier.precise)));
+    relationships.push(...added);
+  }
+
+  if (!symbols.length) return g;
   return {
     ...g,
-    symbols: [
-      ...g.symbols,
-      {
-        kind: { identifier: "swift.class" },
-        identifier: { precise: ROOT_CLASS },
-        pathComponents: ["NSObject"],
-        names: { title: "NSObject" },
-        extensionOf: "ObjectiveC",
-      },
-      ...objc.symbols.filter((s) => members.has(s.identifier.precise)),
-    ],
-    relationships: [...g.relationships, ...added],
+    symbols: [...g.symbols, ...symbols],
+    relationships: [...g.relationships, ...relationships],
   };
+}
+
+/**
+ * A module's extension graphs in `dir`, by the module each extends
+ * (`UIKit@Foundation.symbols.json` is Foundation's).
+ */
+export function extensionGraphs(
+  dir: string,
+  module: string,
+  read: (file: string) => SymbolGraph | undefined,
+): Map<string, SymbolGraph> {
+  const out = new Map<string, SymbolGraph>();
+  let files: string[];
+  try {
+    files = fs.readdirSync(dir);
+  } catch {
+    return out;
+  }
+  const prefix = `${module}@`;
+  const suffix = ".symbols.json";
+  for (const f of files.sort()) {
+    if (!f.startsWith(prefix) || !f.endsWith(suffix)) continue;
+    const graph = read(path.join(dir, f));
+    if (graph) out.set(f.slice(prefix.length, -suffix.length), graph);
+  }
+  return out;
 }
 
 /**
@@ -1415,9 +1463,12 @@ export function buildIosSchema(
       }
       // Objective-C initializers are inherited (NSObject's init at the root)
       // unless the class makes init unavailable; factory initializers aside.
-      // An extension makes nothing: its class is another module's.
-      if (cls.extensionOf) ctors.length = 0;
-      else if (!ctors.some((c) => !c.factory) && !initUnavailable && k === "swift.class") {
+      // An extension makes no constructor of its own: its class is another module's, whose
+      // initializers it adds are class methods of that class (initializersOfExtension).
+      if (cls.extensionOf) {
+        methods.push(...initializersOfExtension(ctors, methods, cls.extensionOf));
+        ctors.length = 0;
+      } else if (!ctors.some((c) => !c.factory) && !initUnavailable && k === "swift.class") {
         if (cls.extends) cls.inheritsInit = true;
         else ctors.push({ params: [], selector: "init" });
       }
@@ -1596,6 +1647,41 @@ function initializersApart(
       static: true,
       ...(factory ? {} : { initializer: true as const }),
       returns: { k: "ref", module: owner.module, name: owner.name, nullable: init.failable },
+    });
+  }
+
+  return out;
+}
+
+/**
+ * The initializers a category adds to another module's class, as class
+ * methods named by their selectors (UIKit's `NSIndexPath(row:section:)`,
+ * `+indexPathForRow:inSection:`, is `indexPathForRowInSection`), giving
+ * that class's objects: TypeScript gives a class's constructors only where
+ * the class is declared.
+ */
+function initializersOfExtension(
+  ctors: SdkCallable[],
+  methods: readonly SdkMethodSchema[],
+  extensionOf: string,
+): SdkMethodSchema[] {
+  const at = extensionOf.lastIndexOf(".");
+  const owner = { module: extensionOf.slice(0, at), name: extensionOf.slice(at + 1) };
+  const taken = new Set(methods.filter((m) => m.static).map((m) => m.name));
+  const out: SdkMethodSchema[] = [];
+
+  for (const c of ctors) {
+    if (!c.selector) continue;
+    const name = selectorName(c.selector);
+    if (taken.has(name)) continue;
+    taken.add(name);
+    const { factory, ...callable } = c;
+    out.push({
+      ...callable,
+      name,
+      static: true,
+      ...(factory ? {} : { initializer: true as const }),
+      returns: { k: "ref", ...owner, nullable: initNames.get(c)?.failable ?? false },
     });
   }
 
