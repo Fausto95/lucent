@@ -143,6 +143,16 @@ if (!fs.existsSync(path.join(app, "node_modules/@lucent-lang/lucent/cocoapods/lu
   throw new Error("the CocoaPods hook is not in the package");
 fs.rmSync(path.join(app, "android"), { recursive: true });
 
+// The app's own lucent.json: an Info.plist key and a Gradle dependency of its module's, beside
+// the packages' needs.
+fs.writeFileSync(
+  path.join(app, "lucent.json"),
+  JSON.stringify({
+    ios: { infoPlist: { NSCameraUsageDescription: "Scan receipts" } },
+    android: { dependencies: { "androidx.annotation:annotation": "1.9.1" } },
+  }),
+);
+
 console.log("• lucent build (installed CLI)");
 console.log(sh(path.join(app, "node_modules/.bin/lucent"), ["build"], app).trim());
 const native = path.join(app, ".lucent/native");
@@ -216,6 +226,26 @@ const modules = JSON.parse(fs.readFileSync(path.join(native, "manifest.json"), "
 for (const m of ["lucent-haptics/haptics", "lucent-orbit-filter/filter"])
   if (!modules.includes(m))
     throw new Error(`the installed ${m.split("/")[0]} was not built: ${modules.join(", ")}`);
+
+// The app's needs are merged with the packages', named by the app's package.json.
+const resolved = JSON.parse(fs.readFileSync(path.join(native, "resolved.json"), "utf8"));
+if (
+  JSON.stringify(resolved.ios?.infoPlist?.NSCameraUsageDescription) !==
+  JSON.stringify({ value: "Scan receipts", from: ["smoke"] })
+)
+  throw new Error(`the app's Info.plist key was not merged: ${JSON.stringify(resolved.ios)}`);
+if (
+  !resolved.android?.dependencies?.["androidx.annotation:annotation"]?.["1.9.1"]?.includes("smoke")
+)
+  throw new Error(
+    `the app's Gradle dependency was not merged: ${JSON.stringify(resolved.android)}`,
+  );
+if (
+  !fs
+    .readFileSync(path.join(native, "android/build.gradle"), "utf8")
+    .includes("androidx.annotation:annotation:1.9.1")
+)
+  throw new Error("the Android library does not depend on the app's Gradle dependency");
 
 console.log("• Metro and Expo integrations load");
 sh(

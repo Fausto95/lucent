@@ -147,7 +147,7 @@ Goal: Native views from Lucent components, rendered by React Native's Fabric.
 Goal: Build and ship Lucent modules and packages like any React Native library.
 
 - ✅ `@lucent-lang/lucent` on npm, for bare and Expo apps, with autolinking and a config plugin.
-- ✅ Lucent packages on npm, with `lucent.json` for their native needs.
+- ✅ Lucent packages on npm, with `lucent.json` for their native needs, and an app's own for its modules' and the options packages leave it.
 - ✅ Incremental builds, rebuilds as you edit, and Lucent's errors in the editor.
 - ✅ Crashes and errors that point at `.lucent.ts` lines.
 - ✅ A JavaScript `lucent:core`, so Jest and Vitest run shared modules.
@@ -196,9 +196,10 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
    uses.
 8. [T113](docs/tasks.md#t113) (done): classes that extend `EventEmitter`,
    as Expo's shared objects do.
-9. The rest of the module parity gate: [T112](docs/tasks.md#t112)'s SDK
-   shapes, [T111](docs/tasks.md#t111) and [T115](docs/tasks.md#t115)'s
-   native needs and configuration.
+9. [T111](docs/tasks.md#t111) (done): the app's own `lucent.json`, and
+   options a package declares that the app sets.
+10. The rest of the module parity gate: [T115](docs/tasks.md#t115)'s
+    native configuration, and [T112](docs/tasks.md#t112)'s SDK shapes.
 
 ## Recording work
 

@@ -36,7 +36,7 @@ what became of each one that is still linked or was still open.
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | done (2026-10-13)                                       |
 | [T109](#t109)            | Executors for platform callbacks                           | done (2026-10-13)                                       |
 | [T110](#t110)            | App-delegate and Activity events                           | done (2026-10-14)                                       |
-| [T111](#t111)            | The app's own native needs and options                     | in progress (#296, #297)                                |
+| [T111](#t111)            | The app's own native needs and options                     | done (2026-10-15)                                       |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | in progress                                             |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | done (2026-10-15)                                       |
 | [T114](#t114)            | Native code that calls Lucent modules                      | waiting; needs T130                                     |
@@ -614,8 +614,8 @@ runs.
 **Goal:** Modules in the app itself declare their native needs, as a
 package's do, and an app sets the options a package asks for.
 
-- **Status:** in progress: the app's own `lucent.json` (#296), options
-  the app sets (#297).
+- **Status:** done (2026-10-15): the app's own `lucent.json` (#296),
+  options the app sets (#297), the smoke install's (#298).
 - **Area:** compiler, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V5, V6.
@@ -638,10 +638,14 @@ permissions inferred from `@RequiresPermission`, and nothing else.
       manifest components is the option's value
       ([0109](decisions/0109-a-packages-options-are-names-in-its-lucent-json-the-app-sets.md)).
 - [x] The build reruns when it changes, as it does for packages (#296).
-- [ ] `lucent new module --template sdk-ios-android` writes the keys its
-      sample needs into it.
-- [ ] Tests: a fixture app whose own module needs an Info.plist key and a
-      Gradle dependency, in a fresh bare and Expo app (smoke install).
+- [x] `lucent new module --template sdk-ios-android` writes the keys its
+      sample needs into it: its sample (UIDevice, `Build.VERSION`) needs
+      none, so it writes no `lucent.json`.
+- [x] Tests: a fixture app whose own module needs an Info.plist key and a
+      Gradle dependency, in a fresh app (`scripts/smoke-install.ts`, which
+      CI's bench job runs, #298): both merge, named by the app, and the
+      Android library depends on the artifact. The Expo config plugin
+      writes what `resolved.json` holds, the app's needs among them.
 
 **Done when:** an app's own module declares everything a package can, and
 an app sets a package's option.
