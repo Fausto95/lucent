@@ -658,7 +658,8 @@ an app sets a package's option.
 still refuses.
 
 - **Status:** in progress: the members a module adds to `NSObject` (#272),
-  weak references to SDK objects (#303).
+  weak references to SDK objects (#303), categories on other modules'
+  classes (#304).
 - **Area:** bindings, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V4.
@@ -689,9 +690,14 @@ still refuses.
       `accessibilityLabel` is every object's
       ([0106](decisions/0106-members-a-module-adds-to-nsobject-are-every-objects.md),
       #272).
-- [ ] Members a module adds to another module's other classes (UIKit's
-      `row` and `section` on `NSIndexPath`), the class methods categories
-      add, and Swift extensions' members.
+- [x] Members a module adds to another module's other classes (UIKit's
+      `row` and `section` on `NSIndexPath`), and the class methods
+      categories add
+      ([0111](decisions/0111-a-category-on-any-modules-class-is-bound-as-nsobjects-are.md),
+      #304): from each extension graph, class methods merged into the class
+      by a namespace, initializers as class methods named by selectors.
+- [ ] Swift extensions' members a module adds to another module's class,
+      and a category's class properties.
 - [ ] `config/sdk-coverage.json` updated with the new counts.
 
 **Done when:** each item has a binding test on its platform, and the

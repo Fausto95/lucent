@@ -799,26 +799,37 @@ function classDts(
 
 /**
  * What a module adds to another module's class (`extensionOf`: UIKit's
- * `NSObject (UIAccessibility)`): a class of the module's own, not exported
- * (`NSObject_UIKit`), which that class's interface extends where it is
- * declared (NSObject's in lucent:ios), so every object of it has the
- * members. Instance members only, which an interface takes; the class's
- * brand is its own.
+ * `NSObject (UIAccessibility)` and `NSIndexPath (UIKitAdditions)`): a class
+ * of the module's own, not exported (`NSIndexPath_UIKit`), which that
+ * class's interface extends where it is declared (NSObject's in lucent:ios,
+ * NSIndexPath's in lucent:ios/Foundation), so every object of it has the
+ * instance members. The class methods merge into that class as a
+ * namespace's constants of their type, so a call resolves to this class's
+ * declaration (`NSIndexPath.indexPathForRow(…)`). The class's brand is its
+ * own.
  */
 function extensionDts(schema: SdkModuleSchema, cls: SdkClassSchema, made: ts.Decl[]): ts.Decl[] {
   const decl = made.find((d) => d.k === "class");
   if (decl?.k !== "class") return [];
 
+  const isStatic = (m: ts.Member) => "static" in m && !!m.static;
   const members = decl.members.filter(
     (m) =>
       m.k !== "constructor" &&
-      !("static" in m && m.static) &&
+      (!isStatic(m) || m.k === "method") &&
       !(m.k === "property" && (m.name.startsWith("__lucent_") || m.name.startsWith("~jsx"))),
   );
   if (!members.length) return [];
 
   const at = cls.extensionOf!.lastIndexOf(".");
   const [module, name] = [cls.extensionOf!.slice(0, at), cls.extensionOf!.slice(at + 1)];
+  const classMethods = [
+    ...new Set(
+      members
+        .filter((m) => m.k === "method" && isStatic(m))
+        .map((m) => (m as { name: string }).name),
+    ),
+  ];
 
   return [
     {
@@ -834,7 +845,22 @@ function extensionDts(schema: SdkModuleSchema, cls: SdkClassSchema, made: ts.Dec
       k: "moduleAugmentation",
       // NSObject is lucent:ios's own; another module's class is its module's.
       name: module === "ObjectiveC" ? "lucent:ios" : `lucent:${schema.platform}/${module}`,
-      decls: [{ k: "interface", name, extends: [ts.ref(cls.name)], members: [] }],
+      decls: [
+        { k: "interface", name, extends: [ts.ref(cls.name)], members: [] },
+        ...(classMethods.length
+          ? [
+              {
+                k: "namespace" as const,
+                name,
+                decls: classMethods.map((m) => ({
+                  k: "const" as const,
+                  name: m,
+                  type: { k: "typeof" as const, name: `${cls.name}.${m}` },
+                })),
+              },
+            ]
+          : []),
+      ],
     },
   ];
 }

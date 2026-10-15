@@ -2,8 +2,18 @@
  * iOS schemas from symbol graphs written here (the shapes
  * swift-symbolgraph-extract writes), so they are read on any machine.
  */
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { buildIosSchemas, externalUsrs, namesOf, withRootExtensions } from "../src/ios.ts";
+import {
+  buildIosSchemas,
+  extensionGraphs,
+  externalUsrs,
+  namesOf,
+  withExtensions,
+  withRootExtensions,
+} from "../src/ios.ts";
 import type { SymbolGraph, SymbolGraphSymbol } from "../src/symbols.ts";
 
 const ios17 = [{ domain: "iOS", introduced: { major: 17 } }];
@@ -255,5 +265,120 @@ describe("members a module adds to NSObject", () => {
 
   it("are nothing without the extension graph", () => {
     expect(withRootExtensions(kit, undefined)).toBe(kit);
+  });
+});
+
+describe("members a module adds to another module's class", () => {
+  // UIKit's NSIndexPath (UIKitAdditions): in UIKit@Foundation.symbols.json, members of
+  // Foundation's class.
+  const INT = { kind: "typeIdentifier", spelling: "Int", preciseIdentifier: "s:Si" };
+  const PATH = "c:objc(cs)NSIndexPath";
+  const getter = (name: string) => [
+    { kind: "keyword", spelling: "var" },
+    { kind: "text", spelling: " " },
+    { kind: "identifier", spelling: name },
+    { kind: "text", spelling: ": " },
+    INT,
+    { kind: "text", spelling: " { get }" },
+  ];
+  const kit: SymbolGraph = {
+    symbols: [sym("swift.class", "c:objc(cs)KITTable", ["KITTable"])],
+    relationships: [],
+  };
+  const foundation: SymbolGraph = {
+    symbols: [
+      sym("swift.property", `${PATH}(py)row`, ["NSIndexPath", "row"], {
+        declarationFragments: getter("row"),
+      }),
+      sym("swift.property", `${PATH}(py)section`, ["NSIndexPath", "section"], {
+        declarationFragments: getter("section"),
+      }),
+      // +indexPathForRow:inSection:, which Swift imports as an initializer.
+      sym(
+        "swift.init",
+        `${PATH}(cm)indexPathForRow:inSection:`,
+        ["NSIndexPath", "init(row:section:)"],
+        {
+          names: { title: "init(row:section:)" },
+          declarationFragments: [
+            { kind: "keyword", spelling: "convenience" },
+            { kind: "text", spelling: " " },
+            { kind: "keyword", spelling: "init" },
+            { kind: "text", spelling: "(row: " },
+            INT,
+            { kind: "text", spelling: ", section: " },
+            INT,
+            { kind: "text", spelling: ")" },
+          ],
+          functionSignature: {
+            parameters: [
+              { name: "row", declarationFragments: [INT] },
+              { name: "section", declarationFragments: [INT] },
+            ],
+          },
+        },
+      ),
+    ],
+    relationships: [
+      { kind: "memberOf", source: `${PATH}(py)row`, target: PATH },
+      { kind: "memberOf", source: `${PATH}(py)section`, target: PATH },
+      { kind: "memberOf", source: `${PATH}(cm)indexPathForRow:inSection:`, target: PATH },
+    ],
+  };
+  const merged = withExtensions(kit, new Map([["Foundation", foundation]]));
+  const own: SymbolGraph = {
+    symbols: [sym("swift.class", PATH, ["NSIndexPath"])],
+    relationships: [],
+  };
+  const [, schema] = buildIosSchemas(
+    new Map([
+      ["Foundation", own],
+      ["Kit", merged],
+    ]),
+    () => new Map(),
+  );
+
+  it("are a class of the module's own, an extension of that class", () => {
+    const added = schema!.types.find((t) => t.name === "NSIndexPath_Kit");
+    if (added?.kind !== "class") throw new Error("no NSIndexPath_Kit");
+
+    expect(added).toMatchObject({ native: "NSIndexPath", extensionOf: "Foundation.NSIndexPath" });
+    expect(added.constructors ?? []).toEqual([]);
+    expect(added.properties?.map((p) => p.name)).toEqual(["row", "section"]);
+    expect(externalUsrs(merged)).toContain(PATH);
+    // Its initializer, a class method sent to the class, giving that class's object.
+    expect(added.methods).toEqual([
+      expect.objectContaining({
+        name: "indexPathForRowInSection",
+        static: true,
+        selector: "indexPathForRow:inSection:",
+        returns: { k: "ref", module: "Foundation", name: "NSIndexPath", nullable: false },
+      }),
+    ]);
+    expect(added.methods![0]).not.toHaveProperty("initializer");
+  });
+
+  it("come from each extension graph of the module, by the module it extends", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-extensions-"));
+    for (const f of [
+      "Kit.symbols.json",
+      "Kit@Foundation.symbols.json",
+      "Kit@ObjectiveC.symbols.json",
+      "KitExtras@Foundation.symbols.json",
+    ])
+      fs.writeFileSync(path.join(dir, f), JSON.stringify({ symbols: [], relationships: [] }));
+
+    expect([
+      ...extensionGraphs(dir, "Kit", () => ({ symbols: [], relationships: [] })).keys(),
+    ]).toEqual(["Foundation", "ObjectiveC"]);
+    expect(extensionGraphs(path.join(dir, "missing"), "Kit", () => undefined).size).toBe(0);
+  });
+
+  it("leave a class the module declares itself as it is", () => {
+    const declares: SymbolGraph = {
+      ...kit,
+      symbols: [...kit.symbols, sym("swift.class", PATH, ["NSIndexPath"])],
+    };
+    expect(withExtensions(declares, new Map([["Foundation", foundation]]))).toBe(declares);
   });
 });
