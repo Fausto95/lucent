@@ -410,6 +410,122 @@ export async function run(): Promise<string> {
   });
 });
 
+describe("C structs in Swift collections, and optional enums", () => {
+  const set = () =>
+    schemaSet([
+      {
+        module: "Kit",
+        header: "Kit/Kit.h",
+        types: [
+          {
+            kind: "enum",
+            name: "KITEdges",
+            native: "KITEdges",
+            cases: [
+              { name: "top", native: "KITEdgesTop", value: 1 },
+              { name: "left", native: "KITEdgesLeft", value: 2 },
+            ],
+          },
+          {
+            kind: "struct",
+            name: "KITPoint",
+            native: "KITPoint",
+            fields: [
+              { name: "x", type: "double" },
+              { name: "y", type: "double" },
+            ],
+          },
+        ],
+      },
+      {
+        module: "Gauges",
+        frameworks: [],
+        types: [
+          {
+            kind: "enum",
+            name: "Mode",
+            native: "Gauges.Mode",
+            swift: true,
+            cases: [
+              { name: "fast", native: "fast", value: 0 },
+              { name: "slow", native: "slow", value: 1 },
+            ],
+          },
+          {
+            kind: "class",
+            name: "Meter",
+            native: "Gauges.Meter",
+            swift: { kind: "class" },
+            constructors: [{ params: [], swift: { name: "init()" } }],
+            methods: [
+              {
+                name: "points",
+                params: [{ name: "ps", type: "Kit.KITPoint[]" }],
+                returns: "Kit.KITPoint[]",
+                swift: { name: "points(_:)" },
+              },
+              {
+                name: "edge",
+                params: [{ name: "e", type: "Kit.KITEdges?" }],
+                returns: "Kit.KITEdges?",
+                swift: { name: "edge(_:)" },
+              },
+              {
+                name: "mode",
+                params: [{ name: "m", type: "Gauges.Mode?" }],
+                returns: "Gauges.Mode?",
+                swift: { name: "mode(_:)" },
+              },
+            ],
+            properties: [{ name: "lastEdge", type: "Kit.KITEdges?", swift: { name: "lastEdge" } }],
+          },
+        ],
+      },
+    ]);
+
+  it("pass structs in arrays as their bytes, and optional enums as NSNumbers", () => {
+    const p = setProgram(
+      `import { Meter, Mode } from "lucent:ios/Gauges";
+import { KITEdges } from "lucent:ios/Kit";
+export async function run(): Promise<string> {
+  const m = new Meter();
+  const ps = m.points([{ x: 1, y: 2 }]);
+  const e = m.edge(null);
+  const g = m.mode(Mode.slow);
+  m.lastEdge = KITEdges.top;
+  return \`\${ps[0]!.x} \${e} \${g} \${m.lastEdge}\`;
+}
+`,
+      set(),
+    );
+
+    expect(p.messages).toEqual([]);
+    // Swift: each struct's bytes; an optional enum's NSNumber, nil for none.
+    expect(p.shims).toContain(
+      "($0 as! Data).withUnsafeBytes { $0.loadUnaligned(as: KITPoint.self) }",
+    );
+    expect(p.shims).toContain(
+      "v.map { withUnsafeBytes(of: $0) { Data($0) } as NSData } as NSArray",
+    );
+    expect(p.shims).toContain(
+      "edge(a0.map { Kit.KITEdges(rawValue: .init(truncatingIfNeeded: (lucentObject($0) as! NSNumber).intValue))! })",
+    );
+    expect(p.shims).toContain(
+      "return v.map { lucentRetained(NSNumber(value: Int(truncatingIfNeeded: $0.rawValue))) }",
+    );
+    expect(p.shims).toContain(
+      "return v.map { lucentRetained(NSNumber(value: [Gauges.Mode.fast, Gauges.Mode.slow].firstIndex(of: $0) ?? -1)) }",
+    );
+    expect(p.shims).toMatch(
+      /_ a0: UnsafeMutableRawPointer\?\) -> UnsafeMutableRawPointer\? \{\n  let v = \(lucentObject\(self_\) as! Gauges\.Meter\)\.edge/,
+    );
+    // The glue: structs' bytes, and NSNumbers of enums.
+    expect(p.mm).toContain("lucent::objc::structBytes(KITPoint{");
+    expect(p.mm).toContain("lucent::objc::structFromBytes<KITPoint>(e_)");
+    expect(p.mm).toContain("return @(lucent::toNativeNumber<NSInteger>(x_));");
+  });
+});
+
 describe("Swift requirements a Lucent class implements", () => {
   it("take and give optional numbers and Objective-C enums", () => {
     const set = schemaSet([

@@ -321,7 +321,7 @@ Selectors (`Selector`), class objects (`AnyClass`) and protocol compositions suc
 
 Through Swift, optional numbers and booleans cross as `number | null` and `boolean | null`, and Objective-C enums as their TypeScript `enum`. An optional closure or tuple crosses as one, or `null`.
 
-Inside arrays, dictionaries and tuples they cross too, an absent one as `NSNull`. Optional Objective-C enums don't cross yet. Nor do closures of other types, or C structs in collections or tuples.
+Inside arrays, dictionaries and tuples they cross too, an absent one as `NSNull`, and so do C structs. An optional enum crosses as one, or `null`. Closures of other types don't cross yet, nor do optional C structs.
 
 Members using them carry the reason, and so do those with `inout` parameters.
 
