@@ -25,6 +25,8 @@ const plugin = require("../app.plugin.js") as {
     warn?: (text: string) => void,
   ) => Manifest;
   withPodHook: (podfile: string) => string | undefined;
+  withGradleClasspaths: (text: string, artifacts: string[]) => string | undefined;
+  withGradlePlugins: (text: string, ids: string[], language?: string) => string | undefined;
 };
 
 /** AndroidManifest.xml as Expo's mods parse it. */
@@ -161,7 +163,7 @@ describe("the Expo config plugin's main Activity attributes from Lucent packages
 });
 
 describe("the Expo config plugin's Gradle task", () => {
-  it("applies the Gradle task to a Kotlin app build script during prebuild", async () => {
+  it("applies the Gradle task and packages' Gradle plugins to Kotlin build scripts during prebuild", async () => {
     const { compileModsAsync } = require("expo/config-plugins") as {
       compileModsAsync(
         config: object,
@@ -173,6 +175,20 @@ describe("the Expo config plugin's Gradle task", () => {
     fs.mkdirSync(path.join(root, "android/app"), { recursive: true });
     fs.writeFileSync(path.join(root, "android/app/build.gradle.kts"), script);
     fs.writeFileSync(path.join(root, "android/settings.gradle.kts"), 'include(":app")\n');
+    const project =
+      'buildscript {\n  dependencies {\n    classpath("com.android.tools.build:gradle")\n  }\n}\n';
+    fs.writeFileSync(path.join(root, "android/build.gradle.kts"), project);
+    // The app's own lucent.json asks for a Gradle plugin, as a package's would.
+    fs.writeFileSync(
+      path.join(root, "lucent.json"),
+      JSON.stringify({
+        android: {
+          gradlePlugins: {
+            "com.google.gms.google-services": "com.google.gms:google-services:4.4.2",
+          },
+        },
+      }),
+    );
     // What the main Activity's attributes go into.
     fs.mkdirSync(path.join(root, "android/app/src/main"), { recursive: true });
     fs.writeFileSync(
@@ -192,8 +208,63 @@ describe("the Expo config plugin's Gradle task", () => {
 
     const patched = fs.readFileSync(path.join(root, "android/app/build.gradle.kts"), "utf8");
     expect(patched).not.toBe(script);
-    expect(patched).toBe(`${script}${plugin.GRADLE_LINES.kt}\n`);
+    expect(patched).toBe(
+      `${script}${plugin.GRADLE_LINES.kt}\napply(plugin = "com.google.gms.google-services")\n`,
+    );
+    expect(fs.readFileSync(path.join(root, "android/build.gradle.kts"), "utf8")).toBe(
+      project.replace(
+        "  dependencies {\n",
+        '  dependencies {\n        classpath("com.google.gms:google-services:4.4.2")\n',
+      ),
+    );
   }, 120_000);
+});
+
+describe("the Expo config plugin's Gradle plugins from Lucent packages", () => {
+  const project = `buildscript {
+    ext { minSdkVersion = 24 }
+    dependencies {
+        classpath("com.android.tools.build:gradle")
+    }
+}
+`;
+  const services = "com.google.gms:google-services:4.4.2";
+
+  it("puts the artifact on the buildscript classpath, unless the project has it at any version", () => {
+    expect(plugin.withGradleClasspaths(project, [services])).toBe(
+      project.replace(
+        "    dependencies {\n",
+        `    dependencies {\n        classpath("${services}")\n`,
+      ),
+    );
+    const own = project.replace(
+      'gradle")',
+      'gradle")\n        classpath("com.google.gms:google-services:4.3.0")',
+    );
+    expect(plugin.withGradleClasspaths(own, [services])).toBeUndefined();
+    expect(plugin.withGradleClasspaths("allprojects {}\n", [services])).toBeUndefined();
+  });
+
+  it("applies the plugin at the end of the app's build, unless it does already", () => {
+    const groovy = 'apply plugin: "com.android.application"\n';
+    expect(plugin.withGradlePlugins(groovy, ["com.google.gms.google-services"])).toBe(
+      `${groovy}apply plugin: "com.google.gms.google-services"\n`,
+    );
+    const kotlin = 'plugins {\n  id("com.android.application")\n}\n';
+    expect(plugin.withGradlePlugins(kotlin, ["com.google.gms.google-services"], "kt")).toBe(
+      `${kotlin}apply(plugin = "com.google.gms.google-services")\n`,
+    );
+    for (const applied of [
+      "apply plugin: 'com.google.gms.google-services'",
+      'plugins {\n  id("com.google.gms.google-services")\n}',
+      "plugins {\n  id 'com.google.gms.google-services'\n}",
+    ])
+      expect(plugin.withGradlePlugins(applied, ["com.google.gms.google-services"])).toBeUndefined();
+    // A dot in the id is a dot.
+    expect(
+      plugin.withGradlePlugins('apply plugin: "comXgoogle.gms"\n', ["com.google.gms"]),
+    ).toContain('apply plugin: "com.google.gms"');
+  });
 });
 
 describe("the Expo config plugin's build", () => {

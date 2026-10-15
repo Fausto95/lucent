@@ -485,6 +485,12 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "description": "`<meta-data>` on the app's `<application>`: name → value, such as an SDK's API key. Packages must agree on a name's value, and the app's own value wins. A value can be an option's ({{name}})."
   },
   {
+    "field": "android.gradlePlugins",
+    "type": "{ [name]: string }",
+    "required": false,
+    "description": "Gradle plugins the app's build applies: plugin id → the artifact that has it, as group:artifact:version. The Expo config plugin adds both to the app's build files. Packages naming one artifact get its highest version."
+  },
+  {
     "field": "extensions",
     "type": "{ [name]: object }",
     "required": false,

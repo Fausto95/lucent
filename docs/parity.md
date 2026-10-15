@@ -90,8 +90,8 @@ is written in TypeScript against the SDK, so each row is a task.
 | Back press, configuration changes              | —     | ✅ Activity listeners      | 🟡 androidx listeners, untested           | [T110](tasks.md#t110) |
 | Info.plist keys, entitlements, permissions     | —     | ✅ config plugins          | ✅ `lucent.json`, Expo plugin             | —                     |
 | Manifest components (services, receivers)      | —     | ✅ config plugins          | ✅ Lucent, Java or Kotlin classes         | —                     |
-| Options the app sets (API keys)                | —     | ✅ config plugin options   | ❌                                        | [T111](tasks.md#t111) |
-| Privacy manifests, `<queries>`, Gradle plugins | —     | ✅ config plugins          | ❌                                        | [T115](tasks.md#t115) |
+| Options the app sets (API keys)                | —     | ✅ config plugin options   | ✅ `lucent.json` options                  | —                     |
+| Privacy manifests, `<queries>`, Gradle plugins | —     | ✅ config plugins          | 🟡 `lucent.json`, Expo plugin; no fixture | [T115](tasks.md#t115) |
 
 ## Views
 

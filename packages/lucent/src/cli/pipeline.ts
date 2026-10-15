@@ -33,6 +33,7 @@ import {
   backgroundPrefetch,
   mapLucentPaths,
   missingAppEntries,
+  missingGradlePlugins,
   missingMainActivity,
   type Notice,
   hasAndroidProject,
@@ -797,6 +798,7 @@ export async function buildProject(
   });
   for (const n of missingAppEntries(root, native.manifest)) notify(n);
   for (const n of missingMainActivity(root, native.manifest)) notify(n);
+  for (const n of missingGradlePlugins(root, native.manifest)) notify(n);
   for (const n of missingDelegateForwards(
     root,
     result.appDelegateEvents ?? [],

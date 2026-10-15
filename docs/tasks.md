@@ -40,7 +40,7 @@ what became of each one that is still linked or was still open.
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | in progress                                             |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | done (2026-10-15)                                       |
 | [T114](#t114)            | Native code that calls Lucent modules                      | waiting; needs T130                                     |
-| [T115](#t115)            | Native configuration packages can't declare yet            | in progress (#299, #300)                                |
+| [T115](#t115)            | Native configuration packages can't declare yet            | in progress (#299, #300, #301)                          |
 | **View parity**          |                                                            |                                                         |
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
 | [T121](#t121)            | React Native's view props, refs and view libraries         | done (2026-10-14)                                       |
@@ -752,7 +752,8 @@ Expo module.
 platform code needs, so no app edits its native project by hand.
 
 - **Status:** in progress: Android queries, features and meta-data (#299),
-  privacy manifests (#300).
+  privacy manifests (#300), Gradle plugins (#301); a fixture package's
+  app builds are next.
 - **Area:** tooling, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V5, V6.
@@ -768,10 +769,20 @@ platform code needs, so no app edits its native project by hand.
       merges into the app's. Queries join, a feature any package requires
       is required, and a meta-data name has one value, the app's winning;
       a value can be an option's.
-- [ ] Gradle plugins a dependency needs (such as Google services), applied
-      to the app's build.
-- [ ] Each has a merge rule, and a bare app is told what its project
-      lacks, as for Info.plist keys today.
+- [x] Gradle plugins a dependency needs (such as Google services), applied
+      to the app's build (#301): `android.gradlePlugins`, plugin id → its
+      artifact. The Expo config plugin puts the artifact on the
+      buildscript classpath and applies the plugin; one the app's build
+      has already, at any version, stays the app's.
+- [x] Each has a merge rule, and a bare app is told what its project
+      lacks, as for Info.plist keys today (#301): a plugin's artifact
+      takes its highest version, and two artifacts for one id fail.
+      `lucent build` names the classpath line and the `apply` line a bare
+      app lacks, counting a `plugins` block and the version catalog. The
+      rest go into the library's manifest or the pod's privacy manifest,
+      which the app's build merges, so a bare app adds nothing for them.
+- [ ] A fixture package declaring each piece, built in the bare and Expo
+      example apps.
 
 **Done when:** a fixture package declaring each one builds in a fresh bare
 and Expo app with no manual step.

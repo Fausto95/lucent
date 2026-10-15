@@ -44,7 +44,7 @@ export const blocks: Block[] = [
   },
   {
     kind: "p",
-    text: "Where the app gives a value of its own, the app's wins. That holds for an `Info.plist` key or entitlement, a pod's or Gradle artifact's version, a manifest component and the main Activity's launch mode. An array still joins the packages' values.",
+    text: "Where the app gives a value of its own, the app's wins. That holds for an `Info.plist` key or entitlement, a manifest component and the main Activity's launch mode. It holds for a pod's or Gradle artifact's version and a Gradle plugin's artifact, while an array joins the packages' values.",
   },
   {
     kind: "p",

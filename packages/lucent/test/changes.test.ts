@@ -129,6 +129,24 @@ describe("classifying a build's changes into the actions the app needs", () => {
     expect(classify({ written: ["resolved.json"], manifest: pip })).toEqual([
       { kind: "reinstall", targets: ["android"], files: ["resolved.json#android.mainActivity"] },
     ]);
+    // A Gradle plugin, which the app's build files apply; who asks for it changes nothing.
+    const google = (from: string[]) => {
+      const m = manifest();
+      m.android.gradlePlugins = {
+        "com.google.gms.google-services": { value: "com.google.gms:google-services:4.4.2", from },
+      };
+      return m;
+    };
+    expect(classify({ written: ["resolved.json"], manifest: google(["lucent-orbit"]) })).toEqual([
+      { kind: "reinstall", targets: ["android"], files: ["resolved.json#android.gradlePlugins"] },
+    ]);
+    expect(
+      classify({
+        written: ["resolved.json"],
+        manifest: google(["lucent-orbit", "lucent-push"]),
+        previous: google(["lucent-orbit"]),
+      }),
+    ).toEqual([]);
     // The rest of resolved.json is reflected in the build files.
     expect(classify({ written: ["resolved.json", "manifest.json"] })).toEqual([]);
   });

@@ -177,6 +177,13 @@ export function classifyChanges(change: NativeChange): PendingAction[] {
         canonical(change.previous?.android.mainActivity ?? noAttributes)
       )
         need("reinstall", ["android"], "resolved.json#android.mainActivity");
+      // The Gradle plugins, which the app's build files apply.
+      const plugins = (n?: ResolvedNative) =>
+        Object.fromEntries(
+          Object.entries(n?.android.gradlePlugins ?? {}).map(([id, p]) => [id, p.value]),
+        );
+      if (canonical(plugins(change.manifest)) !== canonical(plugins(change.previous)))
+        need("reinstall", ["android"], "resolved.json#android.gradlePlugins");
 
       for (const platform of ["ios", "android"] as const)
         for (const [field, of] of Object.entries(LINKED_DEPENDENCIES[platform]))

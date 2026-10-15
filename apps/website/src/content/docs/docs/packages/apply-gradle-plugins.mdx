@@ -1,0 +1,41 @@
+---
+title: Apply a Gradle plugin
+description: "Name it in `lucent.json`: Expo's plugin adds it to the app's build files, and bare builds name the lines they lack."
+kind: guide
+---
+
+Some Android SDKs need a Gradle plugin in the app's build, such as Google services, which reads `google-services.json`. A package's `lucent.json` names each plugin by its id, with the artifact that has it:
+
+```json title="lucent.json"
+{
+  "android": {
+    "gradlePlugins": {
+      "com.google.gms.google-services": "com.google.gms:google-services:4.4.2"
+    }
+  }
+}
+```
+
+Packages that name one artifact get its highest version. The plugin runs in the app's build, so the app's build files take it.
+
+<Tabs syncKey="setup">
+<TabItem label="Expo">
+
+The [config plugin](/docs/api/integrations/) adds the artifact to the buildscript classpath in `android/build.gradle` when `npx expo prebuild` runs. It applies the plugin at the end of `android/app/build.gradle`. A build that has either already keeps its own.
+
+</TabItem>
+<TabItem label="Bare React Native">
+
+`lucent build` names what the app's build files lack, with the line that adds it:
+
+```sh title="terminal" nocopy
+! lucent-push needs com.google.gms:google-services:4.4.2 on the buildscript classpath in android/build.gradle: classpath("com.google.gms:google-services:4.4.2") (the Expo config plugin adds it)
+! lucent-push needs the Gradle plugin com.google.gms.google-services applied in android/app/build.gradle: apply plugin: "com.google.gms.google-services" (the Expo config plugin adds it)
+```
+
+A plugin the app declares in its `plugins` block or version catalog counts.
+
+</TabItem>
+</Tabs>
+
+A change to them needs the app built again: `lucent build` lists a reinstall under `actions`, as [Get a module change into the running app](/docs/guides/apply-a-change/) explains. [lucent.json](/docs/packages/lucent-json/) lists the field.
