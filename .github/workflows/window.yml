@@ -95,7 +95,7 @@ jobs:
           script: node scripts/window-app.ts --app ${{ matrix.app }} --release ${{ matrix.release }} --platform android --dir "$RUNNER_TEMP/app" --check
       - name: Keep the logs and the screen
         if: failure()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: window-${{ matrix.app }}-${{ matrix.release }}-${{ matrix.platform }}
           path: |
