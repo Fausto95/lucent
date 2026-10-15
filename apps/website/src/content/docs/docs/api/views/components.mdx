@@ -274,6 +274,34 @@ JavaScript sees these errors from a ref:
 
 A request's promise settles exactly once. An aborted request doesn't stop the work its function started: stop that work with [onDispose](/docs/api/views/lucent-ui/#ondispose).
 
+### The view in a module function
+
+A module function takes a component's view as `ComponentView` from [lucent:ui](/docs/api/views/lucent-ui/): JavaScript passes the component's ref, `ref.current`.
+
+```ts title="alpha.lucent.ts"
+import { viewOf as viewOfAndroid } from "lucent:android";
+import type { View } from "lucent:android/android.view";
+import { viewOf as viewOfIos } from "lucent:ios";
+import type { UIView } from "lucent:ios/UIKit";
+import { PLATFORM } from "lucent:platform";
+import { main } from "lucent:thread";
+import type { ComponentView } from "lucent:ui";
+
+/** How opaque a component's view is. */
+export async function alphaOf(view: ComponentView): Promise<number> {
+  return main(() => {
+    if (PLATFORM === "ios") {
+      const root: UIView = viewOfIos(view);
+      return root.alpha;
+    }
+    const root: View = viewOfAndroid(view);
+    return root.getAlpha();
+  });
+}
+```
+
+`viewOf` gives the view the component's setup returned, inside `main()` alone. It throws an `InvalidStateError` once the component unmounts. A `ComponentView` doesn't go back to JavaScript.
+
 ## Children
 
 A component takes React children when its props declare `children?: Children` or `children: Children`, with `Children` from [lucent:ui](/docs/api/views/lucent-ui/#children). Its setup makes their container with `slot()` and puts it in the view it returns.

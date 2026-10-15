@@ -62,6 +62,7 @@ const LOOSE: Record<Exclude<LType["k"], "opt" | "union" | "rec">, Loose> = {
   channel: "object",
   nativeHandle: "object",
   executor: "object",
+  componentView: "object",
 };
 
 /** The kinds `==` converts between, in the order the diagnostic names them. */

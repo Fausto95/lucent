@@ -126,6 +126,16 @@ A container of native views laid out by React Native's Yoga: its `style` places 
 | --- | --- |
 | `constructor(none: never);` | Made by its JSX only: nothing can be passed. |
 
+### ComponentView
+
+```ts title="ui.d.ts"
+class ComponentView {
+  private constructor();
+}
+```
+
+A component's view, as JavaScript passes it to a module function: the component's ref (`ref.current`). The function reads the view with `viewOf` from `lucent:ios` or `lucent:android`, inside `main()`, while the component the ref named is mounted. It names that mount: once the component unmounts, `viewOf` throws an `InvalidStateError`.
+
 ## Types
 
 ### Signal

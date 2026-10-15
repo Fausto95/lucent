@@ -652,6 +652,14 @@ struct Convert<AbortSignal> {
   static AbortSignal fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
 };
 
+/// A component's ref (its host view, decision 0105), as lucent:ui's
+/// ComponentView: the mount its view's tag, which the views runtime records
+/// on the ref, has now (T124, decision 0120). Nothing goes the other way.
+template <>
+struct Convert<ui::ComponentView> {
+  static ui::ComponentView fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+};
+
 // --- promises ------------------------------------------------------------------------------
 
 /// Settles `host`'s JS promise `id` like `p`, once `p` settles: on the JS

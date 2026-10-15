@@ -555,6 +555,16 @@ Error abortReason(jsi::Runtime& rt, const jsi::Value& signal) {
 }
 }  // namespace
 
+ui::ComponentView Convert<ui::ComponentView>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  jsi::Value tag = v.isObject() ? v.getObject(rt).getProperty(rt, "__lucentView") : jsi::Value::undefined();
+
+  if (!tag.isNumber()) throwBoundaryError(rt, p, "a Lucent component's ref", v);
+
+  auto mount = ui::mountAt(tag.getNumber());
+
+  return ui::ComponentView{mount ? *mount : ui::MountId{tag.getNumber(), 0}};
+}
+
 AbortSignal Convert<AbortSignal>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
   if (!v.isObject()) throwBoundaryError(rt, p, "an AbortSignal", v);
   jsi::Object o = v.getObject(rt);

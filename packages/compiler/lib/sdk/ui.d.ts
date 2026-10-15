@@ -264,3 +264,15 @@ export type Continuous<F extends (...args: never[]) => void> = F & {
 export type Coalesced<F extends (...args: never[]) => void> = F & {
   readonly [delivery]?: "coalesced";
 };
+
+/**
+ * A component's view, as JavaScript passes it to a module function: the
+ * component's ref (`ref.current`). The function reads the view with
+ * `viewOf` from `lucent:ios` or `lucent:android`, inside `main()`, while
+ * the component the ref named is mounted. It names that mount: once the
+ * component unmounts, `viewOf` throws an `InvalidStateError`.
+ */
+export declare class ComponentView {
+  private readonly __lucent_ComponentView: never;
+  private constructor();
+}

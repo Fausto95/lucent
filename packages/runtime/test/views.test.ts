@@ -122,7 +122,9 @@ function setup(native: object | null = {}, config: ComponentConfig = GAUGE) {
   /** Mounts an instance: renders it, attaches its native view (a new tag), runs its effects. */
   const mount = (props: Props) => {
     const instance = { state: [] as unknown[], index: 0, effects: [] as (() => unknown)[] };
-    const view = { tag: ++tags };
+    const tag = ++tags;
+    // React Native's element has its view's tag, not as an own property.
+    const view = Object.defineProperty({ tag }, "__nativeTag", { value: tag });
     const cleanups: unknown[] = [];
 
     const render = (next: Props) => {
@@ -391,6 +393,15 @@ describe("a component's commands", () => {
 
     unmount();
     expect(ref.current).toBeNull();
+  });
+
+  it("record the view's tag on the ref, where a module function taking a ComponentView reads it", () => {
+    const { mount } = setup();
+    const { ref, props } = refOf({});
+    const { view } = mount(props);
+
+    expect((ref.current as unknown as { __lucentView: number }).__lucentView).toBe(view.tag);
+    expect(Object.keys(view)).not.toContain("__lucentView");
   });
 
   it("reach a function ref, which gets null as React lets go", () => {

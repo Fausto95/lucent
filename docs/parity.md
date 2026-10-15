@@ -108,7 +108,7 @@ is written in TypeScript against the SDK, so each row is a task.
 | Sizing from native content            | Not stated              | ✅ shadow node proxy             | ✅ `invalidateSize`                    | —                     |
 | View recycling                        | ✅ opt in               | ❌                               | ✅ (Android: when the app turns it on) | —                     |
 | A view controller as the root         | By hand                 | By hand                          | 🟡 `Fragment`, `UIViewController`      | [T122](tasks.md#t122) |
-| A view passed to a module function    | ✅ `hybridRef`          | ✅ by view tag                   | ❌                                     | [T124](tasks.md#t124) |
+| A view passed to a module function    | ✅ `hybridRef`          | ✅ by view tag                   | 🟡 `ComponentView`, run on hosts       | [T124](tasks.md#t124) |
 | Native objects in SwiftUI and Compose | —                       | ✅                               | ❌                                     | [T123](tasks.md#t123) |
 
 ## Native code and dependencies

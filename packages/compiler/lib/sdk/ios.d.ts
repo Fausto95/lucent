@@ -2,7 +2,8 @@
 
 import type { NativeBuffer, NativeHandle } from "lucent:core";
 import type { NSError } from "lucent:ios/Foundation";
-import type { UIViewController } from "lucent:ios/UIKit";
+import type { UIView, UIViewController } from "lucent:ios/UIKit";
+import type { ComponentView } from "lucent:ui";
 
 /**
  * Whether the OS is at least `major.minor` (Swift's `#available`).
@@ -506,3 +507,13 @@ declare module "lucent:thread" {
   /** On iOS an executor is its serial dispatch queue: an API that takes a queue takes it. */
   interface Executor extends NSObject {}
 }
+
+/**
+ * The view the setup of a module function's component returned, or its
+ * view controller's view. JavaScript gives the function the component's
+ * ref, `ref.current`. Call it inside `main()`: it throws an
+ * `InvalidStateError` once the component unmounts.
+ *
+ * @param view The component's ref, as the module function was given it.
+ */
+export declare function viewOf(view: ComponentView): UIView;

@@ -4238,6 +4238,27 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
         t: T.buffer,
       };
     }
+    case "lucent:ios.viewOf":
+    case "lucent:android.viewOf": {
+      if (args.length !== 1)
+        fail(
+          node,
+          Codes.UnsupportedCall,
+          "viewOf takes the component's ref, as the module function was given it",
+        );
+      // The view lives on the main thread, as the platform's views do (decision 0120).
+      if (!inMainContext(em, node))
+        fail(
+          node,
+          Codes.MainThreadOnly,
+          "viewOf reads a component's view, which is the main thread's: call it inside main(() => …) from lucent:thread",
+        );
+      unit.include("lucent/component_view.h");
+      return {
+        c: cpp.call("lucent::ui::viewOf", [em.exprAs(args[0]!, T.componentView)]),
+        t: em.lt(node),
+      };
+    }
     case "lucent:ios.present": {
       const build = args[0];
       if (
