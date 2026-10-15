@@ -664,7 +664,7 @@ still refuses.
   Swift (#307), optionals and enums in Swift collections (#308), C structs
   in Swift collections and optional enums (#309), async initializers and
   effectful property requirements (#310), statics of generic Swift types
-  (#311).
+  (#311), Swift subscripts (#312).
 - **Area:** bindings, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V4.
@@ -688,9 +688,12 @@ still refuses.
       (#309): a struct element as its bytes, an optional enum as an
       `NSNumber` of its raw value or index, nil for none.
 - [ ] The largest skipped buckets in `config/sdk-coverage.json`:
-      Objective-C enums crossing to Swift, subscripts, static members of
-      generic types (#311: a static method's call fixes the type's
-      parameters its signature names), and optional numbers and booleans.
+      Objective-C enums crossing to Swift, subscripts (#312: the methods
+      `subscript` and `setSubscript`, static ones too,
+      [0113](decisions/0113-a-swift-subscript-is-the-methods-subscript-and-setsubscript.md)),
+      static members of generic types (#311: a static method's call fixes
+      the type's parameters its signature names), and optional numbers and
+      booleans.
 - [ ] Members of protocols with associated types, where the conforming
       type fixes them.
 - [x] Async and throwing property requirements, and async initializers as

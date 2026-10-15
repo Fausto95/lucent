@@ -148,6 +148,8 @@ function bare(e: Expr, indent: string): string {
       return `[${e.entries.map((x) => `${expr(x.key, PREC.assign, indent)}: ${expr(x.value, PREC.assign, indent)}`).join(", ")}]`;
     case "index":
       return `${expr(e.object, PREC.postfix, indent)}[${expr(e.index, 0, indent)}]`;
+    case "subscript":
+      return `${expr(e.object, PREC.postfix, indent)}[${args(e.args, indent)}]`;
     case "call": {
       const callee = expr(e.callee, PREC.postfix, indent);
       const trailing = e.trailing ? ` ${closure(e.trailing, indent)}` : "";

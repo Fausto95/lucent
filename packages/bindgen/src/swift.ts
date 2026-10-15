@@ -54,6 +54,7 @@ const MEMBER_KINDS = new Set([
   "swift.type.property",
   "swift.var",
   "swift.subscript",
+  "swift.type.subscript",
 ]);
 
 /**
@@ -442,7 +443,7 @@ function parameters(m: SymbolGraphSymbol, r: Resolver): SdkParam[] {
 
 /** A declaration's parameters as written (`into total: inout Int`), by position. */
 function parameterTexts(text: string): string[] {
-  const open = text.indexOf("(", Math.max(0, text.search(/\b(func|init)\b/)));
+  const open = text.indexOf("(", Math.max(0, text.search(/\b(func|init|subscript)\b/)));
   if (open < 0) return [];
   const out: string[] = [];
   let depth = 0;
@@ -465,7 +466,7 @@ function parameterTexts(text: string): string[] {
 /** Which of a declaration's parameters have a default (`= []`), by position. */
 export function defaultedParameters(text: string): boolean[] {
   // After the name: attributes before it have parentheses too (`@backDeployed(before: …)`).
-  const open = text.indexOf("(", Math.max(0, text.search(/\b(func|init)\b/)));
+  const open = text.indexOf("(", Math.max(0, text.search(/\b(func|init|subscript)\b/)));
   if (open < 0) return [];
   const out: boolean[] = [];
   let depth = 0;
@@ -573,19 +574,16 @@ function memberSchemas(
     handled.add(m.identifier.precise);
     // Operators have no name a call can be written with.
     if (/^[^a-zA-Z_]/.test(m.names.title)) continue;
-    if (k === "swift.subscript") {
-      skip(m, "Swift: subscripts");
-      continue;
-    }
     const text = declText(m);
-    const head = text.slice(0, Math.max(0, text.search(/\b(func|init|var|let)\b/)));
+    const head = text.slice(0, Math.max(0, text.search(/\b(func|init|var|let|subscript)\b/)));
     if (/\beach\s/.test(text)) {
       skip(m, "Swift: parameter packs");
       continue;
     }
     // A TypeScript static cannot use its class's type parameters, and a shim
     // needs them fixed: by the extension it is declared in, or not at all.
-    const isStatic = k === "swift.type.method" || k === "swift.type.property";
+    const isStatic =
+      k === "swift.type.method" || k === "swift.type.property" || k === "swift.type.subscript";
     const fixedByExtension = isStatic
       ? ownerArgs(m, owner.typeParams, ctx.resolver({ self: owner.self }))
       : undefined;
@@ -686,12 +684,30 @@ function memberSchemas(
       };
       if (inferred && !namesEvery(owner.typeParams, [...params.map((p) => p.type), method.returns]))
         throw new Unsupported("Swift: static member of a generic type its signature doesn't fix");
-      if (k === "swift.type.method") method.static = true;
+      if (isStatic) method.static = true;
       if (own.length) method.typeParams = own;
       Object.assign(method, thread);
       method.swift = swift;
       methods.push(method);
       symbols.set(method, m);
+      if (k === "swift.subscript" || k === "swift.type.subscript") {
+        // `subscript(row:) -> T { get set }`: the methods `subscript` and `setSubscript`.
+        swift.subscript = "get";
+        if (/\{[^{}]*\bset\b[^{}]*\}\s*$/.test(text)) {
+          const setter: SdkMethodSchema = {
+            ...method,
+            name: "setSubscript",
+            params: [...params, { name: "newValue", type: method.returns }],
+            returns: parseSchemaType("void"),
+            swift: { ...swift, subscript: "set" },
+          };
+          // A setter is neither async nor throwing: only a get-only subscript can be.
+          delete setter.swift!.async;
+          delete setter.swift!.throws;
+          methods.push(setter);
+          symbols.set(setter, m);
+        }
+      }
     } catch (err) {
       if (!(err instanceof Unsupported)) throw err;
       skip(m, err.message.startsWith("Swift:") ? err.message : `Swift: ${err.message}`);

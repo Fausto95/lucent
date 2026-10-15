@@ -126,6 +126,11 @@ export interface SwiftMember {
   /** `bytes` of a ContiguousBytes type: its bytes, copied out. */
   bytes?: boolean;
   /**
+   * A subscript's getter (`subscript(row:)`, the method `subscript`) or
+   * setter (`setSubscript`, whose last parameter is the new value).
+   */
+  subscript?: "get" | "set";
+  /**
    * A static member of a generic type, on the type arguments its extension
    * fixes (`extension AVPartialAsyncProperty where Root: AVAsset`).
    */

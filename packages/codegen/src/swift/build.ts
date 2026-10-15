@@ -29,6 +29,7 @@ export const dictionaryLiteral = (entries: { key: Expr; value: Expr }[]): Expr =
   entries,
 });
 export const index = (object: Expr, i: Expr): Expr => ({ k: "index", object, index: i });
+export const subscript = (object: Expr, args: Arg[]): Expr => ({ k: "subscript", object, args });
 export const call = (callee: Expr, args: Arg[], trailing?: Expr): Expr =>
   trailing
     ? { k: "call", callee, args, trailing: trailing as Expr & { k: "closure" } }
