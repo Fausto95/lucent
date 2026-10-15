@@ -3,11 +3,19 @@ import LucentNative // lucent:forward
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
+  /// An instance of a Lucent class the app's own Swift made (src/sdk/callers.lucent.ts): it
+  /// holds the module's state, which the Platform screen's JavaScript reads.
+  private var tally: Callers.Tally?
+
   func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     LucentAppDelegate.application(application, didFinishLaunchingWithOptions: launchOptions) // lucent:forward
+    // Swift calling a Lucent module, through the API Lucent generates in LucentNative.
+    tally = try? Callers.Tally(from: "swift")
+    _ = try? tally?.add(n: 2)
+    try? Callers.note(text: "swift at launch")
     return true
   }
   // lucent:forward begin
