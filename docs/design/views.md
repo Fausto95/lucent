@@ -358,7 +358,11 @@ they are. Other values cross encoded (`emit/toolkit-values.ts`), an object as
 its fields in declared order, read back as a Swift struct or a Kotlin data
 class.
 
-An action's arguments are numbers, booleans or strings from its callback. A
+An action's arguments are numbers, booleans or strings its callback gives (its
+parameters, literals), and what Lucent code computes for the call: what reads the
+setup's or the module's names (`() => pick(props.title, tapped())`). The setup
+computes those when the action runs, in order and in its mount, as JavaScript
+evaluates a callback's arguments (`actionFn`, `emit/toolkit.ts`). A
 list's item crosses as its key, and setup finds the item again or does nothing
 once it is gone. An item keeps its model while its key stays, and shows no list
 of its own and binds no signal, for now. `range(from, to)` is SwiftUI's closed
@@ -994,12 +998,12 @@ across a call into Lucent or React code.
 
 The view gate closes these gaps ([parity.md](../parity.md#views)):
 
-| Gap                                                                                              | Task                     |
-| ------------------------------------------------------------------------------------------------ | ------------------------ |
-| An `AVPlayerViewController` spike, run on the simulator                                          | [T122](../tasks.md#t122) |
-| A body callback's values computed as it runs; helpers with toolkit values, children and bindings | [T123](../tasks.md#t123) |
-| A component's view in module code, run on the simulator and the emulator                         | [T124](../tasks.md#t124) |
-| Views made after setup on Android keep the hosting view's themed context, run on the emulator    | [T125](../tasks.md#t125) |
+| Gap                                                                                           | Task                     |
+| --------------------------------------------------------------------------------------------- | ------------------------ |
+| An `AVPlayerViewController` spike, run on the simulator                                       | [T122](../tasks.md#t122) |
+| Helpers with toolkit values, children and bindings in SwiftUI and Compose bodies              | [T123](../tasks.md#t123) |
+| A component's view in module code, run on the simulator and the emulator                      | [T124](../tasks.md#t124) |
+| Views made after setup on Android keep the hosting view's themed context, run on the emulator | [T125](../tasks.md#t125) |
 
 Accepted, with no task ([limitations.md](../limitations.md#views)):
 

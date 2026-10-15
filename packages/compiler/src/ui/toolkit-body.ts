@@ -124,7 +124,24 @@ export interface ListSlot {
  * What a parameter of an action is given: a number, a boolean or a
  * string, or a list's item (crossing as its key).
  */
-export type ActionParam = ScalarType | { readonly k: "item"; readonly list: ListSlot };
+/**
+ * What an action's parameter is given: a scalar from its callback (a
+ * parameter of it, a literal, a value of the body's), a list's item, or
+ * what the setup computes when the action runs (`computed`), as
+ * JavaScript evaluates a callback's arguments when it runs (T123).
+ */
+export type ActionParam =
+  | ScalarType
+  | { readonly k: "item"; readonly list: ListSlot }
+  | { readonly k: "computed"; readonly source: ts.Expression };
+
+/** A parameter Swift or Kotlin gives the action: not one the setup computes. */
+export type CrossingParam = Exclude<ActionParam, { k: "computed" }>;
+
+/** Whether Swift or Kotlin gives `p` (it crosses back). */
+export function crosses(p: ActionParam): p is CrossingParam {
+  return p.k !== "computed";
+}
 
 export interface ActionSlot {
   readonly kind: "action";
@@ -139,7 +156,7 @@ export interface ActionSlot {
 }
 
 /** What crosses back for an action's parameter: an item crosses as its key. */
-export function crossingOf(p: ActionParam): ScalarType {
+export function crossingOf(p: CrossingParam): ScalarType {
   return p.k === "item" ? p.list.keyType : p;
 }
 
@@ -521,6 +538,26 @@ export class Crossings {
     return this.reads(e, this.setupReads(items)) === "setup";
   }
 
+  /**
+   * Whether the setup computes `e`, a callback's argument, when the
+   * action runs: it reads the setup's names or the module's (a module
+   * function's call), none of the body's or a toolkit's, whatever its
+   * type. A literal is Swift's or Kotlin's to give.
+   */
+  private computedAtCall(e: ts.Expression): boolean {
+    const read = this.reads(e, this.setupReads(new Set()), false);
+    let named = false;
+    const visit = (n: ts.Node): void => {
+      if (ts.isIdentifier(n) && !(ts.isPropertyAccessExpression(n.parent) && n.parent.name === n))
+        named = true;
+      ts.forEachChild(n, visit);
+    };
+
+    visit(e);
+
+    return read === "setup" || (read === "none" && named);
+  }
+
   /** Whether `e` reads the setup's names alone, whatever its type (a list's instances). */
   private readsSetup(e: ts.Expression): boolean {
     return this.reads(e, this.setupReads(new Set()), false) === "setup";
@@ -754,7 +791,12 @@ export class Crossings {
    */
   action(id: ts.Identifier, args: readonly ts.Expression[] = []): ActionSlot {
     const items = args.map((a) => this.itemOf(a));
-    const key = `action:${id.text}:${items.map((l) => l?.index ?? "").join(",")}`;
+    // What Lucent code computes is computed when the action runs (one action per call).
+    const computed = args.map((a) => !this.itemOf(a) && this.computedAtCall(a));
+    const given = args.map((a, i) =>
+      items[i] ? `i${items[i]!.index}` : computed[i] ? `c${a.getStart()}` : "",
+    );
+    const key = `action:${id.text}:${given.join(",")}`;
     const found = this.byKey.get(key);
 
     if (found?.kind === "action") return found;
@@ -780,8 +822,11 @@ export class Crossings {
       source: id,
       params: signature.parameters.map((p, i): ActionParam => {
         const list = items[i];
+        const arg = args[i];
 
-        return list ? { k: "item", list } : this.crossingBack(id, p);
+        if (list) return { k: "item", list };
+
+        return arg && computed[i] ? { k: "computed", source: arg } : this.crossingBack(id, p);
       }),
     };
 

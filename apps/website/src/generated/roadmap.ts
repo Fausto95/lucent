@@ -279,7 +279,6 @@ export const limitations: { title: string; items: string[] }[] = [
       "Android mounts each commit, unless the app turns on `enableAccumulatedUpdatesInRawPropsAndroid`.",
       "A `Flex` inside a stack view sized by Auto Layout has no intrinsic size.",
       "Absolute children of a padded component follow React Native's padding-box rule relative to the slot. A fixed-size slot inside a component sized by its children is bounded at three reports.",
-      "A value a SwiftUI or Compose callback passes, as in `() => pick(shown())`, is computed when what it reads changes, not when the callback runs ([T123](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t123)). Compute it in the setup function the callback calls.",
       "Helper view functions take plain data and scalar callbacks only: no toolkit values, children, lists or bindings inside a helper ([T123](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t123)).",
       "SwiftUI: a static value named like a method (`Animation.easeInOut`) is left out, so write the call. Only closed ranges (`a...b`) are mapped, content conditions must be `boolean`, and `Int(x)` traps on NaN or infinity.",
       "SwiftUI: a two-value `onChange` closure doesn't type-check, because TypeScript tries the one-value overload first.",
