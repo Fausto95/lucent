@@ -179,8 +179,9 @@ generated from this file.
 - Nothing has run on a physical iPhone or Android phone. Tests run on
   hosts, the iOS simulator and the Android emulator.
 - The Swift and Kotlin APIs native code calls modules through have run on
-  hosts, with Linux's Swift and the desktop JNI host. An app's build of
-  them, on the simulator and the emulator, is next ([T114](tasks.md#t114)).
+  hosts, with Linux's Swift and the desktop JNI host. The bare example's
+  Platform screen checks its own Swift and Kotlin calling one, which the
+  device check hasn't run yet ([T114](tasks.md#t114)).
 - Fresh apps on the window's releases (React Native 0.85 to 0.87, Expo
   SDK 56 and 57) build and run a short check nightly, on the simulator and
   the emulator. The full Tests screen runs only in the example apps, which

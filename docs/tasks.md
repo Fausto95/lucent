@@ -39,7 +39,7 @@ what became of each one that is still linked or was still open.
 | [T111](#t111)            | The app's own native needs and options                     | done (2026-10-15)                                       |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | in progress                                             |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | done (2026-10-15)                                       |
-| [T114](#t114)            | Native code that calls Lucent modules                      | in progress (#315 to #321)                              |
+| [T114](#t114)            | Native code that calls Lucent modules                      | in progress (#315 to #322)                              |
 | [T115](#t115)            | Native configuration packages can't declare yet            | in progress (#299, #300, #301, #302)                    |
 | **View parity**          |                                                            |                                                         |
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
@@ -780,8 +780,9 @@ Expo module.
 - **Status:** in progress: the API's shape is decided (#315), entries
   pass optionals, arrays, records and platform objects (#316), exported
   classes have entries (#317), Kotlin (#318) and Swift (#319) call them,
-  with a guide (#320), taking turns on the module's actor (#321). The
-  fixture app is what's left.
+  with a guide (#320), taking turns on the module's actor (#321); the
+  bare example's Swift and Kotlin call a module (#322). Done once the
+  device check has run it.
 - **Area:** compiler, runtime, iOS and Android hosts.
 - **Needs:** nothing; [T130](#t130)'s entry points are done.
 - **Verify:** V1, V3, V4, V5.
@@ -818,7 +819,11 @@ Expo module.
       each call holds the actor; a value's kind and an instance's class are
       checked as JavaScript's are (#316, #317).
 - [ ] Tests: a fixture app's Swift and Kotlin call a Lucent function and
-      use an instance of an exported class.
+      use an instance of an exported class. Written (#322): the bare
+      example's `AppDelegate.swift` and `MainApplication.kt` make a
+      `Tally` at launch, call it and a function, and keep it; the Platform
+      screen reads what they did from JavaScript. It runs with the device
+      check, on the simulator and the emulator.
 
 **Done when:** the fixture runs on the simulator and the emulator.
 
