@@ -951,6 +951,12 @@ code uses: components and `main()` callbacks (`analysis/main-state.ts`,
 It holds plain values or native objects, used through a collection's members, so
 no reference to it reaches an actor's thread.
 
+A SwiftUI or Compose body is Swift or Kotlin, but what the setup computes for it
+is setup code to these checks: each value it shows that reads the setup's names,
+what a helper view computes where it is used, and what a callback passes to the
+function it calls (`bodySlots` in `analysis/local.ts`). The toolkit's own names
+and the body's (a list's item, a composition value) are left out.
+
 When UIKit or Android calls module code on the main thread (an override, a
 callback module code registered), that code needs its actor. The main thread
 never queues: it waits only for the holder in place

@@ -10,7 +10,14 @@ import ts from "typescript";
 import { extensionMember } from "../sdk/declarations.ts";
 import type { Platform } from "../sdk/schema.ts";
 import { nativeTagType } from "../ui/roots.ts";
-import { isToolkitBody, type Jsx, jsxToolkitOf } from "../ui/toolkit-body.ts";
+import {
+  isToolkitBody,
+  type Jsx,
+  jsxToolkitOf,
+  skipParentheses,
+  symbolOf as declaredSymbol,
+  toolkitOfDeclaration,
+} from "../ui/toolkit-body.ts";
 import { helperStatement, isViewHelper } from "../ui/view-helpers.ts";
 import { type Cause, code, step, SummaryBuilder } from "./facts.ts";
 import { type LibraryEffect, type LibraryMember, libraryMember } from "./library.ts";
@@ -234,6 +241,21 @@ const JSX = [
   ts.SyntaxKind.JsxFragment,
 ] as const;
 
+/** JSX's own syntax, which a body's slot never is (its values are inside). */
+const JSX_PARTS: ReadonlySet<ts.SyntaxKind> = new Set([
+  ...JSX,
+  ts.SyntaxKind.JsxOpeningElement,
+  ts.SyntaxKind.JsxClosingElement,
+  ts.SyntaxKind.JsxOpeningFragment,
+  ts.SyntaxKind.JsxClosingFragment,
+  ts.SyntaxKind.JsxAttributes,
+  ts.SyntaxKind.JsxAttribute,
+  ts.SyntaxKind.JsxSpreadAttribute,
+  ts.SyntaxKind.JsxExpression,
+  ts.SyntaxKind.JsxText,
+  ts.SyntaxKind.JsxNamespacedName,
+]);
+
 /** What a library member's result is, by how it relates to its receiver. */
 const RESULTS: Record<NonNullable<LibraryEffect["result"]> | "new" | "call", NodeKind> = {
   receiver: "call",
@@ -258,6 +280,8 @@ export class Collector {
   private readonly facts: LocalFacts;
   /** Suspension points (await, yield) in the unit's own code. */
   private readonly suspensions: ts.Node[] = [];
+  /** The helper views whose slots this unit computes, visited once each. */
+  private readonly helpersSeen = new Set<ts.Node>();
   /** Uses of variables holding objects or functions, checked against suspension points. */
   private readonly references: { symbol: ts.Symbol; node: ts.Node }[] = [];
 
@@ -394,12 +418,15 @@ export class Collector {
   private visit(n: ts.Node): void {
     if (this.pruned(n)) return;
 
-    // A statement a toolkit's body takes (Compose's composition statements): its code is Kotlin.
+    // A statement a toolkit's body takes (Compose's composition statements): its code is
+    // Kotlin, and what it reads of the setup's, the setup computes.
     if (
       (ts.isVariableStatement(n) || ts.isExpressionStatement(n)) &&
       isToolkitBody(this.checker, n)
-    )
+    ) {
+      this.bodySlots(n);
       return;
+    }
 
     // A helper view: Swift or Kotlin, used by a body.
     if (
@@ -795,7 +822,116 @@ export class Collector {
       return this.unmodeled(e, ts.isJsxFragment(e) ? "a JSX fragment" : "a JSX element");
 
     this.own("allocates", "yes", e, "makes a toolkit's body");
+    this.bodySlots(e);
     return this.made(e, "fresh");
+  }
+
+  /**
+   * What the setup computes for a toolkit's body, in `node` (its JSX, or a
+   * Compose composition statement): the body is Swift or Kotlin, but each
+   * value it shows that reads the setup's names is the setup's code, run on
+   * the main thread with JavaScript's semantics (a slot, ui/toolkit-body.ts).
+   * So is each expression of a helper view the body shows, computed where
+   * it is used (T123). Visited as the setup's own: each largest expression
+   * that reads none of the body's names or a toolkit's, and makes no
+   * function. The writers refuse what they cannot compute this way; what
+   * is visited here and refused there changes nothing.
+   */
+  private bodySlots(node: ts.Node, helper?: { fn: ts.Node; props?: ts.Symbol }): void {
+    const visit = (n: ts.Node): void => {
+      if (this.pruned(n)) return;
+
+      // A tag names a view, a toolkit's or a helper's: only its attributes are values.
+      if (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) {
+        this.helperSlots(n.tagName);
+        ts.forEachChild(n.attributes, visit);
+        return;
+      }
+
+      // A callback's call (`() => pick(item.id)`) runs the setup function or callback it
+      // names from Swift or Kotlin, as an action: what it passes, the setup computes.
+      if (ts.isCallExpression(n) && actionCall(n)) {
+        n.arguments.forEach(visit);
+        return;
+      }
+
+      if (ts.isExpression(n) && !JSX_PARTS.has(n.kind) && this.ofSetup(n, helper)) {
+        this.expr(n);
+        return;
+      }
+
+      ts.forEachChild(n, visit);
+    };
+
+    ts.forEachChild(node, visit);
+  }
+
+  /** A helper view's slots, once per unit: what `tag` shows, if it names a helper. */
+  private helperSlots(tag: ts.JsxTagNameExpression): void {
+    const decl = ts.isIdentifier(tag)
+      ? declaredSymbol(this.checker, tag)?.declarations?.[0]
+      : undefined;
+    const init = decl && ts.isVariableDeclaration(decl) ? decl.initializer : undefined;
+    const fn = init ? skipParentheses(init) : decl;
+
+    if (
+      !fn ||
+      !ts.isFunctionLike(fn) ||
+      this.helpersSeen.has(fn) ||
+      !isViewHelper(this.checker, fn)
+    )
+      return;
+
+    this.helpersSeen.add(fn);
+
+    const param = fn.parameters[0]?.name;
+    const props = param && ts.isIdentifier(param) ? symbolOf(this.checker, param) : undefined;
+    const body = (fn as ts.FunctionLikeDeclaration).body;
+
+    if (body) this.bodySlots(body, { fn, ...(props ? { props } : {}) });
+  }
+
+  /**
+   * Whether the setup computes `e` for a body: it reads a name, and every
+   * name it reads is the setup's (its own, the module's or a helper's
+   * props), none the body's own (an item's, a composition value) or a
+   * toolkit's, and it makes no function or view.
+   */
+  private ofSetup(e: ts.Expression, helper?: { fn: ts.Node; props?: ts.Symbol }): boolean {
+    let setup = true;
+    let reads = false;
+
+    const visit = (n: ts.Node): void => {
+      if (!setup) return;
+
+      if (ts.isFunctionLike(n) || JSX_PARTS.has(n.kind)) {
+        setup = false;
+        return;
+      }
+
+      const named =
+        (ts.isPropertyAccessExpression(n.parent) && n.parent.name === n) ||
+        (ts.isPropertyAssignment(n.parent) && n.parent.name === n);
+      // An import's own declaration: a toolkit's names are its module's.
+      const symbol = ts.isIdentifier(n) && !named ? declaredSymbol(this.checker, n) : undefined;
+      const decl = symbol?.declarations?.[0];
+
+      if (symbol && helper?.props === symbol) reads = true;
+      else if (
+        decl &&
+        (toolkitOfDeclaration(decl) ||
+          isToolkitBody(this.checker, decl) ||
+          (helper && withinNode(decl, helper.fn)))
+      )
+        setup = false;
+      else if (symbol) reads = true;
+
+      ts.forEachChild(n, visit);
+    };
+
+    visit(e);
+
+    return setup && reads;
   }
 
   /** Syntax the analyses do not model: anything may happen. */
@@ -1784,6 +1920,25 @@ function sameLoop(a: ts.Node, b: ts.Node): boolean {
 }
 
 /** Whether `inner` is `outer` or created (transitively) by it. */
+/** Whether a call in a body is a callback's statement: an arrow's expression body, or a statement of a function's. */
+function actionCall(call: ts.CallExpression): boolean {
+  const parent = call.parent;
+
+  return (
+    (ts.isArrowFunction(parent) && parent.body === call) ||
+    (ts.isExpressionStatement(parent) &&
+      ts.isBlock(parent.parent) &&
+      ts.isFunctionLike(parent.parent.parent))
+  );
+}
+
+/** Whether `node` is inside `ancestor`. */
+function withinNode(node: ts.Node, ancestor: ts.Node): boolean {
+  for (let n: ts.Node | undefined = node.parent; n; n = n.parent) if (n === ancestor) return true;
+
+  return false;
+}
+
 export function within(inner: Unit, outer: Unit): boolean {
   for (let u: Unit | undefined = inner; u; u = u.parent) if (u === outer) return true;
 

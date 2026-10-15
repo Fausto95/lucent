@@ -239,6 +239,10 @@ Slow unit tests run a program's platform code without a device:
 The JNI host has no Android OS: the main thread is the host runtime's,
 and `android.os.Build` and `android.util.Log` are stand-ins
 (`test/jni-host/java`). A view's Android glue is only compiled there.
+Without the Android SDK, `ui/toolkit-build.ts` builds Compose bodies
+against stand-ins for `View` and `Context`, as Compose's API comes from
+`lib/sdk`'s schemas: their diagnostics and generated code are checked,
+and compiling the Kotlin and glue waits for Compose's jars and the NDK.
 CI's macOS shards install no Pods, so the Mac Catalyst run tests are
 skipped there.
 
