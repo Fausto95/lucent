@@ -30,7 +30,14 @@ import type { Platform } from "../sdk/schema.ts";
 import type { ComponentDescription } from "../ui/contract.ts";
 import { fabricNames } from "../ui/fabric.ts";
 import { assignFieldRepr, assignRepr, fieldToLucent, toLucent } from "./view-values.ts";
-import { type FunctionLike, isFragmentRoot, returnShape, sdkRoot, toolkitOf } from "../ui/roots.ts";
+import {
+  type FunctionLike,
+  isControllerRoot,
+  isFragmentRoot,
+  returnShape,
+  sdkRoot,
+  toolkitOf,
+} from "../ui/roots.ts";
 import { type BodySetup, bodyOf, isJsx } from "../ui/toolkit-body.ts";
 import type { ToolkitName } from "../ui/toolkits.ts";
 import type { Ctx, E } from "./context.ts";
@@ -78,6 +85,8 @@ export interface Setup {
   readonly toolkit?: ToolkitName;
   /** Its Android root is a Fragment, which the host commits over a container it holds (T131). */
   readonly fragment?: boolean;
+  /** Its iOS root is a UIKit view controller, which the host contains (T122). */
+  readonly controller?: boolean;
 }
 
 /** The C++ name of the parameter holding the command table. */
@@ -160,8 +169,16 @@ export function planSetup(
   const described = ctx.platform && component.platforms[ctx.platform]?.root;
   const toolkit = described && toolkitOf(described);
   const shape =
-    ctx.platform === "android" ? returnShape(checker, fn, "android", sdkRoot) : undefined;
-  const fragment = shape?.kind === "view" && isFragmentRoot(checker, shape.root);
+    ctx.platform === "android" || ctx.platform === "ios"
+      ? returnShape(checker, fn, ctx.platform, sdkRoot)
+      : undefined;
+  const fragment =
+    ctx.platform === "android" && shape?.kind === "view" && isFragmentRoot(checker, shape.root);
+  const controller =
+    ctx.platform === "ios" &&
+    !toolkit &&
+    shape?.kind === "view" &&
+    isControllerRoot(checker, shape.root);
 
   if (propsSymbol) wholeProps(checker, fn, propsSymbol, component.export);
 
@@ -177,6 +194,7 @@ export function planSetup(
     root,
     ...(toolkit ? { toolkit } : {}),
     ...(fragment ? { fragment } : {}),
+    ...(controller ? { controller } : {}),
   };
 
   ctx.setups.set(fn, setup);

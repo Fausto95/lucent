@@ -35,6 +35,14 @@ export const SLOT_VIEWS: Record<Platform, { readonly module: string; readonly na
  */
 export const ROOT_FRAGMENT = { module: "androidx.fragment.app", name: "Fragment" } as const;
 
+/**
+ * The class a component's iOS code may return in place of a view, which
+ * the host contains as a child of the nearest view controller above it
+ * (T122): UIKit's `UIViewController`, such as AVKit's
+ * `AVPlayerViewController`.
+ */
+export const ROOT_CONTROLLER = { module: "UIKit", name: "UIViewController" } as const;
+
 /** Whether a class is one of a platform's classes (its root view class, its slot's), and whose. */
 export type RootOf = (decl: ts.ClassDeclaration) => Platform | undefined;
 
@@ -70,20 +78,45 @@ const sdkFragment: RootOf = (decl) => {
     : undefined;
 };
 
+/** UIKit's UIViewController, from the iOS SDK. */
+const sdkController: RootOf = (decl) => {
+  const sdk = sdkModuleOf(decl.getSourceFile());
+
+  return sdk?.platform === "ios" &&
+    sdk.module === ROOT_CONTROLLER.module &&
+    decl.name?.text === ROOT_CONTROLLER.name
+    ? "ios"
+    : undefined;
+};
+
 /**
  * The platform root view classes of the discovered SDKs, the toolkits'
- * root views, and Android's Fragment.
+ * root views, Android's Fragment and UIKit's UIViewController.
  */
 export const sdkRoot: RootOf = (decl) => {
   const builtin = builtinSdkModuleOf(decl.getSourceFile());
   const toolkit = builtin && toolkitOf({ module: builtin, name: decl.name?.text ?? "" });
 
-  return toolkit ? TOOLKITS[toolkit].platform : (sdkRootView(decl) ?? sdkFragment(decl));
+  return toolkit
+    ? TOOLKITS[toolkit].platform
+    : (sdkRootView(decl) ?? sdkFragment(decl) ?? sdkController(decl));
 };
 
 /** Whether a component's root class is a Fragment, which the host contains. */
 export function isFragmentRoot(checker: ts.TypeChecker, root: ts.ClassDeclaration): boolean {
   return ancestors(checker, root).some((c) => !!sdkFragment(c));
+}
+
+/** Whether a component's root class is a UIKit view controller, which the host contains (T122). */
+export function isControllerRoot(checker: ts.TypeChecker, root: ts.ClassDeclaration): boolean {
+  return ancestors(checker, root).some((c) => !!sdkController(c));
+}
+
+/** What kind of root a class is: a view, or what the host contains in place of one. */
+function rootKind(checker: ts.TypeChecker, c: ts.ClassDeclaration): string {
+  if (isFragmentRoot(checker, c)) return "a fragment";
+  if (isControllerRoot(checker, c)) return "a view controller";
+  return "a view";
 }
 
 /** The platform slot classes of the discovered SDKs. */
@@ -95,6 +128,11 @@ export type Shape =
   | { readonly kind: "view"; readonly root: ts.ClassDeclaration }
   /** Views on some paths, other values (named) on others. */
   | { readonly kind: "ambiguous"; readonly view: string; readonly other: string }
+  /** Roots of two kinds (a view and a view controller): what each is, and its class. */
+  | {
+      readonly kind: "mixed";
+      readonly roots: readonly [readonly [string, string], readonly [string, string]];
+    }
   /** A promise of a view. */
   | { readonly kind: "promised" };
 
@@ -152,6 +190,24 @@ export function returnShape(
   if (!views.length) return { kind: "value" };
 
   if (other !== undefined) return { kind: "ambiguous", view: viewName, other };
+
+  // A view on one path and a view controller on another, for one platform, have no root the
+  // host takes. A one-file component's platforms may differ.
+  const platformOf = (v: ts.ClassDeclaration) =>
+    ancestors(checker, v)
+      .map((c) => rootOf(c))
+      .find(Boolean);
+  for (const p of new Set(views.map(platformOf))) {
+    const kinds = new Map(
+      views
+        .filter((v) => platformOf(v) === p)
+        .map((v) => [rootKind(checker, v), v.name?.text ?? ""]),
+    );
+    if (kinds.size > 1) {
+      const [a, b] = [...kinds];
+      return { kind: "mixed", roots: [a!, b!] };
+    }
+  }
 
   return { kind: "view", root: commonClass(checker, views) };
 }

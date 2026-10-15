@@ -12,11 +12,13 @@
 // go in the slot the host makes for each mount of a component taking them,
 // never beside the content (LucentViewChildren.h), and the host reports
 // where that slot is, for Yoga to lay them out in it (LucentViewSlots.h). A
-// view that comes with its controller (a SwiftUI component's) has the
-// controller contained in the nearest view controller above the host, as
-// soon as there is one, until the mount ends, and laid out in the host's
-// direction. The generated subclass provides the renderer's descriptor and
-// the component's Lucent side (a Mounted).
+// view that comes with its controller (a SwiftUI component's, or a UIKit
+// view controller a setup returns) has the controller contained in the
+// nearest view controller above the host, as soon as there is one, until
+// the mount ends, and laid out in the host's direction. A UIKit one has no
+// size of its own but its preferred content size, and no safe area. The
+// generated subclass provides the renderer's descriptor and the
+// component's Lucent side (a Mounted).
 //
 // Everything runs on the main thread, in Lucent's main context.
 #pragma once
@@ -56,6 +58,12 @@ class Mounted {
   /// nearest view controller above it (a SwiftUI component's hosting
   /// controller); nil for a plain view.
   virtual UIViewController* controller() const { return nil; }
+
+  /// Whether controller() is a UIKit view controller the setup returned
+  /// (T122), not a SwiftUI body's hosting controller: the host sizes it by
+  /// its style, or its preferred content size, and takes the safe area
+  /// back out of it, as a hosting controller does itself.
+  virtual bool plainController() const { return false; }
 
   /// Applies a later commit's props (the component's own Props type): what
   /// changed reaches setup's signals; setup does not run again.
