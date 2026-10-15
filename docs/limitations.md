@@ -20,9 +20,9 @@ generated from this file.
 - A component inside Reanimated's animated views, Gesture Handler's
   detectors or react-native-screens' screens is untested
   ([T121](tasks.md#t121)).
-- A component's root may be a UIKit view controller, such as
-  `AVPlayerViewController`. A command presents from the scene's top
-  controller, not from it ([T122](tasks.md#t122)).
+- A component's code presents from its view controller only before its
+  first `await`. After it, `present` shows from the scene's top controller,
+  and outlives the component unless a signal stops it ([T122](tasks.md#t122)).
 - Android pools component views only when the app turns on React Native's
   `enableViewRecycling`. iOS always recycles them.
 - Intrinsic sizes and slot insets wait for the JavaScript thread to apply

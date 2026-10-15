@@ -1690,7 +1690,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Presents the view controller `build` returns from the scene the person is using (the top view controller of its key window). Resolves with the value given to `resolve`, or rejects with the error given to `reject`.",
           "`build` runs on the main thread, like `main()`'s function. Make the view controller there, and call `resolve` or `reject` from its delegate or completion handler.",
           "It settles once, and whatever settles it dismisses the view controller if it is still shown. It rejects with an `AbortError` when `signal` aborts, or when the person dismisses the view controller (swiping a sheet down). It does too when the view controller goes before settling, or when its scene disconnects.",
-          "It rejects with an `InvalidStateError` when no scene is in the foreground, or UIKit doesn't present it."
+          "It rejects with an `InvalidStateError` when no scene is in the foreground, or UIKit doesn't present it.",
+          "A component's code calling it before its first `await` presents from the component's view controller, if its root is one. Unmounting the component dismisses it."
         ],
         "examples": [],
         "members": [],

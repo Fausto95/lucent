@@ -282,6 +282,39 @@ static void entriesBelongToTheMainThread() {
   onUi([&] { content.reset(); });
 }
 
+/// A setup that ran gives its content its mount's scope and root (T122):
+/// what the mount's code presents belongs to the scope and comes from the
+/// root. Outside any mount, nothing has them.
+static void contentsOwnTheirMountsScopeAndRoot() {
+  onUi([] {
+    auto content = ui::Content::create([] {});
+    auto scope = Scope::create(0, ExecutionContext::main().root());
+    static int handle = 0;
+    const NativeRef root(&handle, [](void*) {}, nullptr);
+
+    CHECK(!content->scope());
+    CHECK(!content->root().get());
+
+    {
+      ui::ContentEntry setup(content);
+      ui::ownContent(scope, root);
+    }
+
+    CHECK(content->scope() == scope);
+    CHECK(content->root().get() == &handle);
+
+    // Outside any mount: nothing to own.
+    auto other = ui::Content::create([] {});
+    ui::ownContent(scope, root);
+    CHECK(!other->scope());
+
+    // The mount's end disposes its scope: what its code presents after that never shows.
+    scope->dispose();
+    auto late = content->scope();
+    CHECK(!late || Operation<void>::start(late)->state() == OperationState::Cancelled);
+  });
+}
+
 /// A debug build's snapshot: each live mount (its component, its source,
 /// its view's tree as the platform walks it) and what the runtime owns.
 /// Without a platform walker, a view has no tree.
@@ -319,6 +352,7 @@ int main() {
   functionsEnterTheirMount();
   invalidationsOutsideAnEntryWaitForTheTurn();
   entriesBelongToTheMainThread();
+  contentsOwnTheirMountsScopeAndRoot();
   snapshotsLiveMounts();
 
   std::printf("view: %d checks, %d failures\n", checks, failures);

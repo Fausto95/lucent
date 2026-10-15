@@ -132,8 +132,13 @@ prop inbox and disposes the mount's scope in a transaction: effects stop and
 view and rejects the requests it still owes.
 
 Setup ends what it started with `onDispose`: timers, observers, listeners set by
-hand. `present` (`lucent:ios`) belongs to the calling context's root scope, not
-the mount's: give it an `AbortSignal` that `onDispose` aborts.
+hand. What `present` (`lucent:ios`) shows from the mount's code belongs to the
+mount's scope, which the mount's content holds (`ownContent`), so disposal
+dismisses it. It presents from the setup's root when that is a view controller
+in a window with nothing presented over it, else from the scene's top view
+controller. After an `await`, the code runs outside the mount: give `present` an
+`AbortSignal` that `onDispose` aborts
+([0119](../decisions/0119-what-a-components-code-presents-belongs-to-its-mount.md)).
 
 A setup that throws, or lacks a required prop, is reported with the component's
 id and source line (`reportViewError`). The mount then ends at once: the host
@@ -959,7 +964,7 @@ The view gate closes these gaps ([parity.md](../parity.md#views)):
 
 | Gap                                                                                              | Task                     |
 | ------------------------------------------------------------------------------------------------ | ------------------------ |
-| Commands that present from a `UIViewController` root, and the modals it shows                    | [T122](../tasks.md#t122) |
+| An `AVPlayerViewController` spike, run on the simulator                                          | [T122](../tasks.md#t122) |
 | Instance props in SwiftUI and Compose bodies; helpers with toolkit values, children and bindings | [T123](../tasks.md#t123) |
 | A component's ref passed to a module function                                                    | [T124](../tasks.md#t124) |
 | Views made after setup on Android get `appContext()`, not the hosting view's themed context      | [T125](../tasks.md#t125) |

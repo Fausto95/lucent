@@ -270,7 +270,7 @@ export const limitations: { title: string; items: string[] }[] = [
       "A SwiftUI or Compose body takes no instance prop yet ([T123](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t123)). An instance can't be an event's argument or a command's.",
       "The check of an instance's members follows them through its class, the classes around it and the interfaces they implement. A use through another structural type, or a spread, isn't seen.",
       "A component inside Reanimated's animated views, Gesture Handler's detectors or react-native-screens' screens is untested ([T121](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t121)).",
-      "A component's root may be a UIKit view controller, such as `AVPlayerViewController`. A command presents from the scene's top controller, not from it ([T122](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t122)).",
+      "A component's code presents from its view controller only before its first `await`. After it, `present` shows from the scene's top controller, and outlives the component unless a signal stops it ([T122](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t122)).",
       "Android pools component views only when the app turns on React Native's `enableViewRecycling`. iOS always recycles them.",
       "Intrinsic sizes and slot insets wait for the JavaScript thread to apply them, which takes one layout when it is idle. A component shows its previous size, zero at mount, until then.",
       "A native change no code of the mount makes keeps the old size on iOS, and on Android when it asks for no layout. Locale isn't an input of a measurement.",

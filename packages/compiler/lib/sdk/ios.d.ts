@@ -490,6 +490,10 @@ export declare function onSceneEvent(
  * It rejects with an `InvalidStateError` when no scene is in the
  * foreground, or UIKit doesn't present it.
  *
+ * A component's code calling it before its first `await` presents from
+ * the component's view controller, if its root is one. Unmounting the
+ * component dismisses it.
+ *
  * @param build Makes the view controller, on the main thread.
  * @param signal Dismisses it and rejects with an `AbortError`.
  */
