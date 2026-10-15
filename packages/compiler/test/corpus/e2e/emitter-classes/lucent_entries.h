@@ -13,8 +13,62 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// emitter-classes.heldPlayer()
+bool lucent_emitter_classes_heldPlayer(lucent_error* error, lucent_object* result);
+
+/// emitter-classes.makePlayer(length)
+bool lucent_emitter_classes_makePlayer(double arg0, lucent_error* error, lucent_object* result);
+
+/// emitter-classes.makeLoud()
+bool lucent_emitter_classes_makeLoud(lucent_error* error, lucent_object* result);
+
+/// emitter-classes.same(a, b)
+bool lucent_emitter_classes_same(lucent_object arg0, lucent_object arg1, lucent_error* error, bool* result);
+
+/// emitter-classes.playFor(p)
+bool lucent_emitter_classes_playFor(lucent_object arg0, lucent_error* error);
+
 /// emitter-classes.inLucent()
 bool lucent_emitter_classes_inLucent(lucent_error* error, lucent_string* result);
+
+/// emitter-classes.Player(length)
+bool lucent_emitter_classes_Player_new(double arg0, lucent_error* error, lucent_object* result);
+
+/// emitter-classes.Player.length()
+bool lucent_emitter_classes_Player_get_length(lucent_object self, lucent_error* error, double* result);
+
+/// emitter-classes.Player.position()
+bool lucent_emitter_classes_Player_get_position(lucent_object self, lucent_error* error, double* result);
+
+/// emitter-classes.Player.position()
+bool lucent_emitter_classes_Player_set_position(lucent_object self, double arg0, lucent_error* error);
+
+/// emitter-classes.Player.play()
+bool lucent_emitter_classes_Player_play(lucent_object self, lucent_error* error);
+
+/// emitter-classes.Player.ticking()
+bool lucent_emitter_classes_Player_ticking(lucent_object self, lucent_error* error, double* result);
+
+/// emitter-classes.LoudPlayer(length)
+bool lucent_emitter_classes_LoudPlayer_new(double arg0, lucent_error* error, lucent_object* result);
+
+/// emitter-classes.LoudPlayer.shout()
+bool lucent_emitter_classes_LoudPlayer_shout(lucent_object self, lucent_error* error);
+
+/// emitter-classes.LoudPlayer.length()
+bool lucent_emitter_classes_LoudPlayer_get_length(lucent_object self, lucent_error* error, double* result);
+
+/// emitter-classes.LoudPlayer.position()
+bool lucent_emitter_classes_LoudPlayer_get_position(lucent_object self, lucent_error* error, double* result);
+
+/// emitter-classes.LoudPlayer.position()
+bool lucent_emitter_classes_LoudPlayer_set_position(lucent_object self, double arg0, lucent_error* error);
+
+/// emitter-classes.LoudPlayer.play()
+bool lucent_emitter_classes_LoudPlayer_play(lucent_object self, lucent_error* error);
+
+/// emitter-classes.LoudPlayer.ticking()
+bool lucent_emitter_classes_LoudPlayer_ticking(lucent_object self, lucent_error* error, double* result);
 
 #ifdef __cplusplus
 }

@@ -19,6 +19,27 @@ bool lucent_main_vectorsMade(lucent_error* error, double* result);
 /// main.throughNamespace()
 bool lucent_main_throughNamespace(lucent_error* error, lucent_string* result);
 
+/// main.grown(v)
+bool lucent_main_grown(lucent_object arg0, lucent_error* error, lucent_object* result);
+
+/// shapes.Vec(x, y)
+bool lucent_shapes_Vec_new(double arg0, double arg1, lucent_error* error, lucent_object* result);
+
+/// shapes.Vec.x()
+bool lucent_shapes_Vec_get_x(lucent_object self, lucent_error* error, double* result);
+
+/// shapes.Vec.x()
+bool lucent_shapes_Vec_set_x(lucent_object self, double arg0, lucent_error* error);
+
+/// shapes.Vec.y()
+bool lucent_shapes_Vec_get_y(lucent_object self, lucent_error* error, double* result);
+
+/// shapes.Vec.y()
+bool lucent_shapes_Vec_set_y(lucent_object self, double arg0, lucent_error* error);
+
+/// shapes.Vec.plus(o)
+bool lucent_shapes_Vec_plus(lucent_object self, lucent_object arg0, lucent_error* error, lucent_object* result);
+
 #ifdef __cplusplus
 }
 #endif

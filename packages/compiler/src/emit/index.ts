@@ -648,12 +648,31 @@ export function emitProgram(
   const entries = ctx.guard(() => entriesOf(ctx, mods)) ?? [];
   const launched = new Set(currentCompile()?.launch ?? []);
   files.set(ENTRIES_HEADER, entriesHeader(entries));
+  const moduleHeaders = lp.modules.length
+    ? lp.modules.map((m) => cpp.include(`${m.ns}.h`))
+    : [cpp.include(INDEX_HEADER)];
+  // The classes whose instances entries take or give, whose headers no module's may include.
+  const entryClasses = [
+    ...new Set(
+      entries.flatMap((e) => [...e.definition.matchAll(/lucent_app::(C_\w+)/g)].map((m) => m[1]!)),
+    ),
+  ];
+  const classHeaders = entryClasses.length
+    ? typeFiles.includes(
+        [
+          cpp.fn(
+            "lucent_entry_classes",
+            cpp.voidType,
+            entryClasses.map((c, i) => cpp.param(cpp.type(`lucent_app::${c}`), `p${i}`)),
+          ),
+        ],
+        moduleHeaders,
+      ).types
+    : [];
   files.set(
     ENTRIES_UNIT,
     entriesUnit(
-      lp.modules.length
-        ? lp.modules.map((m) => cpp.include(`${m.ns}.h`))
-        : [cpp.include(INDEX_HEADER)],
+      [...moduleHeaders, ...classHeaders],
       bindings.initializations(initOrder),
       entries,
       declared,

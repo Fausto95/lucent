@@ -16,6 +16,18 @@ void lucent_launch(void);
 /// classes.useStack(xs)
 bool lucent_classes_useStack(lucent_value arg0, lucent_error* error, lucent_string* result);
 
+/// classes.advance(c, times)
+bool lucent_classes_advance(lucent_object arg0, double arg1, lucent_error* error, double* result);
+
+/// classes.makeCounter(n)
+bool lucent_classes_makeCounter(double arg0, lucent_error* error, lucent_object* result);
+
+/// classes.same(a, b)
+bool lucent_classes_same(lucent_object arg0, lucent_object arg1, lucent_error* error, bool* result);
+
+/// classes.presence(c, s, n)
+bool lucent_classes_presence(lucent_object arg0, lucent_string arg1, double arg2, lucent_error* error, lucent_string* result);
+
 /// classes.relayed()
 bool lucent_classes_relayed(lucent_error* error, lucent_string* result);
 
@@ -27,6 +39,84 @@ bool lucent_classes_locations(lucent_error* error, lucent_string* result);
 
 /// classes.described()
 bool lucent_classes_described(lucent_error* error, lucent_string* result);
+
+/// classes.Counter.label()
+bool lucent_classes_Counter_get_label(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// classes.Counter.value()
+bool lucent_classes_Counter_get_value(lucent_object self, lucent_error* error, double* result);
+
+/// classes.Counter.value()
+bool lucent_classes_Counter_set_value(lucent_object self, double arg0, lucent_error* error);
+
+/// classes.Counter.reset()
+bool lucent_classes_Counter_reset(lucent_object self, lucent_error* error, lucent_object* result);
+
+/// classes.Counter.describe()
+bool lucent_classes_Counter_describe(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// classes.Counter.created()
+bool lucent_classes_Counter_get_created(lucent_error* error, double* result);
+
+/// classes.Counter.created()
+bool lucent_classes_Counter_set_created(double arg0, lucent_error* error);
+
+/// classes.Counter.total()
+bool lucent_classes_Counter_total(lucent_error* error, double* result);
+
+/// classes.Stack()
+bool lucent_classes_Stack_new(lucent_error* error, lucent_object* result);
+
+/// classes.Stack.push(v)
+bool lucent_classes_Stack_push(lucent_object self, double arg0, lucent_error* error);
+
+/// classes.Stack.pop()
+bool lucent_classes_Stack_pop(lucent_object self, lucent_error* error, lucent_value* result);
+
+/// classes.Stack.length()
+bool lucent_classes_Stack_get_length(lucent_object self, lucent_error* error, double* result);
+
+/// classes.Stack.toArray()
+bool lucent_classes_Stack_toArray(lucent_object self, lucent_error* error, lucent_value* result);
+
+/// classes.Account(owner)
+bool lucent_classes_Account_new(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// classes.Account.owner()
+bool lucent_classes_Account_get_owner(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// classes.Account.deposit(n)
+bool lucent_classes_Account_deposit(lucent_object self, double arg0, lucent_error* error);
+
+/// classes.Account.balance()
+bool lucent_classes_Account_get_balance(lucent_object self, lucent_error* error, double* result);
+
+/// classes.Account.secret()
+bool lucent_classes_Account_secret(lucent_object self, lucent_error* error, double* result);
+
+/// classes.Relay.last()
+bool lucent_classes_Relay_get_last(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// classes.Relay.last()
+bool lucent_classes_Relay_set_last(lucent_object self, lucent_string arg0, lucent_error* error);
+
+/// classes.Relay.send(s)
+bool lucent_classes_Relay_send(lucent_object self, lucent_string arg0, lucent_error* error);
+
+/// classes.Labelled.name()
+bool lucent_classes_Labelled_get_name(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// classes.Labelled.label()
+bool lucent_classes_Labelled_get_label(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// classes.Labelled.next()
+bool lucent_classes_Labelled_get_next(lucent_object self, lucent_error* error, double* result);
+
+/// classes.Labelled.total()
+bool lucent_classes_Labelled_get_total(lucent_object self, lucent_error* error, double* result);
+
+/// classes.Sized.text()
+bool lucent_classes_Sized_get_text(lucent_object self, lucent_error* error, lucent_string* result);
 
 #ifdef __cplusplus
 }

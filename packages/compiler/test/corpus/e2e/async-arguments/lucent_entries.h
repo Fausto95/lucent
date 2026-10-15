@@ -19,6 +19,15 @@ void lucent_async_arguments_greet(lucent_string arg0, double arg1, void (*done)(
 /// async-arguments.greetNow(name)
 bool lucent_async_arguments_greetNow(lucent_string arg0, lucent_error* error, lucent_string* result);
 
+/// async-arguments.Greeter(greeting)
+bool lucent_async_arguments_Greeter_new(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// async-arguments.Greeter.greeting()
+bool lucent_async_arguments_Greeter_get_greeting(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// async-arguments.Greeter.greet(name)
+void lucent_async_arguments_Greeter_greet(lucent_object self, lucent_string arg0, void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context);
+
 #ifdef __cplusplus
 }
 #endif

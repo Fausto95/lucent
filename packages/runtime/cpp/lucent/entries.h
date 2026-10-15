@@ -15,6 +15,8 @@
 // What else crosses (decision 0116), an optional, an array, a record or a
 // platform object, is a lucent_value: a kind, and the value of that kind.
 // An array's items and a record's keys and values are lucent_values too.
+// An instance of an exported class is a lucent_object, which an entry gives
+// its caller to own: lucent_release lets it go.
 //
 // lucent_launch(), which every app's lucent_entries.h declares, starts
 // module state at launch when a package lists launch modules (lucent.json's
@@ -60,7 +62,17 @@ typedef enum lucent_kind {
   LUCENT_RECORD = 7,
   /// A platform object: an `id` on iOS, a `jobject` on Android.
   LUCENT_PLATFORM_OBJECT = 8,
+  /// An instance of an exported class.
+  LUCENT_INSTANCE = 9,
 } lucent_kind;
+
+/// An instance of an exported class that native code holds, with its
+/// module's state: an entry gives one its caller owns.
+typedef struct lucent_object_s* lucent_object;
+
+/// Lets go of an instance an entry gave, on any thread; then of module
+/// state, once nothing else holds it. Nothing for null.
+void lucent_release(lucent_object object);
 
 typedef struct lucent_value lucent_value;
 
@@ -87,6 +99,7 @@ struct lucent_value {
     lucent_array array;
     lucent_record record;
     void* object;
+    lucent_object instance;
   } as;
 };
 
@@ -111,6 +124,14 @@ struct lucent_value {
 #include "native.h"
 #include "native_root.h"
 #include "scheduler.h"
+
+/// What a lucent_object holds: the instance, the actor its module's code runs on, and module
+/// state.
+struct lucent_object_s {
+  std::shared_ptr<lucent::Object> instance;
+  lucent::Actor* actor;
+  std::shared_ptr<lucent::ModuleStateHold> hold;
+};
 
 namespace lucent::entries {
 
@@ -199,6 +220,26 @@ inline NativeRef objectIn(const lucent_value& v) {
   return nativeIn(v.as.object);
 }
 
+/// A new lucent_object for `instance`, whose module's code runs on `actor`: the caller owns it.
+lucent_object adopt(Actor& actor, std::shared_ptr<Object> instance);
+
+/// The instance a lucent_object holds, as class `T` (named `what`): a TypeError for another
+/// class's, or null.
+template <class T>
+Ref<T> instanceIn(lucent_object o, const char* what) {
+  auto r = o ? std::dynamic_pointer_cast<T>(o->instance) : nullptr;
+  if (!r) throwTypeError((std::string("A native entry was given ") + (o ? "another class's instance" : "null") + " where it takes " + what).c_str());
+  return r;
+}
+
+template <class T>
+auto instanceValueIn(const char* what) {
+  return [what](const lucent_value& v) {
+    detail::expect(v, LUCENT_INSTANCE, what);
+    return instanceIn<T>(v.as.instance, what);
+  };
+}
+
 /// `T | null` (`null`: what an absent value is), or `T | undefined`.
 template <class T, class F>
 auto optionalIn(F inner, bool null) {
@@ -258,6 +299,19 @@ inline lucent_value objectOut(Kept& k, const NativeRef& r) {
   lucent_value v{LUCENT_PLATFORM_OBJECT, {}};
   v.as.object = nativeOut(k, r);
   return v;
+}
+
+/// An instance an entry gives, as a lucent_object its caller owns.
+inline auto instanceOut(Actor& actor) {
+  return [&actor](Kept&, const auto& r) { return adopt(actor, r); };
+}
+
+inline auto instanceValueOut(Actor& actor) {
+  return [&actor](Kept&, const auto& r) {
+    lucent_value v{LUCENT_INSTANCE, {}};
+    v.as.instance = adopt(actor, r);
+    return v;
+  };
 }
 
 template <class F>

@@ -22,6 +22,33 @@ void lucent_promise_fields_cached(void (*done)(void* context, const lucent_strin
 /// promise-fields.stringified()
 bool lucent_promise_fields_stringified(lucent_error* error, lucent_string* result);
 
+/// promise-fields.makeWriter()
+bool lucent_promise_fields_makeWriter(lucent_error* error, lucent_object* result);
+
+/// promise-fields.Writer()
+bool lucent_promise_fields_Writer_new(lucent_error* error, lucent_object* result);
+
+/// promise-fields.Writer.log()
+bool lucent_promise_fields_Writer_get_log(lucent_object self, lucent_error* error, lucent_value* result);
+
+/// promise-fields.Writer.log()
+bool lucent_promise_fields_Writer_set_log(lucent_object self, lucent_value arg0, lucent_error* error);
+
+/// promise-fields.Writer.write(s, ms)
+void lucent_promise_fields_Writer_write(lucent_object self, lucent_string arg0, double arg1, void (*done)(void* context, const lucent_error* error), void* context);
+
+/// promise-fields.Cache(x)
+bool lucent_promise_fields_Cache_new(double arg0, lucent_error* error, lucent_object* result);
+
+/// promise-fields.Cache.loads()
+bool lucent_promise_fields_Cache_get_loads(lucent_object self, lucent_error* error, double* result);
+
+/// promise-fields.Cache.loads()
+bool lucent_promise_fields_Cache_set_loads(lucent_object self, double arg0, lucent_error* error);
+
+/// promise-fields.Cache.read()
+void lucent_promise_fields_Cache_read(lucent_object self, void (*done)(void* context, const double* result, const lucent_error* error), void* context);
+
 #ifdef __cplusplus
 }
 #endif

@@ -46,6 +46,18 @@ void lucent_channels_recorded(void (*done)(void* context, const lucent_string* r
 /// channels.subscribed()
 void lucent_channels_subscribed(void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context);
 
+/// channels.Tally(n)
+bool lucent_channels_Tally_new(double arg0, lucent_error* error, lucent_object* result);
+
+/// channels.Tally.n()
+bool lucent_channels_Tally_get_n(lucent_object self, lucent_error* error, double* result);
+
+/// channels.Tally.n()
+bool lucent_channels_Tally_set_n(lucent_object self, double arg0, lucent_error* error);
+
+/// channels.Tally.plus()
+bool lucent_channels_Tally_plus(lucent_object self, lucent_error* error, double* result);
+
 #ifdef __cplusplus
 }
 #endif

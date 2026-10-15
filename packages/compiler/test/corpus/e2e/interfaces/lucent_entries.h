@@ -28,6 +28,36 @@ bool lucent_interfaces_feeds(lucent_error* error, lucent_string* result);
 /// interfaces.tagged()
 bool lucent_interfaces_tagged(lucent_error* error, lucent_string* result);
 
+/// interfaces.Circle(r)
+bool lucent_interfaces_Circle_new(double arg0, lucent_error* error, lucent_object* result);
+
+/// interfaces.Circle.kind()
+bool lucent_interfaces_Circle_get_kind(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// interfaces.Circle.name()
+bool lucent_interfaces_Circle_get_name(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// interfaces.Circle.name()
+bool lucent_interfaces_Circle_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
+
+/// interfaces.Circle.area()
+bool lucent_interfaces_Circle_area(lucent_object self, lucent_error* error, double* result);
+
+/// interfaces.Circle.describe(prefix)
+bool lucent_interfaces_Circle_describe(lucent_object self, lucent_string arg0, lucent_error* error, lucent_string* result);
+
+/// interfaces.Rect(w, h)
+bool lucent_interfaces_Rect_new(double arg0, double arg1, lucent_error* error, lucent_object* result);
+
+/// interfaces.Rect.kind()
+bool lucent_interfaces_Rect_get_kind(lucent_object self, lucent_error* error, lucent_string* result);
+
+/// interfaces.Rect.area()
+bool lucent_interfaces_Rect_area(lucent_object self, lucent_error* error, double* result);
+
+/// interfaces.Rect.describe(prefix)
+bool lucent_interfaces_Rect_describe(lucent_object self, lucent_string arg0, lucent_error* error, lucent_string* result);
+
 #ifdef __cplusplus
 }
 #endif

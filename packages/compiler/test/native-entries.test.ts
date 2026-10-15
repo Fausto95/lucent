@@ -245,6 +245,123 @@ int main() {
 }
 `;
 
+// Exported classes (decision 0116): instances as lucent_objects.
+const counters = `export class Counter {
+  count = 0;
+  private total = 0;
+  static created = 0;
+
+  constructor(start: number) {
+    this.total = start;
+    Counter.created++;
+  }
+
+  get value(): number {
+    return this.total;
+  }
+
+  set value(v: number) {
+    this.total = v;
+  }
+
+  increment(by: number): number {
+    this.count++;
+    this.total += by;
+    return this.total;
+  }
+
+  async settle(): Promise<string> {
+    await Promise.resolve();
+    return "settled at " + this.total;
+  }
+
+  static make(): Counter {
+    return new Counter(100);
+  }
+}
+
+export class Other {}
+
+export function sum(cs: Counter[]): number {
+  let n = 0;
+  for (const c of cs) n += c.value;
+  return n;
+}
+
+export function describe(c: Counter | null): string {
+  return c === null ? "none" : "a counter of " + c.value;
+}
+`;
+
+const countersMain = `#include <atomic>
+#include <chrono>
+#include <cstdio>
+#include <string>
+#include <thread>
+
+#include "lucent_entries.h"
+#include <lucent/native_root.h>
+
+static std::string text(lucent_string s) { return std::string(s.data, s.length); }
+static lucent_value instance(lucent_object o) {
+  lucent_value v{LUCENT_INSTANCE, {}};
+  v.as.instance = o;
+  return v;
+}
+
+static std::atomic<int> settled{0};
+static std::string later;
+
+int main() {
+  lucent_error error{};
+  lucent_object c = nullptr;
+  lucent_counters_Counter_new(1, &error, &c);
+  double n = 0;
+  lucent_counters_Counter_increment(c, 2, &error, &n);
+  std::printf("increment %g\\n", n);
+  lucent_counters_Counter_set_value(c, 10, &error);
+  lucent_counters_Counter_get_value(c, &error, &n);
+  std::printf("value %g", n);
+  lucent_counters_Counter_get_count(c, &error, &n);
+  std::printf(", count %g", n);
+  lucent_counters_Counter_get_created(&error, &n);
+  std::printf(", created %g\\n", n);
+
+  lucent_object made = nullptr;
+  lucent_counters_Counter_make(&error, &made);
+  const lucent_value both[] = {instance(c), instance(made)};
+  lucent_value list{LUCENT_ARRAY, {}};
+  list.as.array = lucent_array{both, 2};
+  lucent_counters_sum(list, &error, &n);
+  std::printf("sum %g\\n", n);
+
+  lucent_string said{};
+  lucent_counters_describe(lucent_value{LUCENT_NULL, {}}, &error, &said);
+  std::printf("describe %s", text(said).c_str());
+  lucent_counters_describe(instance(made), &error, &said);
+  std::printf(", %s\\n", text(said).c_str());
+
+  lucent_object other = nullptr;
+  lucent_counters_Other_new(&error, &other);
+  bool ok = lucent_counters_Counter_increment(other, 1, &error, &n);
+  std::printf("other %d %s: %s\\n", ok, text(error.name).c_str(), text(error.message).c_str());
+
+  lucent_counters_Counter_settle(c, [](void*, const lucent_string* result, const lucent_error*) {
+    later = result ? text(*result) : "error";
+    settled++;
+  }, nullptr);
+  for (int i = 0; i < 400 && settled < 1; i++) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  std::printf("settle %s\\n", later.c_str());
+
+  std::printf("holds %d", (int)lucent::moduleStateHolds());
+  lucent_release(c);
+  lucent_release(made);
+  lucent_release(other);
+  std::printf(", then %d\\n", (int)lucent::moduleStateHolds());
+  return 0;
+}
+`;
+
 const tasks = `let pendingAtLaunch = 3;
 
 export function pending(): number {
@@ -414,6 +531,41 @@ describe.skipIf(!clangxx)("native entry points", () => {
         "maybe null n=4",
         "lengths {row0:true row1:false}",
         "tags [t0 t1 t2]",
+        "",
+      ].join("\n"),
+    );
+    expect(ran.status).toBe(0);
+  }, 300_000);
+
+  it("give exported classes' instances as lucent_objects, held until released", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-entries-"));
+    fs.writeFileSync(path.join(dir, "counters.lucent.ts"), counters);
+    const r = compile([path.join(dir, "counters.lucent.ts")], { platforms: ["host"] });
+    expect(r.diagnostics.map((d) => d.message)).toEqual([]);
+
+    const header = r.files.get("lucent_entries.h")!;
+    expect(header).toContain(
+      "/// counters.Counter(start)\nbool lucent_counters_Counter_new(double arg0, lucent_error* error, lucent_object* result);",
+    );
+    expect(header).toContain(
+      "bool lucent_counters_Counter_increment(lucent_object self, double arg0, lucent_error* error, double* result);",
+    );
+    expect(header).toContain(
+      "bool lucent_counters_Counter_set_value(lucent_object self, double arg0, lucent_error* error);",
+    );
+    // A private member gets none.
+    expect(header).not.toContain("lucent_counters_Counter_get_total");
+
+    const ran = run(dir, r.files, countersMain);
+    expect(ran.stdout).toBe(
+      [
+        "increment 3",
+        "value 10, count 1, created 1",
+        "sum 110",
+        "describe none, a counter of 100",
+        "other 0 TypeError: A native entry was given another class's instance where it takes Counter",
+        "settle settled at 10",
+        "holds 3, then 0",
         "",
       ].join("\n"),
     );

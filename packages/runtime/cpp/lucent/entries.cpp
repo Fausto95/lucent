@@ -54,6 +54,10 @@ void Kept::clear() {
   objects_.clear();
 }
 
+lucent_object adopt(Actor& actor, std::shared_ptr<Object> instance) {
+  return new lucent_object_s{std::move(instance), &actor, std::make_shared<ModuleStateHold>()};
+}
+
 namespace detail {
 
 static const char* kindName(lucent_kind kind) {
@@ -76,6 +80,8 @@ static const char* kindName(lucent_kind kind) {
       return "a record";
     case LUCENT_PLATFORM_OBJECT:
       return "a platform object";
+    case LUCENT_INSTANCE:
+      return "an instance";
   }
   return "a value of unknown kind";
 }
@@ -97,3 +103,13 @@ lucent_error errorOf(Kept& k, const Error& error) {
 }
 
 }  // namespace lucent::entries
+
+extern "C" void lucent_release(lucent_object object) {
+  if (!object) return;
+  {
+    // The instance goes holding its actor, as module code's objects do; module state after it.
+    lucent::entries::detail::EntryScope scope(*object->actor);
+    object->instance.reset();
+  }
+  delete object;
+}

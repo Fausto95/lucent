@@ -28,6 +28,18 @@ bool lucent_extension_scoped(lucent_error* error, lucent_string* result);
 /// extension.closeTwice()
 bool lucent_extension_closeTwice(lucent_error* error, double* result);
 
+/// extension.Filter(strength)
+bool lucent_extension_Filter_new(double arg0, lucent_error* error, lucent_object* result);
+
+/// extension.Filter.apply(input)
+bool lucent_extension_Filter_apply(lucent_object self, lucent_bytes arg0, lucent_error* error, lucent_bytes* result);
+
+/// extension.Filter.processed()
+bool lucent_extension_Filter_processed(lucent_object self, lucent_error* error, int64_t* result);
+
+/// extension.Filter.close()
+bool lucent_extension_Filter_close(lucent_object self, lucent_error* error);
+
 #ifdef __cplusplus
 }
 #endif

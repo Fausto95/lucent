@@ -31,6 +31,18 @@ bool lucent_weak_collections_objectKeys(lucent_error* error, lucent_string* resu
 /// weak-collections.cached()
 bool lucent_weak_collections_cached(lucent_error* error, lucent_string* result);
 
+/// weak-collections.register(node, label)
+bool lucent_weak_collections_register(lucent_object arg0, lucent_string arg1, lucent_error* error);
+
+/// weak-collections.labelOf(node)
+bool lucent_weak_collections_labelOf(lucent_object arg0, lucent_error* error, lucent_string* result);
+
+/// weak-collections.Node(name)
+bool lucent_weak_collections_Node_new(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// weak-collections.Node.name()
+bool lucent_weak_collections_Node_get_name(lucent_object self, lucent_error* error, lucent_string* result);
+
 #ifdef __cplusplus
 }
 #endif

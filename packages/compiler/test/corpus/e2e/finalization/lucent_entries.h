@@ -22,6 +22,12 @@ bool lucent_finalization_sameTarget(lucent_error* error, lucent_string* result);
 /// finalization.oneToken()
 bool lucent_finalization_oneToken(lucent_error* error, lucent_string* result);
 
+/// finalization.Resource(name)
+bool lucent_finalization_Resource_new(lucent_string arg0, lucent_error* error, lucent_object* result);
+
+/// finalization.Resource.name()
+bool lucent_finalization_Resource_get_name(lucent_object self, lucent_error* error, lucent_string* result);
+
 #ifdef __cplusplus
 }
 #endif
