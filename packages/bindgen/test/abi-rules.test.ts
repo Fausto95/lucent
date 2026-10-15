@@ -890,7 +890,8 @@ describe("binding plans: Swift rules", () => {
     expect(reason(pen, "visit")).toBe(
       "closures taking or giving values other than numbers, booleans, strings and Objective-C objects cannot cross to Swift yet",
     );
-    expect(reason(pen, "sizes")).toBe("collections of optional values cannot cross to Swift yet");
+    // An optional element crosses as NSNull for none.
+    expect(reason(pen, "sizes")).toBeUndefined();
     // A tuple crosses as an array of its items' objects, which the glue reads one by one.
     expect(reason(pen, "listed")).toBe(
       "tuples of collections or closures cannot cross to Swift yet",
@@ -996,10 +997,7 @@ describe("binding plans: Swift rules", () => {
 
     expect(one("NSInteger", "in")).toMatchObject({ op: "bigint", detail: "NSInteger" });
     expect(one("bool?", "out")).toMatchObject({ op: "optional", of: [{ op: "passthrough" }] });
-    expect(one("NSData?[]", "out")).toMatchObject({
-      op: "unsupported",
-      reason: "collections of optional values cannot cross to Swift yet",
-    });
+    expect(one("NSData?[]", "out")).toMatchObject({ op: "copy-array" });
   });
 });
 

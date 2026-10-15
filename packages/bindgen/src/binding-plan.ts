@@ -1239,10 +1239,8 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
       if (t.name === "void") return place.result ? undefined : not("void values");
       if (!SWIFT_SCALARS[t.name]) return not(`${t.name} values`);
 
-      // An optional one crosses as an NSNumber, nil for none.
-      return t.nullable && place.element
-        ? not("optional numbers and booleans in collections")
-        : undefined;
+      // An optional one crosses as an NSNumber, nil for none (NSNull in a collection).
+      return undefined;
 
     case "string":
     case "bytes":
@@ -1272,7 +1270,10 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
     }
 
     case "tuple":
-      if (t.of.some((x) => x.nullable)) return not("tuples of optional values");
+      if (t.of.some((x) => x.nullable && !optionalElement(x, ctx)))
+        return not(
+          "tuples of optional values other than scalars, strings, data, dates, enums and objects",
+        );
       if (t.of.some((x) => isStruct(x, ctx))) return not("tuples of C structs");
       if (t.of.some((x) => !TUPLE_ITEMS.has(x.k))) return not("tuples of collections or closures");
 
@@ -1281,7 +1282,10 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
 
     case "array":
     case "record":
-      if (t.of.nullable) return not("collections of optional values");
+      if (t.of.nullable && !optionalElement(t.of, ctx))
+        return not(
+          "collections of optional values other than scalars, strings, data, dates, enums and objects",
+        );
       if (isStruct(t.of, ctx)) return not("collections of C structs");
 
       return place.flow === "in" && !place.element && t.nullable && hasUnion(t, ctx)
@@ -1291,9 +1295,9 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
     case "ref": {
       const facts = ctx.types(t.module, t.name);
       if (facts?.kind === "enum") {
-        // An Objective-C enum crosses as its raw value, as a Swift enum does as its index.
-        if (!facts.swift && place.element)
-          return not(`Objective-C enums (${t.name}) in collections`);
+        // An Objective-C enum crosses as its raw value, as a Swift enum does as its index; in a
+        // collection, as an NSNumber of it.
+        if (t.nullable && place.element) return undefined;
         return t.nullable
           ? not(facts.swift ? "optional Swift enums" : "optional Objective-C enums")
           : undefined;
@@ -1352,6 +1356,19 @@ function openedRule(
   return named === arity && (t.args?.length ?? 0) === arity
     ? undefined
     : not(`${t.name} values whose associated types the argument does not name`);
+}
+
+/**
+ * An optional element a collection or tuple holds as NSNull for none:
+ * a scalar, string, data, date, enum without payloads or object.
+ */
+function optionalElement(t: SchemaType, ctx: Context): boolean {
+  if (["prim", "string", "bytes", "date", "id"].includes(t.k)) return true;
+  if (t.k !== "ref") return false;
+  const facts = ctx.types(t.module, t.name);
+  if (facts?.kind === "struct") return false;
+  const swift = facts?.swift === true ? undefined : facts?.swift;
+  return !swift?.cases && !swift?.associatedTypes;
 }
 
 /** A payload crosses as an object's field: optional scalars and C structs do not yet. */

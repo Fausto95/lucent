@@ -1008,20 +1008,40 @@ export const indexOf = (e: { name: string; cases: string[] }, v: swift.Expr) =>
     swift.num(-1),
   );
 
+/**
+ * A collection's or tuple's element of type `t` an object `o` holds: an
+ * optional one is nil for NSNull (`(o as? NSNull) != nil ? nil : … as T?`).
+ */
+function fromElement(t: SdkType, o: swift.Expr): swift.Expr {
+  if (!t.nullable) return fromObject(t, o);
+  const absent = swift.binary(swift.cast(o, "as?", swift.type("NSNull")), "!=", swift.nil);
+  return swift.cast(
+    swift.conditional(absent, swift.nil, fromObject(nonNull(t), o)),
+    "as",
+    swiftType(t),
+  );
+}
+
+/** An object for a collection's or tuple's element `v`: an optional one's nil bridges as NSNull. */
+function toElement(t: SdkType, v: swift.Expr): swift.Expr {
+  if (!t.nullable) return toObject(t, v);
+  return swift.cast(each(v, "map", toObject(nonNull(t), n("$0"))), "as", swift.type("Any"));
+}
+
 /** The Swift value of type `t` an object `o` holds. */
 export function fromObject(t: SdkType, o: swift.Expr): swift.Expr {
   const cast = (type: swift.Type) => swift.cast(o, "as!", type);
   if (bridges(t)) return t.k === "id" ? o : cast(swiftType(t));
   switch (t.k) {
     case "array":
-      if (bridges(t.of)) return cast(swiftType(t));
-      return each(cast(swift.array(swift.type("AnyObject"))), "map", fromObject(t.of, n("$0")));
+      if (bridges(t.of) && !t.of.nullable) return cast(swiftType(t));
+      return each(cast(swift.array(swift.type("AnyObject"))), "map", fromElement(t.of, n("$0")));
     case "record":
-      if (bridges(t.of)) return cast(swiftType(t));
+      if (bridges(t.of) && !t.of.nullable) return cast(swiftType(t));
       return each(
         cast(swift.dictionary(swift.type("String"), swift.type("AnyObject"))),
         "mapValues",
-        fromObject(t.of, n("$0")),
+        fromElement(t.of, n("$0")),
       );
     // A Lucent function: the block it crosses as, which Swift calls as a closure.
     case "fn":
@@ -1033,12 +1053,15 @@ export function fromObject(t: SdkType, o: swift.Expr): swift.Expr {
     case "tuple": {
       const items = cast(swift.array(swift.type("AnyObject")));
       return swift.tupleLiteral(
-        t.of.map((x, i) => fromObject(x, swift.index(items, swift.num(i)))),
+        t.of.map((x, i) => fromElement(x, swift.index(items, swift.num(i)))),
       );
     }
     case "ref": {
       const e = swiftEnum(t);
       if (e) return swift.index(casesOf(e), swift.member(cast(swift.type("NSNumber")), "intValue"));
+      // An Objective-C enum (in a collection): its raw value, an NSNumber.
+      if (objcEnum(t))
+        return enumFromRaw(t, swift.member(cast(swift.type("NSNumber")), "intValue"));
       const u = payloadEnum(t);
       if (u) return call1(unionFunction(u, "Value"), o);
       // A C struct: its bytes.
@@ -1073,9 +1096,15 @@ function toObject(t: SdkType, v: swift.Expr): swift.Expr {
     case "id":
       return as(v, "AnyObject");
     case "array":
-      return as(bridges(t.of) ? v : each(v, "map", toObject(t.of, n("$0"))), "NSArray");
+      return as(
+        bridges(t.of) && !t.of.nullable ? v : each(v, "map", toElement(t.of, n("$0"))),
+        "NSArray",
+      );
     case "record":
-      return as(bridges(t.of) ? v : each(v, "mapValues", toObject(t.of, n("$0"))), "NSDictionary");
+      return as(
+        bridges(t.of) && !t.of.nullable ? v : each(v, "mapValues", toElement(t.of, n("$0"))),
+        "NSDictionary",
+      );
     // A Swift closure: as a block, an object.
     case "fn":
       return swift.call(n("unsafeBitCast"), [
@@ -1085,13 +1114,15 @@ function toObject(t: SdkType, v: swift.Expr): swift.Expr {
     case "tuple":
       return as(
         swift.arrayLiteral(
-          t.of.map((x, i) => as(toObject(x, swift.member(v, String(i))), "AnyObject")),
+          t.of.map((x, i) => as(toElement(x, swift.member(v, String(i))), "AnyObject")),
         ),
         "NSArray",
       );
     case "ref": {
       const e = swiftEnum(t);
       if (e) return swift.call(n("NSNumber"), [{ label: "value", value: indexOf(e, v) }]);
+      // An Objective-C enum (in a collection): its raw value, an NSNumber.
+      if (objcEnum(t)) return swift.call(n("NSNumber"), [{ label: "value", value: toRaw(v) }]);
       const u = payloadEnum(t);
       if (u) return call1(unionFunction(u, "Object"), v);
       if (isProtocol(t)) return as(v, "AnyObject");

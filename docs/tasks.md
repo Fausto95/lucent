@@ -661,7 +661,7 @@ still refuses.
   weak references to SDK objects (#303), categories on other modules'
   classes (#304), overriding Kotlin suspend members (#305), overriding
   Objective-C properties (#306), optional closures and tuples through
-  Swift (#307).
+  Swift (#307), optionals and enums in Swift collections (#308).
 - **Area:** bindings, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V4.
@@ -677,8 +677,12 @@ still refuses.
 - [x] Optional closures and tuples through Swift shims (#307): an
       optional block or array, nil for null; a Swift property takes a
       closure as a block.
-- [ ] Optionals, C structs and Objective-C enums inside collections, and
-      tuples holding optionals or C structs.
+- [x] Optionals and Objective-C enums inside collections, and tuples
+      holding optionals, through Swift shims (#308): an absent element as
+      `NSNull`, which Swift bridges from and to nil; an enum as an
+      `NSNumber` of its raw value.
+- [ ] C structs inside collections and tuples, and optional Objective-C
+      enums.
 - [ ] The largest skipped buckets in `config/sdk-coverage.json`:
       Objective-C enums crossing to Swift, subscripts, static members of
       generic types, and optional numbers and booleans.
