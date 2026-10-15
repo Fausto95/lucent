@@ -598,10 +598,19 @@ export class Crossings {
     if (!param || !ts.isIdentifier(param.name))
       bodyFail(content, "a list's item is a name: `(item) => …`");
 
-    if (
-      !this.computed(source, new Set()) ||
-      !this.checker.isArrayType(this.checker.getTypeAtLocation(source))
-    )
+    const sourceType = this.checker.getTypeAtLocation(source);
+    const element = this.checker.isArrayType(sourceType)
+      ? this.checker.getTypeArguments(sourceType as ts.TypeReference)[0]
+      : undefined;
+
+    // A list of instances (T123): its items cross as plain data, which the setup maps them to.
+    if (element && this.lucentInstanceType(element))
+      bodyFail(
+        source,
+        `a ${title} list shows plain data, not instances, for now: show what a setup function maps \`${source.getText()}\` to (\`const rows = () => ${source.getText()}.map((x) => ({ … }))\`)`,
+      );
+
+    if (!this.computed(source, new Set()) || !this.checker.isArrayType(sourceType))
       bodyFail(
         source,
         `a ${title} list shows an array the setup computes (a signal, a prop, what a setup function returns): \`${source.getText()}\` is not one`,
@@ -808,6 +817,13 @@ export class Crossings {
 
     if (!ts.isPropertyAccessExpression(access)) return;
 
+    // An instance's method (T123): the body shows what the setup computes from it.
+    if (ts.isCallExpression(e) && this.lucentInstance(access.expression))
+      bodyFail(
+        e,
+        `the body calls \`${access.getText()}\`, a method of an instance: call it in a setup function the body calls, \`const ${access.name.text} = () => ${e.getText()}\``,
+      );
+
     const receiver = skipParentheses(access.expression);
 
     if (!ts.isIdentifier(receiver)) return;
@@ -959,6 +975,23 @@ export class Crossings {
     const [k] = kinds;
 
     return kinds.size === 1 && k && k !== "other" ? { k, nullable } : undefined;
+  }
+
+  /** Whether `e` is an instance of a class of Lucent code (a prop's, a setup value's), not a toolkit's or an SDK's. */
+  private lucentInstance(e: ts.Expression): boolean {
+    return this.lucentInstanceType(this.checker.getTypeAtLocation(e));
+  }
+
+  private lucentInstanceType(t: ts.Type): boolean {
+    const type = this.checker.getNonNullableType(t);
+    const decl = type.getSymbol()?.valueDeclaration;
+
+    return (
+      !!decl &&
+      ts.isClassDeclaration(decl) &&
+      !builtinSdkModuleOf(decl.getSourceFile()) &&
+      !decl.getSourceFile().isDeclarationFile
+    );
   }
 
   private refusePlain(node: ts.Node, type = this.checker.getTypeAtLocation(node)): never {

@@ -267,7 +267,7 @@ export const limitations: { title: string; items: string[] }[] = [
     "title": "Views",
     "items": [
       "Views are in preview: their API may change before the view gate closes.",
-      "A SwiftUI or Compose body takes no instance prop yet ([T123](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t123)). An instance can't be an event's argument or a command's.",
+      "A SwiftUI or Compose body doesn't show a list of instances yet: a setup function maps it to plain data ([T123](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t123)). An instance can't be an event's argument or a command's.",
       "The check of an instance's members follows them through its class, the classes around it and the interfaces they implement. A use through another structural type, or a spread, isn't seen.",
       "A component inside Reanimated's animated views, Gesture Handler's detectors or react-native-screens' screens is untested ([T121](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t121)).",
       "A component's code presents from its view controller only before its first `await`. After it, `present` shows from the scene's top controller, and outlives the component unless a signal stops it ([T122](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t122)).",
@@ -279,6 +279,7 @@ export const limitations: { title: string; items: string[] }[] = [
       "Android mounts each commit, unless the app turns on `enableAccumulatedUpdatesInRawPropsAndroid`.",
       "A `Flex` inside a stack view sized by Auto Layout has no intrinsic size.",
       "Absolute children of a padded component follow React Native's padding-box rule relative to the slot. A fixed-size slot inside a component sized by its children is bounded at three reports.",
+      "A value a SwiftUI or Compose callback passes, as in `() => pick(shown())`, is computed when what it reads changes, not when the callback runs ([T123](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t123)). Compute it in the setup function the callback calls.",
       "Helper view functions take plain data and scalar callbacks only: no toolkit values, children, lists or bindings inside a helper ([T123](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t123)).",
       "SwiftUI: a static value named like a method (`Animation.easeInOut`) is left out, so write the call. Only closed ranges (`a...b`) are mapped, content conditions must be `boolean`, and `Int(x)` traps on NaN or infinity.",
       "SwiftUI: a two-value `onChange` closure doesn't type-check, because TypeScript tries the one-value overload first.",

@@ -11,9 +11,9 @@ generated from this file.
 ## Views
 
 - Views are in preview: their API may change before the view gate closes.
-- A SwiftUI or Compose body takes no instance prop yet
-  ([T123](tasks.md#t123)). An instance can't be an event's argument or a
-  command's.
+- A SwiftUI or Compose body doesn't show a list of instances yet: a
+  setup function maps it to plain data ([T123](tasks.md#t123)). An
+  instance can't be an event's argument or a command's.
 - The check of an instance's members follows them through its class, the
   classes around it and the interfaces they implement. A use through
   another structural type, or a spread, isn't seen.
@@ -44,6 +44,10 @@ generated from this file.
 - Absolute children of a padded component follow React Native's
   padding-box rule relative to the slot. A fixed-size slot inside a
   component sized by its children is bounded at three reports.
+- A value a SwiftUI or Compose callback passes, as in `() => pick(shown())`,
+  is computed when what it reads changes, not when the callback runs
+  ([T123](tasks.md#t123)). Compute it in the setup function the callback
+  calls.
 - Helper view functions take plain data and scalar callbacks only: no
   toolkit values, children, lists or bindings inside a helper
   ([T123](tasks.md#t123)).

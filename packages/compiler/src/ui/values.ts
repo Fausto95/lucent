@@ -263,10 +263,12 @@ export class ViewTypes {
 
 /**
  * What code for a toolkit body (SwiftUI, Compose) does with an instance:
- * nothing, as the view analysis refuses one there (T123).
+ * nothing, as one never crosses into Swift or Kotlin. The body shows what
+ * the setup computes from it, and a slot's type has no instance classes
+ * (Crossings), so an instance is never a slot's value (decision 0121).
  */
 export function toolkitInstance(): never {
-  throw new Error("a toolkit body takes no instance props: the view analysis refuses them (T123)");
+  throw new Error("an instance never crosses into a toolkit body: it stays in C++ (decision 0121)");
 }
 
 /** Whether null is one of a type's values. */
