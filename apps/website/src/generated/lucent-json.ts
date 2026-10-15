@@ -119,6 +119,54 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "description": "The lowest iOS version the package runs on, such as \"15.1\". The pod requires the highest any package needs, and never less than React Native's minimum. CocoaPods fails an app target below it."
   },
   {
+    "field": "ios.privacy",
+    "type": "object",
+    "required": false,
+    "description": "What the code's privacy manifest says, in Apple's keys. The build merges packages' into the pod's PrivacyInfo.xcprivacy, in a resource bundle of its own, which Xcode's privacy report reads with the app's. Tracking holds if any package tracks; domains, reasons and purposes join."
+  },
+  {
+    "field": "ios.privacy.tracking",
+    "type": "boolean",
+    "required": false,
+    "description": "NSPrivacyTracking: whether the code tracks users, as App Tracking Transparency defines it."
+  },
+  {
+    "field": "ios.privacy.trackingDomains",
+    "type": "string[]",
+    "required": false,
+    "description": "NSPrivacyTrackingDomains: the domains the code connects to that track."
+  },
+  {
+    "field": "ios.privacy.accessedAPIs",
+    "type": "{ [name]: string[] }",
+    "required": false,
+    "description": "NSPrivacyAccessedAPITypes: a required-reason API's category → the reasons the code uses it, such as { \"NSPrivacyAccessedAPICategoryUserDefaults\": [\"CA92.1\"] }."
+  },
+  {
+    "field": "ios.privacy.collectedData",
+    "type": "{ [name]: object }",
+    "required": false,
+    "description": "NSPrivacyCollectedDataTypes: a data type → whether it is linked to the user, used for tracking, and what for."
+  },
+  {
+    "field": "ios.privacy.collectedData.<name>.linked",
+    "type": "boolean",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "ios.privacy.collectedData.<name>.tracking",
+    "type": "boolean",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "ios.privacy.collectedData.<name>.purposes",
+    "type": "string[]",
+    "required": true,
+    "description": ""
+  },
+  {
     "field": "android",
     "type": "object",
     "required": false,

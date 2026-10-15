@@ -14,6 +14,9 @@ import {
   libraryBuildGradle,
   packagesCmake,
   podspec,
+  PRIVACY_BUNDLE,
+  PRIVACY_MANIFEST,
+  privacyManifest,
   withProjectDir,
 } from "./native-build-files.ts";
 import type { NativeInputs, PackagePath } from "./package-config.ts";
@@ -333,6 +336,11 @@ export function writeNativePackage(
   const cmakeFile = path.join(outDir, "android/CMakeLists.txt");
   want.set(cmakeFile, withProjectDir(want.get(cmakeFile)!.toString(), projectDir));
 
+  // Packages' privacy manifests, merged, in a resource bundle of the pod's own: Xcode's privacy
+  // report aggregates it with the app's.
+  const privacy = native?.ios.privacy;
+  if (privacy) want.set(path.join(outDir, PRIVACY_MANIFEST), privacyManifest(privacy));
+
   const podspecFile = path.join(outDir, "LucentNative.podspec");
   want.set(
     podspecFile,
@@ -345,10 +353,12 @@ export function writeNativePackage(
       importedPods,
       sources,
       resources: inPackage(native?.ios.resources ?? []),
-      resourceBundles: Object.entries(native?.ios.resourceBundles ?? {}).map(([name, paths]) => [
-        name,
-        inPackage(paths),
-      ]),
+      resourceBundles: [
+        ...Object.entries(native?.ios.resourceBundles ?? {}).map(
+          ([name, paths]): [string, string[]] => [name, inPackage(paths)],
+        ),
+        ...(privacy ? [[PRIVACY_BUNDLE, [PRIVACY_MANIFEST]] as [string, string[]]] : []),
+      ],
       vendoredFrameworks: inPackage(native?.ios.vendoredFrameworks ?? []),
       swiftPackages: [
         ...Object.entries(native?.ios.swiftPackages ?? {}),

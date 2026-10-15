@@ -28,6 +28,22 @@ Leave out a permission that an Android SDK method your modules call declares wit
 
 `lucent build` writes a permission by name, with no `maxSdkVersion`.
 
+## Privacy manifests
+
+`ios.privacy` says what your code's privacy manifest would: the required-reason APIs it calls and why, the data it collects, and whether it tracks. The keys are Apple's.
+
+```json title="lucent.json"
+{
+  "ios": {
+    "privacy": {
+      "accessedAPIs": { "NSPrivacyAccessedAPICategoryUserDefaults": ["CA92.1"] }
+    }
+  }
+}
+```
+
+`lucent build` merges every package's into the native package's `PrivacyInfo.xcprivacy`, in a resource bundle of its own. Xcode's privacy report reads it with the app's manifest, so the app adds nothing.
+
 ## Features, queries and meta-data
 
 `android.features` declares `<uses-feature>`s: a feature's name, and whether the app requires it. A feature any package requires is required.

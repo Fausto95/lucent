@@ -61,9 +61,27 @@ export {
   type PlistValue,
   type QueryIntent,
   type ManifestQueries,
+  type PrivacyManifest,
+  type CollectedData,
   type SwiftPackage,
   type SwiftPackageRequirement,
 } from "./package-schema.ts";
+
+/**
+ * Packages' privacy manifests, merged: tracking if any tracks, each
+ * domain and reason any gives, and for each data type, linked or
+ * tracking if any says so, and every purpose.
+ */
+export interface ResolvedPrivacy {
+  tracking?: From;
+  trackingDomains: Record<string, From>;
+  /** Category → reason → who gave it. */
+  accessedAPIs: Record<string, Record<string, From>>;
+  collectedData: Record<
+    string,
+    { linked: boolean; tracking: boolean; purposes: Record<string, From>; from: From }
+  >;
+}
 
 /** The packages that asked for something, sorted by name. */
 export type From = string[];
@@ -97,6 +115,8 @@ export interface ResolvedNative {
     entitlements: Record<string, Agreed<PlistValue>>;
     /** The highest any package needs, and the packages that need it. */
     deploymentTarget?: Agreed<string>;
+    /** The privacy manifest's declarations, merged (when any package has some). */
+    privacy?: ResolvedPrivacy;
   };
   android: {
     /** Gradle `group:artifact` → each version asked for (Gradle picks) → who asked. */
@@ -423,6 +443,7 @@ export function resolveNative(
       swiftPackages: swiftPackages(declared),
       entitlements: plist(declared, (n) => n.ios?.entitlements, "entitlement"),
       ...highest(declared, "deploymentTarget", (n) => n.ios?.deploymentTarget, compareVersions),
+      ...privacy(declared),
     },
     android: {
       dependencies: requirements(
@@ -824,6 +845,52 @@ function components(declared: Declared[]): ResolvedNative["android"]["components
       return [name, { value: declaredAs[0]![0], from: declaredAs.flatMap(([, from]) => from) }];
     }),
   );
+}
+
+/** The packages' privacy manifests, merged; nothing when none has one. */
+function privacy(declared: Declared[]): { privacy?: ResolvedPrivacy } {
+  const with_ = declared.filter((d) => d.native.ios?.privacy);
+  if (!with_.length) return {};
+  const tracking = with_.filter((d) => d.native.ios!.privacy!.tracking).map((d) => d.name);
+  const accessedAPIs = new Map<string, Map<string, From>>();
+  const collected = new Map<
+    string,
+    { linked: boolean; tracking: boolean; purposes: Map<string, From>; from: From }
+  >();
+  for (const d of with_) {
+    const p = d.native.ios!.privacy!;
+    for (const [category, reasons] of Object.entries(p.accessedAPIs ?? {})) {
+      const known = accessedAPIs.get(category) ?? new Map<string, From>();
+      for (const r of new Set(reasons)) known.set(r, [...(known.get(r) ?? []), d.name]);
+      accessedAPIs.set(category, known);
+    }
+    for (const [type, use] of Object.entries(p.collectedData ?? {})) {
+      const known = collected.get(type) ?? {
+        linked: false,
+        tracking: false,
+        purposes: new Map<string, From>(),
+        from: [],
+      };
+      for (const purpose of new Set(use.purposes))
+        known.purposes.set(purpose, [...(known.purposes.get(purpose) ?? []), d.name]);
+      collected.set(type, {
+        linked: known.linked || use.linked,
+        tracking: known.tracking || use.tracking,
+        purposes: known.purposes,
+        from: [...known.from, d.name],
+      });
+    }
+  }
+  return {
+    privacy: {
+      ...(tracking.length ? { tracking } : {}),
+      trackingDomains: union(with_, (n) => n.ios?.privacy?.trackingDomains),
+      accessedAPIs: sorted([...accessedAPIs].map(([c, reasons]) => [c, sorted(reasons)])),
+      collectedData: sorted(
+        [...collected].map(([type, u]) => [type, { ...u, purposes: sorted(u.purposes) }]),
+      ),
+    },
+  };
 }
 
 /** `{ [key]: value }` when `value` holds something, so a manifest without it stays as it was. */

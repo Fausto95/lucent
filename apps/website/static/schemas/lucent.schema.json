@@ -188,6 +188,57 @@
           "type": "string",
           "pattern": "^\\d+(\\.\\d+){0,2}$",
           "description": "The lowest iOS version the package runs on, such as \"15.1\". The pod requires the highest any package needs, and never less than React Native's minimum. CocoaPods fails an app target below it."
+        },
+        "privacy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tracking": {
+              "type": "boolean",
+              "description": "NSPrivacyTracking: whether the code tracks users, as App Tracking Transparency defines it."
+            },
+            "trackingDomains": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "NSPrivacyTrackingDomains: the domains the code connects to that track."
+            },
+            "accessedAPIs": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "description": "NSPrivacyAccessedAPITypes: a required-reason API's category → the reasons the code uses it, such as { \"NSPrivacyAccessedAPICategoryUserDefaults\": [\"CA92.1\"] }."
+            },
+            "collectedData": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["linked", "tracking", "purposes"],
+                "properties": {
+                  "linked": {
+                    "type": "boolean"
+                  },
+                  "tracking": {
+                    "type": "boolean"
+                  },
+                  "purposes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "description": "NSPrivacyCollectedDataTypes: a data type → whether it is linked to the user, used for tracking, and what for."
+            }
+          },
+          "description": "What the code's privacy manifest says, in Apple's keys. The build merges packages' into the pod's PrivacyInfo.xcprivacy, in a resource bundle of its own, which Xcode's privacy report reads with the app's. Tracking holds if any package tracks; domains, reasons and purposes join."
         }
       }
     },

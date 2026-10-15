@@ -1130,3 +1130,80 @@ describe("queries, features and the application's meta-data", () => {
     });
   });
 });
+
+describe("privacy manifests", () => {
+  it("merge: tracking if any tracks, each domain and reason, a data type's use joined", () => {
+    const { manifest } = resolveNative([
+      pkg("lucent-a", {
+        ios: {
+          privacy: {
+            accessedAPIs: { NSPrivacyAccessedAPICategoryUserDefaults: ["CA92.1"] },
+            collectedData: {
+              NSPrivacyCollectedDataTypeCrashData: {
+                linked: false,
+                tracking: false,
+                purposes: ["NSPrivacyCollectedDataTypePurposeAppFunctionality"],
+              },
+            },
+          },
+        },
+      }),
+      pkg("lucent-b", {
+        ios: {
+          privacy: {
+            tracking: true,
+            trackingDomains: ["ads.example.com"],
+            accessedAPIs: {
+              NSPrivacyAccessedAPICategoryUserDefaults: ["1C8F.1"],
+              NSPrivacyAccessedAPICategorySystemBootTime: ["35F9.1"],
+            },
+            collectedData: {
+              NSPrivacyCollectedDataTypeCrashData: {
+                linked: true,
+                tracking: false,
+                purposes: ["NSPrivacyCollectedDataTypePurposeAnalytics"],
+              },
+            },
+          },
+        },
+      }),
+      pkg("lucent-c", { ios: { frameworks: ["UIKit"] } }),
+    ]);
+
+    expect(manifest.ios.privacy).toEqual({
+      tracking: ["lucent-b"],
+      trackingDomains: { "ads.example.com": ["lucent-b"] },
+      accessedAPIs: {
+        NSPrivacyAccessedAPICategorySystemBootTime: { "35F9.1": ["lucent-b"] },
+        NSPrivacyAccessedAPICategoryUserDefaults: {
+          "1C8F.1": ["lucent-b"],
+          "CA92.1": ["lucent-a"],
+        },
+      },
+      collectedData: {
+        NSPrivacyCollectedDataTypeCrashData: {
+          linked: true,
+          tracking: false,
+          purposes: {
+            NSPrivacyCollectedDataTypePurposeAnalytics: ["lucent-b"],
+            NSPrivacyCollectedDataTypePurposeAppFunctionality: ["lucent-a"],
+          },
+          from: ["lucent-a", "lucent-b"],
+        },
+      },
+    });
+    expect(resolveNative([pkg("lucent-c", {})]).manifest.ios).not.toHaveProperty("privacy");
+  });
+
+  it("checks a data type's fields", () => {
+    expect(() =>
+      resolveNative([
+        pkg("lucent-a", {
+          ios: { privacy: { collectedData: { NSPrivacyCollectedDataTypeName: { linked: true } } } },
+        }),
+      ]),
+    ).toThrow(
+      "lucent-a/lucent.json: ios.privacy.collectedData.NSPrivacyCollectedDataTypeName.tracking is required",
+    );
+  });
+});
