@@ -315,6 +315,10 @@ function requirementsOf(
   for (const m of p.cls.methods ?? []) {
     // Refused: Swift would call it without an object.
     if (m.static) requirePlan(info.decl, of, m, "implement");
+    if (m.swift?.subscript)
+      reject(
+        `${p.cls.name} requires ${m.swift.name}: Lucent classes cannot implement subscript requirements; write the conforming type in Swift (a native extension)`,
+      );
 
     const found = findMember(chain, m.name, (x) => ts.isMethodDeclaration(x) && !!x.body);
     if (!found) reject(`implement ${p.cls.name}.${m.name}`);

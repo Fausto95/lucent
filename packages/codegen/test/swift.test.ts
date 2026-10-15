@@ -82,6 +82,13 @@ describe("Swift expressions", () => {
     expect(
       printExpr(swift.index(swift.cast(name("o"), "as!", swift.type("NSArray")), swift.num(0))),
     ).toBe("(o as! NSArray)[0]");
+    // A subscript's arguments are labelled as a call's are.
+    const grid = swift.subscript(name("grid"), [
+      { value: name("a0") },
+      { label: "column", value: name("a1") },
+    ]);
+    expect(printExpr(grid)).toBe("grid[a0, column: a1]");
+    expect(printExpr(swift.assign(grid, name("a2")))).toBe("grid[a0, column: a1] = a2");
   });
 
   it("print tuple literals and their elements", () => {

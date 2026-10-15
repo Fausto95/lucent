@@ -294,6 +294,7 @@ export const limitations: { title: string; items: string[] }[] = [
     "title": "Language, runtime and bindings",
     "items": [
       "Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)): break them with `WeakRef`, or key what one side holds in a `WeakMap`.",
+      "A Lucent class implementing a Swift protocol can't implement its subscript requirements (`LUCENT1005`): write the conforming type in Swift.",
       "A module's Objective-C categories on another module's class are bound, but not their class properties. Nor are a Swift extension's members ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)).",
       "A `WeakMap` value that holds its own key keeps it, and the entry, for as long as the map lives. An SDK object's entry outlives its key until the table next doubles, its value with it. A `FinalizationRegistry` still refuses SDK objects as targets.",
       "`new AggregateError` is refused (`LUCENT1003`). Read the `errors` of the one `Promise.any` rejects with as `e.errors as Error[]`, since TypeScript types them `any`.",

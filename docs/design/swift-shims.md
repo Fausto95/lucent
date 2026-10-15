@@ -51,15 +51,20 @@ which the call is written, and whether it is `async`, `throws` or
 - Initializers TypeScript cannot tell apart become static factories
   (`withService`, `withInt`). A `ContiguousBytes` type gets a `bytes`
   property that copies its bytes out.
+- **Subscripts** are methods: `subscript(row:)` is `subscript`, and when
+  it can be set, `setSubscript`, whose last parameter is the new value
+  ([0113](../decisions/0113-a-swift-subscript-is-the-methods-subscript-and-setsubscript.md)).
+  Their shims read and write `self[row: a0]`.
 - Bridged value types (`URL`, `Date`) stay their Objective-C classes or
-  Lucent values. Subscripts, parameter packs, `inout` parameters, failable
-  and generic initializers are skipped with the reason.
+  Lucent values. Parameter packs, `inout` parameters, failable and generic
+  initializers are skipped with the reason.
 
 ## How a call crosses
 
 `emit/swift.ts` registers one `@_cdecl("lucent_swift_<hash>")` shim per
-member, role, argument count and type arguments, hashed so a member keeps
-its symbol. All go into `.lucent/native/cpp/generated/ios/LucentShims.swift`,
+member, role, argument types and type arguments, hashed so a member keeps
+its symbol (overloads Swift names alike, `subscript(_:)` of an `Int` and of
+a `String`, get one each). All go into `.lucent/native/cpp/generated/ios/LucentShims.swift`,
 and the glue declares each `extern "C"`. Values cross as the Objective-C
 values the glue already converts: one set of conversions serves both.
 

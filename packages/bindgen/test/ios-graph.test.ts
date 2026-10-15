@@ -382,3 +382,100 @@ describe("members a module adds to another module's class", () => {
     expect(withExtensions(declares, new Map([["Foundation", foundation]]))).toBe(declares);
   });
 });
+
+describe("Swift subscripts", () => {
+  const G = "s:4Grid0A0V";
+  const INT = { kind: "typeIdentifier", spelling: "Int", preciseIdentifier: "s:Si" };
+  const STRING = { kind: "typeIdentifier", spelling: "String", preciseIdentifier: "s:SS" };
+  const text = (spelling: string) => ({ kind: "text", spelling });
+  const param = (name: string, type: typeof INT) => ({
+    name,
+    declarationFragments: [{ kind: "internalParam", spelling: name }, text(": "), type],
+  });
+  const subscript = (
+    usr: string,
+    title: string,
+    params: [string, typeof INT][],
+    returns: typeof INT,
+    accessors: string,
+    kind = "swift.subscript",
+  ) =>
+    sym(kind, `${G}${usr}`, ["Grid", title], {
+      names: { title },
+      declarationFragments: [
+        ...(kind === "swift.type.subscript"
+          ? [{ kind: "keyword", spelling: "static" }, text(" ")]
+          : []),
+        { kind: "keyword", spelling: "subscript" },
+        text("("),
+        ...params.flatMap(([n, t], i) => [
+          ...(i ? [text(", ")] : []),
+          { kind: "internalParam", spelling: n },
+          text(": "),
+          t,
+        ]),
+        text(") -> "),
+        returns,
+        // The accessors' words are keywords: `{ get async throws }`.
+        text(" { "),
+        ...accessors
+          .split(" ")
+          .flatMap((w, i) => [...(i ? [text(" ")] : []), { kind: "keyword", spelling: w }]),
+        text(" }"),
+      ],
+      functionSignature: { parameters: params.map(([n, t]) => param(n, t)), returns: [returns] },
+    });
+  const graph: SymbolGraph = {
+    symbols: [
+      sym("swift.struct", G, ["Grid"]),
+      subscript(
+        "cell",
+        "subscript(_:_:)",
+        [
+          ["row", INT],
+          ["column", INT],
+        ],
+        DOUBLE,
+        "get set",
+      ),
+      subscript("named", "subscript(_:)", [["name", STRING]], DOUBLE, "get async throws"),
+      subscript("shared", "subscript(_:)", [["key", STRING]], INT, "get", "swift.type.subscript"),
+    ],
+    relationships: ["cell", "named", "shared"].map((u) => ({
+      kind: "memberOf",
+      source: `${G}${u}`,
+      target: G,
+    })),
+  };
+
+  it("are the methods subscript and, when they can be set, setSubscript", () => {
+    const [schema] = buildIosSchemas(new Map([["Grid", graph]]), () => new Map());
+    const grid = schema!.types.find((t) => t.name === "Grid");
+    if (grid?.kind !== "class") throw new Error("no Grid");
+
+    const shown = grid.methods!.map((m) => [
+      m.name,
+      !!m.static,
+      m.params.map((p) => p.name),
+      m.swift,
+    ]);
+    expect(shown).toEqual([
+      ["subscript", false, ["row", "column"], { name: "subscript(_:_:)", subscript: "get" }],
+      [
+        "setSubscript",
+        false,
+        ["row", "column", "newValue"],
+        { name: "subscript(_:_:)", subscript: "set" },
+      ],
+      [
+        "subscript",
+        false,
+        ["name"],
+        { name: "subscript(_:)", subscript: "get", async: true, throws: true },
+      ],
+      ["subscript", true, ["key"], { name: "subscript(_:)", subscript: "get" }],
+    ]);
+    expect(grid.methods![1]!.params[2]!.type).toEqual(grid.methods![0]!.returns);
+    expect(schema!.skipped ?? []).toEqual([]);
+  });
+});

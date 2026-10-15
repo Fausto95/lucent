@@ -808,3 +808,139 @@ export async function run(): Promise<string> {
     );
   });
 });
+
+describe("Swift subscripts", () => {
+  const set = () =>
+    schemaSet([
+      {
+        module: "Gauges",
+        frameworks: [],
+        types: [
+          {
+            kind: "class",
+            name: "Grid",
+            native: "Gauges.Grid",
+            swift: { kind: "struct" },
+            constructors: [{ params: [], swift: { name: "init()" } }],
+            methods: [
+              {
+                name: "subscript",
+                params: [
+                  { name: "row", type: "double" },
+                  { name: "column", type: "double" },
+                ],
+                returns: "string",
+                swift: { name: "subscript(_:column:)", subscript: "get" },
+              },
+              {
+                name: "setSubscript",
+                params: [
+                  { name: "row", type: "double" },
+                  { name: "column", type: "double" },
+                  { name: "newValue", type: "string" },
+                ],
+                returns: "void",
+                swift: { name: "subscript(_:column:)", subscript: "set" },
+              },
+              // Overloads Swift names alike: told apart by their types.
+              {
+                name: "subscript",
+                params: [{ name: "name", type: "string" }],
+                returns: "double?",
+                swift: { name: "subscript(_:)", subscript: "get", async: true, throws: true },
+              },
+              {
+                name: "subscript",
+                params: [{ name: "index", type: "double" }],
+                returns: "double?",
+                swift: { name: "subscript(_:)", subscript: "get" },
+              },
+              {
+                name: "subscript",
+                static: true,
+                params: [{ name: "key", type: "string" }],
+                returns: "double",
+                swift: { name: "subscript(_:)", subscript: "get" },
+              },
+            ],
+          },
+          {
+            kind: "class",
+            name: "Lookup",
+            native: "Gauges.Lookup",
+            swift: { kind: "protocol" },
+            interface: true,
+            methods: [
+              {
+                name: "subscript",
+                params: [{ name: "key", type: "string" }],
+                returns: "string",
+                abstract: true,
+                swift: { name: "subscript(_:)", subscript: "get" },
+              },
+            ],
+          },
+          {
+            kind: "class",
+            name: "Index",
+            native: "Gauges.Index",
+            swift: { kind: "class" },
+            constructors: [{ params: [], swift: { name: "init()" } }],
+            methods: [
+              {
+                name: "use",
+                params: [{ name: "l", type: "Gauges.Lookup" }],
+                returns: "void",
+                swift: { name: "use(_:)" },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+  it("read and write through Swift's subscript syntax", () => {
+    const p = setProgram(
+      `import { Grid } from "lucent:ios/Gauges";
+export async function run(): Promise<string> {
+  const g = new Grid();
+  g.setSubscript(1, 2, "x");
+  return \`\${g.subscript(1, 2)} \${await g.subscript("a")} \${g.subscript(3)} \${Grid.subscript("k")}\`;
+}
+`,
+      set(),
+    );
+
+    expect(p.messages).toEqual([]);
+    expect(p.shims).toContain(
+      "(lucentObject(self_) as! LucentBox<Gauges.Grid>).value[a0, column: a1] = lucentObject(a2) as! String",
+    );
+    expect(p.shims).toContain(
+      "(lucentObject(self_) as! LucentBox<Gauges.Grid>).value[a0, column: a1]",
+    );
+    expect(p.shims).toContain("let v = try await o_.value[v0]");
+    expect(p.shims).toContain("(lucentObject(self_) as! LucentBox<Gauges.Grid>).value[a0]");
+    expect(p.shims).toContain("Gauges.Grid[lucentObject(a0) as! String]");
+  });
+
+  it("are refused as requirements a Lucent class implements", () => {
+    const p = setProgram(
+      `import { Index, type Lookup } from "lucent:ios/Gauges";
+class Table implements Lookup {
+  subscript(key: string): string {
+    return key;
+  }
+}
+export async function run(): Promise<string> {
+  new Index().use(new Table());
+  return "";
+}
+`,
+      set(),
+    );
+
+    expect(p.messages.join("\n")).toContain(
+      "Table: Lookup requires subscript(_:): Lucent classes cannot implement subscript requirements",
+    );
+  });
+});

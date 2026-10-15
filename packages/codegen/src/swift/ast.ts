@@ -41,6 +41,8 @@ export type Expr =
   | { k: "tupleLiteral"; items: Expr[] }
   | { k: "dictionaryLiteral"; entries: { key: Expr; value: Expr }[] }
   | { k: "index"; object: Expr; index: Expr }
+  /** `object[label: value, …]`: a subscript's arguments, labelled as a call's are. */
+  | { k: "subscript"; object: Expr; args: Arg[] }
   /** `callee(args) { trailing }`. */
   | { k: "call"; callee: Expr; args: Arg[]; trailing?: Expr & { k: "closure" } }
   /**

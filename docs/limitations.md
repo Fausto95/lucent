@@ -71,6 +71,9 @@ generated from this file.
 - Reference cycles are not collected (see
   [Not planned](../ROADMAP.md#not-planned)): break them with `WeakRef`, or
   key what one side holds in a `WeakMap`.
+- A Lucent class implementing a Swift protocol can't implement its
+  subscript requirements (`LUCENT1005`): write the conforming type in
+  Swift.
 - A module's Objective-C categories on another module's class are bound,
   but not their class properties. Nor are a Swift extension's members
   ([T112](tasks.md#t112)).

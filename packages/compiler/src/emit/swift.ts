@@ -878,7 +878,9 @@ function register(em: FnEmitter, use: SwiftUse): SwiftShim {
     use.role,
     use.static ? "static" : "",
     use.member.name,
-    `${use.params.length}`,
+    use.member.subscript ?? "",
+    // Overloads Swift names alike (`subscript(_:)` of an Int and of a String).
+    ...use.params.map((a) => formatSchemaType(a)),
     ...(use.typeArgs ?? []).map((a) => formatSchemaType(a)),
   ];
   const hash = createHash("sha1").update(key.join("|")).digest("hex").slice(0, 12);
@@ -1281,6 +1283,10 @@ function shimFunction(s: SwiftShim): swift.Decl {
       case "set":
         return swift.assign(swift.member(self, s.member.name), args[0]!);
       case "call":
+        // A subscript's setter: the new value is the argument after its labelled ones.
+        if (s.member.subscript === "set")
+          return swift.assign(swift.subscript(self, labelled), args.at(-1)!);
+        if (s.member.subscript === "get") return swift.subscript(self, labelled);
         return swift.call(swift.member(self, baseName(s.member.name)), labelled);
     }
   })();
