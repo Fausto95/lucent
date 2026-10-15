@@ -98,7 +98,9 @@ export function printType(t: Type): string {
       return t.of.k === "function" ? `(${printType(t.of)})?` : `${printType(t.of)}?`;
     case "function": {
       const fnType = `(${t.params.map(printType).join(", ")}) -> ${printType(t.ret)}`;
-      return t.suspend ? `suspend ${fnType}` : fnType;
+      const annotated = t.composable ? `@Composable ${fnType}` : fnType;
+
+      return t.suspend ? `suspend ${annotated}` : annotated;
     }
     case "star":
       return "*";

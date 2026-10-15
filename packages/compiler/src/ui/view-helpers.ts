@@ -43,6 +43,17 @@ export interface HelperToolkitValue {
   readonly optional: boolean;
 }
 
+/**
+ * A prop holding a bound signal (`Bound<boolean>`): its user binds it
+ * (`bind(signal)`, or a bound prop of its own), and the helper's view shows
+ * it and changes it (`<Toggle isOn={props.on}>`). A Swift `Binding`, a
+ * Kotlin value and its change callback (`on`, `onChanged`).
+ */
+export interface HelperBinding {
+  readonly name: string;
+  readonly type: "number" | "boolean" | "string";
+}
+
 export interface ViewHelper {
   readonly fn: FunctionLike;
   readonly name: string;
@@ -57,6 +68,14 @@ export interface ViewHelper {
   readonly callbacks: readonly HelperCallback[];
   /** Its props holding the toolkit's values, in their declaration's order. */
   readonly toolkitValues: readonly HelperToolkitValue[];
+  /** Its props holding bound signals, in their declaration's order. */
+  readonly bindings: readonly HelperBinding[];
+  /**
+   * Whether it takes children (`children: Content`, `Shown` in Compose):
+   * what its user's element holds, which it shows where it reads
+   * `props.children`, a content closure (lambda) of its view.
+   */
+  readonly children: boolean;
 }
 
 /** What a helper's props give where it is used: each prop's value or callback, in the user's code. */
@@ -192,6 +211,8 @@ function check(checker: ts.TypeChecker, fn: FunctionLike, at: ts.Node): ViewHelp
     statements,
     callbacks: given?.callbacks ?? [],
     toolkitValues: given?.toolkitValues ?? [],
+    bindings: given?.bindings ?? [],
+    children: given?.children ?? false,
   };
 }
 
@@ -311,14 +332,31 @@ function propsOf(
   param: ts.ParameterDeclaration,
   what: string,
   toolkit: ToolkitName,
-): { callbacks: HelperCallback[]; toolkitValues: HelperToolkitValue[] } {
+): {
+  callbacks: HelperCallback[];
+  toolkitValues: HelperToolkitValue[];
+  bindings: HelperBinding[];
+  children: boolean;
+} {
   const types = new ViewTypes(checker, () => undefined);
   const type = checker.getTypeAtLocation(param);
   const callbacks: HelperCallback[] = [];
   const toolkitValues: HelperToolkitValue[] = [];
+  const bindings: HelperBinding[] = [];
+  let children = false;
 
   for (const p of type.getProperties()) {
     const t = checker.getTypeOfSymbolAtLocation(p, param);
+
+    // Content: what its user's element holds, as its children alone.
+    if (contentType(checker, p, toolkit)) {
+      if (p.name !== "children")
+        bodyFail(param, `${what} takes content as its children: \`children\`, not \`${p.name}\``);
+
+      children = true;
+      continue;
+    }
+
     const present = checker.getNonNullableType(t);
     const optional = !!(p.flags & ts.SymbolFlags.Optional);
     const [signature, more] = present.getCallSignatures();
@@ -335,6 +373,22 @@ function propsOf(
       }
     }
 
+    const bound = boundOf(checker, present);
+
+    if (bound) {
+      if (optional || present !== t)
+        bodyFail(param, `${what}'s bound \`${p.name}\` is one its user binds: it is not optional`);
+
+      if (!bound.scalar)
+        bodyFail(
+          param,
+          `${what}'s \`${p.name}\` binds a number, a boolean or a string: \`${checker.typeToString(t)}\` is not one`,
+        );
+
+      bindings.push({ name: p.name, type: bound.scalar });
+      continue;
+    }
+
     const value = toolkitValueType(present, toolkit);
 
     if (value) {
@@ -349,7 +403,96 @@ function propsOf(
       );
   }
 
-  return { callbacks, toolkitValues };
+  // A bound prop's change callback is a Kotlin parameter of its own.
+  for (const b of bindings)
+    if (type.getProperty(`${b.name}Changed`))
+      bodyFail(
+        param,
+        `${what}'s \`${b.name}Changed\` is the name its bound \`${b.name}\`'s changes take: rename it`,
+      );
+
+  return { callbacks, toolkitValues, bindings, children };
+}
+
+/** Whether a prop is declared of the toolkit's content type: SwiftUI's `Content`, Compose's `Shown`. */
+function contentType(checker: ts.TypeChecker, p: ts.Symbol, toolkit: ToolkitName): boolean {
+  const decl = p.valueDeclaration;
+  const node = decl && ts.isPropertySignature(decl) ? decl.type : undefined;
+
+  if (!node || !ts.isTypeReferenceNode(node)) return false;
+
+  const alias = symbolOf(checker, node.typeName)?.declarations?.[0];
+
+  return (
+    !!alias &&
+    ts.isTypeAliasDeclaration(alias) &&
+    alias.name.text === (toolkit === "swiftui" ? "Content" : "Shown") &&
+    toolkitOfModule(builtinSdkModuleOf(alias.getSourceFile())) === toolkit
+  );
+}
+
+/** Whether `e` reads `helper`'s children (`props.children`). */
+export function childrenProp(
+  checker: ts.TypeChecker,
+  e: ts.Expression,
+  helper: ViewHelper | undefined,
+): boolean {
+  return (
+    !!helper?.children &&
+    !!helper.props &&
+    ts.isPropertyAccessExpression(e) &&
+    ts.isIdentifier(e.expression) &&
+    e.name.text === "children" &&
+    symbolOf(checker, e.expression) === helper.props
+  );
+}
+
+/** What an element using `helper` holds, less the whitespace JSX leaves: its children. */
+export function helperChildren(
+  node: ts.JsxElement | ts.JsxSelfClosingElement | ts.CallExpression,
+): ts.JsxChild[] {
+  return ts.isJsxElement(node)
+    ? node.children.filter(
+        (c) =>
+          !(ts.isJsxText(c) && c.containsOnlyTriviaWhiteSpaces) &&
+          !(ts.isJsxExpression(c) && !c.expression),
+      )
+    : [];
+}
+
+/** lucent:ui's `Bound<T>`, and T when it is a scalar. */
+function boundOf(
+  checker: ts.TypeChecker,
+  t: ts.Type,
+): { scalar: HelperBinding["type"] | undefined } | undefined {
+  const symbol = t.aliasSymbol ?? t.getSymbol();
+  const decl = symbol?.declarations?.find(ts.isInterfaceDeclaration);
+
+  if (
+    !decl ||
+    decl.name.text !== "Bound" ||
+    builtinSdkModuleOf(decl.getSourceFile()) !== "lucent:ui"
+  )
+    return undefined;
+
+  const [inner] = checker.getTypeArguments(t as ts.TypeReference);
+
+  // `boolean` is a union of its literals, which scalar() takes; `string | null` is not one.
+  return { scalar: inner ? scalar(inner) : undefined };
+}
+
+/** The binding `e` reads, when it is `props.name` of `helper` holding one. */
+export function helperBindingProp(
+  checker: ts.TypeChecker,
+  e: ts.Expression,
+  helper: ViewHelper | undefined,
+): HelperBinding | undefined {
+  if (!helper?.props || !ts.isPropertyAccessExpression(e) || !ts.isIdentifier(e.expression))
+    return undefined;
+
+  if (symbolOf(checker, e.expression) !== helper.props) return undefined;
+
+  return helper.bindings.find((b) => b.name === e.name.text);
 }
 
 /**
@@ -486,12 +629,13 @@ export function helperArgs(
     args.set(a.name.getText(), value);
   }
 
-  const children = ts.isJsxElement(node)
-    ? node.children.filter((c) => !(ts.isJsxText(c) && c.containsOnlyTriviaWhiteSpaces))
-    : [];
+  const children = helperChildren(node);
 
-  if (children.length)
-    bodyFail(children[0]!, `the helper view \`${helper.name}\` takes its props, and no children`);
+  if (children.length && !helper.children)
+    bodyFail(
+      children[0]!,
+      `the helper view \`${helper.name}\` takes its props, and no children: give it \`children: ${helper.toolkit === "swiftui" ? "Content" : "Shown"}\` to take them`,
+    );
 
   return args;
 }

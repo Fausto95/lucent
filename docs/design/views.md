@@ -439,8 +439,13 @@ never as C++. It takes one props object of plain data, scalar callbacks and its
 toolkit's values, and setup computes what it derives from the plain data where it
 is used. A toolkit's value (a `Color`, a `Font`, a `Modifier`) is a parameter of
 the toolkit's type: its user writes it where it draws, an optional one is `nil`
-or `null` when left out, and `??` defaults it. One that destructures its props,
-takes children, shows a list or binds a signal is LUCENT3024
+or `null` when left out, and `??` defaults it. A bound prop (`on: Bound<boolean>`)
+is a Swift `Binding`, or a Kotlin value and its change callback (`on`,
+`onChanged`): its user gives it `bind(signal)` or a bound prop of its own, and its
+views show and change it. Children (`children: Content`, Compose's `Shown`) are
+a content closure of its view, `@ViewBuilder let content` or `content:
+@Composable () -> Unit`, which its user's element holds and `{props.children}`
+shows. One that destructures its props or shows a list of its own is LUCENT3024
 ([T123](../tasks.md#t123)).
 
 ## Props
@@ -1004,7 +1009,7 @@ The view gate closes these gaps ([parity.md](../parity.md#views)):
 | Gap                                                                                           | Task                     |
 | --------------------------------------------------------------------------------------------- | ------------------------ |
 | An `AVPlayerViewController` spike, run on the simulator                                       | [T122](../tasks.md#t122) |
-| Helpers with children and bindings in SwiftUI and Compose bodies                              | [T123](../tasks.md#t123) |
+| Helpers with destructured props and lists of their own in SwiftUI and Compose bodies          | [T123](../tasks.md#t123) |
 | A component's view in module code, run on the simulator and the emulator                      | [T124](../tasks.md#t124) |
 | Views made after setup on Android keep the hosting view's themed context, run on the emulator | [T125](../tasks.md#t125) |
 

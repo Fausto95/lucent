@@ -11,8 +11,8 @@ export type Type =
   /** A named type with type arguments: `List<String>`, `Result<Unit>`. */
   | { k: "named"; name: string; args?: Type[] }
   | { k: "nullable"; of: Type }
-  /** `(A, B) -> R`, or `suspend () -> R`. */
-  | { k: "function"; params: Type[]; ret: Type; suspend?: boolean }
+  /** `(A, B) -> R`, `suspend () -> R`, or `@Composable () -> R`. */
+  | { k: "function"; params: Type[]; ret: Type; suspend?: boolean; composable?: boolean }
   /** The star projection: `List<*>`. */
   | { k: "star" };
 

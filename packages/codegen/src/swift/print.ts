@@ -336,7 +336,7 @@ function member(m: Member, indent: string): string[] {
 
 /** A class, struct or enum at `indent`: its stored properties together, then a blank line before each other member. */
 function typeDecl(d: Decl & { k: "class" | "struct" | "enum" }, indent: string): string[] {
-  const tps = d.k === "class" && d.typeParams?.length ? `<${d.typeParams.join(", ")}>` : "";
+  const tps = d.k !== "enum" && d.typeParams?.length ? `<${d.typeParams.join(", ")}>` : "";
   const inherits = [
     ...(d.k === "class" && d.superclass ? [d.superclass] : []),
     ...(d.k !== "enum" ? (d.protocols ?? []) : []),

@@ -8,11 +8,16 @@ export const type = (name: string, ...args: Type[]): Type =>
 
 export const nullable = (of: Type): Type => ({ k: "nullable", of });
 
-export const fn = (params: Type[], ret: Type, options: { suspend?: boolean } = {}): Type => ({
+export const fn = (
+  params: Type[],
+  ret: Type,
+  options: { suspend?: boolean; composable?: boolean } = {},
+): Type => ({
   k: "function",
   params,
   ret,
   ...(options.suspend ? { suspend: true } : {}),
+  ...(options.composable ? { composable: true } : {}),
 });
 
 export const star: Type = { k: "star" };
