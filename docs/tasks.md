@@ -45,7 +45,7 @@ what became of each one that is still linked or was still open.
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
 | [T121](#t121)            | React Native's view props, refs and view libraries         | done (2026-10-14)                                       |
 | [T122](#t122)            | UIKit components with a view-controller root               | in progress (#324, #325)                                |
-| [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | ready                                                   |
+| [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | in progress (#328)                                      |
 | [T124](#t124)            | A component's ref as a module function's argument          | in progress (#326 merged)                               |
 | [T125](#t125)            | Android views made after setup keep the Activity's context | in progress (#327)                                      |
 | **Execution modes**      |                                                            |                                                         |
@@ -1011,12 +1011,16 @@ counterpart, a `Fragment` root, is in [T131](#t131).
 **Goal:** Toolkit bodies take what UIKit and Android bodies take: instance
 props, and helper functions with children and bindings.
 
-- **Status:** ready.
+- **Status:** in progress (#328).
 - **Area:** views, compiler.
 - **Needs:** T120.
 - **Verify:** V1, V4, V5.
 - **Where:** `emit/swiftui.ts`, `ui/compose.ts`.
 
+- [x] What the setup computes for a body (its values, a helper's, what a
+      callback passes) is setup code to the analyses, so LUCENT3022 checks
+      what it calls (#328). Compose bodies build on hosts without the
+      Android SDK, against stand-ins (`ui/toolkit-build.ts`).
 - [ ] An instance prop reaches a SwiftUI or Compose body, observed on the
       main thread.
 - [ ] Helper view functions take toolkit values, children and bindings.

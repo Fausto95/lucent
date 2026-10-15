@@ -6,7 +6,7 @@
 // list item's too), and its callback props are lambdas its user gives it.
 import { describe, expect, it } from "vite-plus/test";
 import {
-  android,
+  composeBuilds,
   androidGlueErrors,
   build,
   composeCompiles,
@@ -99,42 +99,39 @@ const TODOS = `export function Todos(props: Props) {
   );
 }`;
 
-describe.skipIf(!android)("a Compose body's helper views", () => {
-  it.skipIf(!composeCompiles())(
-    "are composable functions of their own, their values computed where they are used",
-    async () => {
-      const built = build(component(`${HELPERS}\n\n${TODOS}`), "android");
+/** Whether each body's Kotlin and glue compile here: the checks that compile them skip otherwise. */
+const compiles = composeCompiles();
 
-      expect(diagnostics(built.result)).toEqual([]);
+describe.skipIf(!composeBuilds())("a Compose body's helper views", () => {
+  it("are composable functions of their own, their values computed where they are used", async () => {
+    const built = build(component(`${HELPERS}\n\n${TODOS}`), "android");
 
-      const kotlin = generated(built.result, /^dev\/lucent\/compose\/.*\.kt$/);
+    expect(diagnostics(built.result)).toEqual([]);
 
-      // A helper is a composable: what it computes from its props, and its callbacks.
-      expect(kotlin).toMatch(/@Composable\nfun \w+_Line\(/);
-      expect(kotlin).toMatch(/value\d+: String/);
-      expect(kotlin).toContain("onToggle: () -> Unit");
-      expect(kotlin).toContain("onRemove: (Double) -> Unit");
-      // Its composition statements compose where it does; a helper using another gives it its values.
-      expect(kotlin).toMatch(
-        /fun \w+_Check\(done\d+: Boolean\) \{\n\s+val width = animateDpAsState/,
-      );
-      expect(kotlin).toMatch(/\w+_Check\(done\d+ = done\d+\)/);
-      // Its callbacks call the lambdas its user gives it.
-      expect(kotlin).toMatch(/\.clickable\(onClick = onToggle\)|\.clickable \{ onToggle\(\) \}/);
-      expect(kotlin).toMatch(/\.clickable \{ onRemove\(id\d+\) \}/);
-      // Used in the body, its values are the state's; in a list's item, the item's.
-      expect(kotlin).toMatch(/\w+_Line\(done\d+ = lucent\.\w+\.value, /);
-      expect(kotlin).toMatch(
-        /\w+_Line\(done\d+ = lucent_item\.\w+\.value, .*onToggle = \{ lucent\.toggle\d+\(lucent_item\.key\) \}/,
-      );
+    const kotlin = generated(built.result, /^dev\/lucent\/compose\/.*\.kt$/);
 
-      await expect(kotlin).toMatchFileSnapshot("__snapshots__/android/Helpers.kt.snap");
+    // A helper is a composable: what it computes from its props, and its callbacks.
+    expect(kotlin).toMatch(/@Composable\nfun \w+_Line\(/);
+    expect(kotlin).toMatch(/value\d+: String/);
+    expect(kotlin).toContain("onToggle: () -> Unit");
+    expect(kotlin).toContain("onRemove: (Double) -> Unit");
+    // Its composition statements compose where it does; a helper using another gives it its values.
+    expect(kotlin).toMatch(/fun \w+_Check\(done\d+: Boolean\) \{\n\s+val width = animateDpAsState/);
+    expect(kotlin).toMatch(/\w+_Check\(done\d+ = done\d+\)/);
+    // Its callbacks call the lambdas its user gives it.
+    expect(kotlin).toMatch(/\.clickable\(onClick = onToggle\)|\.clickable \{ onToggle\(\) \}/);
+    expect(kotlin).toMatch(/\.clickable \{ onRemove\(id\d+\) \}/);
+    // Used in the body, its values are the state's; in a list's item, the item's.
+    expect(kotlin).toMatch(/\w+_Line\(done\d+ = lucent\.\w+\.value, /);
+    expect(kotlin).toMatch(
+      /\w+_Line\(done\d+ = lucent_item\.\w+\.value, .*onToggle = \{ lucent\.toggle\d+\(lucent_item\.key\) \}/,
+    );
 
-      expect(kotlinErrors(built)).toBe("");
-      expect(androidGlueErrors(built)).toBe("");
-    },
-    600_000,
-  );
+    await expect(kotlin).toMatchFileSnapshot("__snapshots__/android/Helpers.kt.snap");
+
+    expect(compiles ? kotlinErrors(built) : "").toBe("");
+    expect(compiles ? androidGlueErrors(built) : "").toBe("");
+  }, 600_000);
 
   it("refuses what a helper cannot be", () => {
     const refused = (code: string) => diagnostics(build(component(code), "android").result);

@@ -12,6 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { kotlinToolchain } from "../../../bindgen/test/kotlin-toolchain.ts";
 import { compile, type CompileResult, runtimeDir, sdkAvailable } from "../../src/index.ts";
+import { fakeAndroid } from "../fake-android.ts";
 import { composeArtifacts, kotlinClasspath } from "./compose-artifacts.ts";
 import { androidToolchain, compileErrors } from "./react-native-headers.ts";
 import { runKotlinc } from "../../../bindgen/test/jvm-tools.ts";
@@ -19,6 +20,37 @@ import { runKotlinc } from "../../../bindgen/test/jvm-tools.ts";
 export const ios = process.platform === "darwin" && sdkAvailable("ios");
 
 export const android = sdkAvailable("android");
+
+/**
+ * android.jar's View and Context as stand-ins (fake-android.ts), the jars
+ * built once per run, for hosts without the Android SDK: Compose's API
+ * comes from lib/sdk's schemas, so a Compose body's analysis and the code
+ * it generates need nothing else. Undefined without a JDK.
+ */
+const standIns = (() => {
+  let jars: string[] | undefined | null = null;
+
+  return (): string[] | undefined => {
+    if (jars !== null) return jars;
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-android-stand-ins-"));
+
+    jars = fakeAndroid(dir, {
+      "android/content/Context.java":
+        "package android.content;\npublic abstract class Context {}\n",
+      "android/view/View.java":
+        "package android.view;\npublic class View {\n  public View(android.content.Context c) {}\n}\n",
+    })?.bind;
+    return jars;
+  };
+})();
+
+/**
+ * Whether Compose bodies build here: their diagnostics and generated
+ * Kotlin and C++, against android.jar or stand-ins for it (compiling what
+ * they generate is composeCompiles's).
+ */
+export const composeBuilds = (): boolean => android || !!standIns();
 
 /**
  * Whether kotlinErrors and androidGlueErrors can check Compose content
@@ -42,9 +74,11 @@ export function build(files: Record<string, string>, platform: "ios" | "android"
 
   for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), text);
 
+  // Without the Android SDK, against stand-ins for the classes a Compose body's host needs.
+  const jars = platform === "android" && !android ? standIns() : undefined;
   const result = compile(
     Object.keys(files).map((f) => path.join(dir, f)),
-    { platforms: [platform] },
+    { platforms: [platform], ...(jars ? { sdk: { android: { jars } } } : {}) },
   );
 
   // LUCENT_TEST_DUMP=<dir>: what each build generated, to read by hand.
