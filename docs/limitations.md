@@ -75,9 +75,10 @@ generated from this file.
   `NSObject`'s Objective-C categories, instance members only. UIKit's `row`
   on `NSIndexPath` isn't bound, nor are Swift extensions' members
   ([T112](tasks.md#t112)).
-- A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused
-  ([T112](tasks.md#t112)). A `WeakMap` value that holds its own key keeps
-  it, and the entry, for as long as the map lives.
+- A `WeakMap` value that holds its own key keeps it, and the entry, for
+  as long as the map lives. An SDK object's entry outlives its key until
+  the table next doubles, its value with it. A `FinalizationRegistry`
+  still refuses SDK objects as targets.
 - `new AggregateError` is refused (`LUCENT1003`). Read the `errors` of
   the one `Promise.any` rejects with as `e.errors as Error[]`, since
   TypeScript types them `any`.

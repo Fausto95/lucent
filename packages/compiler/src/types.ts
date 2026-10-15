@@ -163,6 +163,10 @@ export function typedElement(t: LType): LType {
 }
 
 /** Whether `t` is a typed array: a Uint8Array or another. */
+/** What a WeakRef can hold and a WeakMap or WeakSet take as keys: objects, a platform's too. */
+export const weakTarget = (t: LType): boolean =>
+  t.k === "class" || t.k === "iface" || t.k === "struct" || t.k === "native";
+
 export function isTypedArray(t: LType): t is LType & { k: "bytes" | "typed" } {
   return t.k === "bytes" || t.k === "typed";
 }
@@ -1432,12 +1436,13 @@ export class TypeRegistry {
         case "IteratorReturnResult":
           return { k: "iterResult", e: this.lower(args[0]!, node) };
         case "WeakRef": {
+          // A platform object's is the platform's weak reference (lucent/weak.h).
           const inner = this.lower(args[0]!, node);
-          if (inner.k !== "class" && inner.k !== "iface" && inner.k !== "struct")
+          if (!weakTarget(inner))
             fail(
               node,
               Codes.UnsupportedType,
-              `a WeakRef holds a class instance or an object, not a ${typeKey(inner)}`,
+              `a WeakRef holds a class instance, an object or a platform object, not a ${typeKey(inner)}`,
             );
           return { k: "weak", inner };
         }
@@ -1445,11 +1450,11 @@ export class TypeRegistry {
         case "WeakSet": {
           // Keys a WeakRef could hold: objects, whose last reference drops their entries.
           const key = this.lower(args[0]!, node);
-          if (key.k !== "class" && key.k !== "iface" && key.k !== "struct")
+          if (!weakTarget(key))
             fail(
               node,
               Codes.UnsupportedType,
-              `a ${lib}'s keys are class instances or objects, not ${typeKey(key)} values`,
+              `a ${lib}'s keys are class instances, objects or platform objects, not ${typeKey(key)} values`,
             );
           return lib === "WeakMap"
             ? { k: "weakMap", key, val: this.lower(args[1]!, node) }

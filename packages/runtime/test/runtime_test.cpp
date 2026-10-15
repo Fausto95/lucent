@@ -1608,6 +1608,82 @@ static void platformCallbacks() {
   CHECK(Actor::shared().waitIdle(2000));
 }
 
+/// A platform whose objects are shared_ptrs: a NativeRef's handle owns a
+/// copy, and a weak handle is a weak_ptr, as ARC's weak references and JNI's
+/// weak global references are to their objects.
+namespace fake_platform {
+using Object = std::shared_ptr<int>;
+
+void release(void* h) { delete static_cast<Object*>(h); }
+bool same(void* a, void* b) { return static_cast<Object*>(a)->get() == static_cast<Object*>(b)->get(); }
+NativeRef lock(void* weak);
+void* makeWeak(void* strong) { return new std::weak_ptr<int>(*static_cast<Object*>(strong)); }
+void dropWeak(void* weak) { delete static_cast<std::weak_ptr<int>*>(weak); }
+std::size_t hash(void* strong) { return std::hash<int*>{}(static_cast<Object*>(strong)->get()); }
+constexpr NativeWeakOps ops{makeWeak, lock, dropWeak, hash};
+
+NativeRef wrap(const Object& o) { return NativeRef(new Object(o), release, same, nullptr, &ops); }
+NativeRef lock(void* weak) {
+  Object o = static_cast<std::weak_ptr<int>*>(weak)->lock();
+  return o ? wrap(o) : NativeRef();
+}
+}  // namespace fake_platform
+
+/// A value whose destruction is counted.
+struct Counted : Object {
+  explicit Counted(int* freed) : freed(freed) {}
+  ~Counted() override { ++*freed; }
+  int* freed;
+};
+
+/// WeakRef, WeakMap and WeakSet of platform objects: held through the
+/// platform's weak reference, so an object lives while the platform or
+/// Lucent holds it, and two refs to one object are one key.
+static void nativeWeakReferences() {
+  using fake_platform::wrap;
+  auto platform = std::make_shared<int>(1);
+  NativeRef held = wrap(platform);
+  auto ref = std::make_shared<WeakRefObject<NativeRef>>(held);
+
+  // While the platform holds the object, deref() gives it, though Lucent's refs are gone.
+  held = NativeRef();
+  CHECK(ref->deref().has() && ref->deref().get().same(wrap(platform)));
+
+  int freed = 0;
+  WeakMap<NativeRef, Ref<Counted>> values;
+  WeakSet<NativeRef> seen;
+  values.set(wrap(platform), std::make_shared<Counted>(&freed));
+  seen.add(wrap(platform)).add(wrap(platform));
+  // Another ref to the object is the same key.
+  CHECK(values.has(wrap(platform)) && values.get(wrap(platform)).has() && seen.has(wrap(platform)));
+  auto other = std::make_shared<int>(2);
+  CHECK(!values.has(wrap(other)) && values.get(wrap(other)).isUndefined() && !seen.has(wrap(other)));
+  values.set(wrap(platform), std::make_shared<Counted>(&freed));
+  CHECK(freed == 1);
+
+  // Once the platform frees it, deref() gives undefined, and no key is the object.
+  std::weak_ptr<int> watched = platform;
+  platform.reset();
+  CHECK(watched.expired() && ref->deref().isUndefined());
+  CHECK(!values.has(wrap(other)));
+
+  // Its entry goes when the table next grows, its value with it.
+  std::vector<std::shared_ptr<int>> kept;
+  for (int i = 0; i < 16; i++) {
+    kept.push_back(std::make_shared<int>(i));
+    values.set(wrap(kept.back()), std::make_shared<Counted>(&freed));
+  }
+  CHECK(freed == 2);
+  CHECK(values.remove(wrap(kept[0])) && !values.remove(wrap(kept[0])) && freed == 3);
+  CHECK(seen.remove(wrap(other)) == false);
+
+  // An object the platform cannot refer to weakly.
+  NativeRef plain(new int(1), [](void* p) { delete static_cast<int*>(p); }, nullptr);
+  CHECK_THROWS(std::make_shared<WeakRefObject<NativeRef>>(plain), "TypeError");
+  CHECK_THROWS(seen.add(plain), "TypeError");
+  CHECK_THROWS(seen.has(NativeRef()), "TypeError");
+}
+
 /// The native references Lucent holds are counted: debug builds report what
 /// is left when the module goes.
 static void nativeReferenceCount() {
@@ -1787,6 +1863,7 @@ static void textCodec() {
 }
 
 int main() {
+  nativeWeakReferences();
   textCodec();
   jsonFormat();
   typedArrays();

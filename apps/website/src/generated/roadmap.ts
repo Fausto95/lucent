@@ -105,7 +105,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "in progress",
-        "text": "Privacy manifests, Android `<queries>` and Gradle plugins, declared by packages; a fixture app build is next."
+        "text": "Privacy manifests, Android `<queries>` and Gradle plugins, declared by packages; the nightly fresh apps build them next."
       },
       {
         "status": "later",
@@ -295,7 +295,7 @@ export const limitations: { title: string; items: string[] }[] = [
     "items": [
       "Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)): break them with `WeakRef`, or key what one side holds in a `WeakMap`.",
       "Members a module adds to another module's class are bound only for `NSObject`'s Objective-C categories, instance members only. UIKit's `row` on `NSIndexPath` isn't bound, nor are Swift extensions' members ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)).",
-      "A `WeakRef` to an SDK object, or a `WeakMap` keyed by one, is refused ([T112](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t112)). A `WeakMap` value that holds its own key keeps it, and the entry, for as long as the map lives.",
+      "A `WeakMap` value that holds its own key keeps it, and the entry, for as long as the map lives. An SDK object's entry outlives its key until the table next doubles, its value with it. A `FinalizationRegistry` still refuses SDK objects as targets.",
       "`new AggregateError` is refused (`LUCENT1003`). Read the `errors` of the one `Promise.any` rejects with as `e.errors as Error[]`, since TypeScript types them `any`.",
       "`crypto.subtle` is not available, nor are `URL.createObjectURL` and `URLPattern`. `TextDecoder` decodes UTF-8 only: another encoding's label is `LUCENT1003`, or a `RangeError` when computed. Its options are written in the call.",
       "Refused built-ins give `LUCENT1003` unless noted. They include `normalize()`, `locales` and `options` arguments, a cause that isn't an `Error`, a replacer function for `JSON.stringify`, resizable `ArrayBuffer`s and `new Proxy` ([T106](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t106) lifts some).",

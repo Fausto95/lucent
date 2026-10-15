@@ -992,8 +992,14 @@ once. `WeakMap` and `WeakSet`, keyed by the same kinds, have `get`, `set`,
 `has`, `delete` and `add`, and no iteration or `size` (`weak.h`,
 [decision 0072](decisions/0072-weakmap-and-weakset-drop-entries-with-their-keys.md)).
 An entry goes at once with its key, its value with it, but a value that
-holds its own key keeps it. SDK objects as targets or keys are
-[T112](tasks.md#t112).
+holds its own key keeps it.
+
+An SDK object as a target or key is held through its platform's weak
+reference: ARC's, or a JNI weak global reference
+([decision 0110](decisions/0110-a-platform-object-is-held-weakly-through-the-platforms-weak-reference.md)).
+`deref()` gives it while the platform or Lucent holds it, and two
+references to one object are one key. Once the platform frees the key,
+its entry goes at the table's next sweep, when the table has doubled.
 
 `new FinalizationRegistry(cleanup)` takes `register(target, held, token?)`
 and `unregister(token)`. Once a target goes, each registration's cleanup

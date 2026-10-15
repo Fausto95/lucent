@@ -33,12 +33,35 @@ inline void releaseObject(void* retained) { CFRelease(retained); }
 /// Installs the view tree a debug build's snapshot shows (ios_debug.mm): the host's to call.
 void installViewTree();
 
+namespace detail {
+
+/// An object's weak reference (ARC's, which the runtime clears as the object goes).
+struct WeakSlot {
+  __weak id object;
+};
+
+NativeRef lockWeak(void* slot);
+
+inline void* makeWeak(void* strong) { return new WeakSlot{(__bridge id)strong}; }
+inline void dropWeak(void* slot) { delete static_cast<WeakSlot*>(slot); }
+inline std::size_t hashObject(void* strong) { return std::hash<void*>{}(strong); }
+
+/// How WeakRef, WeakMap and WeakSet refer to an object (lucent/weak.h).
+inline constexpr NativeWeakOps weakOps{makeWeak, lockWeak, dropWeak, hashObject};
+
+}  // namespace detail
+
 /// A Lucent reference to `obj` (retained), released on the main thread:
 /// UIKit objects must be deallocated there, and the last Lucent reference
 /// can go on any thread. Throws TypeError for nil.
 inline NativeRef wrap(id obj, const char* what) {
   if (!obj) throw Exception(makeError(String::fromLatin1("TypeError"), String::fromUtf8(std::string(what) + " returned nil")));
-  return NativeRef((__bridge_retained void*)obj, releaseObject, nullptr, &ExecutionContext::main());
+  return NativeRef((__bridge_retained void*)obj, releaseObject, nullptr, &ExecutionContext::main(), &detail::weakOps);
+}
+
+inline NativeRef detail::lockWeak(void* slot) {
+  id object = static_cast<WeakSlot*>(slot)->object;
+  return object ? wrap(object, "") : NativeRef();
 }
 inline Opt<NativeRef> wrapOpt(id obj) {
   if (!obj) return Opt<NativeRef>(null);

@@ -657,7 +657,8 @@ an app sets a package's option.
 **Goal:** Bind the native shapes that common libraries use and Lucent
 still refuses.
 
-- **Status:** in progress: the members a module adds to `NSObject` (#272).
+- **Status:** in progress: the members a module adds to `NSObject` (#272),
+  weak references to SDK objects (#303).
 - **Area:** bindings, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V4.
@@ -665,8 +666,11 @@ still refuses.
   `emit/objc-subclass.ts`, `emit/swift.ts`, `emit/kotlin.ts`,
   `config/sdk-coverage.json`.
 
-- [ ] `WeakRef` to an SDK object, and `WeakMap` keyed by one, for delegate
-      back references.
+- [x] `WeakRef` to an SDK object, and `WeakMap` keyed by one, for delegate
+      back references
+      ([0110](decisions/0110-a-platform-object-is-held-weakly-through-the-platforms-weak-reference.md),
+      #303): through ARC's weak references and JNI's weak global ones,
+      run on the desktop JNI host and the macOS runtime test.
 - [ ] Optional closures and tuples; optionals, C structs and Objective-C
       enums inside collections.
 - [ ] The largest skipped buckets in `config/sdk-coverage.json`:

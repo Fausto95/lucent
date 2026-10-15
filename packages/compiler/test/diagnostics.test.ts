@@ -874,7 +874,9 @@ export function size(t: Tree<number>): number {
     ])("rejects %s", (_, decl, name) => {
       const d = compileSource(`${decl}\nexport function f(): number { return 1; }`).diagnostics;
       expect(d.map((x) => x.code)).toEqual(["LUCENT2002"]);
-      expect(d[0]!.message).toContain(`a ${name}'s keys are class instances or objects`);
+      expect(d[0]!.message).toContain(
+        `a ${name}'s keys are class instances, objects or platform objects`,
+      );
     });
 
     it("rejects one crossing the boundary", () => {
