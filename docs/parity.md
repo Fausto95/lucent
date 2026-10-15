@@ -81,17 +81,17 @@ is written in TypeScript against the SDK, so each row is a task.
 
 ## App integration
 
-| Capability                                     | Nitro | Expo Modules               | Lucent                                    | Task                  |
-| ---------------------------------------------- | ----- | -------------------------- | ----------------------------------------- | --------------------- |
-| Foreground and background events               | —     | ✅                         | ✅ `onAppEvent`, `onSceneEvent`, Activity | —                     |
-| Opened URLs, user activities, shortcut items   | —     | ✅ AppDelegate subscribers | 🟡 Android intents only                   | [T110](tasks.md#t110) |
-| Push token and remote notifications            | —     | ✅ AppDelegate subscribers | ❌                                        | [T110](tasks.md#t110) |
-| Activity results and permission requests       | —     | ✅                         | ✅                                        | —                     |
-| Back press, configuration changes              | —     | ✅ Activity listeners      | 🟡 androidx listeners, untested           | [T110](tasks.md#t110) |
-| Info.plist keys, entitlements, permissions     | —     | ✅ config plugins          | ✅ `lucent.json`, Expo plugin             | —                     |
-| Manifest components (services, receivers)      | —     | ✅ config plugins          | ✅ Lucent, Java or Kotlin classes         | —                     |
-| Options the app sets (API keys)                | —     | ✅ config plugin options   | ✅ `lucent.json` options                  | —                     |
-| Privacy manifests, `<queries>`, Gradle plugins | —     | ✅ config plugins          | 🟡 `lucent.json`, Expo plugin; no fixture | [T115](tasks.md#t115) |
+| Capability                                     | Nitro | Expo Modules               | Lucent                                     | Task                  |
+| ---------------------------------------------- | ----- | -------------------------- | ------------------------------------------ | --------------------- |
+| Foreground and background events               | —     | ✅                         | ✅ `onAppEvent`, `onSceneEvent`, Activity  | —                     |
+| Opened URLs, user activities, shortcut items   | —     | ✅ AppDelegate subscribers | 🟡 Android intents only                    | [T110](tasks.md#t110) |
+| Push token and remote notifications            | —     | ✅ AppDelegate subscribers | ❌                                         | [T110](tasks.md#t110) |
+| Activity results and permission requests       | —     | ✅                         | ✅                                         | —                     |
+| Back press, configuration changes              | —     | ✅ Activity listeners      | 🟡 androidx listeners, untested            | [T110](tasks.md#t110) |
+| Info.plist keys, entitlements, permissions     | —     | ✅ config plugins          | ✅ `lucent.json`, Expo plugin              | —                     |
+| Manifest components (services, receivers)      | —     | ✅ config plugins          | ✅ Lucent, Java or Kotlin classes          | —                     |
+| Options the app sets (API keys)                | —     | ✅ config plugin options   | ✅ `lucent.json` options                   | —                     |
+| Privacy manifests, `<queries>`, Gradle plugins | —     | ✅ config plugins          | 🟡 `lucent.json`, Expo plugin; unbuilt yet | [T115](tasks.md#t115) |
 
 ## Views
 

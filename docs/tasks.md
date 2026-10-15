@@ -40,7 +40,7 @@ what became of each one that is still linked or was still open.
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | in progress                                             |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | done (2026-10-15)                                       |
 | [T114](#t114)            | Native code that calls Lucent modules                      | waiting; needs T130                                     |
-| [T115](#t115)            | Native configuration packages can't declare yet            | in progress (#299, #300, #301)                          |
+| [T115](#t115)            | Native configuration packages can't declare yet            | in progress (#299, #300, #301, #302)                    |
 | **View parity**          |                                                            |                                                         |
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
 | [T121](#t121)            | React Native's view props, refs and view libraries         | done (2026-10-14)                                       |
@@ -752,8 +752,8 @@ Expo module.
 platform code needs, so no app edits its native project by hand.
 
 - **Status:** in progress: Android queries, features and meta-data (#299),
-  privacy manifests (#300), Gradle plugins (#301); a fixture package's
-  app builds are next.
+  privacy manifests (#300), Gradle plugins (#301), the window apps'
+  fixture package (#302); done once the nightly window builds it.
 - **Area:** tooling, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V5, V6.
@@ -781,8 +781,12 @@ platform code needs, so no app edits its native project by hand.
       app lacks, counting a `plugins` block and the version catalog. The
       rest go into the library's manifest or the pod's privacy manifest,
       which the app's build merges, so a bare app adds nothing for them.
-- [ ] A fixture package declaring each piece, built in the bare and Expo
-      example apps.
+- [x] A fixture package declaring each piece (#302): the window apps'
+      `lucent-window-kit` (`scripts/window-app.ts`), whose bare and Expo
+      apps are fresh on each release. A bare app adds the Gradle lines
+      `lucent build` names; the check finds each piece in the Release
+      build.
+- [ ] The nightly window builds and runs it on every app.
 
 **Done when:** a fixture package declaring each one builds in a fresh bare
 and Expo app with no manual step.
