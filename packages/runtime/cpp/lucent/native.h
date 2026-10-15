@@ -41,6 +41,43 @@ void uncountNativeRef(bool module, bool held = false);
 void releaseNative(void* handle, void (*release)(void*), ExecutionContext* on, bool module);
 }  // namespace detail
 
+class NativeRef;
+
+/// What a platform gives its objects' NativeRefs for weak references: a weak
+/// handle to the object, the object again from one (a new NativeRef, or an
+/// empty one once the object is gone), the handle's release, and a hash of
+/// the object's identity, the same for any two refs `same` says hold one
+/// object (ARC's weak references on iOS, JNI's weak global references on
+/// Android).
+struct NativeWeakOps {
+  void* (*make)(void* strong);
+  NativeRef (*lock)(void* weak);
+  void (*drop)(void* weak);
+  std::size_t (*hash)(void* strong);
+};
+
+/// A weak reference to a platform object, which never keeps it alive.
+/// Copies share the handle; the last releases it.
+class NativeWeak {
+ public:
+  NativeWeak() = default;
+  NativeWeak(void* handle, const NativeWeakOps* ops) : h_(handle, Drop{ops}), ops_(ops) {}
+
+  /// The object while something still holds it; an empty NativeRef once it is gone.
+  NativeRef lock() const;
+
+ private:
+  struct Drop {
+    const NativeWeakOps* ops;
+
+    void operator()(void* h) const {
+      if (h) ops->drop(h);
+    }
+  };
+  std::shared_ptr<void> h_;
+  const NativeWeakOps* ops_ = nullptr;
+};
+
 class NativeRef {
  public:
   NativeRef() = default;
@@ -48,8 +85,10 @@ class NativeRef {
   /// Takes ownership of `handle`; `release` runs when the last copy goes,
   /// on the thread `releaseOn` runs on if the object requires one (UIKit
   /// objects, the main context's), whichever thread dropped that copy.
-  NativeRef(void* handle, void (*release)(void*), bool (*same)(void*, void*), ExecutionContext* releaseOn = nullptr)
-      : p_(handle, Release{release, releaseOn, handle && detail::countNativeRef()}), same_(same) {}
+  /// `weak` is how the platform refers to the object weakly, if it can.
+  NativeRef(void* handle, void (*release)(void*), bool (*same)(void*, void*), ExecutionContext* releaseOn = nullptr,
+            const NativeWeakOps* weak = nullptr)
+      : p_(handle, Release{release, releaseOn, handle && detail::countNativeRef()}), same_(same), weak_(weak) {}
 
   void* get() const { return p_.get(); }
   explicit operator bool() const { return p_ != nullptr; }
@@ -73,6 +112,15 @@ class NativeRef {
     return same_ ? same_(get(), o.get()) : get() == o.get();
   }
 
+  /// A weak reference to the object: TypeError for one the platform cannot refer to weakly.
+  NativeWeak weak() const {
+    if (!p_ || !weak_) throwTypeError("this native object cannot be held weakly");
+    return NativeWeak(weak_->make(get()), weak_);
+  }
+
+  /// A hash of the object's identity: the same for any two refs `same` says hold one object.
+  std::size_t identityHash() const { return weak_ ? weak_->hash(get()) : std::hash<const void*>{}(get()); }
+
  private:
   struct Release {
     void (*release)(void*);
@@ -86,7 +134,10 @@ class NativeRef {
   };
   std::shared_ptr<void> p_;
   bool (*same_)(void*, void*) = nullptr;
+  const NativeWeakOps* weak_ = nullptr;
 };
+
+inline NativeRef NativeWeak::lock() const { return h_ ? ops_->lock(h_.get()) : NativeRef(); }
 
 // Namespace-scope, not hidden friends: generated code calls them qualified.
 inline bool strictEquals(const NativeRef& a, const NativeRef& b) { return a.same(b); }

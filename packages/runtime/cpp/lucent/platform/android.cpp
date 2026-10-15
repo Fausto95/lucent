@@ -60,6 +60,35 @@ bool sameObject(void* a, void* b) { return env()->IsSameObject(static_cast<jobje
 
 void releaseGlobal(void* ref) { env()->DeleteGlobalRef(static_cast<jobject>(ref)); }
 
+namespace {
+
+// How WeakRef, WeakMap and WeakSet refer to an object (lucent/weak.h): a weak
+// global reference, which the garbage collector clears as it collects the object.
+void* makeWeak(void* strong) { return env()->NewWeakGlobalRef(static_cast<jobject>(strong)); }
+
+void dropWeak(void* weak) { env()->DeleteWeakGlobalRef(static_cast<jweak>(weak)); }
+
+NativeRef lockWeak(void* weak) {
+  JNIEnv* e = env();
+  jobject local = e->NewLocalRef(static_cast<jweak>(weak));
+  if (!local) return NativeRef();
+  return wrap(e, local, "");
+}
+
+/// System.identityHashCode: equal for refs to one object.
+std::size_t hashObject(void* strong) {
+  JNIEnv* e = env();
+  static jclass system = findClass("java/lang/System");
+  static jmethodID identity = staticMethod(system, "identityHashCode", "(Ljava/lang/Object;)I");
+  jint hash = e->CallStaticIntMethod(system, identity, static_cast<jobject>(strong));
+  check(e);
+  return static_cast<std::size_t>(static_cast<uint32_t>(hash));
+}
+
+constexpr NativeWeakOps weakOps{makeWeak, lockWeak, dropWeak, hashObject};
+
+}  // namespace
+
 }  // namespace
 
 jclass findClass(const char* name) {
@@ -509,7 +538,7 @@ NativeRef wrap(JNIEnv* e, jobject local, const char* what) {
   if (!local) failWith("TypeError", std::string(what) + " returned null");
   jobject global = e->NewGlobalRef(local);
   e->DeleteLocalRef(local);
-  return NativeRef(global, releaseGlobal, sameObject);
+  return NativeRef(global, releaseGlobal, sameObject, nullptr, &weakOps);
 }
 
 Opt<NativeRef> wrapOpt(JNIEnv* e, jobject local) {

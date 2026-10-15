@@ -6,8 +6,14 @@
 // The key knows the tables it is in (Object::keyIn), and its destructor
 // drops its entries. There is no iteration, as in JavaScript. A collection
 // and its keys belong to one context, like a WeakRef.
+//
+// A platform object's key (NativeRef) is held through the platform's weak
+// reference instead, as is a WeakRef's platform target: the platform frees
+// the object, so its entry goes when the table next grows, its value with
+// it.
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <type_traits>
 #include <unordered_map>
@@ -18,6 +24,7 @@
 #include "core.h"
 #include "function.h"
 #include "jsstring.h"
+#include "native.h"
 #include "report.h"
 #include "scheduler.h"
 
@@ -108,6 +115,129 @@ class WeakSet {
   };
 
   std::shared_ptr<Table> t_;
+};
+
+/// `WeakRef<T>` of a platform object: the platform's weak reference, so
+/// deref() gives the object while anything holds it, Lucent or the platform.
+template <>
+struct WeakRefObject<NativeRef> : Object {
+  explicit WeakRefObject(const NativeRef& target) : target_(target.weak()) {}
+
+  Opt<NativeRef> deref() const {
+    if (NativeRef strong = target_.lock()) return Opt<NativeRef>(std::move(strong));
+    return Opt<NativeRef>(undefined);
+  }
+
+ private:
+  NativeWeak target_;
+};
+
+namespace detail {
+
+/// The entries of a weak collection keyed by platform objects, by the hash
+/// of their identity: an entry holds its key weakly, and goes once the
+/// platform has freed the key, at the next sweep, which runs when the
+/// table has doubled since the last.
+template <class Entry>
+struct NativeKeys {
+  std::unordered_multimap<std::size_t, Entry> entries;
+  std::size_t sweepAt = 8;
+
+  Entry* find(const NativeRef& key) {
+    if (!key) throwTypeError("Invalid value used as weak collection key");
+    auto [it, end] = entries.equal_range(key.identityHash());
+    for (; it != end; ++it) {
+      NativeRef held = it->second.key.lock();
+      if (held && held.same(key)) return &it->second;
+    }
+    return nullptr;
+  }
+
+  void add(const NativeRef& key, Entry entry) {
+    sweep();
+    entries.emplace(key.identityHash(), std::move(entry));
+  }
+
+  bool remove(const NativeRef& key) {
+    Entry* e = find(key);
+    if (!e) return false;
+    auto [it, end] = entries.equal_range(key.identityHash());
+    for (; it != end; ++it)
+      if (&it->second == e) break;
+    // Extracted first, freed after: the value may free other keys of this table.
+    [[maybe_unused]] auto node = entries.extract(it);
+    return true;
+  }
+
+  void sweep() {
+    if (entries.size() < sweepAt) return;
+    std::vector<typename decltype(entries)::node_type> gone;
+    for (auto it = entries.begin(); it != entries.end();) {
+      auto next = std::next(it);
+      if (!it->second.key.lock()) gone.push_back(entries.extract(it));
+      it = next;
+    }
+    sweepAt = std::max<std::size_t>(8, entries.size() * 2);
+  }
+};
+
+}  // namespace detail
+
+/// `WeakMap<K, V>` keyed by platform objects.
+template <class V>
+class WeakMap<NativeRef, V> {
+ public:
+  WeakMap() : t_(std::make_shared<detail::NativeKeys<Entry>>()) {}
+
+  Opt<V> get(const NativeRef& key) const {
+    Entry* e = t_->find(key);
+    if (!e) return undefined;
+    return e->value;
+  }
+  bool has(const NativeRef& key) const { return t_->find(key) != nullptr; }
+  WeakMap& set(const NativeRef& key, V value) {
+    if (Entry* e = t_->find(key)) {
+      // The value replaced goes after the entry is written: freeing it may free other keys.
+      [[maybe_unused]] V old = std::exchange(e->value, std::move(value));
+      return *this;
+    }
+    t_->add(key, Entry{key.weak(), std::move(value)});
+    return *this;
+  }
+  bool remove(const NativeRef& key) { return t_->remove(key); }
+
+  const void* identity() const { return t_.get(); }
+
+ private:
+  struct Entry {
+    NativeWeak key;
+    V value;
+  };
+
+  std::shared_ptr<detail::NativeKeys<Entry>> t_;
+};
+
+/// `WeakSet<K>` of platform objects.
+template <>
+class WeakSet<NativeRef> {
+ public:
+  WeakSet() : t_(std::make_shared<detail::NativeKeys<Entry>>()) {}
+
+  bool has(const NativeRef& key) const { return t_->find(key) != nullptr; }
+  WeakSet& add(const NativeRef& key) {
+    if (!t_->find(key)) t_->add(key, Entry{key.weak()});
+    return *this;
+  }
+  bool remove(const NativeRef& key) { return t_->remove(key); }
+
+  const void* identity() const { return t_.get(); }
+
+ private:
+  struct Entry {
+    NativeWeak key;
+  };
+
+  std::shared_ptr<detail::NativeKeys<Entry>> t_;
 };
 
 /**

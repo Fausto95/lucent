@@ -85,10 +85,11 @@ export class TreeNode {
 }
 ```
 
-- `new WeakRef(target)` takes a class instance, an interface value or an object. Its `deref()` gives the target while something else holds it.
+- `new WeakRef(target)` takes a class instance, an interface value, an object or an SDK object. Its `deref()` gives the target while something else holds it.
 - The target is freed with its last strong reference, and `deref()` gives `undefined` from then on. JavaScript frees it later, when its garbage collector runs.
 - A delegate keeps its owner as a `WeakRef`, so the owner can hold the SDK object, the SDK object the delegate, and nothing leaks.
 - A `WeakMap` or `WeakSet` holds its keys the same way: an entry goes, its value with it, with its key's last strong reference. A value that holds its own key keeps it, though, where JavaScript would free both.
+- An SDK object is held through its platform's weak reference, so `deref()` gives it while UIKit or Android still holds it. Its entries go once the platform frees it, when the table next doubles.
 - A `WeakRef`, `WeakMap` or `WeakSet` doesn't cross to JavaScript ([LUCENT2006](/docs/api/diagnostics/#lucent2006)).
 
 ## Native references

@@ -113,6 +113,34 @@ static void nativeReferencesAreCounted() {
   CHECK(liveNativeRefs() == before);
 }
 
+/// A WeakRef, WeakMap and WeakSet of Objective-C objects hold them through
+/// ARC's weak references: an object lives while anything retains it, and
+/// two Lucent references to one object are one key.
+static void weakReferencesAreARCs() {
+  id kept = [NSObject new];
+  std::shared_ptr<WeakRefObject<NativeRef>> ref;
+  WeakMap<NativeRef, double> values;
+  WeakSet<NativeRef> seen;
+  @autoreleasepool {
+    NativeRef held = objc::wrap(kept, "test");
+    ref = std::make_shared<WeakRefObject<NativeRef>>(held);
+    values.set(held, 1);
+    seen.add(held);
+  }
+  CHECK(mainCaughtUp());
+  @autoreleasepool {
+    // Lucent's references are gone; the object's own retain keeps it.
+    NativeRef again = objc::wrap(kept, "test");
+    CHECK(ref->deref().has() && objc::unwrap(ref->deref()) == kept);
+    CHECK(values.has(again) && values.get(again).has() && seen.has(again));
+    CHECK(!values.has(objc::wrap([NSObject new], "test")));
+  }
+  CHECK(mainCaughtUp());
+  __weak id watched = kept;
+  kept = nil;
+  CHECK(watched == nil && ref->deref().isUndefined());
+}
+
 /// Objects a Lucent reference held are released on the main thread, where
 /// UIKit requires it, whichever thread dropped the reference.
 static void objectsAreReleasedOnMain() {
@@ -282,6 +310,7 @@ int main() {
   errorOutRetainsOnce();
   nativeReferencesAreCounted();
   objectsAreReleasedOnMain();
+  weakReferencesAreARCs();
   setsRoundTrip();
   optionalFunctionsBecomeOptionalBlocks();
   outIntegersAreBigInts();
