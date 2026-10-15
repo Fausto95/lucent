@@ -58,3 +58,88 @@ extern "C" bool lucent_union_generics_absent(bool arg0, lucent_error* error, luc
 #pragma pop_macro("members")
 #pragma pop_macro("comparisons")
 #pragma pop_macro("absent")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_union_1generics_ExportsNatives_members(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_union_generics_members(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_union_1generics_ExportsNatives_comparisons(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_union_generics_comparisons(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_union_1generics_ExportsNatives_optionals(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_union_generics_optionals(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_union_1generics_ExportsNatives_absent(JNIEnv* env, jclass, jboolean arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_union_generics_absent(arg0 == JNI_TRUE, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("members"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_union_1generics_ExportsNatives_members)},
+        {const_cast<char*>("comparisons"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_union_1generics_ExportsNatives_comparisons)},
+        {const_cast<char*>("optionals"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_union_1generics_ExportsNatives_optionals)},
+        {const_cast<char*>("absent"), const_cast<char*>("(Z)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_union_1generics_ExportsNatives_absent)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/union_generics/ExportsNatives"), methods, 4);
+    lucent::jni::check(env);
+  }
+}
+#endif

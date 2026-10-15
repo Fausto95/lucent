@@ -86,3 +86,143 @@ extern "C" bool lucent_macro_names_Signal_HUGE(lucent_object self, lucent_error*
 #pragma pop_macro("huge")
 #pragma pop_macro("howmany")
 #pragma pop_macro("HUGE")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+static const bool lucent_wrapper_C_Signal = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Signal), "dev/lucent/app/macro_names/Signal");
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_macro_1names_ExportsNatives_howmany(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_macro_names_howmany(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_macro_1names_ExportsNatives_huge(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_macro_names_huge(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_macro_1names_ExportsNatives_signal(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_macro_names_signal(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_macro_1names_Signal_entry_1new(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_macro_names_Signal_new(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_macro_1names_Signal_entry_1get_1sa_1handler(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_macro_names_Signal_get_sa_handler(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_macro_1names_Signal_entry_1set_1sa_1handler(JNIEnv* env, jclass, jlong self, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_macro_names_Signal_set_sa_handler(reinterpret_cast<lucent_object>(self), in.string(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_macro_1names_Signal_entry_1HUGE(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_macro_names_Signal_HUGE(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("howmany"), const_cast<char*>("(D)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_macro_1names_ExportsNatives_howmany)},
+        {const_cast<char*>("huge"), const_cast<char*>("(D)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_macro_1names_ExportsNatives_huge)},
+        {const_cast<char*>("signal"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_macro_1names_ExportsNatives_signal)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/macro_names/ExportsNatives"), methods, 3);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("()J"), reinterpret_cast<void*>(&Java_dev_lucent_app_macro_1names_Signal_entry_1new)},
+        {const_cast<char*>("entry_get_sa_handler"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_macro_1names_Signal_entry_1get_1sa_1handler)},
+        {const_cast<char*>("entry_set_sa_handler"), const_cast<char*>("(JLjava/lang/String;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_macro_1names_Signal_entry_1set_1sa_1handler)},
+        {const_cast<char*>("entry_HUGE"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_macro_1names_Signal_entry_1HUGE)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/macro_names/Signal"), methods, 4);
+    lucent::jni::check(env);
+  }
+}
+#endif

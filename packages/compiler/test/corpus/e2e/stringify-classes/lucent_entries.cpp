@@ -114,3 +114,173 @@ extern "C" bool lucent_stringify_classes_generics(lucent_error* error, lucent_st
 #pragma pop_macro("inherited")
 #pragma pop_macro("generics")
 #pragma pop_macro("account")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_stringify_1classes_ExportsNatives_account(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_stringify_classes_account(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_stringify_1classes_ExportsNatives_inherited(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_stringify_classes_inherited(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_stringify_1classes_ExportsNatives_throughBase(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_stringify_classes_throughBase(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_stringify_1classes_ExportsNatives_nested(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_stringify_classes_nested(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_stringify_1classes_ExportsNatives_shapes(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_stringify_classes_shapes(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_stringify_1classes_ExportsNatives_toJsonUndefined(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_stringify_classes_toJsonUndefined(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_stringify_1classes_ExportsNatives_toJsonOnce(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_stringify_classes_toJsonOnce(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_stringify_1classes_ExportsNatives_toJsonField(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_stringify_classes_toJsonField(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_stringify_1classes_ExportsNatives_generics(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_stringify_classes_generics(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("account"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_stringify_1classes_ExportsNatives_account)},
+        {const_cast<char*>("inherited"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_stringify_1classes_ExportsNatives_inherited)},
+        {const_cast<char*>("throughBase"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_stringify_1classes_ExportsNatives_throughBase)},
+        {const_cast<char*>("nested"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_stringify_1classes_ExportsNatives_nested)},
+        {const_cast<char*>("shapes"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_stringify_1classes_ExportsNatives_shapes)},
+        {const_cast<char*>("toJsonUndefined"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_stringify_1classes_ExportsNatives_toJsonUndefined)},
+        {const_cast<char*>("toJsonOnce"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_stringify_1classes_ExportsNatives_toJsonOnce)},
+        {const_cast<char*>("toJsonField"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_stringify_1classes_ExportsNatives_toJsonField)},
+        {const_cast<char*>("generics"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_stringify_1classes_ExportsNatives_generics)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/stringify_classes/ExportsNatives"), methods, 9);
+    lucent::jni::check(env);
+  }
+}
+#endif

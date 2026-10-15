@@ -90,3 +90,140 @@ extern "C" bool lucent_events_Channel_get_name(lucent_object self, lucent_error*
 #pragma pop_macro("done")
 #pragma pop_macro("counts")
 #pragma pop_macro("channelJson")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+static const bool lucent_wrapper_C_Channel = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Channel), "dev/lucent/app/events/Channel");
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_events_ExportsNatives_download(JNIEnv* env, jclass, jstring arg0, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_events_download(in.string(arg0), [](void* context, const lucent_error* error) { lucent::jni::settleEntry(context, error, [](JNIEnv*) -> jobject { return nullptr; }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_events_ExportsNatives_finishNow(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_events_finishNow(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_events_ExportsNatives_counts(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_events_counts(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_events_ExportsNatives_inLucent(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_events_inLucent(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_events_ExportsNatives_channelJson(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_events_channelJson(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_events_Channel_entry_1new(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_events_Channel_new(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_events_Channel_entry_1get_1name(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_events_Channel_get_name(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("download"), const_cast<char*>("(Ljava/lang/String;Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_events_ExportsNatives_download)},
+        {const_cast<char*>("finishNow"), const_cast<char*>("(Ljava/lang/String;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_events_ExportsNatives_finishNow)},
+        {const_cast<char*>("counts"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_events_ExportsNatives_counts)},
+        {const_cast<char*>("inLucent"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_events_ExportsNatives_inLucent)},
+        {const_cast<char*>("channelJson"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_events_ExportsNatives_channelJson)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/events/ExportsNatives"), methods, 5);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("()J"), reinterpret_cast<void*>(&Java_dev_lucent_app_events_Channel_entry_1new)},
+        {const_cast<char*>("entry_get_name"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_events_Channel_entry_1get_1name)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/events/Channel"), methods, 2);
+    lucent::jni::check(env);
+  }
+}
+#endif

@@ -197,3 +197,339 @@ extern "C" bool lucent_emitter_classes_LoudPlayer_ticking(lucent_object self, lu
 #pragma pop_macro("length")
 #pragma pop_macro("inLucent")
 #pragma pop_macro("heldPlayer")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+static const bool lucent_wrapper_C_Player = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Player), "dev/lucent/app/emitter_classes/Player");
+static const bool lucent_wrapper_C_LoudPlayer = lucent::jni::registerInstanceClass(typeid(lucent_app::C_LoudPlayer), "dev/lucent/app/emitter_classes/LoudPlayer");
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_emitter_1classes_ExportsNatives_heldPlayer(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_emitter_classes_heldPlayer(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_emitter_1classes_ExportsNatives_makePlayer(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_emitter_classes_makePlayer(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_emitter_1classes_ExportsNatives_makeLoud(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_emitter_classes_makeLoud(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_dev_lucent_app_emitter_1classes_ExportsNatives_same(JNIEnv* env, jclass, jobject arg0, jobject arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    bool result{};
+    if (!lucent_emitter_classes_same(in.instance(arg0), in.instance(arg1), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return static_cast<jboolean>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_emitter_1classes_ExportsNatives_playFor(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_emitter_classes_playFor(in.instance(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_emitter_1classes_ExportsNatives_inLucent(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_emitter_classes_inLucent(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_emitter_1classes_Player_entry_1new(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_emitter_classes_Player_new(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_emitter_1classes_Player_entry_1get_1length(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_emitter_classes_Player_get_length(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_emitter_1classes_Player_entry_1get_1position(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_emitter_classes_Player_get_position(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_emitter_1classes_Player_entry_1set_1position(JNIEnv* env, jclass, jlong self, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_emitter_classes_Player_set_position(reinterpret_cast<lucent_object>(self), arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_emitter_1classes_Player_entry_1play(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_emitter_classes_Player_play(reinterpret_cast<lucent_object>(self), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_emitter_1classes_Player_entry_1ticking(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_emitter_classes_Player_ticking(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_emitter_1classes_LoudPlayer_entry_1new(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_emitter_classes_LoudPlayer_new(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_emitter_1classes_LoudPlayer_entry_1shout(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_emitter_classes_LoudPlayer_shout(reinterpret_cast<lucent_object>(self), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_emitter_1classes_LoudPlayer_entry_1get_1length(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_emitter_classes_LoudPlayer_get_length(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_emitter_1classes_LoudPlayer_entry_1get_1position(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_emitter_classes_LoudPlayer_get_position(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_emitter_1classes_LoudPlayer_entry_1set_1position(JNIEnv* env, jclass, jlong self, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_emitter_classes_LoudPlayer_set_position(reinterpret_cast<lucent_object>(self), arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_emitter_1classes_LoudPlayer_entry_1play(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_emitter_classes_LoudPlayer_play(reinterpret_cast<lucent_object>(self), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_emitter_1classes_LoudPlayer_entry_1ticking(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_emitter_classes_LoudPlayer_ticking(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("heldPlayer"), const_cast<char*>("()Ldev/lucent/app/emitter_classes/Player;"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_ExportsNatives_heldPlayer)},
+        {const_cast<char*>("makePlayer"), const_cast<char*>("(D)Ldev/lucent/app/emitter_classes/Player;"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_ExportsNatives_makePlayer)},
+        {const_cast<char*>("makeLoud"), const_cast<char*>("()Ldev/lucent/app/emitter_classes/LoudPlayer;"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_ExportsNatives_makeLoud)},
+        {const_cast<char*>("same"), const_cast<char*>("(Ldev/lucent/app/emitter_classes/Player;Ldev/lucent/app/emitter_classes/Player;)Z"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_ExportsNatives_same)},
+        {const_cast<char*>("playFor"), const_cast<char*>("(Ldev/lucent/app/emitter_classes/Player;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_ExportsNatives_playFor)},
+        {const_cast<char*>("inLucent"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_ExportsNatives_inLucent)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/emitter_classes/ExportsNatives"), methods, 6);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(D)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_Player_entry_1new)},
+        {const_cast<char*>("entry_get_length"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_Player_entry_1get_1length)},
+        {const_cast<char*>("entry_get_position"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_Player_entry_1get_1position)},
+        {const_cast<char*>("entry_set_position"), const_cast<char*>("(JD)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_Player_entry_1set_1position)},
+        {const_cast<char*>("entry_play"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_Player_entry_1play)},
+        {const_cast<char*>("entry_ticking"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_Player_entry_1ticking)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/emitter_classes/Player"), methods, 6);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(D)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_LoudPlayer_entry_1new)},
+        {const_cast<char*>("entry_shout"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_LoudPlayer_entry_1shout)},
+        {const_cast<char*>("entry_get_length"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_LoudPlayer_entry_1get_1length)},
+        {const_cast<char*>("entry_get_position"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_LoudPlayer_entry_1get_1position)},
+        {const_cast<char*>("entry_set_position"), const_cast<char*>("(JD)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_LoudPlayer_entry_1set_1position)},
+        {const_cast<char*>("entry_play"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_LoudPlayer_entry_1play)},
+        {const_cast<char*>("entry_ticking"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_emitter_1classes_LoudPlayer_entry_1ticking)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/emitter_classes/LoudPlayer"), methods, 7);
+    lucent::jni::check(env);
+  }
+}
+#endif

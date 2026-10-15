@@ -382,7 +382,8 @@ export function writeNativePackage(
       : libraryBuildGradle(
           want.get(gradle)!.toString(),
           options.native,
-          !!result.kotlin?.size,
+          // The exports' Kotlin API needs no kotlinx-coroutines (the standard library's suffice).
+          [...(result.kotlin?.keys() ?? [])].some((f) => !f.startsWith("dev/lucent/app/")),
           // The components' Compose content: the libraries it imports.
           result.compose
             ? [...result.kotlin!]

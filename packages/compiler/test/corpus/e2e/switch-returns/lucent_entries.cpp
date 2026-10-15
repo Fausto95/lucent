@@ -78,3 +78,122 @@ extern "C" bool lucent_switch_returns_sign(double arg0, lucent_error* error, luc
 #pragma pop_macro("size")
 #pragma pop_macro("sign")
 #pragma pop_macro("rank")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_switch_1returns_ExportsNatives_size(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_switch_returns_size(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_switch_1returns_ExportsNatives_rank(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_switch_returns_rank(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_dev_lucent_app_switch_1returns_ExportsNatives_weekday(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    bool result{};
+    if (!lucent_switch_returns_weekday(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return static_cast<jboolean>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_switch_1returns_ExportsNatives_steps(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_switch_returns_steps(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_switch_1returns_ExportsNatives_weight(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_switch_returns_weight(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_switch_1returns_ExportsNatives_sign(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_switch_returns_sign(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("size"), const_cast<char*>("(D)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_switch_1returns_ExportsNatives_size)},
+        {const_cast<char*>("rank"), const_cast<char*>("(D)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_switch_1returns_ExportsNatives_rank)},
+        {const_cast<char*>("weekday"), const_cast<char*>("(Ljava/lang/String;)Z"), reinterpret_cast<void*>(&Java_dev_lucent_app_switch_1returns_ExportsNatives_weekday)},
+        {const_cast<char*>("steps"), const_cast<char*>("(D)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_switch_1returns_ExportsNatives_steps)},
+        {const_cast<char*>("weight"), const_cast<char*>("(Ljava/lang/String;)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_switch_1returns_ExportsNatives_weight)},
+        {const_cast<char*>("sign"), const_cast<char*>("(D)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_switch_1returns_ExportsNatives_sign)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/switch_returns/ExportsNatives"), methods, 6);
+    lucent::jni::check(env);
+  }
+}
+#endif

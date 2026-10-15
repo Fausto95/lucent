@@ -107,3 +107,174 @@ extern "C" bool lucent_shapes_Vec_plus(lucent_object self, lucent_object arg0, l
 #pragma pop_macro("throughNamespace")
 #pragma pop_macro("plus")
 #pragma pop_macro("grown")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+static const bool lucent_wrapper_C_Vec = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Vec), "dev/lucent/app/shapes/Vec");
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_main_ExportsNatives_vectorsMade(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_main_vectorsMade(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_main_ExportsNatives_throughNamespace(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_main_throughNamespace(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_main_ExportsNatives_grown(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_main_grown(in.instance(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_shapes_Vec_entry_1new(JNIEnv* env, jclass, jdouble arg0, jdouble arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_shapes_Vec_new(arg0, arg1, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_shapes_Vec_entry_1get_1x(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_shapes_Vec_get_x(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_shapes_Vec_entry_1set_1x(JNIEnv* env, jclass, jlong self, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_shapes_Vec_set_x(reinterpret_cast<lucent_object>(self), arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_shapes_Vec_entry_1get_1y(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_shapes_Vec_get_y(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_shapes_Vec_entry_1set_1y(JNIEnv* env, jclass, jlong self, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_shapes_Vec_set_y(reinterpret_cast<lucent_object>(self), arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_shapes_Vec_entry_1plus(JNIEnv* env, jclass, jlong self, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_shapes_Vec_plus(reinterpret_cast<lucent_object>(self), in.instance(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("vectorsMade"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_main_ExportsNatives_vectorsMade)},
+        {const_cast<char*>("throughNamespace"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_main_ExportsNatives_throughNamespace)},
+        {const_cast<char*>("grown"), const_cast<char*>("(Ldev/lucent/app/shapes/Vec;)Ldev/lucent/app/shapes/Vec;"), reinterpret_cast<void*>(&Java_dev_lucent_app_main_ExportsNatives_grown)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/main/ExportsNatives"), methods, 3);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(DD)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_shapes_Vec_entry_1new)},
+        {const_cast<char*>("entry_get_x"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_shapes_Vec_entry_1get_1x)},
+        {const_cast<char*>("entry_set_x"), const_cast<char*>("(JD)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_shapes_Vec_entry_1set_1x)},
+        {const_cast<char*>("entry_get_y"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_shapes_Vec_entry_1get_1y)},
+        {const_cast<char*>("entry_set_y"), const_cast<char*>("(JD)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_shapes_Vec_entry_1set_1y)},
+        {const_cast<char*>("entry_plus"), const_cast<char*>("(JLdev/lucent/app/shapes/Vec;)Ldev/lucent/app/shapes/Vec;"), reinterpret_cast<void*>(&Java_dev_lucent_app_shapes_Vec_entry_1plus)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/shapes/Vec"), methods, 6);
+    lucent::jni::check(env);
+  }
+}
+#endif

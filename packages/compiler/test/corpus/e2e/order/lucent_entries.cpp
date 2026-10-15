@@ -148,3 +148,238 @@ extern "C" bool lucent_order_compare(double arg0, double arg1, lucent_string arg
 #pragma pop_macro("counted")
 #pragma pop_macro("compare")
 #pragma pop_macro("arithmetic")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_order_ExportsNatives_reset(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_order_reset(&error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_order_ExportsNatives_trail(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_order_trail(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_order_ExportsNatives_pair(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_order_pair(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_order_ExportsNatives_firstThrows(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_order_firstThrows(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_order_ExportsNatives_secondThrows(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_order_secondThrows(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_order_ExportsNatives_operands(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_order_operands(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_order_ExportsNatives_locals(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_order_locals(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_order_ExportsNatives_counted(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_order_counted(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_order_ExportsNatives_arithmetic(JNIEnv* env, jclass, jdouble arg0, jdouble arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_order_arithmetic(arg0, arg1, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_order_ExportsNatives_mulAdd(JNIEnv* env, jclass, jdouble arg0, jdouble arg1, jdouble arg2) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_order_mulAdd(arg0, arg1, arg2, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_order_ExportsNatives_numbers(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_order_numbers(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_order_ExportsNatives_negate(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_order_negate(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_order_ExportsNatives_compare(JNIEnv* env, jclass, jdouble arg0, jdouble arg1, jstring arg2, jstring arg3) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_order_compare(arg0, arg1, in.string(arg2), in.string(arg3), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("reset"), const_cast<char*>("()V"), reinterpret_cast<void*>(&Java_dev_lucent_app_order_ExportsNatives_reset)},
+        {const_cast<char*>("trail"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_order_ExportsNatives_trail)},
+        {const_cast<char*>("pair"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_order_ExportsNatives_pair)},
+        {const_cast<char*>("firstThrows"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_order_ExportsNatives_firstThrows)},
+        {const_cast<char*>("secondThrows"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_order_ExportsNatives_secondThrows)},
+        {const_cast<char*>("operands"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_order_ExportsNatives_operands)},
+        {const_cast<char*>("locals"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_order_ExportsNatives_locals)},
+        {const_cast<char*>("counted"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_order_ExportsNatives_counted)},
+        {const_cast<char*>("arithmetic"), const_cast<char*>("(DD)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_order_ExportsNatives_arithmetic)},
+        {const_cast<char*>("mulAdd"), const_cast<char*>("(DDD)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_order_ExportsNatives_mulAdd)},
+        {const_cast<char*>("numbers"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_order_ExportsNatives_numbers)},
+        {const_cast<char*>("negate"), const_cast<char*>("(D)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_order_ExportsNatives_negate)},
+        {const_cast<char*>("compare"), const_cast<char*>("(DDLjava/lang/String;Ljava/lang/String;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_order_ExportsNatives_compare)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/order/ExportsNatives"), methods, 13);
+    lucent::jni::check(env);
+  }
+}
+#endif

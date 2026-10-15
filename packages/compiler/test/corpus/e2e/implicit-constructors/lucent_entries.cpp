@@ -118,3 +118,184 @@ extern "C" bool lucent_implicit_constructors_thrown(lucent_error* error) {
 #pragma pop_macro("inheritedName")
 #pragma pop_macro("derived")
 #pragma pop_macro("caught")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_implicit_1constructors_ExportsNatives_parseError(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_implicit_constructors_parseError(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_implicit_1constructors_ExportsNatives_caught(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_implicit_constructors_caught(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_implicit_1constructors_ExportsNatives_withoutMessage(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_implicit_constructors_withoutMessage(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_implicit_1constructors_ExportsNatives_named(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_implicit_constructors_named(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_implicit_1constructors_ExportsNatives_inheritedName(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_implicit_constructors_inheritedName(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_implicit_1constructors_ExportsNatives_thrownNamed(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_implicit_constructors_thrownNamed(&error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_implicit_1constructors_ExportsNatives_twoLevels(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_implicit_constructors_twoLevels(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_implicit_1constructors_ExportsNatives_derived(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_implicit_constructors_derived(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_implicit_1constructors_ExportsNatives_subCoded(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_implicit_constructors_subCoded(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_implicit_1constructors_ExportsNatives_thrown(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_implicit_constructors_thrown(&error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("parseError"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_implicit_1constructors_ExportsNatives_parseError)},
+        {const_cast<char*>("caught"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_implicit_1constructors_ExportsNatives_caught)},
+        {const_cast<char*>("withoutMessage"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_implicit_1constructors_ExportsNatives_withoutMessage)},
+        {const_cast<char*>("named"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_implicit_1constructors_ExportsNatives_named)},
+        {const_cast<char*>("inheritedName"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_implicit_1constructors_ExportsNatives_inheritedName)},
+        {const_cast<char*>("thrownNamed"), const_cast<char*>("()V"), reinterpret_cast<void*>(&Java_dev_lucent_app_implicit_1constructors_ExportsNatives_thrownNamed)},
+        {const_cast<char*>("twoLevels"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_implicit_1constructors_ExportsNatives_twoLevels)},
+        {const_cast<char*>("derived"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_implicit_1constructors_ExportsNatives_derived)},
+        {const_cast<char*>("subCoded"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_implicit_1constructors_ExportsNatives_subCoded)},
+        {const_cast<char*>("thrown"), const_cast<char*>("()V"), reinterpret_cast<void*>(&Java_dev_lucent_app_implicit_1constructors_ExportsNatives_thrown)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/implicit_constructors/ExportsNatives"), methods, 10);
+    lucent::jni::check(env);
+  }
+}
+#endif

@@ -122,9 +122,33 @@ export interface Property {
   name: string;
   type?: Type;
   init?: Expr;
+  /** `get() = …`, and `set(v) = …` for a `var`: an accessor's expression body. */
+  get?: Expr;
+  set?: { param: string; value: Expr };
 }
 
-export type Member = Fun | Property;
+/** `constructor(a: A) : this(…) { … }`: a class's secondary constructor. */
+export interface Constructor {
+  k: "constructor";
+  modifiers?: Modifier[];
+  params: Param[];
+  delegate: { to: "this" | "super"; args: Arg[] };
+  body?: Stmt[];
+}
+
+/** `companion object { … }`. */
+export interface Companion {
+  k: "companion";
+  members: Member[];
+}
+
+/** `init { … }`: what an object or class runs as it is made. */
+export interface Init {
+  k: "init";
+  body: Stmt[];
+}
+
+export type Member = Fun | Property | Constructor | Companion | Init;
 
 export type Modifier =
   | "private"
@@ -154,6 +178,8 @@ export type Decl =
       typeParams?: string[];
       /** The primary constructor's parameters (as properties: `val x: Int`). */
       params?: (Param & { property?: "val" | "var" })[];
+      /** The primary constructor's own modifiers: `internal constructor(…)`. */
+      constructorModifiers?: Modifier[];
       supertypes?: { type: Type; args?: Arg[] }[];
       members: Member[];
     }

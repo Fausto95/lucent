@@ -356,18 +356,43 @@ function fun(f: Fun, indent: string): string[] {
 function property(p: Property, indent: string): string[] {
   const type = p.type ? `: ${printType(p.type)}` : "";
   const init = p.init ? ` = ${expr(p.init, PREC.lowest, indent)}` : "";
+  const inner = indent + INDENT;
 
   return [
     ...annotations(p.annotations, indent),
     `${indent}${mods(p.modifiers)}${p.k} ${ident(p.name)}${type}${init}`,
+    ...(p.get ? [`${inner}get() = ${expr(p.get, PREC.lowest, inner)}`] : []),
+    ...(p.set
+      ? [`${inner}set(${ident(p.set.param)}) = ${expr(p.set.value, PREC.lowest, inner)}`]
+      : []),
   ];
 }
 
-/** Members: properties together, a blank line before each function. */
+function member(m: Member, indent: string): string[] {
+  switch (m.k) {
+    case "fun":
+      return fun(m, indent);
+    case "val":
+    case "var":
+      return property(m, indent);
+    case "constructor": {
+      const head = `${indent}${mods(m.modifiers)}constructor(${params(m.params, indent)}) : ${m.delegate.to}(${args(m.delegate.args, indent)})`;
+      return m.body?.length
+        ? [`${head} {`, ...block(m.body, indent + INDENT), `${indent}}`]
+        : [head];
+    }
+    case "companion":
+      return [`${indent}companion object {`, ...members(m.members, indent + INDENT), `${indent}}`];
+    case "init":
+      return [`${indent}init {`, ...block(m.body, indent + INDENT), `${indent}}`];
+  }
+}
+
+/** Members: properties together, a blank line before each function, constructor, companion or init. */
 function members(ms: Member[], indent: string): string[] {
   return ms.flatMap((m, i) => [
-    ...(i && m.k === "fun" ? [""] : []),
-    ...(m.k === "fun" ? fun(m, indent) : property(m, indent)),
+    ...(i && m.k !== "val" && m.k !== "var" ? [""] : []),
+    ...member(m, indent),
   ]);
 }
 
@@ -391,7 +416,7 @@ function decl(d: Decl): string[] {
     case "class": {
       const tps = d.typeParams?.length ? `<${d.typeParams.map(ident).join(", ")}>` : "";
       const ctor = d.params
-        ? `(${d.params.map((p) => `${p.property ? `${p.property} ` : ""}${params([p], "")}`).join(", ")})`
+        ? `${d.constructorModifiers?.length ? ` ${mods(d.constructorModifiers)}constructor` : ""}(${d.params.map((p) => `${p.property ? `${p.property} ` : ""}${params([p], "")}`).join(", ")})`
         : "";
       const sup = d.supertypes?.length
         ? ` : ${d.supertypes.map((s) => `${printType(s.type)}${s.args ? `(${args(s.args, "")})` : ""}`).join(", ")}`

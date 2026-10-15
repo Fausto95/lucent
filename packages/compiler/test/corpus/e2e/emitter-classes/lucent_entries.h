@@ -40,7 +40,7 @@ bool lucent_emitter_classes_Player_get_length(lucent_object self, lucent_error* 
 /// emitter-classes.Player.position()
 bool lucent_emitter_classes_Player_get_position(lucent_object self, lucent_error* error, double* result);
 
-/// emitter-classes.Player.position()
+/// emitter-classes.Player.position(value)
 bool lucent_emitter_classes_Player_set_position(lucent_object self, double arg0, lucent_error* error);
 
 /// emitter-classes.Player.play()
@@ -61,7 +61,7 @@ bool lucent_emitter_classes_LoudPlayer_get_length(lucent_object self, lucent_err
 /// emitter-classes.LoudPlayer.position()
 bool lucent_emitter_classes_LoudPlayer_get_position(lucent_object self, lucent_error* error, double* result);
 
-/// emitter-classes.LoudPlayer.position()
+/// emitter-classes.LoudPlayer.position(value)
 bool lucent_emitter_classes_LoudPlayer_set_position(lucent_object self, double arg0, lucent_error* error);
 
 /// emitter-classes.LoudPlayer.play()

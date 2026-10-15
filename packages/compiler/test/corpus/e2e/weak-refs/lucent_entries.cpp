@@ -135,3 +135,238 @@ extern "C" bool lucent_weak_refs_TreeNode_path(lucent_object self, lucent_error*
 #pragma pop_macro("delegates")
 #pragma pop_macro("children")
 #pragma pop_macro("add")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+static const bool lucent_wrapper_C_Tracker = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Tracker), "dev/lucent/app/weak_refs/Tracker");
+static const bool lucent_wrapper_C_TreeNode = lucent::jni::registerInstanceClass(typeid(lucent_app::C_TreeNode), "dev/lucent/app/weak_refs/TreeNode");
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_weak_1refs_ExportsNatives_delegates(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_weak_refs_delegates(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_weak_1refs_ExportsNatives_trees(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_weak_refs_trees(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_weak_1refs_ExportsNatives_identities(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_weak_refs_identities(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_weak_1refs_Tracker_entry_1new(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_weak_refs_Tracker_new(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_weak_1refs_Tracker_entry_1get_1name(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_weak_refs_Tracker_get_name(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_weak_1refs_Tracker_entry_1get_1seen(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_weak_refs_Tracker_get_seen(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_weak_1refs_TreeNode_entry_1new(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_weak_refs_TreeNode_new(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_weak_1refs_TreeNode_entry_1get_1name(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_weak_refs_TreeNode_get_name(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_weak_1refs_TreeNode_entry_1get_1children(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_weak_refs_TreeNode_get_children(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_weak_1refs_TreeNode_entry_1add(JNIEnv* env, jclass, jlong self, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_weak_refs_TreeNode_add(reinterpret_cast<lucent_object>(self), in.instance(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_weak_1refs_TreeNode_entry_1get_1parent(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_weak_refs_TreeNode_get_parent(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_weak_1refs_TreeNode_entry_1path(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_weak_refs_TreeNode_path(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("delegates"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_weak_1refs_ExportsNatives_delegates)},
+        {const_cast<char*>("trees"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_weak_1refs_ExportsNatives_trees)},
+        {const_cast<char*>("identities"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_weak_1refs_ExportsNatives_identities)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/weak_refs/ExportsNatives"), methods, 3);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(Ljava/lang/String;)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_weak_1refs_Tracker_entry_1new)},
+        {const_cast<char*>("entry_get_name"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_weak_1refs_Tracker_entry_1get_1name)},
+        {const_cast<char*>("entry_get_seen"), const_cast<char*>("(J)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_weak_1refs_Tracker_entry_1get_1seen)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/weak_refs/Tracker"), methods, 3);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(Ljava/lang/String;)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_weak_1refs_TreeNode_entry_1new)},
+        {const_cast<char*>("entry_get_name"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_weak_1refs_TreeNode_entry_1get_1name)},
+        {const_cast<char*>("entry_get_children"), const_cast<char*>("(J)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_weak_1refs_TreeNode_entry_1get_1children)},
+        {const_cast<char*>("entry_add"), const_cast<char*>("(JLdev/lucent/app/weak_refs/TreeNode;)Ldev/lucent/app/weak_refs/TreeNode;"), reinterpret_cast<void*>(&Java_dev_lucent_app_weak_1refs_TreeNode_entry_1add)},
+        {const_cast<char*>("entry_get_parent"), const_cast<char*>("(J)Ldev/lucent/app/weak_refs/TreeNode;"), reinterpret_cast<void*>(&Java_dev_lucent_app_weak_1refs_TreeNode_entry_1get_1parent)},
+        {const_cast<char*>("entry_path"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_weak_1refs_TreeNode_entry_1path)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/weak_refs/TreeNode"), methods, 6);
+    lucent::jni::check(env);
+  }
+}
+#endif

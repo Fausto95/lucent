@@ -224,3 +224,130 @@ extern "C" void lucent_compute_conversions(void (*done)(void* context, const luc
 #pragma pop_macro("constants")
 #pragma pop_macro("cancelled")
 #pragma pop_macro("bytes")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_compute_ExportsNatives_root(JNIEnv* env, jclass, jdouble arg0, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_compute_root(arg0, [](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_compute_ExportsNatives_cancelled(JNIEnv* env, jclass, jstring arg0, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_compute_cancelled(in.string(arg0), [](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_compute_ExportsNatives_snapshot(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_compute_snapshot([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_compute_ExportsNatives_graph(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_compute_graph([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_compute_ExportsNatives_results(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_compute_results([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_compute_ExportsNatives_objects(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_compute_objects([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_compute_ExportsNatives_bytes(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_compute_bytes([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_compute_ExportsNatives_many(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_compute_many([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_compute_ExportsNatives_constants(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_compute_constants([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_compute_ExportsNatives_conversions(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_compute_conversions([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("root"), const_cast<char*>("(DLdev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_compute_ExportsNatives_root)},
+        {const_cast<char*>("cancelled"), const_cast<char*>("(Ljava/lang/String;Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_compute_ExportsNatives_cancelled)},
+        {const_cast<char*>("snapshot"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_compute_ExportsNatives_snapshot)},
+        {const_cast<char*>("graph"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_compute_ExportsNatives_graph)},
+        {const_cast<char*>("results"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_compute_ExportsNatives_results)},
+        {const_cast<char*>("objects"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_compute_ExportsNatives_objects)},
+        {const_cast<char*>("bytes"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_compute_ExportsNatives_bytes)},
+        {const_cast<char*>("many"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_compute_ExportsNatives_many)},
+        {const_cast<char*>("constants"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_compute_ExportsNatives_constants)},
+        {const_cast<char*>("conversions"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_compute_ExportsNatives_conversions)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/compute/ExportsNatives"), methods, 10);
+    lucent::jni::check(env);
+  }
+}
+#endif

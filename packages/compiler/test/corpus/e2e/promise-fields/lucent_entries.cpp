@@ -168,3 +168,208 @@ extern "C" void lucent_promise_fields_Cache_read(lucent_object self, void (*done
 #pragma pop_macro("log")
 #pragma pop_macro("loads")
 #pragma pop_macro("cached")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+static const bool lucent_wrapper_C_Writer = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Writer), "dev/lucent/app/promise_fields/Writer");
+static const bool lucent_wrapper_C_Cache = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Cache), "dev/lucent/app/promise_fields/Cache");
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_promise_1fields_ExportsNatives_serialized(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_promise_fields_serialized([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_promise_1fields_ExportsNatives_cached(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_promise_fields_cached([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_promise_1fields_ExportsNatives_stringified(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_promise_fields_stringified(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_promise_1fields_ExportsNatives_makeWriter(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_promise_fields_makeWriter(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_promise_1fields_Writer_entry_1new(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_promise_fields_Writer_new(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_promise_1fields_Writer_entry_1get_1log(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_promise_fields_Writer_get_log(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_promise_1fields_Writer_entry_1set_1log(JNIEnv* env, jclass, jlong self, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_promise_fields_Writer_set_log(reinterpret_cast<lucent_object>(self), in.value(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_promise_1fields_Writer_entry_1write(JNIEnv* env, jclass, jlong self, jstring arg0, jdouble arg1, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_promise_fields_Writer_write(reinterpret_cast<lucent_object>(self), in.string(arg0), arg1, [](void* context, const lucent_error* error) { lucent::jni::settleEntry(context, error, [](JNIEnv*) -> jobject { return nullptr; }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_promise_1fields_Cache_entry_1new(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_promise_fields_Cache_new(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_promise_1fields_Cache_entry_1get_1loads(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_promise_fields_Cache_get_loads(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_promise_1fields_Cache_entry_1set_1loads(JNIEnv* env, jclass, jlong self, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_promise_fields_Cache_set_loads(reinterpret_cast<lucent_object>(self), arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_promise_1fields_Cache_entry_1read(JNIEnv* env, jclass, jlong self, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_promise_fields_Cache_read(reinterpret_cast<lucent_object>(self), [](void* context, const double* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("serialized"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_promise_1fields_ExportsNatives_serialized)},
+        {const_cast<char*>("cached"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_promise_1fields_ExportsNatives_cached)},
+        {const_cast<char*>("stringified"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_promise_1fields_ExportsNatives_stringified)},
+        {const_cast<char*>("makeWriter"), const_cast<char*>("()Ldev/lucent/app/promise_fields/Writer;"), reinterpret_cast<void*>(&Java_dev_lucent_app_promise_1fields_ExportsNatives_makeWriter)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/promise_fields/ExportsNatives"), methods, 4);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("()J"), reinterpret_cast<void*>(&Java_dev_lucent_app_promise_1fields_Writer_entry_1new)},
+        {const_cast<char*>("entry_get_log"), const_cast<char*>("(J)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_promise_1fields_Writer_entry_1get_1log)},
+        {const_cast<char*>("entry_set_log"), const_cast<char*>("(JLjava/util/List;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_promise_1fields_Writer_entry_1set_1log)},
+        {const_cast<char*>("entry_write"), const_cast<char*>("(JLjava/lang/String;DLdev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_promise_1fields_Writer_entry_1write)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/promise_fields/Writer"), methods, 4);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(D)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_promise_1fields_Cache_entry_1new)},
+        {const_cast<char*>("entry_get_loads"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_promise_1fields_Cache_entry_1get_1loads)},
+        {const_cast<char*>("entry_set_loads"), const_cast<char*>("(JD)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_promise_1fields_Cache_entry_1set_1loads)},
+        {const_cast<char*>("entry_read"), const_cast<char*>("(JLdev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_promise_1fields_Cache_entry_1read)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/promise_fields/Cache"), methods, 4);
+    lucent::jni::check(env);
+  }
+}
+#endif

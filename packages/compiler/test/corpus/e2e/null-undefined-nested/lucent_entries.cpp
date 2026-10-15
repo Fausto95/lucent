@@ -71,3 +71,105 @@ extern "C" bool lucent_null_undefined_nested_both(lucent_value arg0, lucent_erro
 #pragma pop_macro("nested")
 #pragma pop_macro("elements")
 #pragma pop_macro("both")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_null_1undefined_1nested_ExportsNatives_elements(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_null_undefined_nested_elements(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_null_1undefined_1nested_ExportsNatives_nullable(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_null_undefined_nested_nullable(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_null_1undefined_1nested_ExportsNatives_nested(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_null_undefined_nested_nested(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_null_1undefined_1nested_ExportsNatives_record(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_null_undefined_nested_record(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_null_1undefined_1nested_ExportsNatives_both(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_null_undefined_nested_both(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("elements"), const_cast<char*>("(Ljava/util/List;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_null_1undefined_1nested_ExportsNatives_elements)},
+        {const_cast<char*>("nullable"), const_cast<char*>("(Ljava/util/List;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_null_1undefined_1nested_ExportsNatives_nullable)},
+        {const_cast<char*>("nested"), const_cast<char*>("(Ljava/util/List;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_null_1undefined_1nested_ExportsNatives_nested)},
+        {const_cast<char*>("record"), const_cast<char*>("(Ljava/util/Map;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_null_1undefined_1nested_ExportsNatives_record)},
+        {const_cast<char*>("both"), const_cast<char*>("(Ljava/util/List;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_null_1undefined_1nested_ExportsNatives_both)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/null_undefined_nested/ExportsNatives"), methods, 5);
+    lucent::jni::check(env);
+  }
+}
+#endif

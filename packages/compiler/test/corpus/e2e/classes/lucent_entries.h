@@ -46,7 +46,7 @@ bool lucent_classes_Counter_get_label(lucent_object self, lucent_error* error, l
 /// classes.Counter.value()
 bool lucent_classes_Counter_get_value(lucent_object self, lucent_error* error, double* result);
 
-/// classes.Counter.value()
+/// classes.Counter.value(value)
 bool lucent_classes_Counter_set_value(lucent_object self, double arg0, lucent_error* error);
 
 /// classes.Counter.reset()
@@ -58,7 +58,7 @@ bool lucent_classes_Counter_describe(lucent_object self, lucent_error* error, lu
 /// classes.Counter.created()
 bool lucent_classes_Counter_get_created(lucent_error* error, double* result);
 
-/// classes.Counter.created()
+/// classes.Counter.created(value)
 bool lucent_classes_Counter_set_created(double arg0, lucent_error* error);
 
 /// classes.Counter.total()
@@ -97,7 +97,7 @@ bool lucent_classes_Account_secret(lucent_object self, lucent_error* error, doub
 /// classes.Relay.last()
 bool lucent_classes_Relay_get_last(lucent_object self, lucent_error* error, lucent_string* result);
 
-/// classes.Relay.last()
+/// classes.Relay.last(value)
 bool lucent_classes_Relay_set_last(lucent_object self, lucent_string arg0, lucent_error* error);
 
 /// classes.Relay.send(s)

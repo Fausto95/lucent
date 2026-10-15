@@ -239,3 +239,455 @@ extern "C" bool lucent_exported_statics_Scoped_summary(lucent_error* error, luce
 #pragma pop_macro("label")
 #pragma pop_macro("count")
 #pragma pop_macro("add")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+static const bool lucent_wrapper_C_Registry = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Registry), "dev/lucent/app/exported_statics/Registry");
+static const bool lucent_wrapper_C_Scoped = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Scoped), "dev/lucent/app/exported_statics/Scoped");
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_exported_1statics_ExportsNatives_read(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_exported_statics_read(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_exported_1statics_Registry_entry_1new(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_exported_statics_Registry_new(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_exported_1statics_Registry_entry_1get_1seen(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_exported_statics_Registry_get_seen(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_exported_1statics_Registry_entry_1get_1count(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_exported_statics_Registry_get_count(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_exported_1statics_Registry_entry_1set_1count(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_exported_statics_Registry_set_count(arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_exported_1statics_Registry_entry_1get_1label(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_exported_statics_Registry_get_label(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_exported_1statics_Registry_entry_1set_1label(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_exported_statics_Registry_set_label(in.string(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_exported_1statics_Registry_entry_1get_1limit(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_exported_statics_Registry_get_limit(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_exported_1statics_Registry_entry_1get_1names(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_exported_statics_Registry_get_names(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_exported_1statics_Registry_entry_1set_1names(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_exported_statics_Registry_set_names(in.value(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_exported_1statics_Registry_entry_1add(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_exported_statics_Registry_add(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_exported_1statics_Registry_entry_1summary(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_exported_statics_Registry_summary(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_exported_1statics_Scoped_entry_1new(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_exported_statics_Scoped_new(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_exported_1statics_Scoped_entry_1get_1seen(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_exported_statics_Scoped_get_seen(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_exported_1statics_Scoped_entry_1get_1scope(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_exported_statics_Scoped_get_scope(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_exported_1statics_Scoped_entry_1set_1scope(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_exported_statics_Scoped_set_scope(in.string(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_exported_1statics_Scoped_entry_1where(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_exported_statics_Scoped_where(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_exported_1statics_Scoped_entry_1get_1count(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_exported_statics_Scoped_get_count(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_exported_1statics_Scoped_entry_1set_1count(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_exported_statics_Scoped_set_count(arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_exported_1statics_Scoped_entry_1get_1label(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_exported_statics_Scoped_get_label(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_exported_1statics_Scoped_entry_1set_1label(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_exported_statics_Scoped_set_label(in.string(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_exported_1statics_Scoped_entry_1get_1limit(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_exported_statics_Scoped_get_limit(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_exported_1statics_Scoped_entry_1get_1names(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_exported_statics_Scoped_get_names(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_exported_1statics_Scoped_entry_1set_1names(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_exported_statics_Scoped_set_names(in.value(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_exported_1statics_Scoped_entry_1add(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_exported_statics_Scoped_add(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_exported_1statics_Scoped_entry_1summary(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_exported_statics_Scoped_summary(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("read"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_ExportsNatives_read)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/exported_statics/ExportsNatives"), methods, 1);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("()J"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Registry_entry_1new)},
+        {const_cast<char*>("entry_get_seen"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Registry_entry_1get_1seen)},
+        {const_cast<char*>("entry_get_count"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Registry_entry_1get_1count)},
+        {const_cast<char*>("entry_set_count"), const_cast<char*>("(D)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Registry_entry_1set_1count)},
+        {const_cast<char*>("entry_get_label"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Registry_entry_1get_1label)},
+        {const_cast<char*>("entry_set_label"), const_cast<char*>("(Ljava/lang/String;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Registry_entry_1set_1label)},
+        {const_cast<char*>("entry_get_limit"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Registry_entry_1get_1limit)},
+        {const_cast<char*>("entry_get_names"), const_cast<char*>("()Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Registry_entry_1get_1names)},
+        {const_cast<char*>("entry_set_names"), const_cast<char*>("(Ljava/util/List;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Registry_entry_1set_1names)},
+        {const_cast<char*>("entry_add"), const_cast<char*>("(Ljava/lang/String;)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Registry_entry_1add)},
+        {const_cast<char*>("entry_summary"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Registry_entry_1summary)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/exported_statics/Registry"), methods, 11);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("()J"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Scoped_entry_1new)},
+        {const_cast<char*>("entry_get_seen"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Scoped_entry_1get_1seen)},
+        {const_cast<char*>("entry_get_scope"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Scoped_entry_1get_1scope)},
+        {const_cast<char*>("entry_set_scope"), const_cast<char*>("(Ljava/lang/String;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Scoped_entry_1set_1scope)},
+        {const_cast<char*>("entry_where"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Scoped_entry_1where)},
+        {const_cast<char*>("entry_get_count"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Scoped_entry_1get_1count)},
+        {const_cast<char*>("entry_set_count"), const_cast<char*>("(D)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Scoped_entry_1set_1count)},
+        {const_cast<char*>("entry_get_label"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Scoped_entry_1get_1label)},
+        {const_cast<char*>("entry_set_label"), const_cast<char*>("(Ljava/lang/String;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Scoped_entry_1set_1label)},
+        {const_cast<char*>("entry_get_limit"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Scoped_entry_1get_1limit)},
+        {const_cast<char*>("entry_get_names"), const_cast<char*>("()Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Scoped_entry_1get_1names)},
+        {const_cast<char*>("entry_set_names"), const_cast<char*>("(Ljava/util/List;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Scoped_entry_1set_1names)},
+        {const_cast<char*>("entry_add"), const_cast<char*>("(Ljava/lang/String;)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Scoped_entry_1add)},
+        {const_cast<char*>("entry_summary"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1statics_Scoped_entry_1summary)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/exported_statics/Scoped"), methods, 14);
+    lucent::jni::check(env);
+  }
+}
+#endif

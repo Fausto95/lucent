@@ -83,3 +83,106 @@ extern "C" bool lucent_array_buffers_Store_kinds(lucent_object self, lucent_erro
 #pragma pop_macro("kinds")
 #pragma pop_macro("digest")
 #pragma pop_macro("checks")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+static const bool lucent_wrapper_C_Store = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Store), "dev/lucent/app/array_buffers/Store");
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_array_1buffers_ExportsNatives_views(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_array_buffers_views(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_array_1buffers_ExportsNatives_checks(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_array_buffers_checks(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_array_1buffers_ExportsNatives_digest(JNIEnv* env, jclass, jdouble arg0, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_array_buffers_digest(arg0, [](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_array_1buffers_Store_entry_1new(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_array_buffers_Store_new(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_array_1buffers_Store_entry_1kinds(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_array_buffers_Store_kinds(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("views"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_array_1buffers_ExportsNatives_views)},
+        {const_cast<char*>("checks"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_array_1buffers_ExportsNatives_checks)},
+        {const_cast<char*>("digest"), const_cast<char*>("(DLdev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_array_1buffers_ExportsNatives_digest)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/array_buffers/ExportsNatives"), methods, 3);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("()J"), reinterpret_cast<void*>(&Java_dev_lucent_app_array_1buffers_Store_entry_1new)},
+        {const_cast<char*>("entry_kinds"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_array_1buffers_Store_entry_1kinds)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/array_buffers/Store"), methods, 2);
+    lucent::jni::check(env);
+  }
+}
+#endif

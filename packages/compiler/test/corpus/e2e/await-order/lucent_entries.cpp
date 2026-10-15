@@ -118,3 +118,75 @@ extern "C" void lucent_await_order_returnTypes(void (*done)(void* context, const
 #pragma pop_macro("returnOrder")
 #pragma pop_macro("readBeforeWaiting")
 #pragma pop_macro("awaitValues")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_await_1order_ExportsNatives_awaitValues(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_await_order_awaitValues([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_await_1order_ExportsNatives_readBeforeWaiting(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_await_order_readBeforeWaiting([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_await_1order_ExportsNatives_returnOrder(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_await_order_returnOrder([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_await_1order_ExportsNatives_returnRejected(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_await_order_returnRejected([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_await_1order_ExportsNatives_returnTypes(JNIEnv* env, jclass, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_await_order_returnTypes([](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("awaitValues"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_await_1order_ExportsNatives_awaitValues)},
+        {const_cast<char*>("readBeforeWaiting"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_await_1order_ExportsNatives_readBeforeWaiting)},
+        {const_cast<char*>("returnOrder"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_await_1order_ExportsNatives_returnOrder)},
+        {const_cast<char*>("returnRejected"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_await_1order_ExportsNatives_returnRejected)},
+        {const_cast<char*>("returnTypes"), const_cast<char*>("(Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_await_1order_ExportsNatives_returnTypes)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/await_order/ExportsNatives"), methods, 5);
+    lucent::jni::check(env);
+  }
+}
+#endif

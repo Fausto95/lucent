@@ -12,7 +12,7 @@ const lucent::js::ModuleIdentity kModuleIdentities[] = {{"temporal-dead-zone", "
 namespace lucent::js {
 
 const BuildIdentity& buildIdentity() {
-  static const BuildIdentity identity = {"all", "14252ba486eab2f9", kModuleIdentities, 1};
+  static const BuildIdentity identity = {"all", "c5727c9dff41c9a6", kModuleIdentities, 1};
   return identity;
 }
 

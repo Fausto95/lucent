@@ -88,3 +88,139 @@ extern "C" bool lucent_misc_counterKeys(lucent_string arg0, lucent_error* error,
 #pragma pop_macro("colorName")
 #pragma pop_macro("checksum")
 #pragma pop_macro("bytesOps")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_misc_ExportsNatives_colorName(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_misc_colorName(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_misc_ExportsNatives_level(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_misc_level(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_misc_ExportsNatives_checksum(JNIEnv* env, jclass, jbyteArray arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_misc_checksum(in.bytes(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jbyteArray JNICALL Java_dev_lucent_app_misc_ExportsNatives_bytesOps(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_bytes result{};
+    if (!lucent_misc_bytesOps(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_misc_ExportsNatives_roundTrip(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_misc_roundTrip(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_misc_ExportsNatives_jsonOut(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_misc_jsonOut(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_misc_ExportsNatives_counterKeys(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_misc_counterKeys(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("colorName"), const_cast<char*>("(Ljava/lang/String;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_misc_ExportsNatives_colorName)},
+        {const_cast<char*>("level"), const_cast<char*>("(D)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_misc_ExportsNatives_level)},
+        {const_cast<char*>("checksum"), const_cast<char*>("([B)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_misc_ExportsNatives_checksum)},
+        {const_cast<char*>("bytesOps"), const_cast<char*>("(D)[B"), reinterpret_cast<void*>(&Java_dev_lucent_app_misc_ExportsNatives_bytesOps)},
+        {const_cast<char*>("roundTrip"), const_cast<char*>("(Ljava/lang/String;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_misc_ExportsNatives_roundTrip)},
+        {const_cast<char*>("jsonOut"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_misc_ExportsNatives_jsonOut)},
+        {const_cast<char*>("counterKeys"), const_cast<char*>("(Ljava/lang/String;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_misc_ExportsNatives_counterKeys)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/misc/ExportsNatives"), methods, 7);
+    lucent::jni::check(env);
+  }
+}
+#endif

@@ -171,3 +171,275 @@ extern "C" bool lucent_bigint_arith_select(int64_t arg0, lucent_error* error, lu
 #pragma pop_macro("compare")
 #pragma pop_macro("around")
 #pragma pop_macro("arith")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_literals(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_arith_literals(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_arith(JNIEnv* env, jclass, jlong arg0, jlong arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_arith_arith(static_cast<int64_t>(arg0), static_cast<int64_t>(arg1), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_divide(JNIEnv* env, jclass, jlong arg0, jlong arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_bigint_arith_divide(static_cast<int64_t>(arg0), static_cast<int64_t>(arg1), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_power(JNIEnv* env, jclass, jlong arg0, jlong arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    int64_t result{};
+    if (!lucent_bigint_arith_power(static_cast<int64_t>(arg0), static_cast<int64_t>(arg1), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return static_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_shifts(JNIEnv* env, jclass, jlong arg0, jlong arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_arith_shifts(static_cast<int64_t>(arg0), static_cast<int64_t>(arg1), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_compare(JNIEnv* env, jclass, jlong arg0, jlong arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_arith_compare(static_cast<int64_t>(arg0), static_cast<int64_t>(arg1), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_compareNumber(JNIEnv* env, jclass, jlong arg0, jdouble arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_arith_compareNumber(static_cast<int64_t>(arg0), arg1, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_truthiness(JNIEnv* env, jclass, jlong arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_bigint_arith_truthiness(static_cast<int64_t>(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_kind(JNIEnv* env, jclass, jlong arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_bigint_arith_kind(static_cast<int64_t>(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_counters(JNIEnv* env, jclass, jlong arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_arith_counters(static_cast<int64_t>(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_places(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_arith_places(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_order(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_bigint_arith_order(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_around(JNIEnv* env, jclass, jlong arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_arith_around(static_cast<int64_t>(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_large(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_arith_large(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_bigint_1arith_ExportsNatives_select(JNIEnv* env, jclass, jlong arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_bigint_arith_select(static_cast<int64_t>(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("literals"), const_cast<char*>("()Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_literals)},
+        {const_cast<char*>("arith"), const_cast<char*>("(JJ)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_arith)},
+        {const_cast<char*>("divide"), const_cast<char*>("(JJ)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_divide)},
+        {const_cast<char*>("power"), const_cast<char*>("(JJ)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_power)},
+        {const_cast<char*>("shifts"), const_cast<char*>("(JJ)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_shifts)},
+        {const_cast<char*>("compare"), const_cast<char*>("(JJ)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_compare)},
+        {const_cast<char*>("compareNumber"), const_cast<char*>("(JD)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_compareNumber)},
+        {const_cast<char*>("truthiness"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_truthiness)},
+        {const_cast<char*>("kind"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_kind)},
+        {const_cast<char*>("counters"), const_cast<char*>("(J)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_counters)},
+        {const_cast<char*>("places"), const_cast<char*>("()Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_places)},
+        {const_cast<char*>("order"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_order)},
+        {const_cast<char*>("around"), const_cast<char*>("(J)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_around)},
+        {const_cast<char*>("large"), const_cast<char*>("()Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_large)},
+        {const_cast<char*>("select"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1arith_ExportsNatives_select)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/bigint_arith/ExportsNatives"), methods, 15);
+    lucent::jni::check(env);
+  }
+}
+#endif

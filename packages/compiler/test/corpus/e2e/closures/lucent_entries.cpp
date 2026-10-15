@@ -88,3 +88,139 @@ extern "C" bool lucent_closures_accumulate(double arg0, lucent_error* error, dou
 #pragma pop_macro("compose")
 #pragma pop_macro("apply")
 #pragma pop_macro("accumulate")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_closures_ExportsNatives_makeAdders(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_closures_makeAdders(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_closures_ExportsNatives_counter(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_closures_counter(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_closures_ExportsNatives_compose(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_closures_compose(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_closures_ExportsNatives_recurse(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_closures_recurse(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_closures_ExportsNatives_memo(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_closures_memo(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_closures_ExportsNatives_apply(JNIEnv* env, jclass, jstring arg0, jdouble arg1, jdouble arg2) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_closures_apply(in.string(arg0), arg1, arg2, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_closures_ExportsNatives_accumulate(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_closures_accumulate(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("makeAdders"), const_cast<char*>("()Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_closures_ExportsNatives_makeAdders)},
+        {const_cast<char*>("counter"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_closures_ExportsNatives_counter)},
+        {const_cast<char*>("compose"), const_cast<char*>("(D)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_closures_ExportsNatives_compose)},
+        {const_cast<char*>("recurse"), const_cast<char*>("(D)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_closures_ExportsNatives_recurse)},
+        {const_cast<char*>("memo"), const_cast<char*>("(D)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_closures_ExportsNatives_memo)},
+        {const_cast<char*>("apply"), const_cast<char*>("(Ljava/lang/String;DD)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_closures_ExportsNatives_apply)},
+        {const_cast<char*>("accumulate"), const_cast<char*>("(D)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_closures_ExportsNatives_accumulate)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/closures/ExportsNatives"), methods, 7);
+    lucent::jni::check(env);
+  }
+}
+#endif

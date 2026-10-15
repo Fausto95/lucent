@@ -73,3 +73,65 @@ extern "C" void lucent_counter_steps(double arg0, void (*done)(void* context, co
 #pragma pop_macro("steps")
 #pragma pop_macro("later")
 #pragma pop_macro("bump")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_clock_ExportsNatives_later(JNIEnv* env, jclass, jdouble arg0, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_clock_later(arg0, [](void* context, const double* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_counter_ExportsNatives_bump(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_counter_bump(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_counter_ExportsNatives_steps(JNIEnv* env, jclass, jdouble arg0, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_counter_steps(arg0, [](void* context, const double* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("later"), const_cast<char*>("(DLdev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_clock_ExportsNatives_later)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/clock/ExportsNatives"), methods, 1);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("bump"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_counter_ExportsNatives_bump)},
+        {const_cast<char*>("steps"), const_cast<char*>("(DLdev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_counter_ExportsNatives_steps)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/counter/ExportsNatives"), methods, 2);
+    lucent::jni::check(env);
+  }
+}
+#endif

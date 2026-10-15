@@ -38,3 +38,54 @@ extern "C" bool lucent_bigint_unions_compareOptional(lucent_value arg0, int64_t 
 
 #pragma pop_macro("toNumberNullable")
 #pragma pop_macro("compareOptional")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_bigint_1unions_ExportsNatives_toNumberNullable(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_bigint_unions_toNumberNullable(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1unions_ExportsNatives_compareOptional(JNIEnv* env, jclass, jobject arg0, jlong arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_unions_compareOptional(in.value(arg0), static_cast<int64_t>(arg1), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("toNumberNullable"), const_cast<char*>("(Ljava/lang/Long;)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1unions_ExportsNatives_toNumberNullable)},
+        {const_cast<char*>("compareOptional"), const_cast<char*>("(Ljava/lang/Long;J)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1unions_ExportsNatives_compareOptional)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/bigint_unions/ExportsNatives"), methods, 2);
+    lucent::jni::check(env);
+  }
+}
+#endif

@@ -31,7 +31,7 @@ bool lucent_promise_fields_Writer_new(lucent_error* error, lucent_object* result
 /// promise-fields.Writer.log()
 bool lucent_promise_fields_Writer_get_log(lucent_object self, lucent_error* error, lucent_value* result);
 
-/// promise-fields.Writer.log()
+/// promise-fields.Writer.log(value)
 bool lucent_promise_fields_Writer_set_log(lucent_object self, lucent_value arg0, lucent_error* error);
 
 /// promise-fields.Writer.write(s, ms)
@@ -43,7 +43,7 @@ bool lucent_promise_fields_Cache_new(double arg0, lucent_error* error, lucent_ob
 /// promise-fields.Cache.loads()
 bool lucent_promise_fields_Cache_get_loads(lucent_object self, lucent_error* error, double* result);
 
-/// promise-fields.Cache.loads()
+/// promise-fields.Cache.loads(value)
 bool lucent_promise_fields_Cache_set_loads(lucent_object self, double arg0, lucent_error* error);
 
 /// promise-fields.Cache.read()

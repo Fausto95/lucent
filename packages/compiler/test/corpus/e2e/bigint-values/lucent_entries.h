@@ -55,7 +55,7 @@ bool lucent_bigint_values_Account_get_id(lucent_object self, lucent_error* error
 /// bigint-values.Account.balance()
 bool lucent_bigint_values_Account_get_balance(lucent_object self, lucent_error* error, int64_t* result);
 
-/// bigint-values.Account.balance()
+/// bigint-values.Account.balance(value)
 bool lucent_bigint_values_Account_set_balance(lucent_object self, int64_t arg0, lucent_error* error);
 
 /// bigint-values.Account.history()

@@ -55,7 +55,7 @@ bool lucent_async_Loader_new(lucent_error* error, lucent_object* result);
 /// async.Loader.loads()
 bool lucent_async_Loader_get_loads(lucent_object self, lucent_error* error, double* result);
 
-/// async.Loader.loads()
+/// async.Loader.loads(value)
 bool lucent_async_Loader_set_loads(lucent_object self, double arg0, lucent_error* error);
 
 /// async.Loader.load(key)

@@ -34,6 +34,7 @@ import {
 } from "./identity.ts";
 import { javaSubclass, osMade } from "./java.ts";
 import { osConstructorParams, osFactory, settleOsNames } from "./os-classes.ts";
+import { kotlinExports } from "./kotlin-exports.ts";
 import { kotlinFiles } from "./kotlin.ts";
 import { Ctx, type Global } from "./context.ts";
 import { initThroughIr, type IrMode, type IrUnit, throughIr } from "./through-ir.ts";
@@ -669,6 +670,10 @@ export function emitProgram(
         moduleHeaders,
       ).types
     : [];
+  // For Android (a shared program's code is Android's too), the Kotlin API that calls them,
+  // and its natives (decision 0116).
+  const exportsApi =
+    ctx.platform === "android" || ctx.platform === undefined ? kotlinExports(entries) : undefined;
   files.set(
     ENTRIES_UNIT,
     entriesUnit(
@@ -677,7 +682,7 @@ export function emitProgram(
       entries,
       declared,
       lp.modules.map((m) => m.name).filter((name) => launched.has(name)),
-    ),
+    ) + (exportsApi ? `\n${exportsApi.jni}` : ""),
   );
   files.set(
     "lucent_bindings.cpp",
@@ -733,7 +738,7 @@ export function emitProgram(
     ]),
   );
   const compose = toolkitFiles(ctx, "compose");
-  const kotlin = new Map([...kotlinFiles(ctx), ...compose]);
+  const kotlin = new Map([...kotlinFiles(ctx), ...compose, ...(exportsApi?.files ?? [])]);
   const program = programHash([
     ...files,
     ...[...java].map(([k, v]) => [`java/${k}`, v] as [string, string]),

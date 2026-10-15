@@ -28,3 +28,37 @@ extern "C" bool lucent_exported_objects_ping(double arg0, lucent_error* error, d
 }
 
 #pragma pop_macro("ping")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_exported_1objects_ExportsNatives_ping(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_exported_objects_ping(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("ping"), const_cast<char*>("(D)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_exported_1objects_ExportsNatives_ping)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/exported_objects/ExportsNatives"), methods, 1);
+    lucent::jni::check(env);
+  }
+}
+#endif

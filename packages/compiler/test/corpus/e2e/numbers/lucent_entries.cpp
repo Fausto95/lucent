@@ -128,3 +128,207 @@ extern "C" bool lucent_numbers_multiplyAdd(double arg0, double arg1, double arg2
 #pragma pop_macro("fib")
 #pragma pop_macro("checks")
 #pragma pop_macro("bits")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_numbers_ExportsNatives_format(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_numbers_format(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_numbers_ExportsNatives_bits(JNIEnv* env, jclass, jdouble arg0, jdouble arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_numbers_bits(arg0, arg1, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_numbers_ExportsNatives_parse(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_numbers_parse(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_numbers_ExportsNatives_parseInts(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_numbers_parseInts(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_numbers_ExportsNatives_special(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_numbers_special(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_numbers_ExportsNatives_mathFns(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_numbers_mathFns(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_numbers_ExportsNatives_precision(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_numbers_precision(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_numbers_ExportsNatives_checks(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_numbers_checks(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_numbers_ExportsNatives_sum(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_numbers_sum(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_numbers_ExportsNatives_fib(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_numbers_fib(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_numbers_ExportsNatives_multiplyAdd(JNIEnv* env, jclass, jdouble arg0, jdouble arg1, jdouble arg2) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_numbers_multiplyAdd(arg0, arg1, arg2, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("format"), const_cast<char*>("(Ljava/util/List;)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_numbers_ExportsNatives_format)},
+        {const_cast<char*>("bits"), const_cast<char*>("(DD)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_numbers_ExportsNatives_bits)},
+        {const_cast<char*>("parse"), const_cast<char*>("(Ljava/util/List;)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_numbers_ExportsNatives_parse)},
+        {const_cast<char*>("parseInts"), const_cast<char*>("(Ljava/util/List;)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_numbers_ExportsNatives_parseInts)},
+        {const_cast<char*>("special"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_numbers_ExportsNatives_special)},
+        {const_cast<char*>("mathFns"), const_cast<char*>("(D)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_numbers_ExportsNatives_mathFns)},
+        {const_cast<char*>("precision"), const_cast<char*>("(D)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_numbers_ExportsNatives_precision)},
+        {const_cast<char*>("checks"), const_cast<char*>("(D)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_numbers_ExportsNatives_checks)},
+        {const_cast<char*>("sum"), const_cast<char*>("(Ljava/util/List;)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_numbers_ExportsNatives_sum)},
+        {const_cast<char*>("fib"), const_cast<char*>("(D)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_numbers_ExportsNatives_fib)},
+        {const_cast<char*>("multiplyAdd"), const_cast<char*>("(DDD)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_numbers_ExportsNatives_multiplyAdd)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/numbers/ExportsNatives"), methods, 11);
+    lucent::jni::check(env);
+  }
+}
+#endif

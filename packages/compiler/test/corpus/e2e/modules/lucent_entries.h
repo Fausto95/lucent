@@ -28,13 +28,13 @@ bool lucent_shapes_Vec_new(double arg0, double arg1, lucent_error* error, lucent
 /// shapes.Vec.x()
 bool lucent_shapes_Vec_get_x(lucent_object self, lucent_error* error, double* result);
 
-/// shapes.Vec.x()
+/// shapes.Vec.x(value)
 bool lucent_shapes_Vec_set_x(lucent_object self, double arg0, lucent_error* error);
 
 /// shapes.Vec.y()
 bool lucent_shapes_Vec_get_y(lucent_object self, lucent_error* error, double* result);
 
-/// shapes.Vec.y()
+/// shapes.Vec.y(value)
 bool lucent_shapes_Vec_set_y(lucent_object self, double arg0, lucent_error* error);
 
 /// shapes.Vec.plus(o)

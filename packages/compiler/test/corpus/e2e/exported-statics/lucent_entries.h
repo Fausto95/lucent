@@ -25,13 +25,13 @@ bool lucent_exported_statics_Registry_get_seen(lucent_object self, lucent_error*
 /// exported-statics.Registry.count()
 bool lucent_exported_statics_Registry_get_count(lucent_error* error, double* result);
 
-/// exported-statics.Registry.count()
+/// exported-statics.Registry.count(value)
 bool lucent_exported_statics_Registry_set_count(double arg0, lucent_error* error);
 
 /// exported-statics.Registry.label()
 bool lucent_exported_statics_Registry_get_label(lucent_error* error, lucent_string* result);
 
-/// exported-statics.Registry.label()
+/// exported-statics.Registry.label(value)
 bool lucent_exported_statics_Registry_set_label(lucent_string arg0, lucent_error* error);
 
 /// exported-statics.Registry.limit()
@@ -40,7 +40,7 @@ bool lucent_exported_statics_Registry_get_limit(lucent_error* error, double* res
 /// exported-statics.Registry.names()
 bool lucent_exported_statics_Registry_get_names(lucent_error* error, lucent_value* result);
 
-/// exported-statics.Registry.names()
+/// exported-statics.Registry.names(value)
 bool lucent_exported_statics_Registry_set_names(lucent_value arg0, lucent_error* error);
 
 /// exported-statics.Registry.add(name)
@@ -58,7 +58,7 @@ bool lucent_exported_statics_Scoped_get_seen(lucent_object self, lucent_error* e
 /// exported-statics.Scoped.scope()
 bool lucent_exported_statics_Scoped_get_scope(lucent_error* error, lucent_string* result);
 
-/// exported-statics.Scoped.scope()
+/// exported-statics.Scoped.scope(value)
 bool lucent_exported_statics_Scoped_set_scope(lucent_string arg0, lucent_error* error);
 
 /// exported-statics.Scoped.where()
@@ -67,13 +67,13 @@ bool lucent_exported_statics_Scoped_where(lucent_error* error, lucent_string* re
 /// exported-statics.Scoped.count()
 bool lucent_exported_statics_Scoped_get_count(lucent_error* error, double* result);
 
-/// exported-statics.Scoped.count()
+/// exported-statics.Scoped.count(value)
 bool lucent_exported_statics_Scoped_set_count(double arg0, lucent_error* error);
 
 /// exported-statics.Scoped.label()
 bool lucent_exported_statics_Scoped_get_label(lucent_error* error, lucent_string* result);
 
-/// exported-statics.Scoped.label()
+/// exported-statics.Scoped.label(value)
 bool lucent_exported_statics_Scoped_set_label(lucent_string arg0, lucent_error* error);
 
 /// exported-statics.Scoped.limit()
@@ -82,7 +82,7 @@ bool lucent_exported_statics_Scoped_get_limit(lucent_error* error, double* resul
 /// exported-statics.Scoped.names()
 bool lucent_exported_statics_Scoped_get_names(lucent_error* error, lucent_value* result);
 
-/// exported-statics.Scoped.names()
+/// exported-statics.Scoped.names(value)
 bool lucent_exported_statics_Scoped_set_names(lucent_value arg0, lucent_error* error);
 
 /// exported-statics.Scoped.add(name)

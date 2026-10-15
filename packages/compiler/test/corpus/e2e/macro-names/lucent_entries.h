@@ -28,7 +28,7 @@ bool lucent_macro_names_Signal_new(lucent_error* error, lucent_object* result);
 /// macro-names.Signal.sa_handler()
 bool lucent_macro_names_Signal_get_sa_handler(lucent_object self, lucent_error* error, lucent_string* result);
 
-/// macro-names.Signal.sa_handler()
+/// macro-names.Signal.sa_handler(value)
 bool lucent_macro_names_Signal_set_sa_handler(lucent_object self, lucent_string arg0, lucent_error* error);
 
 /// macro-names.Signal.HUGE()

@@ -20,6 +20,7 @@
 #include <thread>
 #include <cstdint>
 #include <cstdlib>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -963,13 +964,33 @@ jlong adoptSubclass(JNIEnv* e, jobject self, const char* cls, std::shared_ptr<vo
   return adoption.handle;
 }
 
-void installNatives(JNIEnv* e) { nativeProxyClass(e); }
+namespace {
+
+/** LucentInstance.release: lets go of the lucent_object an instance's wrapper held. */
+void JNICALL instanceRelease(JNIEnv* e, jclass, jlong handle) {
+  reported(e, "an instance's release", [&] { lucent_release(reinterpret_cast<lucent_object>(handle)); });
+}
+
+}  // namespace
+
+void installNatives(JNIEnv* e) {
+  nativeProxyClass(e);
+  jclass instance = findClass("dev/lucent/LucentInstance");
+  JNINativeMethod natives[] = {
+      {const_cast<char*>("release"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(instanceRelease)},
+  };
+  e->RegisterNatives(instance, natives, 1);
+  check(e);
+}
 
 #ifdef __ANDROID__
 // Found by its name: a class the OS makes calls it before Lucent registered any native.
 extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_NativeProxy_adoptNative(JNIEnv* e, jclass c, jobject self, jstring cls, jobjectArray args) {
   return proxyAdopt(e, c, self, cls, args);
 }
+
+// Found by its name too: Kotlin and Java make instances before Lucent calls Java.
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_LucentInstance_release(JNIEnv* e, jclass c, jlong handle) { instanceRelease(e, c, handle); }
 #endif
 
 jobject arg(JNIEnv* e, jobjectArray args, int i) { return e->GetObjectArrayElement(args, i); }
@@ -1127,6 +1148,280 @@ bool available(double api) {
   return level >= api;
 }
 #endif
+
+}  // namespace lucent::jni
+
+namespace lucent::jni {
+
+// --- the Kotlin API's JNI (decision 0116) --------------------------------------------
+
+lucent_string EntryArgs::string(jstring s) {
+  if (!s) return lucent_string{nullptr, 0};
+  strings_.push_back(fromJString(env_, s, "a string").toUtf8());
+  return lucent_string{strings_.back().data(), strings_.back().size()};
+}
+
+lucent_bytes EntryArgs::bytes(jbyteArray b) {
+  if (!b) return lucent_bytes{nullptr, 0};
+  jsize n = env_->GetArrayLength(b);
+  bytes_.emplace_back(static_cast<size_t>(n));
+  if (n) env_->GetByteArrayRegion(b, 0, n, reinterpret_cast<jbyte*>(bytes_.back().data()));
+  return lucent_bytes{bytes_.back().data(), bytes_.back().size()};
+}
+
+lucent_object EntryArgs::instance(jobject o) {
+  if (!o) return nullptr;
+  static jmethodID handle = method(findClass("dev/lucent/LucentInstance"), "handle", "()J");
+  jlong h = env_->CallLongMethod(o, handle);
+  check(env_);
+  return reinterpret_cast<lucent_object>(h);
+}
+
+lucent_value EntryArgs::value(jobject o) {
+  JNIEnv* e = env_;
+  lucent_value v{LUCENT_NULL, {}};
+  if (!o) return v;
+  auto is = [&](const char* cls) { return e->IsInstanceOf(o, findClass(cls)); };
+  if (is("java/lang/Boolean")) {
+    static jmethodID booleanValue = method(findClass("java/lang/Boolean"), "booleanValue", "()Z");
+    v.kind = LUCENT_BOOLEAN;
+    v.as.boolean = e->CallBooleanMethod(o, booleanValue);
+    check(e);
+  } else if (is("java/lang/Long")) {
+    v.kind = LUCENT_BIGINT;
+    v.as.bigint = unboxLong(e, o);
+  } else if (is("java/lang/Number")) {
+    v.kind = LUCENT_NUMBER;
+    v.as.number = unboxNumber(e, o);
+  } else if (is("java/lang/String")) {
+    v.kind = LUCENT_STRING;
+    v.as.string = string(static_cast<jstring>(o));
+  } else if (is("[B")) {
+    v.kind = LUCENT_BYTES;
+    v.as.bytes = bytes(static_cast<jbyteArray>(o));
+  } else if (is("dev/lucent/LucentInstance")) {
+    v.kind = LUCENT_INSTANCE;
+    v.as.instance = instance(o);
+  } else if (is("java/util/List")) {
+    static jclass list = findClass("java/util/List");
+    static jmethodID size = method(list, "size", "()I");
+    static jmethodID get = method(list, "get", "(I)Ljava/lang/Object;");
+    jint n = e->CallIntMethod(o, size);
+    check(e);
+    values_.emplace_back(static_cast<size_t>(n), lucent_value{LUCENT_NULL, {}});
+    lucent_value* items = values_.back().data();
+    for (jint i = 0; i < n; i++) {
+      jobject item = e->CallObjectMethod(o, get, i);
+      check(e);
+      items[i] = value(item);
+      // A long list's items would fill the local frame: kept only where the value is the object.
+      if (item && items[i].kind != LUCENT_PLATFORM_OBJECT) e->DeleteLocalRef(item);
+    }
+    v.kind = LUCENT_ARRAY;
+    v.as.array = lucent_array{items, static_cast<size_t>(n)};
+  } else if (is("java/util/Map")) {
+    static jmethodID entrySet = method(findClass("java/util/Map"), "entrySet", "()Ljava/util/Set;");
+    static jmethodID toArray = method(findClass("java/util/Collection"), "toArray", "()[Ljava/lang/Object;");
+    static jclass entry = findClass("java/util/Map$Entry");
+    static jmethodID getKey = method(entry, "getKey", "()Ljava/lang/Object;");
+    static jmethodID getValue = method(entry, "getValue", "()Ljava/lang/Object;");
+    static jmethodID toString = method(findClass("java/lang/Object"), "toString", "()Ljava/lang/String;");
+    jobject set = e->CallObjectMethod(o, entrySet);
+    check(e);
+    auto entries = static_cast<jobjectArray>(e->CallObjectMethod(set, toArray));
+    check(e);
+    jsize n = e->GetArrayLength(entries);
+    keys_.emplace_back(static_cast<size_t>(n), lucent_string{nullptr, 0});
+    values_.emplace_back(static_cast<size_t>(n), lucent_value{LUCENT_NULL, {}});
+    lucent_string* keys = keys_.back().data();
+    lucent_value* values = values_.back().data();
+    for (jsize i = 0; i < n; i++) {
+      jobject at = e->GetObjectArrayElement(entries, i);
+      jobject key = e->CallObjectMethod(at, getKey);
+      check(e);
+      auto name = static_cast<jstring>(e->CallObjectMethod(key, toString));
+      check(e);
+      keys[i] = string(name);
+      jobject item = e->CallObjectMethod(at, getValue);
+      check(e);
+      values[i] = value(item);
+      if (item && values[i].kind != LUCENT_PLATFORM_OBJECT) e->DeleteLocalRef(item);
+      e->DeleteLocalRef(name);
+      e->DeleteLocalRef(key);
+      e->DeleteLocalRef(at);
+    }
+    v.kind = LUCENT_RECORD;
+    v.as.record = lucent_record{keys, values, static_cast<size_t>(n)};
+  } else {
+    // Anything else is a platform object, which the entry holds with a reference of its own.
+    v.kind = LUCENT_PLATFORM_OBJECT;
+    v.as.object = o;
+  }
+  return v;
+}
+
+jobject javaOf(JNIEnv* e, double v) {
+  static jclass c = findClass("java/lang/Double");
+  static jmethodID valueOf = staticMethod(c, "valueOf", "(D)Ljava/lang/Double;");
+  return e->CallStaticObjectMethod(c, valueOf, v);
+}
+
+jobject javaOf(JNIEnv* e, bool v) {
+  static jclass c = findClass("java/lang/Boolean");
+  static jmethodID valueOf = staticMethod(c, "valueOf", "(Z)Ljava/lang/Boolean;");
+  return e->CallStaticObjectMethod(c, valueOf, static_cast<jboolean>(v));
+}
+
+jobject javaOf(JNIEnv* e, int64_t v) {
+  static jclass c = findClass("java/lang/Long");
+  static jmethodID valueOf = staticMethod(c, "valueOf", "(J)Ljava/lang/Long;");
+  return e->CallStaticObjectMethod(c, valueOf, static_cast<jlong>(v));
+}
+
+jstring javaOf(JNIEnv* e, lucent_string s) {
+  return toJString(e, String::fromUtf8(std::string_view(s.data ? s.data : "", s.data ? s.length : 0)));
+}
+
+jbyteArray javaOf(JNIEnv* e, lucent_bytes b) {
+  jbyteArray out = e->NewByteArray(static_cast<jsize>(b.length));
+  if (b.length) e->SetByteArrayRegion(out, 0, static_cast<jsize>(b.length), reinterpret_cast<const jbyte*>(b.data));
+  return out;
+}
+
+namespace {
+
+std::mutex instanceClassesLock;
+std::map<std::string, std::string>& instanceClasses() {
+  static std::map<std::string, std::string> classes;
+  return classes;
+}
+
+}  // namespace
+
+bool registerInstanceClass(const std::type_info& type, const char* javaClass) {
+  std::lock_guard<std::mutex> lock(instanceClassesLock);
+  instanceClasses()[type.name()] = javaClass;
+  return true;
+}
+
+jobject javaOf(JNIEnv* e, lucent_object o) {
+  if (!o) return nullptr;
+  std::string name = "dev/lucent/LucentInstance";
+  {
+    const Object& instance = *o->instance;
+    std::lock_guard<std::mutex> lock(instanceClassesLock);
+    auto found = instanceClasses().find(typeid(instance).name());
+    if (found != instanceClasses().end()) name = found->second;
+  }
+  jclass c = findClass(name.c_str());
+  jmethodID init = method(c, "<init>", "(J)V");
+  jobject wrapper = e->NewObject(c, init, reinterpret_cast<jlong>(o));
+  if (e->ExceptionCheck()) {
+    lucent_release(o);
+    rethrowPending(e);
+  }
+  return wrapper;
+}
+
+jobject javaOf(JNIEnv* e, const lucent_value& v) {
+  switch (v.kind) {
+    case LUCENT_NULL:
+      return nullptr;
+    case LUCENT_BOOLEAN:
+      return javaOf(e, v.as.boolean);
+    case LUCENT_NUMBER:
+      return javaOf(e, v.as.number);
+    case LUCENT_BIGINT:
+      return javaOf(e, static_cast<int64_t>(v.as.bigint));
+    case LUCENT_STRING:
+      return javaOf(e, v.as.string);
+    case LUCENT_BYTES:
+      return javaOf(e, v.as.bytes);
+    case LUCENT_PLATFORM_OBJECT:
+      return e->NewLocalRef(static_cast<jobject>(v.as.object));
+    case LUCENT_INSTANCE:
+      return javaOf(e, v.as.instance);
+    case LUCENT_ARRAY: {
+      static jclass c = findClass("java/util/ArrayList");
+      static jmethodID init = method(c, "<init>", "(I)V");
+      static jmethodID add = method(c, "add", "(Ljava/lang/Object;)Z");
+      jobject list = e->NewObject(c, init, static_cast<jint>(v.as.array.length));
+      for (size_t i = 0; i < v.as.array.length; i++) {
+        jobject item = javaOf(e, v.as.array.items[i]);
+        e->CallBooleanMethod(list, add, item);
+        if (item) e->DeleteLocalRef(item);
+        check(e);
+      }
+      return list;
+    }
+    case LUCENT_RECORD: {
+      static jclass c = findClass("java/util/LinkedHashMap");
+      static jmethodID init = method(c, "<init>", "()V");
+      static jmethodID put = method(c, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+      jobject map = e->NewObject(c, init);
+      for (size_t i = 0; i < v.as.record.length; i++) {
+        jstring key = javaOf(e, v.as.record.keys[i]);
+        jobject value = javaOf(e, v.as.record.values[i]);
+        jobject was = e->CallObjectMethod(map, put, key, value);
+        if (was) e->DeleteLocalRef(was);
+        e->DeleteLocalRef(key);
+        if (value) e->DeleteLocalRef(value);
+        check(e);
+      }
+      return map;
+    }
+  }
+  return nullptr;
+}
+
+jthrowable entryException(JNIEnv* e, const lucent_error& error) {
+  static jclass c = findClass("dev/lucent/LucentException");
+  static jmethodID init = method(c, "<init>", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+  jstring name = javaOf(e, error.name);
+  jstring message = javaOf(e, error.message);
+  jstring code = javaOf(e, error.code);
+  auto thrown = static_cast<jthrowable>(e->NewObject(c, init, name, message, code));
+  e->DeleteLocalRef(name);
+  e->DeleteLocalRef(message);
+  e->DeleteLocalRef(code);
+  return thrown;
+}
+
+void throwEntryError(JNIEnv* e, const lucent_error& error) {
+  jthrowable thrown = entryException(e, error);
+  if (thrown) e->Throw(thrown);
+}
+
+void throwCaught(JNIEnv* e, std::exception_ptr caught) {
+  // A Java exception pending already (a conversion's JNI call threw) is the one Java sees.
+  if (e->ExceptionCheck()) return;
+  entries::Kept kept;
+  throwEntryError(e, entries::errorOf(kept, entries::caught(caught)));
+}
+
+void* entryCompletion(JNIEnv* e, jobject completion) { return e->NewGlobalRef(completion); }
+
+void settleEntry(void* completion, const lucent_error* error, const std::function<jobject(JNIEnv*)>& value) {
+  JNIEnv* e = env();
+  auto done = static_cast<jobject>(completion);
+  static jclass c = findClass("dev/lucent/EntryCompletion");
+  static jmethodID resolve = method(c, "resolve", "(Ljava/lang/Object;)V");
+  static jmethodID reject = method(c, "reject", "(Ldev/lucent/LucentException;)V");
+  try {
+    LocalFrame frame(e);
+    if (error) {
+      e->CallVoidMethod(done, reject, entryException(e, *error));
+    } else {
+      jobject result = value(e);
+      check(e);
+      e->CallVoidMethod(done, resolve, result);
+    }
+    check(e);
+  } catch (...) {
+    reportUncaught(std::current_exception(), "an export's completion");
+  }
+  e->DeleteGlobalRef(done);
+}
 
 }  // namespace lucent::jni
 

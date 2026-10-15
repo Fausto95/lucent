@@ -91,3 +91,139 @@ extern "C" bool lucent_narrowed_absent_loose(double arg0, lucent_error* error, l
 #pragma pop_macro("compared")
 #pragma pop_macro("assignedLet")
 #pragma pop_macro("assigned")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_narrowed_1absent_ExportsNatives_assigned(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_narrowed_absent_assigned(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_narrowed_1absent_ExportsNatives_assignedLet(JNIEnv* env, jclass, jboolean arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_narrowed_absent_assignedLet(arg0 == JNI_TRUE, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_narrowed_1absent_ExportsNatives_compared(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_narrowed_absent_compared(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_narrowed_1absent_ExportsNatives_typeofTest(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_narrowed_absent_typeofTest(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_narrowed_1absent_ExportsNatives_nulled(JNIEnv* env, jclass, jboolean arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_narrowed_absent_nulled(arg0 == JNI_TRUE, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_narrowed_1absent_ExportsNatives_field(JNIEnv* env, jclass, jboolean arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_narrowed_absent_field(arg0 == JNI_TRUE, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_narrowed_1absent_ExportsNatives_loose(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_narrowed_absent_loose(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("assigned"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_narrowed_1absent_ExportsNatives_assigned)},
+        {const_cast<char*>("assignedLet"), const_cast<char*>("(Z)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_narrowed_1absent_ExportsNatives_assignedLet)},
+        {const_cast<char*>("compared"), const_cast<char*>("(Ljava/lang/String;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_narrowed_1absent_ExportsNatives_compared)},
+        {const_cast<char*>("typeofTest"), const_cast<char*>("(Ljava/lang/String;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_narrowed_1absent_ExportsNatives_typeofTest)},
+        {const_cast<char*>("nulled"), const_cast<char*>("(Z)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_narrowed_1absent_ExportsNatives_nulled)},
+        {const_cast<char*>("field"), const_cast<char*>("(Z)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_narrowed_1absent_ExportsNatives_field)},
+        {const_cast<char*>("loose"), const_cast<char*>("(D)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_narrowed_1absent_ExportsNatives_loose)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/narrowed_absent/ExportsNatives"), methods, 7);
+    lucent::jni::check(env);
+  }
+}
+#endif

@@ -841,6 +841,19 @@ instance first as `lucent_object self`; and its statics, without one. An
 instance an entry gives is a `lucent_object` its caller owns: it holds
 module state until `lucent_release` lets it go, holding the class's actor.
 
+Kotlin calls them through generated files in the package OS-made classes
+use (`emit/kotlin-exports.ts`, #318). A module's functions are top-level
+in `Exports.kt`, which Java sees as the class `Exports`; an async one is a
+`suspend` function. Each exported class has an `open` wrapper extending
+`dev.lucent.LucentInstance`, or its base's wrapper, holding the
+`lucent_object` until `close()` or its finalizer. Their natives convert
+what Java passes (`lucent::jni::EntryArgs`) and what the entries give
+(`javaOf`), throw `dev.lucent.LucentException`, and settle a
+`dev.lucent.EntryCompletion` for an async one. JNI finds them by name on
+Android; `lucent_entries_register_natives` registers them where it can't.
+The glue sits in the entries unit behind `__has_include(<jni.h>)`, since a
+shared program's unit is iOS's too.
+
 ### Android classes the OS instantiates
 
 **Done** ([T131](../tasks.md#t131), #240 to #266). A `Service`, `BroadcastReceiver`,
