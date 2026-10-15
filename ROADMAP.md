@@ -110,7 +110,7 @@ Goal: Call the iOS and Android SDKs, and the libraries an app links, directly fr
 - ✅ Native needs declared by the app's own modules, and options a package leaves to the app.
 - 🚧 Privacy manifests, Android `<queries>` and Gradle plugins, declared by packages; the nightly fresh apps build them next.
 - 🔭 C++ libraries, and a package's own Kotlin and Java, typed in Lucent.
-- 🔭 Swift, Kotlin and C++ that call Lucent modules.
+- 🚧 Swift, Kotlin and C++ that call Lucent modules.
 
 ### Execution modes
 
@@ -199,7 +199,15 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
 9. [T111](docs/tasks.md#t111) (done): the app's own `lucent.json`, and
    options a package declares that the app sets.
 10. The rest of the module parity gate: [T115](docs/tasks.md#t115)'s
-    native configuration, and [T112](docs/tasks.md#t112)'s SDK shapes.
+    native configuration, and [T112](docs/tasks.md#t112)'s SDK shapes,
+    whose coverage counts wait for a macOS run.
+11. [T114](docs/tasks.md#t114): Swift, Kotlin and C++ that call a module's
+    exports, which closes the module parity gate.
+12. Then the gates in order: view parity ([T122](docs/tasks.md#t122) to
+    [T125](docs/tasks.md#t125)), execution modes
+    ([T137](docs/tasks.md#t137), [T134](docs/tasks.md#t134),
+    [T133](docs/tasks.md#t133)), distribution ([T142](docs/tasks.md#t142)
+    to [T145](docs/tasks.md#t145)) and the production candidate.
 
 ## Recording work
 
