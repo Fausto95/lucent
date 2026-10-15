@@ -108,6 +108,11 @@ inline Date fromNSDate(NSDate* d, const char* what) {
 }
 inline Opt<Date> fromNSDateOpt(NSDate* d) { return d ? Opt<Date>(fromNSDate(d, "")) : Opt<Date>(null); }
 
+/// An optional element as an object a Swift shim takes: NSNull for none, as Swift bridges nil.
+inline id orNSNull(id v) { return v ?: [NSNull null]; }
+/// Whether an element a Swift shim gave is an absent optional one (NSNull, or nil).
+inline bool isNSNull(id v) { return !v || v == [NSNull null]; }
+
 template <class T, class F>
 NSArray* toNSArray(const Array<T>& a, F toObject) {
   NSMutableArray* out = [NSMutableArray arrayWithCapacity:a.size()];

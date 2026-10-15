@@ -298,6 +298,118 @@ export async function run(): Promise<string> {
   });
 });
 
+describe("optionals and Objective-C enums in Swift collections and tuples", () => {
+  const set = () =>
+    schemaSet([
+      {
+        module: "Kit",
+        header: "Kit/Kit.h",
+        types: [
+          {
+            kind: "enum",
+            name: "KITEdges",
+            native: "KITEdges",
+            cases: [
+              { name: "top", native: "KITEdgesTop", value: 1 },
+              { name: "left", native: "KITEdgesLeft", value: 2 },
+            ],
+          },
+          {
+            kind: "class",
+            name: "KITView",
+            native: "KITView",
+            constructors: [{ params: [], selector: "init" }],
+          },
+        ],
+      },
+      {
+        module: "Gauges",
+        frameworks: [],
+        types: [
+          {
+            kind: "class",
+            name: "Meter",
+            native: "Gauges.Meter",
+            swift: { kind: "class" },
+            constructors: [{ params: [], swift: { name: "init()" } }],
+            methods: [
+              { name: "readings", params: [], returns: "double?[]", swift: { name: "readings()" } },
+              {
+                name: "record",
+                params: [{ name: "values", type: "double?[]" }],
+                returns: "void",
+                swift: { name: "record(_:)" },
+              },
+              {
+                name: "edges",
+                params: [{ name: "e", type: "Kit.KITEdges[]" }],
+                returns: "Kit.KITEdges[]",
+                swift: { name: "edges(_:)" },
+              },
+              { name: "views", params: [], returns: "Kit.KITView?[]", swift: { name: "views()" } },
+              {
+                name: "labels",
+                params: [],
+                returns: "Record<string?>",
+                swift: { name: "labels()" },
+              },
+              {
+                name: "pair",
+                params: [],
+                returns: {
+                  k: "tuple",
+                  of: [
+                    { k: "prim", name: "double", nullable: true },
+                    { k: "string", nullable: false },
+                  ],
+                  nullable: false,
+                },
+                swift: { name: "pair()" },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+  it("cross absent optional elements as NSNull, and enums as their raw values", () => {
+    const p = setProgram(
+      `import { Meter } from "lucent:ios/Gauges";
+import { KITEdges } from "lucent:ios/Kit";
+export async function run(): Promise<string> {
+  const m = new Meter();
+  const r = m.readings();
+  m.record([1, null, 3]);
+  const e = m.edges([KITEdges.top, KITEdges.left]);
+  const v = m.views();
+  const l = m.labels();
+  const p = m.pair();
+  return \`\${r.length} \${e.length} \${v.length} \${l["a"]} \${p[0]}\`;
+}
+`,
+      set(),
+    );
+
+    expect(p.messages).toEqual([]);
+    // Swift: nil bridges as NSNull through Any; NSNull reads back as nil.
+    expect(p.shims).toContain("v.map { $0.map { $0 as NSNumber } as Any } as NSArray");
+    expect(p.shims).toContain("($0 as? NSNull != nil ? nil : $0 as! Double) as Double?");
+    expect(p.shims).toContain("v.map { $0.map { $0 } as Any } as NSArray");
+    expect(p.shims).toContain("(v.0.map { $0 as NSNumber } as Any) as AnyObject");
+    expect(p.shims).toContain(
+      "Kit.KITEdges(rawValue: .init(truncatingIfNeeded: ($0 as! NSNumber).intValue))!",
+    );
+    expect(p.shims).toContain("NSNumber(value: Int(truncatingIfNeeded: $0.rawValue))");
+    // The glue: NSNull for null, null for NSNull, objects and numbers as they are.
+    expect(p.mm).toContain("lucent::objc::orNSNull(lucent::objc::ifPresent(e_,");
+    expect(p.mm).toContain(
+      "lucent::objc::isNSNull(e_) ? lucent::Opt<double>(lucent::null) : lucent::Opt<double>([((NSNumber*)e_) doubleValue])",
+    );
+    expect(p.mm).toContain("lucent::Opt<lucent::NativeRef>(lucent::objc::wrap(e_,");
+    expect(p.mm).toContain("@(lucent::toNativeNumber<KITEdges>(e_))");
+  });
+});
+
 describe("Swift requirements a Lucent class implements", () => {
   it("take and give optional numbers and Objective-C enums", () => {
     const set = schemaSet([

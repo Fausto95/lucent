@@ -939,6 +939,11 @@ export function toObjcExpr(t: SdkType, c: cpp.Expr, owned: boolean, what = "a va
 
 /** An element of an NSArray/NSDictionary: an object (numbers and booleans boxed). */
 export function boxed(t: SdkType, c: cpp.Expr): cpp.Expr {
+  // An optional element (to a Swift shim): NSNull for none, as Swift bridges nil.
+  if (t.nullable && t.k !== "id")
+    return cpp.call("lucent::objc::orNSNull", [
+      ifPresent(c, (x) => boxed({ ...t, nullable: false } as SdkType, x)),
+    ]);
   if (t.k === "prim" || (t.k === "ref" && sdkEnum("ios", t)))
     return cpp.box(toObjcExpr(t, c, false, "an element"));
   if (t.k === "id") return cpp.call("lucent::objc::toId", [c]);
@@ -1265,6 +1270,17 @@ function fromObjcBlock(
 
 /** An element (`id e_`) of an NSArray/NSDictionary as a Lucent value. */
 export function fromObjcItem(em: FnEmitter, t: SdkType, lt: LType, what: string): cpp.Expr {
+  // An optional element (from a Swift shim): null for NSNull.
+  if (t.nullable && t.k !== "id" && t.k !== "tparam") {
+    const optType = em.reg.cppType(lt);
+    return cpp.conditional(
+      cpp.call("lucent::objc::isNSNull", [cpp.id("e_")]),
+      cpp.construct(optType, [cpp.id("lucent::null")]),
+      cpp.construct(optType, [
+        fromObjcItem(em, { ...t, nullable: false } as SdkType, stripOpt(lt), what),
+      ]),
+    );
+  }
   const w = cpp.str(what);
   const e = cpp.id("e_");
   const as = (cls: string) => cpp.cast("c", objcPointer(cls), e);
@@ -3048,20 +3064,26 @@ export function declaredLt(em: FnEmitter, platform: Platform, t: SdkType, node: 
       // Elements of a type parameter: as the resolved signature gives them.
       if (holdsTypeParam(t))
         return declaredLt(em, platform, { k: "tparam", name: "", nullable: false }, node);
-      // A list's elements may be null where Kotlin's type says so; an array's are not.
+      // A list's elements may be null where Kotlin's type says so, and a Swift array's where
+      // Swift's does; a Java array's are not.
       return opt({
         k: "array",
         e: declaredLt(
           em,
           platform,
-          t.list ? t.of : ({ ...t.of, nullable: false } as SdkType),
+          t.list || platform === "ios" ? t.of : ({ ...t.of, nullable: false } as SdkType),
           node,
         ),
       });
     case "record":
       return opt({
         k: "dict",
-        val: declaredLt(em, platform, { ...t.of, nullable: false } as SdkType, node),
+        val: declaredLt(
+          em,
+          platform,
+          platform === "ios" ? t.of : ({ ...t.of, nullable: false } as SdkType),
+          node,
+        ),
       });
     case "ref":
       if (sdkEnum(platform, t)) return opt(T.number);
