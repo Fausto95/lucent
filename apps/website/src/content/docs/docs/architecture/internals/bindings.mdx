@@ -310,7 +310,7 @@ A member-level rule refuses every use of a member in a role. For a use through g
 | `read-only`, `no-setter`, `java-field-write` | Writing a property that is read-only, has no setter, or is a Java field | [LUCENT1008](/docs/api/diagnostics/#lucent1008) |
 | `jvm-mangled-name` | Implementing a method whose JVM name Java can't write | [LUCENT1005](/docs/api/diagnostics/#lucent1005) |
 | `async-initializer` | A Swift `async` initializer as a constructor; bindgen makes each a static factory instead | [LUCENT1001](/docs/api/diagnostics/#lucent1001) |
-| `associated-types` | Calling a member of a Swift protocol with associated types | [LUCENT1001](/docs/api/diagnostics/#lucent1001) |
+| `associated-types` | Calling a static member of a Swift protocol with associated types, or one whose closures take or give them | [LUCENT1001](/docs/api/diagnostics/#lucent1001) |
 | `static-requirement` | Implementing a static Swift requirement | [LUCENT1007](/docs/api/diagnostics/#lucent1007) |
 | `kotlin-shim-generic`, `kotlin-shim` | Shim members bounded by a projected type (`T : List<out R>`); overriding a Kotlin class's members that take or give value classes, or take suspend functions | [LUCENT1007](/docs/api/diagnostics/#lucent1007) |
 | `kotlin-source-*`, `kotlin-*`, `compose-applier` | What a component's Compose content can't call yet, such as reified, experimental or restricted APIs | none: `lucent:compose` leaves the member out of its declarations |

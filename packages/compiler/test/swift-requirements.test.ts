@@ -155,7 +155,7 @@ describe.skipIf(!xcode)("Swift requirements Lucent classes implement", () => {
 
     expect(p.r.diagnostics).toEqual([]);
     expect(p.shims).toContain("typealias Item = String");
-    expect(p.shims).toContain("lucentObject(a0) as! any Orbit.Store<String>");
+    expect(p.shims).toContain("lucentUnboxed(lucentObject(a0)) as! any Orbit.Store<String>");
     expect(compileErrors(p)).toEqual(compiles);
     expect(hostRun(p)).toMatchObject({ status: 0, stdout: "none a b\n" });
   }, 600_000);

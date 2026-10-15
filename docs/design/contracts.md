@@ -274,6 +274,11 @@ Member-level refusal rules, each a general rule that names no library:
 | `kotlin-source` | `kotlin-source-implement`, `kotlin-source-set`, `kotlin-reified`, `kotlin-opt-in`, `kotlin-restricted`, `kotlin-member-extension`, `compose-applier`, `kotlin-extension-receiver`, `kotlin-vararg`, `kotlin-receiver-result` |
 | `swift-source`  | `role`, `property-wrapper`, `builder-arguments`                                                                                                                                                                              |
 
+`associated-types` refuses a protocol's static members, and its members
+whose closures take or give its associated types. Other members are
+called on the value opened as the type conforming
+([0114](../decisions/0114-a-protocols-member-is-called-on-its-value-opened.md)).
+
 `SdkModuleSchema.form: "source"` marks a module generated Swift or Kotlin
 calls as its own language would: SwiftUI's views, modifiers and values,
 and Compose's content. `callForms(params)` (`call-form.ts`) is the one
@@ -302,7 +307,6 @@ them:
 
 ### Planned
 
-- [T112](../tasks.md#t112) lifts `associated-types`.
 - [T143](../tasks.md#t143) binds a package's Kotlin and Java sources as
   `lucent:android/<package>`, from a jar keyed on their content.
 

@@ -311,8 +311,8 @@ describe.skipIf(!xcode)("Swift-only members, called through shims", () => {
     const { shims } = r;
     expect(r.r.diagnostics).toEqual([]);
     // Protocol values are objects: Swift classes, or Swift's boxes for other values.
-    expect(shims).toContain("lucentObject(a0) as! any Shapes.Drawable");
-    expect(shims).toContain("(lucentObject(self_) as! any Shapes.Drawable).draw()");
+    expect(shims).toContain("lucentUnboxed(lucentObject(a0)) as! any Shapes.Drawable");
+    expect(shims).toContain("(lucentUnboxed(lucentObject(self_)) as! any Shapes.Drawable).draw()");
     // A Lucent class conforms through a Swift class that calls back into the glue.
     expect(shims).toMatch(/final class LucentProxy_\w+: NSObject, Shapes\.Drawable \{/);
     expect(shims).toContain("deinit {");

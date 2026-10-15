@@ -664,7 +664,8 @@ still refuses.
   Swift (#307), optionals and enums in Swift collections (#308), C structs
   in Swift collections and optional enums (#309), async initializers and
   effectful property requirements (#310), statics of generic Swift types
-  (#311), Swift subscripts (#312).
+  (#311), Swift subscripts (#312), members of protocols with associated
+  types (#313).
 - **Area:** bindings, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V4.
@@ -694,8 +695,14 @@ still refuses.
       static members of generic types (#311: a static method's call fixes
       the type's parameters its signature names), and optional numbers and
       booleans.
-- [ ] Members of protocols with associated types, where the conforming
-      type fixes them.
+- [x] Members of protocols with associated types, where the conforming
+      type fixes them
+      ([0114](decisions/0114-a-protocols-member-is-called-on-its-value-opened.md),
+      #313): on a value typed with them (`Store<string>`), opened as the
+      type conforming; arguments and results cast to and from them, `Self`
+      boxed as its type. A protocol's mutating members and setters write
+      the value back to its box, and a struct that conforms crosses as the
+      protocol's value.
 - [x] Async and throwing property requirements, and async initializers as
       constructors (#310): a requirement's getter returns a promise or
       throws, which the proxy declares `get async throws`; an async

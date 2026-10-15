@@ -285,7 +285,8 @@ A Lucent class can implement a Swift-only protocol. Lucent generates a Swift cla
 - Method, property, throwing, `async` and `mutating` requirements can be implemented. A settable property requirement needs a field that isn't `readonly`, or a setter.
 - What a throwing requirement throws reaches Swift as an `NSError` and comes back as the same Lucent error. What a requirement that doesn't throw throws is reported as uncaught.
 - Associated types are the protocol's type parameters: `implements Store<string>` fixes them. `Self` is the implementing class, so a method returning `Self` declares its own class.
-- A value of a protocol with associated types crosses only as an argument that names each of them, which needs iOS 16: check `available("ios", 16)`. Its members can't be called.
+- A value of a protocol with associated types crosses only as an argument that names each of them, which needs iOS 16: check `available("ios", 16)`.
+- Its members can be called on a value typed with them, such as `s: Store<string>`, on any iOS version. Static members, and closures taking or giving an associated type, fail to compile.
 - An `async` or throwing property requirement takes a getter: one that returns a promise for an `async` one, and one that throws for a throwing one.
 - Initializer, static and subscript requirements fail to compile.
 

@@ -244,6 +244,8 @@ function stmt(s: Stmt, indent: string): string[] {
         ...inner(s.catchBody),
         `${indent}}`,
       ];
+    case "func":
+      return func(s.decl, indent);
     case "switch":
       return [
         `${indent}switch ${e(s.on)} {`,
@@ -270,9 +272,10 @@ const mods = (ms: string[]) => ms.map((m) => `${m} `).join("");
 function func(d: Decl & { k: "func" }, indent: string): string[] {
   const effects = d.effects?.length ? ` ${d.effects.join(" ")}` : "";
   const ret = d.ret ? ` -> ${printType(d.ret)}` : "";
+  const tps = d.typeParams?.length ? `<${d.typeParams.join(", ")}>` : "";
   return [
     ...(d.attributes ?? []).map((a) => `${indent}${a}`),
-    `${indent}${mods(d.modifiers)}func ${d.name}(${params(d.params)})${effects}${ret} {`,
+    `${indent}${mods(d.modifiers)}func ${d.name}${tps}(${params(d.params)})${effects}${ret} {`,
     ...block(d.body, indent + INDENT),
     `${indent}}`,
   ];

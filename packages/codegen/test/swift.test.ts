@@ -559,6 +559,48 @@ describe("Swift declarations", () => {
     ).toContain("func callAsFunction(_ action: Int32, _ args: [Any] = []) {");
   });
 
+  it("print local generic functions", () => {
+    const opened = swift.printUnit({
+      decls: [
+        {
+          k: "func",
+          modifiers: [],
+          name: "shim",
+          params: [{ external: "_", name: "o", type: swift.type("AnyObject") }],
+          ret: swift.type("String"),
+          body: [
+            {
+              k: "func",
+              decl: {
+                k: "func",
+                modifiers: [],
+                name: "opened",
+                typeParams: ["S: Gauges.Store"],
+                params: [{ external: "_", name: "s", type: swift.type("S") }],
+                ret: swift.type("String"),
+                body: [swift.ret(swift.call(swift.member(swift.name("s"), "get"), []))],
+              },
+            },
+            swift.ret(
+              swift.call(swift.name("opened"), [
+                {
+                  value: swift.cast(swift.name("o"), "as!", swift.type("any Gauges.Store")),
+                },
+              ]),
+            ),
+          ],
+        },
+      ],
+    });
+    expect(opened).toBe(`func shim(_ o: AnyObject) -> String {
+  func opened<S: Gauges.Store>(_ s: S) -> String {
+    return s.get()
+  }
+  return opened(o as! any Gauges.Store)
+}
+`);
+  });
+
   it("print availability checks", () => {
     expect(
       swift.printUnit({

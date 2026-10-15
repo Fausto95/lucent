@@ -239,8 +239,21 @@ holds.
 A value of such a protocol crosses only as an argument that names every
 associated type (`some Store<String>`), which Swift opens from a variable
 holding `any Store<String>`. That needs the runtime's parameterized
-protocol types, so the shim is `@available(iOS 16.0, *)`. Members of such
-protocols are not called ([T112](../tasks.md#t112)).
+protocol types, so the shim is `@available(iOS 16.0, *)`.
+
+A member of such a protocol is called on a value whose type names its
+associated types (`s: Store<string>`)
+([0114](../decisions/0114-a-protocols-member-is-called-on-its-value-opened.md)).
+The shim opens the value from a variable (`let o_ = … as! any Store`) into
+a function of its own, `func opened_<S: Store>(_ s: S)`, which casts each
+argument naming an associated type to it (`as! S.Item`) and the result
+from it to the type the receiver's arguments fix (`as! String`). `Self`
+is `S`: an argument is cast to it, and a result comes back boxed as its
+type (`lucentBoxed`). A `mutating` member or a setter, of any protocol,
+is called on a copy (`var s = s`), which goes back into the `LucentBox`
+the value came in. A protocol's value is read through `lucentUnboxed`,
+so a struct that conforms crosses in its box. Refused: static members,
+and closures taking or giving an associated type, whose type is not cast.
 
 An async or throwing property requirement is the Lucent class's getter,
 which returns a promise for an async one: the proxy declares

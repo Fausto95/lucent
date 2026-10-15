@@ -857,12 +857,37 @@ function refusalOf(
     return undefined;
   }
 
-  return owner?.swift?.associatedTypes
+  if (!owner?.swift?.associatedTypes) return undefined;
+  // An instance member is called on the value opened as the type conforming, whose associated
+  // types the receiver's type arguments name: values cast to and from them as they cross.
+  if (isStatic(member) || !("name" in member))
+    return {
+      rule: "associated-types",
+      reason: "static members and initializers of protocols with associated types cannot be called",
+    };
+  // A closure's type is not cast as a value's is.
+  const names = [...(owner.typeParams ?? []), "Self"];
+  const types =
+    "params" in member
+      ? [...member.params.map((p) => p.type), ...("returns" in member ? [member.returns] : [])]
+      : [member.type];
+  const captured = types
+    .flatMap(closuresIn)
+    .some((f) => names.some((n) => new RegExp(`\\b${n}\\b`).test(formatSchemaType(f))));
+  return captured
     ? {
         rule: "associated-types",
-        reason: "members of protocols with associated types cannot be called yet",
+        reason: "closures taking or giving a protocol's associated types cannot cross to Swift yet",
       }
     : undefined;
+}
+
+/** The closures a type holds, itself included. */
+function closuresIn(t: SchemaType): (SchemaType & { k: "fn" })[] {
+  if (t.k === "fn") return [t];
+  const inner =
+    "of" in t ? (Array.isArray(t.of) ? t.of : [t.of]) : t.k === "ref" ? (t.args ?? []) : [];
+  return inner.flatMap(closuresIn);
 }
 
 function errorConvention(

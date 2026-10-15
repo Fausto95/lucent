@@ -370,14 +370,12 @@ describe.skipIf(!xcode)("binding plans and coverage, Swift", () => {
     expect(plans.length).toBeGreaterThan(30);
     expect(plans.every((p) => p.backend === "swift-shim" && p.symbol !== "")).toBe(true);
     // Protocols with associated types: their requirements are declared (typed
-    // by the protocol's type parameters), but not callable yet.
+    // by the protocol's type parameters) and called on the value opened, but
+    // an initializer has no value to be called on.
     expect(
       plans.flatMap((p) => (unsupportedReason(p) ? [`${p.display}: ${unsupportedReason(p)}`] : [])),
     ).toEqual([
-      "Container.first: members of protocols with associated types cannot be called yet",
-      "Accumulator.constructor: members of protocols with associated types cannot be called yet",
-      "Accumulator.feed: members of protocols with associated types cannot be called yet",
-      "Accumulator.output: members of protocols with associated types cannot be called yet",
+      "Accumulator.constructor: static members and initializers of protocols with associated types cannot be called",
       "Shapes.listed: tuples of collections or closures cannot cross to Swift yet",
     ]);
   });

@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                                | Date       | Decision                                                                                             |
 | ------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------- |
+| [0114](0114-a-protocols-member-is-called-on-its-value-opened.md)                      | 2026-10-15 | A protocol's member is called on its value opened as the type conforming                             |
 | [0113](0113-a-swift-subscript-is-the-methods-subscript-and-setsubscript.md)           | 2026-10-15 | A Swift subscript is the methods `subscript` and `setSubscript`                                      |
 | [0112](0112-an-ios-classs-properties-are-accessors-a-subclass-overrides.md)           | 2026-10-15 | An iOS class's properties are accessors, which a Lucent subclass's accessors override                |
 | [0111](0111-a-category-on-any-modules-class-is-bound-as-nsobjects-are.md)             | 2026-10-15 | A category on any module's class is bound as NSObject's are, its class methods merged into the class |
