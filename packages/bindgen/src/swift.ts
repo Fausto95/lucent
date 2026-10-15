@@ -758,6 +758,8 @@ function payload(c: SymbolGraphSymbol, r: Resolver): { label?: string; type: Sch
  * its parameters' types where the labels are the same, `withInt`), which
  * calls it; `new` keeps the initializers that stand apart, and one whose
  * arguments have no labels, which Swift itself calls with bare arguments.
+ * An async initializer becomes one too, giving a promise (`make` without
+ * labels), since `new` cannot wait.
  */
 export function factoriesOfSameTyped(
   ctors: SdkCallable[],
@@ -781,6 +783,21 @@ export function factoriesOfSameTyped(
 
   const factories: SdkMethodSchema[] = [];
   const turned = new Set<SdkCallable>();
+
+  // An async initializer: a static method giving a promise of the object, since `new` cannot
+  // wait. Named by its labels, as the factories below (`withContentsOf`), or `make` without any.
+  for (const c of ctors.filter((x) => x.swift?.async)) {
+    const name = c.params.length && !unlabeled(c) ? byLabels(c) : "make";
+    if (factories.some((f) => f.name === name)) continue;
+    factories.push({ ...c, name, static: true, returns: parseSchemaType(self) });
+    turned.add(c);
+  }
+  for (const [k, all] of groups)
+    groups.set(
+      k,
+      all.filter((c) => !turned.has(c)),
+    );
+
   for (const all of groups.values()) {
     if (all.length < 2) continue;
 

@@ -62,6 +62,8 @@ export type SwiftRequirement =
       ret: SdkType;
       /** An async one's: the Swift function the glue resumes its continuation with. */
       resume?: string;
+      /** A property's getter that is async or throws, which the proxy declares as one. */
+      getter?: true;
     }
   | { kind: "get" | "set"; member: SwiftMember; type: SdkType };
 
@@ -90,11 +92,13 @@ type Requirement =
       kind: "method";
       p: SdkClassRef;
       m: SdkMethodSchema;
-      impl: ts.MethodDeclaration;
+      impl: ts.MethodDeclaration | ts.GetAccessorDeclaration;
       params: SdkType[];
       ret: SdkType;
       now: boolean;
       what: string;
+      /** The Lucent member it calls, when not the method's name: a getter's (`get_value`). */
+      target?: string;
     }
   | {
       kind: "get" | "set";
@@ -238,6 +242,7 @@ export function swiftDelegate(
         params: r.params,
         ret: r.ret,
         ...(r.m.swift?.async ? { resume: resume(i) } : {}),
+        ...(r.target ? { getter: true as const } : {}),
       };
     }),
   });
@@ -350,6 +355,26 @@ function requirementsOf(
     requirePlan(node, of, prop, "implement");
     const type = substitute(prop.type as SdkType, bound);
     const what = `${name}.${prop.name}`;
+    // A getter that is async or throws: the Lucent getter, called as a method requirement is.
+    if (prop.swift?.async || prop.swift?.throws) {
+      if (!ts.isGetAccessorDeclaration(node) || !node.body)
+        reject(
+          `${p.cls.name}.${prop.name}'s getter is ${prop.swift.async ? "async" : "throwing"}: give ${what} a getter${prop.swift.async ? `, which returns a promise` : ""}`,
+        );
+      const getter = node as ts.GetAccessorDeclaration;
+      out.push({
+        kind: "method",
+        p,
+        m: { name: prop.name, params: [], returns: prop.type, swift: prop.swift },
+        impl: getter,
+        params: [],
+        ret: type,
+        now: true,
+        what,
+        target: `get_${cppIdent(prop.name)}`,
+      });
+      continue;
+    }
     out.push({ kind: "get", p, prop, node, type, what });
     if (prop.readonly) continue;
 
@@ -520,7 +545,10 @@ function propertyFunction(
 }
 
 /** A method's parameters and result, as its Lucent implementation declares them. */
-function implSignature(em: FnEmitter, impl: ts.MethodDeclaration): LType & { k: "fn" } {
+function implSignature(
+  em: FnEmitter,
+  impl: ts.MethodDeclaration | ts.GetAccessorDeclaration,
+): LType & { k: "fn" } {
   return em.reg.lowerSignature(em.checker.getSignatureFromDeclaration(impl)!, impl) as LType & {
     k: "fn";
   };
@@ -550,7 +578,7 @@ function methodFunction(
     .slice(0, count)
     .map((t, i) => lucentValue(em, t, i, fn.params[i]!, self, r.what));
   const owner = cpp.varDecl(cpp.auto, "s_", lucentObject(self, cpp.id("ctx_")));
-  const call = cpp.call(cpp.arrow(cpp.id("s_"), cppIdent(r.m.name)), args);
+  const call = cpp.call(cpp.arrow(cpp.id("s_"), r.target ?? cppIdent(r.m.name)), args);
   const entry = entryOf(em, r.impl.parent as ts.ClassLikeDeclaration);
 
   const cRet = isVoid(r.ret) ? cpp.voidType : cType(r.ret);
@@ -673,7 +701,11 @@ function asyncFunction(
       {
         k: "try",
         body: [
-          cpp.varDecl(cpp.auto, "p_", cpp.call(cpp.arrow(cpp.id("s_"), cppIdent(r.m.name)), args)),
+          cpp.varDecl(
+            cpp.auto,
+            "p_",
+            cpp.call(cpp.arrow(cpp.id("s_"), r.target ?? cppIdent(r.m.name)), args),
+          ),
           cpp.exprStmt(cpp.call(cpp.dot(p, "onSettled"), [settled])),
         ],
         catches: [
@@ -823,6 +855,21 @@ function proxyDecls(p: SwiftProxy): swift.Decl[] {
       ...(nothing ? {} : { ret: typeOf(r.ret) }),
     };
 
+    // A property's async or throwing getter: `var name: T { get async throws { … } }`.
+    const declare = (body: swift.Stmt[]) =>
+      members.push(
+        r.getter
+          ? {
+              k: "property",
+              modifiers: [],
+              name: r.member.name,
+              type: typeOf(r.ret),
+              get: body,
+              effects: signature.effects ?? [],
+            }
+          : { ...signature, body },
+      );
+
     if (r.resume) {
       // The glue resumes the continuation, handed over retained, when the Lucent promise settles.
       const wait = throws ? "withCheckedThrowingContinuation" : "withCheckedContinuation";
@@ -831,7 +878,7 @@ function proxyDecls(p: SwiftProxy): swift.Decl[] {
       const waited = swift.awaitExpr(
         swift.call(n(wait), [], swift.closure(["k"], [swift.exprStmt(call)])),
       );
-      members.push({ ...signature, body: [swift.ret(throws ? swift.tryExpr(waited) : waited)] });
+      declare([swift.ret(throws ? swift.tryExpr(waited) : waited)]);
       resumes.push(resumeFunction(r, r.resume, typeOf));
       return;
     }
@@ -842,10 +889,7 @@ function proxyDecls(p: SwiftProxy): swift.Decl[] {
       ...(throws ? [{ value: swift.addressOf(n("e_")) }] : []),
     ]);
     if (!throws) {
-      members.push({
-        ...signature,
-        body: [nothing ? swift.exprStmt(call) : swift.ret(value(r.ret, call))],
-      });
+      declare([nothing ? swift.exprStmt(call) : swift.ret(value(r.ret, call))]);
       return;
     }
 
@@ -855,24 +899,19 @@ function proxyDecls(p: SwiftProxy): swift.Decl[] {
       (!isScalar(r.ret) && !swiftEnum(r.ret) && !objcEnum(r.ret) && !r.ret.nullable)
         ? swift.forceUnwrap(n("v"))
         : n("v");
-    members.push({
-      ...signature,
-      body: [
-        { k: "var", name: "e_", type: swift.optional(raw), init: swift.nil },
-        nothing ? swift.exprStmt(call) : swift.letStmt("v", call),
-        {
-          k: "ifLet",
-          name: "e_",
-          value: n("e_"),
-          body: [
-            swift.throwStmt(
-              swift.cast(call1("lucentTaken", n("e_")), "as!", swift.type("NSError")),
-            ),
-          ],
-        },
-        ...(nothing ? [] : [swift.ret(value(r.ret, result))]),
-      ],
-    });
+    declare([
+      { k: "var", name: "e_", type: swift.optional(raw), init: swift.nil },
+      nothing ? swift.exprStmt(call) : swift.letStmt("v", call),
+      {
+        k: "ifLet",
+        name: "e_",
+        value: n("e_"),
+        body: [
+          swift.throwStmt(swift.cast(call1("lucentTaken", n("e_")), "as!", swift.type("NSError"))),
+        ],
+      },
+      ...(nothing ? [] : [swift.ret(value(r.ret, result))]),
+    ]);
   });
 
   return [

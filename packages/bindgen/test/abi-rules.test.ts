@@ -929,11 +929,9 @@ describe("binding plans: Swift rules", () => {
       reason:
         "static requirements cannot be implemented by Lucent classes (Swift would call them without an object)",
     });
+    // An async or throwing getter is the Lucent class's getter.
     const ready = drawable.properties![2]!;
-    expect(planBinding(drawable, ready, shapes, types, "implement").refused).toEqual({
-      rule: "requirement-effects",
-      reason: "async or throwing property requirements cannot be implemented by Lucent classes",
-    });
+    expect(planBinding(drawable, ready, shapes, types, "implement").refused).toBeUndefined();
   });
 
   it("plans async, throwing and property requirements a Lucent class implements", () => {

@@ -269,7 +269,7 @@ Member-level refusal rules, each a general rule that names no library:
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | any, role `set` | `read-only`; `java-field-write` (JNI); `no-setter` (Objective-C, C)                                                                                                                                                          |
 | `jni`           | `jvm-mangled-name`                                                                                                                                                                                                           |
-| `swift-shim`    | `async-initializer`, `static-requirement`, `requirement-effects`, `associated-types`                                                                                                                                         |
+| `swift-shim`    | `async-initializer`, `static-requirement`, `associated-types`                                                                                                                                                                |
 | `kotlin-shim`   | `kotlin-shim-generic`, `kotlin-shim`                                                                                                                                                                                         |
 | `kotlin-source` | `kotlin-source-implement`, `kotlin-source-set`, `kotlin-reified`, `kotlin-opt-in`, `kotlin-restricted`, `kotlin-member-extension`, `compose-applier`, `kotlin-extension-receiver`, `kotlin-vararg`, `kotlin-receiver-result` |
 | `swift-source`  | `role`, `property-wrapper`, `builder-arguments`                                                                                                                                                                              |
@@ -302,10 +302,7 @@ them:
 
 ### Planned
 
-- [T112](../tasks.md#t112) lifts `associated-types`,
-  `requirement-effects`, `async-initializer` and `kotlin-shim`'s
-  `implement` case, and converts `WeakRef`s to SDK objects, optional
-  closures and tuples, and optionals inside collections.
+- [T112](../tasks.md#t112) lifts `associated-types`.
 - [T143](../tasks.md#t143) binds a package's Kotlin and Java sources as
   `lucent:android/<package>`, from a jar keyed on their content.
 

@@ -612,3 +612,138 @@ export async function run(): Promise<string> {
     expect(p.shims).toContain("Kit.KITEdges(rawValue: .init(truncatingIfNeeded:");
   });
 });
+
+describe("async initializers and effectful property requirements", () => {
+  it("call an async initializer as a static factory, whose promise gives the object", () => {
+    const set = schemaSet([
+      {
+        module: "Gauges",
+        frameworks: [],
+        types: [
+          {
+            kind: "class",
+            name: "Model",
+            native: "Gauges.Model",
+            swift: { kind: "class" },
+            methods: [
+              {
+                name: "withContentsOf",
+                static: true,
+                params: [{ name: "url", type: "string" }],
+                returns: "Gauges.Model",
+                swift: { name: "init(contentsOf:)", async: true, throws: true },
+              },
+              {
+                name: "make",
+                static: true,
+                params: [],
+                returns: "Gauges.Model",
+                swift: { name: "init()", async: true },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    const p = setProgram(
+      `import { Model } from "lucent:ios/Gauges";
+export async function run(): Promise<string> {
+  const a = await Model.withContentsOf("file:///x");
+  const b = await Model.make();
+  return \`\${a === b}\`;
+}
+`,
+      set,
+    );
+
+    expect(p.messages).toEqual([]);
+    expect(p.shims).toContain("let v = try await Gauges.Model.init(contentsOf: v0)");
+    expect(p.shims).toContain("let v = await Gauges.Model.init()");
+  });
+
+  it("implement an async or throwing property requirement with a getter", () => {
+    const set = schemaSet([
+      {
+        module: "Gauges",
+        frameworks: [],
+        types: [
+          {
+            kind: "class",
+            name: "Source",
+            native: "Gauges.Source",
+            swift: { kind: "protocol" },
+            interface: true,
+            properties: [
+              {
+                name: "level",
+                type: "double",
+                readonly: true,
+                abstract: true,
+                swift: { name: "level", async: true, throws: true },
+              },
+              {
+                name: "label",
+                type: "string",
+                readonly: true,
+                abstract: true,
+                swift: { name: "label", throws: true },
+              },
+            ],
+          },
+          {
+            kind: "class",
+            name: "Station",
+            native: "Gauges.Station",
+            swift: { kind: "class" },
+            constructors: [{ params: [], swift: { name: "init()" } }],
+            methods: [
+              {
+                name: "watch",
+                params: [{ name: "s", type: "Gauges.Source" }],
+                returns: "void",
+                swift: { name: "watch(_:)" },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    const program = (members: string) =>
+      setProgram(
+        `import { Station, type Source } from "lucent:ios/Gauges";
+class Feed implements Source {
+${members}
+}
+export async function run(): Promise<string> {
+  new Station().watch(new Feed());
+  return "";
+}
+`,
+        set,
+      );
+    const p = program(`  get level(): Promise<number> {
+    return Promise.resolve(4);
+  }
+  get label(): string {
+    throw new Error("no label");
+  }`);
+
+    expect(p.messages).toEqual([]);
+    expect(p.shims).toMatch(
+      /var level: Double \{\n    get async throws \{\n      return try await withCheckedThrowingContinuation/,
+    );
+    expect(p.shims).toMatch(/var label: String \{\n    get throws \{\n      var e_/);
+    // The glue calls the getters, as a method requirement's.
+    expect(p.mm).toContain("auto p_ = s_->get_level();");
+    expect(p.mm).toContain("auto r_ = s_->get_label();");
+
+    // A field cannot be one.
+    const field = program(`  readonly level = Promise.resolve(4);
+  get label(): string {
+    return "";
+  }`);
+    expect(field.messages.map((m) => m[1]).join("\n")).toContain(
+      "Source.level's getter is async: give Feed.level a getter, which returns a promise",
+    );
+  });
+});

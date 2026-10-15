@@ -95,8 +95,19 @@ export type Member =
   | { k: "var" | "let"; modifiers: string[]; name: string; type: Type; init?: Expr }
   | { k: "init"; modifiers: string[]; params: Param[]; body: Stmt[] }
   | { k: "deinit"; body: Stmt[] }
-  /** A computed property: its getter's body alone, or a getter and a setter (`newValue`). */
-  | { k: "property"; modifiers: string[]; name: string; type: Type; get: Stmt[]; set?: Stmt[] }
+  /**
+   * A computed property: its getter's body alone, or a getter and a setter
+   * (`newValue`); `effects` are the getter's (`get async throws`).
+   */
+  | {
+      k: "property";
+      modifiers: string[];
+      name: string;
+      type: Type;
+      get: Stmt[];
+      set?: Stmt[];
+      effects?: string[];
+    }
   | { k: "typealias"; name: string; type: Type }
   | (Omit<Decl & { k: "func" }, "k"> & { k: "func" });
 

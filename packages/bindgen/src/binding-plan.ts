@@ -852,14 +852,9 @@ function refusalOf(
           "static requirements cannot be implemented by Lucent classes (Swift would call them without an object)",
       };
 
-    // A getter Swift may wait for, or that throws, has no Lucent form.
-    const s = member.swift!;
-    return "type" in member && (s.async || s.throws)
-      ? {
-          rule: "requirement-effects",
-          reason: "async or throwing property requirements cannot be implemented by Lucent classes",
-        }
-      : undefined;
+    // A getter Swift may wait for, or that throws, is the Lucent class's getter: a promise's
+    // value, or what it throws.
+    return undefined;
   }
 
   return owner?.swift?.associatedTypes

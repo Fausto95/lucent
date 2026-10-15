@@ -662,7 +662,8 @@ still refuses.
   classes (#304), overriding Kotlin suspend members (#305), overriding
   Objective-C properties (#306), optional closures and tuples through
   Swift (#307), optionals and enums in Swift collections (#308), C structs
-  in Swift collections and optional enums (#309).
+  in Swift collections and optional enums (#309), async initializers and
+  effectful property requirements (#310).
 - **Area:** bindings, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V4.
@@ -690,8 +691,11 @@ still refuses.
       generic types, and optional numbers and booleans.
 - [ ] Members of protocols with associated types, where the conforming
       type fixes them.
-- [ ] Async and throwing property requirements, and async initializers as
-      constructors.
+- [x] Async and throwing property requirements, and async initializers as
+      constructors (#310): a requirement's getter returns a promise or
+      throws, which the proxy declares `get async throws`; an async
+      initializer is a static factory returning a promise
+      (`Model.withContentsOf(url)`, `Model.make()`).
 - [x] A Lucent `async` method overriding a Kotlin class's `suspend` member
       (`CoroutineWorker.doWork` in T131 needs it) (#305): the Java
       subclass's override passes the continuation on, as a proxy does,
