@@ -678,13 +678,25 @@ const KOTLIN_SHIM_REFUSALS: [
     },
   ],
   [
-    (owner, _, role) => role === "implement" && !owner?.interface,
+    // A suspend member's override takes the continuation as Java sees it, as a proxy does.
+    (owner, member, role) => role === "implement" && !owner?.interface && !suspendOnly(member),
     {
       rule: "kotlin-shim",
-      reason: "Lucent classes cannot override a Kotlin class's suspend or value-class members yet",
+      reason:
+        "Lucent classes cannot override a Kotlin class's members that take or give value classes or suspend functions yet",
     },
   ],
 ];
+
+/** A suspend member with nothing else a shim must call for it: JNI's descriptor is Kotlin's. */
+function suspendOnly(member: Member): boolean {
+  const k = member.kotlin;
+  return (
+    !!k?.suspend &&
+    !k.unboxed &&
+    !("params" in member && member.params.some((p) => p.kotlin?.suspendFunction))
+  );
+}
 
 /** The applier of UI: what a component's content composes into. */
 const UI_APPLIER = "androidx.compose.ui.UiComposable";

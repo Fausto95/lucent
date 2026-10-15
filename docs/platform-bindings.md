@@ -589,7 +589,11 @@ its zero value.
 A Kotlin interface's suspend member takes an `async` method: the proxy
 tells Kotlin it suspended (a `SafeContinuation`, as `suspendCoroutine`
 does), and the promise resumes it through the caller's dispatcher. Value
-classes the JVM passes unboxed are boxed for Lucent and back.
+classes the JVM passes unboxed are boxed for Lucent and back. A Kotlin
+class's suspend member, such as `CoroutineWorker.doWork`, takes one the
+same way: the Java subclass's override passes its continuation on. Its
+promise resumes the coroutine with its value or error; cancelling the
+coroutine doesn't abort the method.
 
 ## Subclassing
 
@@ -619,14 +623,14 @@ exported class is `dev.lucent.app.<module>.<Class>`, which the OS makes
 ([0097](decisions/0097-exported-classes-extending-android-classes-are-os-made.md),
 [0103](decisions/0103-android-overrides-run-while-the-caller-waits.md)).
 
-| Refused on iOS                                      | Refused on Android                                         |
-| --------------------------------------------------- | ---------------------------------------------------------- |
-| Swift classes (subclass them in Swift)              | A base without a public constructor taking no arguments    |
-| Extending a Lucent class that extends an iOS class  | `super(…)` with arguments, but an exported class's own     |
-| A field named like a base property (set it instead) | `super.name` but called, and `super.name(…)` via Kotlin    |
-| Overriding a base property with accessors           | Overriding a method whose JVM name Java cannot write       |
-| Overriding a Swift member                           | Overriding a Kotlin class's suspend or value-class members |
-| Generic classes; protocols (implement them)         | Interfaces (implement them)                                |
+| Refused on iOS                                      | Refused on Android                                                               |
+| --------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Swift classes (subclass them in Swift)              | A base without a public constructor taking no arguments                          |
+| Extending a Lucent class that extends an iOS class  | `super(…)` with arguments, but an exported class's own                           |
+| A field named like a base property (set it instead) | `super.name` but called, and `super.name(…)` via Kotlin                          |
+| Overriding a base property with accessors           | Overriding a method whose JVM name Java cannot write                             |
+| Overriding a Swift member                           | Overriding a Kotlin class's members that take value classes or suspend functions |
+| Generic classes; protocols (implement them)         | Interfaces (implement them)                                                      |
 
 ## Swift shims
 

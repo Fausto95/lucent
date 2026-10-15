@@ -312,7 +312,7 @@ A member-level rule refuses every use of a member in a role. For a use through g
 | `async-initializer` | A Swift `async` initializer as a constructor | [LUCENT1001](/docs/api/diagnostics/#lucent1001) |
 | `associated-types` | Calling a member of a Swift protocol with associated types | [LUCENT1001](/docs/api/diagnostics/#lucent1001) |
 | `static-requirement`, `requirement-effects` | Implementing a static Swift requirement, or an `async` or throwing property requirement | `static-requirement`: [LUCENT1007](/docs/api/diagnostics/#lucent1007); `requirement-effects`: [LUCENT1005](/docs/api/diagnostics/#lucent1005) |
-| `kotlin-shim-generic`, `kotlin-shim` | Shim members bounded by a projected type (`T : List<out R>`); overriding a Kotlin class's suspend or value-class members | [LUCENT1007](/docs/api/diagnostics/#lucent1007) |
+| `kotlin-shim-generic`, `kotlin-shim` | Shim members bounded by a projected type (`T : List<out R>`); overriding a Kotlin class's members that take or give value classes, or take suspend functions | [LUCENT1007](/docs/api/diagnostics/#lucent1007) |
 | `kotlin-source-*`, `kotlin-*`, `compose-applier` | What a component's Compose content can't call yet, such as reified, experimental or restricted APIs | none: `lucent:compose` leaves the member out of its declarations |
 
 A value that can't cross is [LUCENT2002](/docs/api/diagnostics/#lucent2002). Either way, `explainRefusal()` writes the member, the reason, and the symbol and artifact it comes from:
