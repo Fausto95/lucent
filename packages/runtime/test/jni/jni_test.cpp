@@ -13,6 +13,7 @@
 #include "jni_host.h"
 #include "lucent/lucent.h"
 #include "lucent/platform/android.h"
+#include "lucent/view.h"
 
 using namespace lucent;
 
@@ -163,6 +164,74 @@ static void adoptedByteBuffersAreHeldUntilReleased() {
   env->DeleteWeakGlobalRef(movedWeak);
 }
 
+/// Runs `f` as a turn of the main context, where mounts run.
+template <class F>
+static void onUi(F f) {
+  std::atomic<bool> ran{false};
+
+  ExecutionContext::main().post([&] {
+    f();
+    ran = true;
+  });
+
+  for (int i = 0; i < 20000 && !ran; i++) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  CHECK(ran);
+}
+
+/// The context a mount's views are made with (T125): its hosting view's
+/// while its host calls it (HostViewEntry: setup, an update, a command);
+/// else, in its content, as a callback its setup made runs, its root
+/// view's, so a view a later commit makes is themed as setup's were. None
+/// outside any mount, or for a root that is not a view.
+static void viewsTakeTheirMountsContext() {
+  onUi([] {
+    JNIEnv* env = jni::env();
+    jni::LocalFrame frame(env);
+    jclass contextClass = env->FindClass("android/content/Context");
+    jclass viewClass = env->FindClass("android/view/View");
+    jmethodID newContext = env->GetMethodID(contextClass, "<init>", "()V");
+    jmethodID newView = env->GetMethodID(viewClass, "<init>", "(Landroid/content/Context;)V");
+    jobject shellContext = env->NewObject(contextClass, newContext);
+    jobject rootContext = env->NewObject(contextClass, newContext);
+    jobject shell = env->NewObject(viewClass, newView, shellContext);
+    NativeRef root = jni::wrap(env, env->NewObject(viewClass, newView, rootContext), "a view");
+    auto is = [&](const Opt<NativeRef>& context, jobject expected) {
+      return context.has() && env->IsSameObject(jni::unwrap(context), expected);
+    };
+
+    CHECK(!jni::hostContext().has());
+    {
+      jni::HostViewEntry hosting(shell);
+      CHECK(is(jni::hostContext(), shellContext));
+    }
+
+    auto content = ui::Content::create([] {});
+    {
+      ui::ContentEntry entry(content);
+      // Before its setup returned, the mount has no root.
+      CHECK(!jni::hostContext().has());
+      ui::ownContent(nullptr, root);
+      CHECK(is(jni::hostContext(), rootContext));
+      {
+        // Its host's view first.
+        jni::HostViewEntry hosting(shell);
+        CHECK(is(jni::hostContext(), shellContext));
+      }
+      CHECK(is(jni::hostContext(), rootContext));
+    }
+    CHECK(!jni::hostContext().has());
+
+    // A Fragment's mount: its views come from the Fragment, not from here.
+    auto fragment = ui::Content::create([] {});
+    {
+      ui::ContentEntry entry(fragment);
+      ui::ownContent(nullptr, jni::wrap(env, env->NewObject(contextClass, newContext), "an object"));
+      CHECK(!jni::hostContext().has());
+    }
+    CHECK(takePending(env).empty());
+  });
+}
+
 int main(int, char** argv) {
   lucentStartJvm(argv[1]);
 
@@ -176,6 +245,7 @@ int main(int, char** argv) {
 
   for (int i = 0; i < 20000 && !done; i++) std::this_thread::sleep_for(std::chrono::milliseconds(1));
   CHECK(done);
+  viewsTakeTheirMountsContext();
 
   std::printf("jni: %d checks, %d failures\n", checks, failures);
   std::fflush(stdout);

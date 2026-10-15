@@ -30,8 +30,9 @@ elif [[ "${SANITIZE:-0}" == "thread" ]]; then
 fi
 rm -rf "$out" && mkdir -p "$out/classes" "$out/objs"
 
-# Lucent's Java classes the glue loads, beside the Android stand-ins they read.
-javac --release 11 -d "$out/classes" $(find "$host/java" -name '*.java') "$here/../../native/android/src/main/java/dev/lucent/NativeProxy.java" 2> >(grep -v "^Picked up" >&2)
+# Lucent's Java classes the glue loads, beside the Android stand-ins they read
+# (the host's, and this test's views).
+javac --release 11 -d "$out/classes" $(find "$host/java" "$here/java" -name '*.java') "$here/../../native/android/src/main/java/dev/lucent/NativeProxy.java" 2> >(grep -v "^Picked up" >&2)
 
 objs=()
 for c in "$cpp"/third_party/quickjs/*.c; do

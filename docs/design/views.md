@@ -230,8 +230,10 @@ once (`View & UIView`), so the component declares the root view class.
 
 The JSX is compiled as the setup a person would write (`emit/native-jsx.ts`).
 Each view is made at mount, in source order, a parent before its children;
-Android views take `lucent::jni::viewContext()`; a view made after setup, on an
-update or a command, gets `appContext()` instead ([T125](../tasks.md#t125)). Each prop with a value is an
+Android views take `lucent::jni::viewContext()`: the shell's context while the
+host calls the mount (its setup, an update, a command), else its root view's (a
+callback its setup made), so a view made on a later commit is themed as setup's
+were ([T125](../tasks.md#t125)). Each prop with a value is an
 effect of the mount, set now and whenever what it read changes. A bare attribute
 is `true`, set once.
 
@@ -875,8 +877,11 @@ and tag, which together name one view across reloads
 | `prepareToRecycleView`, `onDropViewInstance` | Drops the C++ host, ending the mount                                                                                 |
 
 The host mounts at attach, because React Native can make a view before its props
-are committed; a command may come first. The setup runs inside a
-`HostViewEntry`, which gives `viewContext()` the shell's context.
+are committed; a command may come first. The setup, each update and each command
+run inside a `HostViewEntry`, which gives `viewContext()` the shell's context.
+Code the mount runs at other times, in its content, takes its root view's
+context: `hostContext()` (`platform/android.cpp`) reads the active content's
+root, unless that is not a view (a `Fragment`).
 
 A component whose setup returns a `Fragment` gives its host the fragment and no
 view (`fragment()` on `Mounted`). The shell holds a container, a `FrameLayout`
@@ -977,7 +982,7 @@ The view gate closes these gaps ([parity.md](../parity.md#views)):
 | An `AVPlayerViewController` spike, run on the simulator                                          | [T122](../tasks.md#t122) |
 | Instance props in SwiftUI and Compose bodies; helpers with toolkit values, children and bindings | [T123](../tasks.md#t123) |
 | A component's view in module code, run on the simulator and the emulator                         | [T124](../tasks.md#t124) |
-| Views made after setup on Android get `appContext()`, not the hosting view's themed context      | [T125](../tasks.md#t125) |
+| Views made after setup on Android keep the hosting view's themed context, run on the emulator    | [T125](../tasks.md#t125) |
 
 Accepted, with no task ([limitations.md](../limitations.md#views)):
 
