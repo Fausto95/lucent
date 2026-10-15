@@ -57,7 +57,7 @@ describe("lucent.json schema", () => {
   it("names exactly the fields the build reads", () => {
     const properties = schema().properties;
     expect(Object.keys(properties).sort()).toEqual(
-      [...Object.keys(read), "extensions", "launch"].sort(),
+      [...Object.keys(read), "extensions", "launch", "options", "packages"].sort(),
     );
     for (const [platform, fields] of Object.entries(read)) {
       expect(Object.keys(properties[platform]!.properties).sort()).toEqual([...fields].sort());

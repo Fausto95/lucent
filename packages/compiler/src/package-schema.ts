@@ -211,7 +211,30 @@ export interface PackageNative {
    * the extension.
    */
   launch?: string[];
+  /**
+   * Values the app sets for the package: option name → what it means, and
+   * a default (without one, the app must set it). `{{name}}` in an
+   * Info.plist value, an entitlement or a manifest component's field is
+   * the option's value.
+   */
+  options?: Record<string, PackageOption>;
+  /** The app's own lucent.json: the options it sets, by package. */
+  packages?: Record<string, Record<string, OptionValue>>;
 }
+
+/** An option's value: a string, or a boolean (which a whole `{{name}}` value stays). */
+export type OptionValue = string | boolean;
+
+/** An option a package declares, which the app's lucent.json sets. */
+export interface PackageOption {
+  /** What it is, for the message when the app must set it. */
+  description: string;
+  /** Its value when the app sets none; without one, the app must set it. */
+  default?: OptionValue;
+}
+
+/** An option's name, as `{{name}}` refers to it. */
+export const OPTION_NAME = /^[A-Za-z][\w-]*$/;
 
 /** Checks a lucent.json value: an error message naming where it is, or undefined. */
 type Check = (value: unknown, at: string) => string | undefined;
@@ -506,11 +529,28 @@ const modulePath: Check = (v, at) =>
     ? undefined
     : `${at} must be a module's path under the package's sources, without .lucent.ts ("tasks" for tasks.lucent.ts)`;
 
+const optionValue: Check = (v, at) =>
+  typeof v === "string" || typeof v === "boolean"
+    ? undefined
+    : `${at} must be a string or a boolean`;
+
+const options: Check = (v, at) =>
+  recordOf(fields({ description: string, default: optionValue }, ["description"]))(v, at) ??
+  Object.keys(v as object)
+    .filter((name) => !OPTION_NAME.test(name))
+    .map(
+      (name) =>
+        `${at} has ${JSON.stringify(name)}: an option's name is a letter, then letters, digits, _ or -`,
+    )
+    .find(Boolean);
+
 const lucentJson = fields({
   ios: fields(PACKAGE_FIELDS.ios),
   android: fields(PACKAGE_FIELDS.android),
   extensions,
   launch: listOf(modulePath),
+  options,
+  packages: recordOf(recordOf(optionValue)),
 });
 
 /** A package's lucent.json, checked; undefined when it has none. */

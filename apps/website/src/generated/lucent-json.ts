@@ -465,5 +465,29 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "type": "string[]",
     "required": false,
     "description": "Modules to create at app launch, before the first frame, for what the OS requires by then, such as BGTaskScheduler handlers. Each is a path under the package's sources, without .lucent.ts: \"tasks\" for tasks.lucent.ts. Creating one starts module state, every module's top level, and holds it for the app's process, so a reload keeps it. On iOS, LucentAppDelegate's application(_:didFinishLaunchingWithOptions:) creates them; a bare app's lucent build names the call its AppDelegate lacks."
+  },
+  {
+    "field": "options",
+    "type": "{ [name]: object }",
+    "required": false,
+    "description": "A package's options, which the app's lucent.json sets: option name → what it means, and a default. {{name}} in an ios.infoPlist value, an entitlement or an android.components field is the option's value. A whole {{name}} of a boolean is the boolean. An option without a default that the app doesn't set fails the build, saying how to set it."
+  },
+  {
+    "field": "options.<name>.description",
+    "type": "string",
+    "required": true,
+    "description": "What the option is, for the message when the app must set it."
+  },
+  {
+    "field": "options.<name>.default",
+    "type": "string or boolean",
+    "required": false,
+    "description": "Its value when the app sets none. Without one, the app must set it."
+  },
+  {
+    "field": "packages",
+    "type": "{ [name]: { [name]: string or boolean } }",
+    "required": false,
+    "description": "The app's own lucent.json: the options it sets, by package: package name → option name → a string or a boolean. Setting an option a package doesn't declare, or one of a package the app doesn't depend on, fails the build."
   }
 ];

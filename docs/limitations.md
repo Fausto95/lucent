@@ -149,8 +149,6 @@ generated from this file.
 - On Android, an Activity that isn't AndroidX's `ComponentActivity`
   reports no configuration change, leave hint or back press, nor a new
   intent outside React Native's ([T110](tasks.md#t110)).
-- A package can't yet declare options an app sets, such as an API key
-  ([T111](tasks.md#t111)).
 - Swift's `Data` and `NSData` cross into Lucent as a copy, so a file's or
   a response's bytes reach JavaScript after one copy
   ([T108](tasks.md#t108)).
