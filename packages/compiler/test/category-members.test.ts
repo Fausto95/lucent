@@ -127,8 +127,36 @@ const TABLES = {
       properties: [
         { name: "row", type: "int", readonly: true },
         { name: "section", type: "int", readonly: true },
+        // Class properties, which merge into the class as its methods do.
+        { name: "empty", type: "Foundation.NSIndexPath", readonly: true, static: true },
+        { name: "defaultDepth", type: "int", static: true, setter: "setDefaultDepth:" },
+        // A Swift extension's, called through shims.
+        { name: "depth", type: "NSInteger", readonly: true, swift: { name: "depth" } },
+        {
+          name: "zero",
+          type: "Foundation.NSIndexPath",
+          readonly: true,
+          static: true,
+          swift: { name: "zero" },
+        },
       ],
       methods: [
+        {
+          name: "shiftedBy",
+          params: [{ name: "rows", type: "NSInteger" }],
+          returns: "Foundation.NSIndexPath",
+          swift: { name: "shifted(by:)" },
+        },
+        {
+          name: "withItemGroup",
+          static: true,
+          params: [
+            { name: "item", type: "NSInteger" },
+            { name: "group", type: "NSInteger" },
+          ],
+          returns: "Foundation.NSIndexPath",
+          swift: { name: "init(item:group:)" },
+        },
         {
           name: "indexPathForRowInSection",
           static: true,
@@ -185,7 +213,39 @@ export async function run(): Promise<string> {
     expect(p.mm).toMatch(/\[NSIndexPath indexPathForRow:[^\]]*inSection:/);
     const dts = [...p.types.values()].join("\n");
     expect(dts).toMatch(
-      /namespace NSIndexPath \{\s+const indexPathForRowInSection: typeof NSIndexPath_Tables\.indexPathForRowInSection;/,
+      /namespace NSIndexPath \{[^}]*const indexPathForRowInSection: typeof NSIndexPath_Tables\.indexPathForRowInSection;/,
     );
+  });
+});
+
+describe("a category's class properties and a Swift extension's members", () => {
+  it("are the class's: a property read and set on it, Swift's called through shims", () => {
+    const p = setProgram(
+      `import { NSIndexPath } from "lucent:ios/Foundation";
+import "lucent:ios/Tables";
+export async function run(): Promise<string> {
+  NSIndexPath.defaultDepth = 3;
+  const path = NSIndexPath.withItemGroup(1, 2);
+  return \`\${NSIndexPath.empty.length} \${NSIndexPath.defaultDepth} \${path.shiftedBy(1).depth} \${NSIndexPath.zero.row}\`;
+}
+`,
+      schemaSet([FOUNDATION, TABLES]),
+    );
+
+    expect(p.messages).toEqual([]);
+    expect(p.mm).toMatch(/\[NSIndexPath empty\]/);
+    expect(p.mm).toMatch(/\[NSIndexPath setDefaultDepth:/);
+    expect(p.mm).toMatch(/\[NSIndexPath defaultDepth\]/);
+    const dts = [...p.types.values()].join("\n");
+    expect(dts).toMatch(
+      /namespace NSIndexPath \{[^}]*const empty: typeof NSIndexPath_Tables\.empty;/,
+    );
+    expect(dts).toMatch(/let defaultDepth: typeof NSIndexPath_Tables\.defaultDepth;/);
+    // The extended class, in the module declaring it.
+    expect(p.shims).toContain("import Foundation");
+    expect(p.shims).toContain("Foundation.NSIndexPath.init(item: a0, group: a1)");
+    expect(p.shims).toContain("(lucentObject(self_) as! Foundation.NSIndexPath).shifted(by: a0)");
+    expect(p.shims).toContain("(lucentObject(self_) as! Foundation.NSIndexPath).depth");
+    expect(p.shims).toContain("Foundation.NSIndexPath.zero");
   });
 });

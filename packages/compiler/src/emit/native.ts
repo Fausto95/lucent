@@ -4,6 +4,7 @@ import { type Code, Codes, fail } from "../diagnostics.ts";
 import { builtinSdkModuleOf, sdkModuleOf } from "../program.ts";
 import {
   classOfDecl,
+  extensionMember,
   isSdkPropertyDecl,
   promiseForm,
   requirementOf,
@@ -89,7 +90,10 @@ export function declaredBySdk(decl: ts.Node | undefined): boolean {
 
 function resolved(em: FnEmitter, node: ts.Node): ts.Symbol | undefined {
   const sym = em.checker.getSymbolAtLocation(node);
-  return sym ? em.ctx.resolve(sym) : undefined;
+  if (!sym) return undefined;
+  // A class member another module adds, merged into the class by a namespace: its declaration.
+  const s = em.ctx.resolve(sym);
+  return extensionMember(em.checker, s) ?? s;
 }
 
 /** An expression naming an SDK class (`UIDevice`, `VibrationEffect`), used as a value. */

@@ -32,6 +32,21 @@ export function classOfDecl(decl: ts.Node): SdkClassRef | undefined {
   return cls?.kind === "class" ? { ...sdk, cls } : undefined;
 }
 
+/**
+ * The class member a namespace merges into another module's class
+ * (extensionDts: `const zero: typeof NSIndexPath_Kit.zero`): the member its
+ * `typeof` names, whose declaration leads back to the schema.
+ */
+export function extensionMember(checker: ts.TypeChecker, sym: ts.Symbol): ts.Symbol | undefined {
+  const decl = sym.valueDeclaration;
+  if (!decl || !ts.isVariableDeclaration(decl) || !decl.type || !ts.isTypeQueryNode(decl.type))
+    return undefined;
+  if (!ts.isModuleBlock(decl.parent.parent.parent) || !sdkModuleOf(decl.getSourceFile()))
+    return undefined;
+  const named = decl.type.exprName;
+  return checker.getSymbolAtLocation(ts.isQualifiedName(named) ? named.right : named);
+}
+
 /** The SDK protocols (and Java interfaces) a Lucent class names in `implements`. */
 export function sdkInterfacesOf(
   checker: ts.TypeChecker,

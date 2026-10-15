@@ -665,7 +665,8 @@ still refuses.
   in Swift collections and optional enums (#309), async initializers and
   effectful property requirements (#310), statics of generic Swift types
   (#311), Swift subscripts (#312), members of protocols with associated
-  types (#313).
+  types (#313), Swift extensions of other modules' classes and categories'
+  class properties (#314).
 - **Area:** bindings, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V4.
@@ -728,8 +729,13 @@ still refuses.
       ([0111](decisions/0111-a-category-on-any-modules-class-is-bound-as-nsobjects-are.md),
       #304): from each extension graph, class methods merged into the class
       by a namespace, initializers as class methods named by selectors.
-- [ ] Swift extensions' members a module adds to another module's class,
-      and a category's class properties.
+- [x] Swift extensions' members a module adds to another module's class,
+      and a category's class properties
+      ([0115](decisions/0115-a-swift-extension-of-another-modules-class-is-bound-as-its-categories-are.md),
+      #314): a Swift extension's members join the module's extension class,
+      called on the extended class through shims, its initializers class
+      methods; class properties merge into the class as a namespace's
+      `const` or `let`, which the compiler follows to their declaration.
 - [ ] `config/sdk-coverage.json` updated with the new counts.
 
 **Done when:** each item has a binding test on its platform, and the

@@ -23,14 +23,15 @@ same schema as Objective-C ones. A type has `swift: { kind }`, a member
 which the call is written, and whether it is `async`, `throws` or
 `mutating`.
 
-| Swift declaration                      | Schema                                                                                               |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| A struct or class                      | A class whose `native` is the qualified name (`CryptoKit.AES.GCM.SealedBox`)                         |
-| An enum without payloads               | An enum of its cases' indexes; its members are skipped                                               |
-| An enum with payloads                  | A class with `swift.cases`, each case's labels and types; members skipped                            |
-| A protocol                             | An interface; its associated types are type parameters (`associatedTypes`, `primaryAssociatedTypes`) |
-| A Swift member of an Objective-C class | Joins the class; an Objective-C member of the same name wins                                         |
-| A top-level function or variable       | A module function or constant                                                                        |
+| Swift declaration                                       | Schema                                                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| A struct or class                                       | A class whose `native` is the qualified name (`CryptoKit.AES.GCM.SealedBox`)                                 |
+| An enum without payloads                                | An enum of its cases' indexes; its members are skipped                                                       |
+| An enum with payloads                                   | A class with `swift.cases`, each case's labels and types; members skipped                                    |
+| A protocol                                              | An interface; its associated types are type parameters (`associatedTypes`, `primaryAssociatedTypes`)         |
+| A Swift member of an Objective-C class                  | Joins the class; an Objective-C member of the same name wins                                                 |
+| A Swift extension of another module's Objective-C class | Joins the module's extension class (`UIColor_SwiftUI`), labelled; initializers are class methods (`withRed`) |
+| A top-level function or variable                        | A module function or constant                                                                                |
 
 - **Standard protocols.** `some P`, or a type parameter constrained to
   `P`, takes the one Lucent type that conforms (`STANDARD_PROTOCOLS` in

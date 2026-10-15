@@ -164,7 +164,8 @@ export type Decl =
       ret: Type;
       doc?: Doc;
     }
-  | { k: "const"; name: string; type: Type; local?: boolean; doc?: Doc }
+  /** `mutable`: a `let`, which code may assign. */
+  | { k: "const"; name: string; type: Type; local?: boolean; doc?: Doc; mutable?: boolean }
   /**
    * `export declare namespace name { … }`: type aliases and namespaces in it
    * (`Edge.Set`), and constants, functions and interfaces, which merge with

@@ -7,6 +7,7 @@
  * enclosing function's are one graph.
  */
 import ts from "typescript";
+import { extensionMember } from "../sdk/declarations.ts";
 import type { Platform } from "../sdk/schema.ts";
 import { nativeTagType } from "../ui/roots.ts";
 import { isToolkitBody, type Jsx, jsxToolkitOf } from "../ui/toolkit-body.ts";
@@ -1061,7 +1062,9 @@ export class Collector {
 
   private declarationOf(name: ts.Node): ts.Declaration | undefined {
     const sym = this.checker.getSymbolAtLocation(name);
-    const resolved = sym && this.p.resolve(sym);
+    const found = sym && this.p.resolve(sym);
+    // A class member another module adds, merged into the class by a namespace: its declaration.
+    const resolved = found && (extensionMember(this.checker, found) ?? found);
 
     return resolved?.valueDeclaration ?? resolved?.declarations?.[0];
   }

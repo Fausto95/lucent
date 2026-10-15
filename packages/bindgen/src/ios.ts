@@ -41,7 +41,13 @@ import { undeclaredReason, undeclaredType } from "./binding-plan.ts";
 import { swiftMemberOf } from "./c-swift-names.ts";
 import { classThreadFlags, memberFacts, memberThreadFlags } from "./facts.ts";
 import { graphSymbol, type IosModuleSource, iosProvenance } from "./provenance.ts";
-import { addSwiftDeclarations, associatedTypesOf, swiftName, swiftTypeKinds } from "./swift.ts";
+import {
+  addSwiftDeclarations,
+  associatedTypesOf,
+  isSwiftUsr,
+  swiftName,
+  swiftTypeKinds,
+} from "./swift.ts";
 
 /**
  * Binding schemas for Clang modules (Apple frameworks, and Objective-C pods
@@ -924,6 +930,7 @@ export function withExtensions(
   const relationships: SymbolGraph["relationships"] = [];
 
   for (const [other, extension] of extensions) {
+    // A category's members, and a Swift extension's (`extension UIColor` in SwiftUI).
     const added = extension.relationships.filter(
       (r) =>
         (r.kind === "memberOf" ||
@@ -931,7 +938,7 @@ export function withExtensions(
           r.kind === "optionalRequirementOf") &&
         r.target.startsWith("c:objc(cs)") &&
         !declared.has(r.target) &&
-        r.source.startsWith("c:objc"),
+        (r.source.startsWith("c:objc") || (r.kind === "memberOf" && isSwiftUsr(r.source))),
     );
     if (!added.length) continue;
 
