@@ -30,6 +30,7 @@ import {
   type OptionValue,
   type PackageNative,
   type PlistValue,
+  type QueryIntent,
   readPackageNative,
   SWIFT_PACKAGE_REQUIREMENTS,
   type SwiftPackage,
@@ -58,6 +59,8 @@ export {
   type PackageNative,
   type PackageOption,
   type PlistValue,
+  type QueryIntent,
+  type ManifestQueries,
   type SwiftPackage,
   type SwiftPackageRequirement,
 } from "./package-schema.ts";
@@ -116,6 +119,16 @@ export interface ResolvedNative {
     };
     /** The highest any package needs, and the packages that need it. */
     minSdk?: Agreed<number>;
+    /** What `<queries>` lists: each package, intent and provider, and who asked (when any does). */
+    queries?: {
+      packages: Record<string, From>;
+      intents: Agreed<QueryIntent>[];
+      providers: Record<string, From>;
+    };
+    /** `<uses-feature>` name → whether the app requires it (if any package does), and who asked. */
+    features?: Record<string, Agreed<boolean>>;
+    /** The `<application>`'s `<meta-data>`: name → its one value, and who asked. */
+    metaData?: Record<string, Agreed<string>>;
   };
   /** Extension name → the package declaring it, its header and its declaration. */
   extensions: Record<string, ResolvedExtension>;
@@ -426,6 +439,33 @@ export function resolveNative(
       nativeLibraries: portable(android.nativeLibraries),
       components: components(declared),
       mainActivity: mainActivity(declared),
+      ...nonEmpty("queries", queries(declared)),
+      ...nonEmpty(
+        "features",
+        sorted(
+          [...new Set(declared.flatMap((d) => Object.keys(d.native.android?.features ?? {})))].map(
+            (name): [string, Agreed<boolean>] => {
+              const asked = declared.filter(
+                (d) => d.native.android?.features?.[name] !== undefined,
+              );
+              return [
+                name,
+                {
+                  value: asked.some((d) => d.native.android!.features![name]),
+                  from: asked.map((d) => d.name),
+                },
+              ];
+            },
+          ),
+        ),
+      ),
+      ...nonEmpty(
+        "metaData",
+        plist(declared, (n) => n.android?.metaData, "Android meta-data") as Record<
+          string,
+          Agreed<string>
+        >,
+      ),
       ...highest(
         declared,
         "minSdk",
@@ -694,10 +734,15 @@ function withOptions(d: Declared, given: Record<string, OptionValue>, app?: stri
         }),
       },
     }),
-    ...(n.android?.components && {
+    ...(n.android && {
       android: {
         ...n.android,
-        components: fill(n.android.components, "android.components") as ManifestComponent[],
+        ...(n.android.components && {
+          components: fill(n.android.components, "android.components") as ManifestComponent[],
+        }),
+        ...(n.android.metaData && {
+          metaData: fill(n.android.metaData, "android.metaData") as Record<string, string>,
+        }),
       },
     }),
   };
@@ -739,6 +784,8 @@ function withoutOverridden(pkg: PackageNative, app: PackageNative): PackageNativ
   const android = pkg.android && {
     ...pkg.android,
     dependencies: without(pkg.android.dependencies, app.android?.dependencies),
+    features: without(pkg.android.features, app.android?.features),
+    metaData: without(pkg.android.metaData, app.android?.metaData),
     components: pkg.android.components?.filter((c) => !appComponents.has(c.name)),
     mainActivity: pkg.android.mainActivity && {
       ...pkg.android.mainActivity,
@@ -777,6 +824,30 @@ function components(declared: Declared[]): ResolvedNative["android"]["components
       return [name, { value: declaredAs[0]![0], from: declaredAs.flatMap(([, from]) => from) }];
     }),
   );
+}
+
+/** `{ [key]: value }` when `value` holds something, so a manifest without it stays as it was. */
+function nonEmpty<K extends string, V extends object>(key: K, value: V): { [P in K]?: V } {
+  const empty = Object.values(value).every((v) =>
+    Array.isArray(v) ? !v.length : typeof v === "object" ? !Object.keys(v ?? {}).length : false,
+  );
+  return (Object.keys(value).length && !empty ? { [key]: value } : {}) as { [P in K]?: V };
+}
+
+/** `<queries>`: the packages and providers any package looks for, and each intent once. */
+function queries(declared: Declared[]): NonNullable<ResolvedNative["android"]["queries"]> {
+  const intents = new Map<string, Agreed<QueryIntent>>();
+  for (const d of declared)
+    for (const intent of d.native.android?.queries?.intents ?? []) {
+      const key = canonical(intent);
+      const known = intents.get(key);
+      intents.set(key, { value: intent, from: [...(known?.from ?? []), d.name] });
+    }
+  return {
+    packages: union(declared, (n) => n.android?.queries?.packages),
+    intents: [...intents].sort(byKey).map(([, i]) => i),
+    providers: union(declared, (n) => n.android?.queries?.providers),
+  };
 }
 
 /**

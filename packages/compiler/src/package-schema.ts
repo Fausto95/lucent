@@ -77,6 +77,20 @@ export interface ManifestComponent {
   metaData?: Record<string, string>;
 }
 
+/** `<queries>`: the packages, intents and content providers the code looks for. */
+export interface ManifestQueries {
+  packages?: string[];
+  intents?: QueryIntent[];
+  providers?: string[];
+}
+
+/** An `<intent>` of `<queries>`: one action, and what it acts on. */
+export interface QueryIntent {
+  action: string;
+  categories?: string[];
+  data?: IntentData[];
+}
+
 /** The launch modes an Activity can have (`android:launchMode`). */
 export const LAUNCH_MODES = [
   "standard",
@@ -202,6 +216,12 @@ export interface PackageNative {
     mainActivity?: MainActivityAttributes;
     /** The lowest Android API level the code runs on. */
     minSdk?: number;
+    /** The other apps the code sees (Android 11's package visibility): `<queries>`. */
+    queries?: ManifestQueries;
+    /** Hardware or software features the code uses: name → whether the app requires it (`<uses-feature>`). */
+    features?: Record<string, boolean>;
+    /** `<meta-data>` on the app's `<application>`: name → value (an SDK's API key). */
+    metaData?: Record<string, string>;
   };
   /** Extension name (`lucent:ext/<name>`) → the extension. */
   extensions?: Record<string, ExtensionDeclaration>;
@@ -345,24 +365,27 @@ const swiftPackageRequirement: Check = (v, at) => {
     : `${at} must be a Swift package requirement: { kind, … } with kind ${Object.keys(SWIFT_PACKAGE_REQUIREMENTS).join(", ")}`;
 };
 
-const intentFilter = fields(
-  {
-    actions: strings,
-    categories: strings,
-    data: listOf(
-      fields({
-        scheme: string,
-        host: string,
-        port: string,
-        path: string,
-        pathPrefix: string,
-        pathPattern: string,
-        mimeType: string,
-      }),
-    ),
-  },
-  ["actions"],
+const intentData = listOf(
+  fields({
+    scheme: string,
+    host: string,
+    port: string,
+    path: string,
+    pathPrefix: string,
+    pathPattern: string,
+    mimeType: string,
+  }),
 );
+
+const intentFilter = fields({ actions: strings, categories: strings, data: intentData }, [
+  "actions",
+]);
+
+const queries = fields({
+  packages: strings,
+  intents: listOf(fields({ action: string, categories: strings, data: intentData }, ["action"])),
+  providers: strings,
+} satisfies Record<keyof ManifestQueries, Check>);
 
 /** A Lucent class of the package: `<module path>#<Class>`. */
 const lucentClass: Check = (v, at) => {
@@ -436,6 +459,9 @@ export const PACKAGE_FIELDS = {
       launchMode: oneOf(LAUNCH_MODES),
     } satisfies Record<keyof MainActivityAttributes, Check>),
     minSdk: positiveInteger,
+    queries,
+    features: recordOf(boolean),
+    metaData: recordOf(string),
   },
 } satisfies {
   [P in Platform]: {

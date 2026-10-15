@@ -421,6 +421,25 @@ export function writeNativePackage(
     androidManifest(
       uses,
       Object.values(native?.android.components ?? {}).map((c) => c.value),
+      {
+        ...(native?.android.queries && {
+          queries: {
+            packages: Object.keys(native.android.queries.packages),
+            intents: native.android.queries.intents.map((i) => i.value),
+            providers: Object.keys(native.android.queries.providers),
+          },
+        }),
+        ...(native?.android.features && {
+          features: Object.fromEntries(
+            Object.entries(native.android.features).map(([name, f]) => [name, f.value]),
+          ),
+        }),
+        ...(native?.android.metaData && {
+          metaData: Object.fromEntries(
+            Object.entries(native.android.metaData).map(([name, m]) => [name, m.value]),
+          ),
+        }),
+      },
     ),
   );
   want.set(path.join(outDir, "android/consumer-rules.pro"), consumerRules(result.javaKeep ?? []));

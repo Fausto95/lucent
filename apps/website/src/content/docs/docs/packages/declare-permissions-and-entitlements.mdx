@@ -26,7 +26,28 @@ kind: guide
 
 Leave out a permission that an Android SDK method your modules call declares with `@RequiresPermission`: the build adds it (see [Android SDK](/docs/api/android-sdk/)). List every other permission your code needs. A dangerous permission still needs the user's consent at run time: see [Ask for a runtime permission](/docs/guides/ask-for-a-permission/).
 
-`lucent build` writes a permission by name, with no `maxSdkVersion`, and `lucent.json` can't declare `<uses-feature>` or `<queries>`. Tell apps to add those to their own manifest.
+`lucent build` writes a permission by name, with no `maxSdkVersion`.
+
+## Features, queries and meta-data
+
+`android.features` declares `<uses-feature>`s: a feature's name, and whether the app requires it. A feature any package requires is required.
+
+`android.queries` lists the apps, intents and content providers your code looks for, which Android 11 hides otherwise. `android.metaData` puts `<meta-data>` on the app's `<application>`, such as an SDK's API key.
+
+```json title="lucent.json"
+{
+  "options": { "apiKey": { "description": "the Maps API key" } },
+  "android": {
+    "features": { "android.hardware.location.gps": false },
+    "queries": { "packages": ["com.google.android.apps.maps"] },
+    "metaData": { "com.google.android.geo.API_KEY": "{{apiKey}}" }
+  }
+}
+```
+
+They go into the native package's manifest, which Android merges into the app's, so the app adds nothing. Packages must agree on a meta-data name's value.
+
+An app sets the key through its own `lucent.json` ([options](/docs/packages/lucent-json/#options-the-app-sets)).
 
 ## Info.plist keys and entitlements
 

@@ -341,6 +341,102 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "description": "The lowest Android API level the package runs on. The library requires the highest any package needs, and never less than the app's minSdkVersion. Android's manifest merger fails an app below it."
   },
   {
+    "field": "android.queries",
+    "type": "object",
+    "required": false,
+    "description": "The other apps the code sees, as Android 11's package visibility needs: `<queries>` in the library's manifest, which Android merges into the app's. What any package lists joins."
+  },
+  {
+    "field": "android.queries.packages",
+    "type": "string[]",
+    "required": false,
+    "description": "Apps the code looks for by package name."
+  },
+  {
+    "field": "android.queries.intents",
+    "type": "object[]",
+    "required": false,
+    "description": "Intents the code asks which apps handle: one action each, with its categories and data."
+  },
+  {
+    "field": "android.queries.intents[].action",
+    "type": "string",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "android.queries.intents[].categories",
+    "type": "string[]",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.queries.intents[].data",
+    "type": "object[]",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.queries.intents[].data[].scheme",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.queries.intents[].data[].host",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.queries.intents[].data[].port",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.queries.intents[].data[].path",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.queries.intents[].data[].pathPrefix",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.queries.intents[].data[].pathPattern",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.queries.intents[].data[].mimeType",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.queries.providers",
+    "type": "string[]",
+    "required": false,
+    "description": "Content providers the code reads, by authority."
+  },
+  {
+    "field": "android.features",
+    "type": "{ [name]: boolean }",
+    "required": false,
+    "description": "Hardware or software features the code uses: name → whether the app requires it, as `<uses-feature>`. A feature any package requires is required; the app's own value wins."
+  },
+  {
+    "field": "android.metaData",
+    "type": "{ [name]: string }",
+    "required": false,
+    "description": "`<meta-data>` on the app's `<application>`: name → value, such as an SDK's API key. Packages must agree on a name's value, and the app's own value wins. A value can be an option's ({{name}})."
+  },
+  {
     "field": "extensions",
     "type": "{ [name]: object }",
     "required": false,
@@ -470,7 +566,7 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "field": "options",
     "type": "{ [name]: object }",
     "required": false,
-    "description": "A package's options, which the app's lucent.json sets: option name → what it means, and a default. {{name}} in an ios.infoPlist value, an entitlement or an android.components field is the option's value. A whole {{name}} of a boolean is the boolean. An option without a default that the app doesn't set fails the build, saying how to set it."
+    "description": "A package's options, which the app's lucent.json sets: option name → what it means, and a default. {{name}} in an ios.infoPlist value, an entitlement, an android.components field or an android.metaData value is the option's value. A whole {{name}} of a boolean is the boolean. An option without a default that the app doesn't set fails the build, saying how to set it."
   },
   {
     "field": "options.<name>.description",

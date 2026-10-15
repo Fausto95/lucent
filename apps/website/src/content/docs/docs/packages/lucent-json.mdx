@@ -81,8 +81,24 @@ What a Lucent package's platform code needs from the app that installs it, next 
 | `android.mainActivity.configChanges` | `string[]` |  | android:configChanges values the Activity must handle itself instead of being recreated, added to the app's (orientation, screenSize). |
 | `android.mainActivity.launchMode` | `"standard" or "singleTop" or "singleTask" or "singleInstance" or "singleInstancePerTask"` |  | android:launchMode. Packages that ask for different ones fail the build. |
 | `android.minSdk` | `integer` |  | The lowest Android API level the package runs on. The library requires the highest any package needs, and never less than the app's minSdkVersion. Android's manifest merger fails an app below it. |
+| `android.queries` | `object` |  | The other apps the code sees, as Android 11's package visibility needs: `<queries>` in the library's manifest, which Android merges into the app's. What any package lists joins. |
+| `android.queries.packages` | `string[]` |  | Apps the code looks for by package name. |
+| `android.queries.intents` | `object[]` |  | Intents the code asks which apps handle: one action each, with its categories and data. |
+| `android.queries.intents[].action` | `string` | yes |  |
+| `android.queries.intents[].categories` | `string[]` |  |  |
+| `android.queries.intents[].data` | `object[]` |  |  |
+| `android.queries.intents[].data[].scheme` | `string` |  |  |
+| `android.queries.intents[].data[].host` | `string` |  |  |
+| `android.queries.intents[].data[].port` | `string` |  |  |
+| `android.queries.intents[].data[].path` | `string` |  |  |
+| `android.queries.intents[].data[].pathPrefix` | `string` |  |  |
+| `android.queries.intents[].data[].pathPattern` | `string` |  |  |
+| `android.queries.intents[].data[].mimeType` | `string` |  |  |
+| `android.queries.providers` | `string[]` |  | Content providers the code reads, by authority. |
+| `android.features` | `{ [name]: boolean }` |  | Hardware or software features the code uses: name → whether the app requires it, as `<uses-feature>`. A feature any package requires is required; the app's own value wins. |
+| `android.metaData` | `{ [name]: string }` |  | `<meta-data>` on the app's `<application>`: name → value, such as an SDK's API key. Packages must agree on a name's value, and the app's own value wins. A value can be an option's (\{\{name\}\}). |
 | `launch` | `string[]` |  | Modules to create at app launch, before the first frame, for what the OS requires by then, such as BGTaskScheduler handlers. Each is a path under the package's sources, without .lucent.ts: "tasks" for tasks.lucent.ts. Creating one starts module state, every module's top level, and holds it for the app's process, so a reload keeps it. On iOS, LucentAppDelegate's application(\_:didFinishLaunchingWithOptions:) creates them; a bare app's lucent build names the call its AppDelegate lacks. |
-| `options` | `{ [name]: object }` |  | A package's options, which the app's lucent.json sets: option name → what it means, and a default. \{\{name\}\} in an ios.infoPlist value, an entitlement or an android.components field is the option's value. A whole \{\{name\}\} of a boolean is the boolean. An option without a default that the app doesn't set fails the build, saying how to set it. |
+| `options` | `{ [name]: object }` |  | A package's options, which the app's lucent.json sets: option name → what it means, and a default. \{\{name\}\} in an ios.infoPlist value, an entitlement, an android.components field or an android.metaData value is the option's value. A whole \{\{name\}\} of a boolean is the boolean. An option without a default that the app doesn't set fails the build, saying how to set it. |
 | `options.<name>.description` | `string` | yes | What the option is, for the message when the app must set it. |
 | `options.<name>.default` | `string or boolean` |  | Its value when the app sets none. Without one, the app must set it. |
 | `packages` | `{ [name]: { [name]: string or boolean } }` |  | The app's own lucent.json: the options it sets, by package: package name → option name → a string or a boolean. Setting an option a package doesn't declare, or one of a package the app doesn't depend on, fails the build. |

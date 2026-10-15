@@ -1043,3 +1043,90 @@ describe("packages' options", () => {
     );
   });
 });
+
+describe("queries, features and the application's meta-data", () => {
+  it("join what packages look for, require a feature any requires, and want one value per name", () => {
+    const { manifest } = resolveNative([
+      pkg("lucent-a", {
+        android: {
+          queries: {
+            packages: ["com.example.wallet"],
+            intents: [{ action: "android.intent.action.SEND", data: [{ mimeType: "text/plain" }] }],
+          },
+          features: { "android.hardware.camera": false },
+          metaData: { "com.example.key": "a" },
+        },
+      }),
+      pkg("lucent-b", {
+        android: {
+          queries: {
+            packages: ["com.example.wallet"],
+            intents: [{ action: "android.intent.action.SEND", data: [{ mimeType: "text/plain" }] }],
+            providers: ["com.example.files"],
+          },
+          features: { "android.hardware.camera": true },
+          metaData: { "com.example.key": "a" },
+        },
+      }),
+    ]);
+
+    expect(manifest.android.queries).toEqual({
+      packages: { "com.example.wallet": ["lucent-a", "lucent-b"] },
+      intents: [
+        {
+          value: { action: "android.intent.action.SEND", data: [{ mimeType: "text/plain" }] },
+          from: ["lucent-a", "lucent-b"],
+        },
+      ],
+      providers: { "com.example.files": ["lucent-b"] },
+    });
+    expect(manifest.android.features).toEqual({
+      "android.hardware.camera": { value: true, from: ["lucent-a", "lucent-b"] },
+    });
+    expect(manifest.android.metaData).toEqual({
+      "com.example.key": { value: "a", from: ["lucent-a", "lucent-b"] },
+    });
+
+    expect(() =>
+      resolveNative([
+        pkg("lucent-a", { android: { metaData: { "com.example.key": "a" } } }),
+        pkg("lucent-b", { android: { metaData: { "com.example.key": "b" } } }),
+      ]),
+    ).toThrow('Android meta-data com.example.key: lucent-a wants "a", lucent-b wants "b"');
+  });
+
+  it("leaves them out of a manifest none needs", () => {
+    const { manifest } = resolveNative([pkg("lucent-a", { android: { permissions: [] } })]);
+    expect(manifest.android).not.toHaveProperty("queries");
+    expect(manifest.android).not.toHaveProperty("features");
+    expect(manifest.android).not.toHaveProperty("metaData");
+  });
+
+  it("takes the app's value, and an option's", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-app-"));
+    fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "my-app" }));
+    fs.writeFileSync(
+      path.join(dir, "lucent.json"),
+      JSON.stringify({
+        android: { features: { "android.hardware.camera": false } },
+        packages: { "lucent-maps": { apiKey: "AIza-app" } },
+      }),
+    );
+    const { manifest } = resolveNative([
+      pkg("lucent-maps", {
+        options: { apiKey: { description: "the Maps API key" } },
+        android: {
+          features: { "android.hardware.camera": true },
+          metaData: { "com.google.android.geo.API_KEY": "{{apiKey}}" },
+        },
+      }),
+      appPackage(dir)!,
+    ]);
+    expect(manifest.android.features).toEqual({
+      "android.hardware.camera": { value: false, from: ["my-app"] },
+    });
+    expect(manifest.android.metaData).toEqual({
+      "com.google.android.geo.API_KEY": { value: "AIza-app", from: ["lucent-maps"] },
+    });
+  });
+});
