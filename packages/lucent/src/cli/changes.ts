@@ -43,6 +43,8 @@ const OUTPUT_ROLES: [RegExp, (m: RegExpExecArray) => Role][] = [
   [/^js\//, () => ({ kind: "reload-js", targets: "all" })],
   [/^cpp\/generated\/(ios|android|host)\//, (m) => ({ kind: "compile-native", targets: [m[1]!] })],
   [/^cpp\//, () => ({ kind: "compile-native", targets: "all" })],
+  // The pod's privacy manifest, a resource of its own bundle.
+  [/^ios\/PrivacyInfo\.xcprivacy$/, () => ({ kind: "repackage", targets: ["ios"] })],
   [/^ios\//, () => ({ kind: "compile-native", targets: ["ios"] })],
   [/^android\/src\/main\/java\//, () => ({ kind: "compile-native", targets: ["android"] })],
   [

@@ -77,6 +77,28 @@ export interface ManifestComponent {
   metaData?: Record<string, string>;
 }
 
+/** A privacy manifest's declarations (`PrivacyInfo.xcprivacy`), as Apple names them. */
+export interface PrivacyManifest {
+  /** `NSPrivacyTracking`: whether the code tracks users, as App Tracking Transparency defines it. */
+  tracking?: boolean;
+  /** `NSPrivacyTrackingDomains`: the domains the code connects to that track. */
+  trackingDomains?: string[];
+  /** `NSPrivacyAccessedAPITypes`: a required-reason API's category → the reasons the code uses it (`"CA92.1"`). */
+  accessedAPIs?: Record<string, string[]>;
+  /** `NSPrivacyCollectedDataTypes`: a data type → how the code uses what it collects. */
+  collectedData?: Record<string, CollectedData>;
+}
+
+/** How code uses a type of data it collects. */
+export interface CollectedData {
+  /** Linked to the user's identity. */
+  linked: boolean;
+  /** Used for tracking. */
+  tracking: boolean;
+  /** What for (`NSPrivacyCollectedDataTypePurposeAppFunctionality`). */
+  purposes: string[];
+}
+
 /** `<queries>`: the packages, intents and content providers the code looks for. */
 export interface ManifestQueries {
   packages?: string[];
@@ -197,6 +219,8 @@ export interface PackageNative {
     entitlements?: Record<string, PlistValue>;
     /** The lowest iOS version the code runs on (`"15.1"`). */
     deploymentTarget?: string;
+    /** What the code's privacy manifest says (PrivacyInfo.xcprivacy). */
+    privacy?: PrivacyManifest;
   };
   android?: {
     dependencies?: Record<string, string>;
@@ -443,6 +467,20 @@ export const PACKAGE_FIELDS = {
     ),
     entitlements: recordOf(plistValue),
     deploymentTarget: version,
+    privacy: fields({
+      tracking: boolean,
+      trackingDomains: strings,
+      accessedAPIs: recordOf(strings),
+      collectedData: recordOf(
+        fields(
+          { linked: boolean, tracking: boolean, purposes: strings } satisfies Record<
+            keyof CollectedData,
+            Check
+          >,
+          ["linked", "tracking", "purposes"],
+        ),
+      ),
+    } satisfies Record<keyof PrivacyManifest, Check>),
   },
   android: {
     dependencies: recordOf(string),

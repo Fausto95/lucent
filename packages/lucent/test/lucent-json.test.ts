@@ -36,6 +36,7 @@ const read = {
     "swiftPackages",
     "entitlements",
     "deploymentTarget",
+    "privacy",
   ],
   android: [
     "dependencies",

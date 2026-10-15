@@ -44,6 +44,14 @@ What a Lucent package's platform code needs from the app that installs it, next 
 | `ios.swiftPackages.<name>.products` | `string[]` | yes |  |
 | `ios.entitlements` | `{ [name]: string or boolean or string[] }` |  | The app's entitlements: key → a string, a boolean or an array of strings. Packages must agree on a key's value, except arrays, which join. The Expo config plugin adds them like Info.plist entries. For bare apps, lucent build names what the app's .entitlements file lacks. |
 | `ios.deploymentTarget` | `string` |  | The lowest iOS version the package runs on, such as "15.1". The pod requires the highest any package needs, and never less than React Native's minimum. CocoaPods fails an app target below it. |
+| `ios.privacy` | `object` |  | What the code's privacy manifest says, in Apple's keys. The build merges packages' into the pod's PrivacyInfo.xcprivacy, in a resource bundle of its own, which Xcode's privacy report reads with the app's. Tracking holds if any package tracks; domains, reasons and purposes join. |
+| `ios.privacy.tracking` | `boolean` |  | NSPrivacyTracking: whether the code tracks users, as App Tracking Transparency defines it. |
+| `ios.privacy.trackingDomains` | `string[]` |  | NSPrivacyTrackingDomains: the domains the code connects to that track. |
+| `ios.privacy.accessedAPIs` | `{ [name]: string[] }` |  | NSPrivacyAccessedAPITypes: a required-reason API's category → the reasons the code uses it, such as \{ "NSPrivacyAccessedAPICategoryUserDefaults": \["CA92.1"\] \}. |
+| `ios.privacy.collectedData` | `{ [name]: object }` |  | NSPrivacyCollectedDataTypes: a data type → whether it is linked to the user, used for tracking, and what for. |
+| `ios.privacy.collectedData.<name>.linked` | `boolean` | yes |  |
+| `ios.privacy.collectedData.<name>.tracking` | `boolean` | yes |  |
+| `ios.privacy.collectedData.<name>.purposes` | `string[]` | yes |  |
 | `android` | `object` |  | What the Android code needs. |
 | `android.dependencies` | `{ [name]: string }` |  | Gradle artifacts: "group:artifact" → version. They become api dependencies of the native package, so lucent:android/\* can import their classes. Every package's version of an artifact goes to Gradle, which picks one; a strict version ("1.0!!") that another package's excludes fails the build. |
 | `android.permissions` | `string[]` |  | Android permissions for the manifest, such as "android.permission.CAMERA". Each is declared once, however many packages list it. Permissions the SDK methods you call require are added without listing them here. |

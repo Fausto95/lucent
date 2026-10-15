@@ -40,7 +40,7 @@ what became of each one that is still linked or was still open.
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | in progress                                             |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | done (2026-10-15)                                       |
 | [T114](#t114)            | Native code that calls Lucent modules                      | waiting; needs T130                                     |
-| [T115](#t115)            | Native configuration packages can't declare yet            | in progress (#299)                                      |
+| [T115](#t115)            | Native configuration packages can't declare yet            | in progress (#299, #300)                                |
 | **View parity**          |                                                            |                                                         |
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
 | [T121](#t121)            | React Native's view props, refs and view libraries         | done (2026-10-14)                                       |
@@ -751,15 +751,18 @@ Expo module.
 **Goal:** A package declares every piece of native configuration its
 platform code needs, so no app edits its native project by hand.
 
-- **Status:** in progress: Android queries, features and meta-data (#299).
+- **Status:** in progress: Android queries, features and meta-data (#299),
+  privacy manifests (#300).
 - **Area:** tooling, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V5, V6.
 - **Where:** `package-schema.ts`, `package-config.ts`,
   `native-build-files.ts`, `app.plugin.js`.
 
-- [ ] iOS privacy manifests (`PrivacyInfo.xcprivacy`), merged into the
-      app's.
+- [x] iOS privacy manifests (`PrivacyInfo.xcprivacy`), merged into the
+      app's (#300): `ios.privacy`, in Apple's keys, merged into the pod's
+      manifest in a resource bundle of its own, which Xcode's privacy
+      report reads with the app's.
 - [x] Android `<queries>`, `<uses-feature>`, and `<meta-data>` on the
       `<application>` (#299): in the library's manifest, which Android
       merges into the app's. Queries join, a feature any package requires
