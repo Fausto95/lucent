@@ -968,7 +968,8 @@ Each becomes a decision record before its task's work starts:
 2. The entry-point ABI: names, sync and async forms, arguments, errors,
    scopes, and the API native code sees ([T114](../tasks.md#t114)):
    decided, [0091](../decisions/0091-entry-points-are-c-functions-named-for-their-export.md),
-   but for the Swift and Kotlin APIs.
+   and for the Swift and Kotlin APIs,
+   [0116](../decisions/0116-native-code-calls-a-modules-exports-through-generated-swift-and-kotlin.md).
 3. Launch timing on each platform, and loading the code on Android:
    decided,
    [0092](../decisions/0092-launch-runs-in-the-apps-launch-and-android-loads-lucent-by-itself.md).

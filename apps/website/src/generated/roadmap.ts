@@ -112,7 +112,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "C++ libraries, and a package's own Kotlin and Java, typed in Lucent."
       },
       {
-        "status": "later",
+        "status": "in progress",
         "text": "Swift, Kotlin and C++ that call Lucent modules."
       }
     ],

@@ -39,7 +39,7 @@ what became of each one that is still linked or was still open.
 | [T111](#t111)            | The app's own native needs and options                     | done (2026-10-15)                                       |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | in progress                                             |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | done (2026-10-15)                                       |
-| [T114](#t114)            | Native code that calls Lucent modules                      | waiting; needs T130                                     |
+| [T114](#t114)            | Native code that calls Lucent modules                      | in progress (#315)                                      |
 | [T115](#t115)            | Native configuration packages can't declare yet            | in progress (#299, #300, #301, #302)                    |
 | **View parity**          |                                                            |                                                         |
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
@@ -666,7 +666,8 @@ still refuses.
   effectful property requirements (#310), statics of generic Swift types
   (#311), Swift subscripts (#312), members of protocols with associated
   types (#313), Swift extensions of other modules' classes and categories'
-  class properties (#314).
+  class properties (#314). Updating the coverage counts needs a macOS
+  run.
 - **Area:** bindings, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V4.
@@ -776,15 +777,24 @@ classes").
 Lucent module's exports, as other native code calls a Nitro object or an
 Expo module.
 
-- **Status:** waiting; needs T130.
+- **Status:** in progress: the API's shape is decided (#315).
 - **Area:** compiler, runtime, iOS and Android hosts.
-- **Needs:** T130.
+- **Needs:** nothing; [T130](#t130)'s entry points are done.
 - **Verify:** V1, V3, V4, V5.
-- **Where:** `emit/`, `runtime/native`.
+- **Where:** `emit/entries.ts`, `entries.h`, `runtime/native`.
 
-- [ ] A decision: which exports are callable from native code, and the
+- [x] A decision: which exports are callable from native code, and the
       generated API's shape on each side (a C header, a Swift module, a
-      Kotlin class).
+      Kotlin class)
+      ([0116](decisions/0116-native-code-calls-a-modules-exports-through-generated-swift-and-kotlin.md),
+      #315).
+- [ ] Entries for the rest of what crosses: optionals, arrays, records and
+      platform objects.
+- [ ] Entries for exported classes: a constructor, methods, properties and
+      a release, with instances as `lucent_object`.
+- [ ] The Swift API in `LucentNative`, and its `LucentError`.
+- [ ] The Kotlin API in the generated library, its JNI glue and its
+      `LucentException`, run on the desktop JNI host.
 - [ ] Calls run on the module's actor, through the native root's entry
       points, with the same argument checks as calls from JavaScript.
 - [ ] Tests: a fixture app's Swift and Kotlin call a Lucent function and
