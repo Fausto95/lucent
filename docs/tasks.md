@@ -39,7 +39,7 @@ what became of each one that is still linked or was still open.
 | [T111](#t111)            | The app's own native needs and options                     | done (2026-10-15)                                       |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | in progress                                             |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | done (2026-10-15)                                       |
-| [T114](#t114)            | Native code that calls Lucent modules                      | in progress (#315 to #319)                              |
+| [T114](#t114)            | Native code that calls Lucent modules                      | in progress (#315 to #320)                              |
 | [T115](#t115)            | Native configuration packages can't declare yet            | in progress (#299, #300, #301, #302)                    |
 | **View parity**          |                                                            |                                                         |
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
@@ -809,6 +809,8 @@ Expo module.
       functions Java sees as `Exports`, `suspend` ones for async exports,
       and an open wrapper class per exported class, closed or finalized to
       release its instance.
+- [x] A guide: [Call a module from Swift or Kotlin](https://lucent-lang.dev/docs/guides/call-a-module-from-swift-or-kotlin/)
+      (#320).
 - [ ] Calls run on the module's actor, through the native root's entry
       points, with the same argument checks as calls from JavaScript.
 - [ ] Tests: a fixture app's Swift and Kotlin call a Lucent function and

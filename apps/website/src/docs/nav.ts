@@ -92,6 +92,7 @@ export const docsSections: DocSection[] = [
               "guides/implement-a-swift-protocol",
               "guides/call-a-kotlin-library",
               "guides/collect-a-kotlin-flow",
+              "guides/call-a-module-from-swift-or-kotlin",
             ],
           },
           {

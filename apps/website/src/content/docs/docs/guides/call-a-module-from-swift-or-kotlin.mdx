@@ -1,0 +1,74 @@
+---
+title: Call a module from Swift or Kotlin
+description: "Swift calls a module's exports through the enum Lucent generates for it in `LucentNative`, and Kotlin through its package in `dev.lucent.app`."
+kind: guide
+---
+
+```ts title="counters.lucent.ts"
+export class Counter {
+  constructor(private total: number) {}
+
+  increment(by: number): number {
+    this.total += by;
+    return this.total;
+  }
+}
+
+export function greet(name: string): string {
+  if (name === "") throw new RangeError("no name");
+  return `hi ${name}`;
+}
+
+export async function later(n: number): Promise<string> {
+  await Promise.resolve();
+  return `later ${n}`;
+}
+```
+
+<Tabs>
+<TabItem label="Swift">
+
+```swift title="Greeter.swift"
+import LucentNative
+
+func greetAll() async throws {
+  let counter = try Counters.Counter(total: 1)
+  print(try counter.increment(by: 2)) // 3.0
+  print(try Counters.greet(name: "Ana"))
+  print(try await Counters.later(n: 4))
+}
+```
+
+</TabItem>
+<TabItem label="Kotlin">
+
+```kotlin title="Greeter.kt"
+import dev.lucent.app.counters.Counter
+import dev.lucent.app.counters.greet
+import dev.lucent.app.counters.later
+
+suspend fun greetAll() {
+  Counter(1.0).use { counter -> println(counter.increment(2.0)) } // 3.0
+  println(greet("Ana"))
+  println(later(4.0))
+}
+```
+
+</TabItem>
+</Tabs>
+
+In Swift, each module is an enum in the `LucentNative` module, named for its path in upper camel case: `lucent-sync/workers` is `LucentSyncWorkers`. Its functions are static methods that throw, and async ones are `async throws`.
+
+In Kotlin, each module is the package `dev.lucent.app.<module>`. Its functions are top-level, and Java sees them as statics of the class `Exports`. Async ones are `suspend` functions.
+
+- Each exported class has a wrapper, which holds the instance and its module's state. Swift releases it when the wrapper goes. Kotlin releases it on `close()`, or when the finalizer runs.
+- A property is a Kotlin property. In Swift it's a `get throws` property, and a writable one has a `set<Name>(_:)` method too: a Swift setter can't throw.
+- What Lucent code throws arrives as `LucentError` in Swift and `dev.lucent.LucentException` in Kotlin, with its `name`, `message` and `code`.
+- Numbers, booleans, `bigint`, strings, `Uint8Array`, `T | null`, arrays, `Record<string, T>`, SDK objects and instances of exported classes cross. An export taking anything else, or optional or rest parameters, has no native API.
+- C and C++ call the same exports through `lucent_entries.h`, as `lucent_<module>_<export>`.
+
+Two modules whose Swift names come out the same get no Swift API: [LUCENT3017](/docs/api/diagnostics/#lucent3017) warns.
+
+:::note
+These APIs have run on hosts, not yet in an app's build: see [the roadmap](/docs/releases/roadmap/#known-limitations).
+:::
