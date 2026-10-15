@@ -947,6 +947,8 @@ export function boxed(t: SdkType, c: cpp.Expr): cpp.Expr {
   if (t.k === "prim" || (t.k === "ref" && sdkEnum("ios", t)))
     return cpp.box(toObjcExpr(t, c, false, "an element"));
   if (t.k === "id") return cpp.call("lucent::objc::toId", [c]);
+  // A C struct (to a Swift shim): its bytes.
+  if (sdkStruct(t)) return cpp.call("lucent::objc::structBytes", [toObjcExpr(t, c, false)]);
   return toObjcExpr({ ...t, nullable: false } as SdkType, c, false);
 }
 
@@ -1304,9 +1306,20 @@ export function fromObjcItem(em: FnEmitter, t: SdkType, lt: LType, what: string)
       return cpp.call("lucent::objc::fromNSData", [as("NSData"), w]);
     case "date":
       return cpp.call("lucent::objc::fromNSDate", [as("NSDate"), w]);
-    case "ref":
+    case "ref": {
       if (isPayloadEnum(t)) return swiftUnionFromObjc(em, e, t, lt).c;
+      // A C struct (from a Swift shim): its bytes.
+      const s = sdkStruct(t);
+      if (s)
+        return fromObjc(
+          em,
+          cpp.call("lucent::objc::structFromBytes", [e], [cpp.type(s.native)]),
+          t,
+          lt,
+          what,
+        ).c;
       return sdkEnum("ios", t) ? numberValue("doubleValue") : wrap();
+    }
     case "id":
       return wrap();
     case "tparam":
@@ -3064,6 +3077,11 @@ export function declaredLt(em: FnEmitter, platform: Platform, t: SdkType, node: 
       // Elements of a type parameter: as the resolved signature gives them.
       if (holdsTypeParam(t))
         return declaredLt(em, platform, { k: "tparam", name: "", nullable: false }, node);
+      // C structs (from a Swift shim): as the node's type gives its elements' object type.
+      if (sdkStruct(t.of)) {
+        const whole = stripOpt(em.lt(node));
+        if (whole.k === "array") return opt(whole);
+      }
       // A list's elements may be null where Kotlin's type says so, and a Swift array's where
       // Swift's does; a Java array's are not.
       return opt({
@@ -3076,6 +3094,10 @@ export function declaredLt(em: FnEmitter, platform: Platform, t: SdkType, node: 
         ),
       });
     case "record":
+      if (sdkStruct(t.of)) {
+        const whole = stripOpt(em.lt(node));
+        if (whole.k === "dict") return opt(whole);
+      }
       return opt({
         k: "dict",
         val: declaredLt(

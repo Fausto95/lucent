@@ -746,7 +746,7 @@ function proxyDecls(p: SwiftProxy): swift.Decl[] {
     if (isSelf(t)) return swift.member(a, "ctx_");
     if (isScalar(t)) return a;
 
-    const e = swiftEnum(t);
+    const e = t.nullable ? undefined : swiftEnum(t);
     return e ? indexOf(e, a) : resultValue(t, a);
   };
   /** What a C function gave back, as the Swift value of type `t`. */
@@ -754,9 +754,10 @@ function proxyDecls(p: SwiftProxy): swift.Decl[] {
     if (isSelf(t)) return swift.cast(call1("lucentTaken", v), "as!", proxyType);
     if (isScalar(t)) return v;
 
-    const e = swiftEnum(t);
+    // An optional enum came as an NSNumber, as other optionals' objects.
+    const e = t.nullable ? undefined : swiftEnum(t);
     if (e) return swift.index(casesOf(e), v);
-    if (objcEnum(t)) return enumFromRaw(t, v);
+    if (objcEnum(t) && !t.nullable) return enumFromRaw(t, v);
     if (t.nullable) return each(v, "map", fromObject(nonNull(t), call1("lucentTaken", n("$0"))));
     return fromObject(t, call1("lucentTaken", v));
   };
@@ -956,9 +957,9 @@ function resumeFunction(
       return swift.cast(call1("lucentTaken", swift.forceUnwrap(v)), "as!", valueType);
     if (isScalar(r.ret)) return v;
 
-    const e = swiftEnum(r.ret);
+    const e = r.ret.nullable ? undefined : swiftEnum(r.ret);
     if (e) return swift.index(casesOf(e), v);
-    if (objcEnum(r.ret)) return enumFromRaw(r.ret, v);
+    if (objcEnum(r.ret) && !r.ret.nullable) return enumFromRaw(r.ret, v);
     if (r.ret.nullable)
       return each(v, "map", fromObject(nonNull(r.ret), call1("lucentTaken", n("$0"))));
     return fromObject(r.ret, call1("lucentTaken", throws ? swift.forceUnwrap(v) : v));

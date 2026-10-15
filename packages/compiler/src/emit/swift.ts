@@ -204,6 +204,9 @@ export function objectOf(t: SdkType, c: cpp.Expr): cpp.Expr {
   // An optional number or boolean: an NSNumber, nil for null.
   if (t.k === "prim" && t.nullable)
     return ifPresent(c, (x) => cpp.box(toObjcExpr(nonNull(t), x, false, "a value")));
+  // An optional enum: an NSNumber of its raw value or index.
+  if (isEnum(t) && t.nullable)
+    return ifPresent(c, (x) => cpp.box(toNativeNumber(cpp.type("NSInteger"), x)));
   return cStruct(t)
     ? cpp.call("lucent::objc::structBytes", [toObjcExpr(t, c, false)])
     : toObjcExpr(t, c, false);
@@ -211,21 +214,15 @@ export function objectOf(t: SdkType, c: cpp.Expr): cpp.Expr {
 
 /** An object `code` that crossed as type `t`, as a Lucent value of type `lt`. */
 export function valueOf(em: FnEmitter, code: cpp.Expr, t: SdkType, lt: LType, what: string): E {
-  // An optional number or boolean crossed as an NSNumber; a plain one as its scalar.
-  if (t.k === "prim" && t.nullable) return optionalNumber(em, code, t, lt, what);
+  // An optional number, boolean or enum crossed as an NSNumber; a plain one as its scalar.
+  if (isNumeric(t) && t.nullable) return optionalNumber(em, code, t, lt, what);
   const s = cStruct(t);
   const c = s ? cpp.call("lucent::objc::structFromBytes", [code], [cpp.type(s)]) : code;
   return fromObjc(em, c, t, lt, what);
 }
 
 /** An NSNumber (or nil) that crossed for an optional number or boolean, as its Lucent value. */
-function optionalNumber(
-  em: FnEmitter,
-  code: cpp.Expr,
-  t: SdkType & { k: "prim" },
-  lt: LType,
-  what: string,
-): E {
+function optionalNumber(em: FnEmitter, code: cpp.Expr, t: SdkType, lt: LType, what: string): E {
   const opt: LType = lt.k === "opt" ? lt : { k: "opt", inner: lt };
   const optional = em.reg.cppType(opt);
   return {
@@ -252,9 +249,17 @@ function swiftClassName(module: string, cls: SdkClassSchema): string {
  */
 export function crossing(t: SdkType): Crossing {
   if (t.k === "prim") return t.nullable ? "object" : "scalar";
-  if (t.k === "ref" && sdkTypeInfo("ios", t.module, t.name)?.kind === "enum") return "enum";
+  // An optional enum crosses as an NSNumber of its raw value or index, nil for none.
+  if (isEnum(t)) return t.nullable ? "object" : "enum";
   return "object";
 }
+
+/** An enum without payloads, Objective-C's or Swift's: it crosses as a number. */
+const isEnum = (t: SdkType) =>
+  t.k === "ref" && sdkTypeInfo("ios", t.module, t.name)?.kind === "enum";
+
+/** A number the shim takes or gives as an NSNumber when optional: a scalar's or an enum's. */
+const isNumeric = (t: SdkType) => t.k === "prim" || isEnum(t);
 
 /**
  * The binding plans' verdict on a value a use specialized with its type
@@ -313,7 +318,11 @@ export function swiftCall(
       case "enum":
         return toNativeNumber(cpp.type("NSInteger"), em.exprAs(a, T.number));
       case "object":
-        if (t.k === "prim") return objectOf(t, em.exprAs(a, unionOf([primLt(t), T.null])));
+        if (isNumeric(t))
+          return objectOf(
+            t,
+            em.exprAs(a, unionOf([t.k === "prim" ? primLt(t) : T.number, T.null])),
+          );
         if (cStruct(t)) return cpp.call("lucent::objc::structBytes", [toObjc(em, a, t, member)]);
         if (!hasUnion(t)) return toObjc(em, a, t, member);
         // Unions convert from the parameter's declared type (the argument's may be a case).
@@ -359,7 +368,7 @@ export function swiftSet(
         return toNativeNumber(cpp.type("NSInteger"), v);
       case "object":
         if (hasUnion(t)) return unionToObjc(em, use, t, v, 0);
-        if (t.k === "prim") return objectOf(t, v);
+        if (isNumeric(t)) return objectOf(t, v);
         return t.nullable
           ? ifPresent(v, (x) => toObjcExpr({ ...t, nullable: false } as SdkType, x, false))
           : objectOf(t, v);
@@ -1147,9 +1156,10 @@ export const nonNull = (t: SdkType) => ({ ...t, nullable: false }) as SdkType;
 /** The shim's parameter `p` as the Swift value of type `t` it carries. */
 function paramValue(t: SdkType, p: string): swift.Expr {
   if (isScalar(t)) return n(p);
-  const e = swiftEnum(t);
+  // An enum's index or raw value; an optional one's NSNumber, as other optionals' objects.
+  const e = t.nullable ? undefined : swiftEnum(t);
   if (e) return swift.index(casesOf(e), n(p));
-  const raw = objcEnum(t);
+  const raw = t.nullable ? undefined : objcEnum(t);
   if (raw) return fromRaw(raw, n(p));
   if (t.nullable) return each(n(p), "map", fromObject(nonNull(t), call1("lucentObject", n("$0"))));
   return fromObject(t, call1("lucentObject", n(p)));
@@ -1168,9 +1178,9 @@ export function resultValue(t: SdkType, v: swift.Expr): swift.Expr {
         swift.closure([], [swift.ret(elementObject(t.of, n("$0")))]),
       ),
     );
-  const e = swiftEnum(t);
+  const e = t.nullable ? undefined : swiftEnum(t);
   if (e) return indexOf(e, v);
-  if (objcEnum(t)) return toRaw(v);
+  if (objcEnum(t) && !t.nullable) return toRaw(v);
   if (t.nullable) return each(v, "map", call1("lucentRetained", toObject(nonNull(t), n("$0"))));
   return call1("lucentRetained", toObject(t, v));
 }
@@ -1186,7 +1196,7 @@ function elementObject(t: SdkType, v: swift.Expr): swift.Expr {
 /** The type of the shim's parameter or result for a value of type `t`. */
 export function shimType(t: SdkType, optional = false): swift.Type {
   if (isScalar(t)) return swift.type(SCALARS[t.name]!.swift);
-  if (swiftEnum(t) || objcEnum(t)) return swift.type("Int");
+  if ((swiftEnum(t) || objcEnum(t)) && !t.nullable) return swift.type("Int");
   return t.nullable || optional ? swift.optional(raw) : raw;
 }
 
@@ -1229,7 +1239,7 @@ function shimFunction(s: SwiftShim): swift.Decl {
   // A protocol with associated types is opened from a variable: Swift does
   // not open a cast (`x as! any P`) it is passed.
   const args = s.params.map((t, i) =>
-    isScalar(t) || swiftEnum(t) || objcEnum(t)
+    isScalar(t) || ((swiftEnum(t) || objcEnum(t)) && !t.nullable)
       ? paramValue(t, `a${i}`)
       : isOpened(t)
         ? bound(`v${i}`, paramValue(t, `a${i}`))

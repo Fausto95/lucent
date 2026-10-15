@@ -1274,7 +1274,7 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
         return not(
           "tuples of optional values other than scalars, strings, data, dates, enums and objects",
         );
-      if (t.of.some((x) => isStruct(x, ctx))) return not("tuples of C structs");
+      // A C struct crosses as its bytes, as an element too.
       if (t.of.some((x) => !TUPLE_ITEMS.has(x.k))) return not("tuples of collections or closures");
 
       // An optional one crosses as an optional array, nil for none.
@@ -1286,7 +1286,6 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
         return not(
           "collections of optional values other than scalars, strings, data, dates, enums and objects",
         );
-      if (isStruct(t.of, ctx)) return not("collections of C structs");
 
       return place.flow === "in" && !place.element && t.nullable && hasUnion(t, ctx)
         ? optionalUnion
@@ -1295,12 +1294,9 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
     case "ref": {
       const facts = ctx.types(t.module, t.name);
       if (facts?.kind === "enum") {
-        // An Objective-C enum crosses as its raw value, as a Swift enum does as its index; in a
-        // collection, as an NSNumber of it.
-        if (t.nullable && place.element) return undefined;
-        return t.nullable
-          ? not(facts.swift ? "optional Swift enums" : "optional Objective-C enums")
-          : undefined;
+        // An Objective-C enum crosses as its raw value, as a Swift enum does as its index; an
+        // optional one, or one in a collection, as an NSNumber of it.
+        return undefined;
       }
       if (facts?.kind === "struct")
         return t.nullable ? not(`optional C structs (${t.name})`) : undefined;
