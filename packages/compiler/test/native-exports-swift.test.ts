@@ -109,6 +109,24 @@ export async function rejects(): Promise<void> {
   await Promise.resolve();
   throw new TypeError("no");
 }
+
+let busy = false;
+let turns = 0;
+
+/** Throws when another call is running: calls from several threads take turns. */
+export function take(spins: number): number {
+  if (busy) throw new Error("overlapped");
+  busy = true;
+  let x = 0;
+  for (let i = 0; i < spins; i++) x += i % 7;
+  busy = false;
+  turns++;
+  return x;
+}
+
+export function taken(): number {
+  return turns;
+}
 `;
 
 /** Swift calling the module, as an app's would: compiled into the module, it imports nothing of it. */
@@ -139,6 +157,24 @@ func run() async -> [String] {
     } catch let e as LucentError {
       lines.append("rejected \\(e.name): \\(e.message)")
     }
+    // Tasks on several threads call at once: each call holds the module's actor.
+    let overlapped = await withTaskGroup(of: Int.self) { group in
+      for _ in 0..<8 {
+        group.addTask {
+          var failed = 0
+          for _ in 0..<25 {
+            do { _ = try Counters.take(spins: 20000) } catch { failed += 1 }
+          }
+          return failed
+        }
+      }
+      var failed = 0
+      for await f in group { failed += f }
+      return failed
+    }
+    lines.append("turns \\(try Counters.taken()), \\(overlapped) overlapped")
+    // c holds module state until here, so the count lasts.
+    withExtendedLifetime(c) {}
   } catch {
     lines.append("failed \\(error)")
   }
@@ -347,6 +383,7 @@ describe("the Swift API of a module's exports", () => {
             "threw RangeError: no name, code none",
             "await later 4, settled at 10",
             "rejected TypeError: no",
+            "turns 200.0, 0 overlapped",
             "holds 0",
             "",
           ].join("\n"),
