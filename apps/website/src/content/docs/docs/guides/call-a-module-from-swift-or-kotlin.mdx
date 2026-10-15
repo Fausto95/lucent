@@ -1,8 +1,10 @@
 ---
 title: Call a module from Swift or Kotlin
-description: "Swift calls a module's exports through the enum Lucent generates for it in `LucentNative`, and Kotlin through its package in `dev.lucent.app`."
+description: "The module stays TypeScript, and the Swift and Kotlin your app already has call it through APIs Lucent generates, as JavaScript does."
 kind: guide
 ---
+
+Use this when native code outside Lucent needs a module. That's the app delegate or `MainApplication` at launch, a screen written in Swift or Kotlin, or another library's native code. It calls the module JavaScript imports, sharing its state, with no bridge to write.
 
 ```ts title="counters.lucent.ts"
 export class Counter {
