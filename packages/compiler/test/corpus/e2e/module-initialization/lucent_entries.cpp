@@ -78,3 +78,119 @@ extern "C" bool lucent_module_initialization_touch(lucent_error* error, double* 
 #pragma pop_macro("order")
 #pragma pop_macro("cached")
 #pragma pop_macro("afterValue")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_module_1initialization_ExportsNatives_staticReadsVariable(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_module_initialization_staticReadsVariable(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_module_1initialization_ExportsNatives_order(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_module_initialization_order(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_module_1initialization_ExportsNatives_afterValue(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_module_initialization_afterValue(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_module_1initialization_ExportsNatives_setCached(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_module_initialization_setCached(arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_module_1initialization_ExportsNatives_cached(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_module_initialization_cached(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_module_1initialization_ExportsNatives_touch(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_module_initialization_touch(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("staticReadsVariable"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_module_1initialization_ExportsNatives_staticReadsVariable)},
+        {const_cast<char*>("order"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_module_1initialization_ExportsNatives_order)},
+        {const_cast<char*>("afterValue"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_module_1initialization_ExportsNatives_afterValue)},
+        {const_cast<char*>("setCached"), const_cast<char*>("(D)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_module_1initialization_ExportsNatives_setCached)},
+        {const_cast<char*>("cached"), const_cast<char*>("()Ljava/lang/Double;"), reinterpret_cast<void*>(&Java_dev_lucent_app_module_1initialization_ExportsNatives_cached)},
+        {const_cast<char*>("touch"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_module_1initialization_ExportsNatives_touch)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/module_initialization/ExportsNatives"), methods, 6);
+    lucent::jni::check(env);
+  }
+}
+#endif

@@ -78,3 +78,99 @@ extern "C" void lucent_conditional_objects_pick(bool arg0, void (*done)(void* co
 #pragma pop_macro("passed")
 #pragma pop_macro("areaOf")
 #pragma pop_macro("area")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_conditional_1objects_ExportsNatives_passed(JNIEnv* env, jclass, jboolean arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_conditional_objects_passed(arg0 == JNI_TRUE, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_conditional_1objects_ExportsNatives_area(JNIEnv* env, jclass, jboolean arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_conditional_objects_area(arg0 == JNI_TRUE, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_conditional_1objects_ExportsNatives_areaOf(JNIEnv* env, jclass, jboolean arg0, jdouble arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_conditional_objects_areaOf(arg0 == JNI_TRUE, arg1, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_conditional_1objects_ExportsNatives_radiusOf(JNIEnv* env, jclass, jboolean arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_conditional_objects_radiusOf(arg0 == JNI_TRUE, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_conditional_1objects_ExportsNatives_pick(JNIEnv* env, jclass, jboolean arg0, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_conditional_objects_pick(arg0 == JNI_TRUE, [](void* context, const double* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("passed"), const_cast<char*>("(Z)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_conditional_1objects_ExportsNatives_passed)},
+        {const_cast<char*>("area"), const_cast<char*>("(Z)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_conditional_1objects_ExportsNatives_area)},
+        {const_cast<char*>("areaOf"), const_cast<char*>("(ZD)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_conditional_1objects_ExportsNatives_areaOf)},
+        {const_cast<char*>("radiusOf"), const_cast<char*>("(Z)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_conditional_1objects_ExportsNatives_radiusOf)},
+        {const_cast<char*>("pick"), const_cast<char*>("(ZLdev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_conditional_1objects_ExportsNatives_pick)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/conditional_objects/ExportsNatives"), methods, 5);
+    lucent::jni::check(env);
+  }
+}
+#endif

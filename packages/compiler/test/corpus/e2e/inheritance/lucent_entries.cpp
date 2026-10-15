@@ -705,3 +705,1446 @@ extern "C" bool lucent_inheritance_Lion_named(lucent_string arg0, lucent_error* 
 #pragma pop_macro("describe")
 #pragma pop_macro("counted")
 #pragma pop_macro("count")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+static const bool lucent_wrapper_C_Animal = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Animal), "dev/lucent/app/inheritance/Animal");
+static const bool lucent_wrapper_C_Dog = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Dog), "dev/lucent/app/inheritance/Dog");
+static const bool lucent_wrapper_C_Puppy = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Puppy), "dev/lucent/app/inheritance/Puppy");
+static const bool lucent_wrapper_C_Bird = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Bird), "dev/lucent/app/inheritance/Bird");
+static const bool lucent_wrapper_C_Cat = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Cat), "dev/lucent/app/inheritance/Cat");
+static const bool lucent_wrapper_C_Kitten = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Kitten), "dev/lucent/app/inheritance/Kitten");
+static const bool lucent_wrapper_C_Lion = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Lion), "dev/lucent/app/inheritance/Lion");
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_ExportsNatives_shapes(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_shapes(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_ExportsNatives_zoo(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_zoo(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_ExportsNatives_tricks(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_tricks(in.instance(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_ExportsNatives_narrow(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_narrow(in.instance(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_ExportsNatives_counted(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_counted(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_inheritance_ExportsNatives_makePuppy(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_makePuppy(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_inheritance_Animal_entry_1new(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Animal_new(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Animal_entry_1get_1name(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Animal_get_name(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Animal_entry_1set_1name(JNIEnv* env, jclass, jlong self, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Animal_set_name(reinterpret_cast<lucent_object>(self), in.string(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Animal_entry_1speak(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Animal_speak(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Animal_entry_1describe(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Animal_describe(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Animal_entry_1kind(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Animal_kind(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_Animal_entry_1get_1legs(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_Animal_get_legs(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_Animal_entry_1get_1count(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_Animal_get_count(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Animal_entry_1set_1count(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Animal_set_count(arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_inheritance_Animal_entry_1named(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Animal_named(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_inheritance_Dog_entry_1new(JNIEnv* env, jclass, jstring arg0, jstring arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Dog_new(in.string(arg0), in.string(arg1), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_inheritance_Dog_entry_1get_1tricks(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_inheritance_Dog_get_tricks(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Dog_entry_1set_1tricks(JNIEnv* env, jclass, jlong self, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Dog_set_tricks(reinterpret_cast<lucent_object>(self), in.value(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Dog_entry_1kind(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Dog_kind(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_inheritance_Dog_entry_1learn(JNIEnv* env, jclass, jlong self, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Dog_learn(reinterpret_cast<lucent_object>(self), in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Dog_entry_1get_1name(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Dog_get_name(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Dog_entry_1set_1name(JNIEnv* env, jclass, jlong self, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Dog_set_name(reinterpret_cast<lucent_object>(self), in.string(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Dog_entry_1speak(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Dog_speak(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Dog_entry_1describe(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Dog_describe(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_Dog_entry_1get_1legs(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_Dog_get_legs(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_Dog_entry_1get_1count(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_Dog_get_count(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Dog_entry_1set_1count(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Dog_set_count(arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_inheritance_Dog_entry_1named(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Dog_named(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_inheritance_Puppy_entry_1new(JNIEnv* env, jclass, jstring arg0, jstring arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Puppy_new(in.string(arg0), in.string(arg1), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Puppy_entry_1speak(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Puppy_speak(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Puppy_entry_1kind(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Puppy_kind(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_inheritance_Puppy_entry_1get_1tricks(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_inheritance_Puppy_get_tricks(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Puppy_entry_1set_1tricks(JNIEnv* env, jclass, jlong self, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Puppy_set_tricks(reinterpret_cast<lucent_object>(self), in.value(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_inheritance_Puppy_entry_1learn(JNIEnv* env, jclass, jlong self, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Puppy_learn(reinterpret_cast<lucent_object>(self), in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Puppy_entry_1get_1name(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Puppy_get_name(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Puppy_entry_1set_1name(JNIEnv* env, jclass, jlong self, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Puppy_set_name(reinterpret_cast<lucent_object>(self), in.string(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Puppy_entry_1describe(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Puppy_describe(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_Puppy_entry_1get_1legs(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_Puppy_get_legs(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_Puppy_entry_1get_1count(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_Puppy_get_count(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Puppy_entry_1set_1count(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Puppy_set_count(arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_inheritance_Puppy_entry_1named(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Puppy_named(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_inheritance_Bird_entry_1new(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Bird_new(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Bird_entry_1get_1song(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Bird_get_song(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Bird_entry_1set_1song(JNIEnv* env, jclass, jlong self, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Bird_set_song(reinterpret_cast<lucent_object>(self), in.string(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_Bird_entry_1get_1legs(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_Bird_get_legs(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Bird_entry_1get_1name(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Bird_get_name(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Bird_entry_1set_1name(JNIEnv* env, jclass, jlong self, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Bird_set_name(reinterpret_cast<lucent_object>(self), in.string(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Bird_entry_1speak(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Bird_speak(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Bird_entry_1describe(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Bird_describe(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Bird_entry_1kind(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Bird_kind(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_Bird_entry_1get_1count(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_Bird_get_count(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Bird_entry_1set_1count(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Bird_set_count(arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_inheritance_Bird_entry_1named(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Bird_named(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_inheritance_Cat_entry_1new(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Cat_new(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Cat_entry_1speak(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Cat_speak(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Cat_entry_1get_1name(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Cat_get_name(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Cat_entry_1set_1name(JNIEnv* env, jclass, jlong self, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Cat_set_name(reinterpret_cast<lucent_object>(self), in.string(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Cat_entry_1describe(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Cat_describe(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Cat_entry_1kind(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Cat_kind(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_Cat_entry_1get_1legs(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_Cat_get_legs(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_Cat_entry_1get_1count(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_Cat_get_count(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Cat_entry_1set_1count(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Cat_set_count(arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_inheritance_Cat_entry_1named(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Cat_named(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_inheritance_Kitten_entry_1new(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Kitten_new(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Kitten_entry_1speak(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Kitten_speak(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Kitten_entry_1get_1name(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Kitten_get_name(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Kitten_entry_1set_1name(JNIEnv* env, jclass, jlong self, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Kitten_set_name(reinterpret_cast<lucent_object>(self), in.string(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Kitten_entry_1describe(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Kitten_describe(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Kitten_entry_1kind(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Kitten_kind(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_Kitten_entry_1get_1legs(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_Kitten_get_legs(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_Kitten_entry_1get_1count(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_Kitten_get_count(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Kitten_entry_1set_1count(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Kitten_set_count(arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_inheritance_Kitten_entry_1named(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Kitten_named(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_inheritance_Lion_entry_1new(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Lion_new(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Lion_entry_1get_1name(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Lion_get_name(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Lion_entry_1set_1name(JNIEnv* env, jclass, jlong self, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Lion_set_name(reinterpret_cast<lucent_object>(self), in.string(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Lion_entry_1speak(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Lion_speak(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Lion_entry_1describe(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Lion_describe(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_inheritance_Lion_entry_1kind(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_inheritance_Lion_kind(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_Lion_entry_1get_1legs(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_Lion_get_legs(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_inheritance_Lion_entry_1get_1count(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_inheritance_Lion_get_count(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_inheritance_Lion_entry_1set_1count(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_inheritance_Lion_set_count(arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_inheritance_Lion_entry_1named(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_inheritance_Lion_named(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("shapes"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_ExportsNatives_shapes)},
+        {const_cast<char*>("zoo"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_ExportsNatives_zoo)},
+        {const_cast<char*>("tricks"), const_cast<char*>("(Ldev/lucent/app/inheritance/Dog;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_ExportsNatives_tricks)},
+        {const_cast<char*>("narrow"), const_cast<char*>("(Ldev/lucent/app/inheritance/Animal;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_ExportsNatives_narrow)},
+        {const_cast<char*>("counted"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_ExportsNatives_counted)},
+        {const_cast<char*>("makePuppy"), const_cast<char*>("()Ldev/lucent/app/inheritance/Animal;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_ExportsNatives_makePuppy)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/inheritance/ExportsNatives"), methods, 6);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(Ljava/lang/String;)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Animal_entry_1new)},
+        {const_cast<char*>("entry_get_name"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Animal_entry_1get_1name)},
+        {const_cast<char*>("entry_set_name"), const_cast<char*>("(JLjava/lang/String;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Animal_entry_1set_1name)},
+        {const_cast<char*>("entry_speak"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Animal_entry_1speak)},
+        {const_cast<char*>("entry_describe"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Animal_entry_1describe)},
+        {const_cast<char*>("entry_kind"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Animal_entry_1kind)},
+        {const_cast<char*>("entry_get_legs"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Animal_entry_1get_1legs)},
+        {const_cast<char*>("entry_get_count"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Animal_entry_1get_1count)},
+        {const_cast<char*>("entry_set_count"), const_cast<char*>("(D)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Animal_entry_1set_1count)},
+        {const_cast<char*>("entry_named"), const_cast<char*>("(Ljava/lang/String;)Ldev/lucent/app/inheritance/Animal;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Animal_entry_1named)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/inheritance/Animal"), methods, 10);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(Ljava/lang/String;Ljava/lang/String;)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Dog_entry_1new)},
+        {const_cast<char*>("entry_get_tricks"), const_cast<char*>("(J)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Dog_entry_1get_1tricks)},
+        {const_cast<char*>("entry_set_tricks"), const_cast<char*>("(JLjava/util/List;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Dog_entry_1set_1tricks)},
+        {const_cast<char*>("entry_kind"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Dog_entry_1kind)},
+        {const_cast<char*>("entry_learn"), const_cast<char*>("(JLjava/lang/String;)Ldev/lucent/app/inheritance/Dog;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Dog_entry_1learn)},
+        {const_cast<char*>("entry_get_name"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Dog_entry_1get_1name)},
+        {const_cast<char*>("entry_set_name"), const_cast<char*>("(JLjava/lang/String;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Dog_entry_1set_1name)},
+        {const_cast<char*>("entry_speak"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Dog_entry_1speak)},
+        {const_cast<char*>("entry_describe"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Dog_entry_1describe)},
+        {const_cast<char*>("entry_get_legs"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Dog_entry_1get_1legs)},
+        {const_cast<char*>("entry_get_count"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Dog_entry_1get_1count)},
+        {const_cast<char*>("entry_set_count"), const_cast<char*>("(D)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Dog_entry_1set_1count)},
+        {const_cast<char*>("entry_named"), const_cast<char*>("(Ljava/lang/String;)Ldev/lucent/app/inheritance/Animal;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Dog_entry_1named)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/inheritance/Dog"), methods, 13);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(Ljava/lang/String;Ljava/lang/String;)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Puppy_entry_1new)},
+        {const_cast<char*>("entry_speak"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Puppy_entry_1speak)},
+        {const_cast<char*>("entry_kind"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Puppy_entry_1kind)},
+        {const_cast<char*>("entry_get_tricks"), const_cast<char*>("(J)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Puppy_entry_1get_1tricks)},
+        {const_cast<char*>("entry_set_tricks"), const_cast<char*>("(JLjava/util/List;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Puppy_entry_1set_1tricks)},
+        {const_cast<char*>("entry_learn"), const_cast<char*>("(JLjava/lang/String;)Ldev/lucent/app/inheritance/Dog;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Puppy_entry_1learn)},
+        {const_cast<char*>("entry_get_name"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Puppy_entry_1get_1name)},
+        {const_cast<char*>("entry_set_name"), const_cast<char*>("(JLjava/lang/String;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Puppy_entry_1set_1name)},
+        {const_cast<char*>("entry_describe"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Puppy_entry_1describe)},
+        {const_cast<char*>("entry_get_legs"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Puppy_entry_1get_1legs)},
+        {const_cast<char*>("entry_get_count"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Puppy_entry_1get_1count)},
+        {const_cast<char*>("entry_set_count"), const_cast<char*>("(D)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Puppy_entry_1set_1count)},
+        {const_cast<char*>("entry_named"), const_cast<char*>("(Ljava/lang/String;)Ldev/lucent/app/inheritance/Animal;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Puppy_entry_1named)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/inheritance/Puppy"), methods, 13);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(Ljava/lang/String;)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Bird_entry_1new)},
+        {const_cast<char*>("entry_get_song"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Bird_entry_1get_1song)},
+        {const_cast<char*>("entry_set_song"), const_cast<char*>("(JLjava/lang/String;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Bird_entry_1set_1song)},
+        {const_cast<char*>("entry_get_legs"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Bird_entry_1get_1legs)},
+        {const_cast<char*>("entry_get_name"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Bird_entry_1get_1name)},
+        {const_cast<char*>("entry_set_name"), const_cast<char*>("(JLjava/lang/String;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Bird_entry_1set_1name)},
+        {const_cast<char*>("entry_speak"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Bird_entry_1speak)},
+        {const_cast<char*>("entry_describe"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Bird_entry_1describe)},
+        {const_cast<char*>("entry_kind"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Bird_entry_1kind)},
+        {const_cast<char*>("entry_get_count"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Bird_entry_1get_1count)},
+        {const_cast<char*>("entry_set_count"), const_cast<char*>("(D)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Bird_entry_1set_1count)},
+        {const_cast<char*>("entry_named"), const_cast<char*>("(Ljava/lang/String;)Ldev/lucent/app/inheritance/Animal;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Bird_entry_1named)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/inheritance/Bird"), methods, 12);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(Ljava/lang/String;)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Cat_entry_1new)},
+        {const_cast<char*>("entry_speak"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Cat_entry_1speak)},
+        {const_cast<char*>("entry_get_name"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Cat_entry_1get_1name)},
+        {const_cast<char*>("entry_set_name"), const_cast<char*>("(JLjava/lang/String;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Cat_entry_1set_1name)},
+        {const_cast<char*>("entry_describe"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Cat_entry_1describe)},
+        {const_cast<char*>("entry_kind"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Cat_entry_1kind)},
+        {const_cast<char*>("entry_get_legs"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Cat_entry_1get_1legs)},
+        {const_cast<char*>("entry_get_count"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Cat_entry_1get_1count)},
+        {const_cast<char*>("entry_set_count"), const_cast<char*>("(D)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Cat_entry_1set_1count)},
+        {const_cast<char*>("entry_named"), const_cast<char*>("(Ljava/lang/String;)Ldev/lucent/app/inheritance/Animal;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Cat_entry_1named)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/inheritance/Cat"), methods, 10);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(Ljava/lang/String;)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Kitten_entry_1new)},
+        {const_cast<char*>("entry_speak"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Kitten_entry_1speak)},
+        {const_cast<char*>("entry_get_name"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Kitten_entry_1get_1name)},
+        {const_cast<char*>("entry_set_name"), const_cast<char*>("(JLjava/lang/String;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Kitten_entry_1set_1name)},
+        {const_cast<char*>("entry_describe"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Kitten_entry_1describe)},
+        {const_cast<char*>("entry_kind"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Kitten_entry_1kind)},
+        {const_cast<char*>("entry_get_legs"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Kitten_entry_1get_1legs)},
+        {const_cast<char*>("entry_get_count"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Kitten_entry_1get_1count)},
+        {const_cast<char*>("entry_set_count"), const_cast<char*>("(D)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Kitten_entry_1set_1count)},
+        {const_cast<char*>("entry_named"), const_cast<char*>("(Ljava/lang/String;)Ldev/lucent/app/inheritance/Animal;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Kitten_entry_1named)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/inheritance/Kitten"), methods, 10);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(Ljava/lang/String;)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Lion_entry_1new)},
+        {const_cast<char*>("entry_get_name"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Lion_entry_1get_1name)},
+        {const_cast<char*>("entry_set_name"), const_cast<char*>("(JLjava/lang/String;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Lion_entry_1set_1name)},
+        {const_cast<char*>("entry_speak"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Lion_entry_1speak)},
+        {const_cast<char*>("entry_describe"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Lion_entry_1describe)},
+        {const_cast<char*>("entry_kind"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Lion_entry_1kind)},
+        {const_cast<char*>("entry_get_legs"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Lion_entry_1get_1legs)},
+        {const_cast<char*>("entry_get_count"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Lion_entry_1get_1count)},
+        {const_cast<char*>("entry_set_count"), const_cast<char*>("(D)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Lion_entry_1set_1count)},
+        {const_cast<char*>("entry_named"), const_cast<char*>("(Ljava/lang/String;)Ldev/lucent/app/inheritance/Animal;"), reinterpret_cast<void*>(&Java_dev_lucent_app_inheritance_Lion_entry_1named)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/inheritance/Lion"), methods, 10);
+    lucent::jni::check(env);
+  }
+}
+#endif

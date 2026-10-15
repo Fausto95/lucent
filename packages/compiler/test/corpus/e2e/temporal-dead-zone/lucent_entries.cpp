@@ -121,3 +121,190 @@ extern "C" bool lucent_temporal_dead_zone_sum(lucent_error* error, double* resul
 #pragma pop_macro("declaredUndefined")
 #pragma pop_macro("closureBefore")
 #pragma pop_macro("closureAfter")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_helperAfter(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_temporal_dead_zone_helperAfter(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_hoistedCall(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_temporal_dead_zone_hoistedCall(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_closureBefore(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_temporal_dead_zone_closureBefore(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_writtenBefore(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_temporal_dead_zone_writtenBefore(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_closureAfter(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_temporal_dead_zone_closureAfter(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_inLoops(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_temporal_dead_zone_inLoops(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_recursive(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_temporal_dead_zone_recursive(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_declaredUndefined(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_temporal_dead_zone_declaredUndefined(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_moduleStart(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_temporal_dead_zone_moduleStart(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_sum(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_temporal_dead_zone_sum(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("helperAfter"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_helperAfter)},
+        {const_cast<char*>("hoistedCall"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_hoistedCall)},
+        {const_cast<char*>("closureBefore"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_closureBefore)},
+        {const_cast<char*>("writtenBefore"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_writtenBefore)},
+        {const_cast<char*>("closureAfter"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_closureAfter)},
+        {const_cast<char*>("inLoops"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_inLoops)},
+        {const_cast<char*>("recursive"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_recursive)},
+        {const_cast<char*>("declaredUndefined"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_declaredUndefined)},
+        {const_cast<char*>("moduleStart"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_moduleStart)},
+        {const_cast<char*>("sum"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_temporal_1dead_1zone_ExportsNatives_sum)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/temporal_dead_zone/ExportsNatives"), methods, 10);
+    lucent::jni::check(env);
+  }
+}
+#endif

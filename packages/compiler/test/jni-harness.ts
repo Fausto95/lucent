@@ -58,8 +58,13 @@ function runtimeClasses(dir: string): string {
     "-d",
     out,
     ...java(path.join(host, "java")),
-    path.join(runtimeDir(), "native/android/src/main/java/dev/lucent/NativeProxy.java"),
-    path.join(runtimeDir(), "native/android/src/main/java/dev/lucent/LucentExecutor.java"),
+    ...[
+      "NativeProxy",
+      "LucentExecutor",
+      "LucentInstance",
+      "LucentException",
+      "EntryCompletion",
+    ].map((c) => path.join(runtimeDir(), `native/android/src/main/java/dev/lucent/${c}.java`)),
   ]);
   if (r.status !== 0) throw new Error(`javac: ${r.stderr}`);
 
@@ -178,6 +183,8 @@ export function jvmRun(
   tc?: KotlinToolchain,
   /** The program's own main(), in place of the one that calls run(): the JVM's classpath is its argv[1]. */
   programMain: string = main,
+  /** Whether to build the exports' Kotlin API (dev/lucent/app/…), which needs kotlinc. */
+  exportsApi = false,
 ): { status: number | null; stdout: string; stderr: string } {
   const out = writeOut(r, dir);
 
@@ -196,7 +203,11 @@ export function jvmRun(
     if (j.status !== 0) throw new Error(`javac: ${j.stderr}`);
     jars.push(classes);
   }
-  const shims = [...(r.kotlin ?? [])].map(([f, text]) => {
+  // The exports' Kotlin API (dev/lucent/app/…) only for a program that calls it.
+  const kotlinFiles = [...(r.kotlin ?? [])].filter(
+    ([f]) => exportsApi || !f.startsWith("dev/lucent/app/"),
+  );
+  const shims = kotlinFiles.map(([f, text]) => {
     const file = path.join(out, "kotlin", f);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, text);

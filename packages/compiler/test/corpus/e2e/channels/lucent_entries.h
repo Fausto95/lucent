@@ -52,7 +52,7 @@ bool lucent_channels_Tally_new(double arg0, lucent_error* error, lucent_object* 
 /// channels.Tally.n()
 bool lucent_channels_Tally_get_n(lucent_object self, lucent_error* error, double* result);
 
-/// channels.Tally.n()
+/// channels.Tally.n(value)
 bool lucent_channels_Tally_set_n(lucent_object self, double arg0, lucent_error* error);
 
 /// channels.Tally.plus()

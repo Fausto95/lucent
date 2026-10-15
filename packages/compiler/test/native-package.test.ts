@@ -444,7 +444,9 @@ describe("native package", () => {
       fs.readFileSync(path.join(dir, out, "android/build.gradle"), "utf8");
 
     writeNativePackage(plain, path.join(dir, "plain"));
-    expect(gradle("plain")).not.toContain("kotlin");
+    // Kotlin always (the exports' Kotlin API), its coroutines only for shims.
+    expect(gradle("plain")).toContain('apply plugin: "org.jetbrains.kotlin.android"');
+    expect(gradle("plain")).not.toContain("kotlinx-coroutines");
 
     const shim = "dev/lucent/shims/LucentShims_dev_orbit.kt";
     writeNativePackage(

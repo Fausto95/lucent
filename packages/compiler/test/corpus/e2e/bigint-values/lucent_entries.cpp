@@ -229,3 +229,312 @@ extern "C" bool lucent_bigint_values_Account_get_doubled(lucent_object self, luc
 #pragma pop_macro("deposit")
 #pragma pop_macro("defaultSorted")
 #pragma pop_macro("balance")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+static const bool lucent_wrapper_C_Account = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Account), "dev/lucent/app/bigint_values/Account");
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_bigint_1values_ExportsNatives_keys(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_bigint_values_keys(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1values_ExportsNatives_sorted(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_values_sorted(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1values_ExportsNatives_defaultSorted(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_values_defaultSorted(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_bigint_1values_ExportsNatives_search(JNIEnv* env, jclass, jobject arg0, jlong arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_bigint_values_search(in.value(arg0), static_cast<int64_t>(arg1), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_bigint_1values_ExportsNatives_sum(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    int64_t result{};
+    if (!lucent_bigint_values_sum(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return static_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1values_ExportsNatives_maybe(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_values_maybe(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1values_ExportsNatives_openAccount(JNIEnv* env, jclass, jlong arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_bigint_values_openAccount(static_cast<int64_t>(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_bigint_1values_ExportsNatives_factorialLater(JNIEnv* env, jclass, jlong arg0, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_bigint_values_factorialLater(static_cast<int64_t>(arg0), [](void* context, const int64_t* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_bigint_1values_ExportsNatives_sumLater(JNIEnv* env, jclass, jobject arg0, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_bigint_values_sumLater(in.value(arg0), [](void* context, const lucent_string* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_bigint_1values_ExportsNatives_failLater(JNIEnv* env, jclass, jstring arg0, jobject done) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    void* completion = lucent::jni::entryCompletion(env, done);
+    lucent_bigint_values_failLater(in.string(arg0), [](void* context, const int64_t* result, const lucent_error* error) { lucent::jni::settleEntry(context, error, [&](JNIEnv* env) -> jobject { return lucent::jni::javaOf(env, *result); }); }, completion);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1values_ExportsNatives_records(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_values_records(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_bigint_1values_Account_entry_1new(JNIEnv* env, jclass, jlong arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_bigint_values_Account_new(static_cast<int64_t>(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_bigint_1values_Account_entry_1get_1id(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    int64_t result{};
+    if (!lucent_bigint_values_Account_get_id(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return static_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_bigint_1values_Account_entry_1get_1balance(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    int64_t result{};
+    if (!lucent_bigint_values_Account_get_balance(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return static_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_bigint_1values_Account_entry_1set_1balance(JNIEnv* env, jclass, jlong self, jlong arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_bigint_values_Account_set_balance(reinterpret_cast<lucent_object>(self), static_cast<int64_t>(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1values_Account_entry_1get_1history(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_values_Account_get_history(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_bigint_1values_Account_entry_1deposit(JNIEnv* env, jclass, jlong self, jlong arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    int64_t result{};
+    if (!lucent_bigint_values_Account_deposit(reinterpret_cast<lucent_object>(self), static_cast<int64_t>(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return static_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_bigint_1values_Account_entry_1get_1doubled(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    int64_t result{};
+    if (!lucent_bigint_values_Account_get_doubled(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return static_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("keys"), const_cast<char*>("(Ljava/util/List;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_ExportsNatives_keys)},
+        {const_cast<char*>("sorted"), const_cast<char*>("(Ljava/util/List;)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_ExportsNatives_sorted)},
+        {const_cast<char*>("defaultSorted"), const_cast<char*>("(Ljava/util/List;)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_ExportsNatives_defaultSorted)},
+        {const_cast<char*>("search"), const_cast<char*>("(Ljava/util/List;J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_ExportsNatives_search)},
+        {const_cast<char*>("sum"), const_cast<char*>("(Ljava/util/List;)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_ExportsNatives_sum)},
+        {const_cast<char*>("maybe"), const_cast<char*>("(Ljava/lang/Long;)Ljava/lang/Long;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_ExportsNatives_maybe)},
+        {const_cast<char*>("openAccount"), const_cast<char*>("(J)Ldev/lucent/app/bigint_values/Account;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_ExportsNatives_openAccount)},
+        {const_cast<char*>("factorialLater"), const_cast<char*>("(JLdev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_ExportsNatives_factorialLater)},
+        {const_cast<char*>("sumLater"), const_cast<char*>("(Ljava/util/List;Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_ExportsNatives_sumLater)},
+        {const_cast<char*>("failLater"), const_cast<char*>("(Ljava/lang/String;Ldev/lucent/EntryCompletion;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_ExportsNatives_failLater)},
+        {const_cast<char*>("records"), const_cast<char*>("(Ljava/util/Map;)Ljava/util/Map;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_ExportsNatives_records)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/bigint_values/ExportsNatives"), methods, 11);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(J)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_Account_entry_1new)},
+        {const_cast<char*>("entry_get_id"), const_cast<char*>("(J)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_Account_entry_1get_1id)},
+        {const_cast<char*>("entry_get_balance"), const_cast<char*>("(J)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_Account_entry_1get_1balance)},
+        {const_cast<char*>("entry_set_balance"), const_cast<char*>("(JJ)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_Account_entry_1set_1balance)},
+        {const_cast<char*>("entry_get_history"), const_cast<char*>("(J)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_Account_entry_1get_1history)},
+        {const_cast<char*>("entry_deposit"), const_cast<char*>("(JJ)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_Account_entry_1deposit)},
+        {const_cast<char*>("entry_get_doubled"), const_cast<char*>("(J)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1values_Account_entry_1get_1doubled)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/bigint_values/Account"), methods, 7);
+    lucent::jni::check(env);
+  }
+}
+#endif

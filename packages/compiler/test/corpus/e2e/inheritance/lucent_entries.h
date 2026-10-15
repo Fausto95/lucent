@@ -37,7 +37,7 @@ bool lucent_inheritance_Animal_new(lucent_string arg0, lucent_error* error, luce
 /// inheritance.Animal.name()
 bool lucent_inheritance_Animal_get_name(lucent_object self, lucent_error* error, lucent_string* result);
 
-/// inheritance.Animal.name()
+/// inheritance.Animal.name(value)
 bool lucent_inheritance_Animal_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
 
 /// inheritance.Animal.speak()
@@ -55,7 +55,7 @@ bool lucent_inheritance_Animal_get_legs(lucent_object self, lucent_error* error,
 /// inheritance.Animal.count()
 bool lucent_inheritance_Animal_get_count(lucent_error* error, double* result);
 
-/// inheritance.Animal.count()
+/// inheritance.Animal.count(value)
 bool lucent_inheritance_Animal_set_count(double arg0, lucent_error* error);
 
 /// inheritance.Animal.named(name)
@@ -67,7 +67,7 @@ bool lucent_inheritance_Dog_new(lucent_string arg0, lucent_string arg1, lucent_e
 /// inheritance.Dog.tricks()
 bool lucent_inheritance_Dog_get_tricks(lucent_object self, lucent_error* error, lucent_value* result);
 
-/// inheritance.Dog.tricks()
+/// inheritance.Dog.tricks(value)
 bool lucent_inheritance_Dog_set_tricks(lucent_object self, lucent_value arg0, lucent_error* error);
 
 /// inheritance.Dog.kind()
@@ -79,7 +79,7 @@ bool lucent_inheritance_Dog_learn(lucent_object self, lucent_string arg0, lucent
 /// inheritance.Dog.name()
 bool lucent_inheritance_Dog_get_name(lucent_object self, lucent_error* error, lucent_string* result);
 
-/// inheritance.Dog.name()
+/// inheritance.Dog.name(value)
 bool lucent_inheritance_Dog_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
 
 /// inheritance.Dog.speak()
@@ -94,7 +94,7 @@ bool lucent_inheritance_Dog_get_legs(lucent_object self, lucent_error* error, do
 /// inheritance.Dog.count()
 bool lucent_inheritance_Dog_get_count(lucent_error* error, double* result);
 
-/// inheritance.Dog.count()
+/// inheritance.Dog.count(value)
 bool lucent_inheritance_Dog_set_count(double arg0, lucent_error* error);
 
 /// inheritance.Dog.named(name)
@@ -112,7 +112,7 @@ bool lucent_inheritance_Puppy_kind(lucent_object self, lucent_error* error, luce
 /// inheritance.Puppy.tricks()
 bool lucent_inheritance_Puppy_get_tricks(lucent_object self, lucent_error* error, lucent_value* result);
 
-/// inheritance.Puppy.tricks()
+/// inheritance.Puppy.tricks(value)
 bool lucent_inheritance_Puppy_set_tricks(lucent_object self, lucent_value arg0, lucent_error* error);
 
 /// inheritance.Puppy.learn(trick)
@@ -121,7 +121,7 @@ bool lucent_inheritance_Puppy_learn(lucent_object self, lucent_string arg0, luce
 /// inheritance.Puppy.name()
 bool lucent_inheritance_Puppy_get_name(lucent_object self, lucent_error* error, lucent_string* result);
 
-/// inheritance.Puppy.name()
+/// inheritance.Puppy.name(value)
 bool lucent_inheritance_Puppy_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
 
 /// inheritance.Puppy.describe()
@@ -133,7 +133,7 @@ bool lucent_inheritance_Puppy_get_legs(lucent_object self, lucent_error* error, 
 /// inheritance.Puppy.count()
 bool lucent_inheritance_Puppy_get_count(lucent_error* error, double* result);
 
-/// inheritance.Puppy.count()
+/// inheritance.Puppy.count(value)
 bool lucent_inheritance_Puppy_set_count(double arg0, lucent_error* error);
 
 /// inheritance.Puppy.named(name)
@@ -145,7 +145,7 @@ bool lucent_inheritance_Bird_new(lucent_string arg0, lucent_error* error, lucent
 /// inheritance.Bird.song()
 bool lucent_inheritance_Bird_get_song(lucent_object self, lucent_error* error, lucent_string* result);
 
-/// inheritance.Bird.song()
+/// inheritance.Bird.song(value)
 bool lucent_inheritance_Bird_set_song(lucent_object self, lucent_string arg0, lucent_error* error);
 
 /// inheritance.Bird.legs()
@@ -154,7 +154,7 @@ bool lucent_inheritance_Bird_get_legs(lucent_object self, lucent_error* error, d
 /// inheritance.Bird.name()
 bool lucent_inheritance_Bird_get_name(lucent_object self, lucent_error* error, lucent_string* result);
 
-/// inheritance.Bird.name()
+/// inheritance.Bird.name(value)
 bool lucent_inheritance_Bird_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
 
 /// inheritance.Bird.speak()
@@ -169,7 +169,7 @@ bool lucent_inheritance_Bird_kind(lucent_object self, lucent_error* error, lucen
 /// inheritance.Bird.count()
 bool lucent_inheritance_Bird_get_count(lucent_error* error, double* result);
 
-/// inheritance.Bird.count()
+/// inheritance.Bird.count(value)
 bool lucent_inheritance_Bird_set_count(double arg0, lucent_error* error);
 
 /// inheritance.Bird.named(name)
@@ -184,7 +184,7 @@ bool lucent_inheritance_Cat_speak(lucent_object self, lucent_error* error, lucen
 /// inheritance.Cat.name()
 bool lucent_inheritance_Cat_get_name(lucent_object self, lucent_error* error, lucent_string* result);
 
-/// inheritance.Cat.name()
+/// inheritance.Cat.name(value)
 bool lucent_inheritance_Cat_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
 
 /// inheritance.Cat.describe()
@@ -199,7 +199,7 @@ bool lucent_inheritance_Cat_get_legs(lucent_object self, lucent_error* error, do
 /// inheritance.Cat.count()
 bool lucent_inheritance_Cat_get_count(lucent_error* error, double* result);
 
-/// inheritance.Cat.count()
+/// inheritance.Cat.count(value)
 bool lucent_inheritance_Cat_set_count(double arg0, lucent_error* error);
 
 /// inheritance.Cat.named(name)
@@ -214,7 +214,7 @@ bool lucent_inheritance_Kitten_speak(lucent_object self, lucent_error* error, lu
 /// inheritance.Kitten.name()
 bool lucent_inheritance_Kitten_get_name(lucent_object self, lucent_error* error, lucent_string* result);
 
-/// inheritance.Kitten.name()
+/// inheritance.Kitten.name(value)
 bool lucent_inheritance_Kitten_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
 
 /// inheritance.Kitten.describe()
@@ -229,7 +229,7 @@ bool lucent_inheritance_Kitten_get_legs(lucent_object self, lucent_error* error,
 /// inheritance.Kitten.count()
 bool lucent_inheritance_Kitten_get_count(lucent_error* error, double* result);
 
-/// inheritance.Kitten.count()
+/// inheritance.Kitten.count(value)
 bool lucent_inheritance_Kitten_set_count(double arg0, lucent_error* error);
 
 /// inheritance.Kitten.named(name)
@@ -241,7 +241,7 @@ bool lucent_inheritance_Lion_new(lucent_string arg0, lucent_error* error, lucent
 /// inheritance.Lion.name()
 bool lucent_inheritance_Lion_get_name(lucent_object self, lucent_error* error, lucent_string* result);
 
-/// inheritance.Lion.name()
+/// inheritance.Lion.name(value)
 bool lucent_inheritance_Lion_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
 
 /// inheritance.Lion.speak()
@@ -259,7 +259,7 @@ bool lucent_inheritance_Lion_get_legs(lucent_object self, lucent_error* error, d
 /// inheritance.Lion.count()
 bool lucent_inheritance_Lion_get_count(lucent_error* error, double* result);
 
-/// inheritance.Lion.count()
+/// inheritance.Lion.count(value)
 bool lucent_inheritance_Lion_set_count(double arg0, lucent_error* error);
 
 /// inheritance.Lion.named(name)

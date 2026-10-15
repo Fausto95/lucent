@@ -265,8 +265,9 @@ buildscript {
  * The library's build.gradle: Lucent packages' Gradle artifacts, every
  * version asked for (Gradle picks one), their libraries (api: the app's
  * compile classpath sees them), and their sources, resources, assets and
- * native libraries; the Kotlin shims the program calls (`shims`),
- * compiled with kotlinx-coroutines; components' Compose content
+ * native libraries; the Kotlin shims the program calls (`shims`), which
+ * need kotlinx-coroutines (the template applies Kotlin itself, for the
+ * program's exports' Kotlin API); components' Compose content
  * (`compose`: its Kotlin sources, none without), with the Compose
  * compiler, the libraries it uses, and the runtime's host of it; and the
  * runtime's host of Fragment roots (`fragments`), against the app's
@@ -290,15 +291,7 @@ export function libraryBuildGradle(
       (_, head: string, app: string) => `${head}Math.max(${app} as int, ${android.minSdk!.value})`,
     );
 
-  const kotlin =
-    shims ||
-    compose ||
-    !!android?.nativeSources.some((p) => filesOf(native!, p).some((f) => f.endsWith(".kt")));
-  if (kotlin)
-    text = text.replace(
-      /^(apply plugin: "com\.android\.library")$/m,
-      '$1\napply plugin: "org.jetbrains.kotlin.android"',
-    );
+  // The template applies Kotlin: the program's exports have a Kotlin API (decision 0116).
 
   if (compose)
     text = text

@@ -38,3 +38,54 @@ extern "C" bool lucent_reduce_operands_initialArray(lucent_value arg0, lucent_er
 
 #pragma pop_macro("order")
 #pragma pop_macro("initialArray")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_reduce_1operands_ExportsNatives_order(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_reduce_operands_order(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_reduce_1operands_ExportsNatives_initialArray(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_reduce_operands_initialArray(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("order"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_reduce_1operands_ExportsNatives_order)},
+        {const_cast<char*>("initialArray"), const_cast<char*>("(Ljava/util/List;)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_reduce_1operands_ExportsNatives_initialArray)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/reduce_operands/ExportsNatives"), methods, 2);
+    lucent::jni::check(env);
+  }
+}
+#endif

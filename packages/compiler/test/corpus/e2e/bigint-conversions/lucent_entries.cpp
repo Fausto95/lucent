@@ -128,3 +128,207 @@ extern "C" bool lucent_bigint_conversions_roundTrip(int64_t arg0, lucent_error* 
 #pragma pop_macro("fromNumber")
 #pragma pop_macro("fromBoolean")
 #pragma pop_macro("attempt")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_bigint_1conversions_ExportsNatives_fromNumber(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    int64_t result{};
+    if (!lucent_bigint_conversions_fromNumber(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return static_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_bigint_1conversions_ExportsNatives_fromString(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    int64_t result{};
+    if (!lucent_bigint_conversions_fromString(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return static_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1conversions_ExportsNatives_fromBoolean(JNIEnv* env, jclass, jboolean arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_conversions_fromBoolean(arg0 == JNI_TRUE, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_bigint_1conversions_ExportsNatives_same(JNIEnv* env, jclass, jlong arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    int64_t result{};
+    if (!lucent_bigint_conversions_same(static_cast<int64_t>(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return static_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_bigint_1conversions_ExportsNatives_toNumber(JNIEnv* env, jclass, jlong arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_bigint_conversions_toNumber(static_cast<int64_t>(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1conversions_ExportsNatives_strings(JNIEnv* env, jclass, jlong arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_conversions_strings(static_cast<int64_t>(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_bigint_1conversions_ExportsNatives_radix(JNIEnv* env, jclass, jlong arg0, jdouble arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_bigint_conversions_radix(static_cast<int64_t>(arg0), arg1, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_bigint_1conversions_ExportsNatives_wrap(JNIEnv* env, jclass, jdouble arg0, jlong arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_bigint_conversions_wrap(arg0, static_cast<int64_t>(arg1), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_bigint_1conversions_ExportsNatives_attempt(JNIEnv* env, jclass, jstring arg0, jstring arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_bigint_conversions_attempt(in.string(arg0), in.string(arg1), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_bigint_1conversions_ExportsNatives_json(JNIEnv* env, jclass, jlong arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_bigint_conversions_json(static_cast<int64_t>(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_dev_lucent_app_bigint_1conversions_ExportsNatives_roundTrip(JNIEnv* env, jclass, jlong arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    bool result{};
+    if (!lucent_bigint_conversions_roundTrip(static_cast<int64_t>(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return static_cast<jboolean>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("fromNumber"), const_cast<char*>("(D)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1conversions_ExportsNatives_fromNumber)},
+        {const_cast<char*>("fromString"), const_cast<char*>("(Ljava/lang/String;)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1conversions_ExportsNatives_fromString)},
+        {const_cast<char*>("fromBoolean"), const_cast<char*>("(Z)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1conversions_ExportsNatives_fromBoolean)},
+        {const_cast<char*>("same"), const_cast<char*>("(J)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1conversions_ExportsNatives_same)},
+        {const_cast<char*>("toNumber"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1conversions_ExportsNatives_toNumber)},
+        {const_cast<char*>("strings"), const_cast<char*>("(J)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1conversions_ExportsNatives_strings)},
+        {const_cast<char*>("radix"), const_cast<char*>("(JD)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1conversions_ExportsNatives_radix)},
+        {const_cast<char*>("wrap"), const_cast<char*>("(DJ)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1conversions_ExportsNatives_wrap)},
+        {const_cast<char*>("attempt"), const_cast<char*>("(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1conversions_ExportsNatives_attempt)},
+        {const_cast<char*>("json"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1conversions_ExportsNatives_json)},
+        {const_cast<char*>("roundTrip"), const_cast<char*>("(J)Z"), reinterpret_cast<void*>(&Java_dev_lucent_app_bigint_1conversions_ExportsNatives_roundTrip)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/bigint_conversions/ExportsNatives"), methods, 11);
+    lucent::jni::check(env);
+  }
+}
+#endif

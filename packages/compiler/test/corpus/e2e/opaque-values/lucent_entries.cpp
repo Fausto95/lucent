@@ -28,3 +28,34 @@ extern "C" bool lucent_opaque_values_clear(lucent_error* error) {
 }
 
 #pragma pop_macro("clear")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_opaque_1values_ExportsNatives_clear(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_opaque_values_clear(&error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("clear"), const_cast<char*>("()V"), reinterpret_cast<void*>(&Java_dev_lucent_app_opaque_1values_ExportsNatives_clear)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/opaque_values/ExportsNatives"), methods, 1);
+    lucent::jni::check(env);
+  }
+}
+#endif

@@ -146,6 +146,25 @@ export interface Entry {
   doc: string;
   declaration: string;
   definition: string;
+  /** What it stands for, for the Swift and Kotlin APIs that call it (decision 0116). */
+  api: EntryApi;
+}
+
+/** What an entry runs, as the native APIs present it. */
+export interface EntryApi {
+  module: string;
+  /** A function, or a class's constructor, method or property accessor. */
+  kind: "function" | "new" | "method" | "get" | "set";
+  /** The class, and the one in its chain that declares the member. */
+  cls?: ClassInfo;
+  declaredBy?: ClassInfo;
+  isStatic: boolean;
+  /** The TypeScript name; for a class's entry, its part of the C name (`get_value`) as `entry`. */
+  member: string;
+  entry: string;
+  params: { name: string; type: LType; c: string }[];
+  ret?: { type: LType; c: string };
+  async: boolean;
 }
 
 /** The C name of a module's export: other characters than letters and digits made `_`. */
@@ -155,6 +174,8 @@ export function entryName(module: string, name: string): string {
 
 /** What an entry runs: one function, method, constructor or property of a module. */
 interface EntrySpec {
+  /** For the native APIs: what it is, and its parameters' names. */
+  api: Omit<EntryApi, "params" | "ret" | "async"> & { paramNames: string[] };
   name: string;
   /** `module.export`, `module.Class.member`: what LUCENT3016 names. */
   of: string;
@@ -173,6 +194,30 @@ interface EntrySpec {
 
 /** The entry of `spec`, or none when a type doesn't cross. */
 function entryOf(ctx: Ctx, spec: EntrySpec): (Entry & { of: string; node: ts.Node }) | undefined {
+  const entry = entryText(ctx, spec);
+  if (!entry) return undefined;
+  const { paramNames, ...api } = spec.api;
+  return {
+    ...entry,
+    api: {
+      ...api,
+      params: spec.params.map((type, i) => ({
+        name: paramNames[i] ?? `arg${i}`,
+        type,
+        c: crossingOf(ctx, type)!.c,
+      })),
+      ...(spec.ret && !isVoidish(spec.ret)
+        ? { ret: { type: spec.ret, c: crossingOf(ctx, spec.ret)!.c } }
+        : {}),
+      async: spec.async,
+    },
+  };
+}
+
+function entryText(
+  ctx: Ctx,
+  spec: EntrySpec,
+): (Omit<Entry, "api"> & { of: string; node: ts.Node }) | undefined {
   // Named by position: a parameter's own name could be a macro (NAN) or one of the entry's
   // locals.
   const params = spec.params.map((t, i) => ({ name: `arg${i}`, crossing: crossingOf(ctx, t) }));
@@ -277,9 +322,23 @@ function classEntries(ctx: Ctx, module: string, info: ClassInfo): EntrySpec[] {
     member: string,
     entry: string,
     node: ts.Node,
-    rest: Omit<EntrySpec, "name" | "of" | "doc" | "node" | "actor">,
+    rest: Omit<EntrySpec, "name" | "of" | "doc" | "node" | "actor" | "api">,
     params: string[] = [],
+    api: { kind: EntryApi["kind"]; isStatic: boolean; declaredBy?: ClassInfo } = {
+      kind: "method",
+      isStatic: false,
+    },
   ): EntrySpec => ({
+    api: {
+      module,
+      cls: info,
+      declaredBy: api.declaredBy ?? info,
+      kind: api.kind,
+      isStatic: api.isStatic,
+      member,
+      entry,
+      paramNames: params,
+    },
     name: named(entry),
     of: `${module}.${cls}.${member}`,
     doc: `${module}.${cls}${member === "constructor" ? "" : `.${member}`}(${params.join(", ")})`,
@@ -303,6 +362,7 @@ function classEntries(ctx: Ctx, module: string, info: ClassInfo): EntrySpec[] {
           call: (args) => `lucent_app::${info.cppName}::create(${args.join(", ")})`,
         },
         ctorParams.map((p) => p.name),
+        { kind: "new", isStatic: true },
       ),
     );
 
@@ -310,12 +370,15 @@ function classEntries(ctx: Ctx, module: string, info: ClassInfo): EntrySpec[] {
   const seen = new Set<string>();
   const members = ctx.reg
     .chain(t)
-    .flatMap((link) => publicMembers(ctx, link.info))
-    .filter((m) => !seen.has(m.name) && !!seen.add(m.name));
-  const statics = staticMembers(ctx, info);
-  for (const [m, isStatic] of [
-    ...members.map((m) => [m, false] as const),
-    ...statics.map((m) => [m, true] as const),
+    .flatMap((link) => publicMembers(ctx, link.info).map((m) => ({ m, by: link.info })))
+    .filter(({ m }) => !seen.has(m.name) && !!seen.add(m.name));
+  const statics = staticMembers(ctx, info).map((m) => ({
+    m,
+    by: m.owner ? ctx.reg.cls(m.owner.id) : info,
+  }));
+  for (const [{ m, by }, isStatic] of [
+    ...members.map((x) => [x, false] as const),
+    ...statics.map((x) => [x, true] as const),
   ]) {
     const owner = isStatic ? `lucent_app::${ctx.reg.cls(m.owner!.id).cppName}::` : "self_->";
     const self = isStatic ? {} : { self: info };
@@ -336,6 +399,7 @@ function classEntries(ctx: Ctx, module: string, info: ClassInfo): EntrySpec[] {
             call: (args) => `${owner}${place}(${args.join(", ")})`,
           },
           m.params!.map((p) => p.name),
+          { kind: "method", isStatic, declaredBy: by },
         ),
       );
       continue;
@@ -343,23 +407,31 @@ function classEntries(ctx: Ctx, module: string, info: ClassInfo): EntrySpec[] {
     const type = m.types[0]!;
     const get = m.kind === "accessor" ? `${owner}get_${place}()` : `${owner}${place}`;
     out.push(
-      spec(m.name, `get_${m.name}`, m.node, {
-        ...self,
-        params: [],
-        ret: type,
-        async: false,
-        call: () => get,
-      }),
+      spec(
+        m.name,
+        `get_${m.name}`,
+        m.node,
+        { ...self, params: [], ret: type, async: false, call: () => get },
+        [],
+        { kind: "get", isStatic, declaredBy: by },
+      ),
     );
     if (m.writable)
       out.push(
-        spec(m.name, `set_${m.name}`, m.node, {
-          ...self,
-          params: [type],
-          async: false,
-          call: ([v]) =>
-            m.kind === "accessor" ? `${owner}set_${place}(${v})` : `${owner}${place} = ${v}`,
-        }),
+        spec(
+          m.name,
+          `set_${m.name}`,
+          m.node,
+          {
+            ...self,
+            params: [type],
+            async: false,
+            call: ([v]) =>
+              m.kind === "accessor" ? `${owner}set_${place}(${v})` : `${owner}${place} = ${v}`,
+          },
+          ["value"],
+          { kind: "set", isStatic, declaredBy: by },
+        ),
       );
   }
   return out;
@@ -384,6 +456,14 @@ export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
       const exportName = f.decl.name!.text;
       const of = `${m.module.name}.${exportName}`;
       const entry = entryOf(ctx, {
+        api: {
+          module: m.module.name,
+          kind: "function",
+          isStatic: true,
+          member: exportName,
+          entry: exportName,
+          paramNames: f.params.map((p) => p.name),
+        },
         name: entryName(m.module.name, exportName),
         of,
         doc: `${of}(${f.params.map((p) => p.name).join(", ")})`,
@@ -422,7 +502,13 @@ export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
 
   return out
     .filter((e) => byName.get(e.name)!.length === 1)
-    .map(({ name, doc, declaration, definition }) => ({ name, doc, declaration, definition }));
+    .map(({ name, doc, declaration, definition, api }) => ({
+      name,
+      doc,
+      declaration,
+      definition,
+      api,
+    }));
 }
 
 /** lucent_entries.h: a C header Swift, Objective-C, C and C++ can include. */

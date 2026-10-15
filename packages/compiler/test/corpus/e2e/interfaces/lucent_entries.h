@@ -37,7 +37,7 @@ bool lucent_interfaces_Circle_get_kind(lucent_object self, lucent_error* error, 
 /// interfaces.Circle.name()
 bool lucent_interfaces_Circle_get_name(lucent_object self, lucent_error* error, lucent_string* result);
 
-/// interfaces.Circle.name()
+/// interfaces.Circle.name(value)
 bool lucent_interfaces_Circle_set_name(lucent_object self, lucent_string arg0, lucent_error* error);
 
 /// interfaces.Circle.area()

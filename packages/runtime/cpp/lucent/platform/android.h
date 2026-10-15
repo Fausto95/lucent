@@ -4,10 +4,13 @@
 #include <jni.h>
 
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <string>
 #include <initializer_list>
+#include <typeinfo>
 #include <utility>
+#include <vector>
 
 #include "../abort.h"
 #include "../array.h"
@@ -17,6 +20,7 @@
 #include "../bytes.h"
 #include "../function.h"
 #include "../jsstring.h"
+#include "../entries.h"
 #include "../native.h"
 #include "../operation.h"
 
@@ -299,8 +303,62 @@ bool registerOsClass(const char* cls, OsFactory make);
  */
 jlong adoptSubclass(JNIEnv* env, jobject self, const char* cls, std::shared_ptr<void> keep, const std::function<jobject()>& convert);
 
-/// Registers NativeProxy's natives now, before any Java object calls one (a class the OS makes).
+/// Registers NativeProxy's and LucentInstance's natives now, before any Java object calls one
+/// (a class the OS makes, the desktop JNI host).
 void installNatives(JNIEnv* env);
+
+// --- the Kotlin API's JNI (decision 0116) --------------------------------------------
+//
+// The generated Kotlin calls a module's exports through natives that call
+// their C entries: these convert what Java passes, and what the entries
+// give back.
+
+/// One call's arguments as an entry takes them, kept until the call returns.
+class EntryArgs {
+ public:
+  explicit EntryArgs(JNIEnv* env) : env_(env) {}
+
+  lucent_string string(jstring s);
+  lucent_bytes bytes(jbyteArray b);
+  /// A boxed number (a Double), a Boolean, a Long (a bigint), a String, a byte[], a List, a
+  /// Map, null, an instance's wrapper, or another object, a platform object.
+  lucent_value value(jobject o);
+  /// The lucent_object an instance's wrapper holds; null for null.
+  lucent_object instance(jobject o);
+
+ private:
+  JNIEnv* env_;
+  std::deque<std::string> strings_;
+  std::deque<std::vector<uint8_t>> bytes_;
+  std::deque<std::vector<lucent_value>> values_;
+  std::deque<std::vector<lucent_string>> keys_;
+};
+
+/// What an entry gives, as Java values: a boxed Double, Boolean or Long, a String, a byte[], an
+/// ArrayList, a LinkedHashMap, a platform object, or an instance's wrapper, which owns its
+/// lucent_object. Local references.
+jobject javaOf(JNIEnv* env, double v);
+jobject javaOf(JNIEnv* env, bool v);
+jobject javaOf(JNIEnv* env, int64_t v);
+jstring javaOf(JNIEnv* env, lucent_string s);
+jbyteArray javaOf(JNIEnv* env, lucent_bytes b);
+jobject javaOf(JNIEnv* env, const lucent_value& v);
+jobject javaOf(JNIEnv* env, lucent_object o);
+
+/// The class (`dev/lucent/app/counters/Counter`) whose objects wrap instances of C++ type `type`:
+/// an instance an entry gives is one of the class registered for its own type.
+bool registerInstanceClass(const std::type_info& type, const char* javaClass);
+
+/// `error` as a dev.lucent.LucentException, and thrown into Java.
+jthrowable entryException(JNIEnv* env, const lucent_error& error);
+void throwEntryError(JNIEnv* env, const lucent_error& error);
+/// A C++ throw in a native's conversions, thrown into Java as the Lucent error it carries.
+void throwCaught(JNIEnv* env, std::exception_ptr e);
+
+/// An async entry's context for a dev.lucent.EntryCompletion (a global reference), and its
+/// settling: once, with `error`, or with what `value` makes of the result.
+void* entryCompletion(JNIEnv* env, jobject completion);
+void settleEntry(void* completion, const lucent_error* error, const std::function<jobject(JNIEnv*)>& value);
 
 /// The i-th argument of a proxy call (a local reference; boxed primitives).
 jobject arg(JNIEnv* env, jobjectArray args, int i);

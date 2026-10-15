@@ -371,3 +371,639 @@ extern "C" bool lucent_classes_Sized_get_text(lucent_object self, lucent_error* 
 #pragma pop_macro("deposit")
 #pragma pop_macro("created")
 #pragma pop_macro("advance")
+
+// The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
+// Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
+#if __has_include(<jni.h>)
+#include <lucent/platform/android.h>
+
+static const bool lucent_wrapper_C_Counter = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Counter), "dev/lucent/app/classes/Counter");
+static const bool lucent_wrapper_C_Stack = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Stack), "dev/lucent/app/classes/Stack");
+static const bool lucent_wrapper_C_Account = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Account), "dev/lucent/app/classes/Account");
+static const bool lucent_wrapper_C_Relay = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Relay), "dev/lucent/app/classes/Relay");
+static const bool lucent_wrapper_C_Labelled = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Labelled), "dev/lucent/app/classes/Labelled");
+static const bool lucent_wrapper_C_Sized = lucent::jni::registerInstanceClass(typeid(lucent_app::C_Sized), "dev/lucent/app/classes/Sized");
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_classes_ExportsNatives_useStack(JNIEnv* env, jclass, jobject arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_classes_useStack(in.value(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_classes_ExportsNatives_advance(JNIEnv* env, jclass, jobject arg0, jdouble arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_classes_advance(in.instance(arg0), arg1, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_classes_ExportsNatives_makeCounter(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_classes_makeCounter(arg0, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_dev_lucent_app_classes_ExportsNatives_same(JNIEnv* env, jclass, jobject arg0, jobject arg1) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    bool result{};
+    if (!lucent_classes_same(in.instance(arg0), in.instance(arg1), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return static_cast<jboolean>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_classes_ExportsNatives_presence(JNIEnv* env, jclass, jobject arg0, jstring arg1, jdouble arg2) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_classes_presence(in.instance(arg0), in.string(arg1), arg2, &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_classes_ExportsNatives_relayed(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_classes_relayed(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_classes_ExportsNatives_labelled(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_classes_labelled(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_classes_ExportsNatives_locations(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_classes_locations(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_classes_ExportsNatives_described(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_classes_described(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_classes_Counter_entry_1get_1label(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_classes_Counter_get_label(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_classes_Counter_entry_1get_1value(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_classes_Counter_get_value(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_classes_Counter_entry_1set_1value(JNIEnv* env, jclass, jlong self, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_classes_Counter_set_value(reinterpret_cast<lucent_object>(self), arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_classes_Counter_entry_1reset(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_classes_Counter_reset(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_classes_Counter_entry_1describe(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_classes_Counter_describe(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_classes_Counter_entry_1get_1created(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_classes_Counter_get_created(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_classes_Counter_entry_1set_1created(JNIEnv* env, jclass, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_classes_Counter_set_created(arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_classes_Counter_entry_1total(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_classes_Counter_total(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_classes_Stack_entry_1new(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_classes_Stack_new(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_classes_Stack_entry_1push(JNIEnv* env, jclass, jlong self, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_classes_Stack_push(reinterpret_cast<lucent_object>(self), arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_classes_Stack_entry_1pop(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_classes_Stack_pop(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_classes_Stack_entry_1get_1length(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_classes_Stack_get_length(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_dev_lucent_app_classes_Stack_entry_1toArray(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_value result{};
+    if (!lucent_classes_Stack_toArray(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_classes_Account_entry_1new(JNIEnv* env, jclass, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_object result{};
+    if (!lucent_classes_Account_new(in.string(arg0), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return reinterpret_cast<jlong>(result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_classes_Account_entry_1get_1owner(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_classes_Account_get_owner(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_classes_Account_entry_1deposit(JNIEnv* env, jclass, jlong self, jdouble arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_classes_Account_deposit(reinterpret_cast<lucent_object>(self), arg0, &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_classes_Account_entry_1get_1balance(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_classes_Account_get_balance(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_classes_Account_entry_1secret(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_classes_Account_secret(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_classes_Relay_entry_1get_1last(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_classes_Relay_get_last(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_classes_Relay_entry_1set_1last(JNIEnv* env, jclass, jlong self, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_classes_Relay_set_last(reinterpret_cast<lucent_object>(self), in.string(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_lucent_app_classes_Relay_entry_1send(JNIEnv* env, jclass, jlong self, jstring arg0) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    if (!lucent_classes_Relay_send(reinterpret_cast<lucent_object>(self), in.string(arg0), &error)) {
+      lucent::jni::throwEntryError(env, error);
+      return;
+    }
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_classes_Labelled_entry_1get_1name(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_classes_Labelled_get_name(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_classes_Labelled_entry_1get_1label(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_classes_Labelled_get_label(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_classes_Labelled_entry_1get_1next(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_classes_Labelled_get_next(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_classes_Labelled_entry_1get_1total(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_classes_Labelled_get_total(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_classes_Sized_entry_1get_1text(JNIEnv* env, jclass, jlong self) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_classes_Sized_get_text(reinterpret_cast<lucent_object>(self), &error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+/// Registers the natives above, for a host that finds none by name (the desktop JNI host).
+extern "C" void lucent_entries_register_natives(JNIEnv* env) {
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("useStack"), const_cast<char*>("(Ljava/util/List;)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_ExportsNatives_useStack)},
+        {const_cast<char*>("advance"), const_cast<char*>("(Ldev/lucent/app/classes/Counter;D)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_ExportsNatives_advance)},
+        {const_cast<char*>("makeCounter"), const_cast<char*>("(D)Ldev/lucent/app/classes/Counter;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_ExportsNatives_makeCounter)},
+        {const_cast<char*>("same"), const_cast<char*>("(Ldev/lucent/app/classes/Counter;Ldev/lucent/app/classes/Counter;)Z"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_ExportsNatives_same)},
+        {const_cast<char*>("presence"), const_cast<char*>("(Ldev/lucent/app/classes/Counter;Ljava/lang/String;D)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_ExportsNatives_presence)},
+        {const_cast<char*>("relayed"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_ExportsNatives_relayed)},
+        {const_cast<char*>("labelled"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_ExportsNatives_labelled)},
+        {const_cast<char*>("locations"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_ExportsNatives_locations)},
+        {const_cast<char*>("described"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_ExportsNatives_described)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/classes/ExportsNatives"), methods, 9);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_get_label"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Counter_entry_1get_1label)},
+        {const_cast<char*>("entry_get_value"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Counter_entry_1get_1value)},
+        {const_cast<char*>("entry_set_value"), const_cast<char*>("(JD)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Counter_entry_1set_1value)},
+        {const_cast<char*>("entry_reset"), const_cast<char*>("(J)Ldev/lucent/app/classes/Counter;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Counter_entry_1reset)},
+        {const_cast<char*>("entry_describe"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Counter_entry_1describe)},
+        {const_cast<char*>("entry_get_created"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Counter_entry_1get_1created)},
+        {const_cast<char*>("entry_set_created"), const_cast<char*>("(D)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Counter_entry_1set_1created)},
+        {const_cast<char*>("entry_total"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Counter_entry_1total)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/classes/Counter"), methods, 8);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("()J"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Stack_entry_1new)},
+        {const_cast<char*>("entry_push"), const_cast<char*>("(JD)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Stack_entry_1push)},
+        {const_cast<char*>("entry_pop"), const_cast<char*>("(J)Ljava/lang/Double;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Stack_entry_1pop)},
+        {const_cast<char*>("entry_get_length"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Stack_entry_1get_1length)},
+        {const_cast<char*>("entry_toArray"), const_cast<char*>("(J)Ljava/util/List;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Stack_entry_1toArray)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/classes/Stack"), methods, 5);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_new"), const_cast<char*>("(Ljava/lang/String;)J"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Account_entry_1new)},
+        {const_cast<char*>("entry_get_owner"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Account_entry_1get_1owner)},
+        {const_cast<char*>("entry_deposit"), const_cast<char*>("(JD)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Account_entry_1deposit)},
+        {const_cast<char*>("entry_get_balance"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Account_entry_1get_1balance)},
+        {const_cast<char*>("entry_secret"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Account_entry_1secret)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/classes/Account"), methods, 5);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_get_last"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Relay_entry_1get_1last)},
+        {const_cast<char*>("entry_set_last"), const_cast<char*>("(JLjava/lang/String;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Relay_entry_1set_1last)},
+        {const_cast<char*>("entry_send"), const_cast<char*>("(JLjava/lang/String;)V"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Relay_entry_1send)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/classes/Relay"), methods, 3);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_get_name"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Labelled_entry_1get_1name)},
+        {const_cast<char*>("entry_get_label"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Labelled_entry_1get_1label)},
+        {const_cast<char*>("entry_get_next"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Labelled_entry_1get_1next)},
+        {const_cast<char*>("entry_get_total"), const_cast<char*>("(J)D"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Labelled_entry_1get_1total)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/classes/Labelled"), methods, 4);
+    lucent::jni::check(env);
+  }
+  {
+    static const JNINativeMethod methods[] = {
+        {const_cast<char*>("entry_get_text"), const_cast<char*>("(J)Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_classes_Sized_entry_1get_1text)},
+    };
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/classes/Sized"), methods, 1);
+    lucent::jni::check(env);
+  }
+}
+#endif

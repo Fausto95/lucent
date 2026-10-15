@@ -34,13 +34,13 @@ bool lucent_interfaces_structural_Pixel_new(double arg0, double arg1, lucent_err
 /// interfaces-structural.Pixel.x()
 bool lucent_interfaces_structural_Pixel_get_x(lucent_object self, lucent_error* error, double* result);
 
-/// interfaces-structural.Pixel.x()
+/// interfaces-structural.Pixel.x(value)
 bool lucent_interfaces_structural_Pixel_set_x(lucent_object self, double arg0, lucent_error* error);
 
 /// interfaces-structural.Pixel.y()
 bool lucent_interfaces_structural_Pixel_get_y(lucent_object self, lucent_error* error, double* result);
 
-/// interfaces-structural.Pixel.y()
+/// interfaces-structural.Pixel.y(value)
 bool lucent_interfaces_structural_Pixel_set_y(lucent_object self, double arg0, lucent_error* error);
 
 #ifdef __cplusplus

@@ -265,6 +265,46 @@ object Shims {
     ).toContain('data class Stats(val label: String = "", val done: Double = 0.0)');
   });
 
+  it("print constructors, accessors, companions and init blocks", () => {
+    const text = kt.printUnit({
+      packageName: "dev.lucent.app.m",
+      decls: [
+        {
+          k: "class",
+          modifiers: ["open"],
+          name: "Counter",
+          params: [kt.param("handle", kt.type("Long"))],
+          constructorModifiers: ["internal"],
+          supertypes: [{ type: kt.type("Base"), args: [{ value: name("handle") }] }],
+          members: [
+            {
+              k: "constructor",
+              params: [kt.param("start", kt.type("Double"))],
+              delegate: { to: "this", args: [{ value: call(name("make"), []) }] },
+            },
+            {
+              k: "var",
+              modifiers: ["open"],
+              name: "value",
+              type: kt.type("Double"),
+              get: call(name("read"), []),
+              set: { param: "v", value: call(name("write"), [{ value: name("v") }]) },
+            },
+            {
+              k: "companion",
+              members: [{ k: "init", body: [kt.exprStmt(call(name("load"), []))] }],
+            },
+          ],
+        },
+      ],
+    });
+    expect(text).toContain(
+      "open class Counter internal constructor(handle: Long) : Base(handle) {\n  constructor(start: Double) : this(make())\n",
+    );
+    expect(text).toContain("  open var value: Double\n    get() = read()\n    set(v) = write(v)\n");
+    expect(text).toContain("  companion object {\n    init {\n      load()\n    }\n  }\n");
+  });
+
   it("prints the same text for the same tree", () => {
     const tree: kt.Unit = {
       packageName: "p",

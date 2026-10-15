@@ -1243,7 +1243,7 @@ describe("the app's Android dependencies", () => {
       expect(
         fs.existsSync(path.join(app.root, ".lucent/native/cpp/generated/android/m_m.cpp")),
       ).toBe(true);
-      expect(fs.readFileSync(libraryGradle, "utf8")).not.toMatch(/kotlin/);
+      expect(fs.readFileSync(libraryGradle, "utf8")).not.toMatch(/kotlinx-coroutines/);
     },
   );
 
