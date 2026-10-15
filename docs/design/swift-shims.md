@@ -41,7 +41,10 @@ which the call is written, and whether it is `async`, `throws` or
   (`SHA256.hash(data:)`, from `HashFunction`), with `Self.Digest` resolved
   through its typealiases. The standard library's are left out.
 - **Statics of generic types** bind when their extension fixes the type
-  parameters (`where Root: AVAsset`), as `ownerArgs`.
+  parameters (`where Root: AVAsset`), as `ownerArgs`. A static method
+  whose signature names each of them binds too: its call fixes them
+  (`Box.of(3)` is `Box<Double>.of(_:)`). A static property otherwise is
+  left out.
 - **Defaults.** Trailing default arguments are optional. One whose type
   has no Lucent value (`isolation: isolated (any Actor)? = #isolation`) is
   never given.
@@ -155,7 +158,8 @@ Swift generics cannot cross `@_cdecl`. A generic member gets one shim per
 combination of type arguments the program uses (`specialize`). They are
 the call's, from the checker's resolved signature, and the receiver's for
 a generic type (`Box<Point>`, held as `LucentBox<Box<Point>>`); a static's
-come from its extension.
+come from its extension, or from its call, whose declaration takes the
+type's parameters it names before its own.
 
 `sdkTypeOf` maps each type argument back to a Swift type: `number` is
 `Double`, `boolean` `Bool`, `Uint8Array` `Data`, an SDK class or union
