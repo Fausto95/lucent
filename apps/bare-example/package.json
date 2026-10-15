@@ -32,7 +32,7 @@
     "react-native-worklets": "0.13.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.2",
+    "@babel/core": "^8.0.7",
     "@babel/preset-env": "^8.0.6",
     "@babel/runtime": "^7.25.0",
     "@lucent-lang/lucent": "workspace:*",
