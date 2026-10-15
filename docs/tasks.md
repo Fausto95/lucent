@@ -659,7 +659,7 @@ still refuses.
 
 - **Status:** in progress: the members a module adds to `NSObject` (#272),
   weak references to SDK objects (#303), categories on other modules'
-  classes (#304).
+  classes (#304), overriding Kotlin suspend members (#305).
 - **Area:** bindings, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V4.
@@ -681,9 +681,10 @@ still refuses.
       type fixes them.
 - [ ] Async and throwing property requirements, and async initializers as
       constructors.
-- [ ] A Lucent `async` method overriding a Kotlin class's `suspend` member
-      (`CoroutineWorker.doWork` in T131 needs it). Implementing an
-      interface's `suspend` member works already.
+- [x] A Lucent `async` method overriding a Kotlin class's `suspend` member
+      (`CoroutineWorker.doWork` in T131 needs it) (#305): the Java
+      subclass's override passes the continuation on, as a proxy does,
+      run on the desktop JNI host with Kotlin's standard library.
 - [ ] Overriding Objective-C properties in a Lucent subclass.
 - [x] The instance members a module's Objective-C categories add to
       `NSObject`, from `<module>@ObjectiveC.symbols.json`: UIKit's
