@@ -13,8 +13,8 @@ import {
   foundFile,
   inNativePackage,
   inputsKey,
-  lucentPackages,
   moduleNameOf,
+  nativePackages,
   moduleNamespace,
   type NativeInputs,
   platformOf,
@@ -204,7 +204,7 @@ export async function buildProject(
     files = projectFiles(root);
     // Package files are hashed once while their size and times hold (large frameworks, libraries).
     const hashes = projectHashes(root);
-    native = resolveNative(lucentPackages(root), { hashes });
+    native = resolveNative(nativePackages(root), { hashes });
     hashes.save();
     nativeInputs = native.read;
   } catch (e) {

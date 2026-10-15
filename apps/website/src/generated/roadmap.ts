@@ -319,7 +319,7 @@ export const limitations: { title: string; items: string[] }[] = [
       "A delegate that must answer on the main thread waits for the job that holds its module's actor. Calls that nest two packages' actors in a cycle throw `Lucent: deadlock` rather than hang.",
       "A `UNUserNotificationCenter` delegate the app sets after a module first listens for notifications replaces Lucent's, so modules hear none after it ([T110](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t110)).",
       "On Android, an Activity that isn't AndroidX's `ComponentActivity` reports no configuration change, leave hint or back press, nor a new intent outside React Native's ([T110](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t110)).",
-      "The app's own `lucent.json` isn't read: only packages declare Info.plist keys, entitlements, pods and Gradle dependencies ([T111](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t111)). Android permissions of the app's own modules are still inferred from the SDK.",
+      "A package can't yet declare options an app sets, such as an API key ([T111](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t111)).",
       "Swift's `Data` and `NSData` cross into Lucent as a copy, so a file's or a response's bytes reach JavaScript after one copy ([T108](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t108)).",
       "On Android API 24 and 25, a Java default method that Lucent doesn't implement returns its zero value, and the reason is logged.",
       "A Lucent package's pod binds once installed. In a bare app, the first `lucent build` that meets it declares it in the podspec and fails with LUCENT3004 naming the pod. After `pod install`, it binds.",

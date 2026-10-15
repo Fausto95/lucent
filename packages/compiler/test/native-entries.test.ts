@@ -289,6 +289,25 @@ describe.skipIf(!clangxx)("native entry points", () => {
     expect(ran.status).toBe(0);
   }, 300_000);
 
+  it("start the app's own launch modules, which its lucent.json names as its modules are named", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-launch-"));
+    fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "my-app" }));
+    fs.writeFileSync(path.join(dir, "lucent.json"), JSON.stringify({ launch: ["tasks"] }));
+    fs.writeFileSync(path.join(dir, "tasks.lucent.ts"), tasks);
+    const r = compile([path.join(dir, "tasks.lucent.ts")], { platforms: ["host"], root: dir });
+    expect(r.diagnostics.map((d) => d.message)).toEqual([]);
+    expect(r.files.get("lucent_entries.cpp")).toContain("// Launch modules: tasks.");
+
+    fs.writeFileSync(path.join(dir, "lucent.json"), JSON.stringify({ launch: ["task"] }));
+    const missing = compile([path.join(dir, "tasks.lucent.ts")], {
+      platforms: ["host"],
+      root: dir,
+    });
+    expect(missing.diagnostics.map((d) => `${d.code} ${d.message}`)).toEqual([
+      `LUCENT3015 the app's lucent.json's launch lists "task", but the app has no module task`,
+    ]);
+  });
+
   it("fail the build for a launch module the package doesn't have", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-launch-"));
     fs.writeFileSync(

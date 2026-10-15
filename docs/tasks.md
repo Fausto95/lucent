@@ -36,7 +36,7 @@ what became of each one that is still linked or was still open.
 | [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | done (2026-10-13)                                       |
 | [T109](#t109)            | Executors for platform callbacks                           | done (2026-10-13)                                       |
 | [T110](#t110)            | App-delegate and Activity events                           | done (2026-10-14)                                       |
-| [T111](#t111)            | The app's own native needs and options                     | ready                                                   |
+| [T111](#t111)            | The app's own native needs and options                     | in progress (#296)                                      |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | in progress                                             |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | done (2026-10-15)                                       |
 | [T114](#t114)            | Native code that calls Lucent modules                      | waiting; needs T130                                     |
@@ -614,25 +614,26 @@ runs.
 **Goal:** Modules in the app itself declare their native needs, as a
 package's do, and an app sets the options a package asks for.
 
-- **Status:** ready.
+- **Status:** in progress: the app's own `lucent.json` (#296).
 - **Area:** compiler, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V5, V6.
 - **Where:** `package-config.ts`, `packages.ts`, `app.plugin.js`.
 
-Today only dependency packages' `lucent.json` is read
-(`lucentPackages` visits dependencies, never the app's root). The app's own
-modules get Android permissions inferred from `@RequiresPermission`, and
-nothing else.
+Only dependency packages' `lucent.json` was read (`lucentPackages` visits
+dependencies, never the app's root). The app's own modules got Android
+permissions inferred from `@RequiresPermission`, and nothing else.
 
-- [ ] The app's root `lucent.json`, with the package schema, read and
+- [x] The app's root `lucent.json`, with the package schema, read and
       merged like a package's: Info.plist keys, entitlements, pods, Gradle
       dependencies, Android permissions and components, native sources,
-      extensions.
+      extensions (#296). Where the app gives a value of its own, it wins;
+      its launch modules and components' classes are named as its modules
+      are.
 - [ ] Per-app options: a package declares the values an app must or may
       set (an API key, a usage string), and the app's `lucent.json` sets
       them. The app's values win over a package's.
-- [ ] The build reruns when it changes, as it does for packages.
+- [x] The build reruns when it changes, as it does for packages (#296).
 - [ ] `lucent new module --template sdk-ios-android` writes the keys its
       sample needs into it.
 - [ ] Tests: a fixture app whose own module needs an Info.plist key and a

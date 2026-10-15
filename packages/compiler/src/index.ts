@@ -33,7 +33,13 @@ import { withSourceRoot } from "./lowering/source.ts";
 import { resolveNative } from "./package-config.ts";
 import { readPackageNative } from "./package-schema.ts";
 import { fileHashes } from "./package-files.ts";
-import { ignoreCompatible, incompatibility, lucentPackageOf, lucentPackages } from "./packages.ts";
+import {
+  appPackage,
+  ignoreCompatible,
+  incompatibility,
+  lucentPackageOf,
+  nativePackages,
+} from "./packages.ts";
 import { compileContext, runInCompile } from "./compile-context.ts";
 import { sdkUsesOf } from "./sdk/usage.ts";
 import { analyzeViews, hasComponentModules } from "./ui/analyze.ts";
@@ -77,7 +83,9 @@ export {
 export { viewCoverage, type ViewCoverage } from "./ui/view-coverage.ts";
 export {
   LUCENT_EXTENSION,
+  appPackage,
   lucentPackages,
+  nativePackages,
   ignoreCompatible,
   incompatibility,
   lucentVersion,
@@ -214,7 +222,7 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
     throw new Error(`deferred platforms cannot be targets: ${targeted.join(", ")}`);
 
   // The modules the files' packages create at launch, and LUCENT3015 for a name that is none.
-  const launch = launchModules(files);
+  const launch = launchModules(files, options.root);
 
   // This compile's own options and records: another compile in the process (an editor's check
   // while `lucent dev` builds) has its own.
@@ -293,11 +301,32 @@ function packageProblems(files: readonly string[]): Diagnostic[] {
  * of its package. A lucent.json that fails its check counts none: the
  * build reports it.
  */
-function launchModules(files: readonly string[]): { modules: string[]; problems: Diagnostic[] } {
+function launchModules(
+  files: readonly string[],
+  root?: string,
+): { modules: string[]; problems: Diagnostic[] } {
   const names = new Set(files.map(moduleNameOf));
   const seen = new Set<string>();
   const modules = new Set<string>();
   const problems: Diagnostic[] = [];
+
+  // The app's own lucent.json names its modules as they are named: without a package.
+  const app = root ? appPackage(root) : undefined;
+  let own: string[] | undefined;
+  try {
+    own = app && readPackageNative(app)?.launch;
+  } catch {
+    own = undefined;
+  }
+  for (const listed of own ?? []) {
+    if (names.has(listed)) modules.add(listed);
+    else
+      problems.push({
+        code: Codes.UnknownLaunchModule,
+        message: `the app's lucent.json's launch lists "${listed}", but the app has no module ${listed}`,
+        file: path.join(app!.dir, "lucent.json"),
+      });
+  }
 
   for (const f of files) {
     const pkg = lucentPackageOf(f);
@@ -612,7 +641,7 @@ export function projectExtensions(root: string): ExtensionBinding[] {
   const hashes = fileHashes(path.join(root, ".lucent/file-hashes.json"));
 
   try {
-    const bound = bindExtensions(resolveNative(lucentPackages(root), { hashes }).extensions);
+    const bound = bindExtensions(resolveNative(nativePackages(root), { hashes }).extensions);
     hashes.save();
     return bound;
   } catch {

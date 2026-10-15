@@ -22,6 +22,12 @@ export interface LucentPackage {
   sources: string;
   /** Lucent versions it supports (an npm range). */
   compatible?: string;
+  /**
+   * The app itself, whose own lucent.json declares its modules' native
+   * needs: they win over a package's, and its modules' names have no
+   * package in them.
+   */
+  app?: true;
 }
 
 interface PackageJson {
@@ -126,6 +132,38 @@ export function lucentPackages(root: string): LucentPackage[] {
   };
   visit(root, read(path.join(root, "package.json"))?.dependencies ?? {});
   return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * What declares native needs for the app at `root`: the Lucent packages it
+ * depends on, and the app itself when its root has a lucent.json (its own
+ * modules' needs, and the options it sets).
+ */
+export function nativePackages(root: string): LucentPackage[] {
+  const dir = path.resolve(root);
+  // A Lucent package built on its own: its lucent.json is a package's, its modules named by it.
+  const self = lucentPackageOf(path.join(dir, "package.json"));
+  const own = self?.dir === dir ? self : appPackage(dir);
+  const withOwn = own && fs.existsSync(path.join(dir, "lucent.json")) ? [own] : [];
+  return [...lucentPackages(root).filter((p) => p.dir !== dir), ...withOwn];
+}
+
+/**
+ * The app at `root` as what declares its own modules' needs, when it has a
+ * lucent.json and isn't a Lucent package itself.
+ */
+export function appPackage(root: string): LucentPackage | undefined {
+  const dir = path.resolve(root);
+  if (!fs.existsSync(path.join(dir, "lucent.json"))) return undefined;
+  if (lucentPackageOf(path.join(dir, "package.json"))?.dir === dir) return undefined;
+  const pkg = read(path.join(dir, "package.json"));
+  return {
+    name: pkg?.name ?? path.basename(dir),
+    version: pkg?.version ?? "0.0.0",
+    dir,
+    sources: dir,
+    app: true,
+  };
 }
 
 /** A dependency's directory as Node finds it from `from`: node_modules up the tree (links followed). */

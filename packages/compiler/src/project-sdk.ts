@@ -13,7 +13,7 @@ import {
 } from "@lucent-lang/bindgen";
 import { type NativeInputs, resolveNative } from "./package-config.ts";
 import { fileHashes } from "./package-files.ts";
-import { lucentPackages } from "./packages.ts";
+import { nativePackages } from "./packages.ts";
 import type { SdkOptions } from "./sdk/schema.ts";
 
 /** Where `lucent sdk lock --schemas` exports the schemas a machine without an SDK types from. */
@@ -78,7 +78,7 @@ function packageBinaries(root: string): Pick<NativeInputs, "binaries" | "swiftSo
   const hashes = projectHashes(root);
 
   try {
-    const { binaries, swiftSources } = resolveNative(lucentPackages(root), { hashes });
+    const { binaries, swiftSources } = resolveNative(nativePackages(root), { hashes });
     hashes.save();
     return { binaries, swiftSources };
   } catch {
