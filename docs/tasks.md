@@ -38,7 +38,7 @@ what became of each one that is still linked or was still open.
 | [T110](#t110)            | App-delegate and Activity events                           | done (2026-10-14)                                       |
 | [T111](#t111)            | The app's own native needs and options                     | ready                                                   |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | in progress                                             |
-| [T113](#t113)            | Classes that extend `EventEmitter`                         | ready                                                   |
+| [T113](#t113)            | Classes that extend `EventEmitter`                         | done (2026-10-15)                                       |
 | [T114](#t114)            | Native code that calls Lucent modules                      | waiting; needs T130                                     |
 | [T115](#t115)            | Native configuration packages can't declare yet            | ready                                                   |
 | **View parity**          |                                                            |                                                         |
@@ -691,21 +691,23 @@ coverage file shows the change.
 **Goal:** `class Player extends EventEmitter<Events>` works, so a native
 object has `addListener` itself, as Expo's shared objects do.
 
-- **Status:** ready.
+- **Status:** done (2026-10-15, #295).
 - **Area:** compiler, runtime.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3.
 - **Where:** `emit/classes.ts`, `events.h`, `emit/bindings.ts`.
 
-Today a class can hold an `EventEmitter` field, but extending one fails
-with LUCENT1005 ("classes can only extend Lucent classes, Error and SDK
+A class could hold an `EventEmitter` field, but extending one failed with
+LUCENT1005 ("classes can only extend Lucent classes, Error and SDK
 classes").
 
-- [ ] A Lucent class extends `EventEmitter`, and its instances cross to
-      JavaScript with `addListener`, `removeAllListeners` and
-      `listenerCount`, keeping their identity.
-- [ ] `onObserved` works per instance.
-- [ ] e2e: `emitter-classes`.
+- [x] A Lucent class extends `EventEmitter`, and its instances cross to
+      JavaScript with `addListener`, `emit`, `removeAllListeners` and
+      `listenerCount`, keeping their identity (#295): its C++ class
+      derives from the emitter, and its prototype has the emitter's
+      methods.
+- [x] `onObserved` works per instance.
+- [x] e2e: `emitter-classes`.
 
 **Done when:** the case passes natively and as JavaScript.
 

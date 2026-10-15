@@ -1524,6 +1524,9 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       if (info.isError && name === "toString") return str(cpp.call("lucent::errorToString", [o]));
       const found = classMemberDecl(em, t, name);
       const decl = found?.decl;
+      // An emitter's methods, which a class extending EventEmitter has.
+      const emitter = !decl && em.reg.emitterOf(info);
+      if (emitter) return emitterMethod(em, { c: o, t: emitter }, name, node);
       // Its methods touch the main-thread class it extends: called there.
       requireSubclassMain(node, info, (n) => inMainContext(em, n));
       if (decl && ts.isMethodDeclaration(decl))
@@ -3441,6 +3444,16 @@ export function superCall(em: FnEmitter, node: ts.CallExpression): E {
         osMade(cls)
           ? `${cls.decl.name?.text}: the OS makes it, so super(…) passes the constructor's parameters, unchanged and in order`
           : `extending ${cls.sdkBase.name}: call super() without arguments`,
+      );
+    return { c: cpp.id("lucent::undefined"), t: T.undefined };
+  }
+  // EventEmitter's constructor takes nothing: the instance knows its events' names already.
+  if (cls?.emitter) {
+    if (node.arguments.length)
+      fail(
+        node,
+        Codes.UnsupportedClassFeature,
+        "extending EventEmitter: call super() without arguments",
       );
     return { c: cpp.id("lucent::undefined"), t: T.undefined };
   }

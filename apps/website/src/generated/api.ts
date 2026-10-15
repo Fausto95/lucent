@@ -229,6 +229,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Events a module sends to its listeners, in Lucent and in JavaScript. `Events` names each event and its listener's signature, as Expo's `EventEmitter` does: `EventEmitter<{ progress: (percent: number) => void }>`.",
           "`emit(name, ...args)` calls the event's listeners, in the order they were added; those added or removed while it runs take effect at the next emit. A listener's throw ends the emit and reaches its caller. In Lucent, an event's name is a string literal.",
           "An EventEmitter crosses to JavaScript as the same object each time, with the same methods.",
+          "A class can extend it, as Expo's shared objects do. Each instance of `class Player extends EventEmitter<PlayerEvents>` sends those events, in Lucent and in JavaScript, and has the class's fields and methods. Its constructor calls `super()` without arguments, and it declares no member named like an EventEmitter's.",
           "A JavaScript listener is a callback Lucent holds. During a synchronous call from JavaScript it runs at once. From anywhere else it is posted to the JS thread, with copies of its arguments.",
           "Each JavaScript listener belongs to its runtime: a reload removes it, and `listenerCount` stops counting it. In JavaScript, naming an event that the type doesn't declare throws a TypeError."
         ],

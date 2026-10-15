@@ -29,7 +29,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT1002`](#lucent1002) | An operator the subset doesn't support: `delete`, `instanceof` with a generic class, or `in` on a class, a union or an object type. A loose `==` that JavaScript converts for, or comparing two functions, is refused too. |
 | [`LUCENT1003`](#lucent1003) | A built-in function, method or argument Lucent does not implement, such as `Symbol()`, `eval`, `normalize()`, a locale argument or an unknown `Math`, `Number` or string method. |
 | [`LUCENT1004`](#lucent1004) | A destructuring form outside the subset: computed keys, a class instance's rest, or a pattern without an initializer. |
-| [`LUCENT1005`](#lucent1005) | A class feature outside the subset: extending a built-in other than `Error`, an override with another native signature, a static block or a decorator. |
+| [`LUCENT1005`](#lucent1005) | A class feature outside the subset: extending a built-in other than `Error` and `EventEmitter`, an override with another native signature, a static block or a decorator. |
 | [`LUCENT1006`](#lucent1006) | Throwing a value that is not an `Error`. |
 | [`LUCENT1007`](#lucent1007) | A call Lucent cannot compile: a callback reporting a promise, a borrow's unseen callback, or a platform class with no constructor binding. |
 | [`LUCENT1008`](#lucent1008) | An assignment to something that cannot be assigned, such as an unknown field or a function. |

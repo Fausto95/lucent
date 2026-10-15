@@ -697,7 +697,13 @@ listener's throw ends it. The emitter crosses as one object. A listener
 JavaScript adds runs at once on the JS thread, or posted with copies of
 its arguments, and a reload removes it. From JavaScript, an undeclared
 event throws `TypeError`. `onObserved(name, observer)` hears an event's
-first listener come and its last one go.
+first listener come and its last one go. A class can extend
+`EventEmitter<Events>`: its C++ class derives from the emitter, which its
+constructor gives the events' names, and its prototype in JavaScript has
+the emitter's methods (`defineEmitterPrototype`), so an instance keeps
+its identity and its listeners. It calls `super()` without arguments, and
+a member named like the emitter's is `LUCENT1005`; a generic class can't
+extend it.
 
 ### Errors and codes
 

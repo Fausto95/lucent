@@ -93,7 +93,7 @@ Goal: Write a module once in TypeScript, and call it from JavaScript as a native
 - ✅ `setTimeout`, `setInterval` and `queueMicrotask`, on the context that calls them.
 - ✅ Promise chaining and combinators, settled in JavaScript's microtask order.
 - ✅ Web APIs: `TextEncoder`, `TextDecoder`, `atob`, `btoa`, `URL`, `URLSearchParams` and `crypto`'s random values.
-- ⏳ Classes that extend `EventEmitter`, so native objects have their own listeners.
+- ✅ Classes that extend `EventEmitter`, so native objects have their own listeners.
 
 ### Platform APIs
 
@@ -194,6 +194,11 @@ In order ([docs/tasks.md](docs/tasks.md#status) has every task's state):
 7. [T106](docs/tasks.md#t106) and [T105](docs/tasks.md#t105) (done): the
    language gaps module code meets most, and the web APIs shared code
    uses.
+8. [T113](docs/tasks.md#t113) (done): classes that extend `EventEmitter`,
+   as Expo's shared objects do.
+9. The rest of the module parity gate: [T112](docs/tasks.md#t112)'s SDK
+   shapes, [T111](docs/tasks.md#t111) and [T115](docs/tasks.md#t115)'s
+   native needs and configuration.
 
 ## Recording work
 

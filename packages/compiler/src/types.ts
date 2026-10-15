@@ -613,6 +613,12 @@ export interface ClassInfo {
    * Objective-C (iOS) subclass stands for its instances.
    */
   sdkBase?: LType & { k: "native" };
+  /**
+   * The EventEmitter this one extends (`extends EventEmitter<Events>`): its
+   * instances are emitters, a lucent::EventEmitterObject its C++ class
+   * derives from.
+   */
+  emitter?: LType & { k: "emitter" };
 }
 
 /** A class type and its ancestors, nearest first, with type arguments substituted. */
@@ -928,11 +934,21 @@ export class TypeRegistry {
       info.sdkBase = t;
       return;
     }
+    if (t.k === "emitter") {
+      if (info.typeParams.length)
+        fail(
+          expr,
+          Codes.UnsupportedClassFeature,
+          "a generic class can't extend EventEmitter: give its events their types",
+        );
+      info.emitter = t;
+      return;
+    }
     if (t.k !== "class")
       fail(
         expr,
         Codes.UnsupportedClassFeature,
-        "classes can only extend Lucent classes, Error and SDK classes",
+        "classes can only extend Lucent classes, EventEmitter, Error and SDK classes",
       );
     info.base = { id: t.id, args: t.args };
   }
@@ -941,6 +957,11 @@ export class TypeRegistry {
   propagateErrors(): void {
     for (const c of this.classes.values())
       if (this.ancestors(c).some((a) => a.isError)) c.isError = true;
+  }
+
+  /** The EventEmitter a class's instances are: the one it, or a base class, extends. */
+  emitterOf(info: ClassInfo): (LType & { k: "emitter" }) | undefined {
+    return info.emitter ?? this.ancestors(info).find((a) => a.emitter)?.emitter;
   }
 
   /** Base classes, nearest first. */

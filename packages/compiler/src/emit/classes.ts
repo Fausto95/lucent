@@ -224,11 +224,13 @@ export function emitClass(
   const inherited = (name: string, test: (m: InstanceMember) => boolean) =>
     findMember(ancestry, name, test);
   const inHierarchy = !!info.base || reg.descendants(info.id).length > 0;
+  // Extending EventEmitter: its instances are emitters, which know their events' names.
+  const emitterBase = info.emitter && reg.cppEmitterType(info.emitter);
   const bases: cpp.Base[] = [
     {
       type: baseT
         ? reg.cppClassType(baseT)
-        : cpp.type(info.isError ? "lucent::ErrorObject" : "lucent::Object"),
+        : (emitterBase ?? cpp.type(info.isError ? "lucent::ErrorObject" : "lucent::Object")),
     },
     // Virtual, so a class implementing both A and B extends A has one A.
     ...ifacesOf(ctx, info).map((i) => ({ type: reg.cppIfaceType(i), virtual: true })),
@@ -673,13 +675,40 @@ export function emitClass(
     ),
   );
   body.push(refsMethod());
+  if (info.emitter && emitterBase) {
+    const names = info.emitter.events.map((e) =>
+      cpp.construct(cpp.type("std::string"), [cpp.str(e.name)]),
+    );
+    body.push({
+      k: "method",
+      name: info.cppName,
+      params: [],
+      body: [],
+      initializers: [
+        {
+          name: cpp.printType(emitterBase),
+          args: [cpp.construct(cpp.type("std::vector", cpp.type("std::string")), names, true)],
+        },
+      ],
+    });
+    // The emitter's own methods are its instances': a member of the same name would hide them.
+    for (const m of info.members) {
+      const name = m.name && ts.isIdentifier(m.name) ? m.name.text : undefined;
+      if (name && EMITTER_MEMBERS.has(name))
+        fail(
+          m,
+          Codes.UnsupportedClassFeature,
+          `${className} extends EventEmitter, whose ${name} its instances have: name this member otherwise`,
+        );
+    }
+  }
   const overrides = ctx.guard(() => ifaceOverrides(ctx, info)) ?? [];
   const definition = cpp.struct(info.cppName, [...body, ...overrides], {
     ...(template ? { template } : {}),
     bases,
   });
   const refs = refsDefinition(selfType, ownFields, {
-    ...(baseT ? { base: reg.cppClassType(baseT) } : {}),
+    ...(baseT ? { base: reg.cppClassType(baseT) } : emitterBase ? { base: emitterBase } : {}),
     ...(template ? { template } : {}),
   });
   return { definition, refs, members, statics };
@@ -689,6 +718,15 @@ export function emitClass(
 function assigns(name: string, place: cpp.Expr, value: ValueId): Leaf {
   return { name, code: cpp.assign(place, operand(value)), type: T.void };
 }
+
+/** What an EventEmitter's instances have, which a class extending it can't declare again. */
+const EMITTER_MEMBERS = new Set([
+  "addListener",
+  "emit",
+  "listenerCount",
+  "removeAllListeners",
+  "onObserved",
+]);
 
 /** Error's own fields, which a subclass redeclaring them shares. */
 const ERROR_FIELDS = ["name", "message"];

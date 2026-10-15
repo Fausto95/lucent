@@ -1154,6 +1154,36 @@ export function size(t: Tree<number>): number {
     });
   });
 
+  describe("classes that extend EventEmitter", () => {
+    const events =
+      'import { EventEmitter } from "lucent:core";\ntype Events = { tick: (n: number) => void };\n';
+
+    it("compile, with the emitter's methods on their instances", () => {
+      expect(
+        codes(
+          `${events}export class Player extends EventEmitter<Events> {\n  constructor() {\n    super();\n  }\n  play(): void {\n    this.emit("tick", 1);\n  }\n}\nexport function f(p: Player): number {\n  p.addListener("tick", () => {});\n  return p.listenerCount("tick");\n}\n`,
+        ),
+      ).toEqual([]);
+    });
+
+    it.each([
+      [
+        "a member named like the emitter's",
+        `${events}export class Player extends EventEmitter<Events> {\n  emit(): void {}\n}\n`,
+      ],
+      [
+        "super() with arguments",
+        `${events}export class Player extends EventEmitter<Events> {\n  constructor() {\n    // @ts-expect-error\n    super(1);\n  }\n}\n`,
+      ],
+      [
+        "a generic class",
+        `${events}export class Player<T> extends EventEmitter<Events> {\n  value?: T;\n}\nexport function f(): Player<number> {\n  return new Player<number>();\n}\n`,
+      ],
+    ])("refuse %s (LUCENT1005)", (_, src) => {
+      expect(codes(src)).toContain("LUCENT1005");
+    });
+  });
+
   describe("URL and URLSearchParams", () => {
     it.each([
       [

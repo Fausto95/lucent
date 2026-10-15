@@ -58,7 +58,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "Web APIs: `TextEncoder`, `TextDecoder`, `atob`, `btoa`, `URL`, `URLSearchParams` and `crypto`'s random values."
       },
       {
-        "status": "next",
+        "status": "done",
         "text": "Classes that extend `EventEmitter`, so native objects have their own listeners."
       }
     ],
@@ -302,7 +302,6 @@ export const limitations: { title: string; items: string[] }[] = [
       "Spread into an SDK call is refused (`LUCENT1001`), and so is `for…of` over a tuple (`LUCENT1009`). An async generator's `yield*` takes an iterable, not another async generator; its `throw()` and `next(value)` are refused (`LUCENT1003`), and so are its `yield`'s value and `return v` (`LUCENT1001`). A generator's `yield*` into another that takes values of another type, or yields other elements, is `LUCENT1001`.",
       "Where `TNext` leaves out `undefined`, a generator's `next()` without a value gives its `yield` the type's default. An object throws `TypeError`. A step's value after the result was reported is the same.",
       "Decorators give `LUCENT1005`, and default exports `LUCENT3003`.",
-      "A class can't extend `EventEmitter` (`LUCENT1005`): hold one in a field instead ([T113](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t113)).",
       "On object types, `Object.keys`, `values` and `entries` are refused, and so are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`).",
       "`new Array(n)` needs a whole `.fill(v)`, even when each index is then assigned. `Array.from({ length: n })` needs a map function when elements can't be `undefined`. Writing past an array's end throws `RangeError`.",
       "A field or variable of an object type read before it is assigned throws `TypeError`, where JavaScript reads `undefined`. One of a value type reads its default.",
