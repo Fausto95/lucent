@@ -16,3 +16,25 @@ void initModules() {
 
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
+
+#pragma push_macro("compareOptional")
+#undef compareOptional
+#pragma push_macro("toNumberNullable")
+#undef toNumberNullable
+
+extern "C" bool lucent_bigint_unions_toNumberNullable(lucent_value arg0, lucent_error* error, double* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_unions::toNumberNullable(lucent::entries::optionalIn<lucent::BigInt>(lucent::entries::bigintIn, true)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_unions_compareOptional(lucent_value arg0, int64_t arg1, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_unions::compareOptional(lucent::entries::optionalIn<lucent::BigInt>(lucent::entries::bigintIn, false)(arg0), lucent::entries::in(arg1));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::booleanOut)(kept, value);
+  });
+}
+
+#pragma pop_macro("toNumberNullable")
+#pragma pop_macro("compareOptional")

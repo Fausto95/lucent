@@ -39,7 +39,7 @@ what became of each one that is still linked or was still open.
 | [T111](#t111)            | The app's own native needs and options                     | done (2026-10-15)                                       |
 | [T112](#t112)            | SDK shapes Lucent still refuses                            | in progress                                             |
 | [T113](#t113)            | Classes that extend `EventEmitter`                         | done (2026-10-15)                                       |
-| [T114](#t114)            | Native code that calls Lucent modules                      | in progress (#315)                                      |
+| [T114](#t114)            | Native code that calls Lucent modules                      | in progress (#315, #316)                                |
 | [T115](#t115)            | Native configuration packages can't declare yet            | in progress (#299, #300, #301, #302)                    |
 | **View parity**          |                                                            |                                                         |
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
@@ -777,7 +777,8 @@ classes").
 Lucent module's exports, as other native code calls a Nitro object or an
 Expo module.
 
-- **Status:** in progress: the API's shape is decided (#315).
+- **Status:** in progress: the API's shape is decided (#315), and entries
+  pass optionals, arrays, records and platform objects (#316).
 - **Area:** compiler, runtime, iOS and Android hosts.
 - **Needs:** nothing; [T130](#t130)'s entry points are done.
 - **Verify:** V1, V3, V4, V5.
@@ -788,8 +789,11 @@ Expo module.
       Kotlin class)
       ([0116](decisions/0116-native-code-calls-a-modules-exports-through-generated-swift-and-kotlin.md),
       #315).
-- [ ] Entries for the rest of what crosses: optionals, arrays, records and
-      platform objects.
+- [x] Entries for the rest of what crosses: optionals, arrays, records and
+      platform objects (#316): a `lucent_value`, run on the host and, for
+      platform objects, the desktop JNI host. A platform file exports what
+      takes or gives a platform object for native code alone
+      ([0117](decisions/0117-a-platform-file-exports-what-takes-platform-objects-for-native-code-alone.md)).
 - [ ] Entries for exported classes: a constructor, methods, properties and
       a release, with instances as `lucent_object`.
 - [ ] The Swift API in `LucentNative`, and its `LucentError`.

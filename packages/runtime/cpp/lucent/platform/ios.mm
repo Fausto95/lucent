@@ -1,5 +1,6 @@
 // Lucent runtime — iOS: the main queue.
 #include "ios.h"
+#include "../entries.h"
 
 #import <dispatch/dispatch.h>
 
@@ -16,3 +17,13 @@ void postToMain(std::function<void()> job) {
 bool onMainThread() { return [NSThread isMainThread]; }
 
 }  // namespace lucent
+
+namespace lucent::entries {
+
+// A native entry's platform objects (decision 0116): an object the caller still owns, retained;
+// one given, kept until the caller is done with it.
+NativeRef nativeIn(void* object) { return objc::wrap((__bridge id)object, "a native entry's argument"); }
+
+void* nativeOut(Kept& k, const NativeRef& r) { return k.keep(r); }
+
+}  // namespace lucent::entries

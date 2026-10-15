@@ -31,10 +31,60 @@ lucent_bytes Kept::keep(const Bytes& b) {
   return lucent_bytes{kept.data(), kept.size()};
 }
 
+void* Kept::keep(const NativeRef& r) {
+  objects_.push_back(r);
+  return objects_.back().get();
+}
+
+lucent_value* Kept::values(size_t n) {
+  values_.emplace_back(n, lucent_value{LUCENT_NULL, {}});
+  return values_.back().data();
+}
+
+lucent_string* Kept::keys(size_t n) {
+  keys_.emplace_back(n, lucent_string{nullptr, 0});
+  return keys_.back().data();
+}
+
 void Kept::clear() {
   strings_.clear();
   bytes_.clear();
+  values_.clear();
+  keys_.clear();
+  objects_.clear();
 }
+
+namespace detail {
+
+static const char* kindName(lucent_kind kind) {
+  switch (kind) {
+    case LUCENT_NULL:
+      return "null";
+    case LUCENT_BOOLEAN:
+      return "a boolean";
+    case LUCENT_NUMBER:
+      return "a number";
+    case LUCENT_BIGINT:
+      return "a bigint";
+    case LUCENT_STRING:
+      return "a string";
+    case LUCENT_BYTES:
+      return "bytes";
+    case LUCENT_ARRAY:
+      return "an array";
+    case LUCENT_RECORD:
+      return "a record";
+    case LUCENT_PLATFORM_OBJECT:
+      return "a platform object";
+  }
+  return "a value of unknown kind";
+}
+
+void wrongKind(lucent_kind got, const char* expected) {
+  throwTypeError((std::string("A native entry was given ") + kindName(got) + " where it takes " + expected).c_str());
+}
+
+}  // namespace detail
 
 Kept& threadKept() {
   thread_local Kept kept;

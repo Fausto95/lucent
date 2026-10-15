@@ -37,6 +37,8 @@ extern "C" void lucent_launch(void) {}
 #undef nanLoop
 #pragma push_macro("oddsBelow")
 #undef oddsBelow
+#pragma push_macro("optionals")
+#undef optionals
 #pragma push_macro("out")
 #undef out
 #pragma push_macro("pairs")
@@ -187,6 +189,13 @@ extern "C" bool lucent_control_flow_bits(double arg0, double arg1, lucent_error*
   });
 }
 
+extern "C" bool lucent_control_flow_optionals(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_control_u2d_flow::optionals(lucent::entries::optionalIn<double>(lucent::entries::numberIn, false)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
 extern "C" bool lucent_control_flow_truthy(lucent_string arg0, double arg1, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_control_u2d_flow::truthy(lucent::entries::in(arg0), lucent::entries::in(arg1));
@@ -237,6 +246,7 @@ extern "C" bool lucent_control_flow_grade(double arg0, lucent_error* error, luce
 #pragma pop_macro("reassign")
 #pragma pop_macro("pairs")
 #pragma pop_macro("out")
+#pragma pop_macro("optionals")
 #pragma pop_macro("oddsBelow")
 #pragma pop_macro("nanLoop")
 #pragma pop_macro("increments")

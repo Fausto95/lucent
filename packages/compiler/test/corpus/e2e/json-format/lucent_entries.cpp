@@ -17,6 +17,8 @@ void initModules() {
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
 
+#pragma push_macro("fromParameters")
+#undef fromParameters
 #pragma push_macro("indented")
 #undef indented
 #pragma push_macro("picked")
@@ -65,6 +67,13 @@ extern "C" bool lucent_json_format_records(lucent_error* error, lucent_string* r
   });
 }
 
+extern "C" bool lucent_json_format_fromParameters(lucent_value arg0, lucent_value arg1, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_json_u2d_format::fromParameters(lucent::entries::optionalIn<lucent::Array<lucent::String>>(lucent::entries::arrayIn<lucent::String>(lucent::entries::stringIn), true)(arg0), lucent::entries::optionalIn<double>(lucent::entries::numberIn, false)(arg1));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
 extern "C" bool lucent_json_format_scalars(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_json_u2d_format::scalars();
@@ -78,3 +87,4 @@ extern "C" bool lucent_json_format_scalars(lucent_error* error, lucent_string* r
 #pragma pop_macro("pickedAndIndented")
 #pragma pop_macro("picked")
 #pragma pop_macro("indented")
+#pragma pop_macro("fromParameters")

@@ -25,8 +25,17 @@ bool lucent_errors_safeDivide(double arg0, double arg1, lucent_error* error, luc
 /// errors.rethrow()
 bool lucent_errors_rethrow(lucent_error* error, lucent_string* result);
 
+/// errors.outOfBounds(xs)
+bool lucent_errors_outOfBounds(lucent_value arg0, lucent_error* error, double* result);
+
 /// errors.failDeep()
 bool lucent_errors_failDeep(lucent_error* error, double* result);
+
+/// errors.kinds()
+bool lucent_errors_kinds(lucent_error* error, lucent_value* result);
+
+/// errors.implicitConstructors()
+bool lucent_errors_implicitConstructors(lucent_error* error, lucent_value* result);
 
 #ifdef __cplusplus
 }

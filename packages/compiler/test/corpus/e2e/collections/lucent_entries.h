@@ -13,8 +13,23 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// collections.arrays(xs)
+bool lucent_collections_arrays(lucent_value arg0, lucent_error* error, lucent_string* result);
+
 /// collections.mapOps()
 bool lucent_collections_mapOps(lucent_error* error, lucent_string* result);
+
+/// collections.records(r)
+bool lucent_collections_records(lucent_value arg0, lucent_error* error, lucent_value* result);
+
+/// collections.entries(r)
+bool lucent_collections_entries(lucent_value arg0, lucent_error* error, lucent_string* result);
+
+/// collections.matrix(n)
+bool lucent_collections_matrix(double arg0, lucent_error* error, lucent_value* result);
+
+/// collections.uniq(xs)
+bool lucent_collections_uniq(lucent_value arg0, lucent_error* error, lucent_value* result);
 
 /// collections.newArrayLength(n)
 bool lucent_collections_newArrayLength(double arg0, lucent_error* error, lucent_string* result);

@@ -16,3 +16,58 @@ void initModules() {
 
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
+
+#pragma push_macro("both")
+#undef both
+#pragma push_macro("elements")
+#undef elements
+#pragma push_macro("nested")
+#undef nested
+#pragma push_macro("nullable")
+#undef nullable
+#pragma push_macro("record")
+#undef record
+#pragma push_macro("result")
+#undef result
+
+extern "C" bool lucent_null_undefined_nested_elements(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_null_u2d_undefined_u2d_nested::elements(lucent::entries::arrayIn<lucent::Opt<double>>(lucent::entries::optionalIn<double>(lucent::entries::numberIn, false))(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_null_undefined_nested_nullable(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_null_u2d_undefined_u2d_nested::nullable(lucent::entries::arrayIn<lucent::Opt<double>>(lucent::entries::optionalIn<double>(lucent::entries::numberIn, true))(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_null_undefined_nested_nested(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_null_u2d_undefined_u2d_nested::nested(lucent::entries::arrayIn<lucent::Array<lucent::Opt<lucent::String>>>(lucent::entries::arrayIn<lucent::Opt<lucent::String>>(lucent::entries::optionalIn<lucent::String>(lucent::entries::stringIn, true)))(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_null_undefined_nested_record(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_null_u2d_undefined_u2d_nested::record(lucent::entries::recordIn<lucent::Opt<double>>(lucent::entries::optionalIn<double>(lucent::entries::numberIn, false))(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_null_undefined_nested_both(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_null_u2d_undefined_u2d_nested::both(lucent::entries::arrayIn<lucent::Opt<double>>(lucent::entries::optionalIn<double>(lucent::entries::numberIn, true))(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+#pragma pop_macro("result")
+#pragma pop_macro("record")
+#pragma pop_macro("nullable")
+#pragma pop_macro("nested")
+#pragma pop_macro("elements")
+#pragma pop_macro("both")

@@ -16,3 +16,15 @@ void initModules() {
 
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
+
+#pragma push_macro("sizes")
+#undef sizes
+
+extern "C" bool lucent_boundary_paths_sizes(lucent_value arg0, lucent_error* error, double* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_boundary_u2d_paths::sizes(lucent::entries::recordIn<lucent::Array<double>>(lucent::entries::arrayIn<double>(lucent::entries::numberIn))(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+#pragma pop_macro("sizes")

@@ -17,6 +17,8 @@ void initModules() {
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
 
+#pragma push_macro("arrays")
+#undef arrays
 #pragma push_macro("entries")
 #undef entries
 #pragma push_macro("flatMapped")
@@ -27,15 +29,56 @@ extern "C" void lucent_launch(void) {}
 #undef fromUndefined
 #pragma push_macro("mapOps")
 #undef mapOps
+#pragma push_macro("matrix")
+#undef matrix
 #pragma push_macro("newArrayLength")
 #undef newArrayLength
 #pragma push_macro("out")
 #undef out
+#pragma push_macro("records")
+#undef records
+#pragma push_macro("uniq")
+#undef uniq
+
+extern "C" bool lucent_collections_arrays(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_collections::arrays(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
 
 extern "C" bool lucent_collections_mapOps(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_collections::mapOps();
     if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_collections_records(lucent_value arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_collections::records(lucent::entries::recordIn<double>(lucent::entries::numberIn)(arg0));
+    if (result) *result = lucent::entries::recordOut(lucent::entries::numberOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_collections_entries(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_collections::entries(lucent::entries::recordIn<lucent::String>(lucent::entries::stringIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_collections_matrix(double arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_collections::matrix(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::arrayOut(lucent::entries::numberOut))(kept, value);
+  });
+}
+
+extern "C" bool lucent_collections_uniq(lucent_value arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_collections::uniq(lucent::entries::arrayIn<lucent::String>(lucent::entries::stringIn)(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
   });
 }
 
@@ -67,10 +110,14 @@ extern "C" bool lucent_collections_flatMapped(lucent_error* error, lucent_string
   });
 }
 
+#pragma pop_macro("uniq")
+#pragma pop_macro("records")
 #pragma pop_macro("out")
 #pragma pop_macro("newArrayLength")
+#pragma pop_macro("matrix")
 #pragma pop_macro("mapOps")
 #pragma pop_macro("fromUndefined")
 #pragma pop_macro("fromLength")
 #pragma pop_macro("flatMapped")
 #pragma pop_macro("entries")
+#pragma pop_macro("arrays")

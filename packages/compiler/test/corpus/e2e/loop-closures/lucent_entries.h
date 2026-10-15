@@ -13,6 +13,18 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// loop-closures.skipping()
+bool lucent_loop_closures_skipping(lucent_error* error, lucent_value* result);
+
+/// loop-closures.bumped()
+bool lucent_loop_closures_bumped(lucent_error* error, lucent_value* result);
+
+/// loop-closures.continued()
+bool lucent_loop_closures_continued(lucent_error* error, lucent_value* result);
+
+/// loop-closures.pairs()
+bool lucent_loop_closures_pairs(lucent_error* error, lucent_value* result);
+
 #ifdef __cplusplus
 }
 #endif

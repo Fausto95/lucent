@@ -28,8 +28,20 @@ bool lucent_control_nestedFinally(lucent_error* error, lucent_string* result);
 /// control.catches(kind)
 bool lucent_control_catches(lucent_string arg0, lucent_error* error, lucent_string* result);
 
+/// control.whileLoops(n)
+bool lucent_control_whileLoops(double arg0, lucent_error* error, lucent_value* result);
+
+/// control.ternaries(xs)
+bool lucent_control_ternaries(lucent_value arg0, lucent_error* error, lucent_value* result);
+
 /// control.logic(a, b)
 bool lucent_control_logic(lucent_string arg0, double arg1, lucent_error* error, lucent_string* result);
+
+/// control.forIn(r)
+bool lucent_control_forIn(lucent_value arg0, lucent_error* error, lucent_string* result);
+
+/// control.earlyReturnInLoop(xs, target)
+bool lucent_control_earlyReturnInLoop(lucent_value arg0, double arg1, lucent_error* error, double* result);
 
 #ifdef __cplusplus
 }

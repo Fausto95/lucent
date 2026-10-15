@@ -13,6 +13,12 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// bigint-unions.toNumberNullable(x)
+bool lucent_bigint_unions_toNumberNullable(lucent_value arg0, lucent_error* error, double* result);
+
+/// bigint-unions.compareOptional(a, b)
+bool lucent_bigint_unions_compareOptional(lucent_value arg0, int64_t arg1, lucent_error* error, lucent_value* result);
+
 #ifdef __cplusplus
 }
 #endif

@@ -13,11 +13,35 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// bigint-values.keys(xs)
+bool lucent_bigint_values_keys(lucent_value arg0, lucent_error* error, lucent_string* result);
+
+/// bigint-values.sorted(xs)
+bool lucent_bigint_values_sorted(lucent_value arg0, lucent_error* error, lucent_value* result);
+
+/// bigint-values.defaultSorted(xs)
+bool lucent_bigint_values_defaultSorted(lucent_value arg0, lucent_error* error, lucent_value* result);
+
+/// bigint-values.search(xs, x)
+bool lucent_bigint_values_search(lucent_value arg0, int64_t arg1, lucent_error* error, lucent_string* result);
+
+/// bigint-values.sum(xs)
+bool lucent_bigint_values_sum(lucent_value arg0, lucent_error* error, int64_t* result);
+
+/// bigint-values.maybe(x)
+bool lucent_bigint_values_maybe(lucent_value arg0, lucent_error* error, lucent_value* result);
+
 /// bigint-values.factorialLater(n)
 void lucent_bigint_values_factorialLater(int64_t arg0, void (*done)(void* context, const int64_t* result, const lucent_error* error), void* context);
 
+/// bigint-values.sumLater(xs)
+void lucent_bigint_values_sumLater(lucent_value arg0, void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context);
+
 /// bigint-values.failLater(text)
 void lucent_bigint_values_failLater(lucent_string arg0, void (*done)(void* context, const int64_t* result, const lucent_error* error), void* context);
+
+/// bigint-values.records(xs)
+bool lucent_bigint_values_records(lucent_value arg0, lucent_error* error, lucent_value* result);
 
 #ifdef __cplusplus
 }

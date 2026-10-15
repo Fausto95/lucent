@@ -16,6 +16,12 @@ void lucent_launch(void);
 /// async.double(n)
 void lucent_async_double(double arg0, void (*done)(void* context, const double* result, const lucent_error* error), void* context);
 
+/// async.sequence(xs)
+void lucent_async_sequence(lucent_value arg0, void (*done)(void* context, const lucent_value* result, const lucent_error* error), void* context);
+
+/// async.parallel(xs)
+void lucent_async_parallel(lucent_value arg0, void (*done)(void* context, const lucent_value* result, const lucent_error* error), void* context);
+
 /// async.failing(msg)
 void lucent_async_failing(lucent_string arg0, void (*done)(void* context, const lucent_string* result, const lucent_error* error), void* context);
 

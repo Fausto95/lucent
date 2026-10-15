@@ -13,11 +13,26 @@ extern "C" {
 /// (lucent.json's launch), holding it for the process; else nothing.
 void lucent_launch(void);
 
+/// bigint-arith.literals()
+bool lucent_bigint_arith_literals(lucent_error* error, lucent_value* result);
+
+/// bigint-arith.arith(a, b)
+bool lucent_bigint_arith_arith(int64_t arg0, int64_t arg1, lucent_error* error, lucent_value* result);
+
 /// bigint-arith.divide(a, b)
 bool lucent_bigint_arith_divide(int64_t arg0, int64_t arg1, lucent_error* error, lucent_string* result);
 
 /// bigint-arith.power(base, exponent)
 bool lucent_bigint_arith_power(int64_t arg0, int64_t arg1, lucent_error* error, int64_t* result);
+
+/// bigint-arith.shifts(a, n)
+bool lucent_bigint_arith_shifts(int64_t arg0, int64_t arg1, lucent_error* error, lucent_value* result);
+
+/// bigint-arith.compare(a, b)
+bool lucent_bigint_arith_compare(int64_t arg0, int64_t arg1, lucent_error* error, lucent_value* result);
+
+/// bigint-arith.compareNumber(a, n)
+bool lucent_bigint_arith_compareNumber(int64_t arg0, double arg1, lucent_error* error, lucent_value* result);
 
 /// bigint-arith.truthiness(a)
 bool lucent_bigint_arith_truthiness(int64_t arg0, lucent_error* error, lucent_string* result);
@@ -25,8 +40,20 @@ bool lucent_bigint_arith_truthiness(int64_t arg0, lucent_error* error, lucent_st
 /// bigint-arith.kind(a)
 bool lucent_bigint_arith_kind(int64_t arg0, lucent_error* error, lucent_string* result);
 
+/// bigint-arith.counters(start)
+bool lucent_bigint_arith_counters(int64_t arg0, lucent_error* error, lucent_value* result);
+
+/// bigint-arith.places()
+bool lucent_bigint_arith_places(lucent_error* error, lucent_value* result);
+
 /// bigint-arith.order()
 bool lucent_bigint_arith_order(lucent_error* error, lucent_string* result);
+
+/// bigint-arith.around(k)
+bool lucent_bigint_arith_around(int64_t arg0, lucent_error* error, lucent_value* result);
+
+/// bigint-arith.large()
+bool lucent_bigint_arith_large(lucent_error* error, lucent_value* result);
 
 /// bigint-arith.select(x)
 bool lucent_bigint_arith_select(int64_t arg0, lucent_error* error, lucent_string* result);

@@ -21,6 +21,12 @@ extern "C" void lucent_launch(void) {}
 #undef divide
 #pragma push_macro("failDeep")
 #undef failDeep
+#pragma push_macro("implicitConstructors")
+#undef implicitConstructors
+#pragma push_macro("kinds")
+#undef kinds
+#pragma push_macro("outOfBounds")
+#undef outOfBounds
 #pragma push_macro("rethrow")
 #undef rethrow
 #pragma push_macro("safeDivide")
@@ -56,6 +62,13 @@ extern "C" bool lucent_errors_rethrow(lucent_error* error, lucent_string* result
   });
 }
 
+extern "C" bool lucent_errors_outOfBounds(lucent_value arg0, lucent_error* error, double* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_errors::outOfBounds(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
 extern "C" bool lucent_errors_failDeep(lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_errors::failDeep();
@@ -63,8 +76,25 @@ extern "C" bool lucent_errors_failDeep(lucent_error* error, double* result) {
   });
 }
 
+extern "C" bool lucent_errors_kinds(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_errors::kinds();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_errors_implicitConstructors(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_errors::implicitConstructors();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
 #pragma pop_macro("validate")
 #pragma pop_macro("safeDivide")
 #pragma pop_macro("rethrow")
+#pragma pop_macro("outOfBounds")
+#pragma pop_macro("kinds")
+#pragma pop_macro("implicitConstructors")
 #pragma pop_macro("failDeep")
 #pragma pop_macro("divide")

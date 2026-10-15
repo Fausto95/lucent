@@ -20,19 +20,93 @@ import type { Ctx } from "./context.ts";
 export const ENTRIES_HEADER = "lucent_entries.h";
 export const ENTRIES_UNIT = "lucent_entries.cpp";
 
-/** How a type crosses an entry: its C type, and its C++ type in module code. */
+/**
+ * How a type crosses an entry: its C type, its C++ type in module code, and
+ * the C++ that converts a C value to it (`$` stands for the value) and back
+ * (`$` and the Kept, `kept`).
+ */
 interface Crossing {
   c: string;
   cpp: string;
+  in: string;
+  out: string;
 }
 
-const CROSSING: Partial<Record<LType["k"], Crossing>> = {
+/** What 0091's entries pass as C types of their own. */
+const SCALARS: Partial<Record<LType["k"], { c: string; cpp: string }>> = {
   number: { c: "double", cpp: "double" },
   boolean: { c: "bool", cpp: "bool" },
   string: { c: "lucent_string", cpp: "lucent::String" },
   bigint: { c: "int64_t", cpp: "lucent::BigInt" },
   bytes: { c: "lucent_bytes", cpp: "lucent::Bytes" },
 };
+
+/** The converters of a lucent_value's kinds (entries.h): `numberIn`, `numberOut`. */
+const VALUE_KINDS: Partial<Record<LType["k"], string>> = {
+  number: "number",
+  boolean: "boolean",
+  string: "string",
+  bigint: "bigint",
+  bytes: "bytes",
+  native: "object",
+};
+
+/**
+ * The converters for a value of type `t` held in a lucent_value (decision
+ * 0116): optionals, arrays and records of what crosses, and platform
+ * objects. None for another type.
+ */
+function valueConverters(ctx: Ctx, t: LType): { in: string; out: string } | undefined {
+  const e = "lucent::entries::";
+  const kind = VALUE_KINDS[t.k];
+  if (kind) return { in: `${e}${kind}In`, out: `${e}${kind}Out` };
+  const of = (inner: LType) => cpp.printType(ctx.reg.cppType(inner, true));
+  switch (t.k) {
+    case "opt": {
+      const inner = t.rec ? undefined : valueConverters(ctx, t.inner);
+      return inner
+        ? {
+            in: `${e}optionalIn<${of(t.inner)}>(${inner.in}, ${t.absent !== "undefined"})`,
+            out: `${e}optionalOut(${inner.out})`,
+          }
+        : undefined;
+    }
+    case "array": {
+      const element = valueConverters(ctx, t.e);
+      return element
+        ? { in: `${e}arrayIn<${of(t.e)}>(${element.in})`, out: `${e}arrayOut(${element.out})` }
+        : undefined;
+    }
+    case "dict": {
+      const value = valueConverters(ctx, t.val);
+      return value
+        ? { in: `${e}recordIn<${of(t.val)}>(${value.in})`, out: `${e}recordOut(${value.out})` }
+        : undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
+/** How `t` crosses an entry: as its own C type (0091), or a lucent_value. */
+function crossingOf(ctx: Ctx, t: LType): Crossing | undefined {
+  const scalar = SCALARS[t.k];
+  if (scalar)
+    return {
+      ...scalar,
+      in: "lucent::entries::in($)",
+      out: "lucent::entries::out(kept, $)",
+    };
+  const value = valueConverters(ctx, t);
+  return value
+    ? {
+        c: "lucent_value",
+        cpp: cpp.printType(ctx.reg.cppType(t)),
+        in: `${value.in}($)`,
+        out: `${value.out}(kept, $)`,
+      }
+    : undefined;
+}
 
 /** A module function's entry: what the two files say of it. */
 export interface Entry {
@@ -61,7 +135,7 @@ export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
     const actor = ctx.actors.of.get(m.module);
     const actorExpr = actor === undefined ? "lucent::Actor::shared()" : `${actorName(actor)}()`;
 
-    for (const f of m.functions) {
+    for (const f of [...m.functions, ...(m.native ?? [])]) {
       if (f.generic || f.decl.asteriskToken) continue;
       if (f.params.some((p) => p.optional || p.rest)) continue;
 
@@ -69,7 +143,7 @@ export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
       // or one of the entry's locals.
       const params = f.params.map((p, i) => ({
         name: `arg${i}`,
-        crossing: CROSSING[p.type.k],
+        crossing: crossingOf(ctx, p.type),
       }));
       if (params.some((p) => !p.crossing)) continue;
 
@@ -79,7 +153,7 @@ export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
           : f.type.ret
         : f.type.ret;
       const nothing = isVoidish(ret);
-      const result = nothing ? undefined : CROSSING[ret.k];
+      const result = nothing ? undefined : crossingOf(ctx, ret);
       if (!nothing && !result) continue;
 
       const exportName = f.decl.name!.text;
@@ -89,7 +163,7 @@ export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
       const node = f.decl.name!;
 
       const cParams = params.map((p) => `${p.crossing!.c} ${p.name}`);
-      const args = params.map((p) => `lucent::entries::in(${p.name})`).join(", ");
+      const args = params.map((p) => p.crossing!.in.replace("$", p.name)).join(", ");
       const fn = `lucent_app::${m.module.ns}::${cppIdent(exportName)}`;
 
       if (!f.async) {
@@ -97,7 +171,7 @@ export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
         const body = result
           ? [
               `    auto value = ${fn}(${args});`,
-              `    if (result) *result = lucent::entries::out(kept, value);`,
+              `    if (result) *result = ${result.out.replace("$", "value")};`,
             ]
           : [`    ${fn}(${args});`];
         out.push({
@@ -128,7 +202,7 @@ export function entriesOf(ctx: Ctx, mods: ModuleExports[]): Entry[] {
             `        if (!value) return done(context, nullptr, error);`,
             `        ${result.c} out{};`,
             `        try {`,
-            `          out = lucent::entries::out(kept, *value);`,
+            `          out = ${result.out.replace("$", "*value")};`,
             `        } catch (...) {`,
             `          lucent_error failed = lucent::entries::errorOf(kept, lucent::entries::caught(std::current_exception()));`,
             `          return done(context, nullptr, &failed);`,

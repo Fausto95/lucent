@@ -19,6 +19,8 @@ extern "C" void lucent_launch(void) {}
 
 #pragma push_macro("afterValue")
 #undef afterValue
+#pragma push_macro("cached")
+#undef cached
 #pragma push_macro("order")
 #undef order
 #pragma push_macro("setCached")
@@ -56,6 +58,13 @@ extern "C" bool lucent_module_initialization_setCached(double arg0, lucent_error
   });
 }
 
+extern "C" bool lucent_module_initialization_cached(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_module_u2d_initialization::cached();
+    if (result) *result = lucent::entries::optionalOut(lucent::entries::numberOut)(kept, value);
+  });
+}
+
 extern "C" bool lucent_module_initialization_touch(lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_module_u2d_initialization::touch();
@@ -67,4 +76,5 @@ extern "C" bool lucent_module_initialization_touch(lucent_error* error, double* 
 #pragma pop_macro("staticReadsVariable")
 #pragma pop_macro("setCached")
 #pragma pop_macro("order")
+#pragma pop_macro("cached")
 #pragma pop_macro("afterValue")

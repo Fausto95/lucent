@@ -16,3 +16,108 @@ void initModules() {
 
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
+
+#pragma push_macro("disposeThrows")
+#undef disposeThrows
+#pragma push_macro("early")
+#undef early
+#pragma push_macro("inAsync")
+#undef inAsync
+#pragma push_macro("loop")
+#undef loop
+#pragma push_macro("nullable")
+#undef nullable
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("r_explicit_")
+#undef r_explicit_
+#pragma push_macro("scoped")
+#undef scoped
+#pragma push_macro("suppressed")
+#undef suppressed
+#pragma push_macro("throwing")
+#undef throwing
+
+extern "C" bool lucent_using_scoped(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_using_::scoped();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_using_early(bool arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_using_::early(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_using_throwing(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_using_::throwing();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_using_loop(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_using_::loop();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_using_nullable(bool arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_using_::nullable(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_using_disposeThrows(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_using_::disposeThrows();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_using_suppressed(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_using_::suppressed();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+extern "C" void lucent_using_inAsync(void (*done)(void* context, const lucent_value* result, const lucent_error* error), void* context) {
+  lucent::entries::callAsync<lucent::Array<lucent::String>>(
+      &lucent_app::initModules, lucent_app::actor_0(),
+      [&] { return lucent_app::m_using_::inAsync(); },
+      [done, context](lucent::entries::Kept& kept, const lucent::Array<lucent::String>* value, const lucent_error* error) {
+        if (!value) return done(context, nullptr, error);
+        lucent_value out{};
+        try {
+          out = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, *value);
+        } catch (...) {
+          lucent_error failed = lucent::entries::errorOf(kept, lucent::entries::caught(std::current_exception()));
+          return done(context, nullptr, &failed);
+        }
+        done(context, &out, nullptr);
+      });
+}
+
+extern "C" bool lucent_using_explicit(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_using_::r_explicit_();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+#pragma pop_macro("throwing")
+#pragma pop_macro("suppressed")
+#pragma pop_macro("scoped")
+#pragma pop_macro("r_explicit_")
+#pragma pop_macro("out")
+#pragma pop_macro("nullable")
+#pragma pop_macro("loop")
+#pragma pop_macro("inAsync")
+#pragma pop_macro("early")
+#pragma pop_macro("disposeThrows")

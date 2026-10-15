@@ -17,6 +17,8 @@ void initModules() {
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
 
+#pragma push_macro("invalid")
+#undef invalid
 #pragma push_macro("lastKeyWins")
 #undef lastKeyWins
 #pragma push_macro("mixed")
@@ -81,6 +83,13 @@ extern "C" bool lucent_json_lastKeyWins(lucent_error* error, double* result) {
   });
 }
 
+extern "C" bool lucent_json_invalid(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_json::invalid(lucent::entries::arrayIn<lucent::String>(lucent::entries::stringIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
 #pragma pop_macro("summarize")
 #pragma pop_macro("strings")
 #pragma pop_macro("shapes")
@@ -88,3 +97,4 @@ extern "C" bool lucent_json_lastKeyWins(lucent_error* error, double* result) {
 #pragma pop_macro("numbers")
 #pragma pop_macro("mixed")
 #pragma pop_macro("lastKeyWins")
+#pragma pop_macro("invalid")

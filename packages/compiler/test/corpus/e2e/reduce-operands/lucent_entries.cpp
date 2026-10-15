@@ -17,6 +17,8 @@ void initModules() {
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
 
+#pragma push_macro("initialArray")
+#undef initialArray
 #pragma push_macro("order")
 #undef order
 
@@ -27,4 +29,12 @@ extern "C" bool lucent_reduce_operands_order(lucent_error* error, lucent_string*
   });
 }
 
+extern "C" bool lucent_reduce_operands_initialArray(lucent_value arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_reduce_u2d_operands::initialArray(lucent::entries::arrayIn<lucent::String>(lucent::entries::stringIn)(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
 #pragma pop_macro("order")
+#pragma pop_macro("initialArray")

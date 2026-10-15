@@ -16,3 +16,21 @@ void initModules() {
 
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
+
+#pragma push_macro("maybe")
+#undef maybe
+#pragma push_macro("out")
+#undef out
+#pragma push_macro("value")
+#undef value
+
+extern "C" bool lucent_objects_maybe(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_objects::maybe(lucent::entries::optionalIn<double>(lucent::entries::numberIn, true)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+#pragma pop_macro("value")
+#pragma pop_macro("out")
+#pragma pop_macro("maybe")

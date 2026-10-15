@@ -19,6 +19,8 @@ extern "C" void lucent_launch(void) {}
 
 #pragma push_macro("attempt")
 #undef attempt
+#pragma push_macro("fromBoolean")
+#undef fromBoolean
 #pragma push_macro("fromNumber")
 #undef fromNumber
 #pragma push_macro("fromString")
@@ -31,8 +33,12 @@ extern "C" void lucent_launch(void) {}
 #undef roundTrip
 #pragma push_macro("same")
 #undef same
+#pragma push_macro("strings")
+#undef strings
 #pragma push_macro("toNumber")
 #undef toNumber
+#pragma push_macro("wrap")
+#undef wrap
 
 extern "C" bool lucent_bigint_conversions_fromNumber(double arg0, lucent_error* error, int64_t* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
@@ -45,6 +51,13 @@ extern "C" bool lucent_bigint_conversions_fromString(lucent_string arg0, lucent_
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_bigint_u2d_conversions::fromString(lucent::entries::in(arg0));
     if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_conversions_fromBoolean(bool arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_conversions::fromBoolean(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::bigintOut)(kept, value);
   });
 }
 
@@ -62,10 +75,24 @@ extern "C" bool lucent_bigint_conversions_toNumber(int64_t arg0, lucent_error* e
   });
 }
 
+extern "C" bool lucent_bigint_conversions_strings(int64_t arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_conversions::strings(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
 extern "C" bool lucent_bigint_conversions_radix(int64_t arg0, double arg1, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_bigint_u2d_conversions::radix(lucent::entries::in(arg0), lucent::entries::in(arg1));
     if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_conversions_wrap(double arg0, int64_t arg1, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_conversions::wrap(lucent::entries::in(arg0), lucent::entries::in(arg1));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::bigintOut)(kept, value);
   });
 }
 
@@ -90,11 +117,14 @@ extern "C" bool lucent_bigint_conversions_roundTrip(int64_t arg0, lucent_error* 
   });
 }
 
+#pragma pop_macro("wrap")
 #pragma pop_macro("toNumber")
+#pragma pop_macro("strings")
 #pragma pop_macro("same")
 #pragma pop_macro("roundTrip")
 #pragma pop_macro("radix")
 #pragma pop_macro("json")
 #pragma pop_macro("fromString")
 #pragma pop_macro("fromNumber")
+#pragma pop_macro("fromBoolean")
 #pragma pop_macro("attempt")

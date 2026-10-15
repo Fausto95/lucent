@@ -16,3 +16,45 @@ void initModules() {
 
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
+
+#pragma push_macro("bumped")
+#undef bumped
+#pragma push_macro("continued")
+#undef continued
+#pragma push_macro("pairs")
+#undef pairs
+#pragma push_macro("skipping")
+#undef skipping
+
+extern "C" bool lucent_loop_closures_skipping(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_loop_u2d_closures::skipping();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_loop_closures_bumped(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_loop_u2d_closures::bumped();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_loop_closures_continued(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_loop_u2d_closures::continued();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_loop_closures_pairs(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_loop_u2d_closures::pairs();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+#pragma pop_macro("skipping")
+#pragma pop_macro("pairs")
+#pragma pop_macro("continued")
+#pragma pop_macro("bumped")

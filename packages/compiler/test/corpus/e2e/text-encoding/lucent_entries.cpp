@@ -19,8 +19,14 @@ extern "C" void lucent_launch(void) {}
 
 #pragma push_macro("boms")
 #undef boms
+#pragma push_macro("decoded")
+#undef decoded
 #pragma push_macro("encoded")
 #undef encoded
+#pragma push_macro("encodedInto")
+#undef encodedInto
+#pragma push_macro("fatal")
+#undef fatal
 #pragma push_macro("kept")
 #undef kept
 #pragma push_macro("labels")
@@ -31,6 +37,8 @@ extern "C" void lucent_launch(void) {}
 #undef out
 #pragma push_macro("result")
 #undef result
+#pragma push_macro("streamed")
+#undef streamed
 #pragma push_macro("views")
 #undef views
 
@@ -41,9 +49,37 @@ extern "C" bool lucent_text_encoding_encoded(lucent_error* error, lucent_string*
   });
 }
 
+extern "C" bool lucent_text_encoding_encodedInto(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_text_u2d_encoding::encodedInto(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_text_encoding_decoded(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_text_u2d_encoding::decoded(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
 extern "C" bool lucent_text_encoding_boms(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_text_u2d_encoding::boms();
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_text_encoding_streamed(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_text_u2d_encoding::streamed(lucent::entries::arrayIn<lucent::Array<double>>(lucent::entries::arrayIn<double>(lucent::entries::numberIn))(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_text_encoding_fatal(lucent_value arg0, bool arg1, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_text_u2d_encoding::fatal(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0), lucent::entries::in(arg1));
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
@@ -70,10 +106,14 @@ extern "C" bool lucent_text_encoding_options(bool arg0, lucent_error* error, luc
 }
 
 #pragma pop_macro("views")
+#pragma pop_macro("streamed")
 #pragma pop_macro("result")
 #pragma pop_macro("out")
 #pragma pop_macro("options")
 #pragma pop_macro("labels")
 #pragma pop_macro("kept")
+#pragma pop_macro("fatal")
+#pragma pop_macro("encodedInto")
 #pragma pop_macro("encoded")
+#pragma pop_macro("decoded")
 #pragma pop_macro("boms")

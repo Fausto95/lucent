@@ -28,11 +28,29 @@ bool lucent_strings_countChars(lucent_string arg0, lucent_error* error, double* 
 /// strings.builder(n)
 bool lucent_strings_builder(double arg0, lucent_error* error, lucent_string* result);
 
+/// strings.manip(s)
+bool lucent_strings_manip(lucent_string arg0, lucent_error* error, lucent_value* result);
+
 /// strings.compare(a, b)
 bool lucent_strings_compare(lucent_string arg0, lucent_string arg1, lucent_error* error, double* result);
 
 /// strings.unicode()
 bool lucent_strings_unicode(lucent_error* error, lucent_string* result);
+
+/// strings.unicodeCase(words)
+bool lucent_strings_unicodeCase(lucent_value arg0, lucent_error* error, lucent_string* result);
+
+/// strings.collate(words)
+bool lucent_strings_collate(lucent_value arg0, lucent_error* error, lucent_string* result);
+
+/// strings.templates(xs, k, flag, name, maybe)
+bool lucent_strings_templates(lucent_value arg0, double arg1, bool arg2, lucent_string arg3, lucent_value arg4, lucent_error* error, lucent_value* result);
+
+/// strings.dollarPatterns()
+bool lucent_strings_dollarPatterns(lucent_error* error, lucent_value* result);
+
+/// strings.localeCase(words)
+bool lucent_strings_localeCase(lucent_value arg0, lucent_error* error, lucent_string* result);
 
 /// strings.splitLimits(limit)
 bool lucent_strings_splitLimits(double arg0, lucent_error* error, lucent_string* result);

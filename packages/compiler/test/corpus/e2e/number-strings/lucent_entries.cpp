@@ -16,3 +16,35 @@ void initModules() {
 
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
+
+#pragma push_macro("forms")
+#undef forms
+#pragma push_macro("log")
+#undef log
+#pragma push_macro("strings")
+#undef strings
+
+extern "C" bool lucent_number_strings_strings(lucent_value arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_number_u2d_strings::strings(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_number_strings_forms(lucent_value arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_number_u2d_strings::forms(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_number_strings_log(lucent_value arg0, lucent_error* error) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    (void)kept;
+    lucent_app::m_number_u2d_strings::log(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0));
+  });
+}
+
+#pragma pop_macro("strings")
+#pragma pop_macro("log")
+#pragma pop_macro("forms")

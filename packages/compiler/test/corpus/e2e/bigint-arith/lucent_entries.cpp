@@ -17,20 +17,52 @@ void initModules() {
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
 
+#pragma push_macro("arith")
+#undef arith
+#pragma push_macro("around")
+#undef around
+#pragma push_macro("compare")
+#undef compare
+#pragma push_macro("compareNumber")
+#undef compareNumber
+#pragma push_macro("counters")
+#undef counters
 #pragma push_macro("divide")
 #undef divide
 #pragma push_macro("kind")
 #undef kind
+#pragma push_macro("large")
+#undef large
+#pragma push_macro("literals")
+#undef literals
 #pragma push_macro("order")
 #undef order
 #pragma push_macro("out")
 #undef out
+#pragma push_macro("places")
+#undef places
 #pragma push_macro("power")
 #undef power
 #pragma push_macro("select")
 #undef select
+#pragma push_macro("shifts")
+#undef shifts
 #pragma push_macro("truthiness")
 #undef truthiness
+
+extern "C" bool lucent_bigint_arith_literals(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_arith::literals();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::bigintOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_arith_arith(int64_t arg0, int64_t arg1, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_arith::arith(lucent::entries::in(arg0), lucent::entries::in(arg1));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::bigintOut)(kept, value);
+  });
+}
 
 extern "C" bool lucent_bigint_arith_divide(int64_t arg0, int64_t arg1, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
@@ -43,6 +75,27 @@ extern "C" bool lucent_bigint_arith_power(int64_t arg0, int64_t arg1, lucent_err
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_bigint_u2d_arith::power(lucent::entries::in(arg0), lucent::entries::in(arg1));
     if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_arith_shifts(int64_t arg0, int64_t arg1, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_arith::shifts(lucent::entries::in(arg0), lucent::entries::in(arg1));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::bigintOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_arith_compare(int64_t arg0, int64_t arg1, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_arith::compare(lucent::entries::in(arg0), lucent::entries::in(arg1));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::booleanOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_arith_compareNumber(int64_t arg0, double arg1, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_arith::compareNumber(lucent::entries::in(arg0), lucent::entries::in(arg1));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::booleanOut)(kept, value);
   });
 }
 
@@ -60,10 +113,38 @@ extern "C" bool lucent_bigint_arith_kind(int64_t arg0, lucent_error* error, luce
   });
 }
 
+extern "C" bool lucent_bigint_arith_counters(int64_t arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_arith::counters(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::bigintOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_arith_places(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_arith::places();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::bigintOut)(kept, value);
+  });
+}
+
 extern "C" bool lucent_bigint_arith_order(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_bigint_u2d_arith::order();
     if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_arith_around(int64_t arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_arith::around(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::bigintOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_bigint_arith_large(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_bigint_u2d_arith::large();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::bigintOut)(kept, value);
   });
 }
 
@@ -75,9 +156,18 @@ extern "C" bool lucent_bigint_arith_select(int64_t arg0, lucent_error* error, lu
 }
 
 #pragma pop_macro("truthiness")
+#pragma pop_macro("shifts")
 #pragma pop_macro("select")
 #pragma pop_macro("power")
+#pragma pop_macro("places")
 #pragma pop_macro("out")
 #pragma pop_macro("order")
+#pragma pop_macro("literals")
+#pragma pop_macro("large")
 #pragma pop_macro("kind")
 #pragma pop_macro("divide")
+#pragma pop_macro("counters")
+#pragma pop_macro("compareNumber")
+#pragma pop_macro("compare")
+#pragma pop_macro("around")
+#pragma pop_macro("arith")

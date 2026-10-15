@@ -19,14 +19,23 @@ bool lucent_bigint_conversions_fromNumber(double arg0, lucent_error* error, int6
 /// bigint-conversions.fromString(s)
 bool lucent_bigint_conversions_fromString(lucent_string arg0, lucent_error* error, int64_t* result);
 
+/// bigint-conversions.fromBoolean(b)
+bool lucent_bigint_conversions_fromBoolean(bool arg0, lucent_error* error, lucent_value* result);
+
 /// bigint-conversions.same(x)
 bool lucent_bigint_conversions_same(int64_t arg0, lucent_error* error, int64_t* result);
 
 /// bigint-conversions.toNumber(x)
 bool lucent_bigint_conversions_toNumber(int64_t arg0, lucent_error* error, double* result);
 
+/// bigint-conversions.strings(x)
+bool lucent_bigint_conversions_strings(int64_t arg0, lucent_error* error, lucent_value* result);
+
 /// bigint-conversions.radix(x, r)
 bool lucent_bigint_conversions_radix(int64_t arg0, double arg1, lucent_error* error, lucent_string* result);
+
+/// bigint-conversions.wrap(bits, x)
+bool lucent_bigint_conversions_wrap(double arg0, int64_t arg1, lucent_error* error, lucent_value* result);
 
 /// bigint-conversions.attempt(what, text)
 bool lucent_bigint_conversions_attempt(lucent_string arg0, lucent_string arg1, lucent_error* error, lucent_string* result);

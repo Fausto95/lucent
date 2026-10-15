@@ -29,6 +29,8 @@ extern "C" void lucent_launch(void) {}
 #undef compound
 #pragma push_macro("crc")
 #undef crc
+#pragma push_macro("directCallbacks")
+#undef directCallbacks
 #pragma push_macro("doubleElements")
 #undef doubleElements
 #pragma push_macro("heapObjects")
@@ -37,6 +39,8 @@ extern "C" void lucent_launch(void) {}
 #undef intElements
 #pragma push_macro("kept")
 #undef kept
+#pragma push_macro("keptCallbacks")
+#undef keptCallbacks
 #pragma push_macro("mutatingCallbacks")
 #undef mutatingCallbacks
 #pragma push_macro("negativeRemainder")
@@ -55,6 +59,8 @@ extern "C" void lucent_launch(void) {}
 #undef stackObjects
 #pragma push_macro("stringKeys")
 #undef stringKeys
+#pragma push_macro("toInt32")
+#undef toInt32
 #pragma push_macro("unbounded")
 #undef unbounded
 
@@ -107,6 +113,13 @@ extern "C" bool lucent_optimizations_sometimesFractional(double arg0, lucent_err
   });
 }
 
+extern "C" bool lucent_optimizations_toInt32(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_optimizations::toInt32(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
 extern "C" bool lucent_optimizations_crc(double arg0, lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_optimizations::crc(lucent::entries::in(arg0));
@@ -149,6 +162,20 @@ extern "C" bool lucent_optimizations_heapObjects(double arg0, lucent_error* erro
   });
 }
 
+extern "C" bool lucent_optimizations_directCallbacks(lucent_value arg0, double arg1, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_optimizations::directCallbacks(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0), lucent::entries::in(arg1));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_optimizations_keptCallbacks(lucent_value arg0, lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_optimizations::keptCallbacks(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
 extern "C" bool lucent_optimizations_mutatingCallbacks(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_optimizations::mutatingCallbacks();
@@ -185,6 +212,7 @@ extern "C" bool lucent_optimizations_numberStrings(lucent_error* error, lucent_s
 }
 
 #pragma pop_macro("unbounded")
+#pragma pop_macro("toInt32")
 #pragma pop_macro("stringKeys")
 #pragma pop_macro("stackObjects")
 #pragma pop_macro("sometimesFractional")
@@ -194,10 +222,12 @@ extern "C" bool lucent_optimizations_numberStrings(lucent_error* error, lucent_s
 #pragma pop_macro("numberStrings")
 #pragma pop_macro("negativeRemainder")
 #pragma pop_macro("mutatingCallbacks")
+#pragma pop_macro("keptCallbacks")
 #pragma pop_macro("kept")
 #pragma pop_macro("intElements")
 #pragma pop_macro("heapObjects")
 #pragma pop_macro("doubleElements")
+#pragma pop_macro("directCallbacks")
 #pragma pop_macro("crc")
 #pragma pop_macro("compound")
 #pragma pop_macro("building")

@@ -17,14 +17,56 @@ void initModules() {
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
 
+#pragma push_macro("bits")
+#undef bits
+#pragma push_macro("checks")
+#undef checks
 #pragma push_macro("fib")
 #undef fib
+#pragma push_macro("format")
+#undef format
+#pragma push_macro("mathFns")
+#undef mathFns
 #pragma push_macro("multiplyAdd")
 #undef multiplyAdd
+#pragma push_macro("parse")
+#undef parse
+#pragma push_macro("parseInts")
+#undef parseInts
 #pragma push_macro("precision")
 #undef precision
 #pragma push_macro("special")
 #undef special
+#pragma push_macro("sum")
+#undef sum
+
+extern "C" bool lucent_numbers_format(lucent_value arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_numbers::format(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::stringOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_numbers_bits(double arg0, double arg1, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_numbers::bits(lucent::entries::in(arg0), lucent::entries::in(arg1));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_numbers_parse(lucent_value arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_numbers::parse(lucent::entries::arrayIn<lucent::String>(lucent::entries::stringIn)(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_numbers_parseInts(lucent_value arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_numbers::parseInts(lucent::entries::arrayIn<lucent::String>(lucent::entries::stringIn)(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, value);
+  });
+}
 
 extern "C" bool lucent_numbers_special(lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
@@ -33,9 +75,30 @@ extern "C" bool lucent_numbers_special(lucent_error* error, lucent_string* resul
   });
 }
 
+extern "C" bool lucent_numbers_mathFns(double arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_numbers::mathFns(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, value);
+  });
+}
+
 extern "C" bool lucent_numbers_precision(double arg0, lucent_error* error, lucent_string* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::m_numbers::precision(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_numbers_checks(double arg0, lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_numbers::checks(lucent::entries::in(arg0));
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::booleanOut)(kept, value);
+  });
+}
+
+extern "C" bool lucent_numbers_sum(lucent_value arg0, lucent_error* error, double* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_numbers::sum(lucent::entries::arrayIn<double>(lucent::entries::numberIn)(arg0));
     if (result) *result = lucent::entries::out(kept, value);
   });
 }
@@ -54,7 +117,14 @@ extern "C" bool lucent_numbers_multiplyAdd(double arg0, double arg1, double arg2
   });
 }
 
+#pragma pop_macro("sum")
 #pragma pop_macro("special")
 #pragma pop_macro("precision")
+#pragma pop_macro("parseInts")
+#pragma pop_macro("parse")
 #pragma pop_macro("multiplyAdd")
+#pragma pop_macro("mathFns")
+#pragma pop_macro("format")
 #pragma pop_macro("fib")
+#pragma pop_macro("checks")
+#pragma pop_macro("bits")

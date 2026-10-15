@@ -25,10 +25,19 @@ extern "C" void lucent_launch(void) {}
 #undef compose
 #pragma push_macro("counter")
 #undef counter
+#pragma push_macro("makeAdders")
+#undef makeAdders
 #pragma push_macro("memo")
 #undef memo
 #pragma push_macro("recurse")
 #undef recurse
+
+extern "C" bool lucent_closures_makeAdders(lucent_error* error, lucent_value* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_closures::makeAdders();
+    if (result) *result = lucent::entries::arrayOut(lucent::entries::numberOut)(kept, value);
+  });
+}
 
 extern "C" bool lucent_closures_counter(lucent_error* error, double* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
@@ -74,6 +83,7 @@ extern "C" bool lucent_closures_accumulate(double arg0, lucent_error* error, dou
 
 #pragma pop_macro("recurse")
 #pragma pop_macro("memo")
+#pragma pop_macro("makeAdders")
 #pragma pop_macro("counter")
 #pragma pop_macro("compose")
 #pragma pop_macro("apply")
