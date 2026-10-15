@@ -267,7 +267,7 @@ export const limitations: { title: string; items: string[] }[] = [
     "title": "Views",
     "items": [
       "Views are in preview: their API may change before the view gate closes.",
-      "A SwiftUI or Compose body doesn't show a list of instances yet: a setup function maps it to plain data ([T123](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t123)). An instance can't be an event's argument or a command's.",
+      "An instance can't be an event's argument or a command's.",
       "The check of an instance's members follows them through its class, the classes around it and the interfaces they implement. A use through another structural type, or a spread, isn't seen.",
       "A component inside Reanimated's animated views, Gesture Handler's detectors or react-native-screens' screens is untested ([T121](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t121)).",
       "A component's code presents from its view controller only before its first `await`. After it, `present` shows from the scene's top controller, and outlives the component unless a signal stops it ([T122](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t122)).",
