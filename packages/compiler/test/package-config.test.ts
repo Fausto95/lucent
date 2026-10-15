@@ -2,7 +2,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { fileHashes, type LucentPackage, resolveNative } from "../src/index.ts";
+import {
+  appPackage,
+  fileHashes,
+  type LucentPackage,
+  nativePackages,
+  resolveNative,
+} from "../src/index.ts";
 
 /** A Lucent package on disk whose lucent.json is `native` (none when undefined). */
 function pkg(name: string, native?: unknown, version = "1.0.0"): LucentPackage {
@@ -804,5 +810,142 @@ describe("native extensions", () => {
     expect(() => resolveNative([one("lucent-b"), one("lucent-a")])).toThrow(
       "extension orbit: lucent-a and lucent-b both declare it",
     );
+  });
+});
+
+describe("the app's own lucent.json", () => {
+  /** An app at a directory of its own, whose lucent.json is `native`. */
+  function app(native: unknown, name = "my-app"): LucentPackage {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-app-"));
+    fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name, version: "1.2.3" }));
+    fs.writeFileSync(path.join(dir, "lucent.json"), JSON.stringify(native));
+    return appPackage(dir)!;
+  }
+
+  it("is the app's, with its package's name, only when it has one", () => {
+    const a = app({});
+    expect(a).toMatchObject({ name: "my-app", version: "1.2.3", dir: a.dir, app: true });
+    expect(nativePackages(a.dir)).toEqual([a]);
+
+    const bare = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-app-"));
+    fs.writeFileSync(path.join(bare, "package.json"), JSON.stringify({ name: "plain" }));
+    expect(appPackage(bare)).toBeUndefined();
+    expect(nativePackages(bare)).toEqual([]);
+  });
+
+  it("merges with the packages' needs, and is read as theirs are", () => {
+    const own = withFiles(
+      app({
+        ios: {
+          infoPlist: { NSCameraUsageDescription: "Scan receipts" },
+          nativeSources: ["native"],
+        },
+        android: {
+          permissions: ["android.permission.CAMERA"],
+          dependencies: { "com.example:scanner": "2.0.0" },
+        },
+      }),
+      { "native/scan.mm": "// scan\n" },
+    );
+    const { manifest, files, read } = resolveNative([
+      pkg("lucent-a", { android: { permissions: ["android.permission.CAMERA"] } }),
+      own,
+    ]);
+
+    expect(manifest.packages).toEqual({ "lucent-a": "1.0.0", "my-app": "1.2.3" });
+    expect(manifest.ios.infoPlist).toEqual({
+      NSCameraUsageDescription: { value: "Scan receipts", from: ["my-app"] },
+    });
+    expect(manifest.android.permissions).toEqual({
+      "android.permission.CAMERA": ["lucent-a", "my-app"],
+    });
+    expect(manifest.android.dependencies).toEqual({
+      "com.example:scanner": { "2.0.0": ["my-app"] },
+    });
+    expect(Object.fromEntries(files)).toEqual({
+      "packages/my-app/native/scan.mm": path.join(own.dir, "native/scan.mm"),
+    });
+    // A change to it rebuilds, as a package's does.
+    expect(read).toContain(path.join(own.dir, "lucent.json"));
+  });
+
+  it("wins over a package's value: Info.plist keys, entitlements, pods, Gradle artifacts, components and the launch mode", () => {
+    const { manifest } = resolveNative([
+      pkg("lucent-a", {
+        ios: {
+          infoPlist: { NSCameraUsageDescription: "Scan", UIBackgroundModes: ["audio"] },
+          entitlements: { "aps-environment": "development" },
+          pods: { Kit: "~> 1.0" },
+        },
+        android: {
+          dependencies: { "com.example:kit": "1.0.0" },
+          components: [{ kind: "service", name: "com.example.Sync", exported: false }],
+          mainActivity: { launchMode: "singleTop" },
+        },
+      }),
+      app({
+        ios: {
+          infoPlist: { NSCameraUsageDescription: "Scan receipts", UIBackgroundModes: ["fetch"] },
+          entitlements: { "aps-environment": "production" },
+          pods: { Kit: "2.0.0" },
+        },
+        android: {
+          dependencies: { "com.example:kit": "2.0.0" },
+          components: [{ kind: "service", name: "com.example.Sync", exported: true }],
+          mainActivity: { launchMode: "singleTask" },
+        },
+      }),
+    ]);
+
+    expect(manifest.ios.infoPlist).toEqual({
+      NSCameraUsageDescription: { value: "Scan receipts", from: ["my-app"] },
+      // An array still joins.
+      UIBackgroundModes: { value: ["audio", "fetch"], from: ["lucent-a", "my-app"] },
+    });
+    expect(manifest.ios.entitlements).toEqual({
+      "aps-environment": { value: "production", from: ["my-app"] },
+    });
+    expect(manifest.ios.pods).toEqual({ Kit: { "2.0.0": ["my-app"] } });
+    expect(manifest.android.dependencies).toEqual({ "com.example:kit": { "2.0.0": ["my-app"] } });
+    expect(manifest.android.components["com.example.Sync"]).toEqual({
+      value: { kind: "service", name: "com.example.Sync", exported: true },
+      from: ["my-app"],
+    });
+    expect(manifest.android.mainActivity.launchMode).toEqual({
+      value: "singleTask",
+      from: ["my-app"],
+    });
+  });
+
+  it("names its launch modules and its components' classes as the app's modules are named", () => {
+    const { manifest } = resolveNative([
+      app({
+        launch: ["jobs/sync"],
+        android: { components: [{ kind: "service", class: "workers/sync#SyncService" }] },
+      }),
+    ]);
+
+    expect(manifest.launch).toEqual({ "jobs/sync": ["my-app"] });
+    expect(Object.keys(manifest.android.components)).toEqual([
+      expect.not.stringContaining("my_app"),
+    ]);
+  });
+});
+
+describe("a Lucent package built on its own", () => {
+  it("declares its needs as a package, with its modules named by it", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-self-"));
+    fs.writeFileSync(
+      path.join(dir, "package.json"),
+      JSON.stringify({ name: "lucent-tasks", version: "1.0.0", lucent: {} }),
+    );
+    fs.writeFileSync(path.join(dir, "lucent.json"), JSON.stringify({ launch: ["tasks"] }));
+
+    expect(appPackage(dir)).toBeUndefined();
+    const packages = nativePackages(dir);
+    expect(packages.map((p) => [p.name, p.app])).toEqual([["lucent-tasks", undefined]]);
+    expect(resolveNative(packages).manifest.launch).toEqual({
+      "lucent-tasks/tasks": ["lucent-tasks"],
+    });
   });
 });

@@ -83,6 +83,12 @@ What a Lucent package's platform code needs from the app that installs it, next 
 | `android.minSdk` | `integer` |  | The lowest Android API level the package runs on. The library requires the highest any package needs, and never less than the app's minSdkVersion. Android's manifest merger fails an app below it. |
 | `launch` | `string[]` |  | Modules to create at app launch, before the first frame, for what the OS requires by then, such as BGTaskScheduler handlers. Each is a path under the package's sources, without .lucent.ts: "tasks" for tasks.lucent.ts. Creating one starts module state, every module's top level, and holds it for the app's process, so a reload keeps it. On iOS, LucentAppDelegate's application(\_:didFinishLaunchingWithOptions:) creates them; a bare app's lucent build names the call its AppDelegate lacks. |
 
-Only packages have a `lucent.json`: an app's own is not read. An app adds its pods, Gradle dependencies, permissions and `Info.plist` entries the usual way. Its pods and Gradle dependencies can be imported from `lucent:ios/*` and `lucent:android/*` too.
+## The app's own lucent.json
+
+An app's root can have a `lucent.json` too, with the same fields, for its own modules' needs. The build merges it with the packages', and names the app by its package.json's name.
+
+Where the app gives a value of its own, the app's wins. That holds for an `Info.plist` key or entitlement, a pod's or Gradle artifact's version, a manifest component and the main Activity's launch mode. An array still joins the packages' values.
+
+Its `launch` and its components' `class` name the app's modules as they are named, without a package. The pods and Gradle dependencies it lists can be imported from `lucent:ios/*` and `lucent:android/*`, as an app's own can.
 
 This table is generated from the schema at `https://lucent-lang.dev/schemas/lucent.schema.json`, which the package also ships, at `node_modules/@lucent-lang/lucent/schemas/lucent.schema.json`. Point your editor's JSON schema setting at it for `lucent.json` files: the file itself doesn't take a `$schema` field. The `extensions` field has its own page, [Native extensions](/docs/packages/native-extensions/).

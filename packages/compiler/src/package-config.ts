@@ -161,6 +161,8 @@ interface Declared {
   pkg: LucentPackage;
   name: string;
   native: PackageNative;
+  /** How its modules are named: `<package>/`, or nothing for the app's own. */
+  modules: string;
 }
 
 const byKey = <T>([a]: [string, T], [b]: [string, T]) => (a < b ? -1 : a > b ? 1 : 0);
@@ -285,9 +287,24 @@ export function resolveNative(
     found.set(p.name, p);
   }
 
+  const declare = (p: LucentPackage): Declared => ({
+    pkg: p,
+    name: p.name,
+    native: readPackageNative(p) ?? {},
+    modules: p.app ? "" : `${p.name}/`,
+  });
+  const app = [...found.values()].find((p) => p.app);
+  const own = app && declare(app);
+  // What the app declares wins over a package's: its value of a key, or its declaration of a
+  // component, replaces theirs.
   const declared: Declared[] = [...found.values()]
+    .filter((p) => !p.app)
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
-    .map((p) => ({ pkg: p, name: p.name, native: readPackageNative(p) ?? {} }));
+    .map((p) => {
+      const d = declare(p);
+      return own ? { ...d, native: withoutOverridden(d.native, own.native) } : d;
+    });
+  if (own) declared.push(own);
 
   const listed = (
     field: string,
@@ -398,7 +415,7 @@ export function resolveNative(
     launch: sorted(
       declared.flatMap((d) =>
         [...new Set(d.native.launch ?? [])].map((m): [string, From] => [
-          `${d.name}/${m}`,
+          `${d.modules}${m}`,
           [d.name],
         ]),
       ),
@@ -595,6 +612,49 @@ function swiftPackages(declared: Declared[]): ResolvedNative["ios"]["swiftPackag
   );
 }
 
+/**
+ * A package's needs without what the app's own lucent.json gives a value of
+ * its own: Info.plist keys and entitlements (an array's values still join),
+ * pods, Gradle artifacts and Swift packages, manifest components, and the
+ * main Activity's launch mode.
+ */
+function withoutOverridden(pkg: PackageNative, app: PackageNative): PackageNative {
+  const without = <T>(
+    of: Record<string, T> | undefined,
+    by: Record<string, unknown> | undefined,
+  ) => (of && by ? Object.fromEntries(Object.entries(of).filter(([k]) => !(k in by))) : of);
+  // A plist array joins the app's; another value is the app's alone.
+  const plistWithout = (
+    of: Record<string, PlistValue> | undefined,
+    by: Record<string, PlistValue> | undefined,
+  ) =>
+    of && by
+      ? Object.fromEntries(
+          Object.entries(of).filter(
+            ([k, v]) => by[k] === undefined || (Array.isArray(v) && Array.isArray(by[k])),
+          ),
+        )
+      : of;
+  const ios = pkg.ios && {
+    ...pkg.ios,
+    infoPlist: plistWithout(pkg.ios.infoPlist, app.ios?.infoPlist),
+    entitlements: plistWithout(pkg.ios.entitlements, app.ios?.entitlements),
+    pods: without(pkg.ios.pods, app.ios?.pods),
+    swiftPackages: without(pkg.ios.swiftPackages, app.ios?.swiftPackages),
+  };
+  const appComponents = new Set((app.android?.components ?? []).map((c) => c.name));
+  const android = pkg.android && {
+    ...pkg.android,
+    dependencies: without(pkg.android.dependencies, app.android?.dependencies),
+    components: pkg.android.components?.filter((c) => !appComponents.has(c.name)),
+    mainActivity: pkg.android.mainActivity && {
+      ...pkg.android.mainActivity,
+      ...(app.android?.mainActivity?.launchMode ? { launchMode: undefined } : {}),
+    },
+  };
+  return { ...pkg, ...(ios ? { ios } : {}), ...(android ? { android } : {}) };
+}
+
 /** Manifest components: each class declared once, the same way by every package that declares it. */
 function components(declared: Declared[]): ResolvedNative["android"]["components"] {
   const out = new Map<string, [ManifestComponent, From][]>();
@@ -605,7 +665,7 @@ function components(declared: Declared[]): ResolvedNative["android"]["components
       const [module, cls] = declaredAs.class?.split("#") ?? [];
       const c =
         module !== undefined && cls !== undefined
-          ? { ...declaredAs, name: osJavaName(`${d.name}/${module}`, cls).replace(/\//g, ".") }
+          ? { ...declaredAs, name: osJavaName(`${d.modules}${module}`, cls).replace(/\//g, ".") }
           : declaredAs;
       out.set(c.name, [...(out.get(c.name) ?? []), [c, [d.name]]]);
     }

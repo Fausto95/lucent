@@ -37,9 +37,18 @@ export const blocks: Block[] = [
         description,
       ]),
   },
+  { kind: "h2", text: "The app's own lucent.json" },
   {
     kind: "p",
-    text: "Only packages have a `lucent.json`: an app's own is not read. An app adds its pods, Gradle dependencies, permissions and `Info.plist` entries the usual way. Its pods and Gradle dependencies can be imported from `lucent:ios/*` and `lucent:android/*` too.",
+    text: "An app's root can have a `lucent.json` too, with the same fields, for its own modules' needs. The build merges it with the packages', and names the app by its package.json's name.",
+  },
+  {
+    kind: "p",
+    text: "Where the app gives a value of its own, the app's wins. That holds for an `Info.plist` key or entitlement, a pod's or Gradle artifact's version, a manifest component and the main Activity's launch mode. An array still joins the packages' values.",
+  },
+  {
+    kind: "p",
+    text: "Its `launch` and its components' `class` name the app's modules as they are named, without a package. The pods and Gradle dependencies it lists can be imported from `lucent:ios/*` and `lucent:android/*`, as an app's own can.",
   },
   {
     kind: "p",
