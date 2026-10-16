@@ -38,11 +38,13 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "abort.h"
 #include "array.h"
 #include "bigint.h"
+#include "buffer.h"
 #include "bytes.h"
 #include "execution.h"
 #include "function.h"
@@ -194,6 +196,37 @@ F real(double v) {
 
 /// The bytes' data for a C pointer: never null, even for none.
 uint8_t* data(Bytes& bytes);
+
+/// A bytes parameter's argument, for one call (decision 0130): a
+/// Uint8Array's or an ArrayBuffer's own bytes, or a NativeBuffer's under a
+/// borrow, to read or to write, which throws as withRead and withWrite do.
+class BytesArg {
+ public:
+  BytesArg(Bytes& bytes, bool write);
+  BytesArg(ArrayBuffer& buffer, bool write);
+  BytesArg(const NativeBuffer& buffer, bool write);
+
+  template <class... T>
+  BytesArg(std::variant<T...>& v, bool write) {
+    std::visit([&](auto& x) { take(x, write); }, v);
+  }
+
+  BytesArg(const BytesArg&) = delete;
+  BytesArg& operator=(const BytesArg&) = delete;
+
+  /// Never null, even for none.
+  uint8_t* data() const;
+  size_t size() const { return size_; }
+
+ private:
+  void take(Bytes& bytes, bool write);
+  void take(ArrayBuffer& buffer, bool write);
+  void take(const NativeBuffer& buffer, bool write);
+
+  uint8_t* data_ = nullptr;
+  size_t size_ = 0;
+  std::optional<NativeBufferObject::Lease> lease_;
+};
 
 /// A byte count as the C length type `I`; RangeError when it does not fit.
 template <class I>

@@ -25,7 +25,7 @@ struct C_Filter : lucent::Object {
 };
 
 inline void C_Filter::lucentRefs_(lucent::debug::RefSink& s) const {
-  lucent::debug::refs(s, this->_u23_native, "Filter.#native", "extension.lucent.ts:10");
+  lucent::debug::refs(s, this->_u23_native, "Filter.#native", "extension.lucent.ts:11");
 }
 
 inline bool C_Filter::lucentJson_(lucent::JsonWriter& w, bool toJson) {

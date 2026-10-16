@@ -1,3 +1,4 @@
+import { NativeBuffer } from "lucent:core";
 import {
   OrbitFilter,
   orbit_filter_apply,
@@ -83,4 +84,39 @@ export function closeTwice(): number {
   f.close();
 
   return orbit_filter_live() - before;
+}
+
+/** An ArrayBuffer's and a NativeBuffer's own bytes (decision 0130): the buffer borrowed for the call. */
+export function borrowed(): string {
+  const f = new OrbitFilter(2);
+  const input = NativeBuffer.from(new Uint8Array([1, 2, 3]));
+  const output = new ArrayBuffer(3);
+  const written = f.apply(input, output);
+  const scaled = Array.from(new Uint8Array(output)).join(",");
+
+  // Into a NativeBuffer, from a Uint8Array: written in place.
+  const into = NativeBuffer.allocate(2);
+  f.apply(new Uint8Array([5, 6]), into);
+  const back = into.withRead((bytes) => `${bytes[0]},${bytes[1]}`);
+
+  // A buffer being written can't be borrowed to read: refused before the call.
+  let refused = "";
+  input.withWrite(() => {
+    try {
+      f.apply(input, output);
+    } catch (e) {
+      refused = (e as Error).name;
+    }
+  });
+
+  input.close();
+  into.close();
+  let closed = "";
+  try {
+    f.apply(input, output);
+  } catch (e) {
+    closed = (e as Error).name;
+  }
+  f.close();
+  return `${written} ${scaled} ${back} ${refused} ${closed}`;
 }

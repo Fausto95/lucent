@@ -15,6 +15,7 @@ print(mod.shortOutput());
 print(mod.labelBytes("héllo"));
 print(mod.scoped());
 print(mod.closeTwice());
+print(mod.borrowed());
 
 f.close();
 try {

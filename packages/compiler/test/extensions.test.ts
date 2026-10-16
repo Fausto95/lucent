@@ -235,12 +235,16 @@ describe.skipIf(!clang)("an extension's declarations", () => {
 
     expect(dts).toContain("export declare class OrbitFilter {");
     expect(dts).toContain("constructor(strength: number);");
-    expect(dts).toContain("apply(input: Uint8Array, output: Uint8Array): number;");
+    // Bytes are a Uint8Array's, an ArrayBuffer's or a NativeBuffer's (decision 0130).
+    expect(dts).toContain('import type { NativeBuffer } from "lucent:core";');
+    expect(dts).toContain(
+      "apply(input: Uint8Array | ArrayBuffer | NativeBuffer, output: Uint8Array | ArrayBuffer | NativeBuffer): number;",
+    );
     expect(dts).toContain("processed(): bigint;");
     expect(dts).toContain("close(): void;");
     expect(dts).toContain("[Symbol.dispose](): void;");
     expect(dts).toContain(
-      "export declare function orbit_filter_apply(filter: OrbitFilter, input: Uint8Array, output: Uint8Array): number;",
+      "export declare function orbit_filter_apply(filter: OrbitFilter, input: Uint8Array | ArrayBuffer | NativeBuffer, output: Uint8Array | ArrayBuffer | NativeBuffer): number;",
     );
     expect(dts).toContain("export declare function orbit_filter_live(): number;");
     expect(dts).toContain("export declare function orbit_filter_label(name: string): number;");
@@ -253,13 +257,16 @@ describe.skipIf(!clang)("an extension's declarations", () => {
     const file = path.join(dir, "orbit-filter.d.ts");
     fs.writeFileSync(file, extensionDts(bind(orbit())[0]!));
 
-    const program = ts.createProgram([file], {
+    // lucent:core, which a bytes parameter's NativeBuffer comes from, as an app's tsconfig maps it.
+    const lib = path.join(path.dirname(fileURLToPath(import.meta.url)), "../lib");
+    const program = ts.createProgram([file, path.join(lib, "globals.d.ts")], {
       strict: true,
       noEmit: true,
       skipLibCheck: false,
       target: ts.ScriptTarget.ES2022,
       lib: ["lib.es2022.d.ts", "lib.esnext.disposable.d.ts"],
       types: [],
+      paths: { "lucent:core": [path.join(lib, "sdk/core.d.ts")] },
     });
 
     expect(

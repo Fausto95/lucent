@@ -95,6 +95,31 @@ uint8_t* data(Bytes& bytes) {
   return bytes.size() ? bytes.data() : &none;
 }
 
+BytesArg::BytesArg(Bytes& bytes, bool write) { take(bytes, write); }
+BytesArg::BytesArg(ArrayBuffer& buffer, bool write) { take(buffer, write); }
+BytesArg::BytesArg(const NativeBuffer& buffer, bool write) { take(buffer, write); }
+
+void BytesArg::take(Bytes& bytes, bool) {
+  data_ = bytes.size() ? bytes.data() : nullptr;
+  size_ = bytes.size();
+}
+
+void BytesArg::take(ArrayBuffer& buffer, bool) {
+  data_ = buffer.size() ? buffer.data() : nullptr;
+  size_ = buffer.size();
+}
+
+void BytesArg::take(const NativeBuffer& buffer, bool write) {
+  lease_.emplace(*buffer, write);
+  data_ = lease_->data();
+  size_ = lease_->size();
+}
+
+uint8_t* BytesArg::data() const {
+  static uint8_t none = 0;
+  return data_ ? data_ : &none;
+}
+
 std::string utf8(const String& s, const char* what) {
   std::string out = s.toUtf8();
 

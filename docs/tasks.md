@@ -60,7 +60,7 @@ what became of each one that is still linked or was still open.
 | **Distribution**         |                                                            |                                                                |
 | [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190 to #204, #363 merged)                        |
 | [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | done (2026-10-14)                                              |
-| [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #370): decided (0125, 0126, 0128 to 0130) |
+| [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #371): decided (0125, 0126, 0128 to 0130) |
 | [T143](#t143)            | Typed Kotlin and Java sources in packages                  | ready                                                          |
 | [T144](#t144)            | A web target for shared modules                            | ready (decision 0077)                                          |
 | [T145](#t145)            | The package distribution matrix                            | ready                                                          |
@@ -1562,9 +1562,9 @@ manual step, and Xcode builds without Metro running.
 **Goal:** A package wraps a C++ library, as a Nitro C++ Hybrid Object
 does, through typed extensions.
 
-- **Status:** in progress (#357 to #370): decided (0125, 0126, 0128 to
-  0130), C++ headers' classes bound and called, C and C++ callbacks, and
-  signals.
+- **Status:** in progress (#357 to #371): decided (0125, 0126, 0128 to
+  0130), C++ headers' classes bound and called, C and C++ callbacks,
+  signals, and bytes from any buffer.
 - **Area:** compiler, bindings, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3, V4, V7.
@@ -1596,10 +1596,11 @@ does, through typed extensions.
       `const std::atomic<bool> &` are the signal's `requested` flag, set
       by `abort()` on any thread and from JavaScript before its listener
       waits for the module (#369).
-- [ ] Bytes parameters (`bytes: read|write`) borrow a `NativeBuffer`'s or
+- [x] Bytes parameters (`bytes: read|write`) borrow a `NativeBuffer`'s or
       an `ArrayBuffer`'s span for the call instead of copying a
       `Uint8Array`. The copying form stays for `Uint8Array` arguments:
-      decided in 0130 (#370).
+      decided in 0130 (#370); `ext::BytesArg` gives C each one's own
+      bytes, a NativeBuffer's under a `Lease` (#371).
 - [ ] `android.prefab`: Gradle artifacts whose prefab modules the
       runtime's CMake links, with their headers on the extension's include
       path. Vendored frameworks and pods expose headers the same way.

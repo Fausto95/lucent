@@ -58,9 +58,21 @@ export function extensionDts(ext: ExtensionBinding): string {
 
   const enums = ext.enums.map((e): dts.Decl => ({ k: "enum", name: e.name, members: e.values }));
 
+  // A bytes parameter takes a NativeBuffer too (decision 0130).
+  const buffers = [...ext.functions, ...ext.handles.map((h) => h.create)].some((f) =>
+    f.params.some((p) => p.kind === "bytes"),
+  );
   const text = dts.printUnit({
     banner: `lucent:ext/${ext.name}: ${ext.package}'s native extension (generated from its header and lucent.json)`,
-    decls: [...handles, ...ext.classes.map((c) => classDecl(ext, c)), ...enums, ...functions],
+    decls: [
+      ...(buffers
+        ? [{ k: "importType" as const, names: ["NativeBuffer"], from: "lucent:core" }]
+        : []),
+      ...handles,
+      ...ext.classes.map((c) => classDecl(ext, c)),
+      ...enums,
+      ...functions,
+    ],
   });
 
   return ext.skipped.length
@@ -189,7 +201,7 @@ function paramType(p: ParamBinding): dts.Type | undefined {
     case "handle":
       return dts.ref(p.handle);
     case "bytes":
-      return dts.ref("Uint8Array");
+      return dts.union([dts.ref("Uint8Array"), dts.ref("ArrayBuffer"), dts.ref("NativeBuffer")]);
     case "string":
       return dts.keyword("string");
     case "callback":

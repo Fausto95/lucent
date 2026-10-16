@@ -34,6 +34,9 @@ bool lucent_extension_scoped(lucent_error* error, lucent_string* result);
 /// extension.closeTwice()
 bool lucent_extension_closeTwice(lucent_error* error, double* result);
 
+/// extension.borrowed()
+bool lucent_extension_borrowed(lucent_error* error, lucent_string* result);
+
 /// extension.Filter(strength)
 bool lucent_extension_Filter_new(double arg0, lucent_error* error, lucent_object* result);
 

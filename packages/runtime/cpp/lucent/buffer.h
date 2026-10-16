@@ -116,6 +116,8 @@ class NativeBufferObject final : public Object {
   size_t readers() const { return word_.load(std::memory_order_acquire) >> kReaderShift; }
   bool writing() const { return (word_.load(std::memory_order_acquire) & kWriter) != 0; }
 
+  class Lease;
+
   /// Calls `f(std::span<const uint8_t>)` while no one writes, and returns
   /// what it returns. Throws InvalidStateError if the buffer is not open or
   /// is being written.
@@ -195,6 +197,28 @@ class NativeBufferObject final : public Object {
     NativeBufferObject& buffer_;
     const bool write_;
   };
+
+ public:
+  /// A borrow held while it lives, as withRead's or withWrite's is during
+  /// its function: for a native call given the bytes (an extension's bytes
+  /// parameter, decision 0130). Throws as they do.
+  class Lease {
+   public:
+    Lease(NativeBufferObject& buffer, bool write)
+        : borrow_(buffer, write), data_(buffer.data_), size_(buffer.size_.load(std::memory_order_relaxed)) {}
+    Lease(const Lease&) = delete;
+    Lease& operator=(const Lease&) = delete;
+
+    uint8_t* data() const { return data_; }
+    size_t size() const { return size_; }
+
+   private:
+    Borrow borrow_;
+    uint8_t* const data_;
+    const size_t size_;
+  };
+
+ private:
 
   NativeBufferObject(uint8_t* data, size_t size, Destroy destroy, ExecutionContext* destroyOn, String origin,
                      uint32_t generation, bool readOnly);
