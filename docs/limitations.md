@@ -142,8 +142,6 @@ generated from this file.
   scheduler its creator gives with `Host::attach`, and no adapter for
   `react-native-worklets` gives one yet. Until then its async calls
   reject with `NotSupportedError` ([T134](tasks.md#t134)).
-- An object of another runtime's isn't yet refused as an instance
-  ([T134](tasks.md#t134)).
 - A delegate that must answer on the main thread waits for the job that
   holds its module's actor. Calls that nest two packages' actors in a
   cycle throw `Lucent: deadlock` rather than hang.

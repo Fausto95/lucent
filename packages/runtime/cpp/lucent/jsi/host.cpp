@@ -683,9 +683,16 @@ Ref<Object> instanceOf(jsi::Runtime& rt, const jsi::Value& v) {
   auto s = std::dynamic_pointer_cast<InstanceState>(o.getNativeState(rt));
   if (!s) return nullptr;
 
-  // One host per runtime: a live one is this runtime's.
   if (!s->host->alive()) {
     jsi::Value error = rt.global().getPropertyAsFunction(rt, "TypeError").callAsConstructor(rt, "This Lucent object belongs to a host that was torn down");
+    throw jsi::JSError(rt, std::move(error));
+  }
+
+  // Another runtime's object, as a worklet library copies one with its
+  // native state, is not an instance here: each runtime has its own
+  // object for it, which a call there returns (decision 0123).
+  if (&s->host->runtime() != &rt) [[unlikely]] {
+    jsi::Value error = rt.global().getPropertyAsFunction(rt, "TypeError").callAsConstructor(rt, "This Lucent object belongs to another JavaScript runtime: a call in this one returns its own object for the instance");
     throw jsi::JSError(rt, std::move(error));
   }
 
