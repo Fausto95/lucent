@@ -408,6 +408,9 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+      xcode:
+        specifier: ^3.0.1
+        version: 3.0.1
     devDependencies:
       '@lucent-lang/bindgen':
         specifier: workspace:*

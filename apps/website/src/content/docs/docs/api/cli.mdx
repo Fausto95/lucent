@@ -137,7 +137,9 @@ Set an app up for Lucent: Metro, the Expo plugin or Gradle and the app delegate,
 
 It has no JSON output: with `--json`, it exits with code 2.
 
-It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/guides/install/) lists the changes for Expo and bare apps. Running it again changes nothing.
+It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/guides/install/) lists the changes for Expo and bare apps.
+
+Running it again changes nothing, but for app extensions a build recorded since. It adds their targets to a bare app's Xcode project, as the Expo plugin does at prebuild.
 
 ## lucent uninstall
 

@@ -129,8 +129,7 @@ generated from this file.
   Prebuild lists components from the iOS build, and the first Gradle
   build reads that list before it writes it.
 - App extensions aren't run on a simulator yet, and widgets have no body
-  yet ([T133](tasks.md#t133)). The Expo plugin adds an extension's
-  target, but a bare app doesn't get one. On iOS, a launch module's
+  yet ([T133](tasks.md#t133)). On iOS, a launch module's
   `BGTaskScheduler` handler runs without JavaScript. Relaunches for background
   URL sessions and silent pushes aren't checked yet
   ([T132](tasks.md#t132)).

@@ -71,7 +71,11 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
   init: [
     {
       kind: "p",
-      text: "It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/guides/install/) lists the changes for Expo and bare apps. Running it again changes nothing.",
+      text: "It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/guides/install/) lists the changes for Expo and bare apps.",
+    },
+    {
+      kind: "p",
+      text: "Running it again changes nothing, but for app extensions a build recorded since. It adds their targets to a bare app's Xcode project, as the Expo plugin does at prebuild.",
     },
   ],
   create: [

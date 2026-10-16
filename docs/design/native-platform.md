@@ -971,7 +971,8 @@ own into `cpp/generated/ios-extensions/<name>/`, and its subspec of
 `LucentExtensions.podspec` builds it with the runtime under
 `LUCENT_APP_EXTENSION` (#349). `ios-extensions.json` records each target's
 Info.plist, entitlements and linking source for the integrations (#350),
-from which the Expo plugin adds the targets (#351). A widget names
+from which the Expo plugin adds the targets (#351), and `lucent init` a
+bare app's (#352). A widget names
 a provider class mirroring `TimelineProvider` and a SwiftUI JSX body of
 its entry, and Lucent writes WidgetKit's Swift. Each extension builds the
 modules its code reaches into a subspec of `LucentExtensions`, with the

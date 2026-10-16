@@ -4,6 +4,7 @@ import { findOwnFiles, LUCENT_EXTENSION } from "@lucent-lang/compiler/packages";
 import { type Check, expoSdk, reactNative } from "../doctor.ts";
 import { type PackageManager, packageManagerOf, runner } from "../package-manager.ts";
 import { withLucentTsconfig, withVscodeSettings } from "../tsconfig.ts";
+import { extensionTargetChanges } from "./app-extensions.ts";
 import {
   APP_DELEGATE,
   APP_FORWARDS,
@@ -125,6 +126,8 @@ export function planInit(root: string): InitPlan {
       const after = withForwards(read(root, scene)!, SCENE_DELEGATE, SCENE_FORWARDS);
       if (after !== undefined && after !== read(root, scene)) change(scene, forwardWhy, after);
     }
+    // The app extensions' targets the last build recorded and the project lacks (decision 0124).
+    for (const c of extensionTargetChanges(root)) change(c.file, c.why, c.after);
     if (objc && !read(root, objc)!.includes("LucentAppDelegate"))
       manual.push({
         file: objc,

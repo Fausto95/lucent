@@ -351,3 +351,81 @@ describe("lucent init in a terminal", () => {
     expect(answers).toEqual([true, false]);
   });
 });
+
+describe("init in a bare app with app extensions (decision 0124)", () => {
+  const template = path.resolve(__dirname, "../templates/bare/ios");
+  const manifest = {
+    format: 1,
+    nativePackage: ".lucent/native",
+    extensions: [
+      {
+        name: "RichPush",
+        kind: "notificationService",
+        pod: "LucentExtensions/RichPush",
+        infoPlist: {
+          NSExtension: { NSExtensionPointIdentifier: "com.apple.usernotifications.service" },
+        },
+        entitlements: {},
+        sources: { "LucentExtension.m": "// links\n" },
+      },
+    ],
+  };
+  /** A bare app with the template's Xcode project, built with an extension. */
+  function built(): string {
+    const root = bareApp();
+    fs.mkdirSync(path.join(root, "ios/HelloWorld.xcodeproj"), { recursive: true });
+    fs.copyFileSync(
+      path.join(template, "HelloWorld.xcodeproj/project.pbxproj"),
+      path.join(root, "ios/HelloWorld.xcodeproj/project.pbxproj"),
+    );
+    write(root, { ".lucent/native/ios-extensions.json": JSON.stringify(manifest) });
+    return root;
+  }
+
+  it("adds each target the project lacks, its files, and its target in the Podfile", async () => {
+    const root = built();
+    const { missingExtensionTargets } = await import("../src/cli/project.ts");
+    expect(
+      missingExtensionTargets(root, path.join(root, ".lucent/native")).map((n) => n.text),
+    ).toEqual([
+      "the app extension RichPush has no target in ios/HelloWorld.xcodeproj: run lucent init to add it (the Expo config plugin adds it)",
+    ]);
+
+    const plan = planInit(root);
+    const files = plan.changes.map((c) => c.file);
+    expect(files).toEqual(
+      expect.arrayContaining([
+        "ios/HelloWorld.xcodeproj/project.pbxproj",
+        "ios/RichPush/Info.plist",
+        "ios/RichPush/RichPush.entitlements",
+        "ios/RichPush/LucentExtension.m",
+      ]),
+    );
+    const project = plan.changes.find((c) => c.file.endsWith("project.pbxproj"))!.after;
+    // Under the app's bundle identifier, its product name's variable expanded.
+    expect(project).toContain(
+      "PRODUCT_BUNDLE_IDENTIFIER = org.reactjs.native.example.HelloWorld.RichPush;",
+    );
+    const podfile = plan.changes.filter((c) => c.file === "ios/Podfile").at(-1)!.after;
+    expect(podfile).toContain(
+      "target 'RichPush' do\n  pod 'LucentExtensions/RichPush', :path => '../.lucent/native'\nend\n",
+    );
+
+    for (const c of plan.changes) write(root, { [c.file]: c.after });
+    expect(missingExtensionTargets(root, path.join(root, ".lucent/native"))).toEqual([]);
+    // Once added, nothing more.
+    const again = planInit(root).changes.map((c) => c.file);
+    expect(again.filter((f) => f.includes("RichPush") || f.endsWith("project.pbxproj"))).toEqual(
+      [],
+    );
+  });
+
+  it("adds none without a build that recorded them", () => {
+    const root = bareApp();
+    expect(
+      planInit(root)
+        .changes.map((c) => c.file)
+        .filter((f) => f.includes("xcodeproj")),
+    ).toEqual([]);
+  });
+});
