@@ -239,6 +239,143 @@
             }
           },
           "description": "What the code's privacy manifest says, in Apple's keys. The build merges packages' into the pod's PrivacyInfo.xcprivacy, in a resource bundle of its own, which Xcode's privacy report reads with the app's. Tracking holds if any package tracks; domains, reasons and purposes join."
+        },
+        "appExtensions": {
+          "type": "array",
+          "description": "App extensions (decision 0124): targets of the app's Xcode project that run Lucent code with no JavaScript. Each is a notification service, a share extension or a widget. A name is declared once; packages that declare it differently fail the build, naming both. They're checked and merged, but their targets aren't built yet (T133).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "name"],
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "widget"
+                    }
+                  }
+                },
+                "then": {
+                  "required": ["provider", "body"],
+                  "not": {
+                    "required": ["class"]
+                  }
+                },
+                "else": {
+                  "required": ["class"],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": ["provider"]
+                      },
+                      {
+                        "required": ["body"]
+                      },
+                      {
+                        "required": ["displayName"]
+                      },
+                      {
+                        "required": ["description"]
+                      },
+                      {
+                        "required": ["families"]
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "kind": {
+                "enum": ["notificationService", "share", "widget"]
+              },
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9-]*$",
+                "description": "The target's name, and the last part of its bundle identifier: <app's identifier>.<name>."
+              },
+              "class": {
+                "type": "string",
+                "pattern": "^[^#]+#[A-Za-z_$][\\w$]*$",
+                "description": "A notification service or share extension's principal class, as \"<module path>#<Class>\": an exported class extending the SDK class its extension point makes (UNNotificationServiceExtension, a UIViewController), whose constructor takes no parameters."
+              },
+              "provider": {
+                "type": "string",
+                "pattern": "^[^#]+#[A-Za-z_$][\\w$]*$",
+                "description": "A widget's timeline provider, as \"<module path>#<Class>\": a class with placeholder(), snapshot() and timeline() methods giving its entries."
+              },
+              "body": {
+                "type": "string",
+                "pattern": "^[^#]+#[A-Za-z_$][\\w$]*$",
+                "description": "A widget's body, as \"<module path>#<function>\": a function of an iOS JSX file taking an entry and returning SwiftUI."
+              },
+              "displayName": {
+                "type": "string",
+                "description": "A widget's name in the widget gallery."
+              },
+              "description": {
+                "type": "string",
+                "description": "A widget's description in the widget gallery."
+              },
+              "families": {
+                "type": "array",
+                "description": "The widget families it supports, as WidgetFamily names them (\"systemSmall\").",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][A-Za-z]*$"
+                }
+              },
+              "infoPlist": {
+                "type": "object",
+                "description": "Info.plist entries of the extension alone.",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                }
+              },
+              "entitlements": {
+                "type": "object",
+                "description": "Entitlements of the extension alone.",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "appGroups": {
+          "type": "array",
+          "description": "App Group identifiers (\"group.<reverse DNS name>\"): the app's entitlements and each app extension's get them as com.apple.security.application-groups, so they share UserDefaults(suiteName:) and files. They join the entitlement's value from ios.entitlements.",
+          "items": {
+            "type": "string",
+            "pattern": "^(group\\.[A-Za-z0-9.-]+|.*\\{\\{.*)$"
+          }
         }
       }
     },

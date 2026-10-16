@@ -128,8 +128,9 @@ generated from this file.
   `pod install`), an app with components builds twice on Android.
   Prebuild lists components from the iOS build, and the first Gradle
   build reads that list before it writes it.
-- App extensions can't run module code yet ([T133](tasks.md#t133)). On iOS, a
-  launch module's `BGTaskScheduler` handler can. Relaunches for background
+- App extensions can't run module code yet ([T133](tasks.md#t133)):
+  `ios.appExtensions` is checked and merged, but no target is built. On
+  iOS, a launch module's `BGTaskScheduler` handler can. Relaunches for background
   URL sessions and silent pushes aren't checked yet
   ([T132](tasks.md#t132)).
 - Launch modules start module state, so every module's top level runs at

@@ -1269,3 +1269,145 @@ describe("privacy manifests", () => {
     );
   });
 });
+
+describe("iOS app extensions and App Groups (decision 0124)", () => {
+  function app(native: unknown): LucentPackage {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-app-"));
+    fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "my-app" }));
+    fs.writeFileSync(path.join(dir, "lucent.json"), JSON.stringify(native));
+    return appPackage(dir)!;
+  }
+
+  const rich = { kind: "notificationService", name: "RichPush", class: "push/rich#Rich" };
+  const widget = {
+    kind: "widget",
+    name: "Steps",
+    provider: "widgets/steps#Timeline",
+    body: "widgets/steps#Body",
+    displayName: "Steps",
+    families: ["systemSmall", "accessoryCircular"],
+  };
+
+  it("names an extension's Lucent code as modules are named: a package's by it, the app's not", () => {
+    const { manifest } = resolveNative([
+      pkg("lucent-push", { ios: { appExtensions: [rich] } }),
+      app({ ios: { appExtensions: [widget] } }),
+    ]);
+
+    expect(manifest.ios.appExtensions).toEqual({
+      RichPush: { value: { ...rich, class: "lucent-push/push/rich#Rich" }, from: ["lucent-push"] },
+      Steps: { value: widget, from: ["my-app"] },
+    });
+    // None declared: no field.
+    expect(resolveNative([pkg("lucent-a", {})]).manifest.ios).not.toHaveProperty("appExtensions");
+  });
+
+  it("fails when two packages declare an extension of one name", () => {
+    // Each package's code is its own, so the two never agree.
+    expect(() =>
+      resolveNative([
+        pkg("lucent-a", { ios: { appExtensions: [rich] } }),
+        pkg("lucent-b", { ios: { appExtensions: [rich] } }),
+      ]),
+    ).toThrow("iOS app extension RichPush: lucent-a and lucent-b declare it differently");
+  });
+
+  it("takes the app's extension of a name over a package's", () => {
+    const { manifest } = resolveNative([
+      pkg("lucent-push", { ios: { appExtensions: [rich] } }),
+      app({ ios: { appExtensions: [{ ...rich, class: "mine#Rich" }] } }),
+    ]);
+
+    expect(manifest.ios.appExtensions).toEqual({
+      RichPush: { value: { ...rich, class: "mine#Rich" }, from: ["my-app"] },
+    });
+  });
+
+  it("checks an extension's fields, as its kind needs them", () => {
+    const at = (e: object) => () =>
+      resolveNative([pkg("lucent-a", { ios: { appExtensions: [e] } })]);
+
+    expect(at({ kind: "share" })).toThrow(
+      "lucent-a/lucent.json: ios.appExtensions.0.name is required",
+    );
+    expect(at({ kind: "keyboard", name: "Keys" })).toThrow(
+      "ios.appExtensions.0.kind must be one of notificationService, share, widget",
+    );
+    expect(at({ kind: "share", name: "Share Sheet", class: "s#S" })).toThrow(
+      "ios.appExtensions.0.name must be a target's name: a letter, then letters, digits or -",
+    );
+    expect(at({ kind: "share", name: "Share" })).toThrow(
+      "ios.appExtensions.0.class is required for a share extension",
+    );
+    expect(at({ ...rich, families: ["systemSmall"] })).toThrow(
+      "ios.appExtensions.0.families is a widget's",
+    );
+    expect(at({ ...widget, body: undefined })).toThrow(
+      "ios.appExtensions.0.body is required for a widget",
+    );
+    expect(at({ ...widget, class: "w#W" })).toThrow(
+      "ios.appExtensions.0.class is a notification service or share extension's",
+    );
+    expect(at({ ...widget, body: "Body" })).toThrow(
+      'ios.appExtensions.0.body must be a Lucent function of the package: "<module path>#<function>"',
+    );
+    expect(at({ ...widget, families: ["small"] })).not.toThrow();
+    expect(at({ ...widget, families: ["System Small"] })).toThrow(
+      "ios.appExtensions.0.families.0 must be a widget family",
+    );
+  });
+
+  it("gives the app each package's App Groups, joining the entitlement's own value", () => {
+    const { manifest } = resolveNative([
+      pkg("lucent-a", {
+        ios: {
+          appGroups: ["group.dev.lucent.shared"],
+          entitlements: { "com.apple.security.application-groups": ["group.dev.lucent.a"] },
+        },
+      }),
+      pkg("lucent-b", { ios: { appGroups: ["group.dev.lucent.shared"] } }),
+    ]);
+
+    expect(manifest.ios.appGroups).toEqual({
+      "group.dev.lucent.shared": ["lucent-a", "lucent-b"],
+    });
+    expect(manifest.ios.entitlements).toEqual({
+      "com.apple.security.application-groups": {
+        value: ["group.dev.lucent.a", "group.dev.lucent.shared"],
+        from: ["lucent-a", "lucent-b"],
+      },
+    });
+
+    expect(() => resolveNative([pkg("lucent-a", { ios: { appGroups: ["dev.lucent"] } })])).toThrow(
+      'lucent-a/lucent.json: ios.appGroups.0 must be an App Group\'s identifier, "group.<reverse DNS name>"',
+    );
+    expect(() =>
+      resolveNative([
+        pkg("lucent-a", {
+          ios: {
+            appGroups: ["group.dev.lucent"],
+            entitlements: { "com.apple.security.application-groups": "group.dev.lucent" },
+          },
+        }),
+      ]),
+    ).toThrow("ios.entitlements.com.apple.security.application-groups must be an array");
+  });
+
+  it("fills an App Group's options, as entitlements are", () => {
+    const { manifest } = resolveNative([
+      pkg("lucent-a", {
+        options: { group: { description: "the app's App Group" } },
+        ios: {
+          appGroups: ["{{group}}"],
+          appExtensions: [{ ...rich, entitlements: { "keychain-access-groups": ["{{group}}"] } }],
+        },
+      }),
+      app({ packages: { "lucent-a": { group: "group.com.example.app" } } }),
+    ]);
+
+    expect(manifest.ios.appGroups).toEqual({ "group.com.example.app": ["lucent-a"] });
+    expect(manifest.ios.appExtensions?.RichPush?.value.entitlements).toEqual({
+      "keychain-access-groups": ["group.com.example.app"],
+    });
+  });
+});

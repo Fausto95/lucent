@@ -24,6 +24,7 @@ import {
   type PathKind,
 } from "./package-files.ts";
 import {
+  type AppExtension,
   type ExtensionDeclaration,
   type MainActivityAttributes,
   type ManifestComponent,
@@ -42,9 +43,11 @@ import type { LucentPackage } from "./packages.ts";
 
 export type { PackagePath } from "./package-files.ts";
 export {
+  APP_EXTENSION_KINDS,
   EXTENSION_FIELDS,
   PACKAGE_FIELDS,
   type Affinity,
+  type AppExtension,
   type ErrorDeclaration,
   type ExtensionDeclaration,
   type FailsWhen,
@@ -117,6 +120,13 @@ export interface ResolvedNative {
     deploymentTarget?: Agreed<string>;
     /** The privacy manifest's declarations, merged (when any package has some). */
     privacy?: ResolvedPrivacy;
+    /**
+     * App extension name → the extension (decision 0124), its Lucent code
+     * named as modules are (`<package>/<path>#<name>`); when any package has one.
+     */
+    appExtensions?: Record<string, Agreed<AppExtension>>;
+    /** App Group identifier → who asked (when any package does): also each one's entitlement. */
+    appGroups?: Record<string, From>;
   };
   android: {
     /** Gradle `group:artifact` → each version asked for (Gradle picks) → who asked. */
@@ -366,7 +376,7 @@ export function resolveNative(
     modules: p.app ? "" : `${p.name}/`,
   });
   const app = [...found.values()].find((p) => p.app);
-  const own = app && declare(app);
+  const own = app && withAppGroups(declare(app));
   // The options packages declare, given the values the app sets.
   for (const p of found.values()) {
     const n = (p === app ? own!.native : readPackageNative(p)) ?? {};
@@ -391,7 +401,7 @@ export function resolveNative(
     .filter((p) => !p.app)
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
     .map((p) => {
-      const d = withOptions(declare(p), set[p.name] ?? {}, own?.name);
+      const d = withAppGroups(withOptions(declare(p), set[p.name] ?? {}, own?.name));
       return own ? { ...d, native: withoutOverridden(d.native, own.native) } : d;
     });
   if (own) declared.push(own);
@@ -480,6 +490,11 @@ export function resolveNative(
       entitlements: plist(declared, (n) => n.ios?.entitlements, "entitlement"),
       ...highest(declared, "deploymentTarget", (n) => n.ios?.deploymentTarget, compareVersions),
       ...privacy(declared),
+      ...nonEmpty("appExtensions", appExtensions(declared)),
+      ...nonEmpty(
+        "appGroups",
+        union(declared, (n) => n.ios?.appGroups),
+      ),
     },
     android: {
       dependencies: requirements(
@@ -790,6 +805,12 @@ function withOptions(d: Declared, given: Record<string, OptionValue>, app?: stri
         ...(n.ios.entitlements && {
           entitlements: fill(n.ios.entitlements, "ios.entitlements") as Record<string, PlistValue>,
         }),
+        ...(n.ios.appExtensions && {
+          appExtensions: fill(n.ios.appExtensions, "ios.appExtensions") as AppExtension[],
+        }),
+        ...(n.ios.appGroups && {
+          appGroups: fill(n.ios.appGroups, "ios.appGroups") as string[],
+        }),
       },
     }),
     ...(n.android && {
@@ -831,12 +852,14 @@ function withoutOverridden(pkg: PackageNative, app: PackageNative): PackageNativ
           ),
         )
       : of;
+  const appExtensionNames = new Set((app.ios?.appExtensions ?? []).map((e) => e.name));
   const ios = pkg.ios && {
     ...pkg.ios,
     infoPlist: plistWithout(pkg.ios.infoPlist, app.ios?.infoPlist),
     entitlements: plistWithout(pkg.ios.entitlements, app.ios?.entitlements),
     pods: without(pkg.ios.pods, app.ios?.pods),
     swiftPackages: without(pkg.ios.swiftPackages, app.ios?.swiftPackages),
+    appExtensions: pkg.ios.appExtensions?.filter((e) => !appExtensionNames.has(e.name)),
   };
   const appComponents = new Set((app.android?.components ?? []).map((c) => c.name));
   const android = pkg.android && {
@@ -852,6 +875,73 @@ function withoutOverridden(pkg: PackageNative, app: PackageNative): PackageNativ
     },
   };
   return { ...pkg, ...(ios ? { ios } : {}), ...(android ? { android } : {}) };
+}
+
+/** The entitlement an App Group is (decision 0124). */
+export const APP_GROUPS_ENTITLEMENT = "com.apple.security.application-groups";
+
+/**
+ * A package's App Groups, its options filled, as the entitlement the app's
+ * and each app extension's entitlements get: joined with the package's own
+ * value of it, which must then be an array.
+ */
+function withAppGroups(d: Declared): Declared {
+  const groups = d.native.ios?.appGroups;
+  if (!groups?.length) return d;
+
+  for (const [i, group] of groups.entries())
+    if (!/^group\.[A-Za-z0-9.-]+$/.test(group))
+      throw new Error(
+        `${d.name}/lucent.json: ios.appGroups.${i} must be an App Group's identifier, "group.<reverse DNS name>"`,
+      );
+
+  const had = d.native.ios!.entitlements?.[APP_GROUPS_ENTITLEMENT];
+  if (had !== undefined && !Array.isArray(had))
+    throw new Error(
+      `${d.name}/lucent.json: ios.entitlements.${APP_GROUPS_ENTITLEMENT} must be an array, which ios.appGroups joins`,
+    );
+
+  const entitlements = {
+    ...d.native.ios!.entitlements,
+    [APP_GROUPS_ENTITLEMENT]: [...new Set([...(had ?? []), ...groups])],
+  };
+  return { ...d, native: { ...d.native, ios: { ...d.native.ios, entitlements } } };
+}
+
+/**
+ * App extensions (decision 0124): each name declared once, the same way by
+ * every package that declares it, its Lucent code named as modules are.
+ */
+function appExtensions(declared: Declared[]): Record<string, Agreed<AppExtension>> {
+  const out = new Map<string, [AppExtension, From][]>();
+
+  for (const d of declared)
+    for (const declaredAs of d.native.ios?.appExtensions ?? []) {
+      const code = (field: "class" | "provider" | "body") =>
+        declaredAs[field] === undefined ? {} : { [field]: `${d.modules}${declaredAs[field]}` };
+      const e: AppExtension = {
+        ...declaredAs,
+        ...code("class"),
+        ...code("provider"),
+        ...code("body"),
+      };
+      out.set(e.name, [...(out.get(e.name) ?? []), [e, [d.name]]]);
+    }
+
+  return sorted(
+    [...out].map(([name, declaredAs]): [string, Agreed<AppExtension>] => {
+      const conflict = firstConflict(declaredAs, (a, b) => canonical(a) === canonical(b));
+
+      if (conflict) {
+        const [[, fromA], [, fromB]] = conflict;
+        throw new Error(
+          `iOS app extension ${name}: ${fromA[0]} and ${fromB[0]} declare it differently`,
+        );
+      }
+
+      return [name, { value: declaredAs[0]![0], from: declaredAs.flatMap(([, from]) => from) }];
+    }),
+  );
 }
 
 /** Manifest components: each class declared once, the same way by every package that declares it. */
