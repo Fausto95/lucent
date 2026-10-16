@@ -371,7 +371,8 @@ struct InstanceState : jsi::NativeState {
 };
 
 /// The native instance behind a JS object, or null. Throws a TypeError for
-/// an object a torn-down host made: the state it belongs to has ended.
+/// an object a torn-down host made (the state it belongs to has ended),
+/// and for another runtime's object (decision 0123).
 Ref<Object> instanceOf(jsi::Runtime& rt, const jsi::Value& v);
 
 /// Tells the collector the native size of the instance behind `object`

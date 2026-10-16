@@ -865,6 +865,8 @@ A worklet runtime calls through a host attached to it
 A synchronous export runs on its thread, entering as main-thread entries
 do on the UI runtime. An async one rejects with `NotSupportedError` until
 the runtime's creator gives it a scheduler ([T134](tasks.md#t134)).
+Each runtime has its own object for an instance. Passing another
+runtime's object, or its `JSValue`, throws a `TypeError`.
 
 ### Compute tasks
 

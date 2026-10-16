@@ -2421,6 +2421,63 @@ static void aUiRuntimeCallEntersAsTheMainThreadDoes() {
   onMain([&] { ui.reset(); });
 }
 
+/// A worklet runtime has its own object for an instance, which a call
+/// there returns, with its own prototype. Another runtime's object, as a
+/// worklet library copies one with its native state, is refused, and so
+/// is another runtime's JSValue (decision 0123).
+static void aWorkletRuntimeHasItsOwnObjectsForInstances() {
+  JsThread a, b;
+  install(a);
+  carry(a, "mods.t.sharedHandle", b, "sharedHandle");
+
+  a.eval("var mine = mods.t.sharedHandle();");
+  b.eval("var mine = sharedHandle();");
+  CHECK(b.string("mine === sharedHandle()") == "true");
+
+  double first = a.number("mine.ping()");
+  CHECK(b.number("mine.ping()") == first + 1);
+
+  // Copied with its native state and its method, as worklet libraries copy objects.
+  std::shared_ptr<jsi::NativeState> state =
+      a.run([](jsi::Runtime& rt) { return rt.global().getPropertyAsObject(rt, "mine").getNativeState(rt); });
+  jsi::HostFunctionType ping = hostFunction(a, "mine.ping");
+  b.run([&](jsi::Runtime& rt) {
+    jsi::Object copy(rt);
+    copy.setNativeState(rt, state);
+    copy.setProperty(rt, "ping", jsi::Function::createFromHostFunction(rt, jsi::PropNameID::forAscii(rt, "ping"), 0, ping));
+    rt.global().setProperty(rt, "copy", copy);
+  });
+  state = nullptr;
+
+  const std::string refused =
+      "TypeError: This Lucent object belongs to another JavaScript runtime: a call in this one returns its own object for "
+      "the instance";
+  CHECK(b.string("(() => { try { copy.ping(); return 'accepted'; } catch (e) { return e.name + ': ' + e.message; } })()") ==
+        refused);
+  CHECK(b.string("(() => { try { mine.ping.call(copy); return 'accepted'; } catch (e) { return e.name + ': ' + e.message; } "
+                 "})()") == refused);
+  // Neither refused call reached it.
+  CHECK(a.number("mine.ping()") == first + 2);
+
+  // A JSValue stays with its runtime.
+  JSValue held;
+  a.run([&](jsi::Runtime& rt) { held = Convert<JSValue>::fromJs(rt, jsi::Value(1), Path{"f", "argument 'value'"}); });
+  bool refusedValue = false;
+  b.run([&](jsi::Runtime& rt) {
+    try {
+      Convert<JSValue>::toJs(rt, Host::get(rt), held);
+    } catch (const Exception& e) {
+      refusedValue = e.error()->name.toUtf8() == "TypeError" &&
+                     e.error()->message.toUtf8().find("another JavaScript runtime") != std::string::npos;
+    }
+  });
+  CHECK(refusedValue);
+  held.reset();
+
+  LucentScope scope;
+  m_t::shared = nullptr;
+}
+
 int main() {
   runtimesHaveTheirOwnHosts();
   newHostsReplaceOldOnes();
@@ -2473,6 +2530,7 @@ int main() {
   attachedRuntimesSettleThroughTheirScheduler();
   aReloadEndsModuleStateAWorkletRuntimeUses();
   aUiRuntimeCallEntersAsTheMainThreadDoes();
+  aWorkletRuntimeHasItsOwnObjectsForInstances();
 
   std::printf("host: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

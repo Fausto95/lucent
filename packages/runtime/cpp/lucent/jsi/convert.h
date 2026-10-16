@@ -784,7 +784,8 @@ class HeldJsValue final : public JSValueObject {
 };
 
 /// Any value JavaScript gives, undefined and null included, kept as it is;
-/// given back, the same value. One of a host a reload replaced is refused.
+/// given back, the same value. One of another runtime, or of a host a
+/// reload replaced, is refused (decision 0123).
 template <>
 struct Convert<JSValue> {
   static JSValue fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path&) {
@@ -795,7 +796,7 @@ struct Convert<JSValue> {
     auto held = std::dynamic_pointer_cast<HeldJsValue>(v);
     auto host = held ? held->host() : nullptr;
     const jsi::Value* value = host.get() == &h && h.alive() ? h.retainedValue(held->id()) : nullptr;
-    if (!value) throwTypeError("a JSValue of a JavaScript runtime a reload replaced cannot be given to this one");
+    if (!value) throwTypeError("a JSValue of another JavaScript runtime, or of one a reload replaced, cannot be given to this one");
     return jsi::Value(rt, *value);
   }
 };

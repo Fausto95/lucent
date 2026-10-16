@@ -970,8 +970,8 @@ since widget extensions run under tight limits.
 **In progress** ([T134](../tasks.md#t134),
 [0123](../decisions/0123-a-runtime-that-calls-lucent-gets-a-host-there.md)).
 Worklets call Lucent modules, as Nitro objects and Expo modules do on
-`react-native-worklets` runtimes. Attached hosts are in (#343); the
-instance rules and a worklet run on devices remain.
+`react-native-worklets` runtimes. Attached hosts (#343) and the instance
+rules (#344) are in; a worklet run on devices remains.
 
 - **Installing.** A Lucent function a worklet library makes again in its
   runtime calls through that runtime's host, an _attached_ host made at
@@ -992,7 +992,9 @@ instance rules and a worklet run on devices remain.
   `NotSupportedError` (`unscheduledPromise`), and a later callback fails
   as one with no runtime does.
 - **Instances.** Each runtime has its own object for an instance, which
-  a call there returns; another runtime's object throws a `TypeError`.
+  a call there returns, with that runtime's prototype. Another runtime's
+  object, as a worklet library copies one with its native state, throws
+  a `TypeError` (`instanceOf`), as another runtime's `JSValue` does.
 
 ### JavaScript tasks from background entry points
 
