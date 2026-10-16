@@ -129,6 +129,21 @@ void cxxThrew(const char* what, const char* message) {
                                : String::fromUtf8(std::string(what) + " threw a C++ exception")));
 }
 
+// --- signals -----------------------------------------------------------------------------
+
+SignalFlag::SignalFlag(const Opt<AbortSignal>& signal) : signal_(signal.has() ? signal.get() : nullptr) {
+  if (signal_ && signal_->requested.load()) throwError(signal_->requestedReason());
+}
+
+const std::atomic<bool>& SignalFlag::flag() const {
+  static const std::atomic<bool> never{false};
+  return signal_ ? signal_->requested : never;
+}
+
+void SignalFlag::done() const {
+  if (signal_ && signal_->requested.load()) throwError(signal_->requestedReason());
+}
+
 // --- callbacks ---------------------------------------------------------------------------
 
 detail::CallFrame*& detail::CallFrame::innermost() {

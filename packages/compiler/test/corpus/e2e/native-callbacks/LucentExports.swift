@@ -225,4 +225,31 @@ public enum Extension {
     }
     return LucentOut.string(lucentResult)
   }
+
+  public static func stopped() throws -> Swift.String {
+    var lucentError = lucent_error()
+    var lucentResult = lucent_string()
+    guard lucent_extension_stopped(&lucentError, &lucentResult) else {
+      throw LucentError(lucentError)
+    }
+    return LucentOut.string(lucentResult)
+  }
+
+  public static func unstopped() throws -> Swift.Double {
+    var lucentError = lucent_error()
+    var lucentResult: Swift.Double = 0
+    guard lucent_extension_unstopped(&lucentError, &lucentResult) else {
+      throw LucentError(lucentError)
+    }
+    return lucentResult
+  }
+
+  public static func abortedBefore() throws -> Swift.String {
+    var lucentError = lucent_error()
+    var lucentResult = lucent_string()
+    guard lucent_extension_abortedBefore(&lucentError, &lucentResult) else {
+      throw LucentError(lucentError)
+    }
+    return LucentOut.string(lucentResult)
+  }
 }

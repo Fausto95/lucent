@@ -2,6 +2,7 @@
 // namespace, their overloads and types, and what Lucent leaves out.
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -47,6 +48,7 @@ class Counter {
   int countIf(std::function<bool(int64_t)> keep);
   void onTick(std::function<void()> tick);
   void legacy(void (*visit)(int, void*), void* context);
+  int countUntil(int most, const std::atomic<bool>& stop);
   Counter& operator=(const Counter&) = delete;
 
  private:

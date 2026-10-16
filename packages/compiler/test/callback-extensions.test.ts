@@ -89,6 +89,35 @@ describe.skipIf(!clang)("binding a C extension's callbacks", () => {
     expect(fn("ticker_on_tick").params[1]).toMatchObject({ lives: { handle: 0 } });
   });
 
+  it("binds a signal's flag: a const volatile bool *, one a call", () => {
+    const steps = tickerBinding().functions.find((f) => f.name === "ticker_steps")!;
+    expect(steps.params.at(-1)).toEqual({ kind: "signal", name: "stop" });
+
+    expect(() =>
+      bind(
+        ticker(
+          (d) => (d.functions.ticker_plain = { params: { stop: { signal: "flag" } } }),
+          adding("void ticker_plain(const bool* stop);"),
+        ),
+      ),
+    ).toThrow(
+      `${at}.ticker_plain.params.stop: a signal's flag must be const volatile bool *, not const bool *`,
+    );
+    expect(() =>
+      bind(
+        ticker(
+          (d) =>
+            (d.functions.ticker_two_stops = {
+              params: { a: { signal: "flag" }, b: { signal: "flag" } },
+            }),
+          adding("void ticker_two_stops(const volatile bool* a, const volatile bool* b);"),
+        ),
+      ),
+    ).toThrow(
+      `${at}.ticker_two_stops: ticker_two_stops takes two signals' flags; a call has one AbortSignal`,
+    );
+  });
+
   it("leaves out a function pointer its declaration doesn't make a callback", () => {
     const ext = bind(ticker((d) => delete d.functions.ticker_count));
     expect(ext.functions.some((f) => f.name === "ticker_count")).toBe(false);
@@ -161,6 +190,10 @@ describe.skipIf(!clang)("a C extension's callbacks in Lucent", () => {
       "export declare function ticker_keep(names: string, keep: (arg0: string, arg1: bigint) => boolean): number;",
     );
     expect(dts).toContain("  onTick(tick: (arg0: number) => void): void;");
+    // A signal last is one a call may leave out.
+    expect(dts).toContain(
+      "export declare function ticker_steps(most: number, step: (arg0: number) => void, stop?: AbortSignal): number;",
+    );
   });
 
   it("are held for the call and given C as a thunk of its own parameter type", () => {

@@ -147,6 +147,7 @@ describe.skipIf(!clang)("a C++ header", () => {
       "countIf",
       "onTick",
       "legacy",
+      "countUntil",
     ]);
     expect(types(c, "bump")).toEqual(["int", "->", "long long"]);
     expect(types(c, "value")).toEqual(["->", "double"]);
@@ -166,6 +167,8 @@ describe.skipIf(!clang)("a C++ header", () => {
     expect(types(c, "onTick")).toEqual(["std::function<void ()>", "->", "void"]);
     // A C function pointer is no std::function: C++ callbacks are those.
     expect(types(c, "legacy")).toEqual(["void (*)(int, void *)", "void *", "->", "void"]);
+    // A call's AbortSignal, as C++ reads it (decision 0129).
+    expect(types(c, "countUntil")).toEqual(["int", "const std::atomic<bool> &", "->", "int"]);
     expect(c.methods.find((m) => m.name === "value")!.const).toBe(true);
     expect(c.methods.find((m) => m.name === "count")!.static).toBe(true);
     expect(c.skipped).toEqual(["as: a member template"]);

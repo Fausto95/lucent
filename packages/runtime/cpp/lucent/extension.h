@@ -40,6 +40,7 @@
 #include <utility>
 #include <vector>
 
+#include "abort.h"
 #include "array.h"
 #include "bigint.h"
 #include "bytes.h"
@@ -393,6 +394,54 @@ auto fromCxxOptional(const std::optional<T>& o, F each) {
 template <class T>
 void deleteObject(void* p) {
   delete static_cast<T*>(p);
+}
+
+// --- signals (decision 0129) ---------------------------------------------------------
+
+/// A call's AbortSignal, as C polls it: its `requested` flag, or one that
+/// stays false for none.
+class SignalFlag {
+ public:
+  /// Throws the reason of a signal already aborted: no call is made.
+  explicit SignalFlag(const Opt<AbortSignal>& signal);
+  SignalFlag(const SignalFlag&) = delete;
+  SignalFlag& operator=(const SignalFlag&) = delete;
+
+  /// For a `const volatile bool *` parameter: lock-free, a std::atomic<bool> is a bool.
+  const volatile bool* c() const { return reinterpret_cast<const volatile bool*>(&flag()); }
+
+  /// For a `const std::atomic<bool> &` parameter.
+  const std::atomic<bool>& cxx() const { return flag(); }
+
+  /// After the call: throws the signal's reason if it aborted during it.
+  void done() const;
+
+ private:
+  const std::atomic<bool>& flag() const;
+
+  AbortSignal signal_;
+};
+
+static_assert(std::atomic<bool>::is_always_lock_free && sizeof(std::atomic<bool>) == sizeof(bool),
+              "C reads a signal's flag as a bool");
+
+/// As cxxCall(), with a signal whose reason, if it aborted during the
+/// call, is thrown instead of whatever the call threw or returned.
+template <class F>
+decltype(auto) cxxCall(const char* what, const SignalFlag& signal, F&& f) {
+  try {
+    if constexpr (std::is_void_v<decltype(f())>) {
+      cxxCall(what, f);
+      signal.done();
+    } else {
+      decltype(auto) r = cxxCall(what, f);
+      signal.done();
+      return r;
+    }
+  } catch (...) {
+    signal.done();
+    throw;
+  }
 }
 
 // --- callbacks (decisions 0126 and 0128) -----------------------------------------------

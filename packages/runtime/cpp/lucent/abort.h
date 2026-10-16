@@ -6,11 +6,16 @@
 // where the listeners run. A signal that came from JavaScript is aborted
 // from the JS thread, in the actor of the call it was passed to, by a listener on the JS
 // signal (lucent/jsi).
+//
+// `requested` turns true as soon as abort() is called, on any thread,
+// before the abort reaches the owner: what a native call that holds the
+// owner polls (decision 0129), with the reason it was given.
 #pragma once
 
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <mutex>
 #include <utility>
 #include <vector>
 
@@ -25,6 +30,13 @@ class AbortSignalObject : public Object {
   std::atomic<bool> aborted{false};
   /// Set once, when the signal aborts, before `aborted`.
   Error reason;
+  /// True from the first abort() on any thread, before it reaches the owner.
+  std::atomic<bool> requested{false};
+
+  /// Records an abort as requested, with `why`, at once (the first wins).
+  void request(const Error& why);
+  /// The reason the first abort() was given; null until one was.
+  Error requestedReason() const;
 
   /// Aborts once: records `why` and runs the listeners in the order they
   /// were added, synchronously on the owner, like dispatching the `abort`
@@ -46,6 +58,8 @@ class AbortSignalObject : public Object {
   void join(uint64_t id, std::function<void()> f);
 
   const ContextRef owner_ = ExecutionContext::currentRef();
+  mutable std::mutex requestMutex_;
+  Error requestedReason_;
   std::atomic<uint64_t> nextId_{1};
   std::vector<std::pair<uint64_t, std::function<void()>>> listeners_;
 };

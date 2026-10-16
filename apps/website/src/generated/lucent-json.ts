@@ -677,6 +677,12 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "description": "How long C may call it: call (the default), until the function returns. once, until its first call. A handle parameter's name, until that handle is destroyed."
   },
   {
+    "field": "extensions.<name>.functions.<name>.params.<name>.signal",
+    "type": "\"flag\"",
+    "required": true,
+    "description": ""
+  },
+  {
     "field": "extensions.<name>.functions.<name>.failsWhen",
     "type": "\"null\" or \"negative\" or \"nonzero\" or \"zero\" or \"false\"",
     "required": false,

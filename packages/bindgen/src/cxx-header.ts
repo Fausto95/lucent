@@ -44,6 +44,8 @@ export type CxxType =
   | { k: "class"; name: string; by: "value" | "ref" | "constRef" | "pointer" | "constPointer" }
   /** A `std::function`, by value or `const &`: what it returns and takes. */
   | { k: "function"; result: CxxType; params: CxxType[] }
+  /** A `const std::atomic<bool> &`: the flag a call's AbortSignal sets (decision 0129). */
+  | { k: "flag" }
   | { k: "unknown"; spelling: string };
 
 export interface CxxParam {
@@ -522,6 +524,8 @@ function cxxType(
       params: params!.map((p) => cxxType(p, resolve, enums)),
     };
   }
+  if (std === "atomic" && t.args.length === 1 && format(t.args[0]) === "bool" && constRef)
+    return { k: "flag" };
   if (std === "optional" && t.args.length === 1 && (plain || constRef)) {
     const inner = of(0);
     return inner.k === "unknown" || inner.k === "void" || inner.k === "optional"
@@ -596,6 +600,8 @@ export function formatCxxType(t: CxxType): string {
       }[t.by];
     case "function":
       return `std::function<${formatCxxType(t.result)} (${t.params.map(formatCxxType).join(", ")})>`;
+    case "flag":
+      return "const std::atomic<bool> &";
     case "unknown":
       return t.spelling;
   }

@@ -100,3 +100,19 @@ export function ticker_check(value: number, ok: (value: number) => boolean): num
   if (passed) return value;
   throw Object.assign(new Error("not ok"), { code: "7" });
 }
+
+// Polls the signal's flag after each step; an abort during the call throws its reason.
+export function ticker_steps(most: number, step: (n: number) => void, stop?: AbortSignal): number {
+  if (stop?.aborted) throw stop.reason;
+  const [call, done] = asC(step);
+  // The flag is read each step: a callback may abort it.
+  const aborted = () => stop?.aborted === true;
+  let n = 0;
+  while (n < most && !aborted()) {
+    n++;
+    call(n);
+  }
+  if (stop?.aborted) throw stop.reason;
+  done();
+  return n;
+}

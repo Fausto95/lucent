@@ -75,6 +75,7 @@ describe.skipIf(!clang)("binding a C++ header", () => {
       "each",
       "countTags",
       "onAdd",
+      "addUntil",
     ]);
     const method = (name: string) => counter!.methods.find((m) => m.name === name)!.overloads[0]!;
     expect(method("total").result).toEqual({ kind: "bigint", c: "long long" });
@@ -107,6 +108,12 @@ describe.skipIf(!clang)("binding a C++ header", () => {
       ],
       result: { kind: "boolean" },
     });
+    // A const std::atomic<bool> &: the call's AbortSignal's flag (decision 0129).
+    expect(method("addUntil").params.map((p) => p.value.kind)).toEqual([
+      "number",
+      "number",
+      "signal",
+    ]);
     expect(method("onAdd").params[0]!.value).toEqual({
       kind: "callback",
       params: [
@@ -174,6 +181,7 @@ describe.skipIf(!clang)("a C++ extension's declarations", () => {
     expect(dts).toContain("  each(visit: (arg0: number) => void): void;");
     expect(dts).toContain("  countTags(keep: (arg0: string, arg1: bigint) => boolean): number;");
     expect(dts).toContain("  onAdd(listen: (arg0: string, arg1: number) => void): void;");
+    expect(dts).toContain("  addUntil(by: number, times: number, stop?: AbortSignal): number;");
     expect(dts).toContain(
       "export declare enum Rounding {\n  Down = 0,\n  Nearest = 2,\n  Up = 3,\n}",
     );
@@ -186,7 +194,9 @@ describe.skipIf(!clang)("a C++ extension's declarations", () => {
     const file = path.join(dir, "tally.d.ts");
     fs.writeFileSync(file, extensionDts(tallyBinding()));
 
-    const program = ts.createProgram([file], {
+    // AbortSignal is one of Lucent's globals.
+    const globals = path.join(path.dirname(fileURLToPath(import.meta.url)), "../lib/globals.d.ts");
+    const program = ts.createProgram([file, globals], {
       strict: true,
       noEmit: true,
       skipLibCheck: false,
@@ -290,6 +300,29 @@ export function heard(): string {
     );
     expect(cpp).toMatch(/->onAdd\(x_\d+_\.function\(\)\)/);
     expect(cpp).toMatch(/x_\d+_\.done\(\);/);
+  });
+
+  it("gives C++ a signal's flag, and calls with the signal so its abort comes first", () => {
+    const r = compile(
+      [
+        source(`import { Counter } from "lucent:ext/tally";
+
+export function until(signal: AbortSignal): number {
+  const c = new Counter();
+  const total = c.addUntil(1, 3, signal);
+  c.close();
+  return total;
+}
+`),
+      ],
+      { extensions: [tallyBinding()] },
+    );
+    expect(r.diagnostics).toEqual([]);
+
+    const cpp = cppOf(r);
+    expect(cpp).toMatch(/auto x_(\d+)_ = lucent::ext::SignalFlag\(x_\d+_\);/);
+    expect(cpp).toMatch(/lucent::ext::cxxCall\("Counter\.addUntil", x_\d+_, \[&\]\(\) \{/);
+    expect(cpp).toMatch(/->addUntil\(x_\d+_, x_\d+_, x_\d+_\.cxx\(\)\)/);
   });
 
   it("requires a main-thread class to be used in main()", () => {

@@ -114,10 +114,24 @@ function classDecl(ext: ExtensionBinding, c: ClassBinding): dts.Decl {
 }
 
 function cxxParams(call: CxxCallBinding): dts.Param[] {
-  return call.params.map((p) => ({
-    name: TS_RESERVED.has(p.name) ? `${p.name}$` : p.name,
-    type: cxxType(p.value),
-  }));
+  return optionalSignal(
+    call.params.map((p) => ({
+      name: TS_RESERVED.has(p.name) ? `${p.name}$` : p.name,
+      type: cxxType(p.value),
+    })),
+  );
+}
+
+/** A call's AbortSignal: `AbortSignal | undefined`, which a call leaves out when it is last. */
+const SIGNAL: dts.Type = dts.union([dts.ref("AbortSignal"), dts.keyword("undefined")]);
+
+function optionalSignal(params: dts.Param[]): dts.Param[] {
+  const last = params.at(-1);
+  if (last?.type !== SIGNAL) return params;
+  return [
+    ...params.slice(0, -1),
+    { name: last.name, type: dts.ref("AbortSignal"), optional: true },
+  ];
 }
 
 function cxxType(v: CxxValue): dts.Type {
@@ -144,20 +158,24 @@ function cxxType(v: CxxValue): dts.Type {
         params: v.params.map((p, i) => ({ name: `arg${i}`, type: cxxType(p) })),
         ret: v.result ? cxxType(v.result) : dts.keyword("void"),
       };
+    case "signal":
+      return SIGNAL;
   }
 }
 
 /** What Lucent code passes: lengths, errors and callbacks' contexts are the binding's. */
 function params(f: FunctionBinding): dts.Param[] {
-  return f.params.flatMap((p, i) => {
-    const type = paramType(p);
-    if (!type) return [];
+  return optionalSignal(
+    f.params.flatMap((p, i) => {
+      const type = paramType(p);
+      if (!type) return [];
 
-    // Unnamed, or a TypeScript keyword (`new`): a name no C parameter has (C names cannot end in `$`).
-    const name = !p.name ? `arg${i}$` : TS_RESERVED.has(p.name) ? `${p.name}$` : p.name;
+      // Unnamed, or a TypeScript keyword (`new`): a name no C parameter has (C names cannot end in `$`).
+      const name = !p.name ? `arg${i}$` : TS_RESERVED.has(p.name) ? `${p.name}$` : p.name;
 
-    return [{ name, type }];
-  });
+      return [{ name, type }];
+    }),
+  );
 }
 
 function paramType(p: ParamBinding): dts.Type | undefined {
@@ -180,6 +198,8 @@ function paramType(p: ParamBinding): dts.Type | undefined {
         params: p.params.map((v, i) => ({ name: `arg${i}`, type: callbackType(v) })),
         ret: p.result.kind === "void" ? dts.keyword("void") : callbackType(p.result),
       };
+    case "signal":
+      return SIGNAL;
     case "length":
     case "error":
     case "context":

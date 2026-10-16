@@ -199,7 +199,7 @@ describe.skipIf(!clang)("binding a native extension", () => {
       "extensions.orbit-filter.functions.orbit_filter_apply.params.input: bytes written through a const pointer (const unsigned char *)",
     );
     expect(failure((d) => delete d.functions.orbit_filter_apply.params.output)).toThrow(
-      "extensions.orbit-filter.functions.orbit_filter_apply: parameter output is a pointer (unsigned char *): declare it in params as bytes, a string or an error",
+      "extensions.orbit-filter.functions.orbit_filter_apply: parameter output is a pointer (unsigned char *): declare it in params as bytes, a string, an error or a signal",
     );
     expect(
       failure((d) => (d.functions.orbit_filter_label.params.name = { error: "OrbitError" })),

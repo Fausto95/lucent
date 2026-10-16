@@ -6,6 +6,8 @@
 #undef a
 #pragma push_macro("add")
 #undef add
+#pragma push_macro("adds")
+#undef adds
 #pragma push_macro("amounts")
 #undef amounts
 #pragma push_macro("b")
@@ -22,6 +24,8 @@
 #undef cleared
 #pragma push_macro("close")
 #undef close
+#pragma push_macro("controller")
+#undef controller
 #pragma push_macro("e")
 #undef e
 #pragma push_macro("errors")
@@ -48,6 +52,8 @@
 #undef rounding
 #pragma push_macro("seen")
 #undef seen
+#pragma push_macro("stopping")
+#undef stopping
 #pragma push_macro("strings")
 #undef strings
 #pragma push_macro("tag")
@@ -781,6 +787,91 @@ lucent::String m_extension::callbackThrows() {
   return lucent::concat(v21_, LUCENT_STR(" "), out);
 }
 
+lucent::String m_extension::stopping() {
+  lucent::checkStack();
+  lucent::Handle c = ({
+    auto x_192_ = LUCENT_STR("s");
+    auto x_193_ = lucent::ext::cxxString(x_192_);
+    auto result_194_ = lucent::ext::cxxCall("new Counter", [&]() {
+      return new ::tally::Counter(x_193_);
+    });
+    lucent::Handle::open("Counter", result_194_, &lucent::ext::deleteObject<::tally::Counter>);
+  });
+  lucent::AbortController controller = std::make_shared<lucent::AbortControllerObject>();
+  lucent::Box<double> adds{};
+  *adds = 0.0;
+  lucent::Fn<void(lucent::String, double)> v6_ = lucent::Fn<void(lucent::String, double)>(lucent::closure("extension.lucent.ts:159", "adds,controller", [](std::decay_t<decltype(adds)>& adds, std::decay_t<decltype(controller)>& controller, lucent::String p0_, double p1_) -> void {
+    lucent::checkStack();
+    double v2_ = *adds;
+    *adds = v2_ + 1.0;
+    double v5_ = *adds;
+    bool v7_ = v5_ == 2.0;
+    if (v7_) {
+      controller->abort(lucent::undefined);
+    }
+  }, adds, controller));
+  (void)({
+    auto x_195_ = c;
+    auto x_196_ = x_195_.use<::tally::Counter>();
+    auto x_197_ = v6_;
+    auto x_198_ = lucent::ext::Callback<lucent::Fn<void(lucent::String, double)>>("Counter.onAdd's listen", lucent::ext::Lives::Copies, x_197_);
+    lucent::ext::cxxCall("Counter.onAdd", [&]() {
+      x_196_.get()->onAdd(x_198_.function());
+    });
+    x_198_.done();
+    lucent::undefined;
+  });
+  lucent::String out = lucent::String();
+  {
+    std::exception_ptr ex15_;
+    try {
+      lucent::AbortSignal v13_ = controller->signal;
+      (void)({
+        auto x_199_ = c;
+        auto x_200_ = x_199_.use<::tally::Counter>();
+        auto x_201_ = 1.0;
+        auto x_202_ = 5.0;
+        auto x_203_ = lucent::Opt<lucent::AbortSignal>(v13_);
+        auto x_204_ = lucent::ext::real<double>(x_201_);
+        auto x_205_ = lucent::ext::integer<int>(x_202_, "times");
+        auto x_206_ = lucent::ext::SignalFlag(x_203_);
+        auto result_207_ = lucent::ext::cxxCall("Counter.addUntil", x_206_, [&]() {
+          return x_200_.get()->addUntil(x_204_, x_205_, x_206_.cxx());
+        });
+        static_cast<double>(result_207_);
+      });
+    } catch (const lucent::GeneratorReturn&) {
+      throw;
+    } catch (...) {
+      ex15_ = std::current_exception();
+    }
+    if (ex15_) {
+      lucent::Error v15_ = lucent::currentError(ex15_);
+      lucent::Error e = std::move(v15_);
+      out = e->name;
+    }
+  }
+  double total = ({
+    auto x_208_ = c;
+    auto x_209_ = x_208_.use<::tally::Counter>();
+    auto x_210_ = 1.0;
+    auto x_211_ = 2.0;
+    auto x_212_ = lucent::Opt<lucent::AbortSignal>(lucent::undefined);
+    auto x_213_ = lucent::ext::real<double>(x_210_);
+    auto x_214_ = lucent::ext::integer<int>(x_211_, "times");
+    auto x_215_ = lucent::ext::SignalFlag(x_212_);
+    auto result_216_ = lucent::ext::cxxCall("Counter.addUntil", x_215_, [&]() {
+      return x_209_.get()->addUntil(x_213_, x_214_, x_215_.cxx());
+    });
+    static_cast<double>(result_216_);
+  });
+  c.close();
+  double v26_ = *adds;
+  lucent::String v27_ = lucent::toJsString(v26_);
+  lucent::String v30_ = lucent::toJsString(total);
+  return lucent::concat(out, LUCENT_STR(" "), v27_, LUCENT_STR(" "), v30_);
+}
+
 void m_extension::init() {
 }
 
@@ -790,6 +881,7 @@ void m_extension::init() {
 #pragma pop_macro("total")
 #pragma pop_macro("tag")
 #pragma pop_macro("strings")
+#pragma pop_macro("stopping")
 #pragma pop_macro("seen")
 #pragma pop_macro("rounding")
 #pragma pop_macro("r_long_")
@@ -803,6 +895,7 @@ void m_extension::init() {
 #pragma pop_macro("half")
 #pragma pop_macro("errors")
 #pragma pop_macro("e")
+#pragma pop_macro("controller")
 #pragma pop_macro("close")
 #pragma pop_macro("cleared")
 #pragma pop_macro("callbacks")
@@ -811,5 +904,6 @@ void m_extension::init() {
 #pragma pop_macro("before")
 #pragma pop_macro("b")
 #pragma pop_macro("amounts")
+#pragma pop_macro("adds")
 #pragma pop_macro("add")
 #pragma pop_macro("a")

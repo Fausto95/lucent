@@ -25,6 +25,7 @@ export declare class Counter {
   each(visit: (arg0: number) => void): void;
   countTags(keep: (arg0: string, arg1: bigint) => boolean): number;
   onAdd(listen: (arg0: string, arg1: number) => void): void;
+  addUntil(by: number, times: number, stop?: AbortSignal): number;
   /** Deletes the object; later uses throw. Closing again does nothing. */
   close(): void;
   /** close() */

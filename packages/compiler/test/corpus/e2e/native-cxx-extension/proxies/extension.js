@@ -12,4 +12,5 @@ exports.objects = m.objects;
 exports.errors = m.errors;
 exports.callbacks = m.callbacks;
 exports.callbackThrows = m.callbackThrows;
+exports.stopping = m.stopping;
 exports.Tally = lucentClass(m.Tally);

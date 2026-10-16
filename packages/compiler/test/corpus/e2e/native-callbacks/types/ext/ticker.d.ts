@@ -23,4 +23,5 @@ export declare function ticker_create(): Ticker;
 export declare function ticker_on_tick(ticker: Ticker, tick: (arg0: number) => void): void;
 export declare function ticker_tick(ticker: Ticker, at: number): number;
 export declare function ticker_count_threaded(from: number, to: number, visit: (arg0: number) => void): void;
+export declare function ticker_steps(most: number, step: (arg0: number) => void, stop?: AbortSignal): number;
 export declare function ticker_check(value: number, ok: (arg0: number) => boolean): number;

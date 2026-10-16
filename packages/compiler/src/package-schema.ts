@@ -228,14 +228,17 @@ export interface FunctionDeclaration {
 /**
  * A pointer parameter: bytes it reads or writes, as many as its length
  * parameter says (a Uint8Array, for both); a NUL-terminated UTF-8 string;
- * the error it fills in; or a function pointer it calls back (decisions
- * 0126 and 0128). Only a callback outlives the call.
+ * the error it fills in; a function pointer it calls back (decisions
+ * 0126 and 0128); or the flag a signal sets (0129). Only a callback
+ * outlives the call.
  */
 export type ParamDeclaration =
   | { bytes: "read" | "write"; length: string }
   | { string: "utf8" }
   | { error: string }
-  | { callback: CallbackDeclaration };
+  | { callback: CallbackDeclaration }
+  /** A `const volatile bool *` the function polls: the call's AbortSignal (decision 0129). */
+  | { signal: "flag" };
 
 export interface CallbackDeclaration {
   /** The function's `void *` parameter, which C passes back as the callback's one `void *`. */
@@ -659,7 +662,7 @@ const affinity = oneOf(["any", "main"]);
 
 const param: Check = (v, at) => {
   const kind = isObject(v)
-    ? ["bytes", "string", "error", "callback"].find((k) => k in v)
+    ? ["bytes", "string", "error", "callback", "signal"].find((k) => k in v)
     : undefined;
 
   if (kind === "bytes")
@@ -671,7 +674,9 @@ const param: Check = (v, at) => {
       "callback",
     ])(v, at);
 
-  return `${at} must be { bytes, length }, { string }, { error } or { callback }`;
+  if (kind === "signal") return fields({ signal: oneOf(["flag"]) }, ["signal"])(v, at);
+
+  return `${at} must be { bytes, length }, { string }, { error }, { callback } or { signal }`;
 };
 
 /** Every field of an extension, and how it is checked. */

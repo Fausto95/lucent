@@ -585,8 +585,11 @@ AbortSignal Convert<AbortSignal>::fromJs(jsi::Runtime& rt, const jsi::Value& v, 
           auto s = weak.lock();
           if (!s) return jsi::Value::undefined();
           jsi::Value target = count > 0 && args[0].isObject() ? args[0].getObject(rt).getProperty(rt, "target") : jsi::Value(rt, thisVal);
+          // At once, before waiting for the module a native call may hold (decision 0129).
+          Error why = abortReason(rt, target);
+          s->request(why);
           return callSync(rt, Host::get(rt), [&]() -> jsi::Value {
-            s->abort(abortReason(rt, target));
+            s->abort(why);
             return jsi::Value::undefined();
           });
         });

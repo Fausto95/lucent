@@ -20,8 +20,8 @@ export type CType =
   | { k: "int"; name: string; signed: boolean; bits: 8 | 16 | 32 | 64 }
   | { k: "float"; name: "float" | "double" }
   | { k: "enum"; name: string }
-  /** `const` when what it points at is. */
-  | { k: "pointer"; to: CType; const: boolean }
+  /** `const` when what it points at is; `volatile` too, when it is. */
+  | { k: "pointer"; to: CType; const: boolean; volatile?: true }
   /** A struct or union, by its tag (or its typedef's name when it has no tag). */
   | { k: "record"; name: string }
   /** A pointer to a function: what it returns and takes (`void (*)(void *, double)`). */
@@ -388,6 +388,8 @@ export function parseCType(
   spelling: string,
   typedef: (name: string) => CType | undefined = () => undefined,
 ): CType {
+  // What a first pointer points at may be volatile (a flag C polls): kept, as const is.
+  const volatileBase = /\bvolatile\b/.test(spelling.split("*")[0] ?? "");
   const s = spelling
     .replace(/__attribute__\s*\(\(.*?\)\)/g, " ")
     .replace(IGNORED, " ")
@@ -409,7 +411,12 @@ export function parseCType(
   let t = baseType(name, typedef);
 
   for (let i = 1; i < parts.length; i++)
-    t = { k: "pointer", to: t, const: i === 1 ? isConst : /\bconst\b/.test(parts[i - 1]!) };
+    t = {
+      k: "pointer",
+      to: t,
+      const: i === 1 ? isConst : /\bconst\b/.test(parts[i - 1]!),
+      ...(i === 1 && volatileBase && !s.includes("(") ? { volatile: true as const } : {}),
+    };
 
   return t;
 }
@@ -506,6 +513,6 @@ export function formatCType(t: CType): string {
     case "unknown":
       return t.spelling;
     case "pointer":
-      return `${t.const ? "const " : ""}${formatCType(t.to)} *`;
+      return `${t.const ? "const " : ""}${t.volatile ? "volatile " : ""}${formatCType(t.to)} *`;
   }
 }

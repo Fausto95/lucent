@@ -4,6 +4,7 @@
 // callbacks (decisions 0126 and 0128).
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -53,6 +54,8 @@ class Counter {
   int countTags(std::function<bool(const std::string&, int64_t)> keep) const;
   /// Calls listen with the name and the total after each later add, as long as the counter lives.
   void onAdd(std::function<void(std::string_view, double)> listen);
+  /// Adds `by` up to `times` times, until stop turns true (decision 0129): the total.
+  double addUntil(double by, int times, const std::atomic<bool>& stop);
   /// Overloads differing only in their callbacks: C++ can't tell a Lucent function's apart.
   void visit(std::function<void(double)> f);
   void visit(std::function<void(int64_t)> f);

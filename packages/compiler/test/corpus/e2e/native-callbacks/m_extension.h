@@ -2,6 +2,8 @@
 #pragma once
 #include "lucent_app.h"
 
+#pragma push_macro("abortedBefore")
+#undef abortedBefore
 #pragma push_macro("afterwards")
 #undef afterwards
 #pragma push_macro("checked")
@@ -16,12 +18,16 @@
 #undef once
 #pragma push_macro("posted")
 #undef posted
+#pragma push_macro("stopped")
+#undef stopped
 #pragma push_macro("threaded")
 #undef threaded
 #pragma push_macro("throws")
 #undef throws
 #pragma push_macro("ticks")
 #undef ticks
+#pragma push_macro("unstopped")
+#undef unstopped
 
 namespace lucent_app {
 
@@ -38,15 +44,20 @@ lucent::String checked();
 double failed();
 lucent::String threaded();
 lucent::Promise<lucent::String> afterwards();
+lucent::String stopped();
+double unstopped();
+lucent::String abortedBefore();
 void init();
 
 }  // namespace m_extension
 
 }  // namespace lucent_app
 
+#pragma pop_macro("unstopped")
 #pragma pop_macro("ticks")
 #pragma pop_macro("throws")
 #pragma pop_macro("threaded")
+#pragma pop_macro("stopped")
 #pragma pop_macro("posted")
 #pragma pop_macro("once")
 #pragma pop_macro("kept")
@@ -54,3 +65,4 @@ void init();
 #pragma pop_macro("counted")
 #pragma pop_macro("checked")
 #pragma pop_macro("afterwards")
+#pragma pop_macro("abortedBefore")

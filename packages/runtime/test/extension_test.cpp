@@ -572,6 +572,88 @@ static void thunks() {
   context->shutdown();
 }
 
+// --- signals (decision 0129) -------------------------------------------------
+
+/// A C function that polls its flag, as a cancellable one does: how many
+/// steps it took before the flag turned true. It reads the flag with an
+/// atomic load, as C should where its compiler has one (a plain volatile
+/// read races with abort() as the memory model counts it).
+static int pollSteps(const volatile bool* stop, int most, std::atomic<int>* step) {
+  for (int i = 0; i < most; i++) {
+    if (__atomic_load_n(stop, __ATOMIC_ACQUIRE)) return i;
+    step->store(i + 1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  return most;
+}
+
+/// The flag turns true as soon as the signal aborts on another thread,
+/// while the call holds the signal's context; the call then throws the
+/// reason. One aborted before the call makes none; none gives a false flag.
+static void signalFlags() {
+  auto context = IsolatedContext::create();
+
+  std::string none = inside(*context, [&] {
+    return thrown([&] {
+      ext::SignalFlag flag{Opt<AbortSignal>()};
+      CHECK(*flag.c() == false);
+      CHECK(!flag.cxx().load());
+      flag.done();
+    });
+  });
+  CHECK(none.empty());
+
+  int steps = -1;
+  std::string stopped = inside(*context, [&] {
+    auto controller = std::make_shared<AbortControllerObject>();
+    Opt<AbortSignal> signal(controller->signal);
+    std::atomic<int> step{0};
+    return thrown([&] {
+      ext::SignalFlag flag{signal};
+      std::thread aborter([&] {
+        while (step.load() < 3) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        controller->abort(Opt<Error>(makeError(String::fromUtf8("TimeoutError"), String::fromUtf8("too slow"))));
+      });
+      steps = ext::call([&] { return pollSteps(flag.c(), 2000, &step); });
+      aborter.join();
+      // The abort hasn't reached the signal's context, which this call holds.
+      CHECK(!controller->signal->aborted.load());
+      flag.done();
+    });
+  });
+  CHECK(steps >= 3 && steps < 2000);
+  CHECK(stopped == "TimeoutError: too slow");
+
+  std::string before = inside(*context, [&] {
+    auto controller = std::make_shared<AbortControllerObject>();
+    controller->abort(Opt<Error>());
+    Opt<AbortSignal> signal(controller->signal);
+    bool called = false;
+    std::string error = thrown([&] {
+      ext::SignalFlag flag{signal};
+      called = true;
+    });
+    CHECK(!called);
+    return error;
+  });
+  CHECK(before == "AbortError: signal is aborted without reason");
+
+  // C++: the reason comes instead of what the call threw.
+  std::string cxx = inside(*context, [&] {
+    auto controller = std::make_shared<AbortControllerObject>();
+    Opt<AbortSignal> signal(controller->signal);
+    return thrown([&] {
+      ext::SignalFlag flag{signal};
+      ext::cxxCall("Job.run", flag, [&] {
+        controller->abort(Opt<Error>());
+        if (flag.cxx().load()) throw std::runtime_error("stopped");
+      });
+    });
+  });
+  CHECK(cxx == "AbortError: signal is aborted without reason");
+  context->shutdown();
+}
+
 int main() {
   closesOnce();
   lastCopyDestroys();
@@ -594,6 +676,7 @@ int main() {
   lifetimes();
   cxxFunctions();
   thunks();
+  signalFlags();
 
   std::printf("extension: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

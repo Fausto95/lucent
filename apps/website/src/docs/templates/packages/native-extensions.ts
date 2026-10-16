@@ -70,6 +70,20 @@ export const blocks: Block[] = [
       "What a callback throws doesn't unwind through C: C gets zero, and the extension call running on that thread throws it once C returns. Posted, it is reported as an uncaught error.",
     ],
   },
+  { kind: "h2", text: "Cancelling a call" },
+  {
+    kind: "p",
+    text: 'A `const volatile bool *` parameter is the call\'s signal when `params` declares it `{ "signal": "flag" }`. In C++, a member\'s `const std::atomic<bool> &` parameter is one, with no declaration.',
+  },
+  {
+    kind: "list",
+    items: [
+      "Lucent code passes an `AbortSignal` for it, or leaves it out when it is last. C polls the flag while the call runs, and may not keep the pointer.",
+      "Another thread sets the flag, so C reads it with an atomic load where its compiler has one: `__atomic_load_n(stop, __ATOMIC_ACQUIRE)` in clang and GCC.",
+      "The flag turns true as soon as the signal aborts, on whichever thread aborts it, even while the call holds the signal's context.",
+      "A signal aborted before the call throws its reason, and no call is made. One that aborts during the call throws its reason once the call returns, whatever C returned.",
+    ],
+  },
   { kind: "h2", text: "C++ headers" },
   {
     kind: "list",
@@ -92,7 +106,7 @@ export const blocks: Block[] = [
       "A call whose `failsWhen` holds throws an Error with the error struct's message and code.",
       "An exception escaping a C header's function ends the process: catch it in the C++ and report it through the error struct. A C++ header's calls catch it themselves.",
       "A call holds its handles: a `close()` from another thread while it runs destroys the handle when the call returns.",
-      "Extension calls can't be cancelled ([known limitations](/docs/releases/roadmap/#known-limitations)).",
+      "A call is cancelled through its signal's flag, which C reads: a function blocked elsewhere notices it only when it next looks.",
     ],
   },
 ];

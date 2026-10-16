@@ -1,6 +1,10 @@
 {
-  "ios": { "nativeSources": ["native"] },
-  "android": { "nativeSources": ["native"] },
+  "ios": {
+    "nativeSources": ["native"]
+  },
+  "android": {
+    "nativeSources": ["native"]
+  },
   "extensions": {
     "ticker": {
       "header": "native/ticker.h",
@@ -8,37 +12,97 @@
         "Ticker": {
           "create": "ticker_create",
           "destroy": "ticker_destroy",
-          "methods": { "onTick": "ticker_on_tick", "tick": "ticker_tick" }
+          "methods": {
+            "onTick": "ticker_on_tick",
+            "tick": "ticker_tick"
+          }
         }
       },
       "functions": {
-        "ticker_create": { "failsWhen": "null" },
-        "ticker_count": { "params": { "visit": { "callback": { "context": "context" } } } },
+        "ticker_create": {
+          "failsWhen": "null"
+        },
+        "ticker_count": {
+          "params": {
+            "visit": {
+              "callback": {
+                "context": "context"
+              }
+            }
+          }
+        },
         "ticker_keep": {
           "params": {
-            "names": { "string": "utf8" },
-            "keep": { "callback": { "context": "context" } }
+            "names": {
+              "string": "utf8"
+            },
+            "keep": {
+              "callback": {
+                "context": "context"
+              }
+            }
           }
         },
         "ticker_later": {
-          "params": { "done": { "callback": { "context": "context", "lives": "once" } } }
+          "params": {
+            "done": {
+              "callback": {
+                "context": "context",
+                "lives": "once"
+              }
+            }
+          }
         },
         "ticker_on_tick": {
-          "params": { "tick": { "callback": { "context": "context", "lives": "ticker" } } }
+          "params": {
+            "tick": {
+              "callback": {
+                "context": "context",
+                "lives": "ticker"
+              }
+            }
+          }
         },
         "ticker_count_threaded": {
-          "params": { "visit": { "callback": { "context": "context" } } }
+          "params": {
+            "visit": {
+              "callback": {
+                "context": "context"
+              }
+            }
+          }
         },
         "ticker_check": {
           "params": {
-            "ok": { "callback": { "context": "context" } },
-            "error": { "error": "TickerError" }
+            "ok": {
+              "callback": {
+                "context": "context"
+              }
+            },
+            "error": {
+              "error": "TickerError"
+            }
           },
           "failsWhen": "negative"
+        },
+        "ticker_steps": {
+          "params": {
+            "step": {
+              "callback": {
+                "context": "context"
+              }
+            },
+            "stop": {
+              "signal": "flag"
+            }
+          }
         }
       },
       "errors": {
-        "TickerError": { "code": "code", "message": "message" }
+        "TickerError": {
+          "code": "code",
+          "message": "message"
+        }
       }
     }
   }

@@ -91,6 +91,16 @@ void ticker_count_threaded(int32_t from, int32_t to, void (*visit)(void*, int32_
   }).join();
 }
 
+int32_t ticker_steps(int32_t most, void (*step)(void*, int32_t), void* context, const volatile bool* stop) {
+  int32_t n = 0;
+  // An atomic load: abort() sets the flag from any thread.
+  while (n < most && !__atomic_load_n(stop, __ATOMIC_ACQUIRE)) {
+    n++;
+    step(context, n);
+  }
+  return n;
+}
+
 int32_t ticker_check(int32_t value, bool (*ok)(void*, int32_t), void* context, TickerError* error) {
   if (ok(context, value)) return value;
 

@@ -34,7 +34,9 @@ export type CxxValue =
    * function, kept while C++ keeps a copy. It takes numbers, bigints,
    * booleans and strings, and gives nothing or one of the first three.
    */
-  | { kind: "callback"; params: CxxValue[]; result?: CxxValue };
+  | { kind: "callback"; params: CxxValue[]; result?: CxxValue }
+  /** A `const std::atomic<bool> &` parameter: the flag the call's AbortSignal sets (decision 0129). */
+  | { kind: "signal" };
 
 export interface CxxParamBinding {
   /** The C++ parameter's name; `arg<i>$` when it has none. */
@@ -178,6 +180,10 @@ export function bindCxx(
           return unbindable(`${formatCxxType(t)} gives a string, which a callback can't`);
         return { kind: "callback", params, result };
       }
+      case "flag":
+        return at === "param"
+          ? { kind: "signal" }
+          : unbindable("const std::atomic<bool> &, which only a parameter is");
       case "void":
         return unbindable("void, which is no value");
       case "unknown":
@@ -192,6 +198,8 @@ export function bindCxx(
       value: value(p.type, "param"),
     }));
     const r = result && result.k !== "void" ? value(result, "result") : undefined;
+    if (bound.filter((p) => p.value.kind === "signal").length > 1)
+      unbindable("two signals' flags; a call has one AbortSignal");
     const first = params.findIndex((p) => p.defaulted);
     const arities = first < 0 ? [params.length] : range(first, params.length);
 
@@ -316,6 +324,8 @@ function lucentKey(v: CxxValue): string {
       return v.class;
     case "callback":
       return `(${v.params.map(lucentKey).join(", ")}) => ${v.result ? lucentKey(v.result) : "void"}`;
+    case "signal":
+      return "AbortSignal | undefined";
   }
 }
 
