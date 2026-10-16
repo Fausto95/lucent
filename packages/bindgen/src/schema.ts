@@ -289,6 +289,8 @@ export interface SdkEnumSchema {
   options?: true;
   /** The OS version that introduced it (iOS), when newer than the platform's first. */
   since?: number | string;
+  /** Unavailable to app extensions (decision 0124). */
+  extensionUnavailable?: true;
 }
 
 /** A C struct passed by value (iOS): numbers, booleans and structs, in field order. */
@@ -361,6 +363,8 @@ export interface SdkCallable {
   cFunction?: { name: string; self?: number };
   /** API level (Android) or OS version (iOS) that introduced it. */
   since?: number | string;
+  /** Unavailable to app extensions (iOS: `NS_EXTENSION_UNAVAILABLE_IOS`, decision 0124). */
+  extensionUnavailable?: true;
   /** Exact JNI descriptor (Android), when the types alone do not give it (generic erasure). */
   descriptor?: string;
   deprecated?: boolean;
@@ -449,6 +453,8 @@ export interface SdkPropertySchema {
   swift?: SwiftMember;
   kotlin?: KotlinMemberFacts;
   since?: number | string;
+  /** Unavailable to app extensions (iOS, decision 0124). */
+  extensionUnavailable?: true;
   deprecated?: boolean;
 }
 
@@ -489,6 +495,8 @@ export interface SdkClassSchema {
   /** Declared in Kotlin, as its metadata says. */
   kotlin?: KotlinClassFacts;
   since?: number | string;
+  /** Unavailable to app extensions (iOS, decision 0124). */
+  extensionUnavailable?: true;
   constructors?: SdkCallable[];
   methods?: SdkMethodSchema[];
   properties?: SdkPropertySchema[];

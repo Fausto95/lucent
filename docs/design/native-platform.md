@@ -965,7 +965,8 @@ state, so it never shares module variables with the app.
 file or the app's (#346). A notification service or share extension names
 an exported Lucent class extending its SDK base, which gets an
 Objective-C class the OS makes by name (`LucentApp_<module>_<Class>`,
-#347). A widget names
+#347). What app extensions can't use is refused in the modules their code
+reaches (LUCENT3018, #348). A widget names
 a provider class mirroring `TimelineProvider` and a SwiftUI JSX body of
 its entry, and Lucent writes WidgetKit's Swift. Each extension builds the
 modules its code reaches into a subspec of `LucentExtensions`, with the

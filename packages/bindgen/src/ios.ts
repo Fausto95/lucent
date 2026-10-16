@@ -21,6 +21,7 @@ import {
   bridgedSwiftType,
   declText,
   escapingParams,
+  extensionUnavailable,
   type Fragment,
   mainActorFacts,
   objcClass,
@@ -1555,10 +1556,36 @@ export function buildIosSchema(
     keepInheritedNonNull(mod, unaudited);
     withInheritedInitializers(mod);
     resolveMemberKinds(mod, names);
+    markExtensionUnavailable(mod, g);
 
     void byUsr;
     return mod;
   }
+}
+
+/**
+ * Marks what the graph says app extensions can't use (decision 0124): a
+ * type, member, function or constant, by the symbol it came from. A
+ * member a class inherits is marked as its own declaration is.
+ */
+export function markExtensionUnavailable(mod: SdkModuleSchema, g: SymbolGraph): void {
+  const off = new Set(
+    g.symbols.filter(extensionUnavailable).map((s) => graphSymbol(s.identifier.precise)),
+  );
+  if (!off.size) return;
+
+  const mark = (x: { symbol?: string; extensionUnavailable?: true }) => {
+    if (x.symbol && off.has(x.symbol)) x.extensionUnavailable = true;
+  };
+  for (const t of mod.types) {
+    if (t.kind !== "class" && t.kind !== "enum") continue;
+    mark(t);
+    if (t.kind === "class")
+      for (const m of [...(t.constructors ?? []), ...(t.methods ?? []), ...(t.properties ?? [])])
+        mark(m);
+  }
+  for (const f of mod.functions ?? []) mark(f);
+  for (const c of mod.constants ?? []) mark(c);
 }
 
 function getterSelector(swiftName: string, property: string): string {

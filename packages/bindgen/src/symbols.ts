@@ -580,6 +580,17 @@ export function since(s: SymbolGraphSymbol): string | undefined {
   return `${ios.introduced.major}.${ios.introduced.minor ?? 0}`;
 }
 
+/**
+ * Whether app extensions can't use a symbol (decision 0124): what
+ * `NS_EXTENSION_UNAVAILABLE_IOS` or `@available(iOSApplicationExtension,
+ * unavailable)` marks, the symbol graph's `iOSAppExtension` domain.
+ */
+export function extensionUnavailable(s: SymbolGraphSymbol): boolean {
+  return !!s.availability?.some(
+    (a) => a.domain === "iOSAppExtension" && (a.isUnconditionallyUnavailable || !!a.obsoleted),
+  );
+}
+
 export function unavailable(s: SymbolGraphSymbol): boolean {
   return !!s.availability?.some(
     (a) =>

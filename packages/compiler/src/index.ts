@@ -37,6 +37,7 @@ import {
   appPackage,
   ignoreCompatible,
   incompatibility,
+  type LucentPackage,
   lucentPackageOf,
   nativePackages,
 } from "./packages.ts";
@@ -223,6 +224,8 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
 
   // The modules the files' packages create at launch, and LUCENT3015 for a name that is none.
   const launch = launchModules(files, options.root);
+  // The modules of each app extension's code, and LUCENT3019 for a name that is none.
+  const appExtensions = appExtensionModules(files, options.root);
 
   // This compile's own options and records: another compile in the process (an editor's check
   // while `lucent dev` builds) has its own.
@@ -231,6 +234,7 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
     deferred,
     ...(options.extensions ? { extensions: options.extensions } : {}),
     launch: launch.modules,
+    appExtensions: appExtensions.modules,
   });
   const result = runInCompile(context, () =>
     withSourceRoot(options.root, () => compileWith(files, options)),
@@ -242,9 +246,9 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
     options.session.realpaths = new Map(realpaths);
   }
 
-  if (launch.problems.length) {
+  if (launch.problems.length || appExtensions.problems.length) {
     result.ok = false;
-    result.diagnostics.push(...launch.problems);
+    result.diagnostics.push(...launch.problems, ...appExtensions.problems);
   }
 
   // The Lucent packages of the files whose `compatible` range leaves this Lucent out.
@@ -353,6 +357,61 @@ function launchModules(
   }
 
   return { modules: [...modules].sort(), problems };
+}
+
+/**
+ * The modules of the code each iOS app extension of the files' packages
+ * names (lucent.json's `ios.appExtensions`: its `class`, `provider` and
+ * `body`), by extension, and LUCENT3019 for each module that is none of its
+ * package's. A lucent.json that fails its check counts none: the build
+ * reports it.
+ */
+function appExtensionModules(
+  files: readonly string[],
+  root?: string,
+): { modules: Map<string, string[]>; problems: Diagnostic[] } {
+  const names = new Set(files.map(moduleNameOf));
+  const modules = new Map<string, string[]>();
+  const problems: Diagnostic[] = [];
+
+  const read = (pkg: LucentPackage) => {
+    try {
+      return readPackageNative(pkg)?.ios?.appExtensions ?? [];
+    } catch {
+      return [];
+    }
+  };
+  const named = (pkg: LucentPackage, prefix: string) => {
+    for (const e of read(pkg)) {
+      const roots = new Set<string>();
+      for (const code of [e.class, e.provider, e.body]) {
+        if (code === undefined) continue;
+        const name = `${prefix}${code.split("#")[0]!}`;
+        if (names.has(name)) roots.add(name);
+        else
+          problems.push({
+            code: Codes.UnknownExtensionCode,
+            message: `lucent.json's ios.appExtensions ${e.name} names ${code}, but ${pkg.app ? "the app" : pkg.name} has no module ${name}`,
+            file: path.join(pkg.dir, "lucent.json"),
+          });
+      }
+      // The app's declaration of a name replaces a package's (resolveNative).
+      if (pkg.app || !modules.has(e.name)) modules.set(e.name, [...roots].sort());
+    }
+  };
+
+  const seen = new Set<string>();
+  for (const f of files) {
+    const pkg = lucentPackageOf(f);
+    if (!pkg || seen.has(pkg.dir)) continue;
+    seen.add(pkg.dir);
+    named(pkg, `${pkg.name}/`);
+  }
+  // The app's own lucent.json names its modules as they are named: without a package.
+  const app = root ? appPackage(root) : undefined;
+  if (app) named(app, "");
+
+  return { modules, problems };
 }
 
 /** The session part of a program's options: its target's program to reuse, under `key`. */

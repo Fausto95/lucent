@@ -1225,7 +1225,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "signature": "function onAppEvent(\n  event: AppEvent,\n  listener: () => void,\n  signal?: AbortSignal,\n): () => void;",
         "doc": [
           "Calls `listener` each time the app posts `event`, until the returned function is called or `signal` aborts. It runs on the main thread, as UIKit posts it, so main-thread APIs work there without `main()`.",
-          "Lucent observes the notifications, so the app's delegate and other modules' stay as they are. What `listener` throws is logged, and the app goes on."
+          "Lucent observes the notifications, so the app's delegate and other modules' stay as they are. What `listener` throws is logged, and the app goes on. App extensions have no app to observe."
         ],
         "examples": [],
         "members": [],
@@ -1657,7 +1657,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "kind": "function",
         "signature": "function onSceneEvent(\n  event: SceneEvent,\n  listener: (scene: string) => void,\n  signal?: AbortSignal,\n): () => void;",
         "doc": [
-          "Like `onAppEvent`, for each scene's `event`: `listener` gets the scene's session's `persistentIdentifier`."
+          "Like `onAppEvent`, for each scene's `event`: `listener` gets the scene's session's `persistentIdentifier`. App extensions have no scenes to observe."
         ],
         "examples": [],
         "members": [],
@@ -1691,7 +1691,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "`build` runs on the main thread, like `main()`'s function. Make the view controller there, and call `resolve` or `reject` from its delegate or completion handler.",
           "It settles once, and whatever settles it dismisses the view controller if it is still shown. It rejects with an `AbortError` when `signal` aborts, or when the person dismisses the view controller (swiping a sheet down). It does too when the view controller goes before settling, or when its scene disconnects.",
           "It rejects with an `InvalidStateError` when no scene is in the foreground, or UIKit doesn't present it.",
-          "A component's code calling it before its first `await` presents from the component's view controller, if its root is one. Unmounting the component dismisses it."
+          "A component's code calling it before its first `await` presents from the component's view controller, if its root is one. Unmounting the component dismisses it.",
+          "App extensions have no scene of the app's to present from."
         ],
         "examples": [],
         "members": [],

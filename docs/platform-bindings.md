@@ -265,6 +265,14 @@ from the same plan, and coverage counts what it refuses.
 | `kotlin-source` | Compose content, written as Kotlin source                                                        |
 | `swift-source`  | SwiftUI bodies, written as Swift source                                                          |
 
+A schema also records what app extensions can't use
+(`extensionUnavailable`, from the symbol graph's `iOSAppExtension`
+domain: `NS_EXTENSION_UNAVAILABLE_IOS`). The compiler refuses it in each
+module an app extension's code reaches through its imports (LUCENT3018,
+`analysis/app-extensions.ts`), and so a declaration of Lucent's own tagged
+`@extensionUnavailable`
+([0124](decisions/0124-an-app-extension-is-a-target-built-from-the-code-it-reaches.md)).
+
 A plan has one conversion per receiver, argument and result
 (`passthrough`, `number`, `bigint`, `copy-string`, `copy-array`,
 `retain-object`, `box-swift-value`, `tagged-union`, `enum`, `struct`,

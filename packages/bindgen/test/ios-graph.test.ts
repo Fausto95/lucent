@@ -594,3 +594,65 @@ describe("Swift subscripts", () => {
     expect(schema!.skipped ?? []).toEqual([]);
   });
 });
+
+describe("what app extensions can't use (decision 0124)", () => {
+  const BOOL = { kind: "typeIdentifier", spelling: "Bool", preciseIdentifier: "s:Sb" };
+  const STRING = { kind: "typeIdentifier", spelling: "String", preciseIdentifier: "s:SS" };
+  const APP = "c:objc(cs)KITApp";
+  const extensionOnly = [{ domain: "iOSAppExtension", isUnconditionallyUnavailable: true }];
+  const graph: SymbolGraph = {
+    symbols: [
+      sym("swift.class", APP, ["KITApp"]),
+      sym("swift.class", "c:objc(cs)KITStatusBar", ["KITStatusBar"], {
+        availability: extensionOnly,
+      }),
+      sym("swift.property", `${APP}(py)title`, ["KITApp", "title"], {
+        declarationFragments: [
+          { kind: "keyword", spelling: "var" },
+          { kind: "text", spelling: " " },
+          { kind: "identifier", spelling: "title" },
+          { kind: "text", spelling: ": " },
+          STRING,
+          { kind: "text", spelling: " { get }" },
+        ],
+        availability: extensionOnly,
+      }),
+      sym("swift.method", `${APP}(im)activate`, ["KITApp", "activate()"], {
+        names: { title: "activate()" },
+        declarationFragments: [{ kind: "text", spelling: "func activate() -> " }, BOOL],
+        functionSignature: { parameters: [], returns: [BOOL] },
+        availability: [...ios17, ...extensionOnly],
+      }),
+      sym("swift.method", `${APP}(im)ping`, ["KITApp", "ping()"], {
+        names: { title: "ping()" },
+        declarationFragments: [{ kind: "text", spelling: "func ping() -> " }, BOOL],
+        functionSignature: { parameters: [], returns: [BOOL] },
+      }),
+    ],
+    relationships: [
+      { kind: "memberOf", source: `${APP}(py)title`, target: APP },
+      { kind: "memberOf", source: `${APP}(im)activate`, target: APP },
+      { kind: "memberOf", source: `${APP}(im)ping`, target: APP },
+    ],
+  };
+  const [kit] = buildIosSchemas(new Map([["Kit", graph]]), () => new Map());
+  const cls = (name: string) => {
+    const t = kit!.types.find((x) => x.name === name);
+    if (t?.kind !== "class") throw new Error(`no ${name}`);
+    return t;
+  };
+
+  it("marks a type or member the graph says is unavailable in iOSAppExtension, and no other", () => {
+    expect(cls("KITStatusBar").extensionUnavailable).toBe(true);
+    expect(cls("KITApp").extensionUnavailable).toBeUndefined();
+    expect(cls("KITApp").properties?.find((p) => p.name === "title")?.extensionUnavailable).toBe(
+      true,
+    );
+    const methods = Object.fromEntries(
+      (cls("KITApp").methods ?? []).map((m) => [m.name, m.extensionUnavailable]),
+    );
+    expect(methods).toEqual({ activate: true, ping: undefined });
+    // The OS version that introduced it is still its own, in the iOS domain.
+    expect(cls("KITApp").methods?.find((m) => m.name === "activate")?.since).toBe("17.0");
+  });
+});
