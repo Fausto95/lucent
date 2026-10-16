@@ -2,6 +2,29 @@
 // native-cxx-extension case compares the C++ library against it.
 let live = 0;
 
+/**
+ * As C++ calls a std::function the binding gave it: what the Lucent
+ * function throws doesn't unwind through C++, which gets zero (false);
+ * the call throws the first such error once it returns.
+ */
+function asCxx<A extends unknown[], R>(f: (...args: A) => R): [(...args: A) => R | 0, () => void] {
+  let thrown: { error: unknown } | undefined;
+  const call = (...args: A): R | 0 => {
+    try {
+      return f(...args);
+    } catch (error) {
+      thrown ??= { error };
+      return 0;
+    }
+  };
+  return [
+    call,
+    () => {
+      if (thrown) throw thrown.error;
+    },
+  ];
+}
+
 export enum Rounding {
   Down = 0,
   Nearest = 2,
@@ -16,6 +39,7 @@ export class Counter {
   #tags: string[] = [];
   #note: string | undefined;
   #rounding = Rounding.Nearest;
+  #listeners: ((name: string, total: number) => void)[] = [];
   #open = true;
 
   constructor(start?: number | string, step = 1) {
@@ -37,7 +61,36 @@ export class Counter {
           : Math.round(scaled);
     this.#total += rounded;
     this.#history.push(rounded);
+    // Kept by the counter: each runs at once, during this later call.
+    const [call, done] = asCxx((listen: (name: string, total: number) => void) =>
+      listen(this.#name, this.#total),
+    );
+    for (const listen of this.#listeners) call(listen);
+    done();
     return this.#total;
+  }
+
+  each(visit: (amount: number) => void): void {
+    this.#check();
+    const [call, done] = asCxx(visit);
+    for (const amount of this.#history) call(amount);
+    done();
+  }
+
+  countTags(keep: (tag: string, index: bigint) => boolean): number {
+    this.#check();
+    const [call, done] = asCxx(keep);
+    let kept = 0;
+    this.#tags.forEach((tag, i) => {
+      if (call(tag, BigInt(i))) kept++;
+    });
+    done();
+    return kept;
+  }
+
+  onAdd(listen: (name: string, total: number) => void): void {
+    this.#check();
+    this.#listeners.push(listen);
   }
 
   total(): bigint {

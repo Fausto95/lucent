@@ -138,6 +138,12 @@ function cxxType(v: CxxValue): dts.Type {
       return dts.ref(v.name);
     case "object":
       return dts.ref(v.class);
+    case "callback":
+      return {
+        k: "fn",
+        params: v.params.map((p, i) => ({ name: `arg${i}`, type: cxxType(p) })),
+        ret: v.result ? cxxType(v.result) : dts.keyword("void"),
+      };
   }
 }
 

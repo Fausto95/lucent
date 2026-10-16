@@ -116,3 +116,37 @@ export function errors(): string {
   }
   return out.join("; ");
 }
+
+/** std::function callbacks: during the call, with a result, and kept for later adds. */
+export function callbacks(): string {
+  const c = new Counter("c");
+  const heard: string[] = [];
+  c.onAdd((name, total) => heard.push(`${name}=${total}`));
+  c.add(1);
+  c.add(2);
+  const amounts: number[] = [];
+  c.each((amount) => amounts.push(amount));
+  c.tag(["x", "yy", "zzz"]);
+  const long = c.countTags((tag, index) => tag.length > 1 && index < 2n);
+  c.close();
+  return `${heard.join(" ")} | ${amounts.join(",")} | ${long}`;
+}
+
+/** What a callback throws doesn't stop C++: the call throws it once C++ returns. */
+export function callbackThrows(): string {
+  const c = new Counter("t");
+  c.add(1);
+  c.add(2);
+  const seen: number[] = [];
+  let out = "";
+  try {
+    c.each((amount) => {
+      seen.push(amount);
+      if (amount === 2) throw new Error("two");
+    });
+  } catch (e) {
+    out = (e as Error).message;
+  }
+  c.close();
+  return `${seen.join(",")} ${out}`;
+}

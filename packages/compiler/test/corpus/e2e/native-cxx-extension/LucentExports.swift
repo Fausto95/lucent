@@ -222,6 +222,24 @@ public enum Extension {
     return LucentOut.string(lucentResult)
   }
 
+  public static func callbacks() throws -> Swift.String {
+    var lucentError = lucent_error()
+    var lucentResult = lucent_string()
+    guard lucent_extension_callbacks(&lucentError, &lucentResult) else {
+      throw LucentError(lucentError)
+    }
+    return LucentOut.string(lucentResult)
+  }
+
+  public static func callbackThrows() throws -> Swift.String {
+    var lucentError = lucent_error()
+    var lucentResult = lucent_string()
+    guard lucent_extension_callbackThrows(&lucentError, &lucentResult) else {
+      throw LucentError(lucentError)
+    }
+    return LucentOut.string(lucentResult)
+  }
+
   public final class Tally: LucentNative.LucentInstance, @unchecked Swift.Sendable {
     init(lucent_extension_Tally lucentObject: Swift.OpaquePointer) {
       super.init(lucentObject: lucentObject)

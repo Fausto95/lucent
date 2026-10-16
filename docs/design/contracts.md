@@ -1203,18 +1203,17 @@ build the C code into the one native package.
 | Integers   | Wider than 32 bits: exact bigints. Others: numbers under WebIDL's `[EnforceRange]`. Floats round as `Math.fround`.                                                                                                                                                                                                                                              |
 | Failure    | Throws an `Error` with the struct's message (copied at once) and code, else `<f> failed`. `nonzero` and `false` results are statuses. An `error` parameter needs `failsWhen`; `release` runs after every call.                                                                                                                                                  |
 | Exceptions | One escaping a C function ends the process (`ext::call`'s C part is `noexcept`). Conversion errors throw before the call; what a callback run at once threw, after it (`detail::CallFrame`, 0128).                                                                                                                                                              |
-| C++        | `language: "c++"` (0125): a class is a handle of its objects, its overloads its members'; strings, vectors, optionals, enums and objects cross; `ext::cxxCall` makes what C++ throws an `Error`.                                                                                                                                                                |
+| C++        | `language: "c++"` (0125): a class is a handle of its objects, its overloads its members'; strings, vectors, optionals, enums, objects and `std::function` callbacks cross; `ext::cxxCall` makes what C++ throws an `Error`.                                                                                                                                     |
 | Binding    | A function needing no declaration binds as it is; one taking a handle must be named. A function pointer not declared a callback, variadics and structs by value are listed as skipped, or fail when named.                                                                                                                                                      |
 | Outputs    | `.lucent/native/types/ext/<name>.d.ts`; each extension in `resolved.json`; the `extract:extensions` node.                                                                                                                                                                                                                                                       |
 | Callbacks  | A function type in Lucent; its context is the binding's. Run at once on a thread running its context's code, else posted there; a result is refused when posted. `lives`: `call`, `once` or a handle.                                                                                                                                                           |
 | Runtime    | `Handle::open(what, pointer, destroy, destroyOn?)`, `use<T>()` for one call, idempotent `close()`, `whenDestroyed(f)`, shared state (`identity()`); `ext::integer`, `real`, `data`, `length`, `utf8`, `number`, `bigint`; callbacks: `ext::Callback<F>` (`context()`, `until(handle)`, `function<R, A...>()`, `done()`), `ext::callBack<F, R>(context, args…)`. |
 
-**Planned:** [T142](../tasks.md#t142)'s C++ members take `std::function`
-callbacks as
-[0126](../decisions/0126-an-extensions-callback-runs-where-its-call-ran.md)
+**Planned:** [T142](../tasks.md#t142)'s functions take an `AbortSignal`
+as a flag, and `android.prefab` links Gradle prefab modules. Callbacks run
+as [0126](../decisions/0126-an-extensions-callback-runs-where-its-call-ran.md)
 and [0128](../decisions/0128-an-extensions-callback-runs-at-once-on-its-contexts-thread.md)
-decide, functions take an `AbortSignal` as a flag, and `android.prefab` links Gradle
-prefab modules. C++ headers are read as
+decide. C++ headers are read as
 [0125](../decisions/0125-a-cpp-headers-classes-are-handles-the-generated-cpp-calls.md)
 decides.
 

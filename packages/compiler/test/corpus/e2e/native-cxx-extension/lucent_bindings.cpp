@@ -8,6 +8,10 @@
 #undef add
 #pragma push_macro("c")
 #undef c
+#pragma push_macro("callbackThrows")
+#undef callbackThrows
+#pragma push_macro("callbacks")
+#undef callbacks
 #pragma push_macro("close")
 #undef close
 #pragma push_macro("errors")
@@ -137,6 +141,18 @@ void install_m_extension(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::errors());
     });
   });
+  defineFunction(rt, exports, "callbacks", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("callbacks", "packages/compiler/test/e2e/cases/native-cxx-extension/extension.lucent.ts", 121), [&]() -> jsi::Value {
+      return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::callbacks());
+    });
+  });
+  defineFunction(rt, exports, "callbackThrows", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("callbackThrows", "packages/compiler/test/e2e/cases/native-cxx-extension/extension.lucent.ts", 136), [&]() -> jsi::Value {
+      return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::callbackThrows());
+    });
+  });
   defineClass(rt, host, exports, "Tally", "extension.Tally", proto_C_Tally, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
     return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Tally", "packages/compiler/test/e2e/cases/native-cxx-extension/extension.lucent.ts", 4), [&]() -> jsi::Value {
@@ -173,5 +189,7 @@ void resetModuleState() {
 #pragma pop_macro("history")
 #pragma pop_macro("errors")
 #pragma pop_macro("close")
+#pragma pop_macro("callbacks")
+#pragma pop_macro("callbackThrows")
 #pragma pop_macro("c")
 #pragma pop_macro("add")

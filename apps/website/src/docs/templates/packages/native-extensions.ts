@@ -81,6 +81,7 @@ export const blocks: Block[] = [
       "A bound class is passed by reference or pointer, as the handle's object. Returned by value, it is a new handle, which deletes the object once.",
       "What C++ throws is an Error in Lucent: `what()` for a `std::exception`, or a message saying the call threw. No C++ exception unwinds through Lucent.",
       "Class templates, member templates, classes with a base and abstract classes aren't bound. Neither is a member taking or giving another type, or a pointer or reference result. The declarations list each, with the reason.",
+      "A `std::function` parameter, by value or `const &`, is a callback, run as a C function's is. It lives as long as C++ keeps a copy of it. Two overloads differing only in their callbacks are both left out.",
       "`classes.<Name>.affinity` sets a class's thread, as `handles.<Name>.affinity` sets a handle's.",
     ],
   },

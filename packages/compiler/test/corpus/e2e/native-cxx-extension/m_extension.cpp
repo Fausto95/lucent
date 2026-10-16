@@ -6,12 +6,18 @@
 #undef a
 #pragma push_macro("add")
 #undef add
+#pragma push_macro("amounts")
+#undef amounts
 #pragma push_macro("b")
 #undef b
 #pragma push_macro("before")
 #undef before
 #pragma push_macro("c")
 #undef c
+#pragma push_macro("callbackThrows")
+#undef callbackThrows
+#pragma push_macro("callbacks")
+#undef callbacks
 #pragma push_macro("cleared")
 #undef cleared
 #pragma push_macro("close")
@@ -22,6 +28,8 @@
 #undef errors
 #pragma push_macro("half")
 #undef half
+#pragma push_macro("heard")
+#undef heard
 #pragma push_macro("history")
 #undef history
 #pragma push_macro("live")
@@ -34,10 +42,16 @@
 #undef objects
 #pragma push_macro("out")
 #undef out
+#pragma push_macro("r_long_")
+#undef r_long_
 #pragma push_macro("rounding")
 #undef rounding
+#pragma push_macro("seen")
+#undef seen
 #pragma push_macro("strings")
 #undef strings
+#pragma push_macro("tag")
+#undef tag
 #pragma push_macro("total")
 #undef total
 #pragma push_macro("version")
@@ -585,6 +599,188 @@ lucent::String m_extension::errors() {
   return out.join(LUCENT_STR("; "));
 }
 
+lucent::String m_extension::callbacks() {
+  lucent::checkStack();
+  lucent::Handle c = ({
+    auto x_143_ = LUCENT_STR("c");
+    auto x_144_ = lucent::ext::cxxString(x_143_);
+    auto result_145_ = lucent::ext::cxxCall("new Counter", [&]() {
+      return new ::tally::Counter(x_144_);
+    });
+    lucent::Handle::open("Counter", result_145_, &lucent::ext::deleteObject<::tally::Counter>);
+  });
+  lucent::Array<lucent::String> heard = lucent::Array<lucent::String>{};
+  lucent::Fn<double(lucent::String, double)> v5_ = lucent::Fn<double(lucent::String, double)>(lucent::closure("extension.lucent.ts:124", "heard", [](std::decay_t<decltype(heard)>& heard, lucent::String p0_, double p1_) -> double {
+    lucent::checkStack();
+    lucent::String v4_ = lucent::toJsString(p1_);
+    lucent::String v6_ = lucent::concat(p0_, LUCENT_STR("="), v4_);
+    return heard.push(v6_);
+  }, heard));
+  (void)({
+    auto x_147_ = c;
+    auto x_148_ = x_147_.use<::tally::Counter>();
+    auto x_149_ = lucent::Fn<void(lucent::String, double)>([fn_146_ = v5_](lucent::String a0, double a1) {
+      fn_146_(a0, a1);
+    });
+    auto x_150_ = lucent::ext::Callback<lucent::Fn<void(lucent::String, double)>>("Counter.onAdd's listen", lucent::ext::Lives::Copies, x_149_);
+    lucent::ext::cxxCall("Counter.onAdd", [&]() {
+      x_148_.get()->onAdd(x_150_.function());
+    });
+    x_150_.done();
+    lucent::undefined;
+  });
+  (void)({
+    auto x_151_ = c;
+    auto x_152_ = x_151_.use<::tally::Counter>();
+    auto x_153_ = 1.0;
+    auto x_154_ = lucent::ext::real<double>(x_153_);
+    auto result_155_ = lucent::ext::cxxCall("Counter.add", [&]() {
+      return x_152_.get()->add(x_154_);
+    });
+    static_cast<double>(result_155_);
+  });
+  (void)({
+    auto x_156_ = c;
+    auto x_157_ = x_156_.use<::tally::Counter>();
+    auto x_158_ = 2.0;
+    auto x_159_ = lucent::ext::real<double>(x_158_);
+    auto result_160_ = lucent::ext::cxxCall("Counter.add", [&]() {
+      return x_157_.get()->add(x_159_);
+    });
+    static_cast<double>(result_160_);
+  });
+  lucent::Array<double> amounts = lucent::Array<double>{};
+  lucent::Fn<double(double)> v16_ = lucent::Fn<double(double)>(lucent::closure("extension.lucent.ts:128", "amounts", [](std::decay_t<decltype(amounts)>& amounts, double p0_) -> double {
+    lucent::checkStack();
+    return amounts.push(p0_);
+  }, amounts));
+  (void)({
+    auto x_162_ = c;
+    auto x_163_ = x_162_.use<::tally::Counter>();
+    auto x_164_ = lucent::Fn<void(double)>([fn_161_ = v16_](double a0) {
+      fn_161_(a0);
+    });
+    auto x_165_ = lucent::ext::Callback<lucent::Fn<void(double)>>("Counter.each's visit", lucent::ext::Lives::Copies, x_164_);
+    lucent::ext::cxxCall("Counter.each", [&]() {
+      x_163_.get()->each(x_165_.function());
+    });
+    x_165_.done();
+    lucent::undefined;
+  });
+  lucent::Array<lucent::String> v22_ = lucent::Array<lucent::String>{LUCENT_STR("x"), LUCENT_STR("yy"), LUCENT_STR("zzz")};
+  (void)({
+    auto x_166_ = c;
+    auto x_167_ = x_166_.use<::tally::Counter>();
+    auto x_168_ = v22_;
+    auto x_169_ = lucent::ext::cxxVector<std::string>(x_168_, [&](const auto& x) {
+      return lucent::ext::cxxString(x);
+    });
+    lucent::ext::cxxCall("Counter.tag", [&]() {
+      x_167_.get()->tag(x_169_);
+    });
+    lucent::undefined;
+  });
+  lucent::Fn<bool(lucent::String, lucent::BigInt)> v25_ = lucent::Fn<bool(lucent::String, lucent::BigInt)>([](lucent::String p0_, lucent::BigInt p1_) mutable -> bool {
+    lucent::checkStack();
+    int64_t v2_ = static_cast<int64_t>(p0_.length());
+    bool v4_ = static_cast<int64_t>(v2_) > static_cast<int64_t>(1);
+    bool v7_{};
+    if (v4_) {
+      v7_ = p1_ < lucent::BigInt::fromInt64(2);
+    } else {
+      v7_ = v4_;
+    }
+    return v7_;
+  });
+  double r_long_ = ({
+    auto x_170_ = c;
+    auto x_171_ = x_170_.use<::tally::Counter>();
+    auto x_172_ = v25_;
+    auto x_173_ = lucent::ext::Callback<lucent::Fn<bool(lucent::String, lucent::BigInt)>>("Counter.countTags's keep", lucent::ext::Lives::Copies, x_172_);
+    auto result_174_ = lucent::ext::cxxCall("Counter.countTags", [&]() {
+      return x_171_.get()->countTags(x_173_.function());
+    });
+    x_173_.done();
+    lucent::ext::number(result_174_);
+  });
+  c.close();
+  lucent::String v31_ = heard.join(LUCENT_STR(" "));
+  lucent::String v35_ = amounts.join(LUCENT_STR(","));
+  lucent::String v38_ = lucent::toJsString(r_long_);
+  return lucent::concat(v31_, LUCENT_STR(" | "), v35_, LUCENT_STR(" | "), v38_);
+}
+
+lucent::String m_extension::callbackThrows() {
+  lucent::checkStack();
+  lucent::Handle c = ({
+    auto x_175_ = LUCENT_STR("t");
+    auto x_176_ = lucent::ext::cxxString(x_175_);
+    auto result_177_ = lucent::ext::cxxCall("new Counter", [&]() {
+      return new ::tally::Counter(x_176_);
+    });
+    lucent::Handle::open("Counter", result_177_, &lucent::ext::deleteObject<::tally::Counter>);
+  });
+  (void)({
+    auto x_178_ = c;
+    auto x_179_ = x_178_.use<::tally::Counter>();
+    auto x_180_ = 1.0;
+    auto x_181_ = lucent::ext::real<double>(x_180_);
+    auto result_182_ = lucent::ext::cxxCall("Counter.add", [&]() {
+      return x_179_.get()->add(x_181_);
+    });
+    static_cast<double>(result_182_);
+  });
+  (void)({
+    auto x_183_ = c;
+    auto x_184_ = x_183_.use<::tally::Counter>();
+    auto x_185_ = 2.0;
+    auto x_186_ = lucent::ext::real<double>(x_185_);
+    auto result_187_ = lucent::ext::cxxCall("Counter.add", [&]() {
+      return x_184_.get()->add(x_186_);
+    });
+    static_cast<double>(result_187_);
+  });
+  lucent::Array<double> seen = lucent::Array<double>{};
+  lucent::String out = lucent::String();
+  {
+    std::exception_ptr ex14_;
+    try {
+      lucent::Fn<void(double)> v12_ = lucent::Fn<void(double)>(lucent::closure("extension.lucent.ts:143", "seen", [](std::decay_t<decltype(seen)>& seen, double p0_) -> void {
+        lucent::checkStack();
+        (void)seen.push(p0_);
+        bool v4_ = p0_ == 2.0;
+        if (v4_) {
+          lucent::Error v6_ = lucent::withSite(lucent::makeError(LUCENT_STR("Error"), LUCENT_STR("two")), __FILE__, __LINE__, "<anonymous>");
+          lucent::throwError(v6_);
+        }
+      }, seen));
+      (void)({
+        auto x_188_ = c;
+        auto x_189_ = x_188_.use<::tally::Counter>();
+        auto x_190_ = v12_;
+        auto x_191_ = lucent::ext::Callback<lucent::Fn<void(double)>>("Counter.each's visit", lucent::ext::Lives::Copies, x_190_);
+        lucent::ext::cxxCall("Counter.each", [&]() {
+          x_189_.get()->each(x_191_.function());
+        });
+        x_191_.done();
+        lucent::undefined;
+      });
+    } catch (const lucent::GeneratorReturn&) {
+      throw;
+    } catch (...) {
+      ex14_ = std::current_exception();
+    }
+    if (ex14_) {
+      lucent::Error v14_ = lucent::currentError(ex14_);
+      lucent::Error e = std::move(v14_);
+      out = e->message;
+    }
+  }
+  c.close();
+  lucent::String v21_ = seen.join(LUCENT_STR(","));
+  return lucent::concat(v21_, LUCENT_STR(" "), out);
+}
+
 void m_extension::init() {
 }
 
@@ -592,21 +788,28 @@ void m_extension::init() {
 
 #pragma pop_macro("version")
 #pragma pop_macro("total")
+#pragma pop_macro("tag")
 #pragma pop_macro("strings")
+#pragma pop_macro("seen")
 #pragma pop_macro("rounding")
+#pragma pop_macro("r_long_")
 #pragma pop_macro("out")
 #pragma pop_macro("objects")
 #pragma pop_macro("name")
 #pragma pop_macro("made")
 #pragma pop_macro("live")
 #pragma pop_macro("history")
+#pragma pop_macro("heard")
 #pragma pop_macro("half")
 #pragma pop_macro("errors")
 #pragma pop_macro("e")
 #pragma pop_macro("close")
 #pragma pop_macro("cleared")
+#pragma pop_macro("callbacks")
+#pragma pop_macro("callbackThrows")
 #pragma pop_macro("c")
 #pragma pop_macro("before")
 #pragma pop_macro("b")
+#pragma pop_macro("amounts")
 #pragma pop_macro("add")
 #pragma pop_macro("a")

@@ -36,8 +36,26 @@ double Counter::add(double by) {
                                                : std::round(scaled);
   total_ += rounded;
   history_.push_back(rounded);
+  for (const auto& listen : listeners_) listen(name_, total_);
   return total_;
 }
+
+void Counter::each(const std::function<void(double)>& visit) const {
+  for (double amount : history_) visit(amount);
+}
+
+int Counter::countTags(std::function<bool(const std::string&, int64_t)> keep) const {
+  int kept = 0;
+  for (size_t i = 0; i < tags_.size(); i++)
+    if (keep(tags_[i], static_cast<int64_t>(i))) kept++;
+  return kept;
+}
+
+void Counter::onAdd(std::function<void(std::string_view, double)> listen) { listeners_.push_back(std::move(listen)); }
+
+void Counter::visit(std::function<void(double)> f) { f(total_); }
+
+void Counter::visit(std::function<void(int64_t)> f) { f(static_cast<int64_t>(total_)); }
 
 int64_t Counter::total() const { return static_cast<int64_t>(total_); }
 

@@ -28,7 +28,13 @@ export type CxxValue =
       class: string;
       cxx: string;
       by: "value" | "ref" | "constRef" | "pointer" | "constPointer";
-    };
+    }
+  /**
+   * A `std::function` parameter (decisions 0126 and 0128): a Lucent
+   * function, kept while C++ keeps a copy. It takes numbers, bigints,
+   * booleans and strings, and gives nothing or one of the first three.
+   */
+  | { kind: "callback"; params: CxxValue[]; result?: CxxValue };
 
 export interface CxxParamBinding {
   /** The C++ parameter's name; `arg<i>$` when it has none. */
@@ -157,8 +163,21 @@ export function bindCxx(
           return unbindable(`${t.name} by value, which C++ can't move into a handle`);
         return { kind: "object", class: c.name, cxx: c.qualified, by: t.by };
       }
-      case "function":
-        return unbindable(`${formatCxxType(t)}: extensions cannot take callbacks yet`);
+      case "function": {
+        if (at !== "param") return unbindable(`${formatCxxType(t)}: a callback is a parameter`);
+        const plain = (v: CxxValue, what: string) =>
+          v.kind === "number" || v.kind === "bigint" || v.kind === "boolean" || v.kind === "string"
+            ? v
+            : unbindable(
+                `${formatCxxType(t)} ${what}; a callback takes numbers, bigints, booleans and strings, and gives nothing or one of the first three`,
+              );
+        const params = t.params.map((p) => plain(value(p, "param"), `takes ${formatCxxType(p)}`));
+        if (t.result.k === "void") return { kind: "callback", params };
+        const result = plain(value(t.result, "result"), `gives ${formatCxxType(t.result)}`);
+        if (result.kind === "string")
+          return unbindable(`${formatCxxType(t)} gives a string, which a callback can't`);
+        return { kind: "callback", params, result };
+      }
       case "void":
         return unbindable("void, which is no value");
       case "unknown":
@@ -179,13 +198,30 @@ export function bindCxx(
     return arities.map((n) => ({ params: bound.slice(0, n), ...(r ? { result: r } : {}) }));
   };
 
-  // Two overloads TypeScript can't tell apart: neither, with the reason.
+  // Two overloads TypeScript can't tell apart: neither, with the reason. Nor two that differ
+  // only in their callbacks' signatures, which C++ can't tell a Lucent function's apart by.
   const distinct = (what: string, calls: CxxCallBinding[]): CxxCallBinding[] => {
     const keys = calls.map((c) => c.params.map((p) => lucentKey(p.value)).join(", "));
     const clashing = new Set(keys.filter((k, i) => keys.indexOf(k) !== i));
     for (const k of clashing)
       skipped.push(`${what}(${k}): overloads TypeScript can't tell apart, so neither is bound`);
-    return calls.filter((_, i) => !clashing.has(keys[i]!));
+
+    const shapes = calls.map((c) =>
+      c.params
+        .map((p) => (p.value.kind === "callback" ? "callback" : lucentKey(p.value)))
+        .join(", "),
+    );
+    const callbacks = new Set(
+      shapes.filter(
+        (k, i) => shapes.indexOf(k) !== i && !clashing.has(keys[i]!) && k.includes("callback"),
+      ),
+    );
+    for (const k of callbacks)
+      skipped.push(
+        `${what}(${k}): overloads whose callbacks C++ can't tell apart, so neither is bound`,
+      );
+
+    return calls.filter((_, i) => !clashing.has(keys[i]!) && !callbacks.has(shapes[i]!));
   };
 
   const classes = candidates.flatMap((c): ClassBinding[] => {
@@ -278,6 +314,8 @@ function lucentKey(v: CxxValue): string {
       return v.name;
     case "object":
       return v.class;
+    case "callback":
+      return `(${v.params.map(lucentKey).join(", ")}) => ${v.result ? lucentKey(v.result) : "void"}`;
   }
 }
 

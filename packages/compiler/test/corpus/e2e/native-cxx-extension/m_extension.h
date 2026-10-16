@@ -2,6 +2,10 @@
 #pragma once
 #include "lucent_app.h"
 
+#pragma push_macro("callbackThrows")
+#undef callbackThrows
+#pragma push_macro("callbacks")
+#undef callbacks
 #pragma push_macro("errors")
 #undef errors
 #pragma push_macro("live")
@@ -28,6 +32,8 @@ lucent::String strings();
 lucent::String rounding();
 lucent::String objects();
 lucent::String errors();
+lucent::String callbacks();
+lucent::String callbackThrows();
 void init();
 
 }  // namespace m_extension
@@ -41,3 +47,5 @@ void init();
 #pragma pop_macro("made")
 #pragma pop_macro("live")
 #pragma pop_macro("errors")
+#pragma pop_macro("callbacks")
+#pragma pop_macro("callbackThrows")

@@ -72,6 +72,9 @@ describe.skipIf(!clang)("binding a C++ header", () => {
       "split",
       "fail",
       "static live",
+      "each",
+      "countTags",
+      "onAdd",
     ]);
     const method = (name: string) => counter!.methods.find((m) => m.name === name)!.overloads[0]!;
     expect(method("total").result).toEqual({ kind: "bigint", c: "long long" });
@@ -95,6 +98,22 @@ describe.skipIf(!clang)("binding a C++ header", () => {
       by: "constRef",
     });
     expect(method("split").result).toMatchObject({ kind: "object", by: "value" });
+    // A std::function: a callback, with what it takes and gives.
+    expect(method("countTags").params[0]!.value).toEqual({
+      kind: "callback",
+      params: [
+        { kind: "string", of: "string" },
+        { kind: "bigint", c: "long long" },
+      ],
+      result: { kind: "boolean" },
+    });
+    expect(method("onAdd").params[0]!.value).toEqual({
+      kind: "callback",
+      params: [
+        { kind: "string", of: "string_view" },
+        { kind: "number", c: "double" },
+      ],
+    });
 
     expect(ext.enums).toEqual([
       {
@@ -115,6 +134,7 @@ describe.skipIf(!clang)("binding a C++ header", () => {
     expect(tallyBinding().skipped).toEqual([
       "Counter.self: tally::Counter *: who owns the object is unknown; a result by value is a new handle",
       "Counter.scale(number): overloads TypeScript can't tell apart, so neither is bound",
+      "Counter.visit(callback): overloads whose callbacks C++ can't tell apart, so neither is bound",
     ]);
   });
 
@@ -151,6 +171,9 @@ describe.skipIf(!clang)("a C++ extension's declarations", () => {
     expect(dts).toContain("  merge(other: Counter): void;");
     expect(dts).toContain("  split(): Counter;");
     expect(dts).toContain("  static live(): number;");
+    expect(dts).toContain("  each(visit: (arg0: number) => void): void;");
+    expect(dts).toContain("  countTags(keep: (arg0: string, arg1: bigint) => boolean): number;");
+    expect(dts).toContain("  onAdd(listen: (arg0: string, arg1: number) => void): void;");
     expect(dts).toContain(
       "export declare enum Rounding {\n  Down = 0,\n  Nearest = 2,\n  Up = 3,\n}",
     );
@@ -240,6 +263,33 @@ export function made(): string {
     expect(cpp).toMatch(/new ::tally::Counter\(x_\d+_\)/);
     expect(cpp).toContain("lucent::ext::integer<int>(");
     expect(cpp).toContain("lucent::ext::fromCxx(");
+  });
+
+  it("gives C++ a std::function of the callback, which it may keep, and ends the call's hold", () => {
+    const r = compile(
+      [
+        source(`import { Counter } from "lucent:ext/tally";
+
+export function heard(): string {
+  const c = new Counter("c");
+  const out: string[] = [];
+  c.onAdd((name, total) => out.push(\`\${name}=\${total}\`));
+  c.add(1);
+  c.close();
+  return out.join(" ");
+}
+`),
+      ],
+      { extensions: [tallyBinding()] },
+    );
+    expect(r.diagnostics).toEqual([]);
+
+    const cpp = cppOf(r);
+    expect(cpp).toMatch(
+      /auto x_\d+_ = lucent::ext::Callback<lucent::Fn<void\(lucent::String, double\)>>\("Counter\.onAdd's listen", lucent::ext::Lives::Copies, x_\d+_\);/,
+    );
+    expect(cpp).toMatch(/->onAdd\(x_\d+_\.function\(\)\)/);
+    expect(cpp).toMatch(/x_\d+_\.done\(\);/);
   });
 
   it("requires a main-thread class to be used in main()", () => {

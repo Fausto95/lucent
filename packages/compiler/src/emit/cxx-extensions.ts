@@ -35,6 +35,12 @@ function lucentType(v: CxxValue, extension: string): LType {
       return { k: "opt", inner: lucentType(v.of, extension), absent: "undefined" };
     case "object":
       return { k: "handle", extension, name: v.class };
+    case "callback":
+      return {
+        k: "fn",
+        params: v.params.map((p) => lucentType(p, extension)),
+        ret: v.result ? lucentType(v.result, extension) : T.void,
+      };
   }
 }
 
@@ -178,13 +184,28 @@ function call(
     ? hold(cpp.call(cpp.dot(hold(receiver.c), "use"), [], [cpp.type(`::${c.qualified}`)]))
     : undefined;
 
-  // Converted before the call, in order: a conversion's error is Lucent's to throw.
+  // Converted before the call, in order: a conversion's error is Lucent's to throw. A
+  // callback is held for the call, and C++ is given the std::function its parameter is,
+  // each copy of which keeps it (decisions 0126 and 0128).
   const values = given.map((g) => hold(g));
+  const guards: cpp.Expr[] = [];
   const cArgs = o.params.map((p, i) => {
+    if (p.value.kind === "callback") {
+      const guard = hold(
+        cpp.construct(
+          cpp.type("lucent::ext::Callback", em.reg.cppType(lucentType(p.value, extension))),
+          [cpp.str(`${what}'s ${p.name}`), cpp.id("lucent::ext::Lives::Copies"), values[i]!],
+        ),
+      );
+      guards.push(guard);
+      return cpp.call(cpp.dot(guard, "function"));
+    }
+
     const arg = toCxx(p.value, values[i]!, p.name);
     const temp = hold(arg.init);
     return arg.pass(temp);
   });
+  const done = guards.map((g) => cpp.exprStmt(cpp.call(cpp.dot(g, "done"))));
 
   // An object by value is moved into one of its own inside the call, which may throw too.
   const result = o.result;
@@ -199,12 +220,12 @@ function call(
   ]);
 
   if (!returns) {
-    stmts.push(cpp.exprStmt(invoke));
+    stmts.push(cpp.exprStmt(invoke), ...done);
     return { c: cpp.statementExpr(stmts, cpp.id("lucent::undefined")), t: T.undefined };
   }
 
   const r = cpp.id(em.ctx.fresh("result"));
-  stmts.push(cpp.varDecl(cpp.auto, cpp.printExpr(r), invoke));
+  stmts.push(cpp.varDecl(cpp.auto, cpp.printExpr(r), invoke), ...done);
 
   if (isNew)
     return {
@@ -296,6 +317,8 @@ function value(t: CxxValue, v: cpp.Expr, name: string): cpp.Expr {
       return cpp.call(cpp.templateId("lucent::ext::cxxOptional", [cpp.type(t.c)]), [v, each(t.of)]);
     case "object":
       throw new Error("an object crosses into C++ by reference only");
+    case "callback":
+      throw new Error("a callback crosses into C++ as its guard's function()");
   }
 }
 
@@ -328,5 +351,7 @@ function fromCxx(t: CxxValue, r: cpp.Expr, extension: string): cpp.Expr {
     // Made inside the call (see `call`): the handle owns it.
     case "object":
       return opened(findClass(extension, t.class)!, r);
+    case "callback":
+      throw new Error("a callback is a parameter only");
   }
 }

@@ -579,6 +579,22 @@ CR callBack(void* context, CA... args) {
   return detail::dispatch<CR>(std::static_pointer_cast<CallbackOf<F>>(std::move(state)), kept(args)...);
 }
 
+/// A callback as C++ is given it: any std::function of a signature the
+/// Lucent function's arguments and result convert to and from.
+template <class F>
+class Handoff {
+ public:
+  explicit Handoff(std::shared_ptr<CallbackOf<F>> state) : state_(std::move(state)) {}
+
+  template <class R, class... A>
+  operator std::function<R(A...)>() const {
+    return [s = state_](A... args) -> R { return detail::dispatch<R>(s, kept(std::forward<A>(args))...); };
+  }
+
+ private:
+  std::shared_ptr<CallbackOf<F>> state_;
+};
+
 namespace detail {
 
 /// Element `I` of `t`, as a tuple of it, or none for `Skip`.
@@ -644,11 +660,9 @@ class Callback {
     handle.whenDestroyed([c = context()] { endCallback(c); });
   }
 
-  /// The std::function C++ is given: each copy keeps the callback.
-  template <class CR, class... CA>
-  std::function<CR(CA...)> function() const {
-    return [s = state_](CA... args) -> CR { return detail::dispatch<CR>(s, kept(std::forward<CA>(args))...); };
-  }
+  /// What C++ is given: it becomes the std::function the parameter is,
+  /// each copy of which keeps the callback.
+  Handoff<F> function() const { return Handoff<F>(state_); }
 
   /// After the call: ends what lives for the call, then throws a refusal
   /// made during it.

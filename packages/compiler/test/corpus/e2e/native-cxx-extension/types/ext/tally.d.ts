@@ -22,6 +22,9 @@ export declare class Counter {
   split(): Counter;
   fail(): void;
   static live(): number;
+  each(visit: (arg0: number) => void): void;
+  countTags(keep: (arg0: string, arg1: bigint) => boolean): number;
+  onAdd(listen: (arg0: string, arg1: number) => void): void;
   /** Deletes the object; later uses throw. Closing again does nothing. */
   close(): void;
   /** close() */
@@ -37,3 +40,4 @@ export declare function tally_version(): number;
 // Not bound:
 //   Counter.self: tally::Counter *: who owns the object is unknown; a result by value is a new handle
 //   Counter.scale(number): overloads TypeScript can't tell apart, so neither is bound
+//   Counter.visit(callback): overloads whose callbacks C++ can't tell apart, so neither is bound
