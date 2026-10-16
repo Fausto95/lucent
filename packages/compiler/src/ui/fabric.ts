@@ -14,13 +14,14 @@
  */
 import { cpp } from "@lucent-lang/codegen";
 import { cppIdent } from "../types.ts";
-import type {
-  CommandDescription,
-  ComponentDescription,
-  EventDelivery,
-  EventDescription,
-  ViewField,
-  ViewType,
+import {
+  type CommandDescription,
+  type ComponentDescription,
+  type EventDelivery,
+  type EventDescription,
+  type ViewField,
+  type ViewType,
+  widgetDate,
 } from "./contract.ts";
 import { eventName, handlerKey, propKey } from "./transport.ts";
 
@@ -164,6 +165,8 @@ class ValueTypes {
         return this.enumType(t.values, path);
       case "object":
         return this.objectType(t.fields, path);
+      case "date":
+        return widgetDate(t);
       case "instance":
         return cpp.type("lucent::views::Instance");
     }

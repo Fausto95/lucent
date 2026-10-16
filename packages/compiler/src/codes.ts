@@ -751,7 +751,7 @@ export const Explanations: Record<Code, Explanation> = {
     summary:
       "A component's SwiftUI or Jetpack Compose body that Lucent cannot write out in Swift or Kotlin, or toolkit code used outside such a body.",
     details:
-      "A component can draw with its platform's toolkit, SwiftUI or Jetpack Compose. Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events.\n\nA widget's body is SwiftUI too, but WidgetKit draws it once per entry. So it has no callbacks, bindings or signals.",
+      "A component can draw with its platform's toolkit, SwiftUI or Jetpack Compose. Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events.\n\nA widget's body is SwiftUI too, but WidgetKit draws it once per entry. So it has no callbacks, bindings or signals. It may show its entry's dates, which a component's body doesn't.",
     fix: "make the view in the body, and move logic into a function of the setup that the body calls",
     wrong: {
       ...TOOLKIT_TITLE,

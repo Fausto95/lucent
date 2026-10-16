@@ -74,6 +74,9 @@ const SWIFT_PRIM: Record<string, string> = {
   "s:s5ErrorP": "error",
   "s:10Foundation4DataV": "NSData",
   "s:10Foundation4DateV": "NSDate",
+  // The same types where swift-foundation declares them (FoundationEssentials, off Darwin).
+  "s:20FoundationEssentials4DataV": "NSData",
+  "s:20FoundationEssentials4DateV": "NSDate",
 };
 
 /**

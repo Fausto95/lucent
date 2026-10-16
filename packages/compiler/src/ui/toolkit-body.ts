@@ -37,7 +37,7 @@ import type { ViewType } from "./contract.ts";
 import { type FunctionLike, nativeTagType } from "./roots.ts";
 import type { HelperUse, ViewHelper } from "./view-helpers.ts";
 import { TOOLKITS, type ToolkitName, toolkitOfModule, toolkitOfPlatform } from "./toolkits.ts";
-import { ViewTypes } from "./values.ts";
+import { isDateType, ViewTypes } from "./values.ts";
 
 /** JSX: an element, or a fragment of them. */
 export type Jsx = ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment;
@@ -438,7 +438,8 @@ export class Crossings {
     this.checker = checker;
     this.parts = parts;
     // What cannot cross is refused as a value of no plain type: the body never transfers it.
-    this.types = new ViewTypes(checker, () => undefined);
+    // A widget's body shows dates too: WidgetKit draws it once per entry.
+    this.types = new ViewTypes(checker, () => undefined, undefined, { dates: !!setup.widget });
     this.toolkit = toolkit;
     this.setup = setup;
     this.body = body;
@@ -858,6 +859,12 @@ export class Crossings {
       bodyFail(id, "the body reads each prop where it uses it: `props.name`");
 
     if (this.isSignal(id)) bodyFail(id, `the body reads \`${id.text}\` with ${id.text}.get()`);
+
+    if (isDateType(this.checker.getTypeAtLocation(id)))
+      bodyFail(
+        id,
+        `\`${id.text}\` is a Date, which only a widget's body shows: a component's body shows a string its setup computes from it`,
+      );
 
     bodyFail(
       id,

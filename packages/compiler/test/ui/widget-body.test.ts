@@ -62,7 +62,11 @@ describe.skipIf(!mini)("a widget's body", () => {
     expect(cpp).toContain(
       "lucent::swiftui::record({lucent::swiftui::value(lucent_key), lucent_v0, lucent_v1})",
     );
-    expect(cpp).toMatch(/lucent_v5, lucent_l0\}\)/);
+    expect(cpp).toMatch(/lucent_v6, lucent_l0\}\)/);
+    // A date crosses as its seconds, which the Swift reads into a Date.
+    expect(cpp).toMatch(/lucent::swiftui::value\(lucent_v1_value->getTime\(\) \/ 1000\)/);
+    expect(swift).toMatch(/let (date\d+): Date\n/);
+    expect(swift).toMatch(/Text\(values\.date\d+, style: Text\.DateStyle\.relative\)/);
     expect(cpp).toContain(`lucent::objc::wrap(`);
     expect(cpp).not.toContain("lucent::ui::effect");
     // Declared in its module's header, for the widget's glue to call.
@@ -158,6 +162,29 @@ ${body}
       [
         "LUCENT3024",
         "the widget Weather's body calls nothing back (`pick`): WidgetKit draws a widget once per entry, from what its body computes from the entry, and runs none of its code after",
+      ],
+    ]);
+  });
+
+  it("shows dates, which a component's body doesn't", () => {
+    const clock = build(
+      mini!.set,
+      `${BODY}
+export function Clock(props: { city: string }) {
+  const at = new Date(0);
+  return <Text date={at} style={Text.DateStyle.relative} />;
+}
+`,
+      {},
+      "ios",
+      `${DECLARATION}
+export declare function Clock(props: { city: string }): View;
+`,
+    ).result;
+    expect(errors(clock)).toEqual([
+      [
+        "LUCENT3024",
+        "`at` is a Date, which only a widget's body shows: a component's body shows a string its setup computes from it",
       ],
     ]);
   });

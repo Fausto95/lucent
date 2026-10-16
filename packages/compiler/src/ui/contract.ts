@@ -14,9 +14,15 @@
 import { createHash } from "node:crypto";
 import type { Platform } from "../sdk/schema.ts";
 
+/** Fails for a date where only a widget's body takes one (decision 0124): a Lucent bug. */
+export function widgetDate(t: { readonly k: "date" }): never {
+  throw new Error(`a ${t.k} is a widget's body's value only`);
+}
+
 /**
  * Plain data a view receives as a prop, an event sends, or a command takes
- * and answers; and, in a prop only, an instance of an exported class.
+ * and answers; and, in a prop only, an instance of an exported class. A
+ * widget's body takes a date too.
  */
 export type ViewType =
   | { readonly k: "number" }
@@ -28,6 +34,8 @@ export type ViewType =
   | { readonly k: "object"; readonly fields: readonly ViewField[] }
   /** The value, or null. */
   | { readonly k: "nullable"; readonly inner: ViewType }
+  /** A `Date`: a widget's body's value only (decision 0124), which SwiftUI shows as Swift's. */
+  | { readonly k: "date" }
   /**
    * An instance of an exported Lucent class, or of a class extending it: a
    * prop's only. `class` is its id (`<Lucent module>.<name>`), `module` the

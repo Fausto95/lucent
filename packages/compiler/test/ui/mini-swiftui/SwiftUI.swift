@@ -60,7 +60,18 @@ public struct Text: View {
   public init(_ key: LocalizedStringKey) {}
   @_disfavoredOverload
   public init<S: StringProtocol>(_ content: S) {}
+  /// A date, as `style` shows it (a widget's body shows its entry's).
+  public init(_ date: Date, style: Text.DateStyle) {}
   public func bold() -> Text { self }
+}
+
+extension Text {
+  public struct DateStyle {
+    public static let date = DateStyle()
+    public static let time = DateStyle()
+    public static let relative = DateStyle()
+    public static let timer = DateStyle()
+  }
 }
 
 public struct Image: View {

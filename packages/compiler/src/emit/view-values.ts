@@ -9,7 +9,7 @@
  */
 import { cpp } from "@lucent-lang/codegen";
 import { cppIdent, type LType } from "../types.ts";
-import type { ViewField, ViewType } from "../ui/contract.ts";
+import { type ViewField, type ViewType, widgetDate } from "../ui/contract.ts";
 import { fabricNames } from "../ui/fabric.ts";
 import type { Ctx } from "./context.ts";
 
@@ -52,6 +52,8 @@ export function toLucent(ctx: Ctx, vt: ViewType, lt: LType, r: X): X {
         [ctx.reg.cppType(inner)],
       );
     }
+    case "date":
+      return widgetDate(vt);
     case "instance": {
       if (lt.k !== "class") throw new Error(`expected a class type (got ${lt.k})`);
 
@@ -145,6 +147,8 @@ export function assignRepr(ctx: Ctx, target: X, vt: ViewType, lt: LType, src: X)
           ]),
         ),
       ];
+    case "date":
+      return widgetDate(vt);
     case "instance":
       throw new Error("an instance is a prop's only: no event or answer sends one");
     case "object": {

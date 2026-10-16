@@ -52,7 +52,7 @@ what became of each one that is still linked or was still open.
 | [T130](#t130)            | A native root: module code with no JavaScript runtime      | done (2026-10-13)                                       |
 | [T131](#t131)            | Android classes the OS instantiates, written in Lucent     | done (2026-10-14)                                       |
 | [T132](#t132)            | iOS background execution                                   | done (2026-10-14); relaunches are T137                  |
-| [T133](#t133)            | iOS app extensions and widgets                             | in progress (#345 to #355): decided (0124)              |
+| [T133](#t133)            | iOS app extensions and widgets                             | in progress (#345 to #356): decided (0124)              |
 | [T134](#t134)            | Calls from worklet runtimes                                | in progress (#342–#344): a device run remains           |
 | [T135](#t135)            | JavaScript tasks from background entry points              | blocked: a decision on whether Lucent offers it         |
 | [T136](#t136)            | App Intents, Live Activities and Android widget bodies     | waiting; needs T133                                     |
@@ -1291,10 +1291,10 @@ simulator in CI.
 **Goal:** A package's Lucent code runs in an app extension: a widget with
 a SwiftUI body, a notification service extension or a share extension.
 
-- **Status:** in progress (#345 to #355): decided (0124), its
+- **Status:** in progress (#345 to #356): decided (0124), its
   `lucent.json` fields, classes the OS makes, the API limits, the build,
   the targets' manifest, the targets in Expo and bare apps, App Groups, a
-  widget's body, its lists and its provider.
+  widget's body, its lists and dates, and its provider.
 - **Area:** iOS host, compiler, tooling.
 - **Needs:** T130.
 - **Verify:** V1, V4, V5, V6.
@@ -1324,8 +1324,9 @@ a SwiftUI body, a notification service extension or a share extension.
 - [x] A widget's body shows a list of its entry's items (`ForEach`): each
       item's key and values computed with the entry's, its rows reading
       them (#355).
-- [ ] A widget's body shows its entry's `Date`s, as SwiftUI's `Text`
-      styles do.
+- [x] A widget's body shows its entry's `Date`s, as SwiftUI's `Text`
+      styles do: SwiftUI's members taking a `Date` are declared in
+      lucent:swiftui, and a date crosses as its seconds since 1970 (#356).
 - [x] The extension links the Lucent runtime and those modules without
       React Native, through a second native build of the same program: a
       compile of the modules its code reaches into
