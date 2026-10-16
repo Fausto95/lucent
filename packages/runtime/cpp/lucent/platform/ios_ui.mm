@@ -136,12 +136,15 @@ SceneId tag(UIScene* scene) {
   return id;
 }
 
-/// Scenes connected before Lucent heard of them.
+/// Scenes connected before Lucent heard of them: none in an app extension,
+/// which has no UIApplication (decision 0124).
 void adoptConnectedScenes() {
+#if !LUCENT_APP_EXTENSION
   UIApplication* app = [UIApplication sharedApplication];
   if (!app) return;
 
   for (UIScene* scene in app.connectedScenes) tag(scene);
+#endif
 }
 
 void sceneNotified(UIScene* scene, SceneEvent event) {
@@ -198,6 +201,7 @@ std::optional<objc::PresentationContext> contextOf(SceneId id) {
 @implementation LucentLifecycleObserver
 
 + (void)load {
+#if !LUCENT_APP_EXTENSION
   NSNotificationCenter* center = [NSNotificationCenter defaultCenter];
 
   for (const auto& n : sceneNotifications()) {
@@ -220,6 +224,7 @@ std::optional<objc::PresentationContext> contextOf(SceneId id) {
                       lucent::detail::runOn(&ExecutionContext::main(), [event] { Lifecycle::shared().report(event); });
                     }];
   }
+#endif
 }
 
 @end

@@ -21,7 +21,7 @@ lucent_out_flag = lucent_out == ".lucent/native" ? "" : " --out \"#{lucent_out}\
 # Without the record (a read-only package), the build can't tell.
 require "digest"
 lucent_sources = Dir.glob("{cpp,ios,packages}/**/*.{c,cc,cpp,m,mm,swift}", base: __dir__)
-  .reject { |f| f.start_with?("cpp/generated/android/", "cpp/generated/host/") }
+  .reject { |f| f.start_with?("cpp/generated/android/", "cpp/generated/host/", "cpp/generated/ios-extensions/") }
   .sort
 lucent_record = Digest::SHA256.hexdigest(([File.binread(__FILE__)] + lucent_sources.map(&:b)).join("\n".b))
 File.write(File.join(__dir__, ".pod-install"), "#{lucent_record}\n") rescue nil
@@ -38,9 +38,10 @@ Pod::Spec.new do |s|
 
   # Projects with platform modules generate one set of files per target
   # (cpp/generated/ios, cpp/generated/android); iOS builds its own. The
-  # runtime's Android glue is guarded by __ANDROID__.
+  # runtime's Android glue is guarded by __ANDROID__. App extensions'
+  # builds are LucentExtensions.podspec's (decision 0124).
   s.source_files = ["cpp/**/*.{h,cpp,inc,c,mm}", "ios/**/*.{h,mm}"]
-  s.exclude_files = ["cpp/generated/android/**", "cpp/generated/host/**"]
+  s.exclude_files = ["cpp/generated/android/**", "cpp/generated/host/**", "cpp/generated/ios-extensions/**"]
   # The headers the app sees, in the module `import LucentNative` gives
   # Swift: what the app's delegates forward to Lucent modules, and the C
   # entry points (lucent_entries.h, where lucent build writes it) with the

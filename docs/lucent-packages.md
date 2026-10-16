@@ -143,7 +143,7 @@ so the outcome never depends on discovery order.
 | `resources`          | files or directories                | Listed paths. One name per bundle root.                          | `s.resources`                                                                 |
 | `resourceBundles`    | bundle → files or directories       | One package per bundle.                                          | `s.resource_bundles`                                                          |
 | `vendoredFrameworks` | `.framework` or `.xcframework` dirs | Listed paths. One framework per name.                            | `s.vendored_frameworks`                                                       |
-| `appExtensions`      | app extension targets               | One declaration per name. A different one fails.                 | Not built yet ([T133](tasks.md#t133))                                         |
+| `appExtensions`      | app extension targets               | One declaration per name. A different one fails.                 | A subspec of `LucentExtensions.podspec` each (below)                          |
 | `appGroups`          | `group.…` identifiers               | Union.                                                           | The `com.apple.security.application-groups` entitlement                       |
 
 An app extension ([0124](decisions/0124-an-app-extension-is-a-target-built-from-the-code-it-reaches.md))
@@ -155,6 +155,14 @@ needs a `kind` (`notificationService`, `share` or `widget`) and a target
 are, `<package>/<path>#<name>`. An app's own extension of a name replaces
 a package's. App Groups join the entitlement's value from
 `entitlements`, which must then be an array.
+
+Each extension's code is compiled again on its own: the modules it
+reaches through its imports, into `cpp/generated/ios-extensions/<name>/`,
+without the JSI units. `LucentExtensions.podspec` builds it in a subspec
+of the extension's name, with the runtime's JSI-free core and its iOS
+files, under `APPLICATION_EXTENSION_API_ONLY` and `LUCENT_APP_EXTENSION`.
+`LucentNative.podspec` leaves those files out. Lucent doesn't add the
+extension's target to the app yet ([T133](tasks.md#t133)).
 
 A pod requirement Lucent can't parse is left to CocoaPods
 (`podsCompatible` in `package-versions.ts`). A Swift package requirement
