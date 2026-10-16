@@ -13,11 +13,11 @@ import {
   kotlinSources,
   type KotlinToolchain,
 } from "../../bindgen/test/kotlin-toolchain.ts";
-import { compile, runtimeDir, type SdkOptions } from "../src/index.ts";
+import { compile, type ExtensionBinding, runtimeDir, type SdkOptions } from "../src/index.ts";
 import { type Job, runAll } from "./parallel-build.ts";
 
-/** Android output for a platform module whose Android side is `src` (exporting run()). */
-export function android(src: string, sdk?: SdkOptions) {
+/** Android output for a platform module whose Android side is `src` (exporting run()), with native extensions. */
+export function android(src: string, sdk?: SdkOptions, extensions?: ExtensionBinding[]) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-android-"));
   const files = {
     "m.lucent.ts": "export declare function run(): Promise<string>;\n",
@@ -27,7 +27,7 @@ export function android(src: string, sdk?: SdkOptions) {
   for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), text);
   const r = compile(
     Object.keys(files).map((f) => path.join(dir, f)),
-    { platforms: ["android"], sdk },
+    { platforms: ["android"], sdk, ...(extensions ? { extensions } : {}) },
   );
   return { r, cpp: r.files.get("android/m_m.cpp") ?? "", dir };
 }

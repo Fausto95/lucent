@@ -60,7 +60,7 @@ what became of each one that is still linked or was still open.
 | **Distribution**         |                                                            |                                                                |
 | [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190 to #204, #363 merged)                        |
 | [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | done (2026-10-14)                                              |
-| [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #374): decided (0125, 0126, 0128 to 0131) |
+| [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #375): decided (0125, 0126, 0128 to 0131) |
 | [T143](#t143)            | Typed Kotlin and Java sources in packages                  | ready                                                          |
 | [T144](#t144)            | A web target for shared modules                            | ready (decision 0077)                                          |
 | [T145](#t145)            | The package distribution matrix                            | ready                                                          |
@@ -1562,7 +1562,7 @@ manual step, and Xcode builds without Metro running.
 **Goal:** A package wraps a C++ library, as a Nitro C++ Hybrid Object
 does, through typed extensions.
 
-- **Status:** in progress (#357 to #374): decided (0125, 0126, 0128 to
+- **Status:** in progress (#357 to #375): decided (0125, 0126, 0128 to
   0131), C++ headers' classes bound and called, C and C++ callbacks,
   signals, and bytes from any buffer.
 - **Area:** compiler, bindings, tooling.
@@ -1608,8 +1608,10 @@ does, through typed extensions.
       each module (#373); the header is read with the modules' `include`
       from the classpath's AARs, the pods' search paths and vendored
       frameworks, and packages.cmake finds the AAR's package name (#374).
-- [ ] A fixture C++ library with a class, overloads, callbacks and
-      exceptions, run on the host and the JNI host.
+- [x] A fixture C++ library with a class, overloads, callbacks and
+      exceptions, run on the host and the JNI host: `tally`, in the
+      native-cxx-extension e2e case and `cxx-extension-jni.test.ts`, with
+      the `ticker` C library's callbacks from another thread (#375).
 - [ ] `lucent-mmkv` through MMKV's C++ core on both platforms, with
       `getBuffer` borrowing, benchmarked against react-native-mmkv (P1).
 
