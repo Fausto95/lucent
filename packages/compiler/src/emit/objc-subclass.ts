@@ -11,6 +11,11 @@
  * `lucent::objc::nativeOwned`), so neither outlives the other while the
  * platform or Lucent code uses it, and no cycle keeps them. The Lucent
  * object goes on the Lucent thread when the native object does.
+ *
+ * An exported class's subclass is one the OS can make by name (decision
+ * 0124), `LucentApp_<module>_<Class>`: when its constructor and super(…)
+ * take nothing, its `init` makes the Lucent instance through the native
+ * root, and super(…) adopts the object the OS made.
  */
 import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
@@ -24,6 +29,7 @@ import {
   type SdkPropertySchema,
   type SdkType,
 } from "../sdk/schema.ts";
+import { osObjcName } from "../os-names.ts";
 import { type ClassInfo, cppIdent, T } from "../types.ts";
 import { memberName, parameterProperties } from "./classes.ts";
 import type { Ctx, E } from "./context.ts";
@@ -32,7 +38,69 @@ import { FnEmitter } from "./function.ts";
 import { iosSuperInit, noteFramework, objcType, superSelector } from "./native.ts";
 
 /** The generated Objective-C class standing for instances of `info`. */
-export const subclassName = (info: ClassInfo) => `LucentSub_${info.cppName.replace(/^C_/, "")}`;
+export const subclassName = (info: ClassInfo) =>
+  iosOsMade(info)
+    ? osObjcName(info.module, info.decl.name!.text)
+    : `LucentSub_${info.cppName.replace(/^C_/, "")}`;
+
+/** Classes whose Objective-C name another's came out as: they keep a name of the build's (decision 0124). */
+const clashing = new WeakSet<ClassInfo>();
+
+/** Gives `info` no name the OS can rely on: another class's came out the same. */
+export function refuseIosOsName(info: ClassInfo): void {
+  clashing.add(info);
+}
+
+/**
+ * Whether the OS can make `info`'s Objective-C class by name (decision
+ * 0124): an exported, concrete class extending an iOS class.
+ */
+export function iosOsMade(info: ClassInfo): boolean {
+  return (
+    info.exported &&
+    !info.abstract &&
+    !info.typeParams.length &&
+    info.sdkBase?.platform === "ios" &&
+    !clashing.has(info)
+  );
+}
+
+/** The `super(…)` call of `info`'s own constructor, if it has one. */
+function superCallOf(info: ClassInfo): ts.CallExpression | undefined {
+  const ctor = info.members.find(ts.isConstructorDeclaration);
+  let found: ts.CallExpression | undefined;
+  const visit = (n: ts.Node): void => {
+    if (found) return;
+    if (ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.SuperKeyword) found = n;
+    else if (!ts.isFunctionLike(n) || n === ctor) ts.forEachChild(n, visit);
+  };
+  if (ctor) visit(ctor);
+  return found;
+}
+
+/**
+ * Whether the OS can make an instance of `info` with `init`: an OS-made
+ * class whose constructor takes no parameters, whose super(…) passes none,
+ * and whose base has an `init`. Its `init` then makes the Lucent instance.
+ */
+function osInit(info: ClassInfo, chain: SdkClassRef[]): boolean {
+  if (!iosOsMade(info)) return false;
+  const ctor = info.members.find(ts.isConstructorDeclaration);
+  if (ctor?.parameters.length) return false;
+  if (superCallOf(info)?.arguments.length) return false;
+  return chain
+    .flatMap((ref) => ref.cls.constructors ?? [])
+    .some((c) => !c.params.length && !c.swift && (c.selector ?? "init") === "init");
+}
+
+/** `made`, or the object the OS made while `info`'s init makes its Lucent instance. */
+function superObject(info: ClassInfo, made: cpp.Expr): cpp.Expr {
+  if (!osInit(info, sdkChain(info.sdkBase!))) return made;
+  return cpp.call("lucent::objc::superObject", [
+    cpp.send(subclassName(info), "class"),
+    cpp.lambda(["&"], [], [cpp.ret(made)], { ret: cpp.type("id") }),
+  ]);
+}
 
 const className = (info: ClassInfo) => info.decl.name?.text ?? "class";
 
@@ -129,7 +197,7 @@ const adopt = (info: ClassInfo) => `lucentAdopt_${info.cppName}`;
 /** `super(…)` in the constructor of a class extending an iOS class: its native object, made. */
 export function subclassSuperCall(em: FnEmitter, node: ts.CallExpression, info: ClassInfo): E {
   baseChain(info);
-  const made = iosSuperInit(em, node, info.sdkBase!, subclassName(info));
+  const made = superObject(info, iosSuperInit(em, node, info.sdkBase!, subclassName(info)));
 
   return {
     c: cpp.comma(
@@ -153,7 +221,10 @@ export function subclassImplicitSuper(info: ClassInfo): cpp.Stmt {
       `${className(info)}: ${info.sdkBase!.name} has no initializer without arguments: declare a constructor that calls super(…)`,
     );
 
-  const made = cpp.send(cpp.send(subclassName(info), "alloc"), init!.selector ?? "init");
+  const made = superObject(
+    info,
+    cpp.send(cpp.send(subclassName(info), "alloc"), init!.selector ?? "init"),
+  );
   return cpp.exprStmt(cpp.call(`lucent_app::${adopt(info)}`, [cpp.self, made]));
 }
 
@@ -429,6 +500,79 @@ export function iosSubclass(
       body,
     );
 
+  // The OS makes it with init (decision 0124): through the native root, module state starts if
+  // none lasts, the instance holds it while the object lives, and its constructor runs holding
+  // the module's actor, its super(…) adopting the object the OS made.
+  const os = osInit(info, chain);
+  const factory = `os_${info.cppName}`;
+  const osDecls: cpp.Decl[] = [];
+  const osMethods: cpp.ObjcMethod[] = [];
+  if (os) {
+    em.ctx.nativeUnit(module).include("lucent/entries.h");
+    osDecls.push(
+      cpp.namespace("lucent_app", [
+        cpp.fn(
+          factory,
+          cpp.type("bool"),
+          [cpp.param(cpp.type("id"), "self_")],
+          [
+            cpp.exprStmt(
+              cpp.call("lucent::ensureModuleState", [
+                cpp.addressOf(cpp.id("lucent_app::initModules")),
+              ]),
+            ),
+            cpp.varDecl(
+              cpp.auto,
+              "hold_",
+              cpp.call("std::make_shared", [], [cpp.type("lucent::ModuleStateHold")]),
+            ),
+            cpp.varDecl(
+              cpp.type("lucent::entries::detail::EntryScope"),
+              "scope_",
+              em.ctx.actorAt(module),
+              { style: "construct" },
+            ),
+            cpp.ret(
+              cpp.call("lucent::objc::adoptOsObject", [
+                cpp.id("self_"),
+                cpp.send(sub, "class"),
+                cpp.id("hold_"),
+                cpp.lambda(
+                  ["&"],
+                  [],
+                  [
+                    cpp.exprStmt(
+                      cpp.cast("c", cpp.voidType, cpp.call(`lucent_app::${info.cppName}::create`)),
+                    ),
+                  ],
+                ),
+                cpp.str(name),
+              ]),
+            ),
+          ],
+          { static: true },
+        ),
+      ]),
+    );
+    osMethods.push({
+      ret: cpp.type("instancetype"),
+      parts: [{ name: "init" }],
+      body: [
+        cpp.exprStmt(cpp.assign(cpp.id("self"), cpp.send(cpp.id("super"), "init"))),
+        // The OS's (or native code's), not a Lucent super(…)'s: its Lucent instance.
+        cpp.ifStmt(
+          cpp.binary(
+            cpp.binary(cpp.id("self"), "&&", cpp.call("lucent::objc::madeByOs")),
+            "&&",
+            cpp.unary("!", cpp.call(`lucent_app::${factory}`, [cpp.id("self")])),
+          ),
+          [cpp.ret(cpp.id("nil"))],
+        ),
+        cpp.ret(cpp.id("self")),
+      ],
+    });
+  }
+
   em.ctx.nativeUnit(module).include("lucent/platform/ios.h");
   return {
     native: [
@@ -439,10 +583,11 @@ export function iosSubclass(
         protocols: protocols.map((p) => p.cls.native),
         ivars: [{ type: ref, name: "self_" }],
       },
+      ...osDecls,
       {
         k: "objcImplementation",
         name: sub,
-        methods: [...overrides, ...supers, ...requirements, dealloc],
+        methods: [...osMethods, ...overrides, ...supers, ...requirements, dealloc],
       },
       cpp.namespace("lucent_app", [
         adopted,

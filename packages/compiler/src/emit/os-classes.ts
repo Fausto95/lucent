@@ -16,25 +16,32 @@ import type { ClassInfo, LType } from "../types.ts";
 import { constructorOf } from "./classes.ts";
 import type { Ctx } from "./context.ts";
 import { FnEmitter } from "./function.ts";
+import { osObjcName } from "../os-names.ts";
 import { javaSubclassName, osClassName, osMade, refuseOsName } from "./java.ts";
 import { fromJavaObject, javaSubclassOf } from "./native.ts";
+import { iosOsMade, refuseIosOsName } from "./objc-subclass.ts";
 
 /**
- * Of `classes` the OS would make, those whose Java names come out the same
- * keep a name of the build's, and LUCENT3016 warns, naming them.
+ * Of `classes` the OS would make, those whose Java (Android) or
+ * Objective-C (iOS) names come out the same keep a name of the build's,
+ * and LUCENT3016 warns, naming them (decisions 0097 and 0124).
  */
 export function settleOsNames(ctx: Ctx, classes: readonly ClassInfo[]): void {
+  const ios = ctx.platform === "ios";
+  const made = ios ? iosOsMade : osMade;
+  const nameOf = (info: ClassInfo) =>
+    ios ? osObjcName(info.module, info.decl.name!.text) : osClassName(info).replace(/\//g, ".");
   const byName = new Map<string, ClassInfo[]>();
-  for (const info of classes.filter(osMade))
-    byName.set(osClassName(info), [...(byName.get(osClassName(info)) ?? []), info]);
+  for (const info of classes.filter(made))
+    byName.set(nameOf(info), [...(byName.get(nameOf(info)) ?? []), info]);
 
   for (const [name, same] of byName) {
     if (same.length < 2) continue;
-    for (const info of same) refuseOsName(info);
+    for (const info of same) (ios ? refuseIosOsName : refuseOsName)(info);
     ctx.warn(
       same.at(-1)!.decl.name ?? same.at(-1)!.decl,
       Codes.EntryNameClash,
-      `${same.map((i) => `${i.module}.${i.decl.name?.text}`).join(" and ")} would have the same Java class, ${name.replace(/\//g, ".")}: the OS can make neither by name`,
+      `${same.map((i) => `${i.module}.${i.decl.name?.text}`).join(" and ")} would have the same ${ios ? "Objective-C" : "Java"} class, ${name}: the OS can make neither by name`,
     );
   }
 }

@@ -614,6 +614,18 @@ the native object (an aliasing reference), so neither outlives the other
 and no cycle forms. A subclass of a main-thread class is made and used on
 the main thread.
 
+An exported class's subclass is `LucentApp_<module>_<Class>`, which the
+OS can make by name, as an app extension's principal class
+([0124](decisions/0124-an-app-extension-is-a-target-built-from-the-code-it-reaches.md)).
+When its constructor and its `super(…)` take nothing and the base has an
+`init`, the subclass's `init` makes the Lucent instance through the
+native root, unless a Lucent `super(…)` is making the object
+(`lucent::objc::madeByOs`). Module state starts if none lasts, the
+instance holds it while the object lives, and the constructor runs
+holding its actor. Its `super(…)` adopts the object the OS made
+(`lucent::objc::superObject`). Two classes whose names come out the same
+keep `LucentSub_` names, and LUCENT3016 warns.
+
 **Java classes** (`emit/java.ts`). A generated subclass,
 `dev.lucent.generated.<Name>`, is made when an instance first goes to
 Java. It overrides each method the Lucent class defines, and each abstract

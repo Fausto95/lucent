@@ -191,6 +191,7 @@ A Lucent class can extend an Objective-C class: `class Greeting extends UIViewCo
 - A getter or setter named like a base property overrides it the same way, and `super.name` reads and writes the base's. A getter alone keeps the base's setter.
 - An instance goes wherever the base, or a protocol the class implements, is taken.
 - A class extending a main-thread class, such as `UIView` or `UIViewController`, is made and used only in code the main thread runs (`LUCENT3006`).
+- An exported class is one the OS can make by name, `LucentApp_<module>_<Class>`, as an app extension's principal class. When its constructor and its `super(…)` take nothing, `init` from the OS makes its Lucent instance too. A module's iOS file exports it without its shared file declaring it, since JavaScript never sees it.
 
 These fail to compile with `LUCENT1005`:
 

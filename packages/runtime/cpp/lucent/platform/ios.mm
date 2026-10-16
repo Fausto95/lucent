@@ -18,6 +18,54 @@ bool onMainThread() { return [NSThread isMainThread]; }
 
 }  // namespace lucent
 
+/// What an object the OS made keeps while it lives: its Lucent instance's hold on module state.
+@interface LucentOsKeep : NSObject
+@end
+
+@implementation LucentOsKeep {
+ @public
+  std::shared_ptr<void> keep_;
+}
+@end
+
+namespace lucent::objc {
+
+namespace {
+
+char osKeepKey;
+
+}  // namespace
+
+bool adoptOsObject(id object, Class cls, std::shared_ptr<void> keep, const std::function<void()>& make, const char* what) {
+  OsAdoption adoption{object, cls};
+  OsAdoption* outer = osAdoption;
+  osAdoption = &adoption;
+  try {
+    make();
+  } catch (const std::exception& e) {
+    osAdoption = outer;
+    logError((std::string("[lucent] new ") + what + " for the OS threw " + e.what()).c_str());
+    return false;
+  } catch (...) {
+    osAdoption = outer;
+    logError((std::string("[lucent] new ") + what + " for the OS threw").c_str());
+    return false;
+  }
+  osAdoption = outer;
+
+  if (!adoption.adopted) {
+    logError((std::string("[lucent] ") + what + ": its constructor made its object without super(…)").c_str());
+    return false;
+  }
+
+  LucentOsKeep* k = [LucentOsKeep new];
+  k->keep_ = std::move(keep);
+  objc_setAssociatedObject(object, &osKeepKey, k, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  return true;
+}
+
+}  // namespace lucent::objc
+
 namespace lucent::entries {
 
 // A native entry's platform objects (decision 0116): an object the caller still owns, retained;
