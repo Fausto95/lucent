@@ -44,7 +44,12 @@ import {
   receivesScope,
   schemaNumberKind,
 } from "./compose-api.ts";
-import { type ComposeBinding, type ComposeWrite, isElement } from "./compose-dts.ts";
+import {
+  type ComposeBinding,
+  type ComposeWrite,
+  composeDeclarations,
+  isElement,
+} from "./compose-dts.ts";
 import type { ViewField, ViewType } from "./contract.ts";
 import {
   type ActionSlot,
@@ -67,7 +72,9 @@ import {
   type HelperCallback,
   helperArgs,
   helperAt,
+  type HelperToolkitValue,
   type HelperUse,
+  toolkitValueProp,
   type ViewHelper,
 } from "./view-helpers.ts";
 
@@ -188,7 +195,7 @@ interface Shared {
   readonly helpers: Map<FunctionLike, HelperFunction>;
 }
 
-/** A helper view's composable: a parameter per value and per callback. */
+/** A helper view's composable: a parameter per value, per callback and per toolkit value. */
 function helperFun(values: KotlinValues, h: HelperFunction): kt.Decl {
   return {
     k: "fun",
@@ -206,9 +213,23 @@ function helperFun(values: KotlinValues, h: HelperFunction): kt.Decl {
           ),
         ),
       ),
+      ...h.helper.toolkitValues.map((v) => {
+        const type = kt.type(composeClass(v).path.join("."));
+
+        return kt.param(v.name, v.optional ? kt.nullable(type) : type);
+      }),
     ],
     body: h.body,
   };
+}
+
+/** The Kotlin class of a helper's toolkit value, as lucent:compose declares it. */
+function composeClass(v: HelperToolkitValue): { import: string; path: readonly string[] } {
+  const found = composeDeclarations().types.get(v.type.join("."));
+
+  if (!found) throw new Error(`lucent:compose declares no class for ${v.type.join(".")}`);
+
+  return found;
 }
 
 const KOTLIN_TYPES: Record<ScalarType["k"], string> = {
@@ -1048,6 +1069,11 @@ class BodyWriter {
 
     if (prop) return { e: kt.name(prop.name) };
 
+    // A toolkit value the helper is given (T123): its parameter.
+    const given = this.frame ? toolkitValueProp(this.checker, e, this.frame.helper) : undefined;
+
+    if (given) return { e: kt.name(given.name) };
+
     if (ts.isNumericLiteral(e)) return numberLiteral(e, Number(e.text));
 
     if (
@@ -1199,6 +1225,14 @@ class BodyWriter {
     const comparison = COMPARISON[op];
 
     if (comparison) return { e: kt.binary(convert(a, both), comparison, convert(b, both)) };
+
+    // A helper's optional toolkit value, defaulted (`props.modifier ?? Modifier`): Kotlin's `?:`.
+    if (
+      op === K.QuestionQuestionToken &&
+      this.frame &&
+      toolkitValueProp(this.checker, skipParentheses(e.left), this.frame.helper)
+    )
+      return { e: kt.elvis(a.e, b.e) };
 
     fail(
       e.operatorToken,
@@ -1897,9 +1931,14 @@ class BodyWriter {
 
     const args = helperArgs(node, helper);
     const callbacks = new Set(helper.callbacks.map((c) => c.name));
+    const toolkitValues = new Set(helper.toolkitValues.map((v) => v.name));
 
     for (const [name, arg] of args)
-      if (!callbacks.has(name) && !this.crossings.givesValue(arg, this.frame?.helper))
+      if (
+        !callbacks.has(name) &&
+        !toolkitValues.has(name) &&
+        !this.crossings.givesValue(arg, this.frame?.helper)
+      )
         fail(
           arg,
           Codes.ToolkitBody,
@@ -1926,6 +1965,15 @@ class BodyWriter {
         value: this.valueSlot(v.source, chainUse(v.via, use)).e,
       })),
       ...helper.callbacks.map((c) => ({ name: c.name, value: callback(c) })),
+      // A toolkit value, written where its user composes (T123).
+      ...helper.toolkitValues.map((v) => {
+        const arg = args.get(v.name);
+
+        return {
+          name: v.name,
+          value: arg ? this.expr(arg, { composable: true, suspending: false }).e : kt.nullLit,
+        };
+      }),
     ]);
   }
 
@@ -1948,6 +1996,8 @@ class BodyWriter {
     const body = writer.body();
 
     for (const i of writer.imports) this.imports.add(i);
+    // What its toolkit values' types import.
+    for (const v of helper.toolkitValues) this.imports.add(composeClass(v).import);
     this.usesText ||= writer.usesText;
 
     const taken = new Set([...this.shared.helpers.values()].map((h) => h.name));

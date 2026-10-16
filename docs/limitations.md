@@ -42,8 +42,8 @@ generated from this file.
 - Absolute children of a padded component follow React Native's
   padding-box rule relative to the slot. A fixed-size slot inside a
   component sized by its children is bounded at three reports.
-- Helper view functions take plain data and scalar callbacks only: no
-  toolkit values, children, lists or bindings inside a helper
+- Helper view functions take plain data, scalar callbacks and their
+  toolkit's values: no children, lists or bindings inside a helper yet
   ([T123](tasks.md#t123)).
 - SwiftUI: a static value named like a method (`Animation.easeInOut`) is
   left out, so write the call. Only closed ranges (`a...b`) are mapped,

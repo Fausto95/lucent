@@ -102,6 +102,11 @@ export interface ComposeDeclarations {
   text: string;
   /** Bindings by bindingKey, in the order of the declarations of that key. */
   bindings: ReadonlyMap<string, readonly ComposeBinding[]>;
+  /**
+   * The Kotlin class of each interface by its TypeScript path
+   * (`Alignment.Horizontal`): what a parameter of its type imports.
+   */
+  types: ReadonlyMap<string, { readonly import: string; readonly path: readonly string[] }>;
 }
 
 /** What a declaration is: a function or constant of a namespace (or of the module), or an interface's member. */
@@ -613,6 +618,9 @@ function generate(modules: readonly SdkModuleSchema[], only?: string): ComposeDe
   /** Interfaces by class key, with their supertypes (for the overloads they inherit). */
   const interfaces = new Map<string, Interface>();
 
+  /** Each interface's Kotlin class, by its TypeScript path. */
+  const kotlinClasses = new Map<string, { import: string; path: readonly string[] }>();
+
   const interfaceOf = (d: Declared): Interface => {
     const home = at(d.path.slice(0, -1));
     const name = d.path.at(-1)!;
@@ -656,6 +664,7 @@ function generate(modules: readonly SdkModuleSchema[], only?: string): ComposeDe
       };
       home.interfaces.set(name, found);
       interfaces.set(`${d.module.module}.${d.cls.name}`, found);
+      kotlinClasses.set(d.path.join("."), { import: d.import, path: d.path });
     }
 
     return found;
@@ -1200,7 +1209,7 @@ function generate(modules: readonly SdkModuleSchema[], only?: string): ComposeDe
   };
 
   const text = ts.printUnit({ decls: print(root, []) });
-  return { text, bindings };
+  return { text, bindings, types: kotlinClasses };
 }
 
 /**

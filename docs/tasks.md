@@ -45,7 +45,7 @@ what became of each one that is still linked or was still open.
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
 | [T121](#t121)            | React Native's view props, refs and view libraries         | done (2026-10-14)                                       |
 | [T122](#t122)            | UIKit components with a view-controller root               | in progress (#324, #325)                                |
-| [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | in progress (#328, #335 merged, #336, #337)             |
+| [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | in progress (#328, #335 to #337 merged, #339)           |
 | [T124](#t124)            | A component's ref as a module function's argument          | in progress (#326 merged)                               |
 | [T125](#t125)            | Android views made after setup keep the Activity's context | in progress (#327)                                      |
 | **Execution modes**      |                                                            |                                                         |
@@ -1011,7 +1011,7 @@ counterpart, a `Fragment` root, is in [T131](#t131).
 **Goal:** Toolkit bodies take what UIKit and Android bodies take: instance
 props, and helper functions with children and bindings.
 
-- **Status:** in progress (#328, #335, #336, #337).
+- **Status:** in progress (#328, #335, #336, #337, #339).
 - **Area:** views, compiler.
 - **Needs:** T120.
 - **Verify:** V1, V4, V5.
@@ -1026,7 +1026,9 @@ props, and helper functions with children and bindings.
       computes from it. A list of instances too (#336, decision 0122).
 - [x] A value a body's callback passes is computed when the callback runs,
       as JavaScript does, not when what it reads changes (#337).
-- [ ] Helper view functions take toolkit values, children and bindings.
+- [x] Helper view functions take toolkit values (#339): a parameter of the
+      toolkit's type, which their user writes.
+- [ ] Helper view functions take children and bindings.
 - [ ] Tests on the simulator and emulator.
 
 **Done when:** the views limitations list neither restriction.

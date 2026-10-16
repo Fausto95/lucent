@@ -178,15 +178,16 @@ export function Todos(props: Props) {
     ).toContainEqual(
       "LUCENT3024 the helper view `Badge` takes its props as one name: `(props) => …`, reading `props.name`",
     );
+    // SwiftUI's values are a helper's to take (helper-values.test.ts); other objects are not.
     expect(
       refused(
         use(
-          "function Tinted(props: { tint: Color }) {\n  return <Text foregroundStyle={props.tint}>x</Text>;\n}",
-          "<Tinted tint={Color.red} />",
+          "function Dated(props: { at: Date }) {\n  return <Text>x</Text>;\n}",
+          "<Dated at={new Date()} />",
         ),
       ),
     ).toContainEqual(
-      "LUCENT3024 the helper view `Tinted` takes plain data and callbacks: `tint` is `Color`",
+      "LUCENT3024 the helper view `Dated` takes plain data, callbacks and SwiftUI's values: `at` is `Date`",
     );
     expect(
       refused(

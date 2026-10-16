@@ -984,7 +984,7 @@ struct Mount {
 ### Planned
 
 - [T122](../tasks.md#t122): an iOS root may be a `UIViewController`. [T123](../tasks.md#t123): toolkit
-  helpers take toolkit values, children and bindings. [T144](../tasks.md#t144):
+  helpers take children and bindings. [T144](../tasks.md#t144):
   views on the web are a diagnostic.
 
 ## C-BUILD: build records and identities

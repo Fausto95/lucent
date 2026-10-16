@@ -435,9 +435,12 @@ again.
 A body may split its views into helpers: non-exported functions of the same
 platform code returning its toolkit's JSX (`ui/view-helpers.ts`). Each is
 written once per component as a Swift `View` or a Kotlin `@Composable` function,
-never as C++. It takes one props object of plain data and scalar callbacks, and
-setup computes what it derives from them where it is used. One that destructures
-its props, takes a toolkit value, shows a list or binds a signal is LUCENT3024
+never as C++. It takes one props object of plain data, scalar callbacks and its
+toolkit's values, and setup computes what it derives from the plain data where it
+is used. A toolkit's value (a `Color`, a `Font`, a `Modifier`) is a parameter of
+the toolkit's type: its user writes it where it draws, an optional one is `nil`
+or `null` when left out, and `??` defaults it. One that destructures its props,
+takes children, shows a list or binds a signal is LUCENT3024
 ([T123](../tasks.md#t123)).
 
 ## Props
@@ -1001,7 +1004,7 @@ The view gate closes these gaps ([parity.md](../parity.md#views)):
 | Gap                                                                                           | Task                     |
 | --------------------------------------------------------------------------------------------- | ------------------------ |
 | An `AVPlayerViewController` spike, run on the simulator                                       | [T122](../tasks.md#t122) |
-| Helpers with toolkit values, children and bindings in SwiftUI and Compose bodies              | [T123](../tasks.md#t123) |
+| Helpers with children and bindings in SwiftUI and Compose bodies                              | [T123](../tasks.md#t123) |
 | A component's view in module code, run on the simulator and the emulator                      | [T124](../tasks.md#t124) |
 | Views made after setup on Android keep the hosting view's themed context, run on the emulator | [T125](../tasks.md#t125) |
 
