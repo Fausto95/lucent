@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                                    | Date       | Decision                                                                                                |
 | ----------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------- |
+| [0132](0132-a-packages-kotlin-and-java-are-compiled-to-be-bound.md)                       | 2026-10-16 | A package's Kotlin and Java are compiled on the build machine, to be bound as the jars they make        |
 | [0131](0131-an-extensions-libraries-come-from-prefab-and-pods.md)                         | 2026-10-16 | An extension's library comes from Gradle prefab and CocoaPods, headers included                         |
 | [0130](0130-an-extensions-bytes-parameter-takes-a-buffers-bytes-in-place.md)              | 2026-10-16 | An extension's bytes parameter takes a Uint8Array, an ArrayBuffer or a NativeBuffer, its bytes in place |
 | [0129](0129-an-extension-calls-abortsignal-is-a-flag-set-as-soon-as-it-aborts.md)         | 2026-10-16 | An extension call's AbortSignal is a flag C reads, set as soon as the signal aborts                     |
