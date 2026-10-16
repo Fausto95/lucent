@@ -55,6 +55,7 @@ import { ts as js } from "@lucent-lang/codegen";
 import type { ComponentDescription, ViewType } from "./ui/contract.ts";
 import { componentDeclarations } from "./ui/proxy.ts";
 import { mergeComponents, type TargetComponents } from "./ui/merge.ts";
+import { twinProblems, webTwins } from "./web-twins.ts";
 
 export {
   Codes,
@@ -67,6 +68,7 @@ export {
 export { formatDiagnostic, type Diagnostic } from "./diagnostics.ts";
 export { type BuildIdentity, identityScript, RUNTIME_ABI } from "./emit/identity.ts";
 export { moduleNamespace } from "./types.ts";
+export { twinOf, WEB_TWIN, webTwins } from "./web-twins.ts";
 export {
   CompileSession,
   findLucentFiles,
@@ -251,6 +253,8 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
   const result = runInCompile(context, () =>
     withSourceRoot(options.root, () => compileWith(files, options)),
   );
+  // The modules' web twins (decision 0133): TypeScript, checked against the modules' exports.
+  const twins = runInCompile(context, () => twinProblems(webTwins(files), options.readSource));
   const [read, realpaths, uses] = [context.reads, context.realpaths, sdkUsesOf(context)];
 
   if (options.session) {
@@ -258,9 +262,9 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
     options.session.realpaths = new Map(realpaths);
   }
 
-  if (launch.problems.length || appExtensions.problems.length) {
+  if (launch.problems.length || appExtensions.problems.length || twins.length) {
     result.ok = false;
-    result.diagnostics.push(...launch.problems, ...appExtensions.problems);
+    result.diagnostics.push(...launch.problems, ...appExtensions.problems, ...twins);
   }
 
   // The Lucent packages of the files whose `compatible` range leaves this Lucent out.

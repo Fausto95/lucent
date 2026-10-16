@@ -762,9 +762,9 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "PLATFORM",
         "kind": "const",
-        "signature": "const PLATFORM: \"ios\" | \"android\";",
+        "signature": "const PLATFORM: \"ios\" | \"android\" | \"web\";",
         "doc": [
-          "The platform: `if (PLATFORM === \"ios\") { … } else { … }` and `PLATFORM === \"ios\" ? … : …` compile each platform's branch only, so a shared module can use `lucent:ios/…` and `lucent:android/…` in them."
+          "The platform: `if (PLATFORM === \"ios\") { … } else { … }` and `PLATFORM === \"ios\" ? … : …` compile each platform's branch only, so a shared module can use `lucent:ios/…` and `lucent:android/…` in them. In a web bundle, where modules run as JavaScript, it is `\"web\"`."
         ],
         "examples": [],
         "members": [],
