@@ -58,8 +58,10 @@ export interface ViewHelper {
   readonly fn: FunctionLike;
   readonly name: string;
   readonly toolkit: ToolkitName;
-  /** Its props parameter; none for a helper taking nothing. */
+  /** Its props parameter; none for a helper taking nothing, or destructuring its props. */
   readonly props?: ts.Symbol;
+  /** The names its props are destructured into (`({ title, done })`), and the props they read. */
+  readonly aliases: ReadonlyMap<ts.Symbol, string>;
   /** The JSX it returns. */
   readonly jsx: ts.Expression;
   /** Its statements before the JSX: Compose's composition statements. */
@@ -183,13 +185,33 @@ function check(checker: ts.TypeChecker, fn: FunctionLike, at: ts.Node): ViewHelp
 
   if (
     extra ||
-    (param && (!ts.isIdentifier(param.name) || param.dotDotDotToken)) ||
+    (param &&
+      (!(ts.isIdentifier(param.name) || ts.isObjectBindingPattern(param.name)) ||
+        param.dotDotDotToken)) ||
     fn.typeParameters?.length
   )
     bodyFail(
       param ?? fn,
-      `${what} takes its props as one name: \`(props) => …\`, reading \`props.name\``,
+      `${what} takes its props as one name, \`(props) => …\` reading \`props.name\`, or destructured: \`({ name }) => …\``,
     );
+
+  // Destructured (T123): each name reads the prop it names.
+  const aliases = new Map<ts.Symbol, string>();
+
+  if (param && ts.isObjectBindingPattern(param.name))
+    for (const e of param.name.elements) {
+      const prop = e.propertyName ?? e.name;
+
+      if (e.dotDotDotToken || e.initializer || !ts.isIdentifier(e.name) || !ts.isIdentifier(prop))
+        bodyFail(
+          e,
+          `${what} destructures each prop to a name, \`({ title, done: isDone })\`: no defaults, \`...\` or nested patterns`,
+        );
+
+      const symbol = checker.getSymbolAtLocation(e.name);
+
+      if (symbol) aliases.set(symbol, prop.text);
+    }
 
   if (fn.asteriskToken || ts.getModifiers(fn)?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword))
     bodyFail(fn, `${what} draws at once: it cannot be async or a generator`);
@@ -207,6 +229,7 @@ function check(checker: ts.TypeChecker, fn: FunctionLike, at: ts.Node): ViewHelp
     name,
     toolkit,
     ...(props ? { props } : {}),
+    aliases,
     jsx,
     statements,
     callbacks: given?.callbacks ?? [],
@@ -437,14 +460,7 @@ export function childrenProp(
   e: ts.Expression,
   helper: ViewHelper | undefined,
 ): boolean {
-  return (
-    !!helper?.children &&
-    !!helper.props &&
-    ts.isPropertyAccessExpression(e) &&
-    ts.isIdentifier(e.expression) &&
-    e.name.text === "children" &&
-    symbolOf(checker, e.expression) === helper.props
-  );
+  return !!helper?.children && propNameOf(checker, e, helper) === "children";
 }
 
 /** What an element using `helper` holds, less the whitespace JSX leaves: its children. */
@@ -487,12 +503,9 @@ export function helperBindingProp(
   e: ts.Expression,
   helper: ViewHelper | undefined,
 ): HelperBinding | undefined {
-  if (!helper?.props || !ts.isPropertyAccessExpression(e) || !ts.isIdentifier(e.expression))
-    return undefined;
+  const name = propNameOf(checker, e, helper);
 
-  if (symbolOf(checker, e.expression) !== helper.props) return undefined;
-
-  return helper.bindings.find((b) => b.name === e.name.text);
+  return name === undefined ? undefined : helper!.bindings.find((b) => b.name === name);
 }
 
 /**
@@ -521,18 +534,35 @@ function toolkitValueType(
   return { type: path, decl };
 }
 
+/** The prop `e` reads of `helper`: `props.name`, or a name its props are destructured into. */
+export function propNameOf(
+  checker: ts.TypeChecker,
+  e: ts.Expression,
+  helper: ViewHelper | undefined,
+): string | undefined {
+  if (!helper) return undefined;
+
+  if (ts.isIdentifier(e)) {
+    const symbol = checker.getSymbolAtLocation(e);
+
+    return symbol && helper.aliases.get(symbol);
+  }
+
+  if (!helper.props || !ts.isPropertyAccessExpression(e) || !ts.isIdentifier(e.expression))
+    return undefined;
+
+  return symbolOf(checker, e.expression) === helper.props ? e.name.text : undefined;
+}
+
 /** The toolkit value `e` reads, when it is `props.name` of `helper` holding one. */
 export function toolkitValueProp(
   checker: ts.TypeChecker,
   e: ts.Expression,
   helper: ViewHelper | undefined,
 ): HelperToolkitValue | undefined {
-  if (!helper?.props || !ts.isPropertyAccessExpression(e) || !ts.isIdentifier(e.expression))
-    return undefined;
+  const name = propNameOf(checker, e, helper);
 
-  if (symbolOf(checker, e.expression) !== helper.props) return undefined;
-
-  return helper.toolkitValues.find((v) => v.name === e.name.text);
+  return name === undefined ? undefined : helper!.toolkitValues.find((v) => v.name === name);
 }
 
 function scalar(t: ts.Type): "number" | "boolean" | "string" | undefined {
@@ -547,21 +577,25 @@ function scalar(t: ts.Type): "number" | "boolean" | "string" | undefined {
         : undefined;
 }
 
-/** `node`'s reads of `helper`'s props: `props.name`, each a prop's value where the helper is used. */
+/**
+ * `node`'s reads of `helper`'s props (`props.name`, or a name they are
+ * destructured into), each a prop's value where the helper is used.
+ */
 export function propReads(
   checker: ts.TypeChecker,
   node: ts.Node,
   helper: ViewHelper,
-): ts.PropertyAccessExpression[] {
-  const out: ts.PropertyAccessExpression[] = [];
+): { node: ts.Expression; name: string }[] {
+  const out: { node: ts.Expression; name: string }[] = [];
   const visit = (n: ts.Node): void => {
-    if (
-      ts.isPropertyAccessExpression(n) &&
-      ts.isIdentifier(n.expression) &&
-      helper.props &&
-      symbolOf(checker, n.expression) === helper.props
-    ) {
-      out.push(n);
+    const named =
+      ts.isIdentifier(n) &&
+      ((ts.isPropertyAccessExpression(n.parent) && n.parent.name === n) ||
+        (ts.isPropertyAssignment(n.parent) && n.parent.name === n));
+    const name = ts.isExpression(n) && !named ? propNameOf(checker, n, helper) : undefined;
+
+    if (name !== undefined) {
+      out.push({ node: n as ts.Expression, name });
       return;
     }
 

@@ -45,7 +45,7 @@ what became of each one that is still linked or was still open.
 | [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                       |
 | [T121](#t121)            | React Native's view props, refs and view libraries         | done (2026-10-14)                                       |
 | [T122](#t122)            | UIKit components with a view-controller root               | in progress (#324, #325)                                |
-| [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | in progress (#328, #335 to #337 merged, #339, #340)     |
+| [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | in progress (#328 to #339 merged, #340, #341)           |
 | [T124](#t124)            | A component's ref as a module function's argument          | in progress (#326 merged)                               |
 | [T125](#t125)            | Android views made after setup keep the Activity's context | in progress (#327)                                      |
 | **Execution modes**      |                                                            |                                                         |
@@ -1011,7 +1011,7 @@ counterpart, a `Fragment` root, is in [T131](#t131).
 **Goal:** Toolkit bodies take what UIKit and Android bodies take: instance
 props, and helper functions with children and bindings.
 
-- **Status:** in progress (#328, #335, #336, #337, #339, #340).
+- **Status:** in progress (#328, #335 to #337, #339 to #341).
 - **Area:** views, compiler.
 - **Needs:** T120.
 - **Verify:** V1, V4, V5.
@@ -1029,8 +1029,8 @@ props, and helper functions with children and bindings.
 - [x] Helper view functions take toolkit values (#339): a parameter of the
       toolkit's type, which their user writes.
 - [x] Helper view functions take children and bindings (#340).
-- [ ] Helper view functions take destructured props and show lists of their
-      own.
+- [x] Helper view functions take destructured props (#341).
+- [ ] Helper view functions show lists of their own.
 - [ ] Tests on the simulator and emulator.
 
 **Done when:** the views limitations list neither restriction.

@@ -78,6 +78,7 @@ import {
   helperBindingProp,
   helperChildren,
   type HelperUse,
+  propNameOf,
   toolkitValueProp,
   type ViewHelper,
 } from "../ui/view-helpers.ts";
@@ -1866,13 +1867,9 @@ class BodyWriter {
   /** The callback prop `e` reads (`props.onTap`), in the helper view written. */
   private callbackProp(e: ts.Expression): HelperCallback | undefined {
     const helper = this.frame?.helper;
+    const name = propNameOf(this.checker, e, helper);
 
-    if (!helper?.props || !ts.isPropertyAccessExpression(e) || !ts.isIdentifier(e.expression))
-      return undefined;
-
-    if (this.crossings!.symbol(e.expression) !== helper.props) return undefined;
-
-    return helper.callbacks.find((c) => c.name === e.name.text);
+    return name === undefined ? undefined : helper!.callbacks.find((c) => c.name === name);
   }
 
   /**

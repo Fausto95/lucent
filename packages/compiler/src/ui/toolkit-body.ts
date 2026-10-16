@@ -465,7 +465,7 @@ export class Crossings {
   computedIn(e: ts.Expression, helper: ViewHelper): boolean {
     return (
       this.reads(e, (symbol, decl) =>
-        symbol === helper.props
+        symbol === helper.props || helper.aliases.has(symbol)
           ? "setup"
           : within(decl, helper.fn) || toolkitOfDeclaration(decl)
             ? "other"
@@ -482,7 +482,7 @@ export class Crossings {
   givesValue(e: ts.Expression, user?: ViewHelper): boolean {
     const read = user
       ? this.reads(e, (symbol, decl) =>
-          symbol === user.props
+          symbol === user.props || user.aliases.has(symbol)
             ? "setup"
             : within(decl, user.fn) || toolkitOfDeclaration(decl)
               ? "other"

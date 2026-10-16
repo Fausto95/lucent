@@ -42,8 +42,7 @@ generated from this file.
 - Absolute children of a padded component follow React Native's
   padding-box rule relative to the slot. A fixed-size slot inside a
   component sized by its children is bounded at three reports.
-- A helper view takes its props as one object, read as `props.name`, and
-  shows no list of its own yet ([T123](tasks.md#t123)).
+- A helper view shows no list of its own yet ([T123](tasks.md#t123)).
 - SwiftUI: a static value named like a method (`Animation.easeInOut`) is
   left out, so write the call. Only closed ranges (`a...b`) are mapped,
   content conditions must be `boolean`, and `Int(x)` traps on NaN or

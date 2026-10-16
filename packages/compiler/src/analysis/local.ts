@@ -837,7 +837,7 @@ export class Collector {
    * function. The writers refuse what they cannot compute this way; what
    * is visited here and refused there changes nothing.
    */
-  private bodySlots(node: ts.Node, helper?: { fn: ts.Node; props?: ts.Symbol }): void {
+  private bodySlots(node: ts.Node, helper?: { fn: ts.Node; props: ReadonlySet<ts.Symbol> }): void {
     const visit = (n: ts.Node): void => {
       if (this.pruned(n)) return;
 
@@ -884,11 +884,19 @@ export class Collector {
 
     this.helpersSeen.add(fn);
 
+    // Its props: the parameter, or the names it is destructured into.
     const param = fn.parameters[0]?.name;
-    const props = param && ts.isIdentifier(param) ? symbolOf(this.checker, param) : undefined;
+    const names = !param
+      ? []
+      : ts.isIdentifier(param)
+        ? [param]
+        : ts.isObjectBindingPattern(param)
+          ? param.elements.flatMap((e) => (ts.isIdentifier(e.name) ? [e.name] : []))
+          : [];
+    const props = new Set(names.flatMap((n) => symbolOf(this.checker, n) ?? []));
     const body = (fn as ts.FunctionLikeDeclaration).body;
 
-    if (body) this.bodySlots(body, { fn, ...(props ? { props } : {}) });
+    if (body) this.bodySlots(body, { fn, props });
   }
 
   /**
@@ -897,7 +905,10 @@ export class Collector {
    * props), none the body's own (an item's, a composition value) or a
    * toolkit's, and it makes no function or view.
    */
-  private ofSetup(e: ts.Expression, helper?: { fn: ts.Node; props?: ts.Symbol }): boolean {
+  private ofSetup(
+    e: ts.Expression,
+    helper?: { fn: ts.Node; props: ReadonlySet<ts.Symbol> },
+  ): boolean {
     let setup = true;
     let reads = false;
 
@@ -916,7 +927,7 @@ export class Collector {
       const symbol = ts.isIdentifier(n) && !named ? declaredSymbol(this.checker, n) : undefined;
       const decl = symbol?.declarations?.[0];
 
-      if (symbol && (helper?.props === symbol || this.bodyItem(decl))) reads = true;
+      if (symbol && (helper?.props.has(symbol) || this.bodyItem(decl))) reads = true;
       else if (
         decl &&
         (toolkitOfDeclaration(decl) ||

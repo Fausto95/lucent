@@ -168,15 +168,16 @@ export function Todos(props: Props) {
         ),
       ),
     ).toContainEqual("LUCENT3024 the helper view `Nest` uses itself: a helper's views end");
+    // Destructured props are a helper's to take (helper-destructure.test.ts); defaults are not.
     expect(
       refused(
         use(
-          "function Badge({ n }: { n: number }) {\n  return <Text>{`${n}`}</Text>;\n}",
+          "function Badge({ n = 1 }: { n?: number }) {\n  return <Text>{`${n}`}</Text>;\n}",
           "<Badge n={1} />",
         ),
       ),
     ).toContainEqual(
-      "LUCENT3024 the helper view `Badge` takes its props as one name: `(props) => …`, reading `props.name`",
+      "LUCENT3024 the helper view `Badge` destructures each prop to a name, `({ title, done: isDone })`: no defaults, `...` or nested patterns",
     );
     // SwiftUI's values are a helper's to take (helper-values.test.ts); other objects are not.
     expect(
