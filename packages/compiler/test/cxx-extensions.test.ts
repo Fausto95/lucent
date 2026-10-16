@@ -14,6 +14,7 @@ import ts from "typescript";
 import { describe, expect, it } from "vite-plus/test";
 import {
   bindExtensions,
+  compile,
   extensionDts,
   type ExtensionBinding,
   type LucentPackage,
@@ -176,5 +177,88 @@ describe.skipIf(!clang)("a C++ extension's declarations", () => {
         .getPreEmitDiagnostics(program)
         .map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n")),
     ).toEqual([]);
+  });
+});
+
+describe.skipIf(!clang)("compiling code that uses a C++ extension", () => {
+  const cppOf = (r: ReturnType<typeof compile>) =>
+    [...r.files]
+      .filter(([f]) => f.endsWith(".cpp"))
+      .map(([, text]) => text)
+      .join("\n");
+  const source = (text: string) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cxx-src-"));
+    const file = path.join(dir, "use.lucent.ts");
+    fs.writeFileSync(file, text);
+    return file;
+  };
+
+  it("calls the classes' members inside cxxCall, the objects deleted by their handles", () => {
+    const r = compile([path.join(fixture, "src/count.lucent.ts")], {
+      extensions: [tallyBinding()],
+    });
+    expect(r.diagnostics).toEqual([]);
+
+    const cpp = cppOf(r);
+    expect(cpp).toContain('#include "tally.hpp"');
+    // `new Counter(name, 2)`: the two-argument overload, its arguments converted first.
+    expect(cpp).toMatch(
+      /lucent::ext::cxxCall\("new Counter", \[&\]\(\) \{\n(?:#line.*\n)?\s*return new ::tally::Counter\(x_\d+_, x_\d+_\);/,
+    );
+    expect(cpp).toContain("lucent::ext::cxxString(");
+    expect(cpp).toContain("&lucent::ext::deleteObject<::tally::Counter>");
+    expect(cpp).toMatch(
+      /lucent::ext::cxxCall\("Counter\.add", \[&\]\(\) \{\n(?:#line.*\n)?\s*return x_\d+_\.get\(\)->add\(x_\d+_\);/,
+    );
+    // An enum is its value, cast to C++'s type.
+    expect(cpp).toContain("static_cast<::tally::Rounding>(lucent::ext::integer<long long>(");
+    // A C function of the C++ header, as a C header's.
+    expect(cpp).toContain("::tally_version()");
+  });
+
+  it("calls a static member function, and picks an overload by its arguments' types", () => {
+    const r = compile(
+      [
+        source(`import { Counter } from "lucent:ext/tally";
+
+export function made(): string {
+  const a = new Counter(5);
+  const b = new Counter("b");
+  const out = \`\${Counter.live()} \${a.total()} \${b.name()}\`;
+  a.close();
+  b.close();
+  return out;
+}
+`),
+      ],
+      { extensions: [tallyBinding()] },
+    );
+    expect(r.diagnostics).toEqual([]);
+
+    const cpp = cppOf(r);
+    expect(cpp).toContain("return ::tally::Counter::live();");
+    expect(cpp).toMatch(/new ::tally::Counter\(x_\d+_\)/);
+    expect(cpp).toContain("lucent::ext::integer<int>(");
+    expect(cpp).toContain("lucent::ext::fromCxx(");
+  });
+
+  it("requires a main-thread class to be used in main()", () => {
+    const main = bind(tally((d) => (d.classes = { Counter: { affinity: "main" } })));
+    const r = compile(
+      [
+        source(`import { Counter } from "lucent:ext/tally";
+
+export function count(): number {
+  const c = new Counter();
+  return c.add(1);
+}
+`),
+      ],
+      { extensions: [main] },
+    );
+    expect(r.diagnostics.map((d) => [d.code, d.message])).toContainEqual([
+      "LUCENT3006",
+      "Counter can only be used on the main thread: call it inside main(() => …) from lucent:thread",
+    ]);
   });
 });

@@ -8,7 +8,7 @@ import type { NativeFactsSource, NativeUse } from "../analysis/native.ts";
 import { extensionModuleOf } from "../program.ts";
 import type { NativeFacts } from "../sdk/schema.ts";
 import type { FunctionBinding } from "./bind.ts";
-import { findExtension, findHandle } from "./registry.ts";
+import { findClass, findExtension, findHandle } from "./registry.ts";
 
 const DECLARED = "the extension's lucent.json";
 
@@ -17,14 +17,14 @@ export const EXTENSION_NATIVE: NativeFactsSource = {
     const extension = extensionModuleOf(decl.getSourceFile());
     const f = extension ? bindingOf(extension, decl) : undefined;
 
-    return f ? useOf(f, decl) : undefined;
+    return f ? useOf(f, decl) : extension ? cxxUseOf(extension, decl) : undefined;
   },
 
   classOf(decl) {
     const extension = extensionModuleOf(decl.getSourceFile());
     if (!extension || !ts.isClassDeclaration(decl) || !decl.name) return undefined;
 
-    const h = findHandle(extension, decl.name.text);
+    const h = findHandle(extension, decl.name.text) ?? findClass(extension, decl.name.text);
     return h ? { display: h.name, affinity: h.affinity } : undefined;
   },
 
@@ -46,6 +46,43 @@ function bindingOf(extension: string, decl: ts.Declaration): FunctionBinding | u
     return h.methods.find((m) => m.name === (decl.name as ts.Identifier).text)?.fn;
 
   return undefined;
+}
+
+/**
+ * A C++ class's member (decision 0125): its class's thread, a new object
+ * Lucent owns from a constructor or a result by value, nothing passed
+ * kept, and a C++ exception to throw.
+ */
+function cxxUseOf(extension: string, decl: ts.Declaration): NativeUse | undefined {
+  const cls = decl.parent;
+  if (!ts.isClassDeclaration(cls) || !cls.name) return undefined;
+
+  const c = findClass(extension, cls.name.text);
+  if (!c || !(ts.isConstructorDeclaration(decl) || ts.isMethodDeclaration(decl))) return undefined;
+
+  const made =
+    ts.isConstructorDeclaration(decl) ||
+    (!!decl.type &&
+      ts.isTypeReferenceNode(decl.type) &&
+      !!findClass(extension, decl.type.typeName.getText()));
+  const name = ts.isMethodDeclaration(decl) ? decl.name.getText() : "constructor";
+  const facts: NativeFacts = {
+    affinity: c.affinity,
+    blocking: "unknown",
+    ownership: made ? "transferred" : "borrowed",
+    evidence: [
+      { fact: "affinity", source: "metadata", detail: DECLARED },
+      { fact: "ownership", source: "metadata", detail: "the C++ header" },
+    ],
+  };
+
+  return {
+    display: `${c.name}.${name}`,
+    facts,
+    callbacks: new Map(),
+    copies: new Set(decl.parameters.map((_, i) => i)),
+    throws: true,
+  };
 }
 
 function useOf(f: FunctionBinding, decl: ts.Declaration): NativeUse {
