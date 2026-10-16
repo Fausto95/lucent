@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                                    | Date       | Decision                                                                                                |
 | ----------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------- |
+| [0133](0133-a-modules-web-twin-is-typescript-checked-against-its-exports.md)              | 2026-10-17 | A module's web twin is TypeScript the web bundle runs, checked against the module's exports             |
 | [0132](0132-a-packages-kotlin-and-java-are-compiled-to-be-bound.md)                       | 2026-10-16 | A package's Kotlin and Java are compiled on the build machine, to be bound as the jars they make        |
 | [0131](0131-an-extensions-libraries-come-from-prefab-and-pods.md)                         | 2026-10-16 | An extension's library comes from Gradle prefab and CocoaPods, headers included                         |
 | [0130](0130-an-extensions-bytes-parameter-takes-a-buffers-bytes-in-place.md)              | 2026-10-16 | An extension's bytes parameter takes a Uint8Array, an ArrayBuffer or a NativeBuffer, its bytes in place |

@@ -62,7 +62,7 @@ what became of each one that is still linked or was still open.
 | [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | done (2026-10-14)                                                    |
 | [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #375): all but lucent-mmkv, which needs devices |
 | [T143](#t143)            | Typed Kotlin and Java sources in packages                  | done (2026-10-16)                                                    |
-| [T144](#t144)            | A web target for shared modules                            | ready (decision 0077)                                                |
+| [T144](#t144)            | A web target for shared modules                            | in progress (#379): decided (0077, 0133)                             |
 | [T145](#t145)            | The package distribution matrix                            | ready                                                                |
 | **Production candidate** |                                                            |                                                                      |
 | [T150](#t150)            | Reference ports for each parity row                        | waiting; each port names its needs                                   |
@@ -1658,7 +1658,8 @@ now its Kotlin and Java as the Java packages they declare.
 `registerWebModule` does, per
 [0077](decisions/0077-the-web-is-a-target-for-shared-modules.md).
 
-- **Status:** ready.
+- **Status:** in progress (#379): decided
+  ([0133](decisions/0133-a-modules-web-twin-is-typescript-checked-against-its-exports.md)).
 - **Area:** tooling, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V5.
