@@ -60,7 +60,7 @@ what became of each one that is still linked or was still open.
 | **Distribution**         |                                                            |                                                         |
 | [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190, #191, #194, #195, #200, #204 merged) |
 | [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | done (2026-10-14)                                       |
-| [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | ready                                                   |
+| [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357): decided (0125)                      |
 | [T143](#t143)            | Typed Kotlin and Java sources in packages                  | ready                                                   |
 | [T144](#t144)            | A web target for shared modules                            | ready (decision 0077)                                   |
 | [T145](#t145)            | The package distribution matrix                            | ready                                                   |
@@ -1561,20 +1561,22 @@ manual step, and Xcode builds without Metro running.
 **Goal:** A package wraps a C++ library, as a Nitro C++ Hybrid Object
 does, through typed extensions.
 
-- **Status:** ready.
+- **Status:** in progress (#357): decided (0125).
 - **Area:** compiler, bindings, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3, V4, V7.
 - **Where:** `extensions/`, `emit/extensions.ts`, `bindgen/src/c-header.ts`,
   `runtime/native` (CMake).
 
+- [x] A decision: how a C++ header's classes, types and exceptions are
+      bound, and what is left out: decision 0125 (#357).
 - [ ] C++ headers in `extensions`: a class is a handle (constructors by
       arity and type, methods, `const` and static members). `std::string`
       and `std::string_view` are strings, `std::vector` of numbers and
       strings an array, `std::optional` an optional, and enums enums.
       Templates and inheritance are refused with reasons.
-- [ ] A generated wrapper catches C++ exceptions into the error struct, so
-      none unwinds through Lucent.
+- [ ] The generated call catches C++ exceptions into an `Error`, so none
+      unwinds through Lucent (0125).
 - [ ] Extension functions take callbacks (refused today in
       `extensions/bind.ts`), called on a stated context.
 - [ ] Extension calls can be cancelled: an `AbortSignal` reaches the
