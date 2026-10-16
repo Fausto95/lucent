@@ -53,6 +53,11 @@ int Counter::countTags(std::function<bool(const std::string&, int64_t)> keep) co
 
 void Counter::onAdd(std::function<void(std::string_view, double)> listen) { listeners_.push_back(std::move(listen)); }
 
+double Counter::addUntil(double by, int times, const std::atomic<bool>& stop) {
+  for (int i = 0; i < times && !stop.load(); i++) add(by);
+  return total_;
+}
+
 void Counter::visit(std::function<void(double)> f) { f(total_); }
 
 void Counter::visit(std::function<void(int64_t)> f) { f(static_cast<int64_t>(total_)); }

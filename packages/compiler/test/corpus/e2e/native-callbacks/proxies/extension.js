@@ -12,3 +12,6 @@ exports.checked = m.checked;
 exports.failed = m.failed;
 exports.threaded = m.threaded;
 exports.afterwards = m.afterwards;
+exports.stopped = m.stopped;
+exports.unstopped = m.unstopped;
+exports.abortedBefore = m.abortedBefore;

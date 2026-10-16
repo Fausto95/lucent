@@ -88,6 +88,24 @@ export class Counter {
     return kept;
   }
 
+  addUntil(by: number, times: number, stop?: AbortSignal): number {
+    this.#check();
+    if (stop?.aborted) throw stop.reason;
+    let thrown: { error: unknown } | undefined;
+    // The flag is read each add: a listener may abort it.
+    const aborted = () => stop?.aborted === true;
+    for (let i = 0; i < times && !aborted(); i++) {
+      try {
+        this.add(by);
+      } catch (error) {
+        thrown ??= { error };
+      }
+    }
+    if (stop?.aborted) throw stop.reason;
+    if (thrown) throw thrown.error;
+    return this.#total;
+  }
+
   onAdd(listen: (name: string, total: number) => void): void {
     this.#check();
     this.#listeners.push(listen);

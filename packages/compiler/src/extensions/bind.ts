@@ -102,7 +102,9 @@ export type ParamBinding =
       lives: "call" | "once" | { handle: number };
     }
   /** The `void *` a callback gets back: the binding's to pass. */
-  | { kind: "context"; name: string; callback: number };
+  | { kind: "context"; name: string; callback: number }
+  /** The flag the call's AbortSignal sets (decision 0129): a `const volatile bool *`. */
+  | { kind: "signal"; name: string };
 
 /** What a callback takes or gives: numbers, bigints, booleans and (taken) strings, copied. */
 export type CallbackValue =
@@ -467,6 +469,9 @@ function bindFunction(
     return bindParam(p.name, p.type, declared[p.name], scope, `${field}.params.${p.name}`, field);
   });
 
+  if (params.filter((p) => p.kind === "signal").length > 1)
+    fail(field, `${f.name} takes two signals' flags; a call has one AbortSignal`);
+
   const result = bindResult(f, d.failsWhen, scope, `${field}.failsWhen`);
 
   // The struct is read when the result says the call failed: without failsWhen, never.
@@ -518,6 +523,13 @@ function bindParam(
     return { kind: "string", name };
   }
 
+  if (d && "signal" in d) {
+    const flag = t.k === "pointer" && t.const && t.volatile && t.to.k === "bool";
+    if (!flag) fail(field, `a signal's flag must be const volatile bool *, not ${formatCType(t)}`);
+
+    return { kind: "signal", name };
+  }
+
   if (d && "error" in d) {
     if (!(t.k === "pointer" && !t.const && t.to.k === "record"))
       fail(field, `an error parameter must point to ${d.error}, not ${formatCType(t)}`);
@@ -543,7 +555,7 @@ function bindParam(
   if (t.k === "pointer")
     fail(
       fnField,
-      `parameter ${name} is a pointer (${formatCType(t)}): declare it in params as bytes, a string or an error`,
+      `parameter ${name} is a pointer (${formatCType(t)}): declare it in params as bytes, a string, an error or a signal`,
     );
 
   return fail(fnField, `parameter ${name} is ${formatCType(t)}, which Lucent cannot pass`);

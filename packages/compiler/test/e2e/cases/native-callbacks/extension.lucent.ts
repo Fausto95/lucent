@@ -10,6 +10,7 @@ import {
   ticker_keep,
   ticker_later,
   ticker_recall,
+  ticker_steps,
 } from "lucent:ext/ticker";
 
 /** During the call, at once and in order; a later call of it does nothing. */
@@ -96,4 +97,41 @@ export function threaded(): string {
 /** What the posted calls did, once they ran. */
 export function afterwards(): Promise<string> {
   return new Promise((resolve) => setTimeout(() => resolve(posted.join(",")), 20));
+}
+
+/** A signal's flag (decision 0129): C stops once it turns true, and the call throws the reason. */
+export function stopped(): string {
+  const controller = new AbortController();
+  const seen: number[] = [];
+  try {
+    ticker_steps(
+      10,
+      (n) => {
+        seen.push(n);
+        if (n === 3) controller.abort();
+      },
+      controller.signal,
+    );
+    return "finished";
+  } catch (e) {
+    return `${seen.join(",")} ${(e as Error).name}`;
+  }
+}
+
+/** Without a signal, the flag never turns true. */
+export function unstopped(): number {
+  return ticker_steps(4, () => {});
+}
+
+/** A signal aborted already: no call. */
+export function abortedBefore(): string {
+  const controller = new AbortController();
+  controller.abort();
+  let called = false;
+  try {
+    ticker_steps(4, () => (called = true), controller.signal);
+    return "returned";
+  } catch (e) {
+    return `${(e as Error).name} ${called}`;
+  }
 }

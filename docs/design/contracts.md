@@ -1184,15 +1184,15 @@ build the C code into the one native package.
 `cLinkage`, `findClang`), `compiler/src/extensions/bind.ts` and `dts.ts`,
 `compiler/src/emit/extensions.ts`, and `lucent/extension.h`.
 
-| Field (`lucent.json` `extensions.<name>`) | Meaning                                                                                                                       |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `header`                                  | Relative to the package, in a directory both `ios.nativeSources` and `android.nativeSources` list.                            |
-| `handles.<CType>`                         | `create` (a pointer, null on failure), `destroy` (`void f(T *)`), `methods` (taking the handle first), `affinity`.            |
-| `functions.<f>`                           | `params`, `failsWhen`, `affinity`, `blocking` (a main-thread call warns).                                                     |
-| `params.<p>`                              | `{ bytes: "read" \| "write", length }`, `{ string: "utf8" }`, `{ error: "<Struct>" }` or `{ callback: { context, lives? } }`. |
-| `errors.<Struct>`                         | `code` (an integer field), `message` (a `const char *` field), `release` (`void f(E *)`).                                     |
-| `affinity`                                | `any` (the default: any thread, one call at a time) or `main`.                                                                |
-| `failsWhen`                               | `null`, `negative`, `nonzero`, `zero` or `false`.                                                                             |
+| Field (`lucent.json` `extensions.<name>`) | Meaning                                                                                                                                             |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `header`                                  | Relative to the package, in a directory both `ios.nativeSources` and `android.nativeSources` list.                                                  |
+| `handles.<CType>`                         | `create` (a pointer, null on failure), `destroy` (`void f(T *)`), `methods` (taking the handle first), `affinity`.                                  |
+| `functions.<f>`                           | `params`, `failsWhen`, `affinity`, `blocking` (a main-thread call warns).                                                                           |
+| `params.<p>`                              | `{ bytes: "read" \| "write", length }`, `{ string: "utf8" }`, `{ error: "<Struct>" }`, `{ callback: { context, lives? } }` or `{ signal: "flag" }`. |
+| `errors.<Struct>`                         | `code` (an integer field), `message` (a `const char *` field), `release` (`void f(E *)`).                                                           |
+| `affinity`                                | `any` (the default: any thread, one call at a time) or `main`.                                                                                      |
+| `failsWhen`                               | `null`, `negative`, `nonzero`, `zero` or `false`.                                                                                                   |
 
 | Rule       | Contract                                                                                                                                                                                                                                                                                                                                                        |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1207,12 +1207,14 @@ build the C code into the one native package.
 | Binding    | A function needing no declaration binds as it is; one taking a handle must be named. A function pointer not declared a callback, variadics and structs by value are listed as skipped, or fail when named.                                                                                                                                                      |
 | Outputs    | `.lucent/native/types/ext/<name>.d.ts`; each extension in `resolved.json`; the `extract:extensions` node.                                                                                                                                                                                                                                                       |
 | Callbacks  | A function type in Lucent; its context is the binding's. Run at once on a thread running its context's code, else posted there; a result is refused when posted. `lives`: `call`, `once` or a handle.                                                                                                                                                           |
+| Signals    | A `const volatile bool *` (`{ signal: "flag" }`) or a C++ `const std::atomic<bool> &`: `AbortSignal \| undefined`, set as soon as it aborts (0129). Aborted before: no call; during: the reason is thrown.                                                                                                                                                      |
 | Runtime    | `Handle::open(what, pointer, destroy, destroyOn?)`, `use<T>()` for one call, idempotent `close()`, `whenDestroyed(f)`, shared state (`identity()`); `ext::integer`, `real`, `data`, `length`, `utf8`, `number`, `bigint`; callbacks: `ext::Callback<F>` (`context()`, `until(handle)`, `function<R, A...>()`, `done()`), `ext::callBack<F, R>(context, args…)`. |
 
-**Planned:** [T142](../tasks.md#t142)'s functions take an `AbortSignal`
-as a flag, as
+**Planned:** [T142](../tasks.md#t142)'s `android.prefab` links Gradle
+prefab modules, and bytes parameters borrow a buffer's span. Signals work
+as
 [0129](../decisions/0129-an-extension-calls-abortsignal-is-a-flag-set-as-soon-as-it-aborts.md)
-decides, and `android.prefab` links Gradle prefab modules. Callbacks run
+decides. Callbacks run
 as [0126](../decisions/0126-an-extensions-callback-runs-where-its-call-ran.md)
 and [0128](../decisions/0128-an-extensions-callback-runs-at-once-on-its-contexts-thread.md)
 decide. C++ headers are read as

@@ -44,6 +44,12 @@ describe("C type spellings", () => {
     // A pointer to an array, or to a function returning one: no type Lucent reads.
     expect(parseCType("int (*)[4]")).toEqual({ k: "unknown", spelling: "int (*)[4]" });
     expect(parseCType("_Bool")).toEqual({ k: "bool" });
+    // A flag C polls: volatile is kept, for what a first pointer points at.
+    expect(parseCType("const volatile _Bool *")).toEqual({
+      ...ptr({ k: "bool" }, true),
+      volatile: true,
+    });
+    expect(formatCType(parseCType("const volatile bool *"))).toBe("const volatile bool *");
   });
 
   it("follows typedef names through the resolver it is given", () => {

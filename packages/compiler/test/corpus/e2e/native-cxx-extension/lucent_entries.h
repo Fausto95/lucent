@@ -46,6 +46,9 @@ bool lucent_extension_callbacks(lucent_error* error, lucent_string* result);
 /// extension.callbackThrows()
 bool lucent_extension_callbackThrows(lucent_error* error, lucent_string* result);
 
+/// extension.stopping()
+bool lucent_extension_stopping(lucent_error* error, lucent_string* result);
+
 /// extension.Tally(name)
 bool lucent_extension_Tally_new(lucent_string arg0, lucent_error* error, lucent_object* result);
 

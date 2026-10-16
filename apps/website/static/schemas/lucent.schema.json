@@ -842,6 +842,17 @@
                             }
                           }
                         }
+                      },
+                      {
+                        "type": "object",
+                        "description": "A const volatile bool * the function polls: Lucent code passes an AbortSignal, which sets it as soon as the signal aborts.",
+                        "additionalProperties": false,
+                        "required": ["signal"],
+                        "properties": {
+                          "signal": {
+                            "enum": ["flag"]
+                          }
+                        }
                       }
                     ]
                   }

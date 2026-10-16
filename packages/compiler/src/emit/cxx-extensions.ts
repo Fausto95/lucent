@@ -15,6 +15,7 @@ import { type LType, T } from "../types.ts";
 import type { E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
 import { DISPOSE } from "./classes.ts";
+import { SIGNAL } from "./extensions.ts";
 import { inMainContext } from "./native.ts";
 
 /** The Lucent type of a value crossing to or from C++. */
@@ -41,6 +42,8 @@ function lucentType(v: CxxValue, extension: string): LType {
         params: v.params.map((p) => lucentType(p, extension)),
         ret: v.result ? lucentType(v.result, extension) : T.void,
       };
+    case "signal":
+      return SIGNAL;
   }
 }
 
@@ -189,7 +192,13 @@ function call(
   // each copy of which keeps it (decisions 0126 and 0128).
   const values = given.map((g) => hold(g));
   const guards: cpp.Expr[] = [];
+  let signal: cpp.Expr | undefined;
   const cArgs = o.params.map((p, i) => {
+    // The flag C++ reads: a signal aborted already throws here, and no call is made.
+    if (p.value.kind === "signal") {
+      signal = hold(cpp.construct(cpp.type("lucent::ext::SignalFlag"), [values[i]!]));
+      return cpp.call(cpp.dot(signal, "cxx"));
+    }
     if (p.value.kind === "callback") {
       const guard = hold(
         cpp.construct(
@@ -214,8 +223,10 @@ function call(
     result?.kind === "object" ? cpp.newExpr(cpp.type(`::${result.cxx}`), [direct]) : direct;
   const isNew = made === constructs;
   const returns = isNew || o.result !== undefined;
+  // With a signal, an abort during the call comes instead of what it threw or returned.
   const invoke = cpp.call("lucent::ext::cxxCall", [
     cpp.str(what),
+    ...(signal ? [signal] : []),
     cpp.lambda(["&"], [], [returns ? cpp.ret(called) : cpp.exprStmt(called)]),
   ]);
 
@@ -319,6 +330,8 @@ function value(t: CxxValue, v: cpp.Expr, name: string): cpp.Expr {
       throw new Error("an object crosses into C++ by reference only");
     case "callback":
       throw new Error("a callback crosses into C++ as its guard's function()");
+    case "signal":
+      throw new Error("a signal crosses into C++ as its flag");
   }
 }
 
@@ -352,6 +365,7 @@ function fromCxx(t: CxxValue, r: cpp.Expr, extension: string): cpp.Expr {
     case "object":
       return opened(findClass(extension, t.class)!, r);
     case "callback":
-      throw new Error("a callback is a parameter only");
+    case "signal":
+      throw new Error(`a ${t.kind} is a parameter only`);
   }
 }

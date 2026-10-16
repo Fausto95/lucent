@@ -31,7 +31,22 @@ void AbortSignalObject::toOwner(std::function<void(AbortSignalObject&)> change) 
   ExecutionContext::of(owner_).post([self, change = std::move(change)] { change(*self); });
 }
 
+void AbortSignalObject::request(const Error& why) {
+  std::lock_guard<std::mutex> lock(requestMutex_);
+  if (requestedReason_) return;
+
+  requestedReason_ = why;
+  requested.store(true);
+}
+
+Error AbortSignalObject::requestedReason() const {
+  std::lock_guard<std::mutex> lock(requestMutex_);
+  return requestedReason_;
+}
+
 void AbortSignalObject::abort(Error why) {
+  request(why);
+
   if (!onOwner()) {
     toOwner([why = std::move(why)](AbortSignalObject& s) { s.abort(why); });
     return;

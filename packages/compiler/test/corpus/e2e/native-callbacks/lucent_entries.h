@@ -43,6 +43,15 @@ bool lucent_extension_failed(lucent_error* error, double* result);
 /// extension.threaded()
 bool lucent_extension_threaded(lucent_error* error, lucent_string* result);
 
+/// extension.stopped()
+bool lucent_extension_stopped(lucent_error* error, lucent_string* result);
+
+/// extension.unstopped()
+bool lucent_extension_unstopped(lucent_error* error, double* result);
+
+/// extension.abortedBefore()
+bool lucent_extension_abortedBefore(lucent_error* error, lucent_string* result);
+
 #ifdef __cplusplus
 }
 #endif

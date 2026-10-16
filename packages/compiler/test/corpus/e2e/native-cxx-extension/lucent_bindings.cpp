@@ -26,6 +26,8 @@
 #undef objects
 #pragma push_macro("rounding")
 #undef rounding
+#pragma push_macro("stopping")
+#undef stopping
 #pragma push_macro("strings")
 #undef strings
 #pragma push_macro("total")
@@ -153,6 +155,12 @@ void install_m_extension(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::callbackThrows());
     });
   });
+  defineFunction(rt, exports, "stopping", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("stopping", "packages/compiler/test/e2e/cases/native-cxx-extension/extension.lucent.ts", 155), [&]() -> jsi::Value {
+      return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::stopping());
+    });
+  });
   defineClass(rt, host, exports, "Tally", "extension.Tally", proto_C_Tally, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
     return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Tally", "packages/compiler/test/e2e/cases/native-cxx-extension/extension.lucent.ts", 4), [&]() -> jsi::Value {
@@ -182,6 +190,7 @@ void resetModuleState() {
 #pragma pop_macro("version")
 #pragma pop_macro("total")
 #pragma pop_macro("strings")
+#pragma pop_macro("stopping")
 #pragma pop_macro("rounding")
 #pragma pop_macro("objects")
 #pragma pop_macro("made")

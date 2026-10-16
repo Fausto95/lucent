@@ -31,6 +31,7 @@ A native extension binds a C or C++ header a package ships. [Wrap a C library](/
 | `extensions.<name>.functions.<name>.params.<name>.callback` | `object` | yes |  |
 | `extensions.<name>.functions.<name>.params.<name>.callback.context` | `string` | yes | The function's void \* parameter, which C passes back as the callback's one void \* parameter. |
 | `extensions.<name>.functions.<name>.params.<name>.callback.lives` | `string` |  | How long C may call it: call (the default), until the function returns. once, until its first call. A handle parameter's name, until that handle is destroyed. |
+| `extensions.<name>.functions.<name>.params.<name>.signal` | `"flag"` | yes |  |
 | `extensions.<name>.functions.<name>.failsWhen` | `"null" or "negative" or "nonzero" or "zero" or "false"` |  | How the result says the call failed, which throws an Error with the error struct's message and code. With nonzero or false the result is a status, and the Lucent function returns nothing. |
 | `extensions.<name>.functions.<name>.affinity` | `"any" or "main"` |  | The thread: any, one call at a time (the default), or the main thread, where Lucent code uses it inside main(() =\> …). |
 | `extensions.<name>.functions.<name>.blocking` | `boolean` |  | It may block (I/O, locks, long work): calling it inside main(() =\> …) is a warning. |
@@ -67,6 +68,15 @@ A function pointer parameter is a callback when `params` declares it one: `{ "ca
 - Called from any other thread, it is posted to that context and runs in the order C called it. One that returns a value is refused there instead: C gets zero, and the call throws.
 - What a callback throws doesn't unwind through C: C gets zero, and the extension call running on that thread throws it once C returns. Posted, it is reported as an uncaught error.
 
+## Cancelling a call
+
+A `const volatile bool *` parameter is the call's signal when `params` declares it `{ "signal": "flag" }`. In C++, a member's `const std::atomic<bool> &` parameter is one, with no declaration.
+
+- Lucent code passes an `AbortSignal` for it, or leaves it out when it is last. C polls the flag while the call runs, and may not keep the pointer.
+- Another thread sets the flag, so C reads it with an atomic load where its compiler has one: `__atomic_load_n(stop, __ATOMIC_ACQUIRE)` in clang and GCC.
+- The flag turns true as soon as the signal aborts, on whichever thread aborts it, even while the call holds the signal's context.
+- A signal aborted before the call throws its reason, and no call is made. One that aborts during the call throws its reason once the call returns, whatever C returned.
+
 ## C++ headers
 
 - With `"language": "c++"`, the header is read as C++20 alone. Its functions with C linkage are bound as a C header's are.
@@ -84,4 +94,4 @@ A function pointer parameter is a callback when `params` declares it one: `{ "ca
 - A call whose `failsWhen` holds throws an Error with the error struct's message and code.
 - An exception escaping a C header's function ends the process: catch it in the C++ and report it through the error struct. A C++ header's calls catch it themselves.
 - A call holds its handles: a `close()` from another thread while it runs destroys the handle when the call returns.
-- Extension calls can't be cancelled ([known limitations](/docs/releases/roadmap/#known-limitations)).
+- A call is cancelled through its signal's flag, which C reads: a function blocked elsewhere notices it only when it next looks.

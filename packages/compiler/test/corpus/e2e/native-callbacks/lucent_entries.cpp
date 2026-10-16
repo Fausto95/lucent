@@ -17,6 +17,8 @@ void initModules() {
 // No launch modules: module state starts at its first use.
 extern "C" void lucent_launch(void) {}
 
+#pragma push_macro("abortedBefore")
+#undef abortedBefore
 #pragma push_macro("checked")
 #undef checked
 #pragma push_macro("counted")
@@ -29,12 +31,16 @@ extern "C" void lucent_launch(void) {}
 #undef once
 #pragma push_macro("out")
 #undef out
+#pragma push_macro("stopped")
+#undef stopped
 #pragma push_macro("threaded")
 #undef threaded
 #pragma push_macro("throws")
 #undef throws
 #pragma push_macro("ticks")
 #undef ticks
+#pragma push_macro("unstopped")
+#undef unstopped
 #pragma push_macro("value")
 #undef value
 
@@ -94,16 +100,40 @@ extern "C" bool lucent_extension_threaded(lucent_error* error, lucent_string* re
   });
 }
 
+extern "C" bool lucent_extension_stopped(lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_extension::stopped();
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_extension_unstopped(lucent_error* error, double* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_extension::unstopped();
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
+extern "C" bool lucent_extension_abortedBefore(lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_extension::abortedBefore();
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
 #pragma pop_macro("value")
+#pragma pop_macro("unstopped")
 #pragma pop_macro("ticks")
 #pragma pop_macro("throws")
 #pragma pop_macro("threaded")
+#pragma pop_macro("stopped")
 #pragma pop_macro("out")
 #pragma pop_macro("once")
 #pragma pop_macro("kept")
 #pragma pop_macro("failed")
 #pragma pop_macro("counted")
 #pragma pop_macro("checked")
+#pragma pop_macro("abortedBefore")
 
 // The Kotlin API's natives (decision 0116): JNI finds them by name. Built where JNI is:
 // Android, and the desktop JNI host, not iOS (a shared program's unit is both's).
@@ -239,6 +269,54 @@ extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_extension_ExportsNative
   }
 }
 
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_extension_ExportsNatives_stopped(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_extension_stopped(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_extension_ExportsNatives_unstopped(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    double result{};
+    if (!lucent_extension_unstopped(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return result;
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_extension_ExportsNatives_abortedBefore(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_extension_abortedBefore(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
 /// Registers the natives above, for a host that finds none by name (the desktop JNI host).
 extern "C" void lucent_entries_register_natives(JNIEnv* env) {
   {
@@ -251,8 +329,11 @@ extern "C" void lucent_entries_register_natives(JNIEnv* env) {
         {const_cast<char*>("checked"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_extension_ExportsNatives_checked)},
         {const_cast<char*>("failed"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_extension_ExportsNatives_failed)},
         {const_cast<char*>("threaded"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_extension_ExportsNatives_threaded)},
+        {const_cast<char*>("stopped"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_extension_ExportsNatives_stopped)},
+        {const_cast<char*>("unstopped"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_extension_ExportsNatives_unstopped)},
+        {const_cast<char*>("abortedBefore"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_extension_ExportsNatives_abortedBefore)},
     };
-    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/extension/ExportsNatives"), methods, 8);
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/extension/ExportsNatives"), methods, 11);
     lucent::jni::check(env);
   }
 }

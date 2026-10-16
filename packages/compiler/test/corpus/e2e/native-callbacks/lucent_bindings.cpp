@@ -3,6 +3,8 @@
 #include <lucent/jsi/convert.h>
 #include <lucent/jsi/host.h>
 
+#pragma push_macro("abortedBefore")
+#undef abortedBefore
 #pragma push_macro("afterwards")
 #undef afterwards
 #pragma push_macro("checked")
@@ -15,12 +17,16 @@
 #undef kept
 #pragma push_macro("once")
 #undef once
+#pragma push_macro("stopped")
+#undef stopped
 #pragma push_macro("threaded")
 #undef threaded
 #pragma push_macro("throws")
 #undef throws
 #pragma push_macro("ticks")
 #undef ticks
+#pragma push_macro("unstopped")
+#undef unstopped
 #pragma push_macro("v")
 #undef v
 
@@ -39,56 +45,74 @@ using namespace lucent::js;
 void install_m_extension(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "counted", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("counted", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 16), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("counted", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 17), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::counted());
     });
   });
   defineFunction(rt, exports, "kept", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("kept", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 24), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("kept", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 25), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::kept());
     });
   });
   defineFunction(rt, exports, "once", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("once", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 34), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("once", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 35), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::once());
     });
   });
   defineFunction(rt, exports, "ticks", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("ticks", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 44), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("ticks", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 45), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::ticks());
     });
   });
   defineFunction(rt, exports, "throws", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("throws", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 55), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("throws", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 56), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::throws());
     });
   });
   defineFunction(rt, exports, "checked", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("checked", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 69), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("checked", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 70), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::checked());
     });
   });
   defineFunction(rt, exports, "failed", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("failed", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 83), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("failed", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 84), [&]() -> jsi::Value {
       return Convert<double>::toJs(rt, host, lucent_app::m_extension::failed());
     });
   });
   defineFunction(rt, exports, "threaded", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("threaded", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 90), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("threaded", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 91), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::threaded());
     });
   });
   defineFunction(rt, exports, "afterwards", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("afterwards", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 97), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("afterwards", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 98), [&]() -> jsi::Value {
       return Convert<lucent::Promise<lucent::String>>::toJs(rt, host, lucent_app::m_extension::afterwards());
+    });
+  });
+  defineFunction(rt, exports, "stopped", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("stopped", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 103), [&]() -> jsi::Value {
+      return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::stopped());
+    });
+  });
+  defineFunction(rt, exports, "unstopped", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("unstopped", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 122), [&]() -> jsi::Value {
+      return Convert<double>::toJs(rt, host, lucent_app::m_extension::unstopped());
+    });
+  });
+  defineFunction(rt, exports, "abortedBefore", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("abortedBefore", "packages/compiler/test/e2e/cases/native-callbacks/extension.lucent.ts", 127), [&]() -> jsi::Value {
+      return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::abortedBefore());
     });
   });
 }
@@ -111,12 +135,15 @@ void resetModuleState() {
 }  // namespace lucent::js
 
 #pragma pop_macro("v")
+#pragma pop_macro("unstopped")
 #pragma pop_macro("ticks")
 #pragma pop_macro("throws")
 #pragma pop_macro("threaded")
+#pragma pop_macro("stopped")
 #pragma pop_macro("once")
 #pragma pop_macro("kept")
 #pragma pop_macro("failed")
 #pragma pop_macro("counted")
 #pragma pop_macro("checked")
 #pragma pop_macro("afterwards")
+#pragma pop_macro("abortedBefore")

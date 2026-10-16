@@ -150,3 +150,23 @@ export function callbackThrows(): string {
   c.close();
   return `${seen.join(",")} ${out}`;
 }
+
+/** A signal's flag, as C++ reads it: adding stops once it aborts, and the call throws. */
+export function stopping(): string {
+  const c = new Counter("s");
+  const controller = new AbortController();
+  let adds = 0;
+  c.onAdd(() => {
+    adds++;
+    if (adds === 2) controller.abort();
+  });
+  let out = "";
+  try {
+    c.addUntil(1, 5, controller.signal);
+  } catch (e) {
+    out = (e as Error).name;
+  }
+  const total = c.addUntil(1, 2);
+  c.close();
+  return `${out} ${adds} ${total}`;
+}

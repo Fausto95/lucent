@@ -13,6 +13,7 @@ print(mod.objects());
 print(mod.errors());
 print(mod.callbacks());
 print(mod.callbackThrows());
+print(mod.stopping());
 
 t.close();
 try {

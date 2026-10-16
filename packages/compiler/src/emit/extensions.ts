@@ -140,12 +140,17 @@ function lucentType(p: ParamBinding, extension: string): LType | undefined {
         params: p.params.map(callbackType),
         ret: p.result.kind === "void" ? T.void : callbackType(p.result),
       };
+    case "signal":
+      return SIGNAL;
     case "length":
     case "error":
     case "context":
       return undefined;
   }
 }
+
+/** A call's AbortSignal, which Lucent code may leave out (decision 0129). */
+export const SIGNAL: LType = { k: "opt", inner: T.abortSignal, absent: "undefined" };
 
 function callbackType(v: CallbackValue): LType {
   switch (v.kind) {
@@ -241,6 +246,7 @@ function call(
 
   // Converted before the call, in order: a conversion's error (a closed handle, a number out of
   // range) is Lucent's to throw. Inside the call, an exception escaping C ends the process.
+  let signal: cpp.Expr | undefined;
   const cArgs = f.params.map((p, i): cpp.Expr => {
     // The function C calls, of its parameter's own type, and the `void *` it passes back.
     if (p.kind === "callback")
@@ -261,6 +267,19 @@ function call(
         cpp.varDecl(cpp.auto, name, cpp.call(cpp.dot(guards.get(p.callback)!, "context"))),
       );
       return cpp.id(name);
+    }
+    // The flag C polls: a signal aborted already throws here, and no call is made.
+    if (p.kind === "signal") {
+      const name = em.ctx.fresh("signal");
+      stmts.push(
+        cpp.varDecl(
+          cpp.auto,
+          name,
+          cpp.construct(cpp.type("lucent::ext::SignalFlag"), [temp.get(i)!]),
+        ),
+      );
+      signal = cpp.id(name);
+      return cpp.call(cpp.dot(signal, "c"));
     }
 
     const c = conversion(p, temp.get(i)!, temp, f, i);
@@ -292,7 +311,11 @@ function call(
 
   const r = cpp.id(em.ctx.fresh("result"));
   stmts.push(returns ? cpp.varDecl(cpp.auto, printed(r), invoke) : cpp.exprStmt(invoke));
-  const rethrow = thrown ? [cpp.exprStmt(cpp.call("lucent::ext::rethrow", [thrown]))] : [];
+  // An abort during the call comes first, then a callback's error, then C's failure.
+  const rethrow = [
+    ...(signal ? [cpp.exprStmt(cpp.call(cpp.dot(signal, "done")))] : []),
+    ...(thrown ? [cpp.exprStmt(cpp.call("lucent::ext::rethrow", [thrown]))] : []),
+  ];
   stmts.push(...afterCall(em, f, r, error, e, rethrow));
   for (const guard of guards.values()) stmts.push(cpp.exprStmt(cpp.call(cpp.dot(guard, "done"))));
 
@@ -359,6 +382,7 @@ function conversion(
     case "error":
     case "callback":
     case "context":
+    case "signal":
       return undefined;
   }
 }

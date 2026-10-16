@@ -16,6 +16,8 @@
 #undef objects
 #pragma push_macro("rounding")
 #undef rounding
+#pragma push_macro("stopping")
+#undef stopping
 #pragma push_macro("strings")
 #undef strings
 #pragma push_macro("version")
@@ -34,6 +36,7 @@ lucent::String objects();
 lucent::String errors();
 lucent::String callbacks();
 lucent::String callbackThrows();
+lucent::String stopping();
 void init();
 
 }  // namespace m_extension
@@ -42,6 +45,7 @@ void init();
 
 #pragma pop_macro("version")
 #pragma pop_macro("strings")
+#pragma pop_macro("stopping")
 #pragma pop_macro("rounding")
 #pragma pop_macro("objects")
 #pragma pop_macro("made")

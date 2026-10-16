@@ -45,6 +45,10 @@ int32_t ticker_tick(Ticker* ticker, double at);
 void ticker_count_threaded(int32_t from, int32_t to, void (*visit)(void* context, int32_t value),
                            void* context);
 
+/* Takes up to `most` steps, calling step after each, until stop turns true: how many it took. */
+int32_t ticker_steps(int32_t most, void (*step)(void* context, int32_t n), void* context,
+                     const volatile bool* stop);
+
 /* The value, if ok says it is; else -1, with the error. */
 int32_t ticker_check(int32_t value, bool (*ok)(void* context, int32_t value), void* context,
                      TickerError* error);

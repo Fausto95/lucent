@@ -40,6 +40,8 @@ extern "C" void lucent_launch(void) {}
 #undef out
 #pragma push_macro("rounding")
 #undef rounding
+#pragma push_macro("stopping")
+#undef stopping
 #pragma push_macro("strings")
 #undef strings
 #pragma push_macro("total")
@@ -110,6 +112,13 @@ extern "C" bool lucent_extension_callbackThrows(lucent_error* error, lucent_stri
   });
 }
 
+extern "C" bool lucent_extension_stopping(lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_extension::stopping();
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
 extern "C" bool lucent_extension_Tally_new(lucent_string arg0, lucent_error* error, lucent_object* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::C_Tally::create(lucent::entries::in(arg0));
@@ -152,6 +161,7 @@ extern "C" bool lucent_extension_Tally_close(lucent_object self, lucent_error* e
 #pragma pop_macro("version")
 #pragma pop_macro("total")
 #pragma pop_macro("strings")
+#pragma pop_macro("stopping")
 #pragma pop_macro("rounding")
 #pragma pop_macro("out")
 #pragma pop_macro("objects")
@@ -322,6 +332,22 @@ extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_extension_ExportsNative
   }
 }
 
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_extension_ExportsNatives_stopping(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_extension_stopping(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
 extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_extension_Tally_entry_1new(JNIEnv* env, jclass, jstring arg0) {
   lucent::jni::EntryArgs in(env);
   try {
@@ -412,8 +438,9 @@ extern "C" void lucent_entries_register_natives(JNIEnv* env) {
         {const_cast<char*>("errors"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_extension_ExportsNatives_errors)},
         {const_cast<char*>("callbacks"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_extension_ExportsNatives_callbacks)},
         {const_cast<char*>("callbackThrows"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_extension_ExportsNatives_callbackThrows)},
+        {const_cast<char*>("stopping"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_extension_ExportsNatives_stopping)},
     };
-    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/extension/ExportsNatives"), methods, 9);
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/extension/ExportsNatives"), methods, 10);
     lucent::jni::check(env);
   }
   {
