@@ -151,8 +151,21 @@ describe("an app extension's target", () => {
     }
   });
 
-  it("needs the app's bundle identifier", () => {
-    expect(() => ext.withExtensionTargets(project().project, manifest, {})).toThrow(
+  it("takes a bare app's bundle identifier from its target, and needs one", () => {
+    const { project: p } = project();
+    ext.withExtensionTargets(p, manifest, {});
+    const [, rich] = named(p, "RichPush")!;
+    const configs = p.pbxXCBuildConfigurationSection();
+    const list = p.pbxXCConfigurationList()[rich.buildConfigurationList as string]!;
+    // The template's is under $(PRODUCT_NAME:rfc1034identifier), the app's product name.
+    expect(
+      unquote(configs[list.buildConfigurations[0]!.value]!.buildSettings.PRODUCT_BUNDLE_IDENTIFIER),
+    ).toBe("org.reactjs.native.example.HelloWorld.RichPush");
+
+    const { project: none } = project();
+    for (const c of Object.values(none.pbxXCBuildConfigurationSection()))
+      if (typeof c === "object") delete c.buildSettings.PRODUCT_BUNDLE_IDENTIFIER;
+    expect(() => ext.withExtensionTargets(none, manifest, {})).toThrow(
       "the app's bundle identifier is needed",
     );
   });

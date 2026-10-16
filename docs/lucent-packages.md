@@ -178,8 +178,9 @@ It's an app extension of the app's bundle identifier with the
 extension's name, with the app's version, team, deployment target and
 devices. Its files go in `ios/<name>/`, the app embeds it and builds it
 first, and the Podfile gets a target naming its subspec. A target that's
-there already stays as it is. A bare app doesn't get them yet
-([T133](tasks.md#t133)).
+there already stays as it is. In a bare app, `lucent init` adds the same
+from the last build, taking the bundle identifier from the app's target,
+and `lucent build` warns while a target is missing.
 
 A pod requirement Lucent can't parse is left to CocoaPods
 (`podsCompatible` in `package-versions.ts`). A Swift package requirement

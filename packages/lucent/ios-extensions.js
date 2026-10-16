@@ -127,6 +127,24 @@ const FROM_APP = [
 const quoted = (s) => (/^[\w.$()/-]+$/.test(s) ? s : JSON.stringify(s));
 
 /**
+ * The app's bundle identifier, as its target's Release configuration sets
+ * it (a bare app's), its product name's variables expanded, as an
+ * extension's target's own would expand otherwise.
+ */
+function bundleIdentifierOf(found, settings) {
+  const s = settings.Release ?? Object.values(settings)[0] ?? {};
+  const id = unquote(s.PRODUCT_BUNDLE_IDENTIFIER);
+  if (!id) return undefined;
+  const product = String(unquote(s.PRODUCT_NAME) ?? "$(TARGET_NAME)").replace(
+    "$(TARGET_NAME)",
+    unquote(found.target.name),
+  );
+  return id
+    .replace(/\$\(PRODUCT_NAME:rfc1034identifier\)/g, product.replace(/[^A-Za-z0-9.-]/g, "-"))
+    .replace(/\$\(PRODUCT_NAME\)/g, product);
+}
+
+/**
  * Adds each extension's target the Xcode project lacks: an app extension
  * of the app's bundle identifier with the extension's name, its files in a
  * group of its own, its source compiled, embedded in the app's target,
@@ -146,9 +164,10 @@ function withExtensionTargets(project, manifest, app) {
     ? targetNamed(project, app.target)
     : { uuid: first.uuid, target: first.firstTarget };
   if (!found) throw new Error(`the Xcode project has no target ${app.target}`);
-  if (!app.bundleIdentifier)
-    throw new Error("the app's bundle identifier is needed: its extensions' are under it");
   const settings = appSettings(project, found.target);
+  const bundleIdentifier = app.bundleIdentifier ?? bundleIdentifierOf(found, settings);
+  if (!bundleIdentifier || bundleIdentifier.includes("$("))
+    throw new Error("the app's bundle identifier is needed: its extensions' are under it");
 
   let added = false;
   for (const e of manifest.extensions) {
@@ -159,7 +178,7 @@ function withExtensionTargets(project, manifest, app) {
       e.name,
       "app_extension",
       e.name,
-      `${app.bundleIdentifier}.${e.name}`,
+      `${bundleIdentifier}.${e.name}`,
     );
     const sources = Object.keys(e.sources);
     const files = ["Info.plist", `${e.name}.entitlements`, ...sources];
@@ -187,7 +206,7 @@ function withExtensionTargets(project, manifest, app) {
         CODE_SIGN_ENTITLEMENTS: quoted(`${e.name}/${e.name}.entitlements`),
         CODE_SIGN_STYLE: "Automatic",
         INFOPLIST_FILE: quoted(`${e.name}/Info.plist`),
-        PRODUCT_BUNDLE_IDENTIFIER: quoted(`${app.bundleIdentifier}.${e.name}`),
+        PRODUCT_BUNDLE_IDENTIFIER: quoted(`${bundleIdentifier}.${e.name}`),
         PRODUCT_NAME: '"$(TARGET_NAME)"',
         SKIP_INSTALL: "YES",
       });

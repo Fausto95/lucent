@@ -1,6 +1,8 @@
 /**
  * What the published bundle (dist/) loads from outside it: Node's modules
- * and TypeScript, which the package depends on. Ink and React are bundled:
+ * and TypeScript, which the package depends on, and xcode, which lucent init
+ * loads to add app extensions' targets to a bare app's Xcode project, as the
+ * Expo plugin's mods do with Expo's (decision 0124). Ink and React are bundled:
  * resolved from the app, they would be the app's React wherever it hoists
  * another version, and Ink's hooks would fail ("Invalid hook call").
  */
@@ -39,7 +41,7 @@ describe("the published bundle", () => {
     );
     // React's devtools: only with DEV=true, when the app installed them (Ink's own check).
     expect(outside.filter((m) => m !== "react-devtools-core").sort()).toEqual(["typescript"]);
-    expect(Object.keys(pkg.dependencies).sort()).toEqual(["picocolors", "typescript"]);
+    expect(Object.keys(pkg.dependencies).sort()).toEqual(["picocolors", "typescript", "xcode"]);
   });
 
   it("states the Node version it runs on, as lucent doctor checks it", () => {

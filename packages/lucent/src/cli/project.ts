@@ -20,6 +20,7 @@ import {
   writeWhole,
 } from "@lucent-lang/compiler";
 import { gradleFailure } from "./gradle-output.ts";
+import { appXcodeProject, extensionTargetsOf } from "./init/app-extensions.ts";
 import { linksNativePackage } from "./init/patch.ts";
 import { withLucentPaths } from "./tsconfig.ts";
 import { packageFile } from "./version.ts";
@@ -420,11 +421,17 @@ const APP_PLISTS = [
  */
 export function missingAppEntries(root: string, native: ResolvedNative): Notice[] {
   const ios = path.join(root, "ios");
+  // The app's targets' directories: an app extension's (decision 0124) has entries of its own.
+  const extension = (dir: string) => {
+    const plist = path.join(dir, "Info.plist");
+    return fs.existsSync(plist) && /<key>NSExtension<\/key>/.test(fs.readFileSync(plist, "utf8"));
+  };
   const targets = fs.existsSync(ios)
     ? fs
         .readdirSync(ios, { withFileTypes: true })
         .filter((e) => e.isDirectory())
         .map((e) => path.join(ios, e.name))
+        .filter((dir) => !extension(dir))
     : [];
 
   const out: Notice[] = [];
@@ -456,6 +463,29 @@ export function missingAppEntries(root: string, native: ResolvedNative): Notice[
   }
 
   return out;
+}
+
+/**
+ * The app extensions the build recorded (ios-extensions.json, decision
+ * 0124) that the app's Xcode project has no target for: named, since a
+ * bare app's project is its own. lucent init adds them.
+ */
+export function missingExtensionTargets(root: string, outDir: string): Notice[] {
+  const manifest = extensionTargetsOf(root, outDir);
+  const pbxproj = appXcodeProject(root);
+  if (!manifest || !pbxproj) return [];
+
+  const text = fs.readFileSync(path.join(root, pbxproj), "utf8");
+  const has = (name: string) =>
+    new RegExp(
+      `isa = PBXNativeTarget;[^}]*\\bname = "?${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"?;`,
+    ).test(text);
+  return manifest.extensions
+    .filter((e) => !has(e.name))
+    .map((e) => ({
+      level: "warn" as const,
+      text: `the app extension ${e.name} has no target in ${path.dirname(pbxproj)}: run lucent init to add it (the Expo config plugin adds it)`,
+    }));
 }
 
 /** A manifest element's attributes, by name (`android:name`). */
