@@ -143,8 +143,8 @@ export function diagnose(root: string, probe: Probe): Check[] {
  */
 export const REQUIREMENTS = {
   node: "22.12",
-  reactNative: { window: ["0.85", "0.86", "0.87"], prerelease: "0.88" },
-  expoSdk: { window: [56, 57], prerelease: 58 },
+  reactNative: { window: ["0.86", "0.87", "0.88"], prerelease: "0.89" },
+  expoSdk: { window: [57, 58], prerelease: 59 },
   jdk: { min: 17, max: 21 },
 } as const;
 
@@ -162,7 +162,7 @@ function laneOf(release: number[], window: readonly number[][], prerelease: numb
   return compare(release, window[0]!) < 0 ? "older" : "newer";
 }
 
-/** A React Native version's lane: by its minor (0.88.0-rc.4 is 0.88's). */
+/** A React Native version's lane: by its minor (0.89.0-rc.1 is 0.89's). */
 export function reactNativeLane(version: string): Lane {
   const { window, prerelease } = REQUIREMENTS.reactNative;
   const minor = (v: string) => parse(v).slice(0, 2);
@@ -180,7 +180,7 @@ export function expoLane(version: string): Lane {
 }
 
 const span = (from: string, to: string) => (from === to ? from : `${from} to ${to}`);
-/** "0.85 to 0.87, and 0.88 on its prerelease lane". */
+/** "0.86 to 0.88, and 0.89 on its prerelease lane". */
 const reactNativeSupport = () => {
   const { window, prerelease } = REQUIREMENTS.reactNative;
   return `${span(window[0], window.at(-1)!)}, and ${prerelease} on its prerelease lane`;

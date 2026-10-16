@@ -172,9 +172,9 @@ model and the decisions still open.
 - **Autolinking.** The native package is a React Native library: a pod on
   iOS, a pure C++ TurboModule on Android. The Expo plugin and a Gradle
   task run `lucent build`.
-- **The release window** ([0074][d0074], [0079][d0079]). React Native 0.85
-  to 0.87 and Expo SDK 56 and 57, with a prerelease lane. No release in
-  it needs a fallback.
+- **The release window** ([0074][d0074], [0079][d0079], [0127][d0127]).
+  React Native 0.86 to 0.88 and Expo SDK 57 and 58, with a prerelease
+  lane. No release in it needs a fallback.
 - **Prebuilt core** ([0059][d0059]). Releases ship the JSI-free part of the
   runtime prebuilt. An app links it when its hash matches.
 - **Build identity.** The native module embeds what it was built from.
@@ -188,3 +188,4 @@ model and the decisions still open.
 [d0074]: ../decisions/0074-a-window-of-stable-react-native-and-expo-releases.md
 [d0076]: ../decisions/0076-an-app-delegate-and-activity-subscriber.md
 [d0079]: ../decisions/0079-react-native-0-85-is-in-the-window-and-no-release-needs-a-fallback.md
+[d0127]: ../decisions/0127-react-native-0-88-and-expo-sdk-58-join-the-window.md

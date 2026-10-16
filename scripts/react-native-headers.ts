@@ -378,11 +378,23 @@ function relink(dir: string, from: string, to: string): void {
   }
 }
 
-/** The releases Lucent supports: the window's, and the newest on the prerelease lane. */
+/**
+ * The releases Lucent supports: the window's, and the newest release
+ * candidate on the prerelease lane once one is published (a nightly is
+ * none).
+ */
 export function windowReleases(): string[] {
   const { window, prerelease } = REQUIREMENTS.reactNative;
-  return [...window, `~${prerelease}.0-0`];
+  const versions = JSON.parse(
+    sh("npm", ["view", "react-native", "versions", "--json"]),
+  ) as string[];
+  const candidates = versions.filter((v) => v.startsWith(`${prerelease}.0-rc.`));
+  const newest = candidates.sort((a, b) => rc(a) - rc(b)).at(-1);
+  return newest ? [...window, newest] : [...window];
 }
+
+/** A release candidate's number: 0.89.0-rc.4 is 4. */
+const rc = (v: string) => Number(/-rc\.(\d+)/.exec(v)?.[1] ?? 0);
 
 if (import.meta.main) {
   const args = process.argv.slice(2);

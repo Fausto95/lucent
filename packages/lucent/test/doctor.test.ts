@@ -243,24 +243,26 @@ describe("lucent doctor", () => {
         "react-native",
       );
 
-    // The window: 0.85 is Expo SDK 56's (decision 0079).
-    for (const v of ["0.85.3", "0.86.3", "0.87.1"])
+    // The window: 0.86 is Expo SDK 57's (decisions 0079 and 0127).
+    for (const v of ["0.86.3", "0.87.1", "0.88.0"])
       expect(with_(v)).toMatchObject({
         status: "ok",
         detail: `${v}, a stable release Lucent supports`,
       });
-    expect(with_("0.88.0-rc.4")).toMatchObject({
+    // A candidate of a release in the window is that release's.
+    expect(with_("0.88.0-rc.4")).toMatchObject({ status: "ok" });
+    expect(with_("0.89.0-rc.1")).toMatchObject({
       status: "ok",
-      detail: "0.88.0-rc.4, on Lucent's prerelease lane",
+      detail: "0.89.0-rc.1, on Lucent's prerelease lane",
     });
-    expect(with_("0.84.1")).toMatchObject({
+    expect(with_("0.85.3")).toMatchObject({
       status: "fail",
-      detail: "0.84.1; Lucent supports 0.85 to 0.87, and 0.88 on its prerelease lane",
-      fix: "upgrade react-native to 0.87",
+      detail: "0.85.3; Lucent supports 0.86 to 0.88, and 0.89 on its prerelease lane",
+      fix: "upgrade react-native to 0.88",
     });
-    expect(with_("0.89.0")).toMatchObject({
+    expect(with_("0.90.0")).toMatchObject({
       status: "warn",
-      fix: "use react-native 0.87, or a Lucent release that supports 0.89",
+      fix: "use react-native 0.88, or a Lucent release that supports 0.90",
     });
   });
 
@@ -281,21 +283,21 @@ describe("lucent doctor", () => {
         "expo",
       );
 
+    expect(with_("57.0.27")).toMatchObject({
+      status: "ok",
+      detail: "57 (expo 57.0.27), a stable SDK Lucent supports",
+    });
+    expect(with_("58.0.12")).toMatchObject({ status: "ok" });
+    expect(with_("59.0.0-preview.1")).toMatchObject({
+      status: "ok",
+      detail: "59 (expo 59.0.0-preview.1), on Lucent's prerelease lane",
+    });
     expect(with_("56.0.23")).toMatchObject({
-      status: "ok",
-      detail: "56 (expo 56.0.23), a stable SDK Lucent supports",
-    });
-    expect(with_("57.0.27")).toMatchObject({ status: "ok" });
-    expect(with_("58.0.7")).toMatchObject({
-      status: "ok",
-      detail: "58 (expo 58.0.7), on Lucent's prerelease lane",
-    });
-    expect(with_("55.0.4")).toMatchObject({
       status: "fail",
-      detail: "expo 55.0.4; Lucent supports SDK 56 and 57, and SDK 58 on its prerelease lane",
-      fix: "upgrade to Expo SDK 57 (npx expo install expo@^57.0.0 --fix)",
+      detail: "expo 56.0.23; Lucent supports SDK 57 and 58, and SDK 59 on its prerelease lane",
+      fix: "upgrade to Expo SDK 58 (npx expo install expo@^58.0.0 --fix)",
     });
-    expect(with_("59.0.0")).toMatchObject({ status: "warn" });
+    expect(with_("60.0.0")).toMatchObject({ status: "warn" });
   });
 
   it("finds mismatched versions: the app's Lucent is not the one running", () => {
