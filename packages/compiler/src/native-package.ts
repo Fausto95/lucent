@@ -22,6 +22,7 @@ import {
 } from "./native-build-files.ts";
 import type { NativeInputs, PackagePath } from "./package-config.ts";
 import { appExtensionRuntimeSources, prebuiltRuntimeFiles } from "./prebuilt-runtime.ts";
+import { APP_EXTENSIONS_MANIFEST, appExtensionTargets } from "./app-extension-targets.ts";
 import { inNativePackage } from "./package-files.ts";
 import { coreTypesPath } from "./program.ts";
 import { currentReads, currentRealpaths, readsKey } from "./reads.ts";
@@ -410,6 +411,17 @@ export function writeNativePackage(
         ]),
       }),
     );
+
+  // What adding the extensions' targets to the app takes, for the Expo plugin and lucent init.
+  const targets =
+    native &&
+    appExtensionTargets(
+      native,
+      appExtensions.map(([name]) => name),
+      path.relative(projectRoot, outDir).split(path.sep).join("/"),
+    );
+  if (targets)
+    want.set(path.join(outDir, APP_EXTENSIONS_MANIFEST), `${JSON.stringify(targets, null, 2)}\n`);
 
   const gradle = path.join(outDir, "android/build.gradle");
   want.set(

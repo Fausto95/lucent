@@ -10,7 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { compile, writeNativePackage } from "../src/index.ts";
+import { compile, resolveNative, writeNativePackage } from "../src/index.ts";
 import { schemaSet } from "./schema-set.ts";
 
 const KIT = {
@@ -28,20 +28,21 @@ const KIT = {
 const set = schemaSet([KIT]);
 
 /** lucent-push, whose notification service extension's class imports another module. */
-function build() {
+function build(principal = "export class Rich extends KITService {}", native: object = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-ext-build-"));
   const files: Record<string, string> = {
     "package.json": '{ "name": "lucent-push", "version": "1.0.0", "lucent": {} }\n',
     "lucent.json": JSON.stringify({
       ios: {
         appExtensions: [{ kind: "notificationService", name: "RichPush", class: "push#Rich" }],
+        ...native,
       },
     }),
     "push.lucent.ts": "export declare function badge(): string;\n",
     "push.ios.lucent.ts": `import { KITService } from "lucent:ios/Kit";
 import { title } from "./shared.lucent";
 
-export class Rich extends KITService {}
+${principal}
 
 export function badge(): string {
   return title();
@@ -154,5 +155,78 @@ describe("an app extension's build", () => {
 
     expect(result.appExtensions).toBeUndefined();
     expect(fs.existsSync(path.join(out, "LucentExtensions.podspec"))).toBe(false);
+  });
+});
+
+describe("an app extension's target", () => {
+  it("is recorded for the Expo plugin and lucent init: its Info.plist, entitlements and source", () => {
+    const { dir, result } = build(undefined, {
+      appGroups: ["group.dev.lucent.push"],
+      appExtensions: [
+        {
+          kind: "notificationService",
+          name: "RichPush",
+          class: "push#Rich",
+          displayName: undefined,
+          infoPlist: { NSExtensionOptions: "x", LSMinimumSystemVersion: "16.0" },
+          entitlements: { "keychain-access-groups": ["$(AppIdentifierPrefix)dev.lucent"] },
+        },
+      ],
+    });
+    expect(result.diagnostics).toEqual([]);
+    const out = path.join(dir, ".lucent/native");
+    const native = resolveNative([{ name: "lucent-push", version: "1.0.0", dir, sources: dir }]);
+    writeNativePackage(result, out, { root: dir, native });
+
+    const manifest = JSON.parse(fs.readFileSync(path.join(out, "ios-extensions.json"), "utf8"));
+    expect(manifest.format).toBe(1);
+    expect(manifest.nativePackage).toBe(".lucent/native");
+    expect(manifest.extensions).toHaveLength(1);
+    const [rich] = manifest.extensions;
+    expect(rich).toMatchObject({
+      name: "RichPush",
+      kind: "notificationService",
+      pod: "LucentExtensions/RichPush",
+      entitlements: {
+        "com.apple.security.application-groups": ["group.dev.lucent.push"],
+        "keychain-access-groups": ["$(AppIdentifierPrefix)dev.lucent"],
+      },
+    });
+    expect(rich.infoPlist).toMatchObject({
+      CFBundleDisplayName: "RichPush",
+      CFBundleShortVersionString: "$(MARKETING_VERSION)",
+      CFBundleVersion: "$(CURRENT_PROJECT_VERSION)",
+      LSMinimumSystemVersion: "16.0",
+      NSExtension: {
+        NSExtensionPointIdentifier: "com.apple.usernotifications.service",
+        NSExtensionPrincipalClass: "LucentApp_lucent_push_push_Rich",
+        NSExtensionAttributes: { NSExtensionOptions: "x" },
+      },
+    });
+    expect(rich.sources["LucentExtension.m"]).toContain(
+      "return [LucentApp_lucent_push_push_Rich class];",
+    );
+    // The principal class the manifest names is the one the extension's build compiles.
+    expect(result.files.get("ios-extensions/RichPush/m_lucent_u2d_push_u2f_push.mm")).toContain(
+      "@interface LucentApp_lucent_push_push_Rich : KITService",
+    );
+  });
+
+  it("names a principal class the OS makes with init, or the build fails", () => {
+    const code = (principal: string) =>
+      build(principal).result.diagnostics.map((d) => `${d.code} ${d.message}`);
+    const why = "LUCENT3019 the app extension RichPush's principal class is one the OS makes:";
+
+    expect(code("export class Other extends KITService {}")).toEqual([
+      `${why} lucent-push/push has no class Rich`,
+    ]);
+    expect(code("class Rich extends KITService {}")).toEqual([`${why} Rich isn't exported`]);
+    expect(
+      code(
+        "export class Rich extends KITService {\n  constructor(readonly n: number) {\n    super();\n  }\n}",
+      ),
+    ).toEqual([
+      `${why} the OS makes Rich with init, so its constructor and its super(…) take nothing`,
+    ]);
   });
 });

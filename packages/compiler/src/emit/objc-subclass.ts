@@ -93,6 +93,44 @@ function osInit(info: ClassInfo, chain: SdkClassRef[]): boolean {
     .some((c) => !c.params.length && !c.swift && (c.selector ?? "init") === "init");
 }
 
+/**
+ * The principal class app extension `extension` names (`<module>#<Class>`,
+ * decision 0124): an exported class of the module extending an iOS class,
+ * which the OS makes with init. LUCENT3019 otherwise; a module that is no
+ * module was reported already.
+ */
+export function checkPrincipalClass(
+  ctx: Ctx,
+  modules: readonly LucentModule[],
+  extension: string,
+  code: string,
+): void {
+  const [moduleName, name] = code.split("#") as [string, string];
+  const m = modules.find((x) => x.name === moduleName);
+  if (!m) return;
+
+  const info = [...ctx.reg.classes.values()].find(
+    (c) => c.module === moduleName && c.decl.name?.text === name,
+  );
+  const why = !info
+    ? `${moduleName} has no class ${name}`
+    : !info.exported
+      ? `${name} isn't exported`
+      : info.sdkBase?.platform !== "ios"
+        ? `${name} extends no iOS class`
+        : !iosOsMade(info)
+          ? `another class's Objective-C name is ${name}'s too`
+          : !osInit(info, sdkChain(info.sdkBase))
+            ? `the OS makes ${name} with init, so its constructor and its super(…) take nothing`
+            : undefined;
+  if (why)
+    fail(
+      info?.decl ?? m.sourceFile,
+      Codes.UnknownExtensionCode,
+      `the app extension ${extension}'s principal class is one the OS makes: ${why}`,
+    );
+}
+
 /** `made`, or the object the OS made while `info`'s init makes its Lucent instance. */
 function superObject(info: ClassInfo, made: cpp.Expr): cpp.Expr {
   if (!osInit(info, sdkChain(info.sdkBase!))) return made;

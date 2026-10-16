@@ -52,7 +52,7 @@ what became of each one that is still linked or was still open.
 | [T130](#t130)            | A native root: module code with no JavaScript runtime      | done (2026-10-13)                                       |
 | [T131](#t131)            | Android classes the OS instantiates, written in Lucent     | done (2026-10-14)                                       |
 | [T132](#t132)            | iOS background execution                                   | done (2026-10-14); relaunches are T137                  |
-| [T133](#t133)            | iOS app extensions and widgets                             | in progress (#345 to #349): decided (0124)              |
+| [T133](#t133)            | iOS app extensions and widgets                             | in progress (#345 to #350): decided (0124)              |
 | [T134](#t134)            | Calls from worklet runtimes                                | in progress (#342–#344): a device run remains           |
 | [T135](#t135)            | JavaScript tasks from background entry points              | blocked: a decision on whether Lucent offers it         |
 | [T136](#t136)            | App Intents, Live Activities and Android widget bodies     | waiting; needs T133                                     |
@@ -1291,8 +1291,9 @@ simulator in CI.
 **Goal:** A package's Lucent code runs in an app extension: a widget with
 a SwiftUI body, a notification service extension or a share extension.
 
-- **Status:** in progress (#345 to #349): decided (0124), its
-  `lucent.json` fields, classes the OS makes, the API limits, the build.
+- **Status:** in progress (#345 to #350): decided (0124), its
+  `lucent.json` fields, classes the OS makes, the API limits, the build,
+  the targets' manifest.
 - **Area:** iOS host, compiler, tooling.
 - **Needs:** T130.
 - **Verify:** V1, V4, V5, V6.
@@ -1324,6 +1325,10 @@ a SwiftUI body, a notification service extension or a share extension.
       stay out of an extension's build (`LUCENT_APP_EXTENSION`), with the
       lifecycle observers, the Expo subscriber and the notification
       delegate (#349).
+- [x] What adding a target takes, recorded for the integrations:
+      `ios-extensions.json`, with each target's Info.plist, entitlements
+      (the app's App Groups among them) and the source linking its
+      principal class, which LUCENT3019 checks the OS can make (#350).
 - [ ] The Expo plugin adds the target. A bare app gets the target from a
       CLI command.
 - [ ] App Groups: the entitlement from `lucent.json`, so the app and its

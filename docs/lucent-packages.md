@@ -161,8 +161,18 @@ reaches through its imports, into `cpp/generated/ios-extensions/<name>/`,
 without the JSI units. `LucentExtensions.podspec` builds it in a subspec
 of the extension's name, with the runtime's JSI-free core and its iOS
 files, under `APPLICATION_EXTENSION_API_ONLY` and `LUCENT_APP_EXTENSION`.
-`LucentNative.podspec` leaves those files out. Lucent doesn't add the
-extension's target to the app yet ([T133](tasks.md#t133)).
+`LucentNative.podspec` leaves those files out.
+
+`ios-extensions.json` in the native package records what adding each
+target takes, for the Expo plugin and `lucent init`. That's its subspec,
+its Info.plist and its entitlements, with the app's App Groups. It also
+holds the one source its target compiles, which links the principal
+class. Info.plist keys of the extension that start with `NSExtension` go
+in its `NSExtensionAttributes`, and its version keys are its target's
+`MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`, set as the app's are.
+A principal class the OS can't make with `init` fails the build
+(LUCENT3019). Lucent doesn't add the extension's target to the app yet
+([T133](tasks.md#t133)).
 
 A pod requirement Lucent can't parse is left to CocoaPods
 (`podsCompatible` in `package-versions.ts`). A Swift package requirement

@@ -969,7 +969,8 @@ Objective-C class the OS makes by name (`LucentApp_<module>_<Class>`,
 reaches (LUCENT3018, #348). Each extension's code compiles again on its
 own into `cpp/generated/ios-extensions/<name>/`, and its subspec of
 `LucentExtensions.podspec` builds it with the runtime under
-`LUCENT_APP_EXTENSION` (#349). A widget names
+`LUCENT_APP_EXTENSION` (#349). `ios-extensions.json` records each target's
+Info.plist, entitlements and linking source for the integrations (#350). A widget names
 a provider class mirroring `TimelineProvider` and a SwiftUI JSX body of
 its entry, and Lucent writes WidgetKit's Swift. Each extension builds the
 modules its code reaches into a subspec of `LucentExtensions`, with the
