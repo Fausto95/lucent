@@ -1211,8 +1211,10 @@ build the C code into the one native package.
 | Signals    | A `const volatile bool *` (`{ signal: "flag" }`) or a C++ `const std::atomic<bool> &`: `AbortSignal \| undefined`, set as soon as it aborts (0129). Aborted before: no call; during: the reason is thrown.                                                                                                                                                                                                       |
 | Runtime    | `Handle::open(what, pointer, destroy, destroyOn?)`, `use<T>()` for one call, idempotent `close()`, `whenDestroyed(f)`, shared state (`identity()`); `ext::integer`, `real`, `BytesArg` (a `NativeBufferObject::Lease` for a buffer), `length`, `utf8`, `number`, `bigint`; callbacks: `ext::Callback<F>` (`context()`, `until(handle)`, `function<R, A...>()`, `done()`), `ext::callBack<F, R>(context, args…)`. |
 
-**Planned:** [T142](../tasks.md#t142)'s `android.prefab` links Gradle
-prefab modules. Signals work as
+**Planned:** [T142](../tasks.md#t142) reads an extension's header with
+its prefab modules' and pods' headers
+([0131](../decisions/0131-an-extensions-libraries-come-from-prefab-and-pods.md));
+`android.prefab` links the modules already. Signals work as
 [0129](../decisions/0129-an-extension-calls-abortsignal-is-a-flag-set-as-soon-as-it-aborts.md)
 decides. Callbacks run
 as [0126](../decisions/0126-an-extensions-callback-runs-where-its-call-ran.md)

@@ -289,6 +289,12 @@ export interface PackageNative {
   };
   android?: {
     dependencies?: Record<string, string>;
+    /**
+     * A Gradle artifact of `dependencies` → the prefab modules of its AAR
+     * the runtime's library links, whose headers an extension's header
+     * may include (decision 0131).
+     */
+    prefab?: Record<string, string[]>;
     permissions?: string[];
     /** Java and Kotlin source roots; their C and C++ files join the runtime's CMake target. */
     nativeSources?: string[];
@@ -616,6 +622,7 @@ export const PACKAGE_FIELDS = {
   },
   android: {
     dependencies: recordOf(string),
+    prefab: recordOf(strings),
     permissions: strings,
     nativeSources: strings,
     resources: strings,

@@ -391,6 +391,17 @@
             "type": "string"
           }
         },
+        "prefab": {
+          "type": "object",
+          "description": "A Gradle artifact of dependencies → the prefab modules of its AAR to link into the runtime's library. A native extension's header may include their headers.",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          }
+        },
         "permissions": {
           "type": "array",
           "description": "Android permissions for the manifest, such as \"android.permission.CAMERA\". Each is declared once, however many packages list it. Permissions the SDK methods you call require are added without listing them here.",

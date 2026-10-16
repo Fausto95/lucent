@@ -42,6 +42,7 @@ const read = {
   ],
   android: [
     "dependencies",
+    "prefab",
     "permissions",
     "nativeSources",
     "resources",
