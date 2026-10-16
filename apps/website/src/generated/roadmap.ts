@@ -327,6 +327,7 @@ export const limitations: { title: string; items: string[] }[] = [
       "An Android app with product flavors binds the libraries of its first debug variant by name. A library only another flavor depends on can't be bound.",
       "An extension's callback takes no bytes, handles, objects or structs and returns no string. A call is cancelled only through the flag its signal sets, which C must poll ([T142](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t142)). A C++ header's class templates, classes with a base, abstract classes and public data members aren't bound. Neither are its C++ functions outside a class.",
       "Lucent compiles a package's Kotlin and Java without the app's `R` class or Kotlin compiler plugins (Compose, serialization). Sources that need them don't bind.",
+      "On the web, a module that imports platform code, even behind a `PLATFORM` test, needs a web twin, and views aren't available. A twin can't conform to an enum its module declares, which TypeScript compares by name.",
       "Tracing records allocations for native buffers only, and its buffer uses one mutex: fine for debugging, not for continuous production use.",
       "Swift calling a module's exports gets a record as a `Dictionary`, which keeps no key order ([T114](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t114))."
     ]

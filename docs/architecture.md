@@ -509,6 +509,15 @@ a body edit is a Fast Refresh. `lucent:core` is `compiler/lib/core.cjs`,
 and platform modules throw `LUCENT_JS_DEV_NATIVE` when used. `.lucent.tsx`
 modules keep their native proxies, and release bundles refuse the mode.
 
+### The web
+
+For the `web` platform (decision 0133), `metro/web.cjs` bundles each module as
+its JavaScript, as JS dev mode does, release bundles included.
+`withLucent`'s `resolveRequest` resolves a module to its web twin,
+`name.web.lucent.ts`, when it has one. A platform module, or a module
+requiring a platform's modules, fails its transform without a twin, as
+does a `.lucent.tsx` module; resolving `lucent:views/*` fails.
+
 ### Editor plugin
 
 `ts-plugin/index.js` is a TypeScript language-service plugin. The

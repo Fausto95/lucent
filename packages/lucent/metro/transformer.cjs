@@ -1,10 +1,12 @@
 "use strict";
-// Metro babel transformer: bundles each *.lucent.ts module as a require of its JS proxy.
+// Metro babel transformer: bundles each *.lucent.ts module as a require of its JS proxy;
+// for the web, as its JavaScript (web.cjs).
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { nativePackage } = require("./native-package.cjs");
 const jsDev = require("./js-dev.cjs");
+const web = require("./web.cjs");
 
 const upstream = require(process.env.LUCENT_UPSTREAM_TRANSFORMER);
 const LUCENT = /\.lucent\.tsx?$/;
@@ -130,9 +132,12 @@ module.exports = {
       const root = (args.options && args.options.projectRoot) || process.cwd();
       const file = path.resolve(root, args.filename);
       failOnProblems(root, file, args.src);
-      const src = jsDev.enabled()
-        ? jsDev.module(file, args, () => proxyFor(file, root))
-        : undefined;
+      // The web runs modules as JavaScript, releases too: it has no native build (decision 0133).
+      const src = web.isWeb(args.options)
+        ? web.module(file, args.src)
+        : jsDev.enabled()
+          ? jsDev.module(file, args, () => proxyFor(file, root))
+          : undefined;
       // The proxy is plain JavaScript, which the TypeScript pipeline accepts.
       return upstream.transform({ ...args, src: src ?? proxyFor(args.filename, root) });
     }
