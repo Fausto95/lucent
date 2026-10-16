@@ -39,6 +39,14 @@ export type InstanceClass = (
   decl: ts.ClassDeclaration,
 ) => { readonly id: string; readonly module: string; readonly exported: boolean } | undefined;
 
+/** Whether `t` is JavaScript's Date, which its library declares. */
+export function isDateType(t: ts.Type): boolean {
+  const symbol = t.getSymbol() ?? t.aliasSymbol;
+  const decl = symbol?.declarations?.[0];
+
+  return symbol?.name === "Date" && !!decl && isLibFile(decl.getSourceFile());
+}
+
 export class ViewTypes {
   private readonly checker: ts.TypeChecker;
   private readonly transfer: Transfer;
@@ -48,14 +56,19 @@ export class ViewTypes {
   /** Whether what is converted is a prop's: an instance may be one. */
   private inProp = false;
 
+  /** Whether a `Date` is a value: a widget's body's, as WidgetKit draws it once (decision 0124). */
+  private readonly dates: boolean;
+
   constructor(
     checker: ts.TypeChecker,
     transfer: Transfer,
     instanceClass: InstanceClass = () => undefined,
+    options: { dates?: boolean } = {},
   ) {
     this.checker = checker;
     this.transfer = transfer;
     this.instanceClass = instanceClass;
+    this.dates = !!options.dates;
   }
 
   /** A component's prop: a field, which may hold instances of exported classes. */
@@ -172,6 +185,8 @@ export class ViewTypes {
 
     if (symbol && symbol.flags & ts.SymbolFlags.Class && decl && ts.isClassDeclaration(decl))
       return this.instance(t, decl, path);
+
+    if (this.dates && isDateType(t)) return { ok: { k: "date" } };
 
     const mapped =
       !!(t.flags & ts.TypeFlags.Object) &&

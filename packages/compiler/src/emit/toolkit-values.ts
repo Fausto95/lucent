@@ -89,6 +89,11 @@ export function encoded(
         [value],
       );
     }
+    // Its seconds since 1970, which the Swift reads into a Date.
+    case "date":
+      return cpp.call(fn("value"), [
+        cpp.binary(cpp.call(cpp.arrow(value, "getTime")), "/", cpp.num(1000)),
+      ]);
     case "instance":
       return toolkitInstance();
   }

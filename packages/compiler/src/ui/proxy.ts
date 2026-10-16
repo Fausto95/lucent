@@ -12,7 +12,13 @@
  * component taking them, as the native view's.
  */
 import { ts as js } from "@lucent-lang/codegen";
-import type { CommandDescription, ComponentDescription, ViewField, ViewType } from "./contract.ts";
+import {
+  type CommandDescription,
+  type ComponentDescription,
+  type ViewField,
+  type ViewType,
+  widgetDate,
+} from "./contract.ts";
 import { handlerKey, propKey, topLevelEvent } from "./transport.ts";
 
 /** The views runtime's path in the native package's js/ directory, next to the loader. */
@@ -280,6 +286,8 @@ function typeOf(t: ViewType): js.Type {
       return js.object(t.fields.map(member));
     case "nullable":
       return js.union([typeOf(t.inner), js.nullType]);
+    case "date":
+      return widgetDate(t);
     case "instance":
       return js.ref(classAlias(t));
   }

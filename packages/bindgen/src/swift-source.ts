@@ -676,12 +676,17 @@ function globalActors(frags: Fragment[]): Fragment[] {
   });
 }
 
-/** `t`, when a body can write a value of it: numbers, strings, booleans, the module's types, closures, arrays of them. */
+/**
+ * `t`, when a body can write a value of it: numbers, strings, booleans,
+ * the module's types, closures, arrays of them; and dates, which a widget's
+ * body computes from its entry (decision 0124).
+ */
 function writable(t: SchemaType): SchemaType {
   switch (t.k) {
     case "prim":
     case "string":
     case "ref":
+    case "date":
       return t;
     case "array":
       writable(t.of);

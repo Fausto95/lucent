@@ -129,9 +129,9 @@ generated from this file.
   Prebuild lists components from the iOS build, and the first Gradle
   build reads that list before it writes it.
 - App extensions aren't run on a simulator yet ([T133](tasks.md#t133)). A
-  widget's body shows no `Date` of its entry yet. A widget whose
-  `timeline()` fails shows its placeholder's entry until WidgetKit asks
-  again, in 15 minutes. On iOS, a launch module's
+  widget whose `timeline()` fails shows its placeholder's entry until
+  WidgetKit asks again, in 15 minutes. A component's SwiftUI body shows no
+  `Date`: only a widget's does. On iOS, a launch module's
   `BGTaskScheduler` handler runs without JavaScript. Relaunches for background
   URL sessions and silent pushes aren't checked yet
   ([T132](tasks.md#t132)).

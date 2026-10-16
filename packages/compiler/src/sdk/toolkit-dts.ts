@@ -170,7 +170,8 @@ export function toolkitDts(
       case "fn":
         return t.params.every(known) && known(t.ret);
       default:
-        return t.k === "prim" || t.k === "string";
+        // A date, a widget's body's (decision 0124): JavaScript's Date.
+        return t.k === "prim" || t.k === "string" || t.k === "date";
     }
   };
 
@@ -187,6 +188,8 @@ export function toolkitDts(
           );
         case "string":
           return ts.keyword("string");
+        case "date":
+          return ts.ref("Date");
         case "array":
           return ts.readonlyArray(value(t.of));
         case "fn":

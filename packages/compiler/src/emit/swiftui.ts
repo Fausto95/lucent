@@ -180,6 +180,8 @@ export class SwiftValues {
         return swift.array(this.type(t.element));
       case "object":
         return swift.type(this.struct(t));
+      case "date":
+        return swift.type("Date");
       case "instance":
         return toolkitInstance();
     }
@@ -201,6 +203,10 @@ export class SwiftValues {
         return swift.arrayLiteral([]);
       case "object":
         return swift.call(swift.name(this.struct(t)), []);
+      case "date":
+        return swift.call(swift.name("Date"), [
+          { label: "timeIntervalSince1970", value: swift.num(0) },
+        ]);
       case "instance":
         return toolkitInstance();
     }
@@ -244,6 +250,14 @@ export class SwiftValues {
         );
       case "object":
         return swift.call(swift.name(this.struct(t)), [{ value: x }]);
+      // Its seconds since 1970 (toolkit-values.ts).
+      case "date":
+        return swift.call(swift.name("Date"), [
+          {
+            label: "timeIntervalSince1970",
+            value: swift.member(checked("lucentDecodeNumber"), "doubleValue"),
+          },
+        ]);
       case "instance":
         return toolkitInstance();
     }

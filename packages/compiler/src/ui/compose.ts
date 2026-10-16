@@ -50,7 +50,7 @@ import {
   composeDeclarations,
   isElement,
 } from "./compose-dts.ts";
-import type { ViewField, ViewType } from "./contract.ts";
+import { type ViewField, type ViewType, widgetDate } from "./contract.ts";
 import {
   type ActionSlot,
   crossingOf,
@@ -310,6 +310,8 @@ class KotlinValues {
         return kt.type("List", this.type(t.element));
       case "object":
         return kt.type(this.dataClass(t));
+      case "date":
+        return widgetDate(t);
       case "instance":
         return toolkitInstance();
     }
@@ -331,6 +333,8 @@ class KotlinValues {
         return kt.call(kt.name("emptyList"), []);
       case "object":
         return kt.call(kt.name(this.dataClass(t)), []);
+      case "date":
+        return widgetDate(t);
       case "instance":
         return toolkitInstance();
     }
@@ -356,6 +360,8 @@ class KotlinValues {
         );
       case "object":
         return kt.call(kt.name(`read${this.dataClass(t)}`), [{ value: x }]);
+      case "date":
+        return widgetDate(t);
       case "instance":
         return toolkitInstance();
     }

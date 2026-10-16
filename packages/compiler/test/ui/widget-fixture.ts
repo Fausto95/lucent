@@ -2,7 +2,8 @@
  * lucent-weather: a package whose widget (decision 0124), `Weather`, has a
  * provider class, `forecasts#Forecasts`, and a SwiftUI body,
  * `weather#Forecast`, which draws an entry's city, temperature and sky
- * (with a helper view), its note when it has one, and its days, a list. Compiled for iOS
+ * (with a helper view), its note when it has one, and its days, a list,
+ * and its date, as SwiftUI shows one. Compiled for iOS
  * against the miniature SwiftUI (mini-swiftui.ts), whose Swift, and the
  * widget's with its glue's header, type-checks.
  */
@@ -75,6 +76,7 @@ export function Forecast(entry: Entry) {
   return (
     <VStack spacing={4}>
       <Text font={Font.headline}>{entry.city}</Text>
+      <Text date={entry.date} style={Text.DateStyle.relative} />
       <HStack>
         <Text>{\`\${entry.degrees}°\`}</Text>
         <Line label={sky} on={entry.rain} />
