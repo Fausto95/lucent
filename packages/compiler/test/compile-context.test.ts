@@ -22,6 +22,9 @@ function extension(name: string): ExtensionBinding {
     name,
     package: `lucent-${name}`,
     include: `${name}.h`,
+    language: "c",
+    classes: [],
+    enums: [],
     handles: [],
     functions: [
       {

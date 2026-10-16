@@ -181,6 +181,10 @@ export interface MainActivityAttributes {
 export interface ExtensionDeclaration {
   /** The header, relative to the package: in a directory both ios.nativeSources and android.nativeSources list. */
   header: string;
+  /** The header's language: C (the default), or C++, whose classes are handles (decision 0125). */
+  language?: "c" | "c++";
+  /** A C++ header's class → what C++ doesn't say about it. */
+  classes?: Record<string, CxxClassDeclaration>;
   /** C type name (an opaque struct) → the handle Lucent code holds. */
   handles?: Record<string, HandleDeclaration>;
   /** C function name → what its parameters and result mean. */
@@ -201,6 +205,11 @@ export interface HandleDeclaration {
 }
 
 export type Affinity = "any" | "main";
+
+export interface CxxClassDeclaration {
+  /** The thread its objects are used and deleted on: any, one call at a time (the default), or the main thread. */
+  affinity?: Affinity;
+}
 
 /** How a C result says the call failed. */
 export type FailsWhen = "null" | "negative" | "nonzero" | "zero" | "false";
@@ -649,6 +658,8 @@ const param: Check = (v, at) => {
 /** Every field of an extension, and how it is checked. */
 export const EXTENSION_FIELDS = {
   header: string,
+  language: oneOf(["c", "c++"]),
+  classes: namedOf(fields({ affinity } satisfies Record<keyof CxxClassDeclaration, Check>)),
   handles: namedOf(
     fields(
       {

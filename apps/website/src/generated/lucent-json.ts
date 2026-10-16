@@ -572,7 +572,25 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "field": "extensions.<name>.header",
     "type": "string",
     "required": true,
-    "description": "The C header, relative to the package. Its directory is in both ios.nativeSources and android.nativeSources, so both builds compile the extension and search there. It must compile as C and as C++, declaring its functions in extern \"C\" when C++ includes it. Functions that take only numbers and booleans are bound as they are; one that takes a handle must be named here."
+    "description": "The header, relative to the package. Its directory is in both ios.nativeSources and android.nativeSources, so both builds compile the extension and search there. A C header must compile as C and as C++, declaring its functions in extern \"C\" when C++ includes it. Functions that take only numbers and booleans are bound as they are; one that takes a handle must be named here."
+  },
+  {
+    "field": "extensions.<name>.language",
+    "type": "\"c\" or \"c++\"",
+    "required": false,
+    "description": "The header's language: c (the default), or c++. A C++ header is read as C++20 alone; each class it defines is a class of lucent:ext/<name>, whose public constructors and member functions Lucent code calls, and its functions with C linkage are bound as a C header's are."
+  },
+  {
+    "field": "extensions.<name>.classes",
+    "type": "{ [name]: object }",
+    "required": false,
+    "description": "A C++ header's class → what C++ doesn't say about it. Its constructors, methods and types come from the header."
+  },
+  {
+    "field": "extensions.<name>.classes.<name>.affinity",
+    "type": "\"any\" or \"main\"",
+    "required": false,
+    "description": "The thread: any, one call at a time (the default), or the main thread, where Lucent code uses it inside main(() => …)."
   },
   {
     "field": "extensions.<name>.handles",

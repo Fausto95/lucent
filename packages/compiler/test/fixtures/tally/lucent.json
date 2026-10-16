@@ -1,0 +1,11 @@
+{
+  "ios": { "nativeSources": ["native"] },
+  "android": { "nativeSources": ["native"] },
+  "extensions": {
+    "tally": {
+      "header": "native/tally.hpp",
+      "language": "c++",
+      "classes": { "Counter": { "affinity": "any" } }
+    }
+  }
+}

@@ -16,9 +16,12 @@ import {
   cLinkage,
   type CRecord,
   type CType,
+  type CxxHeader,
   extractCHeader,
+  extractCxxHeader,
   formatCType,
 } from "@lucent-lang/bindgen";
+import { bindCxx, type ClassBinding, CxxRefused, type EnumBinding } from "./bind-cxx.ts";
 import type {
   Affinity,
   ErrorDeclaration,
@@ -40,6 +43,12 @@ export interface ExtensionBinding {
   functions: FunctionBinding[];
   /** Header functions left out, with why (`name: reason`). */
   skipped: string[];
+  /** The header's language (decision 0125). */
+  language: "c" | "c++";
+  /** A C++ header's classes: handles whose members the generated C++ calls. */
+  classes: ClassBinding[];
+  /** A C++ header's enums, which Lucent code passes as their values. */
+  enums: EnumBinding[];
 }
 
 export interface HandleBinding {
@@ -103,10 +112,11 @@ class Refused extends Error {
   }
 }
 
-/** A header as C and as C++ read it. */
+/** A header as C and as C++ read it; a C++ header as C++ alone, its classes too. */
 interface Read {
   header: CHeader;
   cxx: ReturnType<typeof cLinkage>;
+  classes?: CxxHeader;
 }
 
 /** Headers read in this process, by where they are and their files' contents: watch rebuilds read a header again once it changes. */
@@ -139,10 +149,37 @@ function readHeader(input: ExtensionInput): Read {
   if (cached) return cached;
 
   const opts = { includePaths: input.includePaths };
-  const read = { header: extractCHeader(input.header, opts), cxx: cLinkage(input.header, opts) };
+  const read =
+    input.declaration.language === "c++"
+      ? readCxx(input, opts)
+      : {
+          header: extractCHeader(input.header, opts),
+          cxx: cLinkage(input.header, opts),
+        };
   headers.set(key, read);
 
   return read;
+}
+
+/**
+ * A C++ header (decision 0125): its classes, and its C functions and
+ * structs as a C header's, every function C-linked since C++ read it so.
+ */
+function readCxx(input: ExtensionInput, opts: { includePaths: string[] }): Read {
+  let classes: CxxHeader;
+  try {
+    classes = extractCxxHeader(input.header, opts);
+  } catch (e) {
+    fail(
+      "header",
+      `${path.basename(input.header)} does not compile as C++: ${(e as Error).message}`,
+    );
+  }
+  return {
+    header: { functions: classes.functions, records: classes.records },
+    cxx: { ok: true, functions: classes.functions.map((f) => f.name) },
+    classes,
+  };
 }
 
 /** Forgets the headers this process read (tests, and watch sessions after a header changes). */
@@ -292,10 +329,16 @@ function bindExtension(input: ExtensionInput, read: Read, at: string): Extension
       `${file} declares ${unlinked.name} without C linkage when C++ includes it: wrap its declarations in #ifdef __cplusplus extern "C" { … } #endif`,
     );
 
+  // A C++ header's classes and enums: what the C part leaves to them.
+  const cxxBound = read.classes ? cxxOf(read.classes, d, file) : undefined;
+
   return {
     name: input.name,
     package: input.package,
     include: input.include,
+    language: read.classes ? "c++" : "c",
+    classes: cxxBound?.classes ?? [],
+    enums: cxxBound?.enums ?? [],
     handles: Object.entries(d.handles ?? {}).map(([name, h]) => ({
       name,
       create: bound.get(h.create)!,
@@ -307,8 +350,17 @@ function bindExtension(input: ExtensionInput, read: Read, at: string): Extension
       affinity: h.affinity ?? "any",
     })),
     functions: [...bound.values()],
-    skipped,
+    skipped: [...skipped, ...(cxxBound?.skipped ?? [])],
   };
+}
+
+function cxxOf(header: CxxHeader, d: ExtensionInput["declaration"], file: string) {
+  try {
+    return bindCxx(header, d, file);
+  } catch (e) {
+    if (e instanceof CxxRefused) fail(e.field, e.message);
+    throw e;
+  }
 }
 
 const usedByHandle = (d: ExtensionInput["declaration"], name: string) =>

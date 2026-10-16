@@ -619,11 +619,14 @@ function resolveExtensions(declared: Declared[], hashes: FileHashes, sources: Lo
         d.pkg,
         field,
         declaration.header,
-        {
-          directory: false,
-          suffixes: [".h"],
-          describe: "a .h file",
-        },
+        // A C++ header (decision 0125) may be any of C++'s header names.
+        declaration.language === "c++"
+          ? {
+              directory: false,
+              suffixes: [".h", ".hpp", ".hh", ".hxx", ".h++"],
+              describe: "a header file (.h, .hpp, .hh, .hxx or .h++)",
+            }
+          : { directory: false, suffixes: [".h"], describe: "a .h file" },
         hashes,
       );
 
