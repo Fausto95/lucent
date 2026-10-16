@@ -43,7 +43,12 @@ import {
   lucentPackageOf,
   nativePackages,
 } from "./packages.ts";
-import { compileContext, currentCompile, runInCompile } from "./compile-context.ts";
+import {
+  type AppExtensionCode,
+  compileContext,
+  currentCompile,
+  runInCompile,
+} from "./compile-context.ts";
 import { sdkUsesOf } from "./sdk/usage.ts";
 import { analyzeViews, hasComponentModules } from "./ui/analyze.ts";
 import { ts as js } from "@lucent-lang/codegen";
@@ -376,9 +381,9 @@ function launchModules(
 function appExtensionModules(
   files: readonly string[],
   root?: string,
-): { modules: Map<string, string[]>; problems: Diagnostic[] } {
+): { modules: Map<string, AppExtensionCode>; problems: Diagnostic[] } {
   const names = new Set(files.map(moduleNameOf));
-  const modules = new Map<string, string[]>();
+  const modules = new Map<string, AppExtensionCode>();
   const problems: Diagnostic[] = [];
 
   const read = (pkg: LucentPackage) => {
@@ -391,9 +396,12 @@ function appExtensionModules(
   const named = (pkg: LucentPackage, prefix: string) => {
     for (const e of read(pkg)) {
       const roots = new Set<string>();
-      for (const code of [e.class, e.provider, e.body]) {
+      const named: Partial<Record<"class" | "provider" | "body", string>> = {};
+      for (const field of ["class", "provider", "body"] as const) {
+        const code = e[field];
         if (code === undefined) continue;
         const name = `${prefix}${code.split("#")[0]!}`;
+        named[field] = `${prefix}${code}`;
         if (names.has(name)) roots.add(name);
         else
           problems.push({
@@ -403,7 +411,8 @@ function appExtensionModules(
           });
       }
       // The app's declaration of a name replaces a package's (resolveNative).
-      if (pkg.app || !modules.has(e.name)) modules.set(e.name, [...roots].sort());
+      if (pkg.app || !modules.has(e.name))
+        modules.set(e.name, { kind: e.kind, modules: [...roots].sort(), ...named });
     }
   };
 
@@ -435,7 +444,9 @@ function appExtensionBuilds(
   string,
   { files: ReadonlyMap<string, string>; diagnostics: Diagnostic[]; frameworks: string[] },
 ][] {
-  const roots = currentCompile()?.appExtensions ?? new Map<string, readonly string[]>();
+  const roots = new Map(
+    [...(currentCompile()?.appExtensions ?? [])].map(([name, code]) => [name, code.modules]),
+  );
   const byFile = new Map<ts.SourceFile, LucentModule>();
   for (const m of lp.modules) {
     byFile.set(m.sourceFile, m);

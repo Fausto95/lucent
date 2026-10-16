@@ -23,7 +23,7 @@ import {
 import { bindCompute, emitTaskVariants, taskHeader } from "./compute.ts";
 import { checkRequirementNames } from "./requirement-names.ts";
 import { objcDelegate } from "./delegates.ts";
-import { iosSubclass } from "./objc-subclass.ts";
+import { checkPrincipalClass, iosSubclass } from "./objc-subclass.ts";
 import {
   apiHash,
   type BuildIdentity,
@@ -223,13 +223,15 @@ export function emitProgram(
       ctx.guard(() => collect(ctx, m, s, exportsOf.get(m)!, imports.get(m)!, byFile));
   }
   // The code of app extensions: what they can't use is refused there (decision 0124).
-  if (ctx.platform === "ios")
-    for (const [m, extensions] of extensionModules(
-      currentCompile()?.appExtensions ?? new Map(),
-      lp.modules,
-      imports,
-    ))
+  if (ctx.platform === "ios") {
+    const code = currentCompile()?.appExtensions ?? new Map();
+    const roots = new Map([...code].map(([name, c]) => [name, c.modules]));
+    for (const [m, extensions] of extensionModules(roots, lp.modules, imports))
       checkExtensionCode(lp.checker, m, extensions, (f) => ctx.guard(f));
+    // Each principal class names one the OS makes with init.
+    for (const [name, c] of code)
+      if (c.class) ctx.guard(() => checkPrincipalClass(ctx, lp.modules, name, c.class!));
+  }
   // Main-thread state starts on the main thread, after the rest: it has no dead zone.
   for (const [sym, g] of ctx.globals) if (g.kind === "var" && mainState.has(sym)) delete g.early;
   // Calls from other modules resolve to the declarations; route them to the

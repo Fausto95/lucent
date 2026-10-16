@@ -62,7 +62,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT3016`](#lucent3016) (warning) | Two exported functions whose native entry points, `lucent_<module>_<export>`, come out with the same name. |
 | [`LUCENT3017`](#lucent3017) (warning) | Two modules whose Swift names come out the same, or a module whose Swift name is one of the Swift API's own. |
 | [`LUCENT3018`](#lucent3018) | An iOS API that app extensions can't use, in a module an app extension's code reaches (lucent.json's `ios.appExtensions`). |
-| [`LUCENT3019`](#lucent3019) | A Lucent package's lucent.json names a module in an app extension's `class`, `provider` or `body` that the package doesn't have. |
+| [`LUCENT3019`](#lucent3019) | An app extension's `class`, `provider` or `body` in lucent.json names a module the package doesn't have, or a principal class the OS can't make. |
 | [`LUCENT3020`](#lucent3020) | An exported `.lucent.tsx` function that returns a view but cannot be a component, or Lucent code calling a component. |
 | [`LUCENT3021`](#lucent3021) | A component prop, event or ref command whose type views cannot carry, or whose name React or the host keeps. |
 | [`LUCENT3022`](#lucent3022) | A component's setup, or a function it creates, using module state, code the compiler cannot follow, or native code unfit for the main thread. |
@@ -1530,9 +1530,9 @@ export function ready(): boolean {
 
 **App extension code that isn't one**
 
-`ios.appExtensions` names the Lucent code each extension runs, as `<module path>#<name>`: the module by its path under the package's sources without the extension, so `push/rich#Rich` names `Rich` in `push/rich.lucent.ts`. A module that matches none would leave the extension with no code, so the build fails.
+`ios.appExtensions` names the Lucent code each extension runs, as `<module path>#<name>`: `push/rich#Rich` names `Rich` in `push/rich.lucent.ts`. A module that matches none would leave the extension with no code, so the build fails. A principal class (`class`) is one the OS makes with `init`: exported, extending an iOS class, with a constructor and a `super()` that take nothing.
 
-**Fix:** name the module by its path under the package's sources, without .lucent.ts.
+**Fix:** name the module by its path under the package's sources, without .lucent.ts, and a class the OS can make.
 
 <Tabs>
 <TabItem label="✗ package.json">

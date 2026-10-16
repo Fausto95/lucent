@@ -18,6 +18,19 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type { Platform, SdkOptions, UsedSymbol } from "@lucent-lang/bindgen";
 import type { ExtensionBinding } from "./extensions/bind.ts";
 
+/** The Lucent code an app extension names (decision 0124). */
+export interface AppExtensionCode {
+  kind: string;
+  /** The modules of its code, by name. */
+  modules: readonly string[];
+  /** A notification service or share extension's principal class, as `<module>#<Class>`. */
+  class?: string;
+  /** A widget's provider, as `<module>#<Class>`. */
+  provider?: string;
+  /** A widget's body, as `<module>#<function>`. */
+  body?: string;
+}
+
 export interface CompileContext {
   /** Where the platform SDKs are, and the schema cache. */
   readonly sdk: SdkOptions;
@@ -29,10 +42,10 @@ export interface CompileContext {
   readonly launch: readonly string[];
   /**
    * Each iOS app extension (lucent.json's `ios.appExtensions`, decision
-   * 0124) → the modules of the code it names, by name: what it reaches
-   * starts there.
+   * 0124) → the code it names: its modules, by name (what it reaches starts
+   * there), and its class, provider and body as `<module>#<name>`.
    */
-  readonly appExtensions: ReadonlyMap<string, readonly string[]>;
+  readonly appExtensions: ReadonlyMap<string, AppExtensionCode>;
   /** Each file read, with what was found there (reads.ts). */
   readonly reads: Map<string, string>;
   /** Each path resolution followed links from, with where it led. */
@@ -48,7 +61,7 @@ export function compileContext(
     deferred?: readonly Platform[];
     extensions?: readonly ExtensionBinding[];
     launch?: readonly string[];
-    appExtensions?: ReadonlyMap<string, readonly string[]>;
+    appExtensions?: ReadonlyMap<string, AppExtensionCode>;
   } = {},
 ): CompileContext {
   return {

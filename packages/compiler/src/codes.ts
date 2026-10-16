@@ -673,10 +673,10 @@ export const Explanations: Record<Code, Explanation> = {
   LUCENT3019: {
     title: "App extension code that isn't one",
     summary:
-      "A Lucent package's lucent.json names a module in an app extension's `class`, `provider` or `body` that the package doesn't have.",
+      "An app extension's `class`, `provider` or `body` in lucent.json names a module the package doesn't have, or a principal class the OS can't make.",
     details:
-      "`ios.appExtensions` names the Lucent code each extension runs, as `<module path>#<name>`: the module by its path under the package's sources without the extension, so `push/rich#Rich` names `Rich` in `push/rich.lucent.ts`. A module that matches none would leave the extension with no code, so the build fails.",
-    fix: "name the module by its path under the package's sources, without .lucent.ts",
+      "`ios.appExtensions` names the Lucent code each extension runs, as `<module path>#<name>`: `push/rich#Rich` names `Rich` in `push/rich.lucent.ts`. A module that matches none would leave the extension with no code, so the build fails. A principal class (`class`) is one the OS makes with `init`: exported, extending an iOS class, with a constructor and a `super()` that take nothing.",
+    fix: "name the module by its path under the package's sources, without .lucent.ts, and a class the OS can make",
     wrong: {
       "package.json": '{ "name": "lucent-push", "version": "1.0.0", "lucent": {} }\n',
       "lucent.json":
