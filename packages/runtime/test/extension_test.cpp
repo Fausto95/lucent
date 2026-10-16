@@ -507,12 +507,26 @@ static void cxxFunctions() {
     auto probe = std::shared_ptr<Probe>(new Probe{&releasedOn});
     ext::Callback<Fn<bool(BigInt)>> keep("Filter.setKeep's keep", ext::Lives::Copies,
                                          Fn<bool(BigInt)>([probe](BigInt at) { return at.toString().toUtf8() != "0"; }));
-    keepIt = keep.function<bool, int64_t>();
+    keepIt = keep.function();
     keep.done();
     probe.reset();
 
     // A later call: at once, with its result.
     CHECK(ext::cxxCall("Filter.apply", [&] { return keepIt(3) && !keepIt(0); }));
+
+    // A parameter of any std::function its arguments convert to, by const reference too.
+    std::string named;
+    ext::Callback<Fn<void(String, double)>> name("Filter.each's visit", ext::Lives::Copies,
+                                                 Fn<void(String, double)>([&](String s, double n) {
+                                                   named += s.toUtf8() + std::to_string(int(n));
+                                                 }));
+    auto each = [](const std::function<void(const std::string&, int)>& visit) {
+      visit("a", 1);
+      visit(std::string("b"), 2);
+    };
+    ext::cxxCall("Filter.each", [&] { each(name.function()); });
+    name.done();
+    CHECK(named == "a1b2");
   });
 
   // From another thread, after the call: refused, reported, zero.

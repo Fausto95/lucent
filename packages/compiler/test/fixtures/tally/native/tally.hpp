@@ -1,9 +1,11 @@
 // A C++ library a Lucent package wraps (decision 0125): a class with
 // overloads, default arguments, strings, vectors, optionals and an enum,
-// a method that returns a new object, and ones that throw.
+// a method that returns a new object, ones that throw, and ones taking
+// callbacks (decisions 0126 and 0128).
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -45,6 +47,15 @@ class Counter {
   /// Whose memory this is, Lucent can't know.
   Counter* self();
   static int live();
+  /// Calls visit with each amount added, in order: a callback for the call.
+  void each(const std::function<void(double)>& visit) const;
+  /// How many tags keep keeps, given each with its index: a callback's result.
+  int countTags(std::function<bool(const std::string&, int64_t)> keep) const;
+  /// Calls listen with the name and the total after each later add, as long as the counter lives.
+  void onAdd(std::function<void(std::string_view, double)> listen);
+  /// Overloads differing only in their callbacks: C++ can't tell a Lucent function's apart.
+  void visit(std::function<void(double)> f);
+  void visit(std::function<void(int64_t)> f);
 
  private:
   std::string name_;
@@ -54,6 +65,7 @@ class Counter {
   std::vector<std::string> tags_;
   std::optional<std::string> note_;
   Rounding rounding_ = Rounding::Nearest;
+  std::vector<std::function<void(std::string_view, double)>> listeners_;
 };
 
 }  // namespace tally

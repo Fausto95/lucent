@@ -77,14 +77,19 @@ function cxxUseOf(extension: string, decl: ts.Declaration): NativeUse | undefine
     ],
   };
 
-  return {
-    display: `${c.name}.${name}`,
-    facts,
-    callbacks: new Map(),
-    copies: new Set(decl.parameters.map((_, i) => i)),
-    throws: true,
-  };
+  // A std::function parameter is a callback C++ keeps (decisions 0126 and 0128); the rest copy.
+  const callbacks = new Map<number, NativeCallback>();
+  const copies = new Set<number>();
+  decl.parameters.forEach((p, i) => {
+    if (isCallback(p)) callbacks.set(i, CALLBACK);
+    else copies.add(i);
+  });
+
+  return { display: `${c.name}.${name}`, facts, callbacks, copies, throws: true };
 }
+
+/** A parameter its declaration gives a function type: a C++ member's callback. */
+const isCallback = (p: ts.ParameterDeclaration) => !!p.type && ts.isFunctionTypeNode(p.type);
 
 function useOf(f: FunctionBinding, decl: ts.Declaration): NativeUse {
   const facts: NativeFacts = {

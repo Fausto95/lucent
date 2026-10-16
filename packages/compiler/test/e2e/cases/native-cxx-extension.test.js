@@ -11,6 +11,8 @@ print(mod.strings());
 print(mod.rounding());
 print(mod.objects());
 print(mod.errors());
+print(mod.callbacks());
+print(mod.callbackThrows());
 
 t.close();
 try {

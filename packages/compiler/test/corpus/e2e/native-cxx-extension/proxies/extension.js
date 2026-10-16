@@ -10,4 +10,6 @@ exports.strings = m.strings;
 exports.rounding = m.rounding;
 exports.objects = m.objects;
 exports.errors = m.errors;
+exports.callbacks = m.callbacks;
+exports.callbackThrows = m.callbackThrows;
 exports.Tally = lucentClass(m.Tally);

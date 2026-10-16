@@ -40,6 +40,12 @@ bool lucent_extension_objects(lucent_error* error, lucent_string* result);
 /// extension.errors()
 bool lucent_extension_errors(lucent_error* error, lucent_string* result);
 
+/// extension.callbacks()
+bool lucent_extension_callbacks(lucent_error* error, lucent_string* result);
+
+/// extension.callbackThrows()
+bool lucent_extension_callbackThrows(lucent_error* error, lucent_string* result);
+
 /// extension.Tally(name)
 bool lucent_extension_Tally_new(lucent_string arg0, lucent_error* error, lucent_object* result);
 
